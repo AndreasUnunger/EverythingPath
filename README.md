@@ -4,6 +4,5 @@
 
 - [x] Deploy
 - [x] CI
-- [ ] Database
+- [x] Database
 - [ ] Auth
-- [ ] 
