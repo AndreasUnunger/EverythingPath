@@ -4,6 +4,7 @@ import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 
 import { ConvexClientProvider } from "ConvexClientProvider";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -20,12 +21,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geist.variable}`}>
-      <body>
-        <ConvexClientProvider>
-          {children}
-        </ConvexClientProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <ConvexClientProvider>
+        <html lang="en" className={`${geist.variable}`}>
+          <body>
+            {children}
+          </body>
+        </html>
+      </ConvexClientProvider>
+    </ClerkProvider>
   );
 }
