@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { LatestPost } from "~/app/_components/post";
 //import { api, HydrateClient } from "~/trpc/server";
-import { api as db } from "~/convex/_generated/api"
+import { api as db } from "../../convex/_generated/api"
 import { useQuery } from "convex/react"
 
 export default function Home() {
