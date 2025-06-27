@@ -10,7 +10,7 @@ export default defineSchema({
   }),
   campaign: defineTable({
     name: v.string(),
-    campaignId: v.string(),
+    campaignId: v.number(),
     ownerId: v.string(),
     description: v.string(),
   }),
