@@ -5,4 +5,6 @@
 - [x] Deploy
 - [x] CI
 - [x] Database
-- [ ] Auth
+- [x] Auth
+- [ ] Db schema
+- [ ] Proper Header
