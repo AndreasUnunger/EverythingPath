@@ -4,7 +4,7 @@ import { api as db } from "../../convex/_generated/api"
 import { useQuery } from "convex/react"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
-export default async function Home() {
+export default function Home() {
   const tasks = useQuery(db.tasks.get)
 
   return (
