@@ -21,14 +21,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <ClerkProvider>
-      <ConvexClientProvider>
-        <html lang="en" className={`${geist.variable}`}>
-          <body>
+    <html lang="en" className={`${geist.variable}`}>
+      <body>
+        <ClerkProvider>
+          <ConvexClientProvider>
             {children}
-          </body>
-        </html>
-      </ConvexClientProvider>
-    </ClerkProvider>
+          </ConvexClientProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }
