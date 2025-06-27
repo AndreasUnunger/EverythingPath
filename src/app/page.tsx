@@ -1,3 +1,4 @@
+"use client"
 import { api as db } from "../../convex/_generated/api"
 import { useQuery } from "convex/react"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
