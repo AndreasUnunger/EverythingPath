@@ -1,7 +1,7 @@
 "use client"
 
 import NavBar from "~/components/NavBar";
-import { api as db } from "../../convex/_generated/api"
+import { api as db } from "@convex/_generated/api"
 import { useQuery } from "convex/react"
 
 export default function Home() {

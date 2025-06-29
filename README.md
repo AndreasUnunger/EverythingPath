@@ -6,5 +6,6 @@
 - [x] CI
 - [x] Database
 - [x] Auth
-- [ ] Db schema
-- [ ] Proper Header
+- [x] Db schema
+- [ ] Role based auth
+- [ ] Posthog
