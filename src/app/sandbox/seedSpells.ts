@@ -6,7 +6,7 @@ import { fetchMutation } from "convex/nextjs";
 import fs from "fs";
 import path from "path";
 
-export default async function handleFileUpload(_: any) {
+export default async function handleFileUpload() {
 
   try {
     const filePath = path.join(process.cwd(), "public/seedData", "spells.json");
