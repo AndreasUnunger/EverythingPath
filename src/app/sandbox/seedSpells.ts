@@ -9,7 +9,7 @@ import path from "path";
 export default async function handleFileUpload(_: any) {
 
   try {
-    const filePath = path.join(process.cwd(), "public", "spells.json");
+    const filePath = path.join(process.cwd(), "public/seedData", "spells.json");
     const file = fs.readFileSync(filePath, "utf-8");
 
     const spells: Doc<"spell">[] = JSON.parse(file)
