@@ -1,2 +1,2 @@
-[functions."api_*"]
-  included_files = ["public/seedData/*"]
+[functions]
+  included_files = ["public/seedData/**"]
