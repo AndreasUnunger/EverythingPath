@@ -1,6 +1,6 @@
 "use server"
 
-import { api } from "convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import type { Doc } from "convex/_generated/dataModel";
 import { fetchMutation } from "convex/nextjs";
 import fs from "fs"
