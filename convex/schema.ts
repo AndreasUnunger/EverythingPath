@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-export const spellValidator = {
+export const spellValidator = v.object({
   name: v.string(),
   spellLevel: v.string(),
   school: v.string(),
@@ -94,7 +94,7 @@ export const spellValidator = {
   draconic: v.boolean(),
   meditative: v.boolean(),
   summonerUnchained: v.union(v.number(), v.null()),
-}
+})
 
 export default defineSchema({
   character: defineTable({
@@ -108,5 +108,5 @@ export default defineSchema({
     ownerId: v.string(),
     description: v.string(),
   }),
-  spell: defineTable(spellValidator),
+  spell: defineTable(spellValidator).index("by_name", ["name"]),
 });

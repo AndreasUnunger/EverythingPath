@@ -1,4 +1,4 @@
-[
+export default [
  {
    "name": "Acid Arrow",
    "school": "conjuration",

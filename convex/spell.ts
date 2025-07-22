@@ -1,7 +1,19 @@
 import { query } from "./_generated/server";
-import { mutation } from "./_generated/server";
+import { mutation, type MutationCtx } from "./_generated/server";
 import { spellValidator } from "./schema";
-import { v } from "convex/values";
+import { TableAggregate } from "@convex-dev/aggregate";
+import { components } from "./_generated/api";
+import type { DataModel, Doc } from "./_generated/dataModel";
+import type { WithoutSystemFields } from "convex/server"
+
+export const aggregate = new TableAggregate<{
+  Key: null,
+  DataModel: DataModel,
+  TableName: "spell"
+}>(components.aggregate, {
+  sortKey: (_) => null,
+}
+)
 
 export const get = query({
   args: {},
@@ -10,19 +22,26 @@ export const get = query({
   }
 })
 
+export const getCount = query({
+  args: {},
+  handler: async (ctx) => {
+    return await aggregate.count(ctx);
+  }
+})
+
 export const addSpellMutation = mutation({
   args: spellValidator,
-  handler: async (ctx, args) => {
-    await ctx.db.insert("spell", args);
+  handler: async (ctx, spell) => {
+    await addSpellMutationFunction(ctx, spell)
   },
 });
 
-export const addManySpells = mutation({
-  args: { spells: v.array(v.object(spellValidator)) },
-  handler: async (ctx, args) => {
-    for (const spell of args.spells) {
-      await ctx.db.insert("spell", spell);
-    }
-  },
-});
+export async function addSpellMutationFunction(
+  ctx: MutationCtx,
+  spell: WithoutSystemFields<Doc<"spell">>
+) {
+  const id = await ctx.db.insert("spell", spell);
+  const doc = await ctx.db.get(id);
+  await aggregate.insert(ctx, doc!);
+}
 

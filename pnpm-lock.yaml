@@ -11,6 +11,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^6.23.1
         version: 6.23.1(next@15.3.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@convex-dev/aggregate':
+        specifier: ^0.1.21
+        version: 0.1.21(convex@1.25.4(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))
       '@t3-oss/env-nextjs':
         specifier: ^0.12.0
         version: 0.12.0(typescript@5.8.3)(zod@3.25.67)
@@ -18,8 +21,8 @@ importers:
         specifier: ^5.69.0
         version: 5.81.2(react@19.1.0)
       convex:
-        specifier: ^1.25.0
-        version: 1.25.0(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+        specifier: ^1.25.4
+        version: 1.25.4(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
       next:
         specifier: ^15.2.3
         version: 15.3.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -123,6 +126,11 @@ packages:
   '@clerk/types@4.62.0':
     resolution: {integrity: sha512-Ps/8eQHCuv2bZYgTG3+4xgxlltoX91GNf+G5TG/DSSmECgR657qGoasOrLLcMMyE+OZiX57k51oH137Ohhggog==}
     engines: {node: '>=18.17.0'}
+
+  '@convex-dev/aggregate@0.1.21':
+    resolution: {integrity: sha512-R14Ztj96H6waUqzyGBjDiw6Bj/hVwu28g4ootQlJB+pQd7mBMt6RGoDjDtQ9JLh3964xul5KqSEyj99n5Xd+0g==}
+    peerDependencies:
+      convex: ~1.16.5 || >=1.17.0 <1.35.0
 
   '@emnapi/core@1.4.3':
     resolution: {integrity: sha512-4m62DuCE07lw01soJwPiBGC0nAww0Q+RY70VZ+n49yDIO13yyinhbWCeNnaob0lakDtWQzSdtNWzJeOJt2ma+g==}
@@ -1008,8 +1016,8 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  convex@1.25.0:
-    resolution: {integrity: sha512-oMeO4Em1sSvUL5wRuFfR2qA98RN2lSyiFGMhnpuyobO3KsYBemVoACgd0OR5tuk1Vo8Qh2rg9O7mXkgFELZGug==}
+  convex@1.25.4:
+    resolution: {integrity: sha512-LiGZZTmbe5iHWwDOYfSA00w+uDM8kgLC0ohFJW0VgQlKcs8famHCE6yuplk4wwXyj9Lhb1+yMRfrAD2ZEquqHg==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -2288,6 +2296,10 @@ snapshots:
     dependencies:
       csstype: 3.1.3
 
+  '@convex-dev/aggregate@0.1.21(convex@1.25.4(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))':
+    dependencies:
+      convex: 1.25.4(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+
   '@emnapi/core@1.4.3':
     dependencies:
       '@emnapi/wasi-threads': 1.0.2
@@ -3037,7 +3049,7 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  convex@1.25.0(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0):
+  convex@1.25.4(@clerk/clerk-react@5.32.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0):
     dependencies:
       esbuild: 0.25.4
       jwt-decode: 4.0.0
