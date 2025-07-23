@@ -1,3 +1,4 @@
+//@ts-nocheck
 export default [
  {
    "name": "Acid Arrow",
@@ -273069,4 +273070,4 @@ export default [
    "meditative": false,
    "summonerUnchained": null
  }
-]
+];

@@ -3,5 +3,6 @@ import aggregate from "@convex-dev/aggregate/convex.config";
 
 const app = defineApp();
 app.use(aggregate);
+
 export default app;
 
