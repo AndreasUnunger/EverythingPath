@@ -1,4 +1,5 @@
-[
+//@ts-nocheck
+export default [
  {
    "name": "Acid Arrow",
    "school": "conjuration",
@@ -273069,4 +273070,4 @@
    "meditative": false,
    "summonerUnchained": null
  }
-]
+];
