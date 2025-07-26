@@ -6,7 +6,6 @@
   "scripts": {
     "build": "npx convex dev --once && next build",
     "check": "next lint && tsc --noEmit",
-    "predev": "convex dev --run init --until-success",
     "dev": "next dev --turbo",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",

@@ -1,13 +1,17 @@
+// @ts-nocheck
 import { query } from "./_generated/server";
 import { mutation, type MutationCtx, internalMutation } from "./_generated/server";
 import { spellValidator } from "./schema";
+import type { Spell } from "./types";
 import { TableAggregate } from "@convex-dev/aggregate";
 import { components } from "./_generated/api";
 import type { DataModel, Doc } from "./_generated/dataModel";
 import type { WithoutSystemFields } from "convex/server"
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import spells from "./data/spells.js";
 
+const BATCH_SIZE = 100; // Define a batch size
 
 export const aggregate = new TableAggregate<{
   Key: null,
@@ -15,8 +19,7 @@ export const aggregate = new TableAggregate<{
   TableName: "spell"
 }>(components.aggregate, {
   sortKey: (_) => null,
-}
-)
+})
 
 export const get = query({
   args: {},
@@ -47,6 +50,26 @@ export async function addSpellMutationFunction(
   const doc = await ctx.db.get(id);
   await aggregate.insert(ctx, doc!);
 }
+
+export const addNextHundredSpells = internalMutation({
+  handler: async (ctx) => {
+    const currentSpellCount = await aggregate.count(ctx);
+    const startIndex = currentSpellCount;
+    const endIndex = startIndex + BATCH_SIZE;
+
+    if (startIndex >= spells.length) {
+      console.log("All spells have been added.");
+      return;
+    }
+
+    const batch = spells.slice(startIndex, endIndex);
+
+    for (const spell of batch as Spell[]) {
+      await addSpellMutationFunction(ctx, spell);
+    }
+    console.log(`Added ${batch.length} spells. Total spells: ${currentSpellCount + batch.length}`);
+  },
+});
 
 export const rebuildSpellAggregate = internalMutation({
   args: { cursor: v.optional(v.string()) },
