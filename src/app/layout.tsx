@@ -5,6 +5,7 @@ import { Geist } from "next/font/google";
 
 import { ConvexClientProvider } from "ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
+import NavBar from "~/components/NavBar";
 
 export const metadata: Metadata = {
   title: "EverythingPath",
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body>
         <ClerkProvider>
           <ConvexClientProvider>
+            <NavBar />
             {children}
           </ConvexClientProvider>
         </ClerkProvider>
