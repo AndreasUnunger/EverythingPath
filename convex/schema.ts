@@ -96,17 +96,28 @@ export const spellValidator = v.object({
   summonerUnchained: v.union(v.number(), v.null()),
 })
 
+export const characterValidator = v.object({
+  name: v.string(),
+  ownerId: v.number(),
+  campaignId: v.id("campaign"),
+  description: v.string(),
+})
+
+export const campaignValidator = v.object({
+  name: v.string(),
+  ownerId: v.string(),
+  description: v.string(),
+})
+
 export default defineSchema({
-  character: defineTable({
-    name: v.string(),
-    ownerId: v.number(),
-    campaignId: v.id("campaign"),
-    description: v.string(),
-  }),
-  campaign: defineTable({
-    name: v.string(),
-    ownerId: v.string(),
-    description: v.string(),
-  }),
-  spell: defineTable(spellValidator).index("by_name", ["name"]),
+  character: defineTable(characterValidator),
+  campaign: defineTable(campaignValidator),
+  spell: defineTable(spellValidator)
+    .index("by_name", ["name"]),
+  characterSpell: defineTable(v.object({
+    characterId: v.id("character"),
+    spellId: v.id("spell")
+  }))
+    .index("characterId", ["characterId"])
+    .index("spellId_characterId", ["spellId", "characterId"])
 });
