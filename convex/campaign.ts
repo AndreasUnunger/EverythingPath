@@ -1,32 +1,40 @@
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { campaignValidator } from "./schema";
+import { hasAccessToOrg } from "./user";
 
-export const get = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await ctx.auth.getUserIdentity()
+export const getCampaigns = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const hasAccess = await hasAccessToOrg(ctx, args.organizationId ?? "");
 
-    if (!user) {
-      return []
+    if (!hasAccess) {
+      throw new ConvexError("you do not have access to this org");
     }
 
-    return await ctx.db.query("campaign").collect();
+    return await ctx.db
+      .query("campaign")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
   }
 })
 
 export const createCampaign = mutation({
   args: campaignValidator,
   async handler(ctx, args) {
-    const user = await ctx.auth.getUserIdentity()
+    const hasAccess = await hasAccessToOrg(ctx, args.organizationId ?? "");
 
-    if (!user) {
-      throw new ConvexError("You must be logged in to create a campaign")
+    if (!hasAccess) {
+      throw new ConvexError("you do not have access to this org");
     }
 
     await ctx.db.insert("campaign", {
       name: args.name,
-      ownerId: user?.tokenIdentifier,
+      ownerId: args.ownerId,
+      organizationId: args.organizationId,
       description: args.description
     })
   }
