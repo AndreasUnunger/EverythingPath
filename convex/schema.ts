@@ -96,17 +96,43 @@ export const spellValidator = v.object({
   summonerUnchained: v.union(v.number(), v.null()),
 })
 
+export const characterValidator = v.object({
+  name: v.string(),
+  ownerId: v.number(),
+  campaignId: v.id("campaign"),
+  description: v.string(),
+})
+
+export const campaignValidator = v.object({
+  name: v.string(),
+  ownerId: v.string(),
+  organizationId: v.optional(v.string()),
+  description: v.string(),
+})
+
+export const roles = v.union(v.literal("admin"), v.literal("member"));
+
 export default defineSchema({
-  character: defineTable({
-    name: v.string(),
-    ownerId: v.number(),
-    campaignId: v.id("campaign"),
-    description: v.string(),
-  }),
-  campaign: defineTable({
-    name: v.string(),
-    ownerId: v.string(),
-    description: v.string(),
-  }),
-  spell: defineTable(spellValidator).index("by_name", ["name"]),
+  character: defineTable(characterValidator),
+  campaign: defineTable(campaignValidator)
+    .index("by_organization", ["organizationId"]),
+  spell: defineTable(spellValidator)
+    .index("by_name", ["name"]),
+  characterSpell: defineTable(v.object({
+    characterId: v.id("character"),
+    spellId: v.id("spell")
+  }))
+    .index("characterId", ["characterId"])
+    .index("spellId_characterId", ["spellId", "characterId"]),
+  user: defineTable({
+    tokenIdentifier: v.string(),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    orgIds: v.array(
+      v.object({
+        orgId: v.string(),
+        role: roles,
+      })
+    ),
+  }).index("by_tokenIdentifier", ["tokenIdentifier"]),
 });
