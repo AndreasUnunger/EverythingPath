@@ -79,14 +79,21 @@ export const rebuildSpellAggregate = internalMutation({
       .query("spell")
       .paginate(paginationOptions);
 
+    if (page.length === 0) {
+      console.log("Finished rebuilding spell aggregate: no more spells to process.");
+      return;
+    }
+
     for (const spell of page) {
       await aggregate.insert(ctx, spell);
     }
 
     if (continueCursor !== null) {
-      //      await ctx.scheduler.runAfter(0, internal.spell.rebuildSpellAggregate, {
-      //      cursor: continueCursor,
-      //  });
+      await ctx.scheduler.runAfter(0, internal.spell.rebuildSpellAggregate, {
+        cursor: continueCursor,
+      });
+    } else {
+      console.log("Finished rebuilding spell aggregate.");
     }
   },
 });
