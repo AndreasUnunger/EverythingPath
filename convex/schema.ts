@@ -106,7 +106,7 @@ export const characterValidator = v.object({
 export const campaignValidator = v.object({
   name: v.string(),
   ownerId: v.string(),
-  organizationId: v.optional(v.string()),
+  organizationId: v.string(),
   description: v.string(),
 })
 

@@ -8,7 +8,8 @@ export default function Home() {
   const spellCount = useQuery(db.spell.getCount)
   const createCampaign = useMutation(db.campaign.createCampaign);
   const { organization } = useOrganization()
-  const campaigns = useQuery(db.campaign.getCampaigns, organization?.id ? { organizationId: organization.id } : "skip")
+  console.log(organization)
+  const campaigns = useQuery(db.campaign.getCampaigns, !!organization?.id ? { organizationId: organization.id } : "skip")
 
   return (
     <>

@@ -131,6 +131,8 @@ export async function hasAccessToOrg(
     return null;
   }
 
+  console.log("identity in hasAccessToOrg", identity)
+
   const user = await getUser(ctx, identity.tokenIdentifier)
 
   if (!user) {
@@ -147,3 +149,4 @@ export async function hasAccessToOrg(
 
   return { user };
 }
+

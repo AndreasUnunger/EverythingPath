@@ -25,7 +25,7 @@ export const getCampaigns = query({
 export const createCampaign = mutation({
   args: campaignValidator,
   async handler(ctx, args) {
-    const hasAccess = await hasAccessToOrg(ctx, args.organizationId ?? "");
+    const hasAccess = await hasAccessToOrg(ctx, args.organizationId);
 
     if (!hasAccess) {
       throw new ConvexError("you do not have access to this org");
