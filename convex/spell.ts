@@ -84,9 +84,9 @@ export const rebuildSpellAggregate = internalMutation({
     }
 
     if (continueCursor !== null) {
-      await ctx.scheduler.runAfter(0, internal.spell.rebuildSpellAggregate, {
-        cursor: continueCursor,
-      });
+      //      await ctx.scheduler.runAfter(0, internal.spell.rebuildSpellAggregate, {
+      //      cursor: continueCursor,
+      //  });
     }
   },
 });
