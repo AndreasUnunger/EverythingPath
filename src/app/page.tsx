@@ -2,15 +2,12 @@
 
 import { useOrganization } from "@clerk/nextjs"
 import { api as db } from "../../convex/_generated/api"
-import { useConvexAuth, useMutation, useQuery } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 
 export default function Home() {
   const spellCount = useQuery(db.spell.getCount)
   const createCampaign = useMutation(db.campaign.createCampaign);
   const { organization } = useOrganization()
-  console.log(organization)
-  const user = useConvexAuth();
-  console.log("user on page.ts", user)
   const campaigns = useQuery(db.campaign.getCampaigns, !!organization?.id ? { organizationId: organization.id } : "skip")
 
   return (

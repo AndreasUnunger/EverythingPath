@@ -47,7 +47,6 @@ http.route({
           });
           break;
         case "organizationMembership.updated":
-          console.log(result.data.role);
           await ctx.runMutation(internal.user.updateRoleInOrgForUser, {
             tokenIdentifier: `https://${process.env.CLERK_HOSTNAME}|${result.data.public_user_data.user_id}`,
             orgId: result.data.organization.id,
