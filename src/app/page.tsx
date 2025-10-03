@@ -3,6 +3,7 @@
 import { useOrganization } from "@clerk/nextjs"
 import { api as db } from "../../convex/_generated/api"
 import { useMutation, useQuery } from "convex/react"
+import { Button } from "~/components/ui/button"
 
 export default function Home() {
   const spellCount = useQuery(db.spell.getCount)
@@ -17,7 +18,7 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
             spellcount: {spellCount}
           </div>
-          <button onClick={async () => await createCampaign({ name: "ironfang", description: "the one", ownerId: "", organizationId: organization?.id ?? "skip" })}>create campaign</button>
+          <Button onClick={async () => await createCampaign({ name: "ironfang", description: "the one", ownerId: "", organizationId: organization?.id ?? "skip" })}>create campaign</Button>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
             {campaigns?.map((campaign) => {
               return (
