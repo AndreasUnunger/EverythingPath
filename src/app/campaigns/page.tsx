@@ -1,28 +1,27 @@
-'use client';
-
-import { useOrganization } from '@clerk/nextjs';
-import { useQuery } from 'convex-helpers/react/cache';
-import { api as db } from '@convex/_generated/api';
 import CreateCampaignDialog from './createCampaignDialog';
+import { CampaignDashboard } from '~/components/campaign-dashboard';
+import { Suspense } from 'react';
+import { Sparkles } from 'lucide-react';
 
 export default function Home() {
-  const { organization } = useOrganization();
-  const campaigns = useQuery(
-    db.campaign.getCampaigns,
-    !!organization?.id ? { organizationId: organization.id } : 'skip',
-  );
-
   return (
-    <main className="container mx-auto pt-12 pr-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Campaigns</h1>
-        <CreateCampaignDialog />
+    <Suspense fallback={<p>loading...</p>}>
+      <div className="container mx-auto pt-12 pr-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-primary retro-glow mb-1 flex items-center gap-3 font-sans text-5xl font-bold tracking-widest">
+              <Sparkles className="h-8 w-8" />
+              KEEPNET
+              <Sparkles className="h-8 w-8" />
+            </h1>
+            <p className="text-muted-foreground font-mono text-lg tracking-wider">
+              ◈ CAMPAIGN MANAGEMENT SYSTEM v2.1.4 ◈
+            </p>
+          </div>
+          <CreateCampaignDialog />
+        </div>
+        <CampaignDashboard />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-        {campaigns?.map((campaign) => {
-          return <div key={campaign._id}>{campaign.name}</div>;
-        })}
-      </div>
-    </main>
+    </Suspense>
   );
 }

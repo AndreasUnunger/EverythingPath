@@ -2,6 +2,7 @@
 import { OrganizationSwitcher, SignInButton, UserButton } from '@clerk/nextjs';
 import { Authenticated, Unauthenticated, AuthLoading } from 'convex/react';
 import { HomeIcon } from 'lucide-react';
+import Link from 'next/link';
 import {
   Sidebar,
   SidebarContent,
@@ -32,7 +33,9 @@ export default function AppSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="container flex w-max items-center p-4">
-          <div className="text-2xl font-bold text-gray-900">Keepnet</div>
+          <Link href={'/'} className="text-2xl font-bold">
+            KEEPNET
+          </Link>
         </div>
       </SidebarHeader>
       <SidebarContent>
