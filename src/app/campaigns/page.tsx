@@ -3,7 +3,7 @@
 import { useOrganization } from '@clerk/nextjs';
 import { useQuery } from 'convex-helpers/react/cache';
 import { api as db } from '@convex/_generated/api';
-import CreateCampaignDialog from './CreateCampaignDialog';
+import CreateCampaignDialog from './createCampaignDialog';
 
 export default function Home() {
   const { organization } = useOrganization();
@@ -13,7 +13,7 @@ export default function Home() {
   );
 
   return (
-    <main className="container mx-auto pt-12">
+    <main className="container mx-auto pt-12 pr-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Campaigns</h1>
         <CreateCampaignDialog />

@@ -5,11 +5,16 @@ import { Geist } from 'next/font/google';
 
 import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
-import NavBar from '~/components/NavBar';
 import ConvexQueryCacheProviderClientComponent from 'ConvexQueryCacheProvider';
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '~/components/ui/sidebar';
+import AppSidebar from './appSidebar';
 
 export const metadata: Metadata = {
-  title: 'EverythingPath',
+  title: 'Campfire Ledger',
   description: 'Big tings',
   icons: [{ rel: 'icon', url: '/favicon.ico' }],
 };
@@ -28,10 +33,11 @@ export default function RootLayout({
         <ClerkProvider>
           <ConvexClientProvider>
             <ConvexQueryCacheProviderClientComponent>
-              <>
-                <NavBar />
-                {children}
-              </>
+              <SidebarProvider>
+                <AppSidebar />
+                <SidebarTrigger />
+                <SidebarInset>{children}</SidebarInset>
+              </SidebarProvider>
             </ConvexQueryCacheProviderClientComponent>
           </ConvexClientProvider>
         </ClerkProvider>

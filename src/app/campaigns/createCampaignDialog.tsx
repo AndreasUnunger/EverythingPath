@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '~/components/ui/dialog';
-import { CreateCampaignForm } from './CreateCampaignForm';
+import { CreateCampaignForm } from './createCampaignForm';
 import { useState } from 'react';
 
 export default function CreateCampaignDialog() {
