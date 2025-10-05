@@ -1,7 +1,7 @@
 'use client';
 
 import { useOrganization } from '@clerk/nextjs';
-import { useQuery } from 'convex/react';
+import { useQuery } from 'convex-helpers/react/cache';
 import { api as db } from '@convex/_generated/api';
 import CreateCampaignDialog from './CreateCampaignDialog';
 
