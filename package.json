@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.23.1",
+    "@clerk/themes": "^2.4.25",
     "@convex-dev/aggregate": "^0.1.21",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-avatar": "^1.1.10",

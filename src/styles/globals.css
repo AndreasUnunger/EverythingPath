@@ -380,7 +380,6 @@ body {
 .arcane-border {
   position: relative;
   border: 3px solid oklch(0.45 0.12 85);
-  padding: 1rem;
 }
 
 /* Rune separator divider - replaces gaps between sections */

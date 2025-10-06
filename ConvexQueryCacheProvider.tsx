@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
-import type { ReactNode } from "react";
+import { ConvexQueryCacheProvider } from 'convex-helpers/react/cache';
+import type { ReactNode } from 'react';
 
 export default function ConvexQueryCacheProviderClientComponent({
   children,

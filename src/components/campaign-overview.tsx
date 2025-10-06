@@ -3,8 +3,14 @@
 import { Card } from '~/components/ui/card';
 import { Badge } from '~/components/ui/badge';
 import { Calendar, MapPin, Users, Trophy } from 'lucide-react';
+import type { WithoutSystemFields } from 'convex/server';
+import type { Doc } from '@convex/_generated/dataModel';
 
-export function CampaignOverview() {
+type Props = {
+  campaign: WithoutSystemFields<Doc<'campaign'>> | undefined;
+};
+
+export function CampaignOverview({ campaign }: Props) {
   return (
     <div className="space-y-0">
       {/* Campaign Stats */}
@@ -64,7 +70,7 @@ export function CampaignOverview() {
       {/* Campaign Info */}
       <Card className="bg-card rounded-none border-2 border-x-0 border-b-0 p-4">
         <h2 className="text-primary mb-3 font-sans text-2xl font-bold">
-          Campaign: Trail of the Hunted
+          {campaign?.name ?? null}
         </h2>
         <div className="space-y-3">
           <div>
@@ -77,31 +83,11 @@ export function CampaignOverview() {
           </div>
           <div>
             <h3 className="text-muted-foreground mb-1 font-mono text-sm">
-              CURRENT OBJECTIVE
+              DESCRIPTION
             </h3>
             <p className="text-foreground font-mono text-sm">
-              Defend Phaendar from the Ironfang Legion invasion. Evacuate
-              civilians and establish militia defenses.
+              {campaign?.description ?? null}
             </p>
-          </div>
-          <div>
-            <h3 className="text-muted-foreground mb-1 font-mono text-sm">
-              RECENT EVENTS
-            </h3>
-            <ul className="space-y-1 font-mono text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-primary">▸</span>
-                <span>Hobgoblin forces spotted near the eastern gate</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary">▸</span>
-                <span>Militia training completed - 12 new recruits</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary">▸</span>
-                <span>Supply cache discovered in abandoned warehouse</span>
-              </li>
-            </ul>
           </div>
         </div>
       </Card>

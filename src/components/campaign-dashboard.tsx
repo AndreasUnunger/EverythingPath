@@ -73,7 +73,9 @@ export function CampaignDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <CampaignOverview />
+          <CampaignOverview
+            campaign={campaigns?.find((x) => x._id === selectedCampaign)}
+          />
         </TabsContent>
 
         <TabsContent value="militia" className="space-y-4">

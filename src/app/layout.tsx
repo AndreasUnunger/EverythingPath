@@ -2,6 +2,7 @@ import '~/styles/globals.css';
 import { type Metadata } from 'next';
 import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
+import { dark } from '@clerk/themes';
 import ConvexQueryCacheProviderClientComponent from 'ConvexQueryCacheProvider';
 import {
   SidebarInset,
@@ -48,7 +49,23 @@ export default function RootLayout({
       className={`${cinzel.variable} ${vt323.variable} ${medievalSharp.variable} antialiased`}
     >
       <body className="vsc-initialized retro-grid scanlines bg-background text-foreground">
-        <ClerkProvider>
+        <ClerkProvider
+          appearance={{
+            baseTheme: dark,
+            elements: {
+              card: 'bg-background border-foreground/20',
+              socialButtonsBlockButton:
+                'border-foreground/20 hover:bg-foreground/10',
+              dividerLine: 'bg-foreground/20',
+              dividerText: 'text-foreground/40',
+              formFieldInput:
+                'bg-background border-foreground/20 focus:border-foreground/40',
+              formButtonPrimary:
+                'bg-primary text-primary-foreground hover:bg-primary/90',
+              footerActionLink: 'text-primary hover:text-primary/90',
+            },
+          }}
+        >
           <ConvexClientProvider>
             <ConvexQueryCacheProviderClientComponent>
               <SidebarProvider>

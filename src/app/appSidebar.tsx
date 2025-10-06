@@ -57,7 +57,7 @@ export default function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="container bg-gray-50 p-2 pr-4">
+        <div className="container p-2 pr-4">
           <div className="container flex items-center">
             <Unauthenticated>
               <SignInButton />
