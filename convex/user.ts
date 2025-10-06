@@ -1,25 +1,25 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v } from 'convex/values';
 import {
   MutationCtx,
   QueryCtx,
   internalMutation,
   query,
-} from "./_generated/server";
-import { roles } from "./schema";
+} from './_generated/server';
+import { roles } from './schema';
 
 export async function getUser(
   ctx: QueryCtx | MutationCtx,
-  tokenIdentifier: string
+  tokenIdentifier: string,
 ) {
   const user = await ctx.db
-    .query("user")
-    .withIndex("by_tokenIdentifier", (q) =>
-      q.eq("tokenIdentifier", tokenIdentifier)
+    .query('user')
+    .withIndex('by_tokenIdentifier', (q) =>
+      q.eq('tokenIdentifier', tokenIdentifier),
     )
     .first();
 
   if (!user) {
-    throw new ConvexError("expected user to be defined");
+    throw new ConvexError('expected user to be defined');
   }
 
   return user;
@@ -28,7 +28,7 @@ export async function getUser(
 export const createUser = internalMutation({
   args: { tokenIdentifier: v.string(), name: v.string(), image: v.string() },
   async handler(ctx, args) {
-    await ctx.db.insert("user", {
+    await ctx.db.insert('user', {
       tokenIdentifier: args.tokenIdentifier,
       orgIds: [],
       name: args.name,
@@ -41,14 +41,14 @@ export const updateUser = internalMutation({
   args: { tokenIdentifier: v.string(), name: v.string(), image: v.string() },
   async handler(ctx, args) {
     const user = await ctx.db
-      .query("user")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", args.tokenIdentifier)
+      .query('user')
+      .withIndex('by_tokenIdentifier', (q) =>
+        q.eq('tokenIdentifier', args.tokenIdentifier),
       )
       .first();
 
     if (!user) {
-      throw new ConvexError("no user with this token found");
+      throw new ConvexError('no user with this token found');
     }
 
     await ctx.db.patch(user._id, {
@@ -78,7 +78,7 @@ export const updateRoleInOrgForUser = internalMutation({
 
     if (!org) {
       throw new ConvexError(
-        "expected an org on the user but was not found when updating"
+        'expected an org on the user but was not found when updating',
       );
     }
 
@@ -91,7 +91,7 @@ export const updateRoleInOrgForUser = internalMutation({
 });
 
 export const getUserProfile = query({
-  args: { userId: v.id("user") },
+  args: { userId: v.id('user') },
   async handler(ctx, args) {
     const user = await ctx.db.get(args.userId);
 
@@ -123,7 +123,7 @@ export const getMe = query({
 
 export async function hasAccessToOrg(
   ctx: QueryCtx | MutationCtx,
-  orgId: string
+  orgId: string,
 ) {
   const identity = await ctx.auth.getUserIdentity();
 
@@ -131,7 +131,7 @@ export async function hasAccessToOrg(
     return null;
   }
 
-  const user = await getUser(ctx, identity.tokenIdentifier)
+  const user = await getUser(ctx, identity.tokenIdentifier);
 
   if (!user) {
     return null;
@@ -147,4 +147,3 @@ export async function hasAccessToOrg(
 
   return { user };
 }
-
