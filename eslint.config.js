@@ -1,43 +1,53 @@
-import { FlatCompat } from "@eslint/eslintrc";
-import tseslint from "typescript-eslint";
+import { defineConfig, globalIgnores } from 'eslint/config';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
-const compat = new FlatCompat({
-  baseDirectory: import.meta.dirname,
-});
-
-export default tseslint.config(
+export default defineConfig(
+  [
+    globalIgnores([
+      'node_modules/**',
+      '.next/**',
+      'out/**',
+      'build/**',
+      'next-env.d.ts',
+    ]),
+  ],
   {
-    ignores: [".next"],
-  },
-  ...compat.extends("next/core-web-vitals"),
-  {
-    files: ["**/*.ts", "**/*.tsx"],
+    name: 'defaultconfig',
+    files: ['**/*.ts', '**/*.tsx'],
     extends: [
-      ...tseslint.configs.recommended,
-      ...tseslint.configs.recommendedTypeChecked,
-      ...tseslint.configs.stylisticTypeChecked,
+      'next/core-web-vitals',
+      'next/typescript',
+      'prettier',
+      'tseslint.configs.recommended',
+      'tseslint.configs.recommendedTypeChecked',
+      'tseslint.configs.stylisticTypeChecked',
+      eslintConfigPrettier,
     ],
     rules: {
-      "@typescript-eslint/array-type": "off",
-      "@typescript-eslint/consistent-type-definitions": "off",
-      "@typescript-eslint/consistent-type-imports": [
-        "warn",
-        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      'no-console': 'error',
+      'react/no-array-index-key': 'error',
+      '@typescript-eslint/array-type': 'off',
+      '@typescript-eslint/consistent-type-definitions': 'off',
+      '@typescript-eslint/consistent-type-imports': [
+        'warn',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { argsIgnorePattern: "^_" },
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_' },
       ],
-      "@typescript-eslint/require-await": "off",
-      "@typescript-eslint/no-misused-promises": [
-        "error",
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-misused-promises': [
+        'error',
         { checksVoidReturn: { attributes: false } },
       ],
+      ...eslintConfigPrettier.rules,
     },
   },
   {
     linterOptions: {
-      reportUnusedDisableDirectives: true,
+      reportUnusedDisableDirectives: 'warn',
+      noInlineConfig: true,
     },
     languageOptions: {
       parserOptions: {
