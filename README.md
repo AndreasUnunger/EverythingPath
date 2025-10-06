@@ -8,5 +8,5 @@
 - [x] Auth
 - [x] Db schema
 - [ ] Role based auth
-- [ ] queryCacheProvider
+- [x] queryCacheProvider
 - [ ] Posthog
