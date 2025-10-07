@@ -4,14 +4,11 @@ import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import ConvexQueryCacheProviderClientComponent from 'ConvexQueryCacheProvider';
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '~/components/ui/sidebar';
+import { SidebarInset, SidebarProvider } from '~/components/ui/sidebar';
 import AppSidebar from './appSidebar';
 import type React from 'react';
 import { Cinzel, VT323, MedievalSharp } from 'next/font/google';
+import { cookies } from 'next/headers';
 
 const cinzel = Cinzel({
   subsets: ['latin'],
@@ -40,9 +37,12 @@ export const metadata: Metadata = {
   icons: [{ rel: 'icon', url: '/favicon.ico' }],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
+
   return (
     <html
       lang="en"
@@ -68,10 +68,9 @@ export default function RootLayout({
         >
           <ConvexClientProvider>
             <ConvexQueryCacheProviderClientComponent>
-              <SidebarProvider>
+              <SidebarProvider defaultOpen={defaultOpen}>
                 <AppSidebar />
-                <SidebarTrigger />
-                <SidebarInset>{children}</SidebarInset>
+                <SidebarInset className="px-2">{children}</SidebarInset>
               </SidebarProvider>
             </ConvexQueryCacheProviderClientComponent>
           </ConvexClientProvider>

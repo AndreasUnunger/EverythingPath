@@ -10,6 +10,7 @@ import { useOrganization } from '@clerk/nextjs';
 import { useQuery } from 'convex-helpers/react/cache';
 import { api as db } from '@convex/_generated/api';
 import CampaignSelector from './campaign-selector';
+import CreateCampaignDialog from '~/app/campaigns/createCampaignDialog';
 
 export function CampaignDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -32,15 +33,17 @@ export function CampaignDashboard() {
   }, []);
 
   return (
-    <div className="container mx-auto max-w-7xl p-4">
+    <div className="container mx-auto max-w-7xl px-2">
       <header className="border-primary relative mb-4 border-b-2 pb-4"></header>
 
-      <CampaignSelector
-        campaigns={campaigns}
-        selectedCampaign={selectedCampaign}
-        setSelectedCampaign={setSelectedCampaign}
-      />
-
+      <div className="flex gap-6 sm:justify-between">
+        <CampaignSelector
+          campaigns={campaigns}
+          selectedCampaign={selectedCampaign}
+          setSelectedCampaign={setSelectedCampaign}
+        />
+        <CreateCampaignDialog />
+      </div>
       <div className="rune-divider" data-pattern={runePattern} />
 
       <Tabs

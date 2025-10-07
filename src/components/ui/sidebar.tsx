@@ -53,6 +53,16 @@ function useSidebar() {
   return context;
 }
 
+function OnlyMobileSidebarTrigger() {
+  const { isMobile } = useSidebar();
+
+  if (!isMobile) {
+    return null;
+  }
+
+  return <SidebarTrigger />;
+}
+
 function SidebarProvider({
   defaultOpen = true,
   open: openProp,
@@ -337,7 +347,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn('flex flex-col gap-2 p-2', className)}
+      className={cn('flex flex-col gap-2 p-2 overflow-x-hidden', className)}
       {...props}
     />
   );
@@ -722,5 +732,6 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
+  OnlyMobileSidebarTrigger,
   useSidebar,
 };

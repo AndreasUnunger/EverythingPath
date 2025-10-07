@@ -355,7 +355,7 @@ body {
 /* Pixel-art inspired borders */
 .pixel-border {
   border-style: solid;
-  border-width: 2px;
+  border-width: 3px;
   border-image: repeating-linear-gradient(
       90deg,
       var(--base-amber) 0,
