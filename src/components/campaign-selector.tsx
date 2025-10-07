@@ -29,7 +29,7 @@ export default function CampaignSelector({
 }: Props) {
   const RenderSelectShell = ({ children }: { children: React.ReactNode }) => {
     return (
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex w-full items-center gap-3">
         <span className="text-muted-foreground font-mono text-sm tracking-wider">
           ACTIVE CAMPAIGN:
         </span>
@@ -37,7 +37,7 @@ export default function CampaignSelector({
           value={selectedCampaign}
           onValueChange={(event) => setSelectedCampaign(event)}
         >
-          <SelectTrigger className="border-primary bg-card glow-border arcane-border w-[320px] border-2 font-mono text-base tracking-wider">
+          <SelectTrigger className="border-primary bg-card glow-border arcane-border w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="border-primary bg-card glow-border border-2 font-mono">

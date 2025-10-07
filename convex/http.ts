@@ -58,7 +58,7 @@ http.route({
       return new Response(null, {
         status: 200,
       });
-    } catch (err) {
+    } catch (_err) {
       return new Response("Webhook Error", {
         status: 400,
       });

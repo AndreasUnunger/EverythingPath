@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 import {
-  MutationCtx,
-  QueryCtx,
+  type MutationCtx,
+  type QueryCtx,
   internalMutation,
   query,
 } from './_generated/server';

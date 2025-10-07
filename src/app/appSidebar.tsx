@@ -3,6 +3,8 @@ import { OrganizationSwitcher, SignInButton, UserButton } from '@clerk/nextjs';
 import { Authenticated, Unauthenticated, AuthLoading } from 'convex/react';
 import { HomeIcon } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { KeepIcon } from '~/components/keepIcon';
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +15,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
 } from '~/components/ui/sidebar';
 
 const items = [
@@ -29,14 +33,22 @@ const items = [
 ];
 
 export default function AppSidebar() {
+  const { open } = useSidebar();
+  const pathname = usePathname();
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="container flex w-max items-center p-4">
-          <Link href={'/'} className="text-2xl font-bold">
-            KEEPNET
-          </Link>
-        </div>
+        <SidebarContent className="overflow-x-hidden">
+          <div className="w-max py-1">
+            <Link
+              href={'/'}
+              className="flex items-center gap-4 text-2xl font-bold"
+            >
+              <KeepIcon />
+              KEEPNET
+            </Link>
+          </div>
+        </SidebarContent>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -44,7 +56,7 @@ export default function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild isActive={pathname == item.url}>
                     <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -57,17 +69,17 @@ export default function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="container p-2 pr-4">
-          <div className="container flex items-center">
+        <SidebarContent>
+          <div className="container flex items-center overflow-x-hidden p-2 pr-4">
             <Unauthenticated>
               <SignInButton />
             </Unauthenticated>
             <Authenticated>
               <div className="container mx-auto flex justify-between">
-                <div>
+                <div hidden={!open}>
                   <OrganizationSwitcher />
                 </div>
-                <div>
+                <div className="ml-[-6]">
                   <UserButton />
                 </div>
               </div>
@@ -76,8 +88,10 @@ export default function AppSidebar() {
               <p>Still loading</p>
             </AuthLoading>
           </div>
-        </div>
+        </SidebarContent>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
+

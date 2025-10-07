@@ -53,6 +53,16 @@ function useSidebar() {
   return context;
 }
 
+function OnlyMobileSidebarTrigger() {
+  const { isMobile } = useSidebar();
+
+  if (!isMobile) {
+    return null;
+  }
+
+  return <SidebarTrigger />;
+}
+
 function SidebarProvider({
   defaultOpen = true,
   open: openProp,
@@ -722,5 +732,6 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
+  OnlyMobileSidebarTrigger,
   useSidebar,
 };

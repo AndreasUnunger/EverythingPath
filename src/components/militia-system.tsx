@@ -142,9 +142,9 @@ export function MilitiaSystem() {
                     Active Boons
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {squad.boons.map((boon, index) => (
+                    {squad.boons.map((boon) => (
                       <Badge
-                        key={index}
+                        key={boon}
                         variant="secondary"
                         className="bg-accent/20 text-accent border-accent/50 font-mono text-xs"
                       >
