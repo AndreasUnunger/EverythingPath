@@ -1,8 +1,6 @@
-// @ts-nocheck
 import { query } from "./_generated/server";
 import { mutation, type MutationCtx, internalMutation } from "./_generated/server";
 import { spellValidator } from "./schema";
-import type { Spell } from "./types";
 import { TableAggregate } from "@convex-dev/aggregate";
 import { components } from "./_generated/api";
 import type { DataModel, Doc } from "./_generated/dataModel";
@@ -58,29 +56,26 @@ export const addNextHundredSpells = internalMutation({
     const endIndex = startIndex + BATCH_SIZE;
 
     if (startIndex >= spells.length) {
-      console.log("All spells have been added.");
       return;
     }
 
     const batch = spells.slice(startIndex, endIndex);
 
-    for (const spell of batch as Spell[]) {
+    for (const spell of batch) {
       await addSpellMutationFunction(ctx, spell);
     }
-    console.log(`Added ${batch.length} spells. Total spells: ${currentSpellCount + batch.length}`);
   },
 });
 
 export const rebuildSpellAggregate = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, { cursor }) => {
-    const paginationOptions = { numItems: 100, cursor: cursor || null };
+    const paginationOptions = { numItems: 100, cursor: cursor ?? null };
     const { page, continueCursor } = await ctx.db
       .query("spell")
       .paginate(paginationOptions);
 
     if (page.length === 0) {
-      console.log("Finished rebuilding spell aggregate: no more spells to process.");
       return;
     }
 
@@ -92,8 +87,6 @@ export const rebuildSpellAggregate = internalMutation({
       await ctx.scheduler.runAfter(0, internal.spell.rebuildSpellAggregate, {
         cursor: continueCursor,
       });
-    } else {
-      console.log("Finished rebuilding spell aggregate.");
     }
   },
 });

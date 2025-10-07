@@ -23,7 +23,7 @@ export function CampaignDashboard() {
   const [runePattern, setRunePattern] = useState(1);
 
   useEffect(() => {
-    if (campaigns && campaigns[0]) {
+    if (campaigns?.[0]) {
       setSelectedCampaign(campaigns[0]._id);
     }
   }, [campaigns]);
