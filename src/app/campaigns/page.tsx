@@ -6,7 +6,6 @@ import { OnlyMobileSidebarTrigger } from '~/components/ui/sidebar';
 export default function Home() {
   return (
     <>
-      <OnlyMobileSidebarTrigger />
       <Suspense fallback={<p>loading...</p>}>
         <div className="container mx-auto pt-12 pr-4">
           <div className="block items-center justify-between sm:flex">

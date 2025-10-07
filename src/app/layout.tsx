@@ -4,7 +4,11 @@ import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import ConvexQueryCacheProviderClientComponent from 'ConvexQueryCacheProvider';
-import { SidebarInset, SidebarProvider } from '~/components/ui/sidebar';
+import {
+  OnlyMobileSidebarTrigger,
+  SidebarInset,
+  SidebarProvider,
+} from '~/components/ui/sidebar';
 import AppSidebar from './appSidebar';
 import type React from 'react';
 import { Cinzel, VT323, MedievalSharp } from 'next/font/google';
@@ -71,6 +75,7 @@ export default async function RootLayout({
               <SidebarProvider defaultOpen={defaultOpen}>
                 <AppSidebar />
                 <SidebarInset className="px-2">{children}</SidebarInset>
+                <OnlyMobileSidebarTrigger />
               </SidebarProvider>
             </ConvexQueryCacheProviderClientComponent>
           </ConvexClientProvider>
