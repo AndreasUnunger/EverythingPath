@@ -29,7 +29,7 @@ export default function CampaignSelector({
 }: Props) {
   const RenderSelectShell = ({ children }: { children: React.ReactNode }) => {
     return (
-      <div className="mb-4 flex w-full items-center gap-3">
+      <div className="flex w-full items-center gap-3">
         <span className="text-muted-foreground font-mono text-sm tracking-wider">
           ACTIVE CAMPAIGN:
         </span>

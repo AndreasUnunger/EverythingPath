@@ -1,7 +1,6 @@
 import { CampaignDashboard } from '~/components/campaign-dashboard';
 import { Suspense } from 'react';
 import { Sparkles } from 'lucide-react';
-import { OnlyMobileSidebarTrigger } from '~/components/ui/sidebar';
 
 export default function Home() {
   return (

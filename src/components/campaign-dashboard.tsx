@@ -36,7 +36,7 @@ export function CampaignDashboard() {
     <div className="container mx-auto max-w-7xl px-2">
       <header className="border-primary relative mb-4 border-b-2 pb-4"></header>
 
-      <div className="flex gap-6 sm:justify-between">
+      <div className="flex items-center gap-6 pb-4 sm:justify-between">
         <CampaignSelector
           campaigns={campaigns}
           selectedCampaign={selectedCampaign}
