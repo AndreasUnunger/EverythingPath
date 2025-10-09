@@ -32,6 +32,14 @@ const items = [
   },
 ];
 
+function AppSidebarSigninButton() {
+  const { open } = useSidebar();
+  if (open) {
+    return <div style={{ whiteSpace: 'nowrap' }}><SignInButton /></div>;
+  }
+  return null;
+}
+
 export default function AppSidebar() {
   const { open } = useSidebar();
   const pathname = usePathname();
@@ -72,7 +80,7 @@ export default function AppSidebar() {
         <SidebarContent>
           <div className="container flex items-center overflow-x-hidden p-2 pr-4">
             <Unauthenticated>
-              <SignInButton />
+              <AppSidebarSigninButton />
             </Unauthenticated>
             <Authenticated>
               <div className="container mx-auto flex justify-between">
@@ -94,4 +102,3 @@ export default function AppSidebar() {
     </Sidebar>
   );
 }
-
