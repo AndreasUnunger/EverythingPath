@@ -5,7 +5,7 @@ import { Card } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Badge } from '~/components/ui/badge';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
-import { Plus, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import AddButton from './ui/AddButton';
 
 interface Character {

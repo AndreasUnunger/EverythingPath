@@ -21,7 +21,7 @@ export default function CreateCampaignDialog() {
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <AddButton title="NEW CAMPAIGN" />
+        <AddButton title="NEW CAMPAIGN" setIsDialogOpen={setIsDialogOpen} />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
