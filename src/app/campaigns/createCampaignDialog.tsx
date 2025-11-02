@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '~/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,7 @@ import {
 } from '~/components/ui/dialog';
 import { CreateCampaignForm } from './createCampaignForm';
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import AddButton from '~/components/ui/AddButton';
 
 export default function CreateCampaignDialog() {
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
@@ -22,13 +21,7 @@ export default function CreateCampaignDialog() {
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="border-primary text-primary hover:bg-primary hover:text-primary-foreground pixel-border border-2 bg-transparent font-mono text-base"
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          NEW CAMPAIGN
-        </Button>
+        <AddButton title="NEW CAMPAIGN" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

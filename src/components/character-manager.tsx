@@ -6,6 +6,7 @@ import { Button } from '~/components/ui/button';
 import { Badge } from '~/components/ui/badge';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Plus, User } from 'lucide-react';
+import AddButton from './ui/AddButton';
 
 interface Character {
   id: string;
@@ -104,19 +105,14 @@ export function CharacterManager() {
             Tracking {characters.length} entities
           </p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Character
-        </Button>
+        <AddButton title="ADD CHARACTER" />
       </div>
-
-      <div className="rune-divider" data-pattern="5" />
 
       {/* Character List */}
       <div className="grid grid-cols-1">
-        {characters.map((character, index) => (
+        {characters.map((character) => (
           <div key={character.id}>
-            <Card className="bg-card hover:border-primary/30 rounded-none border-2 border-x-0 border-t-0 p-4 transition-colors">
+            <Card className="bg-card hover:border-primary/30 border-2 border-x-0 border-t-0 p-4 transition-colors">
               <div className="flex items-center gap-4">
                 {/* Avatar */}
                 <Avatar className="border-primary/50 h-16 w-16 border-2">
@@ -187,12 +183,6 @@ export function CharacterManager() {
                 </div>
               </div>
             </Card>
-            {index < characters.length - 1 && (
-              <div
-                className="rune-divider"
-                data-pattern={String((index % 5) + 1)}
-              />
-            )}
           </div>
         ))}
       </div>

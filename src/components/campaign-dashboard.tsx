@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { CampaignOverview } from '~/components/campaign-overview';
 import { MilitiaSystem } from '~/components/militia-system';
@@ -20,7 +20,6 @@ export function CampaignDashboard() {
     !!organization?.id ? { organizationId: organization.id } : 'skip',
   );
   const [selectedCampaign, setSelectedCampaign] = useState('0');
-  const [runePattern, setRunePattern] = useState(1);
 
   useEffect(() => {
     if (campaigns?.[0]) {
@@ -28,12 +27,8 @@ export function CampaignDashboard() {
     }
   }, [campaigns]);
 
-  useLayoutEffect(() => {
-    setRunePattern(Math.floor(Math.random() * 5 + 1));
-  }, []);
-
   return (
-    <div className="container mx-auto max-w-7xl px-2">
+    <div>
       <header className="border-primary relative mb-4 border-b-2 pb-4"></header>
 
       <div className="flex items-center gap-6 pb-4 sm:justify-between">
@@ -44,31 +39,30 @@ export function CampaignDashboard() {
         />
         <CreateCampaignDialog />
       </div>
-      <div className="rune-divider" data-pattern={runePattern} />
 
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="bg-card glow-border arcane-border grid w-full grid-cols-3 border-2 p-1">
+        <TabsList className="bg-card grid w-full grid-cols-3 border-2 p-1">
           <TabsTrigger
             value="overview"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:retro-glow font-mono text-base tracking-wider"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground font-mono text-base tracking-wider"
           >
             <Swords className="mr-2 h-5 w-5" />
             OVERVIEW
           </TabsTrigger>
           <TabsTrigger
             value="militia"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:retro-glow font-mono text-base tracking-wider"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground font-mono text-base tracking-wider"
           >
             <Shield className="mr-2 h-5 w-5" />
             MILITIA
           </TabsTrigger>
           <TabsTrigger
             value="characters"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:retro-glow font-mono text-base tracking-wider"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground font-mono text-base tracking-wider"
           >
             <Users className="mr-2 h-5 w-5" />
             CHARACTERS

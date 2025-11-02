@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Card } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Badge } from '~/components/ui/badge';
-import { Plus, Shield, Sword, Heart, Zap } from 'lucide-react';
+import { Shield, Sword, Heart, Zap } from 'lucide-react';
+import AddButton from './ui/AddButton';
 
 interface Squad {
   id: string;
@@ -52,9 +53,9 @@ export function MilitiaSystem() {
   ]);
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-4">
       {/* Militia Header */}
-      <div className="bg-card flex items-center justify-between border-2 border-b-0 p-4">
+      <div className="bg-card corner-brackets flex items-center justify-between p-4">
         <div>
           <h2 className="text-primary font-sans text-2xl font-bold">
             Militia Management
@@ -64,19 +65,14 @@ export function MilitiaSystem() {
             across {squads.length} squads
           </p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" />
-          New Squad
-        </Button>
+        <AddButton title={'NEW TEAM'} />
       </div>
 
-      <div className="rune-divider" data-pattern="2" />
-
       {/* Squad Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2">
-        {squads.map((squad, index) => (
+      <div className="grid grid-cols-1 gap-4 pb-4 lg:grid-cols-2">
+        {squads.map((squad) => (
           <div key={squad.id}>
-            <Card className="bg-card border-primary/30 hover:border-primary/50 rounded-none border-t-0 border-l-0 p-4 transition-colors lg:odd:border-r-0">
+            <Card className="bg-card corner-brackets border-primary/30 hover:border-primary/50 border-t-0 border-l-0 p-4 transition-colors lg:odd:border-r-0">
               <div className="space-y-3">
                 {/* Squad Header */}
                 <div className="flex items-start justify-between">
@@ -108,9 +104,9 @@ export function MilitiaSystem() {
                         {squad.hp}/{squad.maxHp}
                       </span>
                     </div>
-                    <div className="bg-secondary h-2 w-full rounded-full">
+                    <div className="bg-secondary h-2 w-full">
                       <div
-                        className="bg-destructive h-2 rounded-full transition-all"
+                        className="bg-destructive h-2 transition-all"
                         style={{ width: `${(squad.hp / squad.maxHp) * 100}%` }}
                       />
                     </div>
@@ -126,9 +122,9 @@ export function MilitiaSystem() {
                         {squad.morale}/10
                       </span>
                     </div>
-                    <div className="bg-secondary h-2 w-full rounded-full">
+                    <div className="bg-secondary h-2 w-full">
                       <div
-                        className="bg-primary h-2 rounded-full transition-all"
+                        className="bg-primary h-2 transition-all"
                         style={{ width: `${(squad.morale / 10) * 100}%` }}
                       />
                     </div>
@@ -174,17 +170,12 @@ export function MilitiaSystem() {
                 </div>
               </div>
             </Card>
-            {index < squads.length - 1 && index % 2 === 1 && (
-              <div className="rune-divider lg:col-span-2" data-pattern="3" />
-            )}
           </div>
         ))}
       </div>
 
-      <div className="rune-divider" data-pattern="4" />
-
       {/* Militia Resources */}
-      <Card className="bg-card rounded-none border-2 border-x-0 border-b-0 p-4">
+      <Card className="bg-card border-2 border-x-0 border-b-0 p-4">
         <h3 className="text-primary mb-3 font-sans text-lg font-bold">
           Available Resources
         </h3>

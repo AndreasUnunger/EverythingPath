@@ -29,7 +29,7 @@ export function KeepIcon({ className = 'w-10 h-10' }: { className?: string }) {
       <rect x="60" y="35" width="6" height="5" />
 
       {/* Gate/door */}
-      <rect x="45" y="60" width="10" height="20" fill="white" />
+      <rect x="45" y="60" width="10" height="20" fill="black" />
     </svg>
   );
 }
