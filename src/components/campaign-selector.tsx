@@ -37,10 +37,10 @@ export default function CampaignSelector({
           value={selectedCampaign}
           onValueChange={(event) => setSelectedCampaign(event)}
         >
-          <SelectTrigger className="border-primary bg-card glow-border arcane-border w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
+          <SelectTrigger className="border-primary bg-card w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="border-primary bg-card glow-border border-2 font-mono">
+          <SelectContent className="border-primary bg-card border-2 font-mono">
             {children}
           </SelectContent>
         </Select>
