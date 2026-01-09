@@ -51,7 +51,7 @@ export const updateUser = internalMutation({
       throw new ConvexError('no user with this token found');
     }
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch('user', user._id, {
       name: args.name,
       image: args.image,
     });
@@ -63,7 +63,7 @@ export const addOrgIdToUser = internalMutation({
   async handler(ctx, args) {
     const user = await getUser(ctx, args.tokenIdentifier);
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch('user', user._id, {
       orgIds: [...user.orgIds, { orgId: args.orgId, role: args.role }],
     });
   },
@@ -84,7 +84,7 @@ export const updateRoleInOrgForUser = internalMutation({
 
     org.role = args.role;
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch('user', user._id, {
       orgIds: user.orgIds,
     });
   },
@@ -93,7 +93,7 @@ export const updateRoleInOrgForUser = internalMutation({
 export const getUserProfile = query({
   args: { userId: v.id('user') },
   async handler(ctx, args) {
-    const user = await ctx.db.get(args.userId);
+    const user = await ctx.db.get('user', args.userId);
 
     return {
       name: user?.name,

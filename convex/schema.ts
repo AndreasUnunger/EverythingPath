@@ -1,5 +1,5 @@
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineSchema, defineTable } from 'convex/server';
+import { v } from 'convex/values';
 
 export const spellValidator = v.object({
   name: v.string(),
@@ -28,23 +28,23 @@ export const spellValidator = v.object({
   material: v.boolean(),
   requiresFocus: v.boolean(),
   requiresDivineFocus: v.boolean(),
-  sorcerer: v.union(v.number(), v.null()),
-  wizard: v.union(v.number(), v.null()),
-  cleric: v.union(v.number(), v.null()),
-  druid: v.union(v.number(), v.null()),
-  ranger: v.union(v.number(), v.null()),
-  bard: v.union(v.number(), v.null()),
-  paladin: v.union(v.number(), v.null()),
-  alchemist: v.union(v.number(), v.null()),
-  summoner: v.union(v.number(), v.null()),
-  witch: v.union(v.number(), v.null()),
-  inquisitor: v.union(v.number(), v.null()),
-  oracle: v.union(v.number(), v.null()),
-  antipaladin: v.union(v.number(), v.null()),
-  magus: v.union(v.number(), v.null()),
-  adept: v.union(v.number(), v.null()),
+  sorcerer: v.nullable(v.number()),
+  wizard: v.nullable(v.number()),
+  cleric: v.nullable(v.number()),
+  druid: v.nullable(v.number()),
+  ranger: v.nullable(v.number()),
+  bard: v.nullable(v.number()),
+  paladin: v.nullable(v.number()),
+  alchemist: v.nullable(v.number()),
+  summoner: v.nullable(v.number()),
+  witch: v.nullable(v.number()),
+  inquisitor: v.nullable(v.number()),
+  oracle: v.nullable(v.number()),
+  antipaladin: v.nullable(v.number()),
+  magus: v.nullable(v.number()),
+  adept: v.nullable(v.number()),
   deity: v.string(),
-  SLALevel: v.union(v.number(), v.null()),
+  SLALevel: v.nullable(v.number()),
   domain: v.string(),
   shortDescription: v.string(),
   acid: v.boolean(),
@@ -72,58 +72,60 @@ export const spellValidator = v.object({
   shadow: v.boolean(),
   sonic: v.boolean(),
   water: v.boolean(),
-  linkText: v.union(v.string(), v.null()),
+  linkText: v.nullable(v.string()),
   id: v.number(),
-  materialCosts: v.union(v.number(), v.null()),
+  materialCosts: v.nullable(v.number()),
   bloodline: v.string(),
   patron: v.string(),
   mythicText: v.string(),
   augmented: v.string(),
   mythic: v.boolean(),
-  bloodrager: v.union(v.number(), v.null()),
-  shaman: v.union(v.number(), v.null()),
-  psychic: v.union(v.number(), v.null()),
-  medium: v.union(v.number(), v.null()),
-  mesmerist: v.union(v.number(), v.null()),
-  occultist: v.union(v.number(), v.null()),
-  spiritualist: v.union(v.number(), v.null()),
-  skald: v.union(v.number(), v.null()),
-  investigator: v.union(v.number(), v.null()),
-  hunter: v.union(v.number(), v.null()),
+  bloodrager: v.nullable(v.number()),
+  shaman: v.nullable(v.number()),
+  psychic: v.nullable(v.number()),
+  medium: v.nullable(v.number()),
+  mesmerist: v.nullable(v.number()),
+  occultist: v.nullable(v.number()),
+  spiritualist: v.nullable(v.number()),
+  skald: v.nullable(v.number()),
+  investigator: v.nullable(v.number()),
+  hunter: v.nullable(v.number()),
   ruse: v.boolean(),
   draconic: v.boolean(),
   meditative: v.boolean(),
-  summonerUnchained: v.union(v.number(), v.null()),
-})
+  summonerUnchained: v.nullable(v.number()),
+});
 
 export const characterValidator = v.object({
   name: v.string(),
   ownerId: v.number(),
-  campaignId: v.id("campaign"),
+  campaignId: v.id('campaign'),
   description: v.string(),
-})
+});
 
 export const campaignValidator = v.object({
   name: v.string(),
   ownerId: v.string(),
   organizationId: v.string(),
   description: v.string(),
-})
+});
 
-export const roles = v.union(v.literal("admin"), v.literal("member"));
+export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
   character: defineTable(characterValidator),
-  campaign: defineTable(campaignValidator)
-    .index("by_organization", ["organizationId"]),
-  spell: defineTable(spellValidator)
-    .index("by_name", ["name"]),
-  characterSpell: defineTable(v.object({
-    characterId: v.id("character"),
-    spellId: v.id("spell")
-  }))
-    .index("characterId", ["characterId"])
-    .index("spellId_characterId", ["spellId", "characterId"]),
+  campaign: defineTable(campaignValidator).index('by_organization', [
+    'organizationId',
+  ]),
+  spell: defineTable(spellValidator).index('by_name', ['name']),
+  characterSpell: defineTable(
+    v.object({
+      characterId: v.id('character'),
+      spellId: v.id('spell'),
+    }),
+  )
+    .index('characterId', ['characterId'])
+    .index('spellId_characterId', ['spellId', 'characterId']),
   user: defineTable({
     tokenIdentifier: v.string(),
     name: v.optional(v.string()),
@@ -132,7 +134,7 @@ export default defineSchema({
       v.object({
         orgId: v.string(),
         role: roles,
-      })
+      }),
     ),
-  }).index("by_tokenIdentifier", ["tokenIdentifier"]),
+  }).index('by_tokenIdentifier', ['tokenIdentifier']),
 });
