@@ -101,6 +101,13 @@ export const characterValidator = v.object({
   ownerId: v.number(),
   campaignId: v.id('campaign'),
   description: v.string(),
+  level: v.number(),
+  strength: v.number(),
+  dexterity: v.number(),
+  constitution: v.number(),
+  wisdom: v.number(),
+  charisma: v.number(),
+  intelligence: v.number(),
 });
 
 export const campaignValidator = v.object({
@@ -108,6 +115,31 @@ export const campaignValidator = v.object({
   ownerId: v.string(),
   organizationId: v.string(),
   description: v.string(),
+  inGameDate: v.optional(v.string()),
+});
+
+export const militiaValidator = v.object({
+  name: v.string(),
+  campaignId: v.id('campaign'),
+  rank: v.number(),
+  highestBoonReached: v.number(),
+  HQLocation: v.string(),
+  treasury: v.number(),
+  focus: v.nullable(
+    v.union(v.literal('Secrecy'), v.literal('Loyalty'), v.literal('Security')),
+  ),
+  training: v.number(),
+  ambassador: v.optional(v.id('character')),
+  commandant: v.optional(v.id('character')),
+  marshal: v.optional(v.id('character')),
+  overseer: v.optional(v.id('character')),
+  spymaster: v.optional(v.id('character')),
+  strategist: v.optional(v.id('character')),
+});
+
+export const militiaTeamValidator = v.object({
+  militiaId: v.id('militia'),
+  teamId: v.string(),
 });
 
 export const roles = v.union(v.literal('admin'), v.literal('member'));
@@ -116,6 +148,10 @@ export default defineSchema({
   character: defineTable(characterValidator),
   campaign: defineTable(campaignValidator).index('by_organization', [
     'organizationId',
+  ]),
+  militia: defineTable(militiaValidator).index('by_campaign', ['campaignId']),
+  militiaTeam: defineTable(militiaTeamValidator).index('by_militiaId', [
+    'militiaId',
   ]),
   spell: defineTable(spellValidator).index('by_name', ['name']),
   characterSpell: defineTable(
