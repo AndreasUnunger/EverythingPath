@@ -2,7 +2,7 @@ import { ConvexError, v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { campaignValidator, militiaValidator } from './schema';
 import { hasAccessToOrg } from './user';
-import { IMilitia, ITeam } from '../src/lib/types';
+import type { IMilitia, ITeam } from '../src/lib/types';
 import teams from './data/teams';
 
 export const getMilitia = query({

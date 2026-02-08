@@ -10,13 +10,14 @@
 - [ ] Role based auth
 - [x] queryCacheProvider
 - [ ] Posthog
+- [x] overview at the top with basic name, stats, date, location
+- [ ] manual add team to militia
 - [ ] militia stats input
 - [ ] set up main "upkeep, action, event" game loop page
 - [ ] upkeep phase
 - [ ] action phase
 - [ ] event phase
 - [ ] keep track of in game date
-- [x] overview at the top with basic name, stats, date, location
 
 
 initiate weekly rolls button unlocks the three tabs

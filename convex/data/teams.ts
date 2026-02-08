@@ -1,4 +1,4 @@
-import { ITeam } from '../../src/lib/types';
+import type { ITeam } from '../../src/lib/types';
 
 const teams: ITeam[] = [
   {
