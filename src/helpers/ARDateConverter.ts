@@ -66,7 +66,7 @@ export function formatFantasyDate(date: Date): string {
     throw new TypeError('Invalid Date provided');
   }
 
-  const year = date.getFullYear();
+  const year = date.getUTCFullYear();
 
   // Make a copy of month defs so we can mutate days for leap years
   const months: MonthDef[] = baseCalendar.monthSet.months.map((m) => ({
@@ -86,13 +86,13 @@ export function formatFantasyDate(date: Date): string {
   // Compute day of year (1-based) using UTC to avoid timezone issues
   const startOfYearUtc = Date.UTC(year, 0, 1);
   const utcDate = Date.UTC(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
-    date.getMilliseconds(),
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds(),
   );
   const msPerDay = 24 * 60 * 60 * 1000;
   const dayOfYear = Math.floor((utcDate - startOfYearUtc) / msPerDay) + 1;
@@ -114,7 +114,7 @@ export function formatFantasyDate(date: Date): string {
 
   const weekdayDef =
     baseCalendar.weekdaySet.weekdays[
-      date.getDay() % baseCalendar.weekdaySet.weekdays.length
+      date.getUTCDay() % baseCalendar.weekdaySet.weekdays.length
     ];
   const monthDef = months[monthIndex];
 
