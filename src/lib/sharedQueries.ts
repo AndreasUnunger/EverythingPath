@@ -1,9 +1,10 @@
 import { convexQuery } from '@convex-dev/react-query';
 import { api as db } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
 import { useQuery } from '@tanstack/react-query';
 
 export function militiaQuery(
-  campaignId: string | undefined,
+  campaignId: Id<'campaign'> | undefined,
   orgId: string | undefined,
 ) {
   return useQuery({
@@ -18,7 +19,7 @@ export function militiaQuery(
 export function campaignQuery(orgId: string | undefined) {
   return useQuery({
     ...convexQuery(db.campaign.getCampaigns, {
-      organizationId: orgId!,
+      organizationId: orgId ?? '',
     }),
     enabled: !!orgId,
   });
