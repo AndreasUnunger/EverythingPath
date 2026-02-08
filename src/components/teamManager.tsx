@@ -14,8 +14,23 @@ export function TeamManager({
   selectedCampaignId: string | undefined;
 }) {
   const { organization } = useOrganization();
-  const { data: militia } = militiaQuery(selectedCampaignId, organization?.id);
+  const {
+    data: militia,
+    isLoading,
+    error,
+  } = militiaQuery(selectedCampaignId, organization?.id);
 
+  if (!organization || !selectedCampaignId) {
+    return <p>Select an organization and campaign to manage teams.</p>;
+  }
+
+  if (isLoading) {
+    return <p>Loading militia...</p>;
+  }
+
+  if (error) {
+    return <p>Unable to load militia. Please try again later.</p>;
+  }
   if (!militia) {
     return <p>Create a militia to be able to assign teams</p>;
   }
