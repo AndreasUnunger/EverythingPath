@@ -58,7 +58,7 @@ export function CampaignInfo({
           <Coins className="h-4 w-4" />
         </CampaignInfoCard>
 
-        <CampaignInfoCard title="Minimun Treasury" value={'5'}>
+        <CampaignInfoCard title="Minimum Treasury" value={'5'}>
           <HandCoins className="h-4 w-4" />
         </CampaignInfoCard>
       </div>
