@@ -1,4 +1,5 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
+import pluginQuery from '@tanstack/eslint-plugin-query';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import convexPlugin from '@convex-dev/eslint-plugin';
 import nextPlugin from '@next/eslint-plugin-next';
@@ -67,4 +68,5 @@ export default defineConfig([
     },
   },
   ...convexPlugin.configs.recommended,
+  ...pluginQuery.configs['flat/recommended'],
 ]);
