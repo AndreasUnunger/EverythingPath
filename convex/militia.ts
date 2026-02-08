@@ -7,7 +7,7 @@ import teams from './data/teams';
 
 export const getMilitia = query({
   args: {
-    campaignId: v.string(),
+    campaignId: v.id('campaign'),
     organizationId: campaignValidator.fields.organizationId,
   },
   handler: async (ctx, args) => {
