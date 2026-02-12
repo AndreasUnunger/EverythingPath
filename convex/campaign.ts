@@ -5,19 +5,24 @@ import { hasAccessToOrg } from './user';
 
 export const getCampaigns = query({
   args: {
-    organizationId: v.string(),
+    organizationId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const hasAccess = await hasAccessToOrg(ctx, args.organizationId ?? '');
+    if (!args.organizationId) {
+      return [];
+    }
+    const organizationId = args.organizationId;
+
+    const hasAccess = await hasAccessToOrg(ctx, organizationId);
 
     if (!hasAccess) {
-      throw new ConvexError('You do not have access to this org');
+      return [];
     }
 
     return await ctx.db
       .query('campaign')
       .withIndex('by_organization', (q) =>
-        q.eq('organizationId', args.organizationId),
+        q.eq('organizationId', organizationId),
       )
       .collect();
   },

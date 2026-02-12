@@ -7,31 +7,36 @@ import teams from './data/teams';
 
 export const getMilitia = query({
   args: {
-    campaignId: v.id('campaign'),
-    organizationId: campaignValidator.fields.organizationId,
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
   },
   handler: async (ctx, args) => {
-    const hasAccess = await hasAccessToOrg(ctx, args.organizationId ?? '');
+    if (!args.campaignId || !args.organizationId) {
+      return null;
+    }
+    const organizationId = args.organizationId;
+
+    const hasAccess = await hasAccessToOrg(ctx, organizationId);
 
     if (!hasAccess) {
-      throw new ConvexError('You do not have access to this org');
+      return null;
     }
 
     const campaignResult = await ctx.db
       .query('campaign')
       .withIndex('by_organization', (q) =>
-        q.eq('organizationId', args.organizationId),
+        q.eq('organizationId', organizationId),
       )
       .collect();
 
     if (campaignResult.length == 0) {
-      throw new ConvexError('This organization has no campaigns');
+      return null;
     }
 
     const campaign = campaignResult.find((camp) => camp._id == args.campaignId);
 
     if (!campaign) {
-      throw new ConvexError('No campaign exists for this campaign id');
+      return null;
     }
 
     const militiaResult = await ctx.db
@@ -40,7 +45,7 @@ export const getMilitia = query({
       .collect();
 
     if (militiaResult.length == 0) {
-      throw new ConvexError('This campaign has no militia');
+      return null;
     }
 
     const militia = militiaResult[0];

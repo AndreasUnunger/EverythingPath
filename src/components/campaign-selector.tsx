@@ -18,8 +18,8 @@ type Props = {
         organizationId: string;
       }[]
     | undefined;
-  selectedCampaign: string;
-  setSelectedCampaign: (value: string) => void;
+  selectedCampaign: Id<'campaign'> | undefined;
+  setSelectedCampaign: (value: Id<'campaign'>) => void;
 };
 
 export default function CampaignSelector({
@@ -35,7 +35,7 @@ export default function CampaignSelector({
         </span>
         <Select
           value={selectedCampaign}
-          onValueChange={(event) => setSelectedCampaign(event)}
+          onValueChange={(event) => setSelectedCampaign(event as Id<'campaign'>)}
         >
           <SelectTrigger className="border-primary bg-card w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
             <SelectValue />

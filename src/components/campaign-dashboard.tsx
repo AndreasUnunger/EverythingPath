@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { Id } from '@convex/_generated/dataModel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { MilitiaSystem } from '~/components/militia-system';
 import { Users, Swords } from 'lucide-react';
@@ -9,26 +10,72 @@ import CampaignSelector from './campaign-selector';
 import CreateCampaignDialog from '~/app/campaigns/createCampaignDialog';
 import { CampaignInfo } from './campaignInfo';
 import { Ledger } from './ledger';
-import { campaignQuery, militiaQuery } from '~/lib/sharedQueries';
+import {
+  campaignQuery,
+  militiaQuery,
+  orgAccessStatusQuery,
+} from '~/lib/sharedQueries';
 
 export function CampaignDashboard() {
   const [activeTab, setActiveTab] = useState('militia');
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('0');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<
+    Id<'campaign'> | undefined
+  >(undefined);
 
-  const { organization } = useOrganization();
-  const { data: campaigns } = campaignQuery(organization?.id);
+  const { organization, isLoaded } = useOrganization();
+  const organizationId = organization?.id;
+  const { data: orgAccess, isLoading: isCheckingAccess } = orgAccessStatusQuery(
+    organizationId,
+    isLoaded,
+  );
+  const hasOrgAccess = orgAccess?.state === 'ready';
+  const canLoadOrgData = Boolean(isLoaded && organizationId && hasOrgAccess);
+
+  const { data: campaigns } = campaignQuery(organizationId, canLoadOrgData);
   const selectedCampaign = campaigns?.find((x) => x._id === selectedCampaignId);
 
   useEffect(() => {
     if (campaigns?.[0]) {
       setSelectedCampaignId(campaigns[0]._id);
+      return;
     }
+
+    setSelectedCampaignId(undefined);
   }, [campaigns]);
 
   const { data: militia } = militiaQuery(
     selectedCampaign?._id,
-    organization?.id,
+    organizationId,
+    canLoadOrgData,
   );
+
+  if (!isLoaded) {
+    return <p>Loading organization context...</p>;
+  }
+
+  if (!organizationId) {
+    return (
+      <p className="text-muted-foreground font-mono">
+        Select or create an organization to access campaigns.
+      </p>
+    );
+  }
+
+  if (isCheckingAccess) {
+    return <p className="text-muted-foreground font-mono">Verifying access...</p>;
+  }
+
+  if (!hasOrgAccess) {
+    return (
+      <div className="space-y-2">
+        <p className="font-mono">No access to this organization in Convex yet.</p>
+        <p className="text-muted-foreground font-mono text-sm">
+          Join this organization and wait for membership sync before opening the
+          campaign dashboard.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -83,14 +130,15 @@ export function CampaignDashboard() {
         {/* </TabsContent> */}
 
         <TabsContent value="militia" className="space-y-4">
-          <MilitiaSystem
-            militia={militia}
-            campaign={campaigns?.find((x) => x._id == selectedCampaignId)}
-          />
+          <MilitiaSystem militia={militia} campaign={selectedCampaign} />
         </TabsContent>
 
         <TabsContent value="characters" className="space-y-4">
-          <Ledger selectedCampaignId={selectedCampaignId} />
+          <Ledger
+            selectedCampaignId={selectedCampaignId}
+            organizationId={organizationId}
+            canQuery={canLoadOrgData}
+          />
         </TabsContent>
       </Tabs>
     </div>

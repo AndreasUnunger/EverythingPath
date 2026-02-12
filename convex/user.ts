@@ -7,16 +7,21 @@ import {
 } from './_generated/server';
 import { roles } from './schema';
 
+async function getUserByTokenIdentifier(
+  ctx: QueryCtx | MutationCtx,
+  tokenIdentifier: string,
+) {
+  return await ctx.db
+    .query('user')
+    .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', tokenIdentifier))
+    .first();
+}
+
 export async function getUser(
   ctx: QueryCtx | MutationCtx,
   tokenIdentifier: string,
 ) {
-  const user = await ctx.db
-    .query('user')
-    .withIndex('by_tokenIdentifier', (q) =>
-      q.eq('tokenIdentifier', tokenIdentifier),
-    )
-    .first();
+  const user = await getUserByTokenIdentifier(ctx, tokenIdentifier);
 
   if (!user) {
     throw new ConvexError('expected user to be defined');
@@ -40,12 +45,7 @@ export const createUser = internalMutation({
 export const updateUser = internalMutation({
   args: { tokenIdentifier: v.string(), name: v.string(), image: v.string() },
   async handler(ctx, args) {
-    const user = await ctx.db
-      .query('user')
-      .withIndex('by_tokenIdentifier', (q) =>
-        q.eq('tokenIdentifier', args.tokenIdentifier),
-      )
-      .first();
+    const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier);
 
     if (!user) {
       throw new ConvexError('no user with this token found');
@@ -111,13 +111,44 @@ export const getMe = query({
       return null;
     }
 
-    const user = await getUser(ctx, identity.tokenIdentifier);
+    const user = await getUserByTokenIdentifier(ctx, identity.tokenIdentifier);
 
-    if (!user) {
-      return null;
+    return user ?? null;
+  },
+});
+
+export const getOrgAccessStatus = query({
+  args: {
+    organizationId: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return { state: 'unauthenticated' as const };
     }
 
-    return user;
+    if (!args.organizationId) {
+      return { state: 'no_org_selected' as const };
+    }
+
+    const user = await getUserByTokenIdentifier(ctx, identity.tokenIdentifier);
+
+    if (!user) {
+      return { state: 'no_access' as const };
+    }
+
+    const orgMembership = user.orgIds.find(
+      (item) => item.orgId === args.organizationId,
+    );
+    const hasAccess =
+      !!orgMembership || user.tokenIdentifier.includes(args.organizationId);
+
+    if (!hasAccess) {
+      return { state: 'no_access' as const };
+    }
+
+    return { state: 'ready' as const, role: orgMembership?.role };
   },
 });
 
@@ -131,7 +162,7 @@ export async function hasAccessToOrg(
     return null;
   }
 
-  const user = await getUser(ctx, identity.tokenIdentifier);
+  const user = await getUserByTokenIdentifier(ctx, identity.tokenIdentifier);
 
   if (!user) {
     return null;
