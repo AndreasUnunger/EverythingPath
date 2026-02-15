@@ -7,43 +7,33 @@ import teams from './data/teams';
 
 export const getMilitia = query({
   args: {
-    campaignId: v.id('campaign'),
-    organizationId: campaignValidator.fields.organizationId,
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
   },
   handler: async (ctx, args) => {
-    const hasAccess = await hasAccessToOrg(ctx, args.organizationId ?? '');
+    if (!args.campaignId || !args.organizationId) {
+      return null;
+    }
+    const { campaignId, organizationId } = args;
+
+    const hasAccess = await hasAccessToOrg(ctx, organizationId);
 
     if (!hasAccess) {
-      throw new ConvexError('You do not have access to this org');
+      return null;
     }
 
-    const campaignResult = await ctx.db
-      .query('campaign')
-      .withIndex('by_organization', (q) =>
-        q.eq('organizationId', args.organizationId),
-      )
-      .collect();
-
-    if (campaignResult.length == 0) {
-      throw new ConvexError('This organization has no campaigns');
+    const campaign = await ctx.db.get('campaign', campaignId);
+    if (campaign?.organizationId !== organizationId) {
+      return null;
     }
 
-    const campaign = campaignResult.find((camp) => camp._id == args.campaignId);
-
-    if (!campaign) {
-      throw new ConvexError('No campaign exists for this campaign id');
-    }
-
-    const militiaResult = await ctx.db
+    const militia = await ctx.db
       .query('militia')
-      .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
-      .collect();
-
-    if (militiaResult.length == 0) {
-      throw new ConvexError('This campaign has no militia');
+      .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
+      .first();
+    if (!militia) {
+      return null;
     }
-
-    const militia = militiaResult[0];
 
     const teamsResult = await ctx.db
       .query('militiaTeam')
@@ -72,41 +62,19 @@ export const createMilitia = mutation({
       throw new ConvexError('You do not have access to this org');
     }
 
-    const campaign = await ctx.db
-      .query('campaign')
-      .withIndex('by_organization', (q) =>
-        q.eq('organizationId', args.organizationId),
-      )
-      .collect();
-
-    if (campaign.length == 0) {
-      throw new ConvexError('This organization has no campaign');
+    const campaign = await ctx.db.get('campaign', args.militia.campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      throw new ConvexError('No campaign exists for this organization');
     }
 
     const militiaResult = await ctx.db
       .query('militia')
-      .withIndex('by_campaign', (q) => q.eq('campaignId', campaign[0]._id))
-      .collect();
-
-    if (militiaResult.length != 0) {
+      .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
+      .first();
+    if (militiaResult) {
       throw new ConvexError('This campaign already has a militia');
     }
 
-    await ctx.db.insert('militia', {
-      campaignId: campaign[0]._id,
-      name: args.militia.name,
-      rank: args.militia.rank,
-      highestBoonReached: args.militia.highestBoonReached,
-      HQLocation: args.militia.HQLocation,
-      treasury: args.militia.treasury,
-      focus: args.militia.focus,
-      training: args.militia.training,
-      ambassador: args.militia.ambassador,
-      commandant: args.militia.commandant,
-      marshal: args.militia.marshal,
-      overseer: args.militia.overseer,
-      spymaster: args.militia.spymaster,
-      strategist: args.militia.strategist,
-    });
+    await ctx.db.insert('militia', args.militia);
   },
 });

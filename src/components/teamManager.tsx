@@ -1,27 +1,42 @@
 'use client';
 
+import type { Id } from '@convex/_generated/dataModel';
 import { Card } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Badge } from '~/components/ui/badge';
 import { Sword, Heart, Zap } from 'lucide-react';
 import AddButton from './ui/AddButton';
-import { useOrganization } from '@clerk/nextjs';
 import { militiaQuery } from '~/lib/sharedQueries';
 
 export function TeamManager({
   selectedCampaignId,
+  organizationId,
+  canQuery,
 }: {
-  selectedCampaignId: string | undefined;
+  selectedCampaignId: Id<'campaign'> | undefined;
+  organizationId: string;
+  canQuery: boolean;
 }) {
-  const { organization } = useOrganization();
   const {
     data: militia,
     isLoading,
     error,
-  } = militiaQuery(selectedCampaignId, organization?.id);
+  } = militiaQuery(selectedCampaignId, organizationId, canQuery);
 
-  if (!organization || !selectedCampaignId) {
-    return <p>Select an organization and campaign to manage teams.</p>;
+  if (!selectedCampaignId) {
+    return (
+      <p className="text-muted-foreground font-mono text-sm">
+        Select a campaign to manage teams.
+      </p>
+    );
+  }
+
+  if (!canQuery) {
+    return (
+      <p className="text-muted-foreground font-mono text-sm">
+        Waiting for organization access sync...
+      </p>
+    );
   }
 
   if (isLoading) {

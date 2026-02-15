@@ -62,6 +62,21 @@ export default defineConfig([
     },
   },
   {
+    name: 'test-files',
+    files: [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      'vitest.config.ts',
+      'vitest.setup.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+    },
+  },
+  {
     linterOptions: {
       reportUnusedDisableDirectives: 'warn',
       noInlineConfig: true,

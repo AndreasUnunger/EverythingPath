@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { Id } from '@convex/_generated/dataModel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { MilitiaSystem } from '~/components/militia-system';
 import { Users, Swords } from 'lucide-react';
@@ -9,26 +10,111 @@ import CampaignSelector from './campaign-selector';
 import CreateCampaignDialog from '~/app/campaigns/createCampaignDialog';
 import { CampaignInfo } from './campaignInfo';
 import { Ledger } from './ledger';
-import { campaignQuery, militiaQuery } from '~/lib/sharedQueries';
+import {
+  campaignQuery,
+  militiaQuery,
+} from '~/lib/sharedQueries';
 
 export function CampaignDashboard() {
   const [activeTab, setActiveTab] = useState('militia');
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('0');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<
+    Id<'campaign'> | undefined
+  >(undefined);
 
-  const { organization } = useOrganization();
-  const { data: campaigns } = campaignQuery(organization?.id);
+  const { organization, isLoaded } = useOrganization();
+  const organizationId = organization?.id;
+  const {
+    data: campaignContext,
+    isLoading: isLoadingCampaignContext,
+    error: campaignContextError,
+  } = campaignQuery(organizationId, isLoaded);
+  const campaigns =
+    campaignContext?.state === 'ready' ? campaignContext.campaigns : undefined;
+  const canLoadOrgData = Boolean(
+    isLoaded && organizationId && campaignContext?.state === 'ready',
+  );
   const selectedCampaign = campaigns?.find((x) => x._id === selectedCampaignId);
 
   useEffect(() => {
-    if (campaigns?.[0]) {
+    if (!campaigns?.length) {
+      if (selectedCampaignId !== undefined) {
+        setSelectedCampaignId(undefined);
+      }
+      return;
+    }
+
+    if (campaigns.some((campaign) => campaign._id === selectedCampaignId)) {
+      return;
+    }
+
+    if (campaigns[0]) {
       setSelectedCampaignId(campaigns[0]._id);
     }
-  }, [campaigns]);
+  }, [campaigns, selectedCampaignId]);
 
   const { data: militia } = militiaQuery(
     selectedCampaign?._id,
-    organization?.id,
+    organizationId,
+    canLoadOrgData,
   );
+
+  if (!isLoaded) {
+    return (
+      <p className="text-muted-foreground font-mono text-sm tracking-wide">
+        Loading organization context...
+      </p>
+    );
+  }
+
+  if (campaignContextError) {
+    return (
+      <div className="bg-card border-primary/40 space-y-2 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          Unable to load campaigns
+        </p>
+        <p className="text-muted-foreground font-mono text-sm">
+          Please refresh the page and try again.
+        </p>
+      </div>
+    );
+  }
+
+  if (isLoadingCampaignContext || !campaignContext) {
+    return (
+      <p className="text-muted-foreground font-mono text-sm tracking-wide">
+        Verifying organization access...
+      </p>
+    );
+  }
+
+  if (campaignContext.state === 'no_org_selected') {
+    return (
+      <div className="bg-card border-primary/40 space-y-2 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          No active organization selected
+        </p>
+        <p className="text-muted-foreground font-mono text-sm">
+          Use the organization switcher in the sidebar to select or create an
+          organization before opening Campaigns.
+        </p>
+      </div>
+    );
+  }
+
+  if (campaignContext.state === 'no_access') {
+    return (
+      <div className="bg-card border-primary/40 space-y-2 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          Organization access not synced yet
+        </p>
+        <p className="text-muted-foreground font-mono text-sm">
+          You are signed in, but this organization is not available in Convex
+          yet. Join the organization in Clerk (or switch to one you already
+          belong to), then refresh this page in a few seconds.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -44,7 +130,7 @@ export function CampaignDashboard() {
       </div>
 
       <CampaignInfo
-        campaign={campaigns?.find((x) => x._id === selectedCampaignId)}
+        campaign={selectedCampaign}
       />
 
       <Tabs
@@ -84,13 +170,17 @@ export function CampaignDashboard() {
 
         <TabsContent value="militia" className="space-y-4">
           <MilitiaSystem
-            militia={militia}
-            campaign={campaigns?.find((x) => x._id == selectedCampaignId)}
+            militia={militia ?? undefined}
+            campaign={selectedCampaign}
           />
         </TabsContent>
 
         <TabsContent value="characters" className="space-y-4">
-          <Ledger selectedCampaignId={selectedCampaignId} />
+          <Ledger
+            selectedCampaignId={selectedCampaignId}
+            organizationId={organizationId ?? ''}
+            canQuery={canLoadOrgData}
+          />
         </TabsContent>
       </Tabs>
     </div>

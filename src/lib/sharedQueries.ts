@@ -6,21 +6,22 @@ import { useQuery } from '@tanstack/react-query';
 export function militiaQuery(
   campaignId: Id<'campaign'> | undefined,
   orgId: string | undefined,
+  enabled = true,
 ) {
   return useQuery({
     ...convexQuery(db.militia.getMilitia, {
-      campaignId: campaignId!,
-      organizationId: orgId!,
+      campaignId,
+      organizationId: orgId ?? '',
     }),
-    enabled: !!campaignId && !!orgId,
+    enabled: enabled && !!campaignId && !!orgId,
   });
 }
 
-export function campaignQuery(orgId: string | undefined) {
+export function campaignQuery(orgId: string | undefined, enabled = true) {
   return useQuery({
     ...convexQuery(db.campaign.getCampaigns, {
-      organizationId: orgId ?? '',
+      organizationId: orgId,
     }),
-    enabled: !!orgId,
+    enabled,
   });
 }
