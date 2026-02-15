@@ -50,28 +50,45 @@ export function CampaignDashboard() {
   );
 
   if (!isLoaded) {
-    return <p>Loading organization context...</p>;
-  }
-
-  if (!organizationId) {
     return (
-      <p className="text-muted-foreground font-mono">
-        Select or create an organization to access campaigns.
+      <p className="text-muted-foreground font-mono text-sm tracking-wide">
+        Loading organization context...
       </p>
     );
   }
 
+  if (!organizationId) {
+    return (
+      <div className="bg-card border-primary/40 space-y-2 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          No active organization selected
+        </p>
+        <p className="text-muted-foreground font-mono text-sm">
+          Use the organization switcher in the sidebar to select or create an
+          organization before opening Campaigns.
+        </p>
+      </div>
+    );
+  }
+
   if (isCheckingAccess) {
-    return <p className="text-muted-foreground font-mono">Verifying access...</p>;
+    return (
+      <p className="text-muted-foreground font-mono text-sm tracking-wide">
+        Verifying organization access...
+      </p>
+    );
   }
 
   if (!hasOrgAccess) {
     return (
-      <div className="space-y-2">
-        <p className="font-mono">No access to this organization in Convex yet.</p>
+      <div className="bg-card border-primary/40 space-y-2 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          Organization access not synced yet
+        </p>
         <p className="text-muted-foreground font-mono text-sm">
-          Join this organization and wait for membership sync before opening the
-          campaign dashboard.
+          You are signed in, but this organization is not available in Convex
+          yet. Join the organization in Clerk (or switch to one you already
+          belong to), then refresh this page in a few seconds.
         </p>
       </div>
     );

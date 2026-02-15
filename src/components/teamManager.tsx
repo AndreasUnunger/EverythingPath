@@ -24,11 +24,19 @@ export function TeamManager({
   } = militiaQuery(selectedCampaignId, organizationId, canQuery);
 
   if (!selectedCampaignId) {
-    return <p>Select an organization and campaign to manage teams.</p>;
+    return (
+      <p className="text-muted-foreground font-mono text-sm">
+        Select a campaign to manage teams.
+      </p>
+    );
   }
 
   if (!canQuery) {
-    return <p>Waiting for organization access...</p>;
+    return (
+      <p className="text-muted-foreground font-mono text-sm">
+        Waiting for organization access sync...
+      </p>
+    );
   }
 
   if (isLoading) {
