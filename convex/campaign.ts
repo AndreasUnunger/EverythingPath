@@ -9,22 +9,24 @@ export const getCampaigns = query({
   },
   handler: async (ctx, args) => {
     if (!args.organizationId) {
-      return [];
+      return { state: 'no_org_selected' as const };
     }
     const organizationId = args.organizationId;
 
     const hasAccess = await hasAccessToOrg(ctx, organizationId);
 
     if (!hasAccess) {
-      return [];
+      return { state: 'no_access' as const };
     }
 
-    return await ctx.db
+    const campaigns = await ctx.db
       .query('campaign')
       .withIndex('by_organization', (q) =>
         q.eq('organizationId', organizationId),
       )
       .collect();
+
+    return { state: 'ready' as const, campaigns };
   },
 });
 

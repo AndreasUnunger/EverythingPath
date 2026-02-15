@@ -13,7 +13,6 @@ import { Ledger } from './ledger';
 import {
   campaignQuery,
   militiaQuery,
-  orgAccessStatusQuery,
 } from '~/lib/sharedQueries';
 
 export function CampaignDashboard() {
@@ -24,24 +23,34 @@ export function CampaignDashboard() {
 
   const { organization, isLoaded } = useOrganization();
   const organizationId = organization?.id;
-  const { data: orgAccess, isLoading: isCheckingAccess } = orgAccessStatusQuery(
-    organizationId,
-    isLoaded,
+  const {
+    data: campaignContext,
+    isLoading: isLoadingCampaignContext,
+    error: campaignContextError,
+  } = campaignQuery(organizationId, isLoaded);
+  const campaigns =
+    campaignContext?.state === 'ready' ? campaignContext.campaigns : undefined;
+  const canLoadOrgData = Boolean(
+    isLoaded && organizationId && campaignContext?.state === 'ready',
   );
-  const hasOrgAccess = orgAccess?.state === 'ready';
-  const canLoadOrgData = Boolean(isLoaded && organizationId && hasOrgAccess);
-
-  const { data: campaigns } = campaignQuery(organizationId, canLoadOrgData);
   const selectedCampaign = campaigns?.find((x) => x._id === selectedCampaignId);
 
   useEffect(() => {
-    if (campaigns?.[0]) {
-      setSelectedCampaignId(campaigns[0]._id);
+    if (!campaigns?.length) {
+      if (selectedCampaignId !== undefined) {
+        setSelectedCampaignId(undefined);
+      }
       return;
     }
 
-    setSelectedCampaignId(undefined);
-  }, [campaigns]);
+    if (campaigns.some((campaign) => campaign._id === selectedCampaignId)) {
+      return;
+    }
+
+    if (campaigns[0]) {
+      setSelectedCampaignId(campaigns[0]._id);
+    }
+  }, [campaigns, selectedCampaignId]);
 
   const { data: militia } = militiaQuery(
     selectedCampaign?._id,
@@ -57,7 +66,28 @@ export function CampaignDashboard() {
     );
   }
 
-  if (!organizationId) {
+  if (campaignContextError) {
+    return (
+      <div className="bg-card border-primary/40 space-y-2 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          Unable to load campaigns
+        </p>
+        <p className="text-muted-foreground font-mono text-sm">
+          Please refresh the page and try again.
+        </p>
+      </div>
+    );
+  }
+
+  if (isLoadingCampaignContext || !campaignContext) {
+    return (
+      <p className="text-muted-foreground font-mono text-sm tracking-wide">
+        Verifying organization access...
+      </p>
+    );
+  }
+
+  if (campaignContext.state === 'no_org_selected') {
     return (
       <div className="bg-card border-primary/40 space-y-2 border p-4">
         <p className="font-mono text-sm tracking-wide">
@@ -71,15 +101,7 @@ export function CampaignDashboard() {
     );
   }
 
-  if (isCheckingAccess) {
-    return (
-      <p className="text-muted-foreground font-mono text-sm tracking-wide">
-        Verifying organization access...
-      </p>
-    );
-  }
-
-  if (!hasOrgAccess) {
+  if (campaignContext.state === 'no_access') {
     return (
       <div className="bg-card border-primary/40 space-y-2 border p-4">
         <p className="font-mono text-sm tracking-wide">
@@ -108,7 +130,7 @@ export function CampaignDashboard() {
       </div>
 
       <CampaignInfo
-        campaign={campaigns?.find((x) => x._id === selectedCampaignId)}
+        campaign={selectedCampaign}
       />
 
       <Tabs
@@ -147,13 +169,16 @@ export function CampaignDashboard() {
         {/* </TabsContent> */}
 
         <TabsContent value="militia" className="space-y-4">
-          <MilitiaSystem militia={militia} campaign={selectedCampaign} />
+          <MilitiaSystem
+            militia={militia ?? undefined}
+            campaign={selectedCampaign}
+          />
         </TabsContent>
 
         <TabsContent value="characters" className="space-y-4">
           <Ledger
             selectedCampaignId={selectedCampaignId}
-            organizationId={organizationId}
+            organizationId={organizationId ?? ''}
             canQuery={canLoadOrgData}
           />
         </TabsContent>

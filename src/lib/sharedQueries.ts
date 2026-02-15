@@ -20,19 +20,7 @@ export function militiaQuery(
 export function campaignQuery(orgId: string | undefined, enabled = true) {
   return useQuery({
     ...convexQuery(db.campaign.getCampaigns, {
-      organizationId: orgId ?? '',
-    }),
-    enabled: enabled && !!orgId,
-  });
-}
-
-export function orgAccessStatusQuery(
-  organizationId: string | undefined,
-  enabled = true,
-) {
-  return useQuery({
-    ...convexQuery(db.user.getOrgAccessStatus, {
-      organizationId,
+      organizationId: orgId,
     }),
     enabled,
   });
