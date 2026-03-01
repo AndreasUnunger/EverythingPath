@@ -98,7 +98,7 @@ export const spellValidator = v.object({
 
 export const characterValidator = v.object({
   name: v.string(),
-  ownerId: v.number(),
+  ownerId: v.string(),
   campaignId: v.id('campaign'),
   description: v.string(),
   level: v.number(),
@@ -118,6 +118,61 @@ export const campaignValidator = v.object({
   inGameDate: v.optional(v.string()),
 });
 
+export const reputationValidator = v.union(
+  v.literal('Hostile'),
+  v.literal('Unfriendly'),
+  v.literal('Indifferent'),
+  v.literal('Friendly'),
+  v.literal('Helpful'),
+);
+
+export const phaseValidator = v.union(
+  v.literal('upkeep'),
+  v.literal('activity'),
+  v.literal('event'),
+  v.literal('week_closed'),
+);
+
+export const teamStatusValidator = v.union(
+  v.literal('active'),
+  v.literal('disabled'),
+  v.literal('missing'),
+  v.literal('blocked'),
+);
+
+export const eventTypeValidator = v.union(
+  v.literal('all_is_calm'),
+  v.literal('broke_the_code'),
+  v.literal('cache_discovered'),
+  v.literal('calm_before_the_storm'),
+  v.literal('double_agent'),
+  v.literal('festival'),
+  v.literal('found_fire'),
+  v.literal('hidden_agenda'),
+  v.literal('high_morale'),
+  v.literal('invasion'),
+  v.literal('low_morale'),
+  v.literal('market_day'),
+  v.literal('missing_in_action'),
+  v.literal('night_ops'),
+  v.literal('raid'),
+  v.literal('rivalry'),
+  v.literal('roll_twice'),
+  v.literal('sickness'),
+  v.literal('theft'),
+  v.literal('turn_around'),
+  v.literal('turncoat'),
+  v.literal('war_games'),
+  v.literal('week_of_pain'),
+  v.literal('week_of_serenity'),
+);
+
+export const queueEffectValidator = v.object({
+  kind: v.string(),
+  appliesWeek: v.number(),
+  note: v.optional(v.string()),
+});
+
 export const militiaValidator = v.object({
   name: v.string(),
   campaignId: v.id('campaign'),
@@ -125,6 +180,7 @@ export const militiaValidator = v.object({
   highestBoonReached: v.number(),
   HQLocation: v.string(),
   treasury: v.number(),
+  notoriety: v.number(),
   focus: v.nullable(
     v.union(v.literal('Secrecy'), v.literal('Loyalty'), v.literal('Security')),
   ),
@@ -137,9 +193,85 @@ export const militiaValidator = v.object({
   strategist: v.optional(v.id('character')),
 });
 
+export const teamIdValidator = v.union(
+  v.literal('moles'),
+  v.literal('propagandists'),
+  v.literal('saboteurs'),
+  v.literal('spies'),
+  v.literal('informants'),
+  v.literal('conspirators'),
+  v.literal('scholars'),
+  v.literal('spellcasters'),
+  v.literal('defenders'),
+  v.literal('infiltrators'),
+  v.literal('guardians'),
+  v.literal('specialists'),
+  v.literal('patrons'),
+  v.literal('merchants'),
+  v.literal('blackMarketeers'),
+  v.literal('fixers'),
+);
+
 export const militiaTeamValidator = v.object({
   militiaId: v.id('militia'),
-  teamId: v.string(),
+  teamId: teamIdValidator,
+});
+
+export const militiaWeekStateValidator = v.object({
+  militiaId: v.id('militia'),
+  weekNumber: v.number(),
+  phase: phaseValidator,
+  isFirstWeek: v.boolean(),
+  skippedUpkeepThisWeek: v.boolean(),
+  uneventfulBonusCarry: v.number(),
+  queuedEffects: v.array(queueEffectValidator),
+  lockVersion: v.number(),
+});
+
+export const militiaSettlementStateValidator = v.object({
+  militiaId: v.id('militia'),
+  settlementKey: v.string(),
+  reputation: reputationValidator,
+  isSecured: v.boolean(),
+  temporaryShift: v.optional(v.number()),
+  refugeActiveUntilWeek: v.optional(v.number()),
+});
+
+export const militiaTeamStateValidator = v.object({
+  militiaId: v.id('militia'),
+  teamId: teamIdValidator,
+  status: teamStatusValidator,
+  unavailableUntilWeek: v.optional(v.number()),
+  notes: v.optional(v.string()),
+});
+
+export const militiaEventStateValidator = v.object({
+  militiaId: v.id('militia'),
+  weekNumber: v.number(),
+  eventType: eventTypeValidator,
+  isPersistent: v.boolean(),
+  startedWeek: v.number(),
+  endedWeek: v.optional(v.number()),
+  mitigationUntilWeek: v.optional(v.number()),
+  resolved: v.boolean(),
+});
+
+export const militiaOverrideNoteValidator = v.object({
+  militiaId: v.id('militia'),
+  scope: v.union(
+    v.literal('militia'),
+    v.literal('week_state'),
+    v.literal('settlement'),
+    v.literal('team'),
+    v.literal('event'),
+  ),
+  targetId: v.optional(v.string()),
+  fieldPath: v.string(),
+  warningCode: v.string(),
+  isIntentionalOverride: v.boolean(),
+  reason: v.optional(v.string()),
+  actorUserId: v.string(),
+  createdAt: v.number(),
 });
 
 export const roles = v.union(v.literal('admin'), v.literal('member'));
@@ -153,6 +285,22 @@ export default defineSchema({
   militiaTeam: defineTable(militiaTeamValidator).index('by_militiaId', [
     'militiaId',
   ]),
+  militiaWeekState: defineTable(militiaWeekStateValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_week', ['militiaId', 'weekNumber']),
+  militiaSettlementState: defineTable(militiaSettlementStateValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_settlement', ['militiaId', 'settlementKey']),
+  militiaTeamState: defineTable(militiaTeamStateValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_teamId', ['militiaId', 'teamId']),
+  militiaEventState: defineTable(militiaEventStateValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_week', ['militiaId', 'weekNumber'])
+    .index('by_militiaId_persistent', ['militiaId', 'isPersistent']),
+  militiaOverrideNote: defineTable(militiaOverrideNoteValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_scope', ['militiaId', 'scope']),
   spell: defineTable(spellValidator).index('by_name', ['name']),
   characterSpell: defineTable(
     v.object({

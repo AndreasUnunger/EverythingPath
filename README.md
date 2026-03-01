@@ -1,39 +1,55 @@
 # EverythingPath
 
-## Todo
+EverythingPath is a multiplayer Pathfinder militia operations app for the Ironfang militia subsystem.
 
-- [x] Deploy
-- [x] CI
-- [x] Database
-- [x] Auth
-- [x] Db schema
-- [ ] Role based auth
-- [x] queryCacheProvider
-- [ ] Posthog
-- [x] overview at the top with basic name, stats, date, location
-- [ ] manual add team to militia
-- [ ] militia stats input
-- [ ] set up main "upkeep, action, event" game loop page
-- [ ] upkeep phase
-- [ ] action phase
-- [ ] event phase
-- [ ] keep track of in game date
+It is built to let a table run militia play week-by-week with shared realtime state, card-based action selection, and role-aware collaboration.
 
+## Product Goal
 
-initiate weekly rolls button unlocks the three tabs
+The app supports militia management during live play by guiding users through the weekly sequence:
 
-upkeep phase 
-input result of attrition roll in MVP, auto roll in future
-add penalty for low treasury to attrition
-increase rank ?
-adjust treasury. number field, slider
+1. Upkeep
+2. Activity
+3. Event
 
-action phase
-shuffle out cards for each action with text in MVP, images later
-show teams on the side  
-when an action card is hovered the associated team glows
-when an action card is dragged into an action slot the associated team moves to that slot as well
-show disabled actions at the bottom as well
-hovering a team makes the associated actions glow
+It is designed for groups already in-progress as well as fresh starts, including mid-campaign state onboarding.
 
-(24 different actions, too many for cards?)
+## Core Experience
+
+- Realtime multiplayer updates
+- Multi-device tabletop use (tablet landscape first)
+- Card UI for team/action choices (hover, drag, slot, stage, confirm)
+- Shared visibility of staged and confirmed changes
+- GM moderation controls for adjudication and correction
+
+## Rules Model
+
+Militia rules are implemented from the Ironfang rules corpus in `docs/ai/ironfang-militia/`.
+
+The system is rules-aware but not rules-blocking:
+- Structural invalid input is blocked
+- Rule mismatches are surfaced as warnings
+- Homebrew and table-approved overrides are supported
+
+## Current Data Model Highlights
+
+- Campaign, militia, character, and team ownership tables
+- Officer assignments on militia records
+- Weekly phase/state tracking tables
+- Team condition state tables (`active`, `disabled`, `missing`, `blocked`)
+- Event and persistent-event state tracking
+- Override notes for intentional rule deviations
+
+## Tech Stack
+
+- Next.js (App Router)
+- React + TypeScript
+- Convex (database + realtime backend)
+- Clerk (auth/org context)
+- TanStack Query
+
+## Development
+
+Requirements:
+- Node.js
+- pnpm

@@ -80,6 +80,60 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 - GM controls are hidden from non-GM players.
 - GM controls should allow conflict resolution and correction of staged/confirmed state when table adjudication requires it.
 
+### Character Ledger and Officer Assignments
+
+- The application must include a ledger for tracking characters tied to the militia.
+- The MVP ledger should support creating and editing basic character records with at least:
+  - name
+  - level
+  - core stats/ability scores
+  - short notes
+- The ledger must support assigning characters to militia officer roles and show current assignments clearly.
+- Officer assignment data should be campaign-scoped, synced in real time through Convex, and visible to all players.
+- Reassignment must be straightforward during play (unassign, replace, or move between roles) without losing character records.
+- This ledger is the foundation for a future full character builder; current implementation should keep the model simple and extensible.
+
+### Rules Completeness Constraints
+
+- Do not re-encode rule text in this file; enforce behavior by referencing `militia-rules.md` and `militia-tables.md`.
+- Weekly state must track enough metadata to run rules correctly across weeks:
+  - first-week-upkeep skip
+  - uneventful-week bonus carry
+  - queued next-week effects
+  - persistent events with age/order
+- Officer assignments must apply officer mechanics from rules, including non-stacking behavior (except commandant where applicable), strategist action bonus behavior, and manager Charisma effects/limits.
+- Team state must support at least `active`, `disabled`, and `missing`, including their rule-based recovery/loss handling.
+- Action validation must enforce rule constraints such as:
+  - per-phase/per-team action limits
+  - `Lie Low` exclusivity
+  - `Drill Militia` once-per-Activity
+  - upgrade/recruit availability and team-cap constraints
+  - event-phase reactive actions (for example `Sabotage`)
+- Event resolution must include edge semantics from rules: min/max event chance bounds, `Roll Twice` handling, `Twice` duplicate behavior, and persistent-event mitigation/buyoff cadence.
+
+### Existing Campaign Onboarding (Mid-Campaign Start)
+
+- The system must support creating a militia at an in-progress state, not only at rank 1 / week 1.
+- Users must be able to initialize militia data from current table state in one setup flow, including at least:
+  - rank, training, treasury, focus, notoriety
+  - current reputation by settlement
+  - active teams and team conditions (`active` / `disabled` / `missing`)
+  - current officer assignments
+  - active/persistent events and queued next-week effects
+  - current week/phase context
+- Initialization should validate rule consistency (for example rank/training thresholds, team caps, and phase legality) and show clear errors before saving.
+- This onboarding path is a first-class workflow for MVP, not a fallback or admin-only feature.
+- After initialization, gameplay must proceed using the same weekly rules flow as normal play, without special-case behavior.
+
+### Validation Philosophy (Rules-Aware, Not Rules-Blocking)
+
+- Rule validation should be advisory by default, not hard-blocking.
+- The system must allow out-of-rules but table-valid states (for example homebrew adjustments, narrative rewards, GM exceptions, or legacy campaign drift).
+- Rule mismatches should be shown as warnings with clear context, not automatic rejection.
+- Hard validation should be limited to data integrity and technical correctness (for example required fields, valid IDs, correct data types, and numeric parseability).
+- Inputs that are structurally invalid (for example text in numeric fields, malformed references, impossible enum values) must still be blocked.
+- Where useful, users should be able to mark or annotate intentional overrides so future sessions understand why state differs from baseline rules.
+
 ### Non-Goals For MVP
 
 - Do not build a full tactical combat simulator.

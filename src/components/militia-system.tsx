@@ -32,6 +32,7 @@ export function MilitiaSystem({
               highestBoonReached: 1,
               HQLocation: 'Southern Fangwood',
               treasury: 0,
+              notoriety: 0,
               training: 0,
               focus: 'Secrecy',
             },

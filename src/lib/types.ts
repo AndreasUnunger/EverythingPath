@@ -5,6 +5,7 @@ export interface IMilitia {
   highestBoonReached: number;
   HQLocation: string;
   treasury: number;
+  notoriety: number;
   focus: 'Secrecy' | 'Loyalty' | 'Security' | null;
   training: number;
   ambassador?: string;

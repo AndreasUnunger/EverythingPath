@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 vi.mock('@convex-dev/react-query', () => ({
-  convexQuery: (...args: unknown[]) => mockConvexQuery(...args),
+  convexQuery: (fnRef: unknown, args: unknown) => mockConvexQuery(fnRef, args),
 }));
 
 vi.mock('@convex/_generated/api', () => ({
