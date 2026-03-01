@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { campaignQuery, militiaQuery } from './sharedQueries';
+import { campaignQuery, characterLedgerQuery, militiaQuery } from './sharedQueries';
 
 const mockUseQuery = vi.fn((options) => options);
 const mockConvexQuery = vi.fn((_fnRef, args) => ({
@@ -20,6 +20,7 @@ vi.mock('@convex/_generated/api', () => ({
   api: {
     militia: { getMilitia: 'getMilitia' },
     campaign: { getCampaigns: 'getCampaigns' },
+    character: { listByCampaign: 'listByCampaign' },
   },
 }));
 
@@ -64,6 +65,19 @@ describe('sharedQueries', () => {
 
     expect(mockUseQuery).toHaveBeenCalledWith(
       expect.objectContaining({ enabled: false }),
+    );
+  });
+
+  it('wires character ledger query with includeInactive and enabled guard', () => {
+    characterLedgerQuery('camp_1' as never, 'org_1', true, true);
+
+    expect(mockConvexQuery).toHaveBeenCalledWith('listByCampaign', {
+      campaignId: 'camp_1',
+      organizationId: 'org_1',
+      includeInactive: true,
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
     );
   });
 });

@@ -13,7 +13,11 @@ export function Ledger({
 }) {
   return (
     <div className="flex columns-1 flex-col gap-4">
-      <CharacterManager />
+      <CharacterManager
+        selectedCampaignId={selectedCampaignId}
+        organizationId={organizationId}
+        canQuery={canQuery}
+      />
       <TeamManager
         selectedCampaignId={selectedCampaignId}
         organizationId={organizationId}

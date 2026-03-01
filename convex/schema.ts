@@ -101,6 +101,8 @@ export const characterValidator = v.object({
   ownerId: v.string(),
   campaignId: v.id('campaign'),
   description: v.string(),
+  kind: v.optional(v.union(v.literal('pc'), v.literal('officer_npc'))),
+  isActive: v.optional(v.boolean()),
   level: v.number(),
   strength: v.number(),
   dexterity: v.number(),

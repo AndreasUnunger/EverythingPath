@@ -127,12 +127,26 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 
 ### Validation Philosophy (Rules-Aware, Not Rules-Blocking)
 
+- Form validation should use `react-hook-form` with `zod` schemas and field-level error messages.
+- Use `zod` for structural/data-integrity validation (types, required values, parseability) before mutations.
+- Validation UI must match the application design system (typography, borders, spacing, and tone) whenever new UI is added.
+- Do not rely on browser-native validation UX; avoid native popups and use in-app, styled validation and warning presentation.
+- Validation should explicitly differentiate `required/empty` errors from `invalid type/format` errors where both cases are possible.
+- Validation messaging may expand within its own field container but must not misalign adjacent controls in the same row.
 - Rule validation should be advisory by default, not hard-blocking.
 - The system must allow out-of-rules but table-valid states (for example homebrew adjustments, narrative rewards, GM exceptions, or legacy campaign drift).
 - Rule mismatches should be shown as warnings with clear context, not automatic rejection.
 - Hard validation should be limited to data integrity and technical correctness (for example required fields, valid IDs, correct data types, and numeric parseability).
 - Inputs that are structurally invalid (for example text in numeric fields, malformed references, impossible enum values) must still be blocked.
 - Where useful, users should be able to mark or annotate intentional overrides so future sessions understand why state differs from baseline rules.
+
+### UI Implementation Preference
+
+- Prefer `shadcn/ui` components for all UI implementation by default; deviate only when a requirement cannot be met with `shadcn/ui`.
+
+### Engineering Guardrails
+
+- After feature changes, run `pnpm -s typecheck`, `pnpm -s lint`, and relevant tests before concluding work.
 
 ### Non-Goals For MVP
 

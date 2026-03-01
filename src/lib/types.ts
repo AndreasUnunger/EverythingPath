@@ -1,4 +1,7 @@
+type Id<TableName extends string> = string & { __tableName: TableName };
+
 export interface IMilitia {
+  _id: Id<'militia'>;
   name: string;
   campaignId: string;
   rank: number;

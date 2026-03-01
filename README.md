@@ -31,6 +31,8 @@ The system is rules-aware but not rules-blocking:
 - Rule mismatches are surfaced as warnings
 - Homebrew and table-approved overrides are supported
 
+Form validation is implemented with `react-hook-form` + `zod` for clear field-level errors and consistent payload validation before server mutations.
+
 ## Current Data Model Highlights
 
 - Campaign, militia, character, and team ownership tables
@@ -47,6 +49,7 @@ The system is rules-aware but not rules-blocking:
 - Convex (database + realtime backend)
 - Clerk (auth/org context)
 - TanStack Query
+- React Hook Form + Zod (form validation)
 
 ## Development
 

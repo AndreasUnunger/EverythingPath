@@ -25,3 +25,19 @@ export function campaignQuery(orgId: string | undefined, enabled = true) {
     enabled,
   });
 }
+
+export function characterLedgerQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+  includeInactive = false,
+) {
+  return useQuery({
+    ...convexQuery(db.character.listByCampaign, {
+      campaignId,
+      organizationId: orgId,
+      includeInactive,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
