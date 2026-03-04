@@ -147,6 +147,9 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 ### Engineering Guardrails
 
 - After feature changes, run `pnpm -s typecheck`, `pnpm -s lint`, and relevant tests before concluding work.
+- Follow React guidance from “You Might Not Need an Effect”: avoid `useEffect` for derived state or internal data flow when it can be expressed with render logic, memoization, event handlers, or keyed resets.
+- Prefer feature architecture that separates concerns: keep route/page components thin and mostly presentational, move orchestration/derived state into focused controller hooks, isolate backend writes behind mutation/service hooks, and keep rule logic in shared pure utilities rather than scattered across UI components.
+- When rules provide deterministic numeric defaults, prefill those values in the UI automatically (while still allowing user override and syncing), instead of requiring manual re-entry.
 
 ### Non-Goals For MVP
 

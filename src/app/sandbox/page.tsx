@@ -1,10 +1,11 @@
 'use client';
 
-import { useQuery } from 'convex-helpers/react/cache';
-import { api } from '@convex/_generated/api';
+import { WeekBoardPrototypes } from '~/components/week-board-prototypes';
 
 export default function Sandbox() {
-  const spellCount = useQuery(api.spell.getCount);
-
-  return <div>Spell count: {spellCount}</div>;
+  return (
+    <main className="mx-auto max-w-7xl p-4 md:p-6">
+      <WeekBoardPrototypes />
+    </main>
+  );
 }

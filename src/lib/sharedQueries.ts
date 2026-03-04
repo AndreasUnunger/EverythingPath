@@ -41,3 +41,17 @@ export function characterLedgerQuery(
     enabled: enabled && !!campaignId && !!orgId,
   });
 }
+
+export function weekBoardStateQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.weekBoard.getWeekBoardState, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
