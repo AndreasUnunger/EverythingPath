@@ -37,6 +37,9 @@ export function useWeekBoardController({
   const [upkeepAttritionTotal, setUpkeepAttritionTotal] = useState('');
   const [upkeepNotorietyPenaltyTotal, setUpkeepNotorietyPenaltyTotal] =
     useState('');
+  const [maxNotorietyLoyaltyCheckTotal, setMaxNotorietyLoyaltyCheckTotal] =
+    useState('');
+  const [nearestSettlementKey, setNearestSettlementKey] = useState('');
   const [upkeepTreasuryPenaltyTotal, setUpkeepTreasuryPenaltyTotal] =
     useState('');
   const [eventChanceTotal, setEventChanceTotal] = useState('');
@@ -44,6 +47,13 @@ export function useWeekBoardController({
   const [eventPercentileTotal, setEventPercentileTotal] = useState('');
   const [eventRollTwiceFirst, setEventRollTwiceFirst] = useState('');
   const [eventRollTwiceSecond, setEventRollTwiceSecond] = useState('');
+  const [guaranteedEventFirstPercentileTotal, setGuaranteedEventFirstPercentileTotal] =
+    useState('');
+  const [guaranteedEventSecondPercentileTotal, setGuaranteedEventSecondPercentileTotal] =
+    useState('');
+  const [guaranteedEventChoice, setGuaranteedEventChoice] = useState<
+    'first' | 'second' | ''
+  >('');
   const [sabotageCheckTotal, setSabotageCheckTotal] = useState('');
   const [sabotageNotorietyIncreaseTotal, setSabotageNotorietyIncreaseTotal] =
     useState('');
@@ -78,6 +88,14 @@ export function useWeekBoardController({
       [eventTotals.eventPercentileTotal, setEventPercentileTotal],
       [eventTotals.rollTwiceFirstTotal, setEventRollTwiceFirst],
       [eventTotals.rollTwiceSecondTotal, setEventRollTwiceSecond],
+      [
+        eventTotals.guaranteedFirstPercentileTotal,
+        setGuaranteedEventFirstPercentileTotal,
+      ],
+      [
+        eventTotals.guaranteedSecondPercentileTotal,
+        setGuaranteedEventSecondPercentileTotal,
+      ],
       [eventTotals.sabotageCheckTotal, setSabotageCheckTotal],
       [
         eventTotals.sabotageNotorietyIncreaseTotal,
@@ -85,18 +103,30 @@ export function useWeekBoardController({
       ],
     ];
     syncPairs.forEach(([value, setter]) => setter(value?.toString() ?? ''));
+    setGuaranteedEventChoice(eventTotals.guaranteedChosen ?? '');
     setEventChanceTotal(
       eventTotals.eventChanceTotal?.toString() ?? defaultEventChance,
     );
     const defaultTreasuryPenalty = showTreasuryShortagePenalty
       ? String(data.rank + 2)
       : '';
+    const defaultNearestSettlement = data.settlementKeys[0] ?? '';
     setUpkeepTreasuryPenaltyTotal(
       upkeepTotals.treasuryPenaltyTotal?.toString() ?? defaultTreasuryPenalty,
+    );
+    setMaxNotorietyLoyaltyCheckTotal(
+      upkeepTotals.maxNotorietyLoyaltyCheckTotal?.toString() ?? '',
+    );
+    setNearestSettlementKey(
+      upkeepTotals.nearestSettlementKey ?? defaultNearestSettlement,
     );
   }, [data, showTreasuryShortagePenalty]);
 
   const phase = (data?.state.phase as WeekPhase | undefined) ?? 'upkeep';
+  const hasActivePersistentEvents = (data?.activePersistentEvents?.length ?? 0) > 0;
+  const availablePhases: WeekPhase[] = hasActivePersistentEvents || phase === 'persistent'
+    ? ['upkeep', 'activity', 'event', 'persistent', 'week_closed']
+    : ['upkeep', 'activity', 'event', 'week_closed'];
   const persistedSlots = useMemo(() => {
     const maxActions = data?.maxActions ?? 2;
     const base =
@@ -148,8 +178,14 @@ export function useWeekBoardController({
     parsedSabotageCheck >= 15 + (data?.rank ?? 0);
   const shouldResolveEventTable =
     eventWouldOccurBeforeSabotage && !sabotageNegatesEvent;
+  const effectiveEventPercentileTotal =
+    hasGuaranteedEventAction && shouldResolveEventTable
+      ? guaranteedEventChoice === 'second'
+        ? guaranteedEventSecondPercentileTotal
+        : guaranteedEventFirstPercentileTotal || guaranteedEventSecondPercentileTotal
+      : eventPercentileTotal;
   const resolvedEvent = shouldResolveEventTable
-    ? resolveMilitiaEventFromPercentile(eventPercentileTotal)
+    ? resolveMilitiaEventFromPercentile(effectiveEventPercentileTotal)
     : null;
   const showRollTwiceFields =
     shouldResolveEventTable &&
@@ -182,6 +218,8 @@ export function useWeekBoardController({
       organizationId,
       upkeepAttritionTotal,
       upkeepNotorietyPenaltyTotal,
+      maxNotorietyLoyaltyCheckTotal,
+      nearestSettlementKey,
       upkeepTreasuryPenaltyTotal,
       showMaxNotorietyPenalty,
       showTreasuryShortagePenalty,
@@ -192,11 +230,23 @@ export function useWeekBoardController({
       const localNotorietyPenalty = showMaxNotorietyPenalty
         ? upkeepNotorietyPenaltyTotal
         : '';
+      const localMaxNotorietyLoyaltyCheck = showMaxNotorietyPenalty
+        ? maxNotorietyLoyaltyCheckTotal
+        : '';
+      const localNearestSettlement = showMaxNotorietyPenalty
+        ? nearestSettlementKey
+        : '';
       const localTreasuryPenalty = showTreasuryShortagePenalty
         ? upkeepTreasuryPenaltyTotal
         : '';
       const serverNotorietyPenalty = showMaxNotorietyPenalty
         ? serverUpkeepTotals.notorietyPenaltyTotal?.toString() ?? ''
+        : '';
+      const serverMaxNotorietyLoyaltyCheck = showMaxNotorietyPenalty
+        ? serverUpkeepTotals.maxNotorietyLoyaltyCheckTotal?.toString() ?? ''
+        : '';
+      const serverNearestSettlement = showMaxNotorietyPenalty
+        ? serverUpkeepTotals.nearestSettlementKey ?? ''
         : '';
       const serverTreasuryPenalty = showTreasuryShortagePenalty
         ? serverUpkeepTotals.treasuryPenaltyTotal?.toString() ?? ''
@@ -205,6 +255,8 @@ export function useWeekBoardController({
       if (
         upkeepAttritionTotal === (serverUpkeepTotals.attritionTotal?.toString() ?? '') &&
         localNotorietyPenalty === serverNotorietyPenalty &&
+        localMaxNotorietyLoyaltyCheck === serverMaxNotorietyLoyaltyCheck &&
+        localNearestSettlement === serverNearestSettlement &&
         localTreasuryPenalty === serverTreasuryPenalty
       ) {
         return true;
@@ -213,6 +265,7 @@ export function useWeekBoardController({
       return !(
         isParsableManualTotal(upkeepAttritionTotal) &&
         isParsableManualTotal(localNotorietyPenalty) &&
+        isParsableManualTotal(localMaxNotorietyLoyaltyCheck) &&
         isParsableManualTotal(localTreasuryPenalty)
       );
     },
@@ -223,6 +276,12 @@ export function useWeekBoardController({
         attritionTotal: upkeepAttritionTotal,
         notorietyPenaltyTotal: showMaxNotorietyPenalty
           ? upkeepNotorietyPenaltyTotal
+          : undefined,
+        maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
+          ? maxNotorietyLoyaltyCheckTotal
+          : undefined,
+        nearestSettlementKey: showMaxNotorietyPenalty
+          ? nearestSettlementKey || undefined
           : undefined,
         treasuryPenaltyTotal: showTreasuryShortagePenalty
           ? upkeepTreasuryPenaltyTotal
@@ -244,6 +303,10 @@ export function useWeekBoardController({
       eventPercentileTotal,
       eventRollTwiceFirst,
       eventRollTwiceSecond,
+      guaranteedEventFirstPercentileTotal,
+      guaranteedEventSecondPercentileTotal,
+      guaranteedEventChoice,
+      hasGuaranteedEventAction,
       sabotageCheckTotal,
       sabotageNotorietyIncreaseTotal,
       shouldResolveEventTable,
@@ -253,7 +316,18 @@ export function useWeekBoardController({
     shouldSkip: () => {
       if (!data?.militiaId) return true;
       const localEventPercentile = shouldResolveEventTable
-        ? eventPercentileTotal
+        ? hasGuaranteedEventAction
+          ? ''
+          : eventPercentileTotal
+        : '';
+      const localGuaranteedFirst = hasGuaranteedEventAction
+        ? guaranteedEventFirstPercentileTotal
+        : '';
+      const localGuaranteedSecond = hasGuaranteedEventAction
+        ? guaranteedEventSecondPercentileTotal
+        : '';
+      const localGuaranteedChoice = hasGuaranteedEventAction
+        ? guaranteedEventChoice
         : '';
       const localFirst = showRollTwiceFields ? eventRollTwiceFirst : '';
       const localSecond = showRollTwiceFields ? eventRollTwiceSecond : '';
@@ -267,7 +341,18 @@ export function useWeekBoardController({
       const serverEventTriggerRoll =
         serverEventTotals.eventTriggerRollTotal?.toString() ?? '';
       const serverEventPercentile = shouldResolveEventTable
-        ? serverEventTotals.eventPercentileTotal?.toString() ?? ''
+        ? hasGuaranteedEventAction
+          ? ''
+          : serverEventTotals.eventPercentileTotal?.toString() ?? ''
+        : '';
+      const serverGuaranteedFirst = hasGuaranteedEventAction
+        ? serverEventTotals.guaranteedFirstPercentileTotal?.toString() ?? ''
+        : '';
+      const serverGuaranteedSecond = hasGuaranteedEventAction
+        ? serverEventTotals.guaranteedSecondPercentileTotal?.toString() ?? ''
+        : '';
+      const serverGuaranteedChoice = hasGuaranteedEventAction
+        ? serverEventTotals.guaranteedChosen ?? ''
         : '';
       const serverFirst = showRollTwiceFields
         ? serverEventTotals.rollTwiceFirstTotal?.toString() ?? ''
@@ -286,6 +371,9 @@ export function useWeekBoardController({
         eventChanceTotal === serverEventChance &&
         eventTriggerRollTotal === serverEventTriggerRoll &&
         localEventPercentile === serverEventPercentile &&
+        localGuaranteedFirst === serverGuaranteedFirst &&
+        localGuaranteedSecond === serverGuaranteedSecond &&
+        localGuaranteedChoice === serverGuaranteedChoice &&
         localFirst === serverFirst &&
         localSecond === serverSecond &&
         localSabotageCheck === serverSabotageCheck &&
@@ -298,6 +386,8 @@ export function useWeekBoardController({
         isParsableManualTotal(eventChanceTotal) &&
         isParsableManualTotal(eventTriggerRollTotal) &&
         isParsableManualTotal(localEventPercentile) &&
+        isParsableManualTotal(localGuaranteedFirst) &&
+        isParsableManualTotal(localGuaranteedSecond) &&
         isParsableManualTotal(localFirst) &&
         isParsableManualTotal(localSecond) &&
         isParsableManualTotal(localSabotageCheck) &&
@@ -311,7 +401,18 @@ export function useWeekBoardController({
         eventChanceTotal,
         eventTriggerRollTotal,
         eventPercentileTotal: shouldResolveEventTable
-          ? eventPercentileTotal
+          ? hasGuaranteedEventAction
+            ? undefined
+            : eventPercentileTotal
+          : undefined,
+        guaranteedFirstPercentileTotal: hasGuaranteedEventAction
+          ? guaranteedEventFirstPercentileTotal
+          : undefined,
+        guaranteedSecondPercentileTotal: hasGuaranteedEventAction
+          ? guaranteedEventSecondPercentileTotal
+          : undefined,
+        guaranteedChosen: hasGuaranteedEventAction
+          ? guaranteedEventChoice || undefined
           : undefined,
         rollTwiceFirstTotal: showRollTwiceFields
           ? eventRollTwiceFirst
@@ -420,25 +521,43 @@ export function useWeekBoardController({
       if (!data?.militiaId) return;
       setError(undefined);
       try {
-        await mutations.continueToSummary(data.militiaId, {
-          eventChanceTotal,
-          eventTriggerRollTotal,
-          eventPercentileTotal: shouldResolveEventTable
-            ? eventPercentileTotal
-            : undefined,
-          rollTwiceFirstTotal: showRollTwiceFields
-            ? eventRollTwiceFirst
-            : undefined,
-          rollTwiceSecondTotal: showRollTwiceFields
-            ? eventRollTwiceSecond
-            : undefined,
-          sabotageCheckTotal: eventWouldOccurBeforeSabotage
-            ? sabotageCheckTotal
-            : undefined,
-          sabotageNotorietyIncreaseTotal: eventWouldOccurBeforeSabotage
-            ? sabotageNotorietyIncreaseTotal
-            : undefined,
-        });
+        const nextPhase: WeekPhase = hasActivePersistentEvents
+          ? 'persistent'
+          : 'week_closed';
+        await mutations.continueToSummary(
+          data.militiaId,
+          nextPhase,
+          {
+            eventChanceTotal,
+            eventTriggerRollTotal,
+            eventPercentileTotal: shouldResolveEventTable
+              ? hasGuaranteedEventAction
+                ? undefined
+                : eventPercentileTotal
+              : undefined,
+            guaranteedFirstPercentileTotal: hasGuaranteedEventAction
+              ? guaranteedEventFirstPercentileTotal
+              : undefined,
+            guaranteedSecondPercentileTotal: hasGuaranteedEventAction
+              ? guaranteedEventSecondPercentileTotal
+              : undefined,
+            guaranteedChosen: hasGuaranteedEventAction
+              ? guaranteedEventChoice || undefined
+              : undefined,
+            rollTwiceFirstTotal: showRollTwiceFields
+              ? eventRollTwiceFirst
+              : undefined,
+            rollTwiceSecondTotal: showRollTwiceFields
+              ? eventRollTwiceSecond
+              : undefined,
+            sabotageCheckTotal: eventWouldOccurBeforeSabotage
+              ? sabotageCheckTotal
+              : undefined,
+            sabotageNotorietyIncreaseTotal: eventWouldOccurBeforeSabotage
+              ? sabotageNotorietyIncreaseTotal
+              : undefined,
+          },
+        );
       } catch (innerError) {
         setError(getErrorMessage(innerError, 'Failed to continue to summary.'));
       }
@@ -482,6 +601,17 @@ export function useWeekBoardController({
         setError(getErrorMessage(innerError, 'Failed to rank up militia.'));
       }
     },
+    buyOffPersistentEvent: async (eventStateId: Id<'militiaEventState'>) => {
+      if (!data?.militiaId) return;
+      setError(undefined);
+      try {
+        await mutations.buyOffPersistentEventAction(data.militiaId, eventStateId);
+      } catch (innerError) {
+        setError(
+          getErrorMessage(innerError, 'Failed to buy off persistent event.'),
+        );
+      }
+    },
     setError,
   };
 
@@ -489,6 +619,7 @@ export function useWeekBoardController({
     data,
     isLoading,
     phase,
+    availablePhases,
     error,
     minimumTreasury,
     showMaxNotorietyPenalty,
@@ -497,6 +628,10 @@ export function useWeekBoardController({
     setUpkeepAttritionTotal,
     upkeepNotorietyPenaltyTotal,
     setUpkeepNotorietyPenaltyTotal,
+    maxNotorietyLoyaltyCheckTotal,
+    setMaxNotorietyLoyaltyCheckTotal,
+    nearestSettlementKey,
+    setNearestSettlementKey,
     upkeepTreasuryPenaltyTotal,
     setUpkeepTreasuryPenaltyTotal,
     eventChanceTotal,
@@ -505,6 +640,13 @@ export function useWeekBoardController({
     setEventTriggerRollTotal,
     eventPercentileTotal,
     setEventPercentileTotal,
+    effectiveEventPercentileTotal,
+    guaranteedEventFirstPercentileTotal,
+    setGuaranteedEventFirstPercentileTotal,
+    guaranteedEventSecondPercentileTotal,
+    setGuaranteedEventSecondPercentileTotal,
+    guaranteedEventChoice,
+    setGuaranteedEventChoice,
     eventRollTwiceFirst,
     setEventRollTwiceFirst,
     eventRollTwiceSecond,
@@ -525,6 +667,7 @@ export function useWeekBoardController({
     hasLieLowStaged,
     hasNonLieLowStaged,
     hasGuaranteedEventAction,
+    hasActivePersistentEvents,
     slotRows,
     resolvedEventTrigger,
     eventWouldOccurBeforeSabotage,
@@ -540,6 +683,8 @@ export function useWeekBoardController({
     actions,
   };
 }
+
+export type WeekBoardController = ReturnType<typeof useWeekBoardController>;
 
 function isParsableManualTotal(raw: string) {
   const trimmed = raw.trim();

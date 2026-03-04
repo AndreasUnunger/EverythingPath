@@ -13,6 +13,7 @@ export function useWeekBoardMutations(organizationId: string) {
     db.weekBoard.applyTreasuryTransaction,
   );
   const rankUpMilitia = useMutation(db.weekBoard.rankUpMilitia);
+  const buyOffPersistentEvent = useMutation(db.weekBoard.buyOffPersistentEvent);
 
   const savePhase = async (militiaId: Id<'militia'>, phase: WeekPhase) => {
     await saveWeekBoardState({
@@ -38,6 +39,8 @@ export function useWeekBoardMutations(organizationId: string) {
     upkeepRollTotals: {
       attritionTotal?: string;
       notorietyPenaltyTotal?: string;
+      maxNotorietyLoyaltyCheckTotal?: string;
+      nearestSettlementKey?: string;
       treasuryPenaltyTotal?: string;
     },
   ) => {
@@ -56,6 +59,9 @@ export function useWeekBoardMutations(organizationId: string) {
       eventPercentileTotal?: string;
       rollTwiceFirstTotal?: string;
       rollTwiceSecondTotal?: string;
+      guaranteedFirstPercentileTotal?: string;
+      guaranteedSecondPercentileTotal?: string;
+      guaranteedChosen?: 'first' | 'second';
       sabotageCheckTotal?: string;
       sabotageNotorietyIncreaseTotal?: string;
     },
@@ -69,12 +75,16 @@ export function useWeekBoardMutations(organizationId: string) {
 
   const continueToSummary = async (
     militiaId: Id<'militia'>,
+    nextPhase: WeekPhase,
     eventRollTotals: {
       eventChanceTotal?: string;
       eventTriggerRollTotal?: string;
       eventPercentileTotal?: string;
       rollTwiceFirstTotal?: string;
       rollTwiceSecondTotal?: string;
+      guaranteedFirstPercentileTotal?: string;
+      guaranteedSecondPercentileTotal?: string;
+      guaranteedChosen?: 'first' | 'second';
       sabotageCheckTotal?: string;
       sabotageNotorietyIncreaseTotal?: string;
     },
@@ -83,7 +93,7 @@ export function useWeekBoardMutations(organizationId: string) {
       organizationId,
       militiaId,
       patch: {
-        phase: 'week_closed',
+        phase: nextPhase,
         eventRollTotals,
       },
     });
@@ -123,6 +133,17 @@ export function useWeekBoardMutations(organizationId: string) {
     });
   };
 
+  const buyOffPersistentEventAction = async (
+    militiaId: Id<'militia'>,
+    eventStateId: Id<'militiaEventState'>,
+  ) => {
+    await buyOffPersistentEvent({
+      organizationId,
+      militiaId,
+      eventStateId,
+    });
+  };
+
   return {
     savePhase,
     saveSlots,
@@ -133,5 +154,6 @@ export function useWeekBoardMutations(organizationId: string) {
     goBackWeek,
     applyTreasuryUpdate,
     applyRankUp,
+    buyOffPersistentEventAction,
   };
 }

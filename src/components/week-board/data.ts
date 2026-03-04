@@ -255,6 +255,7 @@ export const WEEK_PHASES: WeekPhase[] = [
   'upkeep',
   'activity',
   'event',
+  'persistent',
   'week_closed',
 ];
 

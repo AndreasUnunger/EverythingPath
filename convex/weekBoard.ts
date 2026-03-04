@@ -8,6 +8,20 @@ import {
 import { hasAccessToOrg } from './user';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
+import {
+  clampPercent,
+  consumeQueuedEffectsForWeek,
+  deriveFutureEffectsAndPersistence,
+  computeNextUneventfulBonusCarry,
+  getWeekModifiers,
+  resolveWeekEvents,
+  resolveEventFromPercentile,
+  shouldApplyBaseEffect,
+} from './weekResolution';
+import {
+  lowerReputationWithFloorUnfriendly,
+  validateStagedActionsLegality,
+} from './weekBoardRules';
 
 function getMaxActionsForRank(rank: number) {
   if (rank >= 19) return 6;
@@ -142,39 +156,6 @@ function parseNonNegativeTotal(raw?: string) {
   return parsed;
 }
 
-function clampPercent(raw: number) {
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-}
-
-function resolveEventFromPercentile(percentile?: number) {
-  if (percentile === undefined) return undefined;
-  const value = clampPercent(percentile);
-  if (value <= 4) return 'week_of_serenity';
-  if (value <= 12) return 'war_games';
-  if (value <= 16) return 'night_ops';
-  if (value <= 20) return 'broke_the_code';
-  if (value <= 24) return 'found_fire';
-  if (value <= 28) return 'high_morale';
-  if (value <= 32) return 'turn_around';
-  if (value <= 36) return 'festival';
-  if (value <= 40) return 'market_day';
-  if (value <= 44) return 'hidden_agenda';
-  if (value <= 48) return 'all_is_calm';
-  if (value <= 52) return 'roll_twice';
-  if (value <= 56) return 'calm_before_the_storm';
-  if (value <= 60) return 'turncoat';
-  if (value <= 64) return 'cache_discovered';
-  if (value <= 68) return 'rivalry';
-  if (value <= 72) return 'missing_in_action';
-  if (value <= 76) return 'theft';
-  if (value <= 80) return 'raid';
-  if (value <= 84) return 'invasion';
-  if (value <= 88) return 'low_morale';
-  if (value <= 96) return 'sickness';
-  if (value <= 99) return 'double_agent';
-  return 'week_of_pain';
-}
-
 function eventWouldOccur({
   chanceTotal,
   triggerRollTotal,
@@ -192,13 +173,18 @@ function eventWouldOccur({
 function applyWeekResolution({
   current,
   militia,
+  activeQueuedEffects,
+  activePersistentEventTypes,
 }: {
   current: {
     weekNumber: number;
+    uneventfulBonusCarry: number;
     stagedActivityActionIds: (string | null)[];
     upkeepRollTotals?: {
       attritionTotal?: number;
       notorietyPenaltyTotal?: number;
+      maxNotorietyLoyaltyCheckTotal?: number;
+      nearestSettlementKey?: string;
       treasuryPenaltyTotal?: number;
     };
     activityRollTotals?: {
@@ -216,6 +202,11 @@ function applyWeekResolution({
       eventChanceTotal?: number;
       eventTriggerRollTotal?: number;
       eventPercentileTotal?: number;
+      rollTwiceFirstTotal?: number;
+      rollTwiceSecondTotal?: number;
+      guaranteedFirstPercentileTotal?: number;
+      guaranteedSecondPercentileTotal?: number;
+      guaranteedChosen?: 'first' | 'second';
       sabotageCheckTotal?: number;
       sabotageNotorietyIncreaseTotal?: number;
     };
@@ -226,20 +217,64 @@ function applyWeekResolution({
     treasury: number;
     notoriety: number;
   };
+  activeQueuedEffects: Array<{
+    kind:
+      | 'week_of_pain_checks_penalty'
+      | 'double_upkeep_attrition'
+      | 'week_of_serenity_checks_bonus'
+      | 'double_next_activity_training_gain'
+      | 'all_is_calm_auto_next_week'
+      | 'auto_event_roll_once'
+      | 'auto_event_roll_twice';
+    appliesWeek: number;
+    note?: string;
+  }>;
+  activePersistentEventTypes: Array<
+    | 'all_is_calm'
+    | 'broke_the_code'
+    | 'cache_discovered'
+    | 'calm_before_the_storm'
+    | 'double_agent'
+    | 'festival'
+    | 'found_fire'
+    | 'hidden_agenda'
+    | 'high_morale'
+    | 'invasion'
+    | 'low_morale'
+    | 'market_day'
+    | 'missing_in_action'
+    | 'night_ops'
+    | 'raid'
+    | 'rivalry'
+    | 'roll_twice'
+    | 'sickness'
+    | 'theft'
+    | 'turn_around'
+    | 'turncoat'
+    | 'war_games'
+    | 'week_of_pain'
+    | 'week_of_serenity'
+  >;
 }) {
   const upkeep = current.upkeepRollTotals ?? {};
   const activity = current.activityRollTotals ?? {};
   const event = current.eventRollTotals ?? {};
+  const modifiers = getWeekModifiers({
+    activeQueuedEffects,
+    activePersistentEventTypes,
+  });
 
   let training = militia.training;
   let treasury = militia.treasury;
   let notoriety = militia.notoriety;
 
-  training -= upkeep.attritionTotal ?? 0;
+  training -= (upkeep.attritionTotal ?? 0) * modifiers.attritionMultiplier;
   training -= upkeep.notorietyPenaltyTotal ?? 0;
   training -= upkeep.treasuryPenaltyTotal ?? 0;
-  training += activity.drillMilitiaTrainingGainTotal ?? 0;
-  treasury += activity.earnGoldTotal ?? 0;
+  training +=
+    (activity.drillMilitiaTrainingGainTotal ?? 0) *
+    modifiers.activityTrainingGainMultiplier;
+  treasury += (activity.earnGoldTotal ?? 0) * modifiers.incomeMultiplier;
 
   notoriety += activity.activateBlackMarketNotorietyIncreaseTotal ?? 0;
   notoriety += activity.dismissTeamNotorietyIncreaseTotal ?? 0;
@@ -258,26 +293,93 @@ function applyWeekResolution({
     guaranteedByAction,
   });
 
-  let eventOccurred = occurredBeforeSabotage;
-  if (occurredBeforeSabotage && event.sabotageCheckTotal !== undefined) {
+  let eventOccurred = modifiers.forceAllIsCalm ? true : occurredBeforeSabotage;
+  if (
+    !modifiers.forceAllIsCalm &&
+    occurredBeforeSabotage &&
+    event.sabotageCheckTotal !== undefined
+  ) {
     notoriety += event.sabotageNotorietyIncreaseTotal ?? 0;
     if (event.sabotageCheckTotal >= 15 + militia.rank) {
       eventOccurred = false;
     }
   }
 
-  const resolvedEventType = eventOccurred
-    ? resolveEventFromPercentile(event.eventPercentileTotal)
-    : undefined;
+  const resolvedEvents = modifiers.forceAllIsCalm
+    ? ([{ eventType: 'all_is_calm', rolledValue: 45, isTwiceClause: true }] as Array<{
+        eventType:
+          | 'all_is_calm'
+          | 'broke_the_code'
+          | 'cache_discovered'
+          | 'calm_before_the_storm'
+          | 'double_agent'
+          | 'festival'
+          | 'found_fire'
+          | 'hidden_agenda'
+          | 'high_morale'
+          | 'invasion'
+          | 'low_morale'
+          | 'market_day'
+          | 'missing_in_action'
+          | 'night_ops'
+          | 'raid'
+          | 'rivalry'
+          | 'roll_twice'
+          | 'sickness'
+          | 'theft'
+          | 'turn_around'
+          | 'turncoat'
+          | 'war_games'
+          | 'week_of_pain'
+          | 'week_of_serenity';
+        rolledValue: number;
+        isTwiceClause: boolean;
+      }>)
+    : resolveWeekEvents({
+        eventOccurred,
+        guaranteedByAction,
+        eventPercentileTotal: event.eventPercentileTotal,
+        rollTwiceFirstTotal: event.rollTwiceFirstTotal,
+        rollTwiceSecondTotal: event.rollTwiceSecondTotal,
+        guaranteedFirstPercentileTotal: event.guaranteedFirstPercentileTotal,
+        guaranteedSecondPercentileTotal: event.guaranteedSecondPercentileTotal,
+        guaranteedChosen: event.guaranteedChosen,
+      });
 
-  if (resolvedEventType === 'war_games') {
-    training += militia.rank;
+  const autoEventCount = activeQueuedEffects.reduce((count, effect) => {
+    if (effect.kind === 'auto_event_roll_once') return count + 1;
+    if (effect.kind === 'auto_event_roll_twice') return count + 2;
+    return count;
+  }, 0);
+  const autoEventRolls = [event.rollTwiceFirstTotal, event.rollTwiceSecondTotal]
+    .slice(0, autoEventCount)
+    .map((raw) => resolveEventFromPercentile(raw))
+    .filter((value): value is NonNullable<typeof value> => value !== null)
+    .filter((value) => value.eventType !== 'roll_twice');
+  resolvedEvents.push(...autoEventRolls);
+
+  for (const resolved of resolvedEvents) {
+    if (resolved.eventType === 'war_games' && shouldApplyBaseEffect(resolved)) {
+      training += militia.rank;
+    }
+    if (resolved.eventType === 'theft' && shouldApplyBaseEffect(resolved)) {
+      treasury = Math.floor(treasury / 2);
+    }
   }
 
-  const countsAsUneventful =
-    !eventOccurred || resolvedEventType === 'all_is_calm';
-  const nextUneventfulBonusCarry =
-    countsAsUneventful && current.weekNumber > 1 ? militia.rank : 0;
+  const nextUneventfulBonusCarry = computeNextUneventfulBonusCarry({
+    weekNumber: current.weekNumber,
+    currentCarry: current.uneventfulBonusCarry ?? 0,
+    rank: militia.rank,
+    eventOccurred,
+    resolvedEvents,
+  });
+
+  const nearestSettlementKey = upkeep.nearestSettlementKey?.trim();
+  let nearestSettlementKeyValue: string | undefined;
+  if (nearestSettlementKey && nearestSettlementKey.length > 0) {
+    nearestSettlementKeyValue = nearestSettlementKey;
+  }
 
   return {
     militiaPatch: {
@@ -286,6 +388,13 @@ function applyWeekResolution({
       notoriety,
     },
     nextUneventfulBonusCarry,
+    resolvedEvents,
+    shouldDropNearestSettlementReputation:
+      militia.notoriety >= 100 &&
+      upkeep.maxNotorietyLoyaltyCheckTotal !== undefined &&
+      upkeep.maxNotorietyLoyaltyCheckTotal < 15 &&
+      Boolean(nearestSettlementKey),
+    nearestSettlementKey: nearestSettlementKeyValue,
   };
 }
 
@@ -322,8 +431,27 @@ export const getWeekBoardState = query({
       .query('militiaWeekState')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
       .collect();
+    const settlementStates = await ctx.db
+      .query('militiaSettlementState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const activePersistentEvents = await ctx.db
+      .query('militiaEventState')
+      .withIndex('by_militiaId_persistent', (q) =>
+        q.eq('militiaId', militia._id).eq('isPersistent', true),
+      )
+      .collect();
 
     const currentState = states.sort((a, b) => b.weekNumber - a.weekNumber)[0];
+    const unresolvedPersistent = activePersistentEvents
+      .filter((event) => !event.resolved)
+      .sort((a, b) => a.startedWeek - b.startedWeek);
+    const currentWeekNumber = currentState?.weekNumber ?? 1;
+    const lastPersistentBuyoffWeek = currentState?.lastPersistentBuyoffWeek ?? 0;
+    const buyoffWeeksRemaining = Math.max(
+      0,
+      4 - (currentWeekNumber - lastPersistentBuyoffWeek),
+    );
     const highestPcLevel = await getHighestActivePcLevel(ctx, militia.campaignId);
     const rankUp = getRankUpEligibility({
       rank: militia.rank,
@@ -337,7 +465,20 @@ export const getWeekBoardState = query({
       training: militia.training,
       treasury: militia.treasury,
       notoriety: militia.notoriety,
+      settlementKeys: settlementStates
+        .map((settlement) => settlement.settlementKey)
+        .sort((a, b) => a.localeCompare(b)),
       highestPcLevel,
+      activePersistentEvents: unresolvedPersistent.map((event) => ({
+        _id: event._id,
+        eventType: event.eventType,
+        startedWeek: event.startedWeek,
+      })),
+      persistentBuyoff: {
+        cost: 2 * militia.rank * 10,
+        weeksRemaining: buyoffWeeksRemaining,
+        canBuyoffNow: buyoffWeeksRemaining === 0,
+      },
       canRankUp: rankUp.canRankUp,
       rankUpBlockedReason: rankUp.reason,
       maxActions: getMaxActionsForRank(militia.rank),
@@ -349,6 +490,7 @@ export const getWeekBoardState = query({
           skippedUpkeepThisWeek: true,
           uneventfulBonusCarry: 0,
           queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
           stagedActivityActionIds: Array.from({ length: getMaxActionsForRank(militia.rank) }, () => null),
           lockVersion: 0,
           upkeepRollTotals: {},
@@ -371,6 +513,8 @@ export const saveWeekBoardState = mutation({
         v.object({
           attritionTotal: v.optional(v.string()),
           notorietyPenaltyTotal: v.optional(v.string()),
+          maxNotorietyLoyaltyCheckTotal: v.optional(v.string()),
+          nearestSettlementKey: v.optional(v.string()),
           treasuryPenaltyTotal: v.optional(v.string()),
         }),
       ),
@@ -407,6 +551,11 @@ export const saveWeekBoardState = mutation({
           eventPercentileTotal: v.optional(v.string()),
           rollTwiceFirstTotal: v.optional(v.string()),
           rollTwiceSecondTotal: v.optional(v.string()),
+          guaranteedFirstPercentileTotal: v.optional(v.string()),
+          guaranteedSecondPercentileTotal: v.optional(v.string()),
+          guaranteedChosen: v.optional(
+            v.union(v.literal('first'), v.literal('second')),
+          ),
           sabotageCheckTotal: v.optional(v.string()),
           sabotageNotorietyIncreaseTotal: v.optional(v.string()),
         }),
@@ -425,7 +574,7 @@ export const saveWeekBoardState = mutation({
     const maxActions = getMaxActionsForRank(militia.rank);
 
     const nextPatch: {
-      phase?: 'upkeep' | 'activity' | 'event' | 'week_closed';
+      phase?: 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed';
       weekNumber?: number;
       stagedActivityActionIds?: (
         | 'activate_black_market'
@@ -456,6 +605,8 @@ export const saveWeekBoardState = mutation({
       upkeepRollTotals?: {
         attritionTotal?: number;
         notorietyPenaltyTotal?: number;
+        maxNotorietyLoyaltyCheckTotal?: number;
+        nearestSettlementKey?: string;
         treasuryPenaltyTotal?: number;
       };
       activityRollTotals?: {
@@ -488,6 +639,9 @@ export const saveWeekBoardState = mutation({
         eventPercentileTotal?: number;
         rollTwiceFirstTotal?: number;
         rollTwiceSecondTotal?: number;
+        guaranteedFirstPercentileTotal?: number;
+        guaranteedSecondPercentileTotal?: number;
+        guaranteedChosen?: 'first' | 'second';
         sabotageCheckTotal?: number;
         sabotageNotorietyIncreaseTotal?: number;
       };
@@ -503,6 +657,22 @@ export const saveWeekBoardState = mutation({
       nextPatch.weekNumber = args.patch.weekNumber;
     }
     if (args.patch.stagedActivityActionIds) {
+      const teamRows = await ctx.db
+        .query('militiaTeam')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
+      const teamStates = await ctx.db
+        .query('militiaTeamState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
+      const teamStatusById = new Map(teamStates.map((state) => [state.teamId, state.status]));
+      const activeTeamIds = teamRows
+        .map((row) => row.teamId)
+        .filter((teamId) => (teamStatusById.get(teamId) ?? 'active') === 'active');
+      validateStagedActionsLegality({
+        stagedActions: args.patch.stagedActivityActionIds,
+        activeTeamIds,
+      });
       nextPatch.stagedActivityActionIds = args.patch.stagedActivityActionIds.slice(
         0,
         maxActions,
@@ -514,6 +684,13 @@ export const saveWeekBoardState = mutation({
         notorietyPenaltyTotal: parseManualTotal(
           args.patch.upkeepRollTotals.notorietyPenaltyTotal,
         ),
+        maxNotorietyLoyaltyCheckTotal: parseManualTotal(
+          args.patch.upkeepRollTotals.maxNotorietyLoyaltyCheckTotal,
+        ),
+        nearestSettlementKey: args.patch.upkeepRollTotals.nearestSettlementKey
+          ?.trim()
+          ? args.patch.upkeepRollTotals.nearestSettlementKey.trim()
+          : undefined,
         treasuryPenaltyTotal: parseManualTotal(
           args.patch.upkeepRollTotals.treasuryPenaltyTotal,
         ),
@@ -606,6 +783,13 @@ export const saveWeekBoardState = mutation({
         rollTwiceSecondTotal: parseManualTotal(
           args.patch.eventRollTotals.rollTwiceSecondTotal,
         ),
+        guaranteedFirstPercentileTotal: parseManualTotal(
+          args.patch.eventRollTotals.guaranteedFirstPercentileTotal,
+        ),
+        guaranteedSecondPercentileTotal: parseManualTotal(
+          args.patch.eventRollTotals.guaranteedSecondPercentileTotal,
+        ),
+        guaranteedChosen: args.patch.eventRollTotals.guaranteedChosen,
         sabotageCheckTotal: parseManualTotal(
           args.patch.eventRollTotals.sabotageCheckTotal,
         ),
@@ -625,6 +809,7 @@ export const saveWeekBoardState = mutation({
         skippedUpkeepThisWeek: baseWeek === 1,
         uneventfulBonusCarry: 0,
         queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
         stagedActivityActionIds:
           nextPatch.stagedActivityActionIds ??
           Array.from({ length: maxActions }, () => null),
@@ -664,6 +849,7 @@ export const commitCurrentPhase = mutation({
         skippedUpkeepThisWeek: true,
         uneventfulBonusCarry: 0,
         queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
         stagedActivityActionIds: Array.from({ length: maxActions }, () => null),
         activityRollTotals: {},
         lockVersion: 1,
@@ -671,19 +857,45 @@ export const commitCurrentPhase = mutation({
       return { nextPhase: 'activity', weekNumber: 1 };
     }
 
-    let nextPhase: 'upkeep' | 'activity' | 'event' | 'week_closed' = current.phase;
+    let nextPhase: 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed' =
+      current.phase;
     let nextWeekNumber = current.weekNumber;
+    let nextUneventfulBonusCarry = current.uneventfulBonusCarry ?? 0;
+    let nextQueuedEffects = current.queuedEffects ?? [];
 
     if (current.phase === 'upkeep') {
       nextPhase = 'activity';
     } else if (current.phase === 'activity') {
       nextPhase = 'event';
     } else if (current.phase === 'event') {
+      const activePersistentEvents = await ctx.db
+        .query('militiaEventState')
+        .withIndex('by_militiaId_persistent', (q) =>
+          q.eq('militiaId', args.militiaId).eq('isPersistent', true),
+        )
+        .collect();
+      nextPhase = activePersistentEvents.some((event) => !event.resolved)
+        ? 'persistent'
+        : 'week_closed';
+    } else if (current.phase === 'persistent') {
       nextPhase = 'week_closed';
     } else if (current.phase === 'week_closed') {
+      const allEventStates = await ctx.db
+        .query('militiaEventState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
+      const activePersistentEventStates = allEventStates
+        .filter((eventState) => eventState.isPersistent && !eventState.resolved)
+        .sort((a, b) => a.startedWeek - b.startedWeek);
+      const { active: activeQueuedEffects, remaining: remainingQueuedEffects } =
+        consumeQueuedEffectsForWeek({
+          queuedEffects: current.queuedEffects,
+          weekNumber: current.weekNumber,
+        });
       const resolution = applyWeekResolution({
         current: {
           weekNumber: current.weekNumber,
+          uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
           stagedActivityActionIds: current.stagedActivityActionIds,
           upkeepRollTotals: current.upkeepRollTotals,
           activityRollTotals: current.activityRollTotals,
@@ -695,13 +907,65 @@ export const commitCurrentPhase = mutation({
           treasury: militia.treasury,
           notoriety: militia.notoriety,
         },
+        activeQueuedEffects,
+        activePersistentEventTypes: activePersistentEventStates.map(
+          (eventState) => eventState.eventType,
+        ),
       });
+
+      if (
+        resolution.shouldDropNearestSettlementReputation &&
+        resolution.nearestSettlementKey
+      ) {
+        const nearestSettlement = await ctx.db
+          .query('militiaSettlementState')
+          .withIndex('by_militiaId_settlement', (q) =>
+            q
+              .eq('militiaId', args.militiaId)
+              .eq('settlementKey', resolution.nearestSettlementKey!),
+          )
+          .first();
+        if (nearestSettlement) {
+          await ctx.db.patch('militiaSettlementState', nearestSettlement._id, {
+            reputation: lowerReputationWithFloorUnfriendly(
+              nearestSettlement.reputation,
+            ),
+          });
+        }
+      }
+
+      const derived = deriveFutureEffectsAndPersistence({
+        resolvedEvents: resolution.resolvedEvents,
+        currentWeek: current.weekNumber,
+      });
+
+      if (derived.endPersistentCount > 0) {
+        const toEnd = activePersistentEventStates.slice(0, derived.endPersistentCount);
+        for (const eventState of toEnd) {
+          await ctx.db.patch('militiaEventState', eventState._id, {
+            resolved: true,
+            isPersistent: false,
+            endedWeek: current.weekNumber,
+          });
+        }
+      }
+
+      for (const eventType of derived.persistentToAdd) {
+        await ctx.db.insert('militiaEventState', {
+          militiaId: args.militiaId,
+          weekNumber: current.weekNumber,
+          eventType,
+          isPersistent: true,
+          startedWeek: current.weekNumber,
+          resolved: false,
+        });
+      }
+
       await ctx.db.patch('militia', args.militiaId, resolution.militiaPatch);
       nextPhase = 'upkeep';
       nextWeekNumber += 1;
-      await ctx.db.patch('militiaWeekState', current._id, {
-        uneventfulBonusCarry: resolution.nextUneventfulBonusCarry,
-      });
+      nextUneventfulBonusCarry = resolution.nextUneventfulBonusCarry;
+      nextQueuedEffects = [...remainingQueuedEffects, ...derived.queuedToAdd];
     }
 
     await ctx.db.patch('militiaWeekState', current._id, {
@@ -709,6 +973,9 @@ export const commitCurrentPhase = mutation({
       weekNumber: nextWeekNumber,
       isFirstWeek: nextWeekNumber === 1,
       skippedUpkeepThisWeek: nextWeekNumber === 1,
+      uneventfulBonusCarry: nextUneventfulBonusCarry,
+      queuedEffects: nextQueuedEffects,
+      lastPersistentBuyoffWeek: current.lastPersistentBuyoffWeek ?? 0,
       stagedActivityActionIds:
         nextPhase === 'upkeep'
           ? Array.from({ length: maxActions }, () => null)
@@ -749,6 +1016,7 @@ export const goToPreviousWeek = mutation({
       phase: nextWeekNumber === 1 ? 'activity' : 'upkeep',
       isFirstWeek: nextWeekNumber === 1,
       skippedUpkeepThisWeek: nextWeekNumber === 1,
+      lastPersistentBuyoffWeek: current.lastPersistentBuyoffWeek ?? 0,
       stagedActivityActionIds: Array.from({ length: maxActions }, () => null),
       upkeepRollTotals: {},
       activityRollTotals: {},
@@ -756,7 +1024,62 @@ export const goToPreviousWeek = mutation({
       lockVersion: current.lockVersion + 1,
     });
 
-    return { weekNumber: nextWeekNumber, phase: 'upkeep' as const };
+    return {
+      weekNumber: nextWeekNumber,
+      phase: nextWeekNumber === 1 ? ('activity' as const) : ('upkeep' as const),
+    };
+  },
+});
+
+export const buyOffPersistentEvent = mutation({
+  args: {
+    organizationId: campaignValidator.fields.organizationId,
+    militiaId: v.id('militia'),
+    eventStateId: v.id('militiaEventState'),
+  },
+  async handler(ctx, args) {
+    const militia = await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
+    const eventState = await ctx.db.get('militiaEventState', args.eventStateId);
+    if (eventState?.militiaId !== args.militiaId) {
+      throw new ConvexError('Persistent event not found for militia.');
+    }
+    if (!eventState.isPersistent || eventState.resolved) {
+      throw new ConvexError('Event is not an active persistent event.');
+    }
+
+    const existing = await ctx.db
+      .query('militiaWeekState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+      .collect();
+    const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
+    if (!current) {
+      throw new ConvexError('Week state not found.');
+    }
+
+    const lastBuyoffWeek = current.lastPersistentBuyoffWeek ?? 0;
+    if (current.weekNumber - lastBuyoffWeek < 4) {
+      throw new ConvexError('Persistent event buyoff is available only once every 4 weeks.');
+    }
+
+    const cost = 2 * militia.rank * 10;
+    if (militia.treasury < cost) {
+      throw new ConvexError(`Need ${cost} gp in militia treasury for persistent-event buyoff.`);
+    }
+
+    await ctx.db.patch('militia', args.militiaId, {
+      treasury: militia.treasury - cost,
+    });
+    await ctx.db.patch('militiaEventState', args.eventStateId, {
+      resolved: true,
+      isPersistent: false,
+      endedWeek: current.weekNumber,
+    });
+    await ctx.db.patch('militiaWeekState', current._id, {
+      lastPersistentBuyoffWeek: current.weekNumber,
+      lockVersion: current.lockVersion + 1,
+    });
+
+    return { endedEventType: eventState.eventType, buyoffCost: cost };
   },
 });
 

@@ -132,6 +132,7 @@ export const phaseValidator = v.union(
   v.literal('upkeep'),
   v.literal('activity'),
   v.literal('event'),
+  v.literal('persistent'),
   v.literal('week_closed'),
 );
 
@@ -196,7 +197,15 @@ export const eventTypeValidator = v.union(
 );
 
 export const queueEffectValidator = v.object({
-  kind: v.string(),
+  kind: v.union(
+    v.literal('week_of_pain_checks_penalty'),
+    v.literal('double_upkeep_attrition'),
+    v.literal('week_of_serenity_checks_bonus'),
+    v.literal('double_next_activity_training_gain'),
+    v.literal('all_is_calm_auto_next_week'),
+    v.literal('auto_event_roll_once'),
+    v.literal('auto_event_roll_twice'),
+  ),
   appliesWeek: v.number(),
   note: v.optional(v.string()),
 });
@@ -253,11 +262,14 @@ export const militiaWeekStateValidator = v.object({
   skippedUpkeepThisWeek: v.boolean(),
   uneventfulBonusCarry: v.number(),
   queuedEffects: v.array(queueEffectValidator),
+  lastPersistentBuyoffWeek: v.optional(v.number()),
   stagedActivityActionIds: v.array(v.union(v.null(), activityActionIdValidator)),
   upkeepRollTotals: v.optional(
     v.object({
       attritionTotal: v.optional(v.number()),
       notorietyPenaltyTotal: v.optional(v.number()),
+      maxNotorietyLoyaltyCheckTotal: v.optional(v.number()),
+      nearestSettlementKey: v.optional(v.string()),
       treasuryPenaltyTotal: v.optional(v.number()),
     }),
   ),
@@ -294,6 +306,11 @@ export const militiaWeekStateValidator = v.object({
       eventPercentileTotal: v.optional(v.number()),
       rollTwiceFirstTotal: v.optional(v.number()),
       rollTwiceSecondTotal: v.optional(v.number()),
+      guaranteedFirstPercentileTotal: v.optional(v.number()),
+      guaranteedSecondPercentileTotal: v.optional(v.number()),
+      guaranteedChosen: v.optional(
+        v.union(v.literal('first'), v.literal('second')),
+      ),
       sabotageCheckTotal: v.optional(v.number()),
       sabotageNotorietyIncreaseTotal: v.optional(v.number()),
     }),

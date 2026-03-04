@@ -1,6 +1,5 @@
 'use client';
 
-import { Card } from '~/components/ui/card';
 import type { IMilitia } from '~/lib/types';
 import { Button } from './ui/button';
 import { useMutation } from 'convex/react';

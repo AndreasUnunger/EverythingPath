@@ -1,6 +1,8 @@
 export type UpkeepRollTotals = {
   attritionTotal?: number;
   notorietyPenaltyTotal?: number;
+  maxNotorietyLoyaltyCheckTotal?: number;
+  nearestSettlementKey?: string;
   treasuryPenaltyTotal?: number;
 };
 
@@ -10,6 +12,9 @@ export type EventRollTotals = {
   eventPercentileTotal?: number;
   rollTwiceFirstTotal?: number;
   rollTwiceSecondTotal?: number;
+  guaranteedFirstPercentileTotal?: number;
+  guaranteedSecondPercentileTotal?: number;
+  guaranteedChosen?: 'first' | 'second';
   sabotageCheckTotal?: number;
   sabotageNotorietyIncreaseTotal?: number;
 };
@@ -55,6 +60,16 @@ export function readUpkeepRollTotals(
       typeof value.notorietyPenaltyTotal === 'number'
         ? value.notorietyPenaltyTotal
         : undefined,
+    maxNotorietyLoyaltyCheckTotal:
+      'maxNotorietyLoyaltyCheckTotal' in value &&
+      typeof value.maxNotorietyLoyaltyCheckTotal === 'number'
+        ? value.maxNotorietyLoyaltyCheckTotal
+        : undefined,
+    nearestSettlementKey:
+      'nearestSettlementKey' in value &&
+      typeof value.nearestSettlementKey === 'string'
+        ? value.nearestSettlementKey
+        : undefined,
     treasuryPenaltyTotal:
       'treasuryPenaltyTotal' in value &&
       typeof value.treasuryPenaltyTotal === 'number'
@@ -93,6 +108,21 @@ export function readEventRollTotals(
       'rollTwiceSecondTotal' in value &&
       typeof value.rollTwiceSecondTotal === 'number'
         ? value.rollTwiceSecondTotal
+        : undefined,
+    guaranteedFirstPercentileTotal:
+      'guaranteedFirstPercentileTotal' in value &&
+      typeof value.guaranteedFirstPercentileTotal === 'number'
+        ? value.guaranteedFirstPercentileTotal
+        : undefined,
+    guaranteedSecondPercentileTotal:
+      'guaranteedSecondPercentileTotal' in value &&
+      typeof value.guaranteedSecondPercentileTotal === 'number'
+        ? value.guaranteedSecondPercentileTotal
+        : undefined,
+    guaranteedChosen:
+      'guaranteedChosen' in value &&
+      (value.guaranteedChosen === 'first' || value.guaranteedChosen === 'second')
+        ? value.guaranteedChosen
         : undefined,
     sabotageCheckTotal:
       'sabotageCheckTotal' in value &&

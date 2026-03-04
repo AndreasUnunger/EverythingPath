@@ -43,7 +43,7 @@ hovering a team makes the associated actions glow
 - [ ] 3. Add Event-phase reactive `Sabotage` flow (roll entry, negate check, notoriety impact).
 - [ ] 4. Implement event edge semantics in backend resolution (`Roll Twice` limits/rerolls, duplicate `Twice`, impossible rerolls, persistent order).
 - [ ] 5. Execute queued and persistent event effects across week boundaries.
-- [ ] 6. Complete Upkeep Step 2 branch (DC 15 Loyalty outcome + nearest-settlement reputation drop handling).
-- [ ] 7. Add team-capability and once-per-team action legality handling.
+- [x] 6. Complete Upkeep Step 2 branch (DC 15 Loyalty outcome + nearest-settlement reputation drop handling).
+- [x] 7. Add team-capability and once-per-team action legality handling.
 - [ ] 8. Implement explicit Guarantee/Manipulate “roll two, choose one” event flow.
-- [ ] 9. Add integration tests covering full-week advancement and edge cases.
+- [x] 9. Add integration tests covering full-week advancement and edge cases.

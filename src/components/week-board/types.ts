@@ -1,4 +1,4 @@
-export type WeekPhase = 'upkeep' | 'activity' | 'event' | 'week_closed';
+export type WeekPhase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed';
 
 export type ActionId =
   | 'activate_black_market'
