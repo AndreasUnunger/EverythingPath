@@ -26,11 +26,85 @@ export function useWeekBoardMutations(organizationId: string) {
   const saveSlots = async (
     militiaId: Id<'militia'>,
     stagedActivityActionIds: (ActionId | null)[],
+    stagedActivityTeamIds?: (string | null)[],
   ) => {
     await saveWeekBoardState({
       organizationId,
       militiaId,
-      patch: { stagedActivityActionIds },
+      patch: {
+        stagedActivityActionIds,
+        stagedActivityTeamIds: stagedActivityTeamIds as never,
+      },
+    });
+  };
+
+  const saveStagedTeams = async (
+    militiaId: Id<'militia'>,
+    stagedActivityTeamIds: (string | null)[],
+  ) => {
+    await saveWeekBoardState({
+      organizationId,
+      militiaId,
+      patch: { stagedActivityTeamIds: stagedActivityTeamIds as never },
+    });
+  };
+
+  const saveActivityTeamOperations = async (
+    militiaId: Id<'militia'>,
+    activityTeamOperations: {
+      recruits: Array<{ slotIndex: number; teamId: string }>;
+      dismissals: Array<{ slotIndex: number; teamId: string }>;
+      upgrades: Array<{ slotIndex: number; fromTeamId: string; toTeamId: string }>;
+    },
+  ) => {
+    await saveWeekBoardState({
+      organizationId,
+      militiaId,
+      patch: { activityTeamOperations: activityTeamOperations as never },
+    });
+  };
+
+  const saveActivityOfficerOperations = async (
+    militiaId: Id<'militia'>,
+    activityOfficerOperations: {
+      changes: Array<{
+        slotIndex: number;
+        role:
+          | 'ambassador'
+          | 'commandant'
+          | 'marshal'
+          | 'overseer'
+          | 'spymaster'
+          | 'strategist';
+        characterId?: Id<'character'>;
+      }>;
+    },
+  ) => {
+    await saveWeekBoardState({
+      organizationId,
+      militiaId,
+      patch: { activityOfficerOperations: activityOfficerOperations as never },
+    });
+  };
+
+  const saveEventMitigations = async (
+    militiaId: Id<'militia'>,
+    eventMitigations: {
+      cacheDiscoveredMitigationTotal?: string;
+      theftMitigationTotal?: string;
+      sicknessTwiceLoyaltyTotal?: string;
+      turncoatOfficerCheckTotal?: string;
+      turncoatSelectedTeamId?: string;
+      rivalrySelectedTeamIds?: string[];
+      missingInActionSelectedTeamId?: string;
+      sicknessSelectedTeamId?: string;
+      turnAroundBoostTeamId?: string;
+    },
+  ) => {
+    await saveWeekBoardState({
+      organizationId,
+      militiaId,
+      patch: { eventMitigations: eventMitigations as never },
     });
   };
 
@@ -147,6 +221,10 @@ export function useWeekBoardMutations(organizationId: string) {
   return {
     savePhase,
     saveSlots,
+    saveStagedTeams,
+    saveActivityTeamOperations,
+    saveActivityOfficerOperations,
+    saveEventMitigations,
     saveUpkeepTotals,
     saveEventTotals,
     continueToSummary,

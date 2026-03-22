@@ -22,30 +22,36 @@ describe('weekBoardRules', () => {
     ).toThrow(/Lie Low must be the only staged activity/);
   });
 
-  it('rejects actions when no active capable teams can perform them', () => {
-    expect(() =>
-      validateStagedActionsLegality({
-        stagedActions: ['gather_information'],
-        activeTeamIds: ['fixers'],
+  it('warns when no active capable teams can perform staged action', () => {
+    const warnings = validateStagedActionsLegality({
+      stagedActions: ['gather_information'],
+      activeTeamIds: ['fixers'],
+    });
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'action_requires_missing_team',
       }),
-    ).toThrow(/no active team can perform this action/);
+    );
   });
 
-  it('rejects duplicate action count above capable active team count', () => {
-    expect(() =>
-      validateStagedActionsLegality({
-        stagedActions: ['earn_gold', 'earn_gold', 'earn_gold'],
-        activeTeamIds: ['blackMarketeers', 'fixers'],
+  it('warns on duplicate action count above capable active team count', () => {
+    const warnings = validateStagedActionsLegality({
+      stagedActions: ['earn_gold', 'earn_gold', 'earn_gold'],
+      activeTeamIds: ['blackMarketeers', 'fixers'],
+    });
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'action_capable_team_count_exceeded',
       }),
-    ).toThrow(/Cannot stage earn_gold 3 times with only 2 capable active team\(s\)/);
+    );
   });
 
   it('allows legal staging patterns', () => {
-    expect(() =>
+    expect(
       validateStagedActionsLegality({
         stagedActions: ['drill_militia', 'earn_gold', 'gather_information'],
         activeTeamIds: ['blackMarketeers', 'conspirators'],
       }),
-    ).not.toThrow();
+    ).toEqual([]);
   });
 });

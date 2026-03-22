@@ -47,3 +47,4 @@ hovering a team makes the associated actions glow
 - [x] 7. Add team-capability and once-per-team action legality handling.
 - [ ] 8. Implement explicit Guarantee/Manipulate “roll two, choose one” event flow.
 - [x] 9. Add integration tests covering full-week advancement and edge cases.
+codex resume 019c632d-870a-74a0-a12f-8c1004849ac5

@@ -1,14 +1,20 @@
 'use client';
 
 import { Card } from '~/components/ui/card';
-import { ACTION_CARDS } from '~/components/week-board/data';
+import { type SummaryRow } from '~/components/week-board/activity-roll-sections';
 import {
   formatResolvedEventLabel,
   formatResolvedEventTriggerLabel,
   renderResolvedEventDetails,
   resolveMilitiaEventFromPercentile,
 } from '~/components/week-board/event-utils';
-import { type SummaryRow } from '~/components/week-board/activity-rolls-controller';
+import {
+  buildEventOccurrenceItems,
+  buildOperationSummaryItems,
+  buildStagedSlotItems,
+  buildUpkeepSummaryItems,
+  hasManualTotal,
+} from '~/components/week-board/phase-sections/summary-phase-shared';
 import type { ActionId, EventTriggerResolution } from '~/components/week-board/types';
 
 export type SummaryPhaseViewModel = {
@@ -24,6 +30,26 @@ export type SummaryPhaseViewModel = {
   showTreasuryShortagePenalty: boolean;
   upkeepTreasuryPenaltyTotal: string;
   slots: Array<ActionId | null>;
+  slotTeams: Array<string | null>;
+  activityTeamOperations: {
+    recruits: Array<{ slotIndex: number; teamId: string }>;
+    dismissals: Array<{ slotIndex: number; teamId: string }>;
+    upgrades: Array<{ slotIndex: number; fromTeamId: string; toTeamId: string }>;
+  };
+  activityOfficerOperations: {
+    changes: Array<{
+      slotIndex: number;
+      role:
+        | 'ambassador'
+        | 'commandant'
+        | 'marshal'
+        | 'overseer'
+        | 'spymaster'
+        | 'strategist';
+      characterId?: string;
+    }>;
+  };
+  weekWarnings: Array<{ code: string; message: string }>;
   activityRollSummaryRows: SummaryRow[];
   eventChanceTotal: string;
   eventTriggerRollTotal: string;
@@ -40,6 +66,15 @@ export type SummaryPhaseViewModel = {
   eventRollTwiceSecond: string;
   sabotageCheckTotal: string;
   sabotageNotorietyIncreaseTotal: string;
+  cacheDiscoveredMitigationTotal: string;
+  theftMitigationTotal: string;
+  sicknessTwiceLoyaltyTotal: string;
+  turncoatOfficerCheckTotal: string;
+  turncoatSelectedTeamId: string;
+  missingInActionSelectedTeamId: string;
+  sicknessSelectedTeamId: string;
+  turnAroundBoostTeamId: string;
+  rivalrySelectedTeamIds: string[];
   formatManualTotalForSummaryAction: (raw: string) => string;
 };
 
@@ -61,6 +96,10 @@ export function SummaryPhaseSection({
     showTreasuryShortagePenalty,
     upkeepTreasuryPenaltyTotal,
     slots,
+    slotTeams,
+    activityTeamOperations,
+    activityOfficerOperations,
+    weekWarnings,
     activityRollSummaryRows,
     eventChanceTotal,
     eventTriggerRollTotal,
@@ -77,8 +116,56 @@ export function SummaryPhaseSection({
     eventRollTwiceSecond,
     sabotageCheckTotal,
     sabotageNotorietyIncreaseTotal,
+    cacheDiscoveredMitigationTotal,
+    theftMitigationTotal,
+    sicknessTwiceLoyaltyTotal,
+    turncoatOfficerCheckTotal,
+    turncoatSelectedTeamId,
+    missingInActionSelectedTeamId,
+    sicknessSelectedTeamId,
+    turnAroundBoostTeamId,
+    rivalrySelectedTeamIds,
     formatManualTotalForSummaryAction,
   } = viewModel;
+
+  const upkeepItems = buildUpkeepSummaryItems({
+    upkeepAttritionTotal,
+    showMaxNotorietyPenalty,
+    upkeepNotorietyPenaltyTotal,
+    maxNotorietyLoyaltyCheckTotal,
+    nearestSettlementKey,
+    showTreasuryShortagePenalty,
+    upkeepTreasuryPenaltyTotal,
+    formatManualTotalForSummary: formatManualTotalForSummaryAction,
+  });
+  const stagedSlotItems = buildStagedSlotItems({ slots, slotTeams });
+  const operationItems = buildOperationSummaryItems({
+    activityTeamOperations,
+    activityOfficerOperations,
+  });
+  const eventOccurrenceItems = buildEventOccurrenceItems({
+    eventChanceTotal,
+    eventTriggerRollTotal,
+    hasGuaranteedEventAction,
+    guaranteedEventFirstPercentileTotal,
+    guaranteedEventSecondPercentileTotal,
+    guaranteedEventChoice,
+    sabotageCheckTotal,
+    sabotageNotorietyIncreaseTotal,
+    cacheDiscoveredMitigationTotal,
+    theftMitigationTotal,
+    sicknessTwiceLoyaltyTotal,
+    turncoatOfficerCheckTotal,
+    turncoatSelectedTeamId,
+    missingInActionSelectedTeamId,
+    sicknessSelectedTeamId,
+    turnAroundBoostTeamId,
+    rivalrySelectedTeamIds,
+    formatManualTotalForSummary: formatManualTotalForSummaryAction,
+  });
+  const resolvedEventPercentile = hasGuaranteedEventAction
+    ? effectiveEventPercentileTotal
+    : eventPercentileTotal;
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -88,176 +175,125 @@ export function SummaryPhaseSection({
           <p className="text-muted-foreground">
             Review staged results before committing this week to militia state.
           </p>
-          <div className="rounded border p-2">
-            <p className="text-muted-foreground">Militia snapshot</p>
-            <ul className="mt-1 space-y-1">
-              <li>Rank: {rank}</li>
-              <li>Training: {training}</li>
-              <li>Treasury: {treasury}</li>
-              <li>Notoriety: {notoriety}</li>
-            </ul>
-          </div>
-          <div className="rounded border p-2">
-            <p className="text-muted-foreground">Upkeep totals entered</p>
-            <ul className="mt-1 space-y-1">
-              <li>
-                Attrition total: {formatManualTotalForSummaryAction(upkeepAttritionTotal)}
-              </li>
-              {showMaxNotorietyPenalty ? (
-                <>
-                  <li>
-                    Max-notoriety penalty total:{' '}
-                    {formatManualTotalForSummaryAction(upkeepNotorietyPenaltyTotal)}
-                  </li>
-                  <li>
-                    Max-notoriety loyalty check total:{' '}
-                    {formatManualTotalForSummaryAction(
-                      maxNotorietyLoyaltyCheckTotal,
-                    )}
-                  </li>
-                  <li>
-                    Nearest settlement:{' '}
-                    {nearestSettlementKey.trim() ? nearestSettlementKey : 'Not selected'}
-                  </li>
-                </>
-              ) : null}
-              {showTreasuryShortagePenalty ? (
-                <li>
-                  Treasury-shortage penalty total:{' '}
-                  {formatManualTotalForSummaryAction(upkeepTreasuryPenaltyTotal)}
-                </li>
-              ) : null}
-            </ul>
-          </div>
-          <div className="rounded border p-2">
-            <p className="text-muted-foreground">Activity selections</p>
-            <ul className="mt-1 space-y-1">
-              {slots.map((slotActionId, index) => {
-                const action = ACTION_CARDS.find((card) => card.id === slotActionId);
-                return (
-                  <li key={`summary-slot-${index + 1}`}>
-                    Slot {index + 1}: {action ? action.title : 'Empty'}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          {activityRollSummaryRows.length > 0 ? (
-            <div className="rounded border p-2">
-              <p className="text-muted-foreground">Activity roll totals entered</p>
-              <ul className="mt-1 space-y-1">
-                {activityRollSummaryRows.map((row) => (
-                  <li key={row.label}>
-                    {row.label}: {row.value}
-                  </li>
-                ))}
-              </ul>
-            </div>
+
+          <SummaryListCard
+            title="Militia snapshot"
+            items={[
+              `Rank: ${rank}`,
+              `Training: ${training}`,
+              `Treasury: ${treasury}`,
+              `Notoriety: ${notoriety}`,
+            ]}
+          />
+
+          <SummaryListCard title="Upkeep totals entered" items={upkeepItems} />
+          <SummaryListCard title="Activity selections" items={stagedSlotItems} />
+          <SummaryListCard title="Staged operations" items={operationItems} />
+
+          {weekWarnings.length > 0 ? (
+            <SummaryListCard
+              title="Rules warnings"
+              items={weekWarnings.map((warning) => `Warning: ${warning.message}`)}
+              listClassName="text-amber-700"
+            />
           ) : null}
-          <div className="rounded border p-2">
-            <p className="text-muted-foreground">Treasury changes</p>
-            <p className="mt-1">
-              Deposits and withdrawals are applied immediately. Current treasury above
-              reflects all entered upkeep treasury changes.
-            </p>
-          </div>
+
+          {activityRollSummaryRows.length > 0 ? (
+            <SummaryListCard
+              title="Activity roll totals entered"
+              items={activityRollSummaryRows.map(
+                (row) => `${row.label}: ${row.value}`,
+              )}
+            />
+          ) : null}
         </div>
       </Card>
+
       <Card className="border p-3">
         <p className="mb-2 font-mono text-sm font-bold">Event Summary</p>
         <div className="space-y-2 font-mono text-xs">
-          <div className="rounded border p-2">
-            <p className="text-muted-foreground">Event occurrence check</p>
-            <ul className="mt-1 space-y-1">
-              <li>
-                Event chance total: {formatManualTotalForSummaryAction(eventChanceTotal)}
-              </li>
-              <li>
-                Trigger roll total:{' '}
-                {formatManualTotalForSummaryAction(eventTriggerRollTotal)}
-              </li>
-              {hasGuaranteedEventAction ? (
-                <>
-                  <li>
-                    Guaranteed roll 1:{' '}
-                    {formatManualTotalForSummaryAction(
-                      guaranteedEventFirstPercentileTotal,
-                    )}
-                  </li>
-                  <li>
-                    Guaranteed roll 2:{' '}
-                    {formatManualTotalForSummaryAction(
-                      guaranteedEventSecondPercentileTotal,
-                    )}
-                  </li>
-                  <li>
-                    Guaranteed selection:{' '}
-                    {guaranteedEventChoice ? guaranteedEventChoice : 'Not selected'}
-                  </li>
-                </>
-              ) : null}
-              <li>
-                Sabotage check total:{' '}
-                {formatManualTotalForSummaryAction(sabotageCheckTotal)}
-              </li>
-              <li>
-                Sabotage notoriety increase:{' '}
-                {formatManualTotalForSummaryAction(sabotageNotorietyIncreaseTotal)}
-              </li>
-            </ul>
-            <p className="mt-1 text-sm font-bold">
-              {formatResolvedEventTriggerLabel(resolvedEventTrigger)}
-            </p>
-          </div>
-          {shouldResolveEventTable ? (
+          {eventOccurrenceItems.length > 0 ? (
             <div className="rounded border p-2">
-              <p className="text-muted-foreground">Event table roll</p>
+              <p className="text-muted-foreground">Event occurrence check</p>
+              <ul className="mt-1 space-y-1">
+                {eventOccurrenceItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
               <p className="mt-1 text-sm font-bold">
-                {formatResolvedEventLabel(
-                  resolveMilitiaEventFromPercentile(
-                    hasGuaranteedEventAction
-                      ? effectiveEventPercentileTotal
-                      : eventPercentileTotal,
-                  ),
-                )}
+                {formatResolvedEventTriggerLabel(resolvedEventTrigger)}
               </p>
-              {renderResolvedEventDetails(
-                resolveMilitiaEventFromPercentile(
-                  hasGuaranteedEventAction
-                    ? effectiveEventPercentileTotal
-                    : eventPercentileTotal,
-                ),
-              )}
             </div>
           ) : null}
-          {showRollTwiceFields ? (
-            <>
-              <div className="rounded border p-2">
-                <p className="text-muted-foreground">Roll Twice: first event</p>
-                <p className="mt-1 text-sm font-bold">
-                  {formatResolvedEventLabel(
-                    resolveMilitiaEventFromPercentile(eventRollTwiceFirst),
-                  )}
-                </p>
-                {renderResolvedEventDetails(
-                  resolveMilitiaEventFromPercentile(eventRollTwiceFirst),
-                )}
-              </div>
-              <div className="rounded border p-2">
-                <p className="text-muted-foreground">Roll Twice: second event</p>
-                <p className="mt-1 text-sm font-bold">
-                  {formatResolvedEventLabel(
-                    resolveMilitiaEventFromPercentile(eventRollTwiceSecond),
-                  )}
-                </p>
-                {renderResolvedEventDetails(
-                  resolveMilitiaEventFromPercentile(eventRollTwiceSecond),
-                )}
-              </div>
-            </>
+
+          {shouldResolveEventTable &&
+          hasManualTotal(resolvedEventPercentile) ? (
+            <ResolvedEventCard
+              title="Event table roll"
+              percentile={resolvedEventPercentile}
+            />
+          ) : null}
+
+          {showRollTwiceFields && hasManualTotal(eventRollTwiceFirst) ? (
+            <ResolvedEventCard
+              title="Roll Twice: first event"
+              percentile={eventRollTwiceFirst}
+            />
+          ) : null}
+
+          {showRollTwiceFields && hasManualTotal(eventRollTwiceSecond) ? (
+            <ResolvedEventCard
+              title="Roll Twice: second event"
+              percentile={eventRollTwiceSecond}
+            />
           ) : null}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function SummaryListCard({
+  title,
+  items,
+  listClassName,
+}: {
+  title: string;
+  items: string[];
+  listClassName?: string;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded border p-2">
+      <p className="text-muted-foreground">{title}</p>
+      <ul className={`mt-1 space-y-1 ${listClassName ?? ''}`.trim()}>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ResolvedEventCard({
+  title,
+  percentile,
+}: {
+  title: string;
+  percentile: string;
+}) {
+  const resolvedEvent = resolveMilitiaEventFromPercentile(percentile);
+
+  return (
+    <div className="rounded border p-2">
+      <p className="text-muted-foreground">{title}</p>
+      <p className="mt-1 text-sm font-bold">
+        {formatResolvedEventLabel(resolvedEvent)}
+      </p>
+      {renderResolvedEventDetails(resolvedEvent)}
     </div>
   );
 }

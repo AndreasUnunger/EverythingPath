@@ -117,10 +117,12 @@ function createBaseHarness({
 }
 
 let commitCurrentPhase: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
+let saveWeekBoardState: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
 
 beforeAll(async () => {
   const module = await import('../../convex/weekBoard');
   commitCurrentPhase = module.commitCurrentPhase as never;
+  saveWeekBoardState = module.saveWeekBoardState as never;
 });
 
 describe('weekBoard commitCurrentPhase harness', () => {
@@ -230,7 +232,7 @@ describe('weekBoard commitCurrentPhase harness', () => {
 
     const militia = db.getRows('militia')[0];
     expect(militia?.training).toBe(9);
-    expect(militia?.treasury).toBe(24);
+    expect(militia?.treasury).toBe(4);
     expect(militia?.notoriety).toBe(30);
 
     const weekPatch = db.patches.find(
@@ -245,5 +247,335 @@ describe('weekBoard commitCurrentPhase harness', () => {
     expect(weekPatch?.activityRollTotals).toEqual({});
     expect(weekPatch?.eventRollTotals).toEqual({});
     expect(weekPatch?.stagedActivityActionIds).toEqual([null, null]);
+  });
+
+  it('deducts team costs for recruit and upgrade operations on week close', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['recruit_team', 'upgrade_team'],
+        activityTeamOperations: {
+          recruits: [{ slotIndex: 0, teamId: 'patrons' }],
+          dismissals: [],
+          upgrades: [{ slotIndex: 1, fromTeamId: 'patrons', toTeamId: 'merchants' }],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+    await db.insert('militiaTeam', { militiaId: 'm1', teamId: 'patrons' });
+    await db.insert('militiaTeamState', {
+      militiaId: 'm1',
+      teamId: 'patrons',
+      status: 'active',
+    });
+    await db.patch('militia', 'm1', { treasury: 300 });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const militia = db.getRows('militia')[0];
+    expect(militia?.treasury).toBe(250);
+    const teams = db.getRows('militiaTeam');
+    expect(teams.some((team) => team.teamId === 'merchants')).toBe(true);
+  });
+
+  it('applies staged change_officer_role operations on week close', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 2,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+          commandant: undefined,
+        },
+      ],
+      character: [
+        {
+          _id: 'char1',
+          campaignId: 'c1',
+          ownerId: 'user1',
+          name: 'Kara',
+          description: '',
+          level: 5,
+          kind: 'pc',
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          wisdom: 10,
+          charisma: 10,
+          intelligence: 10,
+          isActive: true,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'week_closed',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: ['change_officer_role', null],
+          activityOfficerOperations: {
+            changes: [
+              {
+                slotIndex: 0,
+                role: 'commandant',
+                characterId: 'char1',
+              },
+            ],
+          },
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [],
+      militiaTeamState: [],
+      militiaEventState: [],
+      militiaSettlementState: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const militia = db.getRows('militia')[0];
+    expect(militia?.commandant).toBe('char1');
+  });
+});
+
+describe('weekBoard saveWeekBoardState collaboration harness', () => {
+  it('merges non-conflicting updates from multiple users', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 5,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: [null, null, null],
+          stagedActivityTeamIds: [null, null, null],
+          activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
+          upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
+          eventMitigations: {},
+          weekWarnings: [],
+          upkeepRollTotals: {},
+          activityRollTotals: {},
+          eventRollTotals: {},
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [{ _id: 't1', militiaId: 'm1', teamId: 'blackMarketeers' }],
+      militiaTeamState: [{ _id: 'ts1', militiaId: 'm1', teamId: 'blackMarketeers', status: 'active' }],
+      militiaEventState: [],
+      militiaSettlementState: [],
+      character: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        stagedActivityActionIds: ['earn_gold', null, null],
+      },
+    });
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        activityRollTotals: {
+          earnGoldTotal: '7',
+        },
+      },
+    });
+
+    const state = db.getRows('militiaWeekState')[0];
+    expect(state?.stagedActivityActionIds).toEqual(['earn_gold', null]);
+    expect(state?.activityRollTotals).toEqual(
+      expect.objectContaining({
+        earnGoldTotal: 7,
+      }),
+    );
+  });
+
+  it('applies last-write-wins when multiple users update same slot', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 5,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: [null, null, null],
+          stagedActivityTeamIds: [null, null, null],
+          activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
+          upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
+          eventMitigations: {},
+          weekWarnings: [],
+          upkeepRollTotals: {},
+          activityRollTotals: {},
+          eventRollTotals: {},
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [
+        { _id: 't1', militiaId: 'm1', teamId: 'blackMarketeers' },
+        { _id: 't2', militiaId: 'm1', teamId: 'fixers' },
+      ],
+      militiaTeamState: [
+        { _id: 'ts1', militiaId: 'm1', teamId: 'blackMarketeers', status: 'active' },
+        { _id: 'ts2', militiaId: 'm1', teamId: 'fixers', status: 'active' },
+      ],
+      militiaEventState: [],
+      militiaSettlementState: [],
+      character: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        stagedActivityActionIds: ['earn_gold', null, null],
+      },
+    });
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        stagedActivityActionIds: ['broker_market', null, null],
+      },
+    });
+
+    const state = db.getRows('militiaWeekState')[0];
+    expect(state?.stagedActivityActionIds).toEqual(['broker_market', null]);
+  });
+
+  it('keeps strict constraints under multi-user staging attempts', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 5,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: [null, null, null],
+          stagedActivityTeamIds: [null, null, null],
+          activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
+          upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
+          eventMitigations: {},
+          weekWarnings: [],
+          upkeepRollTotals: {},
+          activityRollTotals: {},
+          eventRollTotals: {},
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [{ _id: 't1', militiaId: 'm1', teamId: 'blackMarketeers' }],
+      militiaTeamState: [{ _id: 'ts1', militiaId: 'm1', teamId: 'blackMarketeers', status: 'active' }],
+      militiaEventState: [],
+      militiaSettlementState: [],
+      character: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        stagedActivityActionIds: ['drill_militia', null, null],
+      },
+    });
+
+    await expect(
+      saveWeekBoardState.handler(ctx, {
+        organizationId: 'org1',
+        militiaId: 'm1',
+        patch: {
+          stagedActivityActionIds: ['drill_militia', 'drill_militia', null],
+        },
+      }),
+    ).rejects.toThrow(/Drill Militia can be staged at most once per Activity phase/);
   });
 });

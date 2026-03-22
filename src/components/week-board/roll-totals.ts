@@ -39,7 +39,10 @@ export type ActivityRollTotals = {
   rescueCharacterCheckTotal?: number;
   rescueCharacterTargetLevelTotal?: number;
   rescueCharacterNotorietyIncreaseTotal?: number;
+  restoreCharacterCostTotal?: number;
   secureCacheCheckTotal?: number;
+  specialActionCostTotal?: number;
+  specialOrderItemCostTotal?: number;
   spreadPropagandaCheckTotal?: number;
   specialOrderDeliveryDaysTotal?: number;
 };
@@ -237,10 +240,25 @@ export function readActivityRollTotals(
       typeof value.rescueCharacterNotorietyIncreaseTotal === 'number'
         ? value.rescueCharacterNotorietyIncreaseTotal
         : undefined,
+    restoreCharacterCostTotal:
+      'restoreCharacterCostTotal' in value &&
+      typeof value.restoreCharacterCostTotal === 'number'
+        ? value.restoreCharacterCostTotal
+        : undefined,
     secureCacheCheckTotal:
       'secureCacheCheckTotal' in value &&
       typeof value.secureCacheCheckTotal === 'number'
         ? value.secureCacheCheckTotal
+        : undefined,
+    specialActionCostTotal:
+      'specialActionCostTotal' in value &&
+      typeof value.specialActionCostTotal === 'number'
+        ? value.specialActionCostTotal
+        : undefined,
+    specialOrderItemCostTotal:
+      'specialOrderItemCostTotal' in value &&
+      typeof value.specialOrderItemCostTotal === 'number'
+        ? value.specialOrderItemCostTotal
         : undefined,
     spreadPropagandaCheckTotal:
       'spreadPropagandaCheckTotal' in value &&

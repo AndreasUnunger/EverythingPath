@@ -230,6 +230,15 @@ export const militiaValidator = v.object({
   strategist: v.optional(v.id('character')),
 });
 
+export const officerRoleValidator = v.union(
+  v.literal('ambassador'),
+  v.literal('commandant'),
+  v.literal('marshal'),
+  v.literal('overseer'),
+  v.literal('spymaster'),
+  v.literal('strategist'),
+);
+
 export const teamIdValidator = v.union(
   v.literal('moles'),
   v.literal('propagandists'),
@@ -264,6 +273,79 @@ export const militiaWeekStateValidator = v.object({
   queuedEffects: v.array(queueEffectValidator),
   lastPersistentBuyoffWeek: v.optional(v.number()),
   stagedActivityActionIds: v.array(v.union(v.null(), activityActionIdValidator)),
+  stagedActivityTeamIds: v.optional(v.array(v.union(v.null(), teamIdValidator))),
+  activityTeamOperations: v.optional(
+    v.object({
+      recruits: v.array(
+        v.object({
+          slotIndex: v.number(),
+          teamId: teamIdValidator,
+        }),
+      ),
+      dismissals: v.array(
+        v.object({
+          slotIndex: v.number(),
+          teamId: teamIdValidator,
+        }),
+      ),
+      upgrades: v.array(
+        v.object({
+          slotIndex: v.number(),
+          fromTeamId: teamIdValidator,
+          toTeamId: teamIdValidator,
+        }),
+      ),
+    }),
+  ),
+  activityOfficerOperations: v.optional(
+    v.object({
+      changes: v.array(
+        v.object({
+          slotIndex: v.number(),
+          role: officerRoleValidator,
+          characterId: v.optional(v.id('character')),
+        }),
+      ),
+    }),
+  ),
+  upkeepTeamOperations: v.optional(
+    v.object({
+      disabledRecoveries: v.array(
+        v.object({
+          teamId: teamIdValidator,
+          paid: v.boolean(),
+        }),
+      ),
+      missingChecks: v.array(
+        v.object({
+          teamId: teamIdValidator,
+          securityCheckTotal: v.optional(v.number()),
+          permanentlyLost: v.optional(v.boolean()),
+        }),
+      ),
+    }),
+  ),
+  eventMitigations: v.optional(
+    v.object({
+      cacheDiscoveredMitigationTotal: v.optional(v.number()),
+      theftMitigationTotal: v.optional(v.number()),
+      sicknessTwiceLoyaltyTotal: v.optional(v.number()),
+      turncoatOfficerCheckTotal: v.optional(v.number()),
+      turncoatSelectedTeamId: v.optional(teamIdValidator),
+      rivalrySelectedTeamIds: v.optional(v.array(teamIdValidator)),
+      missingInActionSelectedTeamId: v.optional(teamIdValidator),
+      sicknessSelectedTeamId: v.optional(teamIdValidator),
+      turnAroundBoostTeamId: v.optional(teamIdValidator),
+    }),
+  ),
+  weekWarnings: v.optional(
+    v.array(
+      v.object({
+        code: v.string(),
+        message: v.string(),
+      }),
+    ),
+  ),
   upkeepRollTotals: v.optional(
     v.object({
       attritionTotal: v.optional(v.number()),
@@ -294,7 +376,10 @@ export const militiaWeekStateValidator = v.object({
       rescueCharacterCheckTotal: v.optional(v.number()),
       rescueCharacterTargetLevelTotal: v.optional(v.number()),
       rescueCharacterNotorietyIncreaseTotal: v.optional(v.number()),
+      restoreCharacterCostTotal: v.optional(v.number()),
       secureCacheCheckTotal: v.optional(v.number()),
+      specialActionCostTotal: v.optional(v.number()),
+      specialOrderItemCostTotal: v.optional(v.number()),
       spreadPropagandaCheckTotal: v.optional(v.number()),
       specialOrderDeliveryDaysTotal: v.optional(v.number()),
     }),

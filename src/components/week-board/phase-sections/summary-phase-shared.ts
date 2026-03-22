@@ -1,0 +1,226 @@
+'use client';
+
+import { ACTION_CARDS } from '~/components/week-board/data';
+import type { ActionId } from '~/components/week-board/types';
+
+type FormatManualTotal = (raw: string) => string;
+
+export function hasManualTotal(raw: string) {
+  return raw.trim().length > 0;
+}
+
+export function buildUpkeepSummaryItems({
+  upkeepAttritionTotal,
+  showMaxNotorietyPenalty,
+  upkeepNotorietyPenaltyTotal,
+  maxNotorietyLoyaltyCheckTotal,
+  nearestSettlementKey,
+  showTreasuryShortagePenalty,
+  upkeepTreasuryPenaltyTotal,
+  formatManualTotalForSummary,
+}: {
+  upkeepAttritionTotal: string;
+  showMaxNotorietyPenalty: boolean;
+  upkeepNotorietyPenaltyTotal: string;
+  maxNotorietyLoyaltyCheckTotal: string;
+  nearestSettlementKey: string;
+  showTreasuryShortagePenalty: boolean;
+  upkeepTreasuryPenaltyTotal: string;
+  formatManualTotalForSummary: FormatManualTotal;
+}) {
+  const items: string[] = [];
+  if (hasManualTotal(upkeepAttritionTotal)) {
+    items.push(
+      `Attrition total: ${formatManualTotalForSummary(upkeepAttritionTotal)}`,
+    );
+  }
+  if (showMaxNotorietyPenalty && hasManualTotal(upkeepNotorietyPenaltyTotal)) {
+    items.push(
+      `Max-notoriety penalty total: ${formatManualTotalForSummary(upkeepNotorietyPenaltyTotal)}`,
+    );
+  }
+  if (showMaxNotorietyPenalty && hasManualTotal(maxNotorietyLoyaltyCheckTotal)) {
+    items.push(
+      `Max-notoriety loyalty check total: ${formatManualTotalForSummary(maxNotorietyLoyaltyCheckTotal)}`,
+    );
+  }
+  if (showMaxNotorietyPenalty && nearestSettlementKey.trim()) {
+    items.push(`Nearest settlement: ${nearestSettlementKey.trim()}`);
+  }
+  if (showTreasuryShortagePenalty && hasManualTotal(upkeepTreasuryPenaltyTotal)) {
+    items.push(
+      `Treasury-shortage penalty total: ${formatManualTotalForSummary(upkeepTreasuryPenaltyTotal)}`,
+    );
+  }
+  return items;
+}
+
+export function buildStagedSlotItems({
+  slots,
+  slotTeams,
+}: {
+  slots: Array<ActionId | null>;
+  slotTeams: Array<string | null>;
+}) {
+  return slots
+    .map((slotActionId, index) => {
+      if (!slotActionId) return null;
+      const action = ACTION_CARDS.find((card) => card.id === slotActionId);
+      if (!action) return null;
+      return `Slot ${index + 1}: ${action.title}${slotTeams[index] ? ` (${slotTeams[index]})` : ''}`;
+    })
+    .filter((item): item is string => item !== null);
+}
+
+export function buildOperationSummaryItems({
+  activityTeamOperations,
+  activityOfficerOperations,
+}: {
+  activityTeamOperations: {
+    recruits: Array<{ slotIndex: number; teamId: string }>;
+    dismissals: Array<{ slotIndex: number; teamId: string }>;
+    upgrades: Array<{ slotIndex: number; fromTeamId: string; toTeamId: string }>;
+  };
+  activityOfficerOperations: {
+    changes: Array<{
+      slotIndex: number;
+      role:
+        | 'ambassador'
+        | 'commandant'
+        | 'marshal'
+        | 'overseer'
+        | 'spymaster'
+        | 'strategist';
+      characterId?: string;
+    }>;
+  };
+}) {
+  const teamItems = [
+    ...activityTeamOperations.recruits.map(
+      (entry) => `Recruit (slot ${entry.slotIndex + 1}): ${entry.teamId}`,
+    ),
+    ...activityTeamOperations.dismissals.map(
+      (entry) => `Dismiss (slot ${entry.slotIndex + 1}): ${entry.teamId}`,
+    ),
+    ...activityTeamOperations.upgrades.map(
+      (entry) =>
+        `Upgrade (slot ${entry.slotIndex + 1}): ${entry.fromTeamId} -> ${entry.toTeamId}`,
+    ),
+  ];
+  const officerItems = activityOfficerOperations.changes.map((entry) => {
+    const roleLabel = entry.role.charAt(0).toUpperCase() + entry.role.slice(1);
+    return `Change officer role (slot ${entry.slotIndex + 1}): ${roleLabel} -> ${entry.characterId ?? 'Unassign'}`;
+  });
+  return [...teamItems, ...officerItems];
+}
+
+export function buildEventOccurrenceItems({
+  eventChanceTotal,
+  eventTriggerRollTotal,
+  hasGuaranteedEventAction,
+  guaranteedEventFirstPercentileTotal,
+  guaranteedEventSecondPercentileTotal,
+  guaranteedEventChoice,
+  sabotageCheckTotal,
+  sabotageNotorietyIncreaseTotal,
+  cacheDiscoveredMitigationTotal,
+  theftMitigationTotal,
+  sicknessTwiceLoyaltyTotal,
+  turncoatOfficerCheckTotal,
+  turncoatSelectedTeamId,
+  missingInActionSelectedTeamId,
+  sicknessSelectedTeamId,
+  turnAroundBoostTeamId,
+  rivalrySelectedTeamIds,
+  formatManualTotalForSummary,
+}: {
+  eventChanceTotal: string;
+  eventTriggerRollTotal: string;
+  hasGuaranteedEventAction: boolean;
+  guaranteedEventFirstPercentileTotal: string;
+  guaranteedEventSecondPercentileTotal: string;
+  guaranteedEventChoice: 'first' | 'second' | '';
+  sabotageCheckTotal: string;
+  sabotageNotorietyIncreaseTotal: string;
+  cacheDiscoveredMitigationTotal: string;
+  theftMitigationTotal: string;
+  sicknessTwiceLoyaltyTotal: string;
+  turncoatOfficerCheckTotal: string;
+  turncoatSelectedTeamId: string;
+  missingInActionSelectedTeamId: string;
+  sicknessSelectedTeamId: string;
+  turnAroundBoostTeamId: string;
+  rivalrySelectedTeamIds: string[];
+  formatManualTotalForSummary: FormatManualTotal;
+}) {
+  const items: string[] = [];
+  if (hasManualTotal(eventChanceTotal)) {
+    items.push(
+      `Event chance total: ${formatManualTotalForSummary(eventChanceTotal)}`,
+    );
+  }
+  if (hasManualTotal(eventTriggerRollTotal)) {
+    items.push(
+      `Trigger roll total: ${formatManualTotalForSummary(eventTriggerRollTotal)}`,
+    );
+  }
+  if (hasGuaranteedEventAction && hasManualTotal(guaranteedEventFirstPercentileTotal)) {
+    items.push(
+      `Guaranteed roll 1: ${formatManualTotalForSummary(guaranteedEventFirstPercentileTotal)}`,
+    );
+  }
+  if (hasGuaranteedEventAction && hasManualTotal(guaranteedEventSecondPercentileTotal)) {
+    items.push(
+      `Guaranteed roll 2: ${formatManualTotalForSummary(guaranteedEventSecondPercentileTotal)}`,
+    );
+  }
+  if (hasGuaranteedEventAction && guaranteedEventChoice) {
+    items.push(`Guaranteed selection: ${guaranteedEventChoice}`);
+  }
+  if (hasManualTotal(sabotageCheckTotal)) {
+    items.push(
+      `Sabotage check total: ${formatManualTotalForSummary(sabotageCheckTotal)}`,
+    );
+  }
+  if (hasManualTotal(sabotageNotorietyIncreaseTotal)) {
+    items.push(
+      `Sabotage notoriety increase: ${formatManualTotalForSummary(sabotageNotorietyIncreaseTotal)}`,
+    );
+  }
+  if (hasManualTotal(cacheDiscoveredMitigationTotal)) {
+    items.push(
+      `Cache mitigation total: ${formatManualTotalForSummary(cacheDiscoveredMitigationTotal)}`,
+    );
+  }
+  if (hasManualTotal(theftMitigationTotal)) {
+    items.push(
+      `Theft mitigation total: ${formatManualTotalForSummary(theftMitigationTotal)}`,
+    );
+  }
+  if (hasManualTotal(sicknessTwiceLoyaltyTotal)) {
+    items.push(
+      `Sickness Twice loyalty total: ${formatManualTotalForSummary(sicknessTwiceLoyaltyTotal)}`,
+    );
+  }
+  if (hasManualTotal(turncoatOfficerCheckTotal)) {
+    items.push(
+      `Turncoat officer check total: ${formatManualTotalForSummary(turncoatOfficerCheckTotal)}`,
+    );
+  }
+  if (missingInActionSelectedTeamId) {
+    items.push(`Missing in Action team: ${missingInActionSelectedTeamId}`);
+  }
+  if (sicknessSelectedTeamId) {
+    items.push(`Sickness team: ${sicknessSelectedTeamId}`);
+  }
+  if (turncoatSelectedTeamId) {
+    items.push(`Turncoat team: ${turncoatSelectedTeamId}`);
+  }
+  if (turnAroundBoostTeamId) {
+    items.push(`Turn Around boost team: ${turnAroundBoostTeamId}`);
+  }
+  if (rivalrySelectedTeamIds.length > 0) {
+    items.push(`Rivalry teams: ${rivalrySelectedTeamIds.join(', ')}`);
+  }
+  return items;
+}

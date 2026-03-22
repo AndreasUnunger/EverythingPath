@@ -3,7 +3,9 @@ import { mutation, query } from './_generated/server';
 import {
   activityActionIdValidator,
   campaignValidator,
+  officerRoleValidator,
   phaseValidator,
+  teamIdValidator,
 } from './schema';
 import { hasAccessToOrg } from './user';
 import type { MutationCtx, QueryCtx } from './_generated/server';
@@ -19,6 +21,9 @@ import {
   shouldApplyBaseEffect,
 } from './weekResolution';
 import {
+  buildTeamOperationWarnings,
+  getTeamCost,
+  getMaxTeamsForRank,
   lowerReputationWithFloorUnfriendly,
   validateStagedActionsLegality,
 } from './weekBoardRules';
@@ -154,6 +159,41 @@ function parseNonNegativeTotal(raw?: string) {
     throw new ConvexError('Values must be non-negative');
   }
   return parsed;
+}
+
+function parseOptionalNonNegativeTotal(raw?: string) {
+  const parsed = parseManualTotal(raw);
+  if (parsed === undefined) return undefined;
+  if (parsed < 0) {
+    throw new ConvexError('Values must be non-negative');
+  }
+  return parsed;
+}
+
+function normalizeTeamStatus(raw: unknown): 'active' | 'disabled' | 'missing' | 'blocked' {
+  if (
+    raw === 'active' ||
+    raw === 'disabled' ||
+    raw === 'missing' ||
+    raw === 'blocked'
+  ) {
+    return raw;
+  }
+  return 'active';
+}
+
+function getTeamStatusRowsByTeamId<
+  T extends { teamId: string; status: unknown; unavailableUntilWeek?: number; notes?: string },
+>(teamStates: T[]) {
+  return new Map(
+    teamStates.map((state) => [
+      state.teamId,
+      {
+        ...state,
+        status: normalizeTeamStatus(state.status),
+      },
+    ]),
+  );
 }
 
 function eventWouldOccur({
@@ -431,9 +471,21 @@ export const getWeekBoardState = query({
       .query('militiaWeekState')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
       .collect();
+    const teamRows = await ctx.db
+      .query('militiaTeam')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const teamStates = await ctx.db
+      .query('militiaTeamState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
     const settlementStates = await ctx.db
       .query('militiaSettlementState')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const characters = await ctx.db
+      .query('character')
+      .filter((q) => q.eq(q.field('campaignId'), militia.campaignId))
       .collect();
     const activePersistentEvents = await ctx.db
       .query('militiaEventState')
@@ -443,6 +495,43 @@ export const getWeekBoardState = query({
       .collect();
 
     const currentState = states.sort((a, b) => b.weekNumber - a.weekNumber)[0];
+    const currentStateAny = currentState as
+      | (typeof currentState & {
+          stagedActivityTeamIds?: (string | null)[];
+          activityTeamOperations?: {
+            recruits: Array<{ slotIndex: number; teamId: string }>;
+            dismissals: Array<{ slotIndex: number; teamId: string }>;
+            upgrades: Array<{
+              slotIndex: number;
+              fromTeamId: string;
+              toTeamId: string;
+            }>;
+          };
+          activityOfficerOperations?: {
+            changes: Array<{
+              slotIndex: number;
+              role:
+                | 'ambassador'
+                | 'commandant'
+                | 'marshal'
+                | 'overseer'
+                | 'spymaster'
+                | 'strategist';
+              characterId?: Id<'character'>;
+            }>;
+          };
+          upkeepTeamOperations?: {
+            disabledRecoveries: Array<{ teamId: string; paid: boolean }>;
+            missingChecks: Array<{
+              teamId: string;
+              securityCheckTotal?: number;
+              permanentlyLost?: boolean;
+            }>;
+          };
+          eventMitigations?: Record<string, unknown>;
+          weekWarnings?: Array<{ code: string; message: string }>;
+        })
+      | undefined;
     const unresolvedPersistent = activePersistentEvents
       .filter((event) => !event.resolved)
       .sort((a, b) => a.startedWeek - b.startedWeek);
@@ -465,6 +554,18 @@ export const getWeekBoardState = query({
       training: militia.training,
       treasury: militia.treasury,
       notoriety: militia.notoriety,
+      maxTeams: getMaxTeamsForRank(militia.rank),
+      teams: teamRows
+        .map((teamRow) => {
+          const state = teamStates.find((row) => row.teamId === teamRow.teamId);
+          return {
+            teamId: teamRow.teamId,
+            status: normalizeTeamStatus(state?.status),
+            unavailableUntilWeek: state?.unavailableUntilWeek,
+            notes: state?.notes,
+          };
+        })
+        .sort((a, b) => a.teamId.localeCompare(b.teamId)),
       settlementKeys: settlementStates
         .map((settlement) => settlement.settlementKey)
         .sort((a, b) => a.localeCompare(b)),
@@ -482,21 +583,72 @@ export const getWeekBoardState = query({
       canRankUp: rankUp.canRankUp,
       rankUpBlockedReason: rankUp.reason,
       maxActions: getMaxActionsForRank(militia.rank),
-      state:
-        currentState ?? {
-          weekNumber: 1,
-          phase: 'activity' as const,
-          isFirstWeek: true,
-          skippedUpkeepThisWeek: true,
-          uneventfulBonusCarry: 0,
-          queuedEffects: [],
-          lastPersistentBuyoffWeek: 0,
-          stagedActivityActionIds: Array.from({ length: getMaxActionsForRank(militia.rank) }, () => null),
-          lockVersion: 0,
-          upkeepRollTotals: {},
-          activityRollTotals: {},
-          eventRollTotals: {},
-        },
+      assignableCharacters: characters
+        .filter((character) => character.isActive !== false)
+        .map((character) => ({
+          _id: character._id,
+          name: character.name,
+          kind: character.kind ?? 'pc',
+          level: character.level,
+        })),
+      officerAssignments: {
+        ambassador: militia.ambassador,
+        commandant: militia.commandant,
+        marshal: militia.marshal,
+        overseer: militia.overseer,
+        spymaster: militia.spymaster,
+        strategist: militia.strategist,
+      },
+      state: currentStateAny
+        ? {
+            ...currentStateAny,
+            stagedActivityTeamIds:
+              currentStateAny.stagedActivityTeamIds ??
+              Array.from({ length: getMaxActionsForRank(militia.rank) }, () => null),
+            activityTeamOperations: currentStateAny.activityTeamOperations ?? {
+              recruits: [],
+              dismissals: [],
+              upgrades: [],
+            },
+            activityOfficerOperations: currentStateAny.activityOfficerOperations ?? {
+              changes: [],
+            },
+            upkeepTeamOperations: currentStateAny.upkeepTeamOperations ?? {
+              disabledRecoveries: [],
+              missingChecks: [],
+            },
+            eventMitigations: currentStateAny.eventMitigations ?? {},
+            weekWarnings: currentStateAny.weekWarnings ?? [],
+          }
+        : {
+            weekNumber: 1,
+            phase: 'activity' as const,
+            isFirstWeek: true,
+            skippedUpkeepThisWeek: true,
+            uneventfulBonusCarry: 0,
+            queuedEffects: [],
+            lastPersistentBuyoffWeek: 0,
+            stagedActivityActionIds: Array.from({ length: getMaxActionsForRank(militia.rank) }, () => null),
+            stagedActivityTeamIds: Array.from({ length: getMaxActionsForRank(militia.rank) }, () => null),
+            activityTeamOperations: {
+              recruits: [],
+              dismissals: [],
+              upgrades: [],
+            },
+            activityOfficerOperations: {
+              changes: [],
+            },
+            upkeepTeamOperations: {
+              disabledRecoveries: [],
+              missingChecks: [],
+            },
+            eventMitigations: {},
+            weekWarnings: [],
+            lockVersion: 0,
+            upkeepRollTotals: {},
+            activityRollTotals: {},
+            eventRollTotals: {},
+          },
     };
   },
 });
@@ -509,6 +661,83 @@ export const saveWeekBoardState = mutation({
       phase: v.optional(phaseValidator),
       weekNumber: v.optional(v.number()),
       stagedActivityActionIds: v.optional(v.array(v.union(v.null(), activityActionIdValidator))),
+      stagedActivityTeamIds: v.optional(v.array(v.union(v.null(), teamIdValidator))),
+      activityTeamOperations: v.optional(
+        v.object({
+          recruits: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                teamId: teamIdValidator,
+              }),
+            ),
+          ),
+          dismissals: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                teamId: teamIdValidator,
+              }),
+            ),
+          ),
+          upgrades: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                fromTeamId: teamIdValidator,
+                toTeamId: teamIdValidator,
+              }),
+            ),
+          ),
+        }),
+      ),
+      activityOfficerOperations: v.optional(
+        v.object({
+          changes: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                role: officerRoleValidator,
+                characterId: v.optional(v.id('character')),
+              }),
+            ),
+          ),
+        }),
+      ),
+      upkeepTeamOperations: v.optional(
+        v.object({
+          disabledRecoveries: v.optional(
+            v.array(
+              v.object({
+                teamId: teamIdValidator,
+                paid: v.boolean(),
+              }),
+            ),
+          ),
+          missingChecks: v.optional(
+            v.array(
+              v.object({
+                teamId: teamIdValidator,
+                securityCheckTotal: v.optional(v.string()),
+                permanentlyLost: v.optional(v.boolean()),
+              }),
+            ),
+          ),
+        }),
+      ),
+      eventMitigations: v.optional(
+        v.object({
+          cacheDiscoveredMitigationTotal: v.optional(v.string()),
+          theftMitigationTotal: v.optional(v.string()),
+          sicknessTwiceLoyaltyTotal: v.optional(v.string()),
+          turncoatOfficerCheckTotal: v.optional(v.string()),
+          turncoatSelectedTeamId: v.optional(teamIdValidator),
+          rivalrySelectedTeamIds: v.optional(v.array(teamIdValidator)),
+          missingInActionSelectedTeamId: v.optional(teamIdValidator),
+          sicknessSelectedTeamId: v.optional(teamIdValidator),
+          turnAroundBoostTeamId: v.optional(teamIdValidator),
+        }),
+      ),
       upkeepRollTotals: v.optional(
         v.object({
           attritionTotal: v.optional(v.string()),
@@ -539,7 +768,10 @@ export const saveWeekBoardState = mutation({
           rescueCharacterCheckTotal: v.optional(v.string()),
           rescueCharacterTargetLevelTotal: v.optional(v.string()),
           rescueCharacterNotorietyIncreaseTotal: v.optional(v.string()),
+          restoreCharacterCostTotal: v.optional(v.string()),
           secureCacheCheckTotal: v.optional(v.string()),
+          specialActionCostTotal: v.optional(v.string()),
+          specialOrderItemCostTotal: v.optional(v.string()),
           spreadPropagandaCheckTotal: v.optional(v.string()),
           specialOrderDeliveryDaysTotal: v.optional(v.string()),
         }),
@@ -570,7 +802,6 @@ export const saveWeekBoardState = mutation({
       .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
       .collect();
     const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
-
     const maxActions = getMaxActionsForRank(militia.rank);
 
     const nextPatch: {
@@ -602,6 +833,45 @@ export const saveWeekBoardState = mutation({
         | 'upgrade_team'
         | null
       )[];
+      stagedActivityTeamIds?: (string | null)[];
+      activityTeamOperations?: {
+        recruits: Array<{ slotIndex: number; teamId: string }>;
+        dismissals: Array<{ slotIndex: number; teamId: string }>;
+        upgrades: Array<{ slotIndex: number; fromTeamId: string; toTeamId: string }>;
+      };
+      activityOfficerOperations?: {
+        changes: Array<{
+          slotIndex: number;
+          role:
+            | 'ambassador'
+            | 'commandant'
+            | 'marshal'
+            | 'overseer'
+            | 'spymaster'
+            | 'strategist';
+          characterId?: Id<'character'>;
+        }>;
+      };
+      upkeepTeamOperations?: {
+        disabledRecoveries: Array<{ teamId: string; paid: boolean }>;
+        missingChecks: Array<{
+          teamId: string;
+          securityCheckTotal?: number;
+          permanentlyLost?: boolean;
+        }>;
+      };
+      eventMitigations?: {
+        cacheDiscoveredMitigationTotal?: number;
+        theftMitigationTotal?: number;
+        sicknessTwiceLoyaltyTotal?: number;
+        turncoatOfficerCheckTotal?: number;
+        turncoatSelectedTeamId?: string;
+        rivalrySelectedTeamIds?: string[];
+        missingInActionSelectedTeamId?: string;
+        sicknessSelectedTeamId?: string;
+        turnAroundBoostTeamId?: string;
+      };
+      weekWarnings?: Array<{ code: string; message: string }>;
       upkeepRollTotals?: {
         attritionTotal?: number;
         notorietyPenaltyTotal?: number;
@@ -629,7 +899,10 @@ export const saveWeekBoardState = mutation({
         rescueCharacterCheckTotal?: number;
         rescueCharacterTargetLevelTotal?: number;
         rescueCharacterNotorietyIncreaseTotal?: number;
+        restoreCharacterCostTotal?: number;
         secureCacheCheckTotal?: number;
+        specialActionCostTotal?: number;
+        specialOrderItemCostTotal?: number;
         spreadPropagandaCheckTotal?: number;
         specialOrderDeliveryDaysTotal?: number;
       };
@@ -669,14 +942,89 @@ export const saveWeekBoardState = mutation({
       const activeTeamIds = teamRows
         .map((row) => row.teamId)
         .filter((teamId) => (teamStatusById.get(teamId) ?? 'active') === 'active');
-      validateStagedActionsLegality({
+      const stagedLegalityWarnings = validateStagedActionsLegality({
         stagedActions: args.patch.stagedActivityActionIds,
         activeTeamIds,
       });
+      nextPatch.weekWarnings = stagedLegalityWarnings;
       nextPatch.stagedActivityActionIds = args.patch.stagedActivityActionIds.slice(
         0,
         maxActions,
       );
+    }
+    if (args.patch.stagedActivityTeamIds) {
+      nextPatch.stagedActivityTeamIds = args.patch.stagedActivityTeamIds
+        .slice(0, maxActions)
+        .map((value) => value ?? null);
+    }
+    if (args.patch.activityTeamOperations) {
+      const recruits = args.patch.activityTeamOperations.recruits ?? [];
+      const dismissals = args.patch.activityTeamOperations.dismissals ?? [];
+      const upgrades = args.patch.activityTeamOperations.upgrades ?? [];
+      nextPatch.activityTeamOperations = {
+        recruits,
+        dismissals,
+        upgrades,
+      };
+
+      const teamRows = await ctx.db
+        .query('militiaTeam')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
+      const warnings = buildTeamOperationWarnings({
+        rank: militia.rank,
+        rosterTeamIds: teamRows.map((row) => row.teamId),
+        recruits,
+        dismissals,
+        upgrades,
+      });
+      const existingWarnings = nextPatch.weekWarnings ?? [];
+      nextPatch.weekWarnings = [...existingWarnings, ...warnings];
+    }
+    if (args.patch.activityOfficerOperations) {
+      nextPatch.activityOfficerOperations = {
+        changes: (args.patch.activityOfficerOperations.changes ?? []).map(
+          (change) => ({
+            slotIndex: change.slotIndex,
+            role: change.role,
+            characterId: change.characterId,
+          }),
+        ),
+      };
+    }
+    if (args.patch.upkeepTeamOperations) {
+      nextPatch.upkeepTeamOperations = {
+        disabledRecoveries: args.patch.upkeepTeamOperations.disabledRecoveries ?? [],
+        missingChecks: (args.patch.upkeepTeamOperations.missingChecks ?? []).map(
+          (entry) => ({
+            teamId: entry.teamId,
+            securityCheckTotal: parseManualTotal(entry.securityCheckTotal),
+            permanentlyLost: entry.permanentlyLost,
+          }),
+        ),
+      };
+    }
+    if (args.patch.eventMitigations) {
+      nextPatch.eventMitigations = {
+        cacheDiscoveredMitigationTotal: parseManualTotal(
+          args.patch.eventMitigations.cacheDiscoveredMitigationTotal,
+        ),
+        theftMitigationTotal: parseManualTotal(
+          args.patch.eventMitigations.theftMitigationTotal,
+        ),
+        sicknessTwiceLoyaltyTotal: parseManualTotal(
+          args.patch.eventMitigations.sicknessTwiceLoyaltyTotal,
+        ),
+        turncoatOfficerCheckTotal: parseManualTotal(
+          args.patch.eventMitigations.turncoatOfficerCheckTotal,
+        ),
+        turncoatSelectedTeamId: args.patch.eventMitigations.turncoatSelectedTeamId,
+        rivalrySelectedTeamIds: args.patch.eventMitigations.rivalrySelectedTeamIds,
+        missingInActionSelectedTeamId:
+          args.patch.eventMitigations.missingInActionSelectedTeamId,
+        sicknessSelectedTeamId: args.patch.eventMitigations.sicknessSelectedTeamId,
+        turnAroundBoostTeamId: args.patch.eventMitigations.turnAroundBoostTeamId,
+      };
     }
     if (args.patch.upkeepRollTotals) {
       nextPatch.upkeepRollTotals = {
@@ -755,8 +1103,17 @@ export const saveWeekBoardState = mutation({
         rescueCharacterNotorietyIncreaseTotal: parseManualTotal(
           args.patch.activityRollTotals.rescueCharacterNotorietyIncreaseTotal,
         ),
+        restoreCharacterCostTotal: parseOptionalNonNegativeTotal(
+          args.patch.activityRollTotals.restoreCharacterCostTotal,
+        ),
         secureCacheCheckTotal: parseManualTotal(
           args.patch.activityRollTotals.secureCacheCheckTotal,
+        ),
+        specialActionCostTotal: parseOptionalNonNegativeTotal(
+          args.patch.activityRollTotals.specialActionCostTotal,
+        ),
+        specialOrderItemCostTotal: parseOptionalNonNegativeTotal(
+          args.patch.activityRollTotals.specialOrderItemCostTotal,
         ),
         spreadPropagandaCheckTotal: parseManualTotal(
           args.patch.activityRollTotals.spreadPropagandaCheckTotal,
@@ -813,6 +1170,23 @@ export const saveWeekBoardState = mutation({
         stagedActivityActionIds:
           nextPatch.stagedActivityActionIds ??
           Array.from({ length: maxActions }, () => null),
+        stagedActivityTeamIds:
+          (nextPatch.stagedActivityTeamIds ??
+            Array.from({ length: maxActions }, () => null)) as never,
+        activityTeamOperations: (nextPatch.activityTeamOperations ?? {
+          recruits: [],
+          dismissals: [],
+          upgrades: [],
+        }) as never,
+        activityOfficerOperations: (nextPatch.activityOfficerOperations ?? {
+          changes: [],
+        }) as never,
+        upkeepTeamOperations: (nextPatch.upkeepTeamOperations ?? {
+          disabledRecoveries: [],
+          missingChecks: [],
+        }) as never,
+        eventMitigations: (nextPatch.eventMitigations ?? {}) as never,
+        weekWarnings: (nextPatch.weekWarnings ?? []) as never,
         upkeepRollTotals: nextPatch.upkeepRollTotals,
         activityRollTotals: nextPatch.activityRollTotals,
         eventRollTotals: nextPatch.eventRollTotals,
@@ -821,7 +1195,7 @@ export const saveWeekBoardState = mutation({
       return;
     }
 
-    await ctx.db.patch('militiaWeekState', current._id, nextPatch);
+    await ctx.db.patch('militiaWeekState', current._id, nextPatch as never);
   },
 });
 
@@ -839,6 +1213,40 @@ export const commitCurrentPhase = mutation({
       .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
       .collect();
     const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
+    const currentAny = current as
+      | (typeof current & {
+          stagedActivityTeamIds?: (string | null)[];
+          activityTeamOperations?: {
+            recruits: Array<{ slotIndex: number; teamId: string }>;
+            dismissals: Array<{ slotIndex: number; teamId: string }>;
+            upgrades: Array<{
+              slotIndex: number;
+              fromTeamId: string;
+              toTeamId: string;
+            }>;
+          };
+          upkeepTeamOperations?: {
+            disabledRecoveries: Array<{ teamId: string; paid: boolean }>;
+            missingChecks: Array<{
+              teamId: string;
+              securityCheckTotal?: number;
+              permanentlyLost?: boolean;
+            }>;
+          };
+          eventMitigations?: {
+            cacheDiscoveredMitigationTotal?: number;
+            theftMitigationTotal?: number;
+            sicknessTwiceLoyaltyTotal?: number;
+            turncoatOfficerCheckTotal?: number;
+            turncoatSelectedTeamId?: string;
+            rivalrySelectedTeamIds?: string[];
+            missingInActionSelectedTeamId?: string;
+            sicknessSelectedTeamId?: string;
+            turnAroundBoostTeamId?: string;
+          };
+          weekWarnings?: Array<{ code: string; message: string }>;
+        })
+      | undefined;
 
     if (!current) {
       await ctx.db.insert('militiaWeekState', {
@@ -851,6 +1259,21 @@ export const commitCurrentPhase = mutation({
         queuedEffects: [],
         lastPersistentBuyoffWeek: 0,
         stagedActivityActionIds: Array.from({ length: maxActions }, () => null),
+        stagedActivityTeamIds: Array.from({ length: maxActions }, () => null),
+        activityTeamOperations: {
+          recruits: [],
+          dismissals: [],
+          upgrades: [],
+        },
+        activityOfficerOperations: {
+          changes: [],
+        },
+        upkeepTeamOperations: {
+          disabledRecoveries: [],
+          missingChecks: [],
+        },
+        eventMitigations: {},
+        weekWarnings: [],
         activityRollTotals: {},
         lockVersion: 1,
       });
@@ -880,6 +1303,76 @@ export const commitCurrentPhase = mutation({
     } else if (current.phase === 'persistent') {
       nextPhase = 'week_closed';
     } else if (current.phase === 'week_closed') {
+      const teamRows = await ctx.db
+        .query('militiaTeam')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
+      const teamStateRows = await ctx.db
+        .query('militiaTeamState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
+      const teamById = new Map<string, (typeof teamRows)[number]>(
+        teamRows.map((row) => [row.teamId, row]),
+      );
+      const teamStateById = getTeamStatusRowsByTeamId(teamStateRows) as Map<
+        string,
+        (typeof teamStateRows)[number]
+      >;
+
+      const ensureTeamState = async (teamId: string) => {
+        const currentState = teamStateById.get(teamId);
+        if (currentState) return currentState;
+        const insertedId = await ctx.db.insert('militiaTeamState', {
+          militiaId: args.militiaId,
+          teamId: teamId as never,
+          status: 'active',
+        });
+        const inserted = await ctx.db.get('militiaTeamState', insertedId);
+        if (!inserted) {
+          throw new ConvexError('Failed to initialize team state.');
+        }
+        teamStateById.set(teamId, inserted);
+        return inserted;
+      };
+
+      // Week boundary: release teams whose unavailability expires this week.
+      for (const teamState of teamStateRows) {
+        if (
+          teamState.unavailableUntilWeek !== undefined &&
+          teamState.unavailableUntilWeek <= current.weekNumber
+        ) {
+          if (
+            teamState.status === 'missing' &&
+            teamState.notes?.includes('return_disabled')
+          ) {
+            await ctx.db.patch('militiaTeamState', teamState._id, {
+              status: 'disabled',
+              unavailableUntilWeek: undefined,
+              notes: teamState.notes.replace('return_disabled', '').trim(),
+            });
+          } else {
+            await ctx.db.patch('militiaTeamState', teamState._id, {
+              status: 'active',
+              unavailableUntilWeek: undefined,
+            });
+          }
+        }
+      }
+
+      const activityTeamOperations = currentAny?.activityTeamOperations ?? {
+        recruits: [],
+        dismissals: [],
+        upgrades: [],
+      };
+      const activityOfficerOperations = currentAny?.activityOfficerOperations ?? {
+        changes: [],
+      };
+      const upkeepTeamOperations = currentAny?.upkeepTeamOperations ?? {
+        disabledRecoveries: [],
+        missingChecks: [],
+      };
+      const eventMitigations = currentAny?.eventMitigations ?? {};
+
       const allEventStates = await ctx.db
         .query('militiaEventState')
         .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
@@ -913,6 +1406,160 @@ export const commitCurrentPhase = mutation({
         ),
       });
 
+      let adjustedTreasury = resolution.militiaPatch.treasury;
+
+      const minimumTreasuryValue = militia.rank * 10;
+      const stagedActionIds = current.stagedActivityActionIds.filter(
+        (value): value is NonNullable<typeof value> => value !== null,
+      );
+      const countAction = (actionId: NonNullable<(typeof stagedActionIds)[number]>) =>
+        stagedActionIds.filter((value) => value === actionId).length;
+
+      // Fixed treasury costs from staged activity actions.
+      adjustedTreasury -= countAction('activate_black_market') * 50;
+      adjustedTreasury -= countAction('broker_market') * 100;
+      adjustedTreasury -= countAction('spread_propaganda') * 100;
+      adjustedTreasury -= countAction('drill_militia') * minimumTreasuryValue;
+      adjustedTreasury -= countAction('guarantee_event') * minimumTreasuryValue;
+
+      // Variable activity costs entered during activity flow.
+      adjustedTreasury -= current.activityRollTotals?.restoreCharacterCostTotal ?? 0;
+      adjustedTreasury -= current.activityRollTotals?.specialOrderItemCostTotal ?? 0;
+      adjustedTreasury -= current.activityRollTotals?.specialActionCostTotal ?? 0;
+
+      for (const recovery of upkeepTeamOperations.disabledRecoveries) {
+        if (!recovery.paid) continue;
+        const state = await ensureTeamState(recovery.teamId);
+        if (state.status !== 'disabled') continue;
+        adjustedTreasury -= minimumTreasuryValue;
+        await ctx.db.patch('militiaTeamState', state._id, {
+          status: 'active',
+          unavailableUntilWeek: undefined,
+          notes: state.notes,
+        });
+      }
+
+      for (const missingCheck of upkeepTeamOperations.missingChecks) {
+        const state = await ensureTeamState(missingCheck.teamId);
+        if (state.status !== 'missing') continue;
+        if (missingCheck.permanentlyLost) {
+          const teamRow = teamById.get(missingCheck.teamId);
+          if (teamRow) {
+            await ctx.db.delete('militiaTeam', teamRow._id);
+            teamById.delete(missingCheck.teamId);
+          }
+          await ctx.db.delete('militiaTeamState', state._id);
+          teamStateById.delete(missingCheck.teamId);
+          continue;
+        }
+        if (
+          missingCheck.securityCheckTotal !== undefined &&
+          missingCheck.securityCheckTotal >= 15
+        ) {
+          await ctx.db.patch('militiaTeamState', state._id, {
+            status: 'active',
+            unavailableUntilWeek: undefined,
+          });
+        }
+      }
+
+      for (const dismiss of activityTeamOperations.dismissals) {
+        const teamRow = teamById.get(dismiss.teamId);
+        if (teamRow) {
+          await ctx.db.delete('militiaTeam', teamRow._id);
+          teamById.delete(dismiss.teamId);
+        }
+        const state = teamStateById.get(dismiss.teamId);
+        if (state) {
+          await ctx.db.delete('militiaTeamState', state._id);
+          teamStateById.delete(dismiss.teamId);
+        }
+      }
+
+      for (const recruit of activityTeamOperations.recruits) {
+        let recruitedThisWeek = false;
+        if (!teamById.has(recruit.teamId)) {
+          const teamDocId = await ctx.db.insert('militiaTeam', {
+            militiaId: args.militiaId,
+            teamId: recruit.teamId as never,
+          });
+          const teamRow = await ctx.db.get('militiaTeam', teamDocId);
+          if (teamRow) {
+            teamById.set(recruit.teamId, teamRow);
+            recruitedThisWeek = true;
+          }
+        }
+        const currentTeamState = teamStateById.get(recruit.teamId);
+        if (!currentTeamState) {
+          const stateDocId = await ctx.db.insert('militiaTeamState', {
+            militiaId: args.militiaId,
+            teamId: recruit.teamId as never,
+            status: 'active',
+          });
+          const inserted = await ctx.db.get('militiaTeamState', stateDocId);
+          if (inserted) {
+            teamStateById.set(recruit.teamId, inserted);
+          }
+        }
+        if (recruitedThisWeek) {
+          adjustedTreasury -= getTeamCost(recruit.teamId);
+        }
+      }
+
+      for (const upgrade of activityTeamOperations.upgrades) {
+        const teamRow = teamById.get(upgrade.fromTeamId);
+        if (!teamRow) continue;
+        adjustedTreasury -= getTeamCost(upgrade.toTeamId);
+        await ctx.db.patch('militiaTeam', teamRow._id, {
+          teamId: upgrade.toTeamId as never,
+        });
+        teamById.delete(upgrade.fromTeamId);
+        teamById.set(upgrade.toTeamId, { ...teamRow, teamId: upgrade.toTeamId });
+        const state = teamStateById.get(upgrade.fromTeamId);
+        if (state) {
+          await ctx.db.patch('militiaTeamState', state._id, {
+            teamId: upgrade.toTeamId as never,
+          });
+          teamStateById.delete(upgrade.fromTeamId);
+          teamStateById.set(upgrade.toTeamId, { ...state, teamId: upgrade.toTeamId });
+        }
+      }
+
+      for (const officerChange of activityOfficerOperations.changes) {
+        if (
+          current.stagedActivityActionIds[officerChange.slotIndex] !==
+          'change_officer_role'
+        ) {
+          continue;
+        }
+        if (officerChange.characterId) {
+          const character = await ctx.db.get('character', officerChange.characterId);
+          if (!character) {
+            throw new ConvexError('Officer change references unknown character.');
+          }
+          if (character.campaignId !== militia.campaignId) {
+            throw new ConvexError(
+              'Officer change character must belong to this campaign.',
+            );
+          }
+          if (character.isActive === false) {
+            throw new ConvexError(
+              'Officer change character must be active (not archived).',
+            );
+          }
+        }
+        await ctx.db.patch('militia', args.militiaId, {
+          [officerChange.role]: officerChange.characterId,
+        } as Partial<{
+          ambassador: Id<'character'> | undefined;
+          commandant: Id<'character'> | undefined;
+          marshal: Id<'character'> | undefined;
+          overseer: Id<'character'> | undefined;
+          spymaster: Id<'character'> | undefined;
+          strategist: Id<'character'> | undefined;
+        }>);
+      }
+
       if (
         resolution.shouldDropNearestSettlementReputation &&
         resolution.nearestSettlementKey
@@ -939,6 +1586,120 @@ export const commitCurrentPhase = mutation({
         currentWeek: current.weekNumber,
       });
 
+      const setTeamStatus = async ({
+        teamId,
+        status,
+        unavailableUntilWeek,
+        notes,
+      }: {
+        teamId?: string;
+        status: 'active' | 'disabled' | 'missing' | 'blocked';
+        unavailableUntilWeek?: number;
+        notes?: string;
+      }) => {
+        if (!teamId) return;
+        if (!teamById.has(teamId)) return;
+        const state = await ensureTeamState(teamId);
+        await ctx.db.patch('militiaTeamState', state._id, {
+          status,
+          unavailableUntilWeek,
+          notes,
+        });
+      };
+
+      for (const event of resolution.resolvedEvents) {
+        if (event.eventType === 'missing_in_action') {
+          const isTwice = event.isTwiceClause;
+          await setTeamStatus({
+            teamId: eventMitigations.missingInActionSelectedTeamId,
+            status: 'missing',
+            unavailableUntilWeek: current.weekNumber + (isTwice ? 2 : 1),
+            notes: isTwice ? 'return_disabled' : undefined,
+          });
+        }
+        if (event.eventType === 'sickness') {
+          if (event.isTwiceClause) {
+            const loyalty = eventMitigations.sicknessTwiceLoyaltyTotal;
+            const succeeded = loyalty !== undefined && loyalty >= 20;
+            if (!succeeded) {
+              const teamId = eventMitigations.sicknessSelectedTeamId;
+              const teamRow = teamId ? teamById.get(teamId) : undefined;
+              if (teamRow) {
+                await ctx.db.delete('militiaTeam', teamRow._id);
+                teamById.delete(teamId!);
+              }
+              const state = teamId ? teamStateById.get(teamId) : undefined;
+              if (state) {
+                await ctx.db.delete('militiaTeamState', state._id);
+                teamStateById.delete(teamId!);
+              }
+            }
+          } else {
+            await setTeamStatus({
+              teamId: eventMitigations.sicknessSelectedTeamId,
+              status: 'disabled',
+            });
+          }
+        }
+        if (event.eventType === 'turn_around') {
+          const disabledStates = Array.from(teamStateById.values()).filter(
+            (state) => state.status === 'disabled',
+          );
+          if (disabledStates.length > 0) {
+            for (const disabledState of disabledStates) {
+              await ctx.db.patch('militiaTeamState', disabledState._id, {
+                status: 'active',
+                unavailableUntilWeek: undefined,
+              });
+            }
+          } else {
+            const boostTeamId = eventMitigations.turnAroundBoostTeamId;
+            if (boostTeamId) {
+              await setTeamStatus({
+                teamId: boostTeamId,
+                status: 'active',
+                notes: `turn_around_boost_week_${current.weekNumber + 1}`,
+              });
+            }
+          }
+        }
+        if (event.eventType === 'rivalry') {
+          const selected = eventMitigations.rivalrySelectedTeamIds?.slice(0, 2) ?? [];
+          for (const teamId of selected) {
+            await setTeamStatus({
+              teamId,
+              status: 'blocked',
+              unavailableUntilWeek: current.weekNumber + 1,
+            });
+          }
+        }
+        if (event.eventType === 'turncoat' && event.isTwiceClause) {
+          const teamId = eventMitigations.turncoatSelectedTeamId;
+          if (!teamId) continue;
+          const checkTotal = eventMitigations.turncoatOfficerCheckTotal;
+          const succeeded =
+            checkTotal !== undefined && checkTotal >= 10 + militia.rank;
+          if (succeeded) {
+            await setTeamStatus({
+              teamId,
+              status: 'blocked',
+              unavailableUntilWeek: current.weekNumber + 1,
+            });
+          } else {
+            const teamRow = teamById.get(teamId);
+            if (teamRow) {
+              await ctx.db.delete('militiaTeam', teamRow._id);
+              teamById.delete(teamId);
+            }
+            const state = teamStateById.get(teamId);
+            if (state) {
+              await ctx.db.delete('militiaTeamState', state._id);
+              teamStateById.delete(teamId);
+            }
+          }
+        }
+      }
+
       if (derived.endPersistentCount > 0) {
         const toEnd = activePersistentEventStates.slice(0, derived.endPersistentCount);
         for (const eventState of toEnd) {
@@ -961,7 +1722,10 @@ export const commitCurrentPhase = mutation({
         });
       }
 
-      await ctx.db.patch('militia', args.militiaId, resolution.militiaPatch);
+      await ctx.db.patch('militia', args.militiaId, {
+        ...resolution.militiaPatch,
+        treasury: adjustedTreasury,
+      });
       nextPhase = 'upkeep';
       nextWeekNumber += 1;
       nextUneventfulBonusCarry = resolution.nextUneventfulBonusCarry;
@@ -980,6 +1744,24 @@ export const commitCurrentPhase = mutation({
         nextPhase === 'upkeep'
           ? Array.from({ length: maxActions }, () => null)
           : current.stagedActivityActionIds,
+      stagedActivityTeamIds:
+        nextPhase === 'upkeep'
+          ? Array.from({ length: maxActions }, () => null)
+          : currentAny?.stagedActivityTeamIds,
+      activityTeamOperations:
+        nextPhase === 'upkeep'
+          ? { recruits: [], dismissals: [], upgrades: [] }
+          : currentAny?.activityTeamOperations,
+      activityOfficerOperations:
+        nextPhase === 'upkeep'
+          ? { changes: [] }
+          : currentAny?.activityOfficerOperations,
+      upkeepTeamOperations:
+        nextPhase === 'upkeep'
+          ? { disabledRecoveries: [], missingChecks: [] }
+          : currentAny?.upkeepTeamOperations,
+      eventMitigations: nextPhase === 'upkeep' ? {} : currentAny?.eventMitigations,
+      weekWarnings: nextPhase === 'upkeep' ? [] : currentAny?.weekWarnings,
       upkeepRollTotals: nextPhase === 'upkeep' ? {} : current.upkeepRollTotals,
       activityRollTotals: nextPhase === 'upkeep' ? {} : current.activityRollTotals,
       eventRollTotals: nextPhase === 'upkeep' ? {} : current.eventRollTotals,
@@ -1018,6 +1800,12 @@ export const goToPreviousWeek = mutation({
       skippedUpkeepThisWeek: nextWeekNumber === 1,
       lastPersistentBuyoffWeek: current.lastPersistentBuyoffWeek ?? 0,
       stagedActivityActionIds: Array.from({ length: maxActions }, () => null),
+      stagedActivityTeamIds: Array.from({ length: maxActions }, () => null),
+      activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
+      activityOfficerOperations: { changes: [] },
+      upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
+      eventMitigations: {},
+      weekWarnings: [],
       upkeepRollTotals: {},
       activityRollTotals: {},
       eventRollTotals: {},

@@ -63,8 +63,32 @@ export function buildActivityPhaseViewModel({
     militiaId: data.militiaId,
     organizationId,
     rank: data.rank,
+    treasury: data.treasury,
+    maxTeams: data.maxTeams,
     stagedActionIds: controller.stagedActionIds,
     serverActivityTotals: controller.serverActivityTotals,
+    slotTeams: controller.slotTeams,
+    teams: controller.teams,
+    activeTeamIds: controller.activeTeamIds,
+    setSlotTeamAction: (slotIndex, teamId) => {
+      void controller.setSlotTeam(slotIndex, teamId);
+    },
+    activityTeamOperations: controller.activityTeamOperations,
+    activityOfficerOperations: controller.activityOfficerOperations,
+    assignableCharacters: data.assignableCharacters ?? [],
+    officerAssignments: data.officerAssignments ?? {},
+    setRecruitTeamForSlotAction: (slotIndex, teamId) => {
+      controller.setRecruitTeamForSlot(slotIndex, teamId);
+    },
+    setDismissTeamForSlotAction: (slotIndex, teamId) => {
+      controller.setDismissTeamForSlot(slotIndex, teamId);
+    },
+    setUpgradeTeamsForSlotAction: (slotIndex, fromTeamId, toTeamId) => {
+      controller.setUpgradeTeamsForSlot({ slotIndex, fromTeamId, toTeamId });
+    },
+    setOfficerChangeForSlotAction: ({ slotIndex, role, characterId }) => {
+      controller.setOfficerChangeForSlot({ slotIndex, role, characterId });
+    },
     onErrorAction: (message) => controller.actions.setError(message),
   };
 }
@@ -111,6 +135,28 @@ export function buildEventPhaseViewModel(
     resolvedEvent: controller.resolvedEvent,
     resolvedRollTwiceFirst: controller.resolvedRollTwiceFirst,
     resolvedRollTwiceSecond: controller.resolvedRollTwiceSecond,
+    resolvedEventNames: controller.resolvedEventNames,
+    teams: controller.teams,
+    cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
+    setCacheDiscoveredMitigationTotalAction:
+      controller.setCacheDiscoveredMitigationTotal,
+    theftMitigationTotal: controller.theftMitigationTotal,
+    setTheftMitigationTotalAction: controller.setTheftMitigationTotal,
+    sicknessTwiceLoyaltyTotal: controller.sicknessTwiceLoyaltyTotal,
+    setSicknessTwiceLoyaltyTotalAction: controller.setSicknessTwiceLoyaltyTotal,
+    turncoatOfficerCheckTotal: controller.turncoatOfficerCheckTotal,
+    setTurncoatOfficerCheckTotalAction: controller.setTurncoatOfficerCheckTotal,
+    turncoatSelectedTeamId: controller.turncoatSelectedTeamId,
+    setTurncoatSelectedTeamIdAction: controller.setTurncoatSelectedTeamId,
+    missingInActionSelectedTeamId: controller.missingInActionSelectedTeamId,
+    setMissingInActionSelectedTeamIdAction:
+      controller.setMissingInActionSelectedTeamId,
+    sicknessSelectedTeamId: controller.sicknessSelectedTeamId,
+    setSicknessSelectedTeamIdAction: controller.setSicknessSelectedTeamId,
+    turnAroundBoostTeamId: controller.turnAroundBoostTeamId,
+    setTurnAroundBoostTeamIdAction: controller.setTurnAroundBoostTeamId,
+    rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
+    setRivalrySelectedTeamIdsAction: controller.setRivalrySelectedTeamIds,
     onPreviousWeekAction: () => {
       void controller.actions.goBackWeek();
     },
@@ -179,6 +225,34 @@ export function buildSummaryPhaseViewModel({
     eventRollTwiceSecond: controller.eventRollTwiceSecond,
     sabotageCheckTotal: controller.sabotageCheckTotal,
     sabotageNotorietyIncreaseTotal: controller.sabotageNotorietyIncreaseTotal,
+    activityTeamOperations: controller.activityTeamOperations,
+    activityOfficerOperations: controller.activityOfficerOperations,
+    slotTeams: controller.slotTeams,
+    weekWarnings: Array.isArray(
+      (controller.data?.state as Record<string, unknown>)?.weekWarnings,
+    )
+      ? ((controller.data?.state as Record<string, unknown>)
+          .weekWarnings as unknown[]).filter(
+          (warning): warning is { code: string; message: string } =>
+            Boolean(
+              warning &&
+                typeof warning === 'object' &&
+                'code' in warning &&
+                'message' in warning &&
+                typeof warning.code === 'string' &&
+                typeof warning.message === 'string',
+            ),
+        )
+      : [],
+    cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
+    theftMitigationTotal: controller.theftMitigationTotal,
+    sicknessTwiceLoyaltyTotal: controller.sicknessTwiceLoyaltyTotal,
+    turncoatOfficerCheckTotal: controller.turncoatOfficerCheckTotal,
+    turncoatSelectedTeamId: controller.turncoatSelectedTeamId,
+    missingInActionSelectedTeamId: controller.missingInActionSelectedTeamId,
+    sicknessSelectedTeamId: controller.sicknessSelectedTeamId,
+    turnAroundBoostTeamId: controller.turnAroundBoostTeamId,
+    rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
     formatManualTotalForSummaryAction,
   };
 }

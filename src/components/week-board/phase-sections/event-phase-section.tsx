@@ -60,6 +60,26 @@ export type EventPhaseViewModel = {
   resolvedEvent: ResolvedEventValue;
   resolvedRollTwiceFirst: ResolvedEventValue;
   resolvedRollTwiceSecond: ResolvedEventValue;
+  resolvedEventNames: string[];
+  teams: Array<{ teamId: string; status: 'active' | 'disabled' | 'missing' | 'blocked' }>;
+  cacheDiscoveredMitigationTotal: string;
+  setCacheDiscoveredMitigationTotalAction: (value: string) => void;
+  theftMitigationTotal: string;
+  setTheftMitigationTotalAction: (value: string) => void;
+  sicknessTwiceLoyaltyTotal: string;
+  setSicknessTwiceLoyaltyTotalAction: (value: string) => void;
+  turncoatOfficerCheckTotal: string;
+  setTurncoatOfficerCheckTotalAction: (value: string) => void;
+  turncoatSelectedTeamId: string;
+  setTurncoatSelectedTeamIdAction: (value: string) => void;
+  missingInActionSelectedTeamId: string;
+  setMissingInActionSelectedTeamIdAction: (value: string) => void;
+  sicknessSelectedTeamId: string;
+  setSicknessSelectedTeamIdAction: (value: string) => void;
+  turnAroundBoostTeamId: string;
+  setTurnAroundBoostTeamIdAction: (value: string) => void;
+  rivalrySelectedTeamIds: string[];
+  setRivalrySelectedTeamIdsAction: (value: string[]) => void;
   onPreviousWeekAction: () => void;
   previousWeekDisabled: boolean;
   continueLabel: string;
@@ -104,11 +124,39 @@ export function EventPhaseSection({
     resolvedEvent,
     resolvedRollTwiceFirst,
     resolvedRollTwiceSecond,
+    resolvedEventNames,
+    teams,
+    cacheDiscoveredMitigationTotal,
+    setCacheDiscoveredMitigationTotalAction,
+    theftMitigationTotal,
+    setTheftMitigationTotalAction,
+    sicknessTwiceLoyaltyTotal,
+    setSicknessTwiceLoyaltyTotalAction,
+    turncoatOfficerCheckTotal,
+    setTurncoatOfficerCheckTotalAction,
+    turncoatSelectedTeamId,
+    setTurncoatSelectedTeamIdAction,
+    missingInActionSelectedTeamId,
+    setMissingInActionSelectedTeamIdAction,
+    sicknessSelectedTeamId,
+    setSicknessSelectedTeamIdAction,
+    turnAroundBoostTeamId,
+    setTurnAroundBoostTeamIdAction,
+    rivalrySelectedTeamIds,
+    setRivalrySelectedTeamIdsAction,
     onPreviousWeekAction,
     previousWeekDisabled,
     continueLabel,
     onContinueAction,
   } = viewModel;
+  const showCacheDiscoveredControls = resolvedEventNames.includes('Cache Discovered');
+  const showTheftControls = resolvedEventNames.includes('Theft');
+  const showSicknessControls = resolvedEventNames.includes('Sickness');
+  const showTurncoatControls = resolvedEventNames.includes('Turncoat');
+  const showMissingInActionControls =
+    resolvedEventNames.includes('Missing in Action');
+  const showTurnAroundControls = resolvedEventNames.includes('Turn Around');
+  const showRivalryControls = resolvedEventNames.includes('Rivalry');
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -343,6 +391,145 @@ export function EventPhaseSection({
               </div>
             </>
           ) : null}
+          <div className="rounded border p-2">
+            <p className="font-mono text-xs font-bold">Mitigations and Team Targets</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {showCacheDiscoveredControls ? (
+                <div className="space-y-1">
+                  <Label className="font-mono text-xs">
+                    Cache Discovered mitigation total
+                  </Label>
+                  <Input
+                    value={cacheDiscoveredMitigationTotal}
+                    onChange={(event) =>
+                      setCacheDiscoveredMitigationTotalAction(event.target.value)
+                    }
+                    placeholder="DC 10 + rank"
+                    className="font-mono"
+                  />
+                </div>
+              ) : null}
+              {showTheftControls ? (
+                <div className="space-y-1">
+                  <Label className="font-mono text-xs">Theft mitigation total</Label>
+                  <Input
+                    value={theftMitigationTotal}
+                    onChange={(event) => setTheftMitigationTotalAction(event.target.value)}
+                    placeholder="DC 20"
+                    className="font-mono"
+                  />
+                </div>
+              ) : null}
+              {showSicknessControls ? (
+                <>
+                  <div className="space-y-1">
+                    <Label className="font-mono text-xs">
+                      Sickness (Twice) loyalty total
+                    </Label>
+                    <Input
+                      value={sicknessTwiceLoyaltyTotal}
+                      onChange={(event) =>
+                        setSicknessTwiceLoyaltyTotalAction(event.target.value)
+                      }
+                      placeholder="DC 20"
+                      className="font-mono"
+                    />
+                  </div>
+                  <EventTeamSelect
+                    label="Sickness team"
+                    value={sicknessSelectedTeamId}
+                    onChange={setSicknessSelectedTeamIdAction}
+                    teams={teams}
+                  />
+                </>
+              ) : null}
+              {showTurncoatControls ? (
+                <>
+                  <div className="space-y-1">
+                    <Label className="font-mono text-xs">
+                      Turncoat (Twice) officer check total
+                    </Label>
+                    <Input
+                      value={turncoatOfficerCheckTotal}
+                      onChange={(event) =>
+                        setTurncoatOfficerCheckTotalAction(event.target.value)
+                      }
+                      placeholder={`DC ${10 + rank}`}
+                      className="font-mono"
+                    />
+                  </div>
+                  <EventTeamSelect
+                    label="Turncoat team"
+                    value={turncoatSelectedTeamId}
+                    onChange={setTurncoatSelectedTeamIdAction}
+                    teams={teams}
+                  />
+                </>
+              ) : null}
+              {showMissingInActionControls ? (
+                <EventTeamSelect
+                  label="Missing in Action team"
+                  value={missingInActionSelectedTeamId}
+                  onChange={setMissingInActionSelectedTeamIdAction}
+                  teams={teams}
+                />
+              ) : null}
+              {showTurnAroundControls ? (
+                <EventTeamSelect
+                  label="Turn Around boost team"
+                  value={turnAroundBoostTeamId}
+                  onChange={setTurnAroundBoostTeamIdAction}
+                  teams={teams}
+                />
+              ) : null}
+              {showRivalryControls ? (
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="font-mono text-xs">Rivalry teams</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[0, 1].map((index) => (
+                      <Select
+                        key={`rivalry-${index}`}
+                        value={rivalrySelectedTeamIds[index] ?? undefined}
+                        onValueChange={(value) => {
+                          const next = [...rivalrySelectedTeamIds];
+                          next[index] = value;
+                          setRivalrySelectedTeamIdsAction(
+                            next.filter((item) => item?.trim()),
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
+                          <SelectValue placeholder={`Select rivalry team ${index + 1}`} />
+                        </SelectTrigger>
+                        <SelectContent className="border-primary bg-card border-2 font-mono">
+                          {teams.map((team) => (
+                            <SelectItem
+                              key={`rivalry-team-${index}-${team.teamId}`}
+                              value={team.teamId}
+                            >
+                              {team.teamId}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {!showCacheDiscoveredControls &&
+              !showTheftControls &&
+              !showSicknessControls &&
+              !showTurncoatControls &&
+              !showMissingInActionControls &&
+              !showTurnAroundControls &&
+              !showRivalryControls ? (
+                <p className="text-muted-foreground font-mono text-xs md:col-span-2">
+                  No mitigation or team-target input required for the currently
+                  resolved event(s).
+                </p>
+              ) : null}
+            </div>
+          </div>
           <p className="text-muted-foreground">
             Enter percentile totals as 1-100 to resolve against Table 6-3.
           </p>
@@ -387,6 +574,36 @@ export function EventPhaseSection({
           </div>
         </Card>
       ) : null}
+    </div>
+  );
+}
+
+function EventTeamSelect({
+  label,
+  value,
+  onChange,
+  teams,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  teams: Array<{ teamId: string }>;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label className="font-mono text-xs">{label}</Label>
+      <Select value={value || undefined} onValueChange={onChange}>
+        <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
+          <SelectValue placeholder="Select team" />
+        </SelectTrigger>
+        <SelectContent className="border-primary bg-card border-2 font-mono">
+          {teams.map((team) => (
+            <SelectItem key={`${label}-${team.teamId}`} value={team.teamId}>
+              {team.teamId}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
