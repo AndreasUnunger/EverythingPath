@@ -42,6 +42,20 @@ export function characterLedgerQuery(
   });
 }
 
+export function settlementLedgerQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.militia.listSettlements, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
 export function weekBoardStateQuery(
   campaignId: Id<'campaign'> | undefined,
   orgId: string | undefined,

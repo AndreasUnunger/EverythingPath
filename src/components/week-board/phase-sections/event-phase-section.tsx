@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  getCheckBonusHelperText,
+  getEventOverseerSupportOptions,
+  type EventOverseerSupportTarget,
+  type OfficerEffects,
+} from '~/components/week-board/officer-effects';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
@@ -80,6 +86,11 @@ export type EventPhaseViewModel = {
   setTurnAroundBoostTeamIdAction: (value: string) => void;
   rivalrySelectedTeamIds: string[];
   setRivalrySelectedTeamIdsAction: (value: string[]) => void;
+  officerEffects: OfficerEffects;
+  overseerEventSupportTarget: EventOverseerSupportTarget | '';
+  setOverseerEventSupportTargetAction: (
+    value: EventOverseerSupportTarget | '',
+  ) => void;
   onPreviousWeekAction: () => void;
   previousWeekDisabled: boolean;
   continueLabel: string;
@@ -144,6 +155,9 @@ export function EventPhaseSection({
     setTurnAroundBoostTeamIdAction,
     rivalrySelectedTeamIds,
     setRivalrySelectedTeamIdsAction,
+    officerEffects,
+    overseerEventSupportTarget,
+    setOverseerEventSupportTargetAction,
     onPreviousWeekAction,
     previousWeekDisabled,
     continueLabel,
@@ -157,6 +171,35 @@ export function EventPhaseSection({
     resolvedEventNames.includes('Missing in Action');
   const showTurnAroundControls = resolvedEventNames.includes('Turn Around');
   const showRivalryControls = resolvedEventNames.includes('Rivalry');
+  const overseerSupportOptions = getEventOverseerSupportOptions({
+    officerEffects,
+    eventWouldOccurBeforeSabotage,
+    resolvedEventNames,
+  });
+  const sabotageHelperText = getCheckBonusHelperText({
+    checkType: 'secrecy',
+    officerEffects,
+    overseerSupportTarget: overseerEventSupportTarget,
+    currentEventTarget: 'sabotage',
+  });
+  const cacheDiscoveredHelperText = getCheckBonusHelperText({
+    checkType: 'secrecy',
+    officerEffects,
+    overseerSupportTarget: overseerEventSupportTarget,
+    currentEventTarget: 'cache_discovered',
+  });
+  const theftHelperText = getCheckBonusHelperText({
+    checkType: 'loyalty',
+    officerEffects,
+    overseerSupportTarget: overseerEventSupportTarget,
+    currentEventTarget: 'theft',
+  });
+  const sicknessHelperText = getCheckBonusHelperText({
+    checkType: 'loyalty',
+    officerEffects,
+    overseerSupportTarget: overseerEventSupportTarget,
+    currentEventTarget: 'sickness_twice',
+  });
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -277,6 +320,11 @@ export function EventPhaseSection({
                   placeholder={`DC ${15 + rank}`}
                   className="font-mono"
                 />
+                {sabotageHelperText ? (
+                  <p className="text-muted-foreground font-mono text-xs">
+                    {sabotageHelperText}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-1">
                 <Label
@@ -394,6 +442,33 @@ export function EventPhaseSection({
           <div className="rounded border p-2">
             <p className="font-mono text-xs font-bold">Mitigations and Team Targets</p>
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {overseerSupportOptions.length > 0 ? (
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="font-mono text-xs">Overseer event support</Label>
+                  <Select
+                    value={overseerEventSupportTarget || undefined}
+                    onValueChange={(value) =>
+                      setOverseerEventSupportTargetAction(
+                        value === '__none__'
+                          ? ''
+                          : (value as EventOverseerSupportTarget),
+                      )
+                    }
+                  >
+                    <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
+                      <SelectValue placeholder="Select one event check to receive Overseer support" />
+                    </SelectTrigger>
+                    <SelectContent className="border-primary bg-card border-2 font-mono">
+                      <SelectItem value="__none__">No Overseer support selected</SelectItem>
+                      {overseerSupportOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               {showCacheDiscoveredControls ? (
                 <div className="space-y-1">
                   <Label className="font-mono text-xs">
@@ -407,6 +482,11 @@ export function EventPhaseSection({
                     placeholder="DC 10 + rank"
                     className="font-mono"
                   />
+                  {cacheDiscoveredHelperText ? (
+                    <p className="text-muted-foreground font-mono text-xs">
+                      {cacheDiscoveredHelperText}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
               {showTheftControls ? (
@@ -418,6 +498,11 @@ export function EventPhaseSection({
                     placeholder="DC 20"
                     className="font-mono"
                   />
+                  {theftHelperText ? (
+                    <p className="text-muted-foreground font-mono text-xs">
+                      {theftHelperText}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
               {showSicknessControls ? (
@@ -434,6 +519,11 @@ export function EventPhaseSection({
                       placeholder="DC 20"
                       className="font-mono"
                     />
+                    {sicknessHelperText ? (
+                      <p className="text-muted-foreground font-mono text-xs">
+                        {sicknessHelperText}
+                      </p>
+                    ) : null}
                   </div>
                   <EventTeamSelect
                     label="Sickness team"

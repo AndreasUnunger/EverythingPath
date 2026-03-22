@@ -1,6 +1,8 @@
 'use client';
 
 import { ACTION_CARDS } from '~/components/week-board/data';
+import { getEventOverseerSupportLabel } from '~/components/week-board/officer-effects';
+import type { ActivityAssetOperationsDraft } from '~/components/week-board/activity-asset-operations';
 import type { ActionId } from '~/components/week-board/types';
 
 type FormatManualTotal = (raw: string) => string;
@@ -75,6 +77,7 @@ export function buildStagedSlotItems({
 export function buildOperationSummaryItems({
   activityTeamOperations,
   activityOfficerOperations,
+  activityAssetOperations,
 }: {
   activityTeamOperations: {
     recruits: Array<{ slotIndex: number; teamId: string }>;
@@ -94,6 +97,7 @@ export function buildOperationSummaryItems({
       characterId?: string;
     }>;
   };
+  activityAssetOperations: ActivityAssetOperationsDraft;
 }) {
   const teamItems = [
     ...activityTeamOperations.recruits.map(
@@ -111,7 +115,75 @@ export function buildOperationSummaryItems({
     const roleLabel = entry.role.charAt(0).toUpperCase() + entry.role.slice(1);
     return `Change officer role (slot ${entry.slotIndex + 1}): ${roleLabel} -> ${entry.characterId ?? 'Unassign'}`;
   });
-  return [...teamItems, ...officerItems];
+  const assetItems = [
+    ...activityAssetOperations.refuges.map(
+      (entry) =>
+        `Activate refuge (slot ${entry.slotIndex + 1}): ${entry.settlementKey}`,
+    ),
+    ...activityAssetOperations.caches.flatMap((entry) => {
+      if (entry.mode === 'retrieve' && entry.cacheId) {
+        return [
+          `Retrieve cache (slot ${entry.slotIndex + 1}): ${entry.cacheId}${entry.checkTotal ? `, check ${entry.checkTotal}` : ''}`,
+        ];
+      }
+      if (
+        entry.mode === 'place' &&
+        entry.label &&
+        entry.cacheClass &&
+        entry.location &&
+        entry.contentsSummary
+      ) {
+        return [
+          `Place cache (slot ${entry.slotIndex + 1}): ${entry.label} [${entry.cacheClass}] at ${entry.location}${entry.isSecureLocation ? ', secure' : ''}${entry.checkTotal ? `, check ${entry.checkTotal}` : ''}`,
+        ];
+      }
+      return [];
+    }),
+    ...activityAssetOperations.orders.flatMap((entry) => {
+      if (!entry.description || !entry.costPaid || !entry.deliveryDays) {
+        return [];
+      }
+      return [
+        `Special order (slot ${entry.slotIndex + 1}): ${entry.description}, ${entry.costPaid} gp, ${entry.deliveryDays} day(s)`,
+      ];
+    }),
+    ...activityAssetOperations.covertActions.flatMap((entry) => {
+      if (entry.mode === 'augment_action') {
+        return [`Covert Action (slot ${entry.slotIndex + 1}): augment next staged action`];
+      }
+      if (entry.mode === 'place_contact' && entry.siteName) {
+        return [
+          `Covert Action (slot ${entry.slotIndex + 1}): place contact${entry.displayName ? ` ${entry.displayName}` : ''} at ${entry.siteName}`,
+        ];
+      }
+      return [];
+    }),
+    ...activityAssetOperations.rescues.flatMap((entry) => {
+      const target =
+        entry.targetStatusId ??
+        entry.characterId ??
+        entry.displayName;
+      if (!target) {
+        return [];
+      }
+      return [
+        `Rescue target (slot ${entry.slotIndex + 1}): ${target}${entry.targetLevel ? `, level ${entry.targetLevel}` : ''}${entry.destinationType ? `, to ${entry.destinationType}${entry.destinationSettlementKey ? ` (${entry.destinationSettlementKey})` : ''}` : ''}`,
+      ];
+    }),
+    ...activityAssetOperations.restorations.flatMap((entry) => {
+      const target =
+        entry.targetStatusId ??
+        entry.characterId ??
+        entry.displayName;
+      if (!target && !entry.mode) {
+        return [];
+      }
+      return [
+        `Restore target (slot ${entry.slotIndex + 1}): ${target ?? 'Party-wide effect'}${entry.mode ? `, ${entry.mode.replaceAll('_', ' ')}` : ''}${entry.customCostTotal ? `, ${entry.customCostTotal} gp` : ''}`,
+      ];
+    }),
+  ];
+  return [...teamItems, ...officerItems, ...assetItems];
 }
 
 export function buildEventOccurrenceItems({
@@ -132,6 +204,7 @@ export function buildEventOccurrenceItems({
   sicknessSelectedTeamId,
   turnAroundBoostTeamId,
   rivalrySelectedTeamIds,
+  overseerEventSupportTarget,
   formatManualTotalForSummary,
 }: {
   eventChanceTotal: string;
@@ -151,6 +224,7 @@ export function buildEventOccurrenceItems({
   sicknessSelectedTeamId: string;
   turnAroundBoostTeamId: string;
   rivalrySelectedTeamIds: string[];
+  overseerEventSupportTarget: '' | 'sabotage' | 'cache_discovered' | 'theft' | 'sickness_twice';
   formatManualTotalForSummary: FormatManualTotal;
 }) {
   const items: string[] = [];
@@ -221,6 +295,11 @@ export function buildEventOccurrenceItems({
   }
   if (rivalrySelectedTeamIds.length > 0) {
     items.push(`Rivalry teams: ${rivalrySelectedTeamIds.join(', ')}`);
+  }
+  if (overseerEventSupportTarget) {
+    items.push(
+      `Overseer support: ${getEventOverseerSupportLabel(overseerEventSupportTarget)}`,
+    );
   }
   return items;
 }

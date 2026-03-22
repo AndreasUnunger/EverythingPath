@@ -2,7 +2,15 @@
 
 import type { Id } from '@convex/_generated/dataModel';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
+import type {
+  ActivityAssetOperationsDraft,
+  CacheLedgerEntry,
+  OrderLedgerEntry,
+  SettlementLedgerEntry,
+  TrackedPersonLedgerEntry,
+} from '~/components/week-board/activity-asset-operations';
 import { ACTION_CARDS } from '~/components/week-board/data';
+import type { MilitiaFocus, OfficerEffects } from '~/components/week-board/officer-effects';
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
 import {
   buildRecruitTeamOptions,
@@ -24,6 +32,12 @@ export type AssignableCharacter = {
   name: string;
   kind: 'pc' | 'officer_npc';
   level: number;
+  strength: number;
+  dexterity: number;
+  constitution: number;
+  intelligence: number;
+  wisdom: number;
+  charisma: number;
 };
 
 export type OfficerAssignments = {
@@ -49,6 +63,8 @@ export type ActivityOfficerOperations = {
   }>;
 };
 
+export type ActivityAssetOperations = ActivityAssetOperationsDraft;
+
 export type ActivityPhaseViewModel = {
   dragState: DragState | null;
   setDragStateAction: Dispatch<SetStateAction<DragState | null>>;
@@ -65,7 +81,9 @@ export type ActivityPhaseViewModel = {
   resetSlotsAction: () => void;
   militiaId: Id<'militia'>;
   organizationId: string;
+  currentWeek: number;
   rank: number;
+  focus: MilitiaFocus;
   treasury: number;
   maxTeams: number;
   stagedActionIds: ActionId[];
@@ -73,12 +91,19 @@ export type ActivityPhaseViewModel = {
   slotTeams: Array<string | null>;
   activityTeamOperations: ActivityTeamOperations;
   activityOfficerOperations: ActivityOfficerOperations;
+  activityAssetOperations: ActivityAssetOperations;
   assignableCharacters: AssignableCharacter[];
   officerAssignments: OfficerAssignments;
+  officerEffects: OfficerEffects;
+  strategistBonusActionId: ActionId | null;
   teams: Array<{
     teamId: string;
     status: 'active' | 'disabled' | 'missing' | 'blocked';
   }>;
+  settlements: SettlementLedgerEntry[];
+  caches: CacheLedgerEntry[];
+  orders: OrderLedgerEntry[];
+  trackedPeople: TrackedPersonLedgerEntry[];
   activeTeamIds: string[];
   setSlotTeamAction: (slotIndex: number, teamId: string | null) => void;
   setRecruitTeamForSlotAction: (slotIndex: number, teamId: string) => void;
@@ -93,6 +118,65 @@ export type ActivityPhaseViewModel = {
     role?: OfficerRole;
     characterId?: Id<'character'> | null;
   }) => void;
+  setRefugeSettlementForSlotAction: (slotIndex: number, settlementKey: string) => void;
+  setCacheOperationForSlotAction: (args: {
+    slotIndex: number;
+    mode?: 'place' | 'retrieve';
+    cacheId?: string;
+    label?: string;
+    cacheClass?: 'minor' | 'intermediate' | 'major';
+    location?: string;
+    contentsSummary?: string;
+    isSecureLocation?: boolean;
+    checkTotal?: string;
+  }) => void;
+  setOrderForSlotAction: (args: {
+    slotIndex: number;
+    description?: string;
+    notes?: string;
+    costPaid?: string;
+    deliveryDays?: string;
+  }) => void;
+  setCovertActionForSlotAction: (args: {
+    slotIndex: number;
+    mode?: 'augment_action' | 'place_contact';
+    targetSource?: 'character' | 'freeform';
+    followupSlotIndex?: number;
+    characterId?: Id<'character'> | null;
+    displayName?: string;
+    personKind?: 'pc' | 'officer_npc' | 'other_npc' | null;
+    siteName?: string;
+    notes?: string;
+  }) => void;
+  setRescueForSlotAction: (args: {
+    slotIndex: number;
+    targetSource?: 'tracked' | 'character' | 'freeform';
+    targetStatusId?: string;
+    characterId?: Id<'character'> | null;
+    displayName?: string;
+    personKind?: 'pc' | 'officer_npc' | 'other_npc' | null;
+    targetLevel?: string;
+    destinationType?: 'hq' | 'refuge' | 'settlement';
+    destinationSettlementKey?: string;
+  }) => void;
+  setRestorationForSlotAction: (args: {
+    slotIndex: number;
+    targetSource?: 'tracked' | 'character' | 'freeform';
+    targetStatusId?: string;
+    characterId?: Id<'character'> | null;
+    displayName?: string;
+    personKind?: 'pc' | 'officer_npc' | 'other_npc' | null;
+    mode?:
+      | 'party_ability_damage'
+      | 'party_hit_points'
+      | 'party_lesser_restorative'
+      | 'break_enchantment'
+      | 'raise_dead'
+      | 'restoration'
+      | 'stone_to_flesh'
+      | 'custom';
+    customCostTotal?: string;
+  }) => void;
   onErrorAction: (message: string) => void;
 };
 
@@ -106,7 +190,7 @@ export type ActivityActionCardEntry = {
   warnings: string[];
 };
 
-const ACTION_TEAM_REQUIREMENTS: Record<ActionId, string[] | null> = {
+export const ACTION_TEAM_REQUIREMENTS: Record<ActionId, string[] | null> = {
   activate_black_market: ['blackMarketeers'],
   activate_refuge: ['conspirators', 'scholars', 'spellcasters'],
   broker_market: ['blackMarketeers', 'fixers', 'merchants'],

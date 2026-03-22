@@ -16,7 +16,7 @@ export function ArchivedCharactersCard({
   deletingCharacterId?: CharacterId;
 }) {
   return (
-    <Card className="bg-card border-2 p-4">
+    <Card className="bg-card w-full border-2 p-4">
       <h3 className="text-primary mb-3 font-sans text-lg font-bold">
         Archived Characters
       </h3>

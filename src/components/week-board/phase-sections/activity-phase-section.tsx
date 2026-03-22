@@ -4,6 +4,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { ActivityRollsController } from '~/components/week-board/activity-rolls-controller';
+import { AssetLedgerPanel } from '~/components/week-board/asset-ledger-panel';
 import { ActivityDeckCard } from '~/components/week-board/phase-sections/activity-deck-card';
 import {
   buildActivityActionEntries,
@@ -31,6 +32,7 @@ export function ActivityPhaseSection({
     resetSlotsAction,
     militiaId,
     organizationId,
+    currentWeek,
     rank,
     treasury,
     maxTeams,
@@ -39,15 +41,28 @@ export function ActivityPhaseSection({
     slotTeams,
     activityTeamOperations,
     activityOfficerOperations,
+    activityAssetOperations,
     assignableCharacters,
     officerAssignments,
+    officerEffects,
+    strategistBonusActionId,
     teams,
+    settlements,
+    caches,
+    orders,
+    trackedPeople,
     activeTeamIds,
     setSlotTeamAction,
     setRecruitTeamForSlotAction,
     setDismissTeamForSlotAction,
     setUpgradeTeamsForSlotAction,
     setOfficerChangeForSlotAction,
+    setRefugeSettlementForSlotAction,
+    setCacheOperationForSlotAction,
+    setOrderForSlotAction,
+    setCovertActionForSlotAction,
+    setRescueForSlotAction,
+    setRestorationForSlotAction,
     onErrorAction,
   } = viewModel;
 
@@ -98,63 +113,90 @@ export function ActivityPhaseSection({
         </div>
       </div>
 
-      <Card className="order-1 max-h-[calc(100vh-18rem)] overflow-y-auto border p-3 xl:sticky xl:top-4 xl:order-2">
-        <div className="mb-1 grid grid-cols-2 gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-mono text-sm font-bold">
-              Activity Slots ({slotRows.length} max)
-            </p>
-            <Button variant="outline" onClick={resetSlotsAction}>
-              Reset Slots
-            </Button>
+      <div className="order-1 space-y-3 xl:order-2">
+        <Card className="max-h-[calc(100vh-18rem)] overflow-y-auto border p-3 xl:sticky xl:top-4">
+          <div className="mb-1 grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-mono text-sm font-bold">
+                Activity Slots ({slotRows.length} max)
+              </p>
+              <Button variant="outline" onClick={resetSlotsAction}>
+                Reset Slots
+              </Button>
+            </div>
+            <p className="font-mono text-sm font-bold">Activity Roll Entry</p>
           </div>
-          <p className="font-mono text-sm font-bold">Activity Roll Entry</p>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            {slotRows.map((slotRow) => (
-              <ActivitySlotCard
-                key={slotRow.slotId}
-                slotId={slotRow.slotId}
-                slotNumber={slotRow.slotNumber}
-                slotActionId={slotRow.slotActionId}
-                dragState={dragState}
-                activeDropSlotId={activeDropSlotId}
-                slotRefs={slotRefs}
-                slotTeams={slotTeams}
-                activityTeamOperations={activityTeamOperations}
-                activityOfficerOperations={activityOfficerOperations}
-                teams={teams}
-                activeTeamIds={activeTeamIds}
-                assignableCharacters={assignableCharacters}
-                officerAssignments={officerAssignments}
-                maxTeams={maxTeams}
-                treasury={treasury}
-                setDragStateAction={setDragStateAction}
-                setSlotTeamAction={setSlotTeamAction}
-                setRecruitTeamForSlotAction={setRecruitTeamForSlotAction}
-                setDismissTeamForSlotAction={setDismissTeamForSlotAction}
-                setUpgradeTeamsForSlotAction={setUpgradeTeamsForSlotAction}
-                setOfficerChangeForSlotAction={setOfficerChangeForSlotAction}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              {slotRows.map((slotRow) => (
+                <ActivitySlotCard
+                  key={slotRow.slotId}
+                  slotId={slotRow.slotId}
+                  slotNumber={slotRow.slotNumber}
+                  slotActionId={slotRow.slotActionId}
+                  dragState={dragState}
+                  activeDropSlotId={activeDropSlotId}
+                  slotRefs={slotRefs}
+                  slotTeams={slotTeams}
+                  activityTeamOperations={activityTeamOperations}
+                  activityOfficerOperations={activityOfficerOperations}
+                  activityAssetOperations={activityAssetOperations}
+                  teams={teams}
+                  settlements={settlements}
+                  caches={caches}
+                  orders={orders}
+                  trackedPeople={trackedPeople}
+                  activeTeamIds={activeTeamIds}
+                  assignableCharacters={assignableCharacters}
+                  officerAssignments={officerAssignments}
+                  officerEffects={officerEffects}
+                  strategistBonusActionId={strategistBonusActionId}
+                  maxTeams={maxTeams}
+                  treasury={treasury}
+                  setDragStateAction={setDragStateAction}
+                  setSlotTeamAction={setSlotTeamAction}
+                  setRecruitTeamForSlotAction={setRecruitTeamForSlotAction}
+                  setDismissTeamForSlotAction={setDismissTeamForSlotAction}
+                  setUpgradeTeamsForSlotAction={setUpgradeTeamsForSlotAction}
+                  setOfficerChangeForSlotAction={setOfficerChangeForSlotAction}
+                  setRefugeSettlementForSlotAction={setRefugeSettlementForSlotAction}
+                  setCacheOperationForSlotAction={setCacheOperationForSlotAction}
+                  setOrderForSlotAction={setOrderForSlotAction}
+                  setCovertActionForSlotAction={setCovertActionForSlotAction}
+                  setRescueForSlotAction={setRescueForSlotAction}
+                  setRestorationForSlotAction={setRestorationForSlotAction}
+                />
+              ))}
+            </div>
+
+            <div>
+              <ActivityRollsController
+                militiaId={militiaId}
+                organizationId={organizationId}
+                rank={rank}
+                stagedActionIds={stagedActionIds}
+                serverTotals={serverActivityTotals}
+                officerEffects={officerEffects}
+                strategistBonusActionId={strategistBonusActionId}
+                recruitTeamId={activityTeamOperations.recruits[0]?.teamId}
+                onErrorAction={onErrorAction}
+                className="space-y-2"
+                showTitle={false}
               />
-            ))}
+            </div>
           </div>
+        </Card>
 
-          <div>
-            <ActivityRollsController
-              militiaId={militiaId}
-              organizationId={organizationId}
-              rank={rank}
-              stagedActionIds={stagedActionIds}
-              serverTotals={serverActivityTotals}
-              onErrorAction={onErrorAction}
-              className="space-y-2"
-              showTitle={false}
-            />
-          </div>
-        </div>
-      </Card>
+        <AssetLedgerPanel
+          currentWeek={currentWeek}
+          settlements={settlements}
+          caches={caches}
+          orders={orders}
+          trackedPeople={trackedPeople}
+          stickyOnWide={false}
+        />
+      </div>
     </div>
   );
 }

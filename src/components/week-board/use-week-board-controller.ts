@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Id } from '@convex/_generated/dataModel';
+import {
+  createEmptyActivityAssetOperationsDraft,
+  type ActivityAssetOperationsDraft,
+} from '~/components/week-board/activity-asset-operations';
 import { buildActivityRollSummaryRows } from '~/components/week-board/activity-roll-sections';
 import {
   resolveEventTrigger,
@@ -12,6 +16,11 @@ import {
   readEventRollTotals,
   readUpkeepRollTotals,
 } from '~/components/week-board/roll-totals';
+import {
+  buildOfficerEffects,
+  getEventOverseerSupportOptions,
+  type EventOverseerSupportTarget,
+} from '~/components/week-board/officer-effects';
 import {
   createEmptyWeekBoardControllerSyncedState,
   mergeWeekBoardControllerSyncedStateWithServer,
@@ -84,6 +93,10 @@ export function useWeekBoardController({
     useState<ActivityOfficerOperationsDraft>({
       changes: [],
     });
+  const [activityAssetOperations, setActivityAssetOperations] =
+    useState<ActivityAssetOperationsDraft>(
+      createEmptyActivityAssetOperationsDraft(),
+    );
   const [cacheDiscoveredMitigationTotal, setCacheDiscoveredMitigationTotal] =
     useState('');
   const [theftMitigationTotal, setTheftMitigationTotal] = useState('');
@@ -97,6 +110,9 @@ export function useWeekBoardController({
   const [rivalrySelectedTeamIds, setRivalrySelectedTeamIds] = useState<string[]>(
     [],
   );
+  const [overseerEventSupportTarget, setOverseerEventSupportTarget] = useState<
+    EventOverseerSupportTarget | ''
+  >('');
   const [error, setError] = useState<string>();
   const slotRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const lastSyncedServerStateRef = useRef(
@@ -191,6 +207,170 @@ export function useWeekBoardController({
           characterId: item.characterId,
         })),
     };
+    const activityAssetOps =
+      (stateAny.activityAssetOperations as
+        | {
+            refuges?: Array<{ slotIndex?: number; settlementKey?: string }>;
+            caches?: Array<{
+              slotIndex?: number;
+              mode?: 'place' | 'retrieve';
+              cacheId?: string;
+              label?: string;
+              cacheClass?: 'minor' | 'intermediate' | 'major';
+              location?: string;
+              contentsSummary?: string;
+              isSecureLocation?: boolean;
+              checkTotal?: number;
+            }>;
+            orders?: Array<{
+              slotIndex?: number;
+              description?: string;
+              notes?: string;
+              costPaid?: number;
+              deliveryDays?: number;
+            }>;
+            covertActions?: Array<{
+              slotIndex?: number;
+              mode?: 'augment_action' | 'place_contact';
+              targetSource?: 'character' | 'freeform';
+              followupSlotIndex?: number;
+              characterId?: Id<'character'>;
+              displayName?: string;
+              personKind?: 'pc' | 'officer_npc' | 'other_npc';
+              siteName?: string;
+              notes?: string;
+            }>;
+            rescues?: Array<{
+              slotIndex?: number;
+              targetSource?: 'tracked' | 'character' | 'freeform';
+              targetStatusId?: string;
+              characterId?: Id<'character'>;
+              displayName?: string;
+              personKind?: 'pc' | 'officer_npc' | 'other_npc';
+              targetLevel?: number;
+              destinationType?: 'hq' | 'refuge' | 'settlement';
+              destinationSettlementKey?: string;
+            }>;
+            restorations?: Array<{
+              slotIndex?: number;
+              targetSource?: 'tracked' | 'character' | 'freeform';
+              targetStatusId?: string;
+              characterId?: Id<'character'>;
+              displayName?: string;
+              personKind?: 'pc' | 'officer_npc' | 'other_npc';
+              mode?:
+                | 'party_ability_damage'
+                | 'party_hit_points'
+                | 'party_lesser_restorative'
+                | 'break_enchantment'
+                | 'raise_dead'
+                | 'restoration'
+                | 'stone_to_flesh'
+                | 'custom';
+              customCostTotal?: number;
+            }>;
+          }
+        | undefined) ?? {
+        refuges: [],
+        caches: [],
+        orders: [],
+        covertActions: [],
+        rescues: [],
+        restorations: [],
+      };
+    const normalizedActivityAssetOperations: ActivityAssetOperationsDraft = {
+      refuges: (activityAssetOps.refuges ?? [])
+        .filter(
+          (item) =>
+            typeof item.slotIndex === 'number' &&
+            typeof item.settlementKey === 'string',
+        )
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          settlementKey: item.settlementKey!,
+        })),
+      caches: (activityAssetOps.caches ?? [])
+        .filter(
+          (item) =>
+            typeof item.slotIndex === 'number' &&
+            (item.mode === 'place' || item.mode === 'retrieve'),
+        )
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          mode: item.mode!,
+          cacheId: item.cacheId,
+          label: item.label,
+          cacheClass: item.cacheClass,
+          location: item.location,
+          contentsSummary: item.contentsSummary,
+          isSecureLocation: item.isSecureLocation,
+          checkTotal:
+            typeof item.checkTotal === 'number'
+              ? String(item.checkTotal)
+              : undefined,
+        })),
+      orders: (activityAssetOps.orders ?? [])
+        .filter(
+          (item) =>
+            typeof item.slotIndex === 'number' &&
+            typeof item.description === 'string',
+        )
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          description: item.description!,
+          notes: item.notes,
+          costPaid:
+            typeof item.costPaid === 'number' ? String(item.costPaid) : undefined,
+          deliveryDays:
+            typeof item.deliveryDays === 'number'
+              ? String(item.deliveryDays)
+              : undefined,
+        })),
+      covertActions: (activityAssetOps.covertActions ?? [])
+        .filter((item) => typeof item.slotIndex === 'number')
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          mode: item.mode,
+          targetSource: item.targetSource,
+          followupSlotIndex: item.followupSlotIndex,
+          characterId: item.characterId,
+          displayName: item.displayName,
+          personKind: item.personKind,
+          siteName: item.siteName,
+          notes: item.notes,
+        })),
+      rescues: (activityAssetOps.rescues ?? [])
+        .filter((item) => typeof item.slotIndex === 'number')
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          targetSource: item.targetSource,
+          targetStatusId: item.targetStatusId,
+          characterId: item.characterId,
+          displayName: item.displayName,
+          personKind: item.personKind,
+          targetLevel:
+            typeof item.targetLevel === 'number'
+              ? String(item.targetLevel)
+              : undefined,
+          destinationType: item.destinationType,
+          destinationSettlementKey: item.destinationSettlementKey,
+        })),
+      restorations: (activityAssetOps.restorations ?? [])
+        .filter((item) => typeof item.slotIndex === 'number')
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          targetSource: item.targetSource,
+          targetStatusId: item.targetStatusId,
+          characterId: item.characterId,
+          displayName: item.displayName,
+          personKind: item.personKind,
+          mode: item.mode,
+          customCostTotal:
+            typeof item.customCostTotal === 'number'
+              ? String(item.customCostTotal)
+              : undefined,
+        })),
+    };
     const eventMitigations =
       (stateAny.eventMitigations as Record<string, unknown> | undefined) ?? {};
     const nextServerState: WeekBoardControllerSyncedState = {
@@ -218,6 +398,7 @@ export function useWeekBoardController({
         eventTotals.sabotageNotorietyIncreaseTotal?.toString() ?? '',
       activityTeamOperations: normalizedActivityTeamOperations,
       activityOfficerOperations: normalizedActivityOfficerOperations,
+      activityAssetOperations: normalizedActivityAssetOperations,
       cacheDiscoveredMitigationTotal:
         typeof eventMitigations.cacheDiscoveredMitigationTotal === 'number'
           ? String(eventMitigations.cacheDiscoveredMitigationTotal)
@@ -255,6 +436,13 @@ export function useWeekBoardController({
             (value): value is string => typeof value === 'string',
           )
         : [],
+      overseerEventSupportTarget:
+        eventMitigations.overseerEventSupportTarget === 'sabotage' ||
+        eventMitigations.overseerEventSupportTarget === 'cache_discovered' ||
+        eventMitigations.overseerEventSupportTarget === 'theft' ||
+        eventMitigations.overseerEventSupportTarget === 'sickness_twice'
+          ? eventMitigations.overseerEventSupportTarget
+          : '',
     };
     const currentState: WeekBoardControllerSyncedState = {
       upkeepAttritionTotal,
@@ -274,6 +462,7 @@ export function useWeekBoardController({
       sabotageNotorietyIncreaseTotal,
       activityTeamOperations,
       activityOfficerOperations,
+      activityAssetOperations,
       cacheDiscoveredMitigationTotal,
       theftMitigationTotal,
       sicknessTwiceLoyaltyTotal,
@@ -283,6 +472,7 @@ export function useWeekBoardController({
       sicknessSelectedTeamId,
       turnAroundBoostTeamId,
       rivalrySelectedTeamIds,
+      overseerEventSupportTarget,
     };
     const mergedState = mergeWeekBoardControllerSyncedStateWithServer({
       currentState,
@@ -314,6 +504,7 @@ export function useWeekBoardController({
     );
     setActivityTeamOperations(mergedState.activityTeamOperations);
     setActivityOfficerOperations(mergedState.activityOfficerOperations);
+    setActivityAssetOperations(mergedState.activityAssetOperations);
     setCacheDiscoveredMitigationTotal(
       mergedState.cacheDiscoveredMitigationTotal,
     );
@@ -327,6 +518,7 @@ export function useWeekBoardController({
     setSicknessSelectedTeamId(mergedState.sicknessSelectedTeamId);
     setTurnAroundBoostTeamId(mergedState.turnAroundBoostTeamId);
     setRivalrySelectedTeamIds(mergedState.rivalrySelectedTeamIds);
+    setOverseerEventSupportTarget(mergedState.overseerEventSupportTarget);
     lastSyncedServerStateRef.current = nextServerState;
     lastSyncScopeKeyRef.current = syncScopeKey;
   }, [
@@ -335,6 +527,7 @@ export function useWeekBoardController({
     showTreasuryShortagePenalty,
     stateAny.activityTeamOperations,
     stateAny.activityOfficerOperations,
+    stateAny.activityAssetOperations,
     stateAny.eventMitigations,
   ]);
 
@@ -444,14 +637,81 @@ export function useWeekBoardController({
   const suggestedEventChanceTotal = data
     ? clampNumber(data.notoriety + (data.state.uneventfulBonusCarry ?? 0), 10, 95)
     : 10;
-  const activityRollSummaryRows = buildActivityRollSummaryRows({
-    stagedActionIds,
-    totals: serverActivityTotals,
-  });
   const teams = data?.teams ?? [];
+  const settlements = data?.settlements ?? [];
+  const caches = data?.caches ?? [];
+  const orders = data?.orders ?? [];
+  const trackedPeople = data?.trackedPeople ?? [];
   const activeTeamIds = teams
     .filter((team) => team.status === 'active')
     .map((team) => team.teamId);
+  const normalizedActivityTeamOperations = useMemo(
+    () => normalizeActivityTeamOperationsForSlots(activityTeamOperations, slots),
+    [activityTeamOperations, slots],
+  );
+  const normalizedActivityOfficerOperations = useMemo(
+    () => normalizeActivityOfficerOperationsForSlots(activityOfficerOperations, slots),
+    [activityOfficerOperations, slots],
+  );
+  const normalizedActivityAssetOperations = useMemo(
+    () => normalizeActivityAssetOperationsForSlots(activityAssetOperations, slots),
+    [activityAssetOperations, slots],
+  );
+  const officerEffects = useMemo(
+    () =>
+      buildOfficerEffects({
+        focus: data?.focus,
+        rank: data?.rank ?? 1,
+        characters: (data?.assignableCharacters ?? []).map((character) => ({
+          _id: character._id,
+          name: character.name,
+          kind: character.kind,
+          level: character.level,
+          strength: character.strength,
+          dexterity: character.dexterity,
+          constitution: character.constitution,
+          intelligence: character.intelligence,
+          wisdom: character.wisdom,
+          charisma: character.charisma,
+        })),
+        baseAssignments: data?.officerAssignments ?? {},
+        slots,
+        activityOfficerOperations: normalizedActivityOfficerOperations,
+      }),
+    [
+      data?.assignableCharacters,
+      data?.focus,
+      data?.officerAssignments,
+      data?.rank,
+      slots,
+      normalizedActivityOfficerOperations,
+    ],
+  );
+  const strategistBonusActionId =
+    officerEffects.strategistBonusActionSlotIndex !== null
+      ? slots[officerEffects.strategistBonusActionSlotIndex] ?? null
+      : null;
+  const activityRollSummaryRows = buildActivityRollSummaryRows({
+    stagedActionIds,
+    totals: serverActivityTotals,
+    officerEffects,
+    strategistBonusActionId,
+    recruitTeamId: normalizedActivityTeamOperations.recruits[0]?.teamId,
+  });
+  const overseerEventSupportOptions = useMemo(
+    () =>
+      getEventOverseerSupportOptions({
+        officerEffects,
+        eventWouldOccurBeforeSabotage,
+        resolvedEventNames,
+      }),
+    [eventWouldOccurBeforeSabotage, officerEffects, resolvedEventNames],
+  );
+  const effectiveOverseerEventSupportTarget = overseerEventSupportOptions.some(
+    (option) => option.value === overseerEventSupportTarget,
+  )
+    ? overseerEventSupportTarget
+    : '';
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
@@ -547,10 +807,7 @@ export function useWeekBoardController({
     ],
     shouldSkip: () => {
       if (!data?.militiaId) return true;
-      const local = normalizeActivityOfficerOperationsForSlots(
-        activityOfficerOperations,
-        slots,
-      );
+      const local = normalizedActivityOfficerOperations;
       const server =
         ((data.state as Record<string, unknown>).activityOfficerOperations as
           | {
@@ -581,12 +838,8 @@ export function useWeekBoardController({
     },
     run: async () => {
       if (!data?.militiaId) return;
-      const normalized = normalizeActivityOfficerOperationsForSlots(
-        activityOfficerOperations,
-        slots,
-      );
       await mutations.saveActivityOfficerOperations(data.militiaId, {
-        changes: normalized.changes,
+        changes: normalizedActivityOfficerOperations.changes,
       });
     },
     onError: (innerError) => {
@@ -608,10 +861,7 @@ export function useWeekBoardController({
     ],
     shouldSkip: () => {
       if (!data?.militiaId) return true;
-      const local = normalizeActivityTeamOperationsForSlots(
-        activityTeamOperations,
-        slots,
-      );
+      const local = normalizedActivityTeamOperations;
       const server =
         ((data.state as Record<string, unknown>).activityTeamOperations as
           | {
@@ -647,19 +897,196 @@ export function useWeekBoardController({
     },
     run: async () => {
       if (!data?.militiaId) return;
-      const normalized = normalizeActivityTeamOperationsForSlots(
-        activityTeamOperations,
-        slots,
-      );
       await mutations.saveActivityTeamOperations(data.militiaId, {
-        recruits: normalized.recruits,
-        dismissals: normalized.dismissals,
-        upgrades: normalized.upgrades,
+        recruits: normalizedActivityTeamOperations.recruits,
+        dismissals: normalizedActivityTeamOperations.dismissals,
+        upgrades: normalizedActivityTeamOperations.upgrades,
       });
     },
     onError: (innerError) => {
       setError(
         getErrorMessage(innerError, 'Failed to auto-save team operations.'),
+      );
+    },
+  });
+
+  useDebouncedAutosave({
+    enabled: Boolean(data?.militiaId),
+    deps: [
+      data?.militiaId,
+      organizationId,
+      activityAssetOperations,
+      stagedActionIds.join('|'),
+      stateAny.activityAssetOperations,
+      slots.join('|'),
+    ],
+    shouldSkip: () => {
+      if (!data?.militiaId) return true;
+      const server =
+        ((data.state as Record<string, unknown>).activityAssetOperations as
+          | {
+              refuges?: Array<{ slotIndex: number; settlementKey: string }>;
+              caches?: Array<{
+                slotIndex: number;
+                mode: 'place' | 'retrieve';
+                cacheId?: string;
+                label?: string;
+                cacheClass?: 'minor' | 'intermediate' | 'major';
+                location?: string;
+                contentsSummary?: string;
+                isSecureLocation?: boolean;
+                checkTotal?: number;
+              }>;
+              orders?: Array<{
+                slotIndex: number;
+                description: string;
+                notes?: string;
+                costPaid?: number;
+                deliveryDays?: number;
+              }>;
+              covertActions?: Array<{
+                slotIndex: number;
+                mode?: 'augment_action' | 'place_contact';
+                targetSource?: 'character' | 'freeform';
+                followupSlotIndex?: number;
+                characterId?: Id<'character'>;
+                displayName?: string;
+                personKind?: 'pc' | 'officer_npc' | 'other_npc';
+                siteName?: string;
+                notes?: string;
+              }>;
+              rescues?: Array<{
+                slotIndex: number;
+                targetSource?: 'tracked' | 'character' | 'freeform';
+                targetStatusId?: string;
+                characterId?: Id<'character'>;
+                displayName?: string;
+                personKind?: 'pc' | 'officer_npc' | 'other_npc';
+                targetLevel?: number;
+                destinationType?: 'hq' | 'refuge' | 'settlement';
+                destinationSettlementKey?: string;
+              }>;
+              restorations?: Array<{
+                slotIndex: number;
+                targetSource?: 'tracked' | 'character' | 'freeform';
+                targetStatusId?: string;
+                characterId?: Id<'character'>;
+                displayName?: string;
+                personKind?: 'pc' | 'officer_npc' | 'other_npc';
+                mode?:
+                  | 'party_ability_damage'
+                  | 'party_hit_points'
+                  | 'party_lesser_restorative'
+                  | 'break_enchantment'
+                  | 'raise_dead'
+                  | 'restoration'
+                  | 'stone_to_flesh'
+                  | 'custom';
+                customCostTotal?: number;
+              }>;
+            }
+          | undefined) ?? {
+          refuges: [],
+          caches: [],
+          orders: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        };
+      const serverNormalized = normalizeActivityAssetOperationsForSlots(
+        {
+          refuges: server.refuges ?? [],
+          caches: (server.caches ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            mode: entry.mode,
+            cacheId: entry.cacheId,
+            label: entry.label,
+            cacheClass: entry.cacheClass,
+            location: entry.location,
+            contentsSummary: entry.contentsSummary,
+            isSecureLocation: entry.isSecureLocation,
+            checkTotal:
+              entry.checkTotal !== undefined ? String(entry.checkTotal) : undefined,
+          })),
+          orders: (server.orders ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            description: entry.description,
+            notes: entry.notes,
+            costPaid:
+              entry.costPaid !== undefined ? String(entry.costPaid) : undefined,
+            deliveryDays:
+              entry.deliveryDays !== undefined
+                ? String(entry.deliveryDays)
+                : undefined,
+          })),
+          covertActions: (server.covertActions ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            mode: entry.mode,
+            targetSource: entry.targetSource,
+            followupSlotIndex: entry.followupSlotIndex,
+            characterId: entry.characterId,
+            displayName: entry.displayName,
+            personKind: entry.personKind,
+            siteName: entry.siteName,
+            notes: entry.notes,
+          })),
+          rescues: (server.rescues ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            targetSource: entry.targetSource,
+            targetStatusId: entry.targetStatusId,
+            characterId: entry.characterId,
+            displayName: entry.displayName,
+            personKind: entry.personKind,
+            targetLevel:
+              entry.targetLevel !== undefined ? String(entry.targetLevel) : undefined,
+            destinationType: entry.destinationType,
+            destinationSettlementKey: entry.destinationSettlementKey,
+          })),
+          restorations: (server.restorations ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            targetSource: entry.targetSource,
+            targetStatusId: entry.targetStatusId,
+            characterId: entry.characterId,
+            displayName: entry.displayName,
+            personKind: entry.personKind,
+            mode: entry.mode,
+            customCostTotal:
+              entry.customCostTotal !== undefined
+                ? String(entry.customCostTotal)
+                : undefined,
+          })),
+        },
+        slots,
+      );
+      return (
+        JSON.stringify(normalizedActivityAssetOperations.refuges) ===
+          JSON.stringify(serverNormalized.refuges) &&
+        JSON.stringify(normalizedActivityAssetOperations.caches) ===
+          JSON.stringify(serverNormalized.caches) &&
+        JSON.stringify(normalizedActivityAssetOperations.orders) ===
+          JSON.stringify(serverNormalized.orders) &&
+        JSON.stringify(normalizedActivityAssetOperations.covertActions) ===
+          JSON.stringify(serverNormalized.covertActions) &&
+        JSON.stringify(normalizedActivityAssetOperations.rescues) ===
+          JSON.stringify(serverNormalized.rescues) &&
+        JSON.stringify(normalizedActivityAssetOperations.restorations) ===
+          JSON.stringify(serverNormalized.restorations)
+      );
+    },
+    run: async () => {
+      if (!data?.militiaId) return;
+      await mutations.saveActivityAssetOperations(data.militiaId, {
+        refuges: normalizedActivityAssetOperations.refuges,
+        caches: normalizedActivityAssetOperations.caches,
+        orders: normalizedActivityAssetOperations.orders,
+        covertActions: normalizedActivityAssetOperations.covertActions,
+        rescues: normalizedActivityAssetOperations.rescues,
+        restorations: normalizedActivityAssetOperations.restorations,
+      });
+    },
+    onError: (innerError) => {
+      setError(
+        getErrorMessage(innerError, 'Failed to auto-save settlement and asset details.'),
       );
     },
   });
@@ -678,6 +1105,7 @@ export function useWeekBoardController({
       sicknessSelectedTeamId,
       turnAroundBoostTeamId,
       rivalrySelectedTeamIds.join('|'),
+      effectiveOverseerEventSupportTarget,
       stateAny.eventMitigations,
       resolvedEventNames.join('|'),
     ],
@@ -694,6 +1122,7 @@ export function useWeekBoardController({
       const hasMissingInAction = resolvedEventNames.includes('Missing in Action');
       const hasTurnAround = resolvedEventNames.includes('Turn Around');
       const hasRivalry = resolvedEventNames.includes('Rivalry');
+      const hasOverseerEventSupport = effectiveOverseerEventSupportTarget !== '';
       return (
         (server.cacheDiscoveredMitigationTotal?.toString() ?? '') ===
           (hasCacheDiscovered ? cacheDiscoveredMitigationTotal : '') &&
@@ -712,7 +1141,9 @@ export function useWeekBoardController({
         (server.turnAroundBoostTeamId ?? '') ===
           (hasTurnAround ? turnAroundBoostTeamId : '') &&
         JSON.stringify(server.rivalrySelectedTeamIds ?? []) ===
-          JSON.stringify(hasRivalry ? rivalrySelectedTeamIds : [])
+          JSON.stringify(hasRivalry ? rivalrySelectedTeamIds : []) &&
+        (server.overseerEventSupportTarget ?? '') ===
+          (hasOverseerEventSupport ? effectiveOverseerEventSupportTarget : '')
       );
     },
     run: async () => {
@@ -751,6 +1182,7 @@ export function useWeekBoardController({
           hasRivalry && rivalrySelectedTeamIds.length > 0
             ? rivalrySelectedTeamIds
             : undefined,
+        overseerEventSupportTarget: effectiveOverseerEventSupportTarget || undefined,
       });
     },
     onError: (innerError) => {
@@ -906,11 +1338,23 @@ export function useWeekBoardController({
     sourceSlotIndex?: number,
   ) => {
     if (!data?.militiaId) return;
+    if (
+      actionId &&
+      sourceSlotIndex === slotIndex &&
+      slots[slotIndex] === actionId
+    ) {
+      return;
+    }
 
     const previous = [...slots];
     const previousTeams = [...slotTeams];
+    const previousActivityTeamOperations = activityTeamOperations;
+    const previousActivityOfficerOperations = activityOfficerOperations;
+    const previousActivityAssetOperations = activityAssetOperations;
     const next = [...slots];
     const nextTeams = [...slotTeams];
+    let operationSourceIndex: number | undefined = sourceSlotIndex;
+    let shouldSwapSlotIndexedData = false;
     if (
       actionId &&
       sourceSlotIndex !== undefined &&
@@ -922,11 +1366,15 @@ export function useWeekBoardController({
       next[sourceSlotIndex] = displaced;
       nextTeams[slotIndex] = nextTeams[sourceSlotIndex] ?? null;
       nextTeams[sourceSlotIndex] = displacedTeam;
+      shouldSwapSlotIndexedData = true;
     } else if (actionId) {
       const existingIndex = next.findIndex((value) => value === actionId);
       if (existingIndex >= 0) {
         next[existingIndex] = null;
         nextTeams[existingIndex] = null;
+        if (existingIndex !== slotIndex) {
+          operationSourceIndex = existingIndex;
+        }
       }
       next[slotIndex] = actionId;
     } else {
@@ -935,6 +1383,30 @@ export function useWeekBoardController({
     }
     setOptimisticSlots(next);
     setOptimisticTeams(nextTeams);
+    setActivityTeamOperations((current) =>
+      remapActivityTeamOperationsForSlotChange(current, {
+        slotIndex,
+        actionId,
+        sourceSlotIndex: operationSourceIndex,
+        swapSourceAndTarget: shouldSwapSlotIndexedData,
+      }),
+    );
+    setActivityOfficerOperations((current) =>
+      remapActivityOfficerOperationsForSlotChange(current, {
+        slotIndex,
+        actionId,
+        sourceSlotIndex: operationSourceIndex,
+        swapSourceAndTarget: shouldSwapSlotIndexedData,
+      }),
+    );
+    setActivityAssetOperations((current) =>
+      remapActivityAssetOperationsForSlotChange(current, {
+        slotIndex,
+        actionId,
+        sourceSlotIndex: operationSourceIndex,
+        swapSourceAndTarget: shouldSwapSlotIndexedData,
+      }),
+    );
 
     setError(undefined);
     try {
@@ -947,6 +1419,9 @@ export function useWeekBoardController({
       );
       setOptimisticSlots(previous);
       setOptimisticTeams(previousTeams);
+      setActivityTeamOperations(previousActivityTeamOperations);
+      setActivityOfficerOperations(previousActivityOfficerOperations);
+      setActivityAssetOperations(previousActivityAssetOperations);
     }
   };
 
@@ -998,12 +1473,18 @@ export function useWeekBoardController({
     setActivityTeamOperations((current) => {
       const previous = current.upgrades.find((entry) => entry.slotIndex === slotIndex);
       const nextFromTeamId = fromTeamId ?? previous?.fromTeamId ?? '';
-      const nextToTeamId = toTeamId ?? previous?.toTeamId ?? '';
+      const nextToTeamId =
+        toTeamId ??
+        (fromTeamId !== undefined && fromTeamId !== previous?.fromTeamId
+          ? ''
+          : previous?.toTeamId ?? '');
+      const hasAnySelection =
+        nextFromTeamId.trim().length > 0 || nextToTeamId.trim().length > 0;
       return {
         ...current,
         upgrades: [
           ...current.upgrades.filter((entry) => entry.slotIndex !== slotIndex),
-          ...(nextFromTeamId.trim() && nextToTeamId.trim()
+          ...(hasAnySelection
             ? [
                 {
                   slotIndex,
@@ -1042,6 +1523,282 @@ export function useWeekBoardController({
     });
   };
 
+  const setRefugeSettlementForSlot = (slotIndex: number, settlementKey: string) => {
+    setActivityAssetOperations((current) => ({
+      ...current,
+      refuges: [
+        ...current.refuges.filter((entry) => entry.slotIndex !== slotIndex),
+        ...(settlementKey.trim() ? [{ slotIndex, settlementKey }] : []),
+      ],
+    }));
+  };
+
+  const setCacheOperationForSlot = ({
+    slotIndex,
+    mode,
+    cacheId,
+    label,
+    cacheClass,
+    location,
+    contentsSummary,
+    isSecureLocation,
+    checkTotal,
+  }: {
+    slotIndex: number;
+    mode?: 'place' | 'retrieve';
+    cacheId?: string;
+    label?: string;
+    cacheClass?: 'minor' | 'intermediate' | 'major';
+    location?: string;
+    contentsSummary?: string;
+    isSecureLocation?: boolean;
+    checkTotal?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.caches.find((entry) => entry.slotIndex === slotIndex);
+      const nextMode = mode ?? previous?.mode;
+      if (!nextMode) {
+        return {
+          ...current,
+          caches: current.caches.filter((entry) => entry.slotIndex !== slotIndex),
+        };
+      }
+      const nextEntry: ActivityAssetOperationsDraft['caches'][number] = {
+        slotIndex,
+        mode: nextMode,
+        cacheId: cacheId ?? previous?.cacheId,
+        label: label ?? previous?.label,
+        cacheClass: cacheClass ?? previous?.cacheClass,
+        location: location ?? previous?.location,
+        contentsSummary: contentsSummary ?? previous?.contentsSummary,
+        isSecureLocation: isSecureLocation ?? previous?.isSecureLocation,
+        checkTotal: checkTotal ?? previous?.checkTotal,
+      };
+
+      return {
+        ...current,
+        caches: [
+          ...current.caches.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(nextMode ? [nextEntry] : []),
+        ],
+      };
+    });
+  };
+
+  const setOrderForSlot = ({
+    slotIndex,
+    description,
+    notes,
+    costPaid,
+    deliveryDays,
+  }: {
+    slotIndex: number;
+    description?: string;
+    notes?: string;
+    costPaid?: string;
+    deliveryDays?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.orders.find((entry) => entry.slotIndex === slotIndex);
+      const nextEntry = {
+        slotIndex,
+        description: description ?? previous?.description ?? '',
+        notes: notes ?? previous?.notes,
+        costPaid: costPaid ?? previous?.costPaid,
+        deliveryDays: deliveryDays ?? previous?.deliveryDays,
+      };
+      const isMeaningful =
+        nextEntry.description.trim() ||
+        (nextEntry.notes ?? '').trim() ||
+        (nextEntry.costPaid ?? '').trim() ||
+        (nextEntry.deliveryDays ?? '').trim();
+      return {
+        ...current,
+        orders: [
+          ...current.orders.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(isMeaningful ? [nextEntry] : []),
+        ],
+      };
+    });
+  };
+
+  const setCovertActionForSlot = ({
+    slotIndex,
+    mode,
+    targetSource,
+    followupSlotIndex,
+    characterId,
+    displayName,
+    personKind,
+    siteName,
+    notes,
+  }: {
+    slotIndex: number;
+    mode?: 'augment_action' | 'place_contact';
+    targetSource?: 'character' | 'freeform';
+    followupSlotIndex?: number;
+    characterId?: Id<'character'> | null;
+    displayName?: string;
+    personKind?: 'pc' | 'officer_npc' | 'other_npc' | null;
+    siteName?: string;
+    notes?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.covertActions.find(
+        (entry) => entry.slotIndex === slotIndex,
+      );
+      const nextEntry = {
+        slotIndex,
+        mode: mode ?? previous?.mode,
+        targetSource: targetSource ?? previous?.targetSource,
+        followupSlotIndex: followupSlotIndex ?? previous?.followupSlotIndex,
+        characterId:
+          characterId === null ? undefined : characterId ?? previous?.characterId,
+        displayName: displayName ?? previous?.displayName,
+        personKind: personKind === null ? undefined : personKind ?? previous?.personKind,
+        siteName: siteName ?? previous?.siteName,
+        notes: notes ?? previous?.notes,
+      };
+      const isMeaningful =
+        nextEntry.mode !== undefined ||
+        nextEntry.targetSource !== undefined ||
+        nextEntry.followupSlotIndex !== undefined ||
+        nextEntry.characterId !== undefined ||
+        (nextEntry.displayName ?? '').trim() ||
+        nextEntry.personKind !== undefined ||
+        (nextEntry.siteName ?? '').trim() ||
+        (nextEntry.notes ?? '').trim();
+      return {
+        ...current,
+        covertActions: [
+          ...current.covertActions.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(isMeaningful ? [nextEntry] : []),
+        ],
+      };
+    });
+  };
+
+  const setRescueForSlot = ({
+    slotIndex,
+    targetSource,
+    targetStatusId,
+    characterId,
+    displayName,
+    personKind,
+    targetLevel,
+    destinationType,
+    destinationSettlementKey,
+  }: {
+    slotIndex: number;
+    targetSource?: 'tracked' | 'character' | 'freeform';
+    targetStatusId?: string;
+    characterId?: Id<'character'> | null;
+    displayName?: string;
+    personKind?: 'pc' | 'officer_npc' | 'other_npc' | null;
+    targetLevel?: string;
+    destinationType?: 'hq' | 'refuge' | 'settlement';
+    destinationSettlementKey?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.rescues.find((entry) => entry.slotIndex === slotIndex);
+      const nextEntry = {
+        slotIndex,
+        targetSource: targetSource ?? previous?.targetSource,
+        targetStatusId:
+          targetStatusId !== undefined
+            ? targetStatusId.trim() || undefined
+            : previous?.targetStatusId,
+        characterId:
+          characterId === null ? undefined : characterId ?? previous?.characterId,
+        displayName: displayName ?? previous?.displayName,
+        personKind: personKind === null ? undefined : personKind ?? previous?.personKind,
+        targetLevel: targetLevel ?? previous?.targetLevel,
+        destinationType: destinationType ?? previous?.destinationType,
+        destinationSettlementKey:
+          destinationSettlementKey ?? previous?.destinationSettlementKey,
+      };
+      const isMeaningful =
+        nextEntry.targetStatusId !== undefined ||
+        nextEntry.targetSource !== undefined ||
+        nextEntry.characterId !== undefined ||
+        (nextEntry.displayName ?? '').trim() ||
+        nextEntry.personKind !== undefined ||
+        (nextEntry.targetLevel ?? '').trim() ||
+        nextEntry.destinationType !== undefined ||
+        (nextEntry.destinationSettlementKey ?? '').trim();
+      return {
+        ...current,
+        rescues: [
+          ...current.rescues.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(isMeaningful ? [nextEntry] : []),
+        ],
+      };
+    });
+  };
+
+  const setRestorationForSlot = ({
+    slotIndex,
+    targetSource,
+    targetStatusId,
+    characterId,
+    displayName,
+    personKind,
+    mode,
+    customCostTotal,
+  }: {
+    slotIndex: number;
+    targetSource?: 'tracked' | 'character' | 'freeform';
+    targetStatusId?: string;
+    characterId?: Id<'character'> | null;
+    displayName?: string;
+    personKind?: 'pc' | 'officer_npc' | 'other_npc' | null;
+    mode?:
+      | 'party_ability_damage'
+      | 'party_hit_points'
+      | 'party_lesser_restorative'
+      | 'break_enchantment'
+      | 'raise_dead'
+      | 'restoration'
+      | 'stone_to_flesh'
+      | 'custom';
+    customCostTotal?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.restorations.find(
+        (entry) => entry.slotIndex === slotIndex,
+      );
+      const nextEntry = {
+        slotIndex,
+        targetSource: targetSource ?? previous?.targetSource,
+        targetStatusId:
+          targetStatusId !== undefined
+            ? targetStatusId.trim() || undefined
+            : previous?.targetStatusId,
+        characterId:
+          characterId === null ? undefined : characterId ?? previous?.characterId,
+        displayName: displayName ?? previous?.displayName,
+        personKind: personKind === null ? undefined : personKind ?? previous?.personKind,
+        mode: mode ?? previous?.mode,
+        customCostTotal: customCostTotal ?? previous?.customCostTotal,
+      };
+      const isMeaningful =
+        nextEntry.targetStatusId !== undefined ||
+        nextEntry.targetSource !== undefined ||
+        nextEntry.characterId !== undefined ||
+        (nextEntry.displayName ?? '').trim() ||
+        nextEntry.personKind !== undefined ||
+        nextEntry.mode !== undefined ||
+        (nextEntry.customCostTotal ?? '').trim();
+      return {
+        ...current,
+        restorations: [
+          ...current.restorations.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(isMeaningful ? [nextEntry] : []),
+        ],
+      };
+    });
+  };
+
   useActivityCardDrag({
     dragState,
     setDragState,
@@ -1072,18 +1829,38 @@ export function useWeekBoardController({
     resetSlots: async () => {
       if (!data?.militiaId) return;
       const previous = [...slots];
+      const previousTeams = [...slotTeams];
+      const previousActivityTeamOperations = activityTeamOperations;
+      const previousActivityOfficerOperations = activityOfficerOperations;
+      const previousActivityAssetOperations = activityAssetOperations;
       const cleared = Array.from({ length: data.maxActions }, () => null) as (
         | ActionId
         | null
       )[];
+      const clearedTeams = Array.from({ length: data.maxActions }, () => null);
       setOptimisticSlots(cleared);
+      setOptimisticTeams(clearedTeams);
+      setActivityTeamOperations({
+        recruits: [],
+        dismissals: [],
+        upgrades: [],
+      });
+      setActivityOfficerOperations({
+        changes: [],
+      });
+      setActivityAssetOperations(createEmptyActivityAssetOperationsDraft());
       setError(undefined);
       try {
-        await mutations.saveSlots(data.militiaId, cleared);
+        await mutations.saveSlots(data.militiaId, cleared, clearedTeams);
         setOptimisticSlots(null);
+        setOptimisticTeams(null);
       } catch (innerError) {
         setError(getErrorMessage(innerError, 'Failed to reset staged slots.'));
         setOptimisticSlots(previous);
+        setOptimisticTeams(previousTeams);
+        setActivityTeamOperations(previousActivityTeamOperations);
+        setActivityOfficerOperations(previousActivityOfficerOperations);
+        setActivityAssetOperations(previousActivityAssetOperations);
       }
     },
     continueToSummary: async () => {
@@ -1252,13 +2029,26 @@ export function useWeekBoardController({
     suggestedEventChanceTotal,
     activityRollSummaryRows,
     teams,
+    settlements,
+    caches,
+    orders,
+    trackedPeople,
     activeTeamIds,
+    officerEffects,
+    strategistBonusActionId,
     activityTeamOperations,
     activityOfficerOperations,
+    activityAssetOperations,
     setRecruitTeamForSlot,
     setDismissTeamForSlot,
     setUpgradeTeamsForSlot,
     setOfficerChangeForSlot,
+    setRefugeSettlementForSlot,
+    setCacheOperationForSlot,
+    setOrderForSlot,
+    setCovertActionForSlot,
+    setRescueForSlot,
+    setRestorationForSlot,
     cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotal,
     theftMitigationTotal,
@@ -1277,6 +2067,8 @@ export function useWeekBoardController({
     setTurnAroundBoostTeamId,
     rivalrySelectedTeamIds,
     setRivalrySelectedTeamIds,
+    overseerEventSupportTarget: effectiveOverseerEventSupportTarget,
+    setOverseerEventSupportTarget,
     setSlotTeam,
     actions,
   };
@@ -1379,4 +2171,191 @@ function normalizeActivityOfficerOperationsForSlots(
       )
       .sort((a, b) => a.slotIndex - b.slotIndex),
   };
+}
+
+function normalizeActivityAssetOperationsForSlots(
+  operations: ActivityAssetOperationsDraft,
+  slots: Array<ActionId | null>,
+) {
+  return {
+    refuges: operations.refuges
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'activate_refuge' &&
+          Boolean(entry.settlementKey?.trim()),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    caches: operations.caches
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'secure_cache' &&
+          (entry.mode === 'place' || entry.mode === 'retrieve'),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    orders: operations.orders
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'special_order' &&
+          Boolean(
+            entry.description.trim() ||
+              (entry.notes?.trim() ?? '') ||
+              (entry.costPaid?.trim() ?? '') ||
+              (entry.deliveryDays?.trim() ?? ''),
+          ),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    covertActions: operations.covertActions
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'covert_action' &&
+          Boolean(
+            entry.mode !== undefined ||
+              entry.targetSource !== undefined ||
+              entry.followupSlotIndex !== undefined ||
+              entry.characterId !== undefined ||
+              (entry.displayName ?? '').trim() ||
+              entry.personKind !== undefined ||
+              (entry.siteName ?? '').trim() ||
+              (entry.notes ?? '').trim(),
+          ),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    rescues: operations.rescues
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'rescue_character' &&
+          Boolean(
+            entry.targetStatusId !== undefined ||
+              entry.targetSource !== undefined ||
+              entry.characterId !== undefined ||
+              (entry.displayName ?? '').trim() ||
+              entry.personKind !== undefined ||
+              (entry.targetLevel ?? '').trim() ||
+              entry.destinationType !== undefined ||
+              (entry.destinationSettlementKey ?? '').trim(),
+          ),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    restorations: operations.restorations
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'restore_character' &&
+          Boolean(
+            entry.targetStatusId !== undefined ||
+              entry.targetSource !== undefined ||
+              entry.characterId !== undefined ||
+              (entry.displayName ?? '').trim() ||
+              entry.personKind !== undefined ||
+              entry.mode !== undefined ||
+              (entry.customCostTotal ?? '').trim(),
+          ),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+  };
+}
+
+function remapActivityTeamOperationsForSlotChange(
+  operations: ActivityTeamOperationsDraft,
+  slotChange: SlotChange,
+) {
+  return {
+    recruits: remapSlotIndexedEntries(operations.recruits, 'recruit_team', slotChange),
+    dismissals: remapSlotIndexedEntries(
+      operations.dismissals,
+      'dismiss_team',
+      slotChange,
+    ),
+    upgrades: remapSlotIndexedEntries(operations.upgrades, 'upgrade_team', slotChange),
+  };
+}
+
+function remapActivityOfficerOperationsForSlotChange(
+  operations: ActivityOfficerOperationsDraft,
+  slotChange: SlotChange,
+) {
+  return {
+    changes: remapSlotIndexedEntries(
+      operations.changes,
+      'change_officer_role',
+      slotChange,
+    ),
+  };
+}
+
+function remapActivityAssetOperationsForSlotChange(
+  operations: ActivityAssetOperationsDraft,
+  slotChange: SlotChange,
+) {
+  return {
+    refuges: remapSlotIndexedEntries(
+      operations.refuges,
+      'activate_refuge',
+      slotChange,
+    ),
+    caches: remapSlotIndexedEntries(operations.caches, 'secure_cache', slotChange),
+    orders: remapSlotIndexedEntries(operations.orders, 'special_order', slotChange),
+    covertActions: remapSlotIndexedEntries(
+      operations.covertActions,
+      'covert_action',
+      slotChange,
+    ),
+    rescues: remapSlotIndexedEntries(
+      operations.rescues,
+      'rescue_character',
+      slotChange,
+    ),
+    restorations: remapSlotIndexedEntries(
+      operations.restorations,
+      'restore_character',
+      slotChange,
+    ),
+  };
+}
+
+type SlotChange = {
+  slotIndex: number;
+  actionId: ActionId | null;
+  sourceSlotIndex?: number;
+  swapSourceAndTarget: boolean;
+};
+
+function remapSlotIndexedEntries<T extends { slotIndex: number }>(
+  entries: T[],
+  relevantActionId: ActionId,
+  { slotIndex, actionId, sourceSlotIndex, swapSourceAndTarget }: SlotChange,
+) {
+  const targetEntry = entries.find((entry) => entry.slotIndex === slotIndex);
+  const sourceEntry =
+    sourceSlotIndex === undefined
+      ? undefined
+      : entries.find((entry) => entry.slotIndex === sourceSlotIndex);
+  const baseEntries = entries.filter(
+    (entry) =>
+      entry.slotIndex !== slotIndex &&
+      (sourceSlotIndex === undefined || entry.slotIndex !== sourceSlotIndex),
+  );
+
+  if (!actionId) {
+    return baseEntries;
+  }
+
+  if (sourceSlotIndex === undefined || sourceSlotIndex === slotIndex) {
+    return baseEntries;
+  }
+
+  if (actionId !== relevantActionId) {
+    if (swapSourceAndTarget && targetEntry) {
+      return [...baseEntries, { ...targetEntry, slotIndex: sourceSlotIndex }];
+    }
+    return baseEntries;
+  }
+
+  const remappedEntries = [...baseEntries];
+  if (sourceEntry) {
+    remappedEntries.push({ ...sourceEntry, slotIndex });
+  }
+  if (swapSourceAndTarget && targetEntry) {
+    remappedEntries.push({ ...targetEntry, slotIndex: sourceSlotIndex });
+  }
+  return remappedEntries.sort((left, right) => left.slotIndex - right.slotIndex);
 }

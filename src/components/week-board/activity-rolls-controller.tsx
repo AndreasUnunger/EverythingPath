@@ -13,8 +13,10 @@ import {
   type ActivityRollKey,
   toActivityRollDraft,
 } from '~/components/week-board/activity-roll-sections';
+import type { OfficerEffects } from '~/components/week-board/officer-effects';
 import { ActivityRollsPanel } from '~/components/week-board/activity-rolls-panel';
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
+import type { ActionId } from '~/components/week-board/types';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
 
 export {
@@ -34,6 +36,9 @@ export function ActivityRollsController({
   rank,
   stagedActionIds,
   serverTotals,
+  officerEffects,
+  strategistBonusActionId,
+  recruitTeamId,
   onErrorAction,
   className,
   showTitle = true,
@@ -43,6 +48,9 @@ export function ActivityRollsController({
   rank: number;
   stagedActionIds: string[];
   serverTotals: ActivityRollTotals;
+  officerEffects: OfficerEffects;
+  strategistBonusActionId: ActionId | null;
+  recruitTeamId?: string;
   onErrorAction: (message: string) => void;
   className?: string;
   showTitle?: boolean;
@@ -69,8 +77,17 @@ export function ActivityRollsController({
   };
 
   const sections = useMemo(
-    () => buildActivityRollSections({ rank, stagedActionIds, draft, setField }),
-    [rank, stagedActionIds, draft],
+    () =>
+      buildActivityRollSections({
+        rank,
+        stagedActionIds,
+        draft,
+        setField,
+        officerEffects,
+        strategistBonusActionId,
+        recruitTeamId,
+      }),
+    [draft, officerEffects, rank, recruitTeamId, stagedActionIds, strategistBonusActionId],
   );
 
   const enabledFieldKeys = useMemo(() => {

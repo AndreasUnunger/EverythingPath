@@ -1,5 +1,6 @@
 'use client';
 
+import { getCheckBonusHelperText, type OfficerEffects } from '~/components/week-board/officer-effects';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
@@ -20,6 +21,7 @@ export type UpkeepPhaseViewModel = {
   setUpkeepNotorietyPenaltyTotalAction: (value: string) => void;
   maxNotorietyLoyaltyCheckTotal: string;
   setMaxNotorietyLoyaltyCheckTotalAction: (value: string) => void;
+  officerEffects: OfficerEffects;
   nearestSettlementKey: string;
   setNearestSettlementKeyAction: (value: string) => void;
   settlementKeys: string[];
@@ -48,6 +50,7 @@ export function UpkeepPhaseSection({
     setUpkeepNotorietyPenaltyTotalAction,
     maxNotorietyLoyaltyCheckTotal,
     setMaxNotorietyLoyaltyCheckTotalAction,
+    officerEffects,
     nearestSettlementKey,
     setNearestSettlementKeyAction,
     settlementKeys,
@@ -62,6 +65,10 @@ export function UpkeepPhaseSection({
     canRankUp,
     rankUpBlockedReason,
   } = viewModel;
+  const loyaltyCheckHelperText = getCheckBonusHelperText({
+    checkType: 'loyalty',
+    officerEffects,
+  });
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -115,6 +122,11 @@ export function UpkeepPhaseSection({
                   placeholder="Enter loyalty check total"
                   className="font-mono"
                 />
+                {loyaltyCheckHelperText ? (
+                  <p className="text-muted-foreground font-mono text-xs">
+                    {loyaltyCheckHelperText}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-1">
                 <Label className="font-mono text-xs">Nearest settlement</Label>

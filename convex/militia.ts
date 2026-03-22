@@ -1,6 +1,10 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation, query } from './_generated/server';
-import { campaignValidator, militiaValidator } from './schema';
+import {
+  campaignValidator,
+  militiaValidator,
+  reputationValidator,
+} from './schema';
 import { hasAccessToOrg } from './user';
 import type { IMilitia, ITeam } from '../src/lib/types';
 import type { Id } from './_generated/dataModel';
@@ -87,6 +91,45 @@ export const getMilitia = query({
   },
 });
 
+export const listSettlements = query({
+  args: {
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+  },
+  handler: async (ctx, args) => {
+    if (!args.campaignId || !args.organizationId) {
+      return [];
+    }
+
+    const campaignId = args.campaignId;
+
+    const hasAccess = await hasAccessToOrg(ctx, args.organizationId);
+    if (!hasAccess) {
+      return [];
+    }
+
+    const campaign = await ctx.db.get('campaign', campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      return [];
+    }
+
+    const militia = await ctx.db
+      .query('militia')
+      .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
+      .first();
+    if (!militia) {
+      return [];
+    }
+
+    const settlements = await ctx.db
+      .query('militiaSettlementState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+
+    return settlements.sort((a, b) => a.settlementKey.localeCompare(b.settlementKey));
+  },
+});
+
 export const createMilitia = mutation({
   args: {
     militia: militiaValidator,
@@ -113,6 +156,80 @@ export const createMilitia = mutation({
     }
 
     await ctx.db.insert('militia', args.militia);
+  },
+});
+
+export const upsertSettlementState = mutation({
+  args: {
+    organizationId: campaignValidator.fields.organizationId,
+    militiaId: v.id('militia'),
+    settlementId: v.optional(v.id('militiaSettlementState')),
+    settlementKey: v.string(),
+    reputation: reputationValidator,
+    isSecured: v.boolean(),
+  },
+  async handler(ctx, args) {
+    const access = await hasAccessToOrg(ctx, args.organizationId);
+    if (!access) {
+      throw new ConvexError('You do not have access to this org');
+    }
+
+    const militia = await ctx.db.get('militia', args.militiaId);
+    if (!militia) {
+      throw new ConvexError('Militia not found');
+    }
+
+    const campaign = await ctx.db.get('campaign', militia.campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      throw new ConvexError('No campaign exists for this organization');
+    }
+
+    const settlementKey = args.settlementKey.trim();
+    if (!settlementKey) {
+      throw new ConvexError('Settlement name is required');
+    }
+
+    const existingSettlements = await ctx.db
+      .query('militiaSettlementState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+      .collect();
+
+    const duplicateSettlement = existingSettlements.find(
+      (settlement) =>
+        settlement._id !== args.settlementId &&
+        settlement.settlementKey.trim().toLocaleLowerCase() ===
+          settlementKey.toLocaleLowerCase(),
+    );
+    if (duplicateSettlement) {
+      throw new ConvexError('Settlement name already exists for this militia');
+    }
+
+    if (args.settlementId) {
+      const existingSettlement = await ctx.db.get(
+        'militiaSettlementState',
+        args.settlementId,
+      );
+      if (existingSettlement?.militiaId !== args.militiaId) {
+        throw new ConvexError('Settlement not found');
+      }
+
+      await ctx.db.patch('militiaSettlementState', args.settlementId, {
+        settlementKey,
+        reputation: args.reputation,
+        isSecured: args.isSecured,
+      });
+
+      return await ctx.db.get('militiaSettlementState', args.settlementId);
+    }
+
+    const settlementId = await ctx.db.insert('militiaSettlementState', {
+      militiaId: args.militiaId,
+      settlementKey,
+      reputation: args.reputation,
+      isSecured: args.isSecured,
+    });
+
+    return await ctx.db.get('militiaSettlementState', settlementId);
   },
 });
 

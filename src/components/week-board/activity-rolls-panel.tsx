@@ -10,6 +10,7 @@ export type ActivityRollFieldConfig = {
   onChange: (value: string) => void;
   placeholder: string;
   disabled?: boolean;
+  helperText?: string;
 };
 
 export type ActivityRollSectionConfig = {
@@ -51,6 +52,11 @@ export function ActivityRollsPanel({
                   disabled={field.disabled}
                   className="font-mono"
                 />
+                {field.helperText ? (
+                  <p className="text-muted-foreground font-mono text-xs">
+                    {field.helperText}
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>

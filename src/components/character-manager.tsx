@@ -277,6 +277,46 @@ export function CharacterManager({
         />
       ) : null}
 
+      {archiveError ? (
+        <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
+          {archiveError}
+        </div>
+      ) : null}
+
+      <div
+        className={
+          showArchived ? 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start' : ''
+        }
+      >
+        <div className={showArchived ? 'lg:min-w-0' : ''}>
+          <CharacterListCard
+            activeCharacters={activeCharacters}
+            militia={militia}
+            archivingCharacterId={pendingArchiveId}
+            onEdit={startEdit}
+            onArchive={(characterId) => {
+              void archive(characterId, false);
+            }}
+          />
+        </div>
+
+        {showArchived ? (
+          <div className="lg:min-w-0">
+            <ArchivedCharactersCard
+              archivedCharacters={archivedCharacters}
+              archivingCharacterId={pendingArchiveId}
+              deletingCharacterId={pendingDeleteId}
+              onUnarchive={(characterId) => {
+                void archive(characterId, true);
+              }}
+              onRequestDelete={(character) => {
+                setDeleteCandidate(character);
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
+
       <OfficerAssignmentsCard
         militia={militia}
         activeCharacters={activeCharacters}
@@ -289,36 +329,6 @@ export function CharacterManager({
           void setOfficer(role, characterId);
         }}
       />
-
-      {archiveError ? (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
-          {archiveError}
-        </div>
-      ) : null}
-
-      <CharacterListCard
-        activeCharacters={activeCharacters}
-        militia={militia}
-        archivingCharacterId={pendingArchiveId}
-        onEdit={startEdit}
-        onArchive={(characterId) => {
-          void archive(characterId, false);
-        }}
-      />
-
-      {showArchived ? (
-        <ArchivedCharactersCard
-          archivedCharacters={archivedCharacters}
-          archivingCharacterId={pendingArchiveId}
-          deletingCharacterId={pendingDeleteId}
-          onUnarchive={(characterId) => {
-            void archive(characterId, true);
-          }}
-          onRequestDelete={(character) => {
-            setDeleteCandidate(character);
-          }}
-        />
-      ) : null}
 
       <Dialog
         open={Boolean(deleteCandidate)}

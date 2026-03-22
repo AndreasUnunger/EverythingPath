@@ -103,6 +103,175 @@ describe('week board controller synced state merging', () => {
     );
   });
 
+  it('keeps local overseer event support selection when stale server updates arrive', () => {
+    const previousServerState = createEmptyWeekBoardControllerSyncedState();
+    const currentState = {
+      ...previousServerState,
+      overseerEventSupportTarget: 'sickness_twice' as const,
+    };
+    const nextServerState = createEmptyWeekBoardControllerSyncedState();
+
+    const merged = mergeWeekBoardControllerSyncedStateWithServer({
+      currentState,
+      previousServerState,
+      nextServerState,
+    });
+
+    expect(merged.overseerEventSupportTarget).toBe('sickness_twice');
+  });
+
+  it('keeps local asset-operation edits when stale server updates arrive', () => {
+    const previousServerState = createEmptyWeekBoardControllerSyncedState();
+    const currentState = {
+      ...previousServerState,
+      activityAssetOperations: {
+        refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+        caches: [
+          {
+            slotIndex: 1,
+            mode: 'place' as const,
+            label: 'Temple cache',
+            cacheClass: 'minor' as const,
+            location: 'Crypt',
+            contentsSummary: 'Potions',
+            checkTotal: '18',
+          },
+        ],
+        orders: [],
+        covertActions: [],
+        rescues: [],
+        restorations: [],
+      },
+    };
+    const nextServerState = createEmptyWeekBoardControllerSyncedState();
+
+    const merged = mergeWeekBoardControllerSyncedStateWithServer({
+      currentState,
+      previousServerState,
+      nextServerState,
+    });
+
+    expect(merged.activityAssetOperations).toEqual(currentState.activityAssetOperations);
+  });
+
+  it('accepts canonical server asset-operation updates when local content matches', () => {
+    const previousServerState = createEmptyWeekBoardControllerSyncedState();
+    const currentState = {
+      ...previousServerState,
+      activityAssetOperations: {
+        refuges: [{ slotIndex: 1, settlementKey: 'Kraggodan' }],
+        caches: [],
+        orders: [
+          {
+            slotIndex: 2,
+            description: 'Wand of cure light wounds',
+            costPaid: '375',
+            deliveryDays: '8',
+          },
+        ],
+        covertActions: [],
+        rescues: [],
+        restorations: [],
+      },
+    };
+    const nextServerState = {
+      ...previousServerState,
+      activityAssetOperations: {
+        refuges: [{ slotIndex: 1, settlementKey: 'Kraggodan' }],
+        caches: [],
+        orders: [
+          {
+            slotIndex: 2,
+            description: 'Wand of cure light wounds',
+            deliveryDays: '8',
+            costPaid: '375',
+          },
+        ],
+        covertActions: [],
+        rescues: [],
+        restorations: [],
+      },
+    };
+
+    const merged = mergeWeekBoardControllerSyncedStateWithServer({
+      currentState,
+      previousServerState,
+      nextServerState,
+    });
+
+    expect(merged.activityAssetOperations).toEqual(
+      nextServerState.activityAssetOperations,
+    );
+  });
+
+  it('keeps local tracked-person asset edits when stale server updates arrive', () => {
+    const previousServerState = createEmptyWeekBoardControllerSyncedState();
+    const currentState = {
+      ...previousServerState,
+      activityAssetOperations: {
+        ...previousServerState.activityAssetOperations,
+        rescues: [
+          {
+            slotIndex: 0,
+            displayName: 'Captured villager',
+            personKind: 'other_npc' as const,
+            targetLevel: '2',
+            destinationType: 'hq' as const,
+          },
+        ],
+      },
+    };
+    const nextServerState = createEmptyWeekBoardControllerSyncedState();
+
+    const merged = mergeWeekBoardControllerSyncedStateWithServer({
+      currentState,
+      previousServerState,
+      nextServerState,
+    });
+
+    expect(merged.activityAssetOperations.rescues).toEqual([
+      {
+        slotIndex: 0,
+        displayName: 'Captured villager',
+        personKind: 'other_npc',
+        targetLevel: '2',
+        destinationType: 'hq',
+      },
+    ]);
+  });
+
+  it('keeps explicit source selection for covert action when no concrete target is chosen yet', () => {
+    const previousServerState = createEmptyWeekBoardControllerSyncedState();
+    const currentState = {
+      ...previousServerState,
+      activityAssetOperations: {
+        ...previousServerState.activityAssetOperations,
+        covertActions: [
+          {
+            slotIndex: 0,
+            mode: 'place_contact' as const,
+            targetSource: 'character' as const,
+          },
+        ],
+      },
+    };
+    const nextServerState = createEmptyWeekBoardControllerSyncedState();
+
+    const merged = mergeWeekBoardControllerSyncedStateWithServer({
+      currentState,
+      previousServerState,
+      nextServerState,
+    });
+
+    expect(merged.activityAssetOperations.covertActions).toEqual([
+      {
+        slotIndex: 0,
+        mode: 'place_contact',
+        targetSource: 'character',
+      },
+    ]);
+  });
+
   it('keeps local mitigation multi-select edits when stale server updates arrive', () => {
     const previousServerState = createEmptyWeekBoardControllerSyncedState();
     const currentState = {

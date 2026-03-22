@@ -20,6 +20,7 @@ export function buildUpkeepPhaseViewModel(
     maxNotorietyLoyaltyCheckTotal: controller.maxNotorietyLoyaltyCheckTotal,
     setMaxNotorietyLoyaltyCheckTotalAction:
       controller.setMaxNotorietyLoyaltyCheckTotal,
+    officerEffects: controller.officerEffects,
     nearestSettlementKey: controller.nearestSettlementKey,
     setNearestSettlementKeyAction: controller.setNearestSettlementKey,
     settlementKeys: data.settlementKeys ?? [],
@@ -62,7 +63,9 @@ export function buildActivityPhaseViewModel({
     },
     militiaId: data.militiaId,
     organizationId,
+    currentWeek: data.state.weekNumber,
     rank: data.rank,
+    focus: data.focus,
     treasury: data.treasury,
     maxTeams: data.maxTeams,
     stagedActionIds: controller.stagedActionIds,
@@ -75,8 +78,11 @@ export function buildActivityPhaseViewModel({
     },
     activityTeamOperations: controller.activityTeamOperations,
     activityOfficerOperations: controller.activityOfficerOperations,
+    activityAssetOperations: controller.activityAssetOperations,
     assignableCharacters: data.assignableCharacters ?? [],
     officerAssignments: data.officerAssignments ?? {},
+    officerEffects: controller.officerEffects,
+    strategistBonusActionId: controller.strategistBonusActionId,
     setRecruitTeamForSlotAction: (slotIndex, teamId) => {
       controller.setRecruitTeamForSlot(slotIndex, teamId);
     },
@@ -88,6 +94,28 @@ export function buildActivityPhaseViewModel({
     },
     setOfficerChangeForSlotAction: ({ slotIndex, role, characterId }) => {
       controller.setOfficerChangeForSlot({ slotIndex, role, characterId });
+    },
+    settlements: data.settlements ?? [],
+    caches: data.caches ?? [],
+    orders: data.orders ?? [],
+    trackedPeople: data.trackedPeople ?? [],
+    setRefugeSettlementForSlotAction: (slotIndex, settlementKey) => {
+      controller.setRefugeSettlementForSlot(slotIndex, settlementKey);
+    },
+    setCacheOperationForSlotAction: (args) => {
+      controller.setCacheOperationForSlot(args);
+    },
+    setOrderForSlotAction: (args) => {
+      controller.setOrderForSlot(args);
+    },
+    setCovertActionForSlotAction: (args) => {
+      controller.setCovertActionForSlot(args);
+    },
+    setRescueForSlotAction: (args) => {
+      controller.setRescueForSlot(args);
+    },
+    setRestorationForSlotAction: (args) => {
+      controller.setRestorationForSlot(args);
     },
     onErrorAction: (message) => controller.actions.setError(message),
   };
@@ -157,6 +185,9 @@ export function buildEventPhaseViewModel(
     setTurnAroundBoostTeamIdAction: controller.setTurnAroundBoostTeamId,
     rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
     setRivalrySelectedTeamIdsAction: controller.setRivalrySelectedTeamIds,
+    officerEffects: controller.officerEffects,
+    overseerEventSupportTarget: controller.overseerEventSupportTarget,
+    setOverseerEventSupportTargetAction: controller.setOverseerEventSupportTarget,
     onPreviousWeekAction: () => {
       void controller.actions.goBackWeek();
     },
@@ -227,6 +258,7 @@ export function buildSummaryPhaseViewModel({
     sabotageNotorietyIncreaseTotal: controller.sabotageNotorietyIncreaseTotal,
     activityTeamOperations: controller.activityTeamOperations,
     activityOfficerOperations: controller.activityOfficerOperations,
+    activityAssetOperations: controller.activityAssetOperations,
     slotTeams: controller.slotTeams,
     weekWarnings: Array.isArray(
       (controller.data?.state as Record<string, unknown>)?.weekWarnings,
@@ -253,6 +285,7 @@ export function buildSummaryPhaseViewModel({
     sicknessSelectedTeamId: controller.sicknessSelectedTeamId,
     turnAroundBoostTeamId: controller.turnAroundBoostTeamId,
     rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
+    overseerEventSupportTarget: controller.overseerEventSupportTarget,
     formatManualTotalForSummaryAction,
   };
 }

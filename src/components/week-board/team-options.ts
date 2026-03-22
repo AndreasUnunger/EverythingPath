@@ -124,3 +124,8 @@ export function buildUpgradeToOptions({
     };
   });
 }
+
+export function getTeamTier(teamId: string | null | undefined) {
+  if (!teamId) return undefined;
+  return BY_ID.get(teamId)?.tier;
+}

@@ -1,7 +1,14 @@
 'use client';
 
 import type { ActivityRollSectionConfig } from '~/components/week-board/activity-rolls-panel';
+import {
+  getCheckBonusHelperText,
+  getCommandantTrainingHelperText,
+  getRecruitmentCheckType,
+  type OfficerEffects,
+} from '~/components/week-board/officer-effects';
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
+import type { ActionId } from '~/components/week-board/types';
 import { mergeSyncedValue } from '~/components/week-board/sync-merge';
 
 export type ActivityRollKey = keyof ActivityRollTotals;
@@ -78,9 +85,15 @@ export function isParsableActivityRollTotal(raw: string) {
 export function buildActivityRollSummaryRows({
   stagedActionIds,
   totals,
+  officerEffects,
+  strategistBonusActionId,
+  recruitTeamId,
 }: {
   stagedActionIds: string[];
   totals: ActivityRollTotals;
+  officerEffects: OfficerEffects;
+  strategistBonusActionId: ActionId | null;
+  recruitTeamId?: string;
 }): SummaryRow[] {
   const draft = toActivityRollDraft(totals);
   const sections = buildActivityRollSections({
@@ -88,6 +101,9 @@ export function buildActivityRollSummaryRows({
     stagedActionIds,
     draft,
     setField: () => undefined,
+    officerEffects,
+    strategistBonusActionId,
+    recruitTeamId,
   });
   return sections.flatMap((section) =>
     section.fields
@@ -104,13 +120,20 @@ export function buildActivityRollSections({
   stagedActionIds,
   draft,
   setField,
+  officerEffects,
+  strategistBonusActionId,
+  recruitTeamId,
 }: {
   rank: number;
   stagedActionIds: string[];
   draft: ActivityRollDraft;
   setField: (key: ActivityRollKey, value: string) => void;
+  officerEffects: OfficerEffects;
+  strategistBonusActionId: ActionId | null;
+  recruitTeamId?: string;
 }) {
   const has = (id: string) => stagedActionIds.includes(id);
+  const recruitCheckType = getRecruitmentCheckType(recruitTeamId);
 
   const drillDc = 10 + rank;
   const drillCheck = parseOptionalManualTotal(draft.drillMilitiaCheckTotal);
@@ -176,6 +199,11 @@ export function buildActivityRollSections({
           value: draft.activateBlackMarketCheckTotal,
           onChange: (value) => setField('activateBlackMarketCheckTotal', value),
           placeholder: 'Enter Secrecy check total (DC 20)',
+          helperText: getCheckBonusHelperText({
+            checkType: 'secrecy',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'activate_black_market',
+          }),
         },
         {
           key: 'activateBlackMarketNotorietyIncreaseTotal',
@@ -201,6 +229,11 @@ export function buildActivityRollSections({
           value: draft.dismissTeamCheckTotal,
           onChange: (value) => setField('dismissTeamCheckTotal', value),
           placeholder: 'Enter Loyalty check total (DC 10)',
+          helperText: getCheckBonusHelperText({
+            checkType: 'loyalty',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'dismiss_team',
+          }),
         },
         {
           key: 'dismissTeamNotorietyIncreaseTotal',
@@ -225,6 +258,11 @@ export function buildActivityRollSections({
           value: draft.drillMilitiaCheckTotal,
           onChange: (value) => setField('drillMilitiaCheckTotal', value),
           placeholder: `Enter Loyalty check total (DC ${drillDc})`,
+          helperText: getCheckBonusHelperText({
+            checkType: 'loyalty',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'drill_militia',
+          }),
         },
         {
           key: 'drillMilitiaTrainingGainTotal',
@@ -233,6 +271,7 @@ export function buildActivityRollSections({
           onChange: (value) => setField('drillMilitiaTrainingGainTotal', value),
           disabled: !drillCanTrainingGain,
           placeholder: drillGainPlaceholder,
+          helperText: getCommandantTrainingHelperText(officerEffects),
         },
       ],
     });
@@ -249,6 +288,11 @@ export function buildActivityRollSections({
           value: draft.earnGoldCheckTotal,
           onChange: (value) => setField('earnGoldCheckTotal', value),
           placeholder: 'Enter Loyalty check total',
+          helperText: getCheckBonusHelperText({
+            checkType: 'loyalty',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'earn_gold',
+          }),
         },
         {
           key: 'earnGoldTotal',
@@ -285,6 +329,11 @@ export function buildActivityRollSections({
           value: draft.gatherInformationCheckTotal,
           onChange: (value) => setField('gatherInformationCheckTotal', value),
           placeholder: 'Enter Secrecy check total (DC 15 + team modifiers)',
+          helperText: getCheckBonusHelperText({
+            checkType: 'secrecy',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'gather_information',
+          }),
         },
         {
           key: 'gatherInformationNotorietyIncreaseTotal',
@@ -312,6 +361,11 @@ export function buildActivityRollSections({
           value: draft.knowledgeCheckTotal,
           onChange: (value) => setField('knowledgeCheckTotal', value),
           placeholder: 'Enter Secrecy check + rank total',
+          helperText: getCheckBonusHelperText({
+            checkType: 'secrecy',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'knowledge_check',
+          }),
         },
       ],
     });
@@ -328,6 +382,13 @@ export function buildActivityRollSections({
           value: draft.recruitTeamCheckTotal,
           onChange: (value) => setField('recruitTeamCheckTotal', value),
           placeholder: 'Enter recruitment check total',
+          helperText: recruitCheckType
+            ? getCheckBonusHelperText({
+                checkType: recruitCheckType,
+                officerEffects,
+                isStrategistBonusAction: strategistBonusActionId === 'recruit_team',
+              })
+            : undefined,
         },
         {
           key: 'recruitTeamNotorietyIncreaseTotal',
@@ -355,6 +416,11 @@ export function buildActivityRollSections({
           value: draft.reduceDangerCheckTotal,
           onChange: (value) => setField('reduceDangerCheckTotal', value),
           placeholder: 'Enter Security check total (DC 15)',
+          helperText: getCheckBonusHelperText({
+            checkType: 'security',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'reduce_danger',
+          }),
         },
         {
           key: 'reduceDangerNotorietyIncreaseTotal',
@@ -380,6 +446,11 @@ export function buildActivityRollSections({
           value: draft.rescueCharacterCheckTotal,
           onChange: (value) => setField('rescueCharacterCheckTotal', value),
           placeholder: 'Enter Security check total',
+          helperText: getCheckBonusHelperText({
+            checkType: 'security',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'rescue_character',
+          }),
         },
         {
           key: 'rescueCharacterTargetLevelTotal',
@@ -398,22 +469,6 @@ export function buildActivityRollSections({
           placeholder: canRescueSecondary
             ? 'Enter Notoriety increase total from outcome'
             : 'Enter check and target level first',
-        },
-      ],
-    });
-  }
-
-  if (has('secure_cache')) {
-    pushSection({
-      key: 'secure_cache',
-      title: 'Secure Cache',
-      fields: [
-        {
-          key: 'secureCacheCheckTotal',
-          label: 'check total',
-          value: draft.secureCacheCheckTotal,
-          onChange: (value) => setField('secureCacheCheckTotal', value),
-          placeholder: 'Enter Secrecy check total',
         },
       ],
     });
@@ -447,29 +502,11 @@ export function buildActivityRollSections({
           value: draft.spreadPropagandaCheckTotal,
           onChange: (value) => setField('spreadPropagandaCheckTotal', value),
           placeholder: 'Enter Loyalty check total (DC 20)',
-        },
-      ],
-    });
-  }
-
-  if (has('special_order')) {
-    pushSection({
-      key: 'special_order',
-      title: 'Special Order',
-      fields: [
-        {
-          key: 'specialOrderItemCostTotal',
-          label: 'item cost total',
-          value: draft.specialOrderItemCostTotal,
-          onChange: (value) => setField('specialOrderItemCostTotal', value),
-          placeholder: 'Enter upfront item/enchantment cost paid',
-        },
-        {
-          key: 'specialOrderDeliveryDaysTotal',
-          label: 'delivery days total',
-          value: draft.specialOrderDeliveryDaysTotal,
-          onChange: (value) => setField('specialOrderDeliveryDaysTotal', value),
-          placeholder: 'Enter delivery days roll total (2d6 or expedited)',
+          helperText: getCheckBonusHelperText({
+            checkType: 'loyalty',
+            officerEffects,
+            isStrategistBonusAction: strategistBonusActionId === 'spread_propaganda',
+          }),
         },
       ],
     });

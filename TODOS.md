@@ -48,3 +48,73 @@ hovering a team makes the associated actions glow
 - [ ] 8. Implement explicit Guarantee/Manipulate “roll two, choose one” event flow.
 - [x] 9. Add integration tests covering full-week advancement and edge cases.
 codex resume 019c632d-870a-74a0-a12f-8c1004849ac5
+
+## Settlement + Asset Ledger Plan
+
+### Goal
+
+- [ ] Add durable militia world-state records for the stateful actions and events that currently have only partial UI or backend support.
+- [ ] Make these records visible during play, editable for mid-campaign onboarding, and resolved automatically by week commit logic.
+
+### Recommended Data Model
+
+- [ ] Extend `militiaSettlementState` with temporary market/refuge metadata needed for weekly play and event resolution.
+- [ ] Add `militiaCache` table for hidden/planned/retrieved/lost caches.
+- [ ] Add `militiaCharacterStatus` table for hidden/captured/recovered militia-linked characters and NPCs.
+- [ ] Add `militiaOrder` table for `Broker Market` and `Special Order` deliveries.
+- [ ] Add `militiaOperationNote` or similar lightweight freeform record only if a rules-backed structured table is not sufficient for a specific action.
+
+### Week State Drafts
+
+- [ ] Add activity draft payloads for settlement/asset-targeting actions:
+  - `activate_refuge`
+  - `broker_market`
+  - `covert_action`
+  - `rescue_character`
+  - `restore_character`
+  - `secure_cache`
+  - `special_order`
+  - `spread_propaganda`
+  - `strike_team`
+- [ ] Keep drafts keyed by `slotIndex` so they fit the existing staged-card workflow and summary page.
+- [ ] Prefer one focused activity-payload structure over many parallel local states where possible.
+
+### Backend Application Logic
+
+- [ ] On week commit, convert staged action payloads into durable settlement/asset records.
+- [ ] Apply event outcomes against those records:
+  - `Cache Discovered`
+  - `Raid`
+  - `Market Day`
+  - `Turn Around`
+  - any event that references caches, refuges, hidden persons, or ordered goods
+- [ ] Process delivery timing for pending orders when weeks advance.
+- [ ] Process expiry for temporary refuge/market effects when weeks advance.
+
+### UI Surfaces
+
+- [ ] Add a settlement/assets panel that shows:
+  - settlement reputation and temporary effects
+  - active refuges
+  - caches
+  - hidden/captured persons
+  - pending/delivered orders
+- [ ] Expose action-specific controls directly on the staged cards for actions that create or target these records.
+- [ ] Add GM/manual ledger controls for correction, onboarding, and out-of-band story updates.
+- [ ] Surface these records in campaign info and week summary where they affect current play.
+
+### Testing
+
+- [ ] Add mutation harness coverage for creation, expiry, delivery, and event interaction of new settlement/asset records.
+- [ ] Add UI tests for staged-card payload editing and sync behavior on the new action flows.
+- [ ] Add multi-user tests for concurrent edits to settlement/asset draft fields.
+
+### Suggested Delivery Order
+
+- [ ] 1. Schema + query shape for settlements, caches, character status, and orders.
+- [ ] 2. Read-only settlement/assets panel in the app shell.
+- [ ] 3. Week-board payloads and UI for `Activate Refuge`, `Secure Cache`, and `Special Order`.
+- [ ] 4. Commit-time application for those three actions.
+- [ ] 5. Event handling for `Cache Discovered` and `Raid`.
+- [ ] 6. Character capture/recovery flow for `Rescue Character` and hidden persons.
+- [ ] 7. `Broker Market`, `Market Day`, and remaining temporary settlement effects.

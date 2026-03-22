@@ -3,6 +3,7 @@
 import type { Id } from '@convex/_generated/dataModel';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import { AssetLedgerPanel } from '~/components/week-board/asset-ledger-panel';
 import { WEEK_PHASES } from '~/components/week-board/data';
 import {
   buildActivityPhaseViewModel,
@@ -59,6 +60,14 @@ export function WeekBoard({
     );
   }
 
+  const hasTrackedMilitiaState =
+    controller.settlements.length > 0 ||
+    controller.caches.length > 0 ||
+    controller.orders.length > 0 ||
+    controller.trackedPeople.length > 0;
+  const showGlobalAssetPanel =
+    controller.phase !== 'activity' && hasTrackedMilitiaState;
+
   return (
     <Card className="bg-card border-2 p-4">
       <h3 className="text-primary font-sans text-xl font-bold">
@@ -86,34 +95,54 @@ export function WeekBoard({
         ))}
       </div>
 
-      {controller.phase === 'upkeep' ? (
-        <UpkeepPhaseSection viewModel={buildUpkeepPhaseViewModel(controller)} />
-      ) : null}
+      <div
+        className={
+          showGlobalAssetPanel
+            ? 'mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'
+            : 'mt-4'
+        }
+      >
+        <div>
+          {controller.phase === 'upkeep' ? (
+            <UpkeepPhaseSection viewModel={buildUpkeepPhaseViewModel(controller)} />
+          ) : null}
 
-      {controller.phase === 'activity' ? (
-        <ActivityPhaseSection
-          viewModel={buildActivityPhaseViewModel({ controller, organizationId })}
-        />
-      ) : null}
+          {controller.phase === 'activity' ? (
+            <ActivityPhaseSection
+              viewModel={buildActivityPhaseViewModel({ controller, organizationId })}
+            />
+          ) : null}
 
-      {controller.phase === 'event' ? (
-        <EventPhaseSection viewModel={buildEventPhaseViewModel(controller)} />
-      ) : null}
+          {controller.phase === 'event' ? (
+            <EventPhaseSection viewModel={buildEventPhaseViewModel(controller)} />
+          ) : null}
 
-      {controller.phase === 'persistent' ? (
-        <PersistentPhaseSection
-          viewModel={buildPersistentPhaseViewModel(controller)}
-        />
-      ) : null}
+          {controller.phase === 'persistent' ? (
+            <PersistentPhaseSection
+              viewModel={buildPersistentPhaseViewModel(controller)}
+            />
+          ) : null}
 
-      {controller.phase === 'week_closed' ? (
-        <SummaryPhaseSection
-          viewModel={buildSummaryPhaseViewModel({
-            controller,
-            formatManualTotalForSummaryAction,
-          })}
-        />
-      ) : null}
+          {controller.phase === 'week_closed' ? (
+            <SummaryPhaseSection
+              viewModel={buildSummaryPhaseViewModel({
+                controller,
+                formatManualTotalForSummaryAction,
+              })}
+            />
+          ) : null}
+        </div>
+
+        {showGlobalAssetPanel ? (
+          <AssetLedgerPanel
+            currentWeek={controller.data.state.weekNumber}
+            settlements={controller.settlements}
+            caches={controller.caches}
+            orders={controller.orders}
+            trackedPeople={controller.trackedPeople}
+          />
+        ) : null}
+      </div>
 
       <div className="mt-4 flex items-center justify-between">
         {controller.phase === 'event' ? null : (

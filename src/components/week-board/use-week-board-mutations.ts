@@ -3,6 +3,7 @@
 import type { Id } from '@convex/_generated/dataModel';
 import { api as db } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
+import type { EventOverseerSupportTarget } from '~/components/week-board/officer-effects';
 import type { ActionId, WeekPhase } from '~/components/week-board/types';
 
 export function useWeekBoardMutations(organizationId: string) {
@@ -87,6 +88,77 @@ export function useWeekBoardMutations(organizationId: string) {
     });
   };
 
+  const saveActivityAssetOperations = async (
+    militiaId: Id<'militia'>,
+    activityAssetOperations: {
+      refuges: Array<{ slotIndex: number; settlementKey: string }>;
+      caches: Array<{
+        slotIndex: number;
+        mode: 'place' | 'retrieve';
+        cacheId?: string;
+        label?: string;
+        cacheClass?: 'minor' | 'intermediate' | 'major';
+        location?: string;
+        contentsSummary?: string;
+        isSecureLocation?: boolean;
+        checkTotal?: string;
+      }>;
+      orders: Array<{
+        slotIndex: number;
+        description: string;
+        notes?: string;
+        costPaid?: string;
+        deliveryDays?: string;
+      }>;
+      covertActions: Array<{
+        slotIndex: number;
+        mode?: 'augment_action' | 'place_contact';
+        targetSource?: 'character' | 'freeform';
+        followupSlotIndex?: number;
+        characterId?: Id<'character'>;
+        displayName?: string;
+        personKind?: 'pc' | 'officer_npc' | 'other_npc';
+        siteName?: string;
+        notes?: string;
+      }>;
+      rescues: Array<{
+        slotIndex: number;
+        targetSource?: 'tracked' | 'character' | 'freeform';
+        targetStatusId?: string;
+        characterId?: Id<'character'>;
+        displayName?: string;
+        personKind?: 'pc' | 'officer_npc' | 'other_npc';
+        targetLevel?: string;
+        destinationType?: 'hq' | 'refuge' | 'settlement';
+        destinationSettlementKey?: string;
+      }>;
+      restorations: Array<{
+        slotIndex: number;
+        targetSource?: 'tracked' | 'character' | 'freeform';
+        targetStatusId?: string;
+        characterId?: Id<'character'>;
+        displayName?: string;
+        personKind?: 'pc' | 'officer_npc' | 'other_npc';
+        mode?:
+          | 'party_ability_damage'
+          | 'party_hit_points'
+          | 'party_lesser_restorative'
+          | 'break_enchantment'
+          | 'raise_dead'
+          | 'restoration'
+          | 'stone_to_flesh'
+          | 'custom';
+        customCostTotal?: string;
+      }>;
+    },
+  ) => {
+    await saveWeekBoardState({
+      organizationId,
+      militiaId,
+      patch: { activityAssetOperations: activityAssetOperations as never },
+    });
+  };
+
   const saveEventMitigations = async (
     militiaId: Id<'militia'>,
     eventMitigations: {
@@ -99,6 +171,7 @@ export function useWeekBoardMutations(organizationId: string) {
       missingInActionSelectedTeamId?: string;
       sicknessSelectedTeamId?: string;
       turnAroundBoostTeamId?: string;
+      overseerEventSupportTarget?: EventOverseerSupportTarget;
     },
   ) => {
     await saveWeekBoardState({
@@ -224,6 +297,7 @@ export function useWeekBoardMutations(organizationId: string) {
     saveStagedTeams,
     saveActivityTeamOperations,
     saveActivityOfficerOperations,
+    saveActivityAssetOperations,
     saveEventMitigations,
     saveUpkeepTotals,
     saveEventTotals,

@@ -1,6 +1,11 @@
 'use client';
 
 import type { Id } from '@convex/_generated/dataModel';
+import {
+  createEmptyActivityAssetOperationsDraft,
+  type ActivityAssetOperationsDraft,
+} from '~/components/week-board/activity-asset-operations';
+import type { EventOverseerSupportTarget } from '~/components/week-board/officer-effects';
 import { areStringArraysEqual, mergeSyncedValue } from '~/components/week-board/sync-merge';
 
 export type OfficerRole =
@@ -43,6 +48,7 @@ export type WeekBoardControllerSyncedState = {
   sabotageNotorietyIncreaseTotal: string;
   activityTeamOperations: ActivityTeamOperationsDraft;
   activityOfficerOperations: ActivityOfficerOperationsDraft;
+  activityAssetOperations: ActivityAssetOperationsDraft;
   cacheDiscoveredMitigationTotal: string;
   theftMitigationTotal: string;
   sicknessTwiceLoyaltyTotal: string;
@@ -52,6 +58,7 @@ export type WeekBoardControllerSyncedState = {
   sicknessSelectedTeamId: string;
   turnAroundBoostTeamId: string;
   rivalrySelectedTeamIds: string[];
+  overseerEventSupportTarget: EventOverseerSupportTarget | '';
 };
 
 export function createEmptyWeekBoardControllerSyncedState(): WeekBoardControllerSyncedState {
@@ -79,6 +86,7 @@ export function createEmptyWeekBoardControllerSyncedState(): WeekBoardController
     activityOfficerOperations: {
       changes: [],
     },
+    activityAssetOperations: createEmptyActivityAssetOperationsDraft(),
     cacheDiscoveredMitigationTotal: '',
     theftMitigationTotal: '',
     sicknessTwiceLoyaltyTotal: '',
@@ -88,6 +96,7 @@ export function createEmptyWeekBoardControllerSyncedState(): WeekBoardController
     sicknessSelectedTeamId: '',
     turnAroundBoostTeamId: '',
     rivalrySelectedTeamIds: [],
+    overseerEventSupportTarget: '',
   };
 }
 
@@ -208,6 +217,13 @@ export function mergeWeekBoardControllerSyncedStateWithServer({
       resetToServer,
       isEqual: areActivityOfficerOperationsEqual,
     }),
+    activityAssetOperations: mergeSyncedValue({
+      currentValue: currentState.activityAssetOperations,
+      previousServerValue: previousServerState.activityAssetOperations,
+      nextServerValue: nextServerState.activityAssetOperations,
+      resetToServer,
+      isEqual: areActivityAssetOperationsEqual,
+    }),
     cacheDiscoveredMitigationTotal: mergeSyncedValue({
       currentValue: currentState.cacheDiscoveredMitigationTotal,
       previousServerValue: previousServerState.cacheDiscoveredMitigationTotal,
@@ -263,6 +279,12 @@ export function mergeWeekBoardControllerSyncedStateWithServer({
       resetToServer,
       isEqual: areStringArraysEqual,
     }),
+    overseerEventSupportTarget: mergeSyncedValue({
+      currentValue: currentState.overseerEventSupportTarget,
+      previousServerValue: previousServerState.overseerEventSupportTarget,
+      nextServerValue: nextServerState.overseerEventSupportTarget,
+      resetToServer,
+    }),
   } satisfies WeekBoardControllerSyncedState;
 }
 
@@ -299,6 +321,20 @@ function areActivityOfficerOperationsEqual(
       entry.characterId === other.characterId
     );
   });
+}
+
+function areActivityAssetOperationsEqual(
+  left: ActivityAssetOperationsDraft,
+  right: ActivityAssetOperationsDraft,
+) {
+  return (
+    areRefugeSelectionsEqual(left.refuges, right.refuges) &&
+    areCacheSelectionsEqual(left.caches, right.caches) &&
+    areOrderSelectionsEqual(left.orders, right.orders) &&
+    areCovertActionSelectionsEqual(left.covertActions, right.covertActions) &&
+    areRescueSelectionsEqual(left.rescues, right.rescues) &&
+    areRestorationSelectionsEqual(left.restorations, right.restorations)
+  );
 }
 
 function areTeamSelectionsEqual(
@@ -341,6 +377,174 @@ function areUpgradeSelectionsEqual(
       entry.slotIndex === other.slotIndex &&
       entry.fromTeamId === other.fromTeamId &&
       entry.toTeamId === other.toTeamId
+    );
+  });
+}
+
+function areRefugeSelectionsEqual(
+  left: Array<{ slotIndex: number; settlementKey: string }>,
+  right: Array<{ slotIndex: number; settlementKey: string }>,
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.settlementKey === other.settlementKey
+    );
+  });
+}
+
+function areCacheSelectionsEqual(
+  left: ActivityAssetOperationsDraft['caches'],
+  right: ActivityAssetOperationsDraft['caches'],
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.mode === other.mode &&
+      entry.cacheId === other.cacheId &&
+      entry.label === other.label &&
+      entry.cacheClass === other.cacheClass &&
+      entry.location === other.location &&
+      entry.contentsSummary === other.contentsSummary &&
+      entry.isSecureLocation === other.isSecureLocation &&
+      entry.checkTotal === other.checkTotal
+    );
+  });
+}
+
+function areOrderSelectionsEqual(
+  left: ActivityAssetOperationsDraft['orders'],
+  right: ActivityAssetOperationsDraft['orders'],
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.description === other.description &&
+      entry.notes === other.notes &&
+      entry.costPaid === other.costPaid &&
+      entry.deliveryDays === other.deliveryDays
+    );
+  });
+}
+
+function areCovertActionSelectionsEqual(
+  left: ActivityAssetOperationsDraft['covertActions'],
+  right: ActivityAssetOperationsDraft['covertActions'],
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.mode === other.mode &&
+      entry.targetSource === other.targetSource &&
+      entry.followupSlotIndex === other.followupSlotIndex &&
+      entry.characterId === other.characterId &&
+      entry.displayName === other.displayName &&
+      entry.personKind === other.personKind &&
+      entry.siteName === other.siteName &&
+      entry.notes === other.notes
+    );
+  });
+}
+
+function areRescueSelectionsEqual(
+  left: ActivityAssetOperationsDraft['rescues'],
+  right: ActivityAssetOperationsDraft['rescues'],
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.targetSource === other.targetSource &&
+      entry.targetStatusId === other.targetStatusId &&
+      entry.characterId === other.characterId &&
+      entry.displayName === other.displayName &&
+      entry.personKind === other.personKind &&
+      entry.targetLevel === other.targetLevel &&
+      entry.destinationType === other.destinationType &&
+      entry.destinationSettlementKey === other.destinationSettlementKey
+    );
+  });
+}
+
+function areRestorationSelectionsEqual(
+  left: ActivityAssetOperationsDraft['restorations'],
+  right: ActivityAssetOperationsDraft['restorations'],
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.targetSource === other.targetSource &&
+      entry.targetStatusId === other.targetStatusId &&
+      entry.characterId === other.characterId &&
+      entry.displayName === other.displayName &&
+      entry.personKind === other.personKind &&
+      entry.mode === other.mode &&
+      entry.customCostTotal === other.customCostTotal
     );
   });
 }

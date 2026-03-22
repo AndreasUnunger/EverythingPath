@@ -258,6 +258,68 @@ export const teamIdValidator = v.union(
   v.literal('fixers'),
 );
 
+export const cacheClassValidator = v.union(
+  v.literal('minor'),
+  v.literal('intermediate'),
+  v.literal('major'),
+);
+
+export const cacheStatusValidator = v.union(
+  v.literal('hidden'),
+  v.literal('pending_return'),
+  v.literal('retrieved'),
+  v.literal('lost'),
+);
+
+export const cacheModeValidator = v.union(
+  v.literal('place'),
+  v.literal('retrieve'),
+);
+
+export const trackedPersonKindValidator = v.union(
+  v.literal('pc'),
+  v.literal('officer_npc'),
+  v.literal('other_npc'),
+);
+
+export const trackedPersonStatusValidator = v.union(
+  v.literal('active'),
+  v.literal('hidden'),
+  v.literal('captured'),
+  v.literal('recovering'),
+  v.literal('contact'),
+);
+
+export const trackedPersonLocationValidator = v.union(
+  v.literal('hq'),
+  v.literal('refuge'),
+  v.literal('settlement'),
+  v.literal('site'),
+  v.literal('unknown'),
+);
+
+export const covertActionModeValidator = v.union(
+  v.literal('augment_action'),
+  v.literal('place_contact'),
+);
+
+export const restoreCharacterModeValidator = v.union(
+  v.literal('party_ability_damage'),
+  v.literal('party_hit_points'),
+  v.literal('party_lesser_restorative'),
+  v.literal('break_enchantment'),
+  v.literal('raise_dead'),
+  v.literal('restoration'),
+  v.literal('stone_to_flesh'),
+  v.literal('custom'),
+);
+
+export const orderStatusValidator = v.union(
+  v.literal('pending'),
+  v.literal('delivered'),
+  v.literal('cancelled'),
+);
+
 export const militiaTeamValidator = v.object({
   militiaId: v.id('militia'),
   teamId: teamIdValidator,
@@ -305,6 +367,102 @@ export const militiaWeekStateValidator = v.object({
           role: officerRoleValidator,
           characterId: v.optional(v.id('character')),
         }),
+      ),
+    }),
+  ),
+  activityAssetOperations: v.optional(
+    v.object({
+      refuges: v.array(
+        v.object({
+          slotIndex: v.number(),
+          settlementKey: v.string(),
+        }),
+      ),
+      caches: v.array(
+        v.object({
+          slotIndex: v.number(),
+          mode: cacheModeValidator,
+          cacheId: v.optional(v.string()),
+          label: v.optional(v.string()),
+          cacheClass: v.optional(cacheClassValidator),
+          location: v.optional(v.string()),
+          contentsSummary: v.optional(v.string()),
+          isSecureLocation: v.optional(v.boolean()),
+          checkTotal: v.optional(v.number()),
+        }),
+      ),
+      orders: v.array(
+        v.object({
+          slotIndex: v.number(),
+          description: v.string(),
+          notes: v.optional(v.string()),
+          costPaid: v.optional(v.number()),
+          deliveryDays: v.optional(v.number()),
+        }),
+      ),
+      covertActions: v.optional(
+          v.array(
+            v.object({
+              slotIndex: v.number(),
+              mode: v.optional(covertActionModeValidator),
+              targetSource: v.optional(
+                v.union(v.literal('character'), v.literal('freeform')),
+              ),
+              followupSlotIndex: v.optional(v.number()),
+              characterId: v.optional(v.id('character')),
+              displayName: v.optional(v.string()),
+              personKind: v.optional(trackedPersonKindValidator),
+              siteName: v.optional(v.string()),
+            notes: v.optional(v.string()),
+          }),
+        ),
+      ),
+      rescues: v.optional(
+          v.array(
+            v.object({
+              slotIndex: v.number(),
+              targetSource: v.optional(
+                v.union(
+                  v.literal('tracked'),
+                  v.literal('character'),
+                  v.literal('freeform'),
+                ),
+              ),
+              targetStatusId: v.optional(v.string()),
+              characterId: v.optional(v.id('character')),
+              displayName: v.optional(v.string()),
+              personKind: v.optional(trackedPersonKindValidator),
+              targetLevel: v.optional(v.number()),
+            destinationType: v.optional(
+              v.union(
+                v.literal('hq'),
+                v.literal('refuge'),
+                v.literal('settlement'),
+              ),
+            ),
+            destinationSettlementKey: v.optional(v.string()),
+          }),
+        ),
+      ),
+      restorations: v.optional(
+          v.array(
+            v.object({
+              slotIndex: v.number(),
+              targetSource: v.optional(
+                v.union(
+                  v.literal('tracked'),
+                  v.literal('character'),
+                  v.literal('freeform'),
+                ),
+              ),
+              targetStatusId: v.optional(v.string()),
+              characterId: v.optional(v.id('character')),
+              displayName: v.optional(v.string()),
+              personKind: v.optional(trackedPersonKindValidator),
+            mode: v.optional(restoreCharacterModeValidator),
+            customCostTotal: v.optional(v.number()),
+          }),
+        ),
       ),
     }),
   ),
@@ -410,6 +568,7 @@ export const militiaSettlementStateValidator = v.object({
   isSecured: v.boolean(),
   temporaryShift: v.optional(v.number()),
   refugeActiveUntilWeek: v.optional(v.number()),
+  refugeActivatedWeek: v.optional(v.number()),
 });
 
 export const militiaTeamStateValidator = v.object({
@@ -429,6 +588,60 @@ export const militiaEventStateValidator = v.object({
   endedWeek: v.optional(v.number()),
   mitigationUntilWeek: v.optional(v.number()),
   resolved: v.boolean(),
+});
+
+export const militiaCacheValidator = v.object({
+  militiaId: v.id('militia'),
+  label: v.string(),
+  cacheClass: cacheClassValidator,
+  location: v.string(),
+  contentsSummary: v.string(),
+  status: cacheStatusValidator,
+  isSecureLocation: v.boolean(),
+  createdWeek: v.number(),
+  updatedWeek: v.number(),
+  retrievedWeek: v.optional(v.number()),
+  lostWeek: v.optional(v.number()),
+});
+
+export const militiaOrderValidator = v.object({
+  militiaId: v.id('militia'),
+  description: v.string(),
+  notes: v.optional(v.string()),
+  costPaid: v.number(),
+  deliveryDays: v.number(),
+  orderedWeek: v.number(),
+  dueWeek: v.number(),
+  status: orderStatusValidator,
+  deliveredWeek: v.optional(v.number()),
+});
+
+export const militiaCharacterStatusValidator = v.object({
+  militiaId: v.id('militia'),
+  characterId: v.optional(v.id('character')),
+  displayName: v.string(),
+  personKind: trackedPersonKindValidator,
+  status: trackedPersonStatusValidator,
+  level: v.optional(v.number()),
+  locationType: trackedPersonLocationValidator,
+  settlementKey: v.optional(v.string()),
+  siteName: v.optional(v.string()),
+  notes: v.optional(v.string()),
+  activeUntilWeek: v.optional(v.number()),
+  hiddenSinceWeek: v.optional(v.number()),
+  capturedSinceWeek: v.optional(v.number()),
+  rescuedWeek: v.optional(v.number()),
+  restoredWeek: v.optional(v.number()),
+  rescueDcOverride: v.optional(v.number()),
+  sourceAction: v.optional(
+    v.union(
+      v.literal('manual'),
+      v.literal('covert_action'),
+      v.literal('rescue_character'),
+      v.literal('restore_character'),
+      v.literal('event_raid'),
+    ),
+  ),
 });
 
 export const militiaOverrideNoteValidator = v.object({
@@ -466,6 +679,16 @@ export default defineSchema({
   militiaSettlementState: defineTable(militiaSettlementStateValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_settlement', ['militiaId', 'settlementKey']),
+  militiaCache: defineTable(militiaCacheValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_status', ['militiaId', 'status']),
+  militiaOrder: defineTable(militiaOrderValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_status', ['militiaId', 'status']),
+  militiaCharacterStatus: defineTable(militiaCharacterStatusValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_status', ['militiaId', 'status'])
+    .index('by_militiaId_characterId', ['militiaId', 'characterId']),
   militiaTeamState: defineTable(militiaTeamStateValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_teamId', ['militiaId', 'teamId']),

@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '~/components/ui/card';
+import type { ActivityAssetOperationsDraft } from '~/components/week-board/activity-asset-operations';
 import { type SummaryRow } from '~/components/week-board/activity-roll-sections';
 import {
   formatResolvedEventLabel,
@@ -49,6 +50,7 @@ export type SummaryPhaseViewModel = {
       characterId?: string;
     }>;
   };
+  activityAssetOperations: ActivityAssetOperationsDraft;
   weekWarnings: Array<{ code: string; message: string }>;
   activityRollSummaryRows: SummaryRow[];
   eventChanceTotal: string;
@@ -75,6 +77,7 @@ export type SummaryPhaseViewModel = {
   sicknessSelectedTeamId: string;
   turnAroundBoostTeamId: string;
   rivalrySelectedTeamIds: string[];
+  overseerEventSupportTarget: '' | 'sabotage' | 'cache_discovered' | 'theft' | 'sickness_twice';
   formatManualTotalForSummaryAction: (raw: string) => string;
 };
 
@@ -99,6 +102,7 @@ export function SummaryPhaseSection({
     slotTeams,
     activityTeamOperations,
     activityOfficerOperations,
+    activityAssetOperations,
     weekWarnings,
     activityRollSummaryRows,
     eventChanceTotal,
@@ -125,6 +129,7 @@ export function SummaryPhaseSection({
     sicknessSelectedTeamId,
     turnAroundBoostTeamId,
     rivalrySelectedTeamIds,
+    overseerEventSupportTarget,
     formatManualTotalForSummaryAction,
   } = viewModel;
 
@@ -142,6 +147,7 @@ export function SummaryPhaseSection({
   const operationItems = buildOperationSummaryItems({
     activityTeamOperations,
     activityOfficerOperations,
+    activityAssetOperations,
   });
   const eventOccurrenceItems = buildEventOccurrenceItems({
     eventChanceTotal,
@@ -161,6 +167,7 @@ export function SummaryPhaseSection({
     sicknessSelectedTeamId,
     turnAroundBoostTeamId,
     rivalrySelectedTeamIds,
+    overseerEventSupportTarget,
     formatManualTotalForSummary: formatManualTotalForSummaryAction,
   });
   const resolvedEventPercentile = hasGuaranteedEventAction

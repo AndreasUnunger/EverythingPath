@@ -32,7 +32,11 @@ class FakeDb {
   }
 
   query(table: string) {
+    const allRows = this.tables[table] ?? [];
     return {
+      async collect() {
+        return allRows.map((row: Row) => ({ ...row }));
+      },
       withIndex: (
         _indexName: string,
         build: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
@@ -45,10 +49,9 @@ class FakeDb {
           },
         };
         build(q);
-        const rows =
-          this.tables[table]?.filter((row: Row) =>
-            conditions.every((condition) => row[condition.field] === condition.value),
-          ) ?? [];
+        const rows = allRows.filter((row: Row) =>
+          conditions.every((condition) => row[condition.field] === condition.value),
+        );
         return {
           async collect() {
             return rows.map((row: Row) => ({ ...row }));
@@ -79,6 +82,13 @@ class FakeDb {
     return next._id;
   }
 
+  async delete(table: string, id: string) {
+    const rows = this.tables[table] ?? [];
+    const index = rows.findIndex((row) => row._id === id);
+    if (index < 0) throw new Error(`Row not found: ${table}/${id}`);
+    rows.splice(index, 1);
+  }
+
   getRows(table: string) {
     return this.tables[table] ?? [];
   }
@@ -87,9 +97,17 @@ class FakeDb {
 function createBaseHarness({
   weekState,
   eventStates = [],
+  militiaOverrides = {},
+  settlementStates = [],
+  personStatuses = [],
+  characters = [],
 }: {
   weekState: Row;
   eventStates?: Row[];
+  militiaOverrides?: Record<string, unknown>;
+  settlementStates?: Row[];
+  personStatuses?: Row[];
+  characters?: Row[];
 }) {
   const db = new FakeDb({
     campaign: [{ _id: 'c1', organizationId: 'org1' }],
@@ -102,12 +120,18 @@ function createBaseHarness({
         treasury: 20,
         notoriety: 30,
         highestBoonReached: 2,
+        ...militiaOverrides,
       },
     ],
-    character: [],
+    character: characters,
     militiaWeekState: [weekState],
     militiaEventState: eventStates,
-    militiaSettlementState: [],
+    militiaSettlementState: settlementStates,
+    militiaCache: [],
+    militiaOrder: [],
+    militiaCharacterStatus: personStatuses,
+    militiaTeam: [],
+    militiaTeamState: [],
   });
 
   return {
@@ -118,11 +142,13 @@ function createBaseHarness({
 
 let commitCurrentPhase: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
 let saveWeekBoardState: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
+let getWeekBoardState: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
 
 beforeAll(async () => {
   const module = await import('../../convex/weekBoard');
   commitCurrentPhase = module.commitCurrentPhase as never;
   saveWeekBoardState = module.saveWeekBoardState as never;
+  getWeekBoardState = module.getWeekBoardState as never;
 });
 
 describe('weekBoard commitCurrentPhase harness', () => {
@@ -369,9 +395,751 @@ describe('weekBoard commitCurrentPhase harness', () => {
     const militia = db.getRows('militia')[0];
     expect(militia?.commandant).toBe('char1');
   });
+
+  it('resizes next week action slots when a staged officer change assigns strategist', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 2,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+          strategist: undefined,
+        },
+      ],
+      character: [
+        {
+          _id: 'char1',
+          campaignId: 'c1',
+          ownerId: 'user1',
+          name: 'Kara',
+          description: '',
+          level: 5,
+          kind: 'pc',
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          wisdom: 10,
+          charisma: 10,
+          intelligence: 10,
+          isActive: true,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'week_closed',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: ['change_officer_role', null],
+          stagedActivityTeamIds: [null, null],
+          activityOfficerOperations: {
+            changes: [
+              {
+                slotIndex: 0,
+                role: 'strategist',
+                characterId: 'char1',
+              },
+            ],
+          },
+          upkeepRollTotals: {
+            attritionTotal: 0,
+          },
+          activityRollTotals: {},
+          eventRollTotals: {
+            eventChanceTotal: 10,
+            eventTriggerRollTotal: 99,
+          },
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [],
+      militiaTeamState: [],
+      militiaEventState: [],
+      militiaSettlementState: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const militia = db.getRows('militia')[0];
+    const weekState = db.getRows('militiaWeekState')[0];
+    expect(militia?.strategist).toBe('char1');
+    expect(weekState?.stagedActivityActionIds).toEqual([null, null, null]);
+    expect(weekState?.stagedActivityTeamIds).toEqual([null, null, null]);
+  });
+
+  it('creates refuge, cache, and order records from staged asset operations on week close', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['activate_refuge', 'secure_cache'],
+        activityAssetOperations: {
+          refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+          caches: [
+            {
+              slotIndex: 1,
+              mode: 'place',
+              label: 'Temple cache',
+              cacheClass: 'minor',
+              location: 'Shrine cellar',
+              contentsSummary: 'Potions and maps',
+              isSecureLocation: true,
+              checkTotal: 22,
+            },
+          ],
+          orders: [
+            {
+              slotIndex: 0,
+              description: 'Cloak of elvenkind',
+              costPaid: 12,
+              deliveryDays: 8,
+              notes: 'For the scout team',
+            },
+          ],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+    await db.insert('militiaSettlementState', {
+      militiaId: 'm1',
+      settlementKey: 'Longshadow',
+      reputation: 'Indifferent',
+      isSecured: false,
+    });
+    await db.patch('militia', 'm1', { rank: 6, treasury: 60 });
+    await db.patch('militiaWeekState', 'ws1', {
+      stagedActivityActionIds: ['activate_refuge', 'special_order', 'secure_cache'],
+      activityAssetOperations: {
+        refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+        caches: [
+          {
+            slotIndex: 2,
+            mode: 'place',
+            label: 'Temple cache',
+            cacheClass: 'minor',
+            location: 'Shrine cellar',
+            contentsSummary: 'Potions and maps',
+            isSecureLocation: true,
+            checkTotal: 22,
+          },
+        ],
+        orders: [
+          {
+            slotIndex: 1,
+            description: 'Cloak of elvenkind',
+            costPaid: 12,
+            deliveryDays: 8,
+            notes: 'For the scout team',
+          },
+        ],
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const militia = db.getRows('militia')[0];
+    expect(militia?.treasury).toBe(48);
+
+    const settlement = db.getRows('militiaSettlementState')[0];
+    expect(settlement).toEqual(
+      expect.objectContaining({
+        settlementKey: 'Longshadow',
+        refugeActiveUntilWeek: 4,
+        refugeActivatedWeek: 3,
+      }),
+    );
+
+    const cache = db.getRows('militiaCache')[0];
+    expect(cache).toEqual(
+      expect.objectContaining({
+        label: 'Temple cache',
+        status: 'hidden',
+        createdWeek: 3,
+        updatedWeek: 3,
+      }),
+    );
+
+    const order = db.getRows('militiaOrder')[0];
+    expect(order).toEqual(
+      expect.objectContaining({
+        description: 'Cloak of elvenkind',
+        status: 'pending',
+        dueWeek: 5,
+        costPaid: 12,
+      }),
+    );
+  });
+
+  it('retrieves a hidden cache when the staged Secure Cache check meets the DC', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['secure_cache', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [
+            {
+              slotIndex: 0,
+              mode: 'retrieve',
+              cacheId: 'cache1',
+              checkTotal: 15,
+            },
+          ],
+          orders: [],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+    const cacheId = await db.insert('militiaCache', {
+      militiaId: 'm1',
+      label: 'Tunnel stash',
+      cacheClass: 'minor',
+      location: 'Old tunnel',
+      contentsSummary: 'Rations',
+      status: 'hidden',
+      isSecureLocation: false,
+      createdWeek: 2,
+      updatedWeek: 2,
+    });
+    await db.patch('militiaWeekState', 'ws1', {
+      activityAssetOperations: {
+        refuges: [],
+        caches: [
+          {
+            slotIndex: 0,
+            mode: 'retrieve',
+            cacheId,
+            checkTotal: 15,
+          },
+        ],
+        orders: [],
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const cache = db.getRows('militiaCache')[0];
+    expect(cache).toEqual(
+      expect.objectContaining({
+        status: 'retrieved',
+        retrievedWeek: 3,
+        updatedWeek: 3,
+      }),
+    );
+  });
+
+  it('marks hidden caches lost when Cache Discovered resolves', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 40,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 61,
+        },
+        lockVersion: 1,
+      },
+    });
+    await db.insert('militiaCache', {
+      militiaId: 'm1',
+      label: 'Burned cache',
+      cacheClass: 'minor',
+      location: 'Barn loft',
+      contentsSummary: 'Food',
+      status: 'hidden',
+      isSecureLocation: false,
+      createdWeek: 2,
+      updatedWeek: 2,
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const cache = db.getRows('militiaCache')[0];
+    expect(cache).toEqual(
+      expect.objectContaining({
+        status: 'lost',
+        lostWeek: 3,
+        updatedWeek: 3,
+      }),
+    );
+  });
+
+  it('delivers pending orders when their due week is reached', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+    await db.insert('militiaOrder', {
+      militiaId: 'm1',
+      description: 'Masterwork tools',
+      costPaid: 55,
+      deliveryDays: 7,
+      orderedWeek: 3,
+      dueWeek: 4,
+      status: 'pending',
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const order = db.getRows('militiaOrder')[0];
+    expect(order).toEqual(
+      expect.objectContaining({
+        status: 'delivered',
+        deliveredWeek: 4,
+      }),
+    );
+  });
+
+  it('creates a tracked contact from Covert Action and expires old contacts on week advance', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['covert_action', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          covertActions: [
+            {
+              slotIndex: 0,
+              mode: 'place_contact',
+              displayName: 'Cell watcher',
+              personKind: 'other_npc',
+              siteName: 'Plague House',
+            },
+          ],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      personStatuses: [
+        {
+          _id: 'p-expired',
+          militiaId: 'm1',
+          displayName: 'Old contact',
+          personKind: 'other_npc',
+          status: 'contact',
+          locationType: 'site',
+          siteName: 'Old Mill',
+          activeUntilWeek: 3,
+          sourceAction: 'covert_action',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const people = db.getRows('militiaCharacterStatus');
+    expect(people.find((person) => person._id === 'p-expired')).toBeUndefined();
+    expect(people).toContainEqual(
+      expect.objectContaining({
+        displayName: 'Cell watcher',
+        status: 'contact',
+        locationType: 'site',
+        siteName: 'Plague House',
+        activeUntilWeek: 4,
+        sourceAction: 'covert_action',
+      }),
+    );
+  });
+
+  it('rescues a tracked captured person to the selected refuge', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['rescue_character', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          covertActions: [],
+          rescues: [
+            {
+              slotIndex: 0,
+              targetStatusId: 'p1',
+              destinationType: 'refuge',
+              destinationSettlementKey: 'Longshadow',
+            },
+          ],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          rescueCharacterCheckTotal: 18,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      settlementStates: [
+        {
+          _id: 's1',
+          militiaId: 'm1',
+          settlementKey: 'Longshadow',
+          reputation: 'Indifferent',
+          isSecured: false,
+          refugeActiveUntilWeek: 4,
+        },
+      ],
+      personStatuses: [
+        {
+          _id: 'p1',
+          militiaId: 'm1',
+          displayName: 'Captured scout',
+          personKind: 'pc',
+          status: 'captured',
+          level: 5,
+          locationType: 'site',
+          siteName: 'Holding cells',
+          capturedSinceWeek: 2,
+          sourceAction: 'manual',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaCharacterStatus')).toContainEqual(
+      expect.objectContaining({
+        _id: 'p1',
+        status: 'active',
+        locationType: 'refuge',
+        settlementKey: 'Longshadow',
+        rescuedWeek: 3,
+      }),
+    );
+  });
+
+  it('applies staged Restore Character costs and marks the target recovering', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['restore_character', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [
+            {
+              slotIndex: 0,
+              targetStatusId: 'p1',
+              mode: 'raise_dead',
+            },
+          ],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      militiaOverrides: { treasury: 7000 },
+      personStatuses: [
+        {
+          _id: 'p1',
+          militiaId: 'm1',
+          displayName: 'Fallen officer',
+          personKind: 'officer_npc',
+          status: 'captured',
+          level: 6,
+          locationType: 'hq',
+          sourceAction: 'manual',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militia')[0]?.treasury).toBe(875);
+    expect(db.getRows('militiaCharacterStatus')).toContainEqual(
+      expect.objectContaining({
+        _id: 'p1',
+        status: 'recovering',
+        restoredWeek: 3,
+        sourceAction: 'restore_character',
+      }),
+    );
+  });
+
+  it('captures hidden refuge occupants when Raid resolves', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 40,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 80,
+        },
+        lockVersion: 1,
+      },
+      settlementStates: [
+        {
+          _id: 's1',
+          militiaId: 'm1',
+          settlementKey: 'Longshadow',
+          reputation: 'Indifferent',
+          isSecured: false,
+          refugeActiveUntilWeek: 4,
+        },
+      ],
+      personStatuses: [
+        {
+          _id: 'p1',
+          militiaId: 'm1',
+          displayName: 'Hidden witness',
+          personKind: 'other_npc',
+          status: 'hidden',
+          level: 1,
+          locationType: 'refuge',
+          settlementKey: 'Longshadow',
+          hiddenSinceWeek: 3,
+          sourceAction: 'manual',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaCharacterStatus')).toContainEqual(
+      expect.objectContaining({
+        _id: 'p1',
+        status: 'captured',
+        capturedSinceWeek: 4,
+        rescueDcOverride: 7,
+        sourceAction: 'event_raid',
+      }),
+    );
+    expect(db.getRows('militiaSettlementState')).toContainEqual(
+      expect.objectContaining({
+        _id: 's1',
+        refugeActiveUntilWeek: undefined,
+      }),
+    );
+  });
 });
 
 describe('weekBoard saveWeekBoardState collaboration harness', () => {
+  it('returns a strategist bonus action when strategist is directly assigned', async () => {
+    const { ctx } = createBaseHarness({
+      militiaOverrides: {
+        strategist: 'char1',
+      },
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 2,
+        phase: 'activity',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null, null],
+        stagedActivityTeamIds: [null, null, null],
+        lockVersion: 1,
+      },
+    });
+
+    const result = (await getWeekBoardState.handler(ctx, {
+      campaignId: 'c1' as never,
+      organizationId: 'org1',
+    })) as { maxActions: number };
+
+    expect(result.maxActions).toBe(3);
+  });
+
+  it('returns a strategist bonus action when strategist is staged via Change Officer Role', async () => {
+    const { ctx } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 2,
+        phase: 'activity',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['change_officer_role', null, null],
+        stagedActivityTeamIds: [null, null, null],
+        activityOfficerOperations: {
+          changes: [
+            {
+              slotIndex: 0,
+              role: 'strategist',
+              characterId: 'char1',
+            },
+          ],
+        },
+        lockVersion: 1,
+      },
+    });
+
+    const result = (await getWeekBoardState.handler(ctx, {
+      campaignId: 'c1' as never,
+      organizationId: 'org1',
+    })) as { maxActions: number };
+
+    expect(result.maxActions).toBe(3);
+  });
+
   it('merges non-conflicting updates from multiple users', async () => {
     const db = new FakeDb({
       campaign: [{ _id: 'c1', organizationId: 'org1' }],
@@ -577,5 +1345,244 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
         },
       }),
     ).rejects.toThrow(/Drill Militia can be staged at most once per Activity phase/);
+  });
+
+  it('parses and trims staged asset operations when saving week board state', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 6,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: ['activate_refuge', 'secure_cache', 'special_order'],
+          stagedActivityTeamIds: [null, null, null],
+          activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
+          activityOfficerOperations: { changes: [] },
+          activityAssetOperations: {
+            refuges: [],
+            caches: [],
+            orders: [],
+            covertActions: [],
+            rescues: [],
+            restorations: [],
+          },
+          upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
+          eventMitigations: {},
+          weekWarnings: [],
+          upkeepRollTotals: {},
+          activityRollTotals: {},
+          eventRollTotals: {},
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [],
+      militiaTeamState: [],
+      militiaEventState: [],
+      militiaSettlementState: [],
+      militiaCache: [],
+      militiaOrder: [],
+      character: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        activityAssetOperations: {
+          refuges: [{ slotIndex: 0, settlementKey: ' Longshadow ' }],
+          caches: [
+            {
+              slotIndex: 1,
+              mode: 'place',
+              label: ' Temple cache ',
+              cacheClass: 'minor',
+              location: ' Shrine cellar ',
+              contentsSummary: ' Potions ',
+              isSecureLocation: true,
+              checkTotal: ' 21 ',
+            },
+          ],
+          orders: [
+            {
+              slotIndex: 2,
+              description: ' Cloak of resistance ',
+              notes: ' Scout gear ',
+              costPaid: ' 1000 ',
+              deliveryDays: ' 14 ',
+            },
+          ],
+        },
+      },
+    });
+
+    const state = db.getRows('militiaWeekState')[0];
+    expect(state?.activityAssetOperations).toEqual({
+      refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+      caches: [
+        {
+          slotIndex: 1,
+          mode: 'place',
+          label: 'Temple cache',
+          cacheClass: 'minor',
+          location: 'Shrine cellar',
+          contentsSummary: 'Potions',
+          isSecureLocation: true,
+          checkTotal: 21,
+        },
+      ],
+      covertActions: [],
+      orders: [
+        {
+          slotIndex: 2,
+          description: 'Cloak of resistance',
+          notes: 'Scout gear',
+          costPaid: 1000,
+          deliveryDays: 14,
+        },
+      ],
+      rescues: [],
+      restorations: [],
+    });
+    expect(state?.weekWarnings).toEqual([
+      {
+        code: 'refuge_requires_tracked_settlement',
+        message:
+          'Activate Refuge requires a tracked settlement in the ledger. Add "Longshadow" there first.',
+      },
+    ]);
+  });
+
+  it('keeps a third staged action when strategist is already staged for the week', async () => {
+    const db = new FakeDb({
+      campaign: [{ _id: 'c1', organizationId: 'org1' }],
+      militia: [
+        {
+          _id: 'm1',
+          campaignId: 'c1',
+          rank: 2,
+          training: 10,
+          treasury: 20,
+          notoriety: 30,
+          highestBoonReached: 2,
+        },
+      ],
+      militiaWeekState: [
+        {
+          _id: 'ws1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+          lastPersistentBuyoffWeek: 0,
+          stagedActivityActionIds: ['change_officer_role', null, null],
+          stagedActivityTeamIds: [null, null, null],
+          activityOfficerOperations: {
+            changes: [
+              {
+                slotIndex: 0,
+                role: 'strategist',
+                characterId: 'char1',
+              },
+            ],
+          },
+          activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
+          upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
+          eventMitigations: {},
+          weekWarnings: [],
+          upkeepRollTotals: {},
+          activityRollTotals: {},
+          eventRollTotals: {},
+          lockVersion: 1,
+        },
+      ],
+      militiaTeam: [],
+      militiaTeamState: [],
+      militiaEventState: [],
+      militiaSettlementState: [],
+      character: [],
+    });
+    const ctx = { db } as unknown as { db: FakeDb };
+
+    await saveWeekBoardState.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1',
+      patch: {
+        stagedActivityActionIds: [
+          'change_officer_role',
+          'drill_militia',
+          'guarantee_event',
+        ],
+      },
+    });
+
+    const state = db.getRows('militiaWeekState')[0];
+    expect(state?.stagedActivityActionIds).toEqual([
+      'change_officer_role',
+      'drill_militia',
+      'guarantee_event',
+    ]);
+  });
+
+  it('does not allow Activate Refuge to create a settlement during week close', async () => {
+    const { ctx } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['activate_refuge', null],
+        activityAssetOperations: {
+          refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+          caches: [],
+          orders: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await expect(
+      commitCurrentPhase.handler(ctx, {
+        organizationId: 'org1',
+        militiaId: 'm1' as never,
+      }),
+    ).rejects.toThrow(/Activate Refuge requires an existing tracked settlement: Longshadow/);
   });
 });
