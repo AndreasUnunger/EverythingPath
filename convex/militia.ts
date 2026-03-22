@@ -295,6 +295,18 @@ export const assignTeamManager = mutation({
           createdAt,
         });
       }
+      if (args.reason && !warnings.length) {
+        await ctx.db.insert('militiaOverrideNote', {
+          militiaId: args.militiaId,
+          scope: 'militia',
+          fieldPath: `team.${args.teamId}.manager`,
+          warningCode: 'team_manager_override_reason',
+          isIntentionalOverride: true,
+          reason: args.reason,
+          actorUserId: access.user.tokenIdentifier,
+          createdAt,
+        });
+      }
     }
 
     return { warnings, manager };

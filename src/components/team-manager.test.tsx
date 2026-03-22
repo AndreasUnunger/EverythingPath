@@ -77,6 +77,11 @@ describe('TeamManager', () => {
             size: 3,
             grantedActions: ['secureCache'],
             status: 'active',
+            managerSource: undefined,
+            managerCharacterId: undefined,
+            managerName: undefined,
+            managerKind: undefined,
+            managerCharisma: undefined,
             manager: undefined,
           },
         ],
@@ -199,5 +204,191 @@ describe('TeamManager', () => {
     expect(
       await screen.findByText('Managing 2 teams exceeds the normal limit of 1.'),
     ).toBeInTheDocument();
+  });
+
+  it('assigns a freeform manager with trimmed values', async () => {
+    render(
+      <TeamManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Edit Manager'));
+
+    fireEvent.change(screen.getAllByTestId('mock-select')[0]!, {
+      target: { value: 'freeform' },
+    });
+    const textInputs = screen.getAllByRole('textbox');
+    fireEvent.change(textInputs[0]!, { target: { value: '  Quartermaster  ' } });
+    fireEvent.change(screen.getAllByTestId('mock-select')[1]!, {
+      target: { value: 'other_npc' },
+    });
+    fireEvent.change(textInputs[1]!, { target: { value: '14' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mutationFns.assignTeamManager).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        teamId: 'moles',
+        managerSource: 'freeform',
+        managerCharacterId: undefined,
+        managerName: 'Quartermaster',
+        managerKind: 'other_npc',
+        managerCharisma: 14,
+      });
+    });
+  });
+
+  it('clears an existing manager assignment', async () => {
+    mockMilitiaQuery.mockReturnValueOnce({
+      data: {
+        _id: 'militia_1',
+        teams: [
+          {
+            id: 'moles',
+            name: 'Moles',
+            type: 'Espionage',
+            tier: 1,
+            size: 3,
+            grantedActions: ['secureCache'],
+            status: 'active',
+            managerSource: 'character',
+            managerCharacterId: 'char_1',
+            managerName: undefined,
+            managerKind: undefined,
+            managerCharisma: undefined,
+            manager: {
+              displayName: 'Aubrin',
+              kind: 'pc',
+              charisma: 16,
+              charismaBonus: 3,
+              maxTeams: 3,
+              managedTeamCount: 1,
+              warnings: [],
+            },
+          },
+        ],
+      },
+      isLoading: false,
+    });
+
+    render(
+      <TeamManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Edit Manager'));
+    fireEvent.change(screen.getAllByTestId('mock-select')[0]!, {
+      target: { value: 'none' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mutationFns.assignTeamManager).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        teamId: 'moles',
+        managerSource: undefined,
+        managerCharacterId: undefined,
+        managerName: undefined,
+        managerKind: undefined,
+        managerCharisma: undefined,
+      });
+    });
+  });
+
+  it('surfaces mutation failures in the form', async () => {
+    mutationFns.assignTeamManager.mockRejectedValueOnce(
+      new Error('Failed to save team manager.'),
+    );
+
+    render(
+      <TeamManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Edit Manager'));
+    fireEvent.change(screen.getAllByTestId('mock-select')[0]!, {
+      target: { value: 'character' },
+    });
+    await waitFor(() => {
+      expect(screen.getAllByTestId('mock-select')).toHaveLength(2);
+    });
+    fireEvent.change(screen.getAllByTestId('mock-select')[1]!, {
+      target: { value: 'char_1' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(await screen.findByText('Failed to save team manager.')).toBeInTheDocument();
+  });
+
+  it('opens the first unassigned team from the Assign Manager button', async () => {
+    mockMilitiaQuery.mockReturnValueOnce({
+      data: {
+        _id: 'militia_1',
+        teams: [
+          {
+            id: 'moles',
+            name: 'Moles',
+            type: 'Espionage',
+            tier: 1,
+            size: 3,
+            grantedActions: ['secureCache'],
+            status: 'active',
+            managerSource: undefined,
+            managerCharacterId: undefined,
+            managerName: undefined,
+            managerKind: undefined,
+            managerCharisma: undefined,
+            manager: undefined,
+          },
+          {
+            id: 'informants',
+            name: 'Informants',
+            type: 'Espionage',
+            tier: 1,
+            size: 3,
+            grantedActions: ['gatherInformation'],
+            status: 'active',
+            managerSource: 'character',
+            managerCharacterId: 'char_1',
+            managerName: undefined,
+            managerKind: undefined,
+            managerCharisma: undefined,
+            manager: {
+              displayName: 'Aubrin',
+              kind: 'pc',
+              charisma: 16,
+              charismaBonus: 3,
+              maxTeams: 3,
+              managedTeamCount: 1,
+              warnings: [],
+            },
+          },
+        ],
+      },
+      isLoading: false,
+    });
+
+    render(
+      <TeamManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Assign Manager'));
+
+    expect(await screen.findByText('Edit Manager: Moles')).toBeInTheDocument();
   });
 });
