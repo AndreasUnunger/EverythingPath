@@ -17,6 +17,7 @@ import {
   buildUpgradeFromOptions,
   buildUpgradeToOptions,
 } from '~/components/week-board/team-options';
+import type { WeekBoardTeamManager } from '~/components/week-board/team-manager-effects';
 import type { ActionCard, ActionId, DragState } from '~/components/week-board/types';
 
 export type OfficerRole =
@@ -99,6 +100,7 @@ export type ActivityPhaseViewModel = {
   teams: Array<{
     teamId: string;
     status: 'active' | 'disabled' | 'missing' | 'blocked';
+    manager: WeekBoardTeamManager;
   }>;
   settlements: SettlementLedgerEntry[];
   caches: CacheLedgerEntry[];

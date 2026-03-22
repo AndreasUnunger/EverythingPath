@@ -850,6 +850,61 @@ describe('weekBoard commitCurrentPhase harness', () => {
     );
   });
 
+  it('suppresses Notoriety from a successful action augmented by Covert Action', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['covert_action', 'earn_gold'],
+        activityTeamOperations: {
+          recruits: [],
+          dismissals: [],
+          upgrades: [],
+        },
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          covertActions: [
+            {
+              slotIndex: 0,
+              mode: 'augment_action',
+            },
+          ],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          earnGoldCheckTotal: 18,
+          earnGoldTotal: 18,
+          earnGoldNotorietyIncreaseTotal: 4,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const militia = await db.get('militia', 'm1');
+    expect(militia?.notoriety).toBe(30);
+    expect(militia?.treasury).toBe(38);
+  });
+
   it('rescues a tracked captured person to the selected refuge', async () => {
     const { ctx, db } = createBaseHarness({
       weekState: {

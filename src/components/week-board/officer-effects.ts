@@ -1,6 +1,7 @@
 'use client';
 
 import type { Id } from '@convex/_generated/dataModel';
+import { abilityModifier } from '~/lib/ability-scores';
 import type { ActionId } from '~/components/week-board/types';
 
 export type OfficerRole =
@@ -87,10 +88,6 @@ export function getBaseMaxActionsForRank(rank: number) {
   if (rank >= 7) return 3;
   if (rank >= 1) return 2;
   return 1;
-}
-
-export function abilityModifier(score: number) {
-  return Math.floor((score - 10) / 2);
 }
 
 export function getEffectiveOfficerAssignments({
@@ -215,14 +212,16 @@ export function getCheckBonusHelperText({
   isStrategistBonusAction = false,
   overseerSupportTarget,
   currentEventTarget,
+  additionalParts = [],
 }: {
   checkType: OrganizationCheckType;
   officerEffects: OfficerEffects;
   isStrategistBonusAction?: boolean;
   overseerSupportTarget?: EventOverseerSupportTarget | '';
   currentEventTarget?: EventOverseerSupportTarget;
+  additionalParts?: string[];
 }) {
-  const parts: string[] = [];
+  const parts: string[] = [...additionalParts];
   const baseOfficerBonus = getBaseOfficerCheckBonus(checkType, officerEffects);
 
   if (baseOfficerBonus !== 0) {

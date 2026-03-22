@@ -45,6 +45,11 @@ import {
   buildUpgradeFromOptions,
   buildUpgradeToOptions,
 } from '~/components/week-board/team-options';
+import {
+  getSelectedTeamManagerWarnings,
+  getTeamManagerSummary,
+  type WeekBoardTeamManager,
+} from '~/components/week-board/team-manager-effects';
 import type { ActionId, DragState } from '~/components/week-board/types';
 
 type ActivitySlotCardProps = {
@@ -61,6 +66,7 @@ type ActivitySlotCardProps = {
   teams: Array<{
     teamId: string;
     status: 'active' | 'disabled' | 'missing' | 'blocked';
+    manager: WeekBoardTeamManager;
   }>;
   settlements: SettlementLedgerEntry[];
   caches: CacheLedgerEntry[];
@@ -256,6 +262,11 @@ export function ActivitySlotCard({
   const selectedAssignedTeamWarning = assignedTeamOptions.find(
     (option) => option.value === assignedTeamId,
   )?.warning;
+  const selectedAssignedTeam = teams.find((team) => team.teamId === assignedTeamId);
+  const selectedTeamManagerSummary = getTeamManagerSummary(selectedAssignedTeam);
+  const selectedTeamManagerWarnings = getSelectedTeamManagerWarnings(
+    selectedAssignedTeam,
+  );
   const secureCacheClassOptions = buildSecureCacheClassOptions(
     assignedTeamId || undefined,
   );
@@ -292,6 +303,16 @@ export function ActivitySlotCard({
           checkType: 'secrecy',
           officerEffects,
           isStrategistBonusAction: strategistBonusActionId === 'secure_cache',
+          additionalParts:
+            selectedAssignedTeam?.manager
+              ? [
+                  `${selectedAssignedTeam.manager.displayName} manager CHA bonus ${
+                    selectedAssignedTeam.manager.charismaBonus >= 0
+                      ? `+${selectedAssignedTeam.manager.charismaBonus}`
+                      : selectedAssignedTeam.manager.charismaBonus
+                  }`,
+                ]
+              : undefined,
         })
       : undefined;
   const activeRefugeOptions = settlements
@@ -402,11 +423,21 @@ export function ActivitySlotCard({
                       {line}
                     </p>
                   ))}
+                  {selectedTeamManagerSummary ? (
+                    <p className="text-muted-foreground font-mono text-xs">
+                      {selectedTeamManagerSummary}
+                    </p>
+                  ) : null}
                   {selectedAssignedTeamWarning ? (
                     <p className="text-amber-700 font-mono text-xs">
                       Rules warning: {selectedAssignedTeamWarning}.
                     </p>
                   ) : null}
+                  {selectedTeamManagerWarnings.map((warning) => (
+                    <p key={warning} className="text-amber-700 font-mono text-xs">
+                      Rules warning: {warning}.
+                    </p>
+                  ))}
                 </div>
               ) : null}
 
@@ -784,12 +815,24 @@ export function ActivitySlotCard({
                   />
 
                   {covertEntry?.mode === 'augment_action' ? (
-                    <p className="text-muted-foreground font-mono text-xs">
-                      This applies to the immediately following staged activity.
-                      Enter that action&apos;s roll totals manually with the bonus
-                      included, and omit Notoriety increase if the augmented
-                      action succeeds.
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground font-mono text-xs">
+                        This applies to the immediately following staged activity.
+                        Enter that action&apos;s roll totals manually with the bonus
+                        included, and omit Notoriety increase if the augmented
+                        action succeeds.
+                      </p>
+                      {selectedAssignedTeam?.manager ? (
+                        <p className="text-muted-foreground font-mono text-xs">
+                          Apply {selectedAssignedTeam.manager.displayName} manager
+                          CHA bonus{' '}
+                          {selectedAssignedTeam.manager.charismaBonus >= 0
+                            ? `+${selectedAssignedTeam.manager.charismaBonus}`
+                            : selectedAssignedTeam.manager.charismaBonus}{' '}
+                          to all d20 rolls for the following action.
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
 
                   {covertEntry?.mode === 'place_contact' ? (
@@ -915,6 +958,13 @@ export function ActivitySlotCard({
                     </div>
                   ) : null}
                 </div>
+              ) : null}
+
+              {action.id === 'manipulate_events' && selectedAssignedTeam?.manager ? (
+                <p className="text-muted-foreground font-mono text-xs">
+                  {selectedAssignedTeam.manager.displayName} chooses which guaranteed
+                  event result to use.
+                </p>
               ) : null}
 
               {action.id === 'rescue_character' ? (

@@ -91,6 +91,19 @@ describe('activity roll draft merging', () => {
       setField: () => undefined,
       officerEffects,
       strategistBonusActionId: 'earn_gold',
+      slotTeams: [null, 'merchants'],
+      teams: [
+        {
+          teamId: 'merchants',
+          manager: {
+            displayName: 'Quartermaster',
+            charismaBonus: 3,
+            maxTeams: 3,
+            managedTeamCount: 1,
+            warnings: [],
+          },
+        },
+      ],
     });
 
     expect(
@@ -102,5 +115,8 @@ describe('activity roll draft merging', () => {
     expect(
       sections.find((section) => section.key === 'earn_gold')?.fields[0]?.helperText,
     ).toContain('Strategist bonus action +2');
+    expect(
+      sections.find((section) => section.key === 'earn_gold')?.fields[0]?.helperText,
+    ).toContain('Quartermaster manager CHA bonus +3');
   });
 });

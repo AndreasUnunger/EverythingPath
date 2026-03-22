@@ -180,6 +180,8 @@ export function ActivityPhaseSection({
                 officerEffects={officerEffects}
                 strategistBonusActionId={strategistBonusActionId}
                 recruitTeamId={activityTeamOperations.recruits[0]?.teamId}
+                slotTeams={slotTeams}
+                teams={teams}
                 onErrorAction={onErrorAction}
                 className="space-y-2"
                 showTitle={false}

@@ -697,6 +697,8 @@ export function useWeekBoardController({
     officerEffects,
     strategistBonusActionId,
     recruitTeamId: normalizedActivityTeamOperations.recruits[0]?.teamId,
+    slotTeams,
+    teams,
   });
   const overseerEventSupportOptions = useMemo(
     () =>

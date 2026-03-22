@@ -5,6 +5,7 @@ import type {
   SummaryPhaseViewModel,
   UpkeepPhaseViewModel,
 } from '~/components/week-board/phase-sections';
+import { getManipulateEventsManagerText } from '~/components/week-board/team-manager-effects';
 import type { WeekBoardController } from '~/components/week-board/use-week-board-controller';
 
 export function buildUpkeepPhaseViewModel(
@@ -125,6 +126,11 @@ export function buildEventPhaseViewModel(
   controller: WeekBoardController,
 ): EventPhaseViewModel {
   const data = controller.data!;
+  const manipulateEventsManagerText = getManipulateEventsManagerText({
+    stagedActionIds: controller.stagedActionIds,
+    slotTeams: controller.slotTeams,
+    teams: controller.teams,
+  });
   return {
     eventChanceTotal: controller.eventChanceTotal,
     setEventChanceTotalAction: controller.setEventChanceTotal,
@@ -165,6 +171,7 @@ export function buildEventPhaseViewModel(
     resolvedRollTwiceSecond: controller.resolvedRollTwiceSecond,
     resolvedEventNames: controller.resolvedEventNames,
     teams: controller.teams,
+    manipulateEventsManagerText,
     cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotalAction:
       controller.setCacheDiscoveredMitigationTotal,

@@ -4,11 +4,15 @@ import {
   campaignValidator,
   militiaValidator,
   reputationValidator,
+  teamIdValidator,
+  teamManagerKindValidator,
+  teamManagerSourceValidator,
 } from './schema';
 import { hasAccessToOrg } from './user';
-import type { IMilitia, ITeam } from '../src/lib/types';
+import type { IMilitia, IMilitiaTeam } from '../src/lib/types';
 import type { Id } from './_generated/dataModel';
 import teams from './data/teams';
+import { buildResolvedTeamManagers } from '../src/lib/team-manager-rules';
 
 const officerRoleValidator = v.union(
   v.literal('ambassador'),
@@ -80,14 +84,220 @@ export const getMilitia = query({
       .query('militiaTeam')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
       .collect();
-
-    const iTeams: ITeam[] = teams.filter((team) =>
-      teamsResult.find((innerTeam) => innerTeam.teamId === team.id),
+    const teamStates = await ctx.db
+      .query('militiaTeamState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const characters = (await ctx.db.query('character').collect()).filter(
+      (character) => character.campaignId === militia.campaignId,
     );
+    const resolvedManagersByTeamId = buildResolvedTeamManagers({
+      teams: teamsResult.map((team) => ({
+        teamId: team.teamId,
+        managerSource: team.managerSource,
+        managerCharacterId: team.managerCharacterId,
+        managerName: team.managerName,
+        managerKind: team.managerKind,
+        managerCharisma: team.managerCharisma,
+      })),
+      characters: characters.map((character) => ({
+        _id: character._id,
+        name: character.name,
+        kind: character.kind,
+        charisma: character.charisma,
+        isActive: character.isActive,
+      })),
+    });
+    const teamStateById = new Map(teamStates.map((state) => [state.teamId, state]));
+
+    const iTeams: IMilitiaTeam[] = teams
+      .filter((team) => teamsResult.find((innerTeam) => innerTeam.teamId === team.id))
+      .map((team) => {
+        const teamId = team.id as (typeof teamsResult)[number]['teamId'];
+        const teamRow = teamsResult.find((innerTeam) => innerTeam.teamId === teamId);
+        const state = teamStateById.get(teamId);
+        const manager = resolvedManagersByTeamId.get(teamId) ?? undefined;
+
+        return {
+          ...team,
+          status: state?.status,
+          unavailableUntilWeek: state?.unavailableUntilWeek,
+          notes: state?.notes,
+          manager,
+          managerSource: teamRow?.managerSource,
+          managerCharacterId: teamRow?.managerCharacterId,
+          managerName: teamRow?.managerName,
+          managerKind: teamRow?.managerKind,
+          managerCharisma: teamRow?.managerCharisma,
+        };
+      });
 
     const iMilitia: IMilitia = { ...militia, teams: iTeams };
 
     return iMilitia;
+  },
+});
+
+export const assignTeamManager = mutation({
+  args: {
+    organizationId: campaignValidator.fields.organizationId,
+    militiaId: v.id('militia'),
+    teamId: teamIdValidator,
+    managerSource: v.optional(teamManagerSourceValidator),
+    managerCharacterId: v.optional(v.id('character')),
+    managerName: v.optional(v.string()),
+    managerKind: v.optional(teamManagerKindValidator),
+    managerCharisma: v.optional(v.number()),
+    reason: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    const access = await hasAccessToOrg(ctx, args.organizationId);
+    if (!access) {
+      throw new ConvexError('You do not have access to this org');
+    }
+
+    const militia = await ctx.db.get('militia', args.militiaId);
+    if (!militia) {
+      throw new ConvexError('Militia not found');
+    }
+
+    const campaign = await ctx.db.get('campaign', militia.campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      throw new ConvexError('No campaign exists for this organization');
+    }
+
+    const teamRows = await ctx.db
+      .query('militiaTeam')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+      .collect();
+    const teamRow = teamRows.find((row) => row.teamId === args.teamId);
+    if (!teamRow) {
+      throw new ConvexError('Team not found in militia roster');
+    }
+
+    const clearPatch = {
+      managerSource: undefined,
+      managerCharacterId: undefined,
+      managerName: undefined,
+      managerKind: undefined,
+      managerCharisma: undefined,
+    };
+
+    let patch:
+      | typeof clearPatch
+      | {
+          managerSource: 'character';
+          managerCharacterId: Id<'character'>;
+          managerName: undefined;
+          managerKind: undefined;
+          managerCharisma: undefined;
+        }
+      | {
+          managerSource: 'freeform';
+          managerCharacterId: undefined;
+          managerName: string;
+          managerKind: 'pc' | 'officer_npc' | 'other_npc';
+          managerCharisma: number;
+        } = clearPatch;
+
+    if (args.managerSource === 'character') {
+      if (!args.managerCharacterId) {
+        throw new ConvexError('Manager character is required');
+      }
+      const character = await ctx.db.get('character', args.managerCharacterId);
+      if (!character) {
+        throw new ConvexError('Character not found');
+      }
+      if (character.campaignId !== militia.campaignId) {
+        throw new ConvexError(
+          'Manager character must belong to the same campaign as the militia',
+        );
+      }
+      if (character.isActive === false) {
+        throw new ConvexError('Cannot assign an archived character as team manager');
+      }
+
+      patch = {
+        managerSource: 'character',
+        managerCharacterId: args.managerCharacterId,
+        managerName: undefined,
+        managerKind: undefined,
+        managerCharisma: undefined,
+      };
+    }
+
+    if (args.managerSource === 'freeform') {
+      const managerName = args.managerName?.trim();
+      if (!managerName) {
+        throw new ConvexError('Manager name is required');
+      }
+      if (!args.managerKind) {
+        throw new ConvexError('Manager type is required');
+      }
+      if (
+        args.managerCharisma === undefined ||
+        !Number.isFinite(args.managerCharisma)
+      ) {
+        throw new ConvexError('Manager Charisma is required');
+      }
+
+      patch = {
+        managerSource: 'freeform',
+        managerCharacterId: undefined,
+        managerName,
+        managerKind: args.managerKind,
+        managerCharisma: args.managerCharisma,
+      };
+    }
+
+    await ctx.db.patch('militiaTeam', teamRow._id, patch);
+
+    const updatedTeamRows = teamRows.map((row) =>
+      row._id === teamRow._id ? { ...row, ...patch } : row,
+    );
+    const characters = (await ctx.db.query('character').collect()).filter(
+      (character) => character.campaignId === militia.campaignId,
+    );
+    const resolvedManagersByTeamId = buildResolvedTeamManagers({
+      teams: updatedTeamRows.map((row) => ({
+        teamId: row.teamId,
+        managerSource: row.managerSource,
+        managerCharacterId: row.managerCharacterId,
+        managerName: row.managerName,
+        managerKind: row.managerKind,
+        managerCharisma: row.managerCharisma,
+      })),
+      characters: characters.map((character) => ({
+        _id: character._id,
+        name: character.name,
+        kind: character.kind,
+        charisma: character.charisma,
+        isActive: character.isActive,
+      })),
+    });
+    const manager = resolvedManagersByTeamId.get(args.teamId) ?? null;
+    const warnings = manager?.warnings.map((message) => ({
+      code: 'team_manager_warning',
+      message,
+    })) ?? [];
+
+    if (warnings.length || args.reason) {
+      const createdAt = Date.now();
+      for (const warning of warnings) {
+        await ctx.db.insert('militiaOverrideNote', {
+          militiaId: args.militiaId,
+          scope: 'militia',
+          fieldPath: `team.${args.teamId}.manager`,
+          warningCode: warning.code,
+          isIntentionalOverride: true,
+          reason: args.reason,
+          actorUserId: access.user.tokenIdentifier,
+          createdAt,
+        });
+      }
+    }
+
+    return { warnings, manager };
   },
 });
 

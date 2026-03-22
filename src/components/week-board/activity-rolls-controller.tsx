@@ -16,6 +16,7 @@ import {
 import type { OfficerEffects } from '~/components/week-board/officer-effects';
 import { ActivityRollsPanel } from '~/components/week-board/activity-rolls-panel';
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
+import type { WeekBoardTeamRow } from '~/components/week-board/team-manager-effects';
 import type { ActionId } from '~/components/week-board/types';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
 
@@ -39,6 +40,8 @@ export function ActivityRollsController({
   officerEffects,
   strategistBonusActionId,
   recruitTeamId,
+  slotTeams,
+  teams,
   onErrorAction,
   className,
   showTitle = true,
@@ -51,6 +54,8 @@ export function ActivityRollsController({
   officerEffects: OfficerEffects;
   strategistBonusActionId: ActionId | null;
   recruitTeamId?: string;
+  slotTeams: Array<string | null>;
+  teams: WeekBoardTeamRow[];
   onErrorAction: (message: string) => void;
   className?: string;
   showTitle?: boolean;
@@ -86,8 +91,19 @@ export function ActivityRollsController({
         officerEffects,
         strategistBonusActionId,
         recruitTeamId,
+        slotTeams,
+        teams,
       }),
-    [draft, officerEffects, rank, recruitTeamId, stagedActionIds, strategistBonusActionId],
+    [
+      draft,
+      officerEffects,
+      rank,
+      recruitTeamId,
+      stagedActionIds,
+      strategistBonusActionId,
+      slotTeams,
+      teams,
+    ],
   );
 
   const enabledFieldKeys = useMemo(() => {

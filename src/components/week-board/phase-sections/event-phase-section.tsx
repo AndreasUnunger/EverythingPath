@@ -28,6 +28,8 @@ import {
   renderEventChanceRulesWarning,
   renderResolvedEventDetails,
 } from '~/components/week-board/event-utils';
+import type { WeekBoardTeamManager } from '~/components/week-board/team-manager-effects';
+import { getTeamManagerBonusForTeamId } from '~/components/week-board/team-manager-effects';
 import type {
   EventTriggerResolution,
   ResolvedEventValue,
@@ -67,7 +69,12 @@ export type EventPhaseViewModel = {
   resolvedRollTwiceFirst: ResolvedEventValue;
   resolvedRollTwiceSecond: ResolvedEventValue;
   resolvedEventNames: string[];
-  teams: Array<{ teamId: string; status: 'active' | 'disabled' | 'missing' | 'blocked' }>;
+  teams: Array<{
+    teamId: string;
+    status: 'active' | 'disabled' | 'missing' | 'blocked';
+    manager: WeekBoardTeamManager;
+  }>;
+  manipulateEventsManagerText?: string;
   cacheDiscoveredMitigationTotal: string;
   setCacheDiscoveredMitigationTotalAction: (value: string) => void;
   theftMitigationTotal: string;
@@ -137,6 +144,7 @@ export function EventPhaseSection({
     resolvedRollTwiceSecond,
     resolvedEventNames,
     teams,
+    manipulateEventsManagerText,
     cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotalAction,
     theftMitigationTotal,
@@ -181,6 +189,10 @@ export function EventPhaseSection({
     officerEffects,
     overseerSupportTarget: overseerEventSupportTarget,
     currentEventTarget: 'sabotage',
+    additionalParts:
+      getTeamManagerBonusForTeamId('saboteurs', teams) !== undefined
+        ? [`Saboteurs manager CHA bonus +${getTeamManagerBonusForTeamId('saboteurs', teams)}`]
+        : undefined,
   });
   const cacheDiscoveredHelperText = getCheckBonusHelperText({
     checkType: 'secrecy',
@@ -302,6 +314,11 @@ export function EventPhaseSection({
                   </SelectContent>
                 </Select>
               </div>
+              {manipulateEventsManagerText ? (
+                <p className="text-muted-foreground font-mono text-xs">
+                  {manipulateEventsManagerText}
+                </p>
+              ) : null}
             </>
           ) : null}
           {eventWouldOccurBeforeSabotage ? (

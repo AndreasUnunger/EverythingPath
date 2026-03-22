@@ -8,6 +8,10 @@ import {
   type OfficerEffects,
 } from '~/components/week-board/officer-effects';
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
+import {
+  getActionTeamManagerParts,
+  type WeekBoardTeamRow,
+} from '~/components/week-board/team-manager-effects';
 import type { ActionId } from '~/components/week-board/types';
 import { mergeSyncedValue } from '~/components/week-board/sync-merge';
 
@@ -88,12 +92,16 @@ export function buildActivityRollSummaryRows({
   officerEffects,
   strategistBonusActionId,
   recruitTeamId,
+  slotTeams,
+  teams,
 }: {
   stagedActionIds: string[];
   totals: ActivityRollTotals;
   officerEffects: OfficerEffects;
   strategistBonusActionId: ActionId | null;
   recruitTeamId?: string;
+  slotTeams: Array<string | null>;
+  teams: WeekBoardTeamRow[];
 }): SummaryRow[] {
   const draft = toActivityRollDraft(totals);
   const sections = buildActivityRollSections({
@@ -101,10 +109,12 @@ export function buildActivityRollSummaryRows({
     stagedActionIds,
     draft,
     setField: () => undefined,
-    officerEffects,
-    strategistBonusActionId,
-    recruitTeamId,
-  });
+        officerEffects,
+        strategistBonusActionId,
+        recruitTeamId,
+        slotTeams,
+        teams,
+      });
   return sections.flatMap((section) =>
     section.fields
       .map((field) => ({
@@ -123,6 +133,8 @@ export function buildActivityRollSections({
   officerEffects,
   strategistBonusActionId,
   recruitTeamId,
+  slotTeams,
+  teams,
 }: {
   rank: number;
   stagedActionIds: string[];
@@ -131,6 +143,8 @@ export function buildActivityRollSections({
   officerEffects: OfficerEffects;
   strategistBonusActionId: ActionId | null;
   recruitTeamId?: string;
+  slotTeams: Array<string | null>;
+  teams: WeekBoardTeamRow[];
 }) {
   const has = (id: string) => stagedActionIds.includes(id);
   const recruitCheckType = getRecruitmentCheckType(recruitTeamId);
@@ -187,6 +201,13 @@ export function buildActivityRollSections({
 
   const sections: ActivityRollSectionConfig[] = [];
   const pushSection = (section: ActivityRollSectionConfig) => sections.push(section);
+  const managerPartsFor = (actionId: ActionId) =>
+    getActionTeamManagerParts({
+      actionId,
+      stagedActionIds,
+      slotTeams,
+      teams,
+    });
 
   if (has('activate_black_market')) {
     pushSection({
@@ -203,6 +224,7 @@ export function buildActivityRollSections({
             checkType: 'secrecy',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'activate_black_market',
+            additionalParts: managerPartsFor('activate_black_market'),
           }),
         },
         {
@@ -233,6 +255,7 @@ export function buildActivityRollSections({
             checkType: 'loyalty',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'dismiss_team',
+            additionalParts: managerPartsFor('dismiss_team'),
           }),
         },
         {
@@ -262,6 +285,7 @@ export function buildActivityRollSections({
             checkType: 'loyalty',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'drill_militia',
+            additionalParts: managerPartsFor('drill_militia'),
           }),
         },
         {
@@ -292,6 +316,7 @@ export function buildActivityRollSections({
             checkType: 'loyalty',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'earn_gold',
+            additionalParts: managerPartsFor('earn_gold'),
           }),
         },
         {
@@ -333,6 +358,7 @@ export function buildActivityRollSections({
             checkType: 'secrecy',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'gather_information',
+            additionalParts: managerPartsFor('gather_information'),
           }),
         },
         {
@@ -365,6 +391,7 @@ export function buildActivityRollSections({
             checkType: 'secrecy',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'knowledge_check',
+            additionalParts: managerPartsFor('knowledge_check'),
           }),
         },
       ],
@@ -387,6 +414,7 @@ export function buildActivityRollSections({
                 checkType: recruitCheckType,
                 officerEffects,
                 isStrategistBonusAction: strategistBonusActionId === 'recruit_team',
+                additionalParts: managerPartsFor('recruit_team'),
               })
             : undefined,
         },
@@ -420,6 +448,7 @@ export function buildActivityRollSections({
             checkType: 'security',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'reduce_danger',
+            additionalParts: managerPartsFor('reduce_danger'),
           }),
         },
         {
@@ -450,6 +479,7 @@ export function buildActivityRollSections({
             checkType: 'security',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'rescue_character',
+            additionalParts: managerPartsFor('rescue_character'),
           }),
         },
         {
@@ -506,6 +536,7 @@ export function buildActivityRollSections({
             checkType: 'loyalty',
             officerEffects,
             isStrategistBonusAction: strategistBonusActionId === 'spread_propaganda',
+            additionalParts: managerPartsFor('spread_propaganda'),
           }),
         },
       ],

@@ -32,6 +32,8 @@ import {
   lowerReputationWithFloorUnfriendly,
   validateStagedActionsLegality,
 } from './weekBoardRules';
+import { buildResolvedTeamManagers } from '../src/lib/team-manager-rules';
+import teamDefinitions from './data/teams';
 
 function getMaxActionsForRank(rank: number) {
   if (rank >= 19) return 6;
@@ -413,6 +415,110 @@ function eventWouldOccur({
   return clampPercent(triggerRollTotal) < clampPercent(chanceTotal);
 }
 
+const RECRUITMENT_DC_BY_TEAM_ID = new Map(
+  teamDefinitions
+    .filter((team) => team.recruitment)
+    .map((team) => [team.id, team.recruitment!.dc]),
+);
+
+function getSuccessfulCovertAugmentTargets({
+  current,
+}: {
+  current: {
+    stagedActivityActionIds: (string | null)[];
+    activityRollTotals?: {
+      activateBlackMarketCheckTotal?: number;
+      dismissTeamCheckTotal?: number;
+      earnGoldCheckTotal?: number;
+      gatherInformationCheckTotal?: number;
+      recruitTeamCheckTotal?: number;
+      reduceDangerCheckTotal?: number;
+      rescueCharacterCheckTotal?: number;
+      rescueCharacterTargetLevelTotal?: number;
+    };
+    activityTeamOperations?: {
+      recruits: Array<{ slotIndex: number; teamId: string }>;
+    };
+    activityAssetOperations?: {
+      covertActions?: Array<{
+        slotIndex: number;
+        mode?: 'augment_action' | 'place_contact';
+        followupSlotIndex?: number;
+      }>;
+      rescues?: Array<{
+        slotIndex: number;
+        targetLevel?: number;
+      }>;
+    };
+  };
+}) {
+  const suppressedActionIds = new Set<string>();
+  const activity = current.activityRollTotals ?? {};
+  const covertActions = current.activityAssetOperations?.covertActions ?? [];
+  const rescueEntries = current.activityAssetOperations?.rescues ?? [];
+  const recruitEntries = current.activityTeamOperations?.recruits ?? [];
+
+  for (const covertAction of covertActions) {
+    if (
+      current.stagedActivityActionIds[covertAction.slotIndex] !== 'covert_action' ||
+      covertAction.mode !== 'augment_action'
+    ) {
+      continue;
+    }
+
+    const targetSlotIndex =
+      covertAction.followupSlotIndex ??
+      current.stagedActivityActionIds.findIndex(
+        (actionId, index) => index > covertAction.slotIndex && actionId !== null,
+      );
+    if (targetSlotIndex < 0) {
+      continue;
+    }
+
+    const targetActionId = current.stagedActivityActionIds[targetSlotIndex];
+    if (!targetActionId) {
+      continue;
+    }
+
+    let succeeded = false;
+    if (targetActionId === 'activate_black_market') {
+      succeeded = (activity.activateBlackMarketCheckTotal ?? -Infinity) >= 20;
+    } else if (targetActionId === 'dismiss_team') {
+      succeeded = (activity.dismissTeamCheckTotal ?? -Infinity) >= 10;
+    } else if (targetActionId === 'earn_gold') {
+      succeeded = activity.earnGoldCheckTotal !== undefined;
+    } else if (targetActionId === 'gather_information') {
+      succeeded = (activity.gatherInformationCheckTotal ?? -Infinity) >= 15;
+    } else if (targetActionId === 'recruit_team') {
+      const recruitEntry = recruitEntries.find(
+        (entry) => entry.slotIndex === targetSlotIndex,
+      );
+      const dc = recruitEntry?.teamId
+        ? RECRUITMENT_DC_BY_TEAM_ID.get(recruitEntry.teamId)
+        : undefined;
+      succeeded =
+        dc !== undefined && (activity.recruitTeamCheckTotal ?? -Infinity) >= dc;
+    } else if (targetActionId === 'reduce_danger') {
+      succeeded = (activity.reduceDangerCheckTotal ?? -Infinity) >= 15;
+    } else if (targetActionId === 'rescue_character') {
+      const rescueEntry = rescueEntries.find(
+        (entry) => entry.slotIndex === targetSlotIndex,
+      );
+      const targetLevel =
+        rescueEntry?.targetLevel ?? activity.rescueCharacterTargetLevelTotal;
+      succeeded =
+        targetLevel !== undefined &&
+        (activity.rescueCharacterCheckTotal ?? -Infinity) >= 10 + targetLevel;
+    }
+
+    if (succeeded) {
+      suppressedActionIds.add(targetActionId);
+    }
+  }
+
+  return suppressedActionIds;
+}
+
 function applyWeekResolution({
   current,
   militia,
@@ -431,15 +537,37 @@ function applyWeekResolution({
       treasuryPenaltyTotal?: number;
     };
     activityRollTotals?: {
+      activateBlackMarketCheckTotal?: number;
       drillMilitiaTrainingGainTotal?: number;
+      dismissTeamCheckTotal?: number;
+      earnGoldCheckTotal?: number;
       earnGoldTotal?: number;
       activateBlackMarketNotorietyIncreaseTotal?: number;
       dismissTeamNotorietyIncreaseTotal?: number;
       earnGoldNotorietyIncreaseTotal?: number;
+      gatherInformationCheckTotal?: number;
       gatherInformationNotorietyIncreaseTotal?: number;
+      recruitTeamCheckTotal?: number;
       recruitTeamNotorietyIncreaseTotal?: number;
+      reduceDangerCheckTotal?: number;
       reduceDangerNotorietyIncreaseTotal?: number;
+      rescueCharacterCheckTotal?: number;
+      rescueCharacterTargetLevelTotal?: number;
       rescueCharacterNotorietyIncreaseTotal?: number;
+    };
+    activityTeamOperations?: {
+      recruits: Array<{ slotIndex: number; teamId: string }>;
+    };
+    activityAssetOperations?: {
+      covertActions?: Array<{
+        slotIndex: number;
+        mode?: 'augment_action' | 'place_contact';
+        followupSlotIndex?: number;
+      }>;
+      rescues?: Array<{
+        slotIndex: number;
+        targetLevel?: number;
+      }>;
     };
     eventRollTotals?: {
       eventChanceTotal?: number;
@@ -510,6 +638,9 @@ function applyWeekResolution({
   let training = militia.training;
   let treasury = militia.treasury;
   let notoriety = militia.notoriety;
+  const successfulCovertAugmentTargets = getSuccessfulCovertAugmentTargets({
+    current,
+  });
 
   training -= (upkeep.attritionTotal ?? 0) * modifiers.attritionMultiplier;
   training -= upkeep.notorietyPenaltyTotal ?? 0;
@@ -519,13 +650,27 @@ function applyWeekResolution({
     modifiers.activityTrainingGainMultiplier;
   treasury += (activity.earnGoldTotal ?? 0) * modifiers.incomeMultiplier;
 
-  notoriety += activity.activateBlackMarketNotorietyIncreaseTotal ?? 0;
-  notoriety += activity.dismissTeamNotorietyIncreaseTotal ?? 0;
-  notoriety += activity.earnGoldNotorietyIncreaseTotal ?? 0;
-  notoriety += activity.gatherInformationNotorietyIncreaseTotal ?? 0;
-  notoriety += activity.recruitTeamNotorietyIncreaseTotal ?? 0;
-  notoriety += activity.reduceDangerNotorietyIncreaseTotal ?? 0;
-  notoriety += activity.rescueCharacterNotorietyIncreaseTotal ?? 0;
+  notoriety += successfulCovertAugmentTargets.has('activate_black_market')
+    ? 0
+    : (activity.activateBlackMarketNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('dismiss_team')
+    ? 0
+    : (activity.dismissTeamNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('earn_gold')
+    ? 0
+    : (activity.earnGoldNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('gather_information')
+    ? 0
+    : (activity.gatherInformationNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('recruit_team')
+    ? 0
+    : (activity.recruitTeamNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('reduce_danger')
+    ? 0
+    : (activity.reduceDangerNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('rescue_character')
+    ? 0
+    : (activity.rescueCharacterNotorietyIncreaseTotal ?? 0);
 
   const guaranteedByAction =
     current.stagedActivityActionIds.includes('guarantee_event') ||
@@ -828,6 +973,23 @@ export const getWeekBoardState = query({
       stagedActivityActionIds: currentState?.stagedActivityActionIds,
       activityOfficerOperations: currentStateAny?.activityOfficerOperations,
     });
+    const resolvedManagersByTeamId = buildResolvedTeamManagers({
+      teams: teamRows.map((teamRow) => ({
+        teamId: teamRow.teamId,
+        managerSource: teamRow.managerSource,
+        managerCharacterId: teamRow.managerCharacterId,
+        managerName: teamRow.managerName,
+        managerKind: teamRow.managerKind,
+        managerCharisma: teamRow.managerCharisma,
+      })),
+      characters: characters.map((character) => ({
+        _id: character._id,
+        name: character.name,
+        kind: character.kind,
+        charisma: character.charisma,
+        isActive: character.isActive,
+      })),
+    });
 
     return {
       militiaId: militia._id,
@@ -845,6 +1007,7 @@ export const getWeekBoardState = query({
             status: normalizeTeamStatus(state?.status),
             unavailableUntilWeek: state?.unavailableUntilWeek,
             notes: state?.notes,
+            manager: resolvedManagersByTeamId.get(teamRow.teamId) ?? null,
           };
         })
         .sort((a, b) => a.teamId.localeCompare(b.teamId)),
@@ -2333,6 +2496,8 @@ export const commitCurrentPhase = mutation({
           stagedActivityActionIds: current.stagedActivityActionIds,
           upkeepRollTotals: current.upkeepRollTotals,
           activityRollTotals: current.activityRollTotals,
+          activityTeamOperations: currentAny?.activityTeamOperations,
+          activityAssetOperations: currentAny?.activityAssetOperations,
           eventRollTotals: current.eventRollTotals,
         },
         militia: {

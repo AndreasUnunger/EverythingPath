@@ -239,6 +239,17 @@ export const officerRoleValidator = v.union(
   v.literal('strategist'),
 );
 
+export const teamManagerSourceValidator = v.union(
+  v.literal('character'),
+  v.literal('freeform'),
+);
+
+export const teamManagerKindValidator = v.union(
+  v.literal('pc'),
+  v.literal('officer_npc'),
+  v.literal('other_npc'),
+);
+
 export const teamIdValidator = v.union(
   v.literal('moles'),
   v.literal('propagandists'),
@@ -323,6 +334,11 @@ export const orderStatusValidator = v.union(
 export const militiaTeamValidator = v.object({
   militiaId: v.id('militia'),
   teamId: teamIdValidator,
+  managerSource: v.optional(teamManagerSourceValidator),
+  managerCharacterId: v.optional(v.id('character')),
+  managerName: v.optional(v.string()),
+  managerKind: v.optional(teamManagerKindValidator),
+  managerCharisma: v.optional(v.number()),
 });
 
 export const militiaWeekStateValidator = v.object({
