@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Id } from '@convex/_generated/dataModel';
-import { api as db } from '@convex/_generated/api';
-import { useMutation } from 'convex/react';
 import {
   ACTIVITY_ROLL_KEYS,
   buildActivityRollSections,
@@ -33,7 +31,6 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 export function ActivityRollsController({
   militiaId,
-  organizationId,
   rank,
   stagedActionIds,
   serverTotals,
@@ -42,12 +39,12 @@ export function ActivityRollsController({
   recruitTeamId,
   slotTeams,
   teams,
+  queueActivityRollTotalsPatchAction,
   onErrorAction,
   className,
   showTitle = true,
 }: {
   militiaId: Id<'militia'> | undefined;
-  organizationId: string;
   rank: number;
   stagedActionIds: string[];
   serverTotals: ActivityRollTotals;
@@ -56,11 +53,14 @@ export function ActivityRollsController({
   recruitTeamId?: string;
   slotTeams: Array<string | null>;
   teams: WeekBoardTeamRow[];
+  queueActivityRollTotalsPatchAction: (args: {
+    militiaId: Id<'militia'>;
+    activityRollTotals: Partial<Record<ActivityRollKey, string>>;
+  }) => Promise<void>;
   onErrorAction: (message: string) => void;
   className?: string;
   showTitle?: boolean;
 }) {
-  const saveWeekBoardState = useMutation(db.weekBoard.saveWeekBoardState);
   const initialServerDraft = toActivityRollDraft(serverTotals);
   const [draft, setDraft] = useState<ActivityRollDraft>(initialServerDraft);
   const lastServerDraftRef = useRef<ActivityRollDraft>(initialServerDraft);
@@ -118,33 +118,35 @@ export function ActivityRollsController({
 
   useDebouncedAutosave({
     enabled: Boolean(militiaId),
-    deps: [militiaId, organizationId, draft, serverTotals, enabledFieldKeys],
+    delayMs: 900,
+    deps: [militiaId, draft, serverTotals, enabledFieldKeys],
     shouldSkip: () => {
       if (!militiaId) return true;
-      const normalized = ACTIVITY_ROLL_KEYS.map((key) => {
-        const active = enabledFieldKeys.has(key);
-        return {
-          local: active ? draft[key] : '',
-          server: active ? (serverTotals[key]?.toString() ?? '') : '',
-        };
+      const patch = buildActivityRollTotalsPatch({
+        draft,
+        serverTotals,
+        enabledFieldKeys,
       });
 
-      if (normalized.every((row) => row.local === row.server)) return true;
-      return !normalized.every((row) => isParsableActivityRollTotal(row.local));
+      if (!patch) return true;
+
+      return !ACTIVITY_ROLL_KEYS.every((key) =>
+        isParsableActivityRollTotal(enabledFieldKeys.has(key) ? draft[key] : ''),
+      );
     },
     run: async () => {
       if (!militiaId) return;
-      const activityRollTotals = Object.fromEntries(
-        ACTIVITY_ROLL_KEYS.map((key) => {
-          const active = enabledFieldKeys.has(key);
-          return [key, active ? draft[key] : undefined];
-        }),
-      );
+      const patch = buildActivityRollTotalsPatch({
+        draft,
+        serverTotals,
+        enabledFieldKeys,
+      });
 
-      await saveWeekBoardState({
-        organizationId,
+      if (!patch) return;
+
+      await queueActivityRollTotalsPatchAction({
         militiaId,
-        patch: { activityRollTotals },
+        activityRollTotals: patch,
       });
     },
     onError: (error) => {
@@ -159,4 +161,29 @@ export function ActivityRollsController({
       showTitle={showTitle}
     />
   );
+}
+
+function buildActivityRollTotalsPatch({
+  draft,
+  serverTotals,
+  enabledFieldKeys,
+}: {
+  draft: ActivityRollDraft;
+  serverTotals: ActivityRollTotals;
+  enabledFieldKeys: Set<ActivityRollKey>;
+}) {
+  const patch: Partial<Record<ActivityRollKey, string>> = {};
+
+  for (const key of ACTIVITY_ROLL_KEYS) {
+    const localValue = enabledFieldKeys.has(key) ? draft[key] : '';
+    const serverValue = enabledFieldKeys.has(key)
+      ? (serverTotals[key]?.toString() ?? '')
+      : '';
+
+    if (localValue !== serverValue) {
+      patch[key] = localValue;
+    }
+  }
+
+  return Object.keys(patch).length > 0 ? patch : undefined;
 }

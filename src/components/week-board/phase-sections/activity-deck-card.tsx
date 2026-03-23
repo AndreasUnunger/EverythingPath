@@ -30,6 +30,11 @@ export function ActivityDeckCard({
           <div>
             <p className="font-mono text-base font-bold">{entry.card.title}</p>
             <p className="text-muted-foreground font-mono text-xs">{entry.card.team}</p>
+            {entry.stagedCount > 0 ? (
+              <p className="text-muted-foreground mt-1 font-mono text-[11px]">
+                Staged: {entry.stagedCount}
+              </p>
+            ) : null}
           </div>
           <span className="border-primary/40 bg-primary/5 rounded px-2 py-0.5 font-mono text-[14px] uppercase">
             Cost: {entry.costLabel}

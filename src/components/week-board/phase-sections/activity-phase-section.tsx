@@ -31,7 +31,6 @@ export function ActivityPhaseSection({
     slotRefs,
     resetSlotsAction,
     militiaId,
-    organizationId,
     currentWeek,
     rank,
     treasury,
@@ -53,6 +52,7 @@ export function ActivityPhaseSection({
     orders,
     trackedPeople,
     activeTeamIds,
+    queueActivityRollTotalsPatchAction,
     setSlotTeamAction,
     setRecruitTeamForSlotAction,
     setDismissTeamForSlotAction,
@@ -71,6 +71,7 @@ export function ActivityPhaseSection({
   const actionCards = buildActivityActionEntries({
     dragState,
     assignedActionIds,
+    stagedActionIds,
     hasNonLieLowStaged,
     hasLieLowStaged,
     rank,
@@ -177,7 +178,6 @@ export function ActivityPhaseSection({
             <div>
               <ActivityRollsController
                 militiaId={militiaId}
-                organizationId={organizationId}
                 rank={rank}
                 stagedActionIds={stagedActionIds}
                 serverTotals={serverActivityTotals}
@@ -186,6 +186,9 @@ export function ActivityPhaseSection({
                 recruitTeamId={activityTeamOperations.recruits[0]?.teamId}
                 slotTeams={slotTeams}
                 teams={teams}
+                queueActivityRollTotalsPatchAction={
+                  queueActivityRollTotalsPatchAction
+                }
                 onErrorAction={onErrorAction}
                 className="space-y-2"
                 showTitle={false}

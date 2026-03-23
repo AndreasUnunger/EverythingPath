@@ -6,7 +6,10 @@ import {
   createEmptyActivityAssetOperationsDraft,
   type ActivityAssetOperationsDraft,
 } from '~/components/week-board/activity-asset-operations';
-import { buildActivityRollSummaryRows } from '~/components/week-board/activity-roll-sections';
+import {
+  buildActivityRollSummaryRows,
+  type ActivityRollKey,
+} from '~/components/week-board/activity-roll-sections';
 import {
   resolveEventTrigger,
   resolveMilitiaEventFromPercentile,
@@ -33,7 +36,11 @@ import type { ActionId, DragState, WeekPhase } from '~/components/week-board/typ
 import { useWeekBoardMutations } from '~/components/week-board/use-week-board-mutations';
 import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
-import { weekBoardStateQuery } from '~/lib/sharedQueries';
+import {
+  weekBoardLiveStateQuery,
+  weekBoardReferenceQuery,
+  weekBoardTrackedStateQuery,
+} from '~/lib/sharedQueries';
 
 export function useWeekBoardController({
   campaignId,
@@ -44,11 +51,43 @@ export function useWeekBoardController({
   organizationId: string;
   canQuery: boolean;
 }) {
-  const { data, isLoading } = weekBoardStateQuery(
+  const referenceQuery = weekBoardReferenceQuery(
     campaignId,
     organizationId,
     canQuery,
   );
+  const liveStateQuery = weekBoardLiveStateQuery(
+    campaignId,
+    organizationId,
+    canQuery,
+  );
+  const trackedStateQuery = weekBoardTrackedStateQuery(
+    campaignId,
+    organizationId,
+    canQuery,
+  );
+  const data = useMemo(() => {
+    if (
+      !referenceQuery.data ||
+      !liveStateQuery.data ||
+      !trackedStateQuery.data
+    ) {
+      return undefined;
+    }
+
+    return {
+      ...referenceQuery.data,
+      ...trackedStateQuery.data,
+      militiaId: referenceQuery.data.militiaId,
+      maxActions: liveStateQuery.data.maxActions,
+      persistentBuyoff: liveStateQuery.data.persistentBuyoff,
+      state: liveStateQuery.data.state,
+    };
+  }, [liveStateQuery.data, referenceQuery.data, trackedStateQuery.data]);
+  const isLoading =
+    referenceQuery.isLoading ||
+    liveStateQuery.isLoading ||
+    trackedStateQuery.isLoading;
   const mutations = useWeekBoardMutations(organizationId);
 
   const [upkeepAttritionTotal, setUpkeepAttritionTotal] = useState('');
@@ -755,6 +794,7 @@ export function useWeekBoardController({
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
+    delayMs: 900,
     deps: [
       data?.militiaId,
       organizationId,
@@ -769,66 +809,91 @@ export function useWeekBoardController({
     ],
     shouldSkip: () => {
       if (!data?.militiaId) return true;
-      const localNotorietyPenalty = showMaxNotorietyPenalty
-        ? upkeepNotorietyPenaltyTotal
-        : '';
-      const localMaxNotorietyLoyaltyCheck = showMaxNotorietyPenalty
-        ? maxNotorietyLoyaltyCheckTotal
-        : '';
-      const localNearestSettlement = showMaxNotorietyPenalty
-        ? nearestSettlementKey
-        : '';
-      const localTreasuryPenalty = showTreasuryShortagePenalty
-        ? upkeepTreasuryPenaltyTotal
-        : '';
-      const serverNotorietyPenalty = showMaxNotorietyPenalty
-        ? serverUpkeepTotals.notorietyPenaltyTotal?.toString() ?? ''
-        : '';
-      const serverMaxNotorietyLoyaltyCheck = showMaxNotorietyPenalty
-        ? serverUpkeepTotals.maxNotorietyLoyaltyCheckTotal?.toString() ?? ''
-        : '';
-      const serverNearestSettlement = showMaxNotorietyPenalty
-        ? serverUpkeepTotals.nearestSettlementKey ?? ''
-        : '';
-      const serverTreasuryPenalty = showTreasuryShortagePenalty
-        ? serverUpkeepTotals.treasuryPenaltyTotal?.toString() ?? ''
-        : '';
+      const patch = buildChangedObjectPatch(
+        {
+          attritionTotal: upkeepAttritionTotal,
+          notorietyPenaltyTotal: showMaxNotorietyPenalty
+            ? upkeepNotorietyPenaltyTotal
+            : '',
+          maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
+            ? maxNotorietyLoyaltyCheckTotal
+            : '',
+          nearestSettlementKey: showMaxNotorietyPenalty ? nearestSettlementKey : '',
+          treasuryPenaltyTotal: showTreasuryShortagePenalty
+            ? upkeepTreasuryPenaltyTotal
+            : '',
+        },
+        {
+          attritionTotal: serverUpkeepTotals.attritionTotal?.toString() ?? '',
+          notorietyPenaltyTotal: showMaxNotorietyPenalty
+            ? serverUpkeepTotals.notorietyPenaltyTotal?.toString() ?? ''
+            : '',
+          maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
+            ? serverUpkeepTotals.maxNotorietyLoyaltyCheckTotal?.toString() ?? ''
+            : '',
+          nearestSettlementKey: showMaxNotorietyPenalty
+            ? serverUpkeepTotals.nearestSettlementKey ?? ''
+            : '',
+          treasuryPenaltyTotal: showTreasuryShortagePenalty
+            ? serverUpkeepTotals.treasuryPenaltyTotal?.toString() ?? ''
+            : '',
+        },
+      );
 
-      if (
-        upkeepAttritionTotal === (serverUpkeepTotals.attritionTotal?.toString() ?? '') &&
-        localNotorietyPenalty === serverNotorietyPenalty &&
-        localMaxNotorietyLoyaltyCheck === serverMaxNotorietyLoyaltyCheck &&
-        localNearestSettlement === serverNearestSettlement &&
-        localTreasuryPenalty === serverTreasuryPenalty
-      ) {
+      if (!patch) {
         return true;
       }
 
-      return !(
-        isParsableManualTotal(upkeepAttritionTotal) &&
-        isParsableManualTotal(localNotorietyPenalty) &&
-        isParsableManualTotal(localMaxNotorietyLoyaltyCheck) &&
-        isParsableManualTotal(localTreasuryPenalty)
-      );
+      return !Object.values({
+        attritionTotal: upkeepAttritionTotal,
+        notorietyPenaltyTotal: showMaxNotorietyPenalty
+          ? upkeepNotorietyPenaltyTotal
+          : '',
+        maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
+          ? maxNotorietyLoyaltyCheckTotal
+          : '',
+        treasuryPenaltyTotal: showTreasuryShortagePenalty
+          ? upkeepTreasuryPenaltyTotal
+          : '',
+      }).every((value) => isParsableManualTotal(value));
     },
     run: async () => {
       if (!data?.militiaId) return;
       setError(undefined);
-      await mutations.saveUpkeepTotals(data.militiaId, {
-        attritionTotal: upkeepAttritionTotal,
-        notorietyPenaltyTotal: showMaxNotorietyPenalty
-          ? upkeepNotorietyPenaltyTotal
-          : undefined,
-        maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
-          ? maxNotorietyLoyaltyCheckTotal
-          : undefined,
-        nearestSettlementKey: showMaxNotorietyPenalty
-          ? nearestSettlementKey || undefined
-          : undefined,
-        treasuryPenaltyTotal: showTreasuryShortagePenalty
-          ? upkeepTreasuryPenaltyTotal
-          : undefined,
-      });
+      const patch = buildChangedObjectPatch(
+        {
+          attritionTotal: upkeepAttritionTotal,
+          notorietyPenaltyTotal: showMaxNotorietyPenalty
+            ? upkeepNotorietyPenaltyTotal
+            : '',
+          maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
+            ? maxNotorietyLoyaltyCheckTotal
+            : '',
+          nearestSettlementKey: showMaxNotorietyPenalty ? nearestSettlementKey : '',
+          treasuryPenaltyTotal: showTreasuryShortagePenalty
+            ? upkeepTreasuryPenaltyTotal
+            : '',
+        },
+        {
+          attritionTotal: serverUpkeepTotals.attritionTotal?.toString() ?? '',
+          notorietyPenaltyTotal: showMaxNotorietyPenalty
+            ? serverUpkeepTotals.notorietyPenaltyTotal?.toString() ?? ''
+            : '',
+          maxNotorietyLoyaltyCheckTotal: showMaxNotorietyPenalty
+            ? serverUpkeepTotals.maxNotorietyLoyaltyCheckTotal?.toString() ?? ''
+            : '',
+          nearestSettlementKey: showMaxNotorietyPenalty
+            ? serverUpkeepTotals.nearestSettlementKey ?? ''
+            : '',
+          treasuryPenaltyTotal: showTreasuryShortagePenalty
+            ? serverUpkeepTotals.treasuryPenaltyTotal?.toString() ?? ''
+            : '',
+        },
+      );
+
+      if (!patch) return;
+
+      await mutations.queueUpkeepTotalsPatch(data.militiaId, patch);
     },
     onError: (innerError) => {
       setError(getErrorMessage(innerError, 'Failed to auto-save Upkeep totals.'));
@@ -837,6 +902,7 @@ export function useWeekBoardController({
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
+    delayMs: 450,
     deps: [
       data?.militiaId,
       organizationId,
@@ -847,7 +913,6 @@ export function useWeekBoardController({
     ],
     shouldSkip: () => {
       if (!data?.militiaId) return true;
-      const local = normalizedActivityOfficerOperations;
       const server =
         ((data.state as Record<string, unknown>).activityOfficerOperations as
           | {
@@ -872,15 +937,53 @@ export function useWeekBoardController({
         },
         slots,
       );
-      return (
-        JSON.stringify(local.changes) === JSON.stringify(serverNormalized.changes)
+      return !buildChangedObjectPatch(
+        {
+          changes: normalizedActivityOfficerOperations.changes,
+        },
+        {
+          changes: serverNormalized.changes,
+        },
       );
     },
     run: async () => {
       if (!data?.militiaId) return;
-      await mutations.saveActivityOfficerOperations(data.militiaId, {
-        changes: normalizedActivityOfficerOperations.changes,
-      });
+      const server =
+        ((data.state as Record<string, unknown>).activityOfficerOperations as
+          | {
+              changes?: Array<{
+                slotIndex: number;
+                role:
+                  | 'ambassador'
+                  | 'commandant'
+                  | 'marshal'
+                  | 'overseer'
+                  | 'spymaster'
+                  | 'strategist';
+                characterId?: Id<'character'>;
+              }>;
+            }
+          | undefined) ?? {
+          changes: [],
+        };
+      const serverNormalized = normalizeActivityOfficerOperationsForSlots(
+        {
+          changes: server.changes ?? [],
+        },
+        slots,
+      );
+      const patch = buildChangedObjectPatch(
+        {
+          changes: normalizedActivityOfficerOperations.changes,
+        },
+        {
+          changes: serverNormalized.changes,
+        },
+      );
+
+      if (!patch) return;
+
+      await mutations.queueActivityOfficerOperationsPatch(data.militiaId, patch);
     },
     onError: (innerError) => {
       setError(
@@ -891,6 +994,7 @@ export function useWeekBoardController({
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
+    delayMs: 450,
     deps: [
       data?.militiaId,
       organizationId,
@@ -901,7 +1005,6 @@ export function useWeekBoardController({
     ],
     shouldSkip: () => {
       if (!data?.militiaId) return true;
-      const local = normalizedActivityTeamOperations;
       const server =
         ((data.state as Record<string, unknown>).activityTeamOperations as
           | {
@@ -926,22 +1029,61 @@ export function useWeekBoardController({
         },
         slots,
       );
-      return (
-        JSON.stringify(local.recruits) ===
-          JSON.stringify(serverNormalized.recruits) &&
-        JSON.stringify(local.dismissals) ===
-          JSON.stringify(serverNormalized.dismissals) &&
-        JSON.stringify(local.upgrades) ===
-          JSON.stringify(serverNormalized.upgrades)
+      return !buildChangedObjectPatch(
+        {
+          recruits: normalizedActivityTeamOperations.recruits,
+          dismissals: normalizedActivityTeamOperations.dismissals,
+          upgrades: normalizedActivityTeamOperations.upgrades,
+        },
+        {
+          recruits: serverNormalized.recruits,
+          dismissals: serverNormalized.dismissals,
+          upgrades: serverNormalized.upgrades,
+        },
       );
     },
     run: async () => {
       if (!data?.militiaId) return;
-      await mutations.saveActivityTeamOperations(data.militiaId, {
-        recruits: normalizedActivityTeamOperations.recruits,
-        dismissals: normalizedActivityTeamOperations.dismissals,
-        upgrades: normalizedActivityTeamOperations.upgrades,
-      });
+      const server =
+        ((data.state as Record<string, unknown>).activityTeamOperations as
+          | {
+              recruits?: Array<{ slotIndex: number; teamId: string }>;
+              dismissals?: Array<{ slotIndex: number; teamId: string }>;
+              upgrades?: Array<{
+                slotIndex: number;
+                fromTeamId: string;
+                toTeamId: string;
+              }>;
+            }
+          | undefined) ?? {
+          recruits: [],
+          dismissals: [],
+          upgrades: [],
+        };
+      const serverNormalized = normalizeActivityTeamOperationsForSlots(
+        {
+          recruits: server.recruits ?? [],
+          dismissals: server.dismissals ?? [],
+          upgrades: server.upgrades ?? [],
+        },
+        slots,
+      );
+      const patch = buildChangedObjectPatch(
+        {
+          recruits: normalizedActivityTeamOperations.recruits,
+          dismissals: normalizedActivityTeamOperations.dismissals,
+          upgrades: normalizedActivityTeamOperations.upgrades,
+        },
+        {
+          recruits: serverNormalized.recruits,
+          dismissals: serverNormalized.dismissals,
+          upgrades: serverNormalized.upgrades,
+        },
+      );
+
+      if (!patch) return;
+
+      await mutations.queueActivityTeamOperationsPatch(data.militiaId, patch);
     },
     onError: (innerError) => {
       setError(
@@ -952,6 +1094,7 @@ export function useWeekBoardController({
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
+    delayMs: 450,
     deps: [
       data?.militiaId,
       organizationId,
@@ -1111,34 +1254,202 @@ export function useWeekBoardController({
         },
         slots,
       );
-      return (
-        JSON.stringify(normalizedActivityAssetOperations.refuges) ===
-          JSON.stringify(serverNormalized.refuges) &&
-        JSON.stringify(normalizedActivityAssetOperations.caches) ===
-          JSON.stringify(serverNormalized.caches) &&
-        JSON.stringify(normalizedActivityAssetOperations.orders) ===
-          JSON.stringify(serverNormalized.orders) &&
-        JSON.stringify(normalizedActivityAssetOperations.marketplaces) ===
-          JSON.stringify(serverNormalized.marketplaces) &&
-        JSON.stringify(normalizedActivityAssetOperations.covertActions) ===
-          JSON.stringify(serverNormalized.covertActions) &&
-        JSON.stringify(normalizedActivityAssetOperations.rescues) ===
-          JSON.stringify(serverNormalized.rescues) &&
-        JSON.stringify(normalizedActivityAssetOperations.restorations) ===
-          JSON.stringify(serverNormalized.restorations)
+      return !buildChangedObjectPatch(
+        {
+          refuges: normalizedActivityAssetOperations.refuges,
+          caches: normalizedActivityAssetOperations.caches,
+          orders: normalizedActivityAssetOperations.orders,
+          marketplaces: normalizedActivityAssetOperations.marketplaces,
+          covertActions: normalizedActivityAssetOperations.covertActions,
+          rescues: normalizedActivityAssetOperations.rescues,
+          restorations: normalizedActivityAssetOperations.restorations,
+        },
+        {
+          refuges: serverNormalized.refuges,
+          caches: serverNormalized.caches,
+          orders: serverNormalized.orders,
+          marketplaces: serverNormalized.marketplaces,
+          covertActions: serverNormalized.covertActions,
+          rescues: serverNormalized.rescues,
+          restorations: serverNormalized.restorations,
+        },
       );
     },
     run: async () => {
       if (!data?.militiaId) return;
-      await mutations.saveActivityAssetOperations(data.militiaId, {
-        refuges: normalizedActivityAssetOperations.refuges,
-        caches: normalizedActivityAssetOperations.caches,
-        orders: normalizedActivityAssetOperations.orders,
-        marketplaces: normalizedActivityAssetOperations.marketplaces,
-        covertActions: normalizedActivityAssetOperations.covertActions,
-        rescues: normalizedActivityAssetOperations.rescues,
-        restorations: normalizedActivityAssetOperations.restorations,
-      });
+      const server =
+        ((data.state as Record<string, unknown>).activityAssetOperations as
+          | {
+              refuges?: Array<{ slotIndex: number; settlementKey: string }>;
+              caches?: Array<{
+                slotIndex: number;
+                mode: 'place' | 'retrieve';
+                cacheId?: string;
+                label?: string;
+                cacheClass?: 'minor' | 'intermediate' | 'major';
+                location?: string;
+                contentsSummary?: string;
+                isSecureLocation?: boolean;
+                checkTotal?: number;
+              }>;
+              orders?: Array<{
+                slotIndex: number;
+                description: string;
+                notes?: string;
+                costPaid?: number;
+                deliveryDays?: number;
+              }>;
+              marketplaces?: Array<{
+                slotIndex: number;
+                label?: string;
+                purchaseSummary?: string;
+                notes?: string;
+              }>;
+              covertActions?: Array<{
+                slotIndex: number;
+                mode?: 'augment_action' | 'place_contact';
+                targetSource?: 'character' | 'freeform';
+                followupSlotIndex?: number;
+                characterId?: Id<'character'>;
+                displayName?: string;
+                personKind?: 'pc' | 'officer_npc' | 'other_npc';
+                siteName?: string;
+                notes?: string;
+              }>;
+              rescues?: Array<{
+                slotIndex: number;
+                targetSource?: 'tracked' | 'character' | 'freeform';
+                targetStatusId?: string;
+                characterId?: Id<'character'>;
+                displayName?: string;
+                personKind?: 'pc' | 'officer_npc' | 'other_npc';
+                targetLevel?: number;
+                destinationType?: 'hq' | 'refuge' | 'settlement';
+                destinationSettlementKey?: string;
+              }>;
+              restorations?: Array<{
+                slotIndex: number;
+                targetSource?: 'tracked' | 'character' | 'freeform';
+                targetStatusId?: string;
+                characterId?: Id<'character'>;
+                displayName?: string;
+                personKind?: 'pc' | 'officer_npc' | 'other_npc';
+                mode?:
+                  | 'party_ability_damage'
+                  | 'party_hit_points'
+                  | 'party_lesser_restorative'
+                  | 'break_enchantment'
+                  | 'raise_dead'
+                  | 'restoration'
+                  | 'stone_to_flesh'
+                  | 'custom';
+                customCostTotal?: number;
+              }>;
+            }
+          | undefined) ?? {
+          refuges: [],
+          caches: [],
+          orders: [],
+          marketplaces: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        };
+      const serverNormalized = normalizeActivityAssetOperationsForSlots(
+        {
+          refuges: server.refuges ?? [],
+          caches: (server.caches ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            mode: entry.mode,
+            cacheId: entry.cacheId,
+            label: entry.label,
+            cacheClass: entry.cacheClass,
+            location: entry.location,
+            contentsSummary: entry.contentsSummary,
+            isSecureLocation: entry.isSecureLocation,
+            checkTotal:
+              entry.checkTotal !== undefined ? String(entry.checkTotal) : undefined,
+          })),
+          orders: (server.orders ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            description: entry.description,
+            notes: entry.notes,
+            costPaid:
+              entry.costPaid !== undefined ? String(entry.costPaid) : undefined,
+            deliveryDays:
+              entry.deliveryDays !== undefined
+                ? String(entry.deliveryDays)
+                : undefined,
+          })),
+          marketplaces: (server.marketplaces ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            label: entry.label,
+            purchaseSummary: entry.purchaseSummary,
+            notes: entry.notes,
+          })),
+          covertActions: (server.covertActions ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            mode: entry.mode,
+            targetSource: entry.targetSource,
+            followupSlotIndex: entry.followupSlotIndex,
+            characterId: entry.characterId,
+            displayName: entry.displayName,
+            personKind: entry.personKind,
+            siteName: entry.siteName,
+            notes: entry.notes,
+          })),
+          rescues: (server.rescues ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            targetSource: entry.targetSource,
+            targetStatusId: entry.targetStatusId,
+            characterId: entry.characterId,
+            displayName: entry.displayName,
+            personKind: entry.personKind,
+            targetLevel:
+              entry.targetLevel !== undefined ? String(entry.targetLevel) : undefined,
+            destinationType: entry.destinationType,
+            destinationSettlementKey: entry.destinationSettlementKey,
+          })),
+          restorations: (server.restorations ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            targetSource: entry.targetSource,
+            targetStatusId: entry.targetStatusId,
+            characterId: entry.characterId,
+            displayName: entry.displayName,
+            personKind: entry.personKind,
+            mode: entry.mode,
+            customCostTotal:
+              entry.customCostTotal !== undefined
+                ? String(entry.customCostTotal)
+                : undefined,
+          })),
+        },
+        slots,
+      );
+      const patch = buildChangedObjectPatch(
+        {
+          refuges: normalizedActivityAssetOperations.refuges,
+          caches: normalizedActivityAssetOperations.caches,
+          orders: normalizedActivityAssetOperations.orders,
+          marketplaces: normalizedActivityAssetOperations.marketplaces,
+          covertActions: normalizedActivityAssetOperations.covertActions,
+          rescues: normalizedActivityAssetOperations.rescues,
+          restorations: normalizedActivityAssetOperations.restorations,
+        },
+        {
+          refuges: serverNormalized.refuges,
+          caches: serverNormalized.caches,
+          orders: serverNormalized.orders,
+          marketplaces: serverNormalized.marketplaces,
+          covertActions: serverNormalized.covertActions,
+          rescues: serverNormalized.rescues,
+          restorations: serverNormalized.restorations,
+        },
+      );
+
+      if (!patch) return;
+
+      await mutations.queueActivityAssetOperationsPatch(data.militiaId, patch);
     },
     onError: (innerError) => {
       setError(
@@ -1149,6 +1460,7 @@ export function useWeekBoardController({
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
+    delayMs: 800,
     deps: [
       data?.militiaId,
       organizationId,
@@ -1182,35 +1494,84 @@ export function useWeekBoardController({
       const hasMarketDay = resolvedEventNames.includes('Market Day');
       const hasRivalry = resolvedEventNames.includes('Rivalry');
       const hasOverseerEventSupport = effectiveOverseerEventSupportTarget !== '';
-      return (
-        (server.cacheDiscoveredMitigationTotal?.toString() ?? '') ===
-          (hasCacheDiscovered ? cacheDiscoveredMitigationTotal : '') &&
-        (server.theftMitigationTotal?.toString() ?? '') ===
-          (hasTheft ? theftMitigationTotal : '') &&
-        (server.sicknessTwiceLoyaltyTotal?.toString() ?? '') ===
-          (hasSickness ? sicknessTwiceLoyaltyTotal : '') &&
-        (server.turncoatOfficerCheckTotal?.toString() ?? '') ===
-          (hasTurncoat ? turncoatOfficerCheckTotal : '') &&
-        (server.turncoatSelectedTeamId ?? '') ===
-          (hasTurncoat ? turncoatSelectedTeamId : '') &&
-        (server.missingInActionSelectedTeamId ?? '') ===
-          (hasMissingInAction ? missingInActionSelectedTeamId : '') &&
-        (server.sicknessSelectedTeamId ?? '') ===
-          (hasSickness ? sicknessSelectedTeamId : '') &&
-        (server.turnAroundBoostTeamId ?? '') ===
-          (hasTurnAround ? turnAroundBoostTeamId : '') &&
-        (server.marketDayMarketplaceId ?? '') ===
-          (hasMarketDay ? marketDayMarketplaceId : '') &&
-        (server.marketDayTownName ?? '') ===
-          (hasMarketDay ? marketDayTownName : '') &&
-        JSON.stringify(server.rivalrySelectedTeamIds ?? []) ===
-          JSON.stringify(hasRivalry ? rivalrySelectedTeamIds : []) &&
-        (server.overseerEventSupportTarget ?? '') ===
-          (hasOverseerEventSupport ? effectiveOverseerEventSupportTarget : '')
+      return !buildChangedObjectPatch(
+        {
+          cacheDiscoveredMitigationTotal: hasCacheDiscovered
+            ? cacheDiscoveredMitigationTotal
+            : '',
+          theftMitigationTotal: hasTheft ? theftMitigationTotal : '',
+          sicknessTwiceLoyaltyTotal: hasSickness
+            ? sicknessTwiceLoyaltyTotal
+            : '',
+          turncoatOfficerCheckTotal: hasTurncoat ? turncoatOfficerCheckTotal : '',
+          turncoatSelectedTeamId: hasTurncoat
+            ? turncoatSelectedTeamId || null
+            : null,
+          rivalrySelectedTeamIds: hasRivalry ? rivalrySelectedTeamIds : [],
+          missingInActionSelectedTeamId: hasMissingInAction
+            ? missingInActionSelectedTeamId || null
+            : null,
+          sicknessSelectedTeamId: hasSickness ? sicknessSelectedTeamId || null : null,
+          turnAroundBoostTeamId: hasTurnAround ? turnAroundBoostTeamId || null : null,
+          marketDayMarketplaceId: hasMarketDay
+            ? marketDayMarketplaceId || null
+            : null,
+          marketDayTownName: hasMarketDay ? marketDayTownName || null : null,
+          overseerEventSupportTarget: hasOverseerEventSupport
+            ? effectiveOverseerEventSupportTarget
+            : null,
+        },
+        {
+          cacheDiscoveredMitigationTotal:
+            server.cacheDiscoveredMitigationTotal?.toString() ?? '',
+          theftMitigationTotal: server.theftMitigationTotal?.toString() ?? '',
+          sicknessTwiceLoyaltyTotal:
+            server.sicknessTwiceLoyaltyTotal?.toString() ?? '',
+          turncoatOfficerCheckTotal:
+            server.turncoatOfficerCheckTotal?.toString() ?? '',
+          turncoatSelectedTeamId:
+            typeof server.turncoatSelectedTeamId === 'string'
+              ? server.turncoatSelectedTeamId
+              : null,
+          rivalrySelectedTeamIds: Array.isArray(server.rivalrySelectedTeamIds)
+            ? server.rivalrySelectedTeamIds
+            : [],
+          missingInActionSelectedTeamId:
+            typeof server.missingInActionSelectedTeamId === 'string'
+              ? server.missingInActionSelectedTeamId
+              : null,
+          sicknessSelectedTeamId:
+            typeof server.sicknessSelectedTeamId === 'string'
+              ? server.sicknessSelectedTeamId
+              : null,
+          turnAroundBoostTeamId:
+            typeof server.turnAroundBoostTeamId === 'string'
+              ? server.turnAroundBoostTeamId
+              : null,
+          marketDayMarketplaceId:
+            typeof server.marketDayMarketplaceId === 'string'
+              ? server.marketDayMarketplaceId
+              : null,
+          marketDayTownName:
+            typeof server.marketDayTownName === 'string'
+              ? server.marketDayTownName
+              : null,
+          overseerEventSupportTarget:
+            server.overseerEventSupportTarget === 'sabotage' ||
+            server.overseerEventSupportTarget === 'cache_discovered' ||
+            server.overseerEventSupportTarget === 'theft' ||
+            server.overseerEventSupportTarget === 'sickness_twice'
+              ? server.overseerEventSupportTarget
+              : null,
+        },
       );
     },
     run: async () => {
       if (!data?.militiaId) return;
+      const server =
+        ((data.state as Record<string, unknown>).eventMitigations as
+          | Record<string, unknown>
+          | undefined) ?? {};
       const hasCacheDiscovered = resolvedEventNames.includes('Cache Discovered');
       const hasTheft = resolvedEventNames.includes('Theft');
       const hasSickness = resolvedEventNames.includes('Sickness');
@@ -1219,39 +1580,80 @@ export function useWeekBoardController({
       const hasTurnAround = resolvedEventNames.includes('Turn Around');
       const hasMarketDay = resolvedEventNames.includes('Market Day');
       const hasRivalry = resolvedEventNames.includes('Rivalry');
-      await mutations.saveEventMitigations(data.militiaId, {
-        cacheDiscoveredMitigationTotal: hasCacheDiscovered
-          ? cacheDiscoveredMitigationTotal
-          : undefined,
-        theftMitigationTotal: hasTheft ? theftMitigationTotal : undefined,
-        sicknessTwiceLoyaltyTotal: hasSickness
-          ? sicknessTwiceLoyaltyTotal
-          : undefined,
-        turncoatOfficerCheckTotal: hasTurncoat
-          ? turncoatOfficerCheckTotal
-          : undefined,
-        turncoatSelectedTeamId: hasTurncoat
-          ? turncoatSelectedTeamId || undefined
-          : undefined,
-        missingInActionSelectedTeamId: hasMissingInAction
-          ? missingInActionSelectedTeamId || undefined
-          : undefined,
-        sicknessSelectedTeamId: hasSickness
-          ? sicknessSelectedTeamId || undefined
-          : undefined,
-        turnAroundBoostTeamId: hasTurnAround
-          ? turnAroundBoostTeamId || undefined
-          : undefined,
-        marketDayMarketplaceId: hasMarketDay
-          ? marketDayMarketplaceId || undefined
-          : undefined,
-        marketDayTownName: hasMarketDay ? marketDayTownName || undefined : undefined,
-        rivalrySelectedTeamIds:
-          hasRivalry && rivalrySelectedTeamIds.length > 0
-            ? rivalrySelectedTeamIds
-            : undefined,
-        overseerEventSupportTarget: effectiveOverseerEventSupportTarget || undefined,
-      });
+      const patch = buildChangedObjectPatch(
+        {
+          cacheDiscoveredMitigationTotal: hasCacheDiscovered
+            ? cacheDiscoveredMitigationTotal
+            : '',
+          theftMitigationTotal: hasTheft ? theftMitigationTotal : '',
+          sicknessTwiceLoyaltyTotal: hasSickness
+            ? sicknessTwiceLoyaltyTotal
+            : '',
+          turncoatOfficerCheckTotal: hasTurncoat ? turncoatOfficerCheckTotal : '',
+          turncoatSelectedTeamId: hasTurncoat
+            ? turncoatSelectedTeamId || null
+            : null,
+          rivalrySelectedTeamIds: hasRivalry ? rivalrySelectedTeamIds : [],
+          missingInActionSelectedTeamId: hasMissingInAction
+            ? missingInActionSelectedTeamId || null
+            : null,
+          sicknessSelectedTeamId: hasSickness ? sicknessSelectedTeamId || null : null,
+          turnAroundBoostTeamId: hasTurnAround ? turnAroundBoostTeamId || null : null,
+          marketDayMarketplaceId: hasMarketDay
+            ? marketDayMarketplaceId || null
+            : null,
+          marketDayTownName: hasMarketDay ? marketDayTownName || null : null,
+          overseerEventSupportTarget:
+            effectiveOverseerEventSupportTarget || null,
+        },
+        {
+          cacheDiscoveredMitigationTotal:
+            server.cacheDiscoveredMitigationTotal?.toString() ?? '',
+          theftMitigationTotal: server.theftMitigationTotal?.toString() ?? '',
+          sicknessTwiceLoyaltyTotal:
+            server.sicknessTwiceLoyaltyTotal?.toString() ?? '',
+          turncoatOfficerCheckTotal:
+            server.turncoatOfficerCheckTotal?.toString() ?? '',
+          turncoatSelectedTeamId:
+            typeof server.turncoatSelectedTeamId === 'string'
+              ? server.turncoatSelectedTeamId
+              : null,
+          rivalrySelectedTeamIds: Array.isArray(server.rivalrySelectedTeamIds)
+            ? server.rivalrySelectedTeamIds
+            : [],
+          missingInActionSelectedTeamId:
+            typeof server.missingInActionSelectedTeamId === 'string'
+              ? server.missingInActionSelectedTeamId
+              : null,
+          sicknessSelectedTeamId:
+            typeof server.sicknessSelectedTeamId === 'string'
+              ? server.sicknessSelectedTeamId
+              : null,
+          turnAroundBoostTeamId:
+            typeof server.turnAroundBoostTeamId === 'string'
+              ? server.turnAroundBoostTeamId
+              : null,
+          marketDayMarketplaceId:
+            typeof server.marketDayMarketplaceId === 'string'
+              ? server.marketDayMarketplaceId
+              : null,
+          marketDayTownName:
+            typeof server.marketDayTownName === 'string'
+              ? server.marketDayTownName
+              : null,
+          overseerEventSupportTarget:
+            server.overseerEventSupportTarget === 'sabotage' ||
+            server.overseerEventSupportTarget === 'cache_discovered' ||
+            server.overseerEventSupportTarget === 'theft' ||
+            server.overseerEventSupportTarget === 'sickness_twice'
+              ? server.overseerEventSupportTarget
+              : null,
+        },
+      );
+
+      if (!patch) return;
+
+      await mutations.queueEventMitigationsPatch(data.militiaId, patch);
     },
     onError: (innerError) => {
       setError(
@@ -1262,6 +1664,7 @@ export function useWeekBoardController({
 
   useDebouncedAutosave({
     enabled: Boolean(data?.militiaId),
+    delayMs: 900,
     deps: [
       data?.militiaId,
       organizationId,
@@ -1334,18 +1737,34 @@ export function useWeekBoardController({
         ? serverEventTotals.sabotageNotorietyIncreaseTotal?.toString() ?? ''
         : '';
 
-      if (
-        eventChanceTotal === serverEventChance &&
-        eventTriggerRollTotal === serverEventTriggerRoll &&
-        localEventPercentile === serverEventPercentile &&
-        localGuaranteedFirst === serverGuaranteedFirst &&
-        localGuaranteedSecond === serverGuaranteedSecond &&
-        localGuaranteedChoice === serverGuaranteedChoice &&
-        localFirst === serverFirst &&
-        localSecond === serverSecond &&
-        localSabotageCheck === serverSabotageCheck &&
-        localSabotageNotoriety === serverSabotageNotoriety
-      ) {
+      const patch = buildChangedObjectPatch(
+        {
+          eventChanceTotal,
+          eventTriggerRollTotal,
+          eventPercentileTotal: localEventPercentile,
+          guaranteedFirstPercentileTotal: localGuaranteedFirst,
+          guaranteedSecondPercentileTotal: localGuaranteedSecond,
+          guaranteedChosen: localGuaranteedChoice || null,
+          rollTwiceFirstTotal: localFirst,
+          rollTwiceSecondTotal: localSecond,
+          sabotageCheckTotal: localSabotageCheck,
+          sabotageNotorietyIncreaseTotal: localSabotageNotoriety,
+        },
+        {
+          eventChanceTotal: serverEventChance,
+          eventTriggerRollTotal: serverEventTriggerRoll,
+          eventPercentileTotal: serverEventPercentile,
+          guaranteedFirstPercentileTotal: serverGuaranteedFirst,
+          guaranteedSecondPercentileTotal: serverGuaranteedSecond,
+          guaranteedChosen: serverGuaranteedChoice || null,
+          rollTwiceFirstTotal: serverFirst,
+          rollTwiceSecondTotal: serverSecond,
+          sabotageCheckTotal: serverSabotageCheck,
+          sabotageNotorietyIncreaseTotal: serverSabotageNotoriety,
+        },
+      );
+
+      if (!patch) {
         return true;
       }
 
@@ -1364,36 +1783,69 @@ export function useWeekBoardController({
     run: async () => {
       if (!data?.militiaId) return;
       setError(undefined);
-      await mutations.saveEventTotals(data.militiaId, {
-        eventChanceTotal,
-        eventTriggerRollTotal,
-        eventPercentileTotal: shouldResolveEventTable
-          ? hasGuaranteedEventAction
-            ? undefined
-            : eventPercentileTotal
-          : undefined,
-        guaranteedFirstPercentileTotal: hasGuaranteedEventAction
-          ? guaranteedEventFirstPercentileTotal
-          : undefined,
-        guaranteedSecondPercentileTotal: hasGuaranteedEventAction
-          ? guaranteedEventSecondPercentileTotal
-          : undefined,
-        guaranteedChosen: hasGuaranteedEventAction
-          ? guaranteedEventChoice || undefined
-          : undefined,
-        rollTwiceFirstTotal: showRollTwiceFields
-          ? eventRollTwiceFirst
-          : undefined,
-        rollTwiceSecondTotal: showRollTwiceFields
-          ? eventRollTwiceSecond
-          : undefined,
-        sabotageCheckTotal: eventWouldOccurBeforeSabotage
-          ? sabotageCheckTotal
-          : undefined,
-        sabotageNotorietyIncreaseTotal: eventWouldOccurBeforeSabotage
-          ? sabotageNotorietyIncreaseTotal
-          : undefined,
-      });
+      const patch = buildChangedObjectPatch(
+        {
+          eventChanceTotal,
+          eventTriggerRollTotal,
+          eventPercentileTotal: shouldResolveEventTable
+            ? hasGuaranteedEventAction
+              ? ''
+              : eventPercentileTotal
+            : '',
+          guaranteedFirstPercentileTotal: hasGuaranteedEventAction
+            ? guaranteedEventFirstPercentileTotal
+            : '',
+          guaranteedSecondPercentileTotal: hasGuaranteedEventAction
+            ? guaranteedEventSecondPercentileTotal
+            : '',
+          guaranteedChosen: hasGuaranteedEventAction
+            ? guaranteedEventChoice || null
+            : null,
+          rollTwiceFirstTotal: showRollTwiceFields ? eventRollTwiceFirst : '',
+          rollTwiceSecondTotal: showRollTwiceFields ? eventRollTwiceSecond : '',
+          sabotageCheckTotal: eventWouldOccurBeforeSabotage
+            ? sabotageCheckTotal
+            : '',
+          sabotageNotorietyIncreaseTotal: eventWouldOccurBeforeSabotage
+            ? sabotageNotorietyIncreaseTotal
+            : '',
+        },
+        {
+          eventChanceTotal: serverEventTotals.eventChanceTotal?.toString() ?? '',
+          eventTriggerRollTotal:
+            serverEventTotals.eventTriggerRollTotal?.toString() ?? '',
+          eventPercentileTotal: shouldResolveEventTable
+            ? hasGuaranteedEventAction
+              ? ''
+              : serverEventTotals.eventPercentileTotal?.toString() ?? ''
+            : '',
+          guaranteedFirstPercentileTotal: hasGuaranteedEventAction
+            ? serverEventTotals.guaranteedFirstPercentileTotal?.toString() ?? ''
+            : '',
+          guaranteedSecondPercentileTotal: hasGuaranteedEventAction
+            ? serverEventTotals.guaranteedSecondPercentileTotal?.toString() ?? ''
+            : '',
+          guaranteedChosen: hasGuaranteedEventAction
+            ? serverEventTotals.guaranteedChosen ?? null
+            : null,
+          rollTwiceFirstTotal: showRollTwiceFields
+            ? serverEventTotals.rollTwiceFirstTotal?.toString() ?? ''
+            : '',
+          rollTwiceSecondTotal: showRollTwiceFields
+            ? serverEventTotals.rollTwiceSecondTotal?.toString() ?? ''
+            : '',
+          sabotageCheckTotal: eventWouldOccurBeforeSabotage
+            ? serverEventTotals.sabotageCheckTotal?.toString() ?? ''
+            : '',
+          sabotageNotorietyIncreaseTotal: eventWouldOccurBeforeSabotage
+            ? serverEventTotals.sabotageNotorietyIncreaseTotal?.toString() ?? ''
+            : '',
+        },
+      );
+
+      if (!patch) return;
+
+      await mutations.queueEventTotalsPatch(data.militiaId, patch);
     },
     onError: (innerError) => {
       setError(getErrorMessage(innerError, 'Failed to auto-save Event totals.'));
@@ -1918,6 +2370,12 @@ export function useWeekBoardController({
   });
 
   const actions = {
+    queueActivityRollTotalsPatch: async (
+      militiaId: Id<'militia'>,
+      activityRollTotals: Partial<Record<ActivityRollKey, string>>,
+    ) => {
+      await mutations.queueActivityRollTotalsPatch(militiaId, activityRollTotals);
+    },
     changePhase: async (nextPhase: WeekPhase) => {
       if (!data?.militiaId) return;
       setError(undefined);
@@ -2205,6 +2663,21 @@ function getErrorMessage(error: unknown, fallback: string) {
     return error;
   }
   return fallback;
+}
+
+function buildChangedObjectPatch<T extends Record<string, unknown>>(
+  local: T,
+  server: Partial<T>,
+) {
+  const patch: Partial<T> = {};
+
+  for (const key of Object.keys(local) as Array<keyof T>) {
+    if (JSON.stringify(local[key]) !== JSON.stringify(server[key])) {
+      patch[key] = local[key];
+    }
+  }
+
+  return Object.keys(patch).length > 0 ? patch : undefined;
 }
 
 function getResolvedEventNames({

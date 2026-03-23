@@ -4,7 +4,11 @@ import {
   characterLedgerQuery,
   marketplaceLedgerQuery,
   militiaQuery,
+  militiaStateSetupQuery,
   settlementLedgerQuery,
+  weekBoardLiveStateQuery,
+  weekBoardReferenceQuery,
+  weekBoardTrackedStateQuery,
 } from './sharedQueries';
 
 const mockUseQuery = vi.fn((options) => options);
@@ -28,8 +32,15 @@ vi.mock('@convex/_generated/api', () => ({
     character: { listByCampaign: 'listByCampaign' },
     militia: {
       getMilitia: 'getMilitia',
+      getMilitiaStateSetup: 'getMilitiaStateSetup',
       listMarketplaces: 'listMarketplaces',
       listSettlements: 'listSettlements',
+    },
+    weekBoard: {
+      getWeekBoardLiveState: 'getWeekBoardLiveState',
+      getWeekBoardReferenceData: 'getWeekBoardReferenceData',
+      getWeekBoardTrackedState: 'getWeekBoardTrackedState',
+      getWeekBoardState: 'getWeekBoardState',
     },
   },
 }));
@@ -107,6 +118,54 @@ describe('sharedQueries', () => {
     marketplaceLedgerQuery('camp_1' as never, 'org_1', true);
 
     expect(mockConvexQuery).toHaveBeenCalledWith('listMarketplaces', {
+      campaignId: 'camp_1',
+      organizationId: 'org_1',
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it('wires militia state setup query with enabled guard', () => {
+    militiaStateSetupQuery('camp_1' as never, 'org_1', true);
+
+    expect(mockConvexQuery).toHaveBeenCalledWith('getMilitiaStateSetup', {
+      campaignId: 'camp_1',
+      organizationId: 'org_1',
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it('wires week board reference query with enabled guard', () => {
+    weekBoardReferenceQuery('camp_1' as never, 'org_1', true);
+
+    expect(mockConvexQuery).toHaveBeenCalledWith('getWeekBoardReferenceData', {
+      campaignId: 'camp_1',
+      organizationId: 'org_1',
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it('wires week board tracked state query with enabled guard', () => {
+    weekBoardTrackedStateQuery('camp_1' as never, 'org_1', true);
+
+    expect(mockConvexQuery).toHaveBeenCalledWith('getWeekBoardTrackedState', {
+      campaignId: 'camp_1',
+      organizationId: 'org_1',
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it('wires week board live state query with enabled guard', () => {
+    weekBoardLiveStateQuery('camp_1' as never, 'org_1', true);
+
+    expect(mockConvexQuery).toHaveBeenCalledWith('getWeekBoardLiveState', {
       campaignId: 'camp_1',
       organizationId: 'org_1',
     });

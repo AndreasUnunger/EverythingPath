@@ -1,6 +1,7 @@
 import type { Id } from '@convex/_generated/dataModel';
 import { CharacterManager } from './character-manager';
 import { MarketplaceLedger } from './marketplace-ledger';
+import { MilitiaStateManager } from './militia-state-manager';
 import { SettlementManager } from './settlement-manager';
 import { TeamManager } from './teamManager';
 
@@ -15,6 +16,11 @@ export function Ledger({
 }) {
   return (
     <div className="flex columns-1 flex-col gap-4">
+      <MilitiaStateManager
+        selectedCampaignId={selectedCampaignId}
+        organizationId={organizationId}
+        canQuery={canQuery}
+      />
       <CharacterManager
         selectedCampaignId={selectedCampaignId}
         organizationId={organizationId}

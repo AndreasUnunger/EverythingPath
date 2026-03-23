@@ -42,6 +42,7 @@ describe('CampaignInfo', () => {
               activeUntilWeek: 6,
               isActive: true,
               pendingOrderCount: 1,
+              orders: [],
             },
           ],
         }}

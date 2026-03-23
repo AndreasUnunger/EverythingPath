@@ -37,6 +37,7 @@ export function SettlementManager({
   const [editingId, setEditingId] = useState<SettlementId | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formError, setFormError] = useState<string>();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>();
 
   const form = useForm<SettlementFormValues>({
     resolver: zodResolver(settlementFormSchema),
@@ -55,6 +56,7 @@ export function SettlementManager({
   );
 
   const upsertSettlement = useMutation(db.militia.upsertSettlementState);
+  const deleteSettlement = useMutation(db.militia.deleteSettlementState);
 
   if (!selectedCampaignId) {
     return (
@@ -136,6 +138,25 @@ export function SettlementManager({
     }
   }
 
+  async function handleDelete(settlement: SettlementRecord) {
+    if (!militia) {
+      return;
+    }
+
+    setPendingDeleteId(settlement._id);
+    try {
+      await deleteSettlement({
+        organizationId,
+        militiaId: militia._id,
+        settlementId: settlement._id,
+      });
+    } catch (error) {
+      setFormError(getErrorMessage(error, 'Failed to delete settlement.'));
+    } finally {
+      setPendingDeleteId(undefined);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-card flex items-center justify-between border-2 border-b-0 p-4">
@@ -190,7 +211,14 @@ export function SettlementManager({
         </DialogContent>
       </Dialog>
 
-      <SettlementListCard settlements={settlements} onEdit={startEdit} />
+      <SettlementListCard
+        settlements={settlements}
+        onEdit={startEdit}
+        onDelete={(settlement) => {
+          void handleDelete(settlement);
+        }}
+        pendingDeleteId={pendingDeleteId}
+      />
     </div>
   );
 }

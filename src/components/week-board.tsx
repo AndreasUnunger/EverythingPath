@@ -110,7 +110,7 @@ export function WeekBoard({
 
           {controller.phase === 'activity' ? (
             <ActivityPhaseSection
-              viewModel={buildActivityPhaseViewModel({ controller, organizationId })}
+              viewModel={buildActivityPhaseViewModel({ controller })}
             />
           ) : null}
 

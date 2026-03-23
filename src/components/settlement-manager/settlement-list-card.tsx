@@ -10,9 +10,13 @@ function formatSignedNumber(value: number) {
 export function SettlementListCard({
   settlements,
   onEdit,
+  onDelete,
+  pendingDeleteId,
 }: {
   settlements: SettlementRecord[];
   onEdit: (settlement: SettlementRecord) => void;
+  onDelete: (settlement: SettlementRecord) => void;
+  pendingDeleteId?: string;
 }) {
   if (settlements.length === 0) {
     return (
@@ -32,6 +36,8 @@ export function SettlementListCard({
           key={settlement._id}
           settlement={settlement}
           onEdit={onEdit}
+          onDelete={onDelete}
+          deleting={pendingDeleteId === settlement._id}
         />
       ))}
     </div>
@@ -41,9 +47,13 @@ export function SettlementListCard({
 function SettlementRow({
   settlement,
   onEdit,
+  onDelete,
+  deleting,
 }: {
   settlement: SettlementRecord;
   onEdit: (settlement: SettlementRecord) => void;
+  onDelete: (settlement: SettlementRecord) => void;
+  deleting: boolean;
 }) {
   return (
     <Card className="bg-card border-2 border-x-0 border-t-0 p-4">
@@ -70,9 +80,19 @@ function SettlementRow({
           ) : null}
         </div>
 
-        <Button variant="outline" size="sm" onClick={() => onEdit(settlement)}>
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => onEdit(settlement)}>
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(settlement)}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </div>
       </div>
     </Card>
   );

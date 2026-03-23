@@ -13,6 +13,7 @@ import type {
 import { ACTION_CARDS } from '~/components/week-board/data';
 import type { MilitiaFocus, OfficerEffects } from '~/components/week-board/officer-effects';
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
+import type { ActivityRollKey } from '~/components/week-board/activity-roll-sections';
 import {
   buildRecruitTeamOptions,
   buildUpgradeFromOptions,
@@ -82,7 +83,6 @@ export type ActivityPhaseViewModel = {
   slotRefs: RefObject<Record<string, HTMLDivElement | null>>;
   resetSlotsAction: () => void;
   militiaId: Id<'militia'>;
-  organizationId: string;
   currentWeek: number;
   rank: number;
   focus: MilitiaFocus;
@@ -109,6 +109,10 @@ export type ActivityPhaseViewModel = {
   orders: OrderLedgerEntry[];
   trackedPeople: TrackedPersonLedgerEntry[];
   activeTeamIds: string[];
+  queueActivityRollTotalsPatchAction: (args: {
+    militiaId: Id<'militia'>;
+    activityRollTotals: Partial<Record<ActivityRollKey, string>>;
+  }) => Promise<void>;
   setSlotTeamAction: (slotIndex: number, teamId: string | null) => void;
   setRecruitTeamForSlotAction: (slotIndex: number, teamId: string) => void;
   setDismissTeamForSlotAction: (slotIndex: number, teamId: string) => void;
@@ -194,6 +198,7 @@ export type ActivityActionCardEntry = {
   card: ActionCard;
   isDraggingCard: boolean;
   isAssigned: boolean;
+  stagedCount: number;
   isLegal: boolean;
   isDisabled: boolean;
   costLabel: string;
@@ -238,6 +243,7 @@ export const OFFICER_ROLE_OPTIONS: Array<{ role: OfficerRole; label: string }> =
 export function buildActivityActionEntries({
   dragState,
   assignedActionIds,
+  stagedActionIds,
   hasNonLieLowStaged,
   hasLieLowStaged,
   rank,
@@ -248,6 +254,7 @@ export function buildActivityActionEntries({
 }: {
   dragState: DragState | null;
   assignedActionIds: Set<ActionId>;
+  stagedActionIds: ActionId[];
   hasNonLieLowStaged: boolean;
   hasLieLowStaged: boolean;
   rank: number;
@@ -262,17 +269,26 @@ export function buildActivityActionEntries({
     maxTeams,
   });
   const upgradeFromOptions = buildUpgradeFromOptions({ teams });
+  const stagedCountByActionId = stagedActionIds.reduce<Record<string, number>>(
+    (counts, actionId) => {
+      counts[actionId] = (counts[actionId] ?? 0) + 1;
+      return counts;
+    },
+    {},
+  );
 
   return ACTION_CARDS.map((card): ActivityActionCardEntry => {
     const isDraggingCard =
       dragState?.source === 'deck' && dragState.actionId === card.id;
-    const isAssigned = assignedActionIds.has(card.id);
+    const hasAssignedCopy = assignedActionIds.has(card.id);
+    const stagedCount = stagedCountByActionId[card.id] ?? 0;
     const costLabel =
       card.id === 'drill_militia' ? `${card.cost} (${minimumTreasury} gp)` : card.cost;
     const violatesLieLowExclusivity =
-      (!isAssigned && card.id === 'lie_low' && hasNonLieLowStaged) ||
-      (!isAssigned && card.id !== 'lie_low' && hasLieLowStaged);
-    const violatesDrillUniqueness = card.id === 'drill_militia' && isAssigned;
+      (!hasAssignedCopy && card.id === 'lie_low' && hasNonLieLowStaged) ||
+      (!hasAssignedCopy && card.id !== 'lie_low' && hasLieLowStaged);
+    const violatesDrillUniqueness =
+      card.id === 'drill_militia' && hasAssignedCopy;
     const hardInvalid = violatesLieLowExclusivity || violatesDrillUniqueness;
     const requiredTeamIds = ACTION_TEAM_REQUIREMENTS[card.id];
     const hasRequiredTeam =
@@ -328,7 +344,9 @@ export function buildActivityActionEntries({
     return {
       card,
       isDraggingCard,
-      isAssigned,
+      isAssigned:
+        card.id === 'drill_militia' || (card.id === 'lie_low' && stagedCount > 0),
+      stagedCount,
       isLegal: !hardInvalid && hasRequiredTeam && meetsActionSpecificRequirements,
       isDisabled: hardInvalid,
       costLabel,

@@ -44,10 +44,8 @@ export function buildUpkeepPhaseViewModel(
 
 export function buildActivityPhaseViewModel({
   controller,
-  organizationId,
 }: {
   controller: WeekBoardController;
-  organizationId: string;
 }): ActivityPhaseViewModel {
   const data = controller.data!;
   return {
@@ -63,7 +61,6 @@ export function buildActivityPhaseViewModel({
       void controller.actions.resetSlots();
     },
     militiaId: data.militiaId,
-    organizationId,
     currentWeek: data.state.weekNumber,
     rank: data.rank,
     focus: data.focus,
@@ -122,6 +119,8 @@ export function buildActivityPhaseViewModel({
     setRestorationForSlotAction: (args) => {
       controller.setRestorationForSlot(args);
     },
+    queueActivityRollTotalsPatchAction: ({ militiaId, activityRollTotals }) =>
+      controller.actions.queueActivityRollTotalsPatch(militiaId, activityRollTotals),
     onErrorAction: (message) => controller.actions.setError(message),
   };
 }

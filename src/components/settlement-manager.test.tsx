@@ -8,6 +8,7 @@ const mockUseMutation = vi.fn();
 
 const mutationFns = {
   upsertSettlementState: vi.fn(),
+  deleteSettlementState: vi.fn(),
 };
 
 vi.mock('~/lib/sharedQueries', () => ({
@@ -23,6 +24,7 @@ vi.mock('@convex/_generated/api', () => ({
   api: {
     militia: {
       upsertSettlementState: 'militia.upsertSettlementState',
+      deleteSettlementState: 'militia.deleteSettlementState',
     },
   },
 }));
@@ -79,11 +81,15 @@ describe('SettlementManager', () => {
       if (ref === 'militia.upsertSettlementState') {
         return mutationFns.upsertSettlementState;
       }
+      if (ref === 'militia.deleteSettlementState') {
+        return mutationFns.deleteSettlementState;
+      }
 
       return vi.fn();
     });
 
     mutationFns.upsertSettlementState.mockResolvedValue(undefined);
+    mutationFns.deleteSettlementState.mockResolvedValue(undefined);
   });
 
   it('shows zod/rhf validation when saving with empty settlement name', async () => {
@@ -171,6 +177,38 @@ describe('SettlementManager', () => {
         settlementKey: 'Longshadow Keep',
         reputation: 'Indifferent',
         isSecured: false,
+      });
+    });
+  });
+
+  it('deletes a settlement record', async () => {
+    mockSettlementLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'settlement_1',
+          settlementKey: 'Longshadow',
+          reputation: 'Indifferent',
+          isSecured: false,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <SettlementManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(mutationFns.deleteSettlementState).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        settlementId: 'settlement_1',
       });
     });
   });

@@ -14,7 +14,7 @@ import {
 } from './schema';
 import { hasAccessToOrg } from './user';
 import type { MutationCtx, QueryCtx } from './_generated/server';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import {
   clampPercent,
   consumeQueuedEffectsForWeek,
@@ -37,17 +37,12 @@ import {
   getMarketplaceDefaultLabel,
   getMarketplaceProfile,
 } from '../src/lib/militia-marketplace-rules';
-import { getMinimumTrainingForRank } from '../src/lib/militia-progression-rules';
+import {
+  getMaxActionsForMilitia as getSharedMaxActionsForMilitia,
+  getMaxActionsForRank,
+  getMinimumTrainingForRank,
+} from '../src/lib/militia-progression-rules';
 import teamDefinitions from './data/teams';
-
-function getMaxActionsForRank(rank: number) {
-  if (rank >= 19) return 6;
-  if (rank >= 15) return 5;
-  if (rank >= 11) return 4;
-  if (rank >= 7) return 3;
-  if (rank >= 1) return 2;
-  return 1;
-}
 
 function getMaxActionsForMilitia({
   rank,
@@ -56,7 +51,10 @@ function getMaxActionsForMilitia({
   rank: number;
   strategist?: Id<'character'>;
 }) {
-  return getMaxActionsForRank(rank) + (strategist ? 1 : 0);
+  return getSharedMaxActionsForMilitia({
+    rank,
+    strategistAssigned: Boolean(strategist),
+  });
 }
 
 function isStrategistOfficerChangeActive({
@@ -172,10 +170,13 @@ async function getHighestActivePcLevel(
   ctx: QueryCtx | MutationCtx,
   campaignId: Id<'campaign'>,
 ) {
-  const characters = (await ctx.db.query('character').collect()).filter(
-    (character) => character.campaignId === campaignId,
-  );
+  const characters = await getCampaignCharacters(ctx, campaignId);
+  return getHighestActivePcLevelFromCharacters(characters);
+}
 
+function getHighestActivePcLevelFromCharacters(
+  characters: Doc<'character'>[],
+) {
   const activePcs = characters.filter(
     (character) =>
       character.isActive !== false &&
@@ -184,6 +185,15 @@ async function getHighestActivePcLevel(
 
   const levels = activePcs.map((character) => character.level);
   return levels.length ? Math.max(...levels) : 0;
+}
+
+async function getCampaignCharacters(
+  ctx: QueryCtx | MutationCtx,
+  campaignId: Id<'campaign'>,
+) {
+  return (await ctx.db.query('character').collect()).filter(
+    (character) => character.campaignId === campaignId,
+  );
 }
 
 function getRankUpEligibility({
@@ -243,6 +253,232 @@ async function assertMilitiaAccess(
   }
 
   return militia;
+}
+
+async function getMilitiaForWeekBoardQuery(
+  ctx: QueryCtx,
+  {
+    campaignId,
+    organizationId,
+  }: {
+    campaignId?: Id<'campaign'>;
+    organizationId?: string;
+  },
+) {
+  if (!campaignId || !organizationId) {
+    return null;
+  }
+
+  const access = await hasAccessToOrg(ctx, organizationId);
+  if (!access) {
+    return null;
+  }
+
+  const campaign = await ctx.db.get('campaign', campaignId);
+  if (campaign?.organizationId !== organizationId) {
+    return null;
+  }
+
+  return await ctx.db
+    .query('militia')
+    .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
+    .first();
+}
+
+async function getCurrentWeekStateForMilitia(
+  ctx: QueryCtx,
+  militiaId: Id<'militia'>,
+) {
+  const states = await ctx.db
+    .query('militiaWeekState')
+    .withIndex('by_militiaId', (q) => q.eq('militiaId', militiaId))
+    .collect();
+
+  return states.sort((left, right) => right.weekNumber - left.weekNumber)[0];
+}
+
+function buildWeekStateResponse({
+  currentState,
+  currentMaxActions,
+}: {
+  currentState: Doc<'militiaWeekState'> | undefined;
+  currentMaxActions: number;
+}) {
+  const currentStateAny = currentState as
+    | (Doc<'militiaWeekState'> & {
+        stagedActivityTeamIds?: (string | null)[];
+        activityTeamOperations?: {
+          recruits: Array<{ slotIndex: number; teamId: string }>;
+          dismissals: Array<{ slotIndex: number; teamId: string }>;
+          upgrades: Array<{
+            slotIndex: number;
+            fromTeamId: string;
+            toTeamId: string;
+          }>;
+        };
+        activityOfficerOperations?: {
+          changes: Array<{
+            slotIndex: number;
+            role:
+              | 'ambassador'
+              | 'commandant'
+              | 'marshal'
+              | 'overseer'
+              | 'spymaster'
+              | 'strategist';
+            characterId?: Id<'character'>;
+          }>;
+        };
+        activityAssetOperations?: {
+          refuges: Array<{ slotIndex: number; settlementKey: string }>;
+          caches: Array<{
+            slotIndex: number;
+            mode: 'place' | 'retrieve';
+            cacheId?: string;
+            label?: string;
+            cacheClass?: 'minor' | 'intermediate' | 'major';
+            location?: string;
+            contentsSummary?: string;
+            isSecureLocation?: boolean;
+            checkTotal?: number;
+          }>;
+          orders: Array<{
+            slotIndex: number;
+            description: string;
+            notes?: string;
+            costPaid?: number;
+            deliveryDays?: number;
+          }>;
+          marketplaces: Array<{
+            slotIndex: number;
+            label?: string;
+            purchaseSummary?: string;
+            notes?: string;
+          }>;
+          covertActions: Array<{
+            slotIndex: number;
+            mode?: 'augment_action' | 'place_contact';
+            targetSource?: 'character' | 'freeform';
+            followupSlotIndex?: number;
+            characterId?: Id<'character'>;
+            displayName?: string;
+            personKind?: 'pc' | 'officer_npc' | 'other_npc';
+            siteName?: string;
+            notes?: string;
+          }>;
+          rescues: Array<{
+            slotIndex: number;
+            targetSource?: 'tracked' | 'character' | 'freeform';
+            targetStatusId?: string;
+            characterId?: Id<'character'>;
+            displayName?: string;
+            personKind?: 'pc' | 'officer_npc' | 'other_npc';
+            targetLevel?: number;
+            destinationType?: 'hq' | 'refuge' | 'settlement';
+            destinationSettlementKey?: string;
+          }>;
+          restorations: Array<{
+            slotIndex: number;
+            targetSource?: 'tracked' | 'character' | 'freeform';
+            targetStatusId?: string;
+            characterId?: Id<'character'>;
+            displayName?: string;
+            personKind?: 'pc' | 'officer_npc' | 'other_npc';
+            mode?:
+              | 'party_ability_damage'
+              | 'party_hit_points'
+              | 'party_lesser_restorative'
+              | 'break_enchantment'
+              | 'raise_dead'
+              | 'restoration'
+              | 'stone_to_flesh'
+              | 'custom';
+            customCostTotal?: number;
+          }>;
+        };
+        upkeepTeamOperations?: {
+          disabledRecoveries: Array<{ teamId: string; paid: boolean }>;
+          missingChecks: Array<{
+            teamId: string;
+            securityCheckTotal?: number;
+            permanentlyLost?: boolean;
+          }>;
+        };
+        eventMitigations?: Record<string, unknown>;
+        weekWarnings?: Array<{ code: string; message: string }>;
+      })
+    | undefined;
+
+  if (!currentStateAny) {
+    return {
+      weekNumber: 1,
+      phase: 'activity' as const,
+      isFirstWeek: true,
+      skippedUpkeepThisWeek: true,
+      uneventfulBonusCarry: 0,
+      queuedEffects: [],
+      lastPersistentBuyoffWeek: 0,
+      stagedActivityActionIds: Array.from({ length: currentMaxActions }, () => null),
+      stagedActivityTeamIds: Array.from({ length: currentMaxActions }, () => null),
+      activityTeamOperations: {
+        recruits: [],
+        dismissals: [],
+        upgrades: [],
+      },
+      activityOfficerOperations: {
+        changes: [],
+      },
+      activityAssetOperations: {
+        refuges: [],
+        caches: [],
+        orders: [],
+        marketplaces: [],
+        covertActions: [],
+        rescues: [],
+        restorations: [],
+      },
+      upkeepTeamOperations: {
+        disabledRecoveries: [],
+        missingChecks: [],
+      },
+      eventMitigations: {},
+      weekWarnings: [],
+      lockVersion: 0,
+      upkeepRollTotals: {},
+      activityRollTotals: {},
+      eventRollTotals: {},
+    };
+  }
+
+  return {
+    ...currentStateAny,
+    stagedActivityTeamIds:
+      currentStateAny.stagedActivityTeamIds ??
+      Array.from({ length: currentMaxActions }, () => null),
+    activityTeamOperations: currentStateAny.activityTeamOperations ?? {
+      recruits: [],
+      dismissals: [],
+      upgrades: [],
+    },
+    activityOfficerOperations: currentStateAny.activityOfficerOperations ?? {
+      changes: [],
+    },
+    activityAssetOperations: {
+      refuges: currentStateAny.activityAssetOperations?.refuges ?? [],
+      caches: currentStateAny.activityAssetOperations?.caches ?? [],
+      orders: currentStateAny.activityAssetOperations?.orders ?? [],
+      marketplaces: currentStateAny.activityAssetOperations?.marketplaces ?? [],
+      covertActions: currentStateAny.activityAssetOperations?.covertActions ?? [],
+      rescues: currentStateAny.activityAssetOperations?.rescues ?? [],
+      restorations: currentStateAny.activityAssetOperations?.restorations ?? [],
+    },
+    upkeepTeamOperations: currentStateAny.upkeepTeamOperations ?? {
+      disabledRecoveries: [],
+      missingChecks: [],
+    },
+    eventMitigations: currentStateAny.eventMitigations ?? {},
+    weekWarnings: currentStateAny.weekWarnings ?? [],
+  };
 }
 
 function parseManualTotal(raw?: string) {
@@ -1205,6 +1441,289 @@ export const getWeekBoardState = query({
   },
 });
 
+export const getWeekBoardReferenceData = query({
+  args: {
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+  },
+  async handler(ctx, args) {
+    const militia = await getMilitiaForWeekBoardQuery(ctx, args);
+    if (!militia) {
+      return null;
+    }
+
+    const teamRows = await ctx.db
+      .query('militiaTeam')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const teamStates = await ctx.db
+      .query('militiaTeamState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const settlementStates = await ctx.db
+      .query('militiaSettlementState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const characters = await getCampaignCharacters(ctx, militia.campaignId);
+    const highestPcLevel = getHighestActivePcLevelFromCharacters(characters);
+    const rankUp = getRankUpEligibility({
+      rank: militia.rank,
+      training: militia.training,
+      highestPcLevel,
+    });
+    const resolvedManagersByTeamId = buildResolvedTeamManagers({
+      teams: teamRows.map((teamRow) => ({
+        teamId: teamRow.teamId,
+        managerSource: teamRow.managerSource,
+        managerCharacterId: teamRow.managerCharacterId,
+        managerName: teamRow.managerName,
+        managerKind: teamRow.managerKind,
+        managerCharisma: teamRow.managerCharisma,
+      })),
+      characters: characters.map((character) => ({
+        _id: character._id,
+        name: character.name,
+        kind: character.kind,
+        charisma: character.charisma,
+        isActive: character.isActive,
+      })),
+    });
+
+    return {
+      militiaId: militia._id,
+      rank: militia.rank,
+      training: militia.training,
+      treasury: militia.treasury,
+      notoriety: militia.notoriety,
+      focus: militia.focus,
+      maxTeams: getMaxTeamsForRank(militia.rank),
+      teams: teamRows
+        .map((teamRow) => {
+          const state = teamStates.find((row) => row.teamId === teamRow.teamId);
+          return {
+            teamId: teamRow.teamId,
+            status: normalizeTeamStatus(state?.status),
+            unavailableUntilWeek: state?.unavailableUntilWeek,
+            notes: state?.notes,
+            manager: resolvedManagersByTeamId.get(teamRow.teamId) ?? null,
+          };
+        })
+        .sort((left, right) => left.teamId.localeCompare(right.teamId)),
+      settlementKeys: settlementStates
+        .map((settlement) => settlement.settlementKey)
+        .sort((left, right) => left.localeCompare(right)),
+      highestPcLevel,
+      canRankUp: rankUp.canRankUp,
+      rankUpBlockedReason: rankUp.reason,
+      assignableCharacters: characters
+        .filter((character) => character.isActive !== false)
+        .map((character) => ({
+          _id: character._id,
+          name: character.name,
+          kind: character.kind ?? 'pc',
+          level: character.level,
+          strength: character.strength,
+          dexterity: character.dexterity,
+          constitution: character.constitution,
+          intelligence: character.intelligence,
+          wisdom: character.wisdom,
+          charisma: character.charisma,
+        })),
+      officerAssignments: {
+        ambassador: militia.ambassador,
+        commandant: militia.commandant,
+        marshal: militia.marshal,
+        overseer: militia.overseer,
+        spymaster: militia.spymaster,
+        strategist: militia.strategist,
+      },
+    };
+  },
+});
+
+export const getWeekBoardTrackedState = query({
+  args: {
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+  },
+  async handler(ctx, args) {
+    const militia = await getMilitiaForWeekBoardQuery(ctx, args);
+    if (!militia) {
+      return null;
+    }
+
+    const settlementStates = await ctx.db
+      .query('militiaSettlementState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const cacheRows = await ctx.db
+      .query('militiaCache')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const marketplaceRows = await ctx.db
+      .query('militiaMarketplace')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const orderRows = await ctx.db
+      .query('militiaOrder')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const trackedPeopleRows = await ctx.db
+      .query('militiaCharacterStatus')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
+    const unresolvedPersistent = (
+      await ctx.db
+        .query('militiaEventState')
+        .withIndex('by_militiaId_persistent', (q) =>
+          q.eq('militiaId', militia._id).eq('isPersistent', true),
+        )
+        .collect()
+    )
+      .filter((event) => !event.resolved)
+      .sort((left, right) => left.startedWeek - right.startedWeek);
+
+    return {
+      settlements: settlementStates
+        .map((settlement) => ({
+          _id: settlement._id,
+          settlementKey: settlement.settlementKey,
+          reputation: settlement.reputation,
+          isSecured: settlement.isSecured,
+          temporaryShift: settlement.temporaryShift,
+          refugeActiveUntilWeek: settlement.refugeActiveUntilWeek,
+          refugeActivatedWeek: settlement.refugeActivatedWeek,
+        }))
+        .sort((left, right) => left.settlementKey.localeCompare(right.settlementKey)),
+      caches: cacheRows
+        .map((cache) => ({
+          _id: cache._id,
+          label: cache.label,
+          cacheClass: cache.cacheClass,
+          location: cache.location,
+          contentsSummary: cache.contentsSummary,
+          status: cache.status,
+          isSecureLocation: cache.isSecureLocation,
+          createdWeek: cache.createdWeek,
+          updatedWeek: cache.updatedWeek,
+          retrievedWeek: cache.retrievedWeek,
+          lostWeek: cache.lostWeek,
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label)),
+      marketplaces: marketplaceRows
+        .map((marketplace) => ({
+          _id: marketplace._id,
+          label: marketplace.label,
+          sourceAction: marketplace.sourceAction,
+          teamId: marketplace.teamId,
+          availabilityTier: marketplace.availabilityTier,
+          availabilityThreshold: marketplace.availabilityThreshold,
+          saleValuePercent: marketplace.saleValuePercent,
+          contrabandAllowed: marketplace.contrabandAllowed,
+          createdWeek: marketplace.createdWeek,
+          activeUntilWeek: marketplace.activeUntilWeek,
+          marketDayDiscountPercent: marketplace.marketDayDiscountPercent,
+          marketDayAppliedWeek: marketplace.marketDayAppliedWeek,
+          notes: marketplace.notes,
+        }))
+        .sort((left, right) => left.createdWeek - right.createdWeek || left.label.localeCompare(right.label)),
+      orders: orderRows
+        .map((order) => ({
+          _id: order._id,
+          description: order.description,
+          notes: order.notes,
+          costPaid: order.costPaid,
+          deliveryDays: order.deliveryDays,
+          orderedWeek: order.orderedWeek,
+          dueWeek: order.dueWeek,
+          status: order.status,
+          deliveredWeek: order.deliveredWeek,
+          sourceAction: order.sourceAction,
+          marketplaceId: order.marketplaceId,
+        }))
+        .sort((left, right) => left.orderedWeek - right.orderedWeek),
+      trackedPeople: trackedPeopleRows
+        .map((person) => ({
+          _id: person._id,
+          characterId: person.characterId,
+          displayName: person.displayName,
+          personKind: person.personKind,
+          status: person.status,
+          level: person.level,
+          locationType: person.locationType,
+          settlementKey: person.settlementKey,
+          siteName: person.siteName,
+          notes: person.notes,
+          activeUntilWeek: person.activeUntilWeek,
+          hiddenSinceWeek: person.hiddenSinceWeek,
+          capturedSinceWeek: person.capturedSinceWeek,
+          rescuedWeek: person.rescuedWeek,
+          restoredWeek: person.restoredWeek,
+          rescueDcOverride: person.rescueDcOverride,
+          sourceAction: person.sourceAction,
+        }))
+        .sort((left, right) => left.displayName.localeCompare(right.displayName)),
+      activePersistentEvents: unresolvedPersistent.map((event) => ({
+        _id: event._id,
+        eventType: event.eventType,
+        startedWeek: event.startedWeek,
+      })),
+    };
+  },
+});
+
+export const getWeekBoardLiveState = query({
+  args: {
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+  },
+  async handler(ctx, args) {
+    const militia = await getMilitiaForWeekBoardQuery(ctx, args);
+    if (!militia) {
+      return null;
+    }
+
+    const currentState = await getCurrentWeekStateForMilitia(ctx, militia._id);
+    const currentStateAny = currentState as
+      | (Doc<'militiaWeekState'> & {
+          activityOfficerOperations?: {
+            changes?: Array<{
+              slotIndex: number;
+              role: string;
+              characterId?: Id<'character'>;
+            }>;
+          };
+        })
+      | undefined;
+    const currentMaxActions = getCurrentWeekMaxActions({
+      rank: militia.rank,
+      strategist: militia.strategist,
+      stagedActivityActionIds: currentState?.stagedActivityActionIds,
+      activityOfficerOperations: currentStateAny?.activityOfficerOperations,
+    });
+    const currentWeekNumber = currentState?.weekNumber ?? 1;
+    const lastPersistentBuyoffWeek = currentState?.lastPersistentBuyoffWeek ?? 0;
+    const buyoffWeeksRemaining = Math.max(
+      0,
+      4 - (currentWeekNumber - lastPersistentBuyoffWeek),
+    );
+
+    return {
+      militiaId: militia._id,
+      maxActions: currentMaxActions,
+      persistentBuyoff: {
+        cost: 2 * militia.rank * 10,
+        weeksRemaining: buyoffWeeksRemaining,
+        canBuyoffNow: buyoffWeeksRemaining === 0,
+      },
+      state: buildWeekStateResponse({
+        currentState,
+        currentMaxActions,
+      }),
+    };
+  },
+});
+
 export const saveWeekBoardState = mutation({
   args: {
     organizationId: campaignValidator.fields.organizationId,
@@ -1395,19 +1914,20 @@ export const saveWeekBoardState = mutation({
           theftMitigationTotal: v.optional(v.string()),
           sicknessTwiceLoyaltyTotal: v.optional(v.string()),
           turncoatOfficerCheckTotal: v.optional(v.string()),
-          turncoatSelectedTeamId: v.optional(teamIdValidator),
+          turncoatSelectedTeamId: v.optional(v.union(teamIdValidator, v.null())),
           rivalrySelectedTeamIds: v.optional(v.array(teamIdValidator)),
-          missingInActionSelectedTeamId: v.optional(teamIdValidator),
-          sicknessSelectedTeamId: v.optional(teamIdValidator),
-          turnAroundBoostTeamId: v.optional(teamIdValidator),
-          marketDayMarketplaceId: v.optional(v.string()),
-          marketDayTownName: v.optional(v.string()),
+          missingInActionSelectedTeamId: v.optional(v.union(teamIdValidator, v.null())),
+          sicknessSelectedTeamId: v.optional(v.union(teamIdValidator, v.null())),
+          turnAroundBoostTeamId: v.optional(v.union(teamIdValidator, v.null())),
+          marketDayMarketplaceId: v.optional(v.union(v.string(), v.null())),
+          marketDayTownName: v.optional(v.union(v.string(), v.null())),
           overseerEventSupportTarget: v.optional(
             v.union(
               v.literal('sabotage'),
               v.literal('cache_discovered'),
               v.literal('theft'),
               v.literal('sickness_twice'),
+              v.null(),
             ),
           ),
         }),
@@ -1460,7 +1980,7 @@ export const saveWeekBoardState = mutation({
           guaranteedFirstPercentileTotal: v.optional(v.string()),
           guaranteedSecondPercentileTotal: v.optional(v.string()),
           guaranteedChosen: v.optional(
-            v.union(v.literal('first'), v.literal('second')),
+            v.union(v.literal('first'), v.literal('second'), v.null()),
           ),
           sabotageCheckTotal: v.optional(v.string()),
           sabotageNotorietyIncreaseTotal: v.optional(v.string()),
@@ -1478,6 +1998,15 @@ export const saveWeekBoardState = mutation({
     const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
     const currentAny = current as
       | (typeof current & {
+          activityTeamOperations?: {
+            recruits?: Array<{ slotIndex: number; teamId: string }>;
+            dismissals?: Array<{ slotIndex: number; teamId: string }>;
+            upgrades?: Array<{
+              slotIndex: number;
+              fromTeamId: string;
+              toTeamId: string;
+            }>;
+          };
           activityOfficerOperations?: {
             changes?: Array<{
               slotIndex: number;
@@ -1485,6 +2014,86 @@ export const saveWeekBoardState = mutation({
               characterId?: Id<'character'>;
             }>;
           };
+          activityAssetOperations?: {
+            refuges?: Array<{ slotIndex: number; settlementKey: string }>;
+            caches?: Array<{
+              slotIndex: number;
+              mode: 'place' | 'retrieve';
+              cacheId?: string;
+              label?: string;
+              cacheClass?: 'minor' | 'intermediate' | 'major';
+              location?: string;
+              contentsSummary?: string;
+              isSecureLocation?: boolean;
+              checkTotal?: number;
+            }>;
+            orders?: Array<{
+              slotIndex: number;
+              description: string;
+              notes?: string;
+              costPaid?: number;
+              deliveryDays?: number;
+            }>;
+            marketplaces?: Array<{
+              slotIndex: number;
+              label?: string;
+              purchaseSummary?: string;
+              notes?: string;
+            }>;
+            covertActions?: Array<{
+              slotIndex: number;
+              mode?: 'augment_action' | 'place_contact';
+              targetSource?: 'character' | 'freeform';
+              followupSlotIndex?: number;
+              characterId?: Id<'character'>;
+              displayName?: string;
+              personKind?: 'pc' | 'officer_npc' | 'other_npc';
+              siteName?: string;
+              notes?: string;
+            }>;
+            rescues?: Array<{
+              slotIndex: number;
+              targetSource?: 'tracked' | 'character' | 'freeform';
+              targetStatusId?: string;
+              characterId?: Id<'character'>;
+              displayName?: string;
+              personKind?: 'pc' | 'officer_npc' | 'other_npc';
+              targetLevel?: number;
+              destinationType?: 'hq' | 'refuge' | 'settlement';
+              destinationSettlementKey?: string;
+            }>;
+            restorations?: Array<{
+              slotIndex: number;
+              targetSource?: 'tracked' | 'character' | 'freeform';
+              targetStatusId?: string;
+              characterId?: Id<'character'>;
+              displayName?: string;
+              personKind?: 'pc' | 'officer_npc' | 'other_npc';
+              mode?:
+                | 'party_ability_damage'
+                | 'party_hit_points'
+                | 'party_lesser_restorative'
+                | 'break_enchantment'
+                | 'raise_dead'
+                | 'restoration'
+                | 'stone_to_flesh'
+                | 'custom';
+              customCostTotal?: number;
+            }>;
+          };
+          upkeepTeamOperations?: {
+            disabledRecoveries?: Array<{ teamId: string; paid: boolean }>;
+            missingChecks?: Array<{
+              teamId: string;
+              securityCheckTotal?: number;
+              permanentlyLost?: boolean;
+            }>;
+          };
+          eventMitigations?: Record<string, unknown>;
+          upkeepRollTotals?: Record<string, unknown>;
+          activityRollTotals?: Record<string, unknown>;
+          eventRollTotals?: Record<string, unknown>;
+          weekWarnings?: Array<{ code: string; message: string }>;
         })
       | undefined;
     const maxActions = getCurrentWeekMaxActions({
@@ -1688,6 +2297,35 @@ export const saveWeekBoardState = mutation({
     } = {
       lockVersion: (current?.lockVersion ?? 0) + 1,
     };
+    const currentActivityTeamOperations = {
+      recruits: currentAny?.activityTeamOperations?.recruits ?? [],
+      dismissals: currentAny?.activityTeamOperations?.dismissals ?? [],
+      upgrades: currentAny?.activityTeamOperations?.upgrades ?? [],
+    };
+    const currentActivityOfficerOperations = {
+      changes: currentAny?.activityOfficerOperations?.changes ?? [],
+    };
+    const currentActivityAssetOperations = {
+      refuges: currentAny?.activityAssetOperations?.refuges ?? [],
+      caches: currentAny?.activityAssetOperations?.caches ?? [],
+      orders: currentAny?.activityAssetOperations?.orders ?? [],
+      marketplaces: currentAny?.activityAssetOperations?.marketplaces ?? [],
+      covertActions: currentAny?.activityAssetOperations?.covertActions ?? [],
+      rescues: currentAny?.activityAssetOperations?.rescues ?? [],
+      restorations: currentAny?.activityAssetOperations?.restorations ?? [],
+    };
+    const currentUpkeepTeamOperations = {
+      disabledRecoveries: currentAny?.upkeepTeamOperations?.disabledRecoveries ?? [],
+      missingChecks: currentAny?.upkeepTeamOperations?.missingChecks ?? [],
+    };
+    const currentEventMitigations =
+      (currentAny?.eventMitigations as Record<string, unknown> | undefined) ?? {};
+    const currentUpkeepRollTotals =
+      (currentAny?.upkeepRollTotals as Record<string, unknown> | undefined) ?? {};
+    const currentActivityRollTotals =
+      (currentAny?.activityRollTotals as Record<string, unknown> | undefined) ?? {};
+    const currentEventRollTotals =
+      (currentAny?.eventRollTotals as Record<string, unknown> | undefined) ?? {};
 
     if (args.patch.phase) {
       nextPatch.phase = args.patch.phase;
@@ -1724,9 +2362,15 @@ export const saveWeekBoardState = mutation({
         .map((value) => value ?? null);
     }
     if (args.patch.activityTeamOperations) {
-      const recruits = args.patch.activityTeamOperations.recruits ?? [];
-      const dismissals = args.patch.activityTeamOperations.dismissals ?? [];
-      const upgrades = args.patch.activityTeamOperations.upgrades ?? [];
+      const recruits =
+        args.patch.activityTeamOperations.recruits ??
+        currentActivityTeamOperations.recruits;
+      const dismissals =
+        args.patch.activityTeamOperations.dismissals ??
+        currentActivityTeamOperations.dismissals;
+      const upgrades =
+        args.patch.activityTeamOperations.upgrades ??
+        currentActivityTeamOperations.upgrades;
       nextPatch.activityTeamOperations = {
         recruits,
         dismissals,
@@ -1748,7 +2392,10 @@ export const saveWeekBoardState = mutation({
     }
     if (args.patch.activityOfficerOperations) {
       nextPatch.activityOfficerOperations = {
-        changes: (args.patch.activityOfficerOperations.changes ?? []).map(
+        changes: (
+          args.patch.activityOfficerOperations.changes ??
+          currentActivityOfficerOperations.changes
+        ).map(
           (change) => ({
             slotIndex: change.slotIndex,
             role: change.role,
@@ -1759,74 +2406,93 @@ export const saveWeekBoardState = mutation({
     }
     if (args.patch.activityAssetOperations) {
       nextPatch.activityAssetOperations = {
-        refuges: (args.patch.activityAssetOperations.refuges ?? []).map((entry) => ({
-          slotIndex: entry.slotIndex,
-          settlementKey: entry.settlementKey.trim(),
-        })),
-        caches: (args.patch.activityAssetOperations.caches ?? []).map((entry) => ({
-          slotIndex: entry.slotIndex,
-          mode: entry.mode,
-          ...(trimToUndefined(entry.cacheId)
-            ? { cacheId: trimToUndefined(entry.cacheId) }
-            : {}),
-          label: trimToUndefined(entry.label),
-          cacheClass: entry.cacheClass,
-          location: trimToUndefined(entry.location),
-          contentsSummary: trimToUndefined(entry.contentsSummary),
-          isSecureLocation: entry.isSecureLocation ?? false,
-          checkTotal: parseManualTotal(entry.checkTotal),
-        })),
-        orders: (args.patch.activityAssetOperations.orders ?? []).map((entry) => ({
-          slotIndex: entry.slotIndex,
-          description: entry.description.trim(),
-          notes: trimToUndefined(entry.notes),
-          costPaid: parseOptionalNonNegativeTotal(entry.costPaid),
-          deliveryDays: parseOptionalNonNegativeTotal(entry.deliveryDays),
-        })),
-        marketplaces: (args.patch.activityAssetOperations.marketplaces ?? []).map(
-          (entry) => ({
-            slotIndex: entry.slotIndex,
-            label: trimToUndefined(entry.label),
-            purchaseSummary: trimToUndefined(entry.purchaseSummary),
-            notes: trimToUndefined(entry.notes),
-          }),
-        ),
-        covertActions: (args.patch.activityAssetOperations.covertActions ?? []).map(
-          (entry) => ({
-            slotIndex: entry.slotIndex,
-            mode: entry.mode,
-            targetSource: entry.targetSource,
-            followupSlotIndex: entry.followupSlotIndex,
-            characterId: entry.characterId,
-            displayName: trimToUndefined(entry.displayName),
-            personKind: entry.personKind,
-            siteName: trimToUndefined(entry.siteName),
-            notes: trimToUndefined(entry.notes),
-          }),
-        ),
-        rescues: (args.patch.activityAssetOperations.rescues ?? []).map((entry) => ({
-          slotIndex: entry.slotIndex,
-          targetSource: entry.targetSource,
-          targetStatusId: trimToUndefined(entry.targetStatusId),
-          characterId: entry.characterId,
-          displayName: trimToUndefined(entry.displayName),
-          personKind: entry.personKind,
-          targetLevel: parseOptionalNonNegativeTotal(entry.targetLevel),
-          destinationType: entry.destinationType,
-          destinationSettlementKey: trimToUndefined(entry.destinationSettlementKey),
-        })),
-        restorations: (args.patch.activityAssetOperations.restorations ?? []).map(
-          (entry) => ({
-            slotIndex: entry.slotIndex,
-            targetSource: entry.targetSource,
-            targetStatusId: trimToUndefined(entry.targetStatusId),
-            characterId: entry.characterId,
-            displayName: trimToUndefined(entry.displayName),
-            personKind: entry.personKind,
-            mode: entry.mode,
-            customCostTotal: parseOptionalNonNegativeTotal(entry.customCostTotal),
-          }),
-        ),
+        refuges:
+          args.patch.activityAssetOperations.refuges !== undefined
+            ? args.patch.activityAssetOperations.refuges.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                settlementKey: entry.settlementKey.trim(),
+              }))
+            : currentActivityAssetOperations.refuges,
+        caches:
+          args.patch.activityAssetOperations.caches !== undefined
+            ? args.patch.activityAssetOperations.caches.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                mode: entry.mode,
+                ...(trimToUndefined(entry.cacheId)
+                  ? { cacheId: trimToUndefined(entry.cacheId) }
+                  : {}),
+                label: trimToUndefined(entry.label),
+                cacheClass: entry.cacheClass,
+                location: trimToUndefined(entry.location),
+                contentsSummary: trimToUndefined(entry.contentsSummary),
+                isSecureLocation: entry.isSecureLocation ?? false,
+                checkTotal: parseManualTotal(entry.checkTotal),
+              }))
+            : currentActivityAssetOperations.caches,
+        orders:
+          args.patch.activityAssetOperations.orders !== undefined
+            ? args.patch.activityAssetOperations.orders.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                description: entry.description.trim(),
+                notes: trimToUndefined(entry.notes),
+                costPaid: parseOptionalNonNegativeTotal(entry.costPaid),
+                deliveryDays: parseOptionalNonNegativeTotal(entry.deliveryDays),
+              }))
+            : currentActivityAssetOperations.orders,
+        marketplaces:
+          args.patch.activityAssetOperations.marketplaces !== undefined
+            ? args.patch.activityAssetOperations.marketplaces.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                label: trimToUndefined(entry.label),
+                purchaseSummary: trimToUndefined(entry.purchaseSummary),
+                notes: trimToUndefined(entry.notes),
+              }))
+            : currentActivityAssetOperations.marketplaces,
+        covertActions:
+          args.patch.activityAssetOperations.covertActions !== undefined
+            ? args.patch.activityAssetOperations.covertActions.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                mode: entry.mode,
+                targetSource: entry.targetSource,
+                followupSlotIndex: entry.followupSlotIndex,
+                characterId: entry.characterId,
+                displayName: trimToUndefined(entry.displayName),
+                personKind: entry.personKind,
+                siteName: trimToUndefined(entry.siteName),
+                notes: trimToUndefined(entry.notes),
+              }))
+            : currentActivityAssetOperations.covertActions,
+        rescues:
+          args.patch.activityAssetOperations.rescues !== undefined
+            ? args.patch.activityAssetOperations.rescues.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                targetSource: entry.targetSource,
+                targetStatusId: trimToUndefined(entry.targetStatusId),
+                characterId: entry.characterId,
+                displayName: trimToUndefined(entry.displayName),
+                personKind: entry.personKind,
+                targetLevel: parseOptionalNonNegativeTotal(entry.targetLevel),
+                destinationType: entry.destinationType,
+                destinationSettlementKey: trimToUndefined(
+                  entry.destinationSettlementKey,
+                ),
+              }))
+            : currentActivityAssetOperations.rescues,
+        restorations:
+          args.patch.activityAssetOperations.restorations !== undefined
+            ? args.patch.activityAssetOperations.restorations.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                targetSource: entry.targetSource,
+                targetStatusId: trimToUndefined(entry.targetStatusId),
+                characterId: entry.characterId,
+                displayName: trimToUndefined(entry.displayName),
+                personKind: entry.personKind,
+                mode: entry.mode,
+                customCostTotal: parseOptionalNonNegativeTotal(
+                  entry.customCostTotal,
+                ),
+              }))
+            : currentActivityAssetOperations.restorations,
       };
 
       const settlementStates = await ctx.db
@@ -1856,171 +2522,390 @@ export const saveWeekBoardState = mutation({
     }
     if (args.patch.upkeepTeamOperations) {
       nextPatch.upkeepTeamOperations = {
-        disabledRecoveries: args.patch.upkeepTeamOperations.disabledRecoveries ?? [],
-        missingChecks: (args.patch.upkeepTeamOperations.missingChecks ?? []).map(
-          (entry) => ({
-            teamId: entry.teamId,
-            securityCheckTotal: parseManualTotal(entry.securityCheckTotal),
-            permanentlyLost: entry.permanentlyLost,
-          }),
-        ),
+        disabledRecoveries:
+          args.patch.upkeepTeamOperations.disabledRecoveries ??
+          currentUpkeepTeamOperations.disabledRecoveries,
+        missingChecks:
+          args.patch.upkeepTeamOperations.missingChecks !== undefined
+            ? args.patch.upkeepTeamOperations.missingChecks.map((entry) => ({
+                teamId: entry.teamId,
+                securityCheckTotal: parseManualTotal(entry.securityCheckTotal),
+                permanentlyLost: entry.permanentlyLost,
+              }))
+            : currentUpkeepTeamOperations.missingChecks,
       };
     }
     if (args.patch.eventMitigations) {
       nextPatch.eventMitigations = {
-        cacheDiscoveredMitigationTotal: parseManualTotal(
-          args.patch.eventMitigations.cacheDiscoveredMitigationTotal,
-        ),
-        theftMitigationTotal: parseManualTotal(
-          args.patch.eventMitigations.theftMitigationTotal,
-        ),
-        sicknessTwiceLoyaltyTotal: parseManualTotal(
-          args.patch.eventMitigations.sicknessTwiceLoyaltyTotal,
-        ),
-        turncoatOfficerCheckTotal: parseManualTotal(
-          args.patch.eventMitigations.turncoatOfficerCheckTotal,
-        ),
-        turncoatSelectedTeamId: args.patch.eventMitigations.turncoatSelectedTeamId,
-        rivalrySelectedTeamIds: args.patch.eventMitigations.rivalrySelectedTeamIds,
+        cacheDiscoveredMitigationTotal:
+          'cacheDiscoveredMitigationTotal' in args.patch.eventMitigations
+            ? parseManualTotal(
+                args.patch.eventMitigations.cacheDiscoveredMitigationTotal,
+              )
+            : (currentEventMitigations.cacheDiscoveredMitigationTotal as
+                | number
+                | undefined),
+        theftMitigationTotal:
+          'theftMitigationTotal' in args.patch.eventMitigations
+            ? parseManualTotal(args.patch.eventMitigations.theftMitigationTotal)
+            : (currentEventMitigations.theftMitigationTotal as number | undefined),
+        sicknessTwiceLoyaltyTotal:
+          'sicknessTwiceLoyaltyTotal' in args.patch.eventMitigations
+            ? parseManualTotal(
+                args.patch.eventMitigations.sicknessTwiceLoyaltyTotal,
+              )
+            : (currentEventMitigations.sicknessTwiceLoyaltyTotal as
+                | number
+                | undefined),
+        turncoatOfficerCheckTotal:
+          'turncoatOfficerCheckTotal' in args.patch.eventMitigations
+            ? parseManualTotal(
+                args.patch.eventMitigations.turncoatOfficerCheckTotal,
+              )
+            : (currentEventMitigations.turncoatOfficerCheckTotal as
+                | number
+                | undefined),
+        turncoatSelectedTeamId:
+          'turncoatSelectedTeamId' in args.patch.eventMitigations
+            ? args.patch.eventMitigations.turncoatSelectedTeamId ?? undefined
+            : (currentEventMitigations.turncoatSelectedTeamId as string | undefined),
+        rivalrySelectedTeamIds:
+          'rivalrySelectedTeamIds' in args.patch.eventMitigations
+            ? args.patch.eventMitigations.rivalrySelectedTeamIds
+            : (currentEventMitigations.rivalrySelectedTeamIds as
+                | string[]
+                | undefined),
         missingInActionSelectedTeamId:
-          args.patch.eventMitigations.missingInActionSelectedTeamId,
-        sicknessSelectedTeamId: args.patch.eventMitigations.sicknessSelectedTeamId,
-        turnAroundBoostTeamId: args.patch.eventMitigations.turnAroundBoostTeamId,
-        marketDayMarketplaceId: trimToUndefined(
-          args.patch.eventMitigations.marketDayMarketplaceId,
-        ),
-        marketDayTownName: trimToUndefined(args.patch.eventMitigations.marketDayTownName),
+          'missingInActionSelectedTeamId' in args.patch.eventMitigations
+            ? args.patch.eventMitigations.missingInActionSelectedTeamId ?? undefined
+            : (currentEventMitigations.missingInActionSelectedTeamId as
+                | string
+                | undefined),
+        sicknessSelectedTeamId:
+          'sicknessSelectedTeamId' in args.patch.eventMitigations
+            ? args.patch.eventMitigations.sicknessSelectedTeamId ?? undefined
+            : (currentEventMitigations.sicknessSelectedTeamId as
+                | string
+                | undefined),
+        turnAroundBoostTeamId:
+          'turnAroundBoostTeamId' in args.patch.eventMitigations
+            ? args.patch.eventMitigations.turnAroundBoostTeamId ?? undefined
+            : (currentEventMitigations.turnAroundBoostTeamId as
+                | string
+                | undefined),
+        marketDayMarketplaceId:
+          'marketDayMarketplaceId' in args.patch.eventMitigations
+            ? trimToUndefined(
+                args.patch.eventMitigations.marketDayMarketplaceId ?? undefined,
+              )
+            : (currentEventMitigations.marketDayMarketplaceId as
+                | string
+                | undefined),
+        marketDayTownName:
+          'marketDayTownName' in args.patch.eventMitigations
+            ? trimToUndefined(args.patch.eventMitigations.marketDayTownName ?? undefined)
+            : (currentEventMitigations.marketDayTownName as string | undefined),
         overseerEventSupportTarget:
-          args.patch.eventMitigations.overseerEventSupportTarget,
+          'overseerEventSupportTarget' in args.patch.eventMitigations
+            ? args.patch.eventMitigations.overseerEventSupportTarget ?? undefined
+            : (currentEventMitigations.overseerEventSupportTarget as
+                | 'sabotage'
+                | 'cache_discovered'
+                | 'theft'
+                | 'sickness_twice'
+                | undefined),
       };
     }
     if (args.patch.upkeepRollTotals) {
       nextPatch.upkeepRollTotals = {
-        attritionTotal: parseManualTotal(args.patch.upkeepRollTotals.attritionTotal),
-        notorietyPenaltyTotal: parseManualTotal(
-          args.patch.upkeepRollTotals.notorietyPenaltyTotal,
-        ),
-        maxNotorietyLoyaltyCheckTotal: parseManualTotal(
-          args.patch.upkeepRollTotals.maxNotorietyLoyaltyCheckTotal,
-        ),
-        nearestSettlementKey: args.patch.upkeepRollTotals.nearestSettlementKey
-          ?.trim()
-          ? args.patch.upkeepRollTotals.nearestSettlementKey.trim()
-          : undefined,
-        treasuryPenaltyTotal: parseManualTotal(
-          args.patch.upkeepRollTotals.treasuryPenaltyTotal,
-        ),
+        attritionTotal:
+          'attritionTotal' in args.patch.upkeepRollTotals
+            ? parseManualTotal(args.patch.upkeepRollTotals.attritionTotal)
+            : (currentUpkeepRollTotals.attritionTotal as number | undefined),
+        notorietyPenaltyTotal:
+          'notorietyPenaltyTotal' in args.patch.upkeepRollTotals
+            ? parseManualTotal(args.patch.upkeepRollTotals.notorietyPenaltyTotal)
+            : (currentUpkeepRollTotals.notorietyPenaltyTotal as
+                | number
+                | undefined),
+        maxNotorietyLoyaltyCheckTotal:
+          'maxNotorietyLoyaltyCheckTotal' in args.patch.upkeepRollTotals
+            ? parseManualTotal(
+                args.patch.upkeepRollTotals.maxNotorietyLoyaltyCheckTotal,
+              )
+            : (currentUpkeepRollTotals.maxNotorietyLoyaltyCheckTotal as
+                | number
+                | undefined),
+        nearestSettlementKey:
+          'nearestSettlementKey' in args.patch.upkeepRollTotals
+            ? args.patch.upkeepRollTotals.nearestSettlementKey?.trim()
+              ? args.patch.upkeepRollTotals.nearestSettlementKey.trim()
+              : undefined
+            : (currentUpkeepRollTotals.nearestSettlementKey as
+                | string
+                | undefined),
+        treasuryPenaltyTotal:
+          'treasuryPenaltyTotal' in args.patch.upkeepRollTotals
+            ? parseManualTotal(args.patch.upkeepRollTotals.treasuryPenaltyTotal)
+            : (currentUpkeepRollTotals.treasuryPenaltyTotal as
+                | number
+                | undefined),
       };
     }
     if (args.patch.activityRollTotals) {
       nextPatch.activityRollTotals = {
-        activateBlackMarketCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.activateBlackMarketCheckTotal,
-        ),
-        activateBlackMarketNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.activateBlackMarketNotorietyIncreaseTotal,
-        ),
-        dismissTeamCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.dismissTeamCheckTotal,
-        ),
-        dismissTeamNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.dismissTeamNotorietyIncreaseTotal,
-        ),
-        drillMilitiaCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.drillMilitiaCheckTotal,
-        ),
-        drillMilitiaTrainingGainTotal: parseManualTotal(
-          args.patch.activityRollTotals.drillMilitiaTrainingGainTotal,
-        ),
-        earnGoldCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.earnGoldCheckTotal,
-        ),
-        earnGoldTotal: parseManualTotal(
-          args.patch.activityRollTotals.earnGoldTotal,
-        ),
-        earnGoldNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.earnGoldNotorietyIncreaseTotal,
-        ),
-        gatherInformationCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.gatherInformationCheckTotal,
-        ),
-        gatherInformationNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.gatherInformationNotorietyIncreaseTotal,
-        ),
-        knowledgeCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.knowledgeCheckTotal,
-        ),
-        recruitTeamCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.recruitTeamCheckTotal,
-        ),
-        recruitTeamNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.recruitTeamNotorietyIncreaseTotal,
-        ),
-        reduceDangerCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.reduceDangerCheckTotal,
-        ),
-        reduceDangerNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.reduceDangerNotorietyIncreaseTotal,
-        ),
-        rescueCharacterCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.rescueCharacterCheckTotal,
-        ),
-        rescueCharacterTargetLevelTotal: parseManualTotal(
-          args.patch.activityRollTotals.rescueCharacterTargetLevelTotal,
-        ),
-        rescueCharacterNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.activityRollTotals.rescueCharacterNotorietyIncreaseTotal,
-        ),
-        restoreCharacterCostTotal: parseOptionalNonNegativeTotal(
-          args.patch.activityRollTotals.restoreCharacterCostTotal,
-        ),
-        secureCacheCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.secureCacheCheckTotal,
-        ),
-        specialActionCostTotal: parseOptionalNonNegativeTotal(
-          args.patch.activityRollTotals.specialActionCostTotal,
-        ),
-        specialOrderItemCostTotal: parseOptionalNonNegativeTotal(
-          args.patch.activityRollTotals.specialOrderItemCostTotal,
-        ),
-        spreadPropagandaCheckTotal: parseManualTotal(
-          args.patch.activityRollTotals.spreadPropagandaCheckTotal,
-        ),
-        specialOrderDeliveryDaysTotal: parseManualTotal(
-          args.patch.activityRollTotals.specialOrderDeliveryDaysTotal,
-        ),
+        activateBlackMarketCheckTotal:
+          'activateBlackMarketCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.activateBlackMarketCheckTotal,
+              )
+            : (currentActivityRollTotals.activateBlackMarketCheckTotal as
+                | number
+                | undefined),
+        activateBlackMarketNotorietyIncreaseTotal:
+          'activateBlackMarketNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals
+                  .activateBlackMarketNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.activateBlackMarketNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        dismissTeamCheckTotal:
+          'dismissTeamCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.dismissTeamCheckTotal)
+            : (currentActivityRollTotals.dismissTeamCheckTotal as
+                | number
+                | undefined),
+        dismissTeamNotorietyIncreaseTotal:
+          'dismissTeamNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.dismissTeamNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.dismissTeamNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        drillMilitiaCheckTotal:
+          'drillMilitiaCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.drillMilitiaCheckTotal)
+            : (currentActivityRollTotals.drillMilitiaCheckTotal as
+                | number
+                | undefined),
+        drillMilitiaTrainingGainTotal:
+          'drillMilitiaTrainingGainTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.drillMilitiaTrainingGainTotal,
+              )
+            : (currentActivityRollTotals.drillMilitiaTrainingGainTotal as
+                | number
+                | undefined),
+        earnGoldCheckTotal:
+          'earnGoldCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.earnGoldCheckTotal)
+            : (currentActivityRollTotals.earnGoldCheckTotal as
+                | number
+                | undefined),
+        earnGoldTotal:
+          'earnGoldTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.earnGoldTotal)
+            : (currentActivityRollTotals.earnGoldTotal as number | undefined),
+        earnGoldNotorietyIncreaseTotal:
+          'earnGoldNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.earnGoldNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.earnGoldNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        gatherInformationCheckTotal:
+          'gatherInformationCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.gatherInformationCheckTotal,
+              )
+            : (currentActivityRollTotals.gatherInformationCheckTotal as
+                | number
+                | undefined),
+        gatherInformationNotorietyIncreaseTotal:
+          'gatherInformationNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals
+                  .gatherInformationNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.gatherInformationNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        knowledgeCheckTotal:
+          'knowledgeCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.knowledgeCheckTotal)
+            : (currentActivityRollTotals.knowledgeCheckTotal as
+                | number
+                | undefined),
+        recruitTeamCheckTotal:
+          'recruitTeamCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.recruitTeamCheckTotal)
+            : (currentActivityRollTotals.recruitTeamCheckTotal as
+                | number
+                | undefined),
+        recruitTeamNotorietyIncreaseTotal:
+          'recruitTeamNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.recruitTeamNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.recruitTeamNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        reduceDangerCheckTotal:
+          'reduceDangerCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.reduceDangerCheckTotal)
+            : (currentActivityRollTotals.reduceDangerCheckTotal as
+                | number
+                | undefined),
+        reduceDangerNotorietyIncreaseTotal:
+          'reduceDangerNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.reduceDangerNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.reduceDangerNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        rescueCharacterCheckTotal:
+          'rescueCharacterCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.rescueCharacterCheckTotal,
+              )
+            : (currentActivityRollTotals.rescueCharacterCheckTotal as
+                | number
+                | undefined),
+        rescueCharacterTargetLevelTotal:
+          'rescueCharacterTargetLevelTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.rescueCharacterTargetLevelTotal,
+              )
+            : (currentActivityRollTotals.rescueCharacterTargetLevelTotal as
+                | number
+                | undefined),
+        rescueCharacterNotorietyIncreaseTotal:
+          'rescueCharacterNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals
+                  .rescueCharacterNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.rescueCharacterNotorietyIncreaseTotal as
+                | number
+                | undefined),
+        restoreCharacterCostTotal:
+          'restoreCharacterCostTotal' in args.patch.activityRollTotals
+            ? parseOptionalNonNegativeTotal(
+                args.patch.activityRollTotals.restoreCharacterCostTotal,
+              )
+            : (currentActivityRollTotals.restoreCharacterCostTotal as
+                | number
+                | undefined),
+        secureCacheCheckTotal:
+          'secureCacheCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(args.patch.activityRollTotals.secureCacheCheckTotal)
+            : (currentActivityRollTotals.secureCacheCheckTotal as
+                | number
+                | undefined),
+        specialActionCostTotal:
+          'specialActionCostTotal' in args.patch.activityRollTotals
+            ? parseOptionalNonNegativeTotal(
+                args.patch.activityRollTotals.specialActionCostTotal,
+              )
+            : (currentActivityRollTotals.specialActionCostTotal as
+                | number
+                | undefined),
+        specialOrderItemCostTotal:
+          'specialOrderItemCostTotal' in args.patch.activityRollTotals
+            ? parseOptionalNonNegativeTotal(
+                args.patch.activityRollTotals.specialOrderItemCostTotal,
+              )
+            : (currentActivityRollTotals.specialOrderItemCostTotal as
+                | number
+                | undefined),
+        spreadPropagandaCheckTotal:
+          'spreadPropagandaCheckTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.spreadPropagandaCheckTotal,
+              )
+            : (currentActivityRollTotals.spreadPropagandaCheckTotal as
+                | number
+                | undefined),
+        specialOrderDeliveryDaysTotal:
+          'specialOrderDeliveryDaysTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals.specialOrderDeliveryDaysTotal,
+              )
+            : (currentActivityRollTotals.specialOrderDeliveryDaysTotal as
+                | number
+                | undefined),
       };
     }
     if (args.patch.eventRollTotals) {
       nextPatch.eventRollTotals = {
-        eventChanceTotal: parseManualTotal(
-          args.patch.eventRollTotals.eventChanceTotal,
-        ),
-        eventTriggerRollTotal: parseManualTotal(
-          args.patch.eventRollTotals.eventTriggerRollTotal,
-        ),
-        eventPercentileTotal: parseManualTotal(
-          args.patch.eventRollTotals.eventPercentileTotal,
-        ),
-        rollTwiceFirstTotal: parseManualTotal(
-          args.patch.eventRollTotals.rollTwiceFirstTotal,
-        ),
-        rollTwiceSecondTotal: parseManualTotal(
-          args.patch.eventRollTotals.rollTwiceSecondTotal,
-        ),
-        guaranteedFirstPercentileTotal: parseManualTotal(
-          args.patch.eventRollTotals.guaranteedFirstPercentileTotal,
-        ),
-        guaranteedSecondPercentileTotal: parseManualTotal(
-          args.patch.eventRollTotals.guaranteedSecondPercentileTotal,
-        ),
-        guaranteedChosen: args.patch.eventRollTotals.guaranteedChosen,
-        sabotageCheckTotal: parseManualTotal(
-          args.patch.eventRollTotals.sabotageCheckTotal,
-        ),
-        sabotageNotorietyIncreaseTotal: parseManualTotal(
-          args.patch.eventRollTotals.sabotageNotorietyIncreaseTotal,
-        ),
+        eventChanceTotal:
+          'eventChanceTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(args.patch.eventRollTotals.eventChanceTotal)
+            : (currentEventRollTotals.eventChanceTotal as number | undefined),
+        eventTriggerRollTotal:
+          'eventTriggerRollTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(args.patch.eventRollTotals.eventTriggerRollTotal)
+            : (currentEventRollTotals.eventTriggerRollTotal as
+                | number
+                | undefined),
+        eventPercentileTotal:
+          'eventPercentileTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(args.patch.eventRollTotals.eventPercentileTotal)
+            : (currentEventRollTotals.eventPercentileTotal as
+                | number
+                | undefined),
+        rollTwiceFirstTotal:
+          'rollTwiceFirstTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(args.patch.eventRollTotals.rollTwiceFirstTotal)
+            : (currentEventRollTotals.rollTwiceFirstTotal as
+                | number
+                | undefined),
+        rollTwiceSecondTotal:
+          'rollTwiceSecondTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(args.patch.eventRollTotals.rollTwiceSecondTotal)
+            : (currentEventRollTotals.rollTwiceSecondTotal as
+                | number
+                | undefined),
+        guaranteedFirstPercentileTotal:
+          'guaranteedFirstPercentileTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(
+                args.patch.eventRollTotals.guaranteedFirstPercentileTotal,
+              )
+            : (currentEventRollTotals.guaranteedFirstPercentileTotal as
+                | number
+                | undefined),
+        guaranteedSecondPercentileTotal:
+          'guaranteedSecondPercentileTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(
+                args.patch.eventRollTotals.guaranteedSecondPercentileTotal,
+              )
+            : (currentEventRollTotals.guaranteedSecondPercentileTotal as
+                | number
+                | undefined),
+        guaranteedChosen:
+          'guaranteedChosen' in args.patch.eventRollTotals
+            ? args.patch.eventRollTotals.guaranteedChosen ?? undefined
+            : (currentEventRollTotals.guaranteedChosen as
+                | 'first'
+                | 'second'
+                | undefined),
+        sabotageCheckTotal:
+          'sabotageCheckTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(args.patch.eventRollTotals.sabotageCheckTotal)
+            : (currentEventRollTotals.sabotageCheckTotal as number | undefined),
+        sabotageNotorietyIncreaseTotal:
+          'sabotageNotorietyIncreaseTotal' in args.patch.eventRollTotals
+            ? parseManualTotal(
+                args.patch.eventRollTotals.sabotageNotorietyIncreaseTotal,
+              )
+            : (currentEventRollTotals.sabotageNotorietyIncreaseTotal as
+                | number
+                | undefined),
       };
     }
 
@@ -2053,6 +2938,10 @@ export const saveWeekBoardState = mutation({
           refuges: [],
           caches: [],
           orders: [],
+          marketplaces: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
         }) as never,
         upkeepTeamOperations: (nextPatch.upkeepTeamOperations ?? {
           disabledRecoveries: [],

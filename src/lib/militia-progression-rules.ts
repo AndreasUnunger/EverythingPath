@@ -28,3 +28,22 @@ export function getMinimumTrainingForRank(rank: number) {
 export function getMinimumTreasuryForRank(rank: number) {
   return rank * 10;
 }
+
+export function getMaxActionsForRank(rank: number) {
+  if (rank >= 19) return 6;
+  if (rank >= 15) return 5;
+  if (rank >= 11) return 4;
+  if (rank >= 7) return 3;
+  if (rank >= 1) return 2;
+  return 1;
+}
+
+export function getMaxActionsForMilitia({
+  rank,
+  strategistAssigned,
+}: {
+  rank: number;
+  strategistAssigned: boolean;
+}) {
+  return getMaxActionsForRank(rank) + (strategistAssigned ? 1 : 0);
+}
