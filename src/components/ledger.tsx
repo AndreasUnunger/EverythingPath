@@ -1,5 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel';
 import { CharacterManager } from './character-manager';
+import { MarketplaceLedger } from './marketplace-ledger';
 import { SettlementManager } from './settlement-manager';
 import { TeamManager } from './teamManager';
 
@@ -20,6 +21,11 @@ export function Ledger({
         canQuery={canQuery}
       />
       <SettlementManager
+        selectedCampaignId={selectedCampaignId}
+        organizationId={organizationId}
+        canQuery={canQuery}
+      />
+      <MarketplaceLedger
         selectedCampaignId={selectedCampaignId}
         organizationId={organizationId}
         canQuery={canQuery}

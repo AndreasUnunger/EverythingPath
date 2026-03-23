@@ -49,6 +49,7 @@ export function ActivityPhaseSection({
     teams,
     settlements,
     caches,
+    marketplaces,
     orders,
     trackedPeople,
     activeTeamIds,
@@ -60,6 +61,7 @@ export function ActivityPhaseSection({
     setRefugeSettlementForSlotAction,
     setCacheOperationForSlotAction,
     setOrderForSlotAction,
+    setMarketplaceForSlotAction,
     setCovertActionForSlotAction,
     setRescueForSlotAction,
     setRestorationForSlotAction,
@@ -145,6 +147,7 @@ export function ActivityPhaseSection({
                   teams={teams}
                   settlements={settlements}
                   caches={caches}
+                  marketplaces={marketplaces}
                   orders={orders}
                   trackedPeople={trackedPeople}
                   activeTeamIds={activeTeamIds}
@@ -163,6 +166,7 @@ export function ActivityPhaseSection({
                   setRefugeSettlementForSlotAction={setRefugeSettlementForSlotAction}
                   setCacheOperationForSlotAction={setCacheOperationForSlotAction}
                   setOrderForSlotAction={setOrderForSlotAction}
+                  setMarketplaceForSlotAction={setMarketplaceForSlotAction}
                   setCovertActionForSlotAction={setCovertActionForSlotAction}
                   setRescueForSlotAction={setRescueForSlotAction}
                   setRestorationForSlotAction={setRestorationForSlotAction}
@@ -194,6 +198,7 @@ export function ActivityPhaseSection({
           currentWeek={currentWeek}
           settlements={settlements}
           caches={caches}
+          marketplaces={marketplaces}
           orders={orders}
           trackedPeople={trackedPeople}
           stickyOnWide={false}

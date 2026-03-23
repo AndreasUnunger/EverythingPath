@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   campaignQuery,
   characterLedgerQuery,
+  marketplaceLedgerQuery,
   militiaQuery,
   settlementLedgerQuery,
 } from './sharedQueries';
@@ -27,6 +28,7 @@ vi.mock('@convex/_generated/api', () => ({
     character: { listByCampaign: 'listByCampaign' },
     militia: {
       getMilitia: 'getMilitia',
+      listMarketplaces: 'listMarketplaces',
       listSettlements: 'listSettlements',
     },
   },
@@ -93,6 +95,18 @@ describe('sharedQueries', () => {
     settlementLedgerQuery('camp_1' as never, 'org_1', true);
 
     expect(mockConvexQuery).toHaveBeenCalledWith('listSettlements', {
+      campaignId: 'camp_1',
+      organizationId: 'org_1',
+    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it('wires marketplace ledger query with enabled guard', () => {
+    marketplaceLedgerQuery('camp_1' as never, 'org_1', true);
+
+    expect(mockConvexQuery).toHaveBeenCalledWith('listMarketplaces', {
       campaignId: 'camp_1',
       organizationId: 'org_1',
     });

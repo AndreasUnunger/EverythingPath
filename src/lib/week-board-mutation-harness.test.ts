@@ -129,6 +129,7 @@ function createBaseHarness({
     militiaSettlementState: settlementStates,
     militiaCache: [],
     militiaOrder: [],
+    militiaMarketplace: [],
     militiaCharacterStatus: personStatuses,
     militiaTeam: [],
     militiaTeamState: [],
@@ -602,6 +603,190 @@ describe('weekBoard commitCurrentPhase harness', () => {
     );
   });
 
+  it('creates a brokered marketplace and pending delivery record on week close', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['broker_market', null],
+        stagedActivityTeamIds: ['merchants', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          marketplaces: [
+            {
+              slotIndex: 0,
+              label: 'South Gate Market',
+              purchaseSummary: 'Healing potions',
+              notes: 'Town commons',
+            },
+          ],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const marketplace = db.getRows('militiaMarketplace')[0];
+    expect(marketplace).toEqual(
+      expect.objectContaining({
+        label: 'South Gate Market',
+        sourceAction: 'broker_market',
+        teamId: 'merchants',
+        availabilityTier: 'small_town',
+        availabilityThreshold: 75,
+        saleValuePercent: 50,
+        contrabandAllowed: false,
+        createdWeek: 3,
+        activeUntilWeek: 4,
+        notes: 'Town commons',
+      }),
+    );
+
+    const order = db.getRows('militiaOrder')[0];
+    expect(order).toEqual(
+      expect.objectContaining({
+        description: 'Healing potions',
+        deliveryDays: 7,
+        dueWeek: 4,
+        deliveredWeek: 4,
+        status: 'delivered',
+        sourceAction: 'broker_market',
+        marketplaceId: marketplace?._id,
+      }),
+    );
+  });
+
+  it('creates a black market only when the staged check succeeds', async () => {
+    const successHarness = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['activate_black_market', null],
+        stagedActivityTeamIds: ['blackMarketeers', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          marketplaces: [
+            {
+              slotIndex: 0,
+              label: 'Shadow Exchange',
+            },
+          ],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {
+          activateBlackMarketCheckTotal: 20,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await commitCurrentPhase.handler(successHarness.ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(successHarness.db.getRows('militiaMarketplace')[0]).toEqual(
+      expect.objectContaining({
+        label: 'Shadow Exchange',
+        sourceAction: 'activate_black_market',
+        availabilityTier: 'small_city',
+        availabilityThreshold: 90,
+        saleValuePercent: 55,
+        contrabandAllowed: true,
+      }),
+    );
+
+    const failureHarness = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['activate_black_market', null],
+        stagedActivityTeamIds: ['blackMarketeers', null],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [],
+          orders: [],
+          marketplaces: [
+            {
+              slotIndex: 0,
+              label: 'Failed Exchange',
+            },
+          ],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {
+          activateBlackMarketCheckTotal: 19,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await commitCurrentPhase.handler(failureHarness.ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(failureHarness.db.getRows('militiaMarketplace')).toEqual([]);
+  });
+
   it('retrieves a hidden cache when the staged Secure Cache check meets the DC', async () => {
     const { ctx, db } = createBaseHarness({
       weekState: {
@@ -729,6 +914,156 @@ describe('weekBoard commitCurrentPhase harness', () => {
         updatedWeek: 3,
       }),
     );
+  });
+
+  it('applies Market Day to the selected tracked marketplace', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        eventMitigations: {
+          marketDayMarketplaceId: 'market-1',
+        },
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 40,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 37,
+        },
+        lockVersion: 1,
+      },
+    });
+    const selectedMarketplaceId = await db.insert('militiaMarketplace', {
+      militiaId: 'm1',
+      label: 'Longshadow Brokered Market',
+      sourceAction: 'broker_market',
+      teamId: 'merchants',
+      availabilityTier: 'small_town',
+      availabilityThreshold: 75,
+      saleValuePercent: 50,
+      contrabandAllowed: false,
+      createdWeek: 2,
+      activeUntilWeek: 4,
+    });
+    const otherMarketplaceId = await db.insert('militiaMarketplace', {
+      militiaId: 'm1',
+      label: 'Kraggodan Brokered Market',
+      sourceAction: 'broker_market',
+      teamId: 'fixers',
+      availabilityTier: 'small_city',
+      availabilityThreshold: 75,
+      saleValuePercent: 50,
+      contrabandAllowed: false,
+      createdWeek: 2,
+      activeUntilWeek: 4,
+    });
+    await db.patch('militiaWeekState', 'ws1', {
+      eventMitigations: {
+        marketDayMarketplaceId: selectedMarketplaceId,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const discounted = db
+      .getRows('militiaMarketplace')
+      .find((row) => row._id === selectedMarketplaceId);
+    const untouched = db
+      .getRows('militiaMarketplace')
+      .find((row) => row._id === otherMarketplaceId);
+    expect(discounted).toEqual(
+      expect.objectContaining({
+        marketDayDiscountPercent: 5,
+        marketDayAppliedWeek: 3,
+      }),
+    );
+    expect(untouched).not.toEqual(
+      expect.objectContaining({
+        marketDayDiscountPercent: 5,
+        marketDayAppliedWeek: 3,
+      }),
+    );
+  });
+
+  it('applies Market Day twice clause to all active tracked marketplaces', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 40,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 49,
+          rollTwiceFirstTotal: 37,
+          rollTwiceSecondTotal: 37,
+        },
+        lockVersion: 1,
+      },
+    });
+    await db.insert('militiaMarketplace', {
+      militiaId: 'm1',
+      label: 'Longshadow Brokered Market',
+      sourceAction: 'broker_market',
+      teamId: 'merchants',
+      availabilityTier: 'small_town',
+      availabilityThreshold: 75,
+      saleValuePercent: 50,
+      contrabandAllowed: false,
+      createdWeek: 2,
+      activeUntilWeek: 4,
+    });
+    await db.insert('militiaMarketplace', {
+      militiaId: 'm1',
+      label: 'Shadow Exchange',
+      sourceAction: 'activate_black_market',
+      teamId: 'blackMarketeers',
+      availabilityTier: 'small_city',
+      availabilityThreshold: 90,
+      saleValuePercent: 55,
+      contrabandAllowed: true,
+      createdWeek: 2,
+      activeUntilWeek: 4,
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    for (const marketplace of db.getRows('militiaMarketplace')) {
+      expect(marketplace).toEqual(
+        expect.objectContaining({
+          marketDayDiscountPercent: 5,
+          marketDayAppliedWeek: 3,
+        }),
+      );
+    }
   });
 
   it('delivers pending orders when their due week is reached', async () => {
@@ -1485,6 +1820,7 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
               deliveryDays: ' 14 ',
             },
           ],
+          marketplaces: [],
         },
       },
     });
@@ -1504,6 +1840,7 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
           checkTotal: 21,
         },
       ],
+      marketplaces: [],
       covertActions: [],
       orders: [
         {

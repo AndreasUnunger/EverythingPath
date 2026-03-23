@@ -98,6 +98,7 @@ export function buildActivityPhaseViewModel({
     },
     settlements: data.settlements ?? [],
     caches: data.caches ?? [],
+    marketplaces: data.marketplaces ?? [],
     orders: data.orders ?? [],
     trackedPeople: data.trackedPeople ?? [],
     setRefugeSettlementForSlotAction: (slotIndex, settlementKey) => {
@@ -108,6 +109,9 @@ export function buildActivityPhaseViewModel({
     },
     setOrderForSlotAction: (args) => {
       controller.setOrderForSlot(args);
+    },
+    setMarketplaceForSlotAction: (args) => {
+      controller.setMarketplaceForSlot(args);
     },
     setCovertActionForSlotAction: (args) => {
       controller.setCovertActionForSlot(args);
@@ -171,6 +175,7 @@ export function buildEventPhaseViewModel(
     resolvedRollTwiceSecond: controller.resolvedRollTwiceSecond,
     resolvedEventNames: controller.resolvedEventNames,
     teams: controller.teams,
+    marketplaces: data.marketplaces ?? [],
     manipulateEventsManagerText,
     cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotalAction:
@@ -190,6 +195,12 @@ export function buildEventPhaseViewModel(
     setSicknessSelectedTeamIdAction: controller.setSicknessSelectedTeamId,
     turnAroundBoostTeamId: controller.turnAroundBoostTeamId,
     setTurnAroundBoostTeamIdAction: controller.setTurnAroundBoostTeamId,
+    marketDayMarketplaceId: controller.marketDayMarketplaceId,
+    setMarketDayMarketplaceIdAction: controller.setMarketDayMarketplaceId,
+    marketDayTownName: controller.marketDayTownName,
+    setMarketDayTownNameAction: controller.setMarketDayTownName,
+    marketDayAppliesToAllTrackedMarketplaces:
+      controller.marketDayAppliesToAllTrackedMarketplaces,
     rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
     setRivalrySelectedTeamIdsAction: controller.setRivalrySelectedTeamIds,
     officerEffects: controller.officerEffects,
@@ -291,6 +302,11 @@ export function buildSummaryPhaseViewModel({
     missingInActionSelectedTeamId: controller.missingInActionSelectedTeamId,
     sicknessSelectedTeamId: controller.sicknessSelectedTeamId,
     turnAroundBoostTeamId: controller.turnAroundBoostTeamId,
+    marketplaces: data.marketplaces ?? [],
+    marketDayMarketplaceId: controller.marketDayMarketplaceId,
+    marketDayTownName: controller.marketDayTownName,
+    marketDayAppliesToAllTrackedMarketplaces:
+      controller.marketDayAppliesToAllTrackedMarketplaces,
     rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
     overseerEventSupportTarget: controller.overseerEventSupportTarget,
     formatManualTotalForSummaryAction,

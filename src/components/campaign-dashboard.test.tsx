@@ -4,6 +4,7 @@ import { CampaignDashboard } from './campaign-dashboard';
 
 const mockUseOrganization = vi.fn();
 const mockCampaignQuery = vi.fn();
+const mockMarketplaceLedgerQuery = vi.fn();
 const mockMilitiaQuery = vi.fn();
 const ledgerSpy = vi.fn();
 const militiaSystemSpy = vi.fn();
@@ -14,6 +15,8 @@ vi.mock('@clerk/nextjs', () => ({
 
 vi.mock('~/lib/sharedQueries', () => ({
   campaignQuery: (...args: unknown[]) => mockCampaignQuery(...args),
+  marketplaceLedgerQuery: (...args: unknown[]) =>
+    mockMarketplaceLedgerQuery(...args),
   militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
 }));
 
@@ -60,6 +63,9 @@ describe('CampaignDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMilitiaQuery.mockReturnValue({ data: undefined });
+    mockMarketplaceLedgerQuery.mockReturnValue({
+      data: { currentWeek: undefined, marketplaces: [] },
+    });
     mockCampaignQuery.mockReturnValue({
       data: { state: 'ready', campaigns: [] },
       isLoading: false,
@@ -143,6 +149,11 @@ describe('CampaignDashboard', () => {
 
     expect(mockCampaignQuery).toHaveBeenCalledWith('org_1', true);
     expect(mockMilitiaQuery).toHaveBeenCalledWith('camp_1', 'org_1', true);
+    expect(mockMarketplaceLedgerQuery).toHaveBeenCalledWith(
+      'camp_1',
+      'org_1',
+      true,
+    );
     expect(ledgerSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: 'org_1',

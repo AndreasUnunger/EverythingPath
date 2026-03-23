@@ -138,6 +138,7 @@ describe('week board controller synced state merging', () => {
           },
         ],
         orders: [],
+        marketplaces: [],
         covertActions: [],
         rescues: [],
         restorations: [],
@@ -169,6 +170,7 @@ describe('week board controller synced state merging', () => {
             deliveryDays: '8',
           },
         ],
+        marketplaces: [],
         covertActions: [],
         rescues: [],
         restorations: [],
@@ -187,6 +189,7 @@ describe('week board controller synced state merging', () => {
             costPaid: '375',
           },
         ],
+        marketplaces: [],
         covertActions: [],
         rescues: [],
         restorations: [],
@@ -287,6 +290,38 @@ describe('week board controller synced state merging', () => {
     });
 
     expect(merged.rivalrySelectedTeamIds).toEqual(['defenders', 'saboteurs']);
+  });
+
+  it('keeps local marketplace asset edits when stale server updates arrive', () => {
+    const previousServerState = createEmptyWeekBoardControllerSyncedState();
+    const currentState = {
+      ...previousServerState,
+      activityAssetOperations: {
+        ...previousServerState.activityAssetOperations,
+        marketplaces: [
+          {
+            slotIndex: 1,
+            label: 'South Gate Market',
+            purchaseSummary: 'Healing potions',
+          },
+        ],
+      },
+    };
+    const nextServerState = createEmptyWeekBoardControllerSyncedState();
+
+    const merged = mergeWeekBoardControllerSyncedStateWithServer({
+      currentState,
+      previousServerState,
+      nextServerState,
+    });
+
+    expect(merged.activityAssetOperations.marketplaces).toEqual([
+      {
+        slotIndex: 1,
+        label: 'South Gate Market',
+        purchaseSummary: 'Healing potions',
+      },
+    ]);
   });
 
   it('resets to server values when the sync scope changes', () => {

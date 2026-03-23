@@ -75,10 +75,12 @@ export function buildStagedSlotItems({
 }
 
 export function buildOperationSummaryItems({
+  slots,
   activityTeamOperations,
   activityOfficerOperations,
   activityAssetOperations,
 }: {
+  slots: Array<ActionId | null>;
   activityTeamOperations: {
     recruits: Array<{ slotIndex: number; teamId: string }>;
     dismissals: Array<{ slotIndex: number; teamId: string }>;
@@ -147,6 +149,29 @@ export function buildOperationSummaryItems({
         `Special order (slot ${entry.slotIndex + 1}): ${entry.description}, ${entry.costPaid} gp, ${entry.deliveryDays} day(s)`,
       ];
     }),
+    ...activityAssetOperations.marketplaces.flatMap((entry) => {
+      const slotActionId = slots[entry.slotIndex];
+      if (
+        slotActionId !== 'broker_market' &&
+        slotActionId !== 'activate_black_market'
+      ) {
+        return [];
+      }
+      const actionTitle =
+        ACTION_CARDS.find((card) => card.id === slotActionId)?.title ??
+        'Marketplace action';
+      const details = [
+        entry.label?.trim(),
+        entry.purchaseSummary?.trim()
+          ? `purchases: ${entry.purchaseSummary.trim()}`
+          : undefined,
+        entry.notes?.trim(),
+      ].filter((value): value is string => Boolean(value));
+      if (details.length === 0) {
+        return [];
+      }
+      return [`${actionTitle} (slot ${entry.slotIndex + 1}): ${details.join(' • ')}`];
+    }),
     ...activityAssetOperations.covertActions.flatMap((entry) => {
       if (entry.mode === 'augment_action') {
         return [`Covert Action (slot ${entry.slotIndex + 1}): augment next staged action`];
@@ -203,6 +228,9 @@ export function buildEventOccurrenceItems({
   missingInActionSelectedTeamId,
   sicknessSelectedTeamId,
   turnAroundBoostTeamId,
+  marketDayMarketplaceLabel,
+  marketDayTownName,
+  marketDayAppliesToAllTrackedMarketplaces,
   rivalrySelectedTeamIds,
   overseerEventSupportTarget,
   formatManualTotalForSummary,
@@ -223,6 +251,9 @@ export function buildEventOccurrenceItems({
   missingInActionSelectedTeamId: string;
   sicknessSelectedTeamId: string;
   turnAroundBoostTeamId: string;
+  marketDayMarketplaceLabel: string;
+  marketDayTownName: string;
+  marketDayAppliesToAllTrackedMarketplaces: boolean;
   rivalrySelectedTeamIds: string[];
   overseerEventSupportTarget: '' | 'sabotage' | 'cache_discovered' | 'theft' | 'sickness_twice';
   formatManualTotalForSummary: FormatManualTotal;
@@ -292,6 +323,14 @@ export function buildEventOccurrenceItems({
   }
   if (turnAroundBoostTeamId) {
     items.push(`Turn Around boost team: ${turnAroundBoostTeamId}`);
+  }
+  if (marketDayAppliesToAllTrackedMarketplaces) {
+    items.push('Market Day discount: all tracked marketplaces');
+  } else if (marketDayMarketplaceLabel) {
+    items.push(`Market Day marketplace: ${marketDayMarketplaceLabel}`);
+  }
+  if (marketDayTownName.trim()) {
+    items.push(`Market Day town: ${marketDayTownName.trim()}`);
   }
   if (rivalrySelectedTeamIds.length > 0) {
     items.push(`Rivalry teams: ${rivalrySelectedTeamIds.join(', ')}`);

@@ -1,7 +1,10 @@
 'use client';
 
 import { Card } from '~/components/ui/card';
-import type { ActivityAssetOperationsDraft } from '~/components/week-board/activity-asset-operations';
+import type {
+  ActivityAssetOperationsDraft,
+  MarketplaceLedgerEntry,
+} from '~/components/week-board/activity-asset-operations';
 import { type SummaryRow } from '~/components/week-board/activity-roll-sections';
 import {
   formatResolvedEventLabel,
@@ -77,6 +80,10 @@ export type SummaryPhaseViewModel = {
   sicknessSelectedTeamId: string;
   turnAroundBoostTeamId: string;
   rivalrySelectedTeamIds: string[];
+  marketplaces: MarketplaceLedgerEntry[];
+  marketDayMarketplaceId: string;
+  marketDayTownName: string;
+  marketDayAppliesToAllTrackedMarketplaces: boolean;
   overseerEventSupportTarget: '' | 'sabotage' | 'cache_discovered' | 'theft' | 'sickness_twice';
   formatManualTotalForSummaryAction: (raw: string) => string;
 };
@@ -129,6 +136,10 @@ export function SummaryPhaseSection({
     sicknessSelectedTeamId,
     turnAroundBoostTeamId,
     rivalrySelectedTeamIds,
+    marketplaces,
+    marketDayMarketplaceId,
+    marketDayTownName,
+    marketDayAppliesToAllTrackedMarketplaces,
     overseerEventSupportTarget,
     formatManualTotalForSummaryAction,
   } = viewModel;
@@ -145,10 +156,14 @@ export function SummaryPhaseSection({
   });
   const stagedSlotItems = buildStagedSlotItems({ slots, slotTeams });
   const operationItems = buildOperationSummaryItems({
+    slots,
     activityTeamOperations,
     activityOfficerOperations,
     activityAssetOperations,
   });
+  const marketDayMarketplaceLabel =
+    marketplaces.find((marketplace) => marketplace._id === marketDayMarketplaceId)
+      ?.label ?? '';
   const eventOccurrenceItems = buildEventOccurrenceItems({
     eventChanceTotal,
     eventTriggerRollTotal,
@@ -166,6 +181,9 @@ export function SummaryPhaseSection({
     missingInActionSelectedTeamId,
     sicknessSelectedTeamId,
     turnAroundBoostTeamId,
+    marketDayMarketplaceLabel,
+    marketDayTownName,
+    marketDayAppliesToAllTrackedMarketplaces,
     rivalrySelectedTeamIds,
     overseerEventSupportTarget,
     formatManualTotalForSummary: formatManualTotalForSummaryAction,

@@ -4,15 +4,21 @@ import type { ReactNode } from 'react';
 import { Card } from '~/components/ui/card';
 import type {
   CacheLedgerEntry,
+  MarketplaceLedgerEntry,
   OrderLedgerEntry,
   SettlementLedgerEntry,
   TrackedPersonLedgerEntry,
 } from '~/components/week-board/activity-asset-operations';
+import {
+  formatMarketplaceAvailabilityTier,
+  formatMarketplaceSourceAction,
+} from '~/lib/militia-marketplace-rules';
 
 export function AssetLedgerPanel({
   currentWeek,
   settlements,
   caches,
+  marketplaces,
   orders,
   trackedPeople,
   stickyOnWide = true,
@@ -20,16 +26,18 @@ export function AssetLedgerPanel({
   currentWeek: number;
   settlements: SettlementLedgerEntry[];
   caches: CacheLedgerEntry[];
+  marketplaces: MarketplaceLedgerEntry[];
   orders: OrderLedgerEntry[];
   trackedPeople: TrackedPersonLedgerEntry[];
   stickyOnWide?: boolean;
 }) {
   const hasSettlements = settlements.length > 0;
   const hasCaches = caches.length > 0;
+  const hasMarketplaces = marketplaces.length > 0;
   const hasOrders = orders.length > 0;
   const hasTrackedPeople = trackedPeople.length > 0;
 
-  if (!hasSettlements && !hasCaches && !hasOrders && !hasTrackedPeople) {
+  if (!hasSettlements && !hasCaches && !hasMarketplaces && !hasOrders && !hasTrackedPeople) {
     return null;
   }
 
@@ -89,6 +97,31 @@ export function AssetLedgerPanel({
         />
       ) : null}
 
+      {hasMarketplaces ? (
+        <LedgerSection
+          title="Tracked Marketplaces"
+          items={marketplaces.map((marketplace) => (
+            <LedgerRow
+              key={marketplace._id}
+              title={marketplace.label}
+              lines={[
+                `Source: ${formatMarketplaceSourceAction(marketplace.sourceAction)}`,
+                `Availability: ${formatMarketplaceAvailabilityTier(marketplace.availabilityTier)} (${marketplace.availabilityThreshold}% threshold)`,
+                `Sale value: ${marketplace.saleValuePercent}%`,
+                `Contraband sales: ${marketplace.contrabandAllowed ? 'Yes' : 'No'}`,
+                `Active through week ${marketplace.activeUntilWeek}`,
+                ...(marketplace.marketDayDiscountPercent
+                  ? [
+                      `Market Day discount: ${marketplace.marketDayDiscountPercent}% (week ${marketplace.marketDayAppliedWeek})`,
+                    ]
+                  : []),
+                ...(marketplace.notes ? [`Notes: ${marketplace.notes}`] : []),
+              ]}
+            />
+          ))}
+        />
+      ) : null}
+
       {hasOrders ? (
         <LedgerSection
           title="Tracked Orders"
@@ -98,9 +131,12 @@ export function AssetLedgerPanel({
               title={order.description}
               lines={[
                 `Status: ${order.status}`,
-                `Cost paid: ${order.costPaid} gp`,
+                ...(order.costPaid !== undefined ? [`Cost paid: ${order.costPaid} gp`] : []),
                 `Ordered week ${order.orderedWeek}, due week ${order.dueWeek}`,
                 `Delivery time: ${order.deliveryDays} day(s)`,
+                ...(order.sourceAction
+                  ? [`Source: ${formatOrderSource(order.sourceAction)}`]
+                  : []),
                 ...(order.notes ? [`Notes: ${order.notes}`] : []),
                 ...(order.deliveredWeek
                   ? [`Delivered week ${order.deliveredWeek}`]
@@ -181,6 +217,18 @@ function formatSignedNumber(value: number) {
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatOrderSource(
+  sourceAction: NonNullable<OrderLedgerEntry['sourceAction']>,
+) {
+  if (sourceAction === 'activate_black_market') {
+    return 'Activate Black Market';
+  }
+  if (sourceAction === 'broker_market') {
+    return 'Broker Market';
+  }
+  return 'Special Order';
 }
 
 function formatTrackedPersonLocation(person: TrackedPersonLedgerEntry) {

@@ -1,11 +1,19 @@
 'use client';
 
 import type { Id } from '@convex/_generated/dataModel';
+import type {
+  MarketplaceAvailabilityTier,
+  MarketplaceSourceAction,
+} from '~/lib/militia-marketplace-rules';
 
 export type CacheClass = 'minor' | 'intermediate' | 'major';
 export type CacheMode = 'place' | 'retrieve';
 export type CacheStatus = 'hidden' | 'pending_return' | 'retrieved' | 'lost';
 export type OrderStatus = 'pending' | 'delivered' | 'cancelled';
+export type MarketOrderSourceAction =
+  | 'special_order'
+  | 'broker_market'
+  | 'activate_black_market';
 export type TrackedPersonKind = 'pc' | 'officer_npc' | 'other_npc';
 export type TrackedPersonStatus =
   | 'active'
@@ -52,6 +60,12 @@ export type ActivityAssetOperationsDraft = {
     notes?: string;
     costPaid?: string;
     deliveryDays?: string;
+  }>;
+  marketplaces: Array<{
+    slotIndex: number;
+    label?: string;
+    purchaseSummary?: string;
+    notes?: string;
   }>;
   covertActions: Array<{
     slotIndex: number;
@@ -115,12 +129,30 @@ export type OrderLedgerEntry = {
   _id: string;
   description: string;
   notes?: string;
-  costPaid: number;
+  costPaid?: number;
   deliveryDays: number;
   orderedWeek: number;
   dueWeek: number;
   status: OrderStatus;
   deliveredWeek?: number;
+  sourceAction?: MarketOrderSourceAction;
+  marketplaceId?: string;
+};
+
+export type MarketplaceLedgerEntry = {
+  _id: string;
+  label: string;
+  sourceAction: MarketplaceSourceAction;
+  teamId: string;
+  availabilityTier: MarketplaceAvailabilityTier;
+  availabilityThreshold: number;
+  saleValuePercent: number;
+  contrabandAllowed: boolean;
+  createdWeek: number;
+  activeUntilWeek: number;
+  marketDayDiscountPercent?: number;
+  marketDayAppliedWeek?: number;
+  notes?: string;
 };
 
 export type TrackedPersonLedgerEntry = {
@@ -148,6 +180,7 @@ export function createEmptyActivityAssetOperationsDraft(): ActivityAssetOperatio
     refuges: [],
     caches: [],
     orders: [],
+    marketplaces: [],
     covertActions: [],
     rescues: [],
     restorations: [],

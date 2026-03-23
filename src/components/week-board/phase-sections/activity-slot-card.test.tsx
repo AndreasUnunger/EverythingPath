@@ -68,6 +68,7 @@ function buildDefaultProps(): ComponentProps<typeof ActivitySlotCard> {
     ],
     settlements: [],
     caches: [],
+    marketplaces: [],
     orders: [],
     trackedPeople: [],
     activeTeamIds: ['merchants'],
@@ -93,6 +94,7 @@ function buildDefaultProps(): ComponentProps<typeof ActivitySlotCard> {
     setRefugeSettlementForSlotAction: vi.fn(),
     setCacheOperationForSlotAction: vi.fn(),
     setOrderForSlotAction: vi.fn(),
+    setMarketplaceForSlotAction: vi.fn(),
     setCovertActionForSlotAction: vi.fn(),
     setRescueForSlotAction: vi.fn(),
     setRestorationForSlotAction: vi.fn(),
@@ -214,5 +216,31 @@ describe('ActivitySlotCard manager rendering', () => {
     expect(
       screen.getByText('Include Shade manager CHA bonus +4 in the total entered here.'),
     ).toBeInTheDocument();
+  });
+
+  it('renders broker-market helper text and staged marketplace fields', () => {
+    const props = buildDefaultProps();
+    props.slotActionId = 'broker_market';
+    props.slotTeams = ['merchants'];
+    props.activeTeamIds = ['merchants'];
+    props.activityAssetOperations = {
+      ...createEmptyActivityAssetOperationsDraft(),
+      marketplaces: [
+        {
+          slotIndex: 0,
+          label: 'South Gate Market',
+          purchaseSummary: 'Healing potions',
+          notes: 'Arrives next week',
+        },
+      ],
+    };
+
+    render(<ActivitySlotCard {...props} />);
+
+    expect(
+      screen.getByText(/This creates a temporary small town marketplace\./),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue('South Gate Market')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Healing potions')).toBeInTheDocument();
   });
 });

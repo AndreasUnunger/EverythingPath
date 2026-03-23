@@ -1,5 +1,6 @@
 'use client';
 
+import type { MarketplaceLedgerEntry } from '~/components/week-board/activity-asset-operations';
 import {
   getCheckBonusHelperText,
   getEventOverseerSupportOptions,
@@ -74,6 +75,7 @@ export type EventPhaseViewModel = {
     status: 'active' | 'disabled' | 'missing' | 'blocked';
     manager: WeekBoardTeamManager;
   }>;
+  marketplaces: MarketplaceLedgerEntry[];
   manipulateEventsManagerText?: string;
   cacheDiscoveredMitigationTotal: string;
   setCacheDiscoveredMitigationTotalAction: (value: string) => void;
@@ -91,6 +93,11 @@ export type EventPhaseViewModel = {
   setSicknessSelectedTeamIdAction: (value: string) => void;
   turnAroundBoostTeamId: string;
   setTurnAroundBoostTeamIdAction: (value: string) => void;
+  marketDayMarketplaceId: string;
+  setMarketDayMarketplaceIdAction: (value: string) => void;
+  marketDayTownName: string;
+  setMarketDayTownNameAction: (value: string) => void;
+  marketDayAppliesToAllTrackedMarketplaces: boolean;
   rivalrySelectedTeamIds: string[];
   setRivalrySelectedTeamIdsAction: (value: string[]) => void;
   officerEffects: OfficerEffects;
@@ -144,6 +151,7 @@ export function EventPhaseSection({
     resolvedRollTwiceSecond,
     resolvedEventNames,
     teams,
+    marketplaces,
     manipulateEventsManagerText,
     cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotalAction,
@@ -161,6 +169,11 @@ export function EventPhaseSection({
     setSicknessSelectedTeamIdAction,
     turnAroundBoostTeamId,
     setTurnAroundBoostTeamIdAction,
+    marketDayMarketplaceId,
+    setMarketDayMarketplaceIdAction,
+    marketDayTownName,
+    setMarketDayTownNameAction,
+    marketDayAppliesToAllTrackedMarketplaces,
     rivalrySelectedTeamIds,
     setRivalrySelectedTeamIdsAction,
     officerEffects,
@@ -178,6 +191,7 @@ export function EventPhaseSection({
   const showMissingInActionControls =
     resolvedEventNames.includes('Missing in Action');
   const showTurnAroundControls = resolvedEventNames.includes('Turn Around');
+  const showMarketDayControls = resolvedEventNames.includes('Market Day');
   const showRivalryControls = resolvedEventNames.includes('Rivalry');
   const overseerSupportOptions = getEventOverseerSupportOptions({
     officerEffects,
@@ -589,6 +603,66 @@ export function EventPhaseSection({
                   teams={teams}
                 />
               ) : null}
+              {showMarketDayControls ? (
+                <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-1">
+                    <Label className="font-mono text-xs">
+                      Market Day tracked marketplace
+                    </Label>
+                    <Select
+                      value={marketDayMarketplaceId || '__none__'}
+                      onValueChange={(value) =>
+                        setMarketDayMarketplaceIdAction(
+                          value === '__none__' ? '' : value,
+                        )
+                      }
+                      disabled={
+                        marketplaces.length === 0 ||
+                        marketDayAppliesToAllTrackedMarketplaces
+                      }
+                    >
+                      <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
+                        <SelectValue
+                          placeholder={
+                            marketplaces.length > 0
+                              ? 'Select tracked marketplace'
+                              : 'No tracked marketplaces yet'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent className="border-primary bg-card border-2 font-mono">
+                        <SelectItem value="__none__">
+                          No tracked marketplace selected
+                        </SelectItem>
+                        {marketplaces.map((marketplace) => (
+                          <SelectItem
+                            key={marketplace._id}
+                            value={marketplace._id}
+                          >
+                            {marketplace.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-mono text-xs">Operated town name</Label>
+                    <Input
+                      value={marketDayTownName}
+                      onChange={(event) =>
+                        setMarketDayTownNameAction(event.target.value)
+                      }
+                      placeholder="Enter town for table reference"
+                      className="font-mono"
+                    />
+                  </div>
+                  <p className="text-muted-foreground font-mono text-xs">
+                    {marketDayAppliesToAllTrackedMarketplaces
+                      ? 'Roll Twice applies the extra 5% discount to all tracked marketplaces this week.'
+                      : 'Choose a tracked marketplace for the durable discount, or note the operated town used at the table.'}
+                  </p>
+                </div>
+              ) : null}
               {showRivalryControls ? (
                 <div className="space-y-1 md:col-span-2">
                   <Label className="font-mono text-xs">Rivalry teams</Label>
@@ -629,6 +703,7 @@ export function EventPhaseSection({
               !showTurncoatControls &&
               !showMissingInActionControls &&
               !showTurnAroundControls &&
+              !showMarketDayControls &&
               !showRivalryControls ? (
                 <p className="text-muted-foreground font-mono text-xs md:col-span-2">
                   No mitigation or team-target input required for the currently

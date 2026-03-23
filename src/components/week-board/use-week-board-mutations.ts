@@ -110,6 +110,12 @@ export function useWeekBoardMutations(organizationId: string) {
         costPaid?: string;
         deliveryDays?: string;
       }>;
+      marketplaces: Array<{
+        slotIndex: number;
+        label?: string;
+        purchaseSummary?: string;
+        notes?: string;
+      }>;
       covertActions: Array<{
         slotIndex: number;
         mode?: 'augment_action' | 'place_contact';
@@ -171,6 +177,8 @@ export function useWeekBoardMutations(organizationId: string) {
       missingInActionSelectedTeamId?: string;
       sicknessSelectedTeamId?: string;
       turnAroundBoostTeamId?: string;
+      marketDayMarketplaceId?: string;
+      marketDayTownName?: string;
       overseerEventSupportTarget?: EventOverseerSupportTarget;
     },
   ) => {

@@ -63,6 +63,7 @@ export function WeekBoard({
   const hasTrackedMilitiaState =
     controller.settlements.length > 0 ||
     controller.caches.length > 0 ||
+    controller.marketplaces.length > 0 ||
     controller.orders.length > 0 ||
     controller.trackedPeople.length > 0;
   const showGlobalAssetPanel =
@@ -138,6 +139,7 @@ export function WeekBoard({
             currentWeek={controller.data.state.weekNumber}
             settlements={controller.settlements}
             caches={controller.caches}
+            marketplaces={controller.marketplaces}
             orders={controller.orders}
             trackedPeople={controller.trackedPeople}
           />

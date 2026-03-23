@@ -12,6 +12,7 @@ import { CampaignInfo } from './campaignInfo';
 import { Ledger } from './ledger';
 import {
   campaignQuery,
+  marketplaceLedgerQuery,
   militiaQuery,
 } from '~/lib/sharedQueries';
 
@@ -45,6 +46,11 @@ export function CampaignDashboard() {
   const selectedCampaign = campaigns?.find((x) => x._id === effectiveSelectedCampaignId);
 
   const { data: militia } = militiaQuery(
+    selectedCampaign?._id,
+    organizationId,
+    canLoadOrgData,
+  );
+  const { data: marketplaceLedger } = marketplaceLedgerQuery(
     selectedCampaign?._id,
     organizationId,
     canLoadOrgData,
@@ -123,6 +129,8 @@ export function CampaignDashboard() {
 
       <CampaignInfo
         campaign={selectedCampaign}
+        militia={militia ?? undefined}
+        marketplaceLedger={marketplaceLedger ?? undefined}
       />
 
       <Tabs

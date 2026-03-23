@@ -51,6 +51,10 @@ import {
   type WeekBoardTeamManager,
 } from '~/components/week-board/team-manager-effects';
 import type { ActionId, DragState } from '~/components/week-board/types';
+import {
+  formatMarketplaceAvailabilityTier,
+  getMarketplaceProfile,
+} from '~/lib/militia-marketplace-rules';
 
 type ActivitySlotCardProps = {
   slotId: string;
@@ -70,6 +74,7 @@ type ActivitySlotCardProps = {
   }>;
   settlements: SettlementLedgerEntry[];
   caches: CacheLedgerEntry[];
+  marketplaces: Array<{ _id: string }>;
   orders: Array<{ _id: string; description: string }>;
   trackedPeople: TrackedPersonLedgerEntry[];
   activeTeamIds: string[];
@@ -111,6 +116,12 @@ type ActivitySlotCardProps = {
     notes?: string;
     costPaid?: string;
     deliveryDays?: string;
+  }) => void;
+  setMarketplaceForSlotAction: (args: {
+    slotIndex: number;
+    label?: string;
+    purchaseSummary?: string;
+    notes?: string;
   }) => void;
   setCovertActionForSlotAction: (args: {
     slotIndex: number;
@@ -168,6 +179,7 @@ export function ActivitySlotCard({
   teams,
   settlements,
   caches,
+  marketplaces: _marketplaces,
   orders: _orders,
   trackedPeople,
   activeTeamIds,
@@ -186,6 +198,7 @@ export function ActivitySlotCard({
   setRefugeSettlementForSlotAction,
   setCacheOperationForSlotAction,
   setOrderForSlotAction,
+  setMarketplaceForSlotAction,
   setCovertActionForSlotAction,
   setRescueForSlotAction,
   setRestorationForSlotAction,
@@ -212,6 +225,9 @@ export function ActivitySlotCard({
     (entry) => entry.slotIndex === slotIndex,
   );
   const orderEntry = activityAssetOperations.orders.find(
+    (entry) => entry.slotIndex === slotIndex,
+  );
+  const marketplaceEntry = activityAssetOperations.marketplaces.find(
     (entry) => entry.slotIndex === slotIndex,
   );
   const covertEntry = activityAssetOperations.covertActions.find(
@@ -315,6 +331,13 @@ export function ActivitySlotCard({
               : undefined,
         })
       : undefined;
+  const marketplaceProfile =
+    action?.id === 'broker_market' || action?.id === 'activate_black_market'
+      ? getMarketplaceProfile({
+          actionId: action.id,
+          teamId: assignedTeamId || undefined,
+        })
+      : null;
   const activeRefugeOptions = settlements
     .filter((settlement) => settlement.refugeActiveUntilWeek !== undefined)
     .map((settlement) => ({
@@ -784,6 +807,55 @@ export function ActivitySlotCard({
                     placeholder="Optional details"
                     onChange={(value) =>
                       setOrderForSlotAction({
+                        slotIndex,
+                        notes: value,
+                      })
+                    }
+                  />
+                </div>
+              ) : null}
+
+              {action.id === 'broker_market' || action.id === 'activate_black_market' ? (
+                <div className="space-y-2">
+                  {marketplaceProfile ? (
+                    <p className="text-muted-foreground font-mono text-xs">
+                      {action.id === 'activate_black_market'
+                        ? `Successful check creates a ${formatMarketplaceAvailabilityTier(marketplaceProfile.availabilityTier).toLowerCase()} black market for 1 week. Use ${marketplaceProfile.availabilityThreshold}% item availability, ${marketplaceProfile.saleValuePercent}% sale value, and allow contraband sales.`
+                        : `This creates a temporary ${formatMarketplaceAvailabilityTier(marketplaceProfile.availabilityTier).toLowerCase()} marketplace. Purchased items arrive at the beginning of next Activity phase.`}
+                    </p>
+                  ) : (
+                    <p className="text-amber-700 font-mono text-xs">
+                      Rules warning: assign a valid team to determine this marketplace&apos;s profile.
+                    </p>
+                  )}
+                  <TextField
+                    label="Marketplace label"
+                    value={marketplaceEntry?.label ?? ''}
+                    placeholder="Optional custom marketplace label"
+                    onChange={(value) =>
+                      setMarketplaceForSlotAction({
+                        slotIndex,
+                        label: value,
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Purchase summary"
+                    value={marketplaceEntry?.purchaseSummary ?? ''}
+                    placeholder="Optional items purchased through this market"
+                    onChange={(value) =>
+                      setMarketplaceForSlotAction({
+                        slotIndex,
+                        purchaseSummary: value,
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Marketplace notes"
+                    value={marketplaceEntry?.notes ?? ''}
+                    placeholder="Optional availability or seller notes"
+                    onChange={(value) =>
+                      setMarketplaceForSlotAction({
                         slotIndex,
                         notes: value,
                       })

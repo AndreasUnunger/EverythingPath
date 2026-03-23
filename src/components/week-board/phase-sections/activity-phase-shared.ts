@@ -5,6 +5,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type {
   ActivityAssetOperationsDraft,
   CacheLedgerEntry,
+  MarketplaceLedgerEntry,
   OrderLedgerEntry,
   SettlementLedgerEntry,
   TrackedPersonLedgerEntry,
@@ -104,6 +105,7 @@ export type ActivityPhaseViewModel = {
   }>;
   settlements: SettlementLedgerEntry[];
   caches: CacheLedgerEntry[];
+  marketplaces: MarketplaceLedgerEntry[];
   orders: OrderLedgerEntry[];
   trackedPeople: TrackedPersonLedgerEntry[];
   activeTeamIds: string[];
@@ -138,6 +140,12 @@ export type ActivityPhaseViewModel = {
     notes?: string;
     costPaid?: string;
     deliveryDays?: string;
+  }) => void;
+  setMarketplaceForSlotAction: (args: {
+    slotIndex: number;
+    label?: string;
+    purchaseSummary?: string;
+    notes?: string;
   }) => void;
   setCovertActionForSlotAction: (args: {
     slotIndex: number;

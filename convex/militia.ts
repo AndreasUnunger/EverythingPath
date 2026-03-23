@@ -9,7 +9,11 @@ import {
   teamManagerSourceValidator,
 } from './schema';
 import { hasAccessToOrg } from './user';
-import type { IMilitia, IMilitiaTeam } from '../src/lib/types';
+import type {
+  IMarketplaceLedgerState,
+  IMilitia,
+  IMilitiaTeam,
+} from '../src/lib/types';
 import type { Id } from './_generated/dataModel';
 import teams from './data/teams';
 import { buildResolvedTeamManagers } from '../src/lib/team-manager-rules';
@@ -349,6 +353,85 @@ export const listSettlements = query({
       .collect();
 
     return settlements.sort((a, b) => a.settlementKey.localeCompare(b.settlementKey));
+  },
+});
+
+export const listMarketplaces = query({
+  args: {
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+  },
+  handler: async (ctx, args): Promise<IMarketplaceLedgerState> => {
+    if (!args.campaignId || !args.organizationId) {
+      return { currentWeek: undefined, marketplaces: [] };
+    }
+
+    const campaignId = args.campaignId;
+
+    const hasAccess = await hasAccessToOrg(ctx, args.organizationId);
+    if (!hasAccess) {
+      return { currentWeek: undefined, marketplaces: [] };
+    }
+
+    const campaign = await ctx.db.get('campaign', campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      return { currentWeek: undefined, marketplaces: [] };
+    }
+
+    const militia = await ctx.db
+      .query('militia')
+      .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
+      .first();
+    if (!militia) {
+      return { currentWeek: undefined, marketplaces: [] };
+    }
+
+    const [weekState, marketplaces, pendingOrders] = await Promise.all([
+      ctx.db
+        .query('militiaWeekState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+        .first(),
+      ctx.db
+        .query('militiaMarketplace')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+        .collect(),
+      ctx.db
+        .query('militiaOrder')
+        .withIndex('by_militiaId_status', (q) =>
+          q.eq('militiaId', militia._id).eq('status', 'pending'),
+        )
+        .collect(),
+    ]);
+
+    const currentWeek = weekState?.weekNumber;
+    const pendingOrderCounts = new Map<string, number>();
+    for (const order of pendingOrders) {
+      if (!order.marketplaceId) continue;
+      pendingOrderCounts.set(
+        order.marketplaceId,
+        (pendingOrderCounts.get(order.marketplaceId) ?? 0) + 1,
+      );
+    }
+
+    return {
+      currentWeek,
+      marketplaces: marketplaces
+        .map((marketplace) => ({
+          ...marketplace,
+          isActive:
+            currentWeek === undefined ? true : marketplace.activeUntilWeek >= currentWeek,
+          pendingOrderCount: pendingOrderCounts.get(marketplace._id) ?? 0,
+        }))
+        .sort((left, right) => {
+          if (left.isActive !== right.isActive) {
+            return left.isActive ? -1 : 1;
+          }
+          if (left.activeUntilWeek !== right.activeUntilWeek) {
+            return right.activeUntilWeek - left.activeUntilWeek;
+          }
+          return left.label.localeCompare(right.label);
+        }),
+    };
   },
 });
 

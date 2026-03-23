@@ -331,6 +331,16 @@ export const orderStatusValidator = v.union(
   v.literal('cancelled'),
 );
 
+export const marketplaceSourceActionValidator = v.union(
+  v.literal('activate_black_market'),
+  v.literal('broker_market'),
+);
+
+export const marketplaceAvailabilityTierValidator = v.union(
+  v.literal('small_town'),
+  v.literal('small_city'),
+);
+
 export const militiaTeamValidator = v.object({
   militiaId: v.id('militia'),
   teamId: teamIdValidator,
@@ -415,6 +425,16 @@ export const militiaWeekStateValidator = v.object({
           costPaid: v.optional(v.number()),
           deliveryDays: v.optional(v.number()),
         }),
+      ),
+      marketplaces: v.optional(
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            label: v.optional(v.string()),
+            purchaseSummary: v.optional(v.string()),
+            notes: v.optional(v.string()),
+          }),
+        ),
       ),
       covertActions: v.optional(
           v.array(
@@ -624,12 +644,36 @@ export const militiaOrderValidator = v.object({
   militiaId: v.id('militia'),
   description: v.string(),
   notes: v.optional(v.string()),
-  costPaid: v.number(),
+  costPaid: v.optional(v.number()),
   deliveryDays: v.number(),
   orderedWeek: v.number(),
   dueWeek: v.number(),
   status: orderStatusValidator,
   deliveredWeek: v.optional(v.number()),
+  sourceAction: v.optional(
+    v.union(
+      v.literal('special_order'),
+      v.literal('broker_market'),
+      v.literal('activate_black_market'),
+    ),
+  ),
+  marketplaceId: v.optional(v.id('militiaMarketplace')),
+});
+
+export const militiaMarketplaceValidator = v.object({
+  militiaId: v.id('militia'),
+  label: v.string(),
+  sourceAction: marketplaceSourceActionValidator,
+  teamId: teamIdValidator,
+  availabilityTier: marketplaceAvailabilityTierValidator,
+  availabilityThreshold: v.number(),
+  saleValuePercent: v.number(),
+  contrabandAllowed: v.boolean(),
+  createdWeek: v.number(),
+  activeUntilWeek: v.number(),
+  marketDayDiscountPercent: v.optional(v.number()),
+  marketDayAppliedWeek: v.optional(v.number()),
+  notes: v.optional(v.string()),
 });
 
 export const militiaCharacterStatusValidator = v.object({
@@ -698,6 +742,9 @@ export default defineSchema({
   militiaCache: defineTable(militiaCacheValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_status', ['militiaId', 'status']),
+  militiaMarketplace: defineTable(militiaMarketplaceValidator)
+    .index('by_militiaId', ['militiaId'])
+    .index('by_militiaId_activeUntilWeek', ['militiaId', 'activeUntilWeek']),
   militiaOrder: defineTable(militiaOrderValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_status', ['militiaId', 'status']),

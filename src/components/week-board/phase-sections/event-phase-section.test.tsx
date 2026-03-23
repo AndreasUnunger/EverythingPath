@@ -86,6 +86,7 @@ function buildViewModel(): ComponentProps<typeof EventPhaseSection>['viewModel']
         },
       },
     ],
+    marketplaces: [],
     manipulateEventsManagerText:
       'Captain Ivet chooses which guaranteed event result to use.',
     cacheDiscoveredMitigationTotal: '',
@@ -104,6 +105,11 @@ function buildViewModel(): ComponentProps<typeof EventPhaseSection>['viewModel']
     setSicknessSelectedTeamIdAction: vi.fn(),
     turnAroundBoostTeamId: '',
     setTurnAroundBoostTeamIdAction: vi.fn(),
+    marketDayMarketplaceId: '',
+    setMarketDayMarketplaceIdAction: vi.fn(),
+    marketDayTownName: '',
+    setMarketDayTownNameAction: vi.fn(),
+    marketDayAppliesToAllTrackedMarketplaces: false,
     rivalrySelectedTeamIds: [],
     setRivalrySelectedTeamIdsAction: vi.fn(),
     officerEffects: buildOfficerEffects({
@@ -133,6 +139,35 @@ describe('EventPhaseSection manager rendering', () => {
     expect(
       screen.getByText(
         'Include Saboteurs manager CHA bonus +4 in the total entered here.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders Market Day controls when the resolved event includes Market Day', () => {
+    const viewModel = buildViewModel();
+    viewModel.resolvedEventNames = ['Market Day'];
+    viewModel.marketplaces = [
+      {
+        _id: 'market-1',
+        label: 'Longshadow Brokered Market',
+        sourceAction: 'broker_market',
+        teamId: 'merchants',
+        availabilityTier: 'small_town',
+        availabilityThreshold: 75,
+        saleValuePercent: 50,
+        contrabandAllowed: false,
+        createdWeek: 3,
+        activeUntilWeek: 4,
+      },
+    ];
+
+    render(<EventPhaseSection viewModel={viewModel} />);
+
+    expect(screen.getByText('Market Day tracked marketplace')).toBeInTheDocument();
+    expect(screen.getByText('Longshadow Brokered Market')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose a tracked marketplace for the durable discount, or note the operated town used at the table.',
       ),
     ).toBeInTheDocument();
   });

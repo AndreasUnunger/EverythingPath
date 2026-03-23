@@ -33,6 +33,11 @@ import {
   validateStagedActionsLegality,
 } from './weekBoardRules';
 import { buildResolvedTeamManagers } from '../src/lib/team-manager-rules';
+import {
+  getMarketplaceDefaultLabel,
+  getMarketplaceProfile,
+} from '../src/lib/militia-marketplace-rules';
+import { getMinimumTrainingForRank } from '../src/lib/militia-progression-rules';
 import teamDefinitions from './data/teams';
 
 function getMaxActionsForRank(rank: number) {
@@ -161,32 +166,6 @@ function getFinalStrategistAssignmentForWeek({
   }
 
   return nextStrategist;
-}
-
-function getMinimumTrainingForRank(rank: number) {
-  const thresholds: Record<number, number> = {
-    1: 0,
-    2: 10,
-    3: 15,
-    4: 20,
-    5: 30,
-    6: 40,
-    7: 55,
-    8: 75,
-    9: 105,
-    10: 160,
-    11: 235,
-    12: 330,
-    13: 475,
-    14: 665,
-    15: 855,
-    16: 1350,
-    17: 1900,
-    18: 2700,
-    19: 3850,
-    20: 5350,
-  };
-  return thresholds[rank];
 }
 
 async function getHighestActivePcLevel(
@@ -448,6 +427,12 @@ function getSuccessfulCovertAugmentTargets({
       rescues?: Array<{
         slotIndex: number;
         targetLevel?: number;
+      }>;
+      marketplaces?: Array<{
+        slotIndex: number;
+        label?: string;
+        purchaseSummary?: string;
+        notes?: string;
       }>;
     };
   };
@@ -835,6 +820,10 @@ export const getWeekBoardState = query({
       .query('militiaCache')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
       .collect();
+    const marketplaceRows = await ctx.db
+      .query('militiaMarketplace')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .collect();
     const orderRows = await ctx.db
       .query('militiaOrder')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
@@ -898,6 +887,12 @@ export const getWeekBoardState = query({
               notes?: string;
               costPaid?: number;
               deliveryDays?: number;
+            }>;
+            marketplaces: Array<{
+              slotIndex: number;
+              label?: string;
+              purchaseSummary?: string;
+              notes?: string;
             }>;
             covertActions: Array<{
               slotIndex: number;
@@ -1040,6 +1035,23 @@ export const getWeekBoardState = query({
           lostWeek: cache.lostWeek,
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
+      marketplaces: marketplaceRows
+        .map((marketplace) => ({
+          _id: marketplace._id,
+          label: marketplace.label,
+          sourceAction: marketplace.sourceAction,
+          teamId: marketplace.teamId,
+          availabilityTier: marketplace.availabilityTier,
+          availabilityThreshold: marketplace.availabilityThreshold,
+          saleValuePercent: marketplace.saleValuePercent,
+          contrabandAllowed: marketplace.contrabandAllowed,
+          createdWeek: marketplace.createdWeek,
+          activeUntilWeek: marketplace.activeUntilWeek,
+          marketDayDiscountPercent: marketplace.marketDayDiscountPercent,
+          marketDayAppliedWeek: marketplace.marketDayAppliedWeek,
+          notes: marketplace.notes,
+        }))
+        .sort((a, b) => a.createdWeek - b.createdWeek || a.label.localeCompare(b.label)),
       orders: orderRows
         .map((order) => ({
           _id: order._id,
@@ -1051,6 +1063,8 @@ export const getWeekBoardState = query({
           dueWeek: order.dueWeek,
           status: order.status,
           deliveredWeek: order.deliveredWeek,
+          sourceAction: order.sourceAction,
+          marketplaceId: order.marketplaceId,
         }))
         .sort((a, b) => a.orderedWeek - b.orderedWeek),
       trackedPeople: trackedPeopleRows
@@ -1128,6 +1142,8 @@ export const getWeekBoardState = query({
               refuges: currentStateAny.activityAssetOperations?.refuges ?? [],
               caches: currentStateAny.activityAssetOperations?.caches ?? [],
               orders: currentStateAny.activityAssetOperations?.orders ?? [],
+              marketplaces:
+                currentStateAny.activityAssetOperations?.marketplaces ?? [],
               covertActions:
                 currentStateAny.activityAssetOperations?.covertActions ?? [],
               rescues: currentStateAny.activityAssetOperations?.rescues ?? [],
@@ -1169,6 +1185,7 @@ export const getWeekBoardState = query({
               refuges: [],
               caches: [],
               orders: [],
+              marketplaces: [],
               covertActions: [],
               rescues: [],
               restorations: [],
@@ -1275,6 +1292,16 @@ export const saveWeekBoardState = mutation({
               }),
             ),
           ),
+          marketplaces: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                label: v.optional(v.string()),
+                purchaseSummary: v.optional(v.string()),
+                notes: v.optional(v.string()),
+              }),
+            ),
+          ),
           covertActions: v.optional(
             v.array(
               v.object({
@@ -1373,6 +1400,8 @@ export const saveWeekBoardState = mutation({
           missingInActionSelectedTeamId: v.optional(teamIdValidator),
           sicknessSelectedTeamId: v.optional(teamIdValidator),
           turnAroundBoostTeamId: v.optional(teamIdValidator),
+          marketDayMarketplaceId: v.optional(v.string()),
+          marketDayTownName: v.optional(v.string()),
           overseerEventSupportTarget: v.optional(
             v.union(
               v.literal('sabotage'),
@@ -1535,6 +1564,12 @@ export const saveWeekBoardState = mutation({
           costPaid?: number;
           deliveryDays?: number;
         }>;
+        marketplaces: Array<{
+          slotIndex: number;
+          label?: string;
+          purchaseSummary?: string;
+          notes?: string;
+        }>;
         covertActions: Array<{
           slotIndex: number;
           mode?: 'augment_action' | 'place_contact';
@@ -1594,6 +1629,8 @@ export const saveWeekBoardState = mutation({
         missingInActionSelectedTeamId?: string;
         sicknessSelectedTeamId?: string;
         turnAroundBoostTeamId?: string;
+        marketDayMarketplaceId?: string;
+        marketDayTownName?: string;
         overseerEventSupportTarget?:
           | 'sabotage'
           | 'cache_discovered'
@@ -1746,6 +1783,14 @@ export const saveWeekBoardState = mutation({
           costPaid: parseOptionalNonNegativeTotal(entry.costPaid),
           deliveryDays: parseOptionalNonNegativeTotal(entry.deliveryDays),
         })),
+        marketplaces: (args.patch.activityAssetOperations.marketplaces ?? []).map(
+          (entry) => ({
+            slotIndex: entry.slotIndex,
+            label: trimToUndefined(entry.label),
+            purchaseSummary: trimToUndefined(entry.purchaseSummary),
+            notes: trimToUndefined(entry.notes),
+          }),
+        ),
         covertActions: (args.patch.activityAssetOperations.covertActions ?? []).map(
           (entry) => ({
             slotIndex: entry.slotIndex,
@@ -1841,6 +1886,10 @@ export const saveWeekBoardState = mutation({
           args.patch.eventMitigations.missingInActionSelectedTeamId,
         sicknessSelectedTeamId: args.patch.eventMitigations.sicknessSelectedTeamId,
         turnAroundBoostTeamId: args.patch.eventMitigations.turnAroundBoostTeamId,
+        marketDayMarketplaceId: trimToUndefined(
+          args.patch.eventMitigations.marketDayMarketplaceId,
+        ),
+        marketDayTownName: trimToUndefined(args.patch.eventMitigations.marketDayTownName),
         overseerEventSupportTarget:
           args.patch.eventMitigations.overseerEventSupportTarget,
       };
@@ -2085,6 +2134,12 @@ export const commitCurrentPhase = mutation({
               costPaid?: number;
               deliveryDays?: number;
             }>;
+            marketplaces: Array<{
+              slotIndex: number;
+              label?: string;
+              purchaseSummary?: string;
+              notes?: string;
+            }>;
             covertActions: Array<{
               slotIndex: number;
               mode?: 'augment_action' | 'place_contact';
@@ -2144,6 +2199,8 @@ export const commitCurrentPhase = mutation({
             missingInActionSelectedTeamId?: string;
             sicknessSelectedTeamId?: string;
             turnAroundBoostTeamId?: string;
+            marketDayMarketplaceId?: string;
+            marketDayTownName?: string;
             overseerEventSupportTarget?:
               | 'sabotage'
               | 'cache_discovered'
@@ -2243,6 +2300,10 @@ export const commitCurrentPhase = mutation({
         .query('militiaCache')
         .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
         .collect();
+      const marketplaceRows = await ctx.db
+        .query('militiaMarketplace')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect();
       const orderRows = await ctx.db
         .query('militiaOrder')
         .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
@@ -2266,6 +2327,9 @@ export const commitCurrentPhase = mutation({
       );
       const cacheById = new Map<string, (typeof cacheRows)[number]>(
         cacheRows.map((row) => [row._id, row]),
+      );
+      const marketplaceById = new Map<string, (typeof marketplaceRows)[number]>(
+        marketplaceRows.map((row) => [row._id, row]),
       );
       const orderById = new Map<string, (typeof orderRows)[number]>(
         orderRows.map((row) => [row._id, row]),
@@ -2466,6 +2530,7 @@ export const commitCurrentPhase = mutation({
         refuges: currentAny?.activityAssetOperations?.refuges ?? [],
         caches: currentAny?.activityAssetOperations?.caches ?? [],
         orders: currentAny?.activityAssetOperations?.orders ?? [],
+        marketplaces: currentAny?.activityAssetOperations?.marketplaces ?? [],
         covertActions: currentAny?.activityAssetOperations?.covertActions ?? [],
         rescues: currentAny?.activityAssetOperations?.rescues ?? [],
         restorations:
@@ -2807,6 +2872,84 @@ export const commitCurrentPhase = mutation({
         }
       }
 
+      for (const [slotIndex, stagedActionId] of current.stagedActivityActionIds.entries()) {
+        if (
+          stagedActionId !== 'broker_market' &&
+          stagedActionId !== 'activate_black_market'
+        ) {
+          continue;
+        }
+
+        const teamId = current.stagedActivityTeamIds?.[slotIndex] ?? undefined;
+        const profile = getMarketplaceProfile({
+          actionId: stagedActionId,
+          teamId,
+        });
+        if (!profile || !teamId) {
+          continue;
+        }
+        if (
+          stagedActionId === 'activate_black_market' &&
+          (current.activityRollTotals?.activateBlackMarketCheckTotal ?? 0) < 20
+        ) {
+          continue;
+        }
+
+        const marketEntry = activityAssetOperations.marketplaces.find(
+          (entry) => entry.slotIndex === slotIndex,
+        );
+        const label = getMarketplaceDefaultLabel({
+          actionId: stagedActionId,
+          customLabel: marketEntry?.label,
+          weekNumber: current.weekNumber,
+          slotIndex,
+        });
+        const insertedMarketplaceId = await ctx.db.insert('militiaMarketplace', {
+          militiaId: args.militiaId,
+          label,
+          sourceAction: stagedActionId,
+          teamId: teamId as never,
+          availabilityTier: profile.availabilityTier,
+          availabilityThreshold: profile.availabilityThreshold,
+          saleValuePercent: profile.saleValuePercent,
+          contrabandAllowed: profile.contrabandAllowed,
+          createdWeek: current.weekNumber,
+          activeUntilWeek: current.weekNumber + 1,
+          notes: trimToUndefined(marketEntry?.notes),
+        });
+        const insertedMarketplace = await ctx.db.get(
+          'militiaMarketplace',
+          insertedMarketplaceId,
+        );
+        if (insertedMarketplace) {
+          marketplaceById.set(insertedMarketplace._id, insertedMarketplace);
+        }
+
+        const purchaseSummary = trimToUndefined(marketEntry?.purchaseSummary);
+        if (!purchaseSummary) {
+          continue;
+        }
+
+        const orderNotes = [trimToUndefined(marketEntry?.notes), `Marketplace: ${label}`]
+          .filter((value): value is string => Boolean(value))
+          .join(' • ');
+        const insertedOrderId = await ctx.db.insert('militiaOrder', {
+          militiaId: args.militiaId,
+          description: purchaseSummary,
+          notes: orderNotes || undefined,
+          deliveryDays: 7,
+          orderedWeek: current.weekNumber,
+          dueWeek: current.weekNumber + 1,
+          status: 'pending',
+          sourceAction: stagedActionId,
+          marketplaceId: insertedMarketplaceId,
+        });
+        const insertedOrder = await ctx.db.get('militiaOrder', insertedOrderId);
+        if (insertedOrder) {
+          orderById.set(insertedOrder._id, insertedOrder);
+        }
+      }
+
       for (const covertAction of activityAssetOperations.covertActions) {
         if (current.stagedActivityActionIds[covertAction.slotIndex] !== 'covert_action') {
           continue;
@@ -3068,6 +3211,28 @@ export const commitCurrentPhase = mutation({
             }
           }
         }
+        if (event.eventType === 'market_day') {
+          const activeMarketplaceRows = Array.from(marketplaceById.values()).filter(
+            (marketplace) => marketplace.activeUntilWeek >= current.weekNumber,
+          );
+          const marketplacesToDiscount = event.isTwiceClause
+            ? activeMarketplaceRows
+            : activeMarketplaceRows.filter(
+                (marketplace) =>
+                  marketplace._id === eventMitigations.marketDayMarketplaceId,
+              );
+          for (const marketplace of marketplacesToDiscount) {
+            await ctx.db.patch('militiaMarketplace', marketplace._id, {
+              marketDayDiscountPercent: 5,
+              marketDayAppliedWeek: current.weekNumber,
+            });
+            marketplaceById.set(marketplace._id, {
+              ...marketplace,
+              marketDayDiscountPercent: 5,
+              marketDayAppliedWeek: current.weekNumber,
+            });
+          }
+        }
         if (event.eventType === 'rivalry') {
           const selected = eventMitigations.rivalrySelectedTeamIds?.slice(0, 2) ?? [];
           for (const teamId of selected) {
@@ -3251,6 +3416,7 @@ export const commitCurrentPhase = mutation({
               refuges: [],
               caches: [],
               orders: [],
+              marketplaces: [],
               covertActions: [],
               rescues: [],
               restorations: [],
@@ -3259,6 +3425,8 @@ export const commitCurrentPhase = mutation({
               refuges: currentAny?.activityAssetOperations?.refuges ?? [],
               caches: currentAny?.activityAssetOperations?.caches ?? [],
               orders: currentAny?.activityAssetOperations?.orders ?? [],
+              marketplaces:
+                currentAny?.activityAssetOperations?.marketplaces ?? [],
               covertActions:
                 currentAny?.activityAssetOperations?.covertActions ?? [],
               rescues: currentAny?.activityAssetOperations?.rescues ?? [],

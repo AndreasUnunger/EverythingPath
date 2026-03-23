@@ -107,6 +107,8 @@ export function useWeekBoardController({
     useState('');
   const [sicknessSelectedTeamId, setSicknessSelectedTeamId] = useState('');
   const [turnAroundBoostTeamId, setTurnAroundBoostTeamId] = useState('');
+  const [marketDayMarketplaceId, setMarketDayMarketplaceId] = useState('');
+  const [marketDayTownName, setMarketDayTownName] = useState('');
   const [rivalrySelectedTeamIds, setRivalrySelectedTeamIds] = useState<string[]>(
     [],
   );
@@ -229,6 +231,12 @@ export function useWeekBoardController({
               costPaid?: number;
               deliveryDays?: number;
             }>;
+            marketplaces?: Array<{
+              slotIndex?: number;
+              label?: string;
+              purchaseSummary?: string;
+              notes?: string;
+            }>;
             covertActions?: Array<{
               slotIndex?: number;
               mode?: 'augment_action' | 'place_contact';
@@ -274,6 +282,7 @@ export function useWeekBoardController({
         refuges: [],
         caches: [],
         orders: [],
+        marketplaces: [],
         covertActions: [],
         rescues: [],
         restorations: [],
@@ -325,6 +334,14 @@ export function useWeekBoardController({
             typeof item.deliveryDays === 'number'
               ? String(item.deliveryDays)
               : undefined,
+        })),
+      marketplaces: (activityAssetOps.marketplaces ?? [])
+        .filter((item) => typeof item.slotIndex === 'number')
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          label: item.label,
+          purchaseSummary: item.purchaseSummary,
+          notes: item.notes,
         })),
       covertActions: (activityAssetOps.covertActions ?? [])
         .filter((item) => typeof item.slotIndex === 'number')
@@ -431,6 +448,14 @@ export function useWeekBoardController({
         typeof eventMitigations.turnAroundBoostTeamId === 'string'
           ? eventMitigations.turnAroundBoostTeamId
           : '',
+      marketDayMarketplaceId:
+        typeof eventMitigations.marketDayMarketplaceId === 'string'
+          ? eventMitigations.marketDayMarketplaceId
+          : '',
+      marketDayTownName:
+        typeof eventMitigations.marketDayTownName === 'string'
+          ? eventMitigations.marketDayTownName
+          : '',
       rivalrySelectedTeamIds: Array.isArray(eventMitigations.rivalrySelectedTeamIds)
         ? eventMitigations.rivalrySelectedTeamIds.filter(
             (value): value is string => typeof value === 'string',
@@ -471,6 +496,8 @@ export function useWeekBoardController({
       missingInActionSelectedTeamId,
       sicknessSelectedTeamId,
       turnAroundBoostTeamId,
+      marketDayMarketplaceId,
+      marketDayTownName,
       rivalrySelectedTeamIds,
       overseerEventSupportTarget,
     };
@@ -517,6 +544,8 @@ export function useWeekBoardController({
     );
     setSicknessSelectedTeamId(mergedState.sicknessSelectedTeamId);
     setTurnAroundBoostTeamId(mergedState.turnAroundBoostTeamId);
+    setMarketDayMarketplaceId(mergedState.marketDayMarketplaceId);
+    setMarketDayTownName(mergedState.marketDayTownName);
     setRivalrySelectedTeamIds(mergedState.rivalrySelectedTeamIds);
     setOverseerEventSupportTarget(mergedState.overseerEventSupportTarget);
     lastSyncedServerStateRef.current = nextServerState;
@@ -629,6 +658,14 @@ export function useWeekBoardController({
     resolvedRollTwiceFirst,
     resolvedRollTwiceSecond,
   });
+  const marketDayAppliesToAllTrackedMarketplaces =
+    showRollTwiceFields &&
+    resolvedRollTwiceFirst !== null &&
+    'event' in resolvedRollTwiceFirst &&
+    resolvedRollTwiceFirst.event === 'Market Day' &&
+    resolvedRollTwiceSecond !== null &&
+    'event' in resolvedRollTwiceSecond &&
+    resolvedRollTwiceSecond.event === 'Market Day';
 
   const serverUpkeepTotals = readUpkeepRollTotals(data?.state.upkeepRollTotals);
   const serverActivityTotals = readActivityRollTotals(data?.state.activityRollTotals);
@@ -640,6 +677,7 @@ export function useWeekBoardController({
   const teams = data?.teams ?? [];
   const settlements = data?.settlements ?? [];
   const caches = data?.caches ?? [];
+  const marketplaces = data?.marketplaces ?? [];
   const orders = data?.orders ?? [];
   const trackedPeople = data?.trackedPeople ?? [];
   const activeTeamIds = teams
@@ -946,6 +984,12 @@ export function useWeekBoardController({
                 costPaid?: number;
                 deliveryDays?: number;
               }>;
+              marketplaces?: Array<{
+                slotIndex: number;
+                label?: string;
+                purchaseSummary?: string;
+                notes?: string;
+              }>;
               covertActions?: Array<{
                 slotIndex: number;
                 mode?: 'augment_action' | 'place_contact';
@@ -991,6 +1035,7 @@ export function useWeekBoardController({
           refuges: [],
           caches: [],
           orders: [],
+          marketplaces: [],
           covertActions: [],
           rescues: [],
           restorations: [],
@@ -1020,6 +1065,12 @@ export function useWeekBoardController({
               entry.deliveryDays !== undefined
                 ? String(entry.deliveryDays)
                 : undefined,
+          })),
+          marketplaces: (server.marketplaces ?? []).map((entry) => ({
+            slotIndex: entry.slotIndex,
+            label: entry.label,
+            purchaseSummary: entry.purchaseSummary,
+            notes: entry.notes,
           })),
           covertActions: (server.covertActions ?? []).map((entry) => ({
             slotIndex: entry.slotIndex,
@@ -1067,6 +1118,8 @@ export function useWeekBoardController({
           JSON.stringify(serverNormalized.caches) &&
         JSON.stringify(normalizedActivityAssetOperations.orders) ===
           JSON.stringify(serverNormalized.orders) &&
+        JSON.stringify(normalizedActivityAssetOperations.marketplaces) ===
+          JSON.stringify(serverNormalized.marketplaces) &&
         JSON.stringify(normalizedActivityAssetOperations.covertActions) ===
           JSON.stringify(serverNormalized.covertActions) &&
         JSON.stringify(normalizedActivityAssetOperations.rescues) ===
@@ -1081,6 +1134,7 @@ export function useWeekBoardController({
         refuges: normalizedActivityAssetOperations.refuges,
         caches: normalizedActivityAssetOperations.caches,
         orders: normalizedActivityAssetOperations.orders,
+        marketplaces: normalizedActivityAssetOperations.marketplaces,
         covertActions: normalizedActivityAssetOperations.covertActions,
         rescues: normalizedActivityAssetOperations.rescues,
         restorations: normalizedActivityAssetOperations.restorations,
@@ -1106,6 +1160,8 @@ export function useWeekBoardController({
       missingInActionSelectedTeamId,
       sicknessSelectedTeamId,
       turnAroundBoostTeamId,
+      marketDayMarketplaceId,
+      marketDayTownName,
       rivalrySelectedTeamIds.join('|'),
       effectiveOverseerEventSupportTarget,
       stateAny.eventMitigations,
@@ -1123,6 +1179,7 @@ export function useWeekBoardController({
       const hasTurncoat = resolvedEventNames.includes('Turncoat');
       const hasMissingInAction = resolvedEventNames.includes('Missing in Action');
       const hasTurnAround = resolvedEventNames.includes('Turn Around');
+      const hasMarketDay = resolvedEventNames.includes('Market Day');
       const hasRivalry = resolvedEventNames.includes('Rivalry');
       const hasOverseerEventSupport = effectiveOverseerEventSupportTarget !== '';
       return (
@@ -1142,6 +1199,10 @@ export function useWeekBoardController({
           (hasSickness ? sicknessSelectedTeamId : '') &&
         (server.turnAroundBoostTeamId ?? '') ===
           (hasTurnAround ? turnAroundBoostTeamId : '') &&
+        (server.marketDayMarketplaceId ?? '') ===
+          (hasMarketDay ? marketDayMarketplaceId : '') &&
+        (server.marketDayTownName ?? '') ===
+          (hasMarketDay ? marketDayTownName : '') &&
         JSON.stringify(server.rivalrySelectedTeamIds ?? []) ===
           JSON.stringify(hasRivalry ? rivalrySelectedTeamIds : []) &&
         (server.overseerEventSupportTarget ?? '') ===
@@ -1156,6 +1217,7 @@ export function useWeekBoardController({
       const hasTurncoat = resolvedEventNames.includes('Turncoat');
       const hasMissingInAction = resolvedEventNames.includes('Missing in Action');
       const hasTurnAround = resolvedEventNames.includes('Turn Around');
+      const hasMarketDay = resolvedEventNames.includes('Market Day');
       const hasRivalry = resolvedEventNames.includes('Rivalry');
       await mutations.saveEventMitigations(data.militiaId, {
         cacheDiscoveredMitigationTotal: hasCacheDiscovered
@@ -1180,6 +1242,10 @@ export function useWeekBoardController({
         turnAroundBoostTeamId: hasTurnAround
           ? turnAroundBoostTeamId || undefined
           : undefined,
+        marketDayMarketplaceId: hasMarketDay
+          ? marketDayMarketplaceId || undefined
+          : undefined,
+        marketDayTownName: hasMarketDay ? marketDayTownName || undefined : undefined,
         rivalrySelectedTeamIds:
           hasRivalry && rivalrySelectedTeamIds.length > 0
             ? rivalrySelectedTeamIds
@@ -1624,6 +1690,39 @@ export function useWeekBoardController({
     });
   };
 
+  const setMarketplaceForSlot = ({
+    slotIndex,
+    label,
+    purchaseSummary,
+    notes,
+  }: {
+    slotIndex: number;
+    label?: string;
+    purchaseSummary?: string;
+    notes?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.marketplaces.find((entry) => entry.slotIndex === slotIndex);
+      const nextEntry = {
+        slotIndex,
+        label: label ?? previous?.label,
+        purchaseSummary: purchaseSummary ?? previous?.purchaseSummary,
+        notes: notes ?? previous?.notes,
+      };
+      const isMeaningful =
+        (nextEntry.label ?? '').trim() ||
+        (nextEntry.purchaseSummary ?? '').trim() ||
+        (nextEntry.notes ?? '').trim();
+      return {
+        ...current,
+        marketplaces: [
+          ...current.marketplaces.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(isMeaningful ? [nextEntry] : []),
+        ],
+      };
+    });
+  };
+
   const setCovertActionForSlot = ({
     slotIndex,
     mode,
@@ -2033,6 +2132,7 @@ export function useWeekBoardController({
     teams,
     settlements,
     caches,
+    marketplaces,
     orders,
     trackedPeople,
     activeTeamIds,
@@ -2048,6 +2148,7 @@ export function useWeekBoardController({
     setRefugeSettlementForSlot,
     setCacheOperationForSlot,
     setOrderForSlot,
+    setMarketplaceForSlot,
     setCovertActionForSlot,
     setRescueForSlot,
     setRestorationForSlot,
@@ -2067,6 +2168,11 @@ export function useWeekBoardController({
     setSicknessSelectedTeamId,
     turnAroundBoostTeamId,
     setTurnAroundBoostTeamId,
+    marketDayMarketplaceId,
+    setMarketDayMarketplaceId,
+    marketDayTownName,
+    setMarketDayTownName,
+    marketDayAppliesToAllTrackedMarketplaces,
     rivalrySelectedTeamIds,
     setRivalrySelectedTeamIds,
     overseerEventSupportTarget: effectiveOverseerEventSupportTarget,
@@ -2206,6 +2312,18 @@ function normalizeActivityAssetOperationsForSlots(
           ),
       )
       .sort((a, b) => a.slotIndex - b.slotIndex),
+    marketplaces: operations.marketplaces
+      .filter(
+        (entry) =>
+          (slots[entry.slotIndex] === 'broker_market' ||
+            slots[entry.slotIndex] === 'activate_black_market') &&
+          Boolean(
+            (entry.label ?? '').trim() ||
+              (entry.purchaseSummary ?? '').trim() ||
+              (entry.notes ?? '').trim(),
+          ),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
     covertActions: operations.covertActions
       .filter(
         (entry) =>
@@ -2296,6 +2414,11 @@ function remapActivityAssetOperationsForSlotChange(
     ),
     caches: remapSlotIndexedEntries(operations.caches, 'secure_cache', slotChange),
     orders: remapSlotIndexedEntries(operations.orders, 'special_order', slotChange),
+    marketplaces: remapSlotIndexedEntries(
+      operations.marketplaces,
+      ['broker_market', 'activate_black_market'],
+      slotChange,
+    ),
     covertActions: remapSlotIndexedEntries(
       operations.covertActions,
       'covert_action',
@@ -2323,9 +2446,12 @@ type SlotChange = {
 
 function remapSlotIndexedEntries<T extends { slotIndex: number }>(
   entries: T[],
-  relevantActionId: ActionId,
+  relevantActionId: ActionId | ActionId[],
   { slotIndex, actionId, sourceSlotIndex, swapSourceAndTarget }: SlotChange,
 ) {
+  const relevantActionIds = Array.isArray(relevantActionId)
+    ? relevantActionId
+    : [relevantActionId];
   const targetEntry = entries.find((entry) => entry.slotIndex === slotIndex);
   const sourceEntry =
     sourceSlotIndex === undefined
@@ -2345,7 +2471,7 @@ function remapSlotIndexedEntries<T extends { slotIndex: number }>(
     return baseEntries;
   }
 
-  if (actionId !== relevantActionId) {
+  if (!relevantActionIds.includes(actionId)) {
     if (swapSourceAndTarget && targetEntry) {
       return [...baseEntries, { ...targetEntry, slotIndex: sourceSlotIndex }];
     }

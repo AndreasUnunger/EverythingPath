@@ -32,6 +32,29 @@ export interface IMilitia {
   teams: IMilitiaTeam[];
 }
 
+export interface ITrackedMarketplace {
+  _id: string;
+  label: string;
+  sourceAction: 'activate_black_market' | 'broker_market';
+  teamId: string;
+  availabilityTier: 'small_town' | 'small_city';
+  availabilityThreshold: number;
+  saleValuePercent: number;
+  contrabandAllowed: boolean;
+  createdWeek: number;
+  activeUntilWeek: number;
+  marketDayDiscountPercent?: number;
+  marketDayAppliedWeek?: number;
+  notes?: string;
+  isActive: boolean;
+  pendingOrderCount: number;
+}
+
+export interface IMarketplaceLedgerState {
+  currentWeek?: number;
+  marketplaces: ITrackedMarketplace[];
+}
+
 export interface ITeam {
   id: string;
   name: string;

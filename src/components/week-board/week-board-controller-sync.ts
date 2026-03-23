@@ -57,6 +57,8 @@ export type WeekBoardControllerSyncedState = {
   missingInActionSelectedTeamId: string;
   sicknessSelectedTeamId: string;
   turnAroundBoostTeamId: string;
+  marketDayMarketplaceId: string;
+  marketDayTownName: string;
   rivalrySelectedTeamIds: string[];
   overseerEventSupportTarget: EventOverseerSupportTarget | '';
 };
@@ -95,6 +97,8 @@ export function createEmptyWeekBoardControllerSyncedState(): WeekBoardController
     missingInActionSelectedTeamId: '',
     sicknessSelectedTeamId: '',
     turnAroundBoostTeamId: '',
+    marketDayMarketplaceId: '',
+    marketDayTownName: '',
     rivalrySelectedTeamIds: [],
     overseerEventSupportTarget: '',
   };
@@ -272,6 +276,18 @@ export function mergeWeekBoardControllerSyncedStateWithServer({
       nextServerValue: nextServerState.turnAroundBoostTeamId,
       resetToServer,
     }),
+    marketDayMarketplaceId: mergeSyncedValue({
+      currentValue: currentState.marketDayMarketplaceId,
+      previousServerValue: previousServerState.marketDayMarketplaceId,
+      nextServerValue: nextServerState.marketDayMarketplaceId,
+      resetToServer,
+    }),
+    marketDayTownName: mergeSyncedValue({
+      currentValue: currentState.marketDayTownName,
+      previousServerValue: previousServerState.marketDayTownName,
+      nextServerValue: nextServerState.marketDayTownName,
+      resetToServer,
+    }),
     rivalrySelectedTeamIds: mergeSyncedValue({
       currentValue: currentState.rivalrySelectedTeamIds,
       previousServerValue: previousServerState.rivalrySelectedTeamIds,
@@ -331,6 +347,7 @@ function areActivityAssetOperationsEqual(
     areRefugeSelectionsEqual(left.refuges, right.refuges) &&
     areCacheSelectionsEqual(left.caches, right.caches) &&
     areOrderSelectionsEqual(left.orders, right.orders) &&
+    areMarketplaceSelectionsEqual(left.marketplaces, right.marketplaces) &&
     areCovertActionSelectionsEqual(left.covertActions, right.covertActions) &&
     areRescueSelectionsEqual(left.rescues, right.rescues) &&
     areRestorationSelectionsEqual(left.restorations, right.restorations)
@@ -456,6 +473,31 @@ function areOrderSelectionsEqual(
       entry.notes === other.notes &&
       entry.costPaid === other.costPaid &&
       entry.deliveryDays === other.deliveryDays
+    );
+  });
+}
+
+function areMarketplaceSelectionsEqual(
+  left: ActivityAssetOperationsDraft['marketplaces'],
+  right: ActivityAssetOperationsDraft['marketplaces'],
+) {
+  const leftEntries = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightEntries = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftEntries.length !== rightEntries.length) {
+    return false;
+  }
+
+  return leftEntries.every((entry, index) => {
+    const other = rightEntries[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.label === other.label &&
+      entry.purchaseSummary === other.purchaseSummary &&
+      entry.notes === other.notes
     );
   });
 }
