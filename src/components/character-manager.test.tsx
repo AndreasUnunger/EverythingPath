@@ -1,0 +1,640 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CharacterManager } from './character-manager';
+
+const mockCharacterLedgerQuery = vi.fn();
+const mockMilitiaQuery = vi.fn();
+const mockUseMutation = vi.fn();
+
+const mutationFns = {
+  createCharacter: vi.fn(),
+  updateCharacter: vi.fn(),
+  archiveCharacter: vi.fn(),
+  deleteCharacter: vi.fn(),
+  assignOfficerRole: vi.fn(),
+};
+
+vi.mock('~/lib/sharedQueries', () => ({
+  characterLedgerQuery: (...args: unknown[]) => mockCharacterLedgerQuery(...args),
+  militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
+}));
+
+vi.mock('convex/react', () => ({
+  useMutation: (ref: unknown) => mockUseMutation(ref),
+}));
+
+vi.mock('@convex/_generated/api', () => ({
+  api: {
+    character: {
+      createCharacter: 'character.createCharacter',
+      updateCharacter: 'character.updateCharacter',
+      archiveCharacter: 'character.archiveCharacter',
+      deleteCharacter: 'character.deleteCharacter',
+    },
+    militia: {
+      assignOfficerRole: 'militia.assignOfficerRole',
+    },
+  },
+}));
+
+vi.mock('~/components/ui/select', () => ({
+  Select: ({
+    value,
+    onValueChange,
+    children,
+  }: {
+    value?: string;
+    onValueChange?: (value: string) => void;
+    children: React.ReactNode;
+  }) => (
+    <select
+      data-testid="mock-select"
+      value={value}
+      onChange={(event) => onValueChange?.(event.target.value)}
+    >
+      {children}
+    </select>
+  ),
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectItem: ({
+    value,
+    children,
+  }: {
+    value: string;
+    children: React.ReactNode;
+  }) => <option value={value}>{children}</option>,
+}));
+
+describe('CharacterManager', () => {
+  function openLedger() {
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  }
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        ambassador: undefined,
+        commandant: undefined,
+        marshal: undefined,
+        overseer: undefined,
+        spymaster: undefined,
+        strategist: undefined,
+      },
+    });
+
+    mockUseMutation.mockImplementation((ref: unknown) => {
+      if (ref === 'character.createCharacter') return mutationFns.createCharacter;
+      if (ref === 'character.updateCharacter') return mutationFns.updateCharacter;
+      if (ref === 'character.archiveCharacter') return mutationFns.archiveCharacter;
+      if (ref === 'character.deleteCharacter') return mutationFns.deleteCharacter;
+      if (ref === 'militia.assignOfficerRole') return mutationFns.assignOfficerRole;
+      return vi.fn();
+    });
+
+    mutationFns.assignOfficerRole.mockResolvedValue({ warnings: [] });
+    mutationFns.createCharacter.mockResolvedValue(undefined);
+    mutationFns.updateCharacter.mockResolvedValue(undefined);
+    mutationFns.archiveCharacter.mockResolvedValue(undefined);
+    mutationFns.deleteCharacter.mockResolvedValue(undefined);
+  });
+
+  it('shows zod/rhf validation when saving with empty name', async () => {
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Add Character'));
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(await screen.findByText('Character name is required')).toBeInTheDocument();
+    expect(mutationFns.createCharacter).not.toHaveBeenCalled();
+  });
+
+  it('differentiates empty numeric value from incorrect numeric type', async () => {
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Add Character'));
+
+    const inputs = screen.getAllByRole('textbox');
+    const nameInput = inputs.find((input) => input.getAttribute('name') === 'name');
+    const dexInput = inputs.find((input) => input.getAttribute('name') === 'dexterity');
+
+    fireEvent.change(nameInput!, { target: { value: 'Valeria' } });
+    fireEvent.change(dexInput!, { target: { value: '' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(await screen.findByText('DEX is required')).toBeInTheDocument();
+
+    fireEvent.change(dexInput!, { target: { value: 'abc' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(await screen.findByText('DEX must be a whole number')).toBeInTheDocument();
+  });
+
+  it('accepts valid numeric stat fields on submit', async () => {
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Add Character'));
+
+    const inputs = screen.getAllByRole('textbox');
+    const nameInput = inputs.find((input) => input.getAttribute('name') === 'name');
+    const levelInput = inputs.find((input) => input.getAttribute('name') === 'level');
+    const dexInput = inputs.find((input) => input.getAttribute('name') === 'dexterity');
+
+    fireEvent.change(nameInput!, { target: { value: 'Valeria' } });
+    fireEvent.change(levelInput!, { target: { value: '4' } });
+    fireEvent.change(dexInput!, { target: { value: '14' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mutationFns.createCharacter).toHaveBeenCalled();
+    });
+    expect(screen.queryByText('DEX must be a whole number')).not.toBeInTheDocument();
+  });
+
+  it('shows and dismisses officer assignment warnings', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+    mutationFns.assignOfficerRole.mockResolvedValue({
+      warnings: [{ message: 'Apply Change Officer Role action if table requires it.' }],
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Edit'));
+    const selects = screen.getAllByTestId('mock-select');
+    const roleSelect = selects[1];
+    fireEvent.change(roleSelect!, { target: { value: 'ambassador' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(
+      await screen.findByText('Apply Change Officer Role action if table requires it.'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Dismiss'));
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Apply Change Officer Role action if table requires it.'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('supports viewing archived characters, un-archiving, and hard delete', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'arch_1',
+          name: 'Old Scout',
+          description: '',
+          kind: 'officer_npc',
+          level: 2,
+          strength: 10,
+          dexterity: 12,
+          constitution: 10,
+          intelligence: 9,
+          wisdom: 11,
+          charisma: 8,
+          isActive: false,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Show Archived'));
+    expect(screen.getByText('Old Scout (Level 2)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Un-archive'));
+    expect(mutationFns.archiveCharacter).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      characterId: 'arch_1',
+      isActive: true,
+    });
+
+    fireEvent.click(screen.getByText('Delete'));
+    expect(await screen.findByText('Delete Character')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Delete Permanently'));
+    expect(mutationFns.deleteCharacter).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      characterId: 'arch_1',
+    });
+  });
+
+  it('does not hard delete when delete dialog is canceled', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'arch_1',
+          name: 'Old Scout',
+          description: '',
+          kind: 'officer_npc',
+          level: 2,
+          strength: 10,
+          dexterity: 12,
+          constitution: 10,
+          intelligence: 9,
+          wisdom: 11,
+          charisma: 8,
+          isActive: false,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Show Archived'));
+    fireEvent.click(screen.getByText('Delete'));
+    expect(await screen.findByText('Delete Character')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Cancel'));
+    await waitFor(() => {
+      expect(screen.queryByText('Delete Character')).not.toBeInTheDocument();
+    });
+    expect(mutationFns.deleteCharacter).not.toHaveBeenCalled();
+  });
+
+  it('shows inline error when hard delete fails', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'arch_1',
+          name: 'Old Scout',
+          description: '',
+          kind: 'officer_npc',
+          level: 2,
+          strength: 10,
+          dexterity: 12,
+          constitution: 10,
+          intelligence: 9,
+          wisdom: 11,
+          charisma: 8,
+          isActive: false,
+        },
+      ],
+      isLoading: false,
+    });
+    mutationFns.deleteCharacter.mockRejectedValueOnce(
+      new Error('Only archived characters can be hard deleted'),
+    );
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Show Archived'));
+    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(await screen.findByText('Delete Permanently'));
+
+    expect(
+      await screen.findByText('Only archived characters can be hard deleted'),
+    ).toBeInTheDocument();
+  });
+
+  it('closes delete dialog after successful hard delete', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'arch_1',
+          name: 'Old Scout',
+          description: '',
+          kind: 'officer_npc',
+          level: 2,
+          strength: 10,
+          dexterity: 12,
+          constitution: 10,
+          intelligence: 9,
+          wisdom: 11,
+          charisma: 8,
+          isActive: false,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Show Archived'));
+    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(await screen.findByText('Delete Permanently'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Delete Character')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows officer assignment error when mutation fails', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+    mutationFns.assignOfficerRole.mockRejectedValueOnce(
+      new Error('Cannot assign an archived character to an officer role'),
+    );
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Edit'));
+    const selects = screen.getAllByTestId('mock-select');
+    const roleSelect = selects[1];
+    fireEvent.change(roleSelect!, { target: { value: 'ambassador' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(
+      await screen.findByText('Cannot assign an archived character to an officer role'),
+    ).toBeInTheDocument();
+  });
+
+  it('clears the old officer role before assigning a new one from a character card', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        ambassador: 'char_1',
+        commandant: undefined,
+        marshal: undefined,
+        overseer: undefined,
+        spymaster: undefined,
+        strategist: undefined,
+      },
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Edit'));
+    const selects = screen.getAllByTestId('mock-select');
+    const roleSelect = selects[1];
+    fireEvent.change(roleSelect!, { target: { value: 'marshal' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mutationFns.assignOfficerRole).toHaveBeenNthCalledWith(1, {
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'ambassador',
+        characterId: undefined,
+        source: 'direct',
+      });
+      expect(mutationFns.assignOfficerRole).toHaveBeenNthCalledWith(2, {
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'marshal',
+        characterId: 'char_1',
+        source: 'direct',
+      });
+    });
+  });
+
+  it('can unassign a role directly from the role strip', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        ambassador: 'char_1',
+        commandant: undefined,
+        marshal: undefined,
+        overseer: undefined,
+        spymaster: undefined,
+        strategist: undefined,
+      },
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
+
+    await waitFor(() => {
+      expect(mutationFns.assignOfficerRole).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'ambassador',
+        characterId: undefined,
+        source: 'direct',
+      });
+    });
+  });
+
+  it('assigns a character to a role by dragging the card onto the role strip', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    const card = screen.getByText('Aubrin').closest('[data-slot="card"]');
+    const [dropZone] = screen.getAllByText('Ambassador');
+    const dropTarget = dropZone?.closest('.border-2');
+    card!.getBoundingClientRect = vi.fn(() => ({
+      left: 10,
+      top: 20,
+      right: 210,
+      bottom: 220,
+      width: 200,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    }));
+    dropTarget!.getBoundingClientRect = vi.fn(() => ({
+      left: 300,
+      top: 100,
+      right: 520,
+      bottom: 220,
+      width: 220,
+      height: 120,
+      x: 300,
+      y: 100,
+      toJSON: () => ({}),
+    }));
+
+    fireEvent.pointerDown(card!, { button: 0, clientX: 40, clientY: 60 });
+    fireEvent.pointerMove(window, { clientX: 340, clientY: 140 });
+    fireEvent.pointerUp(window, { clientX: 340, clientY: 140 });
+
+    await waitFor(() => {
+      expect(mutationFns.assignOfficerRole).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'ambassador',
+        characterId: 'char_1',
+        source: 'direct',
+      });
+    });
+  });
+});

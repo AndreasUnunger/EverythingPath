@@ -51,3 +51,29 @@ export const createCampaign = mutation({
     });
   },
 });
+
+export const updateCampaignInGameDate = mutation({
+  args: {
+    campaignId: v.id('campaign'),
+    organizationId: campaignValidator.fields.organizationId,
+    inGameDate: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    const access = await hasAccessToOrg(ctx, args.organizationId);
+
+    if (!access) {
+      throw new ConvexError('You do not have access to this org');
+    }
+
+    const campaign = await ctx.db.get('campaign', args.campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      throw new ConvexError('No campaign exists for this organization');
+    }
+
+    await ctx.db.patch('campaign', args.campaignId, {
+      inGameDate: args.inGameDate,
+    });
+
+    return await ctx.db.get('campaign', args.campaignId);
+  },
+});

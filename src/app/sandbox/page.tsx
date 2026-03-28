@@ -1,10 +1,28 @@
 'use client';
 
-import { useQuery } from 'convex-helpers/react/cache';
-import { api } from '@convex/_generated/api';
+import { CharacterOfficerPrototypes } from '~/components/character-officer-prototypes';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
+import { WeekBoardPrototypes } from '~/components/week-board-prototypes';
 
 export default function Sandbox() {
-  const spellCount = useQuery(api.spell.getCount);
-
-  return <div>Spell count: {spellCount}</div>;
+  return (
+    <main className="mx-auto max-w-7xl p-4 md:p-6">
+      <Tabs defaultValue="week-board" className="space-y-3">
+        <TabsList className="h-auto w-full justify-start gap-1 p-1">
+          <TabsTrigger value="week-board" className="font-mono">
+            Week Board
+          </TabsTrigger>
+          <TabsTrigger value="characters" className="font-mono">
+            Characters + Officers
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="week-board">
+          <WeekBoardPrototypes />
+        </TabsContent>
+        <TabsContent value="characters">
+          <CharacterOfficerPrototypes />
+        </TabsContent>
+      </Tabs>
+    </main>
+  );
 }

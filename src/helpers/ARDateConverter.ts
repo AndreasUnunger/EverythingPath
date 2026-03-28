@@ -19,7 +19,7 @@ type WeekdaySet = {
   weekdays: WeekdayDef[];
 };
 
-const baseCalendar = {
+export const fantasyCalendar = {
   monthSet: {
     months: [
       { name: 'Abadius', nameShort: 'Aba', nameAbbrev: 'A', days: 31 },
@@ -66,24 +66,33 @@ export function formatFantasyDate(date: Date): string {
     throw new TypeError('Invalid Date provided');
   }
 
-  const year = date.getUTCFullYear();
+  const parts = getFantasyDateParts(date);
+  const weekdayDef =
+    fantasyCalendar.weekdaySet.weekdays[
+      date.getUTCDay() % fantasyCalendar.weekdaySet.weekdays.length
+    ];
 
-  // Make a copy of month defs so we can mutate days for leap years
-  const months: MonthDef[] = baseCalendar.monthSet.months.map((m) => ({
-    name: m.name,
-    nameShort: m.nameShort,
-    nameAbbrev: m.nameAbbrev,
-    days: m.days,
+  return `${weekdayDef!.name}, ${parts.day} ${parts.month.name} ${parts.year}`;
+}
+
+export function getFantasyMonthsForGregorianYear(year: number): MonthDef[] {
+  const months: MonthDef[] = fantasyCalendar.monthSet.months.map((month) => ({
+    name: month.name,
+    nameShort: month.nameShort,
+    nameAbbrev: month.nameAbbrev,
+    days: month.days,
   }));
 
-  // If leap year, add one day to Calistril (index 1)
-  if (isGregorianLeapYear(year)) {
-    if (months.length >= 2) {
-      months[1]!.days += 1;
-    }
+  if (isGregorianLeapYear(year) && months.length >= 2) {
+    months[1]!.days += 1;
   }
 
-  // Compute day of year (1-based) using UTC to avoid timezone issues
+  return months;
+}
+
+export function getFantasyDateParts(date: Date) {
+  const year = date.getUTCFullYear();
+  const months = getFantasyMonthsForGregorianYear(year);
   const startOfYearUtc = Date.UTC(year, 0, 1);
   const utcDate = Date.UTC(
     date.getUTCFullYear(),
@@ -97,26 +106,55 @@ export function formatFantasyDate(date: Date): string {
   const msPerDay = 24 * 60 * 60 * 1000;
   const dayOfYear = Math.floor((utcDate - startOfYearUtc) / msPerDay) + 1;
 
-  // Find month and day within that month
   let remaining = dayOfYear;
   let monthIndex = months.length - 1;
   let dayInMonth = months[monthIndex]!.days;
 
   for (let i = 0; i < months.length; i++) {
-    const mDays = months[i]!.days;
-    if (remaining <= mDays) {
+    const monthDays = months[i]!.days;
+    if (remaining <= monthDays) {
       monthIndex = i;
       dayInMonth = remaining;
       break;
     }
-    remaining -= mDays;
+    remaining -= monthDays;
   }
 
-  const weekdayDef =
-    baseCalendar.weekdaySet.weekdays[
-      date.getUTCDay() % baseCalendar.weekdaySet.weekdays.length
-    ];
-  const monthDef = months[monthIndex];
-
-  return `${weekdayDef!.name}, ${dayInMonth} ${monthDef!.name} ${year + 2700}`;
+  return {
+    year: year + 2700,
+    monthIndex,
+    month: months[monthIndex]!,
+    day: dayInMonth,
+  };
 }
+
+export function createDateFromFantasyParts({
+  year,
+  monthIndex,
+  day,
+}: {
+  year: number;
+  monthIndex: number;
+  day: number;
+}) {
+  const gregorianYear = year - 2700;
+  const months = getFantasyMonthsForGregorianYear(gregorianYear);
+  const month = months[monthIndex];
+  if (!month || day < 1 || day > month.days) {
+    throw new RangeError('Invalid fantasy date');
+  }
+
+  const dayOfYear =
+    months.slice(0, monthIndex).reduce((sum, current) => sum + current.days, 0) + day;
+  return new Date(Date.UTC(gregorianYear, 0, dayOfYear));
+}
+
+export const fantasyWeekdayHeadersMondayFirst = [
+  fantasyCalendar.weekdaySet.weekdays[1]!,
+  fantasyCalendar.weekdaySet.weekdays[2]!,
+  fantasyCalendar.weekdaySet.weekdays[3]!,
+  fantasyCalendar.weekdaySet.weekdays[4]!,
+  fantasyCalendar.weekdaySet.weekdays[5]!,
+  fantasyCalendar.weekdaySet.weekdays[6]!,
+  fantasyCalendar.weekdaySet.weekdays[0]!,
+];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Id } from '@convex/_generated/dataModel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { MilitiaSystem } from '~/components/militia-system';
@@ -12,7 +12,9 @@ import { CampaignInfo } from './campaignInfo';
 import { Ledger } from './ledger';
 import {
   campaignQuery,
+  marketplaceLedgerQuery,
   militiaQuery,
+  militiaStateSetupQuery,
 } from '~/lib/sharedQueries';
 
 export function CampaignDashboard() {
@@ -33,26 +35,28 @@ export function CampaignDashboard() {
   const canLoadOrgData = Boolean(
     isLoaded && organizationId && campaignContext?.state === 'ready',
   );
-  const selectedCampaign = campaigns?.find((x) => x._id === selectedCampaignId);
-
-  useEffect(() => {
+  const effectiveSelectedCampaignId = useMemo(() => {
     if (!campaigns?.length) {
-      if (selectedCampaignId !== undefined) {
-        setSelectedCampaignId(undefined);
-      }
-      return;
+      return undefined;
     }
-
-    if (campaigns.some((campaign) => campaign._id === selectedCampaignId)) {
-      return;
+    if (selectedCampaignId && campaigns.some((campaign) => campaign._id === selectedCampaignId)) {
+      return selectedCampaignId;
     }
-
-    if (campaigns[0]) {
-      setSelectedCampaignId(campaigns[0]._id);
-    }
+    return campaigns[0]?._id;
   }, [campaigns, selectedCampaignId]);
+  const selectedCampaign = campaigns?.find((x) => x._id === effectiveSelectedCampaignId);
 
   const { data: militia } = militiaQuery(
+    selectedCampaign?._id,
+    organizationId,
+    canLoadOrgData,
+  );
+  const { data: marketplaceLedger } = marketplaceLedgerQuery(
+    selectedCampaign?._id,
+    organizationId,
+    canLoadOrgData,
+  );
+  const { data: militiaStateSetup } = militiaStateSetupQuery(
     selectedCampaign?._id,
     organizationId,
     canLoadOrgData,
@@ -118,12 +122,10 @@ export function CampaignDashboard() {
 
   return (
     <div>
-      <header className="border-primary relative mb-4 border-b-2 pb-4"></header>
-
       <div className="flex items-center gap-6 pb-4 sm:justify-between">
         <CampaignSelector
           campaigns={campaigns}
-          selectedCampaign={selectedCampaignId}
+          selectedCampaign={effectiveSelectedCampaignId}
           setSelectedCampaign={setSelectedCampaignId}
         />
         <CreateCampaignDialog />
@@ -131,6 +133,9 @@ export function CampaignDashboard() {
 
       <CampaignInfo
         campaign={selectedCampaign}
+        militia={militia ?? undefined}
+        militiaStateSetup={militiaStateSetup ?? undefined}
+        marketplaceLedger={marketplaceLedger ?? undefined}
       />
 
       <Tabs
@@ -177,7 +182,7 @@ export function CampaignDashboard() {
 
         <TabsContent value="characters" className="space-y-4">
           <Ledger
-            selectedCampaignId={selectedCampaignId}
+            selectedCampaignId={effectiveSelectedCampaignId}
             organizationId={organizationId ?? ''}
             canQuery={canLoadOrgData}
           />

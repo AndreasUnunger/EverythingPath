@@ -138,19 +138,22 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
 function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   const { error, formMessageId } = useFormField()
   const body = error ? String(error?.message ?? "") : props.children
-
-  if (!body) {
-    return null
-  }
+  const hasMessage = Boolean(body)
 
   return (
     <p
       data-slot="form-message"
       id={formMessageId}
-      className={cn("text-destructive text-sm", className)}
+      className={cn(
+        "flex min-h-6 items-center overflow-hidden border-2 px-2 py-0.5 font-mono text-xs leading-tight tracking-wide uppercase transition-opacity",
+        hasMessage
+          ? "corner-brackets border-destructive/60 bg-card/80 text-destructive opacity-100"
+          : "pointer-events-none border-transparent bg-transparent text-transparent opacity-0",
+        className
+      )}
       {...props}
     >
-      {body}
+      {hasMessage ? body : "\u00A0"}
     </p>
   )
 }

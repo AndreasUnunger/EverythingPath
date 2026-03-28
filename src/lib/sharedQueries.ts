@@ -25,3 +25,117 @@ export function campaignQuery(orgId: string | undefined, enabled = true) {
     enabled,
   });
 }
+
+export function characterLedgerQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+  includeInactive = false,
+) {
+  return useQuery({
+    ...convexQuery(db.character.listByCampaign, {
+      campaignId,
+      organizationId: orgId,
+      includeInactive,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function settlementLedgerQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.militia.listSettlements, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function marketplaceLedgerQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.militia.listMarketplaces, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function militiaStateSetupQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.militia.getMilitiaStateSetup, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function weekBoardStateQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.weekBoard.getWeekBoardState, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function weekBoardReferenceQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.weekBoard.getWeekBoardReferenceData, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function weekBoardTrackedStateQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.weekBoard.getWeekBoardTrackedState, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
+
+export function weekBoardLiveStateQuery(
+  campaignId: Id<'campaign'> | undefined,
+  orgId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    ...convexQuery(db.weekBoard.getWeekBoardLiveState, {
+      campaignId,
+      organizationId: orgId,
+    }),
+    enabled: enabled && !!campaignId && !!orgId,
+  });
+}
