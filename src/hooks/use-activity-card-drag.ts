@@ -2,18 +2,7 @@
 
 import { useEffect } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
-
-type DragState<TActionId extends string> = {
-  actionId: TActionId;
-  source: 'deck' | 'slot';
-  sourceSlotIndex?: number;
-  pointerX: number;
-  pointerY: number;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-};
+import type { PointerCardDragState } from '~/lib/pointer-card-drag';
 
 type SlotRow = {
   slotId: string;
@@ -55,8 +44,8 @@ export function useActivityCardDrag<TActionId extends string>({
   setActiveDropSlotId,
   onDrop,
 }: {
-  dragState: DragState<TActionId> | null;
-  setDragState: Dispatch<SetStateAction<DragState<TActionId> | null>>;
+  dragState: PointerCardDragState<TActionId> | null;
+  setDragState: Dispatch<SetStateAction<PointerCardDragState<TActionId> | null>>;
   slotRows: SlotRow[];
   slotRefs: RefObject<Record<string, HTMLDivElement | null>>;
   setActiveDropSlotId: (slotId: string | null) => void;

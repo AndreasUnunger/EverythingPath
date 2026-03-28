@@ -1,5 +1,4 @@
 import type { UseFormReturn } from 'react-hook-form';
-import { Card } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import {
   Form,
@@ -17,17 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import type { CharacterFormValues } from './types';
+import { officerRoleLabels, type CharacterFormValues } from './types';
 
 export function CharacterFormCard({
   form,
-  isEditing,
   onSubmit,
   onCancel,
   submitError,
 }: {
   form: UseFormReturn<CharacterFormValues>;
-  isEditing: boolean;
   onSubmit: (values: CharacterFormValues) => Promise<void>;
   onCancel: () => void;
   submitError?: string;
@@ -35,16 +32,12 @@ export function CharacterFormCard({
   const isSubmitting = form.formState.isSubmitting;
 
   return (
-    <Card className="bg-card border-2 p-4">
-      <h3 className="text-primary mb-3 font-sans text-lg font-bold">
-        {isEditing ? 'Edit Character' : 'New Character'}
-      </h3>
-      <Form {...form}>
-        <form
-          noValidate
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-2"
-        >
+    <Form {...form}>
+      <form
+        noValidate
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-2"
+      >
           {submitError ? (
             <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
               {submitError}
@@ -52,12 +45,12 @@ export function CharacterFormCard({
           ) : null}
           <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
             <div className="md:col-span-2">
-              <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-1.5 md:grid-cols-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="md:col-span-2">
                       <FormLabel className="font-mono text-sm">Name</FormLabel>
                       <FormControl>
                         <Input
@@ -152,6 +145,39 @@ export function CharacterFormCard({
             </div>
 
             <div className="md:col-span-2">
+              <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="officerRole"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-sm">Officer role</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => field.onChange(value)}
+                        >
+                          <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="border-primary bg-card border-2 font-mono">
+                            <SelectItem value="none">No role</SelectItem>
+                            {officerRoleLabels.map((officerRole) => (
+                              <SelectItem key={officerRole.role} value={officerRole.role}>
+                                {officerRole.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
               <FormField
                 control={form.control}
                 name="description"
@@ -185,8 +211,7 @@ export function CharacterFormCard({
               Cancel
             </Button>
           </div>
-        </form>
-      </Form>
-    </Card>
+      </form>
+    </Form>
   );
 }

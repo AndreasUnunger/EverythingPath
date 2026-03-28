@@ -13,7 +13,11 @@ import {
 import type { Doc } from '@convex/_generated/dataModel';
 import type { WithoutSystemFields } from 'convex/server';
 import { formatFantasyDate } from '~/helpers/ARDateConverter';
-import type { IMarketplaceLedgerState, IMilitia } from '~/lib/types';
+import type {
+  IMarketplaceLedgerState,
+  IMilitia,
+  IMilitiaStateSetup,
+} from '~/lib/types';
 import {
   getMinimumTrainingForRank,
   getMinimumTreasuryForRank,
@@ -22,16 +26,22 @@ import {
   formatMarketplaceAvailabilityTier,
   formatMarketplaceSourceAction,
 } from '~/lib/militia-marketplace-rules';
+import {
+  formatFocusLabel,
+  formatWeekPhaseLabel,
+} from '~/lib/militia-state-options';
 import { Card } from './ui/card';
 import { CampaignInfoCard } from './ui/campaignInfoCard';
 
 export function CampaignInfo({
   campaign,
   militia,
+  militiaStateSetup,
   marketplaceLedger,
 }: {
   campaign: WithoutSystemFields<Doc<'campaign'>> | undefined;
   militia?: IMilitia | null;
+  militiaStateSetup?: IMilitiaStateSetup;
   marketplaceLedger?: IMarketplaceLedgerState;
 }) {
   if (!campaign) {
@@ -40,7 +50,11 @@ export function CampaignInfo({
 
   const campaignDate = campaign.inGameDate
     ? formatFantasyDate(new Date(campaign.inGameDate))
-    : '';
+    : undefined;
+  const weekStateLabel = militiaStateSetup
+    ? `Week ${militiaStateSetup.currentWeekState.weekNumber} • ${formatWeekPhaseLabel(militiaStateSetup.currentWeekState.phase)}`
+    : undefined;
+  const headlineDate = campaignDate ?? weekStateLabel ?? '';
   const nextRankTraining = militia
     ? getMinimumTrainingForRank(militia.rank + 1)
     : undefined;
@@ -59,7 +73,7 @@ export function CampaignInfo({
   return (
     <div className="space-y-2 pb-4">
       <div className="grid gap-2 sm:grid-cols-5 2xl:grid-cols-10">
-        <CampaignInfoCard title="Date" value={campaignDate}>
+        <CampaignInfoCard title="Date" value={headlineDate}>
           <Calendar className="h-4 w-4" />
         </CampaignInfoCard>
 
@@ -82,7 +96,7 @@ export function CampaignInfo({
           <MapPin className="h-4 w-4" />
         </CampaignInfoCard>
 
-        <CampaignInfoCard title="Focus" value={militia?.focus ?? 'Unset'}>
+        <CampaignInfoCard title="Focus" value={formatFocusLabel(militia?.focus)}>
           <Target className="h-4 w-4" />
         </CampaignInfoCard>
 

@@ -1,5 +1,4 @@
 import { Button } from '~/components/ui/button';
-import { Card } from '~/components/ui/card';
 import type { CharacterId, CharacterRecord } from './types';
 
 export function ArchivedCharactersCard({
@@ -16,10 +15,7 @@ export function ArchivedCharactersCard({
   deletingCharacterId?: CharacterId;
 }) {
   return (
-    <Card className="bg-card w-full border-2 p-4">
-      <h3 className="text-primary mb-3 font-sans text-lg font-bold">
-        Archived Characters
-      </h3>
+    <div className="w-full">
       {archivedCharacters.length === 0 ? (
         <p className="text-muted-foreground font-mono text-sm">
           No archived characters.
@@ -58,6 +54,6 @@ export function ArchivedCharactersCard({
           ))}
         </div>
       )}
-    </Card>
-  );
-}
+      </div>
+    );
+  }

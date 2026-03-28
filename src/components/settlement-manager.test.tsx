@@ -60,6 +60,10 @@ vi.mock('~/components/ui/select', () => ({
 }));
 
 describe('SettlementManager', () => {
+  function openLedger() {
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  }
+
   afterEach(() => {
     cleanup();
   });
@@ -101,6 +105,7 @@ describe('SettlementManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Add Settlement'));
     fireEvent.click(screen.getByText('Save'));
 
@@ -117,6 +122,7 @@ describe('SettlementManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Add Settlement'));
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Settlement name' }), {
@@ -161,6 +167,7 @@ describe('SettlementManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Edit'));
 
     const nameInput = screen.getByRole('textbox', { name: 'Settlement name' });
@@ -202,6 +209,7 @@ describe('SettlementManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {

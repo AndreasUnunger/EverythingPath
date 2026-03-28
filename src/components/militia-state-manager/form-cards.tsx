@@ -1,5 +1,6 @@
 import type { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
+import { FantasyDatePicker } from '~/components/ui/fantasy-date-picker';
 import {
   Form,
   FormControl,
@@ -41,6 +42,7 @@ import {
   weekPhaseOptions,
 } from '~/lib/militia-state-options';
 import { formatTeamIdLabel, TEAM_IDS } from '~/lib/team-ids';
+import { cn } from '~/lib/utils';
 import type {
   CacheStateFormValues,
   CharacterOption,
@@ -53,21 +55,33 @@ import type {
   WeekContextFormValues,
 } from './types';
 
+const EMPTY_SELECT_ITEM_VALUE = '__empty_select_item__';
+
 export function MilitiaCoreFormCard({
   form,
   onSubmit,
   onCancel,
   submitError,
+  showCancel = true,
 }: {
   form: UseFormReturn<MilitiaCoreFormValues>;
   onSubmit: (values: MilitiaCoreFormValues) => Promise<void>;
-  onCancel: () => void;
+  onCancel?: () => void;
   submitError?: string;
+  showCancel?: boolean;
 }) {
   return (
-    <FormShell form={form} onSubmit={onSubmit} onCancel={onCancel} submitError={submitError}>
-      <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3">
-        <TextField form={form} name="name" label="Militia name" className="md:col-span-3" />
+    <FormShell
+      form={form}
+      onSubmit={onSubmit}
+      onCancel={onCancel}
+      submitError={submitError}
+      showCancel={showCancel}
+    >
+      <div className="grid grid-cols-1 gap-x-4 gap-y-0 md:grid-cols-3 md:gap-x-6 md:gap-y-0.5">
+        <TextField form={form} name="name" label="Militia name" className="md:col-span-2" />
+        <DateField form={form} name="inGameDate" label="In-game date" />
+        <TextField form={form} name="HQLocation" label="HQ location" />
         <NumberField form={form} name="rank" label="Rank" />
         <NumberField form={form} name="highestBoonReached" label="Highest boon reached" />
         <NumberField form={form} name="training" label="Training" />
@@ -85,12 +99,6 @@ export function MilitiaCoreFormCard({
             })),
           ]}
         />
-        <TextField
-          form={form}
-          name="HQLocation"
-          label="HQ location"
-          className="md:col-span-3"
-        />
       </div>
     </FormShell>
   );
@@ -101,15 +109,23 @@ export function WeekContextFormCard({
   onSubmit,
   onCancel,
   submitError,
+  showCancel = true,
 }: {
   form: UseFormReturn<WeekContextFormValues>;
   onSubmit: (values: WeekContextFormValues) => Promise<void>;
-  onCancel: () => void;
+  onCancel?: () => void;
   submitError?: string;
+  showCancel?: boolean;
 }) {
   return (
-    <FormShell form={form} onSubmit={onSubmit} onCancel={onCancel} submitError={submitError}>
-      <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3">
+    <FormShell
+      form={form}
+      onSubmit={onSubmit}
+      onCancel={onCancel}
+      submitError={submitError}
+      showCancel={showCancel}
+    >
+      <div className="grid grid-cols-1 gap-x-4 gap-y-0 md:grid-cols-3 md:gap-x-6 md:gap-y-0.5">
         <NumberField form={form} name="weekNumber" label="Week number" />
         <SelectField
           form={form}
@@ -183,12 +199,16 @@ export function TeamStateFormCard({
   onSubmit,
   onCancel,
   submitError,
+  characterOptions,
 }: {
   form: UseFormReturn<TeamStateFormValues>;
   onSubmit: (values: TeamStateFormValues) => Promise<void>;
   onCancel: () => void;
   submitError?: string;
+  characterOptions: CharacterOption[];
 }) {
+  const managerSource = form.watch('managerSource');
+
   return (
     <FormShell form={form} onSubmit={onSubmit} onCancel={onCancel} submitError={submitError}>
       <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3">
@@ -218,6 +238,46 @@ export function TeamStateFormCard({
           label="Unavailable until week"
           optional
         />
+        <SelectField
+          form={form}
+          name="managerSource"
+          label="Manager source"
+          options={[
+            { value: 'none', label: 'No manager' },
+            { value: 'character', label: 'Character ledger' },
+            { value: 'freeform', label: 'Freeform manager' },
+          ]}
+        />
+        {managerSource === 'character' ? (
+          <SelectField
+            form={form}
+            name="managerCharacterId"
+            label="Manager character"
+            options={[
+              { value: '', label: 'Select character' },
+              ...characterOptions.map((character) => ({
+                value: character._id,
+                label: `${character.name} (${character.kind ?? 'pc'}, CHA ${character.charisma})`,
+              })),
+            ]}
+          />
+        ) : null}
+        {managerSource === 'freeform' ? (
+          <>
+            <TextField form={form} name="managerName" label="Manager name" />
+            <SelectField
+              form={form}
+              name="managerKind"
+              label="Manager type"
+              options={[
+                { value: 'pc', label: 'PC' },
+                { value: 'officer_npc', label: 'Officer NPC' },
+                { value: 'other_npc', label: 'Other NPC' },
+              ]}
+            />
+            <NumberField form={form} name="managerCharisma" label="Manager Charisma" />
+          </>
+        ) : null}
         <TextField form={form} name="notes" label="Notes" className="md:col-span-3" />
       </div>
     </FormShell>
@@ -395,7 +455,14 @@ export function TrackedPersonFormCard({
             ]}
           />
         ) : null}
-        <TextField form={form} name="displayName" label="Tracked person name" />
+        {targetSource === 'character' ? (
+          <div
+            aria-hidden="true"
+            className="hidden md:block"
+          />
+        ) : (
+          <TextField form={form} name="displayName" label="Tracked person name" />
+        )}
         <SelectField
           form={form}
           name="personKind"
@@ -428,7 +495,11 @@ export function TrackedPersonFormCard({
           <SelectField
             form={form}
             name="settlementKey"
-            label="Settlement"
+            label={
+              locationType === 'refuge'
+                ? 'Settlement containing the refuge'
+                : 'Settlement'
+            }
             options={[
               { value: '', label: 'None' },
               ...settlementOptions.map((settlementKey) => ({
@@ -521,35 +592,39 @@ function FormShell<TFieldValues extends FieldValues>({
   onSubmit,
   onCancel,
   submitError,
+  showCancel = true,
   children,
 }: {
   form: UseFormReturn<TFieldValues>;
   onSubmit: (values: TFieldValues) => Promise<void>;
-  onCancel: () => void;
+  onCancel?: () => void;
   submitError?: string;
+  showCancel?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Form {...form}>
-      <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
+      <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
         {submitError ? (
           <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
             {submitError}
           </div>
         ) : null}
         {children}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-2 flex gap-2">
           <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? 'Saving...' : 'Save'}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={form.formState.isSubmitting}
-          >
-            Cancel
-          </Button>
+          {showCancel && onCancel ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={form.formState.isSubmitting}
+            >
+              Cancel
+            </Button>
+          ) : null}
         </div>
       </form>
     </Form>
@@ -572,7 +647,7 @@ function TextField<TFieldValues extends FieldValues>({
       control={form.control}
       name={name}
       render={({ field }) => (
-        <FormItem className={className}>
+        <FormItem className={cn('space-y-1', className)}>
           <FormLabel className="font-mono text-sm">{label}</FormLabel>
           <FormControl>
             <Input {...field} className="border-primary bg-card border-2 font-mono" />
@@ -600,7 +675,7 @@ function NumberField<TFieldValues extends FieldValues>({
       control={form.control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem className="space-y-1">
           <FormLabel className="font-mono text-sm">{label}</FormLabel>
           <FormControl>
             <Input
@@ -618,32 +693,82 @@ function NumberField<TFieldValues extends FieldValues>({
   );
 }
 
-function SelectField<TFieldValues extends FieldValues>({
+function DateField<TFieldValues extends FieldValues>({
   form,
   name,
   label,
-  options,
 }: {
   form: UseFormReturn<TFieldValues>;
   name: FieldPath<TFieldValues>;
   label: string;
-  options: Array<{ value: string; label: string }>;
 }) {
   return (
     <FormField
       control={form.control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem className="space-y-1">
           <FormLabel className="font-mono text-sm">{label}</FormLabel>
           <FormControl>
-            <Select value={field.value as string | undefined} onValueChange={field.onChange}>
+            <FantasyDatePicker
+              value={(field.value as string | undefined) ?? ''}
+              onChange={field.onChange}
+              ariaLabel={label}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+function SelectField<TFieldValues extends FieldValues>({
+  form,
+  name,
+  label,
+  options,
+  className,
+}: {
+  form: UseFormReturn<TFieldValues>;
+  name: FieldPath<TFieldValues>;
+  label: string;
+  options: Array<{ value: string; label: string }>;
+  className?: string;
+}) {
+  const hasEmptyOption = options.some((option) => option.value === '');
+
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className={cn('space-y-1', className)}>
+          <FormLabel className="font-mono text-sm">{label}</FormLabel>
+          <FormControl>
+            <Select
+              value={
+                hasEmptyOption && field.value === ''
+                  ? EMPTY_SELECT_ITEM_VALUE
+                  : (field.value as string | undefined)
+              }
+              onValueChange={(value) =>
+                field.onChange(
+                  hasEmptyOption && value === EMPTY_SELECT_ITEM_VALUE ? '' : value,
+                )
+              }
+            >
               <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="border-primary bg-card border-2 font-mono">
                 {options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value || EMPTY_SELECT_ITEM_VALUE}
+                    value={
+                      option.value === '' ? EMPTY_SELECT_ITEM_VALUE : option.value
+                    }
+                  >
                     {option.label}
                   </SelectItem>
                 ))}

@@ -5,6 +5,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import { api as db } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import {
@@ -15,6 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import { LedgerShell } from '~/components/ledger-shell';
+import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
+import type { PointerCardDragState } from '~/lib/pointer-card-drag';
 import { characterLedgerQuery, militiaQuery } from '~/lib/sharedQueries';
 import { ArchivedCharactersCard } from './character-manager/archived-characters-card';
 import { CharacterFormCard } from './character-manager/character-form-card';
@@ -26,6 +30,7 @@ import {
   type CharacterFormValues,
   type CharacterId,
   type CharacterRecord,
+  officerRoleLabels,
   type OfficerRole,
 } from './character-manager/types';
 
@@ -38,6 +43,7 @@ export function CharacterManager({
   organizationId: string;
   canQuery: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<Id<'character'> | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [assignmentWarnings, setAssignmentWarnings] = useState<string[]>([]);
@@ -48,6 +54,10 @@ export function CharacterManager({
   const [pendingOfficerRole, setPendingOfficerRole] = useState<
     OfficerRole | undefined
   >();
+  const [dragState, setDragState] = useState<PointerCardDragState<CharacterId> | null>(
+    null,
+  );
+  const [activeDropRoleId, setActiveDropRoleId] = useState<string | null>(null);
   const [pendingArchiveId, setPendingArchiveId] = useState<
     Id<'character'> | undefined
   >();
@@ -78,6 +88,7 @@ export function CharacterManager({
   const archiveCharacter = useMutation(db.character.archiveCharacter);
   const deleteCharacter = useMutation(db.character.deleteCharacter);
   const assignOfficerRole = useMutation(db.militia.assignOfficerRole);
+  const roleRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   if (!selectedCampaignId) {
     return (
@@ -109,6 +120,9 @@ export function CharacterManager({
       name: character.name,
       description: character.description,
       kind: character.kind ?? 'pc',
+      officerRole:
+        officerRoleLabels.find((officerRole) => militia?.[officerRole.role] === character._id)
+          ?.role ?? 'none',
       level: String(character.level),
       strength: String(character.strength),
       dexterity: String(character.dexterity),
@@ -125,9 +139,9 @@ export function CharacterManager({
     setFormError(undefined);
 
     const payload = {
-      ...values,
       name: values.name.trim(),
       description: values.description.trim(),
+      kind: values.kind,
       level: Number(values.level),
       strength: Number(values.strength),
       dexterity: Number(values.dexterity),
@@ -147,14 +161,21 @@ export function CharacterManager({
             isActive: true,
           },
         });
+        await setCharacterOfficerRole(
+          editingId,
+          values.officerRole === 'none' ? undefined : values.officerRole,
+        );
       } else {
-        await createCharacter({
+        const characterId = await createCharacter({
           organizationId,
           character: {
             campaignId: selectedCampaignId,
             ...payload,
           },
         });
+        if (values.officerRole !== 'none') {
+          await setCharacterOfficerRole(characterId, values.officerRole);
+        }
       }
 
       setIsFormOpen(false);
@@ -165,15 +186,36 @@ export function CharacterManager({
     }
   }
 
-  async function setOfficer(role: OfficerRole, characterId?: CharacterId) {
+  async function setCharacterOfficerRole(
+    characterId: CharacterId,
+    nextRole?: OfficerRole,
+  ) {
     if (!militia) return;
     setAssignmentError(undefined);
-    setPendingOfficerRole(role);
     try {
+      const currentRole = officerRoleLabels.find(
+        (officerRole) => militia[officerRole.role] === characterId,
+      )?.role;
+
+      if (currentRole && currentRole !== nextRole) {
+        await assignOfficerRole({
+          organizationId,
+          militiaId: militia._id,
+          role: currentRole,
+          characterId: undefined,
+          source: 'direct',
+        });
+      }
+
+      if (!nextRole) {
+        setAssignmentWarnings([]);
+        return;
+      }
+
       const result = await assignOfficerRole({
         organizationId,
         militiaId: militia._id,
-        role,
+        role: nextRole,
         characterId,
         source: 'direct',
       });
@@ -184,22 +226,39 @@ export function CharacterManager({
         getErrorMessage(error, 'Failed to update officer assignment.'),
       );
     } finally {
+      setDragState(null);
+      setActiveDropRoleId(null);
+    }
+  }
+
+  async function clearOfficerRole(role: OfficerRole) {
+    if (!militia) return;
+    setAssignmentError(undefined);
+    setPendingOfficerRole(role);
+    try {
+      await assignOfficerRole({
+        organizationId,
+        militiaId: militia._id,
+        role,
+        characterId: undefined,
+        source: 'direct',
+      });
+      setAssignmentWarnings([]);
+    } catch (error) {
+      setAssignmentError(
+        getErrorMessage(error, 'Failed to update officer assignment.'),
+      );
+    } finally {
       setPendingOfficerRole(undefined);
     }
   }
 
-  const activeCharacters = characters.filter(
-    (character) => character.isActive !== false,
-  );
+  const activeCharacters = characters
+    .filter((character) => character.isActive !== false)
+    .sort((left, right) => left.name.localeCompare(right.name));
   const archivedCharacters = characters.filter(
     (character) => character.isActive === false,
   );
-  const assignableCharacters = activeCharacters.filter(
-    (character) =>
-      (character.kind ?? 'pc') === 'pc' ||
-      (character.kind ?? 'pc') === 'officer_npc',
-  );
-
   async function archive(characterId: CharacterId, isActive: boolean) {
     setArchiveError(undefined);
     setPendingArchiveId(characterId);
@@ -234,140 +293,207 @@ export function CharacterManager({
     }
   }
 
+  function toggleLedger() {
+    if (isOpen) {
+      setIsFormOpen(false);
+      setEditingId(undefined);
+      setFormError(undefined);
+      setShowArchived(false);
+      setDeleteCandidate(undefined);
+      setDragState(null);
+      setActiveDropRoleId(null);
+    }
+    setIsOpen((prev) => !prev);
+  }
+
+  useActivityCardDrag<CharacterId>({
+    dragState,
+    setDragState,
+    slotRows: officerRoleLabels.map(({ role }, index) => ({
+      slotId: role,
+      slotNumber: index + 1,
+    })),
+    slotRefs: roleRefs,
+    setActiveDropSlotId: setActiveDropRoleId,
+    onDrop: ({ dropSlotIndex, actionId }) => {
+      if (dropSlotIndex === null) {
+        return;
+      }
+      const dropRole = officerRoleLabels[dropSlotIndex]?.role;
+      if (!dropRole) {
+        return;
+      }
+      void setCharacterOfficerRole(actionId, dropRole);
+    },
+  });
+
   return (
-    <div className="space-y-4">
-      <div className="bg-card flex items-center justify-between border-2 border-b-0 p-4">
-        <div>
-          <h2 className="text-primary font-sans text-2xl font-bold">
-            Character Ledger
-          </h2>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">
-            {isLoading
-              ? 'Loading...'
-              : `Tracking ${activeCharacters.length} active characters`}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowArchived((prev) => !prev)}
+    <LedgerShell
+      title="Character Ledger"
+      meta={
+        isLoading ? 'Loading...' : `Tracking ${activeCharacters.length} active characters`
+      }
+      isOpen={isOpen}
+      onToggle={toggleLedger}
+      actions={
+        isOpen ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowArchived((prev) => !prev)}
+            >
+              {showArchived ? 'Hide Archived' : 'Show Archived'}
+            </Button>
+            <Button
+              type="button"
+              onClick={startCreate}
+              className="border-primary text-primary hover:bg-primary/80 hover:text-primary-foreground border-2 bg-transparent font-mono text-base"
+            >
+              Add Character
+            </Button>
+          </>
+        ) : null
+      }
+    >
+      <>
+          <Dialog
+            open={isFormOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setIsFormOpen(false);
+                setEditingId(undefined);
+                setFormError(undefined);
+              }
+            }}
           >
-            {showArchived ? 'Hide Archived' : 'Show Archived'}
-          </Button>
-          <Button
-            onClick={startCreate}
-            className="border-primary text-primary hover:bg-primary/80 hover:text-primary-foreground border-2 bg-transparent font-mono text-base"
-          >
-            Add Character
-          </Button>
-        </div>
-      </div>
+            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
+              <DialogHeader>
+                <DialogTitle className="font-sans text-xl">
+                  {editingId ? 'Edit Character' : 'New Character'}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-sm">
+                  Update the character record and officer role in one place.
+                </DialogDescription>
+              </DialogHeader>
+              <CharacterFormCard
+                form={form}
+                onSubmit={submitForm}
+                submitError={formError}
+                onCancel={() => {
+                  setIsFormOpen(false);
+                  setEditingId(undefined);
+                  setFormError(undefined);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
 
-      {isFormOpen ? (
-        <CharacterFormCard
-          form={form}
-          isEditing={Boolean(editingId)}
-          onSubmit={submitForm}
-          submitError={formError}
-          onCancel={() => {
-            setIsFormOpen(false);
-            setEditingId(undefined);
-            setFormError(undefined);
-          }}
-        />
-      ) : null}
+          {archiveError ? (
+            <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
+              {archiveError}
+            </div>
+          ) : null}
 
-      {archiveError ? (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
-          {archiveError}
-        </div>
-      ) : null}
+          <OfficerAssignmentsCard
+            militia={militia}
+            activeCharacters={activeCharacters}
+            assignmentWarnings={assignmentWarnings}
+            assignmentError={assignmentError}
+            pendingRole={pendingOfficerRole}
+            dragState={dragState}
+            activeDropRoleId={activeDropRoleId}
+            roleRefs={roleRefs}
+            onDismissWarnings={() => setAssignmentWarnings([])}
+            onClearRole={(role) => {
+              void clearOfficerRole(role);
+            }}
+          />
 
-      <div
-        className={
-          showArchived ? 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start' : ''
-        }
-      >
-        <div className={showArchived ? 'lg:min-w-0' : ''}>
           <CharacterListCard
             activeCharacters={activeCharacters}
             militia={militia}
             archivingCharacterId={pendingArchiveId}
+            dragState={dragState}
             onEdit={startEdit}
             onArchive={(characterId) => {
               void archive(characterId, false);
             }}
+            onStartDrag={setDragState}
           />
-        </div>
 
-        {showArchived ? (
-          <div className="lg:min-w-0">
-            <ArchivedCharactersCard
-              archivedCharacters={archivedCharacters}
-              archivingCharacterId={pendingArchiveId}
-              deletingCharacterId={pendingDeleteId}
-              onUnarchive={(characterId) => {
-                void archive(characterId, true);
-              }}
-              onRequestDelete={(character) => {
-                setDeleteCandidate(character);
-              }}
-            />
-          </div>
-        ) : null}
-      </div>
+          <Dialog
+            open={showArchived}
+            onOpenChange={(open) => {
+              if (!open && !pendingArchiveId && !pendingDeleteId) {
+                setShowArchived(false);
+                return;
+              }
+              if (open) {
+                setShowArchived(true);
+              }
+            }}
+          >
+            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-3xl">
+              <DialogHeader>
+                <DialogTitle className="font-sans text-xl">Archived Characters</DialogTitle>
+                <DialogDescription className="font-mono text-sm">
+                  Review archived entries, restore them to the ledger, or delete them permanently.
+                </DialogDescription>
+              </DialogHeader>
+              <ArchivedCharactersCard
+                archivedCharacters={archivedCharacters}
+                archivingCharacterId={pendingArchiveId}
+                deletingCharacterId={pendingDeleteId}
+                onUnarchive={(characterId) => {
+                  void archive(characterId, true);
+                }}
+                onRequestDelete={(character) => {
+                  setDeleteCandidate(character);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
 
-      <OfficerAssignmentsCard
-        militia={militia}
-        activeCharacters={activeCharacters}
-        assignableCharacters={assignableCharacters}
-        assignmentWarnings={assignmentWarnings}
-        assignmentError={assignmentError}
-        pendingRole={pendingOfficerRole}
-        onDismissWarnings={() => setAssignmentWarnings([])}
-        onSetOfficer={(role, characterId) => {
-          void setOfficer(role, characterId);
-        }}
-      />
-
-      <Dialog
-        open={Boolean(deleteCandidate)}
-        onOpenChange={(open) => {
-          if (!open && !pendingDeleteId) {
-            setDeleteCandidate(undefined);
-          }
-        }}
-      >
-        <DialogContent className="border-primary bg-card border-2 font-mono">
-          <DialogHeader>
-            <DialogTitle className="font-sans text-xl">Delete Character</DialogTitle>
-            <DialogDescription className="font-mono text-sm">
-              {deleteCandidate
-                ? `Delete archived character "${deleteCandidate.name}" permanently? This cannot be undone.`
-                : 'Delete this archived character permanently?'}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteCandidate(undefined)}
-              disabled={Boolean(pendingDeleteId)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!deleteCandidate) return;
-                void deleteArchived(deleteCandidate._id);
-              }}
-              disabled={Boolean(pendingDeleteId)}
-            >
-              {pendingDeleteId ? 'Deleting...' : 'Delete Permanently'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          <Dialog
+            open={Boolean(deleteCandidate)}
+            onOpenChange={(open) => {
+              if (!open && !pendingDeleteId) {
+                setDeleteCandidate(undefined);
+              }
+            }}
+          >
+            <DialogContent className="border-primary bg-card border-2 font-mono">
+              <DialogHeader>
+                <DialogTitle className="font-sans text-xl">Delete Character</DialogTitle>
+                <DialogDescription className="font-mono text-sm">
+                  {deleteCandidate
+                    ? `Delete archived character "${deleteCandidate.name}" permanently? This cannot be undone.`
+                    : 'Delete this archived character permanently?'}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteCandidate(undefined)}
+                  disabled={Boolean(pendingDeleteId)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!deleteCandidate) return;
+                    void deleteArchived(deleteCandidate._id);
+                  }}
+                  disabled={Boolean(pendingDeleteId)}
+                >
+                  {pendingDeleteId ? 'Deleting...' : 'Delete Permanently'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+      </>
+    </LedgerShell>
   );
 }
 

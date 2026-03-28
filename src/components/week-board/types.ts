@@ -1,3 +1,5 @@
+import type { PointerCardDragState } from '~/lib/pointer-card-drag';
+
 export type WeekPhase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed';
 
 export type ActionId =
@@ -43,17 +45,7 @@ export type MilitiaEventDetails = {
   fullText: string[];
 };
 
-export type DragState = {
-  actionId: ActionId;
-  source: 'deck' | 'slot';
-  sourceSlotIndex?: number;
-  pointerX: number;
-  pointerY: number;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-};
+export type DragState = PointerCardDragState<ActionId>;
 
 export type ResolvedEventValue =
   | { event: string; rolledValue: number }

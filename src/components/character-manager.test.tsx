@@ -68,6 +68,10 @@ vi.mock('~/components/ui/select', () => ({
 }));
 
 describe('CharacterManager', () => {
+  function openLedger() {
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  }
+
   afterEach(() => {
     cleanup();
   });
@@ -116,6 +120,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Add Character'));
     fireEvent.click(screen.getByText('Save'));
 
@@ -132,6 +137,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Add Character'));
 
     const inputs = screen.getAllByRole('textbox');
@@ -157,6 +163,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Add Character'));
 
     const inputs = screen.getAllByRole('textbox');
@@ -207,9 +214,12 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
+    fireEvent.click(screen.getByText('Edit'));
     const selects = screen.getAllByTestId('mock-select');
-    const officerSelect = selects[selects.length - 1];
-    fireEvent.change(officerSelect!, { target: { value: 'char_1' } });
+    const roleSelect = selects[1];
+    fireEvent.change(roleSelect!, { target: { value: 'ambassador' } });
+    fireEvent.click(screen.getByText('Save'));
 
     expect(
       await screen.findByText('Apply Change Officer Role action if table requires it.'),
@@ -252,6 +262,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Show Archived'));
     expect(screen.getByText('Old Scout (Level 2)')).toBeInTheDocument();
 
@@ -300,6 +311,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Show Archived'));
     fireEvent.click(screen.getByText('Delete'));
     expect(await screen.findByText('Delete Character')).toBeInTheDocument();
@@ -343,6 +355,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Show Archived'));
     fireEvent.click(screen.getByText('Delete'));
     fireEvent.click(await screen.findByText('Delete Permanently'));
@@ -381,6 +394,7 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByText('Show Archived'));
     fireEvent.click(screen.getByText('Delete'));
     fireEvent.click(await screen.findByText('Delete Permanently'));
@@ -422,12 +436,205 @@ describe('CharacterManager', () => {
       />,
     );
 
+    openLedger();
+    fireEvent.click(screen.getByText('Edit'));
     const selects = screen.getAllByTestId('mock-select');
-    const officerSelect = selects[selects.length - 1];
-    fireEvent.change(officerSelect!, { target: { value: 'char_1' } });
+    const roleSelect = selects[1];
+    fireEvent.change(roleSelect!, { target: { value: 'ambassador' } });
+    fireEvent.click(screen.getByText('Save'));
 
     expect(
       await screen.findByText('Cannot assign an archived character to an officer role'),
     ).toBeInTheDocument();
+  });
+
+  it('clears the old officer role before assigning a new one from a character card', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        ambassador: 'char_1',
+        commandant: undefined,
+        marshal: undefined,
+        overseer: undefined,
+        spymaster: undefined,
+        strategist: undefined,
+      },
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByText('Edit'));
+    const selects = screen.getAllByTestId('mock-select');
+    const roleSelect = selects[1];
+    fireEvent.change(roleSelect!, { target: { value: 'marshal' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mutationFns.assignOfficerRole).toHaveBeenNthCalledWith(1, {
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'ambassador',
+        characterId: undefined,
+        source: 'direct',
+      });
+      expect(mutationFns.assignOfficerRole).toHaveBeenNthCalledWith(2, {
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'marshal',
+        characterId: 'char_1',
+        source: 'direct',
+      });
+    });
+  });
+
+  it('can unassign a role directly from the role strip', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        ambassador: 'char_1',
+        commandant: undefined,
+        marshal: undefined,
+        overseer: undefined,
+        spymaster: undefined,
+        strategist: undefined,
+      },
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
+
+    await waitFor(() => {
+      expect(mutationFns.assignOfficerRole).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'ambassador',
+        characterId: undefined,
+        source: 'direct',
+      });
+    });
+  });
+
+  it('assigns a character to a role by dragging the card onto the role strip', async () => {
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Aubrin',
+          description: '',
+          kind: 'officer_npc',
+          level: 3,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 14,
+          isActive: true,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <CharacterManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    const card = screen.getByText('Aubrin').closest('[data-slot="card"]');
+    const [dropZone] = screen.getAllByText('Ambassador');
+    const dropTarget = dropZone?.closest('.border-2');
+    card!.getBoundingClientRect = vi.fn(() => ({
+      left: 10,
+      top: 20,
+      right: 210,
+      bottom: 220,
+      width: 200,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    }));
+    dropTarget!.getBoundingClientRect = vi.fn(() => ({
+      left: 300,
+      top: 100,
+      right: 520,
+      bottom: 220,
+      width: 220,
+      height: 120,
+      x: 300,
+      y: 100,
+      toJSON: () => ({}),
+    }));
+
+    fireEvent.pointerDown(card!, { button: 0, clientX: 40, clientY: 60 });
+    fireEvent.pointerMove(window, { clientX: 340, clientY: 140 });
+    fireEvent.pointerUp(window, { clientX: 340, clientY: 140 });
+
+    await waitFor(() => {
+      expect(mutationFns.assignOfficerRole).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        role: 'ambassador',
+        characterId: 'char_1',
+        source: 'direct',
+      });
+    });
   });
 });

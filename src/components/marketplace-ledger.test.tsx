@@ -61,6 +61,10 @@ vi.mock('~/components/ui/select', () => ({
 }));
 
 describe('MarketplaceLedger', () => {
+  function openLedger() {
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  }
+
   afterEach(() => {
     cleanup();
   });
@@ -103,6 +107,7 @@ describe('MarketplaceLedger', () => {
       />,
     );
 
+    openLedger();
     expect(
       screen.getByText(/No tracked marketplaces yet\./),
     ).toBeInTheDocument();
@@ -151,6 +156,7 @@ describe('MarketplaceLedger', () => {
       />,
     );
 
+    openLedger();
     expect(screen.getByText('South Gate Market')).toBeInTheDocument();
     expect(
       screen.getByText(/Team: Merchants • Small town • Availability 75% • Sale value 50%/),
@@ -172,6 +178,7 @@ describe('MarketplaceLedger', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByRole('button', { name: 'Add Marketplace' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Marketplace label' }), {
       target: { value: ' South Gate Market ' },
@@ -244,6 +251,7 @@ describe('MarketplaceLedger', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {

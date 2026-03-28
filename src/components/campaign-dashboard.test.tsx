@@ -6,6 +6,8 @@ const mockUseOrganization = vi.fn();
 const mockCampaignQuery = vi.fn();
 const mockMarketplaceLedgerQuery = vi.fn();
 const mockMilitiaQuery = vi.fn();
+const mockMilitiaStateSetupQuery = vi.fn();
+const campaignInfoSpy = vi.fn();
 const ledgerSpy = vi.fn();
 const militiaSystemSpy = vi.fn();
 
@@ -18,6 +20,7 @@ vi.mock('~/lib/sharedQueries', () => ({
   marketplaceLedgerQuery: (...args: unknown[]) =>
     mockMarketplaceLedgerQuery(...args),
   militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
+  militiaStateSetupQuery: (...args: unknown[]) => mockMilitiaStateSetupQuery(...args),
 }));
 
 vi.mock('~/components/ui/tabs', () => ({
@@ -40,9 +43,19 @@ vi.mock('~/app/campaigns/createCampaignDialog', () => ({
 }));
 
 vi.mock('./campaignInfo', () => ({
-  CampaignInfo: ({ campaign }: { campaign?: { name?: string } }) => (
-    <div data-testid="campaign-info">CampaignInfo: {campaign?.name ?? 'none'}</div>
-  ),
+  CampaignInfo: (props: {
+    campaign?: { name?: string };
+    militia?: unknown;
+    militiaStateSetup?: unknown;
+    marketplaceLedger?: unknown;
+  }) => {
+    campaignInfoSpy(props);
+    return (
+      <div data-testid="campaign-info">
+        CampaignInfo: {props.campaign?.name ?? 'none'}
+      </div>
+    );
+  },
 }));
 
 vi.mock('./ledger', () => ({
@@ -63,6 +76,7 @@ describe('CampaignDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMilitiaQuery.mockReturnValue({ data: undefined });
+    mockMilitiaStateSetupQuery.mockReturnValue({ data: undefined });
     mockMarketplaceLedgerQuery.mockReturnValue({
       data: { currentWeek: undefined, marketplaces: [] },
     });
@@ -140,6 +154,44 @@ describe('CampaignDashboard', () => {
       isLoading: false,
       error: undefined,
     });
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        name: 'Ironfang Resistance',
+        campaignId: 'camp_1',
+        rank: 8,
+        highestBoonReached: 8,
+        HQLocation: 'Southern Fangwood',
+        treasury: 1220,
+        notoriety: 4,
+        focus: 'Secrecy',
+        training: 82,
+        teams: [],
+      },
+    });
+    mockMilitiaStateSetupQuery.mockReturnValue({
+      data: {
+        currentWeekState: {
+          weekNumber: 14,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 0,
+          queuedEffects: [],
+        },
+        teamStates: [],
+        caches: [],
+        orders: [],
+        trackedPeople: [],
+        eventStates: [],
+      },
+    });
+    mockMarketplaceLedgerQuery.mockReturnValue({
+      data: {
+        currentWeek: 14,
+        marketplaces: [],
+      },
+    });
 
     render(<CampaignDashboard />);
 
@@ -153,6 +205,30 @@ describe('CampaignDashboard', () => {
       'camp_1',
       'org_1',
       true,
+    );
+    expect(mockMilitiaStateSetupQuery).toHaveBeenCalledWith(
+      'camp_1',
+      'org_1',
+      true,
+    );
+    expect(campaignInfoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        campaign: expect.objectContaining({ name: 'Alpha' }),
+        militia: expect.objectContaining({
+          HQLocation: 'Southern Fangwood',
+          focus: 'Secrecy',
+          training: 82,
+        }),
+        militiaStateSetup: expect.objectContaining({
+          currentWeekState: expect.objectContaining({
+            weekNumber: 14,
+            phase: 'activity',
+          }),
+        }),
+        marketplaceLedger: expect.objectContaining({
+          currentWeek: 14,
+        }),
+      }),
     );
     expect(ledgerSpy).toHaveBeenCalledWith(
       expect.objectContaining({

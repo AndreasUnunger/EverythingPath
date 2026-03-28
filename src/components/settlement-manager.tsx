@@ -6,6 +6,7 @@ import { api as db } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { LedgerShell } from '~/components/ledger-shell';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
@@ -34,6 +35,7 @@ export function SettlementManager({
   organizationId: string;
   canQuery: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<SettlementId | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formError, setFormError] = useState<string>();
@@ -157,69 +159,75 @@ export function SettlementManager({
     }
   }
 
+  function toggleLedger() {
+    if (isOpen) {
+      closeForm();
+    }
+    setIsOpen((prev) => !prev);
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="bg-card flex items-center justify-between border-2 border-b-0 p-4">
-        <div>
-          <h2 className="text-primary font-sans text-2xl font-bold">
-            Settlement Ledger
-          </h2>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">
-            {isLoading
-              ? 'Loading...'
-              : `Tracking ${settlements.length} settlement${settlements.length === 1 ? '' : 's'}`}
-          </p>
-          <p className="text-muted-foreground mt-1 font-mono text-xs">
-            Add settlements here for mid-campaign setup and any new places where
-            the militia starts operating.
-          </p>
-        </div>
+    <LedgerShell
+      title="Settlement Ledger"
+      meta={
+        isLoading
+          ? 'Loading...'
+          : `Tracking ${settlements.length} settlement${settlements.length === 1 ? '' : 's'}`
+      }
+      subtitle="Add settlements here for mid-campaign setup and any new places where the militia starts operating."
+      isOpen={isOpen}
+      onToggle={toggleLedger}
+      actions={
+        isOpen ? (
+          <Button
+            type="button"
+            onClick={startCreate}
+            className="border-primary text-primary hover:bg-primary/80 hover:text-primary-foreground border-2 bg-transparent font-mono text-base"
+          >
+            Add Settlement
+          </Button>
+        ) : null
+      }
+    >
+      <>
+          <Dialog
+            open={isFormOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                setIsFormOpen(true);
+                return;
+              }
+              closeForm();
+            }}
+          >
+            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="font-sans text-xl">
+                  {editingId ? 'Edit Settlement' : 'Add Settlement'}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-sm">
+                  Track settlement reputation and secured status for militia play.
+                </DialogDescription>
+              </DialogHeader>
+              <SettlementFormCard
+                form={form}
+                onSubmit={submitForm}
+                onCancel={closeForm}
+                submitError={formError}
+              />
+            </DialogContent>
+          </Dialog>
 
-        <Button
-          onClick={startCreate}
-          className="border-primary text-primary hover:bg-primary/80 hover:text-primary-foreground border-2 bg-transparent font-mono text-base"
-        >
-          Add Settlement
-        </Button>
-      </div>
-
-      <Dialog
-        open={isFormOpen}
-        onOpenChange={(open) => {
-          if (open) {
-            setIsFormOpen(true);
-            return;
-          }
-          closeForm();
-        }}
-      >
-        <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-sans text-xl">
-              {editingId ? 'Edit Settlement' : 'Add Settlement'}
-            </DialogTitle>
-            <DialogDescription className="font-mono text-sm">
-              Track settlement reputation and secured status for militia play.
-            </DialogDescription>
-          </DialogHeader>
-          <SettlementFormCard
-            form={form}
-            onSubmit={submitForm}
-            onCancel={closeForm}
-            submitError={formError}
+          <SettlementListCard
+            settlements={settlements}
+            onEdit={startEdit}
+            onDelete={(settlement) => {
+              void handleDelete(settlement);
+            }}
+            pendingDeleteId={pendingDeleteId}
           />
-        </DialogContent>
-      </Dialog>
-
-      <SettlementListCard
-        settlements={settlements}
-        onEdit={startEdit}
-        onDelete={(settlement) => {
-          void handleDelete(settlement);
-        }}
-        pendingDeleteId={pendingDeleteId}
-      />
-    </div>
+      </>
+    </LedgerShell>
   );
 }
 

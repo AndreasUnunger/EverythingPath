@@ -1,41 +1,41 @@
-import type { CharacterId, CharacterRecord, MilitiaRecord, OfficerRole } from './types';
+import type { RefObject } from 'react';
+import type {
+  CharacterId,
+  CharacterRecord,
+  MilitiaRecord,
+  OfficerRole,
+} from './types';
 import { officerRoleLabels } from './types';
 import { Button } from '~/components/ui/button';
-import { Card } from '~/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select';
+import type { PointerCardDragState } from '~/lib/pointer-card-drag';
 
 export function OfficerAssignmentsCard({
   militia,
   activeCharacters,
-  assignableCharacters,
   assignmentWarnings,
   assignmentError,
   pendingRole,
+  dragState,
+  activeDropRoleId,
+  roleRefs,
   onDismissWarnings,
-  onSetOfficer,
+  onClearRole,
 }: {
   militia: MilitiaRecord | null | undefined;
   activeCharacters: CharacterRecord[];
-  assignableCharacters: CharacterRecord[];
   assignmentWarnings: string[];
   assignmentError?: string;
   pendingRole?: OfficerRole;
+  dragState: PointerCardDragState<CharacterId> | null;
+  activeDropRoleId: string | null;
+  roleRefs: RefObject<Record<string, HTMLDivElement | null>>;
   onDismissWarnings: () => void;
-  onSetOfficer: (role: OfficerRole, characterId?: CharacterId) => void;
+  onClearRole: (role: OfficerRole) => void;
 }) {
   return (
-    <Card className="bg-card border-2 p-4">
-      <h3 className="text-primary mb-3 font-sans text-lg font-bold">
-        Officer Assignments
-      </h3>
+    <div className="space-y-3">
       {assignmentWarnings.length > 0 ? (
-        <div className="mb-3 border border-amber-500/50 bg-amber-500/10 p-3">
+        <div className="border border-amber-500/50 bg-amber-500/10 p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="font-mono text-sm font-bold text-amber-700">
               Rules warning
@@ -54,7 +54,7 @@ export function OfficerAssignmentsCard({
         </div>
       ) : null}
       {assignmentError ? (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive mb-3 p-2 font-mono text-sm">
+        <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
           {assignmentError}
         </div>
       ) : null}
@@ -66,44 +66,55 @@ export function OfficerAssignmentsCard({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {officerRoleLabels.map(({ role, label }) => {
             const currentCharacterId = militia[role];
+            const dragActive = Boolean(dragState);
+            const isActiveDropRole = activeDropRoleId === role;
             return (
-              <div key={role} className="border p-3">
-                <p className="font-mono text-sm font-bold">{label}</p>
-                <p className="text-muted-foreground font-mono text-xs">
-                  Current:{' '}
-                  {activeCharacters.find(
-                    (character) => character._id === currentCharacterId,
-                  )?.name ?? 'Unassigned'}
-                </p>
-                <Select
-                  disabled={pendingRole === role}
-                  value={currentCharacterId ?? '__unassigned__'}
-                  onValueChange={(value) =>
-                    onSetOfficer(
-                      role,
-                      value === '__unassigned__'
-                        ? undefined
-                        : (value as CharacterId),
-                    )
-                  }
-                >
-                  <SelectTrigger className="border-primary bg-card mt-2 w-full border-2 font-mono">
-                    <SelectValue placeholder="Unassigned" />
-                  </SelectTrigger>
-                  <SelectContent className="border-primary bg-card border-2 font-mono">
-                    <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                    {assignableCharacters.map((character) => (
-                      <SelectItem key={character._id} value={character._id}>
-                        {character.name} ({character.kind ?? 'pc'})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div
+                key={role}
+                ref={(element) => {
+                  roleRefs.current[role] = element;
+                }}
+                className={`border-2 p-3 transition-all ${
+                  isActiveDropRole
+                    ? 'border-primary bg-primary/10 ring-primary/40 ring-2'
+                    : dragActive
+                      ? 'border-primary bg-primary/5'
+                      : ''
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-sm font-bold">{label}</p>
+                    <p className="mt-1 font-sans text-lg font-bold">
+                      {activeCharacters.find(
+                        (character) => character._id === currentCharacterId,
+                      )?.name ?? 'Unassigned'}
+                    </p>
+                  </div>
+                  {currentCharacterId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onClearRole(role)}
+                      disabled={pendingRole === role}
+                    >
+                      {pendingRole === role ? 'Unassigning...' : 'Unassign'}
+                    </Button>
+                  ) : null}
+                </div>
+                {dragActive ? (
+                  <p className="text-muted-foreground mt-2 font-mono text-xs">
+                    {isActiveDropRole
+                      ? 'Release to assign this role.'
+                      : 'Drag a character card here.'}
+                  </p>
+                ) : null}
               </div>
             );
           })}
         </div>
       )}
-    </Card>
+    </div>
   );
 }

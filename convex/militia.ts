@@ -1016,6 +1016,7 @@ export const upsertTrackedPersonState = mutation({
       militiaId: args.militiaId,
     });
 
+    let fallbackDisplayName: string | undefined;
     if (args.characterId) {
       const character = await ctx.db.get('character', args.characterId);
       if (!character) {
@@ -1024,9 +1025,10 @@ export const upsertTrackedPersonState = mutation({
       if (character.campaignId !== militia.campaignId) {
         throw new ConvexError('Character must belong to the same campaign as the militia');
       }
+      fallbackDisplayName = character.name.trim();
     }
 
-    const displayName = args.displayName.trim();
+    const displayName = args.displayName.trim() || (fallbackDisplayName ?? '');
     if (!displayName) {
       throw new ConvexError('Tracked person name is required');
     }

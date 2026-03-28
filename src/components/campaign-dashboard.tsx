@@ -14,6 +14,7 @@ import {
   campaignQuery,
   marketplaceLedgerQuery,
   militiaQuery,
+  militiaStateSetupQuery,
 } from '~/lib/sharedQueries';
 
 export function CampaignDashboard() {
@@ -51,6 +52,11 @@ export function CampaignDashboard() {
     canLoadOrgData,
   );
   const { data: marketplaceLedger } = marketplaceLedgerQuery(
+    selectedCampaign?._id,
+    organizationId,
+    canLoadOrgData,
+  );
+  const { data: militiaStateSetup } = militiaStateSetupQuery(
     selectedCampaign?._id,
     organizationId,
     canLoadOrgData,
@@ -116,8 +122,6 @@ export function CampaignDashboard() {
 
   return (
     <div>
-      <header className="border-primary relative mb-4 border-b-2 pb-4"></header>
-
       <div className="flex items-center gap-6 pb-4 sm:justify-between">
         <CampaignSelector
           campaigns={campaigns}
@@ -130,6 +134,7 @@ export function CampaignDashboard() {
       <CampaignInfo
         campaign={selectedCampaign}
         militia={militia ?? undefined}
+        militiaStateSetup={militiaStateSetup ?? undefined}
         marketplaceLedger={marketplaceLedger ?? undefined}
       />
 

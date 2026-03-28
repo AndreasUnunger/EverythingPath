@@ -6,6 +6,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { LedgerShell } from '~/components/ledger-shell';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ export function MarketplaceLedger({
   organizationId: string;
   canQuery: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [editingMarketplace, setEditingMarketplace] = useState<
     ITrackedMarketplace | undefined
   >();
@@ -235,72 +237,77 @@ export function MarketplaceLedger({
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="bg-card border-2 border-b-0 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-primary font-sans text-2xl font-bold">
-              Marketplace Ledger
-            </h2>
-            <p className="text-muted-foreground mt-1 font-mono text-sm">
-              {isLoading
-                ? 'Loading...'
-                : `${marketplaces.length} tracked marketplace${marketplaces.length === 1 ? '' : 's'} • ${activeCount} active${currentWeek ? ` in week ${currentWeek}` : ''}`}
-            </p>
-            <p className="text-muted-foreground mt-1 font-mono text-xs">
-              Add or edit marketplaces here for mid-campaign setup, and review their linked orders without opening the week board.
-            </p>
-          </div>
+  function toggleLedger() {
+    if (isOpen) {
+      closeForm();
+    }
+    setIsOpen((prev) => !prev);
+  }
 
+  return (
+    <LedgerShell
+      title="Marketplace Ledger"
+      meta={
+        isLoading
+          ? 'Loading...'
+          : `${marketplaces.length} tracked marketplace${marketplaces.length === 1 ? '' : 's'} • ${activeCount} active${currentWeek ? ` in week ${currentWeek}` : ''}`
+      }
+      subtitle="Add or edit marketplaces here for mid-campaign setup, and review their linked orders without opening the week board."
+      isOpen={isOpen}
+      onToggle={toggleLedger}
+      actions={
+        isOpen ? (
           <Button
+            type="button"
             onClick={startCreate}
             className="border-primary text-primary hover:bg-primary/80 hover:text-primary-foreground border-2 bg-transparent font-mono text-base"
           >
             Add Marketplace
           </Button>
-        </div>
-      </div>
+        ) : null
+      }
+    >
+      <>
+          <Dialog
+            open={isFormOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                setIsFormOpen(true);
+                return;
+              }
+              closeForm();
+            }}
+          >
+            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
+              <DialogHeader>
+                <DialogTitle className="font-sans text-xl">
+                  {editingMarketplace ? 'Edit Marketplace' : 'Add Marketplace'}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-sm">
+                  Track brokered markets and black markets here when onboarding an existing campaign or correcting table state.
+                </DialogDescription>
+              </DialogHeader>
+              <MarketplaceFormCard
+                form={form}
+                onSubmit={submitForm}
+                onCancel={closeForm}
+                submitError={formError}
+                knownTeamIds={knownTeamIds}
+                applyProfileDefaults={applyProfileDefaults}
+              />
+            </DialogContent>
+          </Dialog>
 
-      <Dialog
-        open={isFormOpen}
-        onOpenChange={(open) => {
-          if (open) {
-            setIsFormOpen(true);
-            return;
-          }
-          closeForm();
-        }}
-      >
-        <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle className="font-sans text-xl">
-              {editingMarketplace ? 'Edit Marketplace' : 'Add Marketplace'}
-            </DialogTitle>
-            <DialogDescription className="font-mono text-sm">
-              Track brokered markets and black markets here when onboarding an existing campaign or correcting table state.
-            </DialogDescription>
-          </DialogHeader>
-          <MarketplaceFormCard
-            form={form}
-            onSubmit={submitForm}
-            onCancel={closeForm}
-            submitError={formError}
-            knownTeamIds={knownTeamIds}
-            applyProfileDefaults={applyProfileDefaults}
+          <MarketplaceListCard
+            marketplaces={marketplaces}
+            onEdit={startEdit}
+            onDelete={(marketplace) => {
+              void handleDelete(marketplace);
+            }}
+            pendingDeleteId={pendingDeleteId}
           />
-        </DialogContent>
-      </Dialog>
-
-      <MarketplaceListCard
-        marketplaces={marketplaces}
-        onEdit={startEdit}
-        onDelete={(marketplace) => {
-          void handleDelete(marketplace);
-        }}
-        pendingDeleteId={pendingDeleteId}
-      />
-    </div>
+      </>
+    </LedgerShell>
   );
 }
 

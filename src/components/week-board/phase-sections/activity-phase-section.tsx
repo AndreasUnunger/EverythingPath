@@ -12,6 +12,7 @@ import {
   type ActivityPhaseViewModel,
 } from '~/components/week-board/phase-sections/activity-phase-shared';
 import { ActivitySlotCard } from '~/components/week-board/phase-sections/activity-slot-card';
+import { createPointerCardDragState } from '~/lib/pointer-card-drag';
 
 export type { ActivityPhaseViewModel } from '~/components/week-board/phase-sections/activity-phase-shared';
 
@@ -263,17 +264,11 @@ function handleDeckCardDragStart({
     );
   }
   event.preventDefault();
-  const element = event.currentTarget;
-  const rect = element.getBoundingClientRect();
-  setDragStateAction({
-    actionId: entry.card.id,
-    source: 'deck',
-    sourceSlotIndex: undefined,
-    pointerX: event.clientX,
-    pointerY: event.clientY,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    width: rect.width,
-    height: rect.height,
-  });
+  setDragStateAction(
+    createPointerCardDragState({
+      event,
+      actionId: entry.card.id,
+      source: 'deck',
+    }),
+  );
 }

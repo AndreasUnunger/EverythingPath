@@ -6,6 +6,8 @@ import type { Id } from '@convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Button } from '~/components/ui/button';
+import { LedgerShell } from '~/components/ledger-shell';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +19,6 @@ import {
   buildMilitiaCoreFormValues,
   buildWeekContextFormValues,
   buildQueueEffectFormValues,
-  buildTeamStateFormValues,
   buildCacheStateFormValues,
   buildOrderStateFormValues,
   buildTrackedPersonFormValues,
@@ -27,13 +28,11 @@ import {
   defaultEventStateFormValues,
   defaultOrderStateFormValues,
   defaultQueueEffectFormValues,
-  defaultTeamStateFormValues,
   defaultTrackedPersonFormValues,
   eventStateFormSchema,
   militiaCoreFormSchema,
   orderStateFormSchema,
   queueEffectFormSchema,
-  teamStateFormSchema,
   trackedPersonFormSchema,
   weekContextFormSchema,
   type CacheStateFormValues,
@@ -42,7 +41,6 @@ import {
   type OrderStateFormValues,
   type QueueEffectRecord,
   type QueueEffectFormValues,
-  type TeamStateFormValues,
   type TrackedPersonFormValues,
   type WeekContextFormValues,
 } from '~/components/militia-state-manager/types';
@@ -52,7 +50,6 @@ import {
   MilitiaCoreFormCard,
   OrderStateFormCard,
   QueueEffectFormCard,
-  TeamStateFormCard,
   TrackedPersonFormCard,
   WeekContextFormCard,
 } from '~/components/militia-state-manager/form-cards';
@@ -60,32 +57,31 @@ import {
   StateList,
   StateListItem,
   StateSectionCard,
-  SummaryGrid,
 } from '~/components/militia-state-manager/section-cards';
 import {
   formatCacheClassLabel,
   formatCacheStatusLabel,
   formatEventTypeLabel,
-  formatFocusLabel,
   formatOrderSourceActionLabel,
   formatOrderStatusLabel,
   formatQueuedEffectKindLabel,
-  formatTeamStatusLabel,
   formatTrackedPersonKindLabel,
   formatTrackedPersonLocationLabel,
   formatTrackedPersonSourceActionLabel,
   formatTrackedPersonStatusLabel,
-  formatWeekPhaseLabel,
 } from '~/lib/militia-state-options';
-import { militiaQuery, militiaStateSetupQuery, settlementLedgerQuery, marketplaceLedgerQuery, characterLedgerQuery } from '~/lib/sharedQueries';
-import { formatTeamIdLabel } from '~/lib/team-ids';
+import {
+  campaignQuery,
+  militiaQuery,
+  militiaStateSetupQuery,
+  settlementLedgerQuery,
+  marketplaceLedgerQuery,
+  characterLedgerQuery,
+} from '~/lib/sharedQueries';
 
 type DialogState =
   | { kind: 'createMilitia' }
-  | { kind: 'core' }
-  | { kind: 'week' }
   | { kind: 'queueEffect'; index?: number }
-  | { kind: 'team'; teamId?: string }
   | { kind: 'cache'; cacheId?: string }
   | { kind: 'order'; orderId?: string }
   | { kind: 'person'; trackedPersonId?: string }
@@ -101,6 +97,7 @@ export function MilitiaStateManager({
   organizationId: string;
   canQuery: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState>(null);
   const [formError, setFormError] = useState<string>();
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string>();
@@ -110,6 +107,7 @@ export function MilitiaStateManager({
     organizationId,
     canQuery,
   );
+  const { data: campaignContext } = campaignQuery(organizationId, canQuery);
   const { data: setupState, isLoading: setupLoading } = militiaStateSetupQuery(
     selectedCampaignId,
     organizationId,
@@ -135,7 +133,6 @@ export function MilitiaStateManager({
   const createMilitia = useMutation(db.militia.createMilitia);
   const updateMilitiaCoreState = useMutation(db.militia.updateMilitiaCoreState);
   const upsertWeekContextState = useMutation(db.militia.upsertWeekContextState);
-  const upsertMilitiaTeamState = useMutation(db.militia.upsertMilitiaTeamState);
   const upsertCacheState = useMutation(db.militia.upsertCacheState);
   const deleteCacheState = useMutation(db.militia.deleteCacheState);
   const upsertOrderState = useMutation(db.militia.upsertOrderState);
@@ -144,13 +141,23 @@ export function MilitiaStateManager({
   const deleteTrackedPersonState = useMutation(db.militia.deleteTrackedPersonState);
   const upsertEventState = useMutation(db.militia.upsertEventState);
   const deleteEventState = useMutation(db.militia.deleteEventState);
+  const updateCampaignInGameDate = useMutation(db.campaign.updateCampaignInGameDate);
+  const selectedCampaign =
+    campaignContext?.state === 'ready'
+      ? campaignContext.campaigns.find(
+          (campaign) => campaign._id === selectedCampaignId,
+        )
+      : undefined;
 
   const coreForm = useForm<MilitiaCoreFormValues>({
     resolver: zodResolver(militiaCoreFormSchema),
-    defaultValues: militia
-      ? buildMilitiaCoreFormValues(militia)
+    values: militia
+      ? buildMilitiaCoreFormValues(militia, selectedCampaign?.inGameDate)
       : {
           name: '',
+          inGameDate: selectedCampaign?.inGameDate
+            ? new Date(selectedCampaign.inGameDate).toISOString().slice(0, 10)
+            : '',
           rank: '1',
           highestBoonReached: '1',
           HQLocation: '',
@@ -162,7 +169,7 @@ export function MilitiaStateManager({
   });
   const weekForm = useForm<WeekContextFormValues>({
     resolver: zodResolver(weekContextFormSchema),
-    defaultValues: setupState
+    values: setupState
       ? buildWeekContextFormValues(setupState.currentWeekState)
       : {
           weekNumber: '1',
@@ -176,10 +183,6 @@ export function MilitiaStateManager({
   const queueEffectForm = useForm<QueueEffectFormValues>({
     resolver: zodResolver(queueEffectFormSchema),
     defaultValues: defaultQueueEffectFormValues,
-  });
-  const teamForm = useForm<TeamStateFormValues>({
-    resolver: zodResolver(teamStateFormSchema),
-    defaultValues: defaultTeamStateFormValues,
   });
   const cacheForm = useForm<CacheStateFormValues>({
     resolver: zodResolver(cacheStateFormSchema),
@@ -209,6 +212,7 @@ export function MilitiaStateManager({
       name: character.name,
       kind: character.kind,
       level: character.level,
+      charisma: character.charisma,
     })) ?? [];
 
   function closeDialog() {
@@ -219,6 +223,9 @@ export function MilitiaStateManager({
   function openCreateMilitia() {
     coreForm.reset({
       name: '',
+      inGameDate: selectedCampaign?.inGameDate
+        ? new Date(selectedCampaign.inGameDate).toISOString().slice(0, 10)
+        : '',
       rank: '1',
       highestBoonReached: '1',
       HQLocation: '',
@@ -231,33 +238,12 @@ export function MilitiaStateManager({
     setDialogState({ kind: 'createMilitia' });
   }
 
-  function openCoreEditor() {
-    if (!militia) return;
-    coreForm.reset(buildMilitiaCoreFormValues(militia));
-    setFormError(undefined);
-    setDialogState({ kind: 'core' });
-  }
-
-  function openWeekEditor() {
-    if (!setupState) return;
-    weekForm.reset(buildWeekContextFormValues(setupState.currentWeekState));
-    setFormError(undefined);
-    setDialogState({ kind: 'week' });
-  }
-
   function openQueueEffectEditor(effect?: QueueEffectRecord) {
     queueEffectForm.reset(
       effect ? buildQueueEffectFormValues(effect) : defaultQueueEffectFormValues,
     );
     setFormError(undefined);
     setDialogState(effect ? { kind: 'queueEffect', index: effect.index } : { kind: 'queueEffect' });
-  }
-
-  function openTeamEditor(teamId?: string) {
-    const existing = setupState?.teamStates.find((team) => team.teamId === teamId);
-    teamForm.reset(existing ? buildTeamStateFormValues(existing) : defaultTeamStateFormValues);
-    setFormError(undefined);
-    setDialogState(teamId ? { kind: 'team', teamId } : { kind: 'team' });
   }
 
   function openCacheEditor(cacheId?: string) {
@@ -310,6 +296,11 @@ export function MilitiaStateManager({
         },
         organizationId,
       });
+      await updateCampaignInGameDate({
+        organizationId,
+        campaignId: selectedCampaignId,
+        inGameDate: toCampaignInGameDate(values.inGameDate),
+      });
       closeDialog();
     } catch (error) {
       setFormError(getErrorMessage(error, 'Failed to create militia.'));
@@ -317,7 +308,7 @@ export function MilitiaStateManager({
   }
 
   async function submitCore(values: MilitiaCoreFormValues) {
-    if (!militia) return;
+    if (!militia || !selectedCampaignId) return;
     try {
       await updateMilitiaCoreState({
         organizationId,
@@ -331,7 +322,11 @@ export function MilitiaStateManager({
         focus: values.focus === 'none' ? null : values.focus,
         training: Number(values.training),
       });
-      closeDialog();
+      await updateCampaignInGameDate({
+        organizationId,
+        campaignId: selectedCampaignId,
+        inGameDate: toCampaignInGameDate(values.inGameDate),
+      });
     } catch (error) {
       setFormError(getErrorMessage(error, 'Failed to save militia state.'));
     }
@@ -408,43 +403,6 @@ export function MilitiaStateManager({
         uneventfulBonusCarry: setupState.currentWeekState.uneventfulBonusCarry,
         lastPersistentBuyoffWeek: setupState.currentWeekState.lastPersistentBuyoffWeek,
         queuedEffects: nextEffects,
-      });
-    } finally {
-      setPendingDeleteKey(undefined);
-    }
-  }
-
-  async function submitTeam(values: TeamStateFormValues) {
-    if (!militia) return;
-    try {
-      await upsertMilitiaTeamState({
-        organizationId,
-        militiaId: militia._id,
-        teamId: values.teamId,
-        inRoster: true,
-        status: values.status,
-        unavailableUntilWeek: values.unavailableUntilWeek.trim()
-          ? Number(values.unavailableUntilWeek)
-          : undefined,
-        notes: values.notes?.trim() ? values.notes.trim() : undefined,
-      });
-      closeDialog();
-    } catch (error) {
-      setFormError(getErrorMessage(error, 'Failed to save team state.'));
-    }
-  }
-
-  async function removeTeam(teamId: string) {
-    if (!militia) return;
-    const deleteKey = `team:${teamId}`;
-    setPendingDeleteKey(deleteKey);
-    try {
-      await upsertMilitiaTeamState({
-        organizationId,
-        militiaId: militia._id,
-        teamId: teamId as Parameters<typeof upsertMilitiaTeamState>[0]['teamId'],
-        inRoster: false,
-        status: 'active',
       });
     } finally {
       setPendingDeleteKey(undefined);
@@ -540,6 +498,10 @@ export function MilitiaStateManager({
   async function submitTrackedPerson(values: TrackedPersonFormValues) {
     if (!militia) return;
     try {
+      const selectedCharacter =
+        values.targetSource === 'character' && values.characterId
+          ? characterOptions.find((character) => character._id === values.characterId)
+          : undefined;
       await upsertTrackedPersonState({
         organizationId,
         militiaId: militia._id,
@@ -551,7 +513,10 @@ export function MilitiaStateManager({
           values.targetSource === 'character' && values.characterId
             ? (values.characterId as Id<'character'>)
             : undefined,
-        displayName: values.displayName.trim(),
+        displayName:
+          values.targetSource === 'character'
+            ? (selectedCharacter?.name ?? '')
+            : values.displayName.trim(),
         personKind: values.personKind,
         status: values.status,
         level: values.level.trim() ? Number(values.level) : undefined,
@@ -657,156 +622,121 @@ export function MilitiaStateManager({
 
   if (!militia) {
     return (
-      <>
-        <StateSectionCard
-          title="Militia State"
-          subtitle="Create the militia record first, then fill in the remaining campaign state below."
-          actionLabel="Initialize Militia"
-          onAdd={openCreateMilitia}
-        >
-          <p className="text-muted-foreground font-mono text-sm">
-            Use this instead of the fixed rank-1 placeholder when picking up the tool mid-campaign.
-          </p>
-        </StateSectionCard>
-        <Dialog open={dialogState?.kind === 'createMilitia'} onOpenChange={(open) => !open && closeDialog()}>
-          <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="font-sans text-xl">Initialize Militia</DialogTitle>
-              <DialogDescription className="font-mono text-sm">
-                Start from your current campaign state instead of a rank-1 default.
-              </DialogDescription>
-            </DialogHeader>
-            <MilitiaCoreFormCard
-              form={coreForm}
-              onSubmit={submitCreateMilitia}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          </DialogContent>
-        </Dialog>
-      </>
+      <LedgerShell
+        title="Militia State"
+        meta="Create the militia record first, then fill in the remaining campaign state below."
+        isOpen={isOpen}
+        onToggle={() => {
+          if (isOpen) {
+            closeDialog();
+          }
+          setIsOpen((prev) => !prev);
+        }}
+        actions={
+          isOpen ? (
+            <Button
+              type="button"
+              onClick={openCreateMilitia}
+              className="border-primary text-primary hover:bg-primary/80 hover:text-primary-foreground border-2 bg-transparent font-mono text-base"
+            >
+              Initialize Militia
+            </Button>
+          ) : null
+        }
+      >
+        <>
+            <p className="text-muted-foreground font-mono text-sm">
+              Use this instead of the fixed rank-1 placeholder when picking up the tool mid-campaign.
+            </p>
+            <Dialog
+              open={dialogState?.kind === 'createMilitia'}
+              onOpenChange={(open) => !open && closeDialog()}
+            >
+              <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle className="font-sans text-xl">Initialize Militia</DialogTitle>
+                  <DialogDescription className="font-mono text-sm">
+                    Start from your current campaign state instead of a rank-1 default.
+                  </DialogDescription>
+                </DialogHeader>
+                <MilitiaCoreFormCard
+                  form={coreForm}
+                  onSubmit={submitCreateMilitia}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                />
+              </DialogContent>
+            </Dialog>
+        </>
+      </LedgerShell>
     );
   }
 
   return (
-    <>
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <LedgerShell
+      title="Militia State"
+      meta="Edit the canonical militia state directly for mid-campaign pickup and corrections."
+      isOpen={isOpen}
+      onToggle={() => {
+        if (isOpen) {
+          closeDialog();
+        }
+        setIsOpen((prev) => !prev);
+      }}
+    >
+      <>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <StateSectionCard
             title="Militia Core"
             subtitle="Directly edit the canonical militia values used by the week board."
-            actionLabel="Edit Core"
-            onAdd={openCoreEditor}
           >
-            <SummaryGrid
-              rows={[
-                { label: 'Name', value: militia.name },
-                { label: 'Rank', value: militia.rank },
-                { label: 'Highest boon reached', value: militia.highestBoonReached },
-                { label: 'Training', value: militia.training },
-                { label: 'Treasury', value: militia.treasury },
-                { label: 'Notoriety', value: militia.notoriety },
-                { label: 'Focus', value: formatFocusLabel(militia.focus) },
-                { label: 'HQ location', value: militia.HQLocation },
-              ]}
+            <MilitiaCoreFormCard
+              form={coreForm}
+              onSubmit={submitCore}
+              submitError={dialogState === null ? formError : undefined}
+              showCancel={false}
             />
           </StateSectionCard>
 
           <StateSectionCard
             title="Week Context"
             subtitle="Set the current position in the militia flow and the queued next-week effects."
-            actionLabel="Edit Week"
-            onAdd={openWeekEditor}
           >
-            <SummaryGrid
-              rows={[
-                { label: 'Week number', value: setupState?.currentWeekState.weekNumber ?? 1 },
-                {
-                  label: 'Phase',
-                  value: formatWeekPhaseLabel(setupState?.currentWeekState.phase ?? 'activity'),
-                },
-                {
-                  label: 'First week',
-                  value: (setupState?.currentWeekState.isFirstWeek ?? true) ? 'Yes' : 'No',
-                },
-                {
-                  label: 'Skipped upkeep this week',
-                  value:
-                    (setupState?.currentWeekState.skippedUpkeepThisWeek ?? true)
-                      ? 'Yes'
-                      : 'No',
-                },
-                {
-                  label: 'Uneventful bonus carry',
-                  value: setupState?.currentWeekState.uneventfulBonusCarry ?? 0,
-                },
-                {
-                  label: 'Last persistent buyoff week',
-                  value: setupState?.currentWeekState.lastPersistentBuyoffWeek ?? 'None',
-                },
-              ]}
+            <WeekContextFormCard
+              form={weekForm}
+              onSubmit={submitWeek}
+              submitError={dialogState === null ? formError : undefined}
+              showCancel={false}
             />
           </StateSectionCard>
-        </div>
+          </div>
 
-        <StateSectionCard
-          title="Queued Effects"
-          subtitle="These are the week-to-week modifiers that will apply automatically later."
-          actionLabel="Add Queued Effect"
-          onAdd={() => openQueueEffectEditor()}
-        >
-          <StateList emptyText="No queued effects recorded yet.">
-            {queueEffects.map((effect) => (
-              <StateListItem
-                key={`${effect.kind}:${effect.index}`}
-                title={formatQueuedEffectKindLabel(effect.kind)}
-                badges={[`Week ${effect.appliesWeek}`]}
-                body={
-                  effect.note ? (
-                    <p className="text-muted-foreground font-mono text-sm">{effect.note}</p>
-                  ) : (
-                    <p className="text-muted-foreground font-mono text-sm">No note</p>
-                  )
-                }
-                onEdit={() => openQueueEffectEditor(effect)}
-                onDelete={() => void removeQueueEffect(effect.index)}
-                deleting={pendingDeleteKey === `queue:${effect.index}`}
-              />
-            ))}
-          </StateList>
-        </StateSectionCard>
-
-        <StateSectionCard
-          title="Team Roster State"
-          subtitle="Edit which teams exist in the roster and their current condition."
-          actionLabel="Add Team"
-          onAdd={() => openTeamEditor()}
-        >
-          <StateList emptyText="No roster teams tracked yet.">
-            {(setupState?.teamStates ?? []).map((teamState) => (
-              <StateListItem
-                key={teamState.teamId}
-                title={formatTeamIdLabel(teamState.teamId as never)}
-                badges={[formatTeamStatusLabel(teamState.status)]}
-                body={
-                  <>
-                    <p className="text-muted-foreground font-mono text-sm">
-                      Unavailable until week: {teamState.unavailableUntilWeek ?? 'None'}
-                    </p>
-                    {teamState.notes ? (
-                      <p className="text-muted-foreground font-mono text-sm">
-                        Notes: {teamState.notes}
-                      </p>
-                    ) : null}
-                  </>
-                }
-                onEdit={() => openTeamEditor(teamState.teamId)}
-                onDelete={() => void removeTeam(teamState.teamId)}
-                deleting={pendingDeleteKey === `team:${teamState.teamId}`}
-              />
-            ))}
-          </StateList>
-        </StateSectionCard>
+          <StateSectionCard
+            title="Queued Effects"
+            subtitle="These are the week-to-week modifiers that will apply automatically later."
+            actionLabel="Add Queued Effect"
+            onAdd={() => openQueueEffectEditor()}
+          >
+            <StateList emptyText="No queued effects recorded yet.">
+              {queueEffects.map((effect) => (
+                <StateListItem
+                  key={`${effect.kind}:${effect.index}`}
+                  title={formatQueuedEffectKindLabel(effect.kind)}
+                  badges={[`Week ${effect.appliesWeek}`]}
+                  body={
+                    effect.note ? (
+                      <p className="text-muted-foreground font-mono text-sm">{effect.note}</p>
+                    ) : (
+                      <p className="text-muted-foreground font-mono text-sm">No note</p>
+                    )
+                  }
+                  onEdit={() => openQueueEffectEditor(effect)}
+                  onDelete={() => void removeQueueEffect(effect.index)}
+                  deleting={pendingDeleteKey === `queue:${effect.index}`}
+                />
+              ))}
+            </StateList>
+          </StateSectionCard>
 
         <StateSectionCard
           title="Tracked Caches"
@@ -913,130 +843,106 @@ export function MilitiaStateManager({
           </StateList>
         </StateSectionCard>
 
-        <StateSectionCard
-          title="Event State"
-          subtitle="Edit persistent and already-recorded event rows for the current militia."
-          actionLabel="Add Event State"
-          onAdd={() => openEventEditor()}
-        >
-          <StateList emptyText="No event state rows recorded yet.">
-            {(setupState?.eventStates ?? []).map((eventState) => (
-              <StateListItem
-                key={eventState._id}
-                title={formatEventTypeLabel(eventState.eventType)}
-                badges={[
-                  eventState.isPersistent ? 'Persistent' : 'Single',
-                  eventState.resolved ? 'Resolved' : 'Open',
-                ]}
-                body={
-                  <>
-                    <p className="text-muted-foreground font-mono text-sm">
-                      Week {eventState.weekNumber} • Started {eventState.startedWeek}
-                    </p>
-                    <p className="text-muted-foreground font-mono text-sm">
-                      Mitigation until: {eventState.mitigationUntilWeek ?? 'None'}
-                    </p>
-                  </>
-                }
-                onEdit={() => openEventEditor(eventState._id)}
-                onDelete={() => void removeEvent(eventState._id)}
-                deleting={pendingDeleteKey === `event:${eventState._id}`}
-              />
-            ))}
-          </StateList>
-        </StateSectionCard>
-      </div>
+          <StateSectionCard
+            title="Event State"
+            subtitle="Edit persistent and already-recorded event rows for the current militia."
+            actionLabel="Add Event State"
+            onAdd={() => openEventEditor()}
+          >
+            <StateList emptyText="No event state rows recorded yet.">
+              {(setupState?.eventStates ?? []).map((eventState) => (
+                <StateListItem
+                  key={eventState._id}
+                  title={formatEventTypeLabel(eventState.eventType)}
+                  badges={[
+                    eventState.isPersistent ? 'Persistent' : 'Single',
+                    eventState.resolved ? 'Resolved' : 'Open',
+                  ]}
+                  body={
+                    <>
+                      <p className="text-muted-foreground font-mono text-sm">
+                        Week {eventState.weekNumber} • Started {eventState.startedWeek}
+                      </p>
+                      <p className="text-muted-foreground font-mono text-sm">
+                        Mitigation until: {eventState.mitigationUntilWeek ?? 'None'}
+                      </p>
+                    </>
+                  }
+                  onEdit={() => openEventEditor(eventState._id)}
+                  onDelete={() => void removeEvent(eventState._id)}
+                  deleting={pendingDeleteKey === `event:${eventState._id}`}
+                />
+              ))}
+            </StateList>
+          </StateSectionCard>
 
-      <Dialog open={dialogState !== null} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle className="font-sans text-xl">{getDialogTitle(dialogState)}</DialogTitle>
-            <DialogDescription className="font-mono text-sm">
-              {getDialogDescription(dialogState)}
-            </DialogDescription>
-          </DialogHeader>
+          <Dialog open={dialogState !== null} onOpenChange={(open) => !open && closeDialog()}>
+            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
+              <DialogHeader>
+                <DialogTitle className="font-sans text-xl">{getDialogTitle(dialogState)}</DialogTitle>
+                <DialogDescription className="font-mono text-sm">
+                  {getDialogDescription(dialogState)}
+                </DialogDescription>
+              </DialogHeader>
 
-          {dialogState?.kind === 'createMilitia' ? (
-            <MilitiaCoreFormCard
-              form={coreForm}
-              onSubmit={submitCreateMilitia}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-          {dialogState?.kind === 'core' ? (
-            <MilitiaCoreFormCard
-              form={coreForm}
-              onSubmit={submitCore}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-          {dialogState?.kind === 'week' ? (
-            <WeekContextFormCard
-              form={weekForm}
-              onSubmit={submitWeek}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-          {dialogState?.kind === 'queueEffect' ? (
-            <QueueEffectFormCard
-              form={queueEffectForm}
-              onSubmit={submitQueueEffect}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-          {dialogState?.kind === 'team' ? (
-            <TeamStateFormCard
-              form={teamForm}
-              onSubmit={submitTeam}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-          {dialogState?.kind === 'cache' ? (
-            <CacheStateFormCard
-              form={cacheForm}
-              onSubmit={submitCache}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-          {dialogState?.kind === 'order' ? (
-            <OrderStateFormCard
-              form={orderForm}
-              onSubmit={submitOrder}
-              onCancel={closeDialog}
-              submitError={formError}
-              marketplaceOptions={marketplaces.map((marketplace) => ({
-                value: marketplace._id,
-                label: marketplace.label,
-              }))}
-            />
-          ) : null}
-          {dialogState?.kind === 'person' ? (
-            <TrackedPersonFormCard
-              form={personForm}
-              onSubmit={submitTrackedPerson}
-              onCancel={closeDialog}
-              submitError={formError}
-              characterOptions={characterOptions}
-              settlementOptions={settlementOptions}
-            />
-          ) : null}
-          {dialogState?.kind === 'event' ? (
-            <EventStateFormCard
-              form={eventForm}
-              onSubmit={submitEvent}
-              onCancel={closeDialog}
-              submitError={formError}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </>
+              {dialogState?.kind === 'createMilitia' ? (
+                <MilitiaCoreFormCard
+                  form={coreForm}
+                  onSubmit={submitCreateMilitia}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                />
+              ) : null}
+              {dialogState?.kind === 'queueEffect' ? (
+                <QueueEffectFormCard
+                  form={queueEffectForm}
+                  onSubmit={submitQueueEffect}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                />
+              ) : null}
+              {dialogState?.kind === 'cache' ? (
+                <CacheStateFormCard
+                  form={cacheForm}
+                  onSubmit={submitCache}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                />
+              ) : null}
+              {dialogState?.kind === 'order' ? (
+                <OrderStateFormCard
+                  form={orderForm}
+                  onSubmit={submitOrder}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                  marketplaceOptions={marketplaces.map((marketplace) => ({
+                    value: marketplace._id,
+                    label: marketplace.label,
+                  }))}
+                />
+              ) : null}
+              {dialogState?.kind === 'person' ? (
+                <TrackedPersonFormCard
+                  form={personForm}
+                  onSubmit={submitTrackedPerson}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                  characterOptions={characterOptions}
+                  settlementOptions={settlementOptions}
+                />
+              ) : null}
+              {dialogState?.kind === 'event' ? (
+                <EventStateFormCard
+                  form={eventForm}
+                  onSubmit={submitEvent}
+                  onCancel={closeDialog}
+                  submitError={formError}
+                />
+              ) : null}
+            </DialogContent>
+          </Dialog>
+      </>
+    </LedgerShell>
   );
 }
 
@@ -1045,14 +951,8 @@ function getDialogTitle(dialogState: DialogState) {
   switch (dialogState.kind) {
     case 'createMilitia':
       return 'Initialize Militia';
-    case 'core':
-      return 'Edit Militia Core';
-    case 'week':
-      return 'Edit Week Context';
     case 'queueEffect':
       return dialogState.index !== undefined ? 'Edit Queued Effect' : 'Add Queued Effect';
-    case 'team':
-      return dialogState.teamId ? 'Edit Team State' : 'Add Team to Roster';
     case 'cache':
       return dialogState.cacheId ? 'Edit Cache' : 'Add Cache';
     case 'order':
@@ -1069,14 +969,8 @@ function getDialogDescription(dialogState: DialogState) {
   switch (dialogState.kind) {
     case 'createMilitia':
       return 'Create the militia record from current campaign values instead of the default placeholder.';
-    case 'core':
-      return 'Adjust the canonical militia values directly.';
-    case 'week':
-      return 'Set the active week and flow context.';
     case 'queueEffect':
       return 'Queued effects persist across weeks until their apply week is reached.';
-    case 'team':
-      return 'Roster teams can be added, corrected, or removed here for mid-campaign setup.';
     case 'cache':
       return 'Caches are durable records and should match the table state, not just the current week draft.';
     case 'order':
@@ -1096,4 +990,13 @@ function getErrorMessage(error: unknown, fallback: string) {
     return error;
   }
   return fallback;
+}
+
+function toCampaignInGameDate(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return new Date(`${trimmed}T00:00:00.000Z`).toISOString();
 }

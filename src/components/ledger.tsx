@@ -3,7 +3,7 @@ import { CharacterManager } from './character-manager';
 import { MarketplaceLedger } from './marketplace-ledger';
 import { MilitiaStateManager } from './militia-state-manager';
 import { SettlementManager } from './settlement-manager';
-import { TeamManager } from './teamManager';
+import { TeamLedger } from './team-ledger';
 
 export function Ledger({
   selectedCampaignId,
@@ -15,7 +15,7 @@ export function Ledger({
   canQuery: boolean;
 }) {
   return (
-    <div className="flex columns-1 flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <MilitiaStateManager
         selectedCampaignId={selectedCampaignId}
         organizationId={organizationId}
@@ -26,17 +26,17 @@ export function Ledger({
         organizationId={organizationId}
         canQuery={canQuery}
       />
+      <TeamLedger
+        selectedCampaignId={selectedCampaignId}
+        organizationId={organizationId}
+        canQuery={canQuery}
+      />
       <SettlementManager
         selectedCampaignId={selectedCampaignId}
         organizationId={organizationId}
         canQuery={canQuery}
       />
       <MarketplaceLedger
-        selectedCampaignId={selectedCampaignId}
-        organizationId={organizationId}
-        canQuery={canQuery}
-      />
-      <TeamManager
         selectedCampaignId={selectedCampaignId}
         organizationId={organizationId}
         canQuery={canQuery}

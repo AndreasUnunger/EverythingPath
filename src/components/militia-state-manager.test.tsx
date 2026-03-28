@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MilitiaStateManager } from './militia-state-manager';
 
 const mockMilitiaQuery = vi.fn();
+const mockCampaignQuery = vi.fn();
 const mockMilitiaStateSetupQuery = vi.fn();
 const mockSettlementLedgerQuery = vi.fn();
 const mockMarketplaceLedgerQuery = vi.fn();
@@ -12,8 +13,10 @@ const mockUseMutation = vi.fn();
 const mutationFns = {
   createMilitia: vi.fn(),
   updateMilitiaCoreState: vi.fn(),
+  updateCampaignInGameDate: vi.fn(),
   upsertWeekContextState: vi.fn(),
   upsertMilitiaTeamState: vi.fn(),
+  assignTeamManager: vi.fn(),
   upsertCacheState: vi.fn(),
   deleteCacheState: vi.fn(),
   upsertOrderState: vi.fn(),
@@ -25,6 +28,7 @@ const mutationFns = {
 };
 
 vi.mock('~/lib/sharedQueries', () => ({
+  campaignQuery: (...args: unknown[]) => mockCampaignQuery(...args),
   militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
   militiaStateSetupQuery: (...args: unknown[]) => mockMilitiaStateSetupQuery(...args),
   settlementLedgerQuery: (...args: unknown[]) => mockSettlementLedgerQuery(...args),
@@ -43,6 +47,7 @@ vi.mock('@convex/_generated/api', () => ({
       updateMilitiaCoreState: 'militia.updateMilitiaCoreState',
       upsertWeekContextState: 'militia.upsertWeekContextState',
       upsertMilitiaTeamState: 'militia.upsertMilitiaTeamState',
+      assignTeamManager: 'militia.assignTeamManager',
       upsertCacheState: 'militia.upsertCacheState',
       deleteCacheState: 'militia.deleteCacheState',
       upsertOrderState: 'militia.upsertOrderState',
@@ -51,6 +56,9 @@ vi.mock('@convex/_generated/api', () => ({
       deleteTrackedPersonState: 'militia.deleteTrackedPersonState',
       upsertEventState: 'militia.upsertEventState',
       deleteEventState: 'militia.deleteEventState',
+    },
+    campaign: {
+      updateCampaignInGameDate: 'campaign.updateCampaignInGameDate',
     },
   },
 }));
@@ -86,6 +94,10 @@ vi.mock('~/components/ui/select', () => ({
 }));
 
 describe('MilitiaStateManager', () => {
+  function openLedger() {
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  }
+
   afterEach(() => {
     cleanup();
   });
@@ -94,6 +106,22 @@ describe('MilitiaStateManager', () => {
     vi.clearAllMocks();
     mockMilitiaQuery.mockReturnValue({
       data: null,
+      isLoading: false,
+    });
+    mockCampaignQuery.mockReturnValue({
+      data: {
+        state: 'ready',
+        campaigns: [
+          {
+            _id: 'camp_1',
+            name: 'Alpha',
+            description: '',
+            ownerId: 'owner',
+            organizationId: 'org_1',
+            inGameDate: '2026-03-22T00:00:00.000Z',
+          },
+        ],
+      },
       isLoading: false,
     });
     mockMilitiaStateSetupQuery.mockReturnValue({
@@ -128,6 +156,7 @@ describe('MilitiaStateManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByRole('button', { name: 'Initialize Militia' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Militia name' }), {
       target: { value: ' Ironfang Watch ' },
@@ -171,71 +200,10 @@ describe('MilitiaStateManager', () => {
         },
       });
     });
-  });
-
-  it('adds a team roster state entry', async () => {
-    mockMilitiaQuery.mockReturnValue({
-      data: {
-        _id: 'militia_1',
-        name: 'Watch',
-        rank: 4,
-        highestBoonReached: 2,
-        HQLocation: 'Longshadow',
-        treasury: 120,
-        notoriety: 4,
-        focus: 'Security',
-        training: 30,
-        teams: [],
-      },
-      isLoading: false,
-    });
-    mockMilitiaStateSetupQuery.mockReturnValue({
-      data: {
-        currentWeekState: {
-          weekNumber: 3,
-          phase: 'activity',
-          isFirstWeek: false,
-          skippedUpkeepThisWeek: false,
-          uneventfulBonusCarry: 2,
-          lastPersistentBuyoffWeek: 1,
-          queuedEffects: [],
-        },
-        teamStates: [],
-        caches: [],
-        orders: [],
-        trackedPeople: [],
-        eventStates: [],
-      },
-      isLoading: false,
-    });
-
-    render(
-      <MilitiaStateManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add Team' }));
-    const selects = screen.getAllByTestId('mock-select');
-    fireEvent.change(selects[0]!, { target: { value: 'spies' } });
-    fireEvent.change(selects[1]!, { target: { value: 'missing' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Unavailable until week' }), {
-      target: { value: '8' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(mutationFns.upsertMilitiaTeamState).toHaveBeenCalledWith({
-        organizationId: 'org_1',
-        militiaId: 'militia_1',
-        teamId: 'spies',
-        inRoster: true,
-        status: 'missing',
-        unavailableUntilWeek: 8,
-        notes: undefined,
-      });
+    expect(mutationFns.updateCampaignInGameDate).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      campaignId: 'camp_1',
+      inGameDate: '2026-03-22T00:00:00.000Z',
     });
   });
 
@@ -283,17 +251,19 @@ describe('MilitiaStateManager', () => {
       />,
     );
 
+    openLedger();
     fireEvent.click(screen.getByRole('button', { name: 'Add Queued Effect' }));
-    fireEvent.change(screen.getAllByTestId('mock-select')[0]!, {
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getAllByTestId('mock-select')[0]!, {
       target: { value: 'auto_event_roll_twice' },
     });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Applies week' }), {
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Applies week' }), {
       target: { value: '5' },
     });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), {
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Note' }), {
       target: { value: ' From last table session ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(mutationFns.upsertWeekContextState).toHaveBeenCalledWith({
@@ -312,6 +282,95 @@ describe('MilitiaStateManager', () => {
             note: 'From last table session',
           },
         ],
+      });
+    });
+  });
+
+  it('adds a tracked person from the character ledger without requiring manual name input', async () => {
+    mockMilitiaQuery.mockReturnValue({
+      data: {
+        _id: 'militia_1',
+        name: 'Watch',
+        rank: 4,
+        highestBoonReached: 2,
+        HQLocation: 'Longshadow',
+        treasury: 120,
+        notoriety: 4,
+        focus: 'Security',
+        training: 30,
+        teams: [],
+      },
+      isLoading: false,
+    });
+    mockMilitiaStateSetupQuery.mockReturnValue({
+      data: {
+        currentWeekState: {
+          weekNumber: 3,
+          phase: 'activity',
+          isFirstWeek: false,
+          skippedUpkeepThisWeek: false,
+          uneventfulBonusCarry: 2,
+          lastPersistentBuyoffWeek: 1,
+          queuedEffects: [],
+        },
+        teamStates: [],
+        caches: [],
+        orders: [],
+        trackedPeople: [],
+        eventStates: [],
+      },
+      isLoading: false,
+    });
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [
+        {
+          _id: 'char_1',
+          name: 'Kara Venn',
+          kind: 'pc',
+          level: 5,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <MilitiaStateManager
+        selectedCampaignId={'camp_1' as never}
+        organizationId="org_1"
+        canQuery
+      />,
+    );
+
+    openLedger();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Tracked Person' }));
+    const dialog = await screen.findByRole('dialog');
+    let selects = within(dialog).getAllByTestId('mock-select');
+    fireEvent.change(selects[0]!, { target: { value: 'character' } });
+    selects = within(dialog).getAllByTestId('mock-select');
+    fireEvent.change(selects[1]!, { target: { value: 'char_1' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mutationFns.upsertTrackedPersonState).toHaveBeenCalledWith({
+        organizationId: 'org_1',
+        militiaId: 'militia_1',
+        trackedPersonId: undefined,
+        characterId: 'char_1',
+        displayName: 'Kara Venn',
+        personKind: 'pc',
+        status: 'active',
+        level: undefined,
+        locationType: 'unknown',
+        settlementKey: undefined,
+        siteName: undefined,
+        notes: undefined,
+        activeUntilWeek: undefined,
+        hiddenSinceWeek: undefined,
+        capturedSinceWeek: undefined,
+        rescuedWeek: undefined,
+        restoredWeek: undefined,
+        rescueDcOverride: undefined,
+        sourceAction: 'manual',
       });
     });
   });

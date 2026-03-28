@@ -4,6 +4,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Card } from '~/components/ui/card';
 import type { ActivityActionCardEntry } from '~/components/week-board/phase-sections/activity-phase-shared';
 import type { DragState } from '~/components/week-board/types';
+import { getPointerCardDragStyle } from '~/lib/pointer-card-drag';
 
 export function ActivityDeckCard({
   entry,
@@ -82,17 +83,5 @@ function getDeckCardClassName(entry: ActivityActionCardEntry) {
 }
 
 function getDraggingDeckCardStyle(dragState: DragState | null) {
-  if (!dragState) return undefined;
-  return {
-    position: 'fixed' as const,
-    left: dragState.pointerX - dragState.offsetX,
-    top: dragState.pointerY - dragState.offsetY,
-    width: dragState.width,
-    zIndex: 9999,
-    pointerEvents: 'none' as const,
-    touchAction: 'none' as const,
-    isolation: 'isolate' as const,
-    backgroundColor: 'var(--card)',
-    WebkitUserSelect: 'none' as const,
-  };
+  return getPointerCardDragStyle(dragState);
 }

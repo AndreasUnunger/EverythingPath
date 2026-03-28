@@ -18,6 +18,7 @@ import {
 import { TEAM_IDS } from '~/lib/team-ids';
 import type {
   IEventStateEntry,
+  IMilitiaTeam,
   IMilitiaStateSetup,
   IQueuedEffect,
   ITrackedCache,
@@ -25,6 +26,10 @@ import type {
   ITrackedPerson,
   IWeekContextState,
 } from '~/lib/types';
+import {
+  teamManagerKindOptions,
+  teamManagerSourceOptions,
+} from '~/components/team-manager/types';
 
 function requiredWholeNumber(label: string) {
   return z
@@ -46,6 +51,12 @@ const yesNoOptions = ['yes', 'no'] as const;
 
 export const militiaCoreFormSchema = z.object({
   name: z.string().trim().min(1, 'Militia name is required').max(100),
+  inGameDate: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value), {
+      message: 'Date must be a valid date',
+    }),
   rank: requiredWholeNumber('Rank'),
   highestBoonReached: requiredWholeNumber('Highest boon reached'),
   HQLocation: z.string().trim().min(1, 'HQ location is required').max(100),
@@ -76,12 +87,51 @@ export const queueEffectFormSchema = z.object({
 
 export type QueueEffectFormValues = z.infer<typeof queueEffectFormSchema>;
 
-export const teamStateFormSchema = z.object({
-  teamId: z.enum(TEAM_IDS),
-  status: z.enum(teamStatusOptions),
-  unavailableUntilWeek: optionalWholeNumber('Unavailable until week'),
-  notes: z.string().trim().max(200, 'Notes must be 200 characters or fewer').optional().or(z.literal('')),
-});
+export const teamStateFormSchema = z
+  .object({
+    teamId: z.enum(TEAM_IDS),
+    status: z.enum(teamStatusOptions),
+    unavailableUntilWeek: optionalWholeNumber('Unavailable until week'),
+    notes: z
+      .string()
+      .trim()
+      .max(200, 'Notes must be 200 characters or fewer')
+      .optional()
+      .or(z.literal('')),
+    managerSource: z.enum(teamManagerSourceOptions),
+    managerCharacterId: z.string().optional().or(z.literal('')),
+    managerName: z.string().trim().max(100, 'Manager name must be 100 characters or fewer'),
+    managerKind: z.enum(teamManagerKindOptions),
+    managerCharisma: optionalWholeNumber('Manager Charisma'),
+  })
+  .superRefine((values, ctx) => {
+    if (
+      values.managerSource === 'character' &&
+      !(values.managerCharacterId ?? '').trim()
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['managerCharacterId'],
+        message: 'Manager character is required',
+      });
+    }
+
+    if (values.managerSource === 'freeform' && !values.managerName.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['managerName'],
+        message: 'Manager name is required',
+      });
+    }
+
+    if (values.managerSource === 'freeform' && !values.managerCharisma.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['managerCharisma'],
+        message: 'Manager Charisma is required',
+      });
+    }
+  });
 
 export type TeamStateFormValues = z.infer<typeof teamStateFormSchema>;
 
@@ -115,25 +165,54 @@ export const orderStateFormSchema = z.object({
 
 export type OrderStateFormValues = z.infer<typeof orderStateFormSchema>;
 
-export const trackedPersonFormSchema = z.object({
-  targetSource: z.union([z.literal('none'), z.literal('character')]),
-  characterId: z.string().optional().or(z.literal('')),
-  displayName: z.string().trim().min(1, 'Tracked person name is required').max(120),
-  personKind: z.enum(trackedPersonKindOptions),
-  status: z.enum(trackedPersonStatusOptions),
-  level: optionalWholeNumber('Level'),
-  locationType: z.enum(trackedPersonLocationOptions),
-  settlementKey: z.string().trim().max(120).optional().or(z.literal('')),
-  siteName: z.string().trim().max(120).optional().or(z.literal('')),
-  notes: z.string().trim().max(200, 'Notes must be 200 characters or fewer').optional().or(z.literal('')),
-  activeUntilWeek: optionalWholeNumber('Active until week'),
-  hiddenSinceWeek: optionalWholeNumber('Hidden since week'),
-  capturedSinceWeek: optionalWholeNumber('Captured since week'),
-  rescuedWeek: optionalWholeNumber('Rescued week'),
-  restoredWeek: optionalWholeNumber('Restored week'),
-  rescueDcOverride: optionalWholeNumber('Rescue DC override'),
-  sourceAction: z.enum(trackedPersonSourceActionOptions),
-});
+export const trackedPersonFormSchema = z
+  .object({
+    targetSource: z.union([z.literal('none'), z.literal('character')]),
+    characterId: z.string().optional().or(z.literal('')),
+    displayName: z
+      .string()
+      .trim()
+      .max(120, 'Tracked person name must be 120 characters or fewer'),
+    personKind: z.enum(trackedPersonKindOptions),
+    status: z.enum(trackedPersonStatusOptions),
+    level: optionalWholeNumber('Level'),
+    locationType: z.enum(trackedPersonLocationOptions),
+    settlementKey: z.string().trim().max(120).optional().or(z.literal('')),
+    siteName: z.string().trim().max(120).optional().or(z.literal('')),
+    notes: z
+      .string()
+      .trim()
+      .max(200, 'Notes must be 200 characters or fewer')
+      .optional()
+      .or(z.literal('')),
+    activeUntilWeek: optionalWholeNumber('Active until week'),
+    hiddenSinceWeek: optionalWholeNumber('Hidden since week'),
+    capturedSinceWeek: optionalWholeNumber('Captured since week'),
+    rescuedWeek: optionalWholeNumber('Rescued week'),
+    restoredWeek: optionalWholeNumber('Restored week'),
+    rescueDcOverride: optionalWholeNumber('Rescue DC override'),
+    sourceAction: z.enum(trackedPersonSourceActionOptions),
+  })
+  .superRefine((values, ctx) => {
+    if (values.targetSource === 'character') {
+      if (!(values.characterId ?? '').trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['characterId'],
+          message: 'Character is required',
+        });
+      }
+      return;
+    }
+
+    if (!values.displayName.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['displayName'],
+        message: 'Tracked person name is required',
+      });
+    }
+  });
 
 export type TrackedPersonFormValues = z.infer<typeof trackedPersonFormSchema>;
 
@@ -165,9 +244,10 @@ export function buildMilitiaCoreFormValues(militia: {
   notoriety: number;
   focus: 'Secrecy' | 'Loyalty' | 'Security' | null;
   training: number;
-}): MilitiaCoreFormValues {
+}, campaignInGameDate?: string): MilitiaCoreFormValues {
   return {
     name: militia.name,
+    inGameDate: formatDateInputValue(campaignInGameDate),
     rank: String(militia.rank),
     highestBoonReached: String(militia.highestBoonReached),
     HQLocation: militia.HQLocation,
@@ -176,6 +256,19 @@ export function buildMilitiaCoreFormValues(militia: {
     focus: militia.focus ?? 'none',
     training: String(militia.training),
   };
+}
+
+function formatDateInputValue(inGameDate?: string) {
+  if (!inGameDate) {
+    return '';
+  }
+
+  const parsed = new Date(inGameDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return parsed.toISOString().slice(0, 10);
 }
 
 export function buildWeekContextFormValues(
@@ -205,6 +298,11 @@ export const defaultTeamStateFormValues: TeamStateFormValues = {
   status: 'active',
   unavailableUntilWeek: '',
   notes: '',
+  managerSource: 'none',
+  managerCharacterId: '',
+  managerName: '',
+  managerKind: 'other_npc',
+  managerCharisma: '',
 };
 
 export const defaultCacheStateFormValues: CacheStateFormValues = {
@@ -271,15 +369,21 @@ export function buildQueueEffectFormValues(effect: IQueuedEffect): QueueEffectFo
   };
 }
 
-export function buildTeamStateFormValues(teamState: TeamStateRecord): TeamStateFormValues {
+export function buildTeamStateFormValues(teamState: IMilitiaTeam): TeamStateFormValues {
   return {
-    teamId: teamState.teamId as TeamStateFormValues['teamId'],
-    status: teamState.status,
+    teamId: teamState.id as TeamStateFormValues['teamId'],
+    status: teamState.status ?? 'active',
     unavailableUntilWeek:
       teamState.unavailableUntilWeek !== undefined
         ? String(teamState.unavailableUntilWeek)
         : '',
     notes: teamState.notes ?? '',
+    managerSource: teamState.managerSource ?? 'none',
+    managerCharacterId: teamState.managerCharacterId ?? '',
+    managerName: teamState.managerName ?? '',
+    managerKind: teamState.managerKind ?? 'other_npc',
+    managerCharisma:
+      teamState.managerCharisma !== undefined ? String(teamState.managerCharisma) : '',
   };
 }
 
@@ -361,4 +465,5 @@ export type CharacterOption = {
   name: string;
   kind?: 'pc' | 'officer_npc';
   level: number;
+  charisma: number;
 };

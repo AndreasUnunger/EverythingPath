@@ -55,6 +55,11 @@ import {
   formatMarketplaceAvailabilityTier,
   getMarketplaceProfile,
 } from '~/lib/militia-marketplace-rules';
+import {
+  createPointerCardDragState,
+  getPointerCardDragStyle,
+  shouldIgnorePointerCardDragStart,
+} from '~/lib/pointer-card-drag';
 
 type ActivitySlotCardProps = {
   slotId: string;
@@ -396,28 +401,18 @@ export function ActivitySlotCard({
           <Card
             data-slot-card="true"
             onPointerDown={(event) => {
-              const target = event.target as HTMLElement;
-              if (
-                target.closest(
-                  'button, input, select, textarea, [role="combobox"], [role="listbox"], [data-radix-select-trigger]',
-                )
-              ) {
+              if (shouldIgnorePointerCardDragStart(event.target)) {
                 return;
               }
               event.preventDefault();
-              const element = event.currentTarget as HTMLDivElement;
-              const rect = element.getBoundingClientRect();
-              setDragStateAction({
-                actionId: action.id,
-                source: 'slot',
-                sourceSlotIndex: slotIndex,
-                pointerX: event.clientX,
-                pointerY: event.clientY,
-                offsetX: event.clientX - rect.left,
-                offsetY: event.clientY - rect.top,
-                width: rect.width,
-                height: rect.height,
-              });
+              setDragStateAction(
+                createPointerCardDragState({
+                  event,
+                  actionId: action.id,
+                  source: 'slot',
+                  sourceSlotIndex: slotIndex,
+                }),
+              );
             }}
             className={getSlotCardClassName(isDraggingFromThisSlot)}
             style={isDraggingFromThisSlot ? getDraggingSlotCardStyle(dragState) : undefined}
@@ -1611,19 +1606,11 @@ function getSlotCardClassName(isDraggingFromThisSlot: boolean) {
 }
 
 function getDraggingSlotCardStyle(dragState: DragState | null) {
-  if (!dragState) return undefined;
+  const baseStyle = getPointerCardDragStyle(dragState);
+  if (!baseStyle) return undefined;
   return {
-    position: 'fixed' as const,
-    left: dragState.pointerX - dragState.offsetX,
-    top: dragState.pointerY - dragState.offsetY,
-    width: dragState.width,
-    zIndex: 9999,
-    pointerEvents: 'none' as const,
-    touchAction: 'none' as const,
-    isolation: 'isolate' as const,
-    backgroundColor: 'var(--card)',
+    ...baseStyle,
     opacity: 1,
     backdropFilter: 'none',
-    WebkitUserSelect: 'none' as const,
   };
 }
