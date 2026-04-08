@@ -1,6 +1,7 @@
 'use client';
 
 import { CharacterOfficerPrototypes } from '~/components/character-officer-prototypes';
+import { LedgerPagePrototypes } from '~/components/ledger-page-prototypes';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { WeekBoardPrototypes } from '~/components/week-board-prototypes';
 
@@ -12,12 +13,18 @@ export default function Sandbox() {
           <TabsTrigger value="week-board" className="font-mono">
             Week Board
           </TabsTrigger>
+          <TabsTrigger value="ledger" className="font-mono">
+            Ledger Page
+          </TabsTrigger>
           <TabsTrigger value="characters" className="font-mono">
             Characters + Officers
           </TabsTrigger>
         </TabsList>
         <TabsContent value="week-board">
           <WeekBoardPrototypes />
+        </TabsContent>
+        <TabsContent value="ledger">
+          <LedgerPagePrototypes />
         </TabsContent>
         <TabsContent value="characters">
           <CharacterOfficerPrototypes />

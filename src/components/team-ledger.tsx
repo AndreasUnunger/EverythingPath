@@ -6,6 +6,15 @@ import type { Id } from '@convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import {
+  LedgerTable,
+  LedgerTableActionCell,
+  LedgerTableBody,
+  LedgerTableCell,
+  LedgerTableHead,
+  LedgerTableHeaderCell,
+  LedgerTableRow,
+} from '~/components/ledger-table';
 import { LedgerShell } from '~/components/ledger-shell';
 import { TeamStateFormCard } from '~/components/militia-state-manager/form-cards';
 import {
@@ -13,11 +22,6 @@ import {
   teamStateFormSchema,
   type TeamStateFormValues,
 } from '~/components/militia-state-manager/types';
-import {
-  StateList,
-  StateListItem,
-  StateSectionCard,
-} from '~/components/militia-state-manager/section-cards';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
@@ -227,49 +231,107 @@ export function TeamLedger({
       }
     >
       <>
-          <StateSectionCard
-            title="Team Ledger"
-            subtitle="Edit roster state and managers together so team condition, limits, and bonuses stay in one place."
-          >
-            <StateList emptyText="No roster teams tracked yet.">
-              {currentMilitia.teams.map((team) => (
-                <StateListItem
-                  key={team.id}
-                  title={team.name}
-                  badges={[formatTeamStatusLabel(team.status ?? 'active')]}
-                  body={
-                    <>
-                      <p className="text-muted-foreground font-mono text-sm">
-                        {team.type} tier {team.tier} • {team.size} troops
-                      </p>
-                      <p className="text-muted-foreground font-mono text-sm">
-                        Unavailable until week: {team.unavailableUntilWeek ?? 'None'}
-                      </p>
-                      <p className="text-muted-foreground font-mono text-sm">
-                        Manager:{' '}
-                        {team.manager
-                          ? `${team.manager.displayName} • ${formatTrackedPersonKindLabel(team.manager.kind)} • CHA ${team.manager.charisma}`
-                          : 'None'}
-                      </p>
-                      {team.notes ? (
+          {currentMilitia.teams.length === 0 ? (
+            <p className="text-muted-foreground font-mono text-sm">
+              No roster teams tracked yet.
+            </p>
+          ) : (
+            <LedgerTable>
+                <colgroup>
+                  <col style={{ width: '20%' }} />
+                  <col />
+                  <col />
+                  <col />
+                  <col style={{ width: '11rem' }} />
+                </colgroup>
+                <LedgerTableHead>
+                  <tr className="border-b border-primary/8">
+                    <LedgerTableHeaderCell>
+                      Team
+                    </LedgerTableHeaderCell>
+                    <LedgerTableHeaderCell>
+                      Status
+                    </LedgerTableHeaderCell>
+                    <LedgerTableHeaderCell>
+                      Roster
+                    </LedgerTableHeaderCell>
+                    <LedgerTableHeaderCell>
+                      Manager
+                    </LedgerTableHeaderCell>
+                    <LedgerTableHeaderCell className="w-[11rem]" />
+                  </tr>
+                </LedgerTableHead>
+                <LedgerTableBody>
+                  {currentMilitia.teams.map((team, index) => (
+                    <LedgerTableRow key={team.id} index={index}>
+                      <LedgerTableCell>
+                        <div className="space-y-1">
+                          <p className="font-sans text-lg font-bold">{team.name}</p>
+                          {team.notes ? (
+                            <p className="text-muted-foreground font-mono text-sm">
+                              Notes: {team.notes}
+                            </p>
+                          ) : null}
+                        </div>
+                      </LedgerTableCell>
+                      <LedgerTableCell>
+                        <div className="space-y-1">
+                          <p className="font-mono text-sm">
+                            {formatTeamStatusLabel(team.status ?? 'active')}
+                          </p>
+                          <p className="text-muted-foreground font-mono text-sm">
+                            Unavailable until week: {team.unavailableUntilWeek ?? 'None'}
+                          </p>
+                        </div>
+                      </LedgerTableCell>
+                      <LedgerTableCell>
                         <p className="text-muted-foreground font-mono text-sm">
-                          Notes: {team.notes}
+                          {team.type} tier {team.tier} • {team.size} troops
                         </p>
-                      ) : null}
-                      {team.manager?.warnings.map((warning) => (
-                        <p key={warning} className="text-muted-foreground font-mono text-sm">
-                          Warning: {warning}
-                        </p>
-                      ))}
-                    </>
-                  }
-                  onEdit={() => openTeamEditor(team.id)}
-                  onDelete={() => void removeTeam(team.id)}
-                  deleting={pendingDeleteKey === `team:${team.id}`}
-                />
-              ))}
-            </StateList>
-          </StateSectionCard>
+                      </LedgerTableCell>
+                      <LedgerTableCell>
+                        <div className="space-y-1">
+                          <p className="text-muted-foreground font-mono text-sm">
+                            {team.manager
+                              ? `${team.manager.displayName} • ${formatTrackedPersonKindLabel(team.manager.kind)} • CHA ${team.manager.charisma}`
+                              : 'None'}
+                          </p>
+                          {team.manager?.warnings.map((warning) => (
+                            <p
+                              key={warning}
+                              className="text-muted-foreground font-mono text-sm"
+                            >
+                              Warning: {warning}
+                            </p>
+                          ))}
+                        </div>
+                      </LedgerTableCell>
+                      <LedgerTableActionCell>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTeamEditor(team.id)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void removeTeam(team.id)}
+                          disabled={pendingDeleteKey === `team:${team.id}`}
+                        >
+                          {pendingDeleteKey === `team:${team.id}`
+                            ? 'Deleting...'
+                            : 'Delete'}
+                        </Button>
+                      </LedgerTableActionCell>
+                    </LedgerTableRow>
+                  ))}
+                </LedgerTableBody>
+            </LedgerTable>
+          )}
 
           <Dialog
             open={isFormOpen}
