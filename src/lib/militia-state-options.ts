@@ -80,6 +80,10 @@ export const queuedEffectKindOptions: IQueuedEffect['kind'][] = [
   'all_is_calm_auto_next_week',
   'auto_event_roll_once',
   'auto_event_roll_twice',
+  'organization_check_modifier',
+  'activity_action_block',
+  'team_check_modifier',
+  'table_note',
 ] as const;
 
 export function formatFocusLabel(

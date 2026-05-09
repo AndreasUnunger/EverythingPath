@@ -107,26 +107,27 @@ export function MilitiaStateManager({
     organizationId,
     canQuery,
   );
+  const shouldQuerySetupState = canQuery && Boolean(militia);
   const { data: campaignContext } = campaignQuery(organizationId, canQuery);
   const { data: setupState, isLoading: setupLoading } = militiaStateSetupQuery(
     selectedCampaignId,
     organizationId,
-    canQuery && Boolean(militia),
+    shouldQuerySetupState,
   );
   const { data: settlements } = settlementLedgerQuery(
     selectedCampaignId,
     organizationId,
-    canQuery && Boolean(militia),
+    shouldQuerySetupState,
   );
   const { data: marketplaceLedger } = marketplaceLedgerQuery(
     selectedCampaignId,
     organizationId,
-    canQuery && Boolean(militia),
+    shouldQuerySetupState,
   );
   const { data: characters } = characterLedgerQuery(
     selectedCampaignId,
     organizationId,
-    canQuery && Boolean(militia),
+    shouldQuerySetupState,
     true,
   );
 
@@ -356,8 +357,9 @@ export function MilitiaStateManager({
 
   async function submitQueueEffect(values: QueueEffectFormValues) {
     if (!militia || !setupState) return;
+    const currentWeekState = setupState.currentWeekState;
     try {
-      const nextEffects = [...setupState.currentWeekState.queuedEffects];
+      const nextEffects = [...currentWeekState.queuedEffects];
       const nextEntry = {
         kind: values.kind,
         appliesWeek: Number(values.appliesWeek),
@@ -371,12 +373,12 @@ export function MilitiaStateManager({
       await upsertWeekContextState({
         organizationId,
         militiaId: militia._id,
-        weekNumber: setupState.currentWeekState.weekNumber,
-        phase: setupState.currentWeekState.phase,
-        isFirstWeek: setupState.currentWeekState.isFirstWeek,
-        skippedUpkeepThisWeek: setupState.currentWeekState.skippedUpkeepThisWeek,
-        uneventfulBonusCarry: setupState.currentWeekState.uneventfulBonusCarry,
-        lastPersistentBuyoffWeek: setupState.currentWeekState.lastPersistentBuyoffWeek,
+        weekNumber: currentWeekState.weekNumber,
+        phase: currentWeekState.phase,
+        isFirstWeek: currentWeekState.isFirstWeek,
+        skippedUpkeepThisWeek: currentWeekState.skippedUpkeepThisWeek,
+        uneventfulBonusCarry: currentWeekState.uneventfulBonusCarry,
+        lastPersistentBuyoffWeek: currentWeekState.lastPersistentBuyoffWeek,
         queuedEffects: nextEffects,
       });
       closeDialog();
@@ -387,21 +389,22 @@ export function MilitiaStateManager({
 
   async function removeQueueEffect(index: number) {
     if (!militia || !setupState) return;
+    const currentWeekState = setupState.currentWeekState;
     const deleteKey = `queue:${index}`;
     setPendingDeleteKey(deleteKey);
     try {
-      const nextEffects = setupState.currentWeekState.queuedEffects.filter(
+      const nextEffects = currentWeekState.queuedEffects.filter(
         (_, effectIndex) => effectIndex !== index,
       );
       await upsertWeekContextState({
         organizationId,
         militiaId: militia._id,
-        weekNumber: setupState.currentWeekState.weekNumber,
-        phase: setupState.currentWeekState.phase,
-        isFirstWeek: setupState.currentWeekState.isFirstWeek,
-        skippedUpkeepThisWeek: setupState.currentWeekState.skippedUpkeepThisWeek,
-        uneventfulBonusCarry: setupState.currentWeekState.uneventfulBonusCarry,
-        lastPersistentBuyoffWeek: setupState.currentWeekState.lastPersistentBuyoffWeek,
+        weekNumber: currentWeekState.weekNumber,
+        phase: currentWeekState.phase,
+        isFirstWeek: currentWeekState.isFirstWeek,
+        skippedUpkeepThisWeek: currentWeekState.skippedUpkeepThisWeek,
+        uneventfulBonusCarry: currentWeekState.uneventfulBonusCarry,
+        lastPersistentBuyoffWeek: currentWeekState.lastPersistentBuyoffWeek,
         queuedEffects: nextEffects,
       });
     } finally {
@@ -616,7 +619,9 @@ export function MilitiaStateManager({
 
   if (militiaLoading || (militia && setupLoading)) {
     return (
-      <p className="text-muted-foreground font-mono text-sm">Loading militia state...</p>
+      <p className="text-muted-foreground font-mono text-sm">
+        Loading militia state...
+      </p>
     );
   }
 
@@ -627,9 +632,7 @@ export function MilitiaStateManager({
         meta="Create the militia record first, then fill in the remaining campaign state below."
         isOpen={isOpen}
         onToggle={() => {
-          if (isOpen) {
-            closeDialog();
-          }
+          if (isOpen) closeDialog();
           setIsOpen((prev) => !prev);
         }}
         actions={
@@ -678,9 +681,7 @@ export function MilitiaStateManager({
       meta="Edit the canonical militia state directly for mid-campaign pickup and corrections."
       isOpen={isOpen}
       onToggle={() => {
-        if (isOpen) {
-          closeDialog();
-        }
+        if (isOpen) closeDialog();
         setIsOpen((prev) => !prev);
       }}
     >

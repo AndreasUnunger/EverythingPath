@@ -5,9 +5,9 @@ import { Sparkles } from 'lucide-react';
 export default function Home() {
   return (
     <Suspense fallback={<p>loading...</p>}>
-      <div className="container mx-auto pt-12 pr-4">
+      <div className="w-full px-5 pt-12 md:px-6 lg:px-8">
         <div className="block items-center sm:flex">
-          <div className="px-4">
+          <div>
             <h1 className="text-primary mb-1 flex items-center gap-3 font-sans text-5xl font-bold tracking-widest">
               <Sparkles className="h-8 w-8" />
               KEEPNET

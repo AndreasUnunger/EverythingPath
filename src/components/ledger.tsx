@@ -14,33 +14,19 @@ export function Ledger({
   organizationId: string;
   canQuery: boolean;
 }) {
+  const sharedProps = {
+    selectedCampaignId,
+    organizationId,
+    canQuery,
+  } as const;
+
   return (
     <div className="flex flex-col gap-4">
-      <MilitiaStateManager
-        selectedCampaignId={selectedCampaignId}
-        organizationId={organizationId}
-        canQuery={canQuery}
-      />
-      <CharacterManager
-        selectedCampaignId={selectedCampaignId}
-        organizationId={organizationId}
-        canQuery={canQuery}
-      />
-      <TeamLedger
-        selectedCampaignId={selectedCampaignId}
-        organizationId={organizationId}
-        canQuery={canQuery}
-      />
-      <SettlementManager
-        selectedCampaignId={selectedCampaignId}
-        organizationId={organizationId}
-        canQuery={canQuery}
-      />
-      <MarketplaceLedger
-        selectedCampaignId={selectedCampaignId}
-        organizationId={organizationId}
-        canQuery={canQuery}
-      />
+      <MilitiaStateManager {...sharedProps} />
+      <CharacterManager {...sharedProps} />
+      <TeamLedger {...sharedProps} />
+      <SettlementManager {...sharedProps} />
+      <MarketplaceLedger {...sharedProps} />
     </div>
   );
 }

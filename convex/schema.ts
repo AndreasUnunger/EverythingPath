@@ -98,7 +98,8 @@ export const spellValidator = v.object({
 
 export const characterValidator = v.object({
   name: v.string(),
-  ownerId: v.string(),
+  // Widened during ownerId migration. Narrow back to v.string() after backfill.
+  ownerId: v.union(v.string(), v.number()),
   campaignId: v.id('campaign'),
   description: v.string(),
   kind: v.optional(v.union(v.literal('pc'), v.literal('officer_npc'))),
@@ -205,9 +206,30 @@ export const queueEffectValidator = v.object({
     v.literal('all_is_calm_auto_next_week'),
     v.literal('auto_event_roll_once'),
     v.literal('auto_event_roll_twice'),
+    v.literal('organization_check_modifier'),
+    v.literal('activity_action_block'),
+    v.literal('team_check_modifier'),
+    v.literal('table_note'),
   ),
   appliesWeek: v.number(),
   note: v.optional(v.string()),
+  checkType: v.optional(
+    v.union(
+      v.literal('all'),
+      v.literal('activity'),
+      v.literal('loyalty'),
+      v.literal('security'),
+      v.literal('secrecy'),
+    ),
+  ),
+  modifierTotal: v.optional(v.number()),
+  blockedActionId: v.optional(v.literal('secure_cache')),
+  teamId: v.optional(v.string()),
+  location: v.optional(v.string()),
+  strikeTeamMode: v.optional(
+    v.union(v.literal('combat_support'), v.literal('extraction')),
+  ),
+  sourceEventType: v.optional(v.string()),
 });
 
 export const militiaValidator = v.object({
@@ -217,7 +239,8 @@ export const militiaValidator = v.object({
   highestBoonReached: v.number(),
   HQLocation: v.string(),
   treasury: v.number(),
-  notoriety: v.number(),
+  // Widened during notoriety migration. Narrow back to required after backfill.
+  notoriety: v.optional(v.number()),
   focus: v.nullable(
     v.union(v.literal('Secrecy'), v.literal('Loyalty'), v.literal('Security')),
   ),
@@ -314,6 +337,11 @@ export const covertActionModeValidator = v.union(
   v.literal('place_contact'),
 );
 
+export const strikeTeamModeValidator = v.union(
+  v.literal('combat_support'),
+  v.literal('extraction'),
+);
+
 export const restoreCharacterModeValidator = v.union(
   v.literal('party_ability_damage'),
   v.literal('party_hit_points'),
@@ -357,6 +385,7 @@ export const militiaWeekStateValidator = v.object({
   phase: phaseValidator,
   isFirstWeek: v.boolean(),
   skippedUpkeepThisWeek: v.boolean(),
+  upkeepTreasurySnapshot: v.optional(v.number()),
   uneventfulBonusCarry: v.number(),
   queuedEffects: v.array(queueEffectValidator),
   lastPersistentBuyoffWeek: v.optional(v.number()),
@@ -403,6 +432,32 @@ export const militiaWeekStateValidator = v.object({
           slotIndex: v.number(),
           settlementKey: v.string(),
         }),
+      ),
+      reduceDangerTargets: v.optional(
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            settlementKey: v.string(),
+          }),
+        ),
+      ),
+      spreadPropagandaTargets: v.optional(
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            settlementKey: v.string(),
+          }),
+        ),
+      ),
+      strikeTeams: v.optional(
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            mode: strikeTeamModeValidator,
+            location: v.optional(v.string()),
+            notes: v.optional(v.string()),
+          }),
+        ),
       ),
       caches: v.array(
         v.object({
@@ -524,6 +579,7 @@ export const militiaWeekStateValidator = v.object({
       cacheDiscoveredMitigationTotal: v.optional(v.number()),
       theftMitigationTotal: v.optional(v.number()),
       sicknessTwiceLoyaltyTotal: v.optional(v.number()),
+      turncoatTrainingLossTotal: v.optional(v.number()),
       turncoatOfficerCheckTotal: v.optional(v.number()),
       turncoatSelectedTeamId: v.optional(teamIdValidator),
       rivalrySelectedTeamIds: v.optional(v.array(teamIdValidator)),
@@ -563,6 +619,7 @@ export const militiaWeekStateValidator = v.object({
       gatherInformationCheckTotal: v.optional(v.number()),
       gatherInformationNotorietyIncreaseTotal: v.optional(v.number()),
       knowledgeCheckTotal: v.optional(v.number()),
+      guaranteeEventNotorietyIncreaseTotal: v.optional(v.number()),
       recruitTeamCheckTotal: v.optional(v.number()),
       recruitTeamNotorietyIncreaseTotal: v.optional(v.number()),
       reduceDangerCheckTotal: v.optional(v.number()),
@@ -594,6 +651,7 @@ export const militiaWeekStateValidator = v.object({
       sabotageNotorietyIncreaseTotal: v.optional(v.number()),
     }),
   ),
+  rollbackHistory: v.optional(v.array(v.any())),
   lockVersion: v.number(),
 });
 
@@ -722,6 +780,28 @@ export const militiaOverrideNoteValidator = v.object({
   createdAt: v.number(),
 });
 
+export const dataMigrationValidator = v.object({
+  name: v.string(),
+  status: v.union(
+    v.literal('running'),
+    v.literal('completed'),
+    v.literal('failed'),
+  ),
+  stage: v.union(
+    v.literal('characters'),
+    v.literal('militias'),
+    v.literal('done'),
+  ),
+  characterCursor: v.optional(v.string()),
+  militiaCursor: v.optional(v.string()),
+  migratedCharacterCount: v.number(),
+  migratedMilitiaCount: v.number(),
+  startedAt: v.number(),
+  updatedAt: v.number(),
+  completedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+});
+
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
@@ -762,6 +842,7 @@ export default defineSchema({
   militiaOverrideNote: defineTable(militiaOverrideNoteValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_scope', ['militiaId', 'scope']),
+  dataMigration: defineTable(dataMigrationValidator).index('by_name', ['name']),
   spell: defineTable(spellValidator).index('by_name', ['name']),
   characterSpell: defineTable(
     v.object({

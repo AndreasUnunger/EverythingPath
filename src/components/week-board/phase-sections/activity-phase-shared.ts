@@ -127,6 +127,20 @@ export type ActivityPhaseViewModel = {
     characterId?: Id<'character'> | null;
   }) => void;
   setRefugeSettlementForSlotAction: (slotIndex: number, settlementKey: string) => void;
+  setReduceDangerTargetForSlotAction: (
+    slotIndex: number,
+    settlementKey: string,
+  ) => void;
+  setSpreadPropagandaTargetForSlotAction: (
+    slotIndex: number,
+    settlementKey: string,
+  ) => void;
+  setStrikeTeamForSlotAction: (args: {
+    slotIndex: number;
+    mode?: 'combat_support' | 'extraction';
+    location?: string;
+    notes?: string;
+  }) => void;
   setCacheOperationForSlotAction: (args: {
     slotIndex: number;
     mode?: 'place' | 'retrieve';
@@ -269,13 +283,11 @@ export function buildActivityActionEntries({
     maxTeams,
   });
   const upgradeFromOptions = buildUpgradeFromOptions({ teams });
-  const stagedCountByActionId = stagedActionIds.reduce<Record<string, number>>(
-    (counts, actionId) => {
+  const stagedCountByActionId: Partial<Record<ActionId, number>> =
+    stagedActionIds.reduce((counts, actionId) => {
       counts[actionId] = (counts[actionId] ?? 0) + 1;
       return counts;
-    },
-    {},
-  );
+    }, {} as Partial<Record<ActionId, number>>);
 
   return ACTION_CARDS.map((card): ActivityActionCardEntry => {
     const isDraggingCard =
@@ -345,7 +357,8 @@ export function buildActivityActionEntries({
       card,
       isDraggingCard,
       isAssigned:
-        card.id === 'drill_militia' || (card.id === 'lie_low' && stagedCount > 0),
+        ((card.id === 'drill_militia' || card.id === 'lie_low') &&
+          stagedCount > 0),
       stagedCount,
       isLegal: !hardInvalid && hasRequiredTeam && meetsActionSpecificRequirements,
       isDisabled: hardInvalid,

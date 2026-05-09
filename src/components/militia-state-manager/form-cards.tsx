@@ -428,6 +428,8 @@ export function TrackedPersonFormCard({
 }) {
   const targetSource = form.watch('targetSource');
   const locationType = form.watch('locationType');
+  const isCharacterTarget = targetSource === 'character';
+  const usesSettlementField = locationType === 'settlement' || locationType === 'refuge';
 
   return (
     <FormShell form={form} onSubmit={onSubmit} onCancel={onCancel} submitError={submitError}>
@@ -441,7 +443,7 @@ export function TrackedPersonFormCard({
             { value: 'character', label: 'Character ledger' },
           ]}
         />
-        {targetSource === 'character' ? (
+        {isCharacterTarget ? (
           <SelectField
             form={form}
             name="characterId"
@@ -455,11 +457,8 @@ export function TrackedPersonFormCard({
             ]}
           />
         ) : null}
-        {targetSource === 'character' ? (
-          <div
-            aria-hidden="true"
-            className="hidden md:block"
-          />
+        {isCharacterTarget ? (
+          <div aria-hidden="true" className="hidden md:block" />
         ) : (
           <TextField form={form} name="displayName" label="Tracked person name" />
         )}
@@ -491,7 +490,7 @@ export function TrackedPersonFormCard({
             label: formatTrackedPersonLocationLabel(locationTypeValue),
           }))}
         />
-        {locationType === 'settlement' || locationType === 'refuge' ? (
+        {usesSettlementField ? (
           <SelectField
             form={form}
             name="settlementKey"

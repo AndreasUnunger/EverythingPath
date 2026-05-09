@@ -101,6 +101,15 @@ export function buildActivityPhaseViewModel({
     setRefugeSettlementForSlotAction: (slotIndex, settlementKey) => {
       controller.setRefugeSettlementForSlot(slotIndex, settlementKey);
     },
+    setReduceDangerTargetForSlotAction: (slotIndex, settlementKey) => {
+      controller.setReduceDangerTargetForSlot(slotIndex, settlementKey);
+    },
+    setSpreadPropagandaTargetForSlotAction: (slotIndex, settlementKey) => {
+      controller.setSpreadPropagandaTargetForSlot(slotIndex, settlementKey);
+    },
+    setStrikeTeamForSlotAction: (args) => {
+      controller.setStrikeTeamForSlot(args);
+    },
     setCacheOperationForSlotAction: (args) => {
       controller.setCacheOperationForSlot(args);
     },
@@ -183,6 +192,9 @@ export function buildEventPhaseViewModel(
     setTheftMitigationTotalAction: controller.setTheftMitigationTotal,
     sicknessTwiceLoyaltyTotal: controller.sicknessTwiceLoyaltyTotal,
     setSicknessTwiceLoyaltyTotalAction: controller.setSicknessTwiceLoyaltyTotal,
+    turncoatTrainingLossTotal: controller.turncoatTrainingLossTotal,
+    setTurncoatTrainingLossTotalAction:
+      controller.setTurncoatTrainingLossTotal,
     turncoatOfficerCheckTotal: controller.turncoatOfficerCheckTotal,
     setTurncoatOfficerCheckTotalAction: controller.setTurncoatOfficerCheckTotal,
     turncoatSelectedTeamId: controller.turncoatSelectedTeamId,
@@ -296,6 +308,7 @@ export function buildSummaryPhaseViewModel({
     cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
     theftMitigationTotal: controller.theftMitigationTotal,
     sicknessTwiceLoyaltyTotal: controller.sicknessTwiceLoyaltyTotal,
+    turncoatTrainingLossTotal: controller.turncoatTrainingLossTotal,
     turncoatOfficerCheckTotal: controller.turncoatOfficerCheckTotal,
     turncoatSelectedTeamId: controller.turncoatSelectedTeamId,
     missingInActionSelectedTeamId: controller.missingInActionSelectedTeamId,

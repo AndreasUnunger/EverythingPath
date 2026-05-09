@@ -31,23 +31,27 @@ import {
   teamManagerSourceOptions,
 } from '~/components/team-manager/types';
 
+const yesNoOptions = ['yes', 'no'] as const;
+const WHOLE_NUMBER_PATTERN = /^-?\d+$/;
+
 function requiredWholeNumber(label: string) {
   return z
     .string()
     .trim()
     .min(1, `${label} is required`)
-    .refine((value) => /^-?\d+$/.test(value), {
+    .refine((value) => WHOLE_NUMBER_PATTERN.test(value), {
       message: `${label} must be a whole number`,
     });
 }
 
 function optionalWholeNumber(label: string) {
-  return z.string().trim().refine((value) => value === '' || /^-?\d+$/.test(value), {
-    message: `${label} must be a whole number`,
-  });
+  return z
+    .string()
+    .trim()
+    .refine((value) => value === '' || WHOLE_NUMBER_PATTERN.test(value), {
+      message: `${label} must be a whole number`,
+    });
 }
-
-const yesNoOptions = ['yes', 'no'] as const;
 
 export const militiaCoreFormSchema = z.object({
   name: z.string().trim().min(1, 'Militia name is required').max(100),

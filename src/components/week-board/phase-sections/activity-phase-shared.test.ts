@@ -2,6 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { buildActivityActionEntries } from './activity-phase-shared';
 
 describe('buildActivityActionEntries', () => {
+  it('keeps Drill Militia available when nothing is staged yet', () => {
+    const entries = buildActivityActionEntries({
+      dragState: null,
+      assignedActionIds: new Set(),
+      stagedActionIds: [],
+      hasNonLieLowStaged: false,
+      hasLieLowStaged: false,
+      rank: 2,
+      treasury: 100,
+      maxTeams: 4,
+      teams: [],
+      activeTeamIds: [],
+    });
+
+    const drillEntry = entries.find((entry) => entry.card.id === 'drill_militia');
+    expect(drillEntry?.isLegal).toBe(true);
+    expect(drillEntry?.isDisabled).toBe(false);
+    expect(drillEntry?.isAssigned).toBe(false);
+    expect(drillEntry?.stagedCount).toBe(0);
+  });
+
   it('keeps repeatable actions legal after one copy is already staged', () => {
     const entries = buildActivityActionEntries({
       dragState: null,

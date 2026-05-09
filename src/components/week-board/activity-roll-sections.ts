@@ -30,6 +30,7 @@ export const ACTIVITY_ROLL_KEYS: ActivityRollKey[] = [
   'earnGoldNotorietyIncreaseTotal',
   'gatherInformationCheckTotal',
   'gatherInformationNotorietyIncreaseTotal',
+  'guaranteeEventNotorietyIncreaseTotal',
   'knowledgeCheckTotal',
   'recruitTeamCheckTotal',
   'recruitTeamNotorietyIncreaseTotal',
@@ -371,6 +372,23 @@ export function buildActivityRollSections({
           placeholder: canGatherInformationSecondary
             ? 'Optional: Notoriety increase total on natural 1 (1d6)'
             : 'Enter Secrecy check total first',
+        },
+      ],
+    });
+  }
+
+  if (has('guarantee_event')) {
+    pushSection({
+      key: 'guarantee_event',
+      title: 'Guarantee Event',
+      fields: [
+        {
+          key: 'guaranteeEventNotorietyIncreaseTotal',
+          label: 'notoriety increase total',
+          value: draft.guaranteeEventNotorietyIncreaseTotal,
+          onChange: (value) =>
+            setField('guaranteeEventNotorietyIncreaseTotal', value),
+          placeholder: 'Enter Notoriety increase total (1d6)',
         },
       ],
     });

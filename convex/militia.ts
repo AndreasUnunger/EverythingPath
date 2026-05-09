@@ -34,7 +34,10 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import teams from './data/teams';
 import { buildResolvedTeamManagers } from '../src/lib/team-manager-rules';
-import { getMaxActionsForMilitia } from '../src/lib/militia-progression-rules';
+import {
+  getMaxActionsForMilitia,
+  getMilitiaNotoriety,
+} from '../src/lib/militia-progression-rules';
 
 function getOfficerAssignmentWarnings({
   source,
@@ -166,6 +169,13 @@ function getDefaultWeekContext({
   };
 }
 
+function normalizeMilitiaDoc<T extends { notoriety?: number }>(militia: T) {
+  return {
+    ...militia,
+    notoriety: getMilitiaNotoriety(militia.notoriety),
+  };
+}
+
 export const getMilitia = query({
   args: {
     campaignId: v.optional(v.id('campaign')),
@@ -248,7 +258,10 @@ export const getMilitia = query({
         };
       });
 
-    const iMilitia: IMilitia = { ...militia, teams: iTeams };
+    const iMilitia: IMilitia = {
+      ...normalizeMilitiaDoc(militia),
+      teams: iTeams,
+    };
 
     return iMilitia;
   },
@@ -1182,7 +1195,10 @@ export const createMilitia = mutation({
       throw new ConvexError('This campaign already has a militia');
     }
 
-    await ctx.db.insert('militia', args.militia);
+    await ctx.db.insert('militia', {
+      ...args.militia,
+      notoriety: getMilitiaNotoriety(args.militia.notoriety),
+    });
   },
 });
 

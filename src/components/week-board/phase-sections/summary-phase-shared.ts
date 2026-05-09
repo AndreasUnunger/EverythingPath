@@ -122,6 +122,24 @@ export function buildOperationSummaryItems({
       (entry) =>
         `Activate refuge (slot ${entry.slotIndex + 1}): ${entry.settlementKey}`,
     ),
+    ...activityAssetOperations.reduceDangerTargets.map(
+      (entry) =>
+        `Reduce Danger target (slot ${entry.slotIndex + 1}): ${entry.settlementKey}`,
+    ),
+    ...activityAssetOperations.spreadPropagandaTargets.map(
+      (entry) =>
+        `Spread Propaganda target (slot ${entry.slotIndex + 1}): ${entry.settlementKey}`,
+    ),
+    ...activityAssetOperations.strikeTeams.flatMap((entry) => {
+      const details = [
+        entry.mode?.replaceAll('_', ' '),
+        entry.location?.trim() ? `location: ${entry.location.trim()}` : undefined,
+        entry.notes?.trim(),
+      ].filter((value): value is string => Boolean(value));
+      return details.length
+        ? [`Strike Team (slot ${entry.slotIndex + 1}): ${details.join(' • ')}`]
+        : [];
+    }),
     ...activityAssetOperations.caches.flatMap((entry) => {
       if (entry.mode === 'retrieve' && entry.cacheId) {
         return [
@@ -223,6 +241,7 @@ export function buildEventOccurrenceItems({
   cacheDiscoveredMitigationTotal,
   theftMitigationTotal,
   sicknessTwiceLoyaltyTotal,
+  turncoatTrainingLossTotal,
   turncoatOfficerCheckTotal,
   turncoatSelectedTeamId,
   missingInActionSelectedTeamId,
@@ -246,6 +265,7 @@ export function buildEventOccurrenceItems({
   cacheDiscoveredMitigationTotal: string;
   theftMitigationTotal: string;
   sicknessTwiceLoyaltyTotal: string;
+  turncoatTrainingLossTotal: string;
   turncoatOfficerCheckTotal: string;
   turncoatSelectedTeamId: string;
   missingInActionSelectedTeamId: string;
@@ -305,6 +325,11 @@ export function buildEventOccurrenceItems({
   if (hasManualTotal(sicknessTwiceLoyaltyTotal)) {
     items.push(
       `Sickness Twice loyalty total: ${formatManualTotalForSummary(sicknessTwiceLoyaltyTotal)}`,
+    );
+  }
+  if (hasManualTotal(turncoatTrainingLossTotal)) {
+    items.push(
+      `Turncoat training loss: ${formatManualTotalForSummary(turncoatTrainingLossTotal)}`,
     );
   }
   if (hasManualTotal(turncoatOfficerCheckTotal)) {

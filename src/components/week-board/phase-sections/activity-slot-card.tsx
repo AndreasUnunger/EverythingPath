@@ -104,6 +104,20 @@ type ActivitySlotCardProps = {
     characterId?: Id<'character'> | null;
   }) => void;
   setRefugeSettlementForSlotAction: (slotIndex: number, settlementKey: string) => void;
+  setReduceDangerTargetForSlotAction: (
+    slotIndex: number,
+    settlementKey: string,
+  ) => void;
+  setSpreadPropagandaTargetForSlotAction: (
+    slotIndex: number,
+    settlementKey: string,
+  ) => void;
+  setStrikeTeamForSlotAction: (args: {
+    slotIndex: number;
+    mode?: 'combat_support' | 'extraction';
+    location?: string;
+    notes?: string;
+  }) => void;
   setCacheOperationForSlotAction: (args: {
     slotIndex: number;
     mode?: 'place' | 'retrieve';
@@ -201,6 +215,9 @@ export function ActivitySlotCard({
   setUpgradeTeamsForSlotAction,
   setOfficerChangeForSlotAction,
   setRefugeSettlementForSlotAction,
+  setReduceDangerTargetForSlotAction,
+  setSpreadPropagandaTargetForSlotAction,
+  setStrikeTeamForSlotAction,
   setCacheOperationForSlotAction,
   setOrderForSlotAction,
   setMarketplaceForSlotAction,
@@ -224,6 +241,16 @@ export function ActivitySlotCard({
     (entry) => entry.slotIndex === slotIndex,
   );
   const refugeEntry = activityAssetOperations.refuges.find(
+    (entry) => entry.slotIndex === slotIndex,
+  );
+  const reduceDangerEntry = activityAssetOperations.reduceDangerTargets.find(
+    (entry) => entry.slotIndex === slotIndex,
+  );
+  const spreadPropagandaEntry =
+    activityAssetOperations.spreadPropagandaTargets.find(
+      (entry) => entry.slotIndex === slotIndex,
+    );
+  const strikeTeamEntry = activityAssetOperations.strikeTeams.find(
     (entry) => entry.slotIndex === slotIndex,
   );
   const cacheEntry = activityAssetOperations.caches.find(
@@ -279,6 +306,12 @@ export function ActivitySlotCard({
   }));
   const refugeTargetExists = settlementOptions.some(
     (option) => option.value === refugeEntry?.settlementKey,
+  );
+  const reduceDangerTargetExists = settlementOptions.some(
+    (option) => option.value === reduceDangerEntry?.settlementKey,
+  );
+  const spreadPropagandaTargetExists = settlementOptions.some(
+    (option) => option.value === spreadPropagandaEntry?.settlementKey,
   );
   const selectedAssignedTeamWarning = assignedTeamOptions.find(
     (option) => option.value === assignedTeamId,
@@ -621,6 +654,134 @@ export function ActivitySlotCard({
                       ledger.
                     </p>
                   ) : null}
+                </div>
+              ) : null}
+
+              {action.id === 'reduce_danger' ? (
+                <div className="space-y-1">
+                  <SelectField
+                    label="Target settlement"
+                    value={
+                      reduceDangerTargetExists
+                        ? reduceDangerEntry?.settlementKey
+                        : undefined
+                    }
+                    placeholder={
+                      settlementOptions.length > 0
+                        ? 'Select target settlement'
+                        : 'Add tracked settlements in Ledger first'
+                    }
+                    includeNone
+                    noneLabel="No settlement selected"
+                    disabled={settlementOptions.length === 0}
+                    options={settlementOptions}
+                    onValueChange={(value) =>
+                      setReduceDangerTargetForSlotAction(
+                        slotIndex,
+                        value === '__none__' ? '' : value,
+                      )
+                    }
+                  />
+                  <p className="text-muted-foreground font-mono text-xs">
+                    On success, Reduce Danger applies a temporary +1 reputation
+                    shift in a secured target settlement for the upcoming week.
+                  </p>
+                  {reduceDangerEntry?.settlementKey && !reduceDangerTargetExists ? (
+                    <p className="text-amber-700 font-mono text-xs">
+                      Rules warning: this Reduce Danger target is not in the
+                      settlement ledger.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {action.id === 'spread_propaganda' ? (
+                <div className="space-y-1">
+                  <SelectField
+                    label="Target settlement"
+                    value={
+                      spreadPropagandaTargetExists
+                        ? spreadPropagandaEntry?.settlementKey
+                        : undefined
+                    }
+                    placeholder={
+                      settlementOptions.length > 0
+                        ? 'Select influenced settlement'
+                        : 'Add tracked settlements in Ledger first'
+                    }
+                    includeNone
+                    noneLabel="No settlement selected"
+                    disabled={settlementOptions.length === 0}
+                    options={settlementOptions}
+                    onValueChange={(value) =>
+                      setSpreadPropagandaTargetForSlotAction(
+                        slotIndex,
+                        value === '__none__' ? '' : value,
+                      )
+                    }
+                  />
+                  <p className="text-muted-foreground font-mono text-xs">
+                    Spread Propaganda can improve a tracked settlement by one
+                    reputation step on a successful DC 20 Loyalty check.
+                  </p>
+                  {spreadPropagandaEntry?.settlementKey &&
+                  !spreadPropagandaTargetExists ? (
+                    <p className="text-amber-700 font-mono text-xs">
+                      Rules warning: this Spread Propaganda target is not in the
+                      settlement ledger.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {action.id === 'strike_team' ? (
+                <div className="space-y-2">
+                  <SelectField
+                    label="Strike Team mode"
+                    value={strikeTeamEntry?.mode ?? undefined}
+                    placeholder="Select strike team use"
+                    includeNone
+                    options={[
+                      { value: 'combat_support', label: 'Combat support' },
+                      { value: 'extraction', label: 'Casualty extraction' },
+                    ]}
+                    onValueChange={(value) =>
+                      setStrikeTeamForSlotAction({
+                        slotIndex,
+                        mode:
+                          value === '__none__'
+                            ? undefined
+                            : (value as 'combat_support' | 'extraction'),
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Target location"
+                    value={strikeTeamEntry?.location ?? ''}
+                    placeholder="Where is the strike team committed?"
+                    onChange={(value) =>
+                      setStrikeTeamForSlotAction({
+                        slotIndex,
+                        location: value,
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Strike Team notes"
+                    value={strikeTeamEntry?.notes ?? ''}
+                    placeholder="Optional table note"
+                    onChange={(value) =>
+                      setStrikeTeamForSlotAction({
+                        slotIndex,
+                        notes: value,
+                      })
+                    }
+                  />
+                  <p className="text-muted-foreground font-mono text-xs">
+                    This creates a next-week reminder for either the Specialists&apos;
+                    combat-support bonus at the chosen location or the casualty
+                    extraction option.
+                  </p>
                 </div>
               ) : null}
 

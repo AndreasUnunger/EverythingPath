@@ -37,15 +37,15 @@ export const createCampaign = mutation({
     organizationId: campaignValidator.fields.organizationId,
   },
   async handler(ctx, args) {
-    const userHasAccessObject = await hasAccessToOrg(ctx, args.organizationId);
+    const access = await hasAccessToOrg(ctx, args.organizationId);
 
-    if (!userHasAccessObject) {
+    if (!access) {
       throw new ConvexError('You do not have access to this org');
     }
 
     await ctx.db.insert('campaign', {
       name: args.name,
-      ownerId: userHasAccessObject.user.tokenIdentifier,
+      ownerId: access.user.tokenIdentifier,
       organizationId: args.organizationId,
       description: args.description,
     });

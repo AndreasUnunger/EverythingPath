@@ -4,6 +4,7 @@ import { CampaignDashboard } from './campaign-dashboard';
 
 const mockUseOrganization = vi.fn();
 const mockCampaignQuery = vi.fn();
+const mockCharacterLedgerQuery = vi.fn();
 const mockMarketplaceLedgerQuery = vi.fn();
 const mockMilitiaQuery = vi.fn();
 const mockMilitiaStateSetupQuery = vi.fn();
@@ -17,6 +18,7 @@ vi.mock('@clerk/nextjs', () => ({
 
 vi.mock('~/lib/sharedQueries', () => ({
   campaignQuery: (...args: unknown[]) => mockCampaignQuery(...args),
+  characterLedgerQuery: (...args: unknown[]) => mockCharacterLedgerQuery(...args),
   marketplaceLedgerQuery: (...args: unknown[]) =>
     mockMarketplaceLedgerQuery(...args),
   militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
@@ -48,6 +50,7 @@ vi.mock('./campaignInfo', () => ({
     militia?: unknown;
     militiaStateSetup?: unknown;
     marketplaceLedger?: unknown;
+    characters?: unknown;
   }) => {
     campaignInfoSpy(props);
     return (
@@ -77,6 +80,7 @@ describe('CampaignDashboard', () => {
     vi.clearAllMocks();
     mockMilitiaQuery.mockReturnValue({ data: undefined });
     mockMilitiaStateSetupQuery.mockReturnValue({ data: undefined });
+    mockCharacterLedgerQuery.mockReturnValue({ data: [] });
     mockMarketplaceLedgerQuery.mockReturnValue({
       data: { currentWeek: undefined, marketplaces: [] },
     });
@@ -192,6 +196,9 @@ describe('CampaignDashboard', () => {
         marketplaces: [],
       },
     });
+    mockCharacterLedgerQuery.mockReturnValue({
+      data: [],
+    });
 
     render(<CampaignDashboard />);
 
@@ -207,6 +214,11 @@ describe('CampaignDashboard', () => {
       true,
     );
     expect(mockMilitiaStateSetupQuery).toHaveBeenCalledWith(
+      'camp_1',
+      'org_1',
+      true,
+    );
+    expect(mockCharacterLedgerQuery).toHaveBeenCalledWith(
       'camp_1',
       'org_1',
       true,
@@ -228,6 +240,7 @@ describe('CampaignDashboard', () => {
         marketplaceLedger: expect.objectContaining({
           currentWeek: 14,
         }),
+        characters: [],
       }),
     );
     expect(ledgerSpy).toHaveBeenCalledWith(

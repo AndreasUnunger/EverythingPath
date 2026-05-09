@@ -51,22 +51,10 @@ export function FantasyDatePicker({
   );
   const firstWeekdayIndex = (firstDateOfMonth.getUTCDay() + 6) % 7;
   const totalDays = month?.days ?? 31;
-  const dayCells = useMemo(() => {
-    const cells: Array<{ key: string; day: number | null }> = [];
-    for (let emptyCell = 0; emptyCell < firstWeekdayIndex; emptyCell += 1) {
-      cells.push({
-        key: `empty-${displayMonth.year}-${displayMonth.monthIndex}-${emptyCell + 1}`,
-        day: null,
-      });
-    }
-    for (let day = 1; day <= totalDays; day += 1) {
-      cells.push({
-        key: `${displayMonth.year}-${displayMonth.monthIndex}-${day}`,
-        day,
-      });
-    }
-    return cells;
-  }, [displayMonth, firstWeekdayIndex, totalDays]);
+  const dayCells = useMemo(
+    () => buildDayCells(displayMonth, firstWeekdayIndex, totalDays),
+    [displayMonth, firstWeekdayIndex, totalDays],
+  );
 
   function openPicker() {
     setDisplayMonth(getDisplayMonth(selectedDate ?? new Date()));
@@ -219,4 +207,28 @@ function isSelectedDay({
 function formatPickerValue(date: Date) {
   const parts = getFantasyDateParts(date);
   return `${parts.day} ${parts.month.name} ${parts.year}`;
+}
+
+function buildDayCells(
+  displayMonth: DisplayMonth,
+  firstWeekdayIndex: number,
+  totalDays: number,
+) {
+  const cells: Array<{ key: string; day: number | null }> = [];
+
+  for (let emptyCell = 0; emptyCell < firstWeekdayIndex; emptyCell += 1) {
+    cells.push({
+      key: `empty-${displayMonth.year}-${displayMonth.monthIndex}-${emptyCell + 1}`,
+      day: null,
+    });
+  }
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    cells.push({
+      key: `${displayMonth.year}-${displayMonth.monthIndex}-${day}`,
+      day,
+    });
+  }
+
+  return cells;
 }

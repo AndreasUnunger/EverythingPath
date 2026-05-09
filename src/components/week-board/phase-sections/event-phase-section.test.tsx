@@ -95,6 +95,8 @@ function buildViewModel(): ComponentProps<typeof EventPhaseSection>['viewModel']
     setTheftMitigationTotalAction: vi.fn(),
     sicknessTwiceLoyaltyTotal: '',
     setSicknessTwiceLoyaltyTotalAction: vi.fn(),
+    turncoatTrainingLossTotal: '',
+    setTurncoatTrainingLossTotalAction: vi.fn(),
     turncoatOfficerCheckTotal: '',
     setTurncoatOfficerCheckTotalAction: vi.fn(),
     turncoatSelectedTeamId: '',

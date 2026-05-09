@@ -52,6 +52,7 @@ export type WeekBoardControllerSyncedState = {
   cacheDiscoveredMitigationTotal: string;
   theftMitigationTotal: string;
   sicknessTwiceLoyaltyTotal: string;
+  turncoatTrainingLossTotal: string;
   turncoatOfficerCheckTotal: string;
   turncoatSelectedTeamId: string;
   missingInActionSelectedTeamId: string;
@@ -92,6 +93,7 @@ export function createEmptyWeekBoardControllerSyncedState(): WeekBoardController
     cacheDiscoveredMitigationTotal: '',
     theftMitigationTotal: '',
     sicknessTwiceLoyaltyTotal: '',
+    turncoatTrainingLossTotal: '',
     turncoatOfficerCheckTotal: '',
     turncoatSelectedTeamId: '',
     missingInActionSelectedTeamId: '',
@@ -246,6 +248,12 @@ export function mergeWeekBoardControllerSyncedStateWithServer({
       nextServerValue: nextServerState.sicknessTwiceLoyaltyTotal,
       resetToServer,
     }),
+    turncoatTrainingLossTotal: mergeSyncedValue({
+      currentValue: currentState.turncoatTrainingLossTotal,
+      previousServerValue: previousServerState.turncoatTrainingLossTotal,
+      nextServerValue: nextServerState.turncoatTrainingLossTotal,
+      resetToServer,
+    }),
     turncoatOfficerCheckTotal: mergeSyncedValue({
       currentValue: currentState.turncoatOfficerCheckTotal,
       previousServerValue: previousServerState.turncoatOfficerCheckTotal,
@@ -345,6 +353,15 @@ function areActivityAssetOperationsEqual(
 ) {
   return (
     areRefugeSelectionsEqual(left.refuges, right.refuges) &&
+    areRefugeSelectionsEqual(
+      left.reduceDangerTargets,
+      right.reduceDangerTargets,
+    ) &&
+    areRefugeSelectionsEqual(
+      left.spreadPropagandaTargets,
+      right.spreadPropagandaTargets,
+    ) &&
+    areStrikeTeamSelectionsEqual(left.strikeTeams, right.strikeTeams) &&
     areCacheSelectionsEqual(left.caches, right.caches) &&
     areOrderSelectionsEqual(left.orders, right.orders) &&
     areMarketplaceSelectionsEqual(left.marketplaces, right.marketplaces) &&
@@ -417,6 +434,31 @@ function areRefugeSelectionsEqual(
     return (
       entry.slotIndex === other.slotIndex &&
       entry.settlementKey === other.settlementKey
+    );
+  });
+}
+
+function areStrikeTeamSelectionsEqual(
+  left: ActivityAssetOperationsDraft['strikeTeams'],
+  right: ActivityAssetOperationsDraft['strikeTeams'],
+) {
+  const leftSelections = [...left].sort((a, b) => a.slotIndex - b.slotIndex);
+  const rightSelections = [...right].sort((a, b) => a.slotIndex - b.slotIndex);
+
+  if (leftSelections.length !== rightSelections.length) {
+    return false;
+  }
+
+  return leftSelections.every((entry, index) => {
+    const other = rightSelections[index];
+    if (!other) {
+      return false;
+    }
+    return (
+      entry.slotIndex === other.slotIndex &&
+      entry.mode === other.mode &&
+      entry.location === other.location &&
+      entry.notes === other.notes
     );
   });
 }

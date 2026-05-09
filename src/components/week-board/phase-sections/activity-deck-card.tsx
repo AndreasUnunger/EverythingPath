@@ -25,7 +25,7 @@ export function ActivityDeckCard({
       <Card
         onPointerDown={(event) => onDragStart(event, entry)}
         className={getDeckCardClassName(entry)}
-        style={entry.isDraggingCard ? getDraggingDeckCardStyle(dragState) : undefined}
+        style={entry.isDraggingCard ? getPointerCardDragStyle(dragState) : undefined}
       >
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -80,8 +80,4 @@ function getDeckCardClassName(entry: ActivityActionCardEntry) {
     return 'border-primary/60 bg-card hover:border-primary hover:bg-primary/5 cursor-grab border-2 p-3 shadow-sm transition-all hover:-translate-y-0.5 active:cursor-grabbing';
   }
   return 'border-amber-600/50 bg-amber-500/5 hover:border-amber-600 hover:bg-amber-500/10 cursor-grab border-2 p-3 shadow-sm transition-all hover:-translate-y-0.5 active:cursor-grabbing';
-}
-
-function getDraggingDeckCardStyle(dragState: DragState | null) {
-  return getPointerCardDragStyle(dragState);
 }
