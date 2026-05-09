@@ -32,6 +32,8 @@ export function OfficerAssignmentsCard({
   onDismissWarnings: () => void;
   onClearRole: (role: OfficerRole) => void;
 }) {
+  const hasDragState = dragState !== null;
+
   return (
     <div className="space-y-3">
       {assignmentWarnings.length > 0 ? (
@@ -66,7 +68,7 @@ export function OfficerAssignmentsCard({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {officerRoleLabels.map(({ role, label }) => {
             const currentCharacterId = militia[role];
-            const dragActive = Boolean(dragState);
+            const isDragActive = hasDragState;
             const isActiveDropRole = activeDropRoleId === role;
             return (
               <div
@@ -74,13 +76,10 @@ export function OfficerAssignmentsCard({
                 ref={(element) => {
                   roleRefs.current[role] = element;
                 }}
-                className={`border-2 p-3 transition-all ${
-                  isActiveDropRole
-                    ? 'border-primary bg-primary/10 ring-primary/40 ring-2'
-                    : dragActive
-                      ? 'border-primary bg-primary/5'
-                      : ''
-                }`}
+                className={getRoleCardClassName({
+                  isActiveDropRole,
+                  isDragActive,
+                })}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -103,7 +102,7 @@ export function OfficerAssignmentsCard({
                     </Button>
                   ) : null}
                 </div>
-                {dragActive ? (
+                {isDragActive ? (
                   <p className="text-muted-foreground mt-2 font-mono text-xs">
                     {isActiveDropRole
                       ? 'Release to assign this role.'
@@ -117,4 +116,22 @@ export function OfficerAssignmentsCard({
       )}
     </div>
   );
+}
+
+function getRoleCardClassName({
+  isDragActive,
+  isActiveDropRole,
+}: {
+  isDragActive: boolean;
+  isActiveDropRole: boolean;
+}) {
+  if (isActiveDropRole) {
+    return 'border-primary bg-primary/10 ring-primary/40 ring-2 border-2 p-3 transition-all';
+  }
+
+  if (isDragActive) {
+    return 'border-primary bg-primary/5 border-2 p-3 transition-all';
+  }
+
+  return 'border-2 p-3 transition-all';
 }

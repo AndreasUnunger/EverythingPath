@@ -37,12 +37,34 @@ export type QueueEffectKind =
   | 'double_next_activity_training_gain'
   | 'all_is_calm_auto_next_week'
   | 'auto_event_roll_once'
-  | 'auto_event_roll_twice';
+  | 'auto_event_roll_twice'
+  | 'organization_check_modifier'
+  | 'activity_action_block'
+  | 'team_check_modifier'
+  | 'table_note';
+
+export type QueueEffectCheckType =
+  | 'all'
+  | 'activity'
+  | 'loyalty'
+  | 'security'
+  | 'secrecy';
+
+export type QueueEffectActionId = 'secure_cache';
+
+export type QueueEffectStrikeTeamMode = 'combat_support' | 'extraction';
 
 export type QueueEffect = {
   kind: QueueEffectKind;
   appliesWeek: number;
   note?: string;
+  checkType?: QueueEffectCheckType;
+  modifierTotal?: number;
+  blockedActionId?: QueueEffectActionId;
+  teamId?: string;
+  location?: string;
+  strikeTeamMode?: QueueEffectStrikeTeamMode;
+  sourceEventType?: string;
 };
 
 type ResolveWeekEventsArgs = {
@@ -241,6 +263,164 @@ export function getWeekModifiers({
   };
 }
 
+export function getQueuedOrganizationCheckModifier({
+  activeQueuedEffects,
+  activePersistentEventTypes,
+  checkType,
+}: {
+  activeQueuedEffects: QueueEffect[];
+  activePersistentEventTypes: EventType[];
+  checkType: Exclude<QueueEffectCheckType, 'all' | 'activity'>;
+}) {
+  let modifier = activeQueuedEffects.reduce((total, effect) => {
+    if (effect.kind !== 'organization_check_modifier') {
+      return total;
+    }
+    if (effect.modifierTotal === undefined) {
+      return total;
+    }
+    if (effect.checkType !== 'all' && effect.checkType !== checkType) {
+      return total;
+    }
+    return total + effect.modifierTotal;
+  }, 0);
+
+  if (checkType === 'secrecy' && activePersistentEventTypes.includes('double_agent')) {
+    modifier -= 2;
+  }
+  if (checkType === 'loyalty' && activePersistentEventTypes.includes('low_morale')) {
+    modifier -= 2;
+  }
+  if (
+    activeQueuedEffects.some(
+      (effect) => effect.kind === 'week_of_pain_checks_penalty',
+    )
+  ) {
+    modifier -= 1;
+  }
+  if (
+    activeQueuedEffects.some(
+      (effect) => effect.kind === 'week_of_serenity_checks_bonus',
+    )
+  ) {
+    modifier += 5;
+  }
+
+  return modifier;
+}
+
+export function getQueuedActivityCheckModifier({
+  activeQueuedEffects,
+}: {
+  activeQueuedEffects: QueueEffect[];
+}) {
+  return activeQueuedEffects.reduce((total, effect) => {
+    if (effect.kind !== 'organization_check_modifier') {
+      return total;
+    }
+    if (effect.checkType !== 'activity' || effect.modifierTotal === undefined) {
+      return total;
+    }
+    return total + effect.modifierTotal;
+  }, 0);
+}
+
+export function isActivityActionBlocked({
+  activeQueuedEffects,
+  activePersistentEventTypes,
+  actionId,
+}: {
+  activeQueuedEffects: QueueEffect[];
+  activePersistentEventTypes: EventType[];
+  actionId: QueueEffectActionId;
+}) {
+  if (actionId === 'secure_cache' && activePersistentEventTypes.includes('double_agent')) {
+    return true;
+  }
+
+  return activeQueuedEffects.some(
+    (effect) =>
+      effect.kind === 'activity_action_block' &&
+      effect.blockedActionId === actionId,
+  );
+}
+
+export function getTeamQueuedCheckModifier({
+  activeQueuedEffects,
+  teamId,
+}: {
+  activeQueuedEffects: QueueEffect[];
+  teamId?: string;
+}) {
+  if (!teamId) {
+    return 0;
+  }
+
+  return activeQueuedEffects.reduce((total, effect) => {
+    if (effect.kind !== 'team_check_modifier') {
+      return total;
+    }
+    if (effect.teamId !== teamId || effect.modifierTotal === undefined) {
+      return total;
+    }
+    return total + effect.modifierTotal;
+  }, 0);
+}
+
+export function getResolvedActivityCheckModifier({
+  resolvedEvents,
+}: {
+  resolvedEvents: ResolvedEvent[];
+}) {
+  let modifier = 0;
+  for (const event of resolvedEvents) {
+    if (event.eventType !== 'hidden_agenda') {
+      continue;
+    }
+    modifier = Math.max(modifier, event.isTwiceClause ? 5 : 2);
+  }
+  return modifier;
+}
+
+function addQueuedTableNote(
+  queuedToAdd: QueueEffect[],
+  currentWeek: number,
+  sourceEventType: EventType,
+  note: string,
+) {
+  queuedToAdd.push({
+    kind: 'table_note',
+    appliesWeek: currentWeek + 1,
+    sourceEventType,
+    note,
+  });
+}
+
+function addQueuedOrganizationCheckModifier(
+  queuedToAdd: QueueEffect[],
+  currentWeek: number,
+  {
+    checkType,
+    modifierTotal,
+    sourceEventType,
+    note,
+  }: {
+    checkType: Exclude<QueueEffectCheckType, 'all' | 'activity'>;
+    modifierTotal: number;
+    sourceEventType: EventType;
+    note: string;
+  },
+) {
+  queuedToAdd.push({
+    kind: 'organization_check_modifier',
+    appliesWeek: currentWeek + 1,
+    checkType,
+    modifierTotal,
+    sourceEventType,
+    note,
+  });
+}
+
 export function deriveFutureEffectsAndPersistence({
   resolvedEvents,
   currentWeek,
@@ -271,8 +451,48 @@ export function deriveFutureEffectsAndPersistence({
         event.eventType === 'theft'
       ) {
         persistentToAdd.push(event.eventType);
+      } else if (event.eventType === 'broke_the_code') {
+        addQueuedTableNote(
+          queuedToAdd,
+          currentWeek,
+          'broke_the_code',
+          'Broke the Code: PCs can identify one magic item of any caster level and gain +5 on Knowledge (local) checks this week.',
+        );
+      } else if (event.eventType === 'festival') {
+        addQueuedTableNote(
+          queuedToAdd,
+          currentWeek,
+          'festival',
+          'Festival: choose a recently used town; PCs gain +5 on Bluff, Diplomacy, and Intimidate checks there this week.',
+        );
+      } else if (event.eventType === 'found_fire') {
+        addQueuedOrganizationCheckModifier(queuedToAdd, currentWeek, {
+          checkType: 'security',
+          modifierTotal: 2,
+          sourceEventType: 'found_fire',
+          note: 'Found Fire: +2 on Security checks this week.',
+        });
+        addQueuedTableNote(
+          queuedToAdd,
+          currentWeek,
+          'found_fire',
+          'Found Fire: each PC chooses two non-poison alchemical items worth 100 gp or less this week.',
+        );
       } else if (event.eventType === 'high_morale') {
+        addQueuedOrganizationCheckModifier(queuedToAdd, currentWeek, {
+          checkType: 'loyalty',
+          modifierTotal: 5,
+          sourceEventType: 'high_morale',
+          note: 'High Morale: +5 on Loyalty checks this week.',
+        });
         endPersistentCount += 2;
+      } else if (event.eventType === 'night_ops') {
+        addQueuedTableNote(
+          queuedToAdd,
+          currentWeek,
+          'night_ops',
+          'Night Ops: PCs gain +5 on Stealth checks after dark this week.',
+        );
       } else if (event.eventType === 'week_of_pain') {
         // Twice: no additional effect.
       } else if (event.eventType === 'week_of_serenity') {
@@ -292,6 +512,13 @@ export function deriveFutureEffectsAndPersistence({
           appliesWeek: currentWeek + 1,
         },
       );
+    } else if (event.eventType === 'broke_the_code') {
+      addQueuedTableNote(
+        queuedToAdd,
+        currentWeek,
+        'broke_the_code',
+        'Broke the Code: PCs can identify one magic item of any caster level and gain +2 on Knowledge (local) checks this week.',
+      );
     } else if (event.eventType === 'week_of_serenity') {
       queuedToAdd.push(
         {
@@ -303,13 +530,71 @@ export function deriveFutureEffectsAndPersistence({
           appliesWeek: currentWeek + 1,
         },
       );
+    } else if (event.eventType === 'double_agent') {
+      queuedToAdd.push(
+        {
+          kind: 'organization_check_modifier',
+          appliesWeek: currentWeek + 1,
+          checkType: 'secrecy',
+          modifierTotal: -2,
+          sourceEventType: 'double_agent',
+          note: 'Double Agent: -2 on Secrecy checks this week.',
+        },
+        {
+          kind: 'activity_action_block',
+          appliesWeek: currentWeek + 1,
+          blockedActionId: 'secure_cache',
+          sourceEventType: 'double_agent',
+          note: 'Double Agent: militia cannot take Secure Cache this Activity phase.',
+        },
+      );
+    } else if (event.eventType === 'festival') {
+      addQueuedTableNote(
+        queuedToAdd,
+        currentWeek,
+        'festival',
+        'Festival: choose a recently used town; PCs gain +2 on Bluff, Diplomacy, and Intimidate checks there this week.',
+      );
+    } else if (event.eventType === 'found_fire') {
+      addQueuedOrganizationCheckModifier(queuedToAdd, currentWeek, {
+        checkType: 'security',
+        modifierTotal: 2,
+        sourceEventType: 'found_fire',
+        note: 'Found Fire: +2 on Security checks this week.',
+      });
+      addQueuedTableNote(
+        queuedToAdd,
+        currentWeek,
+        'found_fire',
+        'Found Fire: each PC chooses one non-poison alchemical item worth 100 gp or less this week.',
+      );
     } else if (event.eventType === 'calm_before_the_storm') {
       queuedToAdd.push({
         kind: 'auto_event_roll_once',
         appliesWeek: currentWeek + 1,
       });
     } else if (event.eventType === 'high_morale') {
+      addQueuedOrganizationCheckModifier(queuedToAdd, currentWeek, {
+        checkType: 'loyalty',
+        modifierTotal: 2,
+        sourceEventType: 'high_morale',
+        note: 'High Morale: +2 on Loyalty checks this week.',
+      });
       endPersistentCount += 1;
+    } else if (event.eventType === 'low_morale') {
+      addQueuedOrganizationCheckModifier(queuedToAdd, currentWeek, {
+        checkType: 'loyalty',
+        modifierTotal: -2,
+        sourceEventType: 'low_morale',
+        note: 'Low Morale: -2 on Loyalty checks this week.',
+      });
+    } else if (event.eventType === 'night_ops') {
+      addQueuedTableNote(
+        queuedToAdd,
+        currentWeek,
+        'night_ops',
+        'Night Ops: PCs gain +2 on Stealth checks after dark this week.',
+      );
     }
   }
 

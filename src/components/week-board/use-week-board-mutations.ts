@@ -29,6 +29,14 @@ type ActivityOfficerOperationsPatch = Partial<{
 
 type ActivityAssetOperationsPatch = Partial<{
   refuges: Array<{ slotIndex: number; settlementKey: string }>;
+  reduceDangerTargets: Array<{ slotIndex: number; settlementKey: string }>;
+  spreadPropagandaTargets: Array<{ slotIndex: number; settlementKey: string }>;
+  strikeTeams: Array<{
+    slotIndex: number;
+    mode: 'combat_support' | 'extraction';
+    location?: string;
+    notes?: string;
+  }>;
   caches: Array<{
     slotIndex: number;
     mode: 'place' | 'retrieve';
@@ -99,6 +107,7 @@ type EventMitigationsPatch = Partial<{
   cacheDiscoveredMitigationTotal: string;
   theftMitigationTotal: string;
   sicknessTwiceLoyaltyTotal: string;
+  turncoatTrainingLossTotal: string;
   turncoatOfficerCheckTotal: string;
   turncoatSelectedTeamId: string | null;
   rivalrySelectedTeamIds: string[];
@@ -130,6 +139,7 @@ type ActivityRollTotalsPatch = Partial<{
   earnGoldNotorietyIncreaseTotal: string;
   gatherInformationCheckTotal: string;
   gatherInformationNotorietyIncreaseTotal: string;
+  guaranteeEventNotorietyIncreaseTotal: string;
   knowledgeCheckTotal: string;
   recruitTeamCheckTotal: string;
   recruitTeamNotorietyIncreaseTotal: string;

@@ -60,6 +60,9 @@ export function ActivityPhaseSection({
     setUpgradeTeamsForSlotAction,
     setOfficerChangeForSlotAction,
     setRefugeSettlementForSlotAction,
+    setReduceDangerTargetForSlotAction,
+    setSpreadPropagandaTargetForSlotAction,
+    setStrikeTeamForSlotAction,
     setCacheOperationForSlotAction,
     setOrderForSlotAction,
     setMarketplaceForSlotAction,
@@ -83,6 +86,17 @@ export function ActivityPhaseSection({
   });
   const legalActionCards = actionCards.filter((entry) => entry.isLegal);
   const otherActionCards = actionCards.filter((entry) => !entry.isLegal);
+  const handleDeckCardDragStartAction = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    entry: ActivityActionCardEntry,
+  ) => {
+    handleDeckCardDragStart({
+      event,
+      entry,
+      onErrorAction,
+      setDragStateAction,
+    });
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,40%)] xl:items-start">
@@ -92,27 +106,13 @@ export function ActivityPhaseSection({
             title="Legal Actions"
             entries={legalActionCards}
             dragState={dragState}
-            onDragStart={(event, entry) =>
-              handleDeckCardDragStart({
-                event,
-                entry,
-                onErrorAction,
-                setDragStateAction,
-              })
-            }
+            onDragStart={handleDeckCardDragStartAction}
           />
           <ActionDeckSection
             title="Other Actions"
             entries={otherActionCards}
             dragState={dragState}
-            onDragStart={(event, entry) =>
-              handleDeckCardDragStart({
-                event,
-                entry,
-                onErrorAction,
-                setDragStateAction,
-              })
-            }
+            onDragStart={handleDeckCardDragStartAction}
           />
         </div>
       </div>
@@ -166,6 +166,13 @@ export function ActivityPhaseSection({
                   setUpgradeTeamsForSlotAction={setUpgradeTeamsForSlotAction}
                   setOfficerChangeForSlotAction={setOfficerChangeForSlotAction}
                   setRefugeSettlementForSlotAction={setRefugeSettlementForSlotAction}
+                  setReduceDangerTargetForSlotAction={
+                    setReduceDangerTargetForSlotAction
+                  }
+                  setSpreadPropagandaTargetForSlotAction={
+                    setSpreadPropagandaTargetForSlotAction
+                  }
+                  setStrikeTeamForSlotAction={setStrikeTeamForSlotAction}
                   setCacheOperationForSlotAction={setCacheOperationForSlotAction}
                   setOrderForSlotAction={setOrderForSlotAction}
                   setMarketplaceForSlotAction={setMarketplaceForSlotAction}

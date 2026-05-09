@@ -52,7 +52,7 @@ const teams: ITeam[] = [
     type: 'Intelligence',
     tier: 2,
     size: 6,
-    upgrade: { to: ['sholars', 'spellcasters'], cost: 1000 },
+    upgrade: { to: ['scholars', 'spellcasters'], cost: 1000 },
     grantedActions: ['activateRefuge', 'gatherInformation'],
   },
   {

@@ -83,6 +83,8 @@ export type EventPhaseViewModel = {
   setTheftMitigationTotalAction: (value: string) => void;
   sicknessTwiceLoyaltyTotal: string;
   setSicknessTwiceLoyaltyTotalAction: (value: string) => void;
+  turncoatTrainingLossTotal: string;
+  setTurncoatTrainingLossTotalAction: (value: string) => void;
   turncoatOfficerCheckTotal: string;
   setTurncoatOfficerCheckTotalAction: (value: string) => void;
   turncoatSelectedTeamId: string;
@@ -159,6 +161,8 @@ export function EventPhaseSection({
     setTheftMitigationTotalAction,
     sicknessTwiceLoyaltyTotal,
     setSicknessTwiceLoyaltyTotalAction,
+    turncoatTrainingLossTotal,
+    setTurncoatTrainingLossTotalAction,
     turncoatOfficerCheckTotal,
     setTurncoatOfficerCheckTotalAction,
     turncoatSelectedTeamId,
@@ -566,6 +570,19 @@ export function EventPhaseSection({
               ) : null}
               {showTurncoatControls ? (
                 <>
+                  <div className="space-y-1">
+                    <Label className="font-mono text-xs">
+                      Turncoat training loss total
+                    </Label>
+                    <Input
+                      value={turncoatTrainingLossTotal}
+                      onChange={(event) =>
+                        setTurncoatTrainingLossTotalAction(event.target.value)
+                      }
+                      placeholder={`1d6 + ${rank}`}
+                      className="font-mono"
+                    />
+                  </div>
                   <div className="space-y-1">
                     <Label className="font-mono text-xs">
                       Turncoat (Twice) officer check total

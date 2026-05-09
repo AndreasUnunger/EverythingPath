@@ -60,19 +60,21 @@ export function WeekBoard({
     );
   }
 
+  const weekNumber = controller.data.state.weekNumber;
+  const currentPhase = controller.phase;
   const hasTrackedMilitiaState =
     controller.settlements.length > 0 ||
     controller.caches.length > 0 ||
     controller.marketplaces.length > 0 ||
     controller.orders.length > 0 ||
     controller.trackedPeople.length > 0;
-  const showGlobalAssetPanel =
-    controller.phase !== 'activity' && hasTrackedMilitiaState;
+  const shouldShowGlobalAssetPanel =
+    currentPhase !== 'activity' && hasTrackedMilitiaState;
 
   return (
     <Card className="bg-card border-2 p-4">
       <h3 className="text-primary font-sans text-xl font-bold">
-        Week {controller.data.state.weekNumber}
+        Week {weekNumber}
       </h3>
 
       {controller.error ? (
@@ -82,49 +84,49 @@ export function WeekBoard({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        {WEEK_PHASES.filter((item) =>
-          controller.availablePhases.includes(item),
-        ).map((item) => (
+        {WEEK_PHASES.filter((phase) =>
+          controller.availablePhases.includes(phase),
+        ).map((phase) => (
           <Button
-            key={item}
-            variant={controller.phase === item ? 'default' : 'outline'}
+            key={phase}
+            variant={currentPhase === phase ? 'default' : 'outline'}
             className="font-mono capitalize"
-            onClick={() => void controller.actions.changePhase(item)}
+            onClick={() => void controller.actions.changePhase(phase)}
           >
-            {item === 'week_closed' ? 'summary' : item}
+            {phase === 'week_closed' ? 'summary' : phase}
           </Button>
         ))}
       </div>
 
       <div
         className={
-          showGlobalAssetPanel
+          shouldShowGlobalAssetPanel
             ? 'mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'
             : 'mt-4'
         }
       >
         <div>
-          {controller.phase === 'upkeep' ? (
+          {currentPhase === 'upkeep' ? (
             <UpkeepPhaseSection viewModel={buildUpkeepPhaseViewModel(controller)} />
           ) : null}
 
-          {controller.phase === 'activity' ? (
+          {currentPhase === 'activity' ? (
             <ActivityPhaseSection
               viewModel={buildActivityPhaseViewModel({ controller })}
             />
           ) : null}
 
-          {controller.phase === 'event' ? (
+          {currentPhase === 'event' ? (
             <EventPhaseSection viewModel={buildEventPhaseViewModel(controller)} />
           ) : null}
 
-          {controller.phase === 'persistent' ? (
+          {currentPhase === 'persistent' ? (
             <PersistentPhaseSection
               viewModel={buildPersistentPhaseViewModel(controller)}
             />
           ) : null}
 
-          {controller.phase === 'week_closed' ? (
+          {currentPhase === 'week_closed' ? (
             <SummaryPhaseSection
               viewModel={buildSummaryPhaseViewModel({
                 controller,
@@ -134,9 +136,9 @@ export function WeekBoard({
           ) : null}
         </div>
 
-        {showGlobalAssetPanel ? (
+        {shouldShowGlobalAssetPanel ? (
           <AssetLedgerPanel
-            currentWeek={controller.data.state.weekNumber}
+            currentWeek={weekNumber}
             settlements={controller.settlements}
             caches={controller.caches}
             marketplaces={controller.marketplaces}
@@ -147,35 +149,35 @@ export function WeekBoard({
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        {controller.phase === 'event' ? null : (
+        {currentPhase === 'event' ? null : (
           <Button
             variant="outline"
             onClick={() => void controller.actions.goBackWeek()}
-            disabled={controller.data.state.weekNumber <= 1}
+            disabled={weekNumber <= 1}
           >
             Previous Week
           </Button>
         )}
-        {controller.phase === 'upkeep' ? (
+        {currentPhase === 'upkeep' ? (
           <Button
             onClick={() => void controller.actions.changePhase('activity')}
           >
             Continue to Activity
           </Button>
         ) : null}
-        {controller.phase === 'activity' ? (
+        {currentPhase === 'activity' ? (
           <Button onClick={() => void controller.actions.changePhase('event')}>
             Continue to Event
           </Button>
         ) : null}
-        {controller.phase === 'persistent' ? (
+        {currentPhase === 'persistent' ? (
           <Button
             onClick={() => void controller.actions.changePhase('week_closed')}
           >
             Continue to Summary
           </Button>
         ) : null}
-        {controller.phase === 'week_closed' ? (
+        {currentPhase === 'week_closed' ? (
           <Button onClick={() => void controller.actions.commitPhase()}>
             Commit Changes to Militia
           </Button>

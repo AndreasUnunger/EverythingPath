@@ -31,6 +31,7 @@ export type ActivityRollTotals = {
   earnGoldNotorietyIncreaseTotal?: number;
   gatherInformationCheckTotal?: number;
   gatherInformationNotorietyIncreaseTotal?: number;
+  guaranteeEventNotorietyIncreaseTotal?: number;
   knowledgeCheckTotal?: number;
   recruitTeamCheckTotal?: number;
   recruitTeamNotorietyIncreaseTotal?: number;
@@ -199,6 +200,11 @@ export function readActivityRollTotals(
       'gatherInformationNotorietyIncreaseTotal' in value &&
       typeof value.gatherInformationNotorietyIncreaseTotal === 'number'
         ? value.gatherInformationNotorietyIncreaseTotal
+        : undefined,
+    guaranteeEventNotorietyIncreaseTotal:
+      'guaranteeEventNotorietyIncreaseTotal' in value &&
+      typeof value.guaranteeEventNotorietyIncreaseTotal === 'number'
+        ? value.guaranteeEventNotorietyIncreaseTotal
         : undefined,
     knowledgeCheckTotal:
       'knowledgeCheckTotal' in value &&

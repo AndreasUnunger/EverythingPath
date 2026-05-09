@@ -77,9 +77,20 @@ export interface IQueuedEffect {
     | 'double_next_activity_training_gain'
     | 'all_is_calm_auto_next_week'
     | 'auto_event_roll_once'
-    | 'auto_event_roll_twice';
+    | 'auto_event_roll_twice'
+    | 'organization_check_modifier'
+    | 'activity_action_block'
+    | 'team_check_modifier'
+    | 'table_note';
   appliesWeek: number;
   note?: string;
+  checkType?: 'all' | 'activity' | 'loyalty' | 'security' | 'secrecy';
+  modifierTotal?: number;
+  blockedActionId?: 'secure_cache';
+  teamId?: string;
+  location?: string;
+  strikeTeamMode?: 'combat_support' | 'extraction';
+  sourceEventType?: string;
 }
 
 export interface IWeekContextState {

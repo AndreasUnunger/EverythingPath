@@ -16,39 +16,40 @@ export function MilitiaSystem({
   campaign?: Doc<'campaign'>;
 }) {
   const createMilitia = useMutation(db.militia.createMilitia);
-  const orgId = useOrganization().organization?.id;
-  if (!campaign) {
-    return null;
-  }
-  if (!militia) {
+  const organizationId = useOrganization().organization?.id;
+
+  if (!campaign) return null;
+
+  if (militia) {
     return (
-      <Button
-        onClick={() =>
-          createMilitia({
-            militia: {
-              name: 'Lantmäteriet',
-              campaignId: campaign._id,
-              rank: 1,
-              highestBoonReached: 1,
-              HQLocation: 'Southern Fangwood',
-              treasury: 0,
-              notoriety: 0,
-              training: 0,
-              focus: 'Secrecy',
-            },
-            organizationId: orgId ?? 'skip',
-          })
-        }
-      >
-        Create Militia
-      </Button>
+      <WeekBoard
+        campaignId={campaign._id}
+        organizationId={organizationId ?? ''}
+        canQuery={Boolean(organizationId)}
+      />
     );
   }
+
   return (
-    <WeekBoard
-      campaignId={campaign?._id}
-      organizationId={orgId ?? ''}
-      canQuery={Boolean(orgId)}
-    />
+    <Button
+      onClick={() =>
+        createMilitia({
+          militia: {
+            name: 'Lantmäteriet',
+            campaignId: campaign._id,
+            rank: 1,
+            highestBoonReached: 1,
+            HQLocation: 'Southern Fangwood',
+            treasury: 0,
+            notoriety: 0,
+            training: 0,
+            focus: 'Secrecy',
+          },
+          organizationId: organizationId ?? 'skip',
+        })
+      }
+    >
+      Create Militia
+    </Button>
   );
 }

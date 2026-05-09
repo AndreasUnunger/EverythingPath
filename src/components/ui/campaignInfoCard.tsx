@@ -11,13 +11,13 @@ export function CampaignInfoCard({
   children: ReactNode;
 }) {
   return (
-    <Card className="bg-card corner-brackets p-2">
-      <div className="flex items-center justify-between px-2">
-        <div>
+    <Card className="bg-card corner-brackets w-full min-w-0 p-2">
+      <div className="flex items-center justify-between gap-3 px-2">
+        <div className="min-w-0 whitespace-nowrap">
           <span className="text-muted-foreground pr-2 font-mono">{title}</span>
           <span className="text-primary font-mono font-bold">{value}</span>
         </div>
-        {children}
+        <div className="shrink-0">{children}</div>
       </div>
     </Card>
   );

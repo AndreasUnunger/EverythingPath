@@ -13,21 +13,25 @@ export const marketplaceAvailabilityTierOptions = [
 
 export const marketplaceContrabandOptions = ['no', 'yes'] as const;
 export const marketplaceTeamOptions = TEAM_IDS;
+const WHOLE_NUMBER_PATTERN = /^-?\d+$/;
 
 function requiredWholeNumber(label: string) {
   return z
     .string()
     .trim()
     .min(1, `${label} is required`)
-    .refine((value) => /^-?\d+$/.test(value), {
+    .refine((value) => WHOLE_NUMBER_PATTERN.test(value), {
       message: `${label} must be a whole number`,
     });
 }
 
 function optionalWholeNumber(label: string) {
-  return z.string().trim().refine((value) => value === '' || /^-?\d+$/.test(value), {
-    message: `${label} must be a whole number`,
-  });
+  return z
+    .string()
+    .trim()
+    .refine((value) => value === '' || WHOLE_NUMBER_PATTERN.test(value), {
+      message: `${label} must be a whole number`,
+    });
 }
 
 export const marketplaceFormSchema = z.object({

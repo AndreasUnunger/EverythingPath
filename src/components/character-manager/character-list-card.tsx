@@ -52,93 +52,94 @@ export function CharacterListCard({
 
   return (
     <div className="space-y-3">
-      <p className="font-mono text-sm font-bold tracking-wide">Active Characters</p>
+      <p className="font-mono text-sm font-bold tracking-wide">
+        Active Characters
+      </p>
 
       <LedgerTable>
-          <colgroup>
-            <col style={{ width: '25%' }} />
-            <col />
-            <col />
-            <col />
-            <col style={{ width: '11rem' }} />
-          </colgroup>
-          <LedgerTableHead>
-            <tr className="border-b border-primary/8">
-              <LedgerTableHeaderCell>
-                Character
-              </LedgerTableHeaderCell>
-              <LedgerTableHeaderCell className="w-px whitespace-nowrap">
-                Level
-              </LedgerTableHeaderCell>
-              <LedgerTableHeaderCell className="w-px whitespace-nowrap">
-                Stats
-              </LedgerTableHeaderCell>
-              <LedgerTableHeaderCell className="w-px whitespace-nowrap">
-                Role
-              </LedgerTableHeaderCell>
-              <LedgerTableHeaderCell className="w-[11rem]" />
-            </tr>
-          </LedgerTableHead>
-          <LedgerTableBody>
-            {activeCharacters.map((character, index) => {
-              const role = officerRoleLabels.find(
-                ({ role }) => militia?.[role] === character._id,
-              );
-              const isDraggingRow = dragState?.actionId === character._id;
+        <colgroup>
+          <col style={{ width: '25%' }} />
+          <col />
+          <col />
+          <col />
+          <col style={{ width: '11rem' }} />
+        </colgroup>
+        <LedgerTableHead>
+          <tr className="border-primary/8 border-b">
+            <LedgerTableHeaderCell>Character</LedgerTableHeaderCell>
+            <LedgerTableHeaderCell className="w-px whitespace-nowrap">
+              Level
+            </LedgerTableHeaderCell>
+            <LedgerTableHeaderCell className="w-px whitespace-nowrap">
+              Stats
+            </LedgerTableHeaderCell>
+            <LedgerTableHeaderCell className="w-px whitespace-nowrap">
+              Role
+            </LedgerTableHeaderCell>
+            <LedgerTableHeaderCell className="w-[11rem]" />
+          </tr>
+        </LedgerTableHead>
+        <LedgerTableBody>
+          {activeCharacters.map((character, index) => {
+            const roleLabel = getCharacterRoleLabel(character, militia);
+            const isDraggingRow = dragState?.actionId === character._id;
 
-              return (
-                <tr
-                  key={character._id}
-                  data-slot="card"
-                  className={getCharacterRowClassName(isDraggingRow, index)}
-                  onPointerDown={(event) =>
-                    handleCharacterCardPointerDown({
-                      event,
-                      characterId: character._id,
-                      onStartDrag,
-                    })
-                  }
-                >
-                  <LedgerTableCell>
-                    <p className="truncate font-sans text-lg font-bold">{character.name}</p>
-                  </LedgerTableCell>
-                  <LedgerTableCell className="whitespace-nowrap font-mono text-sm">
-                    {character.level}
-                  </LedgerTableCell>
-                  <LedgerTableCell className="whitespace-nowrap font-mono text-sm">
-                    {formatStats(character)}
-                  </LedgerTableCell>
-                  <LedgerTableCell className="whitespace-nowrap font-mono text-sm">
-                    {role?.label ?? 'Open'}
-                  </LedgerTableCell>
-                  <LedgerTableActionCell>
-                    <Button variant="outline" size="sm" onClick={() => onEdit(character)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={archivingCharacterId === character._id}
-                      onClick={() => onArchive(character._id)}
-                    >
-                      {archivingCharacterId === character._id
-                        ? 'Archiving...'
-                        : 'Archive'}
-                    </Button>
-                  </LedgerTableActionCell>
-                </tr>
-              );
-            })}
-          </LedgerTableBody>
+            return (
+              <tr
+                key={character._id}
+                data-slot="card"
+                className={getCharacterRowClassName(isDraggingRow, index)}
+                onPointerDown={(event) =>
+                  handleCharacterCardPointerDown({
+                    event,
+                    characterId: character._id,
+                    onStartDrag,
+                  })
+                }
+              >
+                <LedgerTableCell>
+                  <p className="truncate font-sans text-lg font-bold">
+                    {character.name}
+                  </p>
+                </LedgerTableCell>
+                <LedgerTableCell className="font-mono text-sm whitespace-nowrap">
+                  {character.level}
+                </LedgerTableCell>
+                <LedgerTableCell className="font-mono text-sm whitespace-nowrap">
+                  {formatStats(character)}
+                </LedgerTableCell>
+                <LedgerTableCell className="font-mono text-sm whitespace-nowrap">
+                  {roleLabel}
+                </LedgerTableCell>
+                <LedgerTableActionCell>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit(character)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={archivingCharacterId === character._id}
+                    onClick={() => onArchive(character._id)}
+                  >
+                    {archivingCharacterId === character._id
+                      ? 'Archiving...'
+                      : 'Archive'}
+                  </Button>
+                </LedgerTableActionCell>
+              </tr>
+            );
+          })}
+        </LedgerTableBody>
       </LedgerTable>
 
       {draggingCharacter && dragState ? (
         <DragPreviewRow
           character={draggingCharacter}
-          roleLabel={
-            officerRoleLabels.find(({ role }) => militia?.[role] === draggingCharacter._id)
-              ?.label ?? 'Open'
-          }
+          roleLabel={getCharacterRoleLabel(draggingCharacter, militia)}
           dragState={dragState}
           archivingCharacterId={archivingCharacterId}
         />
@@ -171,13 +172,23 @@ function handleCharacterCardPointerDown({
 }
 
 function getCharacterRowClassName(isDraggingRow: boolean, index: number) {
-  const tone = getLedgerRowClassName(index);
+  const rowTone = getLedgerRowClassName(index);
 
   if (isDraggingRow) {
-    return `${tone} cursor-grabbing opacity-25`;
+    return `${rowTone} cursor-grabbing opacity-25`;
   }
 
-  return `${tone} cursor-grab transition-colors hover:bg-background/24 active:cursor-grabbing`;
+  return `${rowTone} cursor-grab transition-colors hover:bg-background/24 active:cursor-grabbing`;
+}
+
+function getCharacterRoleLabel(
+  character: CharacterRecord,
+  militia: MilitiaRecord | null | undefined,
+) {
+  return (
+    officerRoleLabels.find(({ role }) => militia?.[role] === character._id)
+      ?.label ?? 'Open'
+  );
 }
 
 function DragPreviewRow({
@@ -205,8 +216,14 @@ function DragPreviewRow({
           <Button variant="outline" size="sm">
             Edit
           </Button>
-          <Button variant="outline" size="sm" disabled={archivingCharacterId === character._id}>
-            {archivingCharacterId === character._id ? 'Archiving...' : 'Archive'}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={archivingCharacterId === character._id}
+          >
+            {archivingCharacterId === character._id
+              ? 'Archiving...'
+              : 'Archive'}
           </Button>
         </div>
       </div>

@@ -41,32 +41,27 @@ export function MarketplaceListCard({
 
   return (
     <LedgerTable>
-        <colgroup>
-          <col style={{ width: '24%' }} />
-          <col />
-          <col />
-          <col />
-          <col style={{ width: '11rem' }} />
-        </colgroup>
-        <LedgerTableHead>
-          <tr className="border-b border-primary/8">
-            <LedgerTableHeaderCell>
-              Marketplace
-            </LedgerTableHeaderCell>
-            <LedgerTableHeaderCell>
-              Source
-            </LedgerTableHeaderCell>
-            <LedgerTableHeaderCell>
-              Availability
-            </LedgerTableHeaderCell>
-            <LedgerTableHeaderCell>
-              Orders
-            </LedgerTableHeaderCell>
-            <LedgerTableHeaderCell className="w-[11rem]" />
-          </tr>
-        </LedgerTableHead>
-        <LedgerTableBody>
-          {marketplaces.map((marketplace, index) => (
+      <colgroup>
+        <col style={{ width: '24%' }} />
+        <col />
+        <col />
+        <col />
+        <col style={{ width: '11rem' }} />
+      </colgroup>
+      <LedgerTableHead>
+        <tr className="border-b border-primary/8">
+          <LedgerTableHeaderCell>Marketplace</LedgerTableHeaderCell>
+          <LedgerTableHeaderCell>Source</LedgerTableHeaderCell>
+          <LedgerTableHeaderCell>Availability</LedgerTableHeaderCell>
+          <LedgerTableHeaderCell>Orders</LedgerTableHeaderCell>
+          <LedgerTableHeaderCell className="w-[11rem]" />
+        </tr>
+      </LedgerTableHead>
+      <LedgerTableBody>
+        {marketplaces.map((marketplace, index) => {
+          const isDeleting = pendingDeleteId === marketplace._id;
+
+          return (
             <LedgerTableRow key={marketplace._id} index={index}>
               <LedgerTableCell>
                 <div className="space-y-2">
@@ -151,14 +146,15 @@ export function MarketplaceListCard({
                   variant="outline"
                   size="sm"
                   onClick={() => onDelete(marketplace)}
-                  disabled={pendingDeleteId === marketplace._id}
+                  disabled={isDeleting}
                 >
-                  {pendingDeleteId === marketplace._id ? 'Deleting...' : 'Delete'}
+                  {isDeleting ? 'Deleting...' : 'Delete'}
                 </Button>
               </LedgerTableActionCell>
             </LedgerTableRow>
-          ))}
-        </LedgerTableBody>
+          );
+        })}
+      </LedgerTableBody>
     </LedgerTable>
   );
 }

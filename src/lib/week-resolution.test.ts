@@ -158,6 +158,14 @@ describe('weekResolution', () => {
     expect(derived.queuedToAdd).toEqual([
       { kind: 'week_of_pain_checks_penalty', appliesWeek: 9 },
       { kind: 'double_upkeep_attrition', appliesWeek: 9 },
+      {
+        kind: 'organization_check_modifier',
+        appliesWeek: 9,
+        checkType: 'loyalty',
+        modifierTotal: 5,
+        sourceEventType: 'high_morale',
+        note: 'High Morale: +5 on Loyalty checks this week.',
+      },
     ]);
     expect(derived.endPersistentCount).toBe(2);
     expect(derived.persistentToAdd).toEqual(['theft']);

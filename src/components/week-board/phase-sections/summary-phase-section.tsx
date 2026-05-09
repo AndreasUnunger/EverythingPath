@@ -74,6 +74,7 @@ export type SummaryPhaseViewModel = {
   cacheDiscoveredMitigationTotal: string;
   theftMitigationTotal: string;
   sicknessTwiceLoyaltyTotal: string;
+  turncoatTrainingLossTotal: string;
   turncoatOfficerCheckTotal: string;
   turncoatSelectedTeamId: string;
   missingInActionSelectedTeamId: string;
@@ -130,6 +131,7 @@ export function SummaryPhaseSection({
     cacheDiscoveredMitigationTotal,
     theftMitigationTotal,
     sicknessTwiceLoyaltyTotal,
+    turncoatTrainingLossTotal,
     turncoatOfficerCheckTotal,
     turncoatSelectedTeamId,
     missingInActionSelectedTeamId,
@@ -176,6 +178,7 @@ export function SummaryPhaseSection({
     cacheDiscoveredMitigationTotal,
     theftMitigationTotal,
     sicknessTwiceLoyaltyTotal,
+    turncoatTrainingLossTotal,
     turncoatOfficerCheckTotal,
     turncoatSelectedTeamId,
     missingInActionSelectedTeamId,

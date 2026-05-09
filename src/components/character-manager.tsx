@@ -54,14 +54,15 @@ export function CharacterManager({
   const [pendingOfficerRole, setPendingOfficerRole] = useState<
     OfficerRole | undefined
   >();
-  const [dragState, setDragState] = useState<PointerCardDragState<CharacterId> | null>(
-    null,
-  );
+  const [dragState, setDragState] =
+    useState<PointerCardDragState<CharacterId> | null>(null);
   const [activeDropRoleId, setActiveDropRoleId] = useState<string | null>(null);
   const [pendingArchiveId, setPendingArchiveId] = useState<
     Id<'character'> | undefined
   >();
-  const [pendingDeleteId, setPendingDeleteId] = useState<Id<'character'> | undefined>();
+  const [pendingDeleteId, setPendingDeleteId] = useState<
+    Id<'character'> | undefined
+  >();
   const [deleteCandidate, setDeleteCandidate] = useState<
     CharacterRecord | undefined
   >();
@@ -113,6 +114,20 @@ export function CharacterManager({
     setIsFormOpen(true);
   }
 
+  function closeCharacterForm() {
+    setIsFormOpen(false);
+    setEditingId(undefined);
+    setFormError(undefined);
+  }
+
+  function closeCharacterLedger() {
+    closeCharacterForm();
+    setShowArchived(false);
+    setDeleteCandidate(undefined);
+    setDragState(null);
+    setActiveDropRoleId(null);
+  }
+
   function startEdit(character: CharacterRecord) {
     setEditingId(character._id);
     setFormError(undefined);
@@ -121,8 +136,9 @@ export function CharacterManager({
       description: character.description,
       kind: character.kind ?? 'pc',
       officerRole:
-        officerRoleLabels.find((officerRole) => militia?.[officerRole.role] === character._id)
-          ?.role ?? 'none',
+        officerRoleLabels.find(
+          (officerRole) => militia?.[officerRole.role] === character._id,
+        )?.role ?? 'none',
       level: String(character.level),
       strength: String(character.strength),
       dexterity: String(character.dexterity),
@@ -269,7 +285,9 @@ export function CharacterManager({
         isActive,
       });
     } catch (error) {
-      setArchiveError(getErrorMessage(error, 'Failed to update character status.'));
+      setArchiveError(
+        getErrorMessage(error, 'Failed to update character status.'),
+      );
     } finally {
       setPendingArchiveId(undefined);
     }
@@ -295,13 +313,7 @@ export function CharacterManager({
 
   function toggleLedger() {
     if (isOpen) {
-      setIsFormOpen(false);
-      setEditingId(undefined);
-      setFormError(undefined);
-      setShowArchived(false);
-      setDeleteCandidate(undefined);
-      setDragState(null);
-      setActiveDropRoleId(null);
+      closeCharacterLedger();
     }
     setIsOpen((prev) => !prev);
   }
@@ -331,7 +343,9 @@ export function CharacterManager({
     <LedgerShell
       title="Character Ledger"
       meta={
-        isLoading ? 'Loading...' : `Tracking ${activeCharacters.length} active characters`
+        isLoading
+          ? 'Loading...'
+          : `Tracking ${activeCharacters.length} active characters`
       }
       isOpen={isOpen}
       onToggle={toggleLedger}
@@ -357,141 +371,138 @@ export function CharacterManager({
       }
     >
       <>
-          <Dialog
-            open={isFormOpen}
-            onOpenChange={(open) => {
-              if (!open) {
-                setIsFormOpen(false);
-                setEditingId(undefined);
-                setFormError(undefined);
-              }
-            }}
-          >
-            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
-              <DialogHeader>
-                <DialogTitle className="font-sans text-xl">
-                  {editingId ? 'Edit Character' : 'New Character'}
-                </DialogTitle>
-                <DialogDescription className="font-mono text-sm">
-                  Update the character record and officer role in one place.
-                </DialogDescription>
-              </DialogHeader>
-              <CharacterFormCard
-                form={form}
-                onSubmit={submitForm}
-                submitError={formError}
-                onCancel={() => {
-                  setIsFormOpen(false);
-                  setEditingId(undefined);
-                  setFormError(undefined);
+        <Dialog
+          open={isFormOpen}
+          onOpenChange={(open) => {
+            if (!open) closeCharacterForm();
+          }}
+        >
+          <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="font-sans text-xl">
+                {editingId ? 'Edit Character' : 'New Character'}
+              </DialogTitle>
+              <DialogDescription className="font-mono text-sm">
+                Update the character record and officer role in one place.
+              </DialogDescription>
+            </DialogHeader>
+            <CharacterFormCard
+              form={form}
+              onSubmit={submitForm}
+              submitError={formError}
+              onCancel={closeCharacterForm}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {archiveError ? (
+          <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
+            {archiveError}
+          </div>
+        ) : null}
+
+        <OfficerAssignmentsCard
+          militia={militia}
+          activeCharacters={activeCharacters}
+          assignmentWarnings={assignmentWarnings}
+          assignmentError={assignmentError}
+          pendingRole={pendingOfficerRole}
+          dragState={dragState}
+          activeDropRoleId={activeDropRoleId}
+          roleRefs={roleRefs}
+          onDismissWarnings={() => setAssignmentWarnings([])}
+          onClearRole={(role) => {
+            void clearOfficerRole(role);
+          }}
+        />
+
+        <CharacterListCard
+          activeCharacters={activeCharacters}
+          militia={militia}
+          archivingCharacterId={pendingArchiveId}
+          dragState={dragState}
+          onEdit={startEdit}
+          onArchive={(characterId) => {
+            void archive(characterId, false);
+          }}
+          onStartDrag={setDragState}
+        />
+
+        <Dialog
+          open={showArchived}
+          onOpenChange={(open) => {
+            if (!open && !pendingArchiveId && !pendingDeleteId) {
+              setShowArchived(false);
+              return;
+            }
+            if (open) {
+              setShowArchived(true);
+            }
+          }}
+        >
+          <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="font-sans text-xl">
+                Archived Characters
+              </DialogTitle>
+              <DialogDescription className="font-mono text-sm">
+                Review archived entries, restore them to the ledger, or delete
+                them permanently.
+              </DialogDescription>
+            </DialogHeader>
+            <ArchivedCharactersCard
+              archivedCharacters={archivedCharacters}
+              archivingCharacterId={pendingArchiveId}
+              deletingCharacterId={pendingDeleteId}
+              onUnarchive={(characterId) => {
+                void archive(characterId, true);
+              }}
+              onRequestDelete={(character) => {
+                setDeleteCandidate(character);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(deleteCandidate)}
+          onOpenChange={(open) => {
+            if (!open && !pendingDeleteId) {
+              setDeleteCandidate(undefined);
+            }
+          }}
+        >
+          <DialogContent className="border-primary bg-card border-2 font-mono">
+            <DialogHeader>
+              <DialogTitle className="font-sans text-xl">
+                Delete Character
+              </DialogTitle>
+              <DialogDescription className="font-mono text-sm">
+                {deleteCandidate
+                  ? `Delete archived character "${deleteCandidate.name}" permanently? This cannot be undone.`
+                  : 'Delete this archived character permanently?'}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteCandidate(undefined)}
+                disabled={Boolean(pendingDeleteId)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!deleteCandidate) return;
+                  void deleteArchived(deleteCandidate._id);
                 }}
-              />
-            </DialogContent>
-          </Dialog>
-
-          {archiveError ? (
-            <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
-              {archiveError}
-            </div>
-          ) : null}
-
-          <OfficerAssignmentsCard
-            militia={militia}
-            activeCharacters={activeCharacters}
-            assignmentWarnings={assignmentWarnings}
-            assignmentError={assignmentError}
-            pendingRole={pendingOfficerRole}
-            dragState={dragState}
-            activeDropRoleId={activeDropRoleId}
-            roleRefs={roleRefs}
-            onDismissWarnings={() => setAssignmentWarnings([])}
-            onClearRole={(role) => {
-              void clearOfficerRole(role);
-            }}
-          />
-
-          <CharacterListCard
-            activeCharacters={activeCharacters}
-            militia={militia}
-            archivingCharacterId={pendingArchiveId}
-            dragState={dragState}
-            onEdit={startEdit}
-            onArchive={(characterId) => {
-              void archive(characterId, false);
-            }}
-            onStartDrag={setDragState}
-          />
-
-          <Dialog
-            open={showArchived}
-            onOpenChange={(open) => {
-              if (!open && !pendingArchiveId && !pendingDeleteId) {
-                setShowArchived(false);
-                return;
-              }
-              if (open) {
-                setShowArchived(true);
-              }
-            }}
-          >
-            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-3xl">
-              <DialogHeader>
-                <DialogTitle className="font-sans text-xl">Archived Characters</DialogTitle>
-                <DialogDescription className="font-mono text-sm">
-                  Review archived entries, restore them to the ledger, or delete them permanently.
-                </DialogDescription>
-              </DialogHeader>
-              <ArchivedCharactersCard
-                archivedCharacters={archivedCharacters}
-                archivingCharacterId={pendingArchiveId}
-                deletingCharacterId={pendingDeleteId}
-                onUnarchive={(characterId) => {
-                  void archive(characterId, true);
-                }}
-                onRequestDelete={(character) => {
-                  setDeleteCandidate(character);
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <Dialog
-            open={Boolean(deleteCandidate)}
-            onOpenChange={(open) => {
-              if (!open && !pendingDeleteId) {
-                setDeleteCandidate(undefined);
-              }
-            }}
-          >
-            <DialogContent className="border-primary bg-card border-2 font-mono">
-              <DialogHeader>
-                <DialogTitle className="font-sans text-xl">Delete Character</DialogTitle>
-                <DialogDescription className="font-mono text-sm">
-                  {deleteCandidate
-                    ? `Delete archived character "${deleteCandidate.name}" permanently? This cannot be undone.`
-                    : 'Delete this archived character permanently?'}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDeleteCandidate(undefined)}
-                  disabled={Boolean(pendingDeleteId)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (!deleteCandidate) return;
-                    void deleteArchived(deleteCandidate._id);
-                  }}
-                  disabled={Boolean(pendingDeleteId)}
-                >
-                  {pendingDeleteId ? 'Deleting...' : 'Delete Permanently'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                disabled={Boolean(pendingDeleteId)}
+              >
+                {pendingDeleteId ? 'Deleting...' : 'Delete Permanently'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     </LedgerShell>
   );

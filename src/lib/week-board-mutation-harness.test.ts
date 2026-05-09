@@ -70,7 +70,13 @@ class FakeDb {
     if (index < 0) throw new Error(`Row not found: ${table}/${id}`);
     const current = rows[index];
     if (!current) throw new Error(`Row not found: ${table}/${id}`);
-    rows[index] = { ...current, ...patch, _id: current._id };
+    const next: Row = { ...current, ...patch, _id: current._id };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) {
+        delete (next as Record<string, unknown>)[key];
+      }
+    }
+    rows[index] = next;
     this.patches.push({ table, id, patch });
   }
 
@@ -152,6 +158,7 @@ function createBaseHarness({
 }
 
 let commitCurrentPhase: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
+let goToPreviousWeek: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
 let saveWeekBoardState: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
 let getWeekBoardState: { handler: (ctx: unknown, args: unknown) => Promise<unknown> };
 let getWeekBoardReferenceData: {
@@ -167,6 +174,7 @@ let getWeekBoardLiveState: {
 beforeAll(async () => {
   const module = await import('../../convex/weekBoard');
   commitCurrentPhase = module.commitCurrentPhase as never;
+  goToPreviousWeek = module.goToPreviousWeek as never;
   saveWeekBoardState = module.saveWeekBoardState as never;
   getWeekBoardState = module.getWeekBoardState as never;
   getWeekBoardReferenceData = module.getWeekBoardReferenceData as never;
@@ -344,6 +352,146 @@ describe('weekBoard commitCurrentPhase harness', () => {
     expect(militia?.treasury).toBe(250);
     const teams = db.getRows('militiaTeam');
     expect(teams.some((team) => team.teamId === 'merchants')).toBe(true);
+  });
+
+  it('does not dismiss a team on a failed Dismiss Team check', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['dismiss_team'],
+        activityTeamOperations: {
+          recruits: [],
+          dismissals: [{ slotIndex: 0, teamId: 'patrons' }],
+          upgrades: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          dismissTeamCheckTotal: 9,
+          dismissTeamNotorietyIncreaseTotal: 4,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      teamRows: [{ _id: 'team-1', militiaId: 'm1', teamId: 'patrons' }],
+      teamStates: [
+        {
+          _id: 'team-state-1',
+          militiaId: 'm1',
+          teamId: 'patrons',
+          status: 'active',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaTeam')).toContainEqual(
+      expect.objectContaining({ teamId: 'patrons' }),
+    );
+    expect(db.getRows('militia')[0]?.notoriety).toBe(34);
+  });
+
+  it('does not recruit a team on a failed Recruit Team check', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['recruit_team'],
+        activityTeamOperations: {
+          recruits: [{ slotIndex: 0, teamId: 'patrons' }],
+          dismissals: [],
+          upgrades: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          recruitTeamCheckTotal: 9,
+          recruitTeamNotorietyIncreaseTotal: 6,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaTeam')).toHaveLength(0);
+    expect(db.getRows('militia')[0]?.notoriety).toBe(36);
+  });
+
+  it('applies Lie Low notoriety reduction on week close', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['lie_low'],
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      teamRows: [
+        { _id: 'team-1', militiaId: 'm1', teamId: 'patrons' },
+        { _id: 'team-2', militiaId: 'm1', teamId: 'informants' },
+      ],
+      teamStates: [
+        {
+          _id: 'team-state-1',
+          militiaId: 'm1',
+          teamId: 'patrons',
+          status: 'active',
+        },
+        {
+          _id: 'team-state-2',
+          militiaId: 'm1',
+          teamId: 'informants',
+          status: 'active',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militia')[0]?.notoriety).toBe(28);
   });
 
   it('applies staged change_officer_role operations on week close', async () => {
@@ -938,6 +1086,235 @@ describe('weekBoard commitCurrentPhase harness', () => {
     );
   });
 
+  it('retrieves the discovered cache when Cache Discovered mitigation succeeds', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        eventMitigations: {
+          cacheDiscoveredMitigationTotal: 12,
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 40,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 61,
+        },
+        lockVersion: 1,
+      },
+    });
+    await db.insert('militiaCache', {
+      militiaId: 'm1',
+      label: 'Saved cache',
+      cacheClass: 'minor',
+      location: 'Old well',
+      contentsSummary: 'Potions',
+      status: 'hidden',
+      isSecureLocation: false,
+      createdWeek: 2,
+      updatedWeek: 2,
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaCache')[0]).toEqual(
+      expect.objectContaining({
+        status: 'retrieved',
+        retrievedWeek: 3,
+        updatedWeek: 3,
+      }),
+    );
+  });
+
+  it('uses Theft mitigation to reduce treasury loss to ten percent', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        eventMitigations: {
+          theftMitigationTotal: 20,
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 40,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 73,
+        },
+        lockVersion: 1,
+      },
+      militiaOverrides: {
+        treasury: 100,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militia')[0]?.treasury).toBe(90);
+  });
+
+  it('ends persistent Theft after a successful Reduce Danger action', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['reduce_danger'],
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          reduceDangerCheckTotal: 15,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      eventStates: [
+        {
+          _id: 'event-1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          eventType: 'theft',
+          isPersistent: true,
+          startedWeek: 2,
+          resolved: false,
+        },
+        {
+          _id: 'event-2',
+          militiaId: 'm1',
+          weekNumber: 2,
+          eventType: 'rivalry',
+          isPersistent: true,
+          startedWeek: 2,
+          resolved: false,
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaEventState')).toContainEqual(
+      expect.objectContaining({
+        _id: 'event-1',
+        eventType: 'theft',
+        resolved: true,
+        isPersistent: false,
+        endedWeek: 3,
+      }),
+    );
+    expect(db.getRows('militiaEventState')).toContainEqual(
+      expect.objectContaining({
+        _id: 'event-2',
+        eventType: 'rivalry',
+        resolved: false,
+        isPersistent: true,
+      }),
+    );
+  });
+
+  it('counts slot-specific modifiers when clearing persistent Theft with Reduce Danger', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [
+          {
+            kind: 'team_check_modifier',
+            appliesWeek: 3,
+            teamId: 'defenders',
+            modifierTotal: 2,
+            sourceEventType: 'turn_around',
+          },
+        ],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['reduce_danger'],
+        stagedActivityTeamIds: ['defenders'],
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          reduceDangerCheckTotal: 13,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      eventStates: [
+        {
+          _id: 'event-1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          eventType: 'theft',
+          isPersistent: true,
+          startedWeek: 2,
+          resolved: false,
+        },
+      ],
+      teamRows: [{ _id: 'team-1', militiaId: 'm1', teamId: 'defenders' }],
+      teamStates: [
+        {
+          _id: 'team-state-1',
+          militiaId: 'm1',
+          teamId: 'defenders',
+          status: 'active',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaEventState')).toContainEqual(
+      expect.objectContaining({
+        _id: 'event-1',
+        eventType: 'theft',
+        resolved: true,
+        isPersistent: false,
+        endedWeek: 3,
+      }),
+    );
+  });
+
   it('applies Market Day to the selected tracked marketplace', async () => {
     const { ctx, db } = createBaseHarness({
       weekState: {
@@ -1478,12 +1855,10 @@ describe('weekBoard commitCurrentPhase harness', () => {
         sourceAction: 'event_raid',
       }),
     );
-    expect(db.getRows('militiaSettlementState')).toContainEqual(
-      expect.objectContaining({
-        _id: 's1',
-        refugeActiveUntilWeek: undefined,
-      }),
-    );
+    const settlement = db
+      .getRows('militiaSettlementState')
+      .find((row) => row._id === 's1');
+    expect(settlement?.refugeActiveUntilWeek).toBeUndefined();
   });
 });
 
@@ -1850,6 +2225,9 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
     const state = db.getRows('militiaWeekState')[0];
     expect(state?.activityAssetOperations).toEqual({
       refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+      reduceDangerTargets: [],
+      spreadPropagandaTargets: [],
+      strikeTeams: [],
       caches: [
         {
           slotIndex: 1,
@@ -1997,6 +2375,9 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
     const state = db.getRows('militiaWeekState')[0];
     expect(state?.activityAssetOperations).toEqual({
       refuges: [],
+      reduceDangerTargets: [],
+      spreadPropagandaTargets: [],
+      strikeTeams: [],
       caches: [
         {
           slotIndex: 1,
@@ -2013,6 +2394,7 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
         {
           slotIndex: 0,
           description: 'New order',
+          notes: undefined,
           costPaid: 40,
           deliveryDays: 5,
         },
@@ -2149,6 +2531,345 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
         militiaId: 'm1' as never,
       }),
     ).rejects.toThrow(/Activate Refuge requires an existing tracked settlement: Longshadow/);
+  });
+
+  it('rolls back all committed week state changes from the saved snapshot', async () => {
+    const stagedActivityActionIds = [
+      'recruit_team',
+      'change_officer_role',
+      'activate_refuge',
+      'secure_cache',
+      'special_order',
+      'covert_action',
+    ];
+
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds,
+        stagedActivityTeamIds: [null, null, null, null, null, null],
+        activityTeamOperations: {
+          recruits: [{ slotIndex: 0, teamId: 'patrons' }],
+          dismissals: [],
+          upgrades: [],
+        },
+        activityOfficerOperations: {
+          changes: [{ slotIndex: 1, role: 'strategist', characterId: 'char2' }],
+        },
+        activityAssetOperations: {
+          refuges: [{ slotIndex: 2, settlementKey: 'Longshadow' }],
+          caches: [
+            {
+              slotIndex: 3,
+              mode: 'place',
+              label: 'North Cache',
+              cacheClass: 'minor',
+              location: 'Barn',
+              contentsSummary: 'Food and blankets',
+              checkTotal: 20,
+            },
+          ],
+          orders: [
+            {
+              slotIndex: 4,
+              description: 'Healing kits',
+              costPaid: 75,
+              deliveryDays: 14,
+            },
+          ],
+          marketplaces: [],
+          covertActions: [
+            {
+              slotIndex: 5,
+              mode: 'place_contact',
+              displayName: 'Agent Vale',
+              personKind: 'other_npc',
+              siteName: 'Citadel',
+            },
+          ],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepTeamOperations: {
+          disabledRecoveries: [],
+          missingChecks: [],
+        },
+        eventMitigations: {},
+        weekWarnings: [],
+        upkeepRollTotals: {
+          attritionTotal: 3,
+        },
+        activityRollTotals: {
+          recruitTeamCheckTotal: 10,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      militiaOverrides: {
+        rank: 19,
+        training: 4000,
+        treasury: 1000,
+        notoriety: 12,
+      },
+      settlementStates: [
+        {
+          _id: 'set1',
+          militiaId: 'm1',
+          settlementKey: 'Longshadow',
+          reputation: 'Friendly',
+          isSecured: false,
+        },
+      ],
+      characters: [
+        {
+          _id: 'char2',
+          campaignId: 'c1',
+          name: 'Talandra',
+          level: 10,
+          isActive: true,
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    const advancedWeekState = db.getRows('militiaWeekState')[0];
+    expect(advancedWeekState?.weekNumber).toBe(4);
+    expect(advancedWeekState?.phase).toBe('upkeep');
+    expect((advancedWeekState?.rollbackHistory as unknown[])?.length).toBe(1);
+    expect(db.getRows('militiaTeam')).toHaveLength(1);
+    expect(db.getRows('militiaCache')).toHaveLength(1);
+    expect(db.getRows('militiaOrder')).toHaveLength(1);
+    expect(db.getRows('militiaCharacterStatus')).toHaveLength(1);
+
+    const result = await goToPreviousWeek.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(result).toEqual({ weekNumber: 3, phase: 'week_closed' });
+
+    const militia = db.getRows('militia')[0];
+    expect(militia?.training).toBe(4000);
+    expect(militia?.treasury).toBe(1000);
+    expect(militia?.notoriety).toBe(12);
+    expect(militia?.strategist).toBeUndefined();
+
+    const weekState = db.getRows('militiaWeekState')[0];
+    expect(weekState?.weekNumber).toBe(3);
+    expect(weekState?.phase).toBe('week_closed');
+    expect(weekState?.stagedActivityActionIds).toEqual(stagedActivityActionIds);
+    expect((weekState?.rollbackHistory as unknown[]) ?? []).toEqual([]);
+
+    expect(db.getRows('militiaTeam')).toEqual([]);
+    expect(db.getRows('militiaTeamState')).toEqual([]);
+    expect(db.getRows('militiaCache')).toEqual([]);
+    expect(db.getRows('militiaOrder')).toEqual([]);
+    expect(db.getRows('militiaMarketplace')).toEqual([]);
+    expect(db.getRows('militiaCharacterStatus')).toEqual([]);
+
+    expect(db.getRows('militiaSettlementState')).toEqual([
+      {
+        _id: 'set1',
+        militiaId: 'm1',
+        settlementKey: 'Longshadow',
+        reputation: 'Friendly',
+        isSecured: false,
+      },
+    ]);
+  });
+
+  it('remaps recreated row ids when rolling back a saved snapshot', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null, null],
+        stagedActivityTeamIds: [null, null, null],
+        activityTeamOperations: {
+          recruits: [],
+          dismissals: [],
+          upgrades: [],
+        },
+        activityOfficerOperations: {
+          changes: [],
+        },
+        activityAssetOperations: {
+          refuges: [],
+          reduceDangerTargets: [],
+          spreadPropagandaTargets: [],
+          strikeTeams: [],
+          caches: [{ slotIndex: 0, mode: 'retrieve', cacheId: 'cache-1' }],
+          orders: [],
+          marketplaces: [],
+          covertActions: [],
+          rescues: [
+            {
+              slotIndex: 1,
+              targetSource: 'tracked',
+              targetStatusId: 'person-1',
+              destinationType: 'hq',
+            },
+          ],
+          restorations: [
+            {
+              slotIndex: 2,
+              targetSource: 'tracked',
+              targetStatusId: 'person-1',
+              mode: 'custom',
+              customCostTotal: 25,
+            },
+          ],
+        },
+        upkeepTeamOperations: {
+          disabledRecoveries: [],
+          missingChecks: [],
+        },
+        eventMitigations: {
+          marketDayMarketplaceId: 'market-1',
+        },
+        weekWarnings: [],
+        upkeepRollTotals: {
+          attritionTotal: 0,
+        },
+        activityRollTotals: {
+          restoreCharacterCostTotal: 25,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      cacheRows: [
+        {
+          _id: 'cache-1',
+          militiaId: 'm1',
+          label: 'North Cache',
+          cacheClass: 'minor',
+          location: 'Barn',
+          contentsSummary: 'Food and blankets',
+          status: 'hidden',
+          isSecureLocation: true,
+          createdWeek: 2,
+          updatedWeek: 2,
+        },
+      ],
+      marketplaceRows: [
+        {
+          _id: 'market-1',
+          militiaId: 'm1',
+          label: 'Longshadow Brokered Market',
+          sourceAction: 'broker_market',
+          teamId: 'merchants',
+          availabilityTier: 'small_town',
+          availabilityThreshold: 75,
+          saleValuePercent: 50,
+          contrabandAllowed: false,
+          createdWeek: 2,
+          activeUntilWeek: 4,
+        },
+      ],
+      orderRows: [
+        {
+          _id: 'order-1',
+          militiaId: 'm1',
+          description: 'Healing kits',
+          costPaid: 75,
+          deliveryDays: 14,
+          orderedWeek: 2,
+          dueWeek: 4,
+          status: 'ordered',
+          sourceAction: 'broker_market',
+          marketplaceId: 'market-1',
+        },
+      ],
+      personStatuses: [
+        {
+          _id: 'person-1',
+          militiaId: 'm1',
+          displayName: 'Agent Vale',
+          personKind: 'other_npc',
+          status: 'hidden',
+          locationType: 'site',
+          siteName: 'Citadel',
+          hiddenSinceWeek: 2,
+          sourceAction: 'covert_action',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    await db.delete('militiaCache', 'cache-1');
+    await db.delete('militiaMarketplace', 'market-1');
+    await db.delete('militiaOrder', 'order-1');
+    await db.delete('militiaCharacterStatus', 'person-1');
+
+    const result = await goToPreviousWeek.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(result).toEqual({ weekNumber: 3, phase: 'week_closed' });
+
+    const restoredCache = db.getRows('militiaCache')[0];
+    const restoredMarketplace = db.getRows('militiaMarketplace')[0];
+    const restoredOrder = db.getRows('militiaOrder')[0];
+    const restoredTrackedPerson = db.getRows('militiaCharacterStatus')[0];
+    const restoredWeekState = db.getRows('militiaWeekState')[0] as
+      | (Row & {
+          activityAssetOperations?: {
+            caches?: Array<{ cacheId?: string }>;
+            rescues?: Array<{ targetStatusId?: string }>;
+            restorations?: Array<{ targetStatusId?: string }>;
+          };
+          eventMitigations?: { marketDayMarketplaceId?: string };
+        })
+      | undefined;
+
+    expect(restoredCache?._id).not.toBe('cache-1');
+    expect(restoredMarketplace?._id).not.toBe('market-1');
+    expect(restoredOrder?._id).not.toBe('order-1');
+    expect(restoredTrackedPerson?._id).not.toBe('person-1');
+
+    expect(restoredOrder?.marketplaceId).toBe(restoredMarketplace?._id);
+    expect(
+      restoredWeekState?.activityAssetOperations?.caches?.[0]?.cacheId,
+    ).toBe(restoredCache?._id);
+    expect(
+      restoredWeekState?.activityAssetOperations?.rescues?.[0]?.targetStatusId,
+    ).toBe(restoredTrackedPerson?._id);
+    expect(
+      restoredWeekState?.activityAssetOperations?.restorations?.[0]?.targetStatusId,
+    ).toBe(restoredTrackedPerson?._id);
+    expect(restoredWeekState?.eventMitigations?.marketDayMarketplaceId).toBe(
+      restoredMarketplace?._id,
+    );
   });
 
   it('returns reference data from the split week-board query', async () => {
@@ -2498,6 +3219,714 @@ describe('weekBoard saveWeekBoardState collaboration harness', () => {
         startedWeek: 2,
       }),
     ]);
+  });
+
+  it('applies Guarantee Event notoriety and base Turncoat training loss', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['guarantee_event'],
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          guaranteeEventNotorietyIncreaseTotal: 4,
+        },
+        eventMitigations: {
+          turncoatTrainingLossTotal: 5,
+        },
+        eventRollTotals: {
+          guaranteedFirstPercentileTotal: 58,
+          guaranteedSecondPercentileTotal: 12,
+          guaranteedChosen: 'first',
+        },
+        lockVersion: 1,
+      },
+      militiaOverrides: {
+        rank: 2,
+        training: 20,
+        treasury: 100,
+        notoriety: 10,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militia')[0]).toEqual(
+      expect.objectContaining({
+        training: 15,
+        treasury: 80,
+        notoriety: 14,
+      }),
+    );
+  });
+
+  it('applies Reduce Danger, Spread Propaganda, and Strike Team week-close effects', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [
+          'reduce_danger',
+          'spread_propaganda',
+          'strike_team',
+        ],
+        stagedActivityTeamIds: [null, null, 'rangers'],
+        activityAssetOperations: {
+          refuges: [],
+          reduceDangerTargets: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+          spreadPropagandaTargets: [
+            { slotIndex: 1, settlementKey: 'Longshadow' },
+          ],
+          strikeTeams: [
+            {
+              slotIndex: 2,
+              mode: 'combat_support',
+              location: 'South gate',
+            },
+          ],
+          caches: [],
+          orders: [],
+          marketplaces: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          reduceDangerCheckTotal: 15,
+          spreadPropagandaCheckTotal: 20,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+      militiaOverrides: { rank: 4, treasury: 500 },
+      settlementStates: [
+        {
+          _id: 'settlement-1',
+          militiaId: 'm1',
+          settlementKey: 'Longshadow',
+          reputation: 'Indifferent',
+          isSecured: true,
+          temporaryShift: -1,
+        },
+      ],
+      teamRows: [{ _id: 'team-1', militiaId: 'm1', teamId: 'rangers' }],
+      teamStates: [
+        { _id: 'team-state-1', militiaId: 'm1', teamId: 'rangers', status: 'active' },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaSettlementState')[0]).toEqual(
+      expect.objectContaining({
+        reputation: 'Friendly',
+        temporaryShift: 1,
+      }),
+    );
+    expect(db.getRows('militiaWeekState')[0]?.queuedEffects).toContainEqual(
+      expect.objectContaining({
+        kind: 'table_note',
+        appliesWeek: 5,
+        strikeTeamMode: 'combat_support',
+        location: 'South gate',
+      }),
+    );
+  });
+
+  it('blocks Secure Cache while Double Agent is active', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [
+          {
+            kind: 'activity_action_block',
+            appliesWeek: 4,
+            blockedActionId: 'secure_cache',
+          },
+        ],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['secure_cache'],
+        activityAssetOperations: {
+          refuges: [],
+          caches: [
+            {
+              slotIndex: 0,
+              mode: 'place',
+              label: 'Hidden food',
+              cacheClass: 'minor',
+              location: 'Old barn',
+              contentsSummary: 'Rations',
+              checkTotal: 25,
+            },
+          ],
+          orders: [],
+          marketplaces: [],
+          covertActions: [],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+      },
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaCache')).toEqual([]);
+  });
+
+  it('uses effective modified success for Covert Action notoriety suppression', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: ['covert_action', 'reduce_danger'],
+        activityAssetOperations: {
+          refuges: [],
+          reduceDangerTargets: [{ slotIndex: 1, settlementKey: 'Longshadow' }],
+          spreadPropagandaTargets: [],
+          strikeTeams: [],
+          caches: [],
+          orders: [],
+          marketplaces: [],
+          covertActions: [
+            {
+              slotIndex: 0,
+              mode: 'augment_action',
+              followupSlotIndex: 1,
+            },
+          ],
+          rescues: [],
+          restorations: [],
+        },
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {
+          reduceDangerCheckTotal: 13,
+          reduceDangerNotorietyIncreaseTotal: 4,
+        },
+        eventRollTotals: {
+          eventChanceTotal: 100,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 44,
+        },
+        lockVersion: 1,
+      },
+      militiaOverrides: {
+        notoriety: 10,
+      },
+      settlementStates: [
+        {
+          _id: 'settlement-1',
+          militiaId: 'm1',
+          settlementKey: 'Longshadow',
+          reputation: 'Hostile',
+          isSecured: true,
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militia')[0]?.notoriety).toBe(10);
+    expect(db.getRows('militiaSettlementState')[0]).toEqual(
+      expect.objectContaining({ temporaryShift: 1 }),
+    );
+  });
+
+  it('keeps team status maps current across multiple same-week events', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        upkeepRollTotals: { attritionTotal: 0 },
+        activityRollTotals: {},
+        eventMitigations: {
+          sicknessSelectedTeamId: 'patrons',
+          turnAroundBoostTeamId: 'patrons',
+        },
+        eventRollTotals: {
+          eventChanceTotal: 100,
+          eventTriggerRollTotal: 1,
+          eventPercentileTotal: 52,
+          rollTwiceFirstTotal: 94,
+          rollTwiceSecondTotal: 30,
+        },
+        lockVersion: 1,
+      },
+      teamRows: [{ _id: 'team-1', militiaId: 'm1', teamId: 'patrons' }],
+      teamStates: [
+        {
+          _id: 'team-state-1',
+          militiaId: 'm1',
+          teamId: 'patrons',
+          status: 'active',
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+    });
+
+    expect(db.getRows('militiaTeamState')[0]).toEqual(
+      expect.objectContaining({
+        teamId: 'patrons',
+        status: 'active',
+      }),
+    );
+    expect(db.getRows('militiaWeekState')[0]?.queuedEffects).not.toContainEqual(
+      expect.objectContaining({
+        kind: 'team_check_modifier',
+        teamId: 'patrons',
+      }),
+    );
+  });
+
+  describe('effective activity check modifier matrix', () => {
+    it.each([
+      {
+        name: 'Hidden Agenda applies +2 to Secrecy checks for Activate Black Market',
+        weekState: {
+          stagedActivityActionIds: ['activate_black_market'],
+          stagedActivityTeamIds: ['blackMarketeers'],
+          activityRollTotals: { activateBlackMarketCheckTotal: 18 },
+          eventRollTotals: {
+            eventChanceTotal: 100,
+            eventTriggerRollTotal: 1,
+            eventPercentileTotal: 44,
+          },
+        },
+        setup: {
+          militiaOverrides: { treasury: 500 },
+          teamRows: [
+            { _id: 'team-1', militiaId: 'm1', teamId: 'blackMarketeers' },
+          ],
+          teamStates: [
+            {
+              _id: 'team-state-1',
+              militiaId: 'm1',
+              teamId: 'blackMarketeers',
+              status: 'active',
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaMarketplace')).toHaveLength(1);
+        },
+      },
+      {
+        name: 'Found Fire queued modifier applies +2 to Security checks for Reduce Danger',
+        weekState: {
+          stagedActivityActionIds: ['reduce_danger'],
+          queuedEffects: [
+            {
+              kind: 'organization_check_modifier',
+              appliesWeek: 4,
+              checkType: 'security',
+              modifierTotal: 2,
+              sourceEventType: 'found_fire',
+            },
+          ],
+          activityAssetOperations: {
+            reduceDangerTargets: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
+          },
+          activityRollTotals: { reduceDangerCheckTotal: 13 },
+        },
+        setup: {
+          settlementStates: [
+            {
+              _id: 'settlement-1',
+              militiaId: 'm1',
+              settlementKey: 'Longshadow',
+              reputation: 'Hostile',
+              isSecured: true,
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaSettlementState')[0]).toEqual(
+            expect.objectContaining({ temporaryShift: 1 }),
+          );
+        },
+      },
+      {
+        name: 'High Morale queued modifier applies +2 to Loyalty checks for Spread Propaganda',
+        weekState: {
+          stagedActivityActionIds: ['spread_propaganda'],
+          queuedEffects: [
+            {
+              kind: 'organization_check_modifier',
+              appliesWeek: 4,
+              checkType: 'loyalty',
+              modifierTotal: 2,
+              sourceEventType: 'high_morale',
+            },
+          ],
+          activityAssetOperations: {
+            spreadPropagandaTargets: [
+              { slotIndex: 0, settlementKey: 'Longshadow' },
+            ],
+          },
+          activityRollTotals: { spreadPropagandaCheckTotal: 18 },
+        },
+        setup: {
+          militiaOverrides: { treasury: 500 },
+          settlementStates: [
+            {
+              _id: 'settlement-1',
+              militiaId: 'm1',
+              settlementKey: 'Longshadow',
+              reputation: 'Indifferent',
+              isSecured: true,
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaSettlementState')[0]).toEqual(
+            expect.objectContaining({ reputation: 'Friendly' }),
+          );
+        },
+      },
+      {
+        name: 'Turn Around team modifier applies +2 only to the assigned team action',
+        weekState: {
+          stagedActivityActionIds: ['spread_propaganda'],
+          stagedActivityTeamIds: ['propagandists'],
+          queuedEffects: [
+            {
+              kind: 'team_check_modifier',
+              appliesWeek: 4,
+              teamId: 'propagandists',
+              modifierTotal: 2,
+              sourceEventType: 'turn_around',
+            },
+          ],
+          activityAssetOperations: {
+            spreadPropagandaTargets: [
+              { slotIndex: 0, settlementKey: 'Longshadow' },
+            ],
+          },
+          activityRollTotals: { spreadPropagandaCheckTotal: 18 },
+        },
+        setup: {
+          militiaOverrides: { treasury: 500 },
+          settlementStates: [
+            {
+              _id: 'settlement-1',
+              militiaId: 'm1',
+              settlementKey: 'Longshadow',
+              reputation: 'Indifferent',
+              isSecured: true,
+            },
+          ],
+          teamRows: [
+            { _id: 'team-1', militiaId: 'm1', teamId: 'propagandists' },
+          ],
+          teamStates: [
+            {
+              _id: 'team-state-1',
+              militiaId: 'm1',
+              teamId: 'propagandists',
+              status: 'active',
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaSettlementState')[0]).toEqual(
+            expect.objectContaining({ reputation: 'Friendly' }),
+          );
+        },
+      },
+      {
+        name: 'Week of Serenity applies +5 to all organization checks',
+        weekState: {
+          stagedActivityActionIds: ['dismiss_team'],
+          queuedEffects: [
+            { kind: 'week_of_serenity_checks_bonus', appliesWeek: 4 },
+          ],
+          activityTeamOperations: {
+            dismissals: [{ slotIndex: 0, teamId: 'patrons' }],
+          },
+          activityRollTotals: { dismissTeamCheckTotal: 5 },
+        },
+        setup: {
+          teamRows: [{ _id: 'team-1', militiaId: 'm1', teamId: 'patrons' }],
+          teamStates: [
+            {
+              _id: 'team-state-1',
+              militiaId: 'm1',
+              teamId: 'patrons',
+              status: 'active',
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaTeam')).toHaveLength(0);
+        },
+      },
+      {
+        name: 'Week of Pain applies -1 to all organization checks',
+        weekState: {
+          stagedActivityActionIds: ['secure_cache'],
+          queuedEffects: [{ kind: 'week_of_pain_checks_penalty', appliesWeek: 4 }],
+          activityAssetOperations: {
+            caches: [
+              {
+                slotIndex: 0,
+                mode: 'place',
+                label: 'Border stash',
+                cacheClass: 'minor',
+                location: 'Windmill',
+                contentsSummary: 'Rations',
+                checkTotal: 15,
+              },
+            ],
+          },
+        },
+        setup: {},
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaCache')[0]).toEqual(
+            expect.objectContaining({ status: 'pending_return' }),
+          );
+        },
+      },
+      {
+        name: 'Double Agent persistent penalty applies -2 to Secrecy recruitment',
+        weekState: {
+          stagedActivityActionIds: ['recruit_team'],
+          activityTeamOperations: {
+            recruits: [{ slotIndex: 0, teamId: 'moles' }],
+          },
+          activityRollTotals: { recruitTeamCheckTotal: 15 },
+        },
+        setup: {
+          eventStates: [
+            {
+              _id: 'event-1',
+              militiaId: 'm1',
+              weekNumber: 3,
+              eventType: 'double_agent',
+              isPersistent: true,
+              startedWeek: 3,
+              resolved: false,
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(
+            db.getRows('militiaTeam').some((team) => team.teamId === 'moles'),
+          ).toBe(false);
+        },
+      },
+      {
+        name: 'Low Morale persistent penalty applies -2 to Loyalty checks',
+        weekState: {
+          stagedActivityActionIds: ['spread_propaganda'],
+          activityAssetOperations: {
+            spreadPropagandaTargets: [
+              { slotIndex: 0, settlementKey: 'Longshadow' },
+            ],
+          },
+          activityRollTotals: { spreadPropagandaCheckTotal: 20 },
+        },
+        setup: {
+          militiaOverrides: { treasury: 500 },
+          settlementStates: [
+            {
+              _id: 'settlement-1',
+              militiaId: 'm1',
+              settlementKey: 'Longshadow',
+              reputation: 'Indifferent',
+              isSecured: true,
+            },
+          ],
+          eventStates: [
+            {
+              _id: 'event-1',
+              militiaId: 'm1',
+              weekNumber: 3,
+              eventType: 'low_morale',
+              isPersistent: true,
+              startedWeek: 3,
+              resolved: false,
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaSettlementState')[0]).toEqual(
+            expect.objectContaining({ reputation: 'Indifferent' }),
+          );
+        },
+      },
+      {
+        name: 'team modifier does not apply to a different assigned team',
+        weekState: {
+          stagedActivityActionIds: ['spread_propaganda'],
+          stagedActivityTeamIds: ['spies'],
+          queuedEffects: [
+            {
+              kind: 'team_check_modifier',
+              appliesWeek: 4,
+              teamId: 'propagandists',
+              modifierTotal: 2,
+              sourceEventType: 'turn_around',
+            },
+          ],
+          activityAssetOperations: {
+            spreadPropagandaTargets: [
+              { slotIndex: 0, settlementKey: 'Longshadow' },
+            ],
+          },
+          activityRollTotals: { spreadPropagandaCheckTotal: 18 },
+        },
+        setup: {
+          militiaOverrides: { treasury: 500 },
+          settlementStates: [
+            {
+              _id: 'settlement-1',
+              militiaId: 'm1',
+              settlementKey: 'Longshadow',
+              reputation: 'Indifferent',
+              isSecured: true,
+            },
+          ],
+          teamRows: [{ _id: 'team-1', militiaId: 'm1', teamId: 'spies' }],
+          teamStates: [
+            {
+              _id: 'team-state-1',
+              militiaId: 'm1',
+              teamId: 'spies',
+              status: 'active',
+            },
+          ],
+        },
+        assert: (db: FakeDb) => {
+          expect(db.getRows('militiaSettlementState')[0]).toEqual(
+            expect.objectContaining({ reputation: 'Indifferent' }),
+          );
+        },
+      },
+    ])('$name', async ({ weekState, setup, assert }) => {
+      const {
+        activityTeamOperations,
+        activityAssetOperations,
+        activityRollTotals,
+        ...baseWeekState
+      } = weekState;
+      const mergedWeekState: Row = {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 4,
+        phase: 'week_closed',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        upkeepRollTotals: { attritionTotal: 0 },
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        lockVersion: 1,
+        ...baseWeekState,
+      };
+      mergedWeekState.activityTeamOperations = {
+        recruits: [],
+        dismissals: [],
+        upgrades: [],
+        ...activityTeamOperations,
+      };
+      mergedWeekState.activityAssetOperations = {
+        refuges: [],
+        reduceDangerTargets: [],
+        spreadPropagandaTargets: [],
+        strikeTeams: [],
+        caches: [],
+        orders: [],
+        marketplaces: [],
+        covertActions: [],
+        rescues: [],
+        restorations: [],
+        ...activityAssetOperations,
+      };
+      mergedWeekState.activityRollTotals = {
+        ...activityRollTotals,
+      };
+
+      const { ctx, db } = createBaseHarness({
+        weekState: mergedWeekState,
+        eventStates: setup.eventStates,
+        militiaOverrides: setup.militiaOverrides,
+        settlementStates: setup.settlementStates,
+        teamRows: setup.teamRows,
+        teamStates: setup.teamStates,
+      });
+
+      await commitCurrentPhase.handler(ctx, {
+        organizationId: 'org1',
+        militiaId: 'm1' as never,
+      });
+
+      assert(db);
+    });
   });
 
   it('returns live state from the split week-board query', async () => {

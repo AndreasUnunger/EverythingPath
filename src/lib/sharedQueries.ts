@@ -3,6 +3,18 @@ import { api as db } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useQuery } from '@tanstack/react-query';
 
+function isCampaignScopedQueryEnabled({
+  campaignId,
+  orgId,
+  enabled = true,
+}: {
+  campaignId: Id<'campaign'> | undefined;
+  orgId: string | undefined;
+  enabled?: boolean;
+}) {
+  return enabled && Boolean(campaignId) && Boolean(orgId);
+}
+
 export function militiaQuery(
   campaignId: Id<'campaign'> | undefined,
   orgId: string | undefined,
@@ -13,7 +25,7 @@ export function militiaQuery(
       campaignId,
       organizationId: orgId ?? '',
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -38,7 +50,7 @@ export function characterLedgerQuery(
       organizationId: orgId,
       includeInactive,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -52,7 +64,7 @@ export function settlementLedgerQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -66,7 +78,7 @@ export function marketplaceLedgerQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -80,7 +92,7 @@ export function militiaStateSetupQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -94,7 +106,7 @@ export function weekBoardStateQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -108,7 +120,7 @@ export function weekBoardReferenceQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -122,7 +134,7 @@ export function weekBoardTrackedStateQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }
 
@@ -136,6 +148,6 @@ export function weekBoardLiveStateQuery(
       campaignId,
       organizationId: orgId,
     }),
-    enabled: enabled && !!campaignId && !!orgId,
+    enabled: isCampaignScopedQueryEnabled({ campaignId, orgId, enabled }),
   });
 }

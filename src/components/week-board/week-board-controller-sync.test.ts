@@ -125,6 +125,7 @@ describe('week board controller synced state merging', () => {
     const currentState = {
       ...previousServerState,
       activityAssetOperations: {
+        ...previousServerState.activityAssetOperations,
         refuges: [{ slotIndex: 0, settlementKey: 'Longshadow' }],
         caches: [
           {
@@ -160,6 +161,7 @@ describe('week board controller synced state merging', () => {
     const currentState = {
       ...previousServerState,
       activityAssetOperations: {
+        ...previousServerState.activityAssetOperations,
         refuges: [{ slotIndex: 1, settlementKey: 'Kraggodan' }],
         caches: [],
         orders: [
@@ -179,6 +181,7 @@ describe('week board controller synced state merging', () => {
     const nextServerState = {
       ...previousServerState,
       activityAssetOperations: {
+        ...previousServerState.activityAssetOperations,
         refuges: [{ slotIndex: 1, settlementKey: 'Kraggodan' }],
         caches: [],
         orders: [

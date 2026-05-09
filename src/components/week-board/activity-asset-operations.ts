@@ -28,6 +28,7 @@ export type TrackedPersonLocationType =
   | 'site'
   | 'unknown';
 export type CovertActionMode = 'augment_action' | 'place_contact';
+export type StrikeTeamMode = 'combat_support' | 'extraction';
 export type RestoreCharacterMode =
   | 'party_ability_damage'
   | 'party_hit_points'
@@ -42,6 +43,20 @@ export type ActivityAssetOperationsDraft = {
   refuges: Array<{
     slotIndex: number;
     settlementKey: string;
+  }>;
+  reduceDangerTargets: Array<{
+    slotIndex: number;
+    settlementKey: string;
+  }>;
+  spreadPropagandaTargets: Array<{
+    slotIndex: number;
+    settlementKey: string;
+  }>;
+  strikeTeams: Array<{
+    slotIndex: number;
+    mode?: StrikeTeamMode;
+    location?: string;
+    notes?: string;
   }>;
   caches: Array<{
     slotIndex: number;
@@ -178,6 +193,9 @@ export type TrackedPersonLedgerEntry = {
 export function createEmptyActivityAssetOperationsDraft(): ActivityAssetOperationsDraft {
   return {
     refuges: [],
+    reduceDangerTargets: [],
+    spreadPropagandaTargets: [],
+    strikeTeams: [],
     caches: [],
     orders: [],
     marketplaces: [],

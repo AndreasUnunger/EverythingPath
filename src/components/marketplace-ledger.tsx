@@ -271,11 +271,11 @@ export function MarketplaceLedger({
           <Dialog
             open={isFormOpen}
             onOpenChange={(open) => {
-              if (open) {
-                setIsFormOpen(true);
+              if (!open) {
+                closeForm();
                 return;
               }
-              closeForm();
+              setIsFormOpen(true);
             }}
           >
             <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
@@ -301,9 +301,7 @@ export function MarketplaceLedger({
           <MarketplaceListCard
             marketplaces={marketplaces}
             onEdit={startEdit}
-            onDelete={(marketplace) => {
-              void handleDelete(marketplace);
-            }}
+            onDelete={(marketplace) => void handleDelete(marketplace)}
             pendingDeleteId={pendingDeleteId}
           />
       </>

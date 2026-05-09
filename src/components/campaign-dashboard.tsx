@@ -12,6 +12,7 @@ import { CampaignInfo } from './campaignInfo';
 import { Ledger } from './ledger';
 import {
   campaignQuery,
+  characterLedgerQuery,
   marketplaceLedgerQuery,
   militiaQuery,
   militiaStateSetupQuery,
@@ -36,15 +37,18 @@ export function CampaignDashboard() {
     isLoaded && organizationId && campaignContext?.state === 'ready',
   );
   const effectiveSelectedCampaignId = useMemo(() => {
-    if (!campaigns?.length) {
-      return undefined;
-    }
-    if (selectedCampaignId && campaigns.some((campaign) => campaign._id === selectedCampaignId)) {
+    if (!campaigns?.length) return undefined;
+    if (
+      selectedCampaignId &&
+      campaigns.some((campaign) => campaign._id === selectedCampaignId)
+    ) {
       return selectedCampaignId;
     }
     return campaigns[0]?._id;
   }, [campaigns, selectedCampaignId]);
-  const selectedCampaign = campaigns?.find((x) => x._id === effectiveSelectedCampaignId);
+  const selectedCampaign = campaigns?.find(
+    (campaign) => campaign._id === effectiveSelectedCampaignId,
+  );
 
   const { data: militia } = militiaQuery(
     selectedCampaign?._id,
@@ -57,6 +61,11 @@ export function CampaignDashboard() {
     canLoadOrgData,
   );
   const { data: militiaStateSetup } = militiaStateSetupQuery(
+    selectedCampaign?._id,
+    organizationId,
+    canLoadOrgData,
+  );
+  const { data: characters } = characterLedgerQuery(
     selectedCampaign?._id,
     organizationId,
     canLoadOrgData,
@@ -136,6 +145,7 @@ export function CampaignDashboard() {
         militia={militia ?? undefined}
         militiaStateSetup={militiaStateSetup ?? undefined}
         marketplaceLedger={marketplaceLedger ?? undefined}
+        characters={characters ?? undefined}
       />
 
       <Tabs
@@ -144,13 +154,6 @@ export function CampaignDashboard() {
         className="space-y-4"
       >
         <TabsList className="bg-card grid w-full grid-cols-2 border-2 p-1">
-          {/* <TabsTrigger */}
-          {/*   value="overview" */}
-          {/*   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground font-mono text-base tracking-wider" */}
-          {/* > */}
-          {/*   <Swords className="mr-2 h-5 w-5" /> */}
-          {/*   OVERVIEW */}
-          {/* </TabsTrigger> */}
           <TabsTrigger
             value="militia"
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground font-mono text-base tracking-wider"
@@ -166,12 +169,6 @@ export function CampaignDashboard() {
             LEDGER
           </TabsTrigger>
         </TabsList>
-
-        {/* <TabsContent value="overview" className="space-y-4"> */}
-        {/*   <CampaignOverview */}
-        {/*     campaign={campaigns?.find((x) => x._id === selectedCampaign)} */}
-        {/*   /> */}
-        {/* </TabsContent> */}
 
         <TabsContent value="militia" className="space-y-4">
           <MilitiaSystem

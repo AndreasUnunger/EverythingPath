@@ -5,6 +5,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import {
   createEmptyActivityAssetOperationsDraft,
   type ActivityAssetOperationsDraft,
+  type StrikeTeamMode,
 } from '~/components/week-board/activity-asset-operations';
 import {
   buildActivityRollSummaryRows,
@@ -36,6 +37,7 @@ import type { ActionId, DragState, WeekPhase } from '~/components/week-board/typ
 import { useWeekBoardMutations } from '~/components/week-board/use-week-board-mutations';
 import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
+import { shouldApplyTreasuryShortagePenalty } from '~/lib/militia-progression-rules';
 import {
   weekBoardLiveStateQuery,
   weekBoardReferenceQuery,
@@ -140,6 +142,7 @@ export function useWeekBoardController({
     useState('');
   const [theftMitigationTotal, setTheftMitigationTotal] = useState('');
   const [sicknessTwiceLoyaltyTotal, setSicknessTwiceLoyaltyTotal] = useState('');
+  const [turncoatTrainingLossTotal, setTurncoatTrainingLossTotal] = useState('');
   const [turncoatOfficerCheckTotal, setTurncoatOfficerCheckTotal] = useState('');
   const [turncoatSelectedTeamId, setTurncoatSelectedTeamId] = useState('');
   const [missingInActionSelectedTeamId, setMissingInActionSelectedTeamId] =
@@ -163,10 +166,18 @@ export function useWeekBoardController({
 
   const minimumTreasury = data ? data.rank * 10 : 0;
   const showMaxNotorietyPenalty = Boolean(data && data.notoriety >= 100);
+  const currentWeekState = data?.state as
+    | ({ upkeepTreasurySnapshot?: number } & Record<string, unknown>)
+    | undefined;
   const showTreasuryShortagePenalty = Boolean(
-    data && data.treasury < minimumTreasury,
+    data &&
+      shouldApplyTreasuryShortagePenalty({
+        rank: data.rank,
+        currentTreasury: data.treasury,
+        upkeepTreasurySnapshot: currentWeekState?.upkeepTreasurySnapshot,
+      }),
   );
-  const stateAny = (data?.state ?? {}) as Record<string, unknown>;
+  const stateRecord = (data?.state ?? {}) as Record<string, unknown>;
   const syncScopeKey = `${data?.militiaId ?? ''}:${data?.state.weekNumber ?? 0}:${data?.state.phase ?? ''}`;
 
   useEffect(() => {
@@ -183,7 +194,7 @@ export function useWeekBoardController({
       : '';
     const defaultNearestSettlement = data.settlementKeys[0] ?? '';
     const activityOperations =
-      (stateAny.activityTeamOperations as
+      (stateRecord.activityTeamOperations as
         | {
             recruits?: Array<{ slotIndex?: number; teamId?: string }>;
             dismissals?: Array<{ slotIndex?: number; teamId?: string }>;
@@ -219,7 +230,7 @@ export function useWeekBoardController({
         })),
     };
     const activityOfficerOps =
-      (stateAny.activityOfficerOperations as
+      (stateRecord.activityOfficerOperations as
         | {
             changes?: Array<{
               slotIndex?: number;
@@ -249,9 +260,23 @@ export function useWeekBoardController({
         })),
     };
     const activityAssetOps =
-      (stateAny.activityAssetOperations as
+      (stateRecord.activityAssetOperations as
         | {
             refuges?: Array<{ slotIndex?: number; settlementKey?: string }>;
+            reduceDangerTargets?: Array<{
+              slotIndex?: number;
+              settlementKey?: string;
+            }>;
+            spreadPropagandaTargets?: Array<{
+              slotIndex?: number;
+              settlementKey?: string;
+            }>;
+            strikeTeams?: Array<{
+              slotIndex?: number;
+              mode?: StrikeTeamMode;
+              location?: string;
+              notes?: string;
+            }>;
             caches?: Array<{
               slotIndex?: number;
               mode?: 'place' | 'retrieve';
@@ -319,6 +344,9 @@ export function useWeekBoardController({
           }
         | undefined) ?? {
         refuges: [],
+        reduceDangerTargets: [],
+        spreadPropagandaTargets: [],
+        strikeTeams: [],
         caches: [],
         orders: [],
         marketplaces: [],
@@ -336,6 +364,34 @@ export function useWeekBoardController({
         .map((item) => ({
           slotIndex: item.slotIndex!,
           settlementKey: item.settlementKey!,
+        })),
+      reduceDangerTargets: (activityAssetOps.reduceDangerTargets ?? [])
+        .filter(
+          (item) =>
+            typeof item.slotIndex === 'number' &&
+            typeof item.settlementKey === 'string',
+        )
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          settlementKey: item.settlementKey!,
+        })),
+      spreadPropagandaTargets: (activityAssetOps.spreadPropagandaTargets ?? [])
+        .filter(
+          (item) =>
+            typeof item.slotIndex === 'number' &&
+            typeof item.settlementKey === 'string',
+        )
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          settlementKey: item.settlementKey!,
+        })),
+      strikeTeams: (activityAssetOps.strikeTeams ?? [])
+        .filter((item) => typeof item.slotIndex === 'number')
+        .map((item) => ({
+          slotIndex: item.slotIndex!,
+          mode: item.mode,
+          location: item.location,
+          notes: item.notes,
         })),
       caches: (activityAssetOps.caches ?? [])
         .filter(
@@ -428,7 +484,7 @@ export function useWeekBoardController({
         })),
     };
     const eventMitigations =
-      (stateAny.eventMitigations as Record<string, unknown> | undefined) ?? {};
+      (stateRecord.eventMitigations as Record<string, unknown> | undefined) ?? {};
     const nextServerState: WeekBoardControllerSyncedState = {
       upkeepAttritionTotal: upkeepTotals.attritionTotal?.toString() ?? '',
       upkeepNotorietyPenaltyTotal:
@@ -466,6 +522,10 @@ export function useWeekBoardController({
       sicknessTwiceLoyaltyTotal:
         typeof eventMitigations.sicknessTwiceLoyaltyTotal === 'number'
           ? String(eventMitigations.sicknessTwiceLoyaltyTotal)
+          : '',
+      turncoatTrainingLossTotal:
+        typeof eventMitigations.turncoatTrainingLossTotal === 'number'
+          ? String(eventMitigations.turncoatTrainingLossTotal)
           : '',
       turncoatOfficerCheckTotal:
         typeof eventMitigations.turncoatOfficerCheckTotal === 'number'
@@ -530,6 +590,7 @@ export function useWeekBoardController({
       cacheDiscoveredMitigationTotal,
       theftMitigationTotal,
       sicknessTwiceLoyaltyTotal,
+      turncoatTrainingLossTotal,
       turncoatOfficerCheckTotal,
       turncoatSelectedTeamId,
       missingInActionSelectedTeamId,
@@ -576,6 +637,7 @@ export function useWeekBoardController({
     );
     setTheftMitigationTotal(mergedState.theftMitigationTotal);
     setSicknessTwiceLoyaltyTotal(mergedState.sicknessTwiceLoyaltyTotal);
+    setTurncoatTrainingLossTotal(mergedState.turncoatTrainingLossTotal);
     setTurncoatOfficerCheckTotal(mergedState.turncoatOfficerCheckTotal);
     setTurncoatSelectedTeamId(mergedState.turncoatSelectedTeamId);
     setMissingInActionSelectedTeamId(
@@ -593,10 +655,10 @@ export function useWeekBoardController({
     data,
     syncScopeKey,
     showTreasuryShortagePenalty,
-    stateAny.activityTeamOperations,
-    stateAny.activityOfficerOperations,
-    stateAny.activityAssetOperations,
-    stateAny.eventMitigations,
+    stateRecord.activityTeamOperations,
+    stateRecord.activityOfficerOperations,
+    stateRecord.activityAssetOperations,
+    stateRecord.eventMitigations,
   ]);
 
   const phase = (data?.state.phase as WeekPhase | undefined) ?? 'upkeep';
@@ -621,7 +683,7 @@ export function useWeekBoardController({
   const persistedTeams = useMemo(() => {
     const maxActions = data?.maxActions ?? 2;
     const base =
-      (stateAny.stagedActivityTeamIds as Array<string | null> | undefined)
+      (stateRecord.stagedActivityTeamIds as Array<string | null> | undefined)
         ?.slice(0, maxActions) ?? Array.from({ length: maxActions }, () => null);
     if (base.length < maxActions) {
       return [
@@ -630,7 +692,7 @@ export function useWeekBoardController({
       ];
     }
     return base;
-  }, [data, stateAny.stagedActivityTeamIds]);
+  }, [data, stateRecord.stagedActivityTeamIds]);
 
   const slots = optimisticSlots ?? persistedSlots;
   const slotTeams = optimisticTeams ?? persistedTeams;
@@ -908,7 +970,7 @@ export function useWeekBoardController({
       organizationId,
       activityOfficerOperations,
       stagedActionIds.join('|'),
-      stateAny.activityOfficerOperations,
+      stateRecord.activityOfficerOperations,
       slots.join('|'),
     ],
     shouldSkip: () => {
@@ -1000,7 +1062,7 @@ export function useWeekBoardController({
       organizationId,
       activityTeamOperations,
       stagedActionIds.join('|'),
-      stateAny.activityTeamOperations,
+      stateRecord.activityTeamOperations,
       slots.join('|'),
     ],
     shouldSkip: () => {
@@ -1100,7 +1162,7 @@ export function useWeekBoardController({
       organizationId,
       activityAssetOperations,
       stagedActionIds.join('|'),
-      stateAny.activityAssetOperations,
+      stateRecord.activityAssetOperations,
       slots.join('|'),
     ],
     shouldSkip: () => {
@@ -1109,6 +1171,20 @@ export function useWeekBoardController({
         ((data.state as Record<string, unknown>).activityAssetOperations as
           | {
               refuges?: Array<{ slotIndex: number; settlementKey: string }>;
+              reduceDangerTargets?: Array<{
+                slotIndex: number;
+                settlementKey: string;
+              }>;
+              spreadPropagandaTargets?: Array<{
+                slotIndex: number;
+                settlementKey: string;
+              }>;
+              strikeTeams?: Array<{
+                slotIndex: number;
+                mode?: StrikeTeamMode;
+                location?: string;
+                notes?: string;
+              }>;
               caches?: Array<{
                 slotIndex: number;
                 mode: 'place' | 'retrieve';
@@ -1176,6 +1252,9 @@ export function useWeekBoardController({
             }
           | undefined) ?? {
           refuges: [],
+          reduceDangerTargets: [],
+          spreadPropagandaTargets: [],
+          strikeTeams: [],
           caches: [],
           orders: [],
           marketplaces: [],
@@ -1186,6 +1265,9 @@ export function useWeekBoardController({
       const serverNormalized = normalizeActivityAssetOperationsForSlots(
         {
           refuges: server.refuges ?? [],
+          reduceDangerTargets: server.reduceDangerTargets ?? [],
+          spreadPropagandaTargets: server.spreadPropagandaTargets ?? [],
+          strikeTeams: server.strikeTeams ?? [],
           caches: (server.caches ?? []).map((entry) => ({
             slotIndex: entry.slotIndex,
             mode: entry.mode,
@@ -1257,6 +1339,10 @@ export function useWeekBoardController({
       return !buildChangedObjectPatch(
         {
           refuges: normalizedActivityAssetOperations.refuges,
+          reduceDangerTargets: normalizedActivityAssetOperations.reduceDangerTargets,
+          spreadPropagandaTargets:
+            normalizedActivityAssetOperations.spreadPropagandaTargets,
+          strikeTeams: normalizedActivityAssetOperations.strikeTeams,
           caches: normalizedActivityAssetOperations.caches,
           orders: normalizedActivityAssetOperations.orders,
           marketplaces: normalizedActivityAssetOperations.marketplaces,
@@ -1266,6 +1352,9 @@ export function useWeekBoardController({
         },
         {
           refuges: serverNormalized.refuges,
+          reduceDangerTargets: serverNormalized.reduceDangerTargets,
+          spreadPropagandaTargets: serverNormalized.spreadPropagandaTargets,
+          strikeTeams: serverNormalized.strikeTeams,
           caches: serverNormalized.caches,
           orders: serverNormalized.orders,
           marketplaces: serverNormalized.marketplaces,
@@ -1281,6 +1370,20 @@ export function useWeekBoardController({
         ((data.state as Record<string, unknown>).activityAssetOperations as
           | {
               refuges?: Array<{ slotIndex: number; settlementKey: string }>;
+              reduceDangerTargets?: Array<{
+                slotIndex: number;
+                settlementKey: string;
+              }>;
+              spreadPropagandaTargets?: Array<{
+                slotIndex: number;
+                settlementKey: string;
+              }>;
+              strikeTeams?: Array<{
+                slotIndex: number;
+                mode?: StrikeTeamMode;
+                location?: string;
+                notes?: string;
+              }>;
               caches?: Array<{
                 slotIndex: number;
                 mode: 'place' | 'retrieve';
@@ -1348,6 +1451,9 @@ export function useWeekBoardController({
             }
           | undefined) ?? {
           refuges: [],
+          reduceDangerTargets: [],
+          spreadPropagandaTargets: [],
+          strikeTeams: [],
           caches: [],
           orders: [],
           marketplaces: [],
@@ -1358,6 +1464,9 @@ export function useWeekBoardController({
       const serverNormalized = normalizeActivityAssetOperationsForSlots(
         {
           refuges: server.refuges ?? [],
+          reduceDangerTargets: server.reduceDangerTargets ?? [],
+          spreadPropagandaTargets: server.spreadPropagandaTargets ?? [],
+          strikeTeams: server.strikeTeams ?? [],
           caches: (server.caches ?? []).map((entry) => ({
             slotIndex: entry.slotIndex,
             mode: entry.mode,
@@ -1429,6 +1538,10 @@ export function useWeekBoardController({
       const patch = buildChangedObjectPatch(
         {
           refuges: normalizedActivityAssetOperations.refuges,
+          reduceDangerTargets: normalizedActivityAssetOperations.reduceDangerTargets,
+          spreadPropagandaTargets:
+            normalizedActivityAssetOperations.spreadPropagandaTargets,
+          strikeTeams: normalizedActivityAssetOperations.strikeTeams,
           caches: normalizedActivityAssetOperations.caches,
           orders: normalizedActivityAssetOperations.orders,
           marketplaces: normalizedActivityAssetOperations.marketplaces,
@@ -1438,6 +1551,9 @@ export function useWeekBoardController({
         },
         {
           refuges: serverNormalized.refuges,
+          reduceDangerTargets: serverNormalized.reduceDangerTargets,
+          spreadPropagandaTargets: serverNormalized.spreadPropagandaTargets,
+          strikeTeams: serverNormalized.strikeTeams,
           caches: serverNormalized.caches,
           orders: serverNormalized.orders,
           marketplaces: serverNormalized.marketplaces,
@@ -1467,6 +1583,7 @@ export function useWeekBoardController({
       cacheDiscoveredMitigationTotal,
       theftMitigationTotal,
       sicknessTwiceLoyaltyTotal,
+      turncoatTrainingLossTotal,
       turncoatOfficerCheckTotal,
       turncoatSelectedTeamId,
       missingInActionSelectedTeamId,
@@ -1476,7 +1593,7 @@ export function useWeekBoardController({
       marketDayTownName,
       rivalrySelectedTeamIds.join('|'),
       effectiveOverseerEventSupportTarget,
-      stateAny.eventMitigations,
+      stateRecord.eventMitigations,
       resolvedEventNames.join('|'),
     ],
     shouldSkip: () => {
@@ -1503,6 +1620,9 @@ export function useWeekBoardController({
           sicknessTwiceLoyaltyTotal: hasSickness
             ? sicknessTwiceLoyaltyTotal
             : '',
+          turncoatTrainingLossTotal: hasTurncoat
+            ? turncoatTrainingLossTotal
+            : '',
           turncoatOfficerCheckTotal: hasTurncoat ? turncoatOfficerCheckTotal : '',
           turncoatSelectedTeamId: hasTurncoat
             ? turncoatSelectedTeamId || null
@@ -1527,6 +1647,8 @@ export function useWeekBoardController({
           theftMitigationTotal: server.theftMitigationTotal?.toString() ?? '',
           sicknessTwiceLoyaltyTotal:
             server.sicknessTwiceLoyaltyTotal?.toString() ?? '',
+          turncoatTrainingLossTotal:
+            server.turncoatTrainingLossTotal?.toString() ?? '',
           turncoatOfficerCheckTotal:
             server.turncoatOfficerCheckTotal?.toString() ?? '',
           turncoatSelectedTeamId:
@@ -1589,6 +1711,9 @@ export function useWeekBoardController({
           sicknessTwiceLoyaltyTotal: hasSickness
             ? sicknessTwiceLoyaltyTotal
             : '',
+          turncoatTrainingLossTotal: hasTurncoat
+            ? turncoatTrainingLossTotal
+            : '',
           turncoatOfficerCheckTotal: hasTurncoat ? turncoatOfficerCheckTotal : '',
           turncoatSelectedTeamId: hasTurncoat
             ? turncoatSelectedTeamId || null
@@ -1612,6 +1737,8 @@ export function useWeekBoardController({
           theftMitigationTotal: server.theftMitigationTotal?.toString() ?? '',
           sicknessTwiceLoyaltyTotal:
             server.sicknessTwiceLoyaltyTotal?.toString() ?? '',
+          turncoatTrainingLossTotal:
+            server.turncoatTrainingLossTotal?.toString() ?? '',
           turncoatOfficerCheckTotal:
             server.turncoatOfficerCheckTotal?.toString() ?? '',
           turncoatSelectedTeamId:
@@ -2051,6 +2178,71 @@ export function useWeekBoardController({
         ...(settlementKey.trim() ? [{ slotIndex, settlementKey }] : []),
       ],
     }));
+  };
+
+  const setReduceDangerTargetForSlot = (
+    slotIndex: number,
+    settlementKey: string,
+  ) => {
+    setActivityAssetOperations((current) => ({
+      ...current,
+      reduceDangerTargets: [
+        ...current.reduceDangerTargets.filter(
+          (entry) => entry.slotIndex !== slotIndex,
+        ),
+        ...(settlementKey.trim() ? [{ slotIndex, settlementKey }] : []),
+      ],
+    }));
+  };
+
+  const setSpreadPropagandaTargetForSlot = (
+    slotIndex: number,
+    settlementKey: string,
+  ) => {
+    setActivityAssetOperations((current) => ({
+      ...current,
+      spreadPropagandaTargets: [
+        ...current.spreadPropagandaTargets.filter(
+          (entry) => entry.slotIndex !== slotIndex,
+        ),
+        ...(settlementKey.trim() ? [{ slotIndex, settlementKey }] : []),
+      ],
+    }));
+  };
+
+  const setStrikeTeamForSlot = ({
+    slotIndex,
+    mode,
+    location,
+    notes,
+  }: {
+    slotIndex: number;
+    mode?: StrikeTeamMode;
+    location?: string;
+    notes?: string;
+  }) => {
+    setActivityAssetOperations((current) => {
+      const previous = current.strikeTeams.find(
+        (entry) => entry.slotIndex === slotIndex,
+      );
+      const nextEntry = {
+        slotIndex,
+        mode: mode ?? previous?.mode,
+        location: location ?? previous?.location,
+        notes: notes ?? previous?.notes,
+      };
+      const isMeaningful =
+        nextEntry.mode !== undefined ||
+        (nextEntry.location ?? '').trim() ||
+        (nextEntry.notes ?? '').trim();
+      return {
+        ...current,
+        strikeTeams: [
+          ...current.strikeTeams.filter((entry) => entry.slotIndex !== slotIndex),
+          ...(isMeaningful ? [nextEntry] : []),
+        ],
+      };
+    });
   };
 
   const setCacheOperationForSlot = ({
@@ -2604,6 +2796,9 @@ export function useWeekBoardController({
     setUpgradeTeamsForSlot,
     setOfficerChangeForSlot,
     setRefugeSettlementForSlot,
+    setReduceDangerTargetForSlot,
+    setSpreadPropagandaTargetForSlot,
+    setStrikeTeamForSlot,
     setCacheOperationForSlot,
     setOrderForSlot,
     setMarketplaceForSlot,
@@ -2616,6 +2811,8 @@ export function useWeekBoardController({
     setTheftMitigationTotal,
     sicknessTwiceLoyaltyTotal,
     setSicknessTwiceLoyaltyTotal,
+    turncoatTrainingLossTotal,
+    setTurncoatTrainingLossTotal,
     turncoatOfficerCheckTotal,
     setTurncoatOfficerCheckTotal,
     turncoatSelectedTeamId,
@@ -2766,6 +2963,29 @@ function normalizeActivityAssetOperationsForSlots(
           Boolean(entry.settlementKey?.trim()),
       )
       .sort((a, b) => a.slotIndex - b.slotIndex),
+    reduceDangerTargets: operations.reduceDangerTargets
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'reduce_danger' &&
+          Boolean(entry.settlementKey?.trim()),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    spreadPropagandaTargets: operations.spreadPropagandaTargets
+      .filter(
+        (entry) =>
+          slots[entry.slotIndex] === 'spread_propaganda' &&
+          Boolean(entry.settlementKey?.trim()),
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
+    strikeTeams: operations.strikeTeams
+      .filter(
+        (
+          entry,
+        ): entry is ActivityAssetOperationsDraft['strikeTeams'][number] & {
+          mode: StrikeTeamMode;
+        } => slots[entry.slotIndex] === 'strike_team' && entry.mode !== undefined,
+      )
+      .sort((a, b) => a.slotIndex - b.slotIndex),
     caches: operations.caches
       .filter(
         (entry) =>
@@ -2883,6 +3103,21 @@ function remapActivityAssetOperationsForSlotChange(
     refuges: remapSlotIndexedEntries(
       operations.refuges,
       'activate_refuge',
+      slotChange,
+    ),
+    reduceDangerTargets: remapSlotIndexedEntries(
+      operations.reduceDangerTargets,
+      'reduce_danger',
+      slotChange,
+    ),
+    spreadPropagandaTargets: remapSlotIndexedEntries(
+      operations.spreadPropagandaTargets,
+      'spread_propaganda',
+      slotChange,
+    ),
+    strikeTeams: remapSlotIndexedEntries(
+      operations.strikeTeams,
+      'strike_team',
       slotChange,
     ),
     caches: remapSlotIndexedEntries(operations.caches, 'secure_cache', slotChange),

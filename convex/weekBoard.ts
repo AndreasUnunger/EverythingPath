@@ -9,6 +9,7 @@ import {
   officerRoleValidator,
   phaseValidator,
   restoreCharacterModeValidator,
+  strikeTeamModeValidator,
   teamIdValidator,
   trackedPersonKindValidator,
 } from './schema';
@@ -21,9 +22,15 @@ import {
   deriveFutureEffectsAndPersistence,
   computeNextUneventfulBonusCarry,
   getWeekModifiers,
+  getQueuedOrganizationCheckModifier,
+  getResolvedActivityCheckModifier,
+  getTeamQueuedCheckModifier,
+  isActivityActionBlocked,
   resolveWeekEvents,
   resolveEventFromPercentile,
   shouldApplyBaseEffect,
+  type EventType,
+  type QueueEffect,
 } from './weekResolution';
 import {
   buildTeamOperationWarnings,
@@ -40,6 +47,7 @@ import {
 import {
   getMaxActionsForMilitia as getSharedMaxActionsForMilitia,
   getMaxActionsForRank,
+  getMilitiaNotoriety,
   getMinimumTrainingForRank,
 } from '../src/lib/militia-progression-rules';
 import teamDefinitions from './data/teams';
@@ -55,6 +63,10 @@ function getMaxActionsForMilitia({
     rank,
     strategistAssigned: Boolean(strategist),
   });
+}
+
+function normalizeMilitiaNotorietyValue(notoriety?: number) {
+  return getMilitiaNotoriety(notoriety);
 }
 
 function isStrategistOfficerChangeActive({
@@ -306,6 +318,7 @@ function buildWeekStateResponse({
 }) {
   const currentStateAny = currentState as
     | (Doc<'militiaWeekState'> & {
+        rollbackHistory?: WeekRollbackSnapshot[];
         stagedActivityTeamIds?: (string | null)[];
         activityTeamOperations?: {
           recruits: Array<{ slotIndex: number; teamId: string }>;
@@ -331,6 +344,20 @@ function buildWeekStateResponse({
         };
         activityAssetOperations?: {
           refuges: Array<{ slotIndex: number; settlementKey: string }>;
+          reduceDangerTargets?: Array<{
+            slotIndex: number;
+            settlementKey: string;
+          }>;
+          spreadPropagandaTargets?: Array<{
+            slotIndex: number;
+            settlementKey: string;
+          }>;
+          strikeTeams?: Array<{
+            slotIndex: number;
+            mode?: 'combat_support' | 'extraction';
+            location?: string;
+            notes?: string;
+          }>;
           caches: Array<{
             slotIndex: number;
             mode: 'place' | 'retrieve';
@@ -430,6 +457,9 @@ function buildWeekStateResponse({
       },
       activityAssetOperations: {
         refuges: [],
+        reduceDangerTargets: [],
+        spreadPropagandaTargets: [],
+        strikeTeams: [],
         caches: [],
         orders: [],
         marketplaces: [],
@@ -450,8 +480,11 @@ function buildWeekStateResponse({
     };
   }
 
+  const { rollbackHistory: _ignoredRollbackHistory, ...currentStateForClient } =
+    currentStateAny;
+
   return {
-    ...currentStateAny,
+    ...currentStateForClient,
     stagedActivityTeamIds:
       currentStateAny.stagedActivityTeamIds ??
       Array.from({ length: currentMaxActions }, () => null),
@@ -465,6 +498,11 @@ function buildWeekStateResponse({
     },
     activityAssetOperations: {
       refuges: currentStateAny.activityAssetOperations?.refuges ?? [],
+      reduceDangerTargets:
+        currentStateAny.activityAssetOperations?.reduceDangerTargets ?? [],
+      spreadPropagandaTargets:
+        currentStateAny.activityAssetOperations?.spreadPropagandaTargets ?? [],
+      strikeTeams: currentStateAny.activityAssetOperations?.strikeTeams ?? [],
       caches: currentStateAny.activityAssetOperations?.caches ?? [],
       orders: currentStateAny.activityAssetOperations?.orders ?? [],
       marketplaces: currentStateAny.activityAssetOperations?.marketplaces ?? [],
@@ -616,6 +654,214 @@ function getTeamStatusRowsByTeamId<
   );
 }
 
+type RollbackSnapshotRow = {
+  id: string;
+  [key: string]: unknown;
+};
+
+type WeekRollbackSnapshot = {
+  weekState: Record<string, unknown>;
+  militia: Record<string, unknown>;
+  teams: RollbackSnapshotRow[];
+  teamStates: RollbackSnapshotRow[];
+  settlements: RollbackSnapshotRow[];
+  caches: RollbackSnapshotRow[];
+  marketplaces: RollbackSnapshotRow[];
+  orders: RollbackSnapshotRow[];
+  trackedPeople: RollbackSnapshotRow[];
+  events: RollbackSnapshotRow[];
+};
+
+function stripSystemFields<T extends { _id?: string; _creationTime?: number }>(
+  row: T,
+) {
+  const { _id: _ignoredId, _creationTime: _ignoredCreationTime, ...rest } = row;
+  return rest;
+}
+
+function snapshotRow<T extends { _id: string; _creationTime?: number }>(row: T) {
+  return {
+    id: row._id,
+    ...stripSystemFields(row),
+  } as RollbackSnapshotRow;
+}
+
+function buildRollbackSnapshot({
+  currentWeekState,
+  militia,
+  teamRows,
+  teamStateRows,
+  settlementRows,
+  cacheRows,
+  marketplaceRows,
+  orderRows,
+  trackedPeopleRows,
+  eventRows,
+}: {
+  currentWeekState: Doc<'militiaWeekState'> & {
+    rollbackHistory?: WeekRollbackSnapshot[];
+  };
+  militia: Doc<'militia'>;
+  teamRows: Doc<'militiaTeam'>[];
+  teamStateRows: Doc<'militiaTeamState'>[];
+  settlementRows: Doc<'militiaSettlementState'>[];
+  cacheRows: Doc<'militiaCache'>[];
+  marketplaceRows: Doc<'militiaMarketplace'>[];
+  orderRows: Doc<'militiaOrder'>[];
+  trackedPeopleRows: Doc<'militiaCharacterStatus'>[];
+  eventRows: Doc<'militiaEventState'>[];
+}) {
+  const {
+    rollbackHistory: _ignoredRollbackHistory,
+    ...weekState
+  } = stripSystemFields(currentWeekState);
+
+  return {
+    weekState,
+    militia: stripSystemFields(militia),
+    teams: teamRows.map(snapshotRow),
+    teamStates: teamStateRows.map(snapshotRow),
+    settlements: settlementRows.map(snapshotRow),
+    caches: cacheRows.map(snapshotRow),
+    marketplaces: marketplaceRows.map(snapshotRow),
+    orders: orderRows.map(snapshotRow),
+    trackedPeople: trackedPeopleRows.map(snapshotRow),
+    events: eventRows.map(snapshotRow),
+  } satisfies WeekRollbackSnapshot;
+}
+
+async function syncMilitiaRowsFromSnapshot({
+  ctx,
+  table,
+  currentRows,
+  snapshotRows,
+  getCurrentKey,
+  getSnapshotKey,
+  mapSnapshotToDoc,
+}: {
+  ctx: MutationCtx;
+  table:
+    | 'militiaTeam'
+    | 'militiaTeamState'
+    | 'militiaSettlementState'
+    | 'militiaCache'
+    | 'militiaMarketplace'
+    | 'militiaOrder'
+    | 'militiaCharacterStatus'
+    | 'militiaEventState';
+  currentRows: Array<{ _id: string } & Record<string, unknown>>;
+  snapshotRows: RollbackSnapshotRow[];
+  getCurrentKey: (row: { _id: string } & Record<string, unknown>) => string;
+  getSnapshotKey: (row: RollbackSnapshotRow) => string;
+  mapSnapshotToDoc?: (row: RollbackSnapshotRow) => Record<string, unknown>;
+}) {
+  const currentByKey = new Map(currentRows.map((row) => [getCurrentKey(row), row]));
+  const snapshotKeys = new Set<string>();
+  const restoredIds = new Map<string, string>();
+
+  for (const snapshotRow of snapshotRows) {
+    const key = getSnapshotKey(snapshotRow);
+    snapshotKeys.add(key);
+    const existing = currentByKey.get(key);
+    const { id: _ignoredId, ...rawDoc } = snapshotRow;
+    const doc = mapSnapshotToDoc ? mapSnapshotToDoc(snapshotRow) : rawDoc;
+
+    if (existing) {
+      await ctx.db.patch(table, existing._id as never, doc as never);
+      restoredIds.set(snapshotRow.id, existing._id);
+      continue;
+    }
+
+    const insertedId = await ctx.db.insert(table, doc as never);
+    restoredIds.set(snapshotRow.id, insertedId);
+  }
+
+  for (const currentRow of currentRows) {
+    const key = getCurrentKey(currentRow);
+    if (!snapshotKeys.has(key)) {
+      await ctx.db.delete(table, currentRow._id as never);
+    }
+  }
+
+  return restoredIds;
+}
+
+function snapshotRowToDoc(
+  row: RollbackSnapshotRow,
+  optionalKeys: string[] = [],
+): Record<string, unknown> {
+  const { id: _ignoredId, ...doc } = row;
+  const nextDoc: Record<string, unknown> = { ...doc };
+  for (const key of optionalKeys) {
+    if (!(key in nextDoc)) {
+      nextDoc[key] = undefined;
+    }
+  }
+  return nextDoc;
+}
+
+function remapWeekStateSnapshotIds({
+  weekState,
+  cacheIds,
+  marketplaceIds,
+  trackedPersonIds,
+}: {
+  weekState: Record<string, unknown>;
+  cacheIds: Map<string, string>;
+  marketplaceIds: Map<string, string>;
+  trackedPersonIds: Map<string, string>;
+}): Record<string, unknown> {
+  const currentAny = weekState as {
+    activityAssetOperations?: {
+      caches?: Array<Record<string, unknown> & { cacheId?: string }>;
+      rescues?: Array<Record<string, unknown> & { targetStatusId?: string }>;
+      restorations?: Array<Record<string, unknown> & { targetStatusId?: string }>;
+    };
+    eventMitigations?: Record<string, unknown> & { marketDayMarketplaceId?: string };
+  };
+
+  const remappedWeekState: Record<string, unknown> = { ...weekState };
+
+  if (currentAny.activityAssetOperations) {
+    remappedWeekState.activityAssetOperations = {
+      ...currentAny.activityAssetOperations,
+      caches: (currentAny.activityAssetOperations.caches ?? []).map((cache) => ({
+        ...cache,
+        cacheId: cache.cacheId
+          ? (cacheIds.get(cache.cacheId) ?? cache.cacheId)
+          : undefined,
+      })),
+      rescues: (currentAny.activityAssetOperations.rescues ?? []).map((rescue) => ({
+        ...rescue,
+        targetStatusId: rescue.targetStatusId
+          ? (trackedPersonIds.get(rescue.targetStatusId) ?? rescue.targetStatusId)
+          : undefined,
+      })),
+      restorations: (currentAny.activityAssetOperations.restorations ?? []).map(
+        (restoration) => ({
+          ...restoration,
+          targetStatusId: restoration.targetStatusId
+            ? (trackedPersonIds.get(restoration.targetStatusId) ??
+                restoration.targetStatusId)
+            : undefined,
+        }),
+      ),
+    };
+  }
+
+  if (currentAny.eventMitigations) {
+    remappedWeekState.eventMitigations = {
+      ...currentAny.eventMitigations,
+      marketDayMarketplaceId: currentAny.eventMitigations.marketDayMarketplaceId
+        ? (marketplaceIds.get(currentAny.eventMitigations.marketDayMarketplaceId) ??
+            currentAny.eventMitigations.marketDayMarketplaceId)
+        : undefined,
+    };
+  }
+
+  return remappedWeekState;
+}
+
 function eventWouldOccur({
   chanceTotal,
   triggerRollTotal,
@@ -635,9 +881,36 @@ const RECRUITMENT_DC_BY_TEAM_ID = new Map(
     .filter((team) => team.recruitment)
     .map((team) => [team.id, team.recruitment!.dc]),
 );
+const RECRUITMENT_CHECK_TYPE_BY_TEAM_ID = new Map(
+  teamDefinitions
+    .filter((team) => team.recruitment)
+    .map((team) => [
+      team.id,
+      team.recruitment!.check.toLowerCase() as 'loyalty' | 'security' | 'secrecy',
+    ]),
+);
+
+const REPUTATION_STEPS = [
+  'Hostile',
+  'Unfriendly',
+  'Indifferent',
+  'Friendly',
+  'Helpful',
+] as const;
+
+function raiseReputationOneStep(
+  reputation: (typeof REPUTATION_STEPS)[number],
+) {
+  const index = REPUTATION_STEPS.indexOf(reputation);
+  return (
+    REPUTATION_STEPS[Math.min(REPUTATION_STEPS.length - 1, index + 1)] ??
+    reputation
+  );
+}
 
 function getSuccessfulCovertAugmentTargets({
   current,
+  getEffectiveActivityCheckTotal,
 }: {
   current: {
     stagedActivityActionIds: (string | null)[];
@@ -672,6 +945,15 @@ function getSuccessfulCovertAugmentTargets({
       }>;
     };
   };
+  getEffectiveActivityCheckTotal: ({
+    rawTotal,
+    checkType,
+    slotIndex,
+  }: {
+    rawTotal?: number;
+    checkType: 'loyalty' | 'security' | 'secrecy';
+    slotIndex?: number;
+  }) => number | undefined;
 }) {
   const suppressedActionIds = new Set<string>();
   const activity = current.activityRollTotals ?? {};
@@ -703,13 +985,28 @@ function getSuccessfulCovertAugmentTargets({
 
     let succeeded = false;
     if (targetActionId === 'activate_black_market') {
-      succeeded = (activity.activateBlackMarketCheckTotal ?? -Infinity) >= 20;
+      succeeded =
+        (getEffectiveActivityCheckTotal({
+          rawTotal: activity.activateBlackMarketCheckTotal,
+          checkType: 'secrecy',
+          slotIndex: targetSlotIndex,
+        }) ?? -Infinity) >= 20;
     } else if (targetActionId === 'dismiss_team') {
-      succeeded = (activity.dismissTeamCheckTotal ?? -Infinity) >= 10;
+      succeeded =
+        (getEffectiveActivityCheckTotal({
+          rawTotal: activity.dismissTeamCheckTotal,
+          checkType: 'loyalty',
+          slotIndex: targetSlotIndex,
+        }) ?? -Infinity) >= 10;
     } else if (targetActionId === 'earn_gold') {
       succeeded = activity.earnGoldCheckTotal !== undefined;
     } else if (targetActionId === 'gather_information') {
-      succeeded = (activity.gatherInformationCheckTotal ?? -Infinity) >= 15;
+      succeeded =
+        (getEffectiveActivityCheckTotal({
+          rawTotal: activity.gatherInformationCheckTotal,
+          checkType: 'secrecy',
+          slotIndex: targetSlotIndex,
+        }) ?? -Infinity) >= 15;
     } else if (targetActionId === 'recruit_team') {
       const recruitEntry = recruitEntries.find(
         (entry) => entry.slotIndex === targetSlotIndex,
@@ -717,10 +1014,23 @@ function getSuccessfulCovertAugmentTargets({
       const dc = recruitEntry?.teamId
         ? RECRUITMENT_DC_BY_TEAM_ID.get(recruitEntry.teamId)
         : undefined;
+      const checkType = recruitEntry?.teamId
+        ? (RECRUITMENT_CHECK_TYPE_BY_TEAM_ID.get(recruitEntry.teamId) ?? 'loyalty')
+        : 'loyalty';
       succeeded =
-        dc !== undefined && (activity.recruitTeamCheckTotal ?? -Infinity) >= dc;
+        dc !== undefined &&
+        (getEffectiveActivityCheckTotal({
+          rawTotal: activity.recruitTeamCheckTotal,
+          checkType,
+          slotIndex: targetSlotIndex,
+        }) ?? -Infinity) >= dc;
     } else if (targetActionId === 'reduce_danger') {
-      succeeded = (activity.reduceDangerCheckTotal ?? -Infinity) >= 15;
+      succeeded =
+        (getEffectiveActivityCheckTotal({
+          rawTotal: activity.reduceDangerCheckTotal,
+          checkType: 'security',
+          slotIndex: targetSlotIndex,
+        }) ?? -Infinity) >= 15;
     } else if (targetActionId === 'rescue_character') {
       const rescueEntry = rescueEntries.find(
         (entry) => entry.slotIndex === targetSlotIndex,
@@ -729,7 +1039,11 @@ function getSuccessfulCovertAugmentTargets({
         rescueEntry?.targetLevel ?? activity.rescueCharacterTargetLevelTotal;
       succeeded =
         targetLevel !== undefined &&
-        (activity.rescueCharacterCheckTotal ?? -Infinity) >= 10 + targetLevel;
+        (getEffectiveActivityCheckTotal({
+          rawTotal: activity.rescueCharacterCheckTotal,
+          checkType: 'security',
+          slotIndex: targetSlotIndex,
+        }) ?? -Infinity) >= 10 + targetLevel;
     }
 
     if (succeeded) {
@@ -750,6 +1064,7 @@ function applyWeekResolution({
     weekNumber: number;
     uneventfulBonusCarry: number;
     stagedActivityActionIds: (string | null)[];
+    stagedActivityTeamIds?: (string | null)[];
     upkeepRollTotals?: {
       attritionTotal?: number;
       notorietyPenaltyTotal?: number;
@@ -768,6 +1083,7 @@ function applyWeekResolution({
       earnGoldNotorietyIncreaseTotal?: number;
       gatherInformationCheckTotal?: number;
       gatherInformationNotorietyIncreaseTotal?: number;
+      guaranteeEventNotorietyIncreaseTotal?: number;
       recruitTeamCheckTotal?: number;
       recruitTeamNotorietyIncreaseTotal?: number;
       reduceDangerCheckTotal?: number;
@@ -790,6 +1106,10 @@ function applyWeekResolution({
         targetLevel?: number;
       }>;
     };
+    eventMitigations?: {
+      theftMitigationTotal?: number;
+      turncoatTrainingLossTotal?: number;
+    };
     eventRollTotals?: {
       eventChanceTotal?: number;
       eventTriggerRollTotal?: number;
@@ -809,47 +1129,15 @@ function applyWeekResolution({
     treasury: number;
     notoriety: number;
   };
-  activeQueuedEffects: Array<{
-    kind:
-      | 'week_of_pain_checks_penalty'
-      | 'double_upkeep_attrition'
-      | 'week_of_serenity_checks_bonus'
-      | 'double_next_activity_training_gain'
-      | 'all_is_calm_auto_next_week'
-      | 'auto_event_roll_once'
-      | 'auto_event_roll_twice';
-    appliesWeek: number;
-    note?: string;
-  }>;
-  activePersistentEventTypes: Array<
-    | 'all_is_calm'
-    | 'broke_the_code'
-    | 'cache_discovered'
-    | 'calm_before_the_storm'
-    | 'double_agent'
-    | 'festival'
-    | 'found_fire'
-    | 'hidden_agenda'
-    | 'high_morale'
-    | 'invasion'
-    | 'low_morale'
-    | 'market_day'
-    | 'missing_in_action'
-    | 'night_ops'
-    | 'raid'
-    | 'rivalry'
-    | 'roll_twice'
-    | 'sickness'
-    | 'theft'
-    | 'turn_around'
-    | 'turncoat'
-    | 'war_games'
-    | 'week_of_pain'
-    | 'week_of_serenity'
-  >;
+  activeQueuedEffects: QueueEffect[];
+  activePersistentEventTypes: EventType[];
 }) {
   const upkeep = current.upkeepRollTotals ?? {};
   const activity = current.activityRollTotals ?? {};
+  const eventMitigations: {
+    theftMitigationTotal?: number;
+    turncoatTrainingLossTotal?: number;
+  } = current.eventMitigations ?? {};
   const event = current.eventRollTotals ?? {};
   const modifiers = getWeekModifiers({
     activeQueuedEffects,
@@ -858,10 +1146,7 @@ function applyWeekResolution({
 
   let training = militia.training;
   let treasury = militia.treasury;
-  let notoriety = militia.notoriety;
-  const successfulCovertAugmentTargets = getSuccessfulCovertAugmentTargets({
-    current,
-  });
+  let notoriety = normalizeMilitiaNotorietyValue(militia.notoriety);
 
   training -= (upkeep.attritionTotal ?? 0) * modifiers.attritionMultiplier;
   training -= upkeep.notorietyPenaltyTotal ?? 0;
@@ -871,27 +1156,9 @@ function applyWeekResolution({
     modifiers.activityTrainingGainMultiplier;
   treasury += (activity.earnGoldTotal ?? 0) * modifiers.incomeMultiplier;
 
-  notoriety += successfulCovertAugmentTargets.has('activate_black_market')
-    ? 0
-    : (activity.activateBlackMarketNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('dismiss_team')
-    ? 0
-    : (activity.dismissTeamNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('earn_gold')
-    ? 0
-    : (activity.earnGoldNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('gather_information')
-    ? 0
-    : (activity.gatherInformationNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('recruit_team')
-    ? 0
-    : (activity.recruitTeamNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('reduce_danger')
-    ? 0
-    : (activity.reduceDangerNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('rescue_character')
-    ? 0
-    : (activity.rescueCharacterNotorietyIncreaseTotal ?? 0);
+  if (current.stagedActivityActionIds.includes('guarantee_event')) {
+    notoriety += activity.guaranteeEventNotorietyIncreaseTotal ?? 0;
+  }
 
   const guaranteedByAction =
     current.stagedActivityActionIds.includes('guarantee_event') ||
@@ -966,13 +1233,79 @@ function applyWeekResolution({
     .filter((value): value is NonNullable<typeof value> => value !== null)
     .filter((value) => value.eventType !== 'roll_twice');
   resolvedEvents.push(...autoEventRolls);
+  const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
+    resolvedEvents,
+  });
+  const getEffectiveActivityCheckTotal = ({
+    rawTotal,
+    checkType,
+    slotIndex,
+  }: {
+    rawTotal?: number;
+    checkType: 'loyalty' | 'security' | 'secrecy';
+    slotIndex?: number;
+  }) => {
+    if (rawTotal === undefined) {
+      return undefined;
+    }
+    const teamId =
+      slotIndex === undefined
+        ? undefined
+        : (current.stagedActivityTeamIds?.[slotIndex] ?? undefined);
+    return (
+      rawTotal +
+      resolvedActivityCheckModifier +
+      getQueuedOrganizationCheckModifier({
+        activeQueuedEffects,
+        activePersistentEventTypes,
+        checkType,
+      }) +
+      getTeamQueuedCheckModifier({ activeQueuedEffects, teamId })
+    );
+  };
+  const successfulCovertAugmentTargets = getSuccessfulCovertAugmentTargets({
+    current,
+    getEffectiveActivityCheckTotal,
+  });
 
+  notoriety += successfulCovertAugmentTargets.has('activate_black_market')
+    ? 0
+    : (activity.activateBlackMarketNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('dismiss_team')
+    ? 0
+    : (activity.dismissTeamNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('earn_gold')
+    ? 0
+    : (activity.earnGoldNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('gather_information')
+    ? 0
+    : (activity.gatherInformationNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('recruit_team')
+    ? 0
+    : (activity.recruitTeamNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('reduce_danger')
+    ? 0
+    : (activity.reduceDangerNotorietyIncreaseTotal ?? 0);
+  notoriety += successfulCovertAugmentTargets.has('rescue_character')
+    ? 0
+    : (activity.rescueCharacterNotorietyIncreaseTotal ?? 0);
+
+  let usedTheftMitigation = false;
   for (const resolved of resolvedEvents) {
     if (resolved.eventType === 'war_games' && shouldApplyBaseEffect(resolved)) {
       training += militia.rank;
     }
     if (resolved.eventType === 'theft' && shouldApplyBaseEffect(resolved)) {
-      treasury = Math.floor(treasury / 2);
+      const canUseTheftMitigation: boolean =
+        !usedTheftMitigation &&
+        (eventMitigations.theftMitigationTotal ?? -Infinity) >= 20;
+      treasury = canUseTheftMitigation
+        ? Math.floor(treasury * 0.9)
+        : Math.floor(treasury / 2);
+      usedTheftMitigation = canUseTheftMitigation;
+    }
+    if (resolved.eventType === 'turncoat' && shouldApplyBaseEffect(resolved)) {
+      training -= eventMitigations.turncoatTrainingLossTotal ?? 0;
     }
   }
 
@@ -999,7 +1332,7 @@ function applyWeekResolution({
     nextUneventfulBonusCarry,
     resolvedEvents,
     shouldDropNearestSettlementReputation:
-      militia.notoriety >= 100 &&
+      normalizeMilitiaNotorietyValue(militia.notoriety) >= 100 &&
       upkeep.maxNotorietyLoyaltyCheckTotal !== undefined &&
       upkeep.maxNotorietyLoyaltyCheckTotal < 15 &&
       Boolean(nearestSettlementKey),
@@ -1081,6 +1414,7 @@ export const getWeekBoardState = query({
     const currentState = states.sort((a, b) => b.weekNumber - a.weekNumber)[0];
     const currentStateAny = currentState as
       | (typeof currentState & {
+          rollbackHistory?: WeekRollbackSnapshot[];
           stagedActivityTeamIds?: (string | null)[];
           activityTeamOperations?: {
             recruits: Array<{ slotIndex: number; teamId: string }>;
@@ -1106,6 +1440,20 @@ export const getWeekBoardState = query({
           };
           activityAssetOperations?: {
             refuges: Array<{ slotIndex: number; settlementKey: string }>;
+            reduceDangerTargets?: Array<{
+              slotIndex: number;
+              settlementKey: string;
+            }>;
+            spreadPropagandaTargets?: Array<{
+              slotIndex: number;
+              settlementKey: string;
+            }>;
+            strikeTeams?: Array<{
+              slotIndex: number;
+              mode?: 'combat_support' | 'extraction';
+              location?: string;
+              notes?: string;
+            }>;
             caches: Array<{
               slotIndex: number;
               mode: 'place' | 'retrieve';
@@ -1227,7 +1575,7 @@ export const getWeekBoardState = query({
       rank: militia.rank,
       training: militia.training,
       treasury: militia.treasury,
-      notoriety: militia.notoriety,
+      notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
       focus: militia.focus,
       maxTeams: getMaxTeamsForRank(militia.rank),
       teams: teamRows
@@ -1362,7 +1710,11 @@ export const getWeekBoardState = query({
       },
       state: currentStateAny
         ? {
-            ...currentStateAny,
+            ...(() => {
+              const { rollbackHistory: _ignoredRollbackHistory, ...currentStateForClient } =
+                currentStateAny;
+              return currentStateForClient;
+            })(),
             stagedActivityTeamIds:
               currentStateAny.stagedActivityTeamIds ??
               Array.from({ length: currentMaxActions }, () => null),
@@ -1376,6 +1728,12 @@ export const getWeekBoardState = query({
             },
             activityAssetOperations: {
               refuges: currentStateAny.activityAssetOperations?.refuges ?? [],
+              reduceDangerTargets:
+                currentStateAny.activityAssetOperations?.reduceDangerTargets ?? [],
+              spreadPropagandaTargets:
+                currentStateAny.activityAssetOperations?.spreadPropagandaTargets ?? [],
+              strikeTeams:
+                currentStateAny.activityAssetOperations?.strikeTeams ?? [],
               caches: currentStateAny.activityAssetOperations?.caches ?? [],
               orders: currentStateAny.activityAssetOperations?.orders ?? [],
               marketplaces:
@@ -1419,6 +1777,9 @@ export const getWeekBoardState = query({
             },
             activityAssetOperations: {
               refuges: [],
+              reduceDangerTargets: [],
+              spreadPropagandaTargets: [],
+              strikeTeams: [],
               caches: [],
               orders: [],
               marketplaces: [],
@@ -1494,7 +1855,7 @@ export const getWeekBoardReferenceData = query({
       rank: militia.rank,
       training: militia.training,
       treasury: militia.treasury,
-      notoriety: militia.notoriety,
+      notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
       focus: militia.focus,
       maxTeams: getMaxTeamsForRank(militia.rank),
       teams: teamRows
@@ -1785,6 +2146,32 @@ export const saveWeekBoardState = mutation({
               }),
             ),
           ),
+          reduceDangerTargets: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                settlementKey: v.string(),
+              }),
+            ),
+          ),
+          spreadPropagandaTargets: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                settlementKey: v.string(),
+              }),
+            ),
+          ),
+          strikeTeams: v.optional(
+            v.array(
+              v.object({
+                slotIndex: v.number(),
+                mode: v.optional(strikeTeamModeValidator),
+                location: v.optional(v.string()),
+                notes: v.optional(v.string()),
+              }),
+            ),
+          ),
           caches: v.optional(
             v.array(
               v.object({
@@ -1913,6 +2300,7 @@ export const saveWeekBoardState = mutation({
           cacheDiscoveredMitigationTotal: v.optional(v.string()),
           theftMitigationTotal: v.optional(v.string()),
           sicknessTwiceLoyaltyTotal: v.optional(v.string()),
+          turncoatTrainingLossTotal: v.optional(v.string()),
           turncoatOfficerCheckTotal: v.optional(v.string()),
           turncoatSelectedTeamId: v.optional(v.union(teamIdValidator, v.null())),
           rivalrySelectedTeamIds: v.optional(v.array(teamIdValidator)),
@@ -1954,6 +2342,7 @@ export const saveWeekBoardState = mutation({
           earnGoldNotorietyIncreaseTotal: v.optional(v.string()),
           gatherInformationCheckTotal: v.optional(v.string()),
           gatherInformationNotorietyIncreaseTotal: v.optional(v.string()),
+          guaranteeEventNotorietyIncreaseTotal: v.optional(v.string()),
           knowledgeCheckTotal: v.optional(v.string()),
           recruitTeamCheckTotal: v.optional(v.string()),
           recruitTeamNotorietyIncreaseTotal: v.optional(v.string()),
@@ -2016,6 +2405,20 @@ export const saveWeekBoardState = mutation({
           };
           activityAssetOperations?: {
             refuges?: Array<{ slotIndex: number; settlementKey: string }>;
+            reduceDangerTargets?: Array<{
+              slotIndex: number;
+              settlementKey: string;
+            }>;
+            spreadPropagandaTargets?: Array<{
+              slotIndex: number;
+              settlementKey: string;
+            }>;
+            strikeTeams?: Array<{
+              slotIndex: number;
+              mode?: 'combat_support' | 'extraction';
+              location?: string;
+              notes?: string;
+            }>;
             caches?: Array<{
               slotIndex: number;
               mode: 'place' | 'retrieve';
@@ -2108,6 +2511,7 @@ export const saveWeekBoardState = mutation({
     const nextPatch: {
       phase?: 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed';
       weekNumber?: number;
+      upkeepTreasurySnapshot?: number;
       stagedActivityActionIds?: (
         | 'activate_black_market'
         | 'activate_refuge'
@@ -2155,6 +2559,20 @@ export const saveWeekBoardState = mutation({
       };
       activityAssetOperations?: {
         refuges: Array<{ slotIndex: number; settlementKey: string }>;
+        reduceDangerTargets: Array<{
+          slotIndex: number;
+          settlementKey: string;
+        }>;
+        spreadPropagandaTargets: Array<{
+          slotIndex: number;
+          settlementKey: string;
+        }>;
+        strikeTeams: Array<{
+          slotIndex: number;
+          mode?: 'combat_support' | 'extraction';
+          location?: string;
+          notes?: string;
+        }>;
         caches: Array<{
           slotIndex: number;
           mode: 'place' | 'retrieve';
@@ -2232,6 +2650,7 @@ export const saveWeekBoardState = mutation({
         cacheDiscoveredMitigationTotal?: number;
         theftMitigationTotal?: number;
         sicknessTwiceLoyaltyTotal?: number;
+        turncoatTrainingLossTotal?: number;
         turncoatOfficerCheckTotal?: number;
         turncoatSelectedTeamId?: string;
         rivalrySelectedTeamIds?: string[];
@@ -2266,6 +2685,7 @@ export const saveWeekBoardState = mutation({
         earnGoldNotorietyIncreaseTotal?: number;
         gatherInformationCheckTotal?: number;
         gatherInformationNotorietyIncreaseTotal?: number;
+        guaranteeEventNotorietyIncreaseTotal?: number;
         knowledgeCheckTotal?: number;
         recruitTeamCheckTotal?: number;
         recruitTeamNotorietyIncreaseTotal?: number;
@@ -2307,6 +2727,11 @@ export const saveWeekBoardState = mutation({
     };
     const currentActivityAssetOperations = {
       refuges: currentAny?.activityAssetOperations?.refuges ?? [],
+      reduceDangerTargets:
+        currentAny?.activityAssetOperations?.reduceDangerTargets ?? [],
+      spreadPropagandaTargets:
+        currentAny?.activityAssetOperations?.spreadPropagandaTargets ?? [],
+      strikeTeams: currentAny?.activityAssetOperations?.strikeTeams ?? [],
       caches: currentAny?.activityAssetOperations?.caches ?? [],
       orders: currentAny?.activityAssetOperations?.orders ?? [],
       marketplaces: currentAny?.activityAssetOperations?.marketplaces ?? [],
@@ -2413,6 +2838,29 @@ export const saveWeekBoardState = mutation({
                 settlementKey: entry.settlementKey.trim(),
               }))
             : currentActivityAssetOperations.refuges,
+        reduceDangerTargets:
+          args.patch.activityAssetOperations.reduceDangerTargets !== undefined
+            ? args.patch.activityAssetOperations.reduceDangerTargets.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                settlementKey: entry.settlementKey.trim(),
+              }))
+            : currentActivityAssetOperations.reduceDangerTargets,
+        spreadPropagandaTargets:
+          args.patch.activityAssetOperations.spreadPropagandaTargets !== undefined
+            ? args.patch.activityAssetOperations.spreadPropagandaTargets.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                settlementKey: entry.settlementKey.trim(),
+              }))
+            : currentActivityAssetOperations.spreadPropagandaTargets,
+        strikeTeams:
+          args.patch.activityAssetOperations.strikeTeams !== undefined
+            ? args.patch.activityAssetOperations.strikeTeams.map((entry) => ({
+                slotIndex: entry.slotIndex,
+                mode: entry.mode,
+                location: trimToUndefined(entry.location),
+                notes: trimToUndefined(entry.notes),
+              }))
+            : currentActivityAssetOperations.strikeTeams,
         caches:
           args.patch.activityAssetOperations.caches !== undefined
             ? args.patch.activityAssetOperations.caches.map((entry) => ({
@@ -2494,6 +2942,7 @@ export const saveWeekBoardState = mutation({
               }))
             : currentActivityAssetOperations.restorations,
       };
+      const nextActivityAssetOperations = nextPatch.activityAssetOperations;
 
       const settlementStates = await ctx.db
         .query('militiaSettlementState')
@@ -2504,7 +2953,7 @@ export const saveWeekBoardState = mutation({
       );
       const missingSettlementWarnings = Array.from(
         new Set(
-          nextPatch.activityAssetOperations.refuges
+          nextActivityAssetOperations.refuges
             .map((entry) => entry.settlementKey)
             .filter(
               (settlementKey) =>
@@ -2555,6 +3004,14 @@ export const saveWeekBoardState = mutation({
                 args.patch.eventMitigations.sicknessTwiceLoyaltyTotal,
               )
             : (currentEventMitigations.sicknessTwiceLoyaltyTotal as
+                | number
+                | undefined),
+        turncoatTrainingLossTotal:
+          'turncoatTrainingLossTotal' in args.patch.eventMitigations
+            ? parseManualTotal(
+                args.patch.eventMitigations.turncoatTrainingLossTotal,
+              )
+            : (currentEventMitigations.turncoatTrainingLossTotal as
                 | number
                 | undefined),
         turncoatOfficerCheckTotal:
@@ -2734,6 +3191,15 @@ export const saveWeekBoardState = mutation({
             : (currentActivityRollTotals.gatherInformationNotorietyIncreaseTotal as
                 | number
                 | undefined),
+        guaranteeEventNotorietyIncreaseTotal:
+          'guaranteeEventNotorietyIncreaseTotal' in args.patch.activityRollTotals
+            ? parseManualTotal(
+                args.patch.activityRollTotals
+                  .guaranteeEventNotorietyIncreaseTotal,
+              )
+            : (currentActivityRollTotals.guaranteeEventNotorietyIncreaseTotal as
+                | number
+                | undefined),
         knowledgeCheckTotal:
           'knowledgeCheckTotal' in args.patch.activityRollTotals
             ? parseManualTotal(args.patch.activityRollTotals.knowledgeCheckTotal)
@@ -2911,12 +3377,15 @@ export const saveWeekBoardState = mutation({
 
     if (!current) {
       const baseWeek = args.patch.weekNumber ?? 1;
+      const initialPhase = args.patch.phase ?? (baseWeek === 1 ? 'activity' : 'upkeep');
       await ctx.db.insert('militiaWeekState', {
         militiaId: args.militiaId,
         weekNumber: baseWeek,
-        phase: args.patch.phase ?? (baseWeek === 1 ? 'activity' : 'upkeep'),
+        phase: initialPhase,
         isFirstWeek: baseWeek === 1,
         skippedUpkeepThisWeek: baseWeek === 1,
+        upkeepTreasurySnapshot:
+          initialPhase === 'upkeep' ? militia.treasury : undefined,
         uneventfulBonusCarry: 0,
         queuedEffects: [],
         lastPersistentBuyoffWeek: 0,
@@ -2936,6 +3405,9 @@ export const saveWeekBoardState = mutation({
         }) as never,
         activityAssetOperations: (nextPatch.activityAssetOperations ?? {
           refuges: [],
+          reduceDangerTargets: [],
+          spreadPropagandaTargets: [],
+          strikeTeams: [],
           caches: [],
           orders: [],
           marketplaces: [],
@@ -2955,6 +3427,10 @@ export const saveWeekBoardState = mutation({
         lockVersion: nextPatch.lockVersion,
       });
       return;
+    }
+
+    if (args.patch.phase === 'upkeep' && current.phase !== 'upkeep') {
+      nextPatch.upkeepTreasurySnapshot = militia.treasury;
     }
 
     await ctx.db.patch('militiaWeekState', current._id, nextPatch as never);
@@ -2980,6 +3456,7 @@ export const commitCurrentPhase = mutation({
     const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
     const currentAny = current as
       | (typeof current & {
+          rollbackHistory?: WeekRollbackSnapshot[];
           stagedActivityTeamIds?: (string | null)[];
           activityTeamOperations?: {
             recruits: Array<{ slotIndex: number; teamId: string }>;
@@ -3005,6 +3482,20 @@ export const commitCurrentPhase = mutation({
           };
           activityAssetOperations?: {
             refuges: Array<{ slotIndex: number; settlementKey: string }>;
+            reduceDangerTargets?: Array<{
+              slotIndex: number;
+              settlementKey: string;
+            }>;
+            spreadPropagandaTargets?: Array<{
+              slotIndex: number;
+              settlementKey: string;
+            }>;
+            strikeTeams?: Array<{
+              slotIndex: number;
+              mode?: 'combat_support' | 'extraction';
+              location?: string;
+              notes?: string;
+            }>;
             caches: Array<{
               slotIndex: number;
               mode: 'place' | 'retrieve';
@@ -3082,6 +3573,7 @@ export const commitCurrentPhase = mutation({
             cacheDiscoveredMitigationTotal?: number;
             theftMitigationTotal?: number;
             sicknessTwiceLoyaltyTotal?: number;
+            turncoatTrainingLossTotal?: number;
             turncoatOfficerCheckTotal?: number;
             turncoatSelectedTeamId?: string;
             rivalrySelectedTeamIds?: string[];
@@ -3099,6 +3591,7 @@ export const commitCurrentPhase = mutation({
           weekWarnings?: Array<{ code: string; message: string }>;
         })
       | undefined;
+    const currentRollbackHistory = currentAny?.rollbackHistory ?? [];
     const nextWeekMaxActions = getMaxActionsForMilitia({
       rank: militia.rank,
       strategist: current
@@ -3132,8 +3625,12 @@ export const commitCurrentPhase = mutation({
         },
         activityAssetOperations: {
           refuges: [],
+          reduceDangerTargets: [],
+          spreadPropagandaTargets: [],
+          strikeTeams: [],
           caches: [],
           orders: [],
+          marketplaces: [],
           covertActions: [],
           rescues: [],
           restorations: [],
@@ -3155,6 +3652,8 @@ export const commitCurrentPhase = mutation({
     let nextWeekNumber = current.weekNumber;
     let nextUneventfulBonusCarry = current.uneventfulBonusCarry ?? 0;
     let nextQueuedEffects = current.queuedEffects ?? [];
+    let nextUpkeepTreasurySnapshot = current.upkeepTreasurySnapshot;
+    let nextRollbackHistory = currentRollbackHistory;
 
     if (current.phase === 'upkeep') {
       nextPhase = 'activity';
@@ -3417,6 +3916,11 @@ export const commitCurrentPhase = mutation({
       };
       const activityAssetOperations = {
         refuges: currentAny?.activityAssetOperations?.refuges ?? [],
+        reduceDangerTargets:
+          currentAny?.activityAssetOperations?.reduceDangerTargets ?? [],
+        spreadPropagandaTargets:
+          currentAny?.activityAssetOperations?.spreadPropagandaTargets ?? [],
+        strikeTeams: currentAny?.activityAssetOperations?.strikeTeams ?? [],
         caches: currentAny?.activityAssetOperations?.caches ?? [],
         orders: currentAny?.activityAssetOperations?.orders ?? [],
         marketplaces: currentAny?.activityAssetOperations?.marketplaces ?? [],
@@ -3429,12 +3933,45 @@ export const commitCurrentPhase = mutation({
         disabledRecoveries: [],
         missingChecks: [],
       };
-      const eventMitigations = currentAny?.eventMitigations ?? {};
+      const eventMitigations: {
+        cacheDiscoveredMitigationTotal?: number;
+        theftMitigationTotal?: number;
+        sicknessTwiceLoyaltyTotal?: number;
+        turncoatTrainingLossTotal?: number;
+        turncoatOfficerCheckTotal?: number;
+        turncoatSelectedTeamId?: string;
+        rivalrySelectedTeamIds?: string[];
+        missingInActionSelectedTeamId?: string;
+        sicknessSelectedTeamId?: string;
+        turnAroundBoostTeamId?: string;
+        marketDayMarketplaceId?: string;
+        marketDayTownName?: string;
+        overseerEventSupportTarget?:
+          | 'sabotage'
+          | 'cache_discovered'
+          | 'theft'
+          | 'sickness_twice';
+      } = currentAny?.eventMitigations ?? {};
 
       const allEventStates = await ctx.db
         .query('militiaEventState')
         .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
         .collect();
+      nextRollbackHistory = [
+        ...currentRollbackHistory,
+        buildRollbackSnapshot({
+          currentWeekState: currentAny ?? current,
+          militia,
+          teamRows,
+          teamStateRows,
+          settlementRows,
+          cacheRows,
+          marketplaceRows,
+          orderRows,
+          trackedPeopleRows,
+          eventRows: allEventStates,
+        }),
+      ];
       const activePersistentEventStates = allEventStates
         .filter((eventState) => eventState.isPersistent && !eventState.resolved)
         .sort((a, b) => a.startedWeek - b.startedWeek);
@@ -3443,28 +3980,67 @@ export const commitCurrentPhase = mutation({
           queuedEffects: current.queuedEffects,
           weekNumber: current.weekNumber,
         });
+      const activePersistentEventTypes = activePersistentEventStates.map(
+        (eventState) => eventState.eventType,
+      );
       const resolution = applyWeekResolution({
         current: {
           weekNumber: current.weekNumber,
           uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
           stagedActivityActionIds: current.stagedActivityActionIds,
+          stagedActivityTeamIds: currentAny?.stagedActivityTeamIds,
           upkeepRollTotals: current.upkeepRollTotals,
           activityRollTotals: current.activityRollTotals,
           activityTeamOperations: currentAny?.activityTeamOperations,
           activityAssetOperations: currentAny?.activityAssetOperations,
+          eventMitigations: currentAny?.eventMitigations,
           eventRollTotals: current.eventRollTotals,
         },
         militia: {
           rank: militia.rank,
           training: militia.training,
           treasury: militia.treasury,
-          notoriety: militia.notoriety,
+          notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
         },
         activeQueuedEffects,
-        activePersistentEventTypes: activePersistentEventStates.map(
-          (eventState) => eventState.eventType,
-        ),
+        activePersistentEventTypes,
       });
+      const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
+        resolvedEvents: resolution.resolvedEvents,
+      });
+      const getEffectiveActivityCheckTotal = ({
+        rawTotal,
+        checkType,
+        slotIndex,
+      }: {
+        rawTotal?: number;
+        checkType: 'loyalty' | 'security' | 'secrecy';
+        slotIndex?: number;
+      }) => {
+        if (rawTotal === undefined) {
+          return undefined;
+        }
+        const teamId =
+          slotIndex === undefined
+            ? undefined
+            : (current.stagedActivityTeamIds?.[slotIndex] ?? undefined);
+        return (
+          rawTotal +
+          resolvedActivityCheckModifier +
+          getQueuedOrganizationCheckModifier({
+            activeQueuedEffects,
+            activePersistentEventTypes,
+            checkType,
+          }) +
+          getTeamQueuedCheckModifier({ activeQueuedEffects, teamId })
+        );
+      };
+      const isSecureCacheBlocked = isActivityActionBlocked({
+        activeQueuedEffects,
+        activePersistentEventTypes,
+        actionId: 'secure_cache',
+      });
+      const actionQueuedEffects: QueueEffect[] = [];
 
       let adjustedTreasury = resolution.militiaPatch.treasury;
 
@@ -3541,7 +4117,15 @@ export const commitCurrentPhase = mutation({
         }
       }
 
+      const dismissTeamSucceeded =
+        (getEffectiveActivityCheckTotal({
+          rawTotal: current.activityRollTotals?.dismissTeamCheckTotal,
+          checkType: 'loyalty',
+        }) ?? -Infinity) >= 10;
       for (const dismiss of activityTeamOperations.dismissals) {
+        if (!dismissTeamSucceeded) {
+          continue;
+        }
         const teamRow = teamById.get(dismiss.teamId);
         if (teamRow) {
           await ctx.db.delete('militiaTeam', teamRow._id);
@@ -3555,6 +4139,19 @@ export const commitCurrentPhase = mutation({
       }
 
       for (const recruit of activityTeamOperations.recruits) {
+        const recruitDc = RECRUITMENT_DC_BY_TEAM_ID.get(recruit.teamId);
+        const recruitCheckType =
+          RECRUITMENT_CHECK_TYPE_BY_TEAM_ID.get(recruit.teamId) ?? 'loyalty';
+        const recruitSucceeded =
+          recruitDc !== undefined &&
+          (getEffectiveActivityCheckTotal({
+            rawTotal: current.activityRollTotals?.recruitTeamCheckTotal,
+            checkType: recruitCheckType,
+            slotIndex: recruit.slotIndex,
+          }) ?? -Infinity) >= recruitDc;
+        if (!recruitSucceeded) {
+          continue;
+        }
         let recruitedThisWeek = false;
         if (!teamById.has(recruit.teamId)) {
           const teamDocId = await ctx.db.insert('militiaTeam', {
@@ -3638,6 +4235,19 @@ export const commitCurrentPhase = mutation({
         }>);
       }
 
+      for (const settlement of Array.from(settlementByKey.values())) {
+        if (settlement.temporaryShift === undefined) {
+          continue;
+        }
+        await ctx.db.patch('militiaSettlementState', settlement._id, {
+          temporaryShift: undefined,
+        });
+        settlementByKey.set(settlement.settlementKey, {
+          ...settlement,
+          temporaryShift: undefined,
+        });
+      }
+
       for (const refuge of activityAssetOperations.refuges) {
         if (current.stagedActivityActionIds[refuge.slotIndex] !== 'activate_refuge') {
           continue;
@@ -3663,8 +4273,100 @@ export const commitCurrentPhase = mutation({
         });
       }
 
+      for (const reduceDanger of activityAssetOperations.reduceDangerTargets) {
+        if (
+          current.stagedActivityActionIds[reduceDanger.slotIndex] !== 'reduce_danger'
+        ) {
+          continue;
+        }
+        const checkTotal = getEffectiveActivityCheckTotal({
+          rawTotal: current.activityRollTotals?.reduceDangerCheckTotal,
+          checkType: 'security',
+          slotIndex: reduceDanger.slotIndex,
+        });
+        if ((checkTotal ?? -Infinity) < 15) {
+          continue;
+        }
+        const settlementKey = trimToUndefined(reduceDanger.settlementKey);
+        if (!settlementKey) {
+          continue;
+        }
+        const settlement = settlementByKey.get(settlementKey);
+        if (!settlement) {
+          throw new ConvexError(
+            `Reduce Danger requires an existing tracked settlement: ${settlementKey}`,
+          );
+        }
+        await ctx.db.patch('militiaSettlementState', settlement._id, {
+          temporaryShift: Math.max(settlement.temporaryShift ?? 0, 1),
+        });
+        settlementByKey.set(settlementKey, {
+          ...settlement,
+          temporaryShift: Math.max(settlement.temporaryShift ?? 0, 1),
+        });
+      }
+
+      const propagatedSettlementKeys = new Set<string>();
+      for (const propaganda of activityAssetOperations.spreadPropagandaTargets) {
+        if (
+          current.stagedActivityActionIds[propaganda.slotIndex] !==
+          'spread_propaganda'
+        ) {
+          continue;
+        }
+        const checkTotal = getEffectiveActivityCheckTotal({
+          rawTotal: current.activityRollTotals?.spreadPropagandaCheckTotal,
+          checkType: 'loyalty',
+          slotIndex: propaganda.slotIndex,
+        });
+        if ((checkTotal ?? -Infinity) < 20) {
+          continue;
+        }
+        const settlementKey = trimToUndefined(propaganda.settlementKey);
+        if (!settlementKey || propagatedSettlementKeys.has(settlementKey)) {
+          continue;
+        }
+        const settlement = settlementByKey.get(settlementKey);
+        if (!settlement) {
+          throw new ConvexError(
+            `Spread Propaganda requires an existing tracked settlement: ${settlementKey}`,
+          );
+        }
+        const reputation = raiseReputationOneStep(settlement.reputation);
+        await ctx.db.patch('militiaSettlementState', settlement._id, {
+          reputation,
+        });
+        settlementByKey.set(settlementKey, { ...settlement, reputation });
+        propagatedSettlementKeys.add(settlementKey);
+      }
+
+      for (const strikeTeam of activityAssetOperations.strikeTeams) {
+        if (current.stagedActivityActionIds[strikeTeam.slotIndex] !== 'strike_team') {
+          continue;
+        }
+        if (!strikeTeam.mode) {
+          continue;
+        }
+        const location = trimToUndefined(strikeTeam.location);
+        const rounds = Math.max(1, Math.floor(militia.rank / 2));
+        const note =
+          strikeTeam.mode === 'combat_support'
+            ? `Strike Team: at ${location ?? 'chosen location'}, PCs gain +2 competence on attack rolls, damage rolls, and saving throws for ${rounds} round(s).`
+            : `Strike Team: casualty extraction available${location ? ` at ${location}` : ''}; bleeding allies stabilize, dead allies receive gentle repose at CL 12 and bodies return to HQ.`;
+        actionQueuedEffects.push({
+          kind: 'table_note',
+          appliesWeek: current.weekNumber + 1,
+          strikeTeamMode: strikeTeam.mode,
+          location,
+          note: strikeTeam.notes ? `${note} ${strikeTeam.notes}` : note,
+        });
+      }
+
       for (const cacheOperation of activityAssetOperations.caches) {
         if (current.stagedActivityActionIds[cacheOperation.slotIndex] !== 'secure_cache') {
+          continue;
+        }
+        if (isSecureCacheBlocked) {
           continue;
         }
 
@@ -3677,11 +4379,16 @@ export const commitCurrentPhase = mutation({
           if (cache?.status !== 'hidden') {
             continue;
           }
+          const checkTotal = getEffectiveActivityCheckTotal({
+            rawTotal: cacheOperation.checkTotal,
+            checkType: 'secrecy',
+            slotIndex: cacheOperation.slotIndex,
+          });
           const dc = getCacheDc({
             cacheClass: cache.cacheClass,
             isSecureLocation: cache.isSecureLocation,
           });
-          if (cacheOperation.checkTotal >= dc) {
+          if ((checkTotal ?? -Infinity) >= dc) {
             await ctx.db.patch('militiaCache', cache._id, {
               status: 'retrieved',
               retrievedWeek: current.weekNumber,
@@ -3710,12 +4417,17 @@ export const commitCurrentPhase = mutation({
         ) {
           continue;
         }
+        const checkTotal = getEffectiveActivityCheckTotal({
+          rawTotal: cacheOperation.checkTotal,
+          checkType: 'secrecy',
+          slotIndex: cacheOperation.slotIndex,
+        });
         const status =
-          cacheOperation.checkTotal >=
-          getCacheDc({
-            cacheClass,
-            isSecureLocation: cacheOperation.isSecureLocation,
-          })
+          (checkTotal ?? -Infinity) >=
+            getCacheDc({
+              cacheClass,
+              isSecureLocation: cacheOperation.isSecureLocation,
+            })
             ? 'hidden'
             : 'pending_return';
         const insertedId = await ctx.db.insert('militiaCache', {
@@ -3779,7 +4491,11 @@ export const commitCurrentPhase = mutation({
         }
         if (
           stagedActionId === 'activate_black_market' &&
-          (current.activityRollTotals?.activateBlackMarketCheckTotal ?? 0) < 20
+          (getEffectiveActivityCheckTotal({
+            rawTotal: current.activityRollTotals?.activateBlackMarketCheckTotal,
+            checkType: 'secrecy',
+            slotIndex,
+          }) ?? -Infinity) < 20
         ) {
           continue;
         }
@@ -3891,7 +4607,11 @@ export const commitCurrentPhase = mutation({
           rescue.targetLevel ??
           resolvedIdentity.level ??
           current.activityRollTotals?.rescueCharacterTargetLevelTotal;
-        const checkTotal = current.activityRollTotals?.rescueCharacterCheckTotal;
+        const checkTotal = getEffectiveActivityCheckTotal({
+          rawTotal: current.activityRollTotals?.rescueCharacterCheckTotal,
+          checkType: 'security',
+          slotIndex: rescue.slotIndex,
+        });
         if (effectiveLevel === undefined || checkTotal === undefined) {
           continue;
         }
@@ -4004,6 +4724,19 @@ export const commitCurrentPhase = mutation({
         currentWeek: current.weekNumber,
       });
 
+      const endedPersistentEventIds = new Set<string>();
+      const endPersistentEvent = async (eventState: (typeof activePersistentEventStates)[number]) => {
+        if (endedPersistentEventIds.has(eventState._id)) {
+          return;
+        }
+        await ctx.db.patch('militiaEventState', eventState._id, {
+          resolved: true,
+          isPersistent: false,
+          endedWeek: current.weekNumber,
+        });
+        endedPersistentEventIds.add(eventState._id);
+      };
+
       const setTeamStatus = async ({
         teamId,
         status,
@@ -4018,19 +4751,71 @@ export const commitCurrentPhase = mutation({
         if (!teamId) return;
         if (!teamById.has(teamId)) return;
         const state = await ensureTeamState(teamId);
+        const updatedState = {
+          ...state,
+          status,
+          unavailableUntilWeek,
+          notes,
+        };
         await ctx.db.patch('militiaTeamState', state._id, {
           status,
           unavailableUntilWeek,
           notes,
         });
+        teamStateById.set(teamId, updatedState);
       };
 
+      const successfulReduceDangerCount = current.stagedActivityActionIds.reduce(
+        (count, actionId, slotIndex) => {
+          if (actionId !== 'reduce_danger') return count;
+          const checkTotal = getEffectiveActivityCheckTotal({
+            rawTotal: current.activityRollTotals?.reduceDangerCheckTotal,
+            checkType: 'security',
+            slotIndex,
+          });
+          return (checkTotal ?? -Infinity) >= 15 ? count + 1 : count;
+        },
+        0,
+      );
+      if (successfulReduceDangerCount > 0) {
+        const theftPersistentEvents = activePersistentEventStates
+          .filter((eventState) => eventState.eventType === 'theft')
+          .slice(0, successfulReduceDangerCount);
+        for (const eventState of theftPersistentEvents) {
+          await endPersistentEvent(eventState);
+        }
+      }
+
+      let usedCacheDiscoveredMitigation = false;
       for (const event of resolution.resolvedEvents) {
         if (event.eventType === 'cache_discovered') {
           const hiddenCaches = Array.from(cacheById.values())
             .filter((cache) => cache.status === 'hidden')
             .sort((a, b) => a.createdWeek - b.createdWeek);
-          const cachesToLose = event.isTwiceClause ? hiddenCaches : hiddenCaches.slice(0, 1);
+          const canMitigateCacheDiscovery =
+            !usedCacheDiscoveredMitigation &&
+            (eventMitigations.cacheDiscoveredMitigationTotal ?? -Infinity) >=
+              10 + militia.rank;
+          let remainingHiddenCaches = hiddenCaches;
+          if (canMitigateCacheDiscovery && hiddenCaches[0]) {
+            const [retrievedCache, ...rest] = hiddenCaches;
+            await ctx.db.patch('militiaCache', retrievedCache._id, {
+              status: 'retrieved',
+              retrievedWeek: current.weekNumber,
+              updatedWeek: current.weekNumber,
+            });
+            cacheById.set(retrievedCache._id, {
+              ...retrievedCache,
+              status: 'retrieved',
+              retrievedWeek: current.weekNumber,
+              updatedWeek: current.weekNumber,
+            });
+            usedCacheDiscoveredMitigation = true;
+            remainingHiddenCaches = rest;
+          }
+          const cachesToLose = event.isTwiceClause
+            ? remainingHiddenCaches
+            : remainingHiddenCaches.slice(0, 1);
           for (const cache of cachesToLose) {
             await ctx.db.patch('militiaCache', cache._id, {
               status: 'lost',
@@ -4084,10 +4869,16 @@ export const commitCurrentPhase = mutation({
           );
           if (disabledStates.length > 0) {
             for (const disabledState of disabledStates) {
+              const updatedState = {
+                ...disabledState,
+                status: 'active' as const,
+                unavailableUntilWeek: undefined,
+              };
               await ctx.db.patch('militiaTeamState', disabledState._id, {
                 status: 'active',
                 unavailableUntilWeek: undefined,
               });
+              teamStateById.set(disabledState.teamId, updatedState);
             }
           } else {
             const boostTeamId = eventMitigations.turnAroundBoostTeamId;
@@ -4096,6 +4887,14 @@ export const commitCurrentPhase = mutation({
                 teamId: boostTeamId,
                 status: 'active',
                 notes: `turn_around_boost_week_${current.weekNumber + 1}`,
+              });
+              actionQueuedEffects.push({
+                kind: 'team_check_modifier',
+                appliesWeek: current.weekNumber + 1,
+                teamId: boostTeamId,
+                modifierTotal: 2,
+                sourceEventType: 'turn_around',
+                note: 'Turn Around: +2 on one Activity-phase check by this team.',
               });
             }
           }
@@ -4202,13 +5001,11 @@ export const commitCurrentPhase = mutation({
       }
 
       if (derived.endPersistentCount > 0) {
-        const toEnd = activePersistentEventStates.slice(0, derived.endPersistentCount);
+        const toEnd = activePersistentEventStates
+          .filter((eventState) => !endedPersistentEventIds.has(eventState._id))
+          .slice(0, derived.endPersistentCount);
         for (const eventState of toEnd) {
-          await ctx.db.patch('militiaEventState', eventState._id, {
-            resolved: true,
-            isPersistent: false,
-            endedWeek: current.weekNumber,
-          });
+          await endPersistentEvent(eventState);
         }
       }
 
@@ -4223,8 +5020,13 @@ export const commitCurrentPhase = mutation({
         });
       }
 
+      const adjustedNotoriety =
+        resolution.militiaPatch.notoriety -
+        (countAction('lie_low') > 0 ? teamRows.length : 0);
+
       await ctx.db.patch('militia', args.militiaId, {
         ...resolution.militiaPatch,
+        notoriety: adjustedNotoriety,
         treasury: adjustedTreasury,
       });
 
@@ -4272,7 +5074,12 @@ export const commitCurrentPhase = mutation({
       nextPhase = 'upkeep';
       nextWeekNumber += 1;
       nextUneventfulBonusCarry = resolution.nextUneventfulBonusCarry;
-      nextQueuedEffects = [...remainingQueuedEffects, ...derived.queuedToAdd];
+      nextQueuedEffects = [
+        ...remainingQueuedEffects,
+        ...derived.queuedToAdd,
+        ...actionQueuedEffects,
+      ];
+      nextUpkeepTreasurySnapshot = adjustedTreasury;
     }
 
     await ctx.db.patch('militiaWeekState', current._id, {
@@ -4280,6 +5087,7 @@ export const commitCurrentPhase = mutation({
       weekNumber: nextWeekNumber,
       isFirstWeek: nextWeekNumber === 1,
       skippedUpkeepThisWeek: nextWeekNumber === 1,
+      upkeepTreasurySnapshot: nextUpkeepTreasurySnapshot,
       uneventfulBonusCarry: nextUneventfulBonusCarry,
       queuedEffects: nextQueuedEffects,
       lastPersistentBuyoffWeek: current.lastPersistentBuyoffWeek ?? 0,
@@ -4303,6 +5111,9 @@ export const commitCurrentPhase = mutation({
         nextPhase === 'upkeep'
           ? {
               refuges: [],
+              reduceDangerTargets: [],
+              spreadPropagandaTargets: [],
+              strikeTeams: [],
               caches: [],
               orders: [],
               marketplaces: [],
@@ -4312,6 +5123,11 @@ export const commitCurrentPhase = mutation({
             }
           : {
               refuges: currentAny?.activityAssetOperations?.refuges ?? [],
+              reduceDangerTargets:
+                currentAny?.activityAssetOperations?.reduceDangerTargets ?? [],
+              spreadPropagandaTargets:
+                currentAny?.activityAssetOperations?.spreadPropagandaTargets ?? [],
+              strikeTeams: currentAny?.activityAssetOperations?.strikeTeams ?? [],
               caches: currentAny?.activityAssetOperations?.caches ?? [],
               orders: currentAny?.activityAssetOperations?.orders ?? [],
               marketplaces:
@@ -4331,6 +5147,7 @@ export const commitCurrentPhase = mutation({
       upkeepRollTotals: nextPhase === 'upkeep' ? {} : current.upkeepRollTotals,
       activityRollTotals: nextPhase === 'upkeep' ? {} : current.activityRollTotals,
       eventRollTotals: nextPhase === 'upkeep' ? {} : current.eventRollTotals,
+      rollbackHistory: nextRollbackHistory,
       lockVersion: current.lockVersion + 1,
     });
 
@@ -4344,12 +5161,7 @@ export const goToPreviousWeek = mutation({
     militiaId: v.id('militia'),
   },
   async handler(ctx, args) {
-    const militia = await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
-    const maxActions = getMaxActionsForMilitia({
-      rank: militia.rank,
-      strategist: militia.strategist,
-    });
-
+    await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
     const existing = await ctx.db
       .query('militiaWeekState')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
@@ -4360,38 +5172,244 @@ export const goToPreviousWeek = mutation({
       throw new ConvexError('Already at week 1.');
     }
 
-    const nextWeekNumber = current.weekNumber - 1;
+    const currentAny = current as typeof current & {
+      rollbackHistory?: WeekRollbackSnapshot[];
+    };
+    const rollbackHistory: WeekRollbackSnapshot[] =
+      currentAny.rollbackHistory ?? [];
+    const snapshot = rollbackHistory[rollbackHistory.length - 1];
 
-    await ctx.db.patch('militiaWeekState', current._id, {
-      weekNumber: nextWeekNumber,
-      phase: nextWeekNumber === 1 ? 'activity' : 'upkeep',
-      isFirstWeek: nextWeekNumber === 1,
-      skippedUpkeepThisWeek: nextWeekNumber === 1,
-      lastPersistentBuyoffWeek: current.lastPersistentBuyoffWeek ?? 0,
-      stagedActivityActionIds: Array.from({ length: maxActions }, () => null),
-      stagedActivityTeamIds: Array.from({ length: maxActions }, () => null),
-      activityTeamOperations: { recruits: [], dismissals: [], upgrades: [] },
-      activityOfficerOperations: { changes: [] },
-      activityAssetOperations: {
-        refuges: [],
-        caches: [],
-        orders: [],
-        covertActions: [],
-        rescues: [],
-        restorations: [],
+    if (!snapshot) {
+      throw new ConvexError(
+        'No committed week snapshot is available for rollback.',
+      );
+    }
+
+    const [
+      currentTeamRows,
+      currentTeamStateRows,
+      currentSettlementRows,
+      currentCacheRows,
+      currentMarketplaceRows,
+      currentOrderRows,
+      currentTrackedPeopleRows,
+      currentEventRows,
+    ] = await Promise.all([
+      ctx.db
+        .query('militiaTeam')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaTeamState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaSettlementState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaCache')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaMarketplace')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaOrder')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaCharacterStatus')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+      ctx.db
+        .query('militiaEventState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+        .collect(),
+    ]);
+
+    const snapshotMilitiaAny = snapshot.militia;
+    await ctx.db.patch(
+      'militia',
+      args.militiaId,
+      {
+        ...snapshotMilitiaAny,
+        ambassador: snapshotMilitiaAny.ambassador,
+        commandant: snapshotMilitiaAny.commandant,
+        marshal: snapshotMilitiaAny.marshal,
+        overseer: snapshotMilitiaAny.overseer,
+        spymaster: snapshotMilitiaAny.spymaster,
+        strategist: snapshotMilitiaAny.strategist,
+      } as never,
+    );
+
+    await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaTeam',
+      currentRows: currentTeamRows,
+      snapshotRows: snapshot.teams,
+      getCurrentKey: (row) => String(row.teamId),
+      getSnapshotKey: (row) => String(row.teamId),
+      mapSnapshotToDoc: (row) =>
+        snapshotRowToDoc(row, [
+          'managerSource',
+          'managerCharacterId',
+          'managerName',
+          'managerKind',
+          'managerCharisma',
+        ]),
+    });
+    await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaTeamState',
+      currentRows: currentTeamStateRows,
+      snapshotRows: snapshot.teamStates,
+      getCurrentKey: (row) => String(row.teamId),
+      getSnapshotKey: (row) => String(row.teamId),
+      mapSnapshotToDoc: (row) =>
+        snapshotRowToDoc(row, ['unavailableUntilWeek', 'notes']),
+    });
+    await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaSettlementState',
+      currentRows: currentSettlementRows,
+      snapshotRows: snapshot.settlements,
+      getCurrentKey: (row) => String(row.settlementKey),
+      getSnapshotKey: (row) => String(row.settlementKey),
+      mapSnapshotToDoc: (row) =>
+        snapshotRowToDoc(row, [
+          'temporaryShift',
+          'refugeActiveUntilWeek',
+          'refugeActivatedWeek',
+        ]),
+    });
+    const cacheIds = await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaCache',
+      currentRows: currentCacheRows,
+      snapshotRows: snapshot.caches,
+      getCurrentKey: (row) =>
+        [row.label, row.cacheClass, row.location, row.createdWeek].join('::'),
+      getSnapshotKey: (row) =>
+        [row.label, row.cacheClass, row.location, row.createdWeek].join('::'),
+      mapSnapshotToDoc: (row) => snapshotRowToDoc(row, ['retrievedWeek', 'lostWeek']),
+    });
+    const marketplaceIds = await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaMarketplace',
+      currentRows: currentMarketplaceRows,
+      snapshotRows: snapshot.marketplaces,
+      getCurrentKey: (row) =>
+        [row.label, row.sourceAction, row.teamId, row.createdWeek].join('::'),
+      getSnapshotKey: (row) =>
+        [row.label, row.sourceAction, row.teamId, row.createdWeek].join('::'),
+      mapSnapshotToDoc: (row) =>
+        snapshotRowToDoc(row, [
+          'marketDayDiscountPercent',
+          'marketDayAppliedWeek',
+          'notes',
+        ]),
+    });
+    await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaOrder',
+      currentRows: currentOrderRows,
+      snapshotRows: snapshot.orders,
+      getCurrentKey: (row) =>
+        [row.description, row.orderedWeek, row.sourceAction ?? '', row.notes ?? ''].join(
+          '::',
+        ),
+      getSnapshotKey: (row) =>
+        [row.description, row.orderedWeek, row.sourceAction ?? '', row.notes ?? ''].join(
+          '::',
+        ),
+      mapSnapshotToDoc: (row) => {
+        const { marketplaceId, ...doc } = snapshotRowToDoc(row, [
+          'notes',
+          'costPaid',
+          'deliveredWeek',
+          'sourceAction',
+          'marketplaceId',
+        ]);
+        const restoredMarketplaceId =
+          typeof marketplaceId === 'string'
+            ? (marketplaceIds.get(marketplaceId) ?? marketplaceId)
+            : undefined;
+        return {
+          ...doc,
+          marketplaceId: restoredMarketplaceId,
+        };
       },
-      upkeepTeamOperations: { disabledRecoveries: [], missingChecks: [] },
-      eventMitigations: {},
-      weekWarnings: [],
-      upkeepRollTotals: {},
-      activityRollTotals: {},
-      eventRollTotals: {},
-      lockVersion: current.lockVersion + 1,
+    });
+    const trackedPersonIds = await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaCharacterStatus',
+      currentRows: currentTrackedPeopleRows,
+      snapshotRows: snapshot.trackedPeople,
+      getCurrentKey: (row) =>
+        [row.characterId ?? '', row.displayName, row.personKind].join('::'),
+      getSnapshotKey: (row) =>
+        [row.characterId ?? '', row.displayName, row.personKind].join('::'),
+      mapSnapshotToDoc: (row) =>
+        snapshotRowToDoc(row, [
+          'characterId',
+          'level',
+          'settlementKey',
+          'siteName',
+          'notes',
+          'activeUntilWeek',
+          'hiddenSinceWeek',
+          'capturedSinceWeek',
+          'rescuedWeek',
+          'restoredWeek',
+          'rescueDcOverride',
+          'sourceAction',
+        ]),
+    });
+    await syncMilitiaRowsFromSnapshot({
+      ctx,
+      table: 'militiaEventState',
+      currentRows: currentEventRows,
+      snapshotRows: snapshot.events,
+      getCurrentKey: (row) =>
+        [
+          row.eventType,
+          row.weekNumber,
+          row.startedWeek,
+          row.isPersistent ? '1' : '0',
+        ].join('::'),
+      getSnapshotKey: (row) =>
+        [
+          row.eventType,
+          row.weekNumber,
+          row.startedWeek,
+          row.isPersistent ? '1' : '0',
+        ].join('::'),
+      mapSnapshotToDoc: (row) =>
+        snapshotRowToDoc(row, ['endedWeek', 'mitigationUntilWeek']),
     });
 
+    const restoredWeekState = remapWeekStateSnapshotIds({
+      weekState: snapshot.weekState,
+      cacheIds,
+      marketplaceIds,
+      trackedPersonIds,
+    });
+    const restoredWeekStateAny = restoredWeekState as {
+      weekNumber: number;
+      phase: 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed';
+    };
+
+    await ctx.db.patch('militiaWeekState', current._id, {
+      ...restoredWeekState,
+      rollbackHistory: rollbackHistory.slice(0, -1),
+      lockVersion: current.lockVersion + 1,
+    } as never);
+
     return {
-      weekNumber: nextWeekNumber,
-      phase: nextWeekNumber === 1 ? ('activity' as const) : ('upkeep' as const),
+      weekNumber: restoredWeekStateAny.weekNumber,
+      phase: restoredWeekStateAny.phase,
     };
   },
 });
@@ -4419,6 +5437,11 @@ export const buyOffPersistentEvent = mutation({
     const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
     if (!current) {
       throw new ConvexError('Week state not found.');
+    }
+    if (current.phase !== 'persistent') {
+      throw new ConvexError(
+        'Persistent event buyoff is available only during the Persistent phase.',
+      );
     }
 
     const lastBuyoffWeek = current.lastPersistentBuyoffWeek ?? 0;
@@ -4457,6 +5480,19 @@ export const applyTreasuryTransaction = mutation({
   },
   async handler(ctx, args) {
     const militia = await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
+    const existing = await ctx.db
+      .query('militiaWeekState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+      .collect();
+    const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
+    if (!current) {
+      throw new ConvexError('Week state not found.');
+    }
+    if (current.phase !== 'upkeep') {
+      throw new ConvexError(
+        'Treasury deposits and withdrawals are available only during the Upkeep phase.',
+      );
+    }
 
     const depositTotal = parseNonNegativeTotal(args.depositTotal);
     const withdrawalTotal = parseNonNegativeTotal(args.withdrawalTotal);
@@ -4478,6 +5514,18 @@ export const rankUpMilitia = mutation({
   },
   async handler(ctx, args) {
     const militia = await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
+    const existing = await ctx.db
+      .query('militiaWeekState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+      .collect();
+    const current = existing.sort((a, b) => b.weekNumber - a.weekNumber)[0];
+    if (!current) {
+      throw new ConvexError('Week state not found.');
+    }
+    if (current.phase !== 'upkeep') {
+      throw new ConvexError('Militia rank increases are available only during the Upkeep phase.');
+    }
+
     const highestPcLevel = await getHighestActivePcLevel(ctx, militia.campaignId);
     const rankUp = getRankUpEligibility({
       rank: militia.rank,

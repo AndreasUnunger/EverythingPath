@@ -104,7 +104,6 @@ export function TeamLedger({
   }
 
   const currentMilitia = militia;
-
   const characterOptions =
     characters?.map((character) => ({
       _id: character._id,
@@ -113,6 +112,11 @@ export function TeamLedger({
       level: character.level,
       charisma: character.charisma,
     })) ?? [];
+  const assignableCharacterOptions = characterOptions.filter(
+    (character) =>
+      (character.kind ?? 'pc') === 'pc' ||
+      (character.kind ?? 'pc') === 'officer_npc',
+  );
 
   function closeForm() {
     setEditingTeamId(undefined);
@@ -196,7 +200,9 @@ export function TeamLedger({
       await upsertMilitiaTeamState({
         organizationId,
         militiaId: currentMilitia._id,
-        teamId: teamId as Parameters<typeof upsertMilitiaTeamState>[0]['teamId'],
+        teamId: teamId as Parameters<
+          typeof upsertMilitiaTeamState
+        >[0]['teamId'],
         inRoster: false,
         status: 'active',
       });
@@ -231,140 +237,130 @@ export function TeamLedger({
       }
     >
       <>
-          {currentMilitia.teams.length === 0 ? (
-            <p className="text-muted-foreground font-mono text-sm">
-              No roster teams tracked yet.
-            </p>
-          ) : (
-            <LedgerTable>
-                <colgroup>
-                  <col style={{ width: '20%' }} />
-                  <col />
-                  <col />
-                  <col />
-                  <col style={{ width: '11rem' }} />
-                </colgroup>
-                <LedgerTableHead>
-                  <tr className="border-b border-primary/8">
-                    <LedgerTableHeaderCell>
-                      Team
-                    </LedgerTableHeaderCell>
-                    <LedgerTableHeaderCell>
-                      Status
-                    </LedgerTableHeaderCell>
-                    <LedgerTableHeaderCell>
-                      Roster
-                    </LedgerTableHeaderCell>
-                    <LedgerTableHeaderCell>
-                      Manager
-                    </LedgerTableHeaderCell>
-                    <LedgerTableHeaderCell className="w-[11rem]" />
-                  </tr>
-                </LedgerTableHead>
-                <LedgerTableBody>
-                  {currentMilitia.teams.map((team, index) => (
-                    <LedgerTableRow key={team.id} index={index}>
-                      <LedgerTableCell>
-                        <div className="space-y-1">
-                          <p className="font-sans text-lg font-bold">{team.name}</p>
-                          {team.notes ? (
-                            <p className="text-muted-foreground font-mono text-sm">
-                              Notes: {team.notes}
-                            </p>
-                          ) : null}
-                        </div>
-                      </LedgerTableCell>
-                      <LedgerTableCell>
-                        <div className="space-y-1">
-                          <p className="font-mono text-sm">
-                            {formatTeamStatusLabel(team.status ?? 'active')}
-                          </p>
-                          <p className="text-muted-foreground font-mono text-sm">
-                            Unavailable until week: {team.unavailableUntilWeek ?? 'None'}
-                          </p>
-                        </div>
-                      </LedgerTableCell>
-                      <LedgerTableCell>
+        {currentMilitia.teams.length === 0 ? (
+          <p className="text-muted-foreground font-mono text-sm">
+            No roster teams tracked yet.
+          </p>
+        ) : (
+          <LedgerTable>
+            <colgroup>
+              <col style={{ width: '20%' }} />
+              <col />
+              <col />
+              <col />
+              <col style={{ width: '11rem' }} />
+            </colgroup>
+            <LedgerTableHead>
+              <tr className="border-primary/8 border-b">
+                <LedgerTableHeaderCell>Team</LedgerTableHeaderCell>
+                <LedgerTableHeaderCell>Status</LedgerTableHeaderCell>
+                <LedgerTableHeaderCell>Roster</LedgerTableHeaderCell>
+                <LedgerTableHeaderCell>Manager</LedgerTableHeaderCell>
+                <LedgerTableHeaderCell className="w-[11rem]" />
+              </tr>
+            </LedgerTableHead>
+            <LedgerTableBody>
+              {currentMilitia.teams.map((team, index) => (
+                <LedgerTableRow key={team.id} index={index}>
+                  <LedgerTableCell>
+                    <div className="space-y-1">
+                      <p className="font-sans text-lg font-bold">{team.name}</p>
+                      {team.notes ? (
                         <p className="text-muted-foreground font-mono text-sm">
-                          {team.type} tier {team.tier} • {team.size} troops
+                          Notes: {team.notes}
                         </p>
-                      </LedgerTableCell>
-                      <LedgerTableCell>
-                        <div className="space-y-1">
-                          <p className="text-muted-foreground font-mono text-sm">
-                            {team.manager
-                              ? `${team.manager.displayName} • ${formatTrackedPersonKindLabel(team.manager.kind)} • CHA ${team.manager.charisma}`
-                              : 'None'}
-                          </p>
-                          {team.manager?.warnings.map((warning) => (
-                            <p
-                              key={warning}
-                              className="text-muted-foreground font-mono text-sm"
-                            >
-                              Warning: {warning}
-                            </p>
-                          ))}
-                        </div>
-                      </LedgerTableCell>
-                      <LedgerTableActionCell>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openTeamEditor(team.id)}
+                      ) : null}
+                    </div>
+                  </LedgerTableCell>
+                  <LedgerTableCell>
+                    <div className="space-y-1">
+                      <p className="font-mono text-sm">
+                        {formatTeamStatusLabel(team.status ?? 'active')}
+                      </p>
+                      <p className="text-muted-foreground font-mono text-sm">
+                        Unavailable until week:{' '}
+                        {team.unavailableUntilWeek ?? 'None'}
+                      </p>
+                    </div>
+                  </LedgerTableCell>
+                  <LedgerTableCell>
+                    <p className="text-muted-foreground font-mono text-sm">
+                      {team.type} tier {team.tier} • {team.size} troops
+                    </p>
+                  </LedgerTableCell>
+                  <LedgerTableCell>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground font-mono text-sm">
+                        {team.manager
+                          ? `${team.manager.displayName} • ${formatTrackedPersonKindLabel(team.manager.kind)} • CHA ${team.manager.charisma}`
+                          : 'None'}
+                      </p>
+                      {team.manager?.warnings.map((warning) => (
+                        <p
+                          key={warning}
+                          className="text-muted-foreground font-mono text-sm"
                         >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void removeTeam(team.id)}
-                          disabled={pendingDeleteKey === `team:${team.id}`}
-                        >
-                          {pendingDeleteKey === `team:${team.id}`
-                            ? 'Deleting...'
-                            : 'Delete'}
-                        </Button>
-                      </LedgerTableActionCell>
-                    </LedgerTableRow>
-                  ))}
-                </LedgerTableBody>
-            </LedgerTable>
-          )}
+                          Warning: {warning}
+                        </p>
+                      ))}
+                    </div>
+                  </LedgerTableCell>
+                  <LedgerTableActionCell>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openTeamEditor(team.id)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void removeTeam(team.id)}
+                      disabled={pendingDeleteKey === `team:${team.id}`}
+                    >
+                      {pendingDeleteKey === `team:${team.id}`
+                        ? 'Deleting...'
+                        : 'Delete'}
+                    </Button>
+                  </LedgerTableActionCell>
+                </LedgerTableRow>
+              ))}
+            </LedgerTableBody>
+          </LedgerTable>
+        )}
 
-          <Dialog
-            open={isFormOpen}
-            onOpenChange={(open) => {
-              if (open) {
-                setIsFormOpen(true);
-                return;
-              }
-              closeForm();
-            }}
-          >
-            <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
-              <DialogHeader>
-                <DialogTitle className="font-sans text-xl">
-                  {editingTeamId ? 'Edit Team' : 'Add Team'}
-                </DialogTitle>
-                <DialogDescription className="font-mono text-sm">
-                  Keep roster state and manager assignment together for mid-campaign setup and corrections.
-                </DialogDescription>
-              </DialogHeader>
-              <TeamStateFormCard
-                form={form}
-                onSubmit={submitTeam}
-                onCancel={closeForm}
-                submitError={formError}
-                characterOptions={characterOptions.filter(
-                  (character) =>
-                    (character.kind ?? 'pc') === 'pc' ||
-                    (character.kind ?? 'pc') === 'officer_npc',
-                )}
-              />
-            </DialogContent>
-          </Dialog>
+        <Dialog
+          open={isFormOpen}
+          onOpenChange={(open) => {
+            if (open) {
+              setIsFormOpen(true);
+              return;
+            }
+            closeForm();
+          }}
+        >
+          <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="font-sans text-xl">
+                {editingTeamId ? 'Edit Team' : 'Add Team'}
+              </DialogTitle>
+              <DialogDescription className="font-mono text-sm">
+                Keep roster state and manager assignment together for
+                mid-campaign setup and corrections.
+              </DialogDescription>
+            </DialogHeader>
+            <TeamStateFormCard
+              form={form}
+              onSubmit={submitTeam}
+              onCancel={closeForm}
+              submitError={formError}
+              characterOptions={assignableCharacterOptions}
+            />
+          </DialogContent>
+        </Dialog>
       </>
     </LedgerShell>
   );

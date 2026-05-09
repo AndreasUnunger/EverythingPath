@@ -405,22 +405,22 @@ function rowToneClass(variant: TableVariant, index: number) {
   }
 
   if (variant === 'banded') {
-    if (index === 0) return 'bg-background/40';
-    return index % 2 === 0 ? 'bg-background/24 hover:bg-background/30' : 'bg-background/10 hover:bg-background/18';
+    if (index === 0) {
+      return 'bg-background/40';
+    }
+    return index % 2 === 0
+      ? 'bg-background/24 hover:bg-background/30'
+      : 'bg-background/10 hover:bg-background/18';
   }
 
-  if (index === 0) return 'bg-background/36';
+  if (index === 0) {
+    return 'bg-background/36';
+  }
   return index % 2 === 0 ? 'bg-background/18' : 'bg-background/8';
 }
 
 function separatorToneClass(variant: TableVariant) {
-  if (variant === 'plain') {
-    return 'bg-border';
-  }
-
-  if (variant === 'banded') {
-    return 'bg-primary/15';
-  }
-
+  if (variant === 'plain') return 'bg-border';
+  if (variant === 'banded') return 'bg-primary/15';
   return 'bg-primary/8';
 }
