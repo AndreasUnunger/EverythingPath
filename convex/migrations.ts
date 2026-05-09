@@ -1,26 +1,13 @@
 import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
-import { campaignValidator } from './schema';
-import { hasAccessToOrg } from './user';
 import { ConvexError, v } from 'convex/values';
 
 const LEGACY_SCHEMA_MIGRATION = 'legacy_ownerId_and_notoriety_backfill';
 const BATCH_SIZE = 100;
 
 export const getLegacySchemaMigrationStatus = query({
-  args: {
-    organizationId: v.optional(campaignValidator.fields.organizationId),
-  },
-  handler: async (ctx, args) => {
-    if (!args.organizationId) {
-      return null;
-    }
-
-    const access = await hasAccessToOrg(ctx, args.organizationId);
-    if (!access) {
-      return null;
-    }
-
+  args: {},
+  handler: async (ctx) => {
     return await ctx.db
       .query('dataMigration')
       .withIndex('by_name', (q) => q.eq('name', LEGACY_SCHEMA_MIGRATION))
@@ -29,15 +16,8 @@ export const getLegacySchemaMigrationStatus = query({
 });
 
 export const startLegacySchemaMigration = mutation({
-  args: {
-    organizationId: campaignValidator.fields.organizationId,
-  },
-  handler: async (ctx, args) => {
-    const access = await hasAccessToOrg(ctx, args.organizationId);
-    if (!access) {
-      throw new ConvexError('You do not have access to this org');
-    }
-
+  args: {},
+  handler: async (ctx) => {
     const now = Date.now();
     const existing = await ctx.db
       .query('dataMigration')
