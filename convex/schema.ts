@@ -292,6 +292,89 @@ export const teamIdValidator = v.union(
   v.literal('fixers'),
 );
 
+export const tableAdjustmentValidator = v.union(
+  v.object({
+    kind: v.literal('militia_value'),
+    field: v.union(
+      v.literal('training'),
+      v.literal('treasury'),
+      v.literal('notoriety'),
+    ),
+    operation: v.union(v.literal('add'), v.literal('set')),
+    value: v.number(),
+    reason: v.string(),
+  }),
+  v.object({
+    kind: v.literal('settlement_reputation'),
+    settlementKey: v.string(),
+    reputation: reputationValidator,
+    reason: v.string(),
+  }),
+  v.object({
+    kind: v.literal('team_status'),
+    teamId: teamIdValidator,
+    status: teamStatusValidator,
+    reason: v.string(),
+  }),
+  v.object({
+    kind: v.literal('event_status'),
+    eventType: eventTypeValidator,
+    operation: v.literal('add'),
+    isPersistent: v.boolean(),
+    reason: v.string(),
+  }),
+  v.object({
+    kind: v.literal('event_status'),
+    eventType: eventTypeValidator,
+    operation: v.literal('resolve'),
+    reason: v.string(),
+  }),
+);
+
+export const weeklyResolutionChangeValidator = v.union(
+  v.object({
+    kind: v.literal('militia_values'),
+    training: v.number(),
+    treasury: v.number(),
+    notoriety: v.number(),
+  }),
+  v.object({
+    kind: v.literal('lower_settlement_reputation'),
+    settlementKey: v.string(),
+  }),
+  v.object({
+    kind: v.literal('set_settlement_reputation'),
+    settlementKey: v.string(),
+    reputation: reputationValidator,
+  }),
+  v.object({
+    kind: v.literal('set_team_status'),
+    teamId: teamIdValidator,
+    status: teamStatusValidator,
+  }),
+  v.object({
+    kind: v.literal('add_event'),
+    eventType: eventTypeValidator,
+    isPersistent: v.boolean(),
+  }),
+  v.object({
+    kind: v.literal('resolve_event'),
+    eventType: eventTypeValidator,
+  }),
+);
+
+export const weeklyResolutionWarningValidator = v.object({
+  code: v.string(),
+  message: v.string(),
+  ruleSource: v.optional(v.string()),
+});
+
+export const resolvedMilitiaEventValidator = v.object({
+  eventType: eventTypeValidator,
+  rolledValue: v.number(),
+  isTwiceClause: v.boolean(),
+});
+
 export const cacheClassValidator = v.union(
   v.literal('minor'),
   v.literal('intermediate'),
@@ -588,6 +671,7 @@ export const militiaWeekStateValidator = v.object({
       turnAroundBoostTeamId: v.optional(teamIdValidator),
     }),
   ),
+  tableAdjustments: v.optional(v.array(tableAdjustmentValidator)),
   weekWarnings: v.optional(
     v.array(
       v.object({
@@ -653,6 +737,33 @@ export const militiaWeekStateValidator = v.object({
   ),
   rollbackHistory: v.optional(v.array(v.any())),
   lockVersion: v.number(),
+});
+
+export const militiaResolutionRecordValidator = v.object({
+  campaignId: v.id('campaign'),
+  militiaId: v.id('militia'),
+  weekNumber: v.number(),
+  source: v.union(
+    v.literal('confirmation'),
+    v.literal('historical_reconstruction'),
+  ),
+  rulesetVersion: v.number(),
+  draftRevision: v.optional(v.number()),
+  baselinePlan: v.array(weeklyResolutionChangeValidator),
+  finalPlan: v.array(weeklyResolutionChangeValidator),
+  warnings: v.array(weeklyResolutionWarningValidator),
+  tableAdjustments: v.array(tableAdjustmentValidator),
+  finalOutcome: v.object({
+    militia: v.object({
+      training: v.number(),
+      treasury: v.number(),
+      notoriety: v.number(),
+    }),
+    nextUneventfulBonusCarry: v.number(),
+    resolvedEvents: v.array(resolvedMilitiaEventValidator),
+  }),
+  supersedesRecordId: v.optional(v.id('militiaResolutionRecord')),
+  createdAt: v.number(),
 });
 
 export const militiaSettlementStateValidator = v.object({
@@ -816,6 +927,9 @@ export default defineSchema({
   militiaWeekState: defineTable(militiaWeekStateValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_week', ['militiaId', 'weekNumber']),
+  militiaResolutionRecord: defineTable(militiaResolutionRecordValidator)
+    .index('by_campaignId_and_weekNumber', ['campaignId', 'weekNumber'])
+    .index('by_militiaId_and_weekNumber', ['militiaId', 'weekNumber']),
   militiaSettlementState: defineTable(militiaSettlementStateValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_settlement', ['militiaId', 'settlementKey']),

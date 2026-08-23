@@ -26,6 +26,10 @@ const mutationSpies = {
     async (_militiaId: unknown, _patch: unknown) => undefined,
   ),
   queueEventTotalsPatch: vi.fn(async (_militiaId: unknown, _patch: unknown) => undefined),
+  queueTableAdjustmentsPatch: vi.fn(
+    async (_militiaId: unknown, _patch: unknown) => undefined,
+  ),
+  flushQueuedPatchAction: vi.fn(async (_militiaId: unknown) => undefined),
   savePhase: vi.fn(async (_militiaId: unknown, _phase: unknown) => undefined),
   saveSlots: vi.fn(
     async (_militiaId: unknown, _slots: unknown, _teams?: unknown) => undefined,
@@ -213,6 +217,29 @@ describe('useWeekBoardController sparse autosaves', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('keeps phase navigation local and confirms the reviewed draft revision', async () => {
+    const { result } = renderHook(() =>
+      useWeekBoardController({
+        campaignId: 'camp-1' as never,
+        organizationId: 'org1',
+        canQuery: true,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.actions.changePhase('event');
+    });
+
+    expect(result.current.phase).toBe('event');
+    expect(mutationSpies.savePhase).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.actions.commitPhase();
+    });
+
+    expect(mutationSpies.commitPhase).toHaveBeenCalledWith('m1', 1);
   });
 
   it('queues only changed upkeep totals', async () => {

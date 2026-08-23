@@ -2,7 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWeekBoardMutations } from '~/components/week-board/use-week-board-mutations';
 
-const saveWeekBoardStateMock = vi.fn(async (_args: unknown) => undefined);
+let nextRevision = 1;
+const saveWeekBoardStateMock = vi.fn(async (_args: unknown) => ({
+  revision: nextRevision++,
+}));
 const commitCurrentPhaseMock = vi.fn(async (_args: unknown) => undefined);
 const goToPreviousWeekMock = vi.fn(async (_args: unknown) => undefined);
 const applyTreasuryTransactionMock = vi.fn(async (_args: unknown) => undefined);
@@ -47,6 +50,7 @@ describe('useWeekBoardMutations', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    nextRevision = 1;
   });
 
   afterEach(() => {
@@ -158,6 +162,25 @@ describe('useWeekBoardMutations', () => {
           eventChanceTotal: '45',
         },
       },
+    });
+  });
+
+  it('confirms the exact revision produced by the final autosave flush', async () => {
+    const { result } = renderHook(() => useWeekBoardMutations('org1'));
+
+    await act(async () => {
+      const queued = result.current.queueEventTotalsPatch('militia-1' as never, {
+        eventChanceTotal: '45',
+      });
+      await result.current.commitPhase('militia-1' as never, 0);
+      await queued;
+    });
+
+    expect(commitCurrentPhaseMock).toHaveBeenCalledWith({
+      organizationId: 'org1',
+      militiaId: 'militia-1',
+      expectedRevision: 1,
+      finalizeWeek: true,
     });
   });
 });

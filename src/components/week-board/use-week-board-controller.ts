@@ -38,6 +38,7 @@ import { useWeekBoardMutations } from '~/components/week-board/use-week-board-mu
 import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
 import { shouldApplyTreasuryShortagePenalty } from '~/lib/militia-progression-rules';
+import type { TableAdjustment } from '~/lib/weekly-resolution';
 import {
   weekBoardLiveStateQuery,
   weekBoardReferenceQuery,
@@ -157,6 +158,10 @@ export function useWeekBoardController({
   const [overseerEventSupportTarget, setOverseerEventSupportTarget] = useState<
     EventOverseerSupportTarget | ''
   >('');
+  const [phaseView, setPhaseView] = useState<{
+    weekNumber: number;
+    phase: WeekPhase;
+  } | null>(null);
   const [error, setError] = useState<string>();
   const slotRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const lastSyncedServerStateRef = useRef(
@@ -178,6 +183,7 @@ export function useWeekBoardController({
       }),
   );
   const stateRecord = (data?.state ?? {}) as Record<string, unknown>;
+  const tableAdjustments = (stateRecord.tableAdjustments ?? []) as TableAdjustment[];
   const syncScopeKey = `${data?.militiaId ?? ''}:${data?.state.weekNumber ?? 0}:${data?.state.phase ?? ''}`;
 
   useEffect(() => {
@@ -661,11 +667,19 @@ export function useWeekBoardController({
     stateRecord.eventMitigations,
   ]);
 
-  const phase = (data?.state.phase as WeekPhase | undefined) ?? 'upkeep';
+  const serverPhase = (data?.state.phase as WeekPhase | undefined) ?? 'upkeep';
+  const phase =
+    phaseView && phaseView.weekNumber === data?.state.weekNumber
+      ? phaseView.phase
+      : serverPhase;
   const hasActivePersistentEvents = (data?.activePersistentEvents?.length ?? 0) > 0;
-  const availablePhases: WeekPhase[] = hasActivePersistentEvents || phase === 'persistent'
-    ? ['upkeep', 'activity', 'event', 'persistent', 'week_closed']
-    : ['upkeep', 'activity', 'event', 'week_closed'];
+  const availablePhases: WeekPhase[] = [
+    'upkeep',
+    'activity',
+    'event',
+    'persistent',
+    'week_closed',
+  ];
   const persistedSlots = useMemo(() => {
     const maxActions = data?.maxActions ?? 2;
     const base =
@@ -2568,14 +2582,24 @@ export function useWeekBoardController({
     ) => {
       await mutations.queueActivityRollTotalsPatch(militiaId, activityRollTotals);
     },
-    changePhase: async (nextPhase: WeekPhase) => {
+    setTableAdjustments: async (nextAdjustments: TableAdjustment[]) => {
       if (!data?.militiaId) return;
       setError(undefined);
       try {
-        await mutations.savePhase(data.militiaId, nextPhase);
+        await mutations.queueTableAdjustmentsPatch(
+          data.militiaId,
+          nextAdjustments,
+        );
       } catch (innerError) {
-        setError(getErrorMessage(innerError, 'Failed to change phase.'));
+        setError(
+          getErrorMessage(innerError, 'Failed to save table adjustments.'),
+        );
       }
+    },
+    changePhase: async (nextPhase: WeekPhase) => {
+      if (!data?.state.weekNumber) return;
+      setError(undefined);
+      setPhaseView({ weekNumber: data.state.weekNumber, phase: nextPhase });
     },
     resetSlots: async () => {
       if (!data?.militiaId) return;
@@ -2621,10 +2645,7 @@ export function useWeekBoardController({
         const nextPhase: WeekPhase = hasActivePersistentEvents
           ? 'persistent'
           : 'week_closed';
-        await mutations.continueToSummary(
-          data.militiaId,
-          nextPhase,
-          {
+        await mutations.queueEventTotalsPatch(data.militiaId, {
             eventChanceTotal,
             eventTriggerRollTotal,
             eventPercentileTotal: shouldResolveEventTable
@@ -2653,8 +2674,12 @@ export function useWeekBoardController({
             sabotageNotorietyIncreaseTotal: eventWouldOccurBeforeSabotage
               ? sabotageNotorietyIncreaseTotal
               : undefined,
-          },
-        );
+          });
+        await mutations.flushQueuedPatchAction(data.militiaId);
+        setPhaseView({
+          weekNumber: data.state.weekNumber,
+          phase: nextPhase,
+        });
       } catch (innerError) {
         setError(getErrorMessage(innerError, 'Failed to continue to summary.'));
       }
@@ -2663,9 +2688,9 @@ export function useWeekBoardController({
       if (!data?.militiaId) return;
       setError(undefined);
       try {
-        await mutations.commitPhase(data.militiaId);
+        await mutations.commitPhase(data.militiaId, data.state.lockVersion);
       } catch (innerError) {
-        setError(getErrorMessage(innerError, 'Failed to commit current phase.'));
+        setError(getErrorMessage(innerError, 'Failed to confirm the week.'));
       }
     },
     goBackWeek: async () => {
@@ -2786,6 +2811,7 @@ export function useWeekBoardController({
     orders,
     trackedPeople,
     activeTeamIds,
+    tableAdjustments,
     officerEffects,
     strategistBonusActionId,
     activityTeamOperations,

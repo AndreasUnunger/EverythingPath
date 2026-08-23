@@ -22,6 +22,7 @@ import {
 import type { ActionId, EventTriggerResolution } from '~/components/week-board/types';
 
 export type SummaryPhaseViewModel = {
+  draftRevision: number;
   rank: number;
   training: number;
   treasury: number;
@@ -95,6 +96,7 @@ export function SummaryPhaseSection({
   viewModel: SummaryPhaseViewModel;
 }) {
   const {
+    draftRevision,
     rank,
     training,
     treasury,
@@ -198,10 +200,13 @@ export function SummaryPhaseSection({
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       <Card className="border p-3">
-        <p className="mb-2 font-mono text-sm font-bold">Week Summary</p>
+        <p className="mb-2 font-mono text-sm font-bold">
+          Resolution Preview · Draft revision {draftRevision}
+        </p>
         <div className="space-y-2 font-mono text-xs">
           <p className="text-muted-foreground">
-            Review staged results before committing this week to militia state.
+            Derived locally from the shared Weekly Draft. Review it before final
+            confirmation.
           </p>
 
           <SummaryListCard

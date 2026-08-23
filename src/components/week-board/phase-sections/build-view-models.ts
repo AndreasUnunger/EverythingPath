@@ -255,6 +255,7 @@ export function buildSummaryPhaseViewModel({
 }): SummaryPhaseViewModel {
   const data = controller.data!;
   return {
+    draftRevision: data.state.lockVersion,
     rank: data.rank,
     training: data.training,
     treasury: data.treasury,
