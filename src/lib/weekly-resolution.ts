@@ -13,7 +13,7 @@ import {
   type ResolvedEvent,
 } from '../../convex/weekResolution';
 import teamDefinitions from '../../convex/data/teams';
-import type { TeamId } from '~/lib/team-ids';
+import type { TeamId } from './team-ids';
 
 export const WEEKLY_RESOLUTION_RULESET_VERSION = 1;
 
