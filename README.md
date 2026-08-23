@@ -27,6 +27,7 @@ It is designed for groups already in-progress as well as fresh starts, including
 Militia rules are implemented from the Ironfang rules corpus in `docs/ai/ironfang-militia/`.
 
 The system is rules-aware but not rules-blocking:
+
 - Structural invalid input is blocked
 - Rule mismatches are surfaced as warnings
 - Homebrew and table-approved overrides are supported
@@ -54,5 +55,16 @@ Form validation is implemented with `react-hook-form` + `zod` for clear field-le
 ## Development
 
 Requirements:
+
 - Node.js
 - pnpm
+
+Install dependencies and start the Next.js app and Convex development process:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Press Ctrl+C to stop both services. To run either service separately, use
+`pnpm dev:web` or `pnpm dev:convex`.
