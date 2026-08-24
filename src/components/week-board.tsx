@@ -48,7 +48,7 @@ export function WeekBoard({
   if (!canQuery) {
     return (
       <p className="text-muted-foreground font-mono text-sm">
-        Waiting for organization access sync...
+        Checking organization access...
       </p>
     );
   }
@@ -146,7 +146,6 @@ export function WeekBoard({
 
         {shouldShowGlobalAssetPanel ? (
           <AssetLedgerPanel
-            currentWeek={weekNumber}
             settlements={controller.settlements}
             caches={controller.caches}
             marketplaces={controller.marketplaces}

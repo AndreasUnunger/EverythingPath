@@ -83,7 +83,6 @@ export type ActivityPhaseViewModel = {
   slotRefs: RefObject<Record<string, HTMLDivElement | null>>;
   resetSlotsAction: () => void;
   militiaId: Id<'militia'>;
-  currentWeek: number;
   rank: number;
   focus: MilitiaFocus;
   treasury: number;

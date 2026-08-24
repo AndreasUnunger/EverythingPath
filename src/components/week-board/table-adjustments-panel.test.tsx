@@ -14,7 +14,7 @@ describe('TableAdjustmentsPanel', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Shared Adjustment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Adjustment' }));
 
     expect(await screen.findByText('Enter a numeric value.')).toBeInTheDocument();
     expect(
@@ -22,7 +22,7 @@ describe('TableAdjustmentsPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('emits a typed shared adjustment', async () => {
+  it('emits a typed adjustment', async () => {
     const onChangeAction = vi.fn(async () => undefined);
     render(
       <TableAdjustmentsPanel
@@ -38,7 +38,7 @@ describe('TableAdjustmentsPanel', () => {
     fireEvent.change(screen.getByLabelText('Reason'), {
       target: { value: 'Narrative reward' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add Shared Adjustment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Adjustment' }));
 
     await waitFor(() => {
       expect(onChangeAction).toHaveBeenCalledWith([

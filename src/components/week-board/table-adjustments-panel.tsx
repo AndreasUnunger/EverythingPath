@@ -120,8 +120,7 @@ export function TableAdjustmentsPanel({
       <div className="mb-3">
         <p className="font-mono text-sm font-bold">Table Adjustments</p>
         <p className="text-muted-foreground font-mono text-xs">
-          Applied after the rules baseline. Every adjustment is shared live and
-          requires a reason.
+          Applied after the normal rules.
         </p>
       </div>
 
@@ -133,7 +132,9 @@ export function TableAdjustmentsPanel({
               className="flex items-start justify-between gap-3 rounded border p-2"
             >
               <span>
-                <span className="font-bold">{formatAdjustment(adjustment)}</span>
+                <span className="font-bold">
+                  {formatAdjustment(adjustment)}
+                </span>
                 <span className="text-muted-foreground block">
                   Reason: {adjustment.reason}
                 </span>
@@ -144,7 +145,9 @@ export function TableAdjustmentsPanel({
                 variant="outline"
                 onClick={() =>
                   void onChangeAction(
-                    adjustments.filter((_, adjustmentIndex) => adjustmentIndex !== index),
+                    adjustments.filter(
+                      (_, adjustmentIndex) => adjustmentIndex !== index,
+                    ),
                   )
                 }
               >
@@ -223,7 +226,10 @@ export function TableAdjustmentsPanel({
               label="Team"
               name="teamId"
               control={form.control}
-              options={TEAM_IDS.map((teamId) => [teamId, formatTeamIdLabel(teamId)])}
+              options={TEAM_IDS.map((teamId) => [
+                teamId,
+                formatTeamIdLabel(teamId),
+              ])}
             />
             <SelectField
               label="Status"
@@ -275,7 +281,7 @@ export function TableAdjustmentsPanel({
 
         <div className="md:col-span-2">
           <Button type="submit" disabled={form.formState.isSubmitting}>
-            Add Shared Adjustment
+            Add Adjustment
           </Button>
         </div>
       </form>
@@ -335,7 +341,9 @@ function InputField({
   error?: string;
 }) {
   return (
-    <label className={`grid content-start gap-1 font-mono text-xs ${className ?? ''}`}>
+    <label
+      className={`grid content-start gap-1 font-mono text-xs ${className ?? ''}`}
+    >
       {label}
       <Input aria-invalid={Boolean(error)} {...inputProps} />
       {error ? <span className="text-destructive">{error}</span> : null}

@@ -61,7 +61,6 @@ export function buildActivityPhaseViewModel({
       void controller.actions.resetSlots();
     },
     militiaId: data.militiaId,
-    currentWeek: data.state.weekNumber,
     rank: data.rank,
     focus: data.focus,
     treasury: data.treasury,
@@ -255,7 +254,6 @@ export function buildSummaryPhaseViewModel({
 }): SummaryPhaseViewModel {
   const data = controller.data!;
   return {
-    draftRevision: data.state.lockVersion,
     rank: data.rank,
     training: data.training,
     treasury: data.treasury,

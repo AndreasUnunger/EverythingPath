@@ -32,7 +32,6 @@ export function ActivityPhaseSection({
     slotRefs,
     resetSlotsAction,
     militiaId,
-    currentWeek,
     rank,
     treasury,
     maxTeams,
@@ -206,7 +205,6 @@ export function ActivityPhaseSection({
         </Card>
 
         <AssetLedgerPanel
-          currentWeek={currentWeek}
           settlements={settlements}
           caches={caches}
           marketplaces={marketplaces}
