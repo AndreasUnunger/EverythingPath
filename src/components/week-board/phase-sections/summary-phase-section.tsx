@@ -19,7 +19,10 @@ import {
   buildUpkeepSummaryItems,
   hasManualTotal,
 } from '~/components/week-board/phase-sections/summary-phase-shared';
-import type { ActionId, EventTriggerResolution } from '~/components/week-board/types';
+import type {
+  ActionId,
+  EventTriggerResolution,
+} from '~/components/week-board/types';
 
 export type SummaryPhaseViewModel = {
   rank: number;
@@ -38,7 +41,11 @@ export type SummaryPhaseViewModel = {
   activityTeamOperations: {
     recruits: Array<{ slotIndex: number; teamId: string }>;
     dismissals: Array<{ slotIndex: number; teamId: string }>;
-    upgrades: Array<{ slotIndex: number; fromTeamId: string; toTeamId: string }>;
+    upgrades: Array<{
+      slotIndex: number;
+      fromTeamId: string;
+      toTeamId: string;
+    }>;
   };
   activityOfficerOperations: {
     changes: Array<{
@@ -85,7 +92,12 @@ export type SummaryPhaseViewModel = {
   marketDayMarketplaceId: string;
   marketDayTownName: string;
   marketDayAppliesToAllTrackedMarketplaces: boolean;
-  overseerEventSupportTarget: '' | 'sabotage' | 'cache_discovered' | 'theft' | 'sickness_twice';
+  overseerEventSupportTarget:
+    | ''
+    | 'sabotage'
+    | 'cache_discovered'
+    | 'theft'
+    | 'sickness_twice';
   formatManualTotalForSummaryAction: (raw: string) => string;
 };
 
@@ -164,8 +176,9 @@ export function SummaryPhaseSection({
     activityAssetOperations,
   });
   const marketDayMarketplaceLabel =
-    marketplaces.find((marketplace) => marketplace._id === marketDayMarketplaceId)
-      ?.label ?? '';
+    marketplaces.find(
+      (marketplace) => marketplace._id === marketDayMarketplaceId,
+    )?.label ?? '';
   const eventOccurrenceItems = buildEventOccurrenceItems({
     eventChanceTotal,
     eventTriggerRollTotal,
@@ -198,10 +211,10 @@ export function SummaryPhaseSection({
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       <Card className="border p-3">
-        <p className="mb-2 font-mono text-sm font-bold">Week Summary</p>
+        <p className="mb-2 font-mono text-sm font-bold">Resolution Preview</p>
         <div className="space-y-2 font-mono text-xs">
           <p className="text-muted-foreground">
-            Review staged results before committing this week to militia state.
+            Review this week&apos;s changes before confirming.
           </p>
 
           <SummaryListCard
@@ -215,13 +228,18 @@ export function SummaryPhaseSection({
           />
 
           <SummaryListCard title="Upkeep totals entered" items={upkeepItems} />
-          <SummaryListCard title="Activity selections" items={stagedSlotItems} />
+          <SummaryListCard
+            title="Activity selections"
+            items={stagedSlotItems}
+          />
           <SummaryListCard title="Staged operations" items={operationItems} />
 
           {weekWarnings.length > 0 ? (
             <SummaryListCard
               title="Rules warnings"
-              items={weekWarnings.map((warning) => `Warning: ${warning.message}`)}
+              items={weekWarnings.map(
+                (warning) => `Warning: ${warning.message}`,
+              )}
               listClassName="text-amber-700"
             />
           ) : null}

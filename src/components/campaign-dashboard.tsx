@@ -118,12 +118,11 @@ export function CampaignDashboard() {
     return (
       <div className="bg-card border-primary/40 space-y-2 border p-4">
         <p className="font-mono text-sm tracking-wide">
-          Organization access not synced yet
+          Organization access is not ready
         </p>
         <p className="text-muted-foreground font-mono text-sm">
-          You are signed in, but this organization is not available in Convex
-          yet. Join the organization in Clerk (or switch to one you already
-          belong to), then refresh this page in a few seconds.
+          Try again shortly, switch organizations, or ask an administrator for
+          help if the problem continues.
         </p>
       </div>
     );

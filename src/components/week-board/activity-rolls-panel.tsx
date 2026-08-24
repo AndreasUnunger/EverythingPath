@@ -63,7 +63,7 @@ export function ActivityRollsPanel({
         </div>
       ))}
       <p className="text-muted-foreground font-mono text-xs">
-        Roll inputs auto-save and sync across connected players.
+        Roll inputs save automatically.
       </p>
     </div>
   );

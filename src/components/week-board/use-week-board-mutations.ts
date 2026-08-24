@@ -6,6 +6,7 @@ import { api as db } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
 import type { EventOverseerSupportTarget } from '~/components/week-board/officer-effects';
 import type { ActionId, WeekPhase } from '~/components/week-board/types';
+import type { TableAdjustment } from '~/lib/weekly-resolution';
 
 type ActivityTeamOperationsPatch = Partial<{
   recruits: Array<{ slotIndex: number; teamId: string }>;
@@ -181,6 +182,7 @@ export type WeekBoardPatch = {
   upkeepRollTotals?: UpkeepRollTotalsPatch;
   activityRollTotals?: ActivityRollTotalsPatch;
   eventRollTotals?: EventRollTotalsPatch;
+  tableAdjustments?: TableAdjustment[];
 };
 
 type PendingResolver = {
@@ -255,6 +257,7 @@ export function useWeekBoardMutations(organizationId: string) {
   const pendingMilitiaIdRef = useRef<Id<'militia'> | null>(null);
   const pendingResolversRef = useRef<PendingResolver[]>([]);
   const pendingTimerRef = useRef<number | null>(null);
+  const latestRevisionByMilitiaRef = useRef(new Map<Id<'militia'>, number>());
 
   const clearPendingTimer = useCallback(() => {
     if (pendingTimerRef.current !== null) {
@@ -276,16 +279,21 @@ export function useWeekBoardMutations(organizationId: string) {
 
       if (!targetMilitiaId || !patch) {
         pendingResolvers.forEach((resolver) => resolver.resolve());
-        return;
+        return undefined;
       }
 
       try {
-        await saveWeekBoardState({
+        const result = await saveWeekBoardState({
           organizationId,
           militiaId: targetMilitiaId,
           patch: patch as never,
         });
+        latestRevisionByMilitiaRef.current.set(
+          targetMilitiaId,
+          result.revision,
+        );
         pendingResolvers.forEach((resolver) => resolver.resolve());
+        return result.revision;
       } catch (error) {
         pendingResolvers.forEach((resolver) => resolver.reject(error));
         throw error;
@@ -342,11 +350,12 @@ export function useWeekBoardMutations(organizationId: string) {
 
   const savePhase = async (militiaId: Id<'militia'>, phase: WeekPhase) => {
     await flushQueuedPatch(militiaId);
-    await saveWeekBoardState({
+    const result = await saveWeekBoardState({
       organizationId,
       militiaId,
       patch: { phase },
     });
+    latestRevisionByMilitiaRef.current.set(militiaId, result.revision);
   };
 
   const saveSlots = async (
@@ -355,7 +364,7 @@ export function useWeekBoardMutations(organizationId: string) {
     stagedActivityTeamIds?: (string | null)[],
   ) => {
     await flushQueuedPatch(militiaId);
-    await saveWeekBoardState({
+    const result = await saveWeekBoardState({
       organizationId,
       militiaId,
       patch: {
@@ -363,6 +372,7 @@ export function useWeekBoardMutations(organizationId: string) {
         stagedActivityTeamIds: stagedActivityTeamIds as never,
       },
     });
+    latestRevisionByMilitiaRef.current.set(militiaId, result.revision);
   };
 
   const saveStagedTeams = async (
@@ -370,11 +380,12 @@ export function useWeekBoardMutations(organizationId: string) {
     stagedActivityTeamIds: (string | null)[],
   ) => {
     await flushQueuedPatch(militiaId);
-    await saveWeekBoardState({
+    const result = await saveWeekBoardState({
       organizationId,
       militiaId,
       patch: { stagedActivityTeamIds: stagedActivityTeamIds as never },
     });
+    latestRevisionByMilitiaRef.current.set(militiaId, result.revision);
   };
 
   const queueActivityTeamOperationsPatch = async (
@@ -434,6 +445,13 @@ export function useWeekBoardMutations(organizationId: string) {
     await queuePatch(militiaId, { eventRollTotals: eventRollTotals as never });
   };
 
+  const queueTableAdjustmentsPatch = async (
+    militiaId: Id<'militia'>,
+    tableAdjustments: TableAdjustment[],
+  ) => {
+    await queuePatch(militiaId, { tableAdjustments });
+  };
+
   const continueToSummary = async (
     militiaId: Id<'militia'>,
     nextPhase: WeekPhase,
@@ -451,7 +469,7 @@ export function useWeekBoardMutations(organizationId: string) {
     },
   ) => {
     await flushQueuedPatch(militiaId);
-    await saveWeekBoardState({
+    const result = await saveWeekBoardState({
       organizationId,
       militiaId,
       patch: {
@@ -459,13 +477,22 @@ export function useWeekBoardMutations(organizationId: string) {
         eventRollTotals,
       },
     });
+    latestRevisionByMilitiaRef.current.set(militiaId, result.revision);
   };
 
-  const commitPhase = async (militiaId: Id<'militia'>) => {
-    await flushQueuedPatch(militiaId);
+  const commitPhase = async (
+    militiaId: Id<'militia'>,
+    expectedRevision: number,
+  ) => {
+    const flushedRevision = await flushQueuedPatch(militiaId);
     await commitCurrentPhase({
       organizationId,
       militiaId,
+      expectedRevision:
+        flushedRevision ??
+        latestRevisionByMilitiaRef.current.get(militiaId) ??
+        expectedRevision,
+      finalizeWeek: true,
     });
   };
 
@@ -524,6 +551,7 @@ export function useWeekBoardMutations(organizationId: string) {
     queueUpkeepTotalsPatch,
     queueActivityRollTotalsPatch,
     queueEventTotalsPatch,
+    queueTableAdjustmentsPatch,
     continueToSummary,
     commitPhase,
     goBackWeek,

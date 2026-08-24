@@ -15,7 +15,6 @@ import {
 } from '~/lib/militia-marketplace-rules';
 
 export function AssetLedgerPanel({
-  currentWeek,
   settlements,
   caches,
   marketplaces,
@@ -23,7 +22,6 @@ export function AssetLedgerPanel({
   trackedPeople,
   stickyOnWide = true,
 }: {
-  currentWeek: number;
   settlements: SettlementLedgerEntry[];
   caches: CacheLedgerEntry[];
   marketplaces: MarketplaceLedgerEntry[];
@@ -37,20 +35,20 @@ export function AssetLedgerPanel({
   const hasOrders = orders.length > 0;
   const hasTrackedPeople = trackedPeople.length > 0;
 
-  if (!hasSettlements && !hasCaches && !hasMarketplaces && !hasOrders && !hasTrackedPeople) {
+  if (
+    !hasSettlements &&
+    !hasCaches &&
+    !hasMarketplaces &&
+    !hasOrders &&
+    !hasTrackedPeople
+  ) {
     return null;
   }
 
   return (
-    <div className={stickyOnWide ? 'space-y-3 xl:sticky xl:top-4' : 'space-y-3'}>
-      <Card className="border p-3">
-        <p className="font-mono text-sm font-bold">Tracked Militia State</p>
-        <p className="text-muted-foreground mt-1 font-mono text-xs">
-          Persistent campaign state for week {currentWeek}, separate from this
-          week&apos;s action targets.
-        </p>
-      </Card>
-
+    <div
+      className={stickyOnWide ? 'space-y-3 xl:sticky xl:top-4' : 'space-y-3'}
+    >
       {hasSettlements ? (
         <LedgerSection
           title="Tracked Settlements"
@@ -67,7 +65,9 @@ export function AssetLedgerPanel({
                     ]
                   : []),
                 ...(settlement.refugeActiveUntilWeek
-                  ? [`Active refuge through week ${settlement.refugeActiveUntilWeek}`]
+                  ? [
+                      `Active refuge through week ${settlement.refugeActiveUntilWeek}`,
+                    ]
                   : []),
               ]}
             />
@@ -131,7 +131,9 @@ export function AssetLedgerPanel({
               title={order.description}
               lines={[
                 `Status: ${order.status}`,
-                ...(order.costPaid !== undefined ? [`Cost paid: ${order.costPaid} gp`] : []),
+                ...(order.costPaid !== undefined
+                  ? [`Cost paid: ${order.costPaid} gp`]
+                  : []),
                 `Ordered week ${order.orderedWeek}, due week ${order.dueWeek}`,
                 `Delivery time: ${order.deliveryDays} day(s)`,
                 ...(order.sourceAction
@@ -157,7 +159,9 @@ export function AssetLedgerPanel({
               lines={[
                 `Status: ${person.status.replace('_', ' ')}`,
                 `Type: ${person.personKind.replace('_', ' ')}`,
-                ...(person.level !== undefined ? [`Level: ${person.level}`] : []),
+                ...(person.level !== undefined
+                  ? [`Level: ${person.level}`]
+                  : []),
                 `Location: ${formatTrackedPersonLocation(person)}`,
                 ...(person.rescueDcOverride !== undefined
                   ? [`Rescue DC override: ${person.rescueDcOverride}`]
@@ -190,13 +194,7 @@ function LedgerSection({
   );
 }
 
-function LedgerRow({
-  title,
-  lines,
-}: {
-  title: string;
-  lines: string[];
-}) {
+function LedgerRow({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="border-primary/30 bg-primary/5 border p-2">
       <p className="font-mono text-xs font-bold">{title}</p>
@@ -235,7 +233,11 @@ function formatTrackedPersonLocation(person: TrackedPersonLedgerEntry) {
   if (person.locationType === 'site' && person.siteName) {
     return `Site: ${person.siteName}`;
   }
-  if ((person.locationType === 'settlement' || person.locationType === 'refuge') && person.settlementKey) {
+  if (
+    (person.locationType === 'settlement' ||
+      person.locationType === 'refuge') &&
+    person.settlementKey
+  ) {
     return `${capitalize(person.locationType)}: ${person.settlementKey}`;
   }
   if (person.locationType === 'hq') {

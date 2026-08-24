@@ -69,7 +69,7 @@ export function TeamManager({
   if (!canQuery) {
     return (
       <p className="text-muted-foreground font-mono text-sm">
-        Waiting for organization access sync...
+        Checking organization access...
       </p>
     );
   }

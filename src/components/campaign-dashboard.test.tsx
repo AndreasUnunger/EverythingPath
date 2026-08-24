@@ -132,7 +132,7 @@ describe('CampaignDashboard', () => {
     render(<CampaignDashboard />);
 
     expect(
-      screen.getByText('Organization access not synced yet'),
+      screen.getByText('Organization access is not ready'),
     ).toBeInTheDocument();
   });
 

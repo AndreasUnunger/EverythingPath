@@ -10,6 +10,7 @@ import {
   phaseValidator,
   restoreCharacterModeValidator,
   strikeTeamModeValidator,
+  tableAdjustmentValidator,
   teamIdValidator,
   trackedPersonKindValidator,
 } from './schema';
@@ -50,6 +51,13 @@ import {
   getMilitiaNotoriety,
   getMinimumTrainingForRank,
 } from '../src/lib/militia-progression-rules';
+import {
+  applyTableAdjustmentsToPlan,
+  getMilitiaValuesFromPlan,
+  resolveWeeklyDraft,
+  type TableAdjustment,
+  type WeeklyResolutionChange,
+} from '../src/lib/weekly-resolution';
 import teamDefinitions from './data/teams';
 
 function getMaxActionsForMilitia({
@@ -67,6 +75,94 @@ function getMaxActionsForMilitia({
 
 function normalizeMilitiaNotorietyValue(notoriety?: number) {
   return getMilitiaNotoriety(notoriety);
+}
+
+async function applyTableAdjustmentPlan({
+  ctx,
+  militiaId,
+  weekNumber,
+  finalPlan,
+}: {
+  ctx: MutationCtx;
+  militiaId: Id<'militia'>;
+  weekNumber: number;
+  finalPlan: WeeklyResolutionChange[];
+}) {
+  for (const change of finalPlan) {
+    if (change.kind === 'set_settlement_reputation') {
+      const settlement = await ctx.db
+        .query('militiaSettlementState')
+        .withIndex('by_militiaId_settlement', (q) =>
+          q
+            .eq('militiaId', militiaId)
+            .eq('settlementKey', change.settlementKey),
+        )
+        .unique();
+      if (settlement) {
+        await ctx.db.patch('militiaSettlementState', settlement._id, {
+          reputation: change.reputation,
+        });
+      } else {
+        await ctx.db.insert('militiaSettlementState', {
+          militiaId,
+          settlementKey: change.settlementKey,
+          reputation: change.reputation,
+          isSecured: false,
+        });
+      }
+      continue;
+    }
+
+    if (change.kind === 'set_team_status') {
+      const teamState = await ctx.db
+        .query('militiaTeamState')
+        .withIndex('by_militiaId_teamId', (q) =>
+          q.eq('militiaId', militiaId).eq('teamId', change.teamId as never),
+        )
+        .unique();
+      if (teamState) {
+        await ctx.db.patch('militiaTeamState', teamState._id, {
+          status: change.status,
+          unavailableUntilWeek: undefined,
+        });
+      } else {
+        await ctx.db.insert('militiaTeamState', {
+          militiaId,
+          teamId: change.teamId as never,
+          status: change.status,
+        });
+      }
+      continue;
+    }
+
+    if (change.kind === 'add_event') {
+      await ctx.db.insert('militiaEventState', {
+        militiaId,
+        weekNumber,
+        eventType: change.eventType,
+        isPersistent: change.isPersistent,
+        startedWeek: weekNumber,
+        resolved: !change.isPersistent,
+      });
+      continue;
+    }
+
+    if (change.kind === 'resolve_event') {
+      const eventStates = await ctx.db
+        .query('militiaEventState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militiaId))
+        .take(100);
+      for (const eventState of eventStates) {
+        if (eventState.eventType !== change.eventType || eventState.resolved) {
+          continue;
+        }
+        await ctx.db.patch('militiaEventState', eventState._id, {
+          resolved: true,
+          endedWeek: weekNumber,
+        });
+      }
+    }
+  }
 }
 
 function isStrategistOfficerChangeActive({
@@ -2085,6 +2181,25 @@ export const getWeekBoardLiveState = query({
   },
 });
 
+export const listResolutionRecords = query({
+  args: {
+    campaignId: v.optional(v.id('campaign')),
+    organizationId: v.optional(campaignValidator.fields.organizationId),
+  },
+  async handler(ctx, args) {
+    const militia = await getMilitiaForWeekBoardQuery(ctx, args);
+    if (!militia) return [];
+
+    return await ctx.db
+      .query('militiaResolutionRecord')
+      .withIndex('by_militiaId_and_weekNumber', (q) =>
+        q.eq('militiaId', militia._id),
+      )
+      .order('desc')
+      .take(200);
+  },
+});
+
 export const saveWeekBoardState = mutation({
   args: {
     organizationId: campaignValidator.fields.organizationId,
@@ -2320,6 +2435,7 @@ export const saveWeekBoardState = mutation({
           ),
         }),
       ),
+      tableAdjustments: v.optional(v.array(tableAdjustmentValidator)),
       upkeepRollTotals: v.optional(
         v.object({
           attritionTotal: v.optional(v.string()),
@@ -2379,6 +2495,13 @@ export const saveWeekBoardState = mutation({
   },
   async handler(ctx, args) {
     const militia = await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
+    if (
+      args.patch.tableAdjustments?.some(
+        (adjustment) => adjustment.reason.trim().length === 0,
+      )
+    ) {
+      throw new ConvexError('Every Table Adjustment requires a reason.');
+    }
 
     const existing = await ctx.db
       .query('militiaWeekState')
@@ -2496,6 +2619,7 @@ export const saveWeekBoardState = mutation({
           upkeepRollTotals?: Record<string, unknown>;
           activityRollTotals?: Record<string, unknown>;
           eventRollTotals?: Record<string, unknown>;
+          tableAdjustments?: TableAdjustment[];
           weekWarnings?: Array<{ code: string; message: string }>;
         })
       | undefined;
@@ -2665,6 +2789,7 @@ export const saveWeekBoardState = mutation({
           | 'theft'
           | 'sickness_twice';
       };
+      tableAdjustments?: TableAdjustment[];
       weekWarnings?: Array<{ code: string; message: string }>;
       upkeepRollTotals?: {
         attritionTotal?: number;
@@ -3073,6 +3198,10 @@ export const saveWeekBoardState = mutation({
                 | undefined),
       };
     }
+
+    if (args.patch.tableAdjustments) {
+      nextPatch.tableAdjustments = args.patch.tableAdjustments;
+    }
     if (args.patch.upkeepRollTotals) {
       nextPatch.upkeepRollTotals = {
         attritionTotal:
@@ -3420,13 +3549,14 @@ export const saveWeekBoardState = mutation({
           missingChecks: [],
         }) as never,
         eventMitigations: (nextPatch.eventMitigations ?? {}) as never,
+        tableAdjustments: nextPatch.tableAdjustments ?? [],
         weekWarnings: (nextPatch.weekWarnings ?? []) as never,
         upkeepRollTotals: nextPatch.upkeepRollTotals,
         activityRollTotals: nextPatch.activityRollTotals,
         eventRollTotals: nextPatch.eventRollTotals,
         lockVersion: nextPatch.lockVersion,
       });
-      return;
+      return { revision: nextPatch.lockVersion };
     }
 
     if (args.patch.phase === 'upkeep' && current.phase !== 'upkeep') {
@@ -3434,6 +3564,7 @@ export const saveWeekBoardState = mutation({
     }
 
     await ctx.db.patch('militiaWeekState', current._id, nextPatch as never);
+    return { revision: nextPatch.lockVersion };
   },
 });
 
@@ -3441,6 +3572,8 @@ export const commitCurrentPhase = mutation({
   args: {
     organizationId: campaignValidator.fields.organizationId,
     militiaId: v.id('militia'),
+    expectedRevision: v.optional(v.number()),
+    finalizeWeek: v.optional(v.boolean()),
   },
   async handler(ctx, args) {
     const militia = await assertMilitiaAccess(ctx, args.militiaId, args.organizationId);
@@ -3588,9 +3721,26 @@ export const commitCurrentPhase = mutation({
               | 'theft'
               | 'sickness_twice';
           };
+          tableAdjustments?: TableAdjustment[];
           weekWarnings?: Array<{ code: string; message: string }>;
         })
       | undefined;
+    if (
+      currentAny?.tableAdjustments?.some(
+        (adjustment) => adjustment.reason.trim().length === 0,
+      )
+    ) {
+      throw new ConvexError('Every Table Adjustment requires a reason.');
+    }
+    if (
+      current &&
+      args.expectedRevision !== undefined &&
+      current.lockVersion !== args.expectedRevision
+    ) {
+      throw new ConvexError(
+        'The Weekly Draft changed after it was reviewed. Review the latest preview before confirming again.',
+      );
+    }
     const currentRollbackHistory = currentAny?.rollbackHistory ?? [];
     const nextWeekMaxActions = getMaxActionsForMilitia({
       rank: militia.rank,
@@ -3647,19 +3797,20 @@ export const commitCurrentPhase = mutation({
       return { nextPhase: 'activity', weekNumber: 1 };
     }
 
+    const phaseToCommit = args.finalizeWeek ? 'week_closed' : current.phase;
     let nextPhase: 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed' =
-      current.phase;
+      phaseToCommit;
     let nextWeekNumber = current.weekNumber;
     let nextUneventfulBonusCarry = current.uneventfulBonusCarry ?? 0;
     let nextQueuedEffects = current.queuedEffects ?? [];
     let nextUpkeepTreasurySnapshot = current.upkeepTreasurySnapshot;
     let nextRollbackHistory = currentRollbackHistory;
 
-    if (current.phase === 'upkeep') {
+    if (phaseToCommit === 'upkeep') {
       nextPhase = 'activity';
-    } else if (current.phase === 'activity') {
+    } else if (phaseToCommit === 'activity') {
       nextPhase = 'event';
-    } else if (current.phase === 'event') {
+    } else if (phaseToCommit === 'event') {
       const activePersistentEvents = await ctx.db
         .query('militiaEventState')
         .withIndex('by_militiaId_persistent', (q) =>
@@ -3669,9 +3820,9 @@ export const commitCurrentPhase = mutation({
       nextPhase = activePersistentEvents.some((event) => !event.resolved)
         ? 'persistent'
         : 'week_closed';
-    } else if (current.phase === 'persistent') {
+    } else if (phaseToCommit === 'persistent') {
       nextPhase = 'week_closed';
-    } else if (current.phase === 'week_closed') {
+    } else if (phaseToCommit === 'week_closed') {
       const teamRows = await ctx.db
         .query('militiaTeam')
         .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
@@ -3983,7 +4134,7 @@ export const commitCurrentPhase = mutation({
       const activePersistentEventTypes = activePersistentEventStates.map(
         (eventState) => eventState.eventType,
       );
-      const resolution = applyWeekResolution({
+      const legacyResolution = applyWeekResolution({
         current: {
           weekNumber: current.weekNumber,
           uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
@@ -4005,6 +4156,49 @@ export const commitCurrentPhase = mutation({
         activeQueuedEffects,
         activePersistentEventTypes,
       });
+      const weeklyResolution = resolveWeeklyDraft({
+        draft: {
+          revision: current.lockVersion,
+          weekNumber: current.weekNumber,
+          uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
+          stagedActivityActionIds: current.stagedActivityActionIds,
+          stagedActivityTeamIds: currentAny?.stagedActivityTeamIds,
+          upkeepRollTotals: current.upkeepRollTotals,
+          activityRollTotals: current.activityRollTotals,
+          activityTeamOperations: currentAny?.activityTeamOperations,
+          activityAssetOperations: currentAny?.activityAssetOperations,
+          eventMitigations: currentAny?.eventMitigations,
+          eventRollTotals: current.eventRollTotals,
+        },
+        snapshot: {
+          militia: {
+            rank: militia.rank,
+            training: militia.training,
+            treasury: militia.treasury,
+            notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
+          },
+          activeQueuedEffects,
+          activePersistentEventTypes,
+        },
+      });
+      const resolution = {
+        militiaPatch: weeklyResolution.summary.militia,
+        nextUneventfulBonusCarry:
+          weeklyResolution.summary.nextUneventfulBonusCarry,
+        resolvedEvents: weeklyResolution.summary.resolvedEvents,
+        shouldDropNearestSettlementReputation:
+          weeklyResolution.finalPlan.some(
+            (change) => change.kind === 'lower_settlement_reputation',
+          ),
+        nearestSettlementKey: weeklyResolution.finalPlan.find(
+          (change) => change.kind === 'lower_settlement_reputation',
+        )?.settlementKey,
+      };
+      if (JSON.stringify(resolution) !== JSON.stringify(legacyResolution)) {
+        throw new ConvexError(
+          'Weekly Resolution parity check failed; the week was not committed.',
+        );
+      }
       const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
         resolvedEvents: resolution.resolvedEvents,
       });
@@ -5024,10 +5218,64 @@ export const commitCurrentPhase = mutation({
         resolution.militiaPatch.notoriety -
         (countAction('lie_low') > 0 ? teamRows.length : 0);
 
+      const completeBaselinePlan: WeeklyResolutionChange[] =
+        weeklyResolution.baselinePlan.map((change) =>
+          change.kind === 'militia_values'
+            ? {
+                kind: 'militia_values',
+                training: resolution.militiaPatch.training,
+                treasury: adjustedTreasury,
+                notoriety: adjustedNotoriety,
+              }
+            : change,
+        );
+      const finalPlan = applyTableAdjustmentsToPlan(
+        completeBaselinePlan,
+        currentAny?.tableAdjustments ?? [],
+      );
+      const finalMilitiaValues = getMilitiaValuesFromPlan(finalPlan);
+
       await ctx.db.patch('militia', args.militiaId, {
-        ...resolution.militiaPatch,
-        notoriety: adjustedNotoriety,
-        treasury: adjustedTreasury,
+        ...finalMilitiaValues,
+      });
+      await applyTableAdjustmentPlan({
+        ctx,
+        militiaId: args.militiaId,
+        weekNumber: current.weekNumber,
+        finalPlan,
+      });
+
+      const previousResolutionRecord = await ctx.db
+        .query('militiaResolutionRecord')
+        .withIndex('by_militiaId_and_weekNumber', (q) =>
+          q
+            .eq('militiaId', args.militiaId)
+            .eq('weekNumber', current.weekNumber),
+        )
+        .order('desc')
+        .first();
+      await ctx.db.insert('militiaResolutionRecord', {
+        campaignId: militia.campaignId,
+        militiaId: args.militiaId,
+        weekNumber: current.weekNumber,
+        source: 'confirmation',
+        rulesetVersion: weeklyResolution.rulesetVersion,
+        draftRevision: current.lockVersion,
+        baselinePlan: completeBaselinePlan,
+        finalPlan,
+        warnings: [
+          ...(currentAny?.weekWarnings ?? []),
+          ...weeklyResolution.warnings,
+        ],
+        tableAdjustments: currentAny?.tableAdjustments ?? [],
+        finalOutcome: {
+          militia: finalMilitiaValues,
+          nextUneventfulBonusCarry:
+            weeklyResolution.summary.nextUneventfulBonusCarry,
+          resolvedEvents: weeklyResolution.summary.resolvedEvents,
+        },
+        supersedesRecordId: previousResolutionRecord?._id,
+        createdAt: Date.now(),
       });
 
       const upcomingWeekNumber = current.weekNumber + 1;
@@ -5079,7 +5327,7 @@ export const commitCurrentPhase = mutation({
         ...derived.queuedToAdd,
         ...actionQueuedEffects,
       ];
-      nextUpkeepTreasurySnapshot = adjustedTreasury;
+      nextUpkeepTreasurySnapshot = finalMilitiaValues.treasury;
     }
 
     await ctx.db.patch('militiaWeekState', current._id, {
@@ -5143,6 +5391,8 @@ export const commitCurrentPhase = mutation({
           ? { disabledRecoveries: [], missingChecks: [] }
           : currentAny?.upkeepTeamOperations,
       eventMitigations: nextPhase === 'upkeep' ? {} : currentAny?.eventMitigations,
+      tableAdjustments:
+        nextPhase === 'upkeep' ? [] : currentAny?.tableAdjustments,
       weekWarnings: nextPhase === 'upkeep' ? [] : currentAny?.weekWarnings,
       upkeepRollTotals: nextPhase === 'upkeep' ? {} : current.upkeepRollTotals,
       activityRollTotals: nextPhase === 'upkeep' ? {} : current.activityRollTotals,

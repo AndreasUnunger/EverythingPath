@@ -52,14 +52,29 @@ class FakeDb {
         const rows = allRows.filter((row: Row) =>
           conditions.every((condition) => row[condition.field] === condition.value),
         );
-        return {
+        const resultFor = (resultRows: Row[]) => ({
           async collect() {
-            return rows.map((row: Row) => ({ ...row }));
+            return resultRows.map((row: Row) => ({ ...row }));
           },
           async first() {
-            return rows[0] ? { ...rows[0] } : null;
+            return resultRows[0] ? { ...resultRows[0] } : null;
           },
-        };
+          async unique() {
+            if (resultRows.length > 1) {
+              throw new Error('Query returned more than one row.');
+            }
+            return resultRows[0] ? { ...resultRows[0] } : null;
+          },
+          async take(count: number) {
+            return resultRows.slice(0, count).map((row: Row) => ({ ...row }));
+          },
+          order(direction: 'asc' | 'desc') {
+            return resultFor(
+              direction === 'desc' ? [...resultRows].reverse() : [...resultRows],
+            );
+          },
+        });
+        return resultFor(rows);
       },
     };
   }
@@ -304,6 +319,157 @@ describe('weekBoard commitCurrentPhase harness', () => {
     expect(weekPatch?.activityRollTotals).toEqual({});
     expect(weekPatch?.eventRollTotals).toEqual({});
     expect(weekPatch?.stagedActivityActionIds).toEqual([null, null]);
+
+    const resolutionRecord = db.getRows('militiaResolutionRecord')[0];
+    expect(resolutionRecord).toMatchObject({
+      militiaId: 'm1',
+      weekNumber: 3,
+      source: 'confirmation',
+      rulesetVersion: 1,
+      draftRevision: 1,
+      finalOutcome: {
+        militia: {
+          training: 9,
+          treasury: 4,
+          notoriety: 30,
+        },
+      },
+    });
+  });
+
+  it('rejects final confirmation when the reviewed draft revision is stale', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'event',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        lockVersion: 4,
+      },
+    });
+
+    await expect(
+      commitCurrentPhase.handler(ctx, {
+        organizationId: 'org1',
+        militiaId: 'm1' as never,
+        expectedRevision: 3,
+        finalizeWeek: true,
+      }),
+    ).rejects.toThrow('Weekly Draft changed after it was reviewed');
+
+    expect(db.patches).toEqual([]);
+    expect(db.inserts).toEqual([]);
+  });
+
+  it('applies shared typed adjustments after the rules baseline and records them', async () => {
+    const { ctx, db } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 3,
+        phase: 'event',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        eventRollTotals: {
+          eventChanceTotal: 10,
+          eventTriggerRollTotal: 99,
+        },
+        tableAdjustments: [
+          {
+            kind: 'militia_value',
+            field: 'training',
+            operation: 'add',
+            value: 5,
+            reason: 'Narrative training reward',
+          },
+          {
+            kind: 'settlement_reputation',
+            settlementKey: 'longshadow',
+            reputation: 'Helpful',
+            reason: 'The militia saved the town',
+          },
+          {
+            kind: 'team_status',
+            teamId: 'defenders',
+            status: 'disabled',
+            reason: 'Table adjudication after the battle',
+          },
+          {
+            kind: 'event_status',
+            eventType: 'theft',
+            operation: 'resolve',
+            reason: 'The stolen treasury was recovered',
+          },
+        ],
+        lockVersion: 4,
+      },
+      settlementStates: [
+        {
+          _id: 'settlement-1',
+          militiaId: 'm1',
+          settlementKey: 'longshadow',
+          reputation: 'Friendly',
+          isSecured: false,
+        },
+      ],
+      teamStates: [
+        {
+          _id: 'team-state-1',
+          militiaId: 'm1',
+          teamId: 'defenders',
+          status: 'active',
+        },
+      ],
+      eventStates: [
+        {
+          _id: 'event-1',
+          militiaId: 'm1',
+          weekNumber: 2,
+          eventType: 'theft',
+          isPersistent: true,
+          startedWeek: 2,
+          resolved: false,
+        },
+      ],
+    });
+
+    await commitCurrentPhase.handler(ctx, {
+      organizationId: 'org1',
+      militiaId: 'm1' as never,
+      expectedRevision: 4,
+      finalizeWeek: true,
+    });
+
+    expect(db.getRows('militia')[0]?.training).toBe(15);
+    expect(db.getRows('militiaSettlementState')[0]?.reputation).toBe('Helpful');
+    expect(db.getRows('militiaTeamState')[0]?.status).toBe('disabled');
+    expect(db.getRows('militiaEventState')[0]?.resolved).toBe(true);
+    expect(db.getRows('militiaResolutionRecord')[0]).toMatchObject({
+      draftRevision: 4,
+      tableAdjustments: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'militia_value',
+          reason: 'Narrative training reward',
+        }),
+      ]),
+      finalOutcome: {
+        militia: {
+          training: 15,
+          treasury: 20,
+          notoriety: 30,
+        },
+      },
+    });
   });
 
   it('deducts team costs for recruit and upgrade operations on week close', async () => {
@@ -1863,6 +2029,42 @@ describe('weekBoard commitCurrentPhase harness', () => {
 });
 
 describe('weekBoard saveWeekBoardState collaboration harness', () => {
+  it('rejects a shared Table Adjustment without a reason', async () => {
+    const { ctx } = createBaseHarness({
+      weekState: {
+        _id: 'ws1',
+        militiaId: 'm1',
+        weekNumber: 2,
+        phase: 'activity',
+        isFirstWeek: false,
+        skippedUpkeepThisWeek: false,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        lastPersistentBuyoffWeek: 0,
+        stagedActivityActionIds: [null, null],
+        lockVersion: 1,
+      },
+    });
+
+    await expect(
+      saveWeekBoardState.handler(ctx, {
+        organizationId: 'org1',
+        militiaId: 'm1',
+        patch: {
+          tableAdjustments: [
+            {
+              kind: 'militia_value',
+              field: 'training',
+              operation: 'add',
+              value: 1,
+              reason: '   ',
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow('Every Table Adjustment requires a reason');
+  });
+
   it('returns a strategist bonus action when strategist is directly assigned', async () => {
     const { ctx } = createBaseHarness({
       militiaOverrides: {

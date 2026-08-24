@@ -61,7 +61,6 @@ export function buildActivityPhaseViewModel({
       void controller.actions.resetSlots();
     },
     militiaId: data.militiaId,
-    currentWeek: data.state.weekNumber,
     rank: data.rank,
     focus: data.focus,
     treasury: data.treasury,

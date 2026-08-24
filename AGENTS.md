@@ -143,6 +143,7 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 ### UI Implementation Preference
 
 - Prefer `shadcn/ui` components for all UI implementation by default; deviate only when a requirement cannot be met with `shadcn/ui`.
+- Keep synchronization, shared-state storage, local derivation, and internal identifiers or versions out of user-facing copy. Describe only the product behavior or outcome the user needs.
 
 ### Engineering Guardrails
 

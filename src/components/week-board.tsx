@@ -20,6 +20,7 @@ import {
   UpkeepPhaseSection,
 } from '~/components/week-board/phase-sections';
 import { useWeekBoardController } from '~/components/week-board/use-week-board-controller';
+import { TableAdjustmentsPanel } from '~/components/week-board/table-adjustments-panel';
 
 export function WeekBoard({
   campaignId,
@@ -47,7 +48,7 @@ export function WeekBoard({
   if (!canQuery) {
     return (
       <p className="text-muted-foreground font-mono text-sm">
-        Waiting for organization access sync...
+        Checking organization access...
       </p>
     );
   }
@@ -127,18 +128,24 @@ export function WeekBoard({
           ) : null}
 
           {currentPhase === 'week_closed' ? (
-            <SummaryPhaseSection
-              viewModel={buildSummaryPhaseViewModel({
-                controller,
-                formatManualTotalForSummaryAction,
-              })}
-            />
+            <>
+              <SummaryPhaseSection
+                viewModel={buildSummaryPhaseViewModel({
+                  controller,
+                  formatManualTotalForSummaryAction,
+                })}
+              />
+              <TableAdjustmentsPanel
+                adjustments={controller.tableAdjustments}
+                settlementKeys={controller.data.settlementKeys ?? []}
+                onChangeAction={controller.actions.setTableAdjustments}
+              />
+            </>
           ) : null}
         </div>
 
         {shouldShowGlobalAssetPanel ? (
           <AssetLedgerPanel
-            currentWeek={weekNumber}
             settlements={controller.settlements}
             caches={controller.caches}
             marketplaces={controller.marketplaces}
@@ -179,7 +186,7 @@ export function WeekBoard({
         ) : null}
         {currentPhase === 'week_closed' ? (
           <Button onClick={() => void controller.actions.commitPhase()}>
-            Commit Changes to Militia
+            Confirm Week
           </Button>
         ) : null}
       </div>
