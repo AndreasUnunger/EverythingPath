@@ -18,7 +18,8 @@ import {
   formatTeamStatusLabel,
   teamStatusOptions,
 } from '~/lib/militia-state-options';
-import { formatTeamIdLabel, TEAM_IDS } from '~/lib/team-ids';
+import { TEAM_IDS } from '~/lib/militia-domain';
+import { formatTeamIdLabel } from '~/lib/team-ids';
 import type { TableAdjustment } from '~/lib/weekly-resolution';
 
 const reputationOptions = [

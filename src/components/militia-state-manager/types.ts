@@ -15,7 +15,7 @@ import {
   trackedPersonStatusOptions,
   weekPhaseOptions,
 } from '~/lib/militia-state-options';
-import { TEAM_IDS } from '~/lib/team-ids';
+import { TEAM_IDS } from '~/lib/militia-domain';
 import type {
   IEventStateEntry,
   IMilitiaTeam,

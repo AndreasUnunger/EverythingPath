@@ -1,7 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import {
-  activityActionIdValidator,
   covertActionModeValidator,
   cacheClassValidator,
   cacheModeValidator,
@@ -10,8 +9,6 @@ import {
   phaseValidator,
   restoreCharacterModeValidator,
   strikeTeamModeValidator,
-  tableAdjustmentValidator,
-  teamIdValidator,
   trackedPersonKindValidator,
 } from './schema';
 import { hasAccessToOrg } from './user';
@@ -21,7 +18,6 @@ import {
   consumeQueuedEffectsForWeek,
   deriveFutureEffectsAndPersistence,
   isActivityActionBlocked,
-  type EventType,
   type QueueEffect,
 } from './weekResolution';
 import {
@@ -42,12 +38,21 @@ import {
   getMinimumTrainingForRank,
 } from '../src/lib/militia-progression-rules';
 import {
+  activityActionIdValidator,
+  tableAdjustmentValidator,
+  teamIdValidator,
+} from '../src/lib/weekly-resolution-contract';
+import {
+  type EventType,
+  type TeamId,
+} from '../src/lib/militia-domain';
+import {
   resolveEffectiveActivityCheckTotal,
   resolveWeeklyDraft,
   type TableAdjustment,
   type WeeklyResolutionChange,
 } from '../src/lib/weekly-resolution';
-import { isTeamId, type TeamId } from '../src/lib/team-ids';
+import { isTeamId } from '../src/lib/team-ids';
 
 function getMaxActionsForMilitia({
   rank,

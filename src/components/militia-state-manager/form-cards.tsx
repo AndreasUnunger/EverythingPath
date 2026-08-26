@@ -41,7 +41,8 @@ import {
   trackedPersonStatusOptions,
   weekPhaseOptions,
 } from '~/lib/militia-state-options';
-import { formatTeamIdLabel, TEAM_IDS } from '~/lib/team-ids';
+import { TEAM_IDS } from '~/lib/militia-domain';
+import { formatTeamIdLabel } from '~/lib/team-ids';
 import { cn } from '~/lib/utils';
 import type {
   CacheStateFormValues,

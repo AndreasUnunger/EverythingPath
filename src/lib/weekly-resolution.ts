@@ -8,14 +8,25 @@ import {
   resolveEventFromPercentile,
   resolveWeekEvents,
   shouldApplyBaseEffect,
-  type EventType,
   type QueueEffect,
   type ResolvedEvent,
 } from '../../convex/weekResolution';
 import { getTeamCost } from '../../convex/weekBoardRules';
 import teamDefinitions from '../../convex/data/teams';
-import type { MilitiaActivityActionId } from './activity-action-ids';
-import type { TeamId } from './team-ids';
+import type {
+  EventType,
+  MilitiaActivityActionId,
+  TeamId,
+} from './militia-domain';
+import type {
+  TableAdjustment,
+  WeeklyResolutionChange,
+} from './weekly-resolution-contract';
+
+export type {
+  TableAdjustment,
+  WeeklyResolutionChange,
+} from './weekly-resolution-contract';
 
 export const WEEKLY_RESOLUTION_RULESET_VERSION = 1;
 
@@ -41,92 +52,6 @@ export type WeeklyResolutionMissingInput = {
   message: string;
   ruleSource?: string;
 };
-
-export type TableAdjustment =
-  | {
-      kind: 'militia_value';
-      field: 'training' | 'treasury' | 'notoriety';
-      operation: 'add' | 'set';
-      value: number;
-      reason: string;
-    }
-  | {
-      kind: 'settlement_reputation';
-      settlementKey: string;
-      reputation: 'Hostile' | 'Unfriendly' | 'Indifferent' | 'Friendly' | 'Helpful';
-      reason: string;
-    }
-  | {
-      kind: 'team_status';
-      teamId: TeamId;
-      status: 'active' | 'disabled' | 'missing' | 'blocked';
-      reason: string;
-    }
-  | {
-      kind: 'event_status';
-      eventType: EventType;
-      operation: 'add';
-      isPersistent: boolean;
-      reason: string;
-    }
-  | {
-      kind: 'event_status';
-      eventType: EventType;
-      operation: 'resolve';
-      reason: string;
-    };
-
-export type WeeklyResolutionChange =
-  | {
-      kind: 'militia_values';
-      training: number;
-      treasury: number;
-      notoriety: number;
-    }
-  | {
-      kind: 'lower_settlement_reputation';
-      settlementKey: string;
-    }
-  | {
-      kind: 'set_settlement_reputation';
-      settlementKey: string;
-      reputation: 'Hostile' | 'Unfriendly' | 'Indifferent' | 'Friendly' | 'Helpful';
-    }
-  | {
-      kind: 'set_team_status';
-      teamId: TeamId;
-      status: 'active' | 'disabled' | 'missing' | 'blocked';
-    }
-  | {
-      kind: 'add_event';
-      eventType: EventType;
-      isPersistent: boolean;
-    }
-  | {
-      kind: 'resolve_event';
-      eventType: EventType;
-    }
-  | {
-      kind: 'recover_team';
-      teamId: TeamId;
-      source: 'paid_recovery' | 'missing_return';
-    }
-  | {
-      kind: 'remove_team';
-      teamId: TeamId;
-      source: 'permanently_lost' | 'dismissed';
-    }
-  | {
-      kind: 'recruit_team';
-      teamId: TeamId;
-      addToRoster: boolean;
-      initializeState: boolean;
-    }
-  | {
-      kind: 'upgrade_team';
-      fromTeamId: TeamId;
-      toTeamId: TeamId;
-    };
 
 export type WeeklyResolutionDraft = {
   revision: number;

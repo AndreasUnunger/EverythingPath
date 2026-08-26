@@ -1,5 +1,5 @@
 import type { PointerCardDragState } from '~/lib/pointer-card-drag';
-import type { MilitiaActivityActionId } from '~/lib/activity-action-ids';
+import type { MilitiaActivityActionId } from '~/lib/militia-domain';
 
 export type WeekPhase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'week_closed';
 
