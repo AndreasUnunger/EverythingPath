@@ -14,6 +14,7 @@ import {
 } from '../../convex/weekResolution';
 import { getTeamCost } from '../../convex/weekBoardRules';
 import teamDefinitions from '../../convex/data/teams';
+import type { MilitiaActivityActionId } from './activity-action-ids';
 import type { TeamId } from './team-ids';
 
 export const WEEKLY_RESOLUTION_RULESET_VERSION = 1;
@@ -104,14 +105,35 @@ export type WeeklyResolutionChange =
   | {
       kind: 'resolve_event';
       eventType: EventType;
+    }
+  | {
+      kind: 'recover_team';
+      teamId: TeamId;
+      source: 'paid_recovery' | 'missing_return';
+    }
+  | {
+      kind: 'remove_team';
+      teamId: TeamId;
+      source: 'permanently_lost' | 'dismissed';
+    }
+  | {
+      kind: 'recruit_team';
+      teamId: TeamId;
+      addToRoster: boolean;
+      initializeState: boolean;
+    }
+  | {
+      kind: 'upgrade_team';
+      fromTeamId: TeamId;
+      toTeamId: TeamId;
     };
 
 export type WeeklyResolutionDraft = {
   revision: number;
   weekNumber: number;
   uneventfulBonusCarry: number;
-  stagedActivityActionIds: (string | null)[];
-  stagedActivityTeamIds?: (string | null)[];
+  stagedActivityActionIds: (MilitiaActivityActionId | null)[];
+  stagedActivityTeamIds?: (TeamId | null)[];
   upkeepRollTotals?: {
     attritionTotal?: number;
     notorietyPenaltyTotal?: number;
@@ -171,14 +193,18 @@ export type WeeklyResolutionDraft = {
     }>;
   };
   activityTeamOperations?: {
-    recruits: Array<{ slotIndex: number; teamId: string }>;
-    dismissals?: Array<{ slotIndex: number; teamId: string }>;
-    upgrades?: Array<{ slotIndex: number; fromTeamId: string; toTeamId: string }>;
+    recruits: Array<{ slotIndex: number; teamId: TeamId }>;
+    dismissals?: Array<{ slotIndex: number; teamId: TeamId }>;
+    upgrades?: Array<{
+      slotIndex: number;
+      fromTeamId: TeamId;
+      toTeamId: TeamId;
+    }>;
   };
   upkeepTeamOperations?: {
-    disabledRecoveries?: Array<{ teamId: string; paid: boolean }>;
+    disabledRecoveries?: Array<{ teamId: TeamId; paid: boolean }>;
     missingChecks?: Array<{
-      teamId: string;
+      teamId: TeamId;
       securityCheckTotal?: number;
       permanentlyLost?: boolean;
     }>;
@@ -211,9 +237,9 @@ export type WeeklyResolutionSnapshot = {
   };
   activeQueuedEffects: QueueEffect[];
   activePersistentEventTypes: EventType[];
-  rosterTeamIds?: string[];
+  rosterTeamIds?: TeamId[];
   teamStatuses?: Array<{
-    teamId: string;
+    teamId: TeamId;
     status: 'active' | 'disabled' | 'missing' | 'blocked';
   }>;
 };
@@ -237,6 +263,34 @@ export type WeeklyResolutionResult = {
     resolvedEvents: ResolvedEvent[];
   };
 };
+
+export function resolveEffectiveActivityCheckTotal({
+  rawTotal,
+  checkType,
+  teamId,
+  activeQueuedEffects,
+  activePersistentEventTypes,
+  resolvedEvents,
+}: {
+  rawTotal?: number;
+  checkType: 'loyalty' | 'security' | 'secrecy';
+  teamId?: TeamId;
+  activeQueuedEffects: QueueEffect[];
+  activePersistentEventTypes: EventType[];
+  resolvedEvents: ResolvedEvent[];
+}) {
+  if (rawTotal === undefined) return undefined;
+  return (
+    rawTotal +
+    getResolvedActivityCheckModifier({ resolvedEvents }) +
+    getQueuedOrganizationCheckModifier({
+      activeQueuedEffects,
+      activePersistentEventTypes,
+      checkType,
+    }) +
+    getTeamQueuedCheckModifier({ activeQueuedEffects, teamId })
+  );
+}
 
 export function resolveWeeklyDraft({
   draft,
@@ -324,9 +378,6 @@ export function resolveWeeklyDraft({
     .filter((value) => value.eventType !== 'roll_twice');
   resolvedEvents.push(...autoEventRolls);
 
-  const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
-    resolvedEvents,
-  });
   const effectiveActivityCheckTotal = ({
     rawTotal,
     checkType,
@@ -336,24 +387,18 @@ export function resolveWeeklyDraft({
     checkType: 'loyalty' | 'security' | 'secrecy';
     slotIndex?: number;
   }) => {
-    if (rawTotal === undefined) return undefined;
     const teamId =
       slotIndex === undefined
         ? undefined
         : (draft.stagedActivityTeamIds?.[slotIndex] ?? undefined);
-    return (
-      rawTotal +
-      resolvedActivityCheckModifier +
-      getQueuedOrganizationCheckModifier({
-        activeQueuedEffects: snapshot.activeQueuedEffects,
-        activePersistentEventTypes: snapshot.activePersistentEventTypes,
-        checkType,
-      }) +
-      getTeamQueuedCheckModifier({
-        activeQueuedEffects: snapshot.activeQueuedEffects,
-        teamId,
-      })
-    );
+    return resolveEffectiveActivityCheckTotal({
+      rawTotal,
+      checkType,
+      teamId,
+      activeQueuedEffects: snapshot.activeQueuedEffects,
+      activePersistentEventTypes: snapshot.activePersistentEventTypes,
+      resolvedEvents,
+    });
   };
   const successfulCovertAugmentTargets = getSuccessfulCovertAugmentTargets({
     draft,
@@ -401,13 +446,13 @@ export function resolveWeeklyDraft({
     }
   }
 
-  const resourceCosts = resolveMilitiaResourceCosts({
+  const resourcePlan = resolveWeeklyResourcePlan({
     draft,
     snapshot,
     effectiveActivityCheckTotal,
   });
-  treasury -= resourceCosts.treasuryCost;
-  notoriety -= resourceCosts.notorietyReduction;
+  treasury -= resourcePlan.treasuryCost;
+  notoriety -= resourcePlan.notorietyReduction;
 
   const nextUneventfulBonusCarry = computeNextUneventfulBonusCarry({
     weekNumber: draft.weekNumber,
@@ -424,6 +469,7 @@ export function resolveWeeklyDraft({
       treasury,
       notoriety,
     },
+    ...resourcePlan.teamChanges,
   ];
   if (
     normalizeNotoriety(snapshot.militia.notoriety) >= 100 &&
@@ -460,7 +506,7 @@ export function resolveWeeklyDraft({
   };
 }
 
-function resolveMilitiaResourceCosts({
+function resolveWeeklyResourcePlan({
   draft,
   snapshot,
   effectiveActivityCheckTotal,
@@ -478,9 +524,9 @@ function resolveMilitiaResourceCosts({
   const activityTeams = draft.activityTeamOperations ?? { recruits: [] };
   const upkeepTeams = draft.upkeepTeamOperations ?? {};
   const stagedActionIds = draft.stagedActivityActionIds.filter(
-    (value): value is string => value !== null,
+    (value): value is MilitiaActivityActionId => value !== null,
   );
-  const countAction = (actionId: string) =>
+  const countAction = (actionId: MilitiaActivityActionId) =>
     stagedActionIds.filter((value) => value === actionId).length;
   const minimumTreasury = snapshot.militia.rank * 10;
 
@@ -522,11 +568,17 @@ function resolveMilitiaResourceCosts({
   const teamStatuses = new Map(
     (snapshot.teamStatuses ?? []).map((state) => [state.teamId, state.status]),
   );
+  const teamChanges: WeeklyResolutionChange[] = [];
 
   for (const recovery of upkeepTeams.disabledRecoveries ?? []) {
     if (!recovery.paid || teamStatuses.get(recovery.teamId) !== 'disabled') continue;
     treasuryCost += minimumTreasury;
     teamStatuses.set(recovery.teamId, 'active');
+    teamChanges.push({
+      kind: 'recover_team',
+      teamId: recovery.teamId,
+      source: 'paid_recovery',
+    });
   }
 
   for (const missingCheck of upkeepTeams.missingChecks ?? []) {
@@ -534,6 +586,11 @@ function resolveMilitiaResourceCosts({
     if (missingCheck.permanentlyLost) {
       rosterTeamIds.delete(missingCheck.teamId);
       teamStatuses.delete(missingCheck.teamId);
+      teamChanges.push({
+        kind: 'remove_team',
+        teamId: missingCheck.teamId,
+        source: 'permanently_lost',
+      });
       continue;
     }
     if (
@@ -541,6 +598,11 @@ function resolveMilitiaResourceCosts({
       missingCheck.securityCheckTotal >= 15
     ) {
       teamStatuses.set(missingCheck.teamId, 'active');
+      teamChanges.push({
+        kind: 'recover_team',
+        teamId: missingCheck.teamId,
+        source: 'missing_return',
+      });
     }
   }
 
@@ -551,8 +613,19 @@ function resolveMilitiaResourceCosts({
     }) ?? -Infinity) >= 10;
   if (dismissSucceeded) {
     for (const dismissal of activityTeams.dismissals ?? []) {
+      if (
+        !rosterTeamIds.has(dismissal.teamId) &&
+        !teamStatuses.has(dismissal.teamId)
+      ) {
+        continue;
+      }
       rosterTeamIds.delete(dismissal.teamId);
       teamStatuses.delete(dismissal.teamId);
+      teamChanges.push({
+        kind: 'remove_team',
+        teamId: dismissal.teamId,
+        source: 'dismissed',
+      });
     }
   }
 
@@ -566,15 +639,33 @@ function resolveMilitiaResourceCosts({
         checkType,
         slotIndex: recruit.slotIndex,
       }) ?? -Infinity) >= recruitDc;
-    if (!succeeded || rosterTeamIds.has(recruit.teamId)) continue;
-    rosterTeamIds.add(recruit.teamId);
-    teamStatuses.set(recruit.teamId, 'active');
-    treasuryCost += getTeamCost(recruit.teamId);
+    if (!succeeded) continue;
+    const addToRoster = !rosterTeamIds.has(recruit.teamId);
+    const initializeState = !teamStatuses.has(recruit.teamId);
+    if (!addToRoster && !initializeState) continue;
+    if (addToRoster) {
+      rosterTeamIds.add(recruit.teamId);
+      treasuryCost += getTeamCost(recruit.teamId);
+    }
+    if (initializeState) {
+      teamStatuses.set(recruit.teamId, 'active');
+    }
+    teamChanges.push({
+      kind: 'recruit_team',
+      teamId: recruit.teamId,
+      addToRoster,
+      initializeState,
+    });
   }
 
   for (const upgrade of activityTeams.upgrades ?? []) {
     if (!rosterTeamIds.has(upgrade.fromTeamId)) continue;
     treasuryCost += getTeamCost(upgrade.toTeamId);
+    teamChanges.push({
+      kind: 'upgrade_team',
+      fromTeamId: upgrade.fromTeamId,
+      toTeamId: upgrade.toTeamId,
+    });
     rosterTeamIds.delete(upgrade.fromTeamId);
     rosterTeamIds.add(upgrade.toTeamId);
     const status = teamStatuses.get(upgrade.fromTeamId);
@@ -584,6 +675,7 @@ function resolveMilitiaResourceCosts({
 
   return {
     treasuryCost,
+    teamChanges,
     notorietyReduction:
       countAction('lie_low') > 0 ? (snapshot.rosterTeamIds?.length ?? 0) : 0,
   };

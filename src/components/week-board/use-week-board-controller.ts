@@ -85,6 +85,7 @@ export function useWeekBoardController({
       maxActions: liveStateQuery.data.maxActions,
       persistentBuyoff: liveStateQuery.data.persistentBuyoff,
       resolutionPreview: liveStateQuery.data.resolutionPreview,
+      resolutionPreviewWarnings: liveStateQuery.data.resolutionPreviewWarnings,
       state: liveStateQuery.data.state,
     };
   }, [liveStateQuery.data, referenceQuery.data, trackedStateQuery.data]);

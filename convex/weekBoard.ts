@@ -20,9 +20,6 @@ import type { Doc, Id } from './_generated/dataModel';
 import {
   consumeQueuedEffectsForWeek,
   deriveFutureEffectsAndPersistence,
-  getQueuedOrganizationCheckModifier,
-  getResolvedActivityCheckModifier,
-  getTeamQueuedCheckModifier,
   isActivityActionBlocked,
   type EventType,
   type QueueEffect,
@@ -45,11 +42,12 @@ import {
   getMinimumTrainingForRank,
 } from '../src/lib/militia-progression-rules';
 import {
+  resolveEffectiveActivityCheckTotal,
   resolveWeeklyDraft,
   type TableAdjustment,
   type WeeklyResolutionChange,
 } from '../src/lib/weekly-resolution';
-import teamDefinitions from './data/teams';
+import { isTeamId, type TeamId } from '../src/lib/team-ids';
 
 function getMaxActionsForMilitia({
   rank,
@@ -66,6 +64,111 @@ function getMaxActionsForMilitia({
 
 function normalizeMilitiaNotorietyValue(notoriety?: number) {
   return getMilitiaNotoriety(notoriety);
+}
+
+const RESOLUTION_PREVIEW_TEAM_LIMIT = 64;
+const RESOLUTION_PREVIEW_EVENT_LIMIT = 100;
+
+async function applyResolvedTeamOperationPlan({
+  ctx,
+  militiaId,
+  plan,
+  teamById,
+  teamStateById,
+}: {
+  ctx: MutationCtx;
+  militiaId: Id<'militia'>;
+  plan: WeeklyResolutionChange[];
+  teamById: Map<TeamId, Doc<'militiaTeam'>>;
+  teamStateById: Map<TeamId, Doc<'militiaTeamState'>>;
+}) {
+  for (const change of plan) {
+    if (change.kind === 'recover_team') {
+      const state = teamStateById.get(change.teamId);
+      if (!state) {
+        throw new ConvexError(
+          `Resolved team recovery references missing state: ${change.teamId}`,
+        );
+      }
+      await ctx.db.patch('militiaTeamState', state._id, {
+        status: 'active',
+        unavailableUntilWeek: undefined,
+        notes: state.notes,
+      });
+      teamStateById.set(change.teamId, {
+        ...state,
+        status: 'active',
+        unavailableUntilWeek: undefined,
+      });
+      continue;
+    }
+
+    if (change.kind === 'remove_team') {
+      const team = teamById.get(change.teamId);
+      if (team) {
+        await ctx.db.delete('militiaTeam', team._id);
+        teamById.delete(change.teamId);
+      }
+      const state = teamStateById.get(change.teamId);
+      if (state) {
+        await ctx.db.delete('militiaTeamState', state._id);
+        teamStateById.delete(change.teamId);
+      }
+      continue;
+    }
+
+    if (change.kind === 'recruit_team') {
+      if (change.addToRoster && !teamById.has(change.teamId)) {
+        const teamId = await ctx.db.insert('militiaTeam', {
+          militiaId,
+          teamId: change.teamId,
+        });
+        const team = await ctx.db.get('militiaTeam', teamId);
+        if (!team) {
+          throw new ConvexError('Failed to persist resolved team recruitment.');
+        }
+        teamById.set(change.teamId, team);
+      }
+      if (change.initializeState && !teamStateById.has(change.teamId)) {
+        const stateId = await ctx.db.insert('militiaTeamState', {
+          militiaId,
+          teamId: change.teamId,
+          status: 'active',
+        });
+        const state = await ctx.db.get('militiaTeamState', stateId);
+        if (!state) {
+          throw new ConvexError('Failed to persist recruited team state.');
+        }
+        teamStateById.set(change.teamId, state);
+      }
+      continue;
+    }
+
+    if (change.kind === 'upgrade_team') {
+      const team = teamById.get(change.fromTeamId);
+      if (!team) {
+        throw new ConvexError(
+          `Resolved team upgrade references missing team: ${change.fromTeamId}`,
+        );
+      }
+      await ctx.db.patch('militiaTeam', team._id, {
+        teamId: change.toTeamId,
+      });
+      teamById.delete(change.fromTeamId);
+      teamById.set(change.toTeamId, { ...team, teamId: change.toTeamId });
+      const state = teamStateById.get(change.fromTeamId);
+      if (state) {
+        await ctx.db.patch('militiaTeamState', state._id, {
+          teamId: change.toTeamId,
+        });
+        teamStateById.delete(change.fromTeamId);
+        teamStateById.set(change.toTeamId, {
+          ...state,
+          teamId: change.toTeamId,
+        });
+      }
+    }
+  }
 }
 
 async function applyTableAdjustmentPlan({
@@ -930,20 +1033,6 @@ function remapWeekStateSnapshotIds({
   return remappedWeekState;
 }
 
-const RECRUITMENT_DC_BY_TEAM_ID = new Map(
-  teamDefinitions
-    .filter((team) => team.recruitment)
-    .map((team) => [team.id, team.recruitment!.dc]),
-);
-const RECRUITMENT_CHECK_TYPE_BY_TEAM_ID = new Map(
-  teamDefinitions
-    .filter((team) => team.recruitment)
-    .map((team) => [
-      team.id,
-      team.recruitment!.check.toLowerCase() as 'loyalty' | 'security' | 'secrecy',
-    ]),
-);
-
 const REPUTATION_STEPS = [
   'Hostile',
   'Unfriendly',
@@ -1740,41 +1829,65 @@ export const getWeekBoardLiveState = query({
       4 - (currentWeekNumber - lastPersistentBuyoffWeek),
     );
     let resolutionPreview = null;
+    const resolutionPreviewWarnings: string[] = [];
     if (currentState) {
       const [teamRows, teamStateRows, eventRows] = await Promise.all([
         ctx.db
           .query('militiaTeam')
           .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
-          .collect(),
+          .take(RESOLUTION_PREVIEW_TEAM_LIMIT + 1),
         ctx.db
           .query('militiaTeamState')
           .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
-          .collect(),
+          .take(RESOLUTION_PREVIEW_TEAM_LIMIT + 1),
         ctx.db
           .query('militiaEventState')
-          .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
-          .collect(),
+          .withIndex('by_militiaId_persistent_resolved', (q) =>
+            q
+              .eq('militiaId', militia._id)
+              .eq('isPersistent', true)
+              .eq('resolved', false),
+          )
+          .take(RESOLUTION_PREVIEW_EVENT_LIMIT + 1),
       ]);
+      if (teamRows.length > RESOLUTION_PREVIEW_TEAM_LIMIT) {
+        resolutionPreviewWarnings.push(
+          'Resolution preview is unavailable because more than 64 teams are tracked.',
+        );
+      }
+      if (teamStateRows.length > RESOLUTION_PREVIEW_TEAM_LIMIT) {
+        resolutionPreviewWarnings.push(
+          'Resolution preview is unavailable because more than 64 team states are tracked.',
+        );
+      }
+      if (eventRows.length > RESOLUTION_PREVIEW_EVENT_LIMIT) {
+        resolutionPreviewWarnings.push(
+          'Resolution preview is unavailable because more than 100 persistent events are active.',
+        );
+      }
       const { active: activeQueuedEffects } = consumeQueuedEffectsForWeek({
         queuedEffects: currentState.queuedEffects,
         weekNumber: currentState.weekNumber,
       });
-      resolutionPreview = resolveCurrentWeekDraft({
-        current: currentState,
-        militia,
-        teamRows,
-        teamStateRows,
-        activeQueuedEffects,
-        activePersistentEventTypes: eventRows
-          .filter((event) => event.isPersistent && !event.resolved)
-          .map((event) => event.eventType),
-      });
+      if (resolutionPreviewWarnings.length === 0) {
+        resolutionPreview = resolveCurrentWeekDraft({
+          current: currentState,
+          militia,
+          teamRows,
+          teamStateRows,
+          activeQueuedEffects,
+          activePersistentEventTypes: eventRows.map(
+            (event) => event.eventType,
+          ),
+        });
+      }
     }
 
     return {
       militiaId: militia._id,
       maxActions: currentMaxActions,
       resolutionPreview,
+      resolutionPreviewWarnings,
       persistentBuyoff: {
         cost: 2 * militia.rank * 10,
         weeksRemaining: buyoffWeeksRemaining,
@@ -3461,11 +3574,11 @@ export const commitCurrentPhase = mutation({
       const characterRows = (await ctx.db.query('character').collect()).filter(
         (character) => character.campaignId === militia.campaignId,
       );
-      const teamById = new Map<string, (typeof teamRows)[number]>(
+      const teamById = new Map<TeamId, (typeof teamRows)[number]>(
         teamRows.map((row) => [row.teamId, row]),
       );
       const teamStateById = getTeamStatusRowsByTeamId(teamStateRows) as Map<
-        string,
+        TeamId,
         (typeof teamStateRows)[number]
       >;
       const settlementByKey = new Map<string, (typeof settlementRows)[number]>(
@@ -3496,7 +3609,7 @@ export const commitCurrentPhase = mutation({
         characterRows.map((row) => [row._id, row]),
       );
 
-      const ensureTeamState = async (teamId: string) => {
+      const ensureTeamState = async (teamId: TeamId) => {
         const currentState = teamStateById.get(teamId);
         if (currentState) return currentState;
         const insertedId = await ctx.db.insert('militiaTeamState', {
@@ -3664,11 +3777,6 @@ export const commitCurrentPhase = mutation({
         }
       }
 
-      const activityTeamOperations = currentAny?.activityTeamOperations ?? {
-        recruits: [],
-        dismissals: [],
-        upgrades: [],
-      };
       const activityOfficerOperations = currentAny?.activityOfficerOperations ?? {
         changes: [],
       };
@@ -3686,10 +3794,6 @@ export const commitCurrentPhase = mutation({
         rescues: currentAny?.activityAssetOperations?.rescues ?? [],
         restorations:
           currentAny?.activityAssetOperations?.restorations ?? [],
-      };
-      const upkeepTeamOperations = currentAny?.upkeepTeamOperations ?? {
-        disabledRecoveries: [],
-        missingChecks: [],
       };
       const eventMitigations: {
         cacheDiscoveredMitigationTotal?: number;
@@ -3749,9 +3853,6 @@ export const commitCurrentPhase = mutation({
         activeQueuedEffects,
         activePersistentEventTypes,
       });
-      const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
-        resolvedEvents: weeklyResolution.summary.resolvedEvents,
-      });
       const getEffectiveActivityCheckTotal = ({
         rawTotal,
         checkType,
@@ -3761,23 +3862,18 @@ export const commitCurrentPhase = mutation({
         checkType: 'loyalty' | 'security' | 'secrecy';
         slotIndex?: number;
       }) => {
-        if (rawTotal === undefined) {
-          return undefined;
-        }
         const teamId =
           slotIndex === undefined
             ? undefined
             : (current.stagedActivityTeamIds?.[slotIndex] ?? undefined);
-        return (
-          rawTotal +
-          resolvedActivityCheckModifier +
-          getQueuedOrganizationCheckModifier({
-            activeQueuedEffects,
-            activePersistentEventTypes,
-            checkType,
-          }) +
-          getTeamQueuedCheckModifier({ activeQueuedEffects, teamId })
-        );
+        return resolveEffectiveActivityCheckTotal({
+          rawTotal,
+          checkType,
+          teamId,
+          activeQueuedEffects,
+          activePersistentEventTypes,
+          resolvedEvents: weeklyResolution.summary.resolvedEvents,
+        });
       };
       const isSecureCacheBlocked = isActivityActionBlocked({
         activeQueuedEffects,
@@ -3786,117 +3882,13 @@ export const commitCurrentPhase = mutation({
       });
       const actionQueuedEffects: QueueEffect[] = [];
 
-      for (const recovery of upkeepTeamOperations.disabledRecoveries) {
-        if (!recovery.paid) continue;
-        const state = await ensureTeamState(recovery.teamId);
-        if (state.status !== 'disabled') continue;
-        await ctx.db.patch('militiaTeamState', state._id, {
-          status: 'active',
-          unavailableUntilWeek: undefined,
-          notes: state.notes,
-        });
-      }
-
-      for (const missingCheck of upkeepTeamOperations.missingChecks) {
-        const state = await ensureTeamState(missingCheck.teamId);
-        if (state.status !== 'missing') continue;
-        if (missingCheck.permanentlyLost) {
-          const teamRow = teamById.get(missingCheck.teamId);
-          if (teamRow) {
-            await ctx.db.delete('militiaTeam', teamRow._id);
-            teamById.delete(missingCheck.teamId);
-          }
-          await ctx.db.delete('militiaTeamState', state._id);
-          teamStateById.delete(missingCheck.teamId);
-          continue;
-        }
-        if (
-          missingCheck.securityCheckTotal !== undefined &&
-          missingCheck.securityCheckTotal >= 15
-        ) {
-          await ctx.db.patch('militiaTeamState', state._id, {
-            status: 'active',
-            unavailableUntilWeek: undefined,
-          });
-        }
-      }
-
-      const dismissTeamSucceeded =
-        (getEffectiveActivityCheckTotal({
-          rawTotal: current.activityRollTotals?.dismissTeamCheckTotal,
-          checkType: 'loyalty',
-        }) ?? -Infinity) >= 10;
-      for (const dismiss of activityTeamOperations.dismissals) {
-        if (!dismissTeamSucceeded) {
-          continue;
-        }
-        const teamRow = teamById.get(dismiss.teamId);
-        if (teamRow) {
-          await ctx.db.delete('militiaTeam', teamRow._id);
-          teamById.delete(dismiss.teamId);
-        }
-        const state = teamStateById.get(dismiss.teamId);
-        if (state) {
-          await ctx.db.delete('militiaTeamState', state._id);
-          teamStateById.delete(dismiss.teamId);
-        }
-      }
-
-      for (const recruit of activityTeamOperations.recruits) {
-        const recruitDc = RECRUITMENT_DC_BY_TEAM_ID.get(recruit.teamId);
-        const recruitCheckType =
-          RECRUITMENT_CHECK_TYPE_BY_TEAM_ID.get(recruit.teamId) ?? 'loyalty';
-        const recruitSucceeded =
-          recruitDc !== undefined &&
-          (getEffectiveActivityCheckTotal({
-            rawTotal: current.activityRollTotals?.recruitTeamCheckTotal,
-            checkType: recruitCheckType,
-            slotIndex: recruit.slotIndex,
-          }) ?? -Infinity) >= recruitDc;
-        if (!recruitSucceeded) {
-          continue;
-        }
-        if (!teamById.has(recruit.teamId)) {
-          const teamDocId = await ctx.db.insert('militiaTeam', {
-            militiaId: args.militiaId,
-            teamId: recruit.teamId as never,
-          });
-          const teamRow = await ctx.db.get('militiaTeam', teamDocId);
-          if (teamRow) {
-            teamById.set(recruit.teamId, teamRow);
-          }
-        }
-        const currentTeamState = teamStateById.get(recruit.teamId);
-        if (!currentTeamState) {
-          const stateDocId = await ctx.db.insert('militiaTeamState', {
-            militiaId: args.militiaId,
-            teamId: recruit.teamId as never,
-            status: 'active',
-          });
-          const inserted = await ctx.db.get('militiaTeamState', stateDocId);
-          if (inserted) {
-            teamStateById.set(recruit.teamId, inserted);
-          }
-        }
-      }
-
-      for (const upgrade of activityTeamOperations.upgrades) {
-        const teamRow = teamById.get(upgrade.fromTeamId);
-        if (!teamRow) continue;
-        await ctx.db.patch('militiaTeam', teamRow._id, {
-          teamId: upgrade.toTeamId as never,
-        });
-        teamById.delete(upgrade.fromTeamId);
-        teamById.set(upgrade.toTeamId, { ...teamRow, teamId: upgrade.toTeamId });
-        const state = teamStateById.get(upgrade.fromTeamId);
-        if (state) {
-          await ctx.db.patch('militiaTeamState', state._id, {
-            teamId: upgrade.toTeamId as never,
-          });
-          teamStateById.delete(upgrade.fromTeamId);
-          teamStateById.set(upgrade.toTeamId, { ...state, teamId: upgrade.toTeamId });
-        }
-      }
+      await applyResolvedTeamOperationPlan({
+        ctx,
+        militiaId: args.militiaId,
+        plan: weeklyResolution.baselinePlan,
+        teamById,
+        teamStateById,
+      });
 
       for (const officerChange of activityOfficerOperations.changes) {
         if (
@@ -4450,7 +4442,7 @@ export const commitCurrentPhase = mutation({
         unavailableUntilWeek?: number;
         notes?: string;
       }) => {
-        if (!teamId) return;
+        if (!teamId || !isTeamId(teamId)) return;
         if (!teamById.has(teamId)) return;
         const state = await ensureTeamState(teamId);
         const updatedState = {
@@ -4547,15 +4539,20 @@ export const commitCurrentPhase = mutation({
             const succeeded = loyalty !== undefined && loyalty >= 20;
             if (!succeeded) {
               const teamId = eventMitigations.sicknessSelectedTeamId;
-              const teamRow = teamId ? teamById.get(teamId) : undefined;
+              const validTeamId = teamId && isTeamId(teamId) ? teamId : undefined;
+              const teamRow = validTeamId
+                ? teamById.get(validTeamId)
+                : undefined;
               if (teamRow) {
                 await ctx.db.delete('militiaTeam', teamRow._id);
-                teamById.delete(teamId!);
+                teamById.delete(validTeamId!);
               }
-              const state = teamId ? teamStateById.get(teamId) : undefined;
+              const state = validTeamId
+                ? teamStateById.get(validTeamId)
+                : undefined;
               if (state) {
                 await ctx.db.delete('militiaTeamState', state._id);
-                teamStateById.delete(teamId!);
+                teamStateById.delete(validTeamId!);
               }
             }
           } else {
@@ -4635,7 +4632,7 @@ export const commitCurrentPhase = mutation({
         }
         if (event.eventType === 'turncoat' && event.isTwiceClause) {
           const teamId = eventMitigations.turncoatSelectedTeamId;
-          if (!teamId) continue;
+          if (!teamId || !isTeamId(teamId)) continue;
           const checkTotal = eventMitigations.turncoatOfficerCheckTotal;
           const succeeded =
             checkTotal !== undefined && checkTotal >= 10 + militia.rank;

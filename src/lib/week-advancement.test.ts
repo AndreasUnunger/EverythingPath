@@ -227,6 +227,26 @@ describe('weekly resolution interface', () => {
     });
 
     expect(result.summary.militia.treasury).toBe(710);
+    expect(result.baselinePlan).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'recover_team',
+          teamId: 'moles',
+          source: 'paid_recovery',
+        },
+        {
+          kind: 'remove_team',
+          teamId: 'informants',
+          source: 'dismissed',
+        },
+        {
+          kind: 'upgrade_team',
+          fromTeamId: 'moles',
+          toTeamId: 'propagandists',
+        },
+      ]),
+    );
+    expect(result.finalPlan).toEqual(result.baselinePlan);
   });
 
   it(`applies typed adjustments after the rules baseline (${RULES.adjustments})`, () => {

@@ -361,6 +361,30 @@ export const weeklyResolutionChangeValidator = v.union(
     kind: v.literal('resolve_event'),
     eventType: eventTypeValidator,
   }),
+  v.object({
+    kind: v.literal('recover_team'),
+    teamId: teamIdValidator,
+    source: v.union(
+      v.literal('paid_recovery'),
+      v.literal('missing_return'),
+    ),
+  }),
+  v.object({
+    kind: v.literal('remove_team'),
+    teamId: teamIdValidator,
+    source: v.union(v.literal('permanently_lost'), v.literal('dismissed')),
+  }),
+  v.object({
+    kind: v.literal('recruit_team'),
+    teamId: teamIdValidator,
+    addToRoster: v.boolean(),
+    initializeState: v.boolean(),
+  }),
+  v.object({
+    kind: v.literal('upgrade_team'),
+    fromTeamId: teamIdValidator,
+    toTeamId: teamIdValidator,
+  }),
 );
 
 export const weeklyResolutionWarningValidator = v.object({
@@ -952,7 +976,12 @@ export default defineSchema({
   militiaEventState: defineTable(militiaEventStateValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_week', ['militiaId', 'weekNumber'])
-    .index('by_militiaId_persistent', ['militiaId', 'isPersistent']),
+    .index('by_militiaId_persistent', ['militiaId', 'isPersistent'])
+    .index('by_militiaId_persistent_resolved', [
+      'militiaId',
+      'isPersistent',
+      'resolved',
+    ]),
   militiaOverrideNote: defineTable(militiaOverrideNoteValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_scope', ['militiaId', 'scope']),
