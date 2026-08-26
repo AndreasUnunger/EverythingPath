@@ -258,6 +258,7 @@ export function buildSummaryPhaseViewModel({
     training: data.training,
     treasury: data.treasury,
     notoriety: data.notoriety,
+    resolutionPreview: data.resolutionPreview,
     upkeepAttritionTotal: controller.upkeepAttritionTotal,
     showMaxNotorietyPenalty: controller.showMaxNotorietyPenalty,
     upkeepNotorietyPenaltyTotal: controller.upkeepNotorietyPenaltyTotal,

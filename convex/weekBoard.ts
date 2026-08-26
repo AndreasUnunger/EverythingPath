@@ -18,24 +18,17 @@ import { hasAccessToOrg } from './user';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import {
-  clampPercent,
   consumeQueuedEffectsForWeek,
   deriveFutureEffectsAndPersistence,
-  computeNextUneventfulBonusCarry,
-  getWeekModifiers,
   getQueuedOrganizationCheckModifier,
   getResolvedActivityCheckModifier,
   getTeamQueuedCheckModifier,
   isActivityActionBlocked,
-  resolveWeekEvents,
-  resolveEventFromPercentile,
-  shouldApplyBaseEffect,
   type EventType,
   type QueueEffect,
 } from './weekResolution';
 import {
   buildTeamOperationWarnings,
-  getTeamCost,
   getMaxTeamsForRank,
   lowerReputationWithFloorUnfriendly,
   validateStagedActionsLegality,
@@ -52,8 +45,6 @@ import {
   getMinimumTrainingForRank,
 } from '../src/lib/militia-progression-rules';
 import {
-  applyTableAdjustmentsToPlan,
-  getMilitiaValuesFromPlan,
   resolveWeeklyDraft,
   type TableAdjustment,
   type WeeklyResolutionChange,
@@ -717,25 +708,6 @@ function coerceTrackedPersonKindFromCharacter(
   return 'pc';
 }
 
-function getRestoreCharacterCostForMode(
-  mode:
-    | 'party_ability_damage'
-    | 'party_hit_points'
-    | 'party_lesser_restorative'
-    | 'break_enchantment'
-    | 'raise_dead'
-    | 'restoration'
-    | 'stone_to_flesh'
-    | 'custom'
-    | undefined,
-) {
-  if (mode === 'break_enchantment') return 1125;
-  if (mode === 'raise_dead') return 6125;
-  if (mode === 'restoration') return 1700;
-  if (mode === 'stone_to_flesh') return 1650;
-  return 0;
-}
-
 function getTeamStatusRowsByTeamId<
   T extends { teamId: string; status: unknown; unavailableUntilWeek?: number; notes?: string },
 >(teamStates: T[]) {
@@ -958,20 +930,6 @@ function remapWeekStateSnapshotIds({
   return remappedWeekState;
 }
 
-function eventWouldOccur({
-  chanceTotal,
-  triggerRollTotal,
-  guaranteedByAction,
-}: {
-  chanceTotal?: number;
-  triggerRollTotal?: number;
-  guaranteedByAction: boolean;
-}) {
-  if (guaranteedByAction) return true;
-  if (chanceTotal === undefined || triggerRollTotal === undefined) return false;
-  return clampPercent(triggerRollTotal) < clampPercent(chanceTotal);
-}
-
 const RECRUITMENT_DC_BY_TEAM_ID = new Map(
   teamDefinitions
     .filter((team) => team.recruitment)
@@ -1004,436 +962,53 @@ function raiseReputationOneStep(
   );
 }
 
-function getSuccessfulCovertAugmentTargets({
-  current,
-  getEffectiveActivityCheckTotal,
-}: {
-  current: {
-    stagedActivityActionIds: (string | null)[];
-    activityRollTotals?: {
-      activateBlackMarketCheckTotal?: number;
-      dismissTeamCheckTotal?: number;
-      earnGoldCheckTotal?: number;
-      gatherInformationCheckTotal?: number;
-      recruitTeamCheckTotal?: number;
-      reduceDangerCheckTotal?: number;
-      rescueCharacterCheckTotal?: number;
-      rescueCharacterTargetLevelTotal?: number;
-    };
-    activityTeamOperations?: {
-      recruits: Array<{ slotIndex: number; teamId: string }>;
-    };
-    activityAssetOperations?: {
-      covertActions?: Array<{
-        slotIndex: number;
-        mode?: 'augment_action' | 'place_contact';
-        followupSlotIndex?: number;
-      }>;
-      rescues?: Array<{
-        slotIndex: number;
-        targetLevel?: number;
-      }>;
-      marketplaces?: Array<{
-        slotIndex: number;
-        label?: string;
-        purchaseSummary?: string;
-        notes?: string;
-      }>;
-    };
-  };
-  getEffectiveActivityCheckTotal: ({
-    rawTotal,
-    checkType,
-    slotIndex,
-  }: {
-    rawTotal?: number;
-    checkType: 'loyalty' | 'security' | 'secrecy';
-    slotIndex?: number;
-  }) => number | undefined;
-}) {
-  const suppressedActionIds = new Set<string>();
-  const activity = current.activityRollTotals ?? {};
-  const covertActions = current.activityAssetOperations?.covertActions ?? [];
-  const rescueEntries = current.activityAssetOperations?.rescues ?? [];
-  const recruitEntries = current.activityTeamOperations?.recruits ?? [];
-
-  for (const covertAction of covertActions) {
-    if (
-      current.stagedActivityActionIds[covertAction.slotIndex] !== 'covert_action' ||
-      covertAction.mode !== 'augment_action'
-    ) {
-      continue;
-    }
-
-    const targetSlotIndex =
-      covertAction.followupSlotIndex ??
-      current.stagedActivityActionIds.findIndex(
-        (actionId, index) => index > covertAction.slotIndex && actionId !== null,
-      );
-    if (targetSlotIndex < 0) {
-      continue;
-    }
-
-    const targetActionId = current.stagedActivityActionIds[targetSlotIndex];
-    if (!targetActionId) {
-      continue;
-    }
-
-    let succeeded = false;
-    if (targetActionId === 'activate_black_market') {
-      succeeded =
-        (getEffectiveActivityCheckTotal({
-          rawTotal: activity.activateBlackMarketCheckTotal,
-          checkType: 'secrecy',
-          slotIndex: targetSlotIndex,
-        }) ?? -Infinity) >= 20;
-    } else if (targetActionId === 'dismiss_team') {
-      succeeded =
-        (getEffectiveActivityCheckTotal({
-          rawTotal: activity.dismissTeamCheckTotal,
-          checkType: 'loyalty',
-          slotIndex: targetSlotIndex,
-        }) ?? -Infinity) >= 10;
-    } else if (targetActionId === 'earn_gold') {
-      succeeded = activity.earnGoldCheckTotal !== undefined;
-    } else if (targetActionId === 'gather_information') {
-      succeeded =
-        (getEffectiveActivityCheckTotal({
-          rawTotal: activity.gatherInformationCheckTotal,
-          checkType: 'secrecy',
-          slotIndex: targetSlotIndex,
-        }) ?? -Infinity) >= 15;
-    } else if (targetActionId === 'recruit_team') {
-      const recruitEntry = recruitEntries.find(
-        (entry) => entry.slotIndex === targetSlotIndex,
-      );
-      const dc = recruitEntry?.teamId
-        ? RECRUITMENT_DC_BY_TEAM_ID.get(recruitEntry.teamId)
-        : undefined;
-      const checkType = recruitEntry?.teamId
-        ? (RECRUITMENT_CHECK_TYPE_BY_TEAM_ID.get(recruitEntry.teamId) ?? 'loyalty')
-        : 'loyalty';
-      succeeded =
-        dc !== undefined &&
-        (getEffectiveActivityCheckTotal({
-          rawTotal: activity.recruitTeamCheckTotal,
-          checkType,
-          slotIndex: targetSlotIndex,
-        }) ?? -Infinity) >= dc;
-    } else if (targetActionId === 'reduce_danger') {
-      succeeded =
-        (getEffectiveActivityCheckTotal({
-          rawTotal: activity.reduceDangerCheckTotal,
-          checkType: 'security',
-          slotIndex: targetSlotIndex,
-        }) ?? -Infinity) >= 15;
-    } else if (targetActionId === 'rescue_character') {
-      const rescueEntry = rescueEntries.find(
-        (entry) => entry.slotIndex === targetSlotIndex,
-      );
-      const targetLevel =
-        rescueEntry?.targetLevel ?? activity.rescueCharacterTargetLevelTotal;
-      succeeded =
-        targetLevel !== undefined &&
-        (getEffectiveActivityCheckTotal({
-          rawTotal: activity.rescueCharacterCheckTotal,
-          checkType: 'security',
-          slotIndex: targetSlotIndex,
-        }) ?? -Infinity) >= 10 + targetLevel;
-    }
-
-    if (succeeded) {
-      suppressedActionIds.add(targetActionId);
-    }
-  }
-
-  return suppressedActionIds;
-}
-
-function applyWeekResolution({
+function resolveCurrentWeekDraft({
   current,
   militia,
+  teamRows,
+  teamStateRows,
   activeQueuedEffects,
   activePersistentEventTypes,
 }: {
-  current: {
-    weekNumber: number;
-    uneventfulBonusCarry: number;
-    stagedActivityActionIds: (string | null)[];
-    stagedActivityTeamIds?: (string | null)[];
-    upkeepRollTotals?: {
-      attritionTotal?: number;
-      notorietyPenaltyTotal?: number;
-      maxNotorietyLoyaltyCheckTotal?: number;
-      nearestSettlementKey?: string;
-      treasuryPenaltyTotal?: number;
-    };
-    activityRollTotals?: {
-      activateBlackMarketCheckTotal?: number;
-      drillMilitiaTrainingGainTotal?: number;
-      dismissTeamCheckTotal?: number;
-      earnGoldCheckTotal?: number;
-      earnGoldTotal?: number;
-      activateBlackMarketNotorietyIncreaseTotal?: number;
-      dismissTeamNotorietyIncreaseTotal?: number;
-      earnGoldNotorietyIncreaseTotal?: number;
-      gatherInformationCheckTotal?: number;
-      gatherInformationNotorietyIncreaseTotal?: number;
-      guaranteeEventNotorietyIncreaseTotal?: number;
-      recruitTeamCheckTotal?: number;
-      recruitTeamNotorietyIncreaseTotal?: number;
-      reduceDangerCheckTotal?: number;
-      reduceDangerNotorietyIncreaseTotal?: number;
-      rescueCharacterCheckTotal?: number;
-      rescueCharacterTargetLevelTotal?: number;
-      rescueCharacterNotorietyIncreaseTotal?: number;
-    };
-    activityTeamOperations?: {
-      recruits: Array<{ slotIndex: number; teamId: string }>;
-    };
-    activityAssetOperations?: {
-      covertActions?: Array<{
-        slotIndex: number;
-        mode?: 'augment_action' | 'place_contact';
-        followupSlotIndex?: number;
-      }>;
-      rescues?: Array<{
-        slotIndex: number;
-        targetLevel?: number;
-      }>;
-    };
-    eventMitigations?: {
-      theftMitigationTotal?: number;
-      turncoatTrainingLossTotal?: number;
-    };
-    eventRollTotals?: {
-      eventChanceTotal?: number;
-      eventTriggerRollTotal?: number;
-      eventPercentileTotal?: number;
-      rollTwiceFirstTotal?: number;
-      rollTwiceSecondTotal?: number;
-      guaranteedFirstPercentileTotal?: number;
-      guaranteedSecondPercentileTotal?: number;
-      guaranteedChosen?: 'first' | 'second';
-      sabotageCheckTotal?: number;
-      sabotageNotorietyIncreaseTotal?: number;
-    };
-  };
-  militia: {
-    rank: number;
-    training: number;
-    treasury: number;
-    notoriety: number;
-  };
+  current: Doc<'militiaWeekState'>;
+  militia: Doc<'militia'>;
+  teamRows: Doc<'militiaTeam'>[];
+  teamStateRows: Doc<'militiaTeamState'>[];
   activeQueuedEffects: QueueEffect[];
   activePersistentEventTypes: EventType[];
 }) {
-  const upkeep = current.upkeepRollTotals ?? {};
-  const activity = current.activityRollTotals ?? {};
-  const eventMitigations: {
-    theftMitigationTotal?: number;
-    turncoatTrainingLossTotal?: number;
-  } = current.eventMitigations ?? {};
-  const event = current.eventRollTotals ?? {};
-  const modifiers = getWeekModifiers({
-    activeQueuedEffects,
-    activePersistentEventTypes,
-  });
-
-  let training = militia.training;
-  let treasury = militia.treasury;
-  let notoriety = normalizeMilitiaNotorietyValue(militia.notoriety);
-
-  training -= (upkeep.attritionTotal ?? 0) * modifiers.attritionMultiplier;
-  training -= upkeep.notorietyPenaltyTotal ?? 0;
-  training -= upkeep.treasuryPenaltyTotal ?? 0;
-  training +=
-    (activity.drillMilitiaTrainingGainTotal ?? 0) *
-    modifiers.activityTrainingGainMultiplier;
-  treasury += (activity.earnGoldTotal ?? 0) * modifiers.incomeMultiplier;
-
-  if (current.stagedActivityActionIds.includes('guarantee_event')) {
-    notoriety += activity.guaranteeEventNotorietyIncreaseTotal ?? 0;
-  }
-
-  const guaranteedByAction =
-    current.stagedActivityActionIds.includes('guarantee_event') ||
-    current.stagedActivityActionIds.includes('manipulate_events');
-  const occurredBeforeSabotage = eventWouldOccur({
-    chanceTotal: event.eventChanceTotal,
-    triggerRollTotal: event.eventTriggerRollTotal,
-    guaranteedByAction,
-  });
-
-  let eventOccurred = modifiers.forceAllIsCalm ? true : occurredBeforeSabotage;
-  if (
-    !modifiers.forceAllIsCalm &&
-    occurredBeforeSabotage &&
-    event.sabotageCheckTotal !== undefined
-  ) {
-    notoriety += event.sabotageNotorietyIncreaseTotal ?? 0;
-    if (event.sabotageCheckTotal >= 15 + militia.rank) {
-      eventOccurred = false;
-    }
-  }
-
-  const resolvedEvents = modifiers.forceAllIsCalm
-    ? ([{ eventType: 'all_is_calm', rolledValue: 45, isTwiceClause: true }] as Array<{
-        eventType:
-          | 'all_is_calm'
-          | 'broke_the_code'
-          | 'cache_discovered'
-          | 'calm_before_the_storm'
-          | 'double_agent'
-          | 'festival'
-          | 'found_fire'
-          | 'hidden_agenda'
-          | 'high_morale'
-          | 'invasion'
-          | 'low_morale'
-          | 'market_day'
-          | 'missing_in_action'
-          | 'night_ops'
-          | 'raid'
-          | 'rivalry'
-          | 'roll_twice'
-          | 'sickness'
-          | 'theft'
-          | 'turn_around'
-          | 'turncoat'
-          | 'war_games'
-          | 'week_of_pain'
-          | 'week_of_serenity';
-        rolledValue: number;
-        isTwiceClause: boolean;
-      }>)
-    : resolveWeekEvents({
-        eventOccurred,
-        guaranteedByAction,
-        eventPercentileTotal: event.eventPercentileTotal,
-        rollTwiceFirstTotal: event.rollTwiceFirstTotal,
-        rollTwiceSecondTotal: event.rollTwiceSecondTotal,
-        guaranteedFirstPercentileTotal: event.guaranteedFirstPercentileTotal,
-        guaranteedSecondPercentileTotal: event.guaranteedSecondPercentileTotal,
-        guaranteedChosen: event.guaranteedChosen,
-      });
-
-  const autoEventCount = activeQueuedEffects.reduce((count, effect) => {
-    if (effect.kind === 'auto_event_roll_once') return count + 1;
-    if (effect.kind === 'auto_event_roll_twice') return count + 2;
-    return count;
-  }, 0);
-  const autoEventRolls = [event.rollTwiceFirstTotal, event.rollTwiceSecondTotal]
-    .slice(0, autoEventCount)
-    .map((raw) => resolveEventFromPercentile(raw))
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .filter((value) => value.eventType !== 'roll_twice');
-  resolvedEvents.push(...autoEventRolls);
-  const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
-    resolvedEvents,
-  });
-  const getEffectiveActivityCheckTotal = ({
-    rawTotal,
-    checkType,
-    slotIndex,
-  }: {
-    rawTotal?: number;
-    checkType: 'loyalty' | 'security' | 'secrecy';
-    slotIndex?: number;
-  }) => {
-    if (rawTotal === undefined) {
-      return undefined;
-    }
-    const teamId =
-      slotIndex === undefined
-        ? undefined
-        : (current.stagedActivityTeamIds?.[slotIndex] ?? undefined);
-    return (
-      rawTotal +
-      resolvedActivityCheckModifier +
-      getQueuedOrganizationCheckModifier({
-        activeQueuedEffects,
-        activePersistentEventTypes,
-        checkType,
-      }) +
-      getTeamQueuedCheckModifier({ activeQueuedEffects, teamId })
-    );
-  };
-  const successfulCovertAugmentTargets = getSuccessfulCovertAugmentTargets({
-    current,
-    getEffectiveActivityCheckTotal,
-  });
-
-  notoriety += successfulCovertAugmentTargets.has('activate_black_market')
-    ? 0
-    : (activity.activateBlackMarketNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('dismiss_team')
-    ? 0
-    : (activity.dismissTeamNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('earn_gold')
-    ? 0
-    : (activity.earnGoldNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('gather_information')
-    ? 0
-    : (activity.gatherInformationNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('recruit_team')
-    ? 0
-    : (activity.recruitTeamNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('reduce_danger')
-    ? 0
-    : (activity.reduceDangerNotorietyIncreaseTotal ?? 0);
-  notoriety += successfulCovertAugmentTargets.has('rescue_character')
-    ? 0
-    : (activity.rescueCharacterNotorietyIncreaseTotal ?? 0);
-
-  let usedTheftMitigation = false;
-  for (const resolved of resolvedEvents) {
-    if (resolved.eventType === 'war_games' && shouldApplyBaseEffect(resolved)) {
-      training += militia.rank;
-    }
-    if (resolved.eventType === 'theft' && shouldApplyBaseEffect(resolved)) {
-      const canUseTheftMitigation: boolean =
-        !usedTheftMitigation &&
-        (eventMitigations.theftMitigationTotal ?? -Infinity) >= 20;
-      treasury = canUseTheftMitigation
-        ? Math.floor(treasury * 0.9)
-        : Math.floor(treasury / 2);
-      usedTheftMitigation = canUseTheftMitigation;
-    }
-    if (resolved.eventType === 'turncoat' && shouldApplyBaseEffect(resolved)) {
-      training -= eventMitigations.turncoatTrainingLossTotal ?? 0;
-    }
-  }
-
-  const nextUneventfulBonusCarry = computeNextUneventfulBonusCarry({
-    weekNumber: current.weekNumber,
-    currentCarry: current.uneventfulBonusCarry ?? 0,
-    rank: militia.rank,
-    eventOccurred,
-    resolvedEvents,
-  });
-
-  const nearestSettlementKey = upkeep.nearestSettlementKey?.trim();
-  let nearestSettlementKeyValue: string | undefined;
-  if (nearestSettlementKey && nearestSettlementKey.length > 0) {
-    nearestSettlementKeyValue = nearestSettlementKey;
-  }
-
-  return {
-    militiaPatch: {
-      training,
-      treasury,
-      notoriety,
+  return resolveWeeklyDraft({
+    draft: {
+      revision: current.lockVersion,
+      weekNumber: current.weekNumber,
+      uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
+      stagedActivityActionIds: current.stagedActivityActionIds,
+      stagedActivityTeamIds: current.stagedActivityTeamIds,
+      upkeepRollTotals: current.upkeepRollTotals,
+      activityRollTotals: current.activityRollTotals,
+      activityTeamOperations: current.activityTeamOperations,
+      activityAssetOperations: current.activityAssetOperations,
+      upkeepTeamOperations: current.upkeepTeamOperations,
+      eventMitigations: current.eventMitigations,
+      eventRollTotals: current.eventRollTotals,
+      tableAdjustments: current.tableAdjustments,
     },
-    nextUneventfulBonusCarry,
-    resolvedEvents,
-    shouldDropNearestSettlementReputation:
-      normalizeMilitiaNotorietyValue(militia.notoriety) >= 100 &&
-      upkeep.maxNotorietyLoyaltyCheckTotal !== undefined &&
-      upkeep.maxNotorietyLoyaltyCheckTotal < 15 &&
-      Boolean(nearestSettlementKey),
-    nearestSettlementKey: nearestSettlementKeyValue,
-  };
+    snapshot: {
+      militia: {
+        rank: militia.rank,
+        training: militia.training,
+        treasury: militia.treasury,
+        notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
+      },
+      activeQueuedEffects,
+      activePersistentEventTypes,
+      rosterTeamIds: teamRows.map((team) => team.teamId),
+      teamStatuses: teamStateRows.map((team) => ({
+        teamId: team.teamId,
+        status: team.status,
+      })),
+    },
+  });
 }
 
 export const getWeekBoardState = query({
@@ -2164,10 +1739,42 @@ export const getWeekBoardLiveState = query({
       0,
       4 - (currentWeekNumber - lastPersistentBuyoffWeek),
     );
+    let resolutionPreview = null;
+    if (currentState) {
+      const [teamRows, teamStateRows, eventRows] = await Promise.all([
+        ctx.db
+          .query('militiaTeam')
+          .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+          .collect(),
+        ctx.db
+          .query('militiaTeamState')
+          .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+          .collect(),
+        ctx.db
+          .query('militiaEventState')
+          .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+          .collect(),
+      ]);
+      const { active: activeQueuedEffects } = consumeQueuedEffectsForWeek({
+        queuedEffects: currentState.queuedEffects,
+        weekNumber: currentState.weekNumber,
+      });
+      resolutionPreview = resolveCurrentWeekDraft({
+        current: currentState,
+        militia,
+        teamRows,
+        teamStateRows,
+        activeQueuedEffects,
+        activePersistentEventTypes: eventRows
+          .filter((event) => event.isPersistent && !event.resolved)
+          .map((event) => event.eventType),
+      });
+    }
 
     return {
       militiaId: militia._id,
       maxActions: currentMaxActions,
+      resolutionPreview,
       persistentBuyoff: {
         cost: 2 * militia.rank * 10,
         weeksRemaining: buyoffWeeksRemaining,
@@ -4134,73 +3741,16 @@ export const commitCurrentPhase = mutation({
       const activePersistentEventTypes = activePersistentEventStates.map(
         (eventState) => eventState.eventType,
       );
-      const legacyResolution = applyWeekResolution({
-        current: {
-          weekNumber: current.weekNumber,
-          uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
-          stagedActivityActionIds: current.stagedActivityActionIds,
-          stagedActivityTeamIds: currentAny?.stagedActivityTeamIds,
-          upkeepRollTotals: current.upkeepRollTotals,
-          activityRollTotals: current.activityRollTotals,
-          activityTeamOperations: currentAny?.activityTeamOperations,
-          activityAssetOperations: currentAny?.activityAssetOperations,
-          eventMitigations: currentAny?.eventMitigations,
-          eventRollTotals: current.eventRollTotals,
-        },
-        militia: {
-          rank: militia.rank,
-          training: militia.training,
-          treasury: militia.treasury,
-          notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
-        },
+      const weeklyResolution = resolveCurrentWeekDraft({
+        current,
+        militia,
+        teamRows,
+        teamStateRows,
         activeQueuedEffects,
         activePersistentEventTypes,
       });
-      const weeklyResolution = resolveWeeklyDraft({
-        draft: {
-          revision: current.lockVersion,
-          weekNumber: current.weekNumber,
-          uneventfulBonusCarry: current.uneventfulBonusCarry ?? 0,
-          stagedActivityActionIds: current.stagedActivityActionIds,
-          stagedActivityTeamIds: currentAny?.stagedActivityTeamIds,
-          upkeepRollTotals: current.upkeepRollTotals,
-          activityRollTotals: current.activityRollTotals,
-          activityTeamOperations: currentAny?.activityTeamOperations,
-          activityAssetOperations: currentAny?.activityAssetOperations,
-          eventMitigations: currentAny?.eventMitigations,
-          eventRollTotals: current.eventRollTotals,
-        },
-        snapshot: {
-          militia: {
-            rank: militia.rank,
-            training: militia.training,
-            treasury: militia.treasury,
-            notoriety: normalizeMilitiaNotorietyValue(militia.notoriety),
-          },
-          activeQueuedEffects,
-          activePersistentEventTypes,
-        },
-      });
-      const resolution = {
-        militiaPatch: weeklyResolution.summary.militia,
-        nextUneventfulBonusCarry:
-          weeklyResolution.summary.nextUneventfulBonusCarry,
-        resolvedEvents: weeklyResolution.summary.resolvedEvents,
-        shouldDropNearestSettlementReputation:
-          weeklyResolution.finalPlan.some(
-            (change) => change.kind === 'lower_settlement_reputation',
-          ),
-        nearestSettlementKey: weeklyResolution.finalPlan.find(
-          (change) => change.kind === 'lower_settlement_reputation',
-        )?.settlementKey,
-      };
-      if (JSON.stringify(resolution) !== JSON.stringify(legacyResolution)) {
-        throw new ConvexError(
-          'Weekly Resolution parity check failed; the week was not committed.',
-        );
-      }
       const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
-        resolvedEvents: resolution.resolvedEvents,
+        resolvedEvents: weeklyResolution.summary.resolvedEvents,
       });
       const getEffectiveActivityCheckTotal = ({
         rawTotal,
@@ -4236,50 +3786,10 @@ export const commitCurrentPhase = mutation({
       });
       const actionQueuedEffects: QueueEffect[] = [];
 
-      let adjustedTreasury = resolution.militiaPatch.treasury;
-
-      const minimumTreasuryValue = militia.rank * 10;
-      const stagedActionIds = current.stagedActivityActionIds.filter(
-        (value): value is NonNullable<typeof value> => value !== null,
-      );
-      const countAction = (actionId: NonNullable<(typeof stagedActionIds)[number]>) =>
-        stagedActionIds.filter((value) => value === actionId).length;
-
-      // Fixed treasury costs from staged activity actions.
-      adjustedTreasury -= countAction('activate_black_market') * 50;
-      adjustedTreasury -= countAction('broker_market') * 100;
-      adjustedTreasury -= countAction('spread_propaganda') * 100;
-      adjustedTreasury -= countAction('drill_militia') * minimumTreasuryValue;
-      adjustedTreasury -= countAction('guarantee_event') * minimumTreasuryValue;
-
-      // Variable activity costs entered during activity flow.
-      const stagedRestoreCostTotal = activityAssetOperations.restorations.reduce(
-        (sum, restoration) =>
-          current.stagedActivityActionIds[restoration.slotIndex] === 'restore_character'
-            ? sum +
-              (restoration.customCostTotal ??
-                getRestoreCharacterCostForMode(restoration.mode))
-            : sum,
-        0,
-      );
-      adjustedTreasury -=
-        stagedRestoreCostTotal || (current.activityRollTotals?.restoreCharacterCostTotal ?? 0);
-      adjustedTreasury -= current.activityRollTotals?.specialActionCostTotal ?? 0;
-      const stagedOrderCostTotal = activityAssetOperations.orders.reduce(
-        (sum, order) =>
-          current.stagedActivityActionIds[order.slotIndex] === 'special_order'
-            ? sum + (order.costPaid ?? 0)
-            : sum,
-        0,
-      );
-      adjustedTreasury -=
-        stagedOrderCostTotal || (current.activityRollTotals?.specialOrderItemCostTotal ?? 0);
-
       for (const recovery of upkeepTeamOperations.disabledRecoveries) {
         if (!recovery.paid) continue;
         const state = await ensureTeamState(recovery.teamId);
         if (state.status !== 'disabled') continue;
-        adjustedTreasury -= minimumTreasuryValue;
         await ctx.db.patch('militiaTeamState', state._id, {
           status: 'active',
           unavailableUntilWeek: undefined,
@@ -4346,7 +3856,6 @@ export const commitCurrentPhase = mutation({
         if (!recruitSucceeded) {
           continue;
         }
-        let recruitedThisWeek = false;
         if (!teamById.has(recruit.teamId)) {
           const teamDocId = await ctx.db.insert('militiaTeam', {
             militiaId: args.militiaId,
@@ -4355,7 +3864,6 @@ export const commitCurrentPhase = mutation({
           const teamRow = await ctx.db.get('militiaTeam', teamDocId);
           if (teamRow) {
             teamById.set(recruit.teamId, teamRow);
-            recruitedThisWeek = true;
           }
         }
         const currentTeamState = teamStateById.get(recruit.teamId);
@@ -4370,15 +3878,11 @@ export const commitCurrentPhase = mutation({
             teamStateById.set(recruit.teamId, inserted);
           }
         }
-        if (recruitedThisWeek) {
-          adjustedTreasury -= getTeamCost(recruit.teamId);
-        }
       }
 
       for (const upgrade of activityTeamOperations.upgrades) {
         const teamRow = teamById.get(upgrade.fromTeamId);
         if (!teamRow) continue;
-        adjustedTreasury -= getTeamCost(upgrade.toTeamId);
         await ctx.db.patch('militiaTeam', teamRow._id, {
           teamId: upgrade.toTeamId as never,
         });
@@ -4892,16 +4396,20 @@ export const commitCurrentPhase = mutation({
         });
       }
 
-      if (
-        resolution.shouldDropNearestSettlementReputation &&
-        resolution.nearestSettlementKey
-      ) {
+      const nearestSettlementReputationChange =
+        weeklyResolution.baselinePlan.find(
+          (change) => change.kind === 'lower_settlement_reputation',
+        );
+      if (nearestSettlementReputationChange) {
         const nearestSettlement = await ctx.db
           .query('militiaSettlementState')
           .withIndex('by_militiaId_settlement', (q) =>
             q
               .eq('militiaId', args.militiaId)
-              .eq('settlementKey', resolution.nearestSettlementKey!),
+              .eq(
+                'settlementKey',
+                nearestSettlementReputationChange.settlementKey,
+              ),
           )
           .first();
         if (nearestSettlement) {
@@ -4914,7 +4422,7 @@ export const commitCurrentPhase = mutation({
       }
 
       const derived = deriveFutureEffectsAndPersistence({
-        resolvedEvents: resolution.resolvedEvents,
+        resolvedEvents: weeklyResolution.summary.resolvedEvents,
         currentWeek: current.weekNumber,
       });
 
@@ -4981,7 +4489,7 @@ export const commitCurrentPhase = mutation({
       }
 
       let usedCacheDiscoveredMitigation = false;
-      for (const event of resolution.resolvedEvents) {
+      for (const event of weeklyResolution.summary.resolvedEvents) {
         if (event.eventType === 'cache_discovered') {
           const hiddenCaches = Array.from(cacheById.values())
             .filter((cache) => cache.status === 'hidden')
@@ -5214,26 +4722,9 @@ export const commitCurrentPhase = mutation({
         });
       }
 
-      const adjustedNotoriety =
-        resolution.militiaPatch.notoriety -
-        (countAction('lie_low') > 0 ? teamRows.length : 0);
-
-      const completeBaselinePlan: WeeklyResolutionChange[] =
-        weeklyResolution.baselinePlan.map((change) =>
-          change.kind === 'militia_values'
-            ? {
-                kind: 'militia_values',
-                training: resolution.militiaPatch.training,
-                treasury: adjustedTreasury,
-                notoriety: adjustedNotoriety,
-              }
-            : change,
-        );
-      const finalPlan = applyTableAdjustmentsToPlan(
-        completeBaselinePlan,
-        currentAny?.tableAdjustments ?? [],
-      );
-      const finalMilitiaValues = getMilitiaValuesFromPlan(finalPlan);
+      const completeBaselinePlan = weeklyResolution.baselinePlan;
+      const finalPlan = weeklyResolution.finalPlan;
+      const finalMilitiaValues = weeklyResolution.summary.militia;
 
       await ctx.db.patch('militia', args.militiaId, {
         ...finalMilitiaValues,
@@ -5321,7 +4812,8 @@ export const commitCurrentPhase = mutation({
       }
       nextPhase = 'upkeep';
       nextWeekNumber += 1;
-      nextUneventfulBonusCarry = resolution.nextUneventfulBonusCarry;
+      nextUneventfulBonusCarry =
+        weeklyResolution.summary.nextUneventfulBonusCarry;
       nextQueuedEffects = [
         ...remainingQueuedEffects,
         ...derived.queuedToAdd,

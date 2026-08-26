@@ -84,6 +84,7 @@ export function useWeekBoardController({
       militiaId: referenceQuery.data.militiaId,
       maxActions: liveStateQuery.data.maxActions,
       persistentBuyoff: liveStateQuery.data.persistentBuyoff,
+      resolutionPreview: liveStateQuery.data.resolutionPreview,
       state: liveStateQuery.data.state,
     };
   }, [liveStateQuery.data, referenceQuery.data, trackedStateQuery.data]);

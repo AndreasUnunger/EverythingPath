@@ -23,6 +23,8 @@ import type {
   ActionId,
   EventTriggerResolution,
 } from '~/components/week-board/types';
+import { formatEventTypeLabel } from '~/lib/militia-state-options';
+import type { WeeklyResolutionResult } from '~/lib/weekly-resolution';
 
 export type SummaryPhaseViewModel = {
   rank: number;
@@ -62,6 +64,7 @@ export type SummaryPhaseViewModel = {
   };
   activityAssetOperations: ActivityAssetOperationsDraft;
   weekWarnings: Array<{ code: string; message: string }>;
+  resolutionPreview: WeeklyResolutionResult | null;
   activityRollSummaryRows: SummaryRow[];
   eventChanceTotal: string;
   eventTriggerRollTotal: string;
@@ -124,6 +127,7 @@ export function SummaryPhaseSection({
     activityOfficerOperations,
     activityAssetOperations,
     weekWarnings,
+    resolutionPreview,
     activityRollSummaryRows,
     eventChanceTotal,
     eventTriggerRollTotal,
@@ -207,6 +211,24 @@ export function SummaryPhaseSection({
   const resolvedEventPercentile = hasGuaranteedEventAction
     ? effectiveEventPercentileTotal
     : eventPercentileTotal;
+  const baselineMilitia = resolutionPreview?.baselinePlan.find(
+    (change) => change.kind === 'militia_values',
+  );
+  const resolutionWarnings = Array.from(
+    new Set([
+      ...weekWarnings.map((warning) => warning.message),
+      ...(resolutionPreview?.warnings.map((warning) => warning.message) ?? []),
+    ]),
+  );
+  const resolvedOutcomeItems = resolutionPreview
+    ? [
+        `Next uneventful bonus: ${resolutionPreview.summary.nextUneventfulBonusCarry}`,
+        ...resolutionPreview.summary.resolvedEvents.map(
+          (event) =>
+            `${event.rolledValue}: ${formatEventTypeLabel(event.eventType)}${event.isTwiceClause ? ' (Twice)' : ''}`,
+        ),
+      ]
+    : [];
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -218,7 +240,7 @@ export function SummaryPhaseSection({
           </p>
 
           <SummaryListCard
-            title="Militia snapshot"
+            title="Starting militia"
             items={[
               `Rank: ${rank}`,
               `Training: ${training}`,
@@ -227,6 +249,43 @@ export function SummaryPhaseSection({
             ]}
           />
 
+          {baselineMilitia ? (
+            <SummaryListCard
+              title="Rules baseline"
+              items={[
+                `Training: ${baselineMilitia.training}`,
+                `Treasury: ${baselineMilitia.treasury}`,
+                `Notoriety: ${baselineMilitia.notoriety}`,
+              ]}
+            />
+          ) : null}
+
+          {resolutionPreview?.appliedAdjustments.length ? (
+            <SummaryListCard
+              title="Outcome after table adjustments"
+              items={[
+                `Training: ${resolutionPreview.summary.militia.training}`,
+                `Treasury: ${resolutionPreview.summary.militia.treasury}`,
+                `Notoriety: ${resolutionPreview.summary.militia.notoriety}`,
+              ]}
+            />
+          ) : null}
+
+          <SummaryListCard
+            title="Resolved outcome"
+            items={resolvedOutcomeItems}
+          />
+
+          {resolutionPreview?.missingInputs.length ? (
+            <SummaryListCard
+              title="Needs attention"
+              items={resolutionPreview.missingInputs.map(
+                (input) => input.message,
+              )}
+              listClassName="text-amber-700"
+            />
+          ) : null}
+
           <SummaryListCard title="Upkeep totals entered" items={upkeepItems} />
           <SummaryListCard
             title="Activity selections"
@@ -234,12 +293,10 @@ export function SummaryPhaseSection({
           />
           <SummaryListCard title="Staged operations" items={operationItems} />
 
-          {weekWarnings.length > 0 ? (
+          {resolutionWarnings.length > 0 ? (
             <SummaryListCard
               title="Rules warnings"
-              items={weekWarnings.map(
-                (warning) => `Warning: ${warning.message}`,
-              )}
+              items={resolutionWarnings.map((warning) => `Warning: ${warning}`)}
               listClassName="text-amber-700"
             />
           ) : null}
