@@ -21,6 +21,7 @@ import {
 } from '~/components/week-board/team-options';
 import type { WeekBoardTeamManager } from '~/components/week-board/team-manager-effects';
 import type { ActionCard, ActionId, DragState } from '~/components/week-board/types';
+import type { TeamStatus } from '~/lib/militia-domain';
 
 export type OfficerRole =
   | 'ambassador'
@@ -99,7 +100,7 @@ export type ActivityPhaseViewModel = {
   strategistBonusActionId: ActionId | null;
   teams: Array<{
     teamId: string;
-    status: 'active' | 'disabled' | 'missing' | 'blocked';
+    status: TeamStatus;
     manager: WeekBoardTeamManager;
   }>;
   settlements: SettlementLedgerEntry[];

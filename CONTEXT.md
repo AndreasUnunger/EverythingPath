@@ -39,3 +39,15 @@ A monotonically increasing identifier for the Weekly Resolution behavior used to
 
 **Historical Reconstruction**:
 A manually authored Resolution Record for a week that predates recorded Weekly Resolution. Its provenance distinguishes reconstructed history from a record created by Confirmation, and creating it does not alter current militia state.
+
+**Action Slot**:
+A shared place in the weekly Activity phase where one militia action choice can be staged and confirmed.
+
+**Action Slot Claim**:
+The temporary reservation created by the first accepted choice for an available Action Slot. While claimed, competing choices cannot replace it; cancellation, release, or timeout makes the slot available again.
+
+**Staged Action Choice**:
+The uncommitted action visible to all players while its Action Slot is claimed.
+
+**Confirmed Action Choice**:
+The committed action occupying an Action Slot after explicit confirmation.

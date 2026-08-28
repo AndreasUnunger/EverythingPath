@@ -60,6 +60,7 @@ import {
   getPointerCardDragStyle,
   shouldIgnorePointerCardDragStart,
 } from '~/lib/pointer-card-drag';
+import type { TeamStatus } from '~/lib/militia-domain';
 
 type ActivitySlotCardProps = {
   slotId: string;
@@ -74,7 +75,7 @@ type ActivitySlotCardProps = {
   activityAssetOperations: ActivityAssetOperations;
   teams: Array<{
     teamId: string;
-    status: 'active' | 'disabled' | 'missing' | 'blocked';
+    status: TeamStatus;
     manager: WeekBoardTeamManager;
   }>;
   settlements: SettlementLedgerEntry[];

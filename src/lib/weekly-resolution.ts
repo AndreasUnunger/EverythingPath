@@ -17,13 +17,9 @@ import type {
   EventType,
   MilitiaActivityActionId,
   TeamId,
+  TeamStatus,
 } from './militia-domain';
 import type {
-  TableAdjustment,
-  WeeklyResolutionChange,
-} from './weekly-resolution-contract';
-
-export type {
   TableAdjustment,
   WeeklyResolutionChange,
 } from './weekly-resolution-contract';
@@ -165,7 +161,7 @@ export type WeeklyResolutionSnapshot = {
   rosterTeamIds?: TeamId[];
   teamStatuses?: Array<{
     teamId: TeamId;
-    status: 'active' | 'disabled' | 'missing' | 'blocked';
+    status: TeamStatus;
   }>;
 };
 

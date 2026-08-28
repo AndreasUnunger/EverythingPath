@@ -41,16 +41,17 @@ import {
   activityActionIdValidator,
   tableAdjustmentValidator,
   teamIdValidator,
+  type TableAdjustment,
+  type WeeklyResolutionChange,
 } from '../src/lib/weekly-resolution-contract';
 import {
   type EventType,
   type TeamId,
+  type TeamStatus,
 } from '../src/lib/militia-domain';
 import {
   resolveEffectiveActivityCheckTotal,
   resolveWeeklyDraft,
-  type TableAdjustment,
-  type WeeklyResolutionChange,
 } from '../src/lib/weekly-resolution';
 import { isTeamId } from '../src/lib/team-ids';
 
@@ -788,7 +789,7 @@ function getCacheDc({
   return base + (isSecureLocation ? 5 : 0);
 }
 
-function normalizeTeamStatus(raw: unknown): 'active' | 'disabled' | 'missing' | 'blocked' {
+function normalizeTeamStatus(raw: unknown): TeamStatus {
   if (
     raw === 'active' ||
     raw === 'disabled' ||
@@ -4443,7 +4444,7 @@ export const commitCurrentPhase = mutation({
         notes,
       }: {
         teamId?: string;
-        status: 'active' | 'disabled' | 'missing' | 'blocked';
+        status: TeamStatus;
         unavailableUntilWeek?: number;
         notes?: string;
       }) => {

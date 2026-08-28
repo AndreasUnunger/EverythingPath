@@ -35,6 +35,7 @@ import type {
   EventTriggerResolution,
   ResolvedEventValue,
 } from '~/components/week-board/types';
+import type { TeamStatus } from '~/lib/militia-domain';
 
 export type EventPhaseViewModel = {
   eventChanceTotal: string;
@@ -72,7 +73,7 @@ export type EventPhaseViewModel = {
   resolvedEventNames: string[];
   teams: Array<{
     teamId: string;
-    status: 'active' | 'disabled' | 'missing' | 'blocked';
+    status: TeamStatus;
     manager: WeekBoardTeamManager;
   }>;
   marketplaces: MarketplaceLedgerEntry[];

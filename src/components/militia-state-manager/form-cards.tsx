@@ -20,7 +20,6 @@ import {
 import {
   cacheClassOptions,
   cacheStatusOptions,
-  eventTypeOptions,
   formatEventTypeLabel,
   formatFocusLabel,
   formatOrderSourceActionLabel,
@@ -41,7 +40,7 @@ import {
   trackedPersonStatusOptions,
   weekPhaseOptions,
 } from '~/lib/militia-state-options';
-import { TEAM_IDS } from '~/lib/militia-domain';
+import { EVENT_TYPES, TEAM_IDS } from '~/lib/militia-domain';
 import { formatTeamIdLabel } from '~/lib/team-ids';
 import { cn } from '~/lib/utils';
 import type {
@@ -562,7 +561,7 @@ export function EventStateFormCard({
           form={form}
           name="eventType"
           label="Event type"
-          options={eventTypeOptions.map((eventType) => ({
+          options={EVENT_TYPES.map((eventType) => ({
             value: eventType,
             label: formatEventTypeLabel(eventType),
           }))}

@@ -1,3 +1,5 @@
+import type { EventType, TeamStatus } from './militia-domain';
+
 type Id<TableName extends string> = string & { __tableName: TableName };
 
 export interface ITeamManager {
@@ -105,7 +107,7 @@ export interface IWeekContextState {
 
 export interface ITeamStateEntry {
   teamId: string;
-  status: 'active' | 'disabled' | 'missing' | 'blocked';
+  status: TeamStatus;
   unavailableUntilWeek?: number;
   notes?: string;
 }
@@ -166,31 +168,7 @@ export interface ITrackedPerson {
 export interface IEventStateEntry {
   _id: string;
   weekNumber: number;
-  eventType:
-    | 'all_is_calm'
-    | 'broke_the_code'
-    | 'cache_discovered'
-    | 'calm_before_the_storm'
-    | 'double_agent'
-    | 'festival'
-    | 'found_fire'
-    | 'hidden_agenda'
-    | 'high_morale'
-    | 'invasion'
-    | 'low_morale'
-    | 'market_day'
-    | 'missing_in_action'
-    | 'night_ops'
-    | 'raid'
-    | 'rivalry'
-    | 'roll_twice'
-    | 'sickness'
-    | 'theft'
-    | 'turn_around'
-    | 'turncoat'
-    | 'war_games'
-    | 'week_of_pain'
-    | 'week_of_serenity';
+  eventType: EventType;
   isPersistent: boolean;
   startedWeek: number;
   endedWeek?: number;
@@ -219,7 +197,7 @@ export interface ITeam {
 }
 
 export interface IMilitiaTeam extends ITeam {
-  status?: 'active' | 'disabled' | 'missing' | 'blocked';
+  status?: TeamStatus;
   unavailableUntilWeek?: number;
   notes?: string;
   managerSource?: 'character' | 'freeform';

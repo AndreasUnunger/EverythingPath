@@ -5,6 +5,7 @@ import type {
   MarketplaceAvailabilityTier,
   MarketplaceSourceAction,
 } from '~/lib/militia-marketplace-rules';
+import type { ReputationLevel } from '~/lib/militia-domain';
 
 export type CacheClass = 'minor' | 'intermediate' | 'major';
 export type CacheMode = 'place' | 'retrieve';
@@ -119,7 +120,7 @@ export type ActivityAssetOperationsDraft = {
 export type SettlementLedgerEntry = {
   _id: string;
   settlementKey: string;
-  reputation: 'Hostile' | 'Unfriendly' | 'Indifferent' | 'Friendly' | 'Helpful';
+  reputation: ReputationLevel;
   isSecured: boolean;
   temporaryShift?: number;
   refugeActiveUntilWeek?: number;

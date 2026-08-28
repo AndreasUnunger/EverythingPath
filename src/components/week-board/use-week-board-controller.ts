@@ -38,7 +38,7 @@ import { useWeekBoardMutations } from '~/components/week-board/use-week-board-mu
 import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
 import { shouldApplyTreasuryShortagePenalty } from '~/lib/militia-progression-rules';
-import type { TableAdjustment } from '~/lib/weekly-resolution';
+import type { TableAdjustment } from '~/lib/weekly-resolution-contract';
 import {
   weekBoardLiveStateQuery,
   weekBoardReferenceQuery,

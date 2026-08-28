@@ -19,7 +19,7 @@ import { formatTeamIdLabel } from '~/lib/team-ids';
 import type {
   TableAdjustment,
   WeeklyResolutionChange,
-} from '~/lib/weekly-resolution';
+} from '~/lib/weekly-resolution-contract';
 
 export function buildUpkeepPhaseViewModel(
   controller: WeekBoardController,
