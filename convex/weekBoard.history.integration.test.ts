@@ -18,6 +18,82 @@ function createBackend() {
 }
 
 describe('weekly history and rollback integration', () => {
+  it('commits the exact outcome returned by the live resolution preview', async () => {
+    const t = createBackend();
+    const { campaignId, militiaId } = await seedWeekTwo(t);
+    const qa = t.withIdentity({
+      issuer: 'https://mean-qa.test',
+      subject: 'qa-user',
+      tokenIdentifier,
+    });
+
+    const liveState = await qa.query(api.weekBoard.getWeekBoardLiveState, {
+      campaignId,
+      organizationId,
+    });
+    const preview = liveState?.resolutionPreview;
+    expect(preview).not.toBeNull();
+
+    await qa.mutation(api.weekBoard.commitCurrentPhase, {
+      organizationId,
+      militiaId,
+      expectedRevision: 1,
+      finalizeWeek: true,
+    });
+
+    const [militia, records] = await Promise.all([
+      t.run(async (ctx) => await ctx.db.get('militia', militiaId)),
+      qa.query(api.weekBoard.listResolutionRecords, {
+        campaignId,
+        organizationId,
+      }),
+    ]);
+    expect({
+      training: militia?.training,
+      treasury: militia?.treasury,
+      notoriety: militia?.notoriety,
+    }).toEqual(preview?.summary.militia);
+    expect(records[0]?.baselinePlan).toEqual(preview?.baselinePlan);
+    expect(records[0]?.finalPlan).toEqual(preview?.finalPlan);
+    expect(records[0]?.finalOutcome).toEqual(preview?.summary);
+  });
+
+  it('withholds the preview instead of resolving from truncated persistent events', async () => {
+    const t = createBackend();
+    const { campaignId, militiaId } = await seedWeekTwo(t);
+    const qa = t.withIdentity({
+      issuer: 'https://mean-qa.test',
+      subject: 'qa-user',
+      tokenIdentifier,
+    });
+
+    for (let batchStart = 0; batchStart < 101; batchStart += 25) {
+      await t.run(async (ctx) => {
+        const batchEnd = Math.min(batchStart + 25, 101);
+        for (let index = batchStart; index < batchEnd; index += 1) {
+          await ctx.db.insert('militiaEventState', {
+            militiaId,
+            weekNumber: 1,
+            eventType: 'theft',
+            isPersistent: true,
+            startedWeek: 1,
+            resolved: false,
+          });
+        }
+      });
+    }
+
+    const liveState = await qa.query(api.weekBoard.getWeekBoardLiveState, {
+      campaignId,
+      organizationId,
+    });
+
+    expect(liveState?.resolutionPreview).toBeNull();
+    expect(liveState?.resolutionPreviewWarnings).toContain(
+      'Resolution preview is unavailable because more than 100 persistent events are active.',
+    );
+  });
+
   it('survives two complete backward/forward cycles without rewriting history', async () => {
     const t = createBackend();
     const { campaignId, militiaId, weekStateId } = await seedWeekTwo(t);

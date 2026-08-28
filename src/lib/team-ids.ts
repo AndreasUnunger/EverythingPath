@@ -1,23 +1,4 @@
-export const TEAM_IDS = [
-  'moles',
-  'propagandists',
-  'saboteurs',
-  'spies',
-  'informants',
-  'conspirators',
-  'scholars',
-  'spellcasters',
-  'defenders',
-  'infiltrators',
-  'guardians',
-  'specialists',
-  'patrons',
-  'merchants',
-  'blackMarketeers',
-  'fixers',
-] as const;
-
-export type TeamId = (typeof TEAM_IDS)[number];
+import { TEAM_IDS, type TeamId } from './militia-domain';
 
 const TEAM_ID_LABELS: Record<TeamId, string> = {
   moles: 'Moles',

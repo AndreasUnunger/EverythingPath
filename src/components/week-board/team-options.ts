@@ -1,4 +1,4 @@
-export type TeamStatus = 'active' | 'disabled' | 'missing' | 'blocked';
+import type { TeamStatus } from '~/lib/militia-domain';
 
 export type TeamStateRow = {
   teamId: string;

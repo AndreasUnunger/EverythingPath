@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TEAM_IDS } from '~/lib/team-ids';
+import { TEAM_IDS } from '~/lib/militia-domain';
 
 export const marketplaceSourceActionOptions = [
   'broker_market',

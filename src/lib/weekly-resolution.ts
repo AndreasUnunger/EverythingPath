@@ -8,12 +8,21 @@ import {
   resolveEventFromPercentile,
   resolveWeekEvents,
   shouldApplyBaseEffect,
-  type EventType,
   type QueueEffect,
   type ResolvedEvent,
 } from '../../convex/weekResolution';
+import { getTeamCost } from '../../convex/weekBoardRules';
 import teamDefinitions from '../../convex/data/teams';
-import type { TeamId } from './team-ids';
+import type {
+  EventType,
+  MilitiaActivityActionId,
+  TeamId,
+  TeamStatus,
+} from './militia-domain';
+import type {
+  TableAdjustment,
+  WeeklyResolutionChange,
+} from './weekly-resolution-contract';
 
 export const WEEKLY_RESOLUTION_RULESET_VERSION = 1;
 
@@ -40,77 +49,12 @@ export type WeeklyResolutionMissingInput = {
   ruleSource?: string;
 };
 
-export type TableAdjustment =
-  | {
-      kind: 'militia_value';
-      field: 'training' | 'treasury' | 'notoriety';
-      operation: 'add' | 'set';
-      value: number;
-      reason: string;
-    }
-  | {
-      kind: 'settlement_reputation';
-      settlementKey: string;
-      reputation: 'Hostile' | 'Unfriendly' | 'Indifferent' | 'Friendly' | 'Helpful';
-      reason: string;
-    }
-  | {
-      kind: 'team_status';
-      teamId: TeamId;
-      status: 'active' | 'disabled' | 'missing' | 'blocked';
-      reason: string;
-    }
-  | {
-      kind: 'event_status';
-      eventType: EventType;
-      operation: 'add';
-      isPersistent: boolean;
-      reason: string;
-    }
-  | {
-      kind: 'event_status';
-      eventType: EventType;
-      operation: 'resolve';
-      reason: string;
-    };
-
-export type WeeklyResolutionChange =
-  | {
-      kind: 'militia_values';
-      training: number;
-      treasury: number;
-      notoriety: number;
-    }
-  | {
-      kind: 'lower_settlement_reputation';
-      settlementKey: string;
-    }
-  | {
-      kind: 'set_settlement_reputation';
-      settlementKey: string;
-      reputation: 'Hostile' | 'Unfriendly' | 'Indifferent' | 'Friendly' | 'Helpful';
-    }
-  | {
-      kind: 'set_team_status';
-      teamId: TeamId;
-      status: 'active' | 'disabled' | 'missing' | 'blocked';
-    }
-  | {
-      kind: 'add_event';
-      eventType: EventType;
-      isPersistent: boolean;
-    }
-  | {
-      kind: 'resolve_event';
-      eventType: EventType;
-    };
-
 export type WeeklyResolutionDraft = {
   revision: number;
   weekNumber: number;
   uneventfulBonusCarry: number;
-  stagedActivityActionIds: (string | null)[];
-  stagedActivityTeamIds?: (string | null)[];
+  stagedActivityActionIds: (MilitiaActivityActionId | null)[];
+  stagedActivityTeamIds?: (TeamId | null)[];
   upkeepRollTotals?: {
     attritionTotal?: number;
     notorietyPenaltyTotal?: number;
@@ -137,6 +81,9 @@ export type WeeklyResolutionDraft = {
     rescueCharacterCheckTotal?: number;
     rescueCharacterTargetLevelTotal?: number;
     rescueCharacterNotorietyIncreaseTotal?: number;
+    restoreCharacterCostTotal?: number;
+    specialActionCostTotal?: number;
+    specialOrderItemCostTotal?: number;
   };
   activityAssetOperations?: {
     covertActions?: Array<{
@@ -148,9 +95,40 @@ export type WeeklyResolutionDraft = {
       slotIndex: number;
       targetLevel?: number;
     }>;
+    restorations?: Array<{
+      slotIndex: number;
+      mode?:
+        | 'party_ability_damage'
+        | 'party_hit_points'
+        | 'party_lesser_restorative'
+        | 'break_enchantment'
+        | 'raise_dead'
+        | 'restoration'
+        | 'stone_to_flesh'
+        | 'custom';
+      customCostTotal?: number;
+    }>;
+    orders?: Array<{
+      slotIndex: number;
+      costPaid?: number;
+    }>;
   };
   activityTeamOperations?: {
-    recruits: Array<{ slotIndex: number; teamId: string }>;
+    recruits: Array<{ slotIndex: number; teamId: TeamId }>;
+    dismissals?: Array<{ slotIndex: number; teamId: TeamId }>;
+    upgrades?: Array<{
+      slotIndex: number;
+      fromTeamId: TeamId;
+      toTeamId: TeamId;
+    }>;
+  };
+  upkeepTeamOperations?: {
+    disabledRecoveries?: Array<{ teamId: TeamId; paid: boolean }>;
+    missingChecks?: Array<{
+      teamId: TeamId;
+      securityCheckTotal?: number;
+      permanentlyLost?: boolean;
+    }>;
   };
   eventMitigations?: {
     theftMitigationTotal?: number;
@@ -180,6 +158,11 @@ export type WeeklyResolutionSnapshot = {
   };
   activeQueuedEffects: QueueEffect[];
   activePersistentEventTypes: EventType[];
+  rosterTeamIds?: TeamId[];
+  teamStatuses?: Array<{
+    teamId: TeamId;
+    status: TeamStatus;
+  }>;
 };
 
 export type WeeklyResolutionResult = {
@@ -201,6 +184,34 @@ export type WeeklyResolutionResult = {
     resolvedEvents: ResolvedEvent[];
   };
 };
+
+export function resolveEffectiveActivityCheckTotal({
+  rawTotal,
+  checkType,
+  teamId,
+  activeQueuedEffects,
+  activePersistentEventTypes,
+  resolvedEvents,
+}: {
+  rawTotal?: number;
+  checkType: 'loyalty' | 'security' | 'secrecy';
+  teamId?: TeamId;
+  activeQueuedEffects: QueueEffect[];
+  activePersistentEventTypes: EventType[];
+  resolvedEvents: ResolvedEvent[];
+}) {
+  if (rawTotal === undefined) return undefined;
+  return (
+    rawTotal +
+    getResolvedActivityCheckModifier({ resolvedEvents }) +
+    getQueuedOrganizationCheckModifier({
+      activeQueuedEffects,
+      activePersistentEventTypes,
+      checkType,
+    }) +
+    getTeamQueuedCheckModifier({ activeQueuedEffects, teamId })
+  );
+}
 
 export function resolveWeeklyDraft({
   draft,
@@ -288,9 +299,6 @@ export function resolveWeeklyDraft({
     .filter((value) => value.eventType !== 'roll_twice');
   resolvedEvents.push(...autoEventRolls);
 
-  const resolvedActivityCheckModifier = getResolvedActivityCheckModifier({
-    resolvedEvents,
-  });
   const effectiveActivityCheckTotal = ({
     rawTotal,
     checkType,
@@ -300,24 +308,18 @@ export function resolveWeeklyDraft({
     checkType: 'loyalty' | 'security' | 'secrecy';
     slotIndex?: number;
   }) => {
-    if (rawTotal === undefined) return undefined;
     const teamId =
       slotIndex === undefined
         ? undefined
         : (draft.stagedActivityTeamIds?.[slotIndex] ?? undefined);
-    return (
-      rawTotal +
-      resolvedActivityCheckModifier +
-      getQueuedOrganizationCheckModifier({
-        activeQueuedEffects: snapshot.activeQueuedEffects,
-        activePersistentEventTypes: snapshot.activePersistentEventTypes,
-        checkType,
-      }) +
-      getTeamQueuedCheckModifier({
-        activeQueuedEffects: snapshot.activeQueuedEffects,
-        teamId,
-      })
-    );
+    return resolveEffectiveActivityCheckTotal({
+      rawTotal,
+      checkType,
+      teamId,
+      activeQueuedEffects: snapshot.activeQueuedEffects,
+      activePersistentEventTypes: snapshot.activePersistentEventTypes,
+      resolvedEvents,
+    });
   };
   const successfulCovertAugmentTargets = getSuccessfulCovertAugmentTargets({
     draft,
@@ -365,6 +367,14 @@ export function resolveWeeklyDraft({
     }
   }
 
+  const resourcePlan = resolveWeeklyResourcePlan({
+    draft,
+    snapshot,
+    effectiveActivityCheckTotal,
+  });
+  treasury -= resourcePlan.treasuryCost;
+  notoriety -= resourcePlan.notorietyReduction;
+
   const nextUneventfulBonusCarry = computeNextUneventfulBonusCarry({
     weekNumber: draft.weekNumber,
     currentCarry: draft.uneventfulBonusCarry,
@@ -380,6 +390,7 @@ export function resolveWeeklyDraft({
       treasury,
       notoriety,
     },
+    ...resourcePlan.teamChanges,
   ];
   if (
     normalizeNotoriety(snapshot.militia.notoriety) >= 100 &&
@@ -414,6 +425,203 @@ export function resolveWeeklyDraft({
       resolvedEvents,
     },
   };
+}
+
+function resolveWeeklyResourcePlan({
+  draft,
+  snapshot,
+  effectiveActivityCheckTotal,
+}: {
+  draft: WeeklyResolutionDraft;
+  snapshot: WeeklyResolutionSnapshot;
+  effectiveActivityCheckTotal: (args: {
+    rawTotal?: number;
+    checkType: 'loyalty' | 'security' | 'secrecy';
+    slotIndex?: number;
+  }) => number | undefined;
+}) {
+  const activity = draft.activityRollTotals ?? {};
+  const activityAssets = draft.activityAssetOperations ?? {};
+  const activityTeams = draft.activityTeamOperations ?? { recruits: [] };
+  const upkeepTeams = draft.upkeepTeamOperations ?? {};
+  const stagedActionIds = draft.stagedActivityActionIds.filter(
+    (value): value is MilitiaActivityActionId => value !== null,
+  );
+  const countAction = (actionId: MilitiaActivityActionId) =>
+    stagedActionIds.filter((value) => value === actionId).length;
+  const minimumTreasury = snapshot.militia.rank * 10;
+
+  let treasuryCost = 0;
+  treasuryCost += countAction('activate_black_market') * 50;
+  treasuryCost += countAction('broker_market') * 100;
+  treasuryCost += countAction('spread_propaganda') * 100;
+  treasuryCost += countAction('drill_militia') * minimumTreasury;
+  treasuryCost += countAction('guarantee_event') * minimumTreasury;
+
+  const stagedRestoreCost = (activityAssets.restorations ?? []).reduce(
+    (sum, restoration) =>
+      draft.stagedActivityActionIds[restoration.slotIndex] === 'restore_character'
+        ? sum +
+          (restoration.customCostTotal ??
+            getRestoreCharacterCostForMode(restoration.mode))
+        : sum,
+    0,
+  );
+  treasuryCost +=
+    stagedRestoreCost !== 0
+      ? stagedRestoreCost
+      : (activity.restoreCharacterCostTotal ?? 0);
+  treasuryCost += activity.specialActionCostTotal ?? 0;
+
+  const stagedOrderCost = (activityAssets.orders ?? []).reduce(
+    (sum, order) =>
+      draft.stagedActivityActionIds[order.slotIndex] === 'special_order'
+        ? sum + (order.costPaid ?? 0)
+        : sum,
+    0,
+  );
+  treasuryCost +=
+    stagedOrderCost !== 0
+      ? stagedOrderCost
+      : (activity.specialOrderItemCostTotal ?? 0);
+
+  const rosterTeamIds = new Set(snapshot.rosterTeamIds ?? []);
+  const teamStatuses = new Map(
+    (snapshot.teamStatuses ?? []).map((state) => [state.teamId, state.status]),
+  );
+  const teamChanges: WeeklyResolutionChange[] = [];
+
+  for (const recovery of upkeepTeams.disabledRecoveries ?? []) {
+    if (!recovery.paid || teamStatuses.get(recovery.teamId) !== 'disabled') continue;
+    treasuryCost += minimumTreasury;
+    teamStatuses.set(recovery.teamId, 'active');
+    teamChanges.push({
+      kind: 'recover_team',
+      teamId: recovery.teamId,
+      source: 'paid_recovery',
+    });
+  }
+
+  for (const missingCheck of upkeepTeams.missingChecks ?? []) {
+    if (teamStatuses.get(missingCheck.teamId) !== 'missing') continue;
+    if (missingCheck.permanentlyLost) {
+      rosterTeamIds.delete(missingCheck.teamId);
+      teamStatuses.delete(missingCheck.teamId);
+      teamChanges.push({
+        kind: 'remove_team',
+        teamId: missingCheck.teamId,
+        source: 'permanently_lost',
+      });
+      continue;
+    }
+    if (
+      missingCheck.securityCheckTotal !== undefined &&
+      missingCheck.securityCheckTotal >= 15
+    ) {
+      teamStatuses.set(missingCheck.teamId, 'active');
+      teamChanges.push({
+        kind: 'recover_team',
+        teamId: missingCheck.teamId,
+        source: 'missing_return',
+      });
+    }
+  }
+
+  const dismissSucceeded =
+    (effectiveActivityCheckTotal({
+      rawTotal: activity.dismissTeamCheckTotal,
+      checkType: 'loyalty',
+    }) ?? -Infinity) >= 10;
+  if (dismissSucceeded) {
+    for (const dismissal of activityTeams.dismissals ?? []) {
+      if (
+        !rosterTeamIds.has(dismissal.teamId) &&
+        !teamStatuses.has(dismissal.teamId)
+      ) {
+        continue;
+      }
+      rosterTeamIds.delete(dismissal.teamId);
+      teamStatuses.delete(dismissal.teamId);
+      teamChanges.push({
+        kind: 'remove_team',
+        teamId: dismissal.teamId,
+        source: 'dismissed',
+      });
+    }
+  }
+
+  for (const recruit of activityTeams.recruits) {
+    const recruitDc = RECRUITMENT_DC_BY_TEAM_ID.get(recruit.teamId);
+    const checkType = RECRUITMENT_CHECK_TYPE_BY_TEAM_ID.get(recruit.teamId) ?? 'loyalty';
+    const succeeded =
+      recruitDc !== undefined &&
+      (effectiveActivityCheckTotal({
+        rawTotal: activity.recruitTeamCheckTotal,
+        checkType,
+        slotIndex: recruit.slotIndex,
+      }) ?? -Infinity) >= recruitDc;
+    if (!succeeded) continue;
+    const addToRoster = !rosterTeamIds.has(recruit.teamId);
+    const initializeState = !teamStatuses.has(recruit.teamId);
+    if (!addToRoster && !initializeState) continue;
+    if (addToRoster) {
+      rosterTeamIds.add(recruit.teamId);
+      treasuryCost += getTeamCost(recruit.teamId);
+    }
+    if (initializeState) {
+      teamStatuses.set(recruit.teamId, 'active');
+    }
+    teamChanges.push({
+      kind: 'recruit_team',
+      teamId: recruit.teamId,
+      addToRoster,
+      initializeState,
+    });
+  }
+
+  for (const upgrade of activityTeams.upgrades ?? []) {
+    if (!rosterTeamIds.has(upgrade.fromTeamId)) continue;
+    treasuryCost += getTeamCost(upgrade.toTeamId);
+    teamChanges.push({
+      kind: 'upgrade_team',
+      fromTeamId: upgrade.fromTeamId,
+      toTeamId: upgrade.toTeamId,
+    });
+    rosterTeamIds.delete(upgrade.fromTeamId);
+    rosterTeamIds.add(upgrade.toTeamId);
+    const status = teamStatuses.get(upgrade.fromTeamId);
+    teamStatuses.delete(upgrade.fromTeamId);
+    if (status) teamStatuses.set(upgrade.toTeamId, status);
+  }
+
+  return {
+    treasuryCost,
+    teamChanges,
+    notorietyReduction:
+      countAction('lie_low') > 0 ? (snapshot.rosterTeamIds?.length ?? 0) : 0,
+  };
+}
+
+function getRestoreCharacterCostForMode(
+  mode:
+    | 'party_ability_damage'
+    | 'party_hit_points'
+    | 'party_lesser_restorative'
+    | 'break_enchantment'
+    | 'raise_dead'
+    | 'restoration'
+    | 'stone_to_flesh'
+    | 'custom'
+    | undefined,
+) {
+  if (mode === 'party_ability_damage') return 0;
+  if (mode === 'party_hit_points') return 0;
+  if (mode === 'party_lesser_restorative') return 0;
+  if (mode === 'break_enchantment') return 1125;
+  if (mode === 'raise_dead') return 6125;
+  if (mode === 'restoration') return 1700;
+  if (mode === 'stone_to_flesh') return 1650;
+  return 0;
 }
 
 function collectMissingInputs(

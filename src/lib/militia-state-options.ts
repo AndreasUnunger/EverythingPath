@@ -1,4 +1,5 @@
-import type { IEventStateEntry, IQueuedEffect, ITrackedPerson, IWeekContextState } from './types';
+import type { EventType, TeamStatus } from './militia-domain';
+import type { IQueuedEffect, ITrackedPerson, IWeekContextState } from './types';
 
 export const militiaFocusOptions = ['Secrecy', 'Loyalty', 'Security'] as const;
 
@@ -9,8 +10,6 @@ export const weekPhaseOptions: IWeekContextState['phase'][] = [
   'persistent',
   'week_closed',
 ];
-
-export const teamStatusOptions = ['active', 'disabled', 'missing', 'blocked'] as const;
 
 export const cacheClassOptions = ['minor', 'intermediate', 'major'] as const;
 export const cacheStatusOptions = ['hidden', 'pending_return', 'retrieved', 'lost'] as const;
@@ -45,33 +44,6 @@ export const trackedPersonSourceActionOptions = [
   'event_raid',
 ] as const;
 
-export const eventTypeOptions: IEventStateEntry['eventType'][] = [
-  'all_is_calm',
-  'broke_the_code',
-  'cache_discovered',
-  'calm_before_the_storm',
-  'double_agent',
-  'festival',
-  'found_fire',
-  'hidden_agenda',
-  'high_morale',
-  'invasion',
-  'low_morale',
-  'market_day',
-  'missing_in_action',
-  'night_ops',
-  'raid',
-  'rivalry',
-  'roll_twice',
-  'sickness',
-  'theft',
-  'turn_around',
-  'turncoat',
-  'war_games',
-  'week_of_pain',
-  'week_of_serenity',
-] as const;
-
 export const queuedEffectKindOptions: IQueuedEffect['kind'][] = [
   'week_of_pain_checks_penalty',
   'double_upkeep_attrition',
@@ -96,7 +68,7 @@ export function formatWeekPhaseLabel(phase: IWeekContextState['phase']) {
   return capitalizeWords(phase.replaceAll('_', ' '));
 }
 
-export function formatTeamStatusLabel(status: (typeof teamStatusOptions)[number]) {
+export function formatTeamStatusLabel(status: TeamStatus) {
   return capitalizeWords(status);
 }
 
@@ -140,7 +112,7 @@ export function formatTrackedPersonSourceActionLabel(
   return capitalizeWords(sourceAction.replaceAll('_', ' '));
 }
 
-export function formatEventTypeLabel(eventType: IEventStateEntry['eventType']) {
+export function formatEventTypeLabel(eventType: EventType) {
   return capitalizeWords(eventType.replaceAll('_', ' '));
 }
 

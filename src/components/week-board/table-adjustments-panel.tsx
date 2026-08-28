@@ -14,20 +14,16 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import {
-  eventTypeOptions,
   formatTeamStatusLabel,
-  teamStatusOptions,
 } from '~/lib/militia-state-options';
-import { formatTeamIdLabel, TEAM_IDS } from '~/lib/team-ids';
-import type { TableAdjustment } from '~/lib/weekly-resolution';
-
-const reputationOptions = [
-  'Hostile',
-  'Unfriendly',
-  'Indifferent',
-  'Friendly',
-  'Helpful',
-] as const;
+import {
+  EVENT_TYPES,
+  REPUTATION_LEVELS,
+  TEAM_IDS,
+  TEAM_STATUSES,
+} from '~/lib/militia-domain';
+import { formatTeamIdLabel } from '~/lib/team-ids';
+import type { TableAdjustment } from '~/lib/weekly-resolution-contract';
 
 const formSchema = z
   .object({
@@ -42,10 +38,10 @@ const formSchema = z
     numericOperation: z.enum(['add', 'set']),
     value: z.string(),
     settlementKey: z.string(),
-    reputation: z.enum(reputationOptions),
+    reputation: z.enum(REPUTATION_LEVELS),
     teamId: z.enum(TEAM_IDS),
-    teamStatus: z.enum(teamStatusOptions),
-    eventType: z.enum(eventTypeOptions),
+    teamStatus: z.enum(TEAM_STATUSES),
+    eventType: z.enum(EVENT_TYPES),
     eventOperation: z.enum(['add', 'resolve']),
     isPersistent: z.boolean(),
   })
@@ -97,7 +93,7 @@ export function TableAdjustmentsPanel({
       reputation: 'Indifferent',
       teamId: TEAM_IDS[0],
       teamStatus: 'active',
-      eventType: eventTypeOptions[0],
+      eventType: EVENT_TYPES[0],
       eventOperation: 'add',
       isPersistent: false,
     },
@@ -215,7 +211,7 @@ export function TableAdjustmentsPanel({
               label="Reputation"
               name="reputation"
               control={form.control}
-              options={reputationOptions.map((value) => [value, value])}
+              options={REPUTATION_LEVELS.map((value) => [value, value])}
             />
           </>
         ) : null}
@@ -235,7 +231,7 @@ export function TableAdjustmentsPanel({
               label="Status"
               name="teamStatus"
               control={form.control}
-              options={teamStatusOptions.map((status) => [
+              options={TEAM_STATUSES.map((status) => [
                 status,
                 formatTeamStatusLabel(status),
               ])}
@@ -249,7 +245,7 @@ export function TableAdjustmentsPanel({
               label="Event"
               name="eventType"
               control={form.control}
-              options={eventTypeOptions.map((eventType) => [
+              options={EVENT_TYPES.map((eventType) => [
                 eventType,
                 formatEventType(eventType),
               ])}

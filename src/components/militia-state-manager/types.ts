@@ -3,19 +3,17 @@ import { z } from 'zod';
 import {
   cacheClassOptions,
   cacheStatusOptions,
-  eventTypeOptions,
   militiaFocusOptions,
   orderSourceActionOptions,
   orderStatusOptions,
   queuedEffectKindOptions,
-  teamStatusOptions,
   trackedPersonKindOptions,
   trackedPersonLocationOptions,
   trackedPersonSourceActionOptions,
   trackedPersonStatusOptions,
   weekPhaseOptions,
 } from '~/lib/militia-state-options';
-import { TEAM_IDS } from '~/lib/team-ids';
+import { EVENT_TYPES, TEAM_IDS, TEAM_STATUSES } from '~/lib/militia-domain';
 import type {
   IEventStateEntry,
   IMilitiaTeam,
@@ -94,7 +92,7 @@ export type QueueEffectFormValues = z.infer<typeof queueEffectFormSchema>;
 export const teamStateFormSchema = z
   .object({
     teamId: z.enum(TEAM_IDS),
-    status: z.enum(teamStatusOptions),
+    status: z.enum(TEAM_STATUSES),
     unavailableUntilWeek: optionalWholeNumber('Unavailable until week'),
     notes: z
       .string()
@@ -222,7 +220,7 @@ export type TrackedPersonFormValues = z.infer<typeof trackedPersonFormSchema>;
 
 export const eventStateFormSchema = z.object({
   weekNumber: requiredWholeNumber('Week number'),
-  eventType: z.enum(eventTypeOptions),
+  eventType: z.enum(EVENT_TYPES),
   isPersistent: z.enum(yesNoOptions),
   startedWeek: requiredWholeNumber('Started week'),
   endedWeek: optionalWholeNumber('Ended week'),

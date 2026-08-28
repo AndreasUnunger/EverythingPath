@@ -1,5 +1,14 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import {
+  activityActionIdValidator,
+  eventTypeValidator,
+  reputationValidator,
+  tableAdjustmentValidator,
+  teamIdValidator,
+  teamStatusValidator,
+  weeklyResolutionChangeValidator,
+} from '../src/lib/weekly-resolution-contract';
 
 export const spellValidator = v.object({
   name: v.string(),
@@ -121,80 +130,12 @@ export const campaignValidator = v.object({
   inGameDate: v.optional(v.string()),
 });
 
-export const reputationValidator = v.union(
-  v.literal('Hostile'),
-  v.literal('Unfriendly'),
-  v.literal('Indifferent'),
-  v.literal('Friendly'),
-  v.literal('Helpful'),
-);
-
 export const phaseValidator = v.union(
   v.literal('upkeep'),
   v.literal('activity'),
   v.literal('event'),
   v.literal('persistent'),
   v.literal('week_closed'),
-);
-
-export const activityActionIdValidator = v.union(
-  v.literal('activate_black_market'),
-  v.literal('activate_refuge'),
-  v.literal('broker_market'),
-  v.literal('change_officer_role'),
-  v.literal('covert_action'),
-  v.literal('dismiss_team'),
-  v.literal('drill_militia'),
-  v.literal('earn_gold'),
-  v.literal('gather_information'),
-  v.literal('guarantee_event'),
-  v.literal('knowledge_check'),
-  v.literal('reduce_danger'),
-  v.literal('manipulate_events'),
-  v.literal('recruit_team'),
-  v.literal('rescue_character'),
-  v.literal('restore_character'),
-  v.literal('secure_cache'),
-  v.literal('special'),
-  v.literal('special_order'),
-  v.literal('spread_propaganda'),
-  v.literal('strike_team'),
-  v.literal('upgrade_team'),
-  v.literal('lie_low'),
-);
-
-export const teamStatusValidator = v.union(
-  v.literal('active'),
-  v.literal('disabled'),
-  v.literal('missing'),
-  v.literal('blocked'),
-);
-
-export const eventTypeValidator = v.union(
-  v.literal('all_is_calm'),
-  v.literal('broke_the_code'),
-  v.literal('cache_discovered'),
-  v.literal('calm_before_the_storm'),
-  v.literal('double_agent'),
-  v.literal('festival'),
-  v.literal('found_fire'),
-  v.literal('hidden_agenda'),
-  v.literal('high_morale'),
-  v.literal('invasion'),
-  v.literal('low_morale'),
-  v.literal('market_day'),
-  v.literal('missing_in_action'),
-  v.literal('night_ops'),
-  v.literal('raid'),
-  v.literal('rivalry'),
-  v.literal('roll_twice'),
-  v.literal('sickness'),
-  v.literal('theft'),
-  v.literal('turn_around'),
-  v.literal('turncoat'),
-  v.literal('war_games'),
-  v.literal('week_of_pain'),
-  v.literal('week_of_serenity'),
 );
 
 export const queueEffectValidator = v.object({
@@ -271,96 +212,6 @@ export const teamManagerKindValidator = v.union(
   v.literal('pc'),
   v.literal('officer_npc'),
   v.literal('other_npc'),
-);
-
-export const teamIdValidator = v.union(
-  v.literal('moles'),
-  v.literal('propagandists'),
-  v.literal('saboteurs'),
-  v.literal('spies'),
-  v.literal('informants'),
-  v.literal('conspirators'),
-  v.literal('scholars'),
-  v.literal('spellcasters'),
-  v.literal('defenders'),
-  v.literal('infiltrators'),
-  v.literal('guardians'),
-  v.literal('specialists'),
-  v.literal('patrons'),
-  v.literal('merchants'),
-  v.literal('blackMarketeers'),
-  v.literal('fixers'),
-);
-
-export const tableAdjustmentValidator = v.union(
-  v.object({
-    kind: v.literal('militia_value'),
-    field: v.union(
-      v.literal('training'),
-      v.literal('treasury'),
-      v.literal('notoriety'),
-    ),
-    operation: v.union(v.literal('add'), v.literal('set')),
-    value: v.number(),
-    reason: v.string(),
-  }),
-  v.object({
-    kind: v.literal('settlement_reputation'),
-    settlementKey: v.string(),
-    reputation: reputationValidator,
-    reason: v.string(),
-  }),
-  v.object({
-    kind: v.literal('team_status'),
-    teamId: teamIdValidator,
-    status: teamStatusValidator,
-    reason: v.string(),
-  }),
-  v.object({
-    kind: v.literal('event_status'),
-    eventType: eventTypeValidator,
-    operation: v.literal('add'),
-    isPersistent: v.boolean(),
-    reason: v.string(),
-  }),
-  v.object({
-    kind: v.literal('event_status'),
-    eventType: eventTypeValidator,
-    operation: v.literal('resolve'),
-    reason: v.string(),
-  }),
-);
-
-export const weeklyResolutionChangeValidator = v.union(
-  v.object({
-    kind: v.literal('militia_values'),
-    training: v.number(),
-    treasury: v.number(),
-    notoriety: v.number(),
-  }),
-  v.object({
-    kind: v.literal('lower_settlement_reputation'),
-    settlementKey: v.string(),
-  }),
-  v.object({
-    kind: v.literal('set_settlement_reputation'),
-    settlementKey: v.string(),
-    reputation: reputationValidator,
-  }),
-  v.object({
-    kind: v.literal('set_team_status'),
-    teamId: teamIdValidator,
-    status: teamStatusValidator,
-  }),
-  v.object({
-    kind: v.literal('add_event'),
-    eventType: eventTypeValidator,
-    isPersistent: v.boolean(),
-  }),
-  v.object({
-    kind: v.literal('resolve_event'),
-    eventType: eventTypeValidator,
-  }),
 );
 
 export const weeklyResolutionWarningValidator = v.object({
@@ -952,7 +803,12 @@ export default defineSchema({
   militiaEventState: defineTable(militiaEventStateValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_week', ['militiaId', 'weekNumber'])
-    .index('by_militiaId_persistent', ['militiaId', 'isPersistent']),
+    .index('by_militiaId_persistent', ['militiaId', 'isPersistent'])
+    .index('by_militiaId_persistent_resolved', [
+      'militiaId',
+      'isPersistent',
+      'resolved',
+    ]),
   militiaOverrideNote: defineTable(militiaOverrideNoteValidator)
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_scope', ['militiaId', 'scope']),

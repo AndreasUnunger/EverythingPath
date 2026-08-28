@@ -4,7 +4,6 @@ import {
   cacheClassValidator,
   cacheStatusValidator,
   campaignValidator,
-  eventTypeValidator,
   marketplaceAvailabilityTierValidator,
   marketplaceSourceActionValidator,
   militiaValidator,
@@ -12,11 +11,8 @@ import {
   orderStatusValidator,
   phaseValidator,
   queueEffectValidator,
-  reputationValidator,
-  teamIdValidator,
   teamManagerKindValidator,
   teamManagerSourceValidator,
-  teamStatusValidator,
   trackedPersonKindValidator,
   trackedPersonLocationValidator,
   trackedPersonStatusValidator,
@@ -38,6 +34,12 @@ import {
   getMaxActionsForMilitia,
   getMilitiaNotoriety,
 } from '../src/lib/militia-progression-rules';
+import {
+  eventTypeValidator,
+  reputationValidator,
+  teamIdValidator,
+  teamStatusValidator,
+} from '../src/lib/weekly-resolution-contract';
 
 function getOfficerAssignmentWarnings({
   source,

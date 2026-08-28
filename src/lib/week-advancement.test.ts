@@ -12,6 +12,7 @@ const RULES = {
   rollTwice: 'militia-rules.md:450-466, 556-560 — Event Phase / Roll Twice',
   queued: 'militia-rules.md:450-603 — Event and Persistent effects',
   guarantee: 'militia-rules.md:322-328 — Action: Guarantee Event',
+  resources: 'militia-rules.md:248-385 — Activity action costs',
   adjustments: 'CONTEXT.md — Rules Baseline and Table Adjustment',
 } as const;
 
@@ -20,7 +21,7 @@ function resolve({
   snapshot,
 }: {
   draft?: Partial<WeeklyResolutionDraft>;
-  snapshot?: Partial<WeeklyResolutionSnapshot> & {
+  snapshot?: Omit<Partial<WeeklyResolutionSnapshot>, 'militia'> & {
     militia?: Partial<WeeklyResolutionSnapshot['militia']>;
   };
 } = {}) {
@@ -42,6 +43,8 @@ function resolve({
       },
       activeQueuedEffects: snapshot?.activeQueuedEffects ?? [],
       activePersistentEventTypes: snapshot?.activePersistentEventTypes ?? [],
+      rosterTeamIds: snapshot?.rosterTeamIds,
+      teamStatuses: snapshot?.teamStatuses,
     },
   });
 }
@@ -162,6 +165,88 @@ describe('weekly resolution interface', () => {
 
     expect(result.summary.resolvedEvents[0]?.eventType).toBe('war_games');
     expect(result.summary.militia.training).toBe(20);
+  });
+
+  it(`includes action costs and Lie Low in the outcome (${RULES.resources})`, () => {
+    const result = resolve({
+      draft: {
+        stagedActivityActionIds: [
+          'activate_black_market',
+          'broker_market',
+          'spread_propaganda',
+          'drill_militia',
+          'guarantee_event',
+          'restore_character',
+          'special_order',
+          'lie_low',
+        ],
+        activityRollTotals: {
+          restoreCharacterCostTotal: 9999,
+          specialActionCostTotal: 75,
+          specialOrderItemCostTotal: 9999,
+        },
+        activityAssetOperations: {
+          restorations: [{ slotIndex: 5, mode: 'raise_dead' }],
+          orders: [{ slotIndex: 6, costPaid: 33 }],
+        },
+      },
+      snapshot: {
+        militia: { rank: 4, treasury: 10_000, notoriety: 25 },
+        rosterTeamIds: ['moles', 'informants', 'defenders'],
+      },
+    });
+
+    expect(result.summary.militia.treasury).toBe(3437);
+    expect(result.summary.militia.notoriety).toBe(22);
+  });
+
+  it(`includes successful team lifecycle costs in the outcome (${RULES.resources})`, () => {
+    const result = resolve({
+      draft: {
+        stagedActivityActionIds: ['dismiss_team', 'upgrade_team'],
+        activityRollTotals: { dismissTeamCheckTotal: 10 },
+        upkeepTeamOperations: {
+          disabledRecoveries: [{ teamId: 'moles', paid: true }],
+        },
+        activityTeamOperations: {
+          recruits: [],
+          dismissals: [{ slotIndex: 0, teamId: 'informants' }],
+          upgrades: [
+            { slotIndex: 1, fromTeamId: 'moles', toTeamId: 'propagandists' },
+          ],
+        },
+      },
+      snapshot: {
+        militia: { rank: 4, treasury: 1000 },
+        rosterTeamIds: ['moles', 'informants'],
+        teamStatuses: [
+          { teamId: 'moles', status: 'disabled' },
+          { teamId: 'informants', status: 'active' },
+        ],
+      },
+    });
+
+    expect(result.summary.militia.treasury).toBe(710);
+    expect(result.baselinePlan).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'recover_team',
+          teamId: 'moles',
+          source: 'paid_recovery',
+        },
+        {
+          kind: 'remove_team',
+          teamId: 'informants',
+          source: 'dismissed',
+        },
+        {
+          kind: 'upgrade_team',
+          fromTeamId: 'moles',
+          toTeamId: 'propagandists',
+        },
+      ]),
+    );
+    expect(result.finalPlan).toEqual(result.baselinePlan);
   });
 
   it(`applies typed adjustments after the rules baseline (${RULES.adjustments})`, () => {

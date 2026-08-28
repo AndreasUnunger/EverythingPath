@@ -5,8 +5,21 @@ import type {
   SummaryPhaseViewModel,
   UpkeepPhaseViewModel,
 } from '~/components/week-board/phase-sections';
+import {
+  buildEventOccurrenceItems,
+  buildOperationSummaryItems,
+  buildStagedSlotItems,
+  buildUpkeepSummaryItems,
+  hasManualTotal,
+} from '~/components/week-board/phase-sections/summary-phase-shared';
 import { getManipulateEventsManagerText } from '~/components/week-board/team-manager-effects';
 import type { WeekBoardController } from '~/components/week-board/use-week-board-controller';
+import { formatEventTypeLabel } from '~/lib/militia-state-options';
+import { formatTeamIdLabel } from '~/lib/team-ids';
+import type {
+  TableAdjustment,
+  WeeklyResolutionChange,
+} from '~/lib/weekly-resolution-contract';
 
 export function buildUpkeepPhaseViewModel(
   controller: WeekBoardController,
@@ -253,73 +266,191 @@ export function buildSummaryPhaseViewModel({
   formatManualTotalForSummaryAction: (raw: string) => string;
 }): SummaryPhaseViewModel {
   const data = controller.data!;
-  return {
-    rank: data.rank,
-    training: data.training,
-    treasury: data.treasury,
-    notoriety: data.notoriety,
-    upkeepAttritionTotal: controller.upkeepAttritionTotal,
-    showMaxNotorietyPenalty: controller.showMaxNotorietyPenalty,
-    upkeepNotorietyPenaltyTotal: controller.upkeepNotorietyPenaltyTotal,
-    maxNotorietyLoyaltyCheckTotal: controller.maxNotorietyLoyaltyCheckTotal,
-    nearestSettlementKey: controller.nearestSettlementKey,
-    showTreasuryShortagePenalty: controller.showTreasuryShortagePenalty,
-    upkeepTreasuryPenaltyTotal: controller.upkeepTreasuryPenaltyTotal,
-    slots: controller.slots,
-    activityRollSummaryRows: controller.activityRollSummaryRows,
+  const preview = data.resolutionPreview;
+  const weekWarnings = readWeekWarnings(data.state);
+  const marketDayMarketplaceLabel =
+    (data.marketplaces ?? []).find(
+      (marketplace) => marketplace._id === controller.marketDayMarketplaceId,
+    )?.label ?? '';
+  const eventInputItems = buildEventOccurrenceItems({
     eventChanceTotal: controller.eventChanceTotal,
     eventTriggerRollTotal: controller.eventTriggerRollTotal,
-    resolvedEventTrigger: controller.resolvedEventTrigger,
-    shouldResolveEventTable: controller.shouldResolveEventTable,
-    eventPercentileTotal: controller.eventPercentileTotal,
-    effectiveEventPercentileTotal: controller.effectiveEventPercentileTotal,
     hasGuaranteedEventAction: controller.hasGuaranteedEventAction,
     guaranteedEventFirstPercentileTotal:
       controller.guaranteedEventFirstPercentileTotal,
     guaranteedEventSecondPercentileTotal:
       controller.guaranteedEventSecondPercentileTotal,
     guaranteedEventChoice: controller.guaranteedEventChoice,
-    showRollTwiceFields: controller.showRollTwiceFields,
-    eventRollTwiceFirst: controller.eventRollTwiceFirst,
-    eventRollTwiceSecond: controller.eventRollTwiceSecond,
     sabotageCheckTotal: controller.sabotageCheckTotal,
-    sabotageNotorietyIncreaseTotal: controller.sabotageNotorietyIncreaseTotal,
-    activityTeamOperations: controller.activityTeamOperations,
-    activityOfficerOperations: controller.activityOfficerOperations,
-    activityAssetOperations: controller.activityAssetOperations,
-    slotTeams: controller.slotTeams,
-    weekWarnings: Array.isArray(
-      (controller.data?.state as Record<string, unknown>)?.weekWarnings,
-    )
-      ? ((controller.data?.state as Record<string, unknown>)
-          .weekWarnings as unknown[]).filter(
-          (warning): warning is { code: string; message: string } =>
-            Boolean(
-              warning &&
-                typeof warning === 'object' &&
-                'code' in warning &&
-                'message' in warning &&
-                typeof warning.code === 'string' &&
-                typeof warning.message === 'string',
-            ),
-        )
-      : [],
-    cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
+    sabotageNotorietyIncreaseTotal:
+      controller.sabotageNotorietyIncreaseTotal,
+    cacheDiscoveredMitigationTotal:
+      controller.cacheDiscoveredMitigationTotal,
     theftMitigationTotal: controller.theftMitigationTotal,
     sicknessTwiceLoyaltyTotal: controller.sicknessTwiceLoyaltyTotal,
     turncoatTrainingLossTotal: controller.turncoatTrainingLossTotal,
     turncoatOfficerCheckTotal: controller.turncoatOfficerCheckTotal,
     turncoatSelectedTeamId: controller.turncoatSelectedTeamId,
-    missingInActionSelectedTeamId: controller.missingInActionSelectedTeamId,
+    missingInActionSelectedTeamId:
+      controller.missingInActionSelectedTeamId,
     sicknessSelectedTeamId: controller.sicknessSelectedTeamId,
     turnAroundBoostTeamId: controller.turnAroundBoostTeamId,
-    marketplaces: data.marketplaces ?? [],
-    marketDayMarketplaceId: controller.marketDayMarketplaceId,
+    marketDayMarketplaceLabel,
     marketDayTownName: controller.marketDayTownName,
     marketDayAppliesToAllTrackedMarketplaces:
       controller.marketDayAppliesToAllTrackedMarketplaces,
     rivalrySelectedTeamIds: controller.rivalrySelectedTeamIds,
     overseerEventSupportTarget: controller.overseerEventSupportTarget,
+    formatManualTotalForSummary: formatManualTotalForSummaryAction,
+  });
+  appendManualTotal(
+    eventInputItems,
+    'Event table roll',
+    controller.eventPercentileTotal,
     formatManualTotalForSummaryAction,
+  );
+  appendManualTotal(
+    eventInputItems,
+    'Roll Twice: first roll',
+    controller.eventRollTwiceFirst,
+    formatManualTotalForSummaryAction,
+  );
+  appendManualTotal(
+    eventInputItems,
+    'Roll Twice: second roll',
+    controller.eventRollTwiceSecond,
+    formatManualTotalForSummaryAction,
+  );
+
+  return {
+    startingMilitiaItems: [
+      `Rank: ${data.rank}`,
+      `Training: ${data.training}`,
+      `Treasury: ${data.treasury}`,
+      `Notoriety: ${data.notoriety}`,
+    ],
+    rulesBaselineItems: preview
+      ? formatResolutionPlan(preview.baselinePlan)
+      : [],
+    tableAdjustmentItems:
+      preview?.appliedAdjustments.map(formatTableAdjustment) ?? [],
+    finalOutcomeItems: preview ? formatResolutionPlan(preview.finalPlan) : [],
+    resolvedOutcomeItems: preview
+      ? [
+          `Next uneventful bonus: ${preview.summary.nextUneventfulBonusCarry}`,
+          ...(preview.summary.resolvedEvents.length > 0
+            ? preview.summary.resolvedEvents.map(
+                (event) =>
+                  `${event.rolledValue}: ${formatEventTypeLabel(event.eventType)}${event.isTwiceClause ? ' (Twice)' : ''}`,
+              )
+            : ['Events: None']),
+        ]
+      : [],
+    attentionItems: [
+      ...(data.resolutionPreviewWarnings ?? []),
+      ...(preview?.missingInputs.map((input) => input.message) ?? []),
+    ],
+    warningItems: Array.from(
+      new Set([
+        ...weekWarnings.map((warning) => `Warning: ${warning.message}`),
+        ...(preview?.warnings
+          .filter((warning) => warning.code !== 'table_adjustment')
+          .map((warning) => `Warning: ${warning.message}`) ?? []),
+      ]),
+    ),
+    upkeepInputItems: buildUpkeepSummaryItems({
+      upkeepAttritionTotal: controller.upkeepAttritionTotal,
+      showMaxNotorietyPenalty: controller.showMaxNotorietyPenalty,
+      upkeepNotorietyPenaltyTotal: controller.upkeepNotorietyPenaltyTotal,
+      maxNotorietyLoyaltyCheckTotal:
+        controller.maxNotorietyLoyaltyCheckTotal,
+      nearestSettlementKey: controller.nearestSettlementKey,
+      showTreasuryShortagePenalty: controller.showTreasuryShortagePenalty,
+      upkeepTreasuryPenaltyTotal: controller.upkeepTreasuryPenaltyTotal,
+      formatManualTotalForSummary: formatManualTotalForSummaryAction,
+    }),
+    activitySelectionItems: buildStagedSlotItems({
+      slots: controller.slots,
+      slotTeams: controller.slotTeams,
+    }),
+    stagedOperationItems: buildOperationSummaryItems({
+      slots: controller.slots,
+      activityTeamOperations: controller.activityTeamOperations,
+      activityOfficerOperations: controller.activityOfficerOperations,
+      activityAssetOperations: controller.activityAssetOperations,
+    }),
+    activityRollInputItems: controller.activityRollSummaryRows.map(
+      (row) => `${row.label}: ${row.value}`,
+    ),
+    eventInputItems,
   };
+}
+
+function readWeekWarnings(state: unknown) {
+  if (!state || typeof state !== 'object') return [];
+  const warnings = (state as Record<string, unknown>).weekWarnings;
+  if (!Array.isArray(warnings)) return [];
+  return (warnings as unknown[]).filter(
+    (warning: unknown): warning is { code: string; message: string } =>
+      Boolean(
+        warning &&
+          typeof warning === 'object' &&
+          'code' in warning &&
+          'message' in warning &&
+          typeof warning.code === 'string' &&
+          typeof warning.message === 'string',
+      ),
+  );
+}
+
+function appendManualTotal(
+  items: string[],
+  label: string,
+  raw: string,
+  formatManualTotal: (raw: string) => string,
+) {
+  if (hasManualTotal(raw)) {
+    items.push(`${label}: ${formatManualTotal(raw)}`);
+  }
+}
+
+function formatResolutionPlan(plan: WeeklyResolutionChange[]) {
+  return plan.map((change) => {
+    switch (change.kind) {
+      case 'militia_values':
+        return `Militia: training ${change.training}, treasury ${change.treasury}, notoriety ${change.notoriety}`;
+      case 'lower_settlement_reputation':
+        return `Lower ${change.settlementKey} reputation by one step`;
+      case 'set_settlement_reputation':
+        return `Set ${change.settlementKey} reputation to ${change.reputation}`;
+      case 'set_team_status':
+        return `Set ${formatTeamIdLabel(change.teamId)} status to ${change.status}`;
+      case 'add_event':
+        return `Add ${formatEventTypeLabel(change.eventType)} event${change.isPersistent ? ' (persistent)' : ''}`;
+      case 'resolve_event':
+        return `Resolve ${formatEventTypeLabel(change.eventType)} event`;
+      case 'recover_team':
+        return `Recover ${formatTeamIdLabel(change.teamId)} (${change.source === 'paid_recovery' ? 'paid recovery' : 'returned from missing'})`;
+      case 'remove_team':
+        return `Remove ${formatTeamIdLabel(change.teamId)} (${change.source === 'permanently_lost' ? 'permanently lost' : 'dismissed'})`;
+      case 'recruit_team':
+        return `Recruit ${formatTeamIdLabel(change.teamId)}${change.addToRoster ? ' and add to roster' : ''}${change.initializeState ? ' with active state' : ''}`;
+      case 'upgrade_team':
+        return `Upgrade ${formatTeamIdLabel(change.fromTeamId)} to ${formatTeamIdLabel(change.toTeamId)}`;
+    }
+  });
+}
+
+function formatTableAdjustment(adjustment: TableAdjustment) {
+  const reason = `Reason: ${adjustment.reason}`;
+  switch (adjustment.kind) {
+    case 'militia_value':
+      return `${adjustment.operation === 'add' ? 'Add' : 'Set'} ${adjustment.value} ${adjustment.operation === 'add' ? 'to ' : 'as '}${adjustment.field}. ${reason}`;
+    case 'settlement_reputation':
+      return `Set ${adjustment.settlementKey} reputation to ${adjustment.reputation}. ${reason}`;
+    case 'team_status':
+      return `Set ${formatTeamIdLabel(adjustment.teamId)} status to ${adjustment.status}. ${reason}`;
+    case 'event_status':
+      return `${adjustment.operation === 'add' ? 'Add' : 'Resolve'} ${formatEventTypeLabel(adjustment.eventType)} event${adjustment.operation === 'add' && adjustment.isPersistent ? ' (persistent)' : ''}. ${reason}`;
+  }
 }

@@ -6,7 +6,7 @@ import { api as db } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
 import type { EventOverseerSupportTarget } from '~/components/week-board/officer-effects';
 import type { ActionId, WeekPhase } from '~/components/week-board/types';
-import type { TableAdjustment } from '~/lib/weekly-resolution';
+import type { TableAdjustment } from '~/lib/weekly-resolution-contract';
 
 type ActivityTeamOperationsPatch = Partial<{
   recruits: Array<{ slotIndex: number; teamId: string }>;

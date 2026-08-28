@@ -38,7 +38,7 @@ import { useWeekBoardMutations } from '~/components/week-board/use-week-board-mu
 import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
 import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
 import { shouldApplyTreasuryShortagePenalty } from '~/lib/militia-progression-rules';
-import type { TableAdjustment } from '~/lib/weekly-resolution';
+import type { TableAdjustment } from '~/lib/weekly-resolution-contract';
 import {
   weekBoardLiveStateQuery,
   weekBoardReferenceQuery,
@@ -84,6 +84,8 @@ export function useWeekBoardController({
       militiaId: referenceQuery.data.militiaId,
       maxActions: liveStateQuery.data.maxActions,
       persistentBuyoff: liveStateQuery.data.persistentBuyoff,
+      resolutionPreview: liveStateQuery.data.resolutionPreview,
+      resolutionPreviewWarnings: liveStateQuery.data.resolutionPreviewWarnings,
       state: liveStateQuery.data.state,
     };
   }, [liveStateQuery.data, referenceQuery.data, trackedStateQuery.data]);
