@@ -3843,7 +3843,7 @@ export const coverageCatalog = {
           id: 'success',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: Check DC15 plus rank negates only the selected event.',
+            'Phase View / Resolution Preview: Check DC15 plus rank negates only the selected event and still adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A18.success'],
           tests: [],
           gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
