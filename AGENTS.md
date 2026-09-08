@@ -14,6 +14,12 @@ Triage uses the five canonical role labels. See `docs/agents/triage-labels.md`.
 
 Domain documentation uses the single-context layout. See `docs/agents/domain.md`.
 
+## Issue Tracker
+
+Use GitHub Issues for planning and tracking work in this repository. Use the
+`gh` CLI, infer the repository from the `origin` remote, and use GitHub
+sub-issues and native issue dependencies for Wayfinder maps.
+
 ## Militia Rules Corpus
 
 The Ironfang militia rules are stored in:
