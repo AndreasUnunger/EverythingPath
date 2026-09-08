@@ -1,0 +1,32 @@
+name: Rules coverage
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -s typecheck
+      - run: pnpm -s lint
+      - run: pnpm -s rules:check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rules-coverage
+          path: |
+            coverage/rules-report.md
+            coverage/rules-tests.json
+          if-no-files-found: warn
