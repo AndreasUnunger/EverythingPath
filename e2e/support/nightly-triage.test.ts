@@ -8,7 +8,7 @@ import { expect, it } from 'vitest';
 import { failureCatalog } from './nightly-history';
 
 it.each(['new', 'open', 'closed'] as const)(
-  'publishes one recurring failure using a %s issue through the GitHub boundary',
+  'publishes a %s issue despite retired journeys in historical results',
   async (state) => {
     const directory = await mkdtemp(join(tmpdir(), 'nightly-triage-'));
     const key = `${failureCatalog[1]!.key}:${'a'.repeat(20)}`;
@@ -17,7 +17,13 @@ it.each(['new', 'open', 'closed'] as const)(
       await writeFile(join(directory, 'nightly-summary.json'), summary);
       await writeFile(
         join(directory, 'history.zip'),
-        zipSync({ 'nightly-summary.json': strToU8(summary) }),
+        zipSync({
+          'nightly-summary.json': strToU8(
+            JSON.stringify({
+              failures: [key, `${'f'.repeat(20)}:not-run`],
+            }),
+          ),
+        }),
       );
       await writeFile(
         join(directory, 'gh'),

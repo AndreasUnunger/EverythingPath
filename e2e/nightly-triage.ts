@@ -91,7 +91,9 @@ if (mode === 'summarize') {
       historySchema.parse(JSON.parse(Buffer.from(data).toString('utf8'))),
     );
   }
-  const keys = recurringFailures(history);
+  const keys = recurringFailures(history).filter((key) =>
+    failureCatalog.some((failure) => failure.key === key.split(':')[0]),
+  );
   if (keys.length) {
     // Listing all states also finds closed issues so recurrence reopens one ticket.
     const issues = z

@@ -18,19 +18,13 @@ export const failureCatalog = [
     journey: 'setup or incomplete results',
   },
 ];
+// Historical summaries may come from an older project/journey catalog.
+// Validate the wire format without requiring those journeys to still exist.
 export const historySchema = z.object({
   failures: z.array(
     z
       .string()
-      .refine(
-        (key) =>
-          key === 'infrastructure' ||
-          failureCatalog.some(
-            (failure) =>
-              key.startsWith(`${failure.key}:`) &&
-              /^(?:[a-f0-9]{20}|not-run)$/.test(key.split(':')[1] ?? ''),
-          ),
-      ),
+      .regex(/^(?:infrastructure|[a-f0-9]{20}:(?:[a-f0-9]{20}|not-run))$/),
   ),
 });
 export type NightlySummary = z.infer<typeof historySchema>;

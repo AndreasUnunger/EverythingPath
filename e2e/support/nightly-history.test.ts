@@ -1,6 +1,10 @@
 // @vitest-environment node
 import { expect, it } from 'vitest';
-import { recurringFailures, summarizeNightly } from './nightly-history';
+import {
+  historySchema,
+  recurringFailures,
+  summarizeNightly,
+} from './nightly-history';
 
 it('requires recurrence across distinct runs and only reports failures still present', () => {
   expect(recurringFailures([{ failures: ['a', 'a'] }])).toEqual([]);
@@ -77,4 +81,14 @@ it('distinguishes failing steps within one journey and keeps a retry pass red', 
   const otherStep = summarizeNightly(report);
   expect(recurringFailures([otherStep, first])).not.toContain(key);
   expect(recurringFailures([first, first])).toContain(key);
+});
+
+it('accepts retired historical keys while rejecting malformed failure identities', () => {
+  const retired = `${'f'.repeat(20)}:not-run`;
+  expect(historySchema.parse({ failures: [retired] })).toEqual({
+    failures: [retired],
+  });
+  for (const key of ['unknown', `${retired}:extra`, `${'f'.repeat(20)}:bad`]) {
+    expect(historySchema.safeParse({ failures: [key] }).success).toBe(false);
+  }
 });

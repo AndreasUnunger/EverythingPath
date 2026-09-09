@@ -379,7 +379,9 @@ Clerk or Convex credentials. It compares the current run to the preceding 19
 completed workflow runs, counting a diagnostic retry only once. Two consecutive
 failures or two failures within that window create or update one issue per
 project/journey/failing step; a closed matching issue is reopened on recurrence.
-Different failing steps do not count toward each other's threshold. Setup failures
+Different failing steps do not count toward each other's threshold. Historical
+summaries retain syntactically valid keys from retired journeys; those keys do
+not prevent escalation for journeys in the current catalog. Setup failures
 produce a dependency-free infrastructure summary. Missing/expired historical
 artifacts are unknown, so they do not supply evidence of recurrence. Hard job
 cancellation can prevent summary upload and is never treated as a pass.
@@ -395,3 +397,8 @@ phone/tablet persistence. All 17 fixture resets and cleanups completed. This is
 local live-service evidence; the GitHub schedule and issue publication have not
 been run. Secretless tests also cover the recurrence threshold and GitHub create,
 update and reopen behavior using a fake GitHub command.
+
+Both browser workflows call `.github/workflows/e2e-runner.yaml` for setup,
+execution budgets, environment credentials, and evidence retention. The callers
+own their trigger/trust rules and shared concurrency slot; the mandatory caller
+keeps the fail-closed aggregate, while the nightly caller owns issue triage.
