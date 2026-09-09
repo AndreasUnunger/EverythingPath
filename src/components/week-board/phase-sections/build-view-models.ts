@@ -73,6 +73,9 @@ export function buildActivityPhaseViewModel({
     resetSlotsAction: () => {
       void controller.actions.resetSlots();
     },
+    stageAction: (slotIndex, actionId) => {
+      void controller.setSlotAction(slotIndex, actionId);
+    },
     militiaId: data.militiaId,
     rank: data.rank,
     focus: data.focus,

@@ -37,7 +37,7 @@ export default function CampaignSelector({
           value={selectedCampaign}
           onValueChange={(event) => setSelectedCampaign(event as Id<'campaign'>)}
         >
-          <SelectTrigger className="border-primary bg-card w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
+          <SelectTrigger aria-label="Active campaign" className="border-primary bg-card w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="border-primary bg-card border-2 font-mono">

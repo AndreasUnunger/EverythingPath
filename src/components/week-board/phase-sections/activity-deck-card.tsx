@@ -2,6 +2,9 @@
 
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Card } from '~/components/ui/card';
+import { Button } from '~/components/ui/button';
+import { shouldIgnorePointerCardDragStart } from '~/lib/pointer-card-drag';
+import type { ActivityPhaseViewModel } from './activity-phase-shared';
 import type { ActivityActionCardEntry } from '~/components/week-board/phase-sections/activity-phase-shared';
 import type { DragState } from '~/components/week-board/types';
 import { getPointerCardDragStyle } from '~/lib/pointer-card-drag';
@@ -10,9 +13,13 @@ export function ActivityDeckCard({
   entry,
   dragState,
   onDragStart,
+  slotRows,
+  onStage,
 }: {
   entry: ActivityActionCardEntry;
   dragState: DragState | null;
+  slotRows: ActivityPhaseViewModel['slotRows'];
+  onStage: ActivityPhaseViewModel['stageAction'];
   onDragStart: (
     event: ReactPointerEvent<HTMLDivElement>,
     entry: ActivityActionCardEntry,
@@ -23,7 +30,12 @@ export function ActivityDeckCard({
       style={entry.isDraggingCard && dragState ? { height: dragState.height } : undefined}
     >
       <Card
-        onPointerDown={(event) => onDragStart(event, entry)}
+        role="group"
+        aria-label={`Action Choice: ${entry.card.title}`}
+        tabIndex={0}
+        onPointerDown={(event) => {
+          if (!shouldIgnorePointerCardDragStart(event.target)) onDragStart(event, entry);
+        }}
         className={getDeckCardClassName(entry)}
         style={entry.isDraggingCard ? getPointerCardDragStyle(dragState) : undefined}
       >
@@ -51,6 +63,21 @@ export function ActivityDeckCard({
             </li>
           ))}
         </ul>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {slotRows.map((slot) => (
+            <Button
+              key={slot.slotId}
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={entry.isDisabled || entry.isAssigned}
+              aria-label={`Stage ${entry.card.title} in Activity Slot ${slot.slotNumber}`}
+              onClick={() => onStage(slot.slotNumber - 1, entry.card.id)}
+            >
+              Stage in Slot {slot.slotNumber}
+            </Button>
+          ))}
+        </div>
         {entry.isDisabled ? (
           <p className="text-muted-foreground mt-2 font-mono text-[11px]">
             {entry.warnings[0] ?? 'Unavailable due to current staged-state constraints.'}

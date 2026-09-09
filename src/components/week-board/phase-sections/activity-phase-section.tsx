@@ -106,12 +106,16 @@ export function ActivityPhaseSection({
             entries={legalActionCards}
             dragState={dragState}
             onDragStart={handleDeckCardDragStartAction}
+            slotRows={slotRows}
+            onStage={viewModel.stageAction}
           />
           <ActionDeckSection
             title="Other Actions"
             entries={otherActionCards}
             dragState={dragState}
             onDragStart={handleDeckCardDragStartAction}
+            slotRows={slotRows}
+            onStage={viewModel.stageAction}
           />
         </div>
       </div>
@@ -222,8 +226,12 @@ function ActionDeckSection({
   entries,
   dragState,
   onDragStart,
+  slotRows,
+  onStage,
 }: {
   title: string;
+  slotRows: ActivityPhaseViewModel['slotRows'];
+  onStage: ActivityPhaseViewModel['stageAction'];
   entries: ActivityActionCardEntry[];
   dragState: ActivityPhaseViewModel['dragState'];
   onDragStart: (
@@ -241,6 +249,8 @@ function ActionDeckSection({
             entry={entry}
             dragState={dragState}
             onDragStart={onDragStart}
+            slotRows={slotRows}
+            onStage={onStage}
           />
         ))}
       </div>

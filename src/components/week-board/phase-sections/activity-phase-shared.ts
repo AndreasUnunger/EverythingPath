@@ -83,6 +83,7 @@ export type ActivityPhaseViewModel = {
   activeDropSlotId: string | null;
   slotRefs: RefObject<Record<string, HTMLDivElement | null>>;
   resetSlotsAction: () => void;
+  stageAction: (slotIndex: number, actionId: ActionId) => void;
   militiaId: Id<'militia'>;
   rank: number;
   focus: MilitiaFocus;

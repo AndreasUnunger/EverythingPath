@@ -54,6 +54,10 @@ Form validation is implemented with `react-hook-form` + `zod` for clear field-le
 
 ## Development
 
+The production-browser harness and its explicit non-production setup are
+documented in [e2e/README.md](e2e/README.md). Run `pnpm test:e2e` only with a
+declared disposable preview and the dedicated Clerk development fixtures.
+
 Requirements:
 
 - Node.js
