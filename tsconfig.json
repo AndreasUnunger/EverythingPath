@@ -50,6 +50,8 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
+    ".agents",
+    "agent",
     "node_modules"
   ]
 }

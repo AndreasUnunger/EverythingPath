@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npx convex dev --once && next build",
+    "build": "pnpm build:web",
+    "build:web": "next build",
     "check": "eslint . && tsc --noEmit",
+    "check:convex-generated": "bash scripts/check-convex-generated.sh",
     "dev": "bash scripts/dev.sh",
     "dev:web": "next dev --turbopack",
     "dev:convex": "convex dev",
+    "deploy:convex": "bash scripts/deploy-convex.sh",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "lint": "eslint .",
@@ -16,6 +19,7 @@
     "preview": "next build && next start",
     "start": "next start",
     "test": "NODE_OPTIONS='--experimental-require-module --no-warnings' vitest run",
+    "test:build": "node --test scripts/build-boundary.test.mjs",
     "test:watch": "NODE_OPTIONS='--experimental-require-module --no-warnings' vitest",
     "typecheck": "tsc --noEmit"
   },
