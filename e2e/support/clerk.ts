@@ -29,7 +29,7 @@ const jwks = z.object({
     .min(1),
 });
 
-export async function verifyClerkCohorts(
+export async function verifyClerkApplication(
   targets: SafeTargets,
   get: ReadJson = readJson,
 ) {
@@ -58,6 +58,14 @@ export async function verifyClerkCohorts(
       'Clerk secret and publishable keys belong to different applications',
     );
   }
+}
+
+export async function verifyClerkCohorts(
+  targets: SafeTargets,
+  get: ReadJson = readJson,
+) {
+  await verifyClerkApplication(targets, get);
+  const { resources, secretKey } = targets;
   for (const worker of resources.workers) {
     for (const role of roleKeys) {
       const identity = worker[role];

@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
-import { parseArgs, parseEnv } from 'node:util';
+import { basename, join } from 'node:path';
+import { parseArgs } from 'node:util';
 import { createServer } from 'node:net';
-import { validateE2ETargets } from './support/preflight';
+import { loadTargets } from './support/configuration';
 import { verifyClerkCohorts } from './support/clerk';
 import { command, loadRun, savePrivate, type Run } from './support/process';
 import {
@@ -39,28 +39,7 @@ async function main() {
     throw new Error(
       'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight]',
     );
-  const declaration: unknown = JSON.parse(
-    await readFile(resolve(values.resources), 'utf8'),
-  );
-  const secrets = values.secrets
-    ? parseEnv(await readFile(resolve(values.secrets), 'utf8'))
-    : {};
-  // Inspect inherited targets separately so a secrets file cannot hide them.
-  for (const key of Object.keys(secrets))
-    if (
-      ![
-        'CLERK_PUBLISHABLE_KEY',
-        'CLERK_SECRET_KEY',
-        'CONVEX_DEPLOY_KEY',
-      ].includes(key)
-    )
-      throw new Error(
-        'Secrets file may contain only the three declared service keys',
-      );
-  const targets = validateE2ETargets(
-    { ...process.env, ...secrets },
-    declaration,
-  );
+  const targets = await loadTargets(values.resources, values.secrets);
   if (
     targets.resources.workers.length !== 1 ||
     targets.resources.workers[0]?.key !== 'worker-0'

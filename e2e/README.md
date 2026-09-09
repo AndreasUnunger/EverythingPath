@@ -122,3 +122,66 @@ pass is not evidence that a live smoke has succeeded.
 API references: [Convex preview deployment](https://docs.convex.dev/cli/reference/deploy),
 [Clerk Playwright authentication](https://clerk.com/docs/guides/development/testing/playwright/test-authenticated-flows),
 [Playwright authentication](https://playwright.dev/docs/auth).
+
+## Provision and repair the cohort (#24)
+
+`e2e/resources.ci.json` records the non-secret cohort IDs, development host and
+known production denylist. Its preview slot is reserved for CI. Local runs use
+`e2e/.private/resources.json` and a separate local slot. Review both declarations
+when production targets change. An empty Clerk denylist means no production
+Clerk application has been declared; it does not disable the development-key or
+instance checks.
+
+Provisioning is a separate, local-only command. Without `--bootstrap`, it only
+verifies. The secrets file must be mode 600 and contain only the three keys above.
+
+```bash
+E2E_TRUSTED_EXECUTION=true pnpm e2e:provision \
+  --resources e2e/.private/resources.json \
+  --secrets e2e/.private/test-secrets.env
+
+E2E_TRUSTED_EXECUTION=true pnpm e2e:provision \
+  --resources e2e/.private/resources.json \
+  --secrets e2e/.private/test-secrets.env --bootstrap
+```
+
+Bootstrap validates targets and matches the development instance's JWKS before
+any service write. It creates missing synthetic `+clerk_test` users and member /
+outsider organizations, restores missing memberships and their `org:admin` /
+`org:member` roles, and removes incorrect memberships within the declared cohort.
+It refuses to alter an ID belonging to a different email or remove access to an
+undeclared organization. Resolve those cases manually. Existing users and
+organizations retain their IDs; a recreated object's new ID is written atomically
+to the supplied declaration after verification. New organizations carry a stable
+private metadata marker so interrupted setup can find them again. Run bootstrap
+from one machine at a time; its local lock cannot serialize across machines.
+For initial creation, the example's placeholder IDs represent absent resources;
+replace all target, denylist and email values before enabling bootstrap.
+
+If bootstrap changes IDs, update both local and CI declarations before another
+smoke. Configure the Clerk `convex` JWT template and organization support in the
+dedicated development application before provisioning. Application creation,
+JWT-template configuration and production inventory are operator setup steps;
+bootstrap only manages the declared fixture cohort.
+
+## Trusted CI configuration
+
+The `Trusted E2E smoke` workflow is manual and restricted to the repository owner
+on `main`. Supply the full reviewed commit as `reviewed_sha`; it must equal the
+workflow commit. Both the original actor and the rerun actor must be the owner.
+The `e2e` GitHub environment must allow only the **main branch**, with no tag rule.
+Store `CLERK_SECRET_KEY` and `CONVEX_PREVIEW_DEPLOY_KEY` as environment secrets,
+and the non-secret `CLERK_PUBLISHABLE_KEY` as an environment variable. Do not copy
+these secrets into repository, organization, Dependabot or ordinary CI stores.
+Only the smoke step receives them; dependency installation has no service keys.
+
+Fork PRs and dependency-update jobs use the ordinary secretless `CI` workflow.
+They cannot access the `e2e` environment on their branch or invoke this manual
+job. Reviewing a commit must include workflow, dependency and install-script
+changes: trusted execution grants that code access to development services.
+CI serializes its reserved preview slot and uploads only sanitized harness
+artifacts on failure, with 30-day retention. Bootstrap is never run by CI.
+
+References: [Clerk users API](https://clerk.com/docs/reference/backend-api/tag/users/post/users),
+[Clerk organizations API](https://clerk.com/docs/reference/backend-api/tag/organizations/post/organizations),
+[GitHub environment restrictions](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).

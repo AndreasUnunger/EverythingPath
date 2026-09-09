@@ -21,6 +21,7 @@
     "test": "NODE_OPTIONS='--experimental-require-module --no-warnings' vitest run",
     "test:build": "node --test scripts/build-boundary.test.mjs",
     "test:e2e": "tsx e2e/run.ts",
+    "e2e:provision": "tsx e2e/provision.ts",
     "test:watch": "NODE_OPTIONS='--experimental-require-module --no-warnings' vitest",
     "typecheck": "tsc --noEmit"
   },
