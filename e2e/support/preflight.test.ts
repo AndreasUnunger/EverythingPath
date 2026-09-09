@@ -4,6 +4,35 @@ import { runE2EPreflight, validatePreviewBinding } from './preflight';
 import { resources, safeEnvironment } from './test-data';
 
 describe('E2E preflight before any writing adapter', () => {
+  it.each(['pull_request', 'merge_group'])(
+    'requires the tested commit to match the trusted %s workflow declaration',
+    async (event) => {
+      const environment = {
+        ...safeEnvironment,
+        CI: 'true',
+        GITHUB_ACTIONS: 'true',
+        GITHUB_EVENT_NAME: event,
+        GITHUB_ACTOR: 'owner',
+        GITHUB_SHA: 'tested-merge-commit',
+        E2E_REVIEWED_SHA: 'tested-merge-commit',
+      };
+      const write = vi.fn();
+      await runE2EPreflight(environment, resources, write);
+      expect(write).toHaveBeenCalledOnce();
+      write.mockClear();
+      await expect(
+        runE2EPreflight(
+          {
+            ...environment,
+            E2E_REVIEWED_SHA: 'different-commit',
+          },
+          resources,
+          write,
+        ),
+      ).rejects.toThrow('reviewed commit');
+      expect(write).not.toHaveBeenCalled();
+    },
+  );
   it('accepts regional preview URLs while enforcing the production denylist', () => {
     const url = 'https://quiet-otter-123.eu-west-1.convex.cloud';
     expect(validatePreviewBinding(resources, url)).toBe(url);

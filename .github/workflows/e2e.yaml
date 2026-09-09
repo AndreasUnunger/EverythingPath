@@ -1,12 +1,21 @@
-name: Trusted E2E smoke
+name: E2E access
 
 on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       reviewed_sha:
         description: Full commit SHA reviewed for secret-backed execution
         required: true
         type: string
+      force_failure:
+        description: Exercise failure evidence and a passing diagnostic retry (remains red)
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -16,40 +25,79 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  smoke:
+  access:
+    # Owner-authored, same-repository code only. Skips fail the aggregate gate.
+    # Never use pull_request_target or give fork/bot jobs service credentials.
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/main' &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      inputs.reviewed_sha == github.sha
+      (github.event_name == 'push' ||
+       github.event_name == 'merge_group' ||
+       (github.event_name == 'workflow_dispatch' && inputs.reviewed_sha == github.sha) ||
+       (github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login == github.repository_owner))
     environment: e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 14
+    outputs:
+      required_result: ${{ steps.journey.outputs.required_result }}
     steps:
+      - name: Start twelve-minute setup and execution budget
+        run: echo "E2E_DEADLINE=$(( $(date +%s) + 720 ))" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
+        timeout-minutes: 1
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@v4
+        timeout-minutes: 1
       - uses: actions/setup-node@v4
+        timeout-minutes: 1
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Verify provisioned resources and run smoke
-        run: pnpm test:e2e --resources e2e/resources.ci.json
+      - name: Install dependencies and Chromium within the remaining budget
+        run: |
+          remaining=$(( E2E_DEADLINE - $(date +%s) ))
+          [ "$remaining" -gt 0 ] || exit 1
+          timeout --signal=INT --kill-after=5s "${remaining}s" bash -c 'pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium'
+      - name: Run required access journey
+        id: journey
+        run: |
+          remaining=$(( E2E_DEADLINE - $(date +%s) ))
+          [ "$remaining" -gt 0 ] || exit 1
+          timeout --signal=INT --kill-after=5s "${remaining}s" pnpm test:e2e --resources e2e/resources.ci.json
         env:
           E2E_TRUSTED_EXECUTION: 'true'
-          E2E_REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+          E2E_REVIEWED_SHA: ${{ github.sha }}
+          E2E_FORCE_FAILURE: ${{ inputs.force_failure == true && 'true' || 'false' }}
           CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
       - name: Retain sanitized evidence
-        if: failure()
+        timeout-minutes: 1
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: e2e-safe-${{ github.run_id }}-${{ github.run_attempt }}
           path: e2e-artifacts/e2e-local-ci-slot-0/
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
+
+  required:
+    name: E2E required
+    if: ${{ always() }}
+    needs: [access]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require complete first-attempt success
+        env:
+          JOB_RESULT: ${{ needs.access.result }}
+          REQUIRED_RESULT: ${{ needs.access.outputs.required_result }}
+        run: |
+          if [ "$JOB_RESULT" != success ] || [ "$REQUIRED_RESULT" != passed ]; then
+            echo 'E2E required: failed. The access job must succeed with every required result passing on its first attempt. Inspect the access job and sanitized artifacts.'
+            exit 1
+          fi
+          echo 'E2E required: passed. Authentication and organization access passed on their first attempts.'

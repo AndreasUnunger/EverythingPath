@@ -62,7 +62,19 @@ export async function command(
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: process.platform !== 'win32',
       });
+      let interrupted = false;
+      let forceKill: ReturnType<typeof setTimeout> | undefined;
       const terminate = () => {
+        interrupted = true;
+        forceKill ??= setTimeout(() => {
+          try {
+            if (child.pid && process.platform !== 'win32')
+              process.kill(-child.pid, 'SIGKILL');
+            else child.kill('SIGKILL');
+          } catch {
+            /* The process has already exited. */
+          }
+        }, 5000);
         try {
           if (child.pid && process.platform !== 'win32')
             process.kill(-child.pid, 'SIGTERM');
@@ -102,8 +114,10 @@ export async function command(
         clearTimeout(timeout);
         process.removeListener('SIGINT', terminate);
         process.removeListener('SIGTERM', terminate);
+        const wasInterrupted = interrupted;
         terminate();
-        if (code === 0) resolve(output);
+        clearTimeout(forceKill);
+        if (code === 0 && !wasInterrupted) resolve(output);
         else
           reject(
             new Error(`${stage}: process failed (${code ?? 'terminated'})`),

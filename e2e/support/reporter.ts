@@ -1,15 +1,26 @@
 import type {
   FullResult,
+  FullConfig,
+  Suite,
   Reporter,
   TestCase,
   TestResult,
 } from '@playwright/test/reporter';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+import { evaluateResults } from './results';
 import { loadRun } from './process';
 import { sanitizeLog } from './artifacts';
 
 export default class SafeReporter implements Reporter {
+  private suite?: Suite;
+  private errors = 0;
+  onBegin(_config: FullConfig, suite: Suite) {
+    this.suite = suite;
+  }
+  onError() {
+    this.errors++;
+  }
   private results: {
     journey: string;
     status: string;
@@ -46,15 +57,29 @@ export default class SafeReporter implements Reporter {
   }
   async onEnd(result: FullResult) {
     const run = await loadRun();
-    const failed =
-      result.status !== 'passed' ||
-      this.results.length < 2 ||
-      this.results.some((test) => test.status !== 'passed' || test.retry > 0);
+    const evaluation = {
+      status: result.status,
+      errors: this.errors,
+      tests: this.suite?.allTests().map((test) => ({
+        file: basename(test.location.file),
+        project: test.parent.project()?.name,
+        title: test.title,
+        expectedStatus: test.expectedStatus,
+        tags: test.tags,
+        annotations: test.annotations.map(({ type }) => type),
+        results: test.results.map(({ status, retry }) => ({ status, retry })),
+      })),
+    };
+    const failed = !evaluateResults(evaluation);
     await mkdir(run.artifactDirectory, { recursive: true });
     await writeFile(
       join(run.artifactDirectory, 'report.json'),
       JSON.stringify(
-        { status: failed ? 'failed' : 'passed', tests: this.results },
+        {
+          ...evaluation,
+          status: failed ? 'failed' : 'passed',
+          evidence: this.results,
+        },
         null,
         2,
       ),

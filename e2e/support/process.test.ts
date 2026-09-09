@@ -80,3 +80,18 @@ it('persists safe service diagnostics while a process is still running and close
     await rm(directory, { recursive: true, force: true });
   }
 }, 10_000);
+
+it('rejects a process that exits successfully after its deadline', async () => {
+  await expect(
+    command(
+      'deadline test',
+      [
+        'exec',
+        'node',
+        '-e',
+        'process.on("SIGTERM", () => process.exit(0)); setInterval(() => {}, 1000);',
+      ],
+      { cwd: process.cwd(), timeout: 1000 },
+    ),
+  ).rejects.toThrow('process failed');
+}, 10_000);

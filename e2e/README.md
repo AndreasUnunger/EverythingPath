@@ -1,7 +1,7 @@
 # Safe browser harness
 
-Issue #23 supplies the harness and a two-member smoke test. Dedicated service
-provisioning and the required CI gate are tracked separately in #24. Normal runs
+Issues #23 and #24 supply the harness and dedicated service cohort. Issue #25
+adds the required organization-access journey and aggregate CI gate. Normal runs
 verify existing Clerk users, roles and memberships; they never create or repair
 them. Session sign-in and Clerk testing tokens are the expected authentication
 writes.
@@ -57,14 +57,16 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the Chromium smoke at 1194×834 with
+creates fresh ignored role storage and runs the Chromium access journey at 1194×834 with
 touch enabled. It starts with one authenticated worker. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
 run still owns the slot before removing its exact stale lock directory.
 
-In CI, use a reviewed push or dispatch with `E2E_REVIEWED_SHA=GITHUB_SHA`.
-Fork PR, `pull_request_target`, bot and unknown CI invocations are refused. The
+In CI, the trusted workflow binds `E2E_REVIEWED_SHA=GITHUB_SHA` to the tested
+commit, including PR merge commits and merge-group commits. The workflow refuses
+fork PRs, bot actors and non-owner authors before accessing the environment.
+`pull_request_target` and unknown CI events are refused by preflight. The
 workflow must withhold secrets from untrusted code **before** checkout/execution;
 an in-repository preflight cannot secure secrets already given to hostile code.
 
@@ -171,21 +173,66 @@ bootstrap only manages the declared fixture cohort.
 
 ## Trusted CI configuration
 
-The `Trusted E2E smoke` workflow is manual and restricted to the repository owner
-on `main`. Supply the full reviewed commit as `reviewed_sha`; it must equal the
-workflow commit. Both the original actor and the rerun actor must be the owner.
-The `e2e` GitHub environment must allow only the **main branch**, with no tag rule.
-Store `CLERK_SECRET_KEY` and `CONVEX_PREVIEW_DEPLOY_KEY` as environment secrets,
-and the non-secret `CLERK_PUBLISHABLE_KEY` as an environment variable. Do not copy
-these secrets into repository, organization, Dependabot or ordinary CI stores.
-Only the smoke step receives them; dependency installation has no service keys.
+The `E2E access` workflow runs on pull requests, merge groups, pushes to `main`,
+and manual dispatches. The stable aggregate check is **E2E required**. It always
+runs after the access job and accepts only a successful job with an explicit
+verified result output. Failed, cancelled, neutral, skipped or absent upstream
+results fail closed. The reporter independently requires the named authentication
+setup and access journey, each with exactly one passing attempt. Skips, expected
+failures, quarantine annotations, focused runs, global errors and retry passes
+cannot satisfy it. `forbidOnly` rejects focused tests before execution.
 
-Fork PRs and dependency-update jobs use the ordinary secretless `CI` workflow.
-They cannot access the `e2e` environment on their branch or invoke this manual
-job. Reviewing a commit must include workflow, dependency and install-script
-changes: trusted execution grants that code access to development services.
-CI serializes its reserved preview slot and uploads only sanitized harness
-artifacts on failure, with 30-day retention. Bootstrap is never run by CI.
+Only repository-owner actors and rerun actors can use service credentials; PRs
+must additionally be owner-authored and originate in this repository. Other PRs
+receive a red aggregate check and must be reviewed and brought onto a trusted
+owner branch. Never use `pull_request_target` to execute submitted code.
+
+Store `CLERK_SECRET_KEY` and `CONVEX_PREVIEW_DEPLOY_KEY` only in the `e2e`
+environment, and `CLERK_PUBLISHABLE_KEY` as its variable. Before enabling PR or
+merge-queue environment refs, require owner approval of environment deployments
+and disable bypass. Review the exact merge commit, workflows, dependencies and
+install scripts before approval. Branch patterns alone cannot establish trust
+for PR code. Keep the existing main-only environment policy until these controls
+are available. Do not move service keys to repository or organization secrets.
+
+The runner budgets twelve minutes across preview/build/browser execution. CI also
+shares one twelve-minute deadline across setup, installation and execution, with
+interrupt then forced termination. Artifact upload has a separate one-minute cap. The
+access job has fourteen minutes including installation and artifact finalization;
+the aggregate has one minute, keeping the jobs' execution budget at fifteen.
+GitHub queue and environment approval wait time are outside job execution limits.
+A hard job cancellation may prevent evidence finalization, and never passes the gate.
+
+Dispatch with `force_failure: true` to exercise the evidence path. The first
+attempt fails after the real access assertions; the CI-only diagnostic retry
+repeats them and passes, while the overall run stays red. Inspect the safe console
+summary, `report.html`, `report.json`, application screenshots, first-retry trace
+ZIPs, `stages.log`, and allowlisted service diagnostics when present. CI retains
+only the sanitized artifact directory for thirty days. Bootstrap never runs in CI.
+
+Local verification on 2026-09-09 completed a normal journey against a recreated
+preview and fresh role sessions. A separate run using CI retry settings completed
+the intentional first-attempt failure followed by a passing retry, exited 1, and
+retained the HTML/JSON reports, three application screenshots, three sanitized
+retry traces and logs. These are local live-service checks, not evidence of a
+GitHub Actions run or activated branch protection.
+
+### Required-check rollout
+
+Immediately after the journey reaches `main`, configure its branch protection or
+active ruleset to require **E2E required** from GitHub Actions (app ID 15368),
+retaining existing required checks. Require it for merge queue as well. Verify
+with a fresh PR and merge-group run: a normal run must pass, and the forced failure
+must remain red despite a successful diagnostic retry. Read back the protection
+configuration and confirm the check name and expected app before declaring rollout
+complete.
+
+At implementation time (2026-09-09), GitHub returned HTTP 403 for both branch
+protection and rulesets: this private repository needs GitHub Pro or public
+visibility to enable those features. Required-check activation is therefore an
+external rollout blocker. The environment is still main-only; enabling reviewed
+PR and merge-group deployment access is also a prerequisite. Neither a checked-in
+workflow nor a passing local run proves that branch protection is active.
 
 References: [Clerk users API](https://clerk.com/docs/reference/backend-api/tag/users/post/users),
 [Clerk organizations API](https://clerk.com/docs/reference/backend-api/tag/organizations/post/organizations),

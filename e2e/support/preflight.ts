@@ -28,14 +28,14 @@ export function validateE2ETargets(
   if (environment.CI) {
     if (
       environment.GITHUB_ACTIONS !== 'true' ||
-      !['push', 'workflow_dispatch'].includes(
+      !['push', 'workflow_dispatch', 'pull_request', 'merge_group'].includes(
         environment.GITHUB_EVENT_NAME ?? '',
       ) ||
       environment.GITHUB_ACTOR?.endsWith('[bot]') ||
       !environment.GITHUB_SHA ||
       environment.E2E_REVIEWED_SHA !== environment.GITHUB_SHA
     ) {
-      reject('CI requires a trusted push or dispatch for the reviewed commit');
+      reject('CI requires a trusted workflow for the reviewed commit');
     }
   }
   for (const name of [
