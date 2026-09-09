@@ -50,6 +50,10 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
         join(directory, 'existing-militia.spec.ts'),
         `import { test } from ${playwright}; test('existing militia state survives reload within its campaign', () => {});`,
       );
+      await writeFile(
+        join(directory, 'character-ledger.spec.ts'),
+        `import { test } from ${playwright}; test('players share character and officer assignment changes', () => {});`,
+      );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,
@@ -83,16 +87,15 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
       ).toContain(`E2E ${mode === 'passed' ? 'passed' : 'failed'}`);
       if (mode === 'retry')
         expect(report).toMatchObject({
-          tests: [
-            expect.anything(),
-            {
+          tests: expect.arrayContaining([
+            expect.objectContaining({
+              file: 'access.spec.ts',
               results: [
                 { status: 'failed', retry: 0 },
                 { status: 'passed', retry: 1 },
               ],
-            },
-            expect.anything(),
-          ],
+            }),
+          ]),
         });
     } finally {
       await rm(directory, { recursive: true, force: true });

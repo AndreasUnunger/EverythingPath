@@ -2,7 +2,8 @@
 
 Issues #23 and #24 supply the harness and dedicated service cohort. Issue #25
 adds the required organization-access journey and aggregate CI gate. Issue #26
-adds the existing-militia setup journey to that same gate. Normal runs
+adds the existing-militia setup journey, and issue #27 adds the shared character
+and officer ledger journey, to that same gate. Normal runs
 verify existing Clerk users, roles and memberships; they never create or repair
 them. Session sign-in and Clerk testing tokens are the expected authentication
 writes.
@@ -184,7 +185,8 @@ and manual dispatches. Merge-queue execution is deferred. The stable aggregate c
 runs after the access job and accepts only a successful job with an explicit
 verified result output. Failed, cancelled, neutral, skipped or absent upstream
 results fail closed. The reporter independently requires the named authentication
-setup, access journey and existing-militia journey, each with exactly one passing attempt. Skips, expected
+setup, access journey, existing-militia journey, and character/officer ledger
+journey, each with exactly one passing attempt. Skips, expected
 failures, quarantine annotations, focused runs, global errors and retry passes
 cannot satisfy it. `forbidOnly` rejects focused tests before execution.
 
@@ -270,3 +272,15 @@ Live verification on 2026-09-09 passed authentication and both journeys on their
 first attempts against the recreated local preview and a production web build.
 The existing-militia journey completed in about 25 seconds, including reload,
 the comparison campaign checks and switching back to the initialized militia.
+
+## Character and officer ledger journey
+
+`character-ledger.spec.ts` owns the `characterLedger` fixture. It starts with a
+militia and an empty character ledger, while two separately authenticated member
+contexts open the same campaign before changes begin. The GM creates and assigns
+two characters through the production UI; the player observes each update without
+reloading. The player then moves one character into the occupied Marshal role,
+which replaces the former officer without deleting either record, and the GM
+clears that assignment. Both contexts finally reopen the campaign and verify that
+the two records and unassigned officer roles persisted. Assertions wait only on
+visible ledger rows, role cards, and dialogs.

@@ -5,7 +5,12 @@ export const convexCloudUrlPattern =
   /^https:\/\/[a-z0-9-]+(?:\.[a-z]{2}-[a-z]+-[0-9]+)?\.convex\.cloud$/;
 export const roleKeys = ['gm', 'player', 'outsider'] as const;
 export type RoleKey = (typeof roleKeys)[number];
-export const caseKeys = ['smoke', 'isolation', 'existingMilitia'] as const;
+export const caseKeys = [
+  'smoke',
+  'isolation',
+  'existingMilitia',
+  'characterLedger',
+] as const;
 export type CaseKey = (typeof caseKeys)[number];
 
 // Provider IDs belong in the external resource declaration, never in this catalog.
@@ -24,6 +29,11 @@ export const fixtureCatalog = {
     campaign: 'isolation-campaign',
     militia: 'isolation-militia',
     character: 'isolation-officer',
+  },
+  characterLedger: {
+    campaign: 'character-ledger-campaign',
+    militia: 'character-ledger-militia',
+    character: 'character-ledger-officer',
   },
 } satisfies Record<
   CaseKey,
@@ -110,6 +120,7 @@ export const deploymentFixtureSchema = z
                 smoke: z.string().length(64),
                 isolation: z.string().length(64),
                 existingMilitia: z.string().length(64),
+                characterLedger: z.string().length(64),
               })
               .strict(),
           })

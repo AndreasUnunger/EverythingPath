@@ -19,6 +19,7 @@ const scopeArgs = {
     v.literal('smoke'),
     v.literal('isolation'),
     v.literal('existingMilitia'),
+    v.literal('characterLedger'),
   ),
   token: v.string(),
 };
@@ -198,21 +199,24 @@ export const resetCase = internalMutation({
     // The onboarding journey must create its militia and officers through the UI.
     if (args.caseKey === 'existingMilitia')
       return { campaignId, campaignKey: domain.campaign };
-    const characterId = await ctx.db.insert('character', {
-      campaignId,
-      ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,
-      name: `E2E ${domain.character}`,
-      description: 'Synthetic officer',
-      kind: 'officer_npc',
-      isActive: true,
-      level: 1,
-      strength: 10,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 10,
-      wisdom: 10,
-      charisma: 10,
-    });
+    const characterId =
+      args.caseKey === 'characterLedger'
+        ? undefined
+        : await ctx.db.insert('character', {
+            campaignId,
+            ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,
+            name: `E2E ${domain.character}`,
+            description: 'Synthetic officer',
+            kind: 'officer_npc',
+            isActive: true,
+            level: 1,
+            strength: 10,
+            dexterity: 10,
+            constitution: 10,
+            intelligence: 10,
+            wisdom: 10,
+            charisma: 10,
+          });
     const militiaId = await ctx.db.insert('militia', {
       name: `E2E ${domain.militia}`,
       campaignId,
@@ -223,7 +227,7 @@ export const resetCase = internalMutation({
       notoriety: 0,
       focus: 'Loyalty',
       training: 0,
-      marshal: characterId,
+      ...(characterId ? { marshal: characterId } : {}),
     });
     await ctx.db.insert('militiaWeekState', {
       militiaId,

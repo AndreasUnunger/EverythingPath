@@ -34,10 +34,19 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'character-ledger.spec.ts',
+      project: 'chromium-tablet',
+      title: 'players share character and officer assignment changes',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
-it('accepts exactly the required authentication and both journeys on their first attempts', () => {
+it('accepts exactly the required authentication and three journeys on their first attempts', () => {
   expect(evaluateResults(passing())).toBe(true);
 });
 
@@ -108,6 +117,12 @@ it.each(['@quarantine', '@quarantined'])(
 );
 
 it('rejects a run that omits the existing-militia journey', () => {
+  const report = passing();
+  report.tests.splice(2, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the character-ledger journey', () => {
   const report = passing();
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);

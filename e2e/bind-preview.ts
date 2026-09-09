@@ -21,6 +21,7 @@ run.fixture = {
       smoke: randomBytes(32).toString('hex'),
       isolation: randomBytes(32).toString('hex'),
       existingMilitia: randomBytes(32).toString('hex'),
+      characterLedger: randomBytes(32).toString('hex'),
     },
   })),
 };

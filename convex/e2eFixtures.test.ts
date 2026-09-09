@@ -20,6 +20,11 @@ const isolation: FixtureScope = {
   caseKey: 'isolation',
   token: 'b'.repeat(64),
 };
+const characterLedger: FixtureScope = {
+  ...scope,
+  caseKey: 'characterLedger',
+  token: 'c'.repeat(64),
+};
 
 describe('internal fixture boundary', () => {
   beforeEach(() => {
@@ -59,6 +64,21 @@ describe('internal fixture boundary', () => {
         phase: 'activity',
         stagedActions: [null],
       },
+    });
+  });
+  it('starts the character-ledger journey with militia but no character records', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterLedger,
+      now: 1_700_000_000_000,
+    });
+    expect(
+      await t.query(internal.e2eFixtures.inspectCase, characterLedger),
+    ).toMatchObject({
+      campaignKey: 'character-ledger-campaign',
+      campaignCount: 1,
+      characters: [],
+      militia: { week: 1, phase: 'activity' },
     });
   });
   it.each([
@@ -174,6 +194,7 @@ describe('internal fixture boundary', () => {
         smoke: 'c'.repeat(64),
         isolation: 'd'.repeat(64),
         existingMilitia: 'e'.repeat(64),
+        characterLedger: 'f'.repeat(64),
       },
     };
     vi.stubEnv(

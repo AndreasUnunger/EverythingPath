@@ -44,6 +44,7 @@ export const deploymentFixture: DeploymentFixture = {
       smoke: 'a'.repeat(64),
       isolation: 'b'.repeat(64),
       existingMilitia: 'd'.repeat(64),
+      characterLedger: 'c'.repeat(64),
     },
   })),
 };

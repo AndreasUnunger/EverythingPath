@@ -12,6 +12,11 @@ const requiredTests = [
     'chromium-tablet',
     'existing militia state survives reload within its campaign',
   ],
+  [
+    'character-ledger.spec.ts',
+    'chromium-tablet',
+    'players share character and officer assignment changes',
+  ],
 ];
 const reportSchema = z.object({
   status: z.literal('passed'),
