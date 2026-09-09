@@ -1,7 +1,7 @@
 import { test as setup } from '@playwright/test';
 import { clerk, clerkSetup } from '@clerk/testing/playwright';
 import { join } from 'node:path';
-import { roleKeys } from './fixtures/catalog';
+import { FIXTURE_VERSION, roleKeys } from './fixtures/catalog';
 import { fixtureCall, loadRun, savePrivate } from './support/process';
 
 setup.describe.configure({ mode: 'serial' });
@@ -11,7 +11,7 @@ setup('prepare fresh role sessions', async ({ browser }) => {
   if (!worker) throw new Error('Missing fixture cohort');
   await fixtureCall(run, 'seedIdentityProjection', {
     namespace: run.resources.previewName,
-    version: 1,
+    version: FIXTURE_VERSION,
     workerKey: worker.key,
     caseKey: 'smoke',
     token: worker.cases.smoke,

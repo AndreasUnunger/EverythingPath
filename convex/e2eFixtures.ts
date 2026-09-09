@@ -20,6 +20,8 @@ const scopeArgs = {
 };
 
 function authorize(scope: FixtureScope) {
+  // Installed Convex 1.34 has no generated `env` API; keep the supported runtime
+  // interface until the project upgrades to the version in its AI guidelines.
   return guardFixtureScope(process.env, scope);
 }
 

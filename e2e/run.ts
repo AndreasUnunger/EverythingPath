@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { parseArgs, parseEnv } from 'node:util';
 import { createServer } from 'node:net';
 import { validateE2ETargets } from './support/preflight';
@@ -88,6 +88,7 @@ async function main() {
       sourceRoot,
       'e2e-artifacts',
       targets.resources.previewName,
+      basename(temporary),
     );
     // Explicit file list prevents Next/Clerk/Convex from auto-loading personal .env files.
     await copyBuildWorkspace(sourceRoot, workspace);

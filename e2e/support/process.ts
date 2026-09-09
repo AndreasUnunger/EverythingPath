@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { deploymentFixtureSchema, resourceSchema } from '../fixtures/catalog';
+import { safeDiagnostic } from './artifacts';
 
 export const runSchema = z.object({
   resources: resourceSchema,
@@ -37,6 +39,7 @@ export async function command(
   options: { cwd: string; env?: NodeJS.ProcessEnv; timeout?: number },
 ) {
   const runFile = (options.env ?? process.env).E2E_RUN_FILE;
+  const diagnostics = new Set<string>();
   const log = async (status: string) => {
     if (!runFile) return;
     const run = runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')));
@@ -45,6 +48,14 @@ export async function command(
       join(run.artifactDirectory, 'stages.log'),
       `${stage}: ${status}\n`,
     );
+    if (status !== 'started' && diagnostics.size) {
+      await appendFile(
+        join(run.artifactDirectory, 'diagnostics.log'),
+        [...diagnostics]
+          .map((diagnostic) => `${stage}: ${diagnostic}\n`)
+          .join(''),
+      );
+    }
   };
   await log('started');
   try {
@@ -71,7 +82,12 @@ export async function command(
       child.stdout.on('data', (chunk: Buffer) => {
         if (output.length < 4_000_000) output += chunk.toString();
       });
-      child.stderr.resume();
+      for (const stream of [child.stdout, child.stderr]) {
+        createInterface({ input: stream }).on('line', (line: string) => {
+          const diagnostic = safeDiagnostic(line);
+          if (diagnostic) diagnostics.add(diagnostic);
+        });
+      }
       child.on('error', () =>
         reject(new Error(`${stage}: process could not start`)),
       );

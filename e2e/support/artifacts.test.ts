@@ -1,9 +1,21 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
-import { sanitizeLog, sanitizeTrace } from './artifacts';
+import { safeDiagnostic, sanitizeLog, sanitizeTrace } from './artifacts';
 
 describe('retained E2E evidence', () => {
+  it('retains allowlisted service diagnostics without provider payloads', () => {
+    expect(safeDiagnostic('ArgumentValidationError: token=opaque-secret')).toBe(
+      'Convex argument validation failed',
+    );
+    expect(safeDiagnostic('Error: private unknown payload')).toBe(
+      'application or service reported an error',
+    );
+    expect(safeDiagnostic('Cookie: opaque-session-value')).toBeNull();
+    expect(safeDiagnostic('fetch failed: sk_test_secret')).toBe(
+      'service connection failed',
+    );
+  });
   it('removes service keys, JWTs, cookies and known opaque secrets', () => {
     const result = sanitizeLog(
       'sk_test_secret preview:team:project|secret eyJabc.def.ghi\nCookie: session=secret\nticket: secret\nopaque-capability',

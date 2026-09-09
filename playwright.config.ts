@@ -10,7 +10,6 @@ if (!runPath)
   );
 const run = runSchema.parse(JSON.parse(readFileSync(runPath, 'utf8')));
 if (!run.fixture) throw new Error('E2E preview is not bound');
-const port = new URL(run.baseURL).port;
 
 export default defineConfig({
   testDir: './e2e',
@@ -42,7 +41,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm start --hostname 127.0.0.1 --port ${port}`,
+    command: 'pnpm exec tsx e2e/start-server.ts',
     url: run.baseURL,
     reuseExistingServer: false,
     timeout: 60_000,

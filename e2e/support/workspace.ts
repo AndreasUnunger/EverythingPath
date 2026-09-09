@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, mkdir, symlink, readdir, readFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readdir, readFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export async function copyBuildWorkspace(
@@ -24,11 +25,11 @@ export async function copyBuildWorkspace(
     await mkdir(dirname(destination), { recursive: true });
     await copyFile(join(sourceRoot, file), destination);
   }
-  await symlink(
-    join(sourceRoot, 'node_modules'),
-    join(workspace, 'node_modules'),
-    'dir',
-  );
+  await cp(join(sourceRoot, 'node_modules'), join(workspace, 'node_modules'), {
+    recursive: true,
+    verbatimSymlinks: true,
+    mode: constants.COPYFILE_FICLONE,
+  });
 }
 
 export async function checkGeneratedBindings(

@@ -96,10 +96,12 @@ mutation hooks, fake authentication or hidden staging endpoints are provided.
 
 ## Evidence and checks
 
-Only upload `e2e-artifacts/<previewName>/`, with 30-day retention. The custom
+Only upload the current `e2e-artifacts/<previewName>/<runId>/`, with 30-day retention. The custom
 reporter keeps safe assertion messages, test outcomes and timings; auth setup
-errors are replaced with a fixed diagnostic. `stages.log` records stage outcomes,
-not raw CLI/service output. Failed multiplayer contexts retain application-page
+errors are replaced with a fixed diagnostic. `stages.log` records stage outcomes;
+`diagnostics.log` retains allowlisted application/service error categories (such
+as schema validation, authentication, rate limits and connection failures) without
+provider payloads. Failed multiplayer contexts retain application-page
 screenshots. A first CI retry retains an action/screenshot trace with **network,
 headers, cookies, storage, snapshots, source and evaluation payloads removed**.
 Video is off. Traces consequently have less detail than raw Playwright traces.

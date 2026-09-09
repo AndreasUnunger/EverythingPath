@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { command, loadRun, savePrivate } from './support/process';
 import { validatePreviewBinding } from './support/preflight';
+import { FIXTURE_VERSION } from './fixtures/catalog';
 
 const run = await loadRun();
 const convexUrl = validatePreviewBinding(
@@ -9,7 +10,7 @@ const convexUrl = validatePreviewBinding(
   process.env.NEXT_PUBLIC_CONVEX_URL ?? '',
 );
 run.fixture = {
-  version: 1,
+  version: FIXTURE_VERSION,
   namespace: run.resources.previewName,
   convexUrl,
   clerkHost: run.resources.clerkHost,
@@ -23,11 +24,12 @@ run.fixture = {
   })),
 };
 const settingsFile = join(run.privateDirectory, 'fixture-settings.env');
+const fixtureConfigFile = join(run.privateDirectory, 'fixture-config.json');
+await savePrivate(fixtureConfigFile, JSON.stringify(run.fixture));
 await savePrivate(
   settingsFile,
   [
     'E2E_ENABLED=true',
-    `E2E_FIXTURE_CONFIG='${JSON.stringify(run.fixture)}'`,
     `CLERK_FRONTEND_API_URL=https://${run.resources.clerkHost}`,
   ].join('\n'),
 );
@@ -41,6 +43,23 @@ await command(
     '--from-file',
     settingsFile,
     '--force',
+    '--preview-name',
+    run.resources.previewName,
+    '--env-file',
+    run.envFile,
+  ],
+  { cwd: run.workspace },
+);
+await command(
+  'bind preview fixture capabilities',
+  [
+    'exec',
+    'convex',
+    'env',
+    'set',
+    'E2E_FIXTURE_CONFIG',
+    '--from-file',
+    fixtureConfigFile,
     '--preview-name',
     run.resources.previewName,
     '--env-file',

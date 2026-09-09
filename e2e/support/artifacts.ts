@@ -1,5 +1,43 @@
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 
+// Only fixed diagnostic categories cross the service-log boundary. A provider
+// can include opaque credentials in arbitrary prose, so regex redaction alone
+// is not sufficient for raw application/CLI output.
+export function safeDiagnostic(line: string): string | null {
+  const categories: [RegExp, string][] = [
+    [/E2E fixture access refused/i, 'fixture authorization refused'],
+    [/E2E identity is not owned/i, 'identity ownership conflict'],
+    [
+      /SchemaValidationError|schema validation/i,
+      'Convex schema validation failed',
+    ],
+    [
+      /ArgumentValidationError|argument validation/i,
+      'Convex argument validation failed',
+    ],
+    [
+      /Could not find function|function.*not found/i,
+      'Convex function is missing',
+    ],
+    [
+      /JWT|JWKS|token.*(?:expired|invalid)|issuer/i,
+      'authentication token or issuer failure',
+    ],
+    [/\b401\b|unauthorized/i, 'service rejected authentication'],
+    [/\b403\b|forbidden/i, 'service rejected authorization'],
+    [/\b429\b|rate.limit/i, 'service rate limit reached'],
+    [
+      /fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i,
+      'service connection failed',
+    ],
+    [
+      /\bError\b|\bfailed\b|\bfatal\b/i,
+      'application or service reported an error',
+    ],
+  ];
+  return categories.find(([pattern]) => pattern.test(line))?.[1] ?? null;
+}
+
 export function sanitizeLog(value: string, secrets: string[] = []) {
   let safe = value;
   for (const secret of secrets

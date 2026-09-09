@@ -9,6 +9,7 @@ import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   fixtureCatalog,
+  FIXTURE_VERSION,
   type CaseKey,
   type RoleKey,
   type FixtureScope,
@@ -76,7 +77,7 @@ export const test = base.extend<{
         throw new Error('Authenticated worker cohort is unavailable');
       const scope: FixtureScope = {
         namespace: run.resources.previewName,
-        version: 1,
+        version: FIXTURE_VERSION,
         workerKey: worker.key,
         caseKey,
         token: worker.cases[caseKey],
