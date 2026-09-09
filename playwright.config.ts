@@ -41,6 +41,7 @@ export default defineConfig({
     },
   ],
   webServer: {
+    gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
     command: 'pnpm exec tsx e2e/start-server.ts',
     url: run.baseURL,
     reuseExistingServer: false,

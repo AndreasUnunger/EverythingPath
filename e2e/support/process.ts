@@ -40,22 +40,18 @@ export async function command(
 ) {
   const runFile = (options.env ?? process.env).E2E_RUN_FILE;
   const diagnostics = new Set<string>();
+  const diagnosticWrites: Promise<void>[] = [];
+  const run = runFile
+    ? runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')))
+    : null;
+  let diagnosticWriteFailed = false;
   const log = async (status: string) => {
-    if (!runFile) return;
-    const run = runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')));
+    if (!run) return;
     await mkdir(run.artifactDirectory, { recursive: true });
     await appendFile(
       join(run.artifactDirectory, 'stages.log'),
       `${stage}: ${status}\n`,
     );
-    if (status !== 'started' && diagnostics.size) {
-      await appendFile(
-        join(run.artifactDirectory, 'diagnostics.log'),
-        [...diagnostics]
-          .map((diagnostic) => `${stage}: ${diagnostic}\n`)
-          .join(''),
-      );
-    }
   };
   await log('started');
   try {
@@ -85,7 +81,18 @@ export async function command(
       for (const stream of [child.stdout, child.stderr]) {
         createInterface({ input: stream }).on('line', (line: string) => {
           const diagnostic = safeDiagnostic(line);
-          if (diagnostic) diagnostics.add(diagnostic);
+          if (diagnostic && !diagnostics.has(diagnostic)) {
+            diagnostics.add(diagnostic);
+            if (run)
+              diagnosticWrites.push(
+                appendFile(
+                  join(run.artifactDirectory, 'diagnostics.log'),
+                  `${stage}: ${diagnostic}\n`,
+                ).catch(() => {
+                  diagnosticWriteFailed = true;
+                }),
+              );
+          }
         });
       }
       child.on('error', () =>
@@ -103,9 +110,13 @@ export async function command(
           );
       });
     });
+    await Promise.all(diagnosticWrites);
+    if (diagnosticWriteFailed)
+      throw new Error('E2E diagnostic log could not be saved');
     await log('passed');
     return output;
   } catch (error) {
+    await Promise.all(diagnosticWrites);
     await log('failed');
     throw error;
   }
