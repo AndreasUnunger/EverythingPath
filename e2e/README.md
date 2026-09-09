@@ -38,6 +38,11 @@ not load `.env.local`. It copies application sources into a temporary workspace,
 provides an explicit Convex env file and builds using the URL returned by Convex's
 preview creation callback. `next start` serves the production build on a free
 loopback port. The callback installs the preview's Clerk issuer and fixture config.
+Every child command pins Convex API authentication to the declared preview key.
+The Convex CLI otherwise prefers a saved personal login over a preview key, which
+can make an invalid key appear to work locally and then fail in CI. The harness
+still rejects inherited authentication overrides; it creates this binding only
+from the validated preview-key input.
 
 ## Run
 

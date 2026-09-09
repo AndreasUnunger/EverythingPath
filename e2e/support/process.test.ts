@@ -95,3 +95,25 @@ it('rejects a process that exits successfully after its deadline', async () => {
     ),
   ).rejects.toThrow('process failed');
 }, 10_000);
+
+it('binds child CLI authentication to the declared preview key instead of a personal login', async () => {
+  const output = await command(
+    'preview authentication probe',
+    [
+      'exec',
+      'node',
+      '-e',
+      'process.stdout.write(process.env.CONVEX_OVERRIDE_ACCESS_TOKEN ?? "personal-login-fallback")',
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        CONVEX_DEPLOY_KEY:
+          'preview:test-team:test-project|synthetic-preview-key',
+        CONVEX_OVERRIDE_ACCESS_TOKEN: 'synthetic-personal-token',
+      },
+    },
+  );
+  expect(output).toBe('preview:test-team:test-project|synthetic-preview-key');
+});

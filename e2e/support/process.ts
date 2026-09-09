@@ -38,7 +38,13 @@ export async function command(
   args: string[],
   options: { cwd: string; env?: NodeJS.ProcessEnv; timeout?: number },
 ) {
-  const runFile = (options.env ?? process.env).E2E_RUN_FILE;
+  const environment = { ...(options.env ?? process.env) };
+  if (environment.CONVEX_DEPLOY_KEY?.startsWith('preview:')) {
+    // Convex otherwise prefers ~/.convex/config.json over preview deploy keys.
+    // Pin the same declared key for both project selection and authentication.
+    environment.CONVEX_OVERRIDE_ACCESS_TOKEN = environment.CONVEX_DEPLOY_KEY;
+  }
+  const runFile = environment.E2E_RUN_FILE;
   const diagnostics = new Set<string>();
   const diagnosticWrites: Promise<void>[] = [];
   const run = runFile
@@ -58,7 +64,7 @@ export async function command(
     const output = await new Promise<string>((resolve, reject) => {
       const child = spawn('pnpm', args, {
         cwd: options.cwd,
-        env: options.env ?? process.env,
+        env: environment,
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: process.platform !== 'win32',
       });
