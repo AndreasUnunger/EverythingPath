@@ -2199,6 +2199,15 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'roster-holders',
+          checkpoint: '3-roster',
+          expected:
+            'Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments.',
+          plannedTests: ['roster.shared', 'roster.ui', 'roster.mapping'],
+          tests: ['roster.shared', 'roster.ui', 'roster.mapping'],
+          gap: null,
+        },
+        {
           id: 'nonstack',
           checkpoint: '4-officers',
           expected:
@@ -2291,6 +2300,15 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'roster-hit-dice',
+          checkpoint: '3-roster',
+          expected:
+            'Roster preparation retains explicit Commandant Hit Dice separately from level and reports unknown legacy Hit Dice for preflight resolution.',
+          plannedTests: ['roster.shared', 'roster.mapping', 'roster.ui'],
+          tests: ['roster.shared', 'roster.mapping', 'roster.ui'],
+          gap: null,
+        },
         {
           id: 'success',
           checkpoint: '4-officers',
@@ -2411,6 +2429,19 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'roster-manager-warnings',
+          checkpoint: '3-roster',
+          expected:
+            'Roster preparation validates campaign-scoped manager references and warns about manager limits without rejecting structurally valid rosters.',
+          plannedTests: [
+            'roster.identities',
+            'roster.limits',
+            'roster.references',
+          ],
+          tests: ['roster.identities', 'roster.limits', 'roster.references'],
+          gap: null,
+        },
         {
           id: 'capacity',
           checkpoint: '4-officers',
@@ -2938,6 +2969,25 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'roster-identities',
+          checkpoint: '3-roster',
+          expected:
+            'Roster preparation preserves individual identities for repeated types and reward exemptions; cap warnings do not remove teams.',
+          plannedTests: [
+            'roster.identities',
+            'roster.limits',
+            'roster.validation',
+            'roster.ui-teams',
+          ],
+          tests: [
+            'roster.identities',
+            'roster.limits',
+            'roster.validation',
+            'roster.ui-teams',
+          ],
+          gap: null,
+        },
+        {
           id: 'team-use',
           checkpoint: '4-teams',
           expected:
@@ -2992,6 +3042,15 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'roster-conditions',
+          checkpoint: '3-roster',
+          expected:
+            'Roster preparation retains independent disabled and missing conditions for individual teams of the same type.',
+          plannedTests: ['roster.shared', 'roster.ui-teams'],
+          tests: ['roster.shared', 'roster.ui-teams'],
+          gap: null,
+        },
         {
           id: 'disabled',
           checkpoint: '4-teams',

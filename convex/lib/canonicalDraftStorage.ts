@@ -23,7 +23,7 @@ type CanonicalDraft = z.infer<typeof weeklyDraftSchema>;
 type ReadCtx = QueryCtx | MutationCtx;
 
 // Deliberately unregistered: no live endpoint or application caller until cutover.
-async function requireScope(ctx: ReadCtx, input: Scope, gmOnly = false) {
+export async function requireScope(ctx: ReadCtx, input: Scope, gmOnly = false) {
   const scope = scopeSchema.parse({
     campaignId: input.campaignId,
     militiaId: input.militiaId,

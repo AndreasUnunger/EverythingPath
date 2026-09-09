@@ -1,3 +1,5 @@
+import { canonicalRosterDataSchema } from '../src/lib/canonical-roster';
+import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { defineSchema, defineTable } from 'convex/server';
 import { draftStorageValidator, operationStorageValidator, recordStorageValidator } from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
@@ -777,6 +779,12 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  canonicalRoster: defineTable({
+    campaignId: v.id('campaign'),
+    militiaId: v.id('militia'),
+    revision: v.number(),
+    roster: zodOutputToConvex(canonicalRosterDataSchema),
+  }).index('by_militiaId', ['militiaId']),
   canonicalResolutionRecord: defineTable(recordStorageValidator)
     .index('by_recordId', ['recordId'])
     .index('by_sourceDraftId', ['record.source.draftId'])

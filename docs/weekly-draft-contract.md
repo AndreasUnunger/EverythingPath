@@ -117,3 +117,55 @@ gaps and zero errors; this is extraction evidence, not cutover readiness.
 The required browser journeys passed against the dedicated local preview
 `e2e-local-andreasununger-slot-0`. Both review axes completed without remaining
 blockers after the reconstructed-source identity fix.
+
+## Isolated roster prerequisites (#63)
+
+`canonical-roster.ts` defines individual teams, roster people and officer
+assignments. Team identity is separate from team type; repeated types retain
+independent names, conditions, reward-cap exemptions, notes and manager references.
+People reference existing character records, retaining an explicit kind for manager
+limits and nullable Hit Dice. Unknown Hit Dice remain unknown, regardless of level.
+Officer assignments are a collection of role/character pairs; removing or moving
+an assignment never deletes its character. Multiple holders are retained for later
+Rules Projection, which still owns non-stacking and Commandant training arithmetic.
+
+`convex/lib/canonicalRoster.ts` supplies authenticated, campaign-scoped read/save
+operations over additive `canonicalRoster` storage. Saves validate all character
+and manager references and compare the exact reviewed revision in one transaction.
+Manager/cap/archived-assignment warnings do not block structurally valid saves.
+The roster has explicit technical size bounds above normal militia allowances.
+These functions are unregistered and have no live caller, matching #62's isolation
+boundary; they neither mirror nor write legacy teams, officers, or characters.
+
+`CanonicalRosterEditor` is the shared prepared ledger/setup interface. It retains
+team identities through edits, uses card selections for roles/types/managers,
+validates text with react-hook-form/Zod, and distinguishes unknown Hit Dice from
+malformed input. Its save callback carries the revision whose values were loaded;
+newer incoming values cannot silently rebase an unsaved edit. Explicit reload
+lets a player recover after a conflict. The later canonical browser adapter must
+supply subscribed snapshots, the existing campaign character ledger, and the
+transactional save, when that path is enabled at cutover. No live route or endpoint
+is enabled by this preparation step.
+
+`prepareLegacyRoster` is a read-only preflight mapping. Existing holders become
+singleton assignments and source team rows receive deterministic namespaced
+identities, so repeated preparation produces the same identities. Per-team
+condition, exemption and manager facts must be supplied explicitly. Existing
+linked managers must be preserved; freeform managers must first be linked to a
+character record. Missing Commandant Hit Dice remain an explicit preflight issue.
+The mapper does not change balances, advance weeks, run rules, or write data.
+
+Named pure, presentation and transactional tests cover these prerequisites. The
+catalog adds preparation cases while retaining all projection and cutover gaps.
+Canonical real-subscription wiring and weekly outcome calculations remain with
+the later adapters and Rules Projection extractions in #57.
+
+Verification for #63: typecheck, lint, the Convex-specific TypeScript check,
+three build-boundary checks, and all 54 test files / 384 tests pass. The rules
+catalog reports 15 covered cases, 473 explicit gaps and zero errors. The complete
+supported-path browser gate passed authentication and all five journeys on their
+first attempts against `e2e-local-andreasununger-slot-0`, including the two-player
+transport journey. The isolated preview deployment, production build and generated
+binding comparison also passed. Both review axes have zero remaining findings.
+These results establish roster preparation and supported-path compatibility, not
+canonical live subscription behavior or cutover readiness.
