@@ -5931,8 +5931,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Explicit zero differs from missing input; malformed values block Confirmation.',
           plannedTests: ['rules.P05.zero'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['draft.partial', 'draft.integrity'],
+          gap: 'Contract preserves absent versus zero and rejects malformed inputs; Resolution readiness and Confirmation remain for checkpoint 5.',
         },
         {
           id: 'optional',
@@ -5949,8 +5949,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Incomplete source still produces a partial preview.',
           plannedTests: ['rules.P05.partial'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['draft.partial', 'draft.action-facts'],
+          gap: 'Contract retains partial typed choices; derived readiness remains for checkpoint 5.',
         },
         {
           id: 'upstream',
@@ -6014,8 +6014,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Shared Table Adjustments and Rules Exceptions require reasons retained in history.',
           plannedTests: ['rules.P07.reason'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['draft.exceptions'],
+          gap: 'Contract requires reasons; shared UI and confirmed-source evidence remain for later checkpoints.',
         },
         {
           id: 'distinction',
@@ -6115,8 +6115,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Move and swap are atomic multi-slot edits; obsolete detail edits cannot update a replacement choice.',
           plannedTests: ['rules.P09.aggregate'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P09.aggregate'],
+          gap: 'Pure Weekly Draft aggregate passes; real adapter concurrency and Phase View integration remain for checkpoints 6–7.',
         },
         {
           id: 'retry',
