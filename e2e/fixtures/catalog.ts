@@ -11,6 +11,7 @@ export const caseKeys = [
   'existingMilitia',
   'characterLedger',
   'completeWeek',
+  'realtimeActionSlot',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
 
@@ -30,6 +31,11 @@ export const fixtureCatalog = {
     campaign: 'isolation-campaign',
     militia: 'isolation-militia',
     character: 'isolation-officer',
+  },
+  realtimeActionSlot: {
+    campaign: 'realtime-action-slot-campaign',
+    militia: 'realtime-action-slot-militia',
+    character: 'realtime-action-slot-officer',
   },
   completeWeek: {
     campaign: 'complete-week-campaign',
@@ -128,6 +134,7 @@ export const deploymentFixtureSchema = z
                 existingMilitia: z.string().length(64),
                 characterLedger: z.string().length(64),
                 completeWeek: z.string().length(64),
+                realtimeActionSlot: z.string().length(64),
               })
               .strict(),
           })

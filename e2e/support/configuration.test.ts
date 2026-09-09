@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { resources, deploymentFixture } from './test-data';
 
-it('loads the real Playwright config and discovers the serial setup and four tablet journeys without credentials', async () => {
+it('loads the real Playwright config and discovers the serial setup and five tablet journeys without credentials', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'e2e-config-test-'));
   try {
     const path = join(directory, 'run.json');
@@ -38,7 +38,8 @@ it('loads the real Playwright config and discovers the serial setup and four tab
     expect(result.stdout).toContain('existing-militia.spec.ts');
     expect(result.stdout).toContain('character-ledger.spec.ts');
     expect(result.stdout).toContain('complete-week.spec.ts');
-    expect(result.stdout).toContain('Total: 5 tests');
+    expect(result.stdout).toContain('realtime-action-slot.spec.ts');
+    expect(result.stdout).toContain('Total: 6 tests');
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

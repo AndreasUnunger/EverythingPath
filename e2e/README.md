@@ -3,8 +3,8 @@
 Issues #23 and #24 supply the harness and dedicated service cohort. Issue #25
 adds the required organization-access journey and aggregate CI gate. Issue #26
 adds the existing-militia setup journey, and issue #27 adds the shared character
-and officer ledger journey, to that same gate. Issue #28 adds the complete-week journey. Normal runs
-verify existing Clerk users, roles and memberships; they never create or repair
+and officer ledger journey, to that same gate. Issue #28 adds the complete-week
+journey, and issue #29 adds shared Action Slot staging. Normal runs verify existing Clerk users, roles and memberships; they never create or repair
 them. Session sign-in and Clerk testing tokens are the expected authentication
 writes.
 
@@ -64,7 +64,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the four Chromium tablet journeys at 1194×834 with
+creates fresh ignored role storage and runs the five Chromium tablet journeys at 1194×834 with
 touch enabled. It starts with one authenticated worker. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
@@ -186,8 +186,8 @@ runs after the access job and accepts only a successful job with an explicit
 verified result output. Failed, cancelled, neutral, skipped or absent upstream
 results fail closed. The reporter independently requires the named authentication
 setup, access journey, existing-militia journey, character/officer ledger
-journey, and complete-week journey, each with exactly one passing attempt. Skips, expected
-failures, quarantine annotations, focused runs, global errors and retry passes
+journey, complete-week journey, and realtime Action Slot journey, each with exactly
+one passing attempt. Skips, expected failures, quarantine annotations, focused runs, global errors and retry passes
 cannot satisfy it. `forbidOnly` rejects focused tests before execution.
 
 Only repository-owner actors and rerun actors can use service credentials; PRs
@@ -310,3 +310,26 @@ unmount and keeps malformed numeric input local.
 Live verification on 2026-09-09 passed authentication and all four required
 journeys on their first attempts against the recreated local preview, including
 complete-week Confirmation and reload. Typecheck, lint, and all 318 tests passed.
+
+## Realtime Action Slot journey
+
+`realtime-action-slot.spec.ts` owns the `realtimeActionSlot` fixture. Two separately
+signed-in members open the same week 1 Activity board and observe empty Action
+Slot 1 before a regular player taps the visible staging control for Drill Militia.
+Both contexts then observe that choice marked Staged in week 1, without reloading
+or competing writes. The required aggregate rejects a missing or non-passing journey.
+
+Actions have no individual confirmation. The local specification corrects the
+original issue’s assumption about a Confirmed Action Choice: Confirm Week commits
+the entire Weekly Draft and is covered by the complete-week journey. First-claim
+locking, release, cancellation, timeout, reconnect, invalid-drop recovery, and GM
+moderation coverage remain deferred until those capabilities exist.
+
+Failure reports identify the journey, expected Action Slot state and choice,
+player, and last rendered slot text from both contexts. The shared fixture also
+retains application screenshots for both contexts and sanitized traces on CI retry.
+
+Live verification on 2026-09-09 passed authentication and all five journeys on
+first attempts against the recreated local preview and production web build.
+The realtime Action Slot journey completed in about six seconds. Typecheck,
+lint, all 320 tests, and the three build-boundary checks also passed.

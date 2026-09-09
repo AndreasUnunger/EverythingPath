@@ -22,6 +22,11 @@ const requiredTests = [
     'chromium-tablet',
     'a player confirms a complete week and reloads its outcome',
   ],
+  [
+    'realtime-action-slot.spec.ts',
+    'chromium-tablet',
+    'players share a Staged Action Choice',
+  ],
 ];
 const reportSchema = z.object({
   status: z.literal('passed'),

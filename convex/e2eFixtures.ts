@@ -21,6 +21,7 @@ const scopeArgs = {
     v.literal('existingMilitia'),
     v.literal('characterLedger'),
     v.literal('completeWeek'),
+    v.literal('realtimeActionSlot'),
   ),
   token: v.string(),
 };

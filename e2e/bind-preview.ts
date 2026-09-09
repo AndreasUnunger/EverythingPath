@@ -23,6 +23,7 @@ run.fixture = {
       existingMilitia: randomBytes(32).toString('hex'),
       characterLedger: randomBytes(32).toString('hex'),
       completeWeek: randomBytes(32).toString('hex'),
+      realtimeActionSlot: randomBytes(32).toString('hex'),
     },
   })),
 };

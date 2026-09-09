@@ -52,10 +52,19 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'realtime-action-slot.spec.ts',
+      project: 'chromium-tablet',
+      title: 'players share a Staged Action Choice',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
-it('accepts exactly the required authentication and four journeys on their first attempts', () => {
+it('accepts exactly the required authentication and five journeys on their first attempts', () => {
   expect(evaluateResults(passing())).toBe(true);
 });
 
@@ -69,7 +78,7 @@ it.each([
   'interrupted',
   undefined,
 ])('rejects a required result of %s', (status) => {
-  for (const index of [1, 2, 3, 4]) {
+  for (const index of [1, 2, 3, 4, 5]) {
     const report = passing();
     Object.assign(report.tests[index]!.results[0]!, { status });
     expect(evaluateResults(report)).toBe(false);
@@ -138,6 +147,12 @@ it('rejects a run that omits the character-ledger journey', () => {
 });
 
 it('rejects a run that omits the complete-week journey', () => {
+  const report = passing();
+  report.tests.splice(4, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the realtime Action Slot journey', () => {
   const report = passing();
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);

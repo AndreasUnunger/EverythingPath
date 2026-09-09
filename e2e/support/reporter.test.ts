@@ -58,6 +58,10 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
         join(directory, 'complete-week.spec.ts'),
         `import { test } from ${playwright}; test('a player confirms a complete week and reloads its outcome', () => {});`,
       );
+      await writeFile(
+        join(directory, 'realtime-action-slot.spec.ts'),
+        `import { test } from ${playwright}; test('players share a Staged Action Choice', () => {});`,
+      );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,

@@ -81,6 +81,39 @@ describe('internal fixture boundary', () => {
       militia: { week: 1, phase: 'activity' },
     });
   });
+  it('resets an isolated realtime Action Slot board', async () => {
+    const t = convexTest({ schema, modules });
+    const realtime = {
+      ...scope,
+      caseKey: 'realtimeActionSlot' as const,
+      token: 'f'.repeat(64),
+    };
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...scope,
+      now: 1_700_000_000_000,
+    });
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...realtime,
+      now: 1_700_000_000_000,
+    });
+    expect(
+      await t.query(internal.e2eFixtures.inspectCase, realtime),
+    ).toMatchObject({
+      campaignKey: 'realtime-action-slot-campaign',
+      campaignCount: 1,
+      militia: {
+        week: 1,
+        phase: 'activity',
+        training: 0,
+        treasury: 100,
+        stagedActions: [null],
+      },
+    });
+    await t.mutation(internal.e2eFixtures.cleanupCase, realtime);
+    expect(
+      await t.query(internal.e2eFixtures.inspectCase, scope),
+    ).toMatchObject({ campaignCount: 1 });
+  });
   it.each([
     ['disabled', { E2E_ENABLED: 'false' }, {}],
     ['missing deployment binding', { CONVEX_CLOUD_URL: '' }, {}],
@@ -196,6 +229,7 @@ describe('internal fixture boundary', () => {
         existingMilitia: 'e'.repeat(64),
         characterLedger: 'f'.repeat(64),
         completeWeek: 'g'.repeat(64),
+        realtimeActionSlot: 'h'.repeat(64),
       },
     };
     vi.stubEnv(
