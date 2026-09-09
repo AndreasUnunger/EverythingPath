@@ -1,4 +1,8 @@
-import { resourceSchema, type Resources } from '../fixtures/catalog';
+import {
+  convexCloudUrlPattern,
+  resourceSchema,
+  type Resources,
+} from '../fixtures/catalog';
 
 export type Environment = Record<string, string | undefined>;
 export type SafeTargets = {
@@ -75,7 +79,7 @@ export function validateE2ETargets(
     reject('frontend Clerk key does not match the declared test key');
   }
   if (
-    !/^preview:[a-z0-9-]+:[a-z0-9-]+\|[A-Za-z0-9_-]+$/.test(previewKey) ||
+    !/^preview:[a-z0-9-]+:[a-z0-9-]+\|[^\s|]+$/.test(previewKey) ||
     !previewKey.startsWith(`preview:${resources.team}:${resources.project}|`)
   ) {
     reject(
@@ -91,7 +95,7 @@ export function validateE2ETargets(
 // never from inherited frontend configuration or a guessed deployment hostname.
 export function validatePreviewBinding(resources: Resources, url: string) {
   if (
-    !/^https:\/\/[a-z0-9-]+\.convex\.cloud$/.test(url) ||
+    !convexCloudUrlPattern.test(url) ||
     resources.production.convexUrls.includes(url)
   ) {
     reject('resolved Convex URL is malformed or production');

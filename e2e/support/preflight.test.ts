@@ -4,6 +4,19 @@ import { runE2EPreflight, validatePreviewBinding } from './preflight';
 import { resources, safeEnvironment } from './test-data';
 
 describe('E2E preflight before any writing adapter', () => {
+  it('accepts regional preview URLs while enforcing the production denylist', () => {
+    const url = 'https://quiet-otter-123.eu-west-1.convex.cloud';
+    expect(validatePreviewBinding(resources, url)).toBe(url);
+    expect(() =>
+      validatePreviewBinding(
+        {
+          ...resources,
+          production: { ...resources.production, convexUrls: [url] },
+        },
+        url,
+      ),
+    ).toThrow('resolved Convex URL is malformed or production');
+  });
   it('accepts a preview creation key without guessing its future hostname', async () => {
     const write = vi.fn();
     await runE2EPreflight(safeEnvironment, resources, write);
@@ -11,6 +24,37 @@ describe('E2E preflight before any writing adapter', () => {
     expect(
       validatePreviewBinding(resources, 'https://quiet-otter-123.convex.cloud'),
     ).toBe('https://quiet-otter-123.convex.cloud');
+  });
+  it('accepts no production Clerk environment while still refusing live keys', async () => {
+    const declaration = {
+      ...resources,
+      production: { ...resources.production, clerkHosts: [] },
+    };
+    const write = vi.fn();
+    await runE2EPreflight(safeEnvironment, declaration, write);
+    expect(write).toHaveBeenCalledOnce();
+
+    write.mockClear();
+    await expect(
+      runE2EPreflight(
+        { ...safeEnvironment, CLERK_SECRET_KEY: 'sk_live_secret' },
+        declaration,
+        write,
+      ),
+    ).rejects.toThrow('Clerk secret key must be a test key');
+    expect(write).not.toHaveBeenCalled();
+  });
+  it('accepts opaque preview credentials containing equals signs', async () => {
+    const write = vi.fn();
+    await runE2EPreflight(
+      {
+        ...safeEnvironment,
+        CONVEX_DEPLOY_KEY: `preview:${resources.team}:${resources.project}|part=other`,
+      },
+      resources,
+      write,
+    );
+    expect(write).toHaveBeenCalledOnce();
   });
   it.each([
     { CLERK_SECRET_KEY: 'sk_live_secret' },

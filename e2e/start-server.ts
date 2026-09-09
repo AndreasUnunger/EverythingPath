@@ -6,7 +6,13 @@ delete environment.CONVEX_DEPLOY_KEY;
 try {
   await command(
     'production application server',
-    ['start', '--hostname', '127.0.0.1', '--port', new URL(run.baseURL).port],
+    [
+      'start',
+      '--hostname',
+      new URL(run.baseURL).hostname,
+      '--port',
+      new URL(run.baseURL).port,
+    ],
     { cwd: run.workspace, env: environment, timeout: 720_000 },
   );
 } catch {

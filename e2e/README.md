@@ -19,6 +19,9 @@ outsider in a separate organization. Each user must have exactly that membership
 Configure Clerk's `convex` JWT template as required by the existing application.
 The public key's host, the secret key's development instance and both JWKS must
 agree. Fill in the real production Clerk hosts and Convex URLs in the denylist.
+If you have no Clerk production environment, set `production.clerkHosts` to `[]`.
+Keep the field present and add production hosts when you create them. Development
+Clerk keys are still required, and any listed production hosts remain blocked.
 The checked-in example is documentation, not a runnable resource declaration.
 
 Keep the following three secrets in an ignored, mode-600 file outside artifacts:

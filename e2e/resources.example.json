@@ -15,15 +15,15 @@
       "outsiderOrganizationId": "org_REPLACEOUTSIDER",
       "gm": {
         "userId": "user_REPLACEGM",
-        "email": "gm+clerk_test@example.test"
+        "email": "gm+clerk_test@example.com"
       },
       "player": {
         "userId": "user_REPLACEPLAYER",
-        "email": "player+clerk_test@example.test"
+        "email": "player+clerk_test@example.com"
       },
       "outsider": {
         "userId": "user_REPLACEOUTSIDER",
-        "email": "outsider+clerk_test@example.test"
+        "email": "outsider+clerk_test@example.com"
       }
     }
   ]

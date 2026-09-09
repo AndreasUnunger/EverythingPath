@@ -101,7 +101,7 @@ async function main() {
       privateDirectory,
       artifactDirectory,
       envFile,
-      baseURL: `http://127.0.0.1:${await availablePort()}`,
+      baseURL: `http://localhost:${await availablePort()}`,
     };
     const runFile = join(privateDirectory, 'run.json');
     await savePrivate(runFile, JSON.stringify(run));

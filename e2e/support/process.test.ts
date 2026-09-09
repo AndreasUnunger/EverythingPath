@@ -3,8 +3,22 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { command } from './process';
+import { command, parseFixtureResponse } from './process';
 import { resources } from './test-data';
+
+it('handles silent null fixture results without hiding missing query results', () => {
+  expect(parseFixtureResponse('seedIdentityProjection', '')).toBeNull();
+  expect(parseFixtureResponse('cleanupCase', '\n')).toBeNull();
+  expect(() => parseFixtureResponse('resetCase', '')).toThrow(
+    'invalid response',
+  );
+  expect(() => parseFixtureResponse('inspectCase', '')).toThrow(
+    'invalid response',
+  );
+  expect(parseFixtureResponse('resetCase', '{"campaignId":"test"}')).toEqual({
+    campaignId: 'test',
+  });
+});
 
 it('persists safe service diagnostics while a process is still running and closes it on timeout', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'e2e-process-test-'));

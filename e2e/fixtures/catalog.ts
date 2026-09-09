@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const FIXTURE_VERSION = 1;
+export const convexCloudUrlPattern =
+  /^https:\/\/[a-z0-9-]+(?:\.[a-z]{2}-[a-z]+-[0-9]+)?\.convex\.cloud$/;
 export const roleKeys = ['gm', 'player', 'outsider'] as const;
 export type RoleKey = (typeof roleKeys)[number];
 export const caseKeys = ['smoke', 'isolation'] as const;
@@ -54,7 +56,7 @@ export const resourceSchema = z
     clerkHost: z.string().regex(/^[a-z0-9-]+\.clerk\.accounts\.dev$/),
     production: z
       .object({
-        clerkHosts: z.array(z.string().min(1)).min(1),
+        clerkHosts: z.array(z.string().min(1)),
         convexUrls: z.array(z.url()).min(1),
       })
       .strict(),
@@ -146,7 +148,7 @@ export function guardFixtureScope(
     environment.CONVEX_CLOUD_URL !== config.convexUrl ||
     environment.CONVEX_DEPLOYMENT?.startsWith('prod:') ||
     config.productionConvexUrls.includes(config.convexUrl) ||
-    !/^https:\/\/[a-z0-9-]+\.convex\.cloud$/.test(config.convexUrl) ||
+    !convexCloudUrlPattern.test(config.convexUrl) ||
     scope.version !== config.version ||
     scope.namespace !== config.namespace
   )

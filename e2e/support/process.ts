@@ -13,7 +13,7 @@ export const runSchema = z.object({
   privateDirectory: z.string(),
   artifactDirectory: z.string(),
   envFile: z.string(),
-  baseURL: z.string().regex(/^http:\/\/127\.0\.0\.1:[0-9]+$/),
+  baseURL: z.string().regex(/^http:\/\/(?:localhost|127\.0\.0\.1):[0-9]+$/),
   fixture: deploymentFixtureSchema.optional(),
 });
 export type Run = z.infer<typeof runSchema>;
@@ -146,6 +146,23 @@ export async function fixtureCall(
     ],
     { cwd: run.workspace },
   );
+  return parseFixtureResponse(operation, output);
+}
+
+export function parseFixtureResponse(
+  operation:
+    | 'seedIdentityProjection'
+    | 'resetCase'
+    | 'inspectCase'
+    | 'cleanupCase',
+  output: string,
+): unknown {
+  // Convex CLI omits output for null returns from these two mutations.
+  if (
+    !output.trim() &&
+    (operation === 'seedIdentityProjection' || operation === 'cleanupCase')
+  )
+    return null;
   try {
     return JSON.parse(output) as unknown;
   } catch {
