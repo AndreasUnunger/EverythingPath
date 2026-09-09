@@ -3,7 +3,7 @@
   "team": "andreasununger",
   "project": "everythingpath",
   "previewName": "e2e-local-ci-slot-0",
-  "clerkHost": "grateful-meerkat-46.clerk.accounts.dev",
+  "clerkHost": "sought-gar-1424.clerk.accounts.dev",
   "production": {
     "clerkHosts": [],
     "convexUrls": ["https://peaceful-zebra-497.convex.cloud"]
@@ -11,18 +11,18 @@
   "workers": [
     {
       "key": "worker-0",
-      "organizationId": "org_3J5tZSXixqfggMiYxOx0g7XkoyY",
-      "outsiderOrganizationId": "org_3J5tikUEflIi0rYYkrf5SrDwpXN",
+      "organizationId": "org_3J66rN9fUEAsinDiCZi5M8hF9ls",
+      "outsiderOrganizationId": "org_3J66rZFRXMwZZBdMRwTmBq6ibFs",
       "gm": {
-        "userId": "user_3J5tKfXQa529hgCW4aBfYxJLapX",
+        "userId": "user_3J66r5rKcOhb8JOZ2IplJOrLd4L",
         "email": "gm+clerk_test@example.com"
       },
       "player": {
-        "userId": "user_3J5tMVUNczOfscd1SW70WVdLOaZ",
+        "userId": "user_3J66rDADsFvCHRl73nvQTPee3ga",
         "email": "player+clerk_test@example.com"
       },
       "outsider": {
-        "userId": "user_3J5tOAQxtKavI8aTHgT5o3x37Qn",
+        "userId": "user_3J66rKp8VOqXhStMG5MSts5ofb2",
         "email": "outsider+clerk_test@example.com"
       }
     }

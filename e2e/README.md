@@ -126,7 +126,12 @@ API references: [Convex preview deployment](https://docs.convex.dev/cli/referenc
 ## Provision and repair the cohort (#24)
 
 `e2e/resources.ci.json` records the non-secret cohort IDs, development host and
-known production denylist. Its preview slot is reserved for CI. Local runs use
+known production denylist. The dedicated **EverythingPath E2E** Clerk application
+(`app_3J66fIZKu2oeO8fqN7S1nzHRPwM`) uses development instance
+`ins_3J66fNgiREn4Um73GoNT1mpxgr1` at
+`sought-gar-1424.clerk.accounts.dev`, with email sign-in, organizations and the
+`convex` JWT template enabled. It is separate from the applications used for
+normal development. Its preview slot is reserved for CI. Local runs use
 `e2e/.private/resources.json` and a separate local slot. Review both declarations
 when production targets change. An empty Clerk denylist means no production
 Clerk application has been declared; it does not disable the development-key or
