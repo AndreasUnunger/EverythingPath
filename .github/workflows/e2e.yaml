@@ -36,6 +36,8 @@ jobs:
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.user.login == github.repository_owner))
     uses: ./.github/workflows/e2e-runner.yaml
+    # Required for environment secrets to resolve in the called workflow.
+    secrets: inherit
     with:
       suite: mandatory
       force_failure: ${{ inputs.force_failure == true }}
