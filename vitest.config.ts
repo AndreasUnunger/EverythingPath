@@ -9,6 +9,7 @@ export default defineConfig({
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
       'convex/**/*.test.ts',
+      'e2e/support/**/*.test.ts',
     ],
     clearMocks: true,
     mockReset: true,

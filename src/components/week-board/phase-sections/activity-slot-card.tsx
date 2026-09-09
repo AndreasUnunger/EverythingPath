@@ -415,6 +415,8 @@ export function ActivitySlotCard({
 
   return (
     <div
+      role="group"
+      aria-label={`Activity Slot ${slotNumber}`}
       ref={(element) => {
         slotRefs.current[slotId] = element;
       }}

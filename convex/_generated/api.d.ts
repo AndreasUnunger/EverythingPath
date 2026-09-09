@@ -13,6 +13,7 @@ import type * as character from "../character.js";
 import type * as clerk from "../clerk.js";
 import type * as data_spells from "../data/spells.js";
 import type * as data_teams from "../data/teams.js";
+import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
 import type * as migrations from "../migrations.js";
 import type * as militia from "../militia.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   clerk: typeof clerk;
   "data/spells": typeof data_spells;
   "data/teams": typeof data_teams;
+  e2eFixtures: typeof e2eFixtures;
   http: typeof http;
   migrations: typeof migrations;
   militia: typeof militia;

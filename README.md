@@ -54,6 +54,10 @@ Form validation is implemented with `react-hook-form` + `zod` for clear field-le
 
 ## Development
 
+The production-browser harness and its explicit non-production setup are
+documented in [e2e/README.md](e2e/README.md). Run `pnpm test:e2e` only with a
+declared disposable preview and the dedicated Clerk development fixtures.
+
 Requirements:
 
 - Node.js
@@ -68,3 +72,53 @@ pnpm dev
 
 Press Ctrl+C to stop both services. To run either service separately, use
 `pnpm dev:web` or `pnpm dev:convex`.
+
+## Build and deployment
+
+`pnpm build` and `pnpm build:web` build only the Next.js application. They use
+the generated Convex files committed under `convex/_generated` and do not
+select or update a Convex deployment.
+
+Hosting uses `pnpm deploy:convex`, which explicitly deploys the Convex backend,
+injects that deployment's URL into `pnpm build:web`, and then verifies that
+deployment-time generation did not change the committed generated files. When
+backend edits regenerate `convex/_generated`, include those reviewable changes
+in the same commit.
+
+With a Convex preview deploy key, rehearse the same path against a disposable
+preview by running:
+
+```bash
+pnpm deploy:convex -- --preview-create e2e-build-boundary
+```
+
+For a build-only check, the safe public configuration is:
+
+```bash
+NEXT_PUBLIC_CONVEX_URL=https://e2e-build-placeholder.convex.cloud pnpm build
+```
+
+No Convex login, deploy key, or `.env.local` is needed. This placeholder is for
+compilation only; running the app requires your actual Convex and Clerk public
+configuration. The build still downloads the Google fonts used by the app.
+
+`pnpm dev` keeps running `convex dev` alongside Next.js, so backend edits refresh
+the generated files. Commit the resulting runtime utilities, declarations, and
+AI guidance as generated output; do not edit bindings by hand. Use the lockfile's
+Convex version (`pnpm install --frozen-lockfile`) when refreshing them.
+
+Netlify runs the explicit deployment command in `netlify.toml`. Configure its
+`CONVEX_DEPLOY_KEY` for the intended deployment, using a Preview Deploy Key for
+preview contexts. The CLI supplies `NEXT_PUBLIC_CONVEX_URL` to the frontend build;
+do not wrap this command in another backend deployment or code-generation step.
+See the [Convex deployment documentation](https://docs.convex.dev/cli/reference/deploy).
+
+The **Disposable preview rehearsal** GitHub workflow is manually triggered on
+the branch to verify. Configure the `convex-preview` environment with the secret
+`CONVEX_PREVIEW_DEPLOY_KEY` and, for a usable frontend, the variable
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`. Configure the preview defaults in Convex with
+`CLERK_FRONTEND_API_URL`, which the backend auth configuration requires. Each run
+uses a unique preview name, invokes deployment once, builds with that preview's
+URL, and fails on generated-code drift after deployment. Review the CLI log for
+the matching build/deployment URL and delete the disposable preview in the Convex
+dashboard after verification. A failed drift check does not roll back deployment.

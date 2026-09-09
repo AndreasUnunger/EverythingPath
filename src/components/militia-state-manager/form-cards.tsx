@@ -744,36 +744,38 @@ function SelectField<TFieldValues extends FieldValues>({
       render={({ field }) => (
         <FormItem className={cn('space-y-1', className)}>
           <FormLabel className="font-mono text-sm">{label}</FormLabel>
-          <FormControl>
-            <Select
-              value={
-                hasEmptyOption && field.value === ''
-                  ? EMPTY_SELECT_ITEM_VALUE
-                  : (field.value as string | undefined)
-              }
-              onValueChange={(value) =>
-                field.onChange(
-                  hasEmptyOption && value === EMPTY_SELECT_ITEM_VALUE ? '' : value,
-                )
-              }
-            >
+          <Select
+            value={
+              hasEmptyOption && field.value === ''
+                ? EMPTY_SELECT_ITEM_VALUE
+                : (field.value as string | undefined)
+            }
+            onValueChange={(value) =>
+              field.onChange(
+                hasEmptyOption && value === EMPTY_SELECT_ITEM_VALUE
+                  ? ''
+                  : value,
+              )
+            }
+          >
+            <FormControl>
               <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="border-primary bg-card border-2 font-mono">
-                {options.map((option) => (
-                  <SelectItem
-                    key={option.value || EMPTY_SELECT_ITEM_VALUE}
-                    value={
-                      option.value === '' ? EMPTY_SELECT_ITEM_VALUE : option.value
-                    }
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormControl>
+            </FormControl>
+            <SelectContent className="border-primary bg-card border-2 font-mono">
+              {options.map((option) => (
+                <SelectItem
+                  key={option.value || EMPTY_SELECT_ITEM_VALUE}
+                  value={
+                    option.value === '' ? EMPTY_SELECT_ITEM_VALUE : option.value
+                  }
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <FormMessage />
         </FormItem>
       )}

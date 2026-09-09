@@ -16,7 +16,7 @@ export function StateSectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="bg-card border-2 p-4">
+    <Card role="region" aria-label={title} className="bg-card border-2 p-4">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>

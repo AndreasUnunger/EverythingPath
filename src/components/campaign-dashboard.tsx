@@ -128,6 +128,20 @@ export function CampaignDashboard() {
     );
   }
 
+  if (!campaigns?.length) {
+    return (
+      <div className="bg-card border-primary/40 space-y-4 border p-4">
+        <p className="font-mono text-sm tracking-wide">
+          No campaigns in this organization
+        </p>
+        <p className="text-muted-foreground font-mono text-sm">
+          Switch organizations to find your campaign, or create one here.
+        </p>
+        <CreateCampaignDialog />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center gap-6 pb-4 sm:justify-between">

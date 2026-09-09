@@ -53,7 +53,9 @@ export function SettlementFormCard({
             name="settlementKey"
             render={({ field }) => (
               <FormItem className="md:col-span-3">
-                <FormLabel className="font-mono text-sm">Settlement name</FormLabel>
+                <FormLabel className="font-mono text-sm">
+                  Settlement name
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -71,20 +73,20 @@ export function SettlementFormCard({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-mono text-sm">Reputation</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
                     <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="border-primary bg-card border-2 font-mono">
-                      {settlementReputationOptions.map((reputation) => (
-                        <SelectItem key={reputation} value={reputation}>
-                          {reputation}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                  </FormControl>
+                  <SelectContent className="border-primary bg-card border-2 font-mono">
+                    {settlementReputationOptions.map((reputation) => (
+                      <SelectItem key={reputation} value={reputation}>
+                        {reputation}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -96,17 +98,17 @@ export function SettlementFormCard({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-mono text-sm">Secured</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
                     <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="border-primary bg-card border-2 font-mono">
-                      <SelectItem value="unsecured">No</SelectItem>
-                      <SelectItem value="secured">Yes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                  </FormControl>
+                  <SelectContent className="border-primary bg-card border-2 font-mono">
+                    <SelectItem value="unsecured">No</SelectItem>
+                    <SelectItem value="secured">Yes</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
