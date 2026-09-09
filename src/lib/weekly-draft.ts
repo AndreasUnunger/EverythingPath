@@ -36,99 +36,114 @@ export function editWeeklyDraft(
   const source = weeklyDraftSchema.safeParse(draft);
   if (!source.success) return { ok: false, error: 'invalid_draft' };
   const next = source.data;
-  switch (edit.kind) {
-    case 'add_slot':
-      next.activity.slots.push({ slotId: edit.slotId, choice: null });
-      break;
-    case 'upkeep':
-      next.upkeep = edit.inputs;
-      break;
-    case 'operating_settlement':
-      if (edit.settlementId === null)
-        delete next.activity.operatingSettlementId;
-      else next.activity.operatingSettlementId = edit.settlementId;
-      break;
-    case 'consumables':
-      next.activity.consumableIds = edit.consumableIds;
-      break;
-    case 'event_chance':
-      if (edit.roll === null) delete next.event.chanceRoll;
-      else next.event.chanceRoll = edit.roll;
-      break;
-    case 'event_tree':
-      next.event.occurrences = edit.occurrences;
-      break;
-    case 'persistent_decision': {
-      const event = currentEvent(next, edit.decision.eventId);
-      if (event) {
-        event.persistentDecision = edit.decision;
-        break;
-      }
-      next.persistent.decisions = next.persistent.decisions
-        .filter((value) => value.eventId !== edit.decision.eventId)
-        .concat(edit.decision);
-      break;
-    }
-    case 'clear_persistent_decision': {
-      const event = currentEvent(next, edit.eventId);
-      if (event) delete event.persistentDecision;
-      next.persistent.decisions = next.persistent.decisions.filter(
-        (value) => value.eventId !== edit.eventId,
-      );
-      break;
-    }
-    case 'acknowledge':
-      next.acknowledgements = next.acknowledgements
-        .filter(
-          (value) =>
-            value.acknowledgementId !== edit.acknowledgement.acknowledgementId,
-        )
-        .concat(edit.acknowledgement);
-      break;
-    case 'clear_acknowledgement':
-      next.acknowledgements = next.acknowledgements.filter(
-        (value) => value.acknowledgementId !== edit.acknowledgementId,
-      );
-      break;
-    case 'rules_exception':
-      next.rulesExceptions = next.rulesExceptions
-        .filter((value) => value.exceptionId !== edit.exception.exceptionId)
-        .concat(edit.exception);
-      break;
-    case 'clear_rules_exception':
-      next.rulesExceptions = next.rulesExceptions.filter(
-        (value) => value.exceptionId !== edit.exceptionId,
-      );
-      break;
-    case 'table_adjustments':
-      next.tableAdjustments = edit.adjustments;
-      break;
-    case 'receive_order':
-      if (
-        next.orderReceipts.some((receipt) => receipt.orderId === edit.orderId)
-      )
-        return { ok: false, error: 'already_received' };
-      next.orderReceipts.push({
-        orderId: edit.orderId,
-        receivedDay: edit.receivedDay,
-        acknowledgementId: edit.acknowledgementId,
-      });
-      break;
-    case 'clear_receipt':
-      next.orderReceipts = next.orderReceipts.filter(
-        (receipt) => receipt.orderId !== edit.orderId,
-      );
-      break;
-    default: {
-      const error = editActionSlot(next, edit);
-      if (error) return { ok: false, error };
-    }
-  }
+  const error = applyDraftEdit(next, edit);
+  if (error) return { ok: false, error };
   next.revision++;
   const result = weeklyDraftSchema.safeParse(next);
   return result.success
     ? { ok: true, draft: result.data }
     : { ok: false, error: 'invalid_draft' };
+}
+
+type DraftEditByKind = {
+  [Kind in WeeklyDraftEdit['kind']]: Extract<WeeklyDraftEdit, { kind: Kind }>;
+};
+const draftEditHandlers: {
+  [Kind in keyof DraftEditByKind]: (
+    next: WeeklyDraft,
+    edit: DraftEditByKind[Kind],
+  ) => string | void;
+} = {
+  add_slot: (next, edit) => {
+    next.activity.slots.push({ slotId: edit.slotId, choice: null });
+  },
+  upkeep: (next, edit) => {
+    next.upkeep = edit.inputs;
+  },
+  operating_settlement: (next, edit) => {
+    if (edit.settlementId === null) delete next.activity.operatingSettlementId;
+    else next.activity.operatingSettlementId = edit.settlementId;
+  },
+  consumables: (next, edit) => {
+    next.activity.consumableIds = edit.consumableIds;
+  },
+  event_chance: (next, edit) => {
+    if (edit.roll === null) delete next.event.chanceRoll;
+    else next.event.chanceRoll = edit.roll;
+  },
+  event_tree: (next, edit) => {
+    next.event.occurrences = edit.occurrences;
+  },
+  persistent_decision: (next, edit) => {
+    const event = currentEvent(next, edit.decision.eventId);
+    if (event) {
+      event.persistentDecision = edit.decision;
+      return;
+    }
+    next.persistent.decisions = next.persistent.decisions
+      .filter((value) => value.eventId !== edit.decision.eventId)
+      .concat(edit.decision);
+  },
+  clear_persistent_decision: (next, edit) => {
+    const event = currentEvent(next, edit.eventId);
+    if (event) delete event.persistentDecision;
+    next.persistent.decisions = next.persistent.decisions.filter(
+      (value) => value.eventId !== edit.eventId,
+    );
+  },
+  acknowledge: (next, edit) => {
+    next.acknowledgements = next.acknowledgements
+      .filter(
+        (value) =>
+          value.acknowledgementId !== edit.acknowledgement.acknowledgementId,
+      )
+      .concat(edit.acknowledgement);
+  },
+  clear_acknowledgement: (next, edit) => {
+    next.acknowledgements = next.acknowledgements.filter(
+      (value) => value.acknowledgementId !== edit.acknowledgementId,
+    );
+  },
+  rules_exception: (next, edit) => {
+    next.rulesExceptions = next.rulesExceptions
+      .filter((value) => value.exceptionId !== edit.exception.exceptionId)
+      .concat(edit.exception);
+  },
+  clear_rules_exception: (next, edit) => {
+    next.rulesExceptions = next.rulesExceptions.filter(
+      (value) => value.exceptionId !== edit.exceptionId,
+    );
+  },
+  table_adjustments: (next, edit) => {
+    next.tableAdjustments = edit.adjustments;
+  },
+  receive_order: (next, edit) => {
+    if (next.orderReceipts.some((receipt) => receipt.orderId === edit.orderId))
+      return 'already_received';
+    next.orderReceipts.push({
+      orderId: edit.orderId,
+      receivedDay: edit.receivedDay,
+      acknowledgementId: edit.acknowledgementId,
+    });
+  },
+  clear_receipt: (next, edit) => {
+    next.orderReceipts = next.orderReceipts.filter(
+      (receipt) => receipt.orderId !== edit.orderId,
+    );
+  },
+  stage: editActionSlot,
+  replace: editActionSlot,
+  detail: editActionSlot,
+  clear: editActionSlot,
+  move: editActionSlot,
+  swap: editActionSlot,
+};
+
+function applyDraftEdit<Kind extends keyof DraftEditByKind>(
+  next: WeeklyDraft,
+  edit: DraftEditByKind[Kind],
+) {
+  return draftEditHandlers[edit.kind](next, edit);
 }
 
 type ActionSlotEdit = Extract<
@@ -149,6 +164,15 @@ function editActionSlot(
   } else if (slot.choice?.choiceId !== edit.choiceId) {
     return 'obsolete_choice';
   }
+  return applySlotEdit(next, slot, edit);
+}
+
+type ActionSlot = WeeklyDraft['activity']['slots'][number];
+function applySlotEdit(
+  next: WeeklyDraft,
+  slot: ActionSlot,
+  edit: ActionSlotEdit,
+) {
   switch (edit.kind) {
     case 'stage':
     case 'replace':
@@ -161,33 +185,40 @@ function editActionSlot(
       slot.choice = edit.choice;
       break;
     case 'detail':
-      if (
-        edit.choice.choiceId !== edit.choiceId ||
-        edit.choice.actionId !== slot.choice?.actionId
-      )
-        return 'choice_mismatch';
-      slot.choice = edit.choice;
-      break;
+      return updateChoiceDetails(slot, edit);
     case 'clear':
       slot.choice = null;
       break;
     case 'move':
-    case 'swap': {
-      const target = next.activity.slots.find(
-        (s) => s.slotId === edit.toSlotId,
-      );
-      if (!target) return 'unknown_slot';
-      if (target === slot) return 'same_slot';
-      if (edit.kind === 'move' && target.choice) return 'occupied_slot';
-      if (
-        edit.kind === 'swap' &&
-        target.choice?.choiceId !== edit.otherChoiceId
-      )
-        return 'obsolete_choice';
-      [slot.choice, target.choice] = [target.choice, slot.choice];
-      break;
-    }
+    case 'swap':
+      return transferChoice(next, slot, edit);
   }
+}
+
+function updateChoiceDetails(
+  slot: ActionSlot,
+  edit: Extract<ActionSlotEdit, { kind: 'detail' }>,
+) {
+  if (
+    edit.choice.choiceId !== edit.choiceId ||
+    edit.choice.actionId !== slot.choice?.actionId
+  )
+    return 'choice_mismatch';
+  slot.choice = edit.choice;
+}
+
+function transferChoice(
+  next: WeeklyDraft,
+  slot: ActionSlot,
+  edit: Extract<ActionSlotEdit, { kind: 'move' | 'swap' }>,
+) {
+  const target = next.activity.slots.find((s) => s.slotId === edit.toSlotId);
+  if (!target) return 'unknown_slot';
+  if (target === slot) return 'same_slot';
+  if (edit.kind === 'move' && target.choice) return 'occupied_slot';
+  if (edit.kind === 'swap' && target.choice?.choiceId !== edit.otherChoiceId)
+    return 'obsolete_choice';
+  [slot.choice, target.choice] = [target.choice, slot.choice];
 }
 
 function currentEvent(draft: WeeklyDraft, eventId: string) {

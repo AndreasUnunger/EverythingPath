@@ -43,17 +43,7 @@ it.each([
         join(directory, 'auth.setup.ts'),
         `import { test } from ${playwright}; test('prepare fresh role sessions', () => {});`,
       );
-      const modifier =
-        mode === 'skipped' ? '.skip' : mode === 'focused' ? '.only' : '';
-      const options = mode === 'quarantined' ? `{ tag: '@quarantined' },` : '';
-      const body =
-        mode === 'retry'
-          ? `if (info.retry === 0) throw new Error('Synthetic first attempt failure');`
-          : '';
-      await writeFile(
-        join(directory, 'access.spec.ts'),
-        `import { test } from ${playwright}; test${modifier}('organization members can open their campaign and outsiders cannot', ${options} async ({}, info) => { ${body} });`,
-      );
+      await writeAccessJourney(directory, playwright, mode);
       await writeFile(
         join(directory, 'existing-militia.spec.ts'),
         `import { test } from ${playwright}; test('existing militia state survives reload within its campaign', () => {});`,
@@ -123,3 +113,21 @@ it.each([
   },
   20_000,
 );
+
+async function writeAccessJourney(
+  directory: string,
+  playwright: string,
+  mode: string,
+) {
+  const modifier =
+    mode === 'skipped' ? '.skip' : mode === 'focused' ? '.only' : '';
+  const options = mode === 'quarantined' ? `{ tag: '@quarantined' },` : '';
+  const body =
+    mode === 'retry'
+      ? `if (info.retry === 0) throw new Error('Synthetic first attempt failure');`
+      : '';
+  await writeFile(
+    join(directory, 'access.spec.ts'),
+    `import { test } from ${playwright}; test${modifier}('organization members can open their campaign and outsiders cannot', ${options} async ({}, info) => { ${body} });`,
+  );
+}

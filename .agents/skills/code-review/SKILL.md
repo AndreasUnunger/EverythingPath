@@ -47,6 +47,7 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 - **Feature Envy**: a method that reaches into another object's data more than its own. → move the method onto the data it envies.
 - **Data Clumps**: the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
 - **Primitive Obsession**: a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
+- **High Cyclomatic Complexity**: a changed function has more than 10 independent decision paths. Estimate from branches, loops, switch cases, ternaries, and short-circuit conditions; an exact calculation is optional. → flag the function and suggest cohesive helpers or data-driven dispatch that preserve behavior and error ordering. Aim for complexity at or below 10 in each resulting function; assess readability as well as the count.
 - **Repeated Switches**: the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
 - **Shotgun Surgery**: one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
 - **Divergent Change**: one file or module is edited for several unrelated reasons. → split so each module changes for one reason.

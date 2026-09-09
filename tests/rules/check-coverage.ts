@@ -78,153 +78,219 @@ export function fingerprint(text: string) {
     .digest('hex');
 }
 
+type CoverageOptions = {
+  strict?: boolean;
+  requiredCases?: string[];
+  corpusPaths?: string[];
+};
+type CoverageSource = CoverageCatalog['sources'][number];
+type CoverageRule = CoverageCatalog['rules'][number];
+
 export function checkCoverage(
   catalog: CoverageCatalog,
   results: TestResults,
   files: Record<string, string>,
-  options: {
-    strict?: boolean;
-    requiredCases?: string[];
-    corpusPaths?: string[];
-  } = {},
+  options: CoverageOptions = {},
 ) {
-  const errors: string[] = [];
-  const covered: string[] = [];
-  const gaps: string[] = [];
-  const sourceIds = new Set<string>();
-  const invalidSources = new Set<string>();
-  const ruleIds = new Set<string>();
-  const caseIds = new Set<string>();
-  if (!results.success) errors.push('Collected test run failed');
-  for (const source of catalog.sources) {
-    if (sourceIds.has(source.id))
-      errors.push(`${source.id}: duplicate source ID`);
-    sourceIds.add(source.id);
-    const file = files[source.path];
-    const matches =
-      file === undefined
-        ? []
-        : source.heading === null
-          ? [{ text: file }]
-          : sourceSections(file).filter(
-              (section) =>
-                section.heading === source.heading &&
-                (source.parentHeading === undefined ||
-                  source.parentHeading === section.parentHeading),
-            );
+  return new CoverageCheck(catalog, results, files).check(options);
+}
+
+class CoverageCheck {
+  private errors: string[] = [];
+  private covered: string[] = [];
+  private gaps: string[] = [];
+  private sourceIds = new Set<string>();
+  private invalidSources = new Set<string>();
+  private ruleIds = new Set<string>();
+  private caseIds = new Set<string>();
+
+  private catalog: CoverageCatalog;
+  private results: TestResults;
+  private files: Record<string, string>;
+
+  constructor(
+    catalog: CoverageCatalog,
+    results: TestResults,
+    files: Record<string, string>,
+  ) {
+    this.catalog = catalog;
+    this.results = results;
+    this.files = files;
+  }
+
+  check(options: CoverageOptions) {
+    if (!this.results.success) this.errors.push('Collected test run failed');
+    for (const source of this.catalog.sources) this.checkSource(source);
+    this.checkCorpus(options.corpusPaths ?? []);
+    for (const auditId of this.catalog.auditIds) {
+      if (!this.catalog.rules.some((rule) => rule.id === auditId))
+        this.errors.push(`${auditId}: unmapped audit entry`);
+    }
+    for (const rule of this.catalog.rules) this.checkRule(rule);
+    this.checkRequiredCases(options.requiredCases ?? []);
+    this.checkReview();
+    if (options.strict && this.gaps.length)
+      this.errors.push(`Completeness gate: ${this.gaps.length} remaining gaps`);
+    return { errors: this.errors, covered: this.covered, gaps: this.gaps };
+  }
+
+  private checkRequiredCases(requiredCases: string[]) {
+    for (const id of requiredCases) {
+      if (!this.caseIds.has(id))
+        this.errors.push(`${id}: unmapped inventoried case`);
+    }
+  }
+
+  private checkSource(source: CoverageSource) {
+    if (this.sourceIds.has(source.id))
+      this.errors.push(`${source.id}: duplicate source ID`);
+    this.sourceIds.add(source.id);
+    const matches = this.sourceMatches(source);
     if (
       matches.length !== 1 ||
       fingerprint(matches[0]!.text) !== source.fingerprint
     ) {
-      errors.push(
+      this.errors.push(
         `${source.id}: ${matches.length === 1 ? 'stale source fingerprint' : 'missing or ambiguous source reference'}`,
       );
-      invalidSources.add(source.id);
+      this.invalidSources.add(source.id);
     }
-    if (source.reviewGap) gaps.push(`${source.id}: ${source.reviewGap}`);
+    if (source.reviewGap) this.gaps.push(`${source.id}: ${source.reviewGap}`);
     if (
       !source.reviewGap &&
-      !catalog.rules.some((rule) => rule.sources.includes(source.id))
+      !this.catalog.rules.some((rule) => rule.sources.includes(source.id))
     ) {
-      errors.push(
+      this.errors.push(
         `${source.id}: source has neither rule mapping nor explicit review gap`,
       );
     }
   }
-  for (const path of new Set([
-    ...(options.corpusPaths ?? []),
-    ...catalog.sources
-      .filter((source) => source.heading !== null)
-      .map((source) => source.path),
-  ])) {
-    for (const section of sourceSections(files[path] ?? '')) {
-      if (
-        !catalog.sources.some(
-          (source) =>
-            source.path === path &&
-            source.heading === section.heading &&
-            (source.parentHeading === undefined ||
-              source.parentHeading === section.parentHeading),
-        )
-      ) {
-        errors.push(`${path}: unmapped section ${section.heading}`);
-      }
-    }
+
+  private sourceMatches(source: CoverageSource) {
+    const file = this.files[source.path];
+    if (file === undefined) return [];
+    if (source.heading === null) return [{ text: file }];
+    return sourceSections(file).filter((section) =>
+      matchesSection(source, section),
+    );
   }
-  for (const auditId of catalog.auditIds) {
-    if (!catalog.rules.some((rule) => rule.id === auditId))
-      errors.push(`${auditId}: unmapped audit entry`);
-  }
-  for (const rule of catalog.rules) {
-    if (ruleIds.has(rule.id)) errors.push(`${rule.id}: duplicate rule ID`);
-    ruleIds.add(rule.id);
-    if (!rule.sources.length) errors.push(`${rule.id}: no source reference`);
-    if (!rule.cases.length) errors.push(`${rule.id}: no expanded cases`);
-    for (const source of rule.sources) {
-      if (!sourceIds.has(source))
-        errors.push(`${rule.id}: unknown source ${source}`);
-    }
-    for (const entry of rule.cases) {
-      const id = `${rule.id}.${entry.id}`;
-      if (caseIds.has(id)) errors.push(`${id}: duplicate case ID`);
-      caseIds.add(id);
-      if (
-        !entry.id.trim() ||
-        !entry.expected.trim() ||
-        !entry.checkpoint.trim() ||
-        !entry.plannedTests.length
-      ) {
-        errors.push(`${id}: missing case metadata`);
-      }
-      let passing =
-        entry.tests.length > 0 &&
-        rule.sources.length > 0 &&
-        rule.sources.every(
-          (source) => sourceIds.has(source) && !invalidSources.has(source),
-        );
-      for (const testId of entry.tests) {
-        const matches = results.testResults.flatMap((file) =>
-          file.assertionResults
-            .filter((test) => test.fullName.includes(`[${testId}]`))
-            .map((test) => ({ test, file })),
-        );
-        if (matches.length !== 1) {
-          errors.push(
-            `${id}: ${matches.length ? 'ambiguous' : 'missing'} test ${testId}`,
-          );
-          passing = false;
-        } else if (
-          matches.some(
-            ({ test, file }) =>
-              test.status !== 'passed' || file.status !== 'passed',
+
+  private checkCorpus(corpusPaths: string[]) {
+    const paths = new Set([
+      ...corpusPaths,
+      ...this.catalog.sources
+        .filter((source) => source.heading !== null)
+        .map((source) => source.path),
+    ]);
+    for (const path of paths) {
+      for (const section of sourceSections(this.files[path] ?? '')) {
+        if (
+          !this.catalog.sources.some(
+            (source) => source.path === path && matchesSection(source, section),
           )
         ) {
-          errors.push(`${id}: test ${testId} did not pass`);
-          passing = false;
+          this.errors.push(`${path}: unmapped section ${section.heading}`);
         }
       }
-      if (entry.gap?.trim()) gaps.push(`${id}: ${entry.gap}`);
-      // Partial passing evidence is reported but an explicit gap still prevents
-      // completeness. A reference cannot be excused by declaring a gap.
-      if (passing) covered.push(id);
-      else if (!entry.tests.length && !entry.gap?.trim())
-        errors.push(`${id}: unmapped case`);
     }
   }
-  for (const id of options.requiredCases ?? []) {
-    if (!caseIds.has(id)) errors.push(`${id}: unmapped inventoried case`);
+
+  private checkRule(rule: CoverageRule) {
+    if (this.ruleIds.has(rule.id))
+      this.errors.push(`${rule.id}: duplicate rule ID`);
+    this.ruleIds.add(rule.id);
+    if (!rule.sources.length)
+      this.errors.push(`${rule.id}: no source reference`);
+    if (!rule.cases.length) this.errors.push(`${rule.id}: no expanded cases`);
+    for (const source of rule.sources) {
+      if (!this.sourceIds.has(source))
+        this.errors.push(`${rule.id}: unknown source ${source}`);
+    }
+    const validSources =
+      rule.sources.length > 0 &&
+      rule.sources.every(
+        (source) =>
+          this.sourceIds.has(source) && !this.invalidSources.has(source),
+      );
+    for (const entry of rule.cases)
+      this.checkCase(rule.id, entry, validSources);
   }
-  if (catalog.corpusReview.gap?.trim())
-    gaps.push(`Corpus review: ${catalog.corpusReview.gap}`);
-  else if (
-    !catalog.corpusReview.reviewedBy?.trim() ||
-    !catalog.corpusReview.reviewReference?.trim()
+
+  private checkCase(
+    ruleId: string,
+    entry: CoverageCase,
+    validSources: boolean,
   ) {
-    errors.push('Corpus review requires reviewer and review reference');
+    const id = `${ruleId}.${entry.id}`;
+    this.checkCaseMetadata(id, entry);
+    // Check every reference even when sources are invalid or a gap is declared.
+    const evidence = entry.tests.map((testId) =>
+      this.checkEvidence(id, testId),
+    );
+    const passing =
+      entry.tests.length > 0 && validSources && evidence.every(Boolean);
+    if (entry.gap?.trim()) this.gaps.push(`${id}: ${entry.gap}`);
+    // Partial passing evidence is reported but an explicit gap still prevents completeness.
+    if (passing) this.covered.push(id);
+    else if (!entry.tests.length && !entry.gap?.trim())
+      this.errors.push(`${id}: unmapped case`);
   }
-  if (options.strict && gaps.length)
-    errors.push(`Completeness gate: ${gaps.length} remaining gaps`);
-  return { errors, covered, gaps };
+
+  private checkCaseMetadata(id: string, entry: CoverageCase) {
+    if (this.caseIds.has(id)) this.errors.push(`${id}: duplicate case ID`);
+    this.caseIds.add(id);
+    if (
+      !entry.id.trim() ||
+      !entry.expected.trim() ||
+      !entry.checkpoint.trim() ||
+      !entry.plannedTests.length
+    ) {
+      this.errors.push(`${id}: missing case metadata`);
+    }
+  }
+
+  private checkEvidence(id: string, testId: string) {
+    const matches = this.results.testResults.flatMap((file) =>
+      file.assertionResults
+        .filter((test) => test.fullName.includes(`[${testId}]`))
+        .map((test) => ({ test, file })),
+    );
+    if (matches.length !== 1) {
+      this.errors.push(
+        `${id}: ${matches.length ? 'ambiguous' : 'missing'} test ${testId}`,
+      );
+      return false;
+    }
+    if (
+      matches.some(
+        ({ test, file }) =>
+          test.status !== 'passed' || file.status !== 'passed',
+      )
+    ) {
+      this.errors.push(`${id}: test ${testId} did not pass`);
+      return false;
+    }
+    return true;
+  }
+
+  private checkReview() {
+    const review = this.catalog.corpusReview;
+    if (review.gap?.trim()) this.gaps.push(`Corpus review: ${review.gap}`);
+    else if (!review.reviewedBy?.trim() || !review.reviewReference?.trim()) {
+      this.errors.push('Corpus review requires reviewer and review reference');
+    }
+  }
+}
+
+function matchesSection(
+  source: CoverageSource,
+  section: { heading: string; parentHeading?: string },
+) {
+  return (
+    source.heading === section.heading &&
+    (source.parentHeading === undefined ||
+      source.parentHeading === section.parentHeading)
+  );
 }
 
 export function renderCoverageReport(
