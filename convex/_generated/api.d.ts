@@ -15,6 +15,8 @@ import type * as data_spells from "../data/spells.js";
 import type * as data_teams from "../data/teams.js";
 import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
+import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
+import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as migrations from "../migrations.js";
 import type * as militia from "../militia.js";
 import type * as spell from "../spell.js";
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   "data/teams": typeof data_teams;
   e2eFixtures: typeof e2eFixtures;
   http: typeof http;
+  "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
+  "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   migrations: typeof migrations;
   militia: typeof militia;
   spell: typeof spell;

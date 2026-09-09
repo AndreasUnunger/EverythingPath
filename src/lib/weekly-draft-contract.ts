@@ -207,6 +207,10 @@ export const weeklyDraftSchema = z
         });
     }
   });
+// Storage omits the in-memory freeze transform, retaining all structural checks.
+export const weeklyDraftDataSchema = weeklyDraftSchema.safeExtend({
+  context: contextSchema.in,
+});
 export type WeeklyDraft = z.infer<typeof weeklyDraftSchema>;
 export const weeklyDraftEditSchema = z.discriminatedUnion('kind', [
   z.strictObject({

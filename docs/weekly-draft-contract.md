@@ -58,3 +58,62 @@ Phase View, input text, pending transport, readiness and preview are excluded.
 The pure contract tests cover this checkpoint. Rules-catalog mappings deliberately
 retain gaps for derived readiness, real persistence and Confirmation; passing these
 tests is not evidence of cutover readiness or complete rules coverage.
+
+## Isolated storage (#62)
+
+`convex/lib/canonicalDraftStorage.ts` provides transaction-scoped storage functions
+for later adapters. None are registered Convex functions, imported by a registered
+endpoint, or called by the browser. The three additive `canonical*` tables have no
+required-field changes to legacy tables. Existing releases continue using legacy
+storage; there are no dual writes, activation flag, migration, or campaign backfill.
+
+The Convex document and argument validators derive from the shared Zod contract
+using `zodOutputToConvex`. `weeklyDraftDataSchema` removes only the runtime freezing
+transform: it retains defaults and every structural refinement. Every storage write
+parses through Zod because Convex's generated validators cannot express numerical
+bounds or cross-field refinements. Reads return the usual frozen week context.
+
+Storage enforces authenticated organization membership, campaign/militia ownership,
+unique draft identity, one open draft per campaign, immutable week context, and
+compare-and-save revisions. Operation receipts retain the original semantic edit,
+base revision and accepted revision; replaying the same operation returns that
+revision without another write. Reusing its ID for different input fails. Accepted
+operations and target revision metadata are committed together. The later adapter
+must derive conflict targets, arbitrate stale edits and produce the next draft;
+this primitive is not that adapter. A closed draft retains only its identity,
+revision and conflict metadata, never another editable copy of confirmed source.
+
+`canonical-resolution-record.ts` defines the complete-source record envelope:
+confirmed draft, provenance, ruleset version, baseline/final plans, adjudication,
+warnings, outcome, successor context and supersession. Adjudication must agree
+with the source. Plans/outcomes are versioned JSON artifacts at this preparation
+checkpoint; checkpoint 5 must narrow them to the actual projection/change-plan
+contract before activation. Storage neither computes nor claims to validate a
+rules result. It does not translate the incomplete legacy resolution plans.
+
+Records are append-only through this interface. Confirmation-source storage must
+match the exact open revision and closes its identity atomically. Corrections
+require GM membership and must supersede the current effective record of the same
+campaign/week, retaining its draft identity. A transactional sequence selects the
+effective record without timestamps or unbounded history scans; originals remain
+queryable by identity. These functions do not implement a History Rewrite editor
+or apply authoritative effects. Later Confirmation orchestration must apply the
+verified plan, append the record and create the successor in one transaction.
+
+`canonicalDraftStorage.integration.test.ts` exercises the storage boundary using
+`convex-test` without mocked authorization or a hand-built database. It proves
+restartable initial creation, competing creation, operation deduplication,
+structural validation, ownership/reference rejection, exact source matching,
+append-only supersession, closed-identity rejection and caller-transaction rollback.
+The rule catalog keeps gaps for transport ordering, real adapters, full Confirmation,
+and historical presentation. Canonical entity-to-campaign reference mapping depends
+on the richer model in #63; storage validates its own campaign, militia, draft and
+record references and does not manufacture missing entity facts.
+
+Verification for #62: `pnpm -s typecheck`, `pnpm -s lint`, the Convex-specific
+TypeScript check, `pnpm -s test:build` (3 checks), and `pnpm -s rules:check`
+(50 files / 373 tests) pass. The catalog reports 10 covered cases, 473 explicit
+gaps and zero errors; this is extraction evidence, not cutover readiness.
+The required browser journeys passed against the dedicated local preview
+`e2e-local-andreasununger-slot-0`. Both review axes completed without remaining
+blockers after the reconstructed-source identity fix.

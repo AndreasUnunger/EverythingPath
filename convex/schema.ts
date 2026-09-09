@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from 'convex/server';
+import { draftStorageValidator, operationStorageValidator, recordStorageValidator } from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
 import {
   activityActionIdValidator,
@@ -776,6 +777,15 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  canonicalResolutionRecord: defineTable(recordStorageValidator)
+    .index('by_recordId', ['recordId'])
+    .index('by_sourceDraftId', ['record.source.draftId'])
+    .index('by_campaignId_and_week_and_sequence', ['campaignId', 'week', 'sequence']),
+  canonicalDraftOperation: defineTable(operationStorageValidator)
+    .index('by_draftId_and_operationId', ['draftId', 'operationId']),
+  canonicalWeeklyDraft: defineTable(draftStorageValidator)
+    .index('by_draftId', ['draftId'])
+    .index('by_campaignId_and_status', ['campaignId', 'status']),
   e2eFixtureIdentity: defineTable({
     namespace: v.string(), workerKey: v.string(), userId: v.id('user'),
   }).index('by_namespace_and_workerKey', ['namespace', 'workerKey'])

@@ -1,0 +1,77 @@
+import { canonicalResolutionRecordSchema } from '../../src/lib/canonical-resolution-record';
+import { zodOutputToConvex, zid } from 'convex-helpers/server/zod4';
+import { z } from 'zod';
+import type { Validator } from 'convex/values';
+import {
+  weeklyDraftDataSchema as weeklyDraftSchema,
+  weeklyDraftEditSchema,
+} from '../../src/lib/weekly-draft-contract';
+
+export const scopeSchema = z.strictObject({
+  campaignId: zid('campaign'),
+  militiaId: zid('militia'),
+});
+export const openDraftArgsSchema = scopeSchema.extend({
+  draft: weeklyDraftSchema,
+});
+export const targetRevisionSchema = z.strictObject({
+  target: z.string().min(1),
+  revision: z.number().int().nonnegative(),
+});
+export const draftStorageSchema = scopeSchema.extend({
+  draftId: weeklyDraftSchema.shape.draftId,
+  status: z.enum(['open', 'closed']),
+  // Closed rows are identity tombstones; the immutable record owns their source.
+  draft: weeklyDraftSchema.nullable(),
+  revision: z.number().int().nonnegative(),
+  targetRevisions: z.array(targetRevisionSchema),
+});
+export const draftStorageValidator = zodOutputToConvex(draftStorageSchema);
+
+export const draftKeySchema = scopeSchema.extend({
+  draftId: weeklyDraftSchema.shape.draftId,
+});
+export const operationSchema = z.strictObject({
+  operationId: z.string().trim().min(1),
+  baseRevision: z.number().int().nonnegative(),
+  edit: weeklyDraftEditSchema,
+});
+export const saveDraftRevisionArgsSchema = draftKeySchema.extend({
+  ...operationSchema.shape,
+  expectedRevision: z.number().int().nonnegative(),
+  draft: weeklyDraftSchema,
+  targets: z
+    .array(targetRevisionSchema.shape.target)
+    .min(1)
+    .refine((values) => new Set(values).size === values.length),
+});
+export const operationStorageValidator = zodOutputToConvex(
+  draftKeySchema.extend({
+    ...operationSchema.shape,
+    acceptedRevision: z.number().int().positive(),
+  }),
+);
+
+export const appendRecordArgsSchema = scopeSchema.extend({
+  record: canonicalResolutionRecordSchema,
+});
+const recordStorageSchema = scopeSchema.extend({
+  recordId: canonicalResolutionRecordSchema.shape.recordId,
+  week: weeklyDraftSchema.shape.week,
+  sequence: z.number().int().nonnegative(),
+  record: canonicalResolutionRecordSchema,
+});
+// Index only the envelope and source draft identity. Avoid expanding recursive
+// JSON payload field paths in Convex's generated data model.
+export const recordStorageValidator = zodOutputToConvex(
+  recordStorageSchema,
+) as unknown as Validator<
+  z.infer<typeof recordStorageSchema>,
+  'required',
+  | 'campaignId'
+  | 'militiaId'
+  | 'recordId'
+  | 'week'
+  | 'sequence'
+  | 'record.source.draftId'
+>;

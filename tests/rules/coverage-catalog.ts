@@ -6087,8 +6087,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Full source and ruleset persist immutably; delayed writes to closed identity are rejected.',
           plannedTests: ['rules.P08.history'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['storage.history', 'storage.source', 'storage.atomic'],
+          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
         },
       ],
     },
@@ -6124,8 +6124,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Accepted semantic edit increments revision once; retries are idempotent after dropped responses.',
           plannedTests: ['rules.P09.retry'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['storage.retry'],
+          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
         },
         {
           id: 'delivery',
@@ -6161,8 +6161,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Actual unauthenticated or unauthorized campaign writes are rejected for edit, confirm, adjust, buyoff, rank and treasury.',
           plannedTests: ['rules.P10.scope'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['storage.scope', 'storage.reconstruction'],
+          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
         },
         {
           id: 'references',
@@ -6170,8 +6170,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Cross-campaign child references are rejected.',
           plannedTests: ['rules.P10.references'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['storage.scope', 'storage.reconstruction'],
+          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
         },
         {
           id: 'players',
@@ -6207,8 +6207,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Historical views read complete immutable records rather than live state.',
           plannedTests: ['rules.P11.immutable'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['storage.history'],
+          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
         },
         {
           id: 'effective',
@@ -6216,8 +6216,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Newest nonsuperseded record is effective; older records remain an audit trail.',
           plannedTests: ['rules.P11.effective'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['storage.history'],
+          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
         },
         {
           id: 'cutover',
