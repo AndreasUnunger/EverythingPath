@@ -54,6 +54,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Disable unrelated Google Chrome apt source
+        timeout-minutes: 1
+        run: |
+          # Playwright downloads its own Chromium. An inconsistent Chrome apt
+          # index must not prevent installation of Ubuntu browser dependencies.
+          for source in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$source" ] || continue
+            if grep -Eq 'https?://dl\.google\.com/linux/(chrome|chrome-stable)/deb' "$source"; then
+              sudo mv -- "$source" "${source}.disabled"
+            fi
+          done
       - name: Install dependencies and Chromium within the remaining budget
         run: |
           remaining=$(( E2E_DEADLINE - $(date +%s) ))
