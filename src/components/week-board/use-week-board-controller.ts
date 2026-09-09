@@ -2861,6 +2861,7 @@ export function useWeekBoardController({
     overseerEventSupportTarget: effectiveOverseerEventSupportTarget,
     setOverseerEventSupportTarget,
     setSlotTeam,
+    setSlotAction,
     actions,
   };
 }

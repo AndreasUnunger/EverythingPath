@@ -27,48 +27,39 @@ export default function CampaignSelector({
   selectedCampaign,
   setSelectedCampaign,
 }: Props) {
-  const RenderSelectShell = ({ children }: { children: React.ReactNode }) => {
-    return (
-      <div className="flex w-full items-center gap-3">
-        <span className="text-muted-foreground font-mono text-sm tracking-wider">
-          ACTIVE CAMPAIGN:
-        </span>
-        <Select
-          value={selectedCampaign}
-          onValueChange={(event) => setSelectedCampaign(event as Id<'campaign'>)}
-        >
-          <SelectTrigger className="border-primary bg-card w-full max-w-[320px] border-2 font-mono text-base tracking-wider">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-primary bg-card border-2 font-mono">
-            {children}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  };
-
-  if (!campaigns) {
-    return (
-      <RenderSelectShell>
-        <p>Loading Campaigns...</p>
-      </RenderSelectShell>
-    );
-  }
-
   return (
-    <RenderSelectShell>
-      {campaigns?.map((campaign) => (
-        <SelectItem
-          key={campaign._id}
-          value={campaign._id}
-          className="hover:bg-primary/20 cursor-pointer font-mono text-base tracking-wider"
+    <div className="flex w-full items-center gap-3">
+      <span className="text-muted-foreground font-mono text-sm tracking-wider">
+        ACTIVE CAMPAIGN:
+      </span>
+      <Select
+        value={selectedCampaign}
+        onValueChange={(event) => setSelectedCampaign(event as Id<'campaign'>)}
+      >
+        <SelectTrigger
+          aria-label="Active campaign"
+          className="border-primary bg-card w-full max-w-[320px] border-2 font-mono text-base tracking-wider"
         >
-          <div className="flex items-center justify-between gap-4">
-            <span>{campaign.name}</span>
-          </div>
-        </SelectItem>
-      ))}
-    </RenderSelectShell>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="border-primary bg-card border-2 font-mono">
+          {!campaigns ? (
+            <p>Loading Campaigns...</p>
+          ) : (
+            campaigns.map((campaign) => (
+              <SelectItem
+                key={campaign._id}
+                value={campaign._id}
+                className="hover:bg-primary/20 cursor-pointer font-mono text-base tracking-wider"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <span>{campaign.name}</span>
+                </div>
+              </SelectItem>
+            ))
+          )}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

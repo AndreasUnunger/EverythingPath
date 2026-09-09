@@ -1,0 +1,105 @@
+name: E2E browser runner
+
+on:
+  workflow_call:
+    inputs:
+      suite:
+        description: Browser suite (mandatory or nightly)
+        type: string
+        default: mandatory
+      force_failure:
+        description: Exercise failure evidence and the diagnostic retry
+        type: boolean
+        default: false
+    outputs:
+      required_result:
+        description: Complete first-attempt browser result
+        value: ${{ jobs.browser.outputs.required_result }}
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    environment: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    outputs:
+      required_result: ${{ steps.journey.outputs.required_result }}
+    steps:
+      - name: Start twelve-minute setup and execution budget
+        run: echo "E2E_DEADLINE=$(( $(date +%s) + 720 ))" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        timeout-minutes: 1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        timeout-minutes: 1
+      - uses: actions/setup-node@v4
+        timeout-minutes: 1
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Disable unrelated Google Chrome apt source
+        timeout-minutes: 1
+        run: |
+          # Playwright downloads its own Chromium. An inconsistent Chrome apt
+          # index must not prevent installation of Ubuntu browser dependencies.
+          for source in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$source" ] || continue
+            if grep -Eq 'https?://dl\.google\.com/linux/(chrome|chrome-stable)/deb' "$source"; then
+              sudo mv -- "$source" "${source}.disabled"
+            fi
+          done
+      - name: Install dependencies and browsers within the remaining budget
+        env:
+          SUITE: ${{ inputs.suite }}
+        run: |
+          remaining=$(( E2E_DEADLINE - $(date +%s) ))
+          [ "$remaining" -gt 0 ] || exit 1
+          timeout --signal=INT --kill-after=5s "${remaining}s" bash -e -c '
+            pnpm install --frozen-lockfile
+            browsers=(chromium)
+            if [ "$SUITE" = nightly ]; then browsers+=(webkit firefox); fi
+            pnpm exec playwright install --with-deps "${browsers[@]}"
+          '
+      - name: Run browser journeys
+        id: journey
+        run: |
+          remaining=$(( E2E_DEADLINE - $(date +%s) ))
+          [ "$remaining" -gt 0 ] || exit 1
+          args=()
+          if [ "$SUITE" = nightly ]; then args+=(--nightly); fi
+          timeout --signal=INT --kill-after=5s "${remaining}s" pnpm test:e2e --resources e2e/resources.ci.json "${args[@]}"
+        env:
+          SUITE: ${{ inputs.suite }}
+          E2E_TRUSTED_EXECUTION: 'true'
+          E2E_REVIEWED_SHA: ${{ github.sha }}
+          E2E_FORCE_FAILURE: ${{ inputs.force_failure == true && 'true' || 'false' }}
+          CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+      - name: Retain sanitized evidence
+        timeout-minutes: 1
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-safe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: e2e-artifacts/e2e-local-ci-slot-0/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Record nightly outcome
+        if: ${{ always() && inputs.suite == 'nightly' }}
+        run: |
+          if ! pnpm exec tsx e2e/nightly-triage.ts summarize; then
+            echo '{"failures":["infrastructure"]}' > nightly-summary.json
+          fi
+      - name: Retain recurrence summary
+        if: ${{ always() && inputs.suite == 'nightly' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-summary
+          path: nightly-summary.json
+          retention-days: 30
+          if-no-files-found: error

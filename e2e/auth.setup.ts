@@ -1,0 +1,95 @@
+import { test as setup } from '@playwright/test';
+import { clerk, clerkSetup } from '@clerk/testing/playwright';
+import { join } from 'node:path';
+import { FIXTURE_VERSION, roleKeys } from './fixtures/catalog';
+import { fixtureCall, loadRun, savePrivate } from './support/process';
+
+setup.describe.configure({ mode: 'serial' });
+setup('prepare fresh role sessions', async ({ browser }) => {
+  const run = await loadRun();
+  const worker = run.fixture?.workers[0];
+  if (!worker) throw new Error('Missing fixture cohort');
+  await fixtureCall(run, 'seedIdentityProjection', {
+    namespace: run.resources.previewName,
+    version: FIXTURE_VERSION,
+    workerKey: worker.key,
+    caseKey: 'smoke',
+    token: worker.cases.smoke,
+  });
+  await clerkSetup({
+    dotenv: false,
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
+  });
+  for (const role of roleKeys) {
+    // Authentication never records traces or screenshots. Each role starts empty.
+    const context = await browser.newContext({
+      baseURL: run.baseURL,
+      viewport: { width: 1194, height: 834 },
+      hasTouch: true,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto('/');
+      await clerk.signIn({ page, emailAddress: worker[role].email });
+      await page.evaluate(
+        async ({ organizationId, userId }) => {
+          if (window.Clerk.user?.id !== userId)
+            throw new Error(
+              'Fixture role did not authenticate as the declared user',
+            );
+          await window.Clerk.setActive({ organization: organizationId });
+        },
+        {
+          organizationId:
+            role === 'outsider'
+              ? worker.outsiderOrganizationId
+              : worker.organizationId,
+          userId: worker[role].userId,
+        },
+      );
+      const organizationId =
+        role === 'outsider'
+          ? worker.outsiderOrganizationId
+          : worker.organizationId;
+      await page.waitForFunction(
+        (id) => window.Clerk.organization?.id === id,
+        organizationId,
+      );
+      // Prove the production Clerk -> Convex JWT path, without retaining the JWT.
+      await page.evaluate(async (url) => {
+        const token = await window.Clerk.session?.getToken({
+          template: 'convex',
+        });
+        if (!token) throw new Error('Missing Convex session');
+        const response = await fetch(`${url}/api/query`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            path: 'user:getMe',
+            args: {},
+            format: 'json',
+          }),
+        });
+        const result: unknown = await response.json();
+        if (
+          !response.ok ||
+          !result ||
+          typeof result !== 'object' ||
+          !('value' in result) ||
+          !result.value
+        )
+          throw new Error('Clerk session has no Convex identity projection');
+      }, run.fixture!.convexUrl);
+      await savePrivate(
+        join(run.privateDirectory, 'auth', `${worker.key}-${role}.json`),
+        JSON.stringify(await context.storageState()),
+      );
+    } finally {
+      await context.close();
+    }
+  }
+});

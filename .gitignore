@@ -46,3 +46,9 @@ yarn-error.log*
 .idea
 # clerk configuration (can include secrets)
 /.clerk/
+
+# E2E credentials, role storage, raw traces and retained safe evidence
+/e2e/.private/
+/e2e-artifacts/
+/playwright-report/
+/test-results/

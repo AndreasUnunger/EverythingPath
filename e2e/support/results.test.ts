@@ -1,0 +1,195 @@
+// @vitest-environment node
+import { expect, it } from 'vitest';
+import { evaluateResults } from './results';
+
+const passing = () => ({
+  status: 'passed',
+  errors: 0,
+  tests: [
+    {
+      file: 'auth.setup.ts',
+      project: 'authentication',
+      title: 'prepare fresh role sessions',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
+      file: 'access.spec.ts',
+      project: 'chromium-tablet',
+      title:
+        'organization members can open their campaign and outsiders cannot',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
+      file: 'existing-militia.spec.ts',
+      project: 'chromium-tablet',
+      title: 'existing militia state survives reload within its campaign',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
+      file: 'character-ledger.spec.ts',
+      project: 'chromium-tablet',
+      title: 'players share character and officer assignment changes',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
+      file: 'complete-week.spec.ts',
+      project: 'chromium-tablet',
+      title: 'a player confirms a complete week and reloads its outcome',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
+      file: 'realtime-action-slot.spec.ts',
+      project: 'chromium-tablet',
+      title: 'players share a Staged Action Choice',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+  ],
+});
+
+it('accepts exactly the required authentication and five journeys on their first attempts', () => {
+  expect(evaluateResults(passing())).toBe(true);
+});
+
+it.each([
+  'failed',
+  'flaky',
+  'cancelled',
+  'neutral',
+  'skipped',
+  'timedOut',
+  'interrupted',
+  undefined,
+])('rejects a required result of %s', (status) => {
+  for (const index of [1, 2, 3, 4, 5]) {
+    const report = passing();
+    Object.assign(report.tests[index]!.results[0]!, { status });
+    expect(evaluateResults(report)).toBe(false);
+  }
+});
+
+it('rejects a diagnostic retry even when it passes', () => {
+  const report = passing();
+  report.tests[1]!.results = [
+    { status: 'failed', retry: 0 },
+    { status: 'passed', retry: 1 },
+  ];
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects missing and substituted journeys, malformed reports and runner errors', () => {
+  for (const report of [
+    undefined,
+    {},
+    { ...passing(), tests: passing().tests.slice(0, 1) },
+    { ...passing(), tests: [passing().tests[0], passing().tests[0]] },
+    { ...passing(), errors: 1 },
+    { ...passing(), status: 'timedout' },
+  ]) {
+    expect(evaluateResults(report)).toBe(false);
+  }
+});
+
+it.each(['only', 'skip', 'fixme', 'fail', 'quarantine', 'quarantined'])(
+  'rejects %s annotations even with a passing result',
+  (type) => {
+    const report = passing();
+    Object.assign(report.tests[1]!, { annotations: [type] });
+    expect(evaluateResults(report)).toBe(false);
+  },
+);
+
+it('rejects expected failures and missing attempts', () => {
+  const report = passing();
+  report.tests[1]!.expectedStatus = 'failed';
+  expect(evaluateResults(report)).toBe(false);
+  report.tests[1]!.expectedStatus = 'passed';
+  report.tests[1]!.results = [];
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it.each(['@quarantine', '@quarantined'])(
+  'rejects the %s tag on a passing journey',
+  (tag) => {
+    const report = passing();
+    Object.assign(report.tests[1]!, { tags: [tag] });
+    expect(evaluateResults(report)).toBe(false);
+  },
+);
+
+it('rejects a run that omits the existing-militia journey', () => {
+  const report = passing();
+  report.tests.splice(2, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the character-ledger journey', () => {
+  const report = passing();
+  report.tests.splice(3, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the complete-week journey', () => {
+  const report = passing();
+  report.tests.splice(4, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the realtime Action Slot journey', () => {
+  const report = passing();
+  report.tests.pop();
+  expect(evaluateResults(report)).toBe(false);
+});
+
+function nightlyPassing() {
+  const report = passing();
+  const critical = report.tests.slice(1);
+  report.tests.push(
+    ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
+    ...[critical[0]!, critical[1]!, critical[3]!].map((test) => ({
+      ...test,
+      project: 'firefox-desktop',
+    })),
+    { ...critical[0]!, project: 'chromium-phone' },
+  );
+  return report;
+}
+
+it('accepts the risk-based nightly matrix and rejects it as a mandatory run', () => {
+  expect(evaluateResults(nightlyPassing(), 'nightly')).toBe(true);
+  expect(evaluateResults(nightlyPassing())).toBe(false);
+  expect(evaluateResults(passing(), 'nightly')).toBe(false);
+});
+it('requires every selected nightly project journey without skips or retry passes', () => {
+  for (let index = 0; index < 15; index++) {
+    const missing = nightlyPassing();
+    missing.tests.splice(index, 1);
+    expect(evaluateResults(missing, 'nightly')).toBe(false);
+    const retry = nightlyPassing();
+    retry.tests[index]!.results = [
+      { status: 'failed', retry: 0 },
+      { status: 'passed', retry: 1 },
+    ];
+    expect(evaluateResults(retry, 'nightly')).toBe(false);
+    const skipped = nightlyPassing();
+    Object.assign(skipped.tests[index]!, { annotations: ['skip'] });
+    expect(evaluateResults(skipped, 'nightly')).toBe(false);
+  }
+});

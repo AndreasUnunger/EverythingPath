@@ -1,0 +1,61 @@
+name: E2E access
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reviewed_sha:
+        description: Full commit SHA reviewed for secret-backed execution
+        required: true
+        type: string
+      force_failure:
+        description: Exercise failure evidence and a passing diagnostic retry (remains red)
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-ci-slot-0
+  cancel-in-progress: false
+
+jobs:
+  access:
+    # Owner-authored, same-repository code only. Skips fail the aggregate gate.
+    # Never use pull_request_target or give fork/bot jobs service credentials.
+    if: >-
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.reviewed_sha == github.sha) ||
+       (github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login == github.repository_owner))
+    uses: ./.github/workflows/e2e-runner.yaml
+    # Required for environment secrets to resolve in the called workflow.
+    secrets: inherit
+    with:
+      suite: mandatory
+      force_failure: ${{ inputs.force_failure == true }}
+
+  required:
+    name: E2E required
+    if: ${{ always() }}
+    needs: [access]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require complete first-attempt success
+        env:
+          JOB_RESULT: ${{ needs.access.result }}
+          REQUIRED_RESULT: ${{ needs.access.outputs.required_result }}
+        run: |
+          if [ "$JOB_RESULT" != success ] || [ "$REQUIRED_RESULT" != passed ]; then
+            echo 'E2E required: failed. The access job must succeed with every required result passing on its first attempt. Inspect the access job and sanitized artifacts.'
+            exit 1
+          fi
+          echo 'E2E required: passed. Authentication, organization access and existing-militia setup passed on their first attempts.'

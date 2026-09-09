@@ -73,6 +73,8 @@ export function OfficerAssignmentsCard({
             return (
               <div
                 key={role}
+                role="group"
+                aria-label={`Officer role: ${label}`}
                 ref={(element) => {
                   roleRefs.current[role] = element;
                 }}

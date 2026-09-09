@@ -128,6 +128,15 @@ export const campaignValidator = v.object({
   organizationId: v.string(),
   description: v.string(),
   inGameDate: v.optional(v.string()),
+  e2eFixture: v.optional(
+    v.object({
+      namespace: v.string(),
+      version: v.number(),
+      workerKey: v.string(),
+      caseKey: v.string(),
+      campaignKey: v.string(),
+    }),
+  ),
 });
 
 export const phaseValidator = v.union(
@@ -767,10 +776,20 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
-  character: defineTable(characterValidator),
-  campaign: defineTable(campaignValidator).index('by_organization', [
-    'organizationId',
+  e2eFixtureIdentity: defineTable({
+    namespace: v.string(), workerKey: v.string(), userId: v.id('user'),
+  }).index('by_namespace_and_workerKey', ['namespace', 'workerKey'])
+    .index('by_userId', ['userId']),
+  character: defineTable(characterValidator).index('by_campaignId', [
+    'campaignId',
   ]),
+  campaign: defineTable(campaignValidator)
+    .index('by_organization', ['organizationId'])
+    .index('by_e2eFixture_namespace_and_workerKey_and_caseKey', [
+      'e2eFixture.namespace',
+      'e2eFixture.workerKey',
+      'e2eFixture.caseKey',
+    ]),
   militia: defineTable(militiaValidator).index('by_campaign', ['campaignId']),
   militiaTeam: defineTable(militiaTeamValidator).index('by_militiaId', [
     'militiaId',

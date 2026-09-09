@@ -12,7 +12,7 @@ These journeys cross the Next.js interface, Clerk identity and organization memb
 
 Build a Playwright Test suite that exercises EverythingPath through its production UI against isolated non-production Clerk and Convex resources. Make each completed critical journey part of a required Chromium tablet pull-request check as soon as it lands. Keep the gate below ten minutes, synchronize on player-visible domain outcomes, reset deterministic case-owned fixtures before every attempt, and preserve safe diagnostic evidence on failure.
 
-The initial suite protects five independent current-product journeys: organization campaign access, existing-militia initialization, Character Ledger and officer maintenance, complete militia-week resolution, and realtime Action Slot staging and confirmation. Broader browser and viewport compatibility runs nightly. Planned first-claim locking and GM-only controls gain browser coverage when those capabilities exist; the initial suite does not encode current last-write-wins behavior as a desired contract or use skipped tests to pretend future behavior is present.
+The initial suite protects five independent current-product journeys: organization campaign access, existing-militia initialization, Character Ledger and officer maintenance, complete militia-week resolution, and realtime Action Slot staging. Broader browser and viewport compatibility runs nightly. Planned first-claim locking and GM-only controls gain browser coverage when those capabilities exist; the initial suite does not encode current last-write-wins behavior as a desired contract or use skipped tests to pretend future behavior is present.
 
 ## User Stories
 
@@ -36,8 +36,8 @@ The initial suite protects five independent current-product journeys: organizati
 18. As a player, I want the committed outcome and next-week state to survive reload, so that Weekly Resolution is demonstrably persistent.
 19. As a maintainer, I want one canonical complete-week golden path, so that integration is protected without duplicating the rules matrix.
 20. As a player, I want a staged Action Choice to appear for another connected player, so that realtime collaboration remains trustworthy.
-21. As a player, I want a Staged Action Choice visibly distinct from a Confirmed Action Choice, so that uncommitted decisions are clear.
-22. As a player, I want confirmation to appear in both clients, so that all players converge on the committed Action Slot.
+21. As a player, I want an Action Choice visibly marked Staged, so that uncommitted decisions are clear.
+22. As a player, I want both clients to show the same Staged Action Choice while the current week remains open. Actions have no individual confirmation; Confirm Week commits the entire Weekly Draft.
 23. As a maintainer, I want the initial shared-slot journey to avoid competing writes, so that last-write-wins is not blessed as intended behavior.
 24. As a player, I want future first-claim locking to reject a competing choice without changing the accepted claim, so that simultaneous play resolves predictably.
 25. As a player, I want future cancellation, release, timeout, and reconnect behavior to converge for everyone, so that claims cannot become ambiguous.
@@ -101,8 +101,8 @@ The initial suite protects five independent current-product journeys: organizati
 - Use a shared real-pointer helper when drag is under test and a player-visible keyboard/tap path using the same production staging logic elsewhere. Do not add hidden staging bypasses.
 - Synchronize on visible domain outcomes, never arbitrary sleeps, animation completion, network-idle state, or spinner disappearance alone.
 - Do not add browser-visible mutation shortcuts, authentication bypasses, query-string test modes, or global test hooks.
-- Make the initial slot journey prove only current staging and confirmation propagation. Do not issue competing writes or assert last-write-wins behavior.
-- When first-claim locking ships, prove shared availability, first accepted claim, unchanged state after competitor rejection, claimant-only confirmation, and convergence.
+- Make the initial slot journey prove only current staging propagation. Do not issue competing writes or assert last-write-wins behavior.
+- When first-claim locking ships, prove shared availability, first accepted claim, unchanged state after competitor rejection, and convergence.
 - Add cancellation, release, deterministic expiry, invalid-drop recovery, and reconnect convergence with the claim lifecycle.
 - Add a GM correction journey only when GM-only controls exist; shared Table Adjustments are not a substitute.
 - Use one stable aggregate required-check name. It fails unless every required journey succeeds.
@@ -122,7 +122,7 @@ The initial suite protects five independent current-product journeys: organizati
 - The onboarding journey submits representative mid-campaign state, verifies structural errors and advisory warnings, reloads, and verifies campaign-scoped persistence.
 - The ledger journey creates a character, assigns an officer, observes it from a second context, reassigns or unassigns without deletion, reloads, and verifies persistence.
 - The complete-week journey starts from a deterministic fixture, completes Upkeep, Activity, Event, and Confirmation, then reloads and verifies the committed outcome and next-week state.
-- The realtime journey opens two authenticated contexts, stages a supported Action Choice in one, observes it in the other, confirms through the UI, and waits until both show the same Confirmed Action Choice.
+- The realtime journey opens two authenticated contexts on the same seeded Activity board and empty Action Slot, stages a supported Action Choice through a visible production interaction in one, and waits until both show the same Staged Action Choice without reloading. There is no per-action confirmation. Whole-week Confirmation stays in the complete-week journey.
 - A good browser test uses accessible production interactions, owns a deterministic fixture, runs alone or in any order, resets before attempts, waits for domain state, and reports the journey, observer, object, expectation, and observation.
 - Existing component tests are prior art for forms, character/officer interactions, phase rendering, Action Slots, and controller synchronization. Extend them for exhaustive UI states.
 - Existing pure Vitest suites are prior art for Weekly Resolution, events, progression, action constraints, officer rules, and shared-query behavior. Keep deterministic rule matrices there.
@@ -160,5 +160,5 @@ The initial suite protects five independent current-product journeys: organizati
 
 - This specification consolidates the fully resolved [E2E Regression Strategy map](../e2e-regression-strategy/map.md). Its decision tickets, research, and prototypes retain the detailed rationale.
 - The repository currently uses Next.js 16, React 19, Clerk organizations, and Convex. It has extensive Vitest and `convex-test` coverage but no browser E2E setup or checked-in CI workflow.
-- Use the canonical domain vocabulary: Weekly Draft, Weekly Draft Revision, Phase View, Phase Readiness, Resolution Preview, Weekly Resolution, Confirmation, Table Adjustment, Rules Baseline, Resolution Record, Ruleset Version, Historical Reconstruction, Action Slot, Action Slot Claim, Staged Action Choice, and Confirmed Action Choice.
+- Use the canonical domain vocabulary: Weekly Draft, Weekly Draft Revision, Phase View, Phase Readiness, Resolution Preview, Weekly Resolution, Confirmation, Table Adjustment, Rules Baseline, Resolution Record, Ruleset Version, Historical Reconstruction, Action Slot, Action Slot Claim, and Staged Action Choice.
 - Implementation is complete when all five current-product journeys are mandatory, every attempt has deterministic reset, production safeguards are proven, the tablet gate stays within budget, safe evidence covers all contexts, clean-checkout and disposable-preview build contracts pass, and no required coverage is skipped or accepted only on retry.
