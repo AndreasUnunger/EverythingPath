@@ -43,10 +43,19 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'complete-week.spec.ts',
+      project: 'chromium-tablet',
+      title: 'a player confirms a complete week and reloads its outcome',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
-it('accepts exactly the required authentication and three journeys on their first attempts', () => {
+it('accepts exactly the required authentication and four journeys on their first attempts', () => {
   expect(evaluateResults(passing())).toBe(true);
 });
 
@@ -60,7 +69,7 @@ it.each([
   'interrupted',
   undefined,
 ])('rejects a required result of %s', (status) => {
-  for (const index of [1, 2]) {
+  for (const index of [1, 2, 3, 4]) {
     const report = passing();
     Object.assign(report.tests[index]!.results[0]!, { status });
     expect(evaluateResults(report)).toBe(false);
@@ -123,6 +132,12 @@ it('rejects a run that omits the existing-militia journey', () => {
 });
 
 it('rejects a run that omits the character-ledger journey', () => {
+  const report = passing();
+  report.tests.splice(3, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the complete-week journey', () => {
   const report = passing();
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);

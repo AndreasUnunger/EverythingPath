@@ -22,6 +22,7 @@ run.fixture = {
       isolation: randomBytes(32).toString('hex'),
       existingMilitia: randomBytes(32).toString('hex'),
       characterLedger: randomBytes(32).toString('hex'),
+      completeWeek: randomBytes(32).toString('hex'),
     },
   })),
 };

@@ -45,6 +45,7 @@ export const deploymentFixture: DeploymentFixture = {
       isolation: 'b'.repeat(64),
       existingMilitia: 'd'.repeat(64),
       characterLedger: 'c'.repeat(64),
+      completeWeek: 'e'.repeat(64),
     },
   })),
 };

@@ -17,6 +17,11 @@ const requiredTests = [
     'chromium-tablet',
     'players share character and officer assignment changes',
   ],
+  [
+    'complete-week.spec.ts',
+    'chromium-tablet',
+    'a player confirms a complete week and reloads its outcome',
+  ],
 ];
 const reportSchema = z.object({
   status: z.literal('passed'),

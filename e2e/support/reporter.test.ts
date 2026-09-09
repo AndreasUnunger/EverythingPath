@@ -54,6 +54,10 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
         join(directory, 'character-ledger.spec.ts'),
         `import { test } from ${playwright}; test('players share character and officer assignment changes', () => {});`,
       );
+      await writeFile(
+        join(directory, 'complete-week.spec.ts'),
+        `import { test } from ${playwright}; test('a player confirms a complete week and reloads its outcome', () => {});`,
+      );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,

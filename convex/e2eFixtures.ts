@@ -20,6 +20,7 @@ const scopeArgs = {
     v.literal('isolation'),
     v.literal('existingMilitia'),
     v.literal('characterLedger'),
+    v.literal('completeWeek'),
   ),
   token: v.string(),
 };
@@ -226,15 +227,15 @@ export const resetCase = internalMutation({
       treasury: 100,
       notoriety: 0,
       focus: 'Loyalty',
-      training: 0,
+      training: args.caseKey === 'completeWeek' ? 10 : 0,
       ...(characterId ? { marshal: characterId } : {}),
     });
     await ctx.db.insert('militiaWeekState', {
       militiaId,
-      weekNumber: 1,
-      phase: 'activity',
-      isFirstWeek: true,
-      skippedUpkeepThisWeek: true,
+      weekNumber: args.caseKey === 'completeWeek' ? 2 : 1,
+      phase: args.caseKey === 'completeWeek' ? 'upkeep' : 'activity',
+      isFirstWeek: args.caseKey !== 'completeWeek',
+      skippedUpkeepThisWeek: args.caseKey !== 'completeWeek',
       uneventfulBonusCarry: 0,
       queuedEffects: [],
       stagedActivityActionIds: [null],

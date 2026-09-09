@@ -3,7 +3,7 @@
 Issues #23 and #24 supply the harness and dedicated service cohort. Issue #25
 adds the required organization-access journey and aggregate CI gate. Issue #26
 adds the existing-militia setup journey, and issue #27 adds the shared character
-and officer ledger journey, to that same gate. Normal runs
+and officer ledger journey, to that same gate. Issue #28 adds the complete-week journey. Normal runs
 verify existing Clerk users, roles and memberships; they never create or repair
 them. Session sign-in and Clerk testing tokens are the expected authentication
 writes.
@@ -64,7 +64,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the Chromium access and existing-militia journeys at 1194×834 with
+creates fresh ignored role storage and runs the four Chromium tablet journeys at 1194×834 with
 touch enabled. It starts with one authenticated worker. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
@@ -185,8 +185,8 @@ and manual dispatches. Merge-queue execution is deferred. The stable aggregate c
 runs after the access job and accepts only a successful job with an explicit
 verified result output. Failed, cancelled, neutral, skipped or absent upstream
 results fail closed. The reporter independently requires the named authentication
-setup, access journey, existing-militia journey, and character/officer ledger
-journey, each with exactly one passing attempt. Skips, expected
+setup, access journey, existing-militia journey, character/officer ledger
+journey, and complete-week journey, each with exactly one passing attempt. Skips, expected
 failures, quarantine annotations, focused runs, global errors and retry passes
 cannot satisfy it. `forbidOnly` rejects focused tests before execution.
 
@@ -284,3 +284,20 @@ which replaces the former officer without deleting either record, and the GM
 clears that assignment. Both contexts finally reopen the campaign and verify that
 the two records and unassigned officer roles persisted. Assertions wait only on
 visible ledger rows, role cards, and dialogs.
+
+
+## Complete-week journey
+
+`complete-week.spec.ts` owns the `completeWeek` fixture, independently reset and
+cleaned for every attempt. It begins at week 2 Upkeep with rank 1, training 10,
+treasury 100, no staged actions and no event carry. A regular player enters
+attrition 2, stages Drill Militia with a successful check of 15 and training gain
+4, and enters an event trigger roll of 100 against the default chance of 10.
+
+The player reviews the saved inputs and Resolution Preview, then uses Confirm
+Week to submit the reviewed Weekly Draft Revision. The journey checks training
+12, treasury 90, notoriety 0, week 3 Upkeep, uneventful carry 1, and cleared draft
+inputs through the production board and ledger, both immediately and after reload.
+It does not inspect backend state or intercept mutations. Exact revision rejection,
+atomicity, calculations, and rule permutations remain in the existing mutation
+harness and rules tests. The required aggregate rejects runs missing this journey.

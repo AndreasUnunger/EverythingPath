@@ -195,6 +195,7 @@ describe('internal fixture boundary', () => {
         isolation: 'd'.repeat(64),
         existingMilitia: 'e'.repeat(64),
         characterLedger: 'f'.repeat(64),
+        completeWeek: 'g'.repeat(64),
       },
     };
     vi.stubEnv(
