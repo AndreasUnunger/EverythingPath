@@ -42,17 +42,17 @@ export async function checkGeneratedBindings(
     files.filter((file) => /\.(?:ts|js)$/.test(file)).sort();
   const source = bindings(await readdir(sourceDirectory));
   const generated = bindings(await readdir(generatedDirectory));
-  const refuse = () => {
+  const refuse = (file: string) => {
     throw new Error(
-      'Convex generated-code drift; regenerate and review before E2E',
+      `Convex generated-code drift (${file}); regenerate and review before E2E`,
     );
   };
-  if (source.join('\n') !== generated.join('\n')) refuse();
+  if (source.join('\n') !== generated.join('\n')) refuse('file list');
   for (const file of source)
     if (
       !(await readFile(join(sourceDirectory, file))).equals(
         await readFile(join(generatedDirectory, file)),
       )
     )
-      refuse();
+      refuse(file);
 }

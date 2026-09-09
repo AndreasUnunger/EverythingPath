@@ -9,7 +9,15 @@ import { evaluateResults } from './results';
 
 // Exercise the actual reporter/Playwright protocol without browser or service
 // dependencies. These synthetic bodies test result handling, not authentication.
-it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
+it.each([
+  'passed',
+  'skipped',
+  'focused',
+  'quarantined',
+  'retry',
+  'missing-multiplayer',
+  'retry-multiplayer',
+] as const)(
   'the reporter and Playwright agree on a %s required journey',
   async (mode) => {
     const directory = await mkdtemp(join(tmpdir(), 'e2e-reporter-test-'));
@@ -58,10 +66,11 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
         join(directory, 'complete-week.spec.ts'),
         `import { test } from ${playwright}; test('a player confirms a complete week and reloads its outcome', () => {});`,
       );
-      await writeFile(
-        join(directory, 'realtime-action-slot.spec.ts'),
-        `import { test } from ${playwright}; test('players share a Staged Action Choice', () => {});`,
-      );
+      if (mode !== 'missing-multiplayer')
+        await writeFile(
+          join(directory, 'realtime-action-slot.spec.ts'),
+          `import { test } from ${playwright}; test('players share a Staged Action Choice', async ({}, info) => { ${mode === 'retry-multiplayer' ? "if (info.retry === 0) throw new Error('Synthetic multiplayer failure');" : ''} });`,
+        );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,
@@ -93,11 +102,14 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
       expect(
         await readFile(join(artifactDirectory, 'report.html'), 'utf8'),
       ).toContain(`E2E ${mode === 'passed' ? 'passed' : 'failed'}`);
-      if (mode === 'retry')
+      if (mode === 'retry' || mode === 'retry-multiplayer')
         expect(report).toMatchObject({
           tests: expect.arrayContaining([
             expect.objectContaining({
-              file: 'access.spec.ts',
+              file:
+                mode === 'retry'
+                  ? 'access.spec.ts'
+                  : 'realtime-action-slot.spec.ts',
               results: [
                 { status: 'failed', retry: 0 },
                 { status: 'passed', retry: 1 },

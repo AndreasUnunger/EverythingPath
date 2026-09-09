@@ -402,3 +402,68 @@ Both browser workflows call `.github/workflows/e2e-runner.yaml` for setup,
 execution budgets, environment credentials, and evidence retention. The callers
 own their trigger/trust rules and shared concurrency slot; the mandatory caller
 keeps the fail-closed aggregate, while the nightly caller owns issue triage.
+
+## Weekly Draft extraction gate (#60)
+
+Every extraction under #57 must pass the complete supported-path **E2E required**
+suite before merging, together with typecheck, lint and relevant lower-level tests.
+Run it against the proposed merge commit. The existing owner-enforced merge policy
+above still applies; this requirement does not activate GitHub branch protection.
+The required result catalog remains independent of Playwright discovery: omitting
+the multiplayer journey or passing only on retry leaves the aggregate red.
+Reporter integration tests exercise both cases through actual Playwright results.
+
+The required Action Slot journey now uses `support/transport.ts` on the regular
+player's page, installed before navigation and restricted to the bound preview's
+WebSocket host. It forwards unchanged frames to the actual Convex server using
+[Playwright's WebSocket interception](https://playwright.dev/docs/api/class-websocketroute#web-socket-route-connect-to-server).
+`next` arms one delayed mutation request, delayed mutation response, or dropped
+acknowledgement, matched to the next outgoing mutation’s request ID so an older
+response cannot satisfy the fault. `observed` supplies a bounded `expect.poll` synchronization point;
+`release` forwards held frames in order. A delay holds subsequent frames in that
+direction to avoid manufacturing protocol reordering. Dropping an acknowledgement
+never drops or fabricates the transaction itself. Payloads remain in memory and
+are never attached to reports.
+
+Both authenticated members open the board before the player stages a choice.
+The writer navigates to Event and back while its request is held; the observer
+remains in Activity with no staged choice. The observer sees the replacement
+while its response is held, and sees the final choice despite a dropped response.
+Writer reloads prove persistence after the latter two cases. These are current
+supported behaviors; reload recovery does not prove canonical idempotent retry.
+The journey retains the same owned fixture, reset/cleanup, CI matrix and failure
+screenshots/traces for both players. `force_failure` now also fails the multiplayer
+journey's first attempt after the transport assertions, exercising both-player
+failure evidence and a diagnostic retry that must remain red.
+
+Extend this same gate as canonical behaviors land, without skipped placeholders:
+
+- Workspace extraction: independent Phase Views, navigation during pending edits,
+  immediate feedback and visible recovery after a rejected edit.
+- Persistence extraction: disjoint edits, same-target failure, atomic choice
+  moves/swaps, obsolete detail rejection, dropped-response idempotent retry and
+  ordered/monotonic acknowledgement.
+- Confirmation extraction: reviewed-source rejection, racing Confirmations with
+  one history outcome and one successor, and delayed old-week edits rejected after
+  advancement.
+
+Use rendered domain outcomes for browser assertions and the shared real-adapter
+contract suite for deeper transaction cases. Keep canonical behavior isolated
+until its approved cutover. The accepted #36/#38 contract supersedes older claim,
+lock and individual-confirmation wording elsewhere in this document.
+
+The merged #58 SDK upgrade requires refreshed `convex/_generated` bindings:
+platform environment declarations and the aggregate package's component API type.
+These are generated output, verified byte-for-byte against the isolated preview;
+the drift guard now names a mismatched file for diagnosis.
+
+Live verification on 2026-09-09 passed authentication and all five mandatory
+journeys on their first attempts against a recreated local preview and production
+web build. A separate local run with CI retry settings reached the deliberate
+access and multiplayer failures, then passed both diagnostic retries; its report
+remained failed and the runner exited 1. Both multiplayer roles retained failure
+screenshots and sanitized retry traces. The final request-ID matching helper was
+exercised by that drill. This is local live-service evidence, not a hosted CI run
+or activated branch protection. Typecheck, lint, all 347 tests, build-boundary
+checks and the rules-catalog check also passed (the catalog retains its explicit
+473 implementation gaps).
