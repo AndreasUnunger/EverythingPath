@@ -4,7 +4,7 @@ import { runE2EPreflight, validatePreviewBinding } from './preflight';
 import { resources, safeEnvironment } from './test-data';
 
 describe('E2E preflight before any writing adapter', () => {
-  it.each(['pull_request', 'merge_group'])(
+  it.each(['pull_request'])(
     'requires the tested commit to match the trusted %s workflow declaration',
     async (event) => {
       const environment = {
@@ -98,6 +98,14 @@ describe('E2E preflight before any writing adapter', () => {
     { CLERK_API_URL: 'https://evil.test' },
     { E2E_TRUSTED_EXECUTION: 'false' },
     { CI: 'true' },
+    {
+      CI: 'true',
+      GITHUB_ACTIONS: 'true',
+      GITHUB_EVENT_NAME: 'merge_group',
+      GITHUB_ACTOR: 'owner',
+      GITHUB_SHA: 'same',
+      E2E_REVIEWED_SHA: 'same',
+    },
     {
       CI: 'true',
       GITHUB_ACTIONS: 'true',

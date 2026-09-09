@@ -64,7 +64,7 @@ preview name across machines. After an ungraceful process termination, verify no
 run still owns the slot before removing its exact stale lock directory.
 
 In CI, the trusted workflow binds `E2E_REVIEWED_SHA=GITHUB_SHA` to the tested
-commit, including PR merge commits and merge-group commits. The workflow refuses
+commit, including PR merge commits. The workflow refuses
 fork PRs, bot actors and non-owner authors before accessing the environment.
 `pull_request_target` and unknown CI events are refused by preflight. The
 workflow must withhold secrets from untrusted code **before** checkout/execution;
@@ -173,8 +173,8 @@ bootstrap only manages the declared fixture cohort.
 
 ## Trusted CI configuration
 
-The `E2E access` workflow runs on pull requests, merge groups, pushes to `main`,
-and manual dispatches. The stable aggregate check is **E2E required**. It always
+The `E2E access` workflow runs on pull requests targeting `main`, pushes to `main`,
+and manual dispatches. Merge-queue execution is deferred. The stable aggregate check is **E2E required**. It always
 runs after the access job and accepts only a successful job with an explicit
 verified result output. Failed, cancelled, neutral, skipped or absent upstream
 results fail closed. The reporter independently requires the named authentication
@@ -188,12 +188,13 @@ receive a red aggregate check and must be reviewed and brought onto a trusted
 owner branch. Never use `pull_request_target` to execute submitted code.
 
 Store `CLERK_SECRET_KEY` and `CONVEX_PREVIEW_DEPLOY_KEY` only in the `e2e`
-environment, and `CLERK_PUBLISHABLE_KEY` as its variable. Before enabling PR or
-merge-queue environment refs, require owner approval of environment deployments
-and disable bypass. Review the exact merge commit, workflows, dependencies and
-install scripts before approval. Branch patterns alone cannot establish trust
-for PR code. Keep the existing main-only environment policy until these controls
-are available. Do not move service keys to repository or organization secrets.
+environment, and `CLERK_PUBLISHABLE_KEY` as its variable. The environment permits
+`main` and `refs/pull/*/merge` branch refs. PR runs test GitHub's proposed merge
+commit. This rollout trusts the owner's same-repository changes without an
+additional environment approval gate; review workflows, dependencies and install
+scripts before submitting them. Branch patterns alone do not establish trust.
+Do not move service keys to repository or organization secrets. Revisit this
+policy before giving other contributors write access.
 
 The runner budgets twelve minutes across preview/build/browser execution. CI also
 shares one twelve-minute deadline across setup, installation and execution, with
@@ -217,22 +218,28 @@ retained the HTML/JSON reports, three application screenshots, three sanitized
 retry traces and logs. These are local live-service checks, not evidence of a
 GitHub Actions run or activated branch protection.
 
-### Required-check rollout
+### Current rollout and deferred enforcement
 
-Immediately after the journey reaches `main`, configure its branch protection or
-active ruleset to require **E2E required** from GitHub Actions (app ID 15368),
-retaining existing required checks. Require it for merge queue as well. Verify
-with a fresh PR and merge-group run: a normal run must pass, and the forced failure
-must remain red despite a successful diagnostic retry. Read back the protection
-configuration and confirm the check name and expected app before declaring rollout
-complete.
+Issue #25 targets the existing private, personally owned GitHub repository.
+Owner-authored same-repository PRs targeting `main` receive the **E2E required**
+aggregate result. Despite its stable name, this is an advisory check: the current
+GitHub plan does not enforce it as a merge requirement. A red result must be
+handled by the owner before merging. The `e2e` environment permits both `main`
+and `refs/pull/*/merge`; fork and bot runs remain excluded by the workflow.
 
-At implementation time (2026-09-09), GitHub returned HTTP 403 for both branch
-protection and rulesets: this private repository needs GitHub Pro or public
-visibility to enable those features. Required-check activation is therefore an
-external rollout blocker. The environment is still main-only; enabling reviewed
-PR and merge-group deployment access is also a prerequisite. Neither a checked-in
-workflow nor a passing local run proves that branch protection is active.
+Mandatory branch protection, environment approval gates and merge queues are
+explicitly deferred rather than prerequisites for PR testing. GitHub Pro can
+provide private-repository branch protection, but private environment reviewers
+and private merge queues require Enterprise Cloud, with organization ownership
+also required for merge queues. An organization transfer would require replacing
+the workflow's repository-owner/user comparisons with an explicit trusted-user
+policy before enabling execution.
+
+When those features become available, configure **E2E required** from GitHub
+Actions as a required check while retaining other required checks. Add protected
+merge-queue environment refs and restore `merge_group` support in all required
+workflows and the E2E preflight. Validate actual PR and queue runs before declaring
+mandatory enforcement active.
 
 References: [Clerk users API](https://clerk.com/docs/reference/backend-api/tag/users/post/users),
 [Clerk organizations API](https://clerk.com/docs/reference/backend-api/tag/organizations/post/organizations),

@@ -2,8 +2,7 @@ name: E2E access
 
 on:
   pull_request:
-  merge_group:
-    types: [checks_requested]
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -32,7 +31,6 @@ jobs:
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
       (github.event_name == 'push' ||
-       github.event_name == 'merge_group' ||
        (github.event_name == 'workflow_dispatch' && inputs.reviewed_sha == github.sha) ||
        (github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
