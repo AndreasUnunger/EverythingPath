@@ -6,41 +6,53 @@ import { spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { resources, deploymentFixture } from './test-data';
 
-it('loads the real Playwright config and discovers the serial setup and five tablet journeys without credentials', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'e2e-config-test-'));
-  try {
-    const path = join(directory, 'run.json');
-    await writeFile(
-      path,
-      JSON.stringify({
-        resources,
-        fixture: deploymentFixture,
-        workspace: process.cwd(),
-        sourceRoot: process.cwd(),
-        privateDirectory: directory,
-        artifactDirectory: join(directory, 'artifacts'),
-        envFile: join(directory, 'convex.env'),
-        baseURL: 'http://127.0.0.1:49123',
-      }),
-    );
-    const result = spawnSync(
-      'pnpm',
-      ['exec', 'playwright', 'test', '--list', '--reporter=list'],
-      {
-        encoding: 'utf8',
-        env: { ...process.env, E2E_RUN_FILE: path },
-        timeout: 15_000,
-      },
-    );
-    expect(result.status, result.stdout + result.stderr).toBe(0);
-    expect(result.stdout).toContain('[authentication]');
-    expect(result.stdout).toContain('[chromium-tablet]');
-    expect(result.stdout).toContain('existing-militia.spec.ts');
-    expect(result.stdout).toContain('character-ledger.spec.ts');
-    expect(result.stdout).toContain('complete-week.spec.ts');
-    expect(result.stdout).toContain('realtime-action-slot.spec.ts');
-    expect(result.stdout).toContain('Total: 6 tests');
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}, 20_000);
+it.each(['mandatory', 'nightly'] as const)(
+  'loads the %s real Playwright config and discovers the serial setup and five tablet journeys without credentials',
+  async (mode) => {
+    const directory = await mkdtemp(join(tmpdir(), 'e2e-config-test-'));
+    try {
+      const path = join(directory, 'run.json');
+      await writeFile(
+        path,
+        JSON.stringify({
+          mode,
+          resources,
+          fixture: deploymentFixture,
+          workspace: process.cwd(),
+          sourceRoot: process.cwd(),
+          privateDirectory: directory,
+          artifactDirectory: join(directory, 'artifacts'),
+          envFile: join(directory, 'convex.env'),
+          baseURL: 'http://127.0.0.1:49123',
+        }),
+      );
+      const result = spawnSync(
+        'pnpm',
+        ['exec', 'playwright', 'test', '--list', '--reporter=list'],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, E2E_RUN_FILE: path },
+          timeout: 15_000,
+        },
+      );
+      expect(result.status, result.stdout + result.stderr).toBe(0);
+      expect(result.stdout).toContain('[authentication]');
+      expect(result.stdout).toContain('[chromium-tablet]');
+      expect(result.stdout).toContain('existing-militia.spec.ts');
+      expect(result.stdout).toContain('character-ledger.spec.ts');
+      expect(result.stdout).toContain('complete-week.spec.ts');
+      expect(result.stdout).toContain('realtime-action-slot.spec.ts');
+      expect(result.stdout).toContain(
+        mode === 'nightly' ? 'Total: 15 tests' : 'Total: 6 tests',
+      );
+      if (mode === 'nightly') {
+        expect(result.stdout).toContain('[webkit-tablet]');
+        expect(result.stdout).toContain('[firefox-desktop]');
+        expect(result.stdout).toContain('[chromium-phone]');
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+  20_000,
+);

@@ -7,6 +7,7 @@ import { deploymentFixtureSchema, resourceSchema } from '../fixtures/catalog';
 import { safeDiagnostic } from './artifacts';
 
 export const runSchema = z.object({
+  mode: z.enum(['mandatory', 'nightly']).default('mandatory'),
   resources: resourceSchema,
   workspace: z.string(),
   sourceRoot: z.string(),

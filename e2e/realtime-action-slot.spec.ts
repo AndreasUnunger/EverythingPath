@@ -1,3 +1,4 @@
+import { loadRun } from './support/process';
 import { test, expect } from './support/fixtures';
 import {
   actionSlot,
@@ -7,7 +8,10 @@ import {
 
 test.use({ caseKey: 'realtimeActionSlot' });
 
-test('players share a Staged Action Choice', async ({ players, ownedCase }) => {
+test('players share a Staged Action Choice', async ({
+  players,
+  ownedCase,
+}, info) => {
   const observers = [
     { player: 'staging player', page: players.player },
     { player: 'observing member', page: players.gm },
@@ -50,6 +54,33 @@ test('players share a Staged Action Choice', async ({ players, ownedCase }) => {
         await expect(
           page.getByRole('heading', { name: 'Week 1', exact: true }),
         ).toBeVisible();
+      });
+    }
+    if (
+      (await loadRun()).mode === 'nightly' &&
+      info.project.name === 'chromium-tablet'
+    ) {
+      expected =
+        'Change Officer Role replaces Drill Militia after observer reconnect and survives player reload';
+      await test.step(`observing member: ${expected}`, async () => {
+        await players.gm.context().setOffline(true);
+        await visiblePlace(players.player, 'Change Officer Role', 1, 'tap');
+        await players.gm.context().setOffline(false);
+        await expect(
+          actionSlot(players.gm, 1),
+          `observing member: ${expected}`,
+        ).toContainText('Change Officer Role');
+        await players.player.reload();
+        await selectCampaign(players.player, ownedCase.campaignName);
+        for (const { player, page } of observers) {
+          await expect(
+            actionSlot(page, 1),
+            `${player}: ${expected}`,
+          ).toContainText('Change Officer Role');
+          await expect(
+            actionSlot(page, 1).getByText('Staged', { exact: true }),
+          ).toBeVisible();
+        }
       });
     }
   } catch (error) {

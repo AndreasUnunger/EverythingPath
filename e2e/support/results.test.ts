@@ -157,3 +157,39 @@ it('rejects a run that omits the realtime Action Slot journey', () => {
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);
 });
+
+function nightlyPassing() {
+  const report = passing();
+  const critical = report.tests.slice(1);
+  report.tests.push(
+    ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
+    ...[critical[0]!, critical[1]!, critical[3]!].map((test) => ({
+      ...test,
+      project: 'firefox-desktop',
+    })),
+    { ...critical[0]!, project: 'chromium-phone' },
+  );
+  return report;
+}
+
+it('accepts the risk-based nightly matrix and rejects it as a mandatory run', () => {
+  expect(evaluateResults(nightlyPassing(), 'nightly')).toBe(true);
+  expect(evaluateResults(nightlyPassing())).toBe(false);
+  expect(evaluateResults(passing(), 'nightly')).toBe(false);
+});
+it('requires every selected nightly project journey without skips or retry passes', () => {
+  for (let index = 0; index < 15; index++) {
+    const missing = nightlyPassing();
+    missing.tests.splice(index, 1);
+    expect(evaluateResults(missing, 'nightly')).toBe(false);
+    const retry = nightlyPassing();
+    retry.tests[index]!.results = [
+      { status: 'failed', retry: 0 },
+      { status: 'passed', retry: 1 },
+    ];
+    expect(evaluateResults(retry, 'nightly')).toBe(false);
+    const skipped = nightlyPassing();
+    Object.assign(skipped.tests[index]!, { annotations: ['skip'] });
+    expect(evaluateResults(skipped, 'nightly')).toBe(false);
+  }
+});

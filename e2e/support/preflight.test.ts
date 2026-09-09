@@ -4,7 +4,7 @@ import { runE2EPreflight, validatePreviewBinding } from './preflight';
 import { resources, safeEnvironment } from './test-data';
 
 describe('E2E preflight before any writing adapter', () => {
-  it.each(['pull_request'])(
+  it.each(['pull_request', 'schedule'])(
     'requires the tested commit to match the trusted %s workflow declaration',
     async (event) => {
       const environment = {

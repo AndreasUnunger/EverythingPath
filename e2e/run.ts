@@ -40,12 +40,13 @@ async function main() {
       resources: { type: 'string' },
       secrets: { type: 'string' },
       preflight: { type: 'boolean' },
+      nightly: { type: 'boolean' },
     },
     strict: true,
   });
   if (!values.resources)
     throw new Error(
-      'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight]',
+      'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight] [--nightly]',
     );
   const targets = await loadTargets(values.resources, values.secrets);
   if (
@@ -82,6 +83,7 @@ async function main() {
     const envFile = join(privateDirectory, 'convex.env');
     await savePrivate(envFile, `CONVEX_DEPLOY_KEY=${targets.previewKey}\n`);
     const run: Run = {
+      mode: values.nightly ? 'nightly' : 'mandatory',
       resources: targets.resources,
       sourceRoot,
       workspace,
@@ -145,7 +147,7 @@ async function main() {
     let requiredPassed = false;
     try {
       await command(
-        'Chromium tablet journeys',
+        `E2E ${run.mode} browser journeys`,
         ['exec', 'playwright', 'test', '--config', 'playwright.config.ts'],
         { cwd: workspace, env: childEnv, timeout: remaining() },
       );
@@ -157,16 +159,16 @@ async function main() {
       )
         .then((contents) => JSON.parse(contents) as unknown)
         .catch(() => null);
-      requiredPassed = evaluateResults(report);
+      requiredPassed = evaluateResults(report, run.mode);
       process.stdout.write(
-        `E2E required browser results: ${requiredPassed ? 'passed' : 'failed or missing'}. Safe evidence: ${artifactDirectory}\n`,
+        `E2E ${run.mode} browser results: ${requiredPassed ? 'passed' : 'failed or missing'}. Safe evidence: ${artifactDirectory}\n`,
       );
     }
     if (!requiredPassed)
-      throw new Error('E2E required results are incomplete or unsuccessful');
+      throw new Error(`E2E ${run.mode} results are incomplete or unsuccessful`);
     if (process.env.GITHUB_OUTPUT)
       await appendFile(process.env.GITHUB_OUTPUT, 'required_result=passed\n');
-    process.stdout.write('E2E Chromium tablet journeys passed.\n');
+    process.stdout.write(`E2E ${run.mode} browser journeys passed.\n`);
   } finally {
     if (temporary) await rm(temporary, { recursive: true, force: true });
     await rm(slotLock, { recursive: true, force: true });

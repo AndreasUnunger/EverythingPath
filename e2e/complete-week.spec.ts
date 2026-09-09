@@ -55,6 +55,7 @@ async function expectCommittedWeek(page: Page) {
 
 test('a player confirms a complete week and reloads its outcome', async ({
   players,
+  hasTouch,
   ownedCase,
 }) => {
   const page = players.player;
@@ -70,7 +71,7 @@ test('a player confirms a complete week and reloads its outcome', async ({
   await page
     .getByRole('button', { name: 'Continue to Activity', exact: true })
     .click();
-  await visiblePlace(page, 'Drill Militia', 1, 'tap');
+  await visiblePlace(page, 'Drill Militia', 1, hasTouch ? 'tap' : 'keyboard');
   await page
     .getByRole('textbox', { name: 'check total', exact: true })
     .fill('15');

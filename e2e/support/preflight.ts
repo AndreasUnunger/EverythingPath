@@ -28,7 +28,7 @@ export function validateE2ETargets(
   if (environment.CI) {
     if (
       environment.GITHUB_ACTIONS !== 'true' ||
-      !['push', 'workflow_dispatch', 'pull_request'].includes(
+      !['push', 'workflow_dispatch', 'pull_request', 'schedule'].includes(
         environment.GITHUB_EVENT_NAME ?? '',
       ) ||
       environment.GITHUB_ACTOR?.endsWith('[bot]') ||

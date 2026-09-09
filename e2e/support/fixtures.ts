@@ -15,7 +15,7 @@ import {
   type FixtureScope,
 } from '../fixtures/catalog';
 import { fixtureCall, loadRun, savePrivate, type Run } from './process';
-import { sanitizeTrace } from './artifacts';
+import { sanitizeLog, sanitizeTrace } from './artifacts';
 import { caseAttempt, claimCaseKey } from './case-attempt';
 
 type Fixture = {
@@ -36,10 +36,20 @@ async function closeWithEvidence(
     if (info.status !== info.expectedStatus) {
       for (const [index, page] of context.pages().entries()) {
         if (page.url().startsWith(`${run.baseURL}/campaigns`)) {
+          const visible = await page
+            .locator('h1, [role=region], [role=group], [role=dialog]')
+            .allTextContents()
+            .catch(() => []);
+          info.annotations.push({
+            type: 'observation',
+            description: sanitizeLog(
+              `${role}: last visible state: ${visible.join(' ') || 'no domain state visible'}`,
+            ).slice(0, 12000),
+          });
           await savePrivate(
             join(
               run.artifactDirectory,
-              `${ownedCase.scope.caseKey}-${info.retry}-${role}-${index}.png`,
+              `${info.project.name}-${ownedCase.scope.caseKey}-${info.retry}-${role}-${index}.png`,
             ),
             await page.screenshot({ fullPage: true }),
           );
@@ -52,7 +62,7 @@ async function closeWithEvidence(
       await savePrivate(
         join(
           run.artifactDirectory,
-          `${ownedCase.scope.caseKey}-retry-${role}.zip`,
+          `${info.project.name}-${ownedCase.scope.caseKey}-retry-${role}.zip`,
         ),
         sanitizeTrace(await readFile(raw)),
       );
@@ -81,7 +91,12 @@ async function useOwnedCase(
   };
   // This auto fixture runs for every attempt, including replacement retry
   // workers. Context fixtures explicitly depend on it below.
-  await claimCaseKey(run.privateDirectory, worker.key, caseKey, info.testId);
+  await claimCaseKey(
+    run.privateDirectory,
+    `${info.project.name}-${worker.key}`,
+    caseKey,
+    info.testId,
+  );
   await caseAttempt(
     () => fixtureCall(run, 'resetCase', { ...scope, now: 1_700_000_000_000 }),
     () =>
@@ -128,12 +143,17 @@ export const test = base.extend<{
     },
     { auto: true },
   ],
-  context: async ({ browser, ownedCase }, use, info) => {
+  context: async (
+    { browser, ownedCase, viewport, hasTouch, isMobile },
+    use,
+    info,
+  ) => {
     const run = await loadRun();
     const context = await browser.newContext({
       baseURL: run.baseURL,
-      viewport: { width: 1194, height: 834 },
-      hasTouch: true,
+      viewport,
+      hasTouch,
+      isMobile,
       storageState: join(
         run.privateDirectory,
         'auth',
@@ -152,7 +172,11 @@ export const test = base.extend<{
       await closeWithEvidence(context, 'primary-gm', run, ownedCase, info);
     }
   },
-  players: async ({ browser, ownedCase }, use, info) => {
+  players: async (
+    { browser, ownedCase, viewport, hasTouch, isMobile },
+    use,
+    info,
+  ) => {
     const run = await loadRun();
     const contexts: { role: RoleKey; context: BrowserContext }[] = [];
     const pages = {} as Players;
@@ -160,8 +184,9 @@ export const test = base.extend<{
       for (const role of ['gm', 'player', 'outsider'] as const) {
         const context = await browser.newContext({
           baseURL: run.baseURL,
-          viewport: { width: 1194, height: 834 },
-          hasTouch: true,
+          viewport,
+          hasTouch,
+          isMobile,
           storageState: join(
             run.privateDirectory,
             'auth',

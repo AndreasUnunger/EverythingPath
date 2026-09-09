@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type {
   FullResult,
   FullConfig,
@@ -5,6 +6,7 @@ import type {
   Reporter,
   TestCase,
   TestResult,
+  TestStep,
 } from '@playwright/test/reporter';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
@@ -21,12 +23,29 @@ export default class SafeReporter implements Reporter {
   onError() {
     this.errors++;
   }
+  private failedSteps = new Map<string, string>();
+  onTestBegin(test: TestCase) {
+    this.failedSteps.delete(test.id);
+  }
+  onStepEnd(test: TestCase, _result: TestResult, step: TestStep) {
+    if (!step.error || this.failedSteps.has(test.id)) return;
+    const titles = [step.title];
+    let parent = step.parent;
+    while (parent) {
+      titles.unshift(parent.title);
+      parent = parent.parent;
+    }
+    this.failedSteps.set(test.id, sanitizeLog(titles.join(' > ')));
+  }
   private results: {
+    failureIdentity: string;
+    project: string;
     journey: string;
     status: string;
     retry: number;
     duration: number;
     errors: string[];
+    observations: string[];
   }[] = [];
   onTestEnd(test: TestCase, result: TestResult) {
     const journey = sanitizeLog(test.title)
@@ -45,14 +64,24 @@ export default class SafeReporter implements Reporter {
             ),
           );
     this.results.push({
+      failureIdentity: createHash('sha256')
+        .update(this.failedSteps.get(test.id) ?? 'runner-or-fixture')
+        .digest('hex')
+        .slice(0, 20),
+      project: test.parent.project()?.name ?? 'unknown',
       journey,
       status: result.status,
       retry: result.retry,
       duration: result.duration,
       errors,
+      observations: test.annotations
+        .filter(({ type }) => type === 'observation')
+        .map(({ description }) =>
+          sanitizeLog(description ?? 'No visible state'),
+        ),
     });
     process.stdout.write(
-      `${result.status}: ${journey} (attempt ${result.retry + 1})\n`,
+      `${result.status}: ${test.parent.project()?.name}: ${journey} (attempt ${result.retry + 1})\n`,
     );
   }
   async onEnd(result: FullResult) {
@@ -70,7 +99,7 @@ export default class SafeReporter implements Reporter {
         results: test.results.map(({ status, retry }) => ({ status, retry })),
       })),
     };
-    const failed = !evaluateResults(evaluation);
+    const failed = !evaluateResults(evaluation, run.mode);
     await mkdir(run.artifactDirectory, { recursive: true });
     await writeFile(
       join(run.artifactDirectory, 'report.json'),

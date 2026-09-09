@@ -1,3 +1,5 @@
+import { loadRun } from './support/process';
+import { navigationAndPersistence } from './support/nightly-flows';
 import { test, expect } from './support/fixtures';
 
 test.use({ caseKey: 'smoke' });
@@ -45,6 +47,12 @@ test('organization members can open their campaign and outsiders cannot', async 
   await expect(
     players.outsider.getByRole('tab', { name: 'LEDGER', exact: true }),
   ).toHaveCount(0);
+
+  if (
+    (await loadRun()).mode === 'nightly' &&
+    ['chromium-tablet', 'chromium-phone'].includes(info.project.name)
+  )
+    await navigationAndPersistence(players.player, ownedCase.campaignName);
 
   // Explicit evidence drill: the retry executes the same real journey and passes,
   // but the reporter and required gate must still reject the overall run.

@@ -1,3 +1,4 @@
+import { browserProjects } from './e2e/support/matrix';
 import { defineConfig } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -32,14 +33,7 @@ export default defineConfig({
     screenshot: 'off',
     video: 'off',
   },
-  projects: [
-    { name: 'authentication', testMatch: /auth\.setup\.ts/, retries: 0 },
-    {
-      name: 'chromium-tablet',
-      testMatch: /.*\.spec\.ts/,
-      dependencies: ['authentication'],
-    },
-  ],
+  projects: browserProjects(run.mode),
   webServer: {
     gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
     command: 'pnpm exec tsx e2e/start-server.ts',

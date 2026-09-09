@@ -333,3 +333,65 @@ Live verification on 2026-09-09 passed authentication and all five journeys on
 first attempts against the recreated local preview and production web build.
 The realtime Action Slot journey completed in about six seconds. Typecheck,
 lint, all 320 tests, and the three build-boundary checks also passed.
+
+## Nightly compatibility matrix (#30)
+
+Run the same isolated harness with `--nightly`. The default command and **E2E
+required** retain the five mandatory Chromium tablet journeys. Nightly selects:
+
+| Project | Viewport | Journeys |
+| --- | --- | --- |
+| Chromium tablet | 1194×834 | All five, plus navigation/form/persistence and reconnect steps |
+| WebKit tablet | 1194×834 | All five critical journeys |
+| Firefox desktop | 1440×900 | Access, existing-militia initialization, complete week |
+| Chromium phone | 390×844 | Access with focused navigation, form layout, reload and cross-layout edits |
+
+The access journey's nightly extension creates a character, checks that form
+controls fit the viewport, reloads the saved record, edits at the alternate
+phone/tablet size, and reloads again at the original size. The Chromium tablet
+Action Slot extension disconnects the observing member while the player replaces
+the staged choice, then verifies the observer catches up **without reload** and
+the player's reload retains the choice. These exercise existing behavior; claim
+locks, individual action confirmation and GM moderation remain deferred.
+
+All projects run serially against the same reserved cohort. Each attempt resets
+and cleans its case before the next project uses it. Case ownership is checked
+within each project; screenshot and trace filenames include the project so
+cross-browser evidence cannot overwrite earlier failures. Contexts inherit actual
+project viewport, touch and mobile settings. Desktop uses keyboard staging.
+Authentication runs once with fresh sessions, then each browser gets independent
+contexts. Nightly requires all 15 selected tests (including authentication) with
+exactly one successful first attempt, using the mandatory gate's no-skip,
+no-quarantine, secret, reset, retry and sanitized-artifact policies.
+
+`.github/workflows/e2e-nightly.yaml` schedules default-branch execution at 02:23
+UTC, or accepts an owner-reviewed manual SHA. It shares the CI preview slot's
+concurrency group with the mandatory workflow. Its result is advisory: it is not
+an input to **E2E required** and never changes a previous merge result. Install
+Chromium, WebKit and Firefox with Playwright's supported OS dependencies before
+running locally. The CI workflow installs all three within the existing deadline.
+
+Safe reports include project, journey, assertion errors with expected state,
+and observing roles' last rendered domain state on failure. Recurrence summaries
+contain only fixed journey identifiers and hashes of failing step paths, never
+provider payloads. The separate triage job has issue-write permission and no
+Clerk or Convex credentials. It compares the current run to the preceding 19
+completed workflow runs, counting a diagnostic retry only once. Two consecutive
+failures or two failures within that window create or update one issue per
+project/journey/failing step; a closed matching issue is reopened on recurrence.
+Different failing steps do not count toward each other's threshold. Setup failures
+produce a dependency-free infrastructure summary. Missing/expired historical
+artifacts are unknown, so they do not supply evidence of recurrence. Hard job
+cancellation can prevent summary upload and is never treated as a pass.
+
+The summary is retained for 30 days alongside the existing safe evidence. The
+nightly schedule and automated issue writes take effect after this workflow lands
+on the default branch; local tests do not publish issues.
+
+Live verification on 2026-09-09 passed all 15 nightly tests on their first attempts
+in Playwright's Ubuntu container against the dedicated local preview. This
+includes all four browser/layout projects, reconnect catch-up before reload, and
+phone/tablet persistence. All 17 fixture resets and cleanups completed. This is
+local live-service evidence; the GitHub schedule and issue publication have not
+been run. Secretless tests also cover the recurrence threshold and GitHub create,
+update and reopen behavior using a fake GitHub command.
