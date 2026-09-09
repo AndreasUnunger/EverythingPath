@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Id } from '@convex/_generated/dataModel';
 import {
-  ACTIVITY_ROLL_KEYS,
   buildActivityRollSections,
   isParsableActivityRollTotal,
   mergeActivityRollDraftWithServer,
@@ -16,7 +15,6 @@ import { ActivityRollsPanel } from '~/components/week-board/activity-rolls-panel
 import type { ActivityRollTotals } from '~/components/week-board/roll-totals';
 import type { WeekBoardTeamRow } from '~/components/week-board/team-manager-effects';
 import type { ActionId } from '~/components/week-board/types';
-import { useDebouncedAutosave } from '~/hooks/use-debounced-autosave';
 
 export {
   buildActivityRollSummaryRows,
@@ -79,79 +77,28 @@ export function ActivityRollsController({
 
   const setField = (key: ActivityRollKey, value: string) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    if (!militiaId || !isParsableActivityRollTotal(value)) return;
+    // The board owns batching so leaving Activity cannot discard pending rolls.
+    void queueActivityRollTotalsPatchAction({
+      militiaId,
+      activityRollTotals: { [key]: value },
+    }).catch((error: unknown) => {
+      onErrorAction(
+        getErrorMessage(error, 'Failed to auto-save Activity roll totals.'),
+      );
+    });
   };
 
-  const sections = useMemo(
-    () =>
-      buildActivityRollSections({
-        rank,
-        stagedActionIds,
-        draft,
-        setField,
-        officerEffects,
-        strategistBonusActionId,
-        recruitTeamId,
-        slotTeams,
-        teams,
-      }),
-    [
-      draft,
-      officerEffects,
-      rank,
-      recruitTeamId,
-      stagedActionIds,
-      strategistBonusActionId,
-      slotTeams,
-      teams,
-    ],
-  );
-
-  const enabledFieldKeys = useMemo(() => {
-    return new Set<ActivityRollKey>(
-      sections.flatMap((section) =>
-        section.fields
-          .filter((field) => !field.disabled)
-          .map((field) => field.key as ActivityRollKey),
-      ),
-    );
-  }, [sections]);
-
-  useDebouncedAutosave({
-    enabled: Boolean(militiaId),
-    delayMs: 900,
-    deps: [militiaId, draft, serverTotals, enabledFieldKeys],
-    shouldSkip: () => {
-      if (!militiaId) return true;
-      const patch = buildActivityRollTotalsPatch({
-        draft,
-        serverTotals,
-        enabledFieldKeys,
-      });
-
-      if (!patch) return true;
-
-      return !ACTIVITY_ROLL_KEYS.every((key) =>
-        isParsableActivityRollTotal(enabledFieldKeys.has(key) ? draft[key] : ''),
-      );
-    },
-    run: async () => {
-      if (!militiaId) return;
-      const patch = buildActivityRollTotalsPatch({
-        draft,
-        serverTotals,
-        enabledFieldKeys,
-      });
-
-      if (!patch) return;
-
-      await queueActivityRollTotalsPatchAction({
-        militiaId,
-        activityRollTotals: patch,
-      });
-    },
-    onError: (error) => {
-      onErrorAction(getErrorMessage(error, 'Failed to auto-save Activity roll totals.'));
-    },
+  const sections = buildActivityRollSections({
+    rank,
+    stagedActionIds,
+    draft,
+    setField,
+    officerEffects,
+    strategistBonusActionId,
+    recruitTeamId,
+    slotTeams,
+    teams,
   });
 
   return (
@@ -161,29 +108,4 @@ export function ActivityRollsController({
       showTitle={showTitle}
     />
   );
-}
-
-function buildActivityRollTotalsPatch({
-  draft,
-  serverTotals,
-  enabledFieldKeys,
-}: {
-  draft: ActivityRollDraft;
-  serverTotals: ActivityRollTotals;
-  enabledFieldKeys: Set<ActivityRollKey>;
-}) {
-  const patch: Partial<Record<ActivityRollKey, string>> = {};
-
-  for (const key of ACTIVITY_ROLL_KEYS) {
-    const localValue = enabledFieldKeys.has(key) ? draft[key] : '';
-    const serverValue = enabledFieldKeys.has(key)
-      ? (serverTotals[key]?.toString() ?? '')
-      : '';
-
-    if (localValue !== serverValue) {
-      patch[key] = localValue;
-    }
-  }
-
-  return Object.keys(patch).length > 0 ? patch : undefined;
 }

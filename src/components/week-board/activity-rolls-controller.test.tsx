@@ -1,22 +1,13 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActivityRollsController } from '~/components/week-board/activity-rolls-controller';
 import { buildOfficerEffects } from '~/components/week-board/officer-effects';
-
-const useDebouncedAutosaveMock = vi.fn();
-
-vi.mock('~/hooks/use-debounced-autosave', () => ({
-  useDebouncedAutosave: (config: unknown) => useDebouncedAutosaveMock(config),
-}));
-
-function getLatestAutosave() {
-  return useDebouncedAutosaveMock.mock.calls.at(-1)?.[0] as
-    | {
-        shouldSkip: () => boolean;
-        run: () => Promise<void>;
-      }
-    | undefined;
-}
 
 function buildProps(overrides?: Record<string, unknown>) {
   return {
@@ -51,16 +42,17 @@ describe('ActivityRollsController sparse autosave payloads', () => {
     cleanup();
   });
 
-  it('queues only the changed activity roll field', async () => {
+  it('queues changed rolls before leaving Activity', async () => {
     const props = buildProps();
-    render(<ActivityRollsController {...props} />);
+    const { unmount } = render(<ActivityRollsController {...props} />);
 
     fireEvent.change(screen.getByLabelText('check total'), {
       target: { value: '17' },
     });
 
+    unmount();
     await act(async () => {
-      await getLatestAutosave()?.run();
+      await Promise.resolve();
     });
 
     expect(props.queueActivityRollTotalsPatchAction).toHaveBeenCalledWith({
@@ -68,6 +60,25 @@ describe('ActivityRollsController sparse autosave payloads', () => {
       activityRollTotals: {
         earnGoldCheckTotal: '17',
       },
+    });
+  });
+
+  it('keeps malformed rolls local until a valid total is entered', async () => {
+    const props = buildProps();
+    render(<ActivityRollsController {...props} />);
+    fireEvent.change(screen.getByLabelText('check total'), {
+      target: { value: 'invalid' },
+    });
+    expect(props.queueActivityRollTotalsPatchAction).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('check total'), {
+      target: { value: '15' },
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(props.queueActivityRollTotalsPatchAction).toHaveBeenCalledWith({
+      militiaId: 'm1',
+      activityRollTotals: { earnGoldCheckTotal: '15' },
     });
   });
 
@@ -84,7 +95,7 @@ describe('ActivityRollsController sparse autosave payloads', () => {
     });
 
     await act(async () => {
-      await getLatestAutosave()?.run();
+      await Promise.resolve();
     });
 
     expect(props.queueActivityRollTotalsPatchAction).toHaveBeenCalledWith({

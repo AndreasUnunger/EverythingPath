@@ -301,3 +301,12 @@ inputs through the production board and ledger, both immediately and after reloa
 It does not inspect backend state or intercept mutations. Exact revision rejection,
 atomicity, calculations, and rule permutations remain in the existing mutation
 harness and rules tests. The required aggregate rejects runs missing this journey.
+
+The journey exposed Activity roll edits being lost when phase navigation unmounted
+the roll panel before its separate autosave timer fired. Valid edits now enter the
+board's existing mutation queue directly; a component regression covers immediate
+unmount and keeps malformed numeric input local.
+
+Live verification on 2026-09-09 passed authentication and all four required
+journeys on their first attempts against the recreated local preview, including
+complete-week Confirmation and reload. Typecheck, lint, and all 318 tests passed.
