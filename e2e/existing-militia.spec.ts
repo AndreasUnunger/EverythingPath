@@ -1,17 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './support/fixtures';
+import { select, selectCampaign } from './support/interactions';
 
 test.use({ caseKey: 'existingMilitia', comparisonCaseKey: 'isolation' });
-
-async function select(
-  page: Page,
-  within: Locator,
-  label: string,
-  option: string,
-) {
-  await within.getByRole('combobox', { name: label, exact: true }).click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
 
 async function openLedger(page: Page, title: string) {
   const ledger = page.getByRole('region', { name: title, exact: true });
@@ -22,11 +13,7 @@ async function openLedger(page: Page, title: string) {
 }
 
 async function chooseCampaign(page: Page, name: string) {
-  await page.getByRole('combobox', { name: 'Active campaign' }).click();
-  await page.getByRole('option', { name, exact: true }).click();
-  await expect(
-    page.getByRole('combobox', { name: 'Active campaign' }),
-  ).toContainText(name);
+  await selectCampaign(page, name);
   await page.getByRole('tab', { name: 'LEDGER', exact: true }).click();
 }
 

@@ -1,24 +1,12 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './support/fixtures';
+import { select, selectCampaign } from './support/interactions';
 
 test.use({ caseKey: 'characterLedger' });
 
-async function select(
-  page: Page,
-  within: Locator,
-  label: string,
-  option: string,
-) {
-  await within.getByRole('combobox', { name: label, exact: true }).click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
-
 async function openCampaignLedger(page: Page, campaignName: string) {
   await page.goto('/campaigns');
-  const campaign = page.getByRole('combobox', { name: 'Active campaign' });
-  await campaign.click();
-  await page.getByRole('option', { name: campaignName, exact: true }).click();
-  await expect(campaign).toContainText(campaignName);
+  await selectCampaign(page, campaignName);
   return await openCharacterLedger(page);
 }
 
@@ -36,9 +24,7 @@ async function openCharacterLedger(page: Page) {
 
 async function reloadCampaignLedger(page: Page, campaignName: string) {
   await page.reload();
-  await expect(
-    page.getByRole('combobox', { name: 'Active campaign' }),
-  ).toContainText(campaignName);
+  await selectCampaign(page, campaignName);
   return await openCharacterLedger(page);
 }
 

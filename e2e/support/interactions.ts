@@ -1,5 +1,23 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
+export async function select(
+  page: Page,
+  within: Locator,
+  label: string,
+  option: string,
+) {
+  await within.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
+
+export async function selectCampaign(page: Page, name: string) {
+  await page.getByRole('combobox', { name: 'Active campaign' }).click();
+  await page.getByRole('option', { name, exact: true }).click();
+  await expect(
+    page.getByRole('combobox', { name: 'Active campaign' }),
+  ).toContainText(name);
+}
+
 export function actionSlot(page: Page, number: number) {
   return page.getByRole('group', {
     name: `Activity Slot ${number}`,
