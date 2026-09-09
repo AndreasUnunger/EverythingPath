@@ -40,6 +40,10 @@ export const deploymentFixture: DeploymentFixture = {
   productionConvexUrls: resources.production.convexUrls,
   workers: resources.workers.map((worker) => ({
     ...worker,
-    cases: { smoke: 'a'.repeat(64), isolation: 'b'.repeat(64) },
+    cases: {
+      smoke: 'a'.repeat(64),
+      isolation: 'b'.repeat(64),
+      existingMilitia: 'd'.repeat(64),
+    },
   })),
 };

@@ -7,6 +7,11 @@ const requiredTests = [
     'chromium-tablet',
     'organization members can open their campaign and outsiders cannot',
   ],
+  [
+    'existing-militia.spec.ts',
+    'chromium-tablet',
+    'existing militia state survives reload within its campaign',
+  ],
 ];
 const reportSchema = z.object({
   status: z.literal('passed'),
@@ -40,7 +45,7 @@ const reportSchema = z.object({
 });
 
 // Count and identify required tests independently of Playwright's selected suite.
-// A green runner alone cannot prove that the access journey actually ran.
+// A green runner alone cannot prove that every journey actually ran.
 export function evaluateResults(report: unknown): boolean {
   const parsed = reportSchema.safeParse(report);
   if (!parsed.success) return false;

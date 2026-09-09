@@ -1,7 +1,8 @@
 # Safe browser harness
 
 Issues #23 and #24 supply the harness and dedicated service cohort. Issue #25
-adds the required organization-access journey and aggregate CI gate. Normal runs
+adds the required organization-access journey and aggregate CI gate. Issue #26
+adds the existing-militia setup journey to that same gate. Normal runs
 verify existing Clerk users, roles and memberships; they never create or repair
 them. Session sign-in and Clerk testing tokens are the expected authentication
 writes.
@@ -62,7 +63,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the Chromium access journey at 1194×834 with
+creates fresh ignored role storage and runs the Chromium access and existing-militia journeys at 1194×834 with
 touch enabled. It starts with one authenticated worker. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
@@ -183,7 +184,7 @@ and manual dispatches. Merge-queue execution is deferred. The stable aggregate c
 runs after the access job and accepts only a successful job with an explicit
 verified result output. Failed, cancelled, neutral, skipped or absent upstream
 results fail closed. The reporter independently requires the named authentication
-setup and access journey, each with exactly one passing attempt. Skips, expected
+setup, access journey and existing-militia journey, each with exactly one passing attempt. Skips, expected
 failures, quarantine annotations, focused runs, global errors and retry passes
 cannot satisfy it. `forbidOnly` rejects focused tests before execution.
 
@@ -249,3 +250,23 @@ mandatory enforcement active.
 References: [Clerk users API](https://clerk.com/docs/reference/backend-api/tag/users/post/users),
 [Clerk organizations API](https://clerk.com/docs/reference/backend-api/tag/organizations/post/organizations),
 [GitHub environment restrictions](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+
+## Existing-militia journey
+
+`existing-militia.spec.ts` owns the `existingMilitia` fixture and a separate
+`isolation` comparison fixture. Both reset before every attempt and clean up
+afterward; neither depends on the access journey's campaign. Setup starts with
+an empty campaign and enters the militia, officer, teams, settlement, week context,
+persistent sickness and next-week bonus through the Ledger.
+
+The journey distinguishes an empty rank from a malformed rank using visible,
+field-associated errors. It saves an intentional manager-limit exception with
+an explanatory team note and checks the advisory warning. All observations use
+production UI roles, labels and text, including reload and campaign switching.
+No fixture inspection API is used to assert application behavior. The required
+result evaluator rejects runs that omit this journey.
+
+Live verification on 2026-09-09 passed authentication and both journeys on their
+first attempts against the recreated local preview and a production web build.
+The existing-militia journey completed in about 25 seconds, including reload,
+the comparison campaign checks and switching back to the initialized militia.

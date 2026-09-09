@@ -59,7 +59,7 @@ jobs:
           remaining=$(( E2E_DEADLINE - $(date +%s) ))
           [ "$remaining" -gt 0 ] || exit 1
           timeout --signal=INT --kill-after=5s "${remaining}s" bash -c 'pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium'
-      - name: Run required access journey
+      - name: Run required browser journeys
         id: journey
         run: |
           remaining=$(( E2E_DEADLINE - $(date +%s) ))
@@ -98,4 +98,4 @@ jobs:
             echo 'E2E required: failed. The access job must succeed with every required result passing on its first attempt. Inspect the access job and sanitized artifacts.'
             exit 1
           fi
-          echo 'E2E required: passed. Authentication and organization access passed on their first attempts.'
+          echo 'E2E required: passed. Authentication, organization access and existing-militia setup passed on their first attempts.'

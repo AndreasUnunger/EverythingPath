@@ -15,7 +15,11 @@ const scopeArgs = {
   namespace: v.string(),
   version: v.number(),
   workerKey: v.string(),
-  caseKey: v.union(v.literal('smoke'), v.literal('isolation')),
+  caseKey: v.union(
+    v.literal('smoke'),
+    v.literal('isolation'),
+    v.literal('existingMilitia'),
+  ),
   token: v.string(),
 };
 
@@ -191,6 +195,9 @@ export const resetCase = internalMutation({
         campaignKey: domain.campaign,
       },
     });
+    // The onboarding journey must create its militia and officers through the UI.
+    if (args.caseKey === 'existingMilitia')
+      return { campaignId, campaignKey: domain.campaign };
     const characterId = await ctx.db.insert('character', {
       campaignId,
       ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,

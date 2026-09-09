@@ -170,7 +170,11 @@ describe('internal fixture boundary', () => {
       key: 'worker-1',
       organizationId: 'org_second',
       outsiderOrganizationId: 'org_secondoutsider',
-      cases: { smoke: 'c'.repeat(64), isolation: 'd'.repeat(64) },
+      cases: {
+        smoke: 'c'.repeat(64),
+        isolation: 'd'.repeat(64),
+        existingMilitia: 'e'.repeat(64),
+      },
     };
     vi.stubEnv(
       'E2E_FIXTURE_CONFIG',

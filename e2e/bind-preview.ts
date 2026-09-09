@@ -20,6 +20,7 @@ run.fixture = {
     cases: {
       smoke: randomBytes(32).toString('hex'),
       isolation: randomBytes(32).toString('hex'),
+      existingMilitia: randomBytes(32).toString('hex'),
     },
   })),
 };

@@ -46,6 +46,10 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
         join(directory, 'access.spec.ts'),
         `import { test } from ${playwright}; test${modifier}('organization members can open their campaign and outsiders cannot', ${options} async ({}, info) => { ${body} });`,
       );
+      await writeFile(
+        join(directory, 'existing-militia.spec.ts'),
+        `import { test } from ${playwright}; test('existing militia state survives reload within its campaign', () => {});`,
+      );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,
@@ -54,7 +58,7 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
         retries: 1, reporter: [[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],
         projects: [
           { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
-          { name: 'chromium-tablet', testMatch: 'access.spec.ts', dependencies: ['authentication'] },
+          { name: 'chromium-tablet', testMatch: '*.spec.ts', dependencies: ['authentication'] },
         ],
       };`,
       );
@@ -87,6 +91,7 @@ it.each(['passed', 'skipped', 'focused', 'quarantined', 'retry'] as const)(
                 { status: 'passed', retry: 1 },
               ],
             },
+            expect.anything(),
           ],
         });
     } finally {

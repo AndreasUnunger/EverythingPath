@@ -145,7 +145,7 @@ async function main() {
     let requiredPassed = false;
     try {
       await command(
-        'Chromium tablet access',
+        'Chromium tablet journeys',
         ['exec', 'playwright', 'test', '--config', 'playwright.config.ts'],
         { cwd: workspace, env: childEnv, timeout: remaining() },
       );
@@ -159,14 +159,14 @@ async function main() {
         .catch(() => null);
       requiredPassed = evaluateResults(report);
       process.stdout.write(
-        `E2E required authentication/access results: ${requiredPassed ? 'passed' : 'failed or missing'}. Safe evidence: ${artifactDirectory}\n`,
+        `E2E required browser results: ${requiredPassed ? 'passed' : 'failed or missing'}. Safe evidence: ${artifactDirectory}\n`,
       );
     }
     if (!requiredPassed)
       throw new Error('E2E required results are incomplete or unsuccessful');
     if (process.env.GITHUB_OUTPUT)
       await appendFile(process.env.GITHUB_OUTPUT, 'required_result=passed\n');
-    process.stdout.write('E2E Chromium tablet access passed.\n');
+    process.stdout.write('E2E Chromium tablet journeys passed.\n');
   } finally {
     if (temporary) await rm(temporary, { recursive: true, force: true });
     await rm(slotLock, { recursive: true, force: true });

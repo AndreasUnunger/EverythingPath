@@ -21,7 +21,7 @@ export function LedgerShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card border-2 p-4">
+    <div role="region" aria-label={title} className="bg-card border-2 p-4">
       <div
         role="button"
         tabIndex={0}
@@ -57,6 +57,7 @@ export function LedgerShell({
       </div>
 
       <div
+        inert={!isOpen}
         className={cn(
           'grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           isOpen ? 'mt-4 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0',

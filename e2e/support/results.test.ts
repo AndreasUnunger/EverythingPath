@@ -25,10 +25,19 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'existing-militia.spec.ts',
+      project: 'chromium-tablet',
+      title: 'existing militia state survives reload within its campaign',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
-it('accepts exactly the required authentication and access journey on their first attempts', () => {
+it('accepts exactly the required authentication and both journeys on their first attempts', () => {
   expect(evaluateResults(passing())).toBe(true);
 });
 
@@ -42,9 +51,11 @@ it.each([
   'interrupted',
   undefined,
 ])('rejects a required result of %s', (status) => {
-  const report = passing();
-  Object.assign(report.tests[1]!.results[0]!, { status });
-  expect(evaluateResults(report)).toBe(false);
+  for (const index of [1, 2]) {
+    const report = passing();
+    Object.assign(report.tests[index]!.results[0]!, { status });
+    expect(evaluateResults(report)).toBe(false);
+  }
 });
 
 it('rejects a diagnostic retry even when it passes', () => {
@@ -95,3 +106,9 @@ it.each(['@quarantine', '@quarantined'])(
     expect(evaluateResults(report)).toBe(false);
   },
 );
+
+it('rejects a run that omits the existing-militia journey', () => {
+  const report = passing();
+  report.tests.pop();
+  expect(evaluateResults(report)).toBe(false);
+});

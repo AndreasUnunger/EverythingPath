@@ -63,51 +63,68 @@ async function closeWithEvidence(
   }
 }
 
+async function useOwnedCase(
+  caseKey: CaseKey,
+  use: (fixture: Fixture) => Promise<void>,
+  info: TestInfo,
+) {
+  const run = await loadRun();
+  const worker = run.fixture?.workers[info.parallelIndex];
+  if (!worker || info.parallelIndex !== 0)
+    throw new Error('Authenticated worker cohort is unavailable');
+  const scope: FixtureScope = {
+    namespace: run.resources.previewName,
+    version: FIXTURE_VERSION,
+    workerKey: worker.key,
+    caseKey,
+    token: worker.cases[caseKey],
+  };
+  // This auto fixture runs for every attempt, including replacement retry
+  // workers. Context fixtures explicitly depend on it below.
+  await claimCaseKey(run.privateDirectory, worker.key, caseKey, info.testId);
+  await caseAttempt(
+    () => fixtureCall(run, 'resetCase', { ...scope, now: 1_700_000_000_000 }),
+    () =>
+      use({
+        scope,
+        campaignName: `E2E ${fixtureCatalog[caseKey].campaign}`,
+        inspect: () => fixtureCall(run, 'inspectCase', scope),
+      }),
+    async () => {
+      await fixtureCall(run, 'cleanupCase', scope);
+    },
+    () => {
+      process.stderr.write(
+        'E2E case cleanup failed; the next attempt will reset it.\n',
+      );
+    },
+  );
+}
+
 export const test = base.extend<{
   caseKey: CaseKey;
   ownedCase: Fixture;
+  comparisonCaseKey: CaseKey | undefined;
+  comparisonCase: Fixture | undefined;
   players: Players;
 }>({
   caseKey: ['smoke', { option: true }],
+  comparisonCaseKey: [undefined, { option: true }],
   ownedCase: [
     async ({ caseKey }, use, info) => {
-      const run = await loadRun();
-      const worker = run.fixture?.workers[info.parallelIndex];
-      if (!worker || info.parallelIndex !== 0)
-        throw new Error('Authenticated worker cohort is unavailable');
-      const scope: FixtureScope = {
-        namespace: run.resources.previewName,
-        version: FIXTURE_VERSION,
-        workerKey: worker.key,
-        caseKey,
-        token: worker.cases[caseKey],
-      };
-      // This auto fixture runs for every attempt, including replacement retry
-      // workers. Context fixtures explicitly depend on it below.
-      await claimCaseKey(
-        run.privateDirectory,
-        worker.key,
-        caseKey,
-        info.testId,
-      );
-      await caseAttempt(
-        () =>
-          fixtureCall(run, 'resetCase', { ...scope, now: 1_700_000_000_000 }),
-        () =>
-          use({
-            scope,
-            campaignName: `E2E ${fixtureCatalog[caseKey].campaign}`,
-            inspect: () => fixtureCall(run, 'inspectCase', scope),
-          }),
-        async () => {
-          await fixtureCall(run, 'cleanupCase', scope);
-        },
-        () => {
-          process.stderr.write(
-            'E2E case cleanup failed; the next attempt will reset it.\n',
-          );
-        },
-      );
+      await useOwnedCase(caseKey, use, info);
+    },
+    { auto: true },
+  ],
+  // Automatic fixtures finish setup before any browser context is created.
+  comparisonCase: [
+    async ({ caseKey, comparisonCaseKey }, use, info) => {
+      if (!comparisonCaseKey) return await use(undefined);
+      if (caseKey === comparisonCaseKey)
+        throw new Error(
+          'Comparison campaign must differ from the journey campaign',
+        );
+      await useOwnedCase(comparisonCaseKey, use, info);
     },
     { auto: true },
   ],

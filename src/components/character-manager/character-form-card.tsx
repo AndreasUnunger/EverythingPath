@@ -96,22 +96,17 @@ export function CharacterFormCard({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-mono text-sm">Kind</FormLabel>
-                    <FormControl>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
                         <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="border-primary bg-card border-2 font-mono">
-                          <SelectItem value="pc">PC</SelectItem>
-                          <SelectItem value="officer_npc">
-                            Officer NPC
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
+                      </FormControl>
+                      <SelectContent className="border-primary bg-card border-2 font-mono">
+                        <SelectItem value="pc">PC</SelectItem>
+                        <SelectItem value="officer_npc">Officer NPC</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -157,27 +152,24 @@ export function CharacterFormCard({
                     <FormLabel className="font-mono text-sm">
                       Officer role
                     </FormLabel>
-                    <FormControl>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
                         <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="border-primary bg-card border-2 font-mono">
-                          <SelectItem value="none">No role</SelectItem>
-                          {officerRoleLabels.map((officerRole) => (
-                            <SelectItem
-                              key={officerRole.role}
-                              value={officerRole.role}
-                            >
-                              {officerRole.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
+                      </FormControl>
+                      <SelectContent className="border-primary bg-card border-2 font-mono">
+                        <SelectItem value="none">No role</SelectItem>
+                        {officerRoleLabels.map((officerRole) => (
+                          <SelectItem
+                            key={officerRole.role}
+                            value={officerRole.role}
+                          >
+                            {officerRole.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
