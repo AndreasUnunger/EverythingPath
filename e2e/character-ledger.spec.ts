@@ -34,7 +34,9 @@ async function createCharacter(
   name: string,
   role: string,
 ) {
-  await ledger.getByRole('button', { name: 'Add Character' }).click();
+  await ledger
+    .getByRole('button', { name: 'Add Character', exact: true })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'New Character' });
   await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
   await select(page, dialog, 'Officer role', role);
