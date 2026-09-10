@@ -2,9 +2,9 @@ import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import type { CampaignContext } from '~/lib/canonical-campaign-context';
 import {
-  FactField as F,
-  FactEntry,
-  FactSection,
+  CampaignContextField,
+  CampaignContextEntry,
+  CampaignContextSection,
   options,
   yesNo,
 } from './fields';
@@ -14,7 +14,7 @@ export function Orders() {
   const orders = useFieldArray({ control, name: 'orders' });
   const values = watch();
   return (
-    <FactSection
+    <CampaignContextSection
       title="Orders"
       onAdd={() =>
         orders.append({
@@ -37,12 +37,12 @@ export function Orders() {
       }
     >
       {orders.fields.map((row, i) => (
-        <FactEntry
+        <CampaignContextEntry
           key={row.id}
           label={`Order ${i + 1}`}
           onRemove={() => orders.remove(i)}
         >
-          <F
+          <CampaignContextField
             name={`orders.${i}.itemId`}
             label="Ordered item"
             choices={values.items.map((x) => ({
@@ -50,7 +50,7 @@ export function Orders() {
               label: x.name || 'Unnamed item',
             }))}
           />
-          <F
+          <CampaignContextField
             name={`orders.${i}.settlementId`}
             label="Delivery settlement"
             choices={[
@@ -61,7 +61,7 @@ export function Orders() {
               })),
             ]}
           />
-          <F
+          <CampaignContextField
             name={`orders.${i}.source`}
             label="Order source"
             choices={[
@@ -73,25 +73,41 @@ export function Orders() {
               ]),
             ]}
           />
-          <F
+          <CampaignContextField
             name={`orders.${i}.priceCopper`}
             label="Price paid (copper)"
             numeric
           />
-          <F name={`orders.${i}.orderedDay`} label="Ordered day" numeric />
-          <F name={`orders.${i}.dueDay`} label="Due day" numeric />
-          <F name={`orders.${i}.orderedWeek`} label="Ordered week" numeric />
-          <F
+          <CampaignContextField
+            name={`orders.${i}.orderedDay`}
+            label="Ordered day"
+            numeric
+          />
+          <CampaignContextField
+            name={`orders.${i}.dueDay`}
+            label="Due day"
+            numeric
+          />
+          <CampaignContextField
+            name={`orders.${i}.orderedWeek`}
+            label="Ordered week"
+            numeric
+          />
+          <CampaignContextField
             name={`orders.${i}.dueActivityWeek`}
             label="Due Activity week"
             numeric
           />
-          <F
+          <CampaignContextField
             name={`orders.${i}.deliveryDays`}
             label="Delivery duration (days)"
             numeric
           />
-          <F name={`orders.${i}.expedited`} label="Expedited" choices={yesNo} />
+          <CampaignContextField
+            name={`orders.${i}.expedited`}
+            label="Expedited"
+            choices={yesNo}
+          />
           <div className="space-y-2">
             <Button
               type="button"
@@ -111,12 +127,12 @@ export function Orders() {
             </Button>
             {values.orders[i]?.enchantment && (
               <>
-                <F
+                <CampaignContextField
                   name={`orders.${i}.enchantment.costCopper`}
                   label="Enchantment cost (copper)"
                   numeric
                 />
-                <F
+                <CampaignContextField
                   name={`orders.${i}.enchantment.days`}
                   label="Enchantment duration (days)"
                   numeric
@@ -157,16 +173,19 @@ export function Orders() {
               )}
             </div>
             {values.orders[i]?.receipt && (
-              <F
+              <CampaignContextField
                 name={`orders.${i}.receipt.receivedDay`}
                 label="Received day"
                 numeric
               />
             )}
           </div>
-          <F name={`orders.${i}.notes`} label="Order notes / table ruling" />
-        </FactEntry>
+          <CampaignContextField
+            name={`orders.${i}.notes`}
+            label="Order notes / table ruling"
+          />
+        </CampaignContextEntry>
       ))}
-    </FactSection>
+    </CampaignContextSection>
   );
 }

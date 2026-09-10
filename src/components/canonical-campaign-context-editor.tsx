@@ -8,7 +8,7 @@ import {
   campaignContextWarnings,
   type CampaignContext,
 } from '~/lib/canonical-campaign-context';
-import { FactField as F, yesNo } from './campaign-context/fields';
+import { CampaignContextField, yesNo } from './campaign-context/fields';
 import { SettlementAssets } from './campaign-context/settlement-assets';
 import { Events, type NamedReference } from './campaign-context/events';
 import { Orders } from './campaign-context/orders';
@@ -71,20 +71,32 @@ export function CanonicalCampaignContextEditor({
         </p>
         <fieldset disabled={form.formState.isSubmitting} className="space-y-6">
           <div className="grid items-start gap-3 md:grid-cols-2">
-            <F name="treasuryCopper" label="Treasury (copper)" numeric />
-            <F name="startDay" label="Week start day" numeric />
-            <F
+            <CampaignContextField
+              name="treasuryCopper"
+              label="Treasury (copper)"
+              numeric
+            />
+            <CampaignContextField
+              name="startDay"
+              label="Week start day"
+              numeric
+            />
+            <CampaignContextField
               name="firstMilitiaWeek"
               label="First militia week"
               choices={yesNo}
             />
-            <F
+            <CampaignContextField
               name="uneventfulCarry"
               label="Uneventful carry"
               choices={yesNo}
             />
-            <F name="lastBuyoffWeek" label="Last militia buyoff week" numeric />
-            <F
+            <CampaignContextField
+              name="lastBuyoffWeek"
+              label="Last militia buyoff week"
+              numeric
+            />
+            <CampaignContextField
               name="operatingSettlementId"
               label="Operating settlement"
               choices={[

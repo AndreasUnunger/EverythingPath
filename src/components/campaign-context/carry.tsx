@@ -2,7 +2,12 @@ import { useFieldArray, useFormContext } from 'react-hook-form';
 import { MILITIA_ACTIVITY_ACTION_IDS } from '~/lib/militia-domain';
 import { Button } from '~/components/ui/button';
 import type { CampaignContext } from '~/lib/canonical-campaign-context';
-import { FactField as F, FactEntry, FactSection, options } from './fields';
+import {
+  CampaignContextField,
+  CampaignContextEntry,
+  CampaignContextSection,
+  options,
+} from './fields';
 import type { NamedReference } from './events';
 const effectChoices = {
   check_modifier: { kind: 'check_modifier', check: 'loyalty', value: 0 },
@@ -18,7 +23,7 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
   const values = watch();
   return (
     <>
-      <FactSection
+      <CampaignContextSection
         title="One-use bonuses"
         onAdd={() =>
           bonuses.append({
@@ -32,13 +37,16 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
         }
       >
         {bonuses.fields.map((row, i) => (
-          <FactEntry
+          <CampaignContextEntry
             key={row.id}
             label={`Bonus ${i + 1}`}
             onRemove={() => bonuses.remove(i)}
           >
-            <F name={`bonuses.${i}.source`} label="Bonus source" />
-            <F
+            <CampaignContextField
+              name={`bonuses.${i}.source`}
+              label="Bonus source"
+            />
+            <CampaignContextField
               name={`bonuses.${i}.check`}
               label="Applies to"
               choices={options([
@@ -48,21 +56,25 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
                 'event_chance',
               ])}
             />
-            <F name={`bonuses.${i}.value`} label="Bonus amount" numeric />
-            <F
+            <CampaignContextField
+              name={`bonuses.${i}.value`}
+              label="Bonus amount"
+              numeric
+            />
+            <CampaignContextField
               name={`bonuses.${i}.availableWeek`}
               label="Available week"
               numeric
             />
-            <F
+            <CampaignContextField
               name={`bonuses.${i}.consumedWeek`}
               label="Consumed week"
               numeric
             />
-          </FactEntry>
+          </CampaignContextEntry>
         ))}
-      </FactSection>
-      <FactSection
+      </CampaignContextSection>
+      <CampaignContextSection
         title="Queued effects"
         onAdd={() =>
           effects.append({
@@ -77,18 +89,21 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
         {effects.fields.map((row, i) => {
           const effect = values.queuedEffects[i]?.effect;
           return (
-            <FactEntry
+            <CampaignContextEntry
               key={row.id}
               label={`Queued effect ${i + 1}`}
               onRemove={() => effects.remove(i)}
             >
-              <F name={`queuedEffects.${i}.sourceId`} label="Effect source" />
-              <F
+              <CampaignContextField
+                name={`queuedEffects.${i}.sourceId`}
+                label="Effect source"
+              />
+              <CampaignContextField
                 name={`queuedEffects.${i}.startsWeek`}
                 label="Starts week"
                 numeric
               />
-              <F
+              <CampaignContextField
                 name={`queuedEffects.${i}.endsWeek`}
                 label="Ends week"
                 numeric
@@ -115,7 +130,7 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
                 </div>
               </div>
               {effect?.kind === 'check_modifier' && (
-                <F
+                <CampaignContextField
                   name={`queuedEffects.${i}.effect.check`}
                   label="Affected check"
                   choices={options(['loyalty', 'security', 'secrecy'])}
@@ -123,36 +138,36 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
               )}
               {(effect?.kind === 'check_modifier' ||
                 effect?.kind === 'event_chance') && (
-                <F
+                <CampaignContextField
                   name={`queuedEffects.${i}.effect.value`}
                   label="Effect amount"
                   numeric
                 />
               )}
               {effect?.kind === 'block_action' && (
-                <F
+                <CampaignContextField
                   name={`queuedEffects.${i}.effect.actionId`}
                   label="Blocked action"
                   choices={options(MILITIA_ACTIVITY_ACTION_IDS)}
                 />
               )}
               {effect?.kind === 'team_unavailable' && (
-                <F
+                <CampaignContextField
                   name={`queuedEffects.${i}.effect.teamId`}
                   label="Unavailable team"
                   choices={teams.map((x) => ({ value: x.id, label: x.name }))}
                 />
               )}
               {effect?.kind === 'narrative' && (
-                <F
+                <CampaignContextField
                   name={`queuedEffects.${i}.effect.instruction`}
                   label="Effect instruction"
                 />
               )}
-            </FactEntry>
+            </CampaignContextEntry>
           );
         })}
-      </FactSection>
+      </CampaignContextSection>
     </>
   );
 }

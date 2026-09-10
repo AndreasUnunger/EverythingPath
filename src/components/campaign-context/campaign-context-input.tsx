@@ -8,7 +8,7 @@ function display(value: unknown) {
     : '';
 }
 // Keep transient text such as "0." while the form retains the parsed value.
-export function FactInput({
+export function CampaignContextInput({
   value,
   onValueChange,
   numeric,

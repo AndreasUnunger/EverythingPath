@@ -3,10 +3,10 @@ import { Button } from '~/components/ui/button';
 import { EVENT_TYPES } from '~/lib/militia-domain';
 import type { CampaignContext } from '~/lib/canonical-campaign-context';
 import {
-  FactField as F,
-  FactEntry,
-  FactErrors,
-  FactSection,
+  CampaignContextField,
+  CampaignContextEntry,
+  CampaignContextErrors,
+  CampaignContextSection,
   options,
   yesNo,
 } from './fields';
@@ -49,7 +49,7 @@ export function Events({
     })),
   ];
   return (
-    <FactSection
+    <CampaignContextSection
       title="Events"
       onAdd={() =>
         events.append({
@@ -67,37 +67,49 @@ export function Events({
       }
     >
       {events.fields.map((row, i) => (
-        <FactEntry
+        <CampaignContextEntry
           key={row.id}
           label={`Event ${i + 1}`}
           onRemove={() => events.remove(i)}
         >
-          <F
+          <CampaignContextField
             name={`events.${i}.eventType`}
             label="Event type"
             choices={options(EVENT_TYPES)}
           />
-          <F name={`events.${i}.startedWeek`} label="Started week" numeric />
-          <F name={`events.${i}.order`} label="Processing order" numeric />
-          <F
+          <CampaignContextField
+            name={`events.${i}.startedWeek`}
+            label="Started week"
+            numeric
+          />
+          <CampaignContextField
+            name={`events.${i}.order`}
+            label="Processing order"
+            numeric
+          />
+          <CampaignContextField
             name={`events.${i}.persistent`}
             label="Persistent"
             choices={yesNo.slice(1)}
           />
-          <F
+          <CampaignContextField
             name={`events.${i}.resolved`}
             label="Initial outcome resolved"
             choices={yesNo.slice(1)}
           />
-          <F
+          <CampaignContextField
             name={`events.${i}.mitigationUntilWeek`}
             label="Mitigated through week"
             numeric
           />
-          <F name={`events.${i}.endedWeek`} label="Ended week" numeric />
+          <CampaignContextField
+            name={`events.${i}.endedWeek`}
+            label="Ended week"
+            numeric
+          />
           <div className="space-y-2">
             <p className="text-sm font-medium">Event targets</p>
-            <FactErrors name={`events.${i}.targets`} />
+            <CampaignContextErrors name={`events.${i}.targets`} />
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -144,9 +156,12 @@ export function Events({
               })}
             </div>
           </div>
-          <F name={`events.${i}.notes`} label="Event notes / table ruling" />
-        </FactEntry>
+          <CampaignContextField
+            name={`events.${i}.notes`}
+            label="Event notes / table ruling"
+          />
+        </CampaignContextEntry>
       ))}
-    </FactSection>
+    </CampaignContextSection>
   );
 }

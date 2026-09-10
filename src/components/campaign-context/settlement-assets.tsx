@@ -2,9 +2,9 @@ import { useFieldArray, useFormContext } from 'react-hook-form';
 import { REPUTATION_LEVELS } from '~/lib/militia-domain';
 import type { CampaignContext } from '~/lib/canonical-campaign-context';
 import {
-  FactField as F,
-  FactEntry,
-  FactSection,
+  CampaignContextField,
+  CampaignContextEntry,
+  CampaignContextSection,
   options,
   yesNo,
 } from './fields';
@@ -16,7 +16,7 @@ export function SettlementAssets() {
   const caches = useFieldArray({ control, name: 'caches' });
   return (
     <>
-      <FactSection
+      <CampaignContextSection
         title="Settlements"
         onAdd={() =>
           settlements.append({
@@ -32,13 +32,16 @@ export function SettlementAssets() {
         }
       >
         {settlements.fields.map((row, i) => (
-          <FactEntry
+          <CampaignContextEntry
             key={row.id}
             label={`Settlement ${i + 1}`}
             onRemove={() => settlements.remove(i)}
           >
-            <F name={`settlements.${i}.name`} label="Settlement name" />
-            <F
+            <CampaignContextField
+              name={`settlements.${i}.name`}
+              label="Settlement name"
+            />
+            <CampaignContextField
               name={`settlements.${i}.reputation`}
               label="Reputation"
               choices={[
@@ -46,35 +49,35 @@ export function SettlementAssets() {
                 ...options(REPUTATION_LEVELS),
               ]}
             />
-            <F
+            <CampaignContextField
               name={`settlements.${i}.secured`}
               label="Secured"
               choices={yesNo}
             />
-            <F
+            <CampaignContextField
               name={`settlements.${i}.occupied`}
               label="Occupied"
               choices={yesNo}
             />
-            <F
+            <CampaignContextField
               name={`settlements.${i}.temporaryReputationShift`}
               label="Temporary reputation shift"
               numeric
             />
-            <F
+            <CampaignContextField
               name={`settlements.${i}.refugeActivatedWeek`}
               label="Refuge activated week"
               numeric
             />
-            <F
+            <CampaignContextField
               name={`settlements.${i}.refugeActiveUntilWeek`}
               label="Refuge active until week"
               numeric
             />
-          </FactEntry>
+          </CampaignContextEntry>
         ))}
-      </FactSection>
-      <FactSection
+      </CampaignContextSection>
+      <CampaignContextSection
         title="Items"
         onAdd={() =>
           items.append({
@@ -85,21 +88,21 @@ export function SettlementAssets() {
         }
       >
         {items.fields.map((row, i) => (
-          <FactEntry
+          <CampaignContextEntry
             key={row.id}
             label={`Item ${i + 1}`}
             onRemove={() => items.remove(i)}
           >
-            <F name={`items.${i}.name`} label="Item name" />
-            <F
+            <CampaignContextField name={`items.${i}.name`} label="Item name" />
+            <CampaignContextField
               name={`items.${i}.valueCopper`}
               label="Item value (copper)"
               numeric
             />
-          </FactEntry>
+          </CampaignContextEntry>
         ))}
-      </FactSection>
-      <FactSection
+      </CampaignContextSection>
+      <CampaignContextSection
         title="Caches"
         onAdd={() =>
           caches.append({
@@ -114,32 +117,41 @@ export function SettlementAssets() {
         }
       >
         {caches.fields.map((row, i) => (
-          <FactEntry
+          <CampaignContextEntry
             key={row.id}
             label={`Cache ${i + 1}`}
             onRemove={() => caches.remove(i)}
           >
-            <F name={`caches.${i}.label`} label="Cache name" />
-            <F name={`caches.${i}.location`} label="Location" />
-            <F name={`caches.${i}.contents`} label="Contents" />
-            <F
+            <CampaignContextField
+              name={`caches.${i}.label`}
+              label="Cache name"
+            />
+            <CampaignContextField
+              name={`caches.${i}.location`}
+              label="Location"
+            />
+            <CampaignContextField
+              name={`caches.${i}.contents`}
+              label="Contents"
+            />
+            <CampaignContextField
               name={`caches.${i}.cacheClass`}
               label="Cache class"
               choices={options(['minor', 'intermediate', 'major'])}
             />
-            <F
+            <CampaignContextField
               name={`caches.${i}.status`}
               label="Cache status"
               choices={options(['hidden', 'retrieved', 'lost'])}
             />
-            <F
+            <CampaignContextField
               name={`caches.${i}.secure`}
               label="Secure location"
               choices={yesNo}
             />
-          </FactEntry>
+          </CampaignContextEntry>
         ))}
-      </FactSection>
+      </CampaignContextSection>
     </>
   );
 }

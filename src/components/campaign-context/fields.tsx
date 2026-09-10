@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react';
 import { Controller, useFormContext, type FieldPath } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
-import { FactInput } from './fact-input';
+import { CampaignContextInput } from './campaign-context-input';
 import type { CampaignContext } from '~/lib/canonical-campaign-context';
 
 export const yesNo = [
@@ -12,7 +12,7 @@ export const yesNo = [
 export function options(values: readonly string[]) {
   return values.map((value) => ({ value, label: value.replaceAll('_', ' ') }));
 }
-export function FactField({
+export function CampaignContextField({
   name,
   label,
   numeric,
@@ -58,7 +58,7 @@ export function FactField({
               ))}
             </div>
           ) : (
-            <FactInput
+            <CampaignContextInput
               id={id}
               ref={field.ref}
               name={field.name}
@@ -86,7 +86,7 @@ export function FactField({
     />
   );
 }
-export function FactSection({
+export function CampaignContextSection({
   title,
   children,
   onAdd,
@@ -105,7 +105,7 @@ export function FactSection({
     </section>
   );
 }
-export function FactEntry({
+export function CampaignContextEntry({
   label,
   children,
   onRemove,
@@ -133,7 +133,11 @@ function errorMessages(value: unknown): string[] {
     key === 'ref' ? [] : errorMessages(child),
   );
 }
-export function FactErrors({ name }: { name: FieldPath<CampaignContext> }) {
+export function CampaignContextErrors({
+  name,
+}: {
+  name: FieldPath<CampaignContext>;
+}) {
   const { getFieldState, formState } = useFormContext<CampaignContext>();
   return (
     <>
