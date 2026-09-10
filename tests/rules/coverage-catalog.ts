@@ -1075,8 +1075,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Training loss never reduces existing rank.',
           plannedTests: ['rules.F02.retention'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F02.retention'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'pc-cap',
@@ -1084,8 +1084,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple rank gains stop at highest PC level; missing PC facts require input.',
           plannedTests: ['rules.F02.pc-cap'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F02.pc-cap'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'ap-caps',
@@ -1093,8 +1093,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Volume caps 4/7/10/13/15/17 produce advisory warnings.',
           plannedTests: ['rules.F02.ap-caps'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F02.ap-caps'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-1-threshold',
@@ -1102,8 +1102,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-1-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-1-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-2-threshold',
@@ -1111,8 +1111,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-2-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-2-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-3-threshold',
@@ -1120,8 +1120,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-3-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-3-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-4-threshold',
@@ -1129,8 +1129,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4 minimum training is 20; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-4-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-4-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-5-threshold',
@@ -1138,8 +1138,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5 minimum training is 30; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-5-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-5-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-6-threshold',
@@ -1147,8 +1147,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6 minimum training is 40; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-6-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-6-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-7-threshold',
@@ -1156,8 +1156,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7 minimum training is 55; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-7-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-7-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-8-threshold',
@@ -1165,8 +1165,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8 minimum training is 75; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-8-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-8-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-9-threshold',
@@ -1174,8 +1174,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9 minimum training is 105; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-9-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-9-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-10-threshold',
@@ -1183,8 +1183,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10 minimum training is 160; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-10-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-10-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-11-threshold',
@@ -1192,8 +1192,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11 minimum training is 235; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-11-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-11-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-12-threshold',
@@ -1201,8 +1201,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12 minimum training is 330; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-12-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-12-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-13-threshold',
@@ -1210,8 +1210,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13 minimum training is 475; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-13-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-13-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-14-threshold',
@@ -1219,8 +1219,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14 minimum training is 665; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-14-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-14-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-15-threshold',
@@ -1228,8 +1228,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15 minimum training is 855; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-15-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-15-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-16-threshold',
@@ -1237,8 +1237,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16 minimum training is 1,350; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-16-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-16-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-17-threshold',
@@ -1246,8 +1246,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17 minimum training is 1,900; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-17-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-17-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-18-threshold',
@@ -1255,8 +1255,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18 minimum training is 2,700; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-18-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-18-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-19-threshold',
@@ -1264,8 +1264,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19 minimum training is 3,850; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-19-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-19-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-20-threshold',
@@ -1273,8 +1273,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20 minimum training is 5,350; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-20-threshold'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F02.rank-20-threshold'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
       ],
     },
@@ -1320,8 +1320,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Negative, officer and contextual modifiers apply exactly once with explanations.',
           plannedTests: ['rules.F03.composition'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F03.composition'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-1-focus',
@@ -1329,8 +1329,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1: each of Loyalty/Secrecy/Security focuses gets +2; other checks get +0.',
           plannedTests: ['rules.F03.rank-1-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-1-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-2-focus',
@@ -1338,8 +1338,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +0.',
           plannedTests: ['rules.F03.rank-2-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-2-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-3-focus',
@@ -1347,8 +1347,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +1.',
           plannedTests: ['rules.F03.rank-3-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-3-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-4-focus',
@@ -1356,8 +1356,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.',
           plannedTests: ['rules.F03.rank-4-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-4-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-5-focus',
@@ -1365,8 +1365,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.',
           plannedTests: ['rules.F03.rank-5-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-5-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-6-focus',
@@ -1374,8 +1374,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.',
           plannedTests: ['rules.F03.rank-6-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-6-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-7-focus',
@@ -1383,8 +1383,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.',
           plannedTests: ['rules.F03.rank-7-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-7-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-8-focus',
@@ -1392,8 +1392,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +2.',
           plannedTests: ['rules.F03.rank-8-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-8-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-9-focus',
@@ -1401,8 +1401,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +3.',
           plannedTests: ['rules.F03.rank-9-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-9-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-10-focus',
@@ -1410,8 +1410,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.',
           plannedTests: ['rules.F03.rank-10-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-10-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-11-focus',
@@ -1419,8 +1419,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.',
           plannedTests: ['rules.F03.rank-11-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-11-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-12-focus',
@@ -1428,8 +1428,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.',
           plannedTests: ['rules.F03.rank-12-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-12-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-13-focus',
@@ -1437,8 +1437,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.',
           plannedTests: ['rules.F03.rank-13-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-13-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-14-focus',
@@ -1446,8 +1446,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +4.',
           plannedTests: ['rules.F03.rank-14-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-14-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-15-focus',
@@ -1455,8 +1455,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +5.',
           plannedTests: ['rules.F03.rank-15-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-15-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-16-focus',
@@ -1464,8 +1464,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.',
           plannedTests: ['rules.F03.rank-16-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-16-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-17-focus',
@@ -1473,8 +1473,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.',
           plannedTests: ['rules.F03.rank-17-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-17-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-18-focus',
@@ -1482,8 +1482,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.',
           plannedTests: ['rules.F03.rank-18-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-18-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-19-focus',
@@ -1491,8 +1491,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.',
           plannedTests: ['rules.F03.rank-19-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-19-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-20-focus',
@@ -1500,8 +1500,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20: each of Loyalty/Secrecy/Security focuses gets +12; other checks get +6.',
           plannedTests: ['rules.F03.rank-20-focus'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F03.rank-20-focus'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
       ],
     },
@@ -1537,8 +1537,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Allowance shrink preserves occupied choices and shows exception warnings.',
           plannedTests: ['rules.F04.shrink'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F04.shrink'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'context',
@@ -1555,8 +1555,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 baseline allowance is 1 actions.',
           plannedTests: ['rules.F04.rank-1-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-1-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-2-actions',
@@ -1564,8 +1564,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-2-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-2-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-3-actions',
@@ -1573,8 +1573,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-3-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-3-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-4-actions',
@@ -1582,8 +1582,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-4-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-4-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-5-actions',
@@ -1591,8 +1591,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-5-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-5-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-6-actions',
@@ -1600,8 +1600,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-6-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-6-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-7-actions',
@@ -1609,8 +1609,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-7-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-7-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-8-actions',
@@ -1618,8 +1618,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-8-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-8-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-9-actions',
@@ -1627,8 +1627,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-9-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-9-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-10-actions',
@@ -1636,8 +1636,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-10-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-10-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-11-actions',
@@ -1645,8 +1645,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-11-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-11-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-12-actions',
@@ -1654,8 +1654,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-12-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-12-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-13-actions',
@@ -1663,8 +1663,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-13-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-13-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-14-actions',
@@ -1672,8 +1672,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-14-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-14-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-15-actions',
@@ -1681,8 +1681,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-15-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-15-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-16-actions',
@@ -1690,8 +1690,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-16-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-16-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-17-actions',
@@ -1699,8 +1699,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-17-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-17-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-18-actions',
@@ -1708,8 +1708,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-18-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-18-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-19-actions',
@@ -1717,8 +1717,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19 baseline allowance is 6 actions.',
           plannedTests: ['rules.F04.rank-19-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-19-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-20-actions',
@@ -1726,8 +1726,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20 baseline allowance is 6 actions.',
           plannedTests: ['rules.F04.rank-20-actions'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F04.rank-20-actions'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
       ],
     },
@@ -1765,8 +1765,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Reward teams do not consume capacity.',
           plannedTests: ['rules.F05.rewards'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F05.rewards'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'identity',
@@ -1792,8 +1792,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 cap is 2 non-reward teams.',
           plannedTests: ['rules.F05.rank-1-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-1-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-2-teams',
@@ -1801,8 +1801,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2 cap is 2 non-reward teams.',
           plannedTests: ['rules.F05.rank-2-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-2-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-3-teams',
@@ -1810,8 +1810,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3 cap is 3 non-reward teams.',
           plannedTests: ['rules.F05.rank-3-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-3-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-4-teams',
@@ -1819,8 +1819,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4 cap is 3 non-reward teams.',
           plannedTests: ['rules.F05.rank-4-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-4-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-5-teams',
@@ -1828,8 +1828,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5 cap is 4 non-reward teams.',
           plannedTests: ['rules.F05.rank-5-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-5-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-6-teams',
@@ -1837,8 +1837,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6 cap is 4 non-reward teams.',
           plannedTests: ['rules.F05.rank-6-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-6-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-7-teams',
@@ -1846,8 +1846,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7 cap is 4 non-reward teams.',
           plannedTests: ['rules.F05.rank-7-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-7-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-8-teams',
@@ -1855,8 +1855,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8 cap is 5 non-reward teams.',
           plannedTests: ['rules.F05.rank-8-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-8-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-9-teams',
@@ -1864,8 +1864,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9 cap is 5 non-reward teams.',
           plannedTests: ['rules.F05.rank-9-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-9-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-10-teams',
@@ -1873,8 +1873,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10 cap is 5 non-reward teams.',
           plannedTests: ['rules.F05.rank-10-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-10-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-11-teams',
@@ -1882,8 +1882,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-11-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-11-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-12-teams',
@@ -1891,8 +1891,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-12-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-12-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-13-teams',
@@ -1900,8 +1900,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-13-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-13-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-14-teams',
@@ -1909,8 +1909,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-14-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-14-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-15-teams',
@@ -1918,8 +1918,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-15-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-15-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-16-teams',
@@ -1927,8 +1927,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-16-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-16-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-17-teams',
@@ -1936,8 +1936,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-17-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-17-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-18-teams',
@@ -1945,8 +1945,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-18-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-18-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-19-teams',
@@ -1954,8 +1954,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-19-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-19-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'rank-20-teams',
@@ -1963,8 +1963,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20 cap is 8 non-reward teams.',
           plannedTests: ['rules.F05.rank-20-teams'],
-          tests: [],
-          gap: 'Table-row boundary test not yet mapped.',
+          tests: ['rules.F05.rank-20-teams'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
       ],
     },
@@ -2075,8 +2075,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Helpful grants -5% prices and +2 to exactly one eligible Activity check.',
           plannedTests: ['rules.F07.helpful'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F07.helpful'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'effective',
@@ -2084,8 +2084,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Refuge and Reduce Danger shifts affect the selected settlement; Market Day price effects compose.',
           plannedTests: ['rules.F07.effective'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F07.effective'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
       ],
     },
@@ -2167,8 +2167,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Gift choices and title feats match the exact packages in the cited source.',
           plannedTests: ['rules.F09.packages'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F09.packages'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'xp-rounding',
@@ -2176,8 +2176,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: 1200/3200/6400/25600 XP split among PCs rounds down.',
           plannedTests: ['rules.F09.xp-rounding'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.F09.xp-rounding'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'qualification',
@@ -2231,8 +2231,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Commandant Hit Dice stack.',
           plannedTests: ['rules.O01.commandants'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.O01.commandants'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'ordered-role',
@@ -2379,8 +2379,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Two event occurrences cannot both consume the one-use bonus.',
           plannedTests: ['rules.O04.one-use'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.O04.one-use'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'absent',
@@ -2425,8 +2425,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices.',
           plannedTests: ['rules.O05.ordered'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.O05.ordered'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
       ],
     },
@@ -2457,8 +2457,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one.',
           plannedTests: ['rules.O06.capacity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.O06.capacity'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'checks',
@@ -2881,8 +2881,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Infiltrators cost 250 gp; Guardians and Specialists each display and charge 1000 gp.',
           plannedTests: ['rules.T03.upgrade'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.T03.upgrade'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'inherit',
@@ -2964,8 +2964,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: An upgraded team cannot act that Activity; ordered prior actions remain accounted for.',
           plannedTests: ['rules.T05.upgrade-act'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.T05.upgrade-act'],
+          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
         },
         {
           id: 'repeat-upgrade',

@@ -1,3 +1,5 @@
+import { getMaxTeamsForRank } from '../src/lib/militia-progression-rules';
+import { isUpgradePathAllowed } from '../src/lib/rules-teams';
 import { ConvexError } from 'convex/values';
 
 export type SettlementReputation =
@@ -26,7 +28,12 @@ export function getActionTeamRequirements(actionId: string) {
     dismiss_team: null,
     drill_militia: null,
     earn_gold: ['blackMarketeers', 'fixers', 'merchants', 'patrons'],
-    gather_information: ['conspirators', 'informants', 'scholars', 'spellcasters'],
+    gather_information: [
+      'conspirators',
+      'informants',
+      'scholars',
+      'spellcasters',
+    ],
     guarantee_event: null,
     knowledge_check: ['scholars'],
     lie_low: null,
@@ -45,53 +52,8 @@ export function getActionTeamRequirements(actionId: string) {
   return map[actionId] ?? null;
 }
 
-const TEAM_UPGRADE_PATHS: Record<string, string[]> = {
-  moles: ['propagandists'],
-  propagandists: ['saboteurs', 'spies'],
-  informants: ['conspirators'],
-  conspirators: ['scholars', 'spellcasters'],
-  defenders: ['infiltrators'],
-  infiltrators: ['guardians', 'specialists'],
-  patrons: ['merchants'],
-  merchants: ['blackMarketeers', 'fixers'],
-};
-
-const TEAM_COSTS: Record<string, number> = {
-  moles: 0,
-  propagandists: 250,
-  saboteurs: 1000,
-  spies: 1000,
-  informants: 0,
-  conspirators: 250,
-  scholars: 1000,
-  spellcasters: 1000,
-  defenders: 0,
-  infiltrators: 250,
-  guardians: 1000,
-  specialists: 1000,
-  patrons: 0,
-  merchants: 50,
-  blackMarketeers: 200,
-  fixers: 200,
-};
-
-export function getMaxTeamsForRank(rank: number) {
-  if (rank >= 20) return 8;
-  if (rank >= 15) return 7;
-  if (rank >= 11) return 6;
-  if (rank >= 8) return 5;
-  if (rank >= 5) return 4;
-  if (rank >= 3) return 3;
-  return 2;
-}
-
-export function getTeamCost(teamId: string) {
-  return TEAM_COSTS[teamId] ?? 0;
-}
-
-export function isUpgradePathAllowed(fromTeamId: string, toTeamId: string) {
-  return TEAM_UPGRADE_PATHS[fromTeamId]?.includes(toTeamId) ?? false;
-}
+export { getTeamCost, isUpgradePathAllowed } from '../src/lib/rules-teams';
+export { getMaxTeamsForRank } from '../src/lib/militia-progression-rules';
 
 export function buildTeamOperationWarnings({
   rank,
@@ -163,18 +125,26 @@ export function validateStagedActionsLegality({
   stagedActions: (string | null)[];
   activeTeamIds: string[];
 }): Array<{ code: string; message: string }> {
-  const staged = stagedActions.filter((value): value is string => Boolean(value));
+  const staged = stagedActions.filter((value): value is string =>
+    Boolean(value),
+  );
   const warnings: Array<{ code: string; message: string }> = [];
   if (staged.length === 0) return warnings;
 
-  const lieLowCount = staged.filter((actionId) => actionId === 'lie_low').length;
+  const lieLowCount = staged.filter(
+    (actionId) => actionId === 'lie_low',
+  ).length;
   if (lieLowCount > 0 && staged.length > 1) {
     throw new ConvexError('Lie Low must be the only staged activity.');
   }
 
-  const drillCount = staged.filter((actionId) => actionId === 'drill_militia').length;
+  const drillCount = staged.filter(
+    (actionId) => actionId === 'drill_militia',
+  ).length;
   if (drillCount > 1) {
-    throw new ConvexError('Drill Militia can be staged at most once per Activity phase.');
+    throw new ConvexError(
+      'Drill Militia can be staged at most once per Activity phase.',
+    );
   }
 
   for (const actionId of staged) {

@@ -1,84 +1,47 @@
-const TRAINING_THRESHOLDS: Record<number, number> = {
-  1: 0,
-  2: 10,
-  3: 15,
-  4: 20,
-  5: 30,
-  6: 40,
-  7: 55,
-  8: 75,
-  9: 105,
-  10: 160,
-  11: 235,
-  12: 330,
-  13: 475,
-  14: 665,
-  15: 855,
-  16: 1350,
-  17: 1900,
-  18: 2700,
-  19: 3850,
-  20: 5350,
-};
+// Table 6-1: docs/ai/ironfang-militia/militia-tables.md.
+export const MILITIA_ADVANCEMENT = [
+  { rank: 1, training: 0, focused: 2, secondary: 0, actions: 1, teams: 2 },
+  { rank: 2, training: 10, focused: 3, secondary: 0, actions: 2, teams: 2 },
+  { rank: 3, training: 15, focused: 3, secondary: 1, actions: 2, teams: 3 },
+  { rank: 4, training: 20, focused: 4, secondary: 1, actions: 2, teams: 3 },
+  { rank: 5, training: 30, focused: 4, secondary: 1, actions: 2, teams: 4 },
+  { rank: 6, training: 40, focused: 5, secondary: 2, actions: 2, teams: 4 },
+  { rank: 7, training: 55, focused: 5, secondary: 2, actions: 3, teams: 4 },
+  { rank: 8, training: 75, focused: 6, secondary: 2, actions: 3, teams: 5 },
+  { rank: 9, training: 105, focused: 6, secondary: 3, actions: 3, teams: 5 },
+  { rank: 10, training: 160, focused: 7, secondary: 3, actions: 3, teams: 5 },
+  { rank: 11, training: 235, focused: 7, secondary: 3, actions: 4, teams: 6 },
+  { rank: 12, training: 330, focused: 8, secondary: 4, actions: 4, teams: 6 },
+  { rank: 13, training: 475, focused: 8, secondary: 4, actions: 4, teams: 6 },
+  { rank: 14, training: 665, focused: 9, secondary: 4, actions: 4, teams: 6 },
+  { rank: 15, training: 855, focused: 9, secondary: 5, actions: 5, teams: 7 },
+  { rank: 16, training: 1350, focused: 10, secondary: 5, actions: 5, teams: 7 },
+  { rank: 17, training: 1900, focused: 10, secondary: 5, actions: 5, teams: 7 },
+  { rank: 18, training: 2700, focused: 11, secondary: 6, actions: 5, teams: 7 },
+  { rank: 19, training: 3850, focused: 11, secondary: 6, actions: 6, teams: 7 },
+  { rank: 20, training: 5350, focused: 12, secondary: 6, actions: 6, teams: 8 },
+] as const;
 
-const FOCUSED_CHECK_BONUSES: Record<number, number> = {
-  1: 2,
-  2: 3,
-  3: 3,
-  4: 4,
-  5: 4,
-  6: 5,
-  7: 5,
-  8: 6,
-  9: 6,
-  10: 7,
-  11: 7,
-  12: 8,
-  13: 8,
-  14: 9,
-  15: 9,
-  16: 10,
-  17: 10,
-  18: 11,
-  19: 11,
-  20: 12,
-};
+export function getAdvancementForRank(rank: number) {
+  return MILITIA_ADVANCEMENT.find((row) => row.rank === rank);
+}
 
-const SECONDARY_CHECK_BONUSES: Record<number, number> = {
-  1: 0,
-  2: 0,
-  3: 1,
-  4: 1,
-  5: 1,
-  6: 2,
-  7: 2,
-  8: 2,
-  9: 3,
-  10: 3,
-  11: 3,
-  12: 4,
-  13: 4,
-  14: 4,
-  15: 5,
-  16: 5,
-  17: 5,
-  18: 6,
-  19: 6,
-  20: 6,
-};
+export function getMaxTeamsForRank(rank: number) {
+  return getAdvancementForRank(rank)?.teams ?? (rank >= 20 ? 8 : 2);
+}
 
 export type MilitiaFocusCheck = 'Loyalty' | 'Secrecy' | 'Security';
 
 export function getMinimumTrainingForRank(rank: number) {
-  return TRAINING_THRESHOLDS[rank];
+  return getAdvancementForRank(rank)?.training;
 }
 
 export function getFocusedCheckBonusForRank(rank: number) {
-  return FOCUSED_CHECK_BONUSES[rank];
+  return getAdvancementForRank(rank)?.focused;
 }
 
 export function getSecondaryCheckBonusForRank(rank: number) {
-  return SECONDARY_CHECK_BONUSES[rank];
+  return getAdvancementForRank(rank)?.secondary;
 }
 
 export function getOrganizationCheckBonusesForMilitia({
@@ -141,6 +104,8 @@ export function shouldApplyTreasuryShortagePenalty({
   );
 }
 
+// Legacy compatibility until its truncating writer is retired (#66).
+// Canonical projection uses the corrected Table 6-1 allowance above.
 export function getMaxActionsForRank(rank: number) {
   if (rank >= 19) return 6;
   if (rank >= 15) return 5;

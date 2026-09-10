@@ -1,6 +1,7 @@
 'use client';
 
 import type { Id } from '@convex/_generated/dataModel';
+import { getMaxActionsForRank as getBaseMaxActionsForRank } from '~/lib/militia-progression-rules';
 import { abilityModifier } from '~/lib/ability-scores';
 import type { ActionId } from '~/components/week-board/types';
 
@@ -12,7 +13,12 @@ export type OfficerRole =
   | 'spymaster'
   | 'strategist';
 
-export type MilitiaFocus = 'Loyalty' | 'Security' | 'Secrecy' | null | undefined;
+export type MilitiaFocus =
+  | 'Loyalty'
+  | 'Security'
+  | 'Secrecy'
+  | null
+  | undefined;
 
 export type OrganizationCheckType = 'loyalty' | 'security' | 'secrecy';
 
@@ -81,14 +87,7 @@ const EVENT_SUPPORT_TARGET_LABEL: Record<EventOverseerSupportTarget, string> = {
   sickness_twice: 'Sickness (Twice) loyalty check',
 };
 
-export function getBaseMaxActionsForRank(rank: number) {
-  if (rank >= 19) return 6;
-  if (rank >= 15) return 5;
-  if (rank >= 11) return 4;
-  if (rank >= 7) return 3;
-  if (rank >= 1) return 2;
-  return 1;
-}
+export { getMaxActionsForRank as getBaseMaxActionsForRank } from '~/lib/militia-progression-rules';
 
 export function getEffectiveOfficerAssignments({
   baseAssignments,
@@ -131,7 +130,9 @@ export function buildOfficerEffects({
     slots,
     activityOfficerOperations,
   });
-  const characterById = new Map(characters.map((character) => [character._id, character]));
+  const characterById = new Map(
+    characters.map((character) => [character._id, character]),
+  );
   const ambassador = effectiveAssignments.ambassador
     ? characterById.get(effectiveAssignments.ambassador)
     : undefined;
@@ -225,7 +226,9 @@ export function getCheckBonusHelperText({
   const baseOfficerBonus = getBaseOfficerCheckBonus(checkType, officerEffects);
 
   if (baseOfficerBonus !== 0) {
-    parts.push(`${labelForCheckType(checkType)} officer bonus ${formatSigned(baseOfficerBonus)}`);
+    parts.push(
+      `${labelForCheckType(checkType)} officer bonus ${formatSigned(baseOfficerBonus)}`,
+    );
   }
   if (isStrategistBonusAction) {
     parts.push('Strategist bonus action +2');
@@ -248,7 +251,9 @@ export function getCheckBonusHelperText({
   return `Include ${parts.join(', ')} in the total entered here.`;
 }
 
-export function getCommandantTrainingHelperText(officerEffects: OfficerEffects) {
+export function getCommandantTrainingHelperText(
+  officerEffects: OfficerEffects,
+) {
   if (!officerEffects.commandantTrainingBonus) {
     return undefined;
   }
@@ -321,7 +326,9 @@ export function getRecruitmentCheckType(teamId: string | undefined) {
   return undefined;
 }
 
-export function getEventSupportTargetCheckType(target: EventOverseerSupportTarget) {
+export function getEventSupportTargetCheckType(
+  target: EventOverseerSupportTarget,
+) {
   return EVENT_SUPPORT_TARGET_CHECK_TYPE[target];
 }
 
