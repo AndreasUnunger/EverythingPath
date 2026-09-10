@@ -15,6 +15,7 @@ import type * as data_spells from "../data/spells.js";
 import type * as data_teams from "../data/teams.js";
 import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
+import type * as lib_campaignInitialization from "../lib/campaignInitialization.js";
 import type * as lib_canonicalCampaignContext from "../lib/canonicalCampaignContext.js";
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
 import type * as lib_canonicalRoster from "../lib/canonicalRoster.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "data/teams": typeof data_teams;
   e2eFixtures: typeof e2eFixtures;
   http: typeof http;
+  "lib/campaignInitialization": typeof lib_campaignInitialization;
   "lib/canonicalCampaignContext": typeof lib_canonicalCampaignContext;
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
   "lib/canonicalRoster": typeof lib_canonicalRoster;

@@ -6358,8 +6358,18 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history.',
           plannedTests: ['rules.P11.cutover'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'initialization.preserve',
+            'initialization.preflight',
+            'initialization.stale',
+            'initialization.retry',
+            'initialization.first-use',
+            'initialization.queues',
+            'initialization.expiry',
+            'initialization.unsupported-queue',
+            'initialization.delivery',
+          ],
+          gap: 'Isolated initializer evidence from #65; deployment pause, legacy-write rejection and recovery rehearsal remain for the cutover checkpoint.',
         },
         {
           id: 'no-execution',
@@ -6367,8 +6377,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Initialization creates one empty draft without Upkeep, queue execution or advancement.',
           plannedTests: ['rules.P11.no-execution'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['initialization.preserve'],
+          gap: null,
         },
         {
           id: 'legacy',

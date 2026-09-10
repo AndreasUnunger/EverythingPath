@@ -780,6 +780,13 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  canonicalCampaignInitialization: defineTable({
+    campaignId: v.id('campaign'),
+    militiaId: v.id('militia'),
+    initializationId: v.string(),
+    draftId: v.string(),
+    sourceToken: v.string(),
+  }).index('by_militiaId', ['militiaId']),
   canonicalCampaignContext: defineTable({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),
