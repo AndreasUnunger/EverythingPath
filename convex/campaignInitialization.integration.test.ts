@@ -706,3 +706,205 @@ test('[initialization.delivery] preserve pending receipts and recover Broker Mar
       ?.receipt,
   ).toBeNull();
 });
+
+test('[initialization.new-event] current-week events do not change week-start eligibility', async () => {
+  const { t, gm, scope, context, eventId } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militiaEventState', eventId, {
+      startedWeek: 9,
+      weekNumber: 9,
+    }),
+  );
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: {
+        ...context,
+        events: context.events.map((e) => ({ ...e, startedWeek: 9 })),
+      },
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan.ready).toBe(true);
+  await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: plan.sourceToken,
+      initializationId: 'current-event',
+    }),
+  );
+  const draft = await gm.run((ctx) => readOpenDraft(ctx, scope));
+  expect(draft?.context.carriedEvents).toEqual([]);
+  expect(draft?.context.persistentPhaseEligible).toBe(false);
+});
+
+test('[initialization.source-size] preflight reports oversized sources before initialization', async () => {
+  const { t, gm, scope } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militia', scope.militiaId, {
+      HQLocation: 'a'.repeat(760000),
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        sourceToken: plan.sourceToken,
+        initializationId: 'oversized',
+      }),
+    ),
+  ).rejects.toThrow('receipt size limit');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+  expect(plan.ready).toBe(false);
+  expect(plan.issues.join()).toContain('size');
+});
+
+test('[initialization.ended-event] ending a carried event midweek preserves week-start eligibility', async () => {
+  const { t, gm, scope, context, eventId } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militiaEventState', eventId, {
+      resolved: true,
+      endedWeek: 9,
+    }),
+  );
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: {
+        ...context,
+        events: context.events.map((e) => ({
+          ...e,
+          resolved: true,
+          endedWeek: 9,
+        })),
+      },
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan.issues).toEqual([]);
+  await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: plan.sourceToken,
+      initializationId: 'ended',
+    }),
+  );
+  const draft = await gm.run((ctx) => readOpenDraft(ctx, scope));
+  expect(draft?.context.carriedEvents.map((e) => e.eventId)).toEqual([eventId]);
+  expect(draft?.context.persistentPhaseEligible).toBe(true);
+  expect(
+    (await gm.run((ctx) => preflightCampaignInitialization(ctx, scope)))
+      .prepared?.context.events[0],
+  ).toMatchObject({ resolved: true, endedWeek: 9 });
+});
+
+test('[initialization.prior-ended-event] events ended before this week are not carried into it', async () => {
+  const { t, gm, scope, context, eventId } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militiaEventState', eventId, {
+      resolved: true,
+      endedWeek: 8,
+    }),
+  );
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: {
+        ...context,
+        events: context.events.map((e) => ({
+          ...e,
+          resolved: true,
+          endedWeek: 8,
+        })),
+      },
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan.issues).toEqual([]);
+  await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: plan.sourceToken,
+      initializationId: 'prior-end',
+    }),
+  );
+  expect(
+    (await gm.run((ctx) => readOpenDraft(ctx, scope)))?.context
+      .persistentPhaseEligible,
+  ).toBe(false);
+});
+
+test('[initialization.unknown-end] missing historical timing blocks preflight until explicitly resolved', async () => {
+  const { t, gm, scope, context, eventId } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militiaEventState', eventId, { resolved: true }),
+  );
+  const unresolved = {
+    ...context,
+    events: context.events.map((e) => ({ ...e, resolved: true })),
+  };
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: unresolved,
+    }),
+  );
+  const blocked = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(blocked.ready).toBe(false);
+  expect(blocked.issues.join('\n')).toContain(
+    `week-start timing for event ${eventId}`,
+  );
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        sourceToken: blocked.sourceToken,
+        initializationId: 'unknown-end',
+      }),
+    ),
+  ).rejects.toThrow('week-start timing');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 1,
+      context: {
+        ...unresolved,
+        events: unresolved.events.map((e) => ({ ...e, endedWeek: 9 })),
+      },
+    }),
+  );
+  const ready = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(ready.issues).toEqual([]);
+  await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: ready.sourceToken,
+      initializationId: 'known-end',
+    }),
+  );
+  expect(
+    (await gm.run((ctx) => readOpenDraft(ctx, scope)))?.context
+      .persistentPhaseEligible,
+  ).toBe(true);
+  expect(
+    await t.run((ctx) => ctx.db.get('militiaEventState', eventId)),
+  ).not.toHaveProperty('endedWeek');
+});

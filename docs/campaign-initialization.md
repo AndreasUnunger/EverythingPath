@@ -12,7 +12,11 @@ runner. There is no application endpoint, live migration, or activation switch.
    IDs, settlement keys, and event/order/cache document IDs. Known legacy facts
    are checked against preparation. Unknown Hit Dice, event targets/order,
    day-based delivery and receipt facts require explicit preparation; character
-   level and discarded choices are never used to fill them.
+   level and discarded choices are never used to fill them. Week-start carried
+   events are recovered from their start/end weeks: current-week creations are
+   excluded, and events ended during this week remain in the fixed context.
+   A resolved event with no end week blocks preflight until preparation supplies
+   that historical fact; recorded legacy dates remain authoritative.
 3. Repeat preflight until ready. Queues retain stable source keys
    `legacy-queue:<week document ID>:<index>`. Check modifiers and action blocks
    must preserve their arithmetic. Unsupported automatic variants block preflight until the canonical effect
@@ -35,7 +39,8 @@ All legacy asset metadata, including marketplaces and tracked-person status,
 remains authoritative in its original tables and is included in source review.
 
 Preparation is bounded to 256 documents per source collection and a 750 KB
-receipt. Oversized campaigns fail closed and require a paginated cutover plan.
+receipt. Oversized sources report a preflight issue and cannot initialize;
+prepare a paginated cutover plan for those campaigns.
 Missing/closed current-week records and cancelled orders also fail preflight
 rather than guessing an open week or a receipt. Deployment pause, old-tab
 rejection, backup/recovery and application cutover belong to later tickets.

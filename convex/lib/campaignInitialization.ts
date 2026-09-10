@@ -69,15 +69,7 @@ export async function preflightCampaignInitialization(
       startDay: context.startDay,
       uneventfulCarry: context.uneventfulCarry,
       lastBuyoffWeek: context.lastBuyoffWeek,
-      carriedEvents: context.events
-        .filter((e) => e.persistent && !e.resolved && e.endedWeek === null)
-        .map((e) => ({
-          eventId: e.eventId,
-          eventType: e.eventType,
-          startedWeek: e.startedWeek,
-          order: e.order,
-          targets: e.targets,
-        })),
+      carriedEvents: recoverCarriedEvents(context, week?.weekNumber, issues),
       queuedEffects: context.queuedEffects,
       orders: context.orders.map((o) => ({
         orderId: o.orderId,
@@ -97,6 +89,20 @@ export async function preflightCampaignInitialization(
         ),
       );
   }
+  // Exact reviewed source token: includes authoritative facts and preparation
+  // revisions, excludes discarded choices/history. Not a security credential.
+  const sourceToken = JSON.stringify({
+    source,
+    roster: roster && { roster: roster.roster, revision: roster.revision },
+    prepared: prepared && {
+      context: prepared.context,
+      revision: prepared.revision,
+    },
+  });
+  if (new TextEncoder().encode(sourceToken).length > 750_000)
+    issues.push(
+      'Initialization source exceeds receipt size limit; prepare a paginated cutover',
+    );
   return {
     recovered: {
       week: week?.weekNumber ?? null,
@@ -111,16 +117,7 @@ export async function preflightCampaignInitialization(
     facts,
     issues,
     ready: issues.length === 0,
-    // Exact reviewed source token: includes authoritative facts and preparation
-    // revisions, excludes discarded choices/history. Not a security credential.
-    sourceToken: JSON.stringify({
-      source,
-      roster: roster && { roster: roster.roster, revision: roster.revision },
-      prepared: prepared && {
-        context: prepared.context,
-        revision: prepared.revision,
-      },
-    }),
+    sourceToken,
   };
 }
 
@@ -170,10 +167,6 @@ export async function initializeCampaign(
     .first();
   if (existingDraft)
     throw new ConvexError('Campaign already has canonical drafts');
-  if (new TextEncoder().encode(input.sourceToken).length > 750_000)
-    throw new ConvexError(
-      'Initialization source exceeds receipt size limit; prepare a paginated cutover',
-    );
   const draftId = `initialization:${initializationId}`;
   const priorOperation = await ctx.db
     .query('canonicalDraftOperation')
@@ -420,7 +413,6 @@ function validateEvents(
         mapped.persistent,
         mapped.resolved,
         mapped.mitigationUntilWeek,
-        mapped.endedWeek,
       ],
       [
         event.eventType,
@@ -428,10 +420,18 @@ function validateEvents(
         event.isPersistent,
         event.resolved,
         event.mitigationUntilWeek ?? null,
-        event.endedWeek ?? null,
       ],
       `event facts ${event._id}`,
     );
+    // A missing end date on an already resolved legacy event is an unknown
+    // historical fact. Preparation may supply it, but cannot alter a known date
+    // or end an event that legacy state still records as unresolved.
+    if (event.endedWeek !== undefined || !event.resolved)
+      preserve(
+        mapped.endedWeek,
+        event.endedWeek ?? null,
+        `event end week ${event._id}`,
+      );
     if (mapped.targets === null || mapped.order === null)
       issues.push(`Resolve event targets/order ${event._id}.`);
   }
@@ -567,4 +567,38 @@ function validateQueues(
       );
     }
   }
+}
+
+function recoverCarriedEvents(
+  context: CampaignContext,
+  week: number | undefined,
+  issues: string[],
+) {
+  if (week === undefined) return [];
+  return context.events
+    .filter((event) => {
+      if (!event.persistent) return false;
+      if (event.startedWeek === null) {
+        issues.push(
+          `Resolve week-start timing for event ${event.eventId}: enter its start week.`,
+        );
+        return false;
+      }
+      if (event.startedWeek >= week) return false;
+      if (event.endedWeek !== null) return event.endedWeek >= week;
+      if (event.resolved) {
+        issues.push(
+          `Resolve week-start timing for event ${event.eventId}: enter when it ended before initialization.`,
+        );
+        return false;
+      }
+      return true;
+    })
+    .map((event) => ({
+      eventId: event.eventId,
+      eventType: event.eventType,
+      startedWeek: event.startedWeek,
+      order: event.order,
+      targets: event.targets,
+    }));
 }
