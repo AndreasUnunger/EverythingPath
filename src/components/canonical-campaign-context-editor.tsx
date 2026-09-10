@@ -46,22 +46,25 @@ export function CanonicalCampaignContextEditor({
       <form
         noValidate
         className="bg-card space-y-6 border-2 p-4 font-mono"
-        onSubmit={form.handleSubmit(async (facts) => {
-          setError(undefined);
-          setSaved(false);
-          try {
-            const accepted = await onSave(facts, baseRevision);
-            setBaseRevision(accepted);
-            form.reset(facts);
-            setSaved(true);
-          } catch (error) {
-            setError(
-              error instanceof Error
-                ? error.message
-                : 'Could not save campaign facts.',
-            );
-          }
-        })}
+        onSubmit={form.handleSubmit(
+          async (facts) => {
+            setError(undefined);
+            setSaved(false);
+            try {
+              const accepted = await onSave(facts, baseRevision);
+              setBaseRevision(accepted);
+              form.reset(facts);
+              setSaved(true);
+            } catch (error) {
+              setError(
+                error instanceof Error
+                  ? error.message
+                  : 'Could not save campaign facts.',
+              );
+            }
+          },
+          () => setSaved(false),
+        )}
       >
         <h2 className="font-sans text-2xl font-bold">Campaign facts</h2>
         <p className="text-muted-foreground text-sm">
@@ -140,8 +143,10 @@ export function CanonicalCampaignContextEditor({
             {error}
           </p>
         )}
-        {saved && <p role="status">Campaign facts saved.</p>}
-        <div className="flex gap-2">
+        {saved && !form.formState.isDirty && (
+          <p role="status">Campaign facts saved.</p>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button type="submit" disabled={form.formState.isSubmitting}>
             Save campaign facts
           </Button>

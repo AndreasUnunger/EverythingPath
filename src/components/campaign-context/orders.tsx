@@ -16,6 +16,7 @@ export function Orders() {
   return (
     <CampaignContextSection
       title="Orders"
+      addLabel="Add order"
       onAdd={() =>
         orders.append({
           orderId: crypto.randomUUID(),
@@ -118,6 +119,7 @@ export function Orders() {
                   values.orders[i]?.enchantment
                     ? null
                     : { costCopper: 0, days: 0 },
+                  { shouldDirty: true },
                 )
               }
             >
@@ -155,7 +157,9 @@ export function Orders() {
                         : 'outline'
                     }
                     onClick={() => {
-                      setValue(`orders.${i}.receiptStatus`, status);
+                      setValue(`orders.${i}.receiptStatus`, status, {
+                        shouldDirty: true,
+                      });
                       setValue(
                         `orders.${i}.receipt`,
                         status === 'received'
@@ -164,6 +168,7 @@ export function Orders() {
                               acknowledgementId: crypto.randomUUID(),
                             })
                           : null,
+                        { shouldDirty: true },
                       );
                     }}
                   >

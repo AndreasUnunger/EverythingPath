@@ -25,6 +25,7 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
     <>
       <CampaignContextSection
         title="One-use bonuses"
+        addLabel="Add one-use bonus"
         onAdd={() =>
           bonuses.append({
             bonusId: crypto.randomUUID(),
@@ -76,6 +77,7 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
       </CampaignContextSection>
       <CampaignContextSection
         title="Queued effects"
+        addLabel="Add queued effect"
         onAdd={() =>
           effects.append({
             effectId: crypto.randomUUID(),
@@ -121,7 +123,9 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
                       aria-pressed={effect?.kind === choice.kind}
                       onClick={() => {
                         if (effect?.kind !== choice.kind)
-                          setValue(`queuedEffects.${i}.effect`, choice);
+                          setValue(`queuedEffects.${i}.effect`, choice, {
+                            shouldDirty: true,
+                          });
                       }}
                     >
                       {choice.kind.replaceAll('_', ' ')}

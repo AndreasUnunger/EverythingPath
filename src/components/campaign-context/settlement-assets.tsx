@@ -18,6 +18,7 @@ export function SettlementAssets() {
     <>
       <CampaignContextSection
         title="Settlements"
+        addLabel="Add settlement"
         onAdd={() =>
           settlements.append({
             settlementId: crypto.randomUUID(),
@@ -79,6 +80,7 @@ export function SettlementAssets() {
       </CampaignContextSection>
       <CampaignContextSection
         title="Items"
+        addLabel="Add item"
         onAdd={() =>
           items.append({
             itemId: crypto.randomUUID(),
@@ -104,6 +106,7 @@ export function SettlementAssets() {
       </CampaignContextSection>
       <CampaignContextSection
         title="Caches"
+        addLabel="Add cache"
         onAdd={() =>
           caches.append({
             cacheId: crypto.randomUUID(),

@@ -76,9 +76,15 @@ export function CampaignContextField({
               role="alert"
               className="text-destructive text-sm"
             >
-              {field.value === null
+              {field.value === null ||
+              field.value === undefined ||
+              (numeric && Number.isNaN(field.value))
                 ? `${label} is required`
-                : fieldState.error.message}
+                : numeric &&
+                    (typeof field.value !== 'number' ||
+                      !Number.isFinite(field.value))
+                  ? `Enter a number for ${label}.`
+                  : fieldState.error.message}
             </p>
           )}
         </div>
@@ -88,10 +94,12 @@ export function CampaignContextField({
 }
 export function CampaignContextSection({
   title,
+  addLabel,
   children,
   onAdd,
 }: {
   title: string;
+  addLabel: string;
   children: ReactNode;
   onAdd: () => void;
 }) {
@@ -100,7 +108,7 @@ export function CampaignContextSection({
       <h3 className="text-xl font-bold">{title}</h3>
       {children}
       <Button type="button" variant="outline" onClick={onAdd}>
-        Add {title.toLowerCase().replace(/s$/, '')}
+        {addLabel}
       </Button>
     </section>
   );

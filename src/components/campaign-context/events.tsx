@@ -51,6 +51,7 @@ export function Events({
   return (
     <CampaignContextSection
       title="Events"
+      addLabel="Add event"
       onAdd={() =>
         events.append({
           eventId: crypto.randomUUID(),
@@ -115,7 +116,9 @@ export function Events({
                 type="button"
                 variant="outline"
                 aria-pressed={values.events[i]?.targets === null}
-                onClick={() => setValue(`events.${i}.targets`, null)}
+                onClick={() =>
+                  setValue(`events.${i}.targets`, null, { shouldDirty: true })
+                }
               >
                 Unknown targets
               </Button>
@@ -123,7 +126,9 @@ export function Events({
                 type="button"
                 variant="outline"
                 aria-pressed={values.events[i]?.targets?.length === 0}
-                onClick={() => setValue(`events.${i}.targets`, [])}
+                onClick={() =>
+                  setValue(`events.${i}.targets`, [], { shouldDirty: true })
+                }
               >
                 No targets
               </Button>
@@ -147,6 +152,7 @@ export function Events({
                                 JSON.stringify(x) !== JSON.stringify(target),
                             )
                           : [...(values.events[i]?.targets ?? []), target],
+                        { shouldDirty: true },
                       )
                     }
                   >
