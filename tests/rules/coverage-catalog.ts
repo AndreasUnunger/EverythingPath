@@ -2153,6 +2153,15 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'context-money',
+          checkpoint: '3-context',
+          expected:
+            'Preparation preserves integer copper values, including zero, separately from unknown money.',
+          plannedTests: ['context.absence', 'context.events-assets'],
+          tests: ['context.absence', 'context.events-assets'],
+          gap: null,
+        },
+        {
           id: 'packages',
           checkpoint: '4-foundations',
           expected:
@@ -2488,6 +2497,15 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'context-first-use',
+          checkpoint: '3-context',
+          expected:
+            'Preparation retains explicit first-use and uneventful carry facts without running Upkeep or changing live militia state.',
+          plannedTests: ['context.absence', 'context.shared'],
+          tests: ['context.absence', 'context.shared'],
+          gap: null,
+        },
         {
           id: 'sequence',
           checkpoint: '4-upkeep',
@@ -4041,6 +4059,25 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'context-orders',
+          checkpoint: '3-context',
+          expected:
+            'Preparation retains copper precision, due-day, enchantment duration and explicit receipt separately from next-Activity marketplace timing.',
+          plannedTests: [
+            'context.events-assets',
+            'context.delivery',
+            'context.ui-receipt',
+            'context.ui-decimal',
+          ],
+          tests: [
+            'context.events-assets',
+            'context.delivery',
+            'context.ui-receipt',
+            'context.ui-decimal',
+          ],
+          gap: null,
+        },
+        {
           id: 'price',
           checkpoint: '4-activity',
           expected:
@@ -4646,6 +4683,15 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'context-carry',
+          checkpoint: '3-context',
+          expected:
+            'Preparation retains uneventful carry, one-use bonuses and queued durations without executing effects.',
+          plannedTests: ['context.events-assets', 'context.shared'],
+          tests: ['context.events-assets', 'context.shared'],
+          gap: null,
+        },
         {
           id: 'carry',
           checkpoint: '4-events',
@@ -5893,6 +5939,15 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'context-persistent',
+          checkpoint: '3-context',
+          expected:
+            'Preparation retains same-type event instances with separate targets, age/order, mitigation, ending and militia-wide last buyoff week.',
+          plannedTests: ['context.events-assets', 'context.references'],
+          tests: ['context.events-assets', 'context.references'],
+          gap: null,
+        },
+        {
           id: 'first',
           checkpoint: '4-persistence',
           expected:
@@ -6260,6 +6315,25 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'context-setup',
+          checkpoint: '3-context',
+          expected:
+            'Isolated ledger/setup accepts advisory incomplete facts, rejects malformed numbers and validates campaign-owned references.',
+          plannedTests: [
+            'context.form',
+            'context.references',
+            'context.ui-targets',
+            'context.roster-reference',
+          ],
+          tests: [
+            'context.form',
+            'context.references',
+            'context.ui-targets',
+            'context.roster-reference',
+          ],
+          gap: null,
+        },
         {
           id: 'immutable',
           checkpoint: '8-cutover-rehearsal',

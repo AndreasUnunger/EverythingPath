@@ -467,3 +467,26 @@ exercised by that drill. This is local live-service evidence, not a hosted CI ru
 or activated branch protection. Typecheck, lint, all 347 tests, build-boundary
 checks and the rules-catalog check also passed (the catalog retains its explicit
 473 implementation gaps).
+
+## Campaign context preparation (#64)
+
+The additive `canonicalCampaignContext` table and unregistered preparation seam
+retain settlement context, one-use bonuses, queues, first-use/carry metadata,
+per-instance event targets/age/order/mitigation/ending, militia-wide buyoff week,
+and copper-precise assets and order delivery/receipt facts. The reusable campaign
+facts editor is available for isolated ledger/setup integration; no live route or
+canonical endpoint is activated. Referenced teams must be removed from event and
+queue facts before roster deletion. Missing facts remain explicit instead of
+being inferred from legacy week numbers, rounded delivery weeks or character
+levels. Later projection and cutover work still owns rule execution and activation.
+
+Local verification on 2026-09-10 passed the isolated preview deployment,
+production web build, authentication and all five required browser journeys.
+Generated API declarations were refreshed from the preview and verified by the
+harness. Typecheck, lint and all 394 tests passed. The rules catalog reports 21
+covered cases and 473 explicit later implementation gaps with zero catalog errors.
+New outcome tests cover shared round trips, reference ownership and removal,
+unknown versus zero, repeated event instances, receipt consistency, fractional
+enchantment input and field-level target repair. Both standards and specification
+reviews have no outstanding findings. This is local preview evidence, not a
+production deployment or canonical cutover.

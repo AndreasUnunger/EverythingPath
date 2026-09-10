@@ -83,6 +83,29 @@ export async function saveRoster(
     throw new ConvexError(
       'Roster changed. Review the latest roster before saving.',
     );
+  const campaignContext = await ctx.db
+    .query('canonicalCampaignContext')
+    .withIndex('by_militiaId', (q) => q.eq('militiaId', scope.militiaId))
+    .unique();
+  if (campaignContext) {
+    if (campaignContext.campaignId !== scope.campaignId)
+      throw new ConvexError('Invalid context campaign');
+    const teams = new Set(roster.teams.map((team) => team.teamId));
+    const referenced = [
+      ...campaignContext.context.events.flatMap((event) =>
+        (event.targets ?? []).flatMap((target) =>
+          target.kind === 'team' ? [target.teamId] : [],
+        ),
+      ),
+      ...campaignContext.context.queuedEffects.flatMap((effect) =>
+        effect.effect.kind === 'team_unavailable' ? [effect.effect.teamId] : [],
+      ),
+    ];
+    if (referenced.some((teamId) => !teams.has(teamId)))
+      throw new ConvexError(
+        'A removed team is still referenced by campaign events or queued effects. Update those facts first.',
+      );
+  }
   const context = await rosterContext(ctx, scope, roster);
   const revision = (current?.revision ?? -1) + 1;
   if (current)

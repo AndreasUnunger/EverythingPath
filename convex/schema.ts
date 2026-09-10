@@ -1,3 +1,4 @@
+import { campaignContextDataSchema } from '../src/lib/canonical-campaign-context';
 import { canonicalRosterDataSchema } from '../src/lib/canonical-roster';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { defineSchema, defineTable } from 'convex/server';
@@ -779,6 +780,12 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  canonicalCampaignContext: defineTable({
+    campaignId: v.id('campaign'),
+    militiaId: v.id('militia'),
+    revision: v.number(),
+    context: zodOutputToConvex(campaignContextDataSchema),
+  }).index('by_militiaId', ['militiaId']),
   canonicalRoster: defineTable({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),
