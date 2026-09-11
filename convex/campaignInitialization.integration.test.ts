@@ -908,3 +908,43 @@ test('[initialization.unknown-end] missing historical timing blocks preflight un
     await t.run((ctx) => ctx.db.get('militiaEventState', eventId)),
   ).not.toHaveProperty('endedWeek');
 });
+
+test('[initialization.theft-mitigation] current-week legacy Theft mitigation becomes an explicit one-week canonical income fact', async () => {
+  const { t, gm, scope, eventId, context } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militiaEventState', eventId, {
+      eventType: 'theft',
+      mitigationUntilWeek: 9,
+    }),
+  );
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: {
+        ...context,
+        events: context.events.map((event) => ({
+          ...event,
+          eventType: 'theft' as const,
+          mitigationUntilWeek: 9,
+        })),
+      },
+    }),
+  );
+  const preflight = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(preflight.issues).toEqual([]);
+  await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: preflight.sourceToken,
+      initializationId: 'mitigation',
+    }),
+  );
+  const draft = await gm.run((ctx) => readOpenDraft(ctx, scope));
+  expect(draft?.context.carriedEvents[0]?.mitigation).toEqual({
+    week: 9,
+    retainedIncomePercent: 90,
+  });
+});

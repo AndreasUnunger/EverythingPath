@@ -1,3 +1,4 @@
+import type { EventBenefits } from './rules-event-benefits';
 import type { CharacterActionState } from './rules-character-state';
 import { projectTreasuryIncome } from './rules-treasury';
 import type { EconomyState } from './rules-economy-state';
@@ -26,6 +27,7 @@ export type UpkeepSnapshot = Pick<
   treasuryCopper: number;
   notoriety: number;
   economy?: EconomyState;
+  eventBenefits?: EventBenefits;
   characterActions?: CharacterActionState;
 };
 type RawRoll = z.infer<typeof rawRollSchema>;
@@ -95,7 +97,8 @@ function upkeepCheckEffects(
   const queued = draft.context.queuedEffects.filter(
     (effect) =>
       !(
-        sources.has(effect.sourceId) &&
+        (sources.has(effect.sourceId) ||
+          (morale.length > 0 && effect.eventType === 'low_morale')) &&
         effect.effect.kind === 'check_modifier' &&
         effect.effect.check === 'loyalty'
       ),
@@ -103,6 +106,7 @@ function upkeepCheckEffects(
   const persistent = morale[0];
   if (persistent)
     queued.push({
+      eventType: 'low_morale',
       effectId: `persistent:${persistent.eventId}`,
       sourceId: persistent.eventId,
       startsWeek: draft.week,
@@ -410,6 +414,15 @@ function missingTeam(
   teamId: string,
   result: UpkeepProjection,
 ) {
+  if (
+    draft.context.queuedEffects.some(
+      (effect) =>
+        effect.effect.kind === 'team_return' &&
+        effect.effect.teamId === teamId &&
+        effect.endsWeek >= draft.week,
+    )
+  )
+    return;
   const decision = draft.upkeep.teamDecisions.find(
     (decision) => decision.teamId === teamId,
   );
@@ -532,6 +545,8 @@ function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
     const income = projectTreasuryIncome(
       transfer.copper,
       draft.context.carriedEvents,
+      [],
+      draft.week,
     );
     const theftId = income.theftEventIds[0];
     if (theftId && transfer.direction === 'deposit') {

@@ -600,5 +600,10 @@ function recoverCarriedEvents(
       startedWeek: event.startedWeek,
       order: event.order,
       targets: event.targets,
+      ...(event.eventType === 'theft' &&
+      event.mitigationUntilWeek !== null &&
+      event.mitigationUntilWeek >= week
+        ? { mitigation: { week, retainedIncomePercent: 90 as const } }
+        : {}),
     }));
 }

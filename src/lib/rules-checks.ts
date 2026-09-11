@@ -102,10 +102,17 @@ function carriedModifiers(
   check: FoundationCheck,
   result: Composition,
 ) {
+  const teamId =
+    check.teamId ??
+    input.slots.find((slot) => slot.choice?.choiceId === check.choiceId)?.choice
+      ?.teamId;
   for (const bonusId of new Set(check.bonusIds)) {
     const bonus = input.bonuses.find((x) => x.bonusId === bonusId);
     if (
-      bonus?.check !== check.check ||
+      !bonus ||
+      (bonus.check !== 'any' && bonus.check !== check.check) ||
+      (bonus.teamId !== undefined && bonus.teamId !== teamId) ||
+      (bonus.phase !== undefined && bonus.phase !== check.phase) ||
       bonus.availableWeek !== input.week ||
       bonus.consumedWeek !== null ||
       result.usage.bonusIds.includes(bonusId)
@@ -120,15 +127,21 @@ function carriedModifiers(
 function queuedModifiers(input: FoundationInput, check: FoundationCheck) {
   const sources = new Set<string>();
   return input.queuedEffects.flatMap((queued) => {
+    const source =
+      queued.eventType === 'double_agent' || queued.eventType === 'low_morale'
+        ? queued.eventType
+        : queued.sourceId;
     if (
       queued.startsWeek > input.week ||
       queued.endsWeek < input.week ||
       queued.effect.kind !== 'check_modifier' ||
       queued.effect.check !== check.check ||
-      sources.has(queued.sourceId)
+      (queued.effect.phase !== undefined &&
+        queued.effect.phase !== check.phase) ||
+      sources.has(source)
     )
       return [];
-    sources.add(queued.sourceId);
+    sources.add(source);
     return [
       { source: `queued:${queued.sourceId}`, value: queued.effect.value },
     ];

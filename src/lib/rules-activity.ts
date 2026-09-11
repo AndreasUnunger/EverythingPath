@@ -241,6 +241,7 @@ function income(
     grossCopper,
     draft.context.carriedEvents,
     result.endedEventIds,
+    draft.week,
   );
   value(result, choice, 'treasuryCopper', retainedCopper);
 }
@@ -337,8 +338,23 @@ function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
     result.outcome.focus,
   );
   result.requirements.push(...officers.requirements);
+  const multiplier = Math.max(
+    1,
+    ...draft.context.queuedEffects.flatMap((effect) =>
+      effect.startsWeek <= draft.week &&
+      effect.endsWeek >= draft.week &&
+      effect.effect.kind === 'activity_training_multiplier'
+        ? [effect.effect.value]
+        : [],
+    ),
+  );
   if (gain !== null && officers.commandantTrainingBonus !== null)
-    value(result, choice, 'training', gain + officers.commandantTrainingBonus);
+    value(
+      result,
+      choice,
+      'training',
+      (gain + officers.commandantTrainingBonus) * multiplier,
+    );
 }
 const recruitmentChecks: Record<string, OrganizationCheck | undefined> = {
   Loyalty: 'loyalty',
@@ -536,7 +552,8 @@ export function activityCheckEffects(
     queued = queued.filter(
       (effect) =>
         !(
-          sources.has(effect.sourceId) &&
+          (sources.has(effect.sourceId) ||
+            (carried.length > 0 && effect.eventType === eventType)) &&
           effect.effect.kind === 'check_modifier' &&
           effect.effect.check === check
         ),
@@ -544,6 +561,7 @@ export function activityCheckEffects(
     const event = carried[0];
     if (event)
       queued.push({
+        eventType,
         effectId: `persistent:${event.eventId}`,
         sourceId: event.eventId,
         startsWeek: draft.week,
@@ -604,6 +622,13 @@ function assignedTeam(
         draft.week <= effect.endsWeek &&
         effect.effect.kind === 'team_unavailable' &&
         effect.effect.teamId === team.teamId,
+    ) ||
+    draft.context.carriedEvents.some(
+      (event) =>
+        event.eventType === 'rivalry' &&
+        event.targets.some(
+          (target) => target.kind === 'team' && target.teamId === team.teamId,
+        ),
     )
   )
     eligible = exception(draft, result, choice, 'team-unavailable') && eligible;

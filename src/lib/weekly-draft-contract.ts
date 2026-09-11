@@ -35,6 +35,7 @@ export const weekStartFactsSchema = z.strictObject({
   firstMilitiaWeek: z.boolean(),
   startDay: int,
   uneventfulCarry: z.boolean(),
+  operatedSettlementIds: z.array(id).optional(),
   carriedEvents: z.array(persistentEventSchema),
   queuedEffects: z.array(queuedEffectSchema),
   orders: z.array(orderSchema),

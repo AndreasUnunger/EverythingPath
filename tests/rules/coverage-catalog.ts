@@ -4321,8 +4321,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Event chance clamps to 10–95 after current Notoriety and carry modifiers.',
           plannedTests: ['rules.E01.bounds'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E01.bounds', 'rules.E01.queued'],
+          gap: null,
         },
         {
           id: 'trigger',
@@ -4330,8 +4330,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Roll below chance triggers; equal or above does not.',
           plannedTests: ['rules.E01.trigger'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E01.trigger'],
+          gap: null,
         },
         {
           id: 'settlement',
@@ -4339,17 +4339,17 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Operating settlement modifies table result by plus or minus 5 separately from chance.',
           plannedTests: ['rules.E01.settlement'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E01.settlement'],
+          gap: null,
         },
         {
           id: 'recompute',
           checkpoint: '4-events',
           expected:
-            'Phase View / Resolution Preview: Activity Notoriety changes recompute chance; overrides require reasons.',
+            'Phase View / Resolution Preview: Activity Notoriety and guarantees recompute chance and required inputs after upstream edits.',
           plannedTests: ['rules.E01.recompute'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E01.recompute'],
+          gap: null,
         },
       ],
     },
@@ -4376,8 +4376,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing, nonfinite, fractional or out-of-range percentile input is surfaced as invalid input or explicit rules departure as appropriate.',
           plannedTests: ['rules.E02.integrity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E02.integrity'],
+          gap: null,
         },
         {
           id: 'parity',
@@ -4385,8 +4385,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Browser and Convex entry paths produce identical event mapping.',
           plannedTests: ['rules.E02.parity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E02.parity'],
+          gap: null,
         },
         {
           id: 'interval-1-4',
@@ -4394,8 +4394,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 1-4 resolve to Week of Serenity.',
           plannedTests: ['rules.E02.interval-1-4'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-1-4'],
+          gap: null,
         },
         {
           id: 'interval-5-12',
@@ -4403,8 +4403,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 5-12 resolve to War Games.',
           plannedTests: ['rules.E02.interval-5-12'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-5-12'],
+          gap: null,
         },
         {
           id: 'interval-13-16',
@@ -4412,8 +4412,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 13-16 resolve to Night Ops.',
           plannedTests: ['rules.E02.interval-13-16'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-13-16'],
+          gap: null,
         },
         {
           id: 'interval-17-20',
@@ -4421,8 +4421,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 17-20 resolve to Broke the Code.',
           plannedTests: ['rules.E02.interval-17-20'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-17-20'],
+          gap: null,
         },
         {
           id: 'interval-21-24',
@@ -4430,8 +4430,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 21-24 resolve to Found Fire.',
           plannedTests: ['rules.E02.interval-21-24'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-21-24'],
+          gap: null,
         },
         {
           id: 'interval-25-28',
@@ -4439,8 +4439,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 25-28 resolve to High Morale.',
           plannedTests: ['rules.E02.interval-25-28'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-25-28'],
+          gap: null,
         },
         {
           id: 'interval-29-32',
@@ -4448,8 +4448,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 29-32 resolve to Turn Around.',
           plannedTests: ['rules.E02.interval-29-32'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-29-32'],
+          gap: null,
         },
         {
           id: 'interval-33-36',
@@ -4457,8 +4457,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 33-36 resolve to Festival.',
           plannedTests: ['rules.E02.interval-33-36'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-33-36'],
+          gap: null,
         },
         {
           id: 'interval-37-40',
@@ -4466,8 +4466,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 37-40 resolve to Market Day.',
           plannedTests: ['rules.E02.interval-37-40'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-37-40'],
+          gap: null,
         },
         {
           id: 'interval-41-44',
@@ -4475,8 +4475,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 41-44 resolve to Hidden Agenda.',
           plannedTests: ['rules.E02.interval-41-44'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-41-44'],
+          gap: null,
         },
         {
           id: 'interval-45-48',
@@ -4484,8 +4484,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 45-48 resolve to All Is Calm.',
           plannedTests: ['rules.E02.interval-45-48'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-45-48'],
+          gap: null,
         },
         {
           id: 'interval-49-52',
@@ -4493,8 +4493,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 49-52 resolve to Roll Twice.',
           plannedTests: ['rules.E02.interval-49-52'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-49-52'],
+          gap: null,
         },
         {
           id: 'interval-53-56',
@@ -4502,8 +4502,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 53-56 resolve to Calm before the Storm.',
           plannedTests: ['rules.E02.interval-53-56'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-53-56'],
+          gap: null,
         },
         {
           id: 'interval-57-60',
@@ -4511,8 +4511,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 57-60 resolve to Turncoat.',
           plannedTests: ['rules.E02.interval-57-60'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-57-60'],
+          gap: null,
         },
         {
           id: 'interval-61-64',
@@ -4520,8 +4520,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 61-64 resolve to Cache Discovered.',
           plannedTests: ['rules.E02.interval-61-64'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-61-64'],
+          gap: null,
         },
         {
           id: 'interval-65-68',
@@ -4529,8 +4529,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 65-68 resolve to Rivalry.',
           plannedTests: ['rules.E02.interval-65-68'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-65-68'],
+          gap: null,
         },
         {
           id: 'interval-69-72',
@@ -4538,8 +4538,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 69-72 resolve to Missing in Action.',
           plannedTests: ['rules.E02.interval-69-72'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-69-72'],
+          gap: null,
         },
         {
           id: 'interval-73-76',
@@ -4547,8 +4547,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 73-76 resolve to Theft.',
           plannedTests: ['rules.E02.interval-73-76'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-73-76'],
+          gap: null,
         },
         {
           id: 'interval-77-80',
@@ -4556,8 +4556,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 77-80 resolve to Raid.',
           plannedTests: ['rules.E02.interval-77-80'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-77-80'],
+          gap: null,
         },
         {
           id: 'interval-81-84',
@@ -4565,8 +4565,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 81-84 resolve to Invasion.',
           plannedTests: ['rules.E02.interval-81-84'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-81-84'],
+          gap: null,
         },
         {
           id: 'interval-85-88',
@@ -4574,8 +4574,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 85-88 resolve to Low Morale.',
           plannedTests: ['rules.E02.interval-85-88'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-85-88'],
+          gap: null,
         },
         {
           id: 'interval-89-96',
@@ -4583,8 +4583,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 89-96 resolve to Sickness.',
           plannedTests: ['rules.E02.interval-89-96'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-89-96'],
+          gap: null,
         },
         {
           id: 'interval-97-99',
@@ -4592,8 +4592,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 97-99 resolve to Double Agent.',
           plannedTests: ['rules.E02.interval-97-99'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-97-99'],
+          gap: null,
         },
         {
           id: 'interval-100',
@@ -4601,8 +4601,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: both endpoints of 100 resolve to Week of Pain.',
           plannedTests: ['rules.E02.interval-100'],
-          tests: [],
-          gap: 'Event interval boundary test not yet mapped.',
+          tests: ['rules.E02.interval-100-100'],
+          gap: null,
         },
       ],
     },
@@ -4620,8 +4620,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Events with no eligible roster, cache, refuge or town require replacement rolls.',
           plannedTests: ['rules.E03.eligibility'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E03.eligibility', 'rules.E03.candidates'],
+          gap: null,
         },
         {
           id: 'targets',
@@ -4638,8 +4638,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Replacement rolls remain required after nested Roll Twice until valid outcomes exist.',
           plannedTests: ['rules.E03.nested'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E03.nested'],
+          gap: null,
         },
       ],
     },
@@ -4657,8 +4657,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Roll Twice resolves two independent final occurrences.',
           plannedTests: ['rules.E04.two'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E04.two'],
+          gap: null,
         },
         {
           id: 'reroll',
@@ -4666,8 +4666,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Further Roll Twice results require replacement rolls rather than disappearing.',
           plannedTests: ['rules.E04.reroll'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E04.reroll'],
+          gap: null,
         },
         {
           id: 'no-clause',
@@ -4675,8 +4675,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Duplicate without Twice applies both base occurrences independently.',
           plannedTests: ['rules.E04.no-clause'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E04.no-clause'],
+          gap: null,
         },
         {
           id: 'clause',
@@ -4684,8 +4684,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Explicit Twice replacement or enhancement controls duplicate effect; no-additional-effect suppresses the extra effect.',
           plannedTests: ['rules.E04.clause'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E04.clause'],
+          gap: null,
         },
         {
           id: 'independent',
@@ -4693,8 +4693,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Guarantee and automatic events retain separate target and roll identities in order.',
           plannedTests: ['rules.E04.independent'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E04.independent'],
+          gap: null,
         },
       ],
     },
@@ -4733,8 +4733,8 @@ export const coverageCatalog = {
           expected:
             "Phase View / Resolution Preview: Eligible quiet week adds current rank once to next eligible week's bounded event chance, not percentile result.",
           plannedTests: ['rules.E05.carry'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E05.carry'],
+          gap: null,
         },
         {
           id: 'consecutive',
@@ -4742,8 +4742,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Consecutive quiet weeks do not accumulate prior rank bonuses.',
           plannedTests: ['rules.E05.consecutive'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E05.consecutive'],
+          gap: null,
         },
         {
           id: 'rank-change',
@@ -4751,8 +4751,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Changing rank uses current rank rather than stored old-rank sum.',
           plannedTests: ['rules.E05.rank-change'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E05.rank-change'],
+          gap: null,
         },
         {
           id: 'exclusions',
@@ -4760,8 +4760,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: First militia week, forced All Is Calm, Calm before the Storm and automatic events obey uneventful exclusions.',
           plannedTests: ['rules.E05.exclusions'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.E05.exclusions', 'rules.E05.double-calm'],
+          gap: null,
         },
       ],
     },
@@ -4871,8 +4871,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All Is Calm produces no event.',
           plannedTests: ['rules.EV01.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV01.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -4880,8 +4880,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice forces the same result next week without chance roll or uneventful carry chain.',
           plannedTests: ['rules.EV01.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV01.twice', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'precedence',
@@ -4889,8 +4889,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Automatic Calm before the Storm events remain independently accounted for; stale trigger and Sabotage inputs do not execute.',
           plannedTests: ['rules.EV01.precedence'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV01.precedence', 'rules.E74.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -4908,8 +4908,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Identify one item of any caster level and give +2 Knowledge local for one week.',
           plannedTests: ['rules.EV02.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV02.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -4917,8 +4917,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice replaces bonus with +5 rather than adding duplicate notes.',
           plannedTests: ['rules.EV02.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV02.twice', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'acknowledgement',
@@ -4926,8 +4926,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Item identification requires retained acknowledgement and expires at prescribed time.',
           plannedTests: ['rules.EV02.acknowledgement'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV02.acknowledgement', 'rules.E74.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -4945,8 +4945,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Lose one selected hidden or planned cache unless Secrecy DC10 plus rank retrieves it.',
           plannedTests: ['rules.EV03.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV03.loss',
+            'rules.EV03.inputs',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'twice',
@@ -4954,8 +4958,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice threatens all applicable caches with explicit mitigation scope.',
           plannedTests: ['rules.EV03.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV03.twice', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'empty',
@@ -4963,8 +4967,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No eligible caches requires reroll.',
           plannedTests: ['rules.EV03.empty'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV03.empty', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'multiple',
@@ -4972,8 +4976,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Two or more caches retain distinct loss and recovery outcomes and modifier-aware checks.',
           plannedTests: ['rules.EV03.multiple'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV03.mitigate',
+            'rules.EV03.modifiers',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4991,8 +4999,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No event now; next week one automatic table event precedes normal Event processing.',
           plannedTests: ['rules.EV04.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV04.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5000,8 +5008,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice queues two automatic events, not three.',
           plannedTests: ['rules.EV04.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV04.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'reroll',
@@ -5009,8 +5017,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Automatic Roll Twice results require replacement without suppressing independent normal rolls.',
           plannedTests: ['rules.EV04.reroll'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV04.replacement', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'order',
@@ -5018,8 +5026,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Order-sensitive outcomes use independent rolls and do not create uneventful carry.',
           plannedTests: ['rules.EV04.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV04.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5037,8 +5045,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Nonpersistent Double Agent blocks only next Activity Secure Cache and applies one -2 Secrecy penalty.',
           plannedTests: ['rules.EV05.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV05.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'persistent',
@@ -5046,8 +5054,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice keeps the restriction and single -2 penalty across all affected weeks.',
           plannedTests: ['rules.EV05.persistent'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV05.twice',
+            'rules.EV05.single-penalty',
+            'rules.E76.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'end',
@@ -5083,8 +5095,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Chosen recently used town grants +2 morale Bluff, Diplomacy and Intimidate for a week.',
           plannedTests: ['rules.EV06.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV06.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5092,8 +5104,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice replaces bonus with +5.',
           plannedTests: ['rules.EV06.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV06.twice', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'record',
@@ -5101,8 +5113,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Town selection, duration and acknowledgement are recorded.',
           plannedTests: ['rules.EV06.record'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV06.record',
+            'rules.EV06.operation-scope',
+            'rules.EV12.settlement-exception',
+            'rules.E74.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5120,8 +5137,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each PC receives one nonpoison alchemical item worth at most 100 gp and next-week Security +2.',
           plannedTests: ['rules.EV07.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV07.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5129,8 +5146,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice gives two items per PC total but Security remains +2.',
           plannedTests: ['rules.EV07.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV07.twice', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'record',
@@ -5138,8 +5155,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: PC eligibility, item limits and acknowledgement persist; duration expires.',
           plannedTests: ['rules.EV07.record'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV07.record', 'rules.E74.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5157,8 +5174,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All current Activity checks receive +2.',
           plannedTests: ['rules.EV08.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV08.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5166,8 +5183,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice replaces with +5 rather than adding +7.',
           plannedTests: ['rules.EV08.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV08.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'recompute',
@@ -5175,8 +5192,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Earn Gold and Drill recompute success/gains when event is added or removed with browser/server agreement.',
           plannedTests: ['rules.EV08.recompute'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV08.twice',
+            'rules.EV08.readiness',
+            'rules.E76.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5194,8 +5215,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: End one persistent event immediately and give upcoming Loyalty +2.',
           plannedTests: ['rules.EV09.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV09.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5203,8 +5224,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Actual duplicate pair ends two total and gives +5, not three and +7.',
           plannedTests: ['rules.EV09.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV09.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'targets',
@@ -5212,8 +5233,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Zero to three active events, age ties and new same-week persistence retain explicit selected endings.',
           plannedTests: ['rules.EV09.targets'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV09.empty', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'recompute',
@@ -5240,8 +5261,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Show and record GM random encounter at APL plus 1 CR.',
           plannedTests: ['rules.EV10.encounter'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV10.base', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'acknowledgement',
@@ -5249,8 +5270,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Required encounter acknowledgement is retained.',
           plannedTests: ['rules.EV10.acknowledgement'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV10.inputs', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'duplicate',
@@ -5258,8 +5279,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No Twice clause means two independent encounters.',
           plannedTests: ['rules.EV10.duplicate'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV10.duplicate', 'rules.E75.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5277,8 +5298,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty -2 applies for the prescribed week.',
           plannedTests: ['rules.EV11.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV11.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5286,8 +5307,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice makes one persistent -2 effect, not doubled penalties.',
           plannedTests: ['rules.EV11.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV11.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'duration',
@@ -5314,8 +5335,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Chosen operated town gives extra 5% discount on all items and services.',
           plannedTests: ['rules.EV12.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV12.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5323,8 +5344,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice covers all operated marketplaces including Broker Market.',
           plannedTests: ['rules.EV12.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV12.twice', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'composition',
@@ -5332,8 +5353,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Reputation discounts compose and town services are not limited to tracked market rows.',
           plannedTests: ['rules.EV12.composition'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV12.composition', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'inputs',
@@ -5341,8 +5362,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing target blocks completion and discount expires at prescribed time.',
           plannedTests: ['rules.EV12.inputs'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV12.inputs',
+            'rules.EV12.operation-scope',
+            'rules.EV12.settlement-exception',
+            'rules.E74.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5360,8 +5386,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Random team that operated this week is unavailable next week.',
           plannedTests: ['rules.EV13.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV13.base',
+            'rules.EV13.inputs',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5369,8 +5399,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice returns it at end of following week disabled, with no early DC15 recovery.',
           plannedTests: ['rules.EV13.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV13.twice', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'empty',
@@ -5378,8 +5408,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No operated eligible team requires reroll.',
           plannedTests: ['rules.EV13.empty'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV13.empty', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'timeline',
@@ -5387,8 +5417,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Disabled recovery cost is considered next Upkeep, using fresh team condition state.',
           plannedTests: ['rules.EV13.timeline'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV13.no-early-return',
+            'rules.EV13.new-absence',
+            'rules.EV13.twice',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5406,8 +5441,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One-week +2 circumstance Stealth applies after dark.',
           plannedTests: ['rules.EV14.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV14.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5415,8 +5450,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice gives effective +5 rather than +7.',
           plannedTests: ['rules.EV14.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV14.twice', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'record',
@@ -5424,8 +5459,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Darkness condition, bonus type, expiry and acknowledgement remain explicit.',
           plannedTests: ['rules.EV14.record'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV14.record', 'rules.E74.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5443,8 +5478,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Random selected settlement loses all its refuges; other settlements remain unaffected.',
           plannedTests: ['rules.EV15.settlement'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV15.base',
+            'rules.EV15.references',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'capture',
@@ -5452,8 +5491,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each hidden person has separate capture chance and Security DC20 halves that chance.',
           plannedTests: ['rules.EV15.capture'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV15.mitigate',
+            'rules.EV15.inputs',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'empty',
@@ -5461,8 +5504,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No refuge requires reroll.',
           plannedTests: ['rules.EV15.empty'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV15.empty', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'rescue',
@@ -5470,8 +5513,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Captured persons retain next-week rescue DC5 plus rank and valid access context.',
           plannedTests: ['rules.EV15.rescue'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV15.rescue', 'rules.E75.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5489,8 +5532,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Two distinct randomly selected teams cannot act next Activity; selected identities persist.',
           plannedTests: ['rules.EV16.targets'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV16.base',
+            'rules.EV16.inputs',
+            'rules.E76.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5498,8 +5545,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice persists across weeks until officer Bluff, Diplomacy or Intimidate reaches DC20.',
           plannedTests: ['rules.EV16.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV16.twice',
+            'rules.EV16.check',
+            'rules.E76.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'boundary',
@@ -5572,8 +5623,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Random eligible team becomes disabled.',
           plannedTests: ['rules.EV18.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV18.base', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5581,8 +5632,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice loses it unless modified Loyalty reaches DC20.',
           plannedTests: ['rules.EV18.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV18.twice', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'readiness',
@@ -5590,8 +5641,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing mitigation input prevents an attempted mitigation from becoming an irreversible implicit failure.',
           plannedTests: ['rules.EV18.readiness'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV18.inputs', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'ordering',
@@ -5599,8 +5650,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Empty roster rerolls; preceding events update eligibility before selection.',
           plannedTests: ['rules.EV18.ordering'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV18.ordering',
+            'rules.E03.outcome-replacement',
+            'rules.E03.replacement-sabotage',
+            'rules.E03.replacement-duplicates',
+            'rules.E75.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5636,8 +5693,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Theft takes half of treasury after prior costs, rounded to copper precision.',
           plannedTests: ['rules.EV19.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV19.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'mitigation',
@@ -5645,8 +5702,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty DC20 reduces current loss to 10%; mitigation lasts only one week.',
           plannedTests: ['rules.EV19.mitigation'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV19.mitigate', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'persistent',
@@ -5654,8 +5711,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice halves incoming gains until successful Reduce Danger ends it.',
           plannedTests: ['rules.EV19.persistent'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV19.twice',
+            'rules.EV19.ending',
+            'rules.E76.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'order',
@@ -5663,8 +5724,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Deposits and all incoming paths follow same-week end/gain order with per-instance checks.',
           plannedTests: ['rules.EV19.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV19.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5682,8 +5743,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All disabled teams recover.',
           plannedTests: ['rules.EV20.disabled'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV20.disabled', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'none',
@@ -5691,8 +5752,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: If none disabled, select one team for +2 on exactly one next-Activity check.',
           plannedTests: ['rules.EV20.none'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV20.none', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'empty',
@@ -5700,8 +5761,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No team follows event eligibility reroll policy.',
           plannedTests: ['rules.EV20.empty'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV20.empty', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'order',
@@ -5709,8 +5770,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successive events and expiring returns use current projected state; unused bonus expires.',
           plannedTests: ['rules.EV20.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV20.order', 'rules.E74.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5728,8 +5789,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Training loses rolled 1d6 plus current rank.',
           plannedTests: ['rules.EV21.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV21.base', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5737,8 +5798,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: GM-chosen team defects unless Diplomacy reaches DC10 plus rank.',
           plannedTests: ['rules.EV21.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV21.twice', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'success',
@@ -5746,8 +5807,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful prevention still leaves team unavailable next Activity.',
           plannedTests: ['rules.EV21.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV21.twice', 'rules.E75.projection-parity'],
+          gap: null,
         },
         {
           id: 'inputs',
@@ -5755,8 +5816,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing die, team or attempted check prevents readiness and modifiers apply once.',
           plannedTests: ['rules.EV21.inputs'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV21.inputs', 'rules.E75.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5774,8 +5835,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Training increases by current post-Upkeep rank.',
           plannedTests: ['rules.EV22.base'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV22.base', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'duplicate',
@@ -5783,8 +5844,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No Twice clause means duplicate grants rank twice.',
           plannedTests: ['rules.EV22.duplicate'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV22.duplicate', 'rules.E74.projection-parity'],
+          gap: null,
         },
         {
           id: 'timing',
@@ -5792,8 +5853,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Event training gain does not retroactively run Upkeep rank advancement.',
           plannedTests: ['rules.EV22.timing'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV22.timing', 'rules.E74.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5811,8 +5872,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Next week all organization checks take -1 across all phases.',
           plannedTests: ['rules.EV23.checks'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV23.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'losses',
@@ -5820,8 +5881,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Next Upkeep doubles all training losses but not natural-20 gains.',
           plannedTests: ['rules.EV23.losses'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV23.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5829,8 +5890,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Duplicate adds no extra effect.',
           plannedTests: ['rules.EV23.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV23.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'expiry',
@@ -5857,8 +5918,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Next week all organization checks receive +5.',
           plannedTests: ['rules.EV24.checks'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV24.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'gains',
@@ -5866,8 +5927,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Next Activity training gain includes Commandants once and then doubles.',
           plannedTests: ['rules.EV24.gains'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV24.base', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'twice',
@@ -5875,8 +5936,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Duplicate adds no extra effect.',
           plannedTests: ['rules.EV24.twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV24.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
         {
           id: 'expiry',
@@ -5884,8 +5945,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Effects last only next week and compose with Week of Pain without hidden duplication.',
           plannedTests: ['rules.EV24.expiry'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV24.twice', 'rules.E76.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5913,8 +5974,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Persistent instances process oldest first with stable order for age ties.',
           plannedTests: ['rules.P01.oldest'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P01.oldest', 'rules.P77.projection-parity'],
+          gap: null,
         },
         {
           id: 'identity',
@@ -5922,8 +5983,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple instances of the same type retain separate targets and ages.',
           plannedTests: ['rules.P01.identity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P01.identity', 'rules.P77.projection-parity'],
+          gap: null,
         },
         {
           id: 'eligibility',
@@ -5931,8 +5992,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: New same-week persistence does not change fixed carried-event phase eligibility.',
           plannedTests: ['rules.P01.eligibility'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P01.eligibility', 'rules.P77.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5960,8 +6021,12 @@ export const coverageCatalog = {
           expected:
             "Phase View / Resolution Preview: Each persistent instance can attempt mitigation each week; last week's mitigation does not carry.",
           plannedTests: ['rules.P02.weekly'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P02.weekly',
+            'rules.P02.successor',
+            'rules.P77.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'optional',
@@ -5969,8 +6034,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Unattempted optional mitigation differs from attempted incomplete mitigation.',
           plannedTests: ['rules.P02.optional'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P02.optional', 'rules.P77.projection-parity'],
+          gap: null,
         },
         {
           id: 'end',
@@ -5978,8 +6043,15 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rivalry skill success and Theft Reduce Danger permanently end their target rather than temporary mitigation.',
           plannedTests: ['rules.P02.end'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P02.rivalry.bluff',
+            'rules.P02.rivalry.diplomacy',
+            'rules.P02.rivalry.intimidate',
+            'rules.EV19.ending',
+            'rules.P77.rivalry-mutation',
+            'rules.P77.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -6006,8 +6078,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: First buyoff is immediately available even before week 4.',
           plannedTests: ['rules.P03.first'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P03.first', 'rules.P77.projection-parity'],
+          gap: null,
         },
         {
           id: 'cooldown',
@@ -6015,8 +6087,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Buyoff in week 2 blocks week 5 and permits week 6 across all persistent event targets.',
           plannedTests: ['rules.P03.cooldown'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P03.cooldown.5',
+            'rules.P03.cooldown.6',
+            'rules.P77.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'cost',
@@ -6024,8 +6100,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Cost is twice current minimum treasury and insufficient funds use warning/exception policy.',
           plannedTests: ['rules.P03.cost'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P03.cost', 'rules.P77.projection-parity'],
+          gap: null,
         },
         {
           id: 'stage',

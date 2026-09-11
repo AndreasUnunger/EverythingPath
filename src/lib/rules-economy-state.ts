@@ -6,6 +6,8 @@ import {
 
 export const economyItemSchema = z.strictObject({
   itemId: id,
+  ownerCharacterId: id.optional(),
+  identified: z.boolean().optional(),
   name: z.string().trim().min(1),
   valueCopper: int,
   weight: z.number().nonnegative(),
@@ -16,6 +18,7 @@ export const economyItemSchema = z.strictObject({
     'returning',
     'enchanting',
     'sold',
+    'lost',
   ]),
 });
 export const economyStateSchema = z

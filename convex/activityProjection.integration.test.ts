@@ -11,6 +11,11 @@ import { projectActivity } from '../src/lib/rules-activity';
 import { projectActivityAndEventShaping } from '../src/lib/rules-event-shaping';
 import { eventActionFixture } from '../tests/rules/event-action-fixture';
 import { roll } from '../tests/rules/upkeep-fixture';
+import {
+  eventSelectionFixture,
+  occurrence,
+  pair,
+} from '../tests/rules/event-selection-fixture';
 import { activityFixture } from '../tests/rules/activity-fixture';
 import { settlementFixture } from '../tests/rules/settlement-fixture';
 import { characterFixture } from '../tests/rules/character-fixture';
@@ -295,6 +300,114 @@ test('[rules.A72.projection-parity] event shaping and reactive rolls agree in th
     );
     expect(browser, action).toEqual(server);
     expect(server.event.ready, action).toBe(true);
+    expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
+  }
+});
+
+test('[rules.E02.parity] selection trees, duplicate dispatch, carry and incomplete replacements agree in browser and Convex', async () => {
+  const bundle = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      lib: {
+        entry: resolve('src/lib/rules-event-shaping.ts'),
+        name: 'EventRules',
+        formats: ['iife'],
+      },
+    },
+  });
+  const output = Array.isArray(bundle) ? bundle[0] : bundle;
+  if (!output || !('output' in output)) throw Error('Expected browser bundle');
+  const script = output.output.find((entry) => entry.type === 'chunk');
+  if (script?.type !== 'chunk') throw Error('Expected JavaScript');
+  for (const action of [
+    'quiet',
+    'duplicate',
+    'nested',
+    'automatic',
+    'impossible',
+    'settlement',
+  ] as const) {
+    const { draft, snapshot } = eventSelectionFixture();
+    draft.context = { ...draft.context, uneventfulCarry: true };
+    if (action === 'quiet') draft.event.chanceRoll = roll(100, 100);
+    if (action === 'duplicate') draft.event.occurrences = pair(22);
+    if (action === 'nested') draft.event.occurrences = pair(50);
+    if (action === 'automatic') {
+      draft.context = {
+        ...draft.context,
+        queuedEffects: [
+          {
+            effectId: 'auto',
+            sourceId: 'storm',
+            startsWeek: 40,
+            endsWeek: 40,
+            effect: { kind: 'automatic_events', count: 1 },
+          },
+        ],
+      };
+      draft.event.chanceRoll = roll(100, 100);
+      draft.event.occurrences = [
+        occurrence('auto', 10, { kind: 'automatic', sourceId: 'storm' }),
+      ];
+    }
+    if (action === 'impossible') {
+      snapshot.roster.teams = [];
+      draft.event.occurrences = [occurrence('sick', 90)];
+    }
+    if (action === 'settlement') {
+      const town = snapshot.settlements[0];
+      if (!town) throw Error('Missing town');
+      town.reputation = 'Friendly';
+      draft.event.occurrences = [occurrence('event', 18)];
+    }
+    const t = convexTest(schema, modules);
+    const scope = await t.run(async (ctx) => {
+      await ctx.db.insert('user', {
+        tokenIdentifier: 'test|player',
+        name: 'Player',
+        image: '',
+        orgIds: [{ orgId: 'test', role: 'member' }],
+      });
+      const campaignId = await ctx.db.insert('campaign', {
+        name: 'Preview',
+        ownerId: 'gm',
+        organizationId: 'test',
+        description: '',
+      });
+      const militiaId = await ctx.db.insert('militia', {
+        campaignId,
+        name: 'Militia',
+        HQLocation: 'HQ',
+        highestBoonReached: 3,
+        rank: 3,
+        training: 30,
+        treasury: 300,
+        focus: 'Loyalty',
+      });
+      return { campaignId, militiaId };
+    });
+    const player = t.withIdentity({ tokenIdentifier: 'test|player' });
+    await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
+    const server = await player.run(async (ctx) => {
+      const stored = await readOpenDraft(ctx, scope);
+      if (!stored) throw Error('Missing draft');
+      return projectActivityAndEventShaping(stored, snapshot);
+    });
+    const browser: unknown = runInNewContext(
+      `${script.code}; EventRules.projectActivityAndEventShaping(draft, snapshot)`,
+      {
+        structuredClone,
+        draft: JSON.parse(JSON.stringify(draft)) as unknown,
+        snapshot: structuredClone(snapshot),
+      },
+    );
+    expect(browser, action).toEqual(server);
+    expect(server.event.ready, action).toBe(
+      action !== 'nested' && action !== 'impossible',
+    );
     expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
   }
 });

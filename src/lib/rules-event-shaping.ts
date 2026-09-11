@@ -8,19 +8,14 @@ import {
   type FoundationInput,
 } from './rules-foundations';
 import type { WeeklyDraft } from './weekly-draft-contract';
-import type { EventActionChange } from './rules-event-actions';
 import type { UpkeepSnapshot } from './rules-upkeep';
-import { eventTypeForPercentile } from './militia-event-table';
+import {
+  projectEventSelection,
+  type EventSelectionProjection,
+} from './rules-event-selection';
 
 type Event = WeeklyDraft['event']['occurrences'][number];
-type Guarantee = Extract<EventActionChange, { kind: 'event_guarantee' }>;
-export type EventShapingProjection = {
-  ready: boolean;
-  requirements: string[];
-  warnings: string[];
-  guaranteed: boolean;
-  guarantees: Guarantee[];
-  selected: Event[];
+export type EventShapingProjection = EventSelectionProjection & {
   negatedEventIds: string[];
   outcome: UpkeepSnapshot;
   checks: ActivityProjection['checks'];
@@ -41,17 +36,15 @@ export type EventShapingProjection = {
 // occurrences and resolves reactive Sabotage; event effects are a later fold.
 export function projectEventShaping(
   draft: WeeklyDraft,
-  activity: ActivityProjection,
+  activity: Pick<
+    ActivityProjection,
+    'requirements' | 'warnings' | 'plan' | 'outcome' | 'teamUse' | 'checkUsage'
+  >,
+  selection?: EventSelectionProjection,
+  deferReactions = false,
 ): EventShapingProjection {
   const result: EventShapingProjection = {
-    ready: false,
-    requirements: [...activity.requirements],
-    warnings: [...activity.warnings],
-    guaranteed: false,
-    guarantees: activity.plan.filter(
-      (effect): effect is Guarantee => effect.kind === 'event_guarantee',
-    ),
-    selected: [],
+    ...(selection ?? projectEventSelection(draft, activity)),
     negatedEventIds: [],
     outcome: structuredClone(activity.outcome),
     checks: [],
@@ -59,7 +52,7 @@ export function projectEventShaping(
     teamUse: structuredClone(activity.teamUse),
     sabotage: [],
   };
-  result.guaranteed = result.guarantees.length > 0;
+  if (deferReactions) return result;
   const foundationInput = (): FoundationInput => ({
     ...result.outcome,
     week: draft.week,
@@ -70,10 +63,6 @@ export function projectEventShaping(
     activity: result.teamUse,
     checkUsage: result.checkUsage,
   });
-  const tableModifier =
-    projectRulesFoundations(foundationInput()).eventTableModifier;
-  if (tableModifier === null)
-    result.requirements.push('event:operating-settlement');
   function die(raw: Event['tableRoll'], id: string, sides: number) {
     if (raw?.sides !== sides || raw.dice.length !== 1) {
       result.requirements.push(`${id}:1d${sides}`);
@@ -82,162 +71,6 @@ export function projectEventShaping(
     const value = raw.dice[0]!;
     if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
     return value;
-  }
-  function rolled(event: Event) {
-    const value = die(event.tableRoll, `${event.eventId}:table`, 100);
-    if (value === null || tableModifier === null) return null;
-    const extra = new Map<string, number>();
-    for (const modifier of event.tableRoll?.modifiers ?? [])
-      if (
-        modifier.sourceId !== 'settlement' &&
-        modifier.sourceId !== 'reputation'
-      )
-        extra.set(modifier.sourceId, modifier.value);
-    const total = Math.max(
-      1,
-      Math.min(
-        100,
-        value +
-          tableModifier +
-          [...extra.values()].reduce((sum, value) => sum + value, 0),
-      ),
-    );
-    const eventType = eventTypeForPercentile(total);
-    if (event.eventType && event.eventType !== eventType)
-      result.warnings.push(`${event.eventId}:calculated-event`);
-    return { ...structuredClone(event), eventType };
-  }
-  let expanded = false;
-  function select(event: Event, tree: Event[]) {
-    const resolved = rolled(event);
-    if (!resolved) return;
-    if (resolved.eventType !== 'roll_twice') {
-      result.selected.push(resolved);
-      return;
-    }
-    const kind = expanded ? 'replacement' : 'roll_twice';
-    const count = expanded ? 1 : 2;
-    expanded = true;
-    const children = tree.filter(
-      (entry) =>
-        entry.origin.kind === kind &&
-        'parentEventId' in entry.origin &&
-        entry.origin.parentEventId === event.eventId,
-    );
-    if (children.length !== count) {
-      result.requirements.push(`${event.eventId}:${kind}:${count}`);
-      return;
-    }
-    for (const child of children) select(child, tree);
-  }
-  const automaticSources = draft.context.queuedEffects.filter(
-    (effect) =>
-      effect.startsWeek <= draft.week &&
-      draft.week <= effect.endsWeek &&
-      effect.effect.kind === 'automatic_events',
-  );
-  const automaticRoots = draft.event.occurrences.filter(
-    (event) => event.origin.kind === 'automatic',
-  );
-  for (const event of automaticRoots)
-    if (
-      !automaticSources.some(
-        (effect) =>
-          event.origin.kind === 'automatic' &&
-          effect.sourceId === event.origin.sourceId,
-      )
-    )
-      result.requirements.push(`${event.eventId}:automatic-event-source`);
-  function selectAutomatic(event: Event) {
-    const resolved = rolled(event);
-    if (!resolved) return;
-    if (resolved.eventType !== 'roll_twice') {
-      result.selected.push(resolved);
-      return;
-    }
-    const children = draft.event.occurrences.filter(
-      (entry) =>
-        entry.origin.kind === 'replacement' &&
-        entry.origin.parentEventId === event.eventId,
-    );
-    if (children.length !== 1) {
-      result.requirements.push(`${event.eventId}:replacement:1`);
-      return;
-    }
-    selectAutomatic(children[0]!);
-  }
-  const automaticSeen = new Set<string>();
-  for (const effect of automaticSources) {
-    if (automaticSeen.has(effect.sourceId)) continue;
-    automaticSeen.add(effect.sourceId);
-    const roots = automaticRoots.filter(
-      (event) =>
-        event.origin.kind === 'automatic' &&
-        event.origin.sourceId === effect.sourceId,
-    );
-    if (
-      effect.effect.kind === 'automatic_events' &&
-      roots.length !== effect.effect.count
-    )
-      result.requirements.push(
-        `${effect.sourceId}:automatic-events:${effect.effect.count}`,
-      );
-    else for (const root of roots) selectAutomatic(root);
-  }
-  const forcedCalm = draft.context.queuedEffects.some(
-    (effect) =>
-      effect.startsWeek <= draft.week &&
-      draft.week <= effect.endsWeek &&
-      effect.effect.kind === 'all_is_calm',
-  );
-  if (!forcedCalm) {
-    for (const guarantee of result.guarantees) {
-      const roots = guarantee.candidates.filter(
-        (event) => event.origin.kind === 'rolled',
-      );
-      if (roots.length !== 2)
-        result.requirements.push(`${guarantee.choiceId}:candidates:2`);
-      // Both independent percentile rolls are required even for the rejected option.
-      for (const root of roots) rolled(root);
-      const chosen = roots.find(
-        (root) => root.eventId === guarantee.selectedEventId,
-      );
-      if (!chosen)
-        result.requirements.push(`${guarantee.choiceId}:selected-event`);
-      else if (roots.length === 2) select(chosen, guarantee.candidates);
-    }
-    if (!result.guaranteed) {
-      const modifiers = draft.context.queuedEffects.filter(
-        (effect) =>
-          effect.startsWeek <= draft.week &&
-          draft.week <= effect.endsWeek &&
-          effect.effect.kind === 'event_chance',
-      );
-      const chance = Math.max(
-        10,
-        Math.min(
-          95,
-          result.outcome.notoriety +
-            (draft.context.uneventfulCarry ? result.outcome.rank : 0) +
-            modifiers.reduce(
-              (sum, effect) =>
-                sum +
-                (effect.effect.kind === 'event_chance'
-                  ? effect.effect.value
-                  : 0),
-              0,
-            ),
-        ),
-      );
-      const chanceRoll = die(draft.event.chanceRoll, 'event:chance', 100);
-      if (chanceRoll !== null && chanceRoll <= chance) {
-        const roots = draft.event.occurrences.filter(
-          (event) => event.origin.kind === 'rolled',
-        );
-        if (roots.length !== 1) result.requirements.push('event:root:1');
-        else select(roots[0]!, draft.event.occurrences);
-      }
-    }
   }
   function exception(subjectId: string, ruleId: string) {
     result.warnings.push(`${subjectId}:${ruleId}`);
@@ -274,6 +107,7 @@ export function projectEventShaping(
           effect.startsWeek <= draft.week &&
           draft.week <= effect.endsWeek &&
           effect.effect.kind === 'team_unavailable' &&
+          effect.effect.phase !== 'activity' &&
           effect.effect.teamId === team.teamId,
       )
     )

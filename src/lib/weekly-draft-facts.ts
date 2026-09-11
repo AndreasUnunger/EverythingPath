@@ -89,12 +89,22 @@ export const eventTargetSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('character'), characterId: id }),
   z.strictObject({ kind: z.literal('cache'), cacheId: id }),
 ]);
+export const officerCheckSchema = z.strictObject({
+  characterId: id,
+  skill: z.enum(['diplomacy', 'bluff', 'intimidate']),
+  skillBonus: signedInteger.optional(),
+  roll: rawRollSchema.optional(),
+});
 export const persistentEventSchema = z.strictObject({
   eventId: id,
   eventType: z.enum(EVENT_TYPES),
   startedWeek: int,
   order: int.nonnegative(),
   targets: z.array(eventTargetSchema),
+  sourceEventIds: z.array(id).optional(),
+  mitigation: z
+    .strictObject({ week: int, retainedIncomePercent: z.literal(90) })
+    .optional(),
 });
 export const orderSchema = z.strictObject({
   orderId: id,
@@ -108,6 +118,7 @@ export const orderSchema = z.strictObject({
     .nullable(),
 });
 export const queuedEffectSchema = z.strictObject({
+  eventType: z.enum(EVENT_TYPES).optional(),
   effectId: id,
   sourceId: id,
   startsWeek: int,
@@ -116,10 +127,15 @@ export const queuedEffectSchema = z.strictObject({
     z.strictObject({
       kind: z.literal('check_modifier'),
       check: z.enum(['loyalty', 'secrecy', 'security']),
+      phase: z.enum(['upkeep', 'activity', 'event', 'persistent']).optional(),
       value: signedInteger,
     }),
     z.strictObject({
       kind: z.literal('upkeep_loss_multiplier'),
+      value: int.min(1),
+    }),
+    z.strictObject({
+      kind: z.literal('activity_training_multiplier'),
       value: int.min(1),
     }),
     z.strictObject({ kind: z.literal('event_chance'), value: signedInteger }),
@@ -129,7 +145,16 @@ export const queuedEffectSchema = z.strictObject({
       count: int.min(1).max(2),
     }),
     z.strictObject({ kind: z.literal('block_action'), actionId: id }),
-    z.strictObject({ kind: z.literal('team_unavailable'), teamId: id }),
+    z.strictObject({
+      kind: z.literal('team_unavailable'),
+      teamId: id,
+      phase: z.literal('activity').optional(),
+    }),
+    z.strictObject({
+      kind: z.literal('team_return'),
+      teamId: id,
+      status: z.enum(['active', 'disabled']),
+    }),
     z.strictObject({ kind: z.literal('narrative'), instruction: reason }),
   ]),
 });
@@ -139,6 +164,8 @@ export const persistentDecisionSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('mitigate'),
     eventId: id,
+    officerCheck: officerCheckSchema.optional(),
+    overseerCharacterId: id.optional(),
     rolls: rollsSchema.optional(),
     targets: z.array(eventTargetSchema).optional(),
     strategistCharacterId: id.optional(),
@@ -163,6 +190,9 @@ const eventOccurrenceSchema = z.strictObject({
     z.strictObject({ kind: z.literal('replacement'), parentEventId: id }),
   ]),
   eventType: z.enum(EVENT_TYPES).optional(),
+  mitigation: z.enum(['unattempted', 'attempted']).optional(),
+  averagePartyLevel: int.optional(),
+  officerCheck: officerCheckSchema.optional(),
   tableRoll: rawRollSchema.optional(),
   rolls: rollsSchema.optional(),
   targets: z.array(eventTargetSchema).optional(),
@@ -174,7 +204,22 @@ const eventOccurrenceSchema = z.strictObject({
     .array(
       z.strictObject({
         target: eventTargetSchema,
+        mitigation: z.enum(['unattempted', 'attempted']).optional(),
+        overseerCharacterId: id.optional(),
         rolls: rollsSchema.optional(),
+      }),
+    )
+    .optional(),
+  rewards: z
+    .array(
+      z.strictObject({
+        itemId: id,
+        characterId: id,
+        name: reason,
+        valueCopper: int,
+        weight: z.number().nonnegative(),
+        alchemical: z.boolean(),
+        poison: z.boolean(),
       }),
     )
     .optional(),

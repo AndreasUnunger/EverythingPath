@@ -69,7 +69,9 @@ export const contextOrderSchema = orderSchema.extend({
 export const contextBonusSchema = z.strictObject({
   bonusId: id,
   source: text,
-  check: z.enum(['loyalty', 'security', 'secrecy', 'event_chance']),
+  check: z.enum(['loyalty', 'security', 'secrecy', 'event_chance', 'any']),
+  teamId: id.optional(),
+  phase: z.enum(['upkeep', 'activity', 'event', 'persistent']).optional(),
   value: z.number().int(),
   availableWeek: int.nullable(),
   consumedWeek: int.nullable(),

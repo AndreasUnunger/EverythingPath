@@ -10,6 +10,19 @@ export function eventActionFixture(
     | 'sabotage' = 'guarantee_event',
 ) {
   const { draft, snapshot } = activityFixture('drill_militia');
+  draft.activity.operatingSettlementId = 'town';
+  snapshot.settlements = [
+    {
+      settlementId: 'town',
+      name: 'Town',
+      reputation: 'Indifferent',
+      secured: true,
+      occupied: false,
+      temporaryReputationShift: 0,
+      refugeActivatedWeek: 39,
+      refugeActiveUntilWeek: 41,
+    },
+  ];
   snapshot.roster.officers = [];
   snapshot.characters[0]!.charisma = 16;
   snapshot.roster.teams[0]!.teamType =
