@@ -1,3 +1,4 @@
+import type { ConfirmationTransport } from './weekly-confirmation-contract';
 import { paginationResultValidator } from 'convex/server';
 import { v } from 'convex/values';
 import { convexToZod } from 'convex-helpers/server/zod4';
@@ -45,7 +46,7 @@ export const draftReceiptSchema = z.strictObject({
   observation: draftObservationSchema,
 });
 export type DraftReceipt = z.infer<typeof draftReceiptSchema>;
-export type DraftTransport = {
+export type DraftTransport = Partial<ConfirmationTransport> & {
   read(this: void): Promise<DraftObservation>;
   send(this: void, operation: DraftOperation): Promise<DraftReceipt>;
   subscribe(

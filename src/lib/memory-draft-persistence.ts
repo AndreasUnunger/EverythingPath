@@ -1,7 +1,20 @@
+import {
+  acceptedWeeklyPreview,
+  prepareWeeklyConfirmation,
+} from './weekly-confirmation';
+import {
+  confirmationOperationSchema,
+  type ConfirmationReceipt,
+  type ConfirmationTransport,
+} from './weekly-confirmation-contract';
 import { militiaSnapshotSchema } from './canonical-weekly-source';
 import { draftReferenceRequirements } from './weekly-draft-references';
 import type { UpkeepSnapshot } from './rules-upkeep';
-import { weeklyDraftSchema, type WeeklyDraft } from './weekly-draft-contract';
+import {
+  weeklyDraftSchema,
+  weeklyDraftDataSchema,
+  type WeeklyDraft,
+} from './weekly-draft-contract';
 import { weeklySourceKey } from './canonical-weekly-source';
 import { acceptDraftOperation } from './weekly-draft-consistency';
 import {
@@ -18,7 +31,10 @@ export function createMemoryDraftAuthority(
   initial: WeeklyDraft,
   snapshot: UpkeepSnapshot,
 ) {
-  const source = militiaSnapshotSchema.parse(snapshot);
+  let source = militiaSnapshotSchema.parse(snapshot);
+  let sourceRevision = 0;
+  let confirmation: { request: string; receipt: ConfirmationReceipt } | null =
+    null;
   let current = weeklyDraftSchema.parse(initial);
   let closed = false;
   let targets: DraftTargetRevision[] = [];
@@ -43,8 +59,44 @@ export function createMemoryDraftAuthority(
   const publish = () => {
     for (const next of observers) next(observe());
   };
-  const transport: DraftTransport = {
+  const reservedDraftIds = new Set<string>();
+  const transport: DraftTransport & ConfirmationTransport = {
     read: async () => observe(),
+    async preview() {
+      if (closed) throw new DraftRejected('Draft closed');
+      return acceptedWeeklyPreview(current, source, sourceRevision);
+    },
+    async confirm(input) {
+      const operation = confirmationOperationSchema.parse(input);
+      if (confirmation?.receipt.operationId === operation.operationId) {
+        if (confirmation.request !== weeklySourceKey(operation))
+          throw new DraftRejected('Operation identity reused');
+        return structuredClone(confirmation.receipt);
+      }
+      if (closed) throw new DraftRejected('Draft closed');
+      const prepared = prepareWeeklyConfirmation(
+        current,
+        source,
+        sourceRevision,
+        operation,
+      );
+      if (reservedDraftIds.has(prepared.successor.draftId))
+        throw new DraftRejected('Draft identity already used');
+      source = prepared.after.militiaSnapshot;
+      sourceRevision++;
+      closed = true;
+      revisions.clear();
+      targets = [];
+      const receipt = {
+        operationId: operation.operationId,
+        observation: observe(),
+        record: prepared.record,
+        successor: prepared.successor,
+      };
+      confirmation = { request: weeklySourceKey(operation), receipt };
+      publish();
+      return structuredClone(receipt);
+    },
     subscribe(next) {
       observers.add(next);
       next(observe());
@@ -84,6 +136,37 @@ export function createMemoryDraftAuthority(
   };
   return {
     transport,
+    inspect() {
+      return structuredClone({
+        sourceRevision,
+        snapshot: source,
+        source: observe(),
+        openDrafts: closed
+          ? confirmation
+            ? [confirmation.receipt.successor]
+            : []
+          : [weeklyDraftDataSchema.parse(current)],
+        records: confirmation ? [confirmation.receipt.record] : [],
+      });
+    },
+    changeSource(change: 'revision' | 'treasury' | 'invalid_reference') {
+      if (change === 'treasury') source.treasuryCopper += 7;
+      if (change === 'invalid_reference')
+        source.bonuses.push({
+          bonusId: 'broken',
+          source: 'fixture',
+          check: 'any',
+          value: 1,
+          teamId: 'foreign',
+          phase: 'activity',
+          availableWeek: 1,
+          consumedWeek: null,
+        });
+      sourceRevision++;
+    },
+    reserveDraftIdentity(draftId: string) {
+      reservedDraftIds.add(draftId);
+    },
     close() {
       closed = true;
       revisions.clear();

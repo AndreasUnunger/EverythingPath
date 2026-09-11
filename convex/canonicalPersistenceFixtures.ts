@@ -1,12 +1,16 @@
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
-import { type z } from 'zod';
+import { z } from 'zod';
 import { v } from 'convex/values';
+import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import {
   scopeSchema as fixtureScopeSchema,
   guardFixtureScope,
 } from '../e2e/fixtures/catalog';
-import { draftKeySchema } from './lib/canonicalStorageValidators';
+import {
+  draftKeySchema,
+  canonicalRecordValidator,
+} from './lib/canonicalStorageValidators';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
@@ -103,10 +107,7 @@ export const close = internalMutation({
       .query('canonicalWeeklyDraft')
       .withIndex('by_draftId', (q) => q.eq('draftId', args.draftId))
       .unique();
-    if (
-      row?.campaignId !== args.campaignId ||
-      row.militiaId !== args.militiaId
-    )
+    if (row?.campaignId !== args.campaignId || row.militiaId !== args.militiaId)
       throw new Error('Wrong fixture draft');
     await ctx.db.patch('canonicalWeeklyDraft', row._id, {
       status: 'closed',
@@ -126,5 +127,111 @@ export const close = internalMutation({
         acceptedDraft: undefined,
       });
     return null;
+  },
+});
+
+const lifecycleArgs = draftKeySchema.extend({ scope: fixtureScopeSchema });
+async function ownedSource(
+  ctx: MutationCtx,
+  args: z.infer<typeof lifecycleArgs>,
+) {
+  const campaign = await ownedCampaign(ctx, args.scope);
+  if (campaign._id !== args.campaignId)
+    throw new Error('Wrong fixture campaign');
+  const state = await ctx.db
+    .query('canonicalMilitiaState')
+    .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+    .unique();
+  if (state?.campaignId !== campaign._id)
+    throw new Error('Wrong fixture militia');
+  const row = await ctx.db
+    .query('canonicalWeeklyDraft')
+    .withIndex('by_draftId', (q) => q.eq('draftId', args.draftId))
+    .unique();
+  if (row?.militiaId !== state.militiaId || row.campaignId !== campaign._id)
+    throw new Error('Wrong fixture draft');
+  return { state, row };
+}
+export const changeSource = internalMutation({
+  args: zodOutputToConvex(
+    lifecycleArgs.extend({
+      change: z.enum(['revision', 'treasury', 'invalid_reference']),
+    }),
+  ),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { state } = await ownedSource(ctx, args);
+    const snapshot = militiaSnapshotSchema.parse(state.snapshot);
+    if (args.change === 'treasury') snapshot.treasuryCopper += 7;
+    if (args.change === 'invalid_reference')
+      snapshot.bonuses.push({
+        bonusId: 'broken',
+        source: 'fixture',
+        check: 'any',
+        value: 1,
+        teamId: 'foreign',
+        phase: 'activity',
+        availableWeek: 1,
+        consumedWeek: null,
+      });
+    await ctx.db.patch('canonicalMilitiaState', state._id, {
+      revision: state.revision + 1,
+      snapshot,
+    });
+    return null;
+  },
+});
+export const blockSuccessor = internalMutation({
+  args: zodOutputToConvex(
+    lifecycleArgs.extend({ operationId: z.string().min(1) }),
+  ),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ownedSource(ctx, args);
+    // A real final-write identity collision proves rollback after snapshot,
+    // immutable record and source closure writes, without a production fault flag.
+    await ctx.db.insert('canonicalWeeklyDraft', {
+      campaignId: args.campaignId,
+      militiaId: args.militiaId,
+      draftId: `next:${args.operationId}`,
+      revision: 0,
+      status: 'closed',
+      draft: null,
+    });
+    return null;
+  },
+});
+export const inspect = internalMutation({
+  args: zodOutputToConvex(lifecycleArgs),
+  returns: v.object({
+    ...zodOutputToConvex(confirmationInspectionSchema.omit({ records: true }))
+      .fields,
+    records: v.array(canonicalRecordValidator),
+  }),
+  handler: async (ctx, args) => {
+    const { state, row } = await ownedSource(ctx, args);
+    const drafts = await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_campaignId_and_status', (q) =>
+        q.eq('campaignId', args.campaignId).eq('status', 'open'),
+      )
+      .take(2);
+    const records = await ctx.db
+      .query('canonicalResolutionRecord')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', args.militiaId))
+      .take(10);
+    return confirmationInspectionSchema.parse({
+      sourceRevision: state.revision,
+      snapshot: state.snapshot,
+      source: {
+        draftId: row.draftId,
+        revision: row.revision,
+        status: row.status,
+        draft: row.draft,
+        targetRevisions: [],
+      },
+      openDrafts: drafts.map((draft) => draft.draft),
+      records: records.map((row) => row.record),
+    });
   },
 });

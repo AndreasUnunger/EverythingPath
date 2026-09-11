@@ -23,7 +23,10 @@ beforeEach(() => {
   vi.stubEnv('E2E_FIXTURE_CONFIG', JSON.stringify(deploymentFixture));
   vi.stubEnv('CONVEX_CLOUD_URL', deploymentFixture.convexUrl);
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});
 async function setup() {
   const t = convexTest(schema, modules);
   await t.mutation(internal.e2eFixtures.seedIdentityProjection, fixtureScope);
@@ -373,4 +376,205 @@ test('target tombstones live in indexed children and page reads restart before a
   expect(
     await t.run((ctx) => ctx.db.query('canonicalDraftTarget').collect()),
   ).toHaveLength(0);
+});
+
+test('[rules.P80.atomic] reviewed Confirmation atomically advances once and rejects a competing attempt', async () => {
+  vi.useFakeTimers();
+  const { t, key, member, send, operation } = await setup();
+  await send(
+    operation(0, 'roll', {
+      kind: 'event_chance',
+      roll: {
+        dice: [100],
+        sides: 100,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      },
+    }),
+  );
+  const preview = await member.query(
+    api.canonicalDraftPersistence.preview,
+    key,
+  );
+  const args = {
+    ...key,
+    operation: { operationId: 'confirm-one', reviewed: preview.reviewed },
+  };
+  const results = await Promise.allSettled([
+    member.mutation(api.canonicalDraftPersistence.confirm, args),
+    member.mutation(api.canonicalDraftPersistence.confirm, {
+      ...args,
+      operation: { ...args.operation, operationId: 'confirm-two' },
+    }),
+  ]);
+  expect(
+    results.filter((result) => result.status === 'fulfilled'),
+  ).toHaveLength(1);
+  const state = await t.run(async (ctx) => ({
+    records: await ctx.db.query('canonicalResolutionRecord').take(3),
+    drafts: await ctx.db.query('canonicalWeeklyDraft').take(3),
+    source: await ctx.db.query('canonicalMilitiaState').unique(),
+  }));
+  expect(state.records).toHaveLength(1);
+  expect(state.drafts.filter((draft) => draft.status === 'open')).toHaveLength(
+    1,
+  );
+  expect(
+    state.drafts.find((draft) => draft.draftId === key.draftId),
+  ).toMatchObject({ status: 'closed', draft: null });
+  expect(state.source).toMatchObject({
+    revision: 1,
+    snapshot: { treasuryCopper: 100, training: 0 },
+  });
+  expect(await member.query(observe, key)).toMatchObject({
+    status: 'closed',
+    draft: null,
+  });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalDraftTarget').take(1)),
+  ).toEqual([]);
+});
+
+test('[rules.P80.rollback] final successor write failure rolls back all changes; bounded closure cleanup retains only dedup authority', async () => {
+  vi.useFakeTimers();
+  const { t, key, member, send, operation } = await setup();
+  for (let i = 0; i < 36; i++)
+    await send(
+      operation(i, `empty-ack-${i}`, {
+        kind: 'clear_acknowledgement',
+        acknowledgementId: `unused-${i}`,
+      }),
+    );
+  await send(
+    operation(36, 'chance', {
+      kind: 'event_chance',
+      roll: {
+        dice: [100],
+        sides: 100,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      },
+    }),
+  );
+  const review = await member.query(api.canonicalDraftPersistence.preview, key);
+  await t.mutation(internal.canonicalPersistenceFixtures.blockSuccessor, {
+    ...key,
+    scope: fixtureScope,
+    operationId: 'collision',
+  });
+  const before = await t.mutation(
+    internal.canonicalPersistenceFixtures.inspect,
+    { ...key, scope: fixtureScope },
+  );
+  await expect(
+    member.mutation(api.canonicalDraftPersistence.confirm, {
+      ...key,
+      operation: { operationId: 'collision', reviewed: review.reviewed },
+    }),
+  ).rejects.toThrow('Draft identity already used');
+  expect(
+    await t.mutation(internal.canonicalPersistenceFixtures.inspect, {
+      ...key,
+      scope: fixtureScope,
+    }),
+  ).toEqual(before);
+  const receipt = await member.mutation(api.canonicalDraftPersistence.confirm, {
+    ...key,
+    operation: {
+      operationId: 'explicit-new-attempt',
+      reviewed: review.reviewed,
+    },
+  });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  const retained = await t.run(async (ctx) => ({
+    operations: await ctx.db.query('canonicalDraftOperation').take(100),
+    targets: await ctx.db.query('canonicalDraftTarget').take(1),
+    source: await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_draftId', (q) => q.eq('draftId', key.draftId))
+      .unique(),
+  }));
+  expect(retained.operations).toHaveLength(37);
+  expect(
+    retained.operations.every((row) => row.acceptedDraft === undefined),
+  ).toBe(true);
+  expect(retained.targets).toEqual([]);
+  expect(retained.source?.initialDraft).toBeUndefined();
+  expect(retained.source?.draft).toBeNull();
+  expect(
+    await send(
+      operation(36, 'chance', {
+        kind: 'event_chance',
+        roll: {
+          dice: [100],
+          sides: 100,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      }),
+    ),
+  ).toMatchObject({ acceptedRevision: 37, observation: { status: 'closed' } });
+  expect(
+    await member.mutation(api.canonicalDraftPersistence.confirm, {
+      ...key,
+      operation: {
+        operationId: 'explicit-new-attempt',
+        reviewed: review.reviewed,
+      },
+    }),
+  ).toEqual(receipt);
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+});
+
+test('[rules.P80.authority] ready Confirmation requires campaign authority and rejects corrupted source references without writes', async () => {
+  const { t, key, member, send, operation } = await setup();
+  await send(
+    operation(0, 'chance', {
+      kind: 'event_chance',
+      roll: {
+        dice: [100],
+        sides: 100,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      },
+    }),
+  );
+  const review = await member.query(api.canonicalDraftPersistence.preview, key);
+  const args = {
+    ...key,
+    operation: { operationId: 'refused', reviewed: review.reviewed },
+  };
+  await expect(
+    t.mutation(api.canonicalDraftPersistence.confirm, args),
+  ).rejects.toThrow('Campaign access required');
+  await expect(
+    t
+      .withIdentity({ tokenIdentifier: 'outsider' })
+      .mutation(api.canonicalDraftPersistence.confirm, args),
+  ).rejects.toThrow('Campaign access required');
+  await t.mutation(internal.canonicalPersistenceFixtures.changeSource, {
+    ...key,
+    scope: fixtureScope,
+    change: 'invalid_reference',
+  });
+  const before = await t.run(async (ctx) => ({
+    source: await ctx.db.query('canonicalMilitiaState').unique(),
+    draft: await ctx.db.query('canonicalWeeklyDraft').unique(),
+  }));
+  await expect(
+    member.mutation(api.canonicalDraftPersistence.confirm, args),
+  ).rejects.toThrow();
+  await expect(
+    member.query(api.canonicalDraftPersistence.preview, key),
+  ).rejects.toThrow();
+  expect(
+    await t.run(async (ctx) => ({
+      source: await ctx.db.query('canonicalMilitiaState').unique(),
+      draft: await ctx.db.query('canonicalWeeklyDraft').unique(),
+    })),
+  ).toEqual(before);
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalResolutionRecord').take(1)),
+  ).toEqual([]);
 });

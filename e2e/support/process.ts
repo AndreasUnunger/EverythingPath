@@ -172,7 +172,12 @@ export async function fixtureCall(
 
 export async function canonicalPersistenceFixtureCall(
   run: Run,
-  operation: 'initialize' | 'close',
+  operation:
+    | 'initialize'
+    | 'close'
+    | 'changeSource'
+    | 'blockSuccessor'
+    | 'inspect',
   args: Record<string, unknown>,
 ): Promise<unknown> {
   const output = await command(
@@ -190,7 +195,11 @@ export async function canonicalPersistenceFixtureCall(
     ],
     { cwd: run.workspace },
   );
-  if (operation === 'close' && !output.trim()) return null;
+  if (
+    ['close', 'changeSource', 'blockSuccessor'].includes(operation) &&
+    !output.trim()
+  )
+    return null;
   try {
     return JSON.parse(output) as unknown;
   } catch {

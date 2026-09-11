@@ -19,6 +19,7 @@ import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
 import type * as lib_campaignInitialization from "../lib/campaignInitialization.js";
 import type * as lib_canonicalCampaignContext from "../lib/canonicalCampaignContext.js";
+import type * as lib_canonicalConfirmation from "../lib/canonicalConfirmation.js";
 import type * as lib_canonicalDraftPersistenceAuthority from "../lib/canonicalDraftPersistenceAuthority.js";
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/campaignInitialization": typeof lib_campaignInitialization;
   "lib/canonicalCampaignContext": typeof lib_canonicalCampaignContext;
+  "lib/canonicalConfirmation": typeof lib_canonicalConfirmation;
   "lib/canonicalDraftPersistenceAuthority": typeof lib_canonicalDraftPersistenceAuthority;
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;

@@ -6315,8 +6315,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Confirmation requires the exact reviewed draft revision and relevant external source state.',
           plannedTests: ['rules.P08.reviewed'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P80.contract', 'rules.P80.review-integrity'],
+          gap: null,
         },
         {
           id: 'barrier',
@@ -6324,8 +6324,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Confirmation waits for earlier local edits, pauses new edits and does not substitute a newer unreviewed revision.',
           plannedTests: ['rules.P08.barrier'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P80.barrier', 'rules.P80.contract'],
+          gap: null,
         },
         {
           id: 'atomic',
@@ -6333,8 +6333,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failure applies nothing; simultaneous Confirmations produce one record and one successor.',
           plannedTests: ['rules.P08.atomic'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P80.atomic',
+            'rules.P80.rollback',
+            'rules.P80.contract',
+          ],
+          gap: null,
         },
         {
           id: 'history',
@@ -6342,8 +6346,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Full source and ruleset persist immutably; delayed writes to closed identity are rejected.',
           plannedTests: ['rules.P08.history'],
-          tests: ['storage.history', 'storage.source', 'storage.atomic'],
-          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
+          tests: [
+            'storage.history',
+            'storage.source',
+            'storage.atomic',
+            'rules.P80.history',
+            'rules.P80.contract',
+          ],
+          gap: null,
         },
       ],
     },
@@ -6569,8 +6579,13 @@ export const coverageCatalog = {
           expected:
             'Shared persistence contract scenarios pass against in-memory and actual isolated Convex persistence.',
           plannedTests: ['rules.GATE.adapter-contract'],
-          tests: [],
-          gap: 'Replacement adapters and shared contract suite are not yet implemented.',
+          tests: [
+            'rules.P79.contract',
+            'rules.P80.contract',
+            'rules.P80.atomic',
+            'rules.P80.rollback',
+          ],
+          gap: null,
         },
         {
           id: 'two-player',

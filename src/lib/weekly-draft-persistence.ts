@@ -1,3 +1,10 @@
+import { weeklySourceKey } from './canonical-weekly-source';
+import {
+  acceptedWeeklyPreviewSchema,
+  confirmationReceiptSchema,
+  type AcceptedWeeklyPreview,
+  type ConfirmationReceipt,
+} from './weekly-confirmation-contract';
 import {
   rebaseDraftEdit,
   requireUnchangedTargets,
@@ -8,7 +15,6 @@ import {
   DraftTransportFailure,
   type DraftObservation,
   type DraftTransport,
-  type DraftOperation,
 } from './weekly-draft-persistence-contract';
 import { editWeeklyDraft } from './weekly-draft';
 import type { WeeklyDraft, WeeklyDraftEdit } from './weekly-draft-contract';
@@ -19,6 +25,9 @@ export function createDraftPersistence(
 ) {
   let observation: DraftObservation | null = null;
   let pending = 0;
+  let confirming = false;
+  let acceptedReview: AcceptedWeeklyPreview | null = null;
+  let confirmation: ConfirmationReceipt | null = null;
   let pendingDraft: WeeklyDraft | null = null;
   let disposed = false;
   let chain = Promise.resolve();
@@ -44,10 +53,10 @@ export function createDraftPersistence(
     /* A failed read/edit is surfaced through its operation result. */
   });
   const ready = transport.read().then(accept);
-  async function send(operation: DraftOperation) {
+  async function retry<T>(request: () => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
-        return draftReceiptSchema.parse(await transport.send(operation));
+        return await request();
       } catch (error) {
         if (
           !(error instanceof DraftTransportFailure) ||
@@ -59,12 +68,88 @@ export function createDraftPersistence(
   }
   return {
     ready,
-    getSnapshot: () => ({ observation, pending }),
+    getSnapshot: () => ({
+      observation,
+      pending,
+      confirming,
+      confirmation: structuredClone(confirmation),
+    }),
+    async preview(): Promise<AcceptedWeeklyPreview | null> {
+      if (pending || confirming || disposed || !transport.preview) return null;
+      await ready;
+      const preview = acceptedWeeklyPreviewSchema.parse(
+        await transport.preview(),
+      );
+      if (
+        pending ||
+        confirming ||
+        disposed ||
+        observation?.status !== 'open' ||
+        preview.reviewed.draftId !== observation.draftId ||
+        preview.reviewed.revision !== observation.revision
+      )
+        return null;
+      if (
+        acceptedReview &&
+        preview.reviewed.sourceRevision < acceptedReview.reviewed.sourceRevision
+      )
+        return null;
+      acceptedReview = structuredClone(preview);
+      return preview;
+    },
+    confirm(review: AcceptedWeeklyPreview): Promise<'accepted' | 'failed'> {
+      const parsed = acceptedWeeklyPreviewSchema.safeParse(review);
+      if (
+        confirming ||
+        disposed ||
+        observation?.status !== 'open' ||
+        !transport.confirm ||
+        !parsed.success ||
+        parsed.data.status !== 'ready' ||
+        !acceptedReview ||
+        weeklySourceKey(parsed.data) !== weeklySourceKey(acceptedReview)
+      )
+        return Promise.resolve('failed');
+      const operation = {
+        operationId: options.operationId?.() ?? crypto.randomUUID(),
+        reviewed: parsed.data.reviewed,
+      };
+      const confirm = transport.confirm;
+      acceptedReview = null;
+      confirming = true;
+      notify();
+      const task = chain.then(async (): Promise<'accepted' | 'failed'> => {
+        try {
+          await ready;
+          if (disposed) return 'failed';
+          const receipt = confirmationReceiptSchema.parse(
+            await retry(() => confirm(operation)),
+          );
+          if (receipt.operationId !== operation.operationId) return 'failed';
+          confirmation = receipt;
+          accept(receipt.observation);
+          return 'accepted';
+        } catch {
+          try {
+            accept(await transport.read());
+          } catch {
+            /* Retain last accepted state. */
+          }
+          return 'failed';
+        } finally {
+          confirming = false;
+          notify();
+        }
+      });
+      chain = task.then(() => undefined);
+      return task;
+    },
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     edit(edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'> {
+      if (confirming || disposed) return Promise.resolve('failed');
       const submitted = pendingDraft ?? observation?.draft;
       const observedBaseRevision = observation?.revision;
       const submittedEdit = structuredClone(edit);
@@ -104,7 +189,9 @@ export function createDraftPersistence(
             baseRevision: current.revision,
             edit: rebaseDraftEdit(submitted, current, submittedEdit),
           };
-          const receipt = await send(operation);
+          const receipt = draftReceiptSchema.parse(
+            await retry(() => transport.send(operation)),
+          );
           if (receipt.operationId !== operationId) return 'failed';
           ownRevisions.add(receipt.acceptedRevision);
           accept(receipt.observation);

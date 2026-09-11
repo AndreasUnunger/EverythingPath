@@ -25,6 +25,12 @@ export const draftStorageSchema = scopeSchema.extend({
   draft: weeklyDraftSchema.nullable(),
   revision: z.number().int().nonnegative(),
   initialDraft: weeklyDraftSchema.optional(),
+  confirmation: z
+    .strictObject({
+      operationId: z.string(),
+      sourceRevision: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 export const draftStorageValidator = zodOutputToConvex(draftStorageSchema);
 
@@ -75,4 +81,12 @@ export const recordStorageValidator = zodOutputToConvex(
   | 'week'
   | 'sequence'
   | 'record.source.draftId'
+>;
+
+export const canonicalRecordValidator = zodOutputToConvex(
+  canonicalResolutionRecordSchema,
+) as unknown as Validator<
+  z.infer<typeof canonicalResolutionRecordSchema>,
+  'required',
+  string
 >;

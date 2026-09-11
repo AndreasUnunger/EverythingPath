@@ -285,7 +285,6 @@ clears that assignment. Both contexts finally reopen the campaign and verify tha
 the two records and unassigned officer roles persisted. Assertions wait only on
 visible ledger rows, role cards, and dialogs.
 
-
 ## Complete-week journey
 
 `complete-week.spec.ts` owns the `completeWeek` fixture, independently reset and
@@ -339,12 +338,12 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 Run the same isolated harness with `--nightly`. The default command and **E2E
 required** retain the five mandatory Chromium tablet journeys. Nightly selects:
 
-| Project | Viewport | Journeys |
-| --- | --- | --- |
-| Chromium tablet | 1194×834 | All five, plus navigation/form/persistence and reconnect steps |
-| WebKit tablet | 1194×834 | All five critical journeys |
-| Firefox desktop | 1440×900 | Access, existing-militia initialization, complete week |
-| Chromium phone | 390×844 | Access with focused navigation, form layout, reload and cross-layout edits |
+| Project         | Viewport | Journeys                                                                   |
+| --------------- | -------- | -------------------------------------------------------------------------- |
+| Chromium tablet | 1194×834 | All five, plus navigation/form/persistence and reconnect steps             |
+| WebKit tablet   | 1194×834 | All five critical journeys                                                 |
+| Firefox desktop | 1440×900 | Access, existing-militia initialization, complete week                     |
+| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits |
 
 The access journey's nightly extension creates a character, checks that form
 controls fit the viewport, reloads the saved record, edits at the alternate
@@ -517,7 +516,7 @@ bonus scope, transfer eligibility, funds ordering, Theft, and matching exception
 without remaining findings. Canonical Workspace browser coverage remains a later
 gate.
 
-## Canonical persistence contract (#79)
+## Canonical persistence and Confirmation contracts (#79–80)
 
 The mandatory and nightly gates include one `canonical-persistence` Chromium
 project after authentication. It runs the same contract scenarios as the memory
@@ -535,6 +534,17 @@ leaving the entire original draft unchanged. Internal fixture
 initialization and closing use the bound preview capability; normal editing still
 passes the application's authentication and campaign checks. Existing fixture
 cleanup removes the case after the test, including failed attempts.
+
+The same project runs the shared Confirmation scenarios against real transactions:
+exact accepted review, a local edit barrier, external source changes, concurrent
+confirms, delayed edits, and dropped acknowledgements. An owned closed draft
+with a colliding successor identity forces a failure after the outcome writes,
+proving that the transaction rolls back. Internal inspection checks the stored
+snapshot, history, and single open successor. An additional scenario verifies
+literal treasury values after a Special action and table adjustment, and confirms
+as an ordinary player. Outsider, anonymous, and cross-campaign Confirmation
+requests use a ready accepted preview, so incomplete input cannot mask a missing
+authorization check.
 
 `E2E required` rejects a missing, skipped, failed, or retry-only persistence
 contract. The nightly matrix runs this contract once, alongside the existing

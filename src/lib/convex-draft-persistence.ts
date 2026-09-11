@@ -1,3 +1,8 @@
+import {
+  acceptedWeeklyPreviewSchema,
+  confirmationReceiptSchema,
+  type ConfirmationTransport,
+} from './weekly-confirmation-contract';
 import type { ConvexClient } from 'convex/browser';
 import { ConvexError } from 'convex/values';
 import { api } from '../../convex/_generated/api';
@@ -16,11 +21,30 @@ type Key = z.infer<typeof draftKeySchema>;
 export function createConvexDraftTransport(
   client: ConvexClient,
   key: Key,
-): DraftTransport {
+): DraftTransport & ConfirmationTransport {
   const hydrate = createDraftTargetReader((request) =>
     client.query(api.canonicalDraftPersistence.targets, { ...key, ...request }),
   );
   return {
+    async preview() {
+      return acceptedWeeklyPreviewSchema.parse(
+        await client.query(api.canonicalDraftPersistence.preview, key),
+      );
+    },
+    async confirm(operation) {
+      if (operation.reviewed.draftId !== key.draftId)
+        throw new DraftRejected('Unknown draft');
+      try {
+        return confirmationReceiptSchema.parse(
+          await client.mutation(api.canonicalDraftPersistence.confirm, {
+            ...key,
+            operation,
+          }),
+        );
+      } catch (error) {
+        return rejectTransport(error);
+      }
+    },
     async read() {
       return await hydrate(
         draftObservationSchema.parse(
@@ -41,16 +65,7 @@ export function createConvexDraftTransport(
         );
         return { ...receipt, observation: await hydrate(receipt.observation) };
       } catch (error) {
-        if (error instanceof ConvexError)
-          throw new DraftRejected('Edit rejected');
-        // Convex retries connectivity internally. A closed/interrupted client is
-        // the remaining temporary transport boundary; validation is not retried.
-        if (
-          error instanceof Error &&
-          error.message === 'ConvexClient has already been closed.'
-        )
-          throw new DraftTransportFailure('Connection interrupted');
-        throw error;
+        return rejectTransport(error);
       }
     },
     subscribe(next, failed) {
@@ -76,4 +91,17 @@ export function createConvexDraftTransport(
       };
     },
   };
+}
+
+function rejectTransport(error: unknown): never {
+  if (error instanceof ConvexError)
+    throw new DraftRejected('Operation rejected');
+  // The SDK retries network connectivity; a closed client is the remaining
+  // temporary transport boundary. Validation and authority are never retried.
+  if (
+    error instanceof Error &&
+    error.message === 'ConvexClient has already been closed.'
+  )
+    throw new DraftTransportFailure('Connection interrupted');
+  throw error;
 }
