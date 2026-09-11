@@ -15,6 +15,14 @@ carry, queue expiry, delivery state, event ending and fixed next-week context.
 Typed Table Adjustments apply in order after this baseline. Rules Exceptions
 permit choices and preserve their reasons without changing arithmetic.
 
+Activity's selected consumables refer to the militia's one-use check bonuses.
+Each selected bonus needs an explicit choice/check target. A choice's
+`consumableIds` applies the recorded bonus to that action's organization check;
+the existing `bonus:<id>` roll provenance selects the same bonus, and recording
+both does not stack it. Unknown, spent, incompatible or untargeted selections
+remain incomplete, including selections attached to actions without checks.
+Selection never invents a target or overrides the recorded bonus value.
+
 Each plan contains the complete typed `before` and `after` state plus ordered
 phase effects and adjudication. A persistence adapter applies `after` exactly;
 it must not replay the effects' arithmetic or add business outcomes in write

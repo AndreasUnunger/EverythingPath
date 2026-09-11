@@ -2,7 +2,7 @@ import {
   projectPersistentWeek,
   preparePersistentSuccessor,
 } from './rules-persistent-events';
-import { actionChoiceEvents } from './weekly-draft-facts';
+import { draftReferenceRequirements } from './weekly-draft-references';
 import {
   weeklyDraftSchema,
   weekStartFactsSchema,
@@ -78,7 +78,7 @@ export function projectWeeklyDraft(input: {
   const source = parsed.data;
   const draft = weeklyDraftSchema.parse(source.revision);
   const phases = projectPersistentWeek(draft, source.militiaSnapshot);
-  const requirements = referenceRequirements(
+  const requirements = draftReferenceRequirements(
     draft,
     source.militiaSnapshot,
     phases.persistent.outcome,
@@ -213,99 +213,6 @@ function applyAdjustments(
       );
     }
   }
-}
-
-function referenceRequirements(
-  draft: WeeklyDraft,
-  before: UpkeepSnapshot,
-  after: UpkeepSnapshot,
-) {
-  const requirements: string[] = [];
-  const choices = draft.activity.slots.flatMap((slot) =>
-    slot.choice ? [slot.choice] : [],
-  );
-  const events = [
-    ...draft.context.carriedEvents,
-    ...draft.event.occurrences,
-    ...choices.flatMap(actionChoiceEvents),
-  ];
-  const teams = new Set(
-    [...before.roster.teams, ...after.roster.teams].map((x) => x.teamId),
-  );
-  const characters = new Set(before.characters.map((x) => x.characterId));
-  const settlements = new Set(before.settlements.map((x) => x.settlementId));
-  const items = new Set(
-    [...(before.economy?.items ?? []), ...(after.economy?.items ?? [])].map(
-      (x) => x.itemId,
-    ),
-  );
-  const caches = new Set(
-    [...(before.economy?.caches ?? []), ...(after.economy?.caches ?? [])].map(
-      (x) => x.cacheId,
-    ),
-  );
-  const eventIds = new Set(events.map((x) => x.eventId));
-  const check = (value: string | undefined, ids: Set<string>, path: string) => {
-    if (value !== undefined && !ids.has(value))
-      requirements.push(`${path}:reference`);
-  };
-  check(
-    draft.activity.operatingSettlementId,
-    settlements,
-    'activity:operating-settlement',
-  );
-  check(
-    draft.upkeep.nearestSettlementId,
-    settlements,
-    'upkeep:nearest-settlement',
-  );
-  for (const order of draft.context.orders) {
-    check(order.itemId, items, `order:${order.orderId}:item`);
-    check(order.settlementId, settlements, `order:${order.orderId}:settlement`);
-  }
-  for (const effect of draft.context.queuedEffects)
-    if ('teamId' in effect.effect)
-      check(effect.effect.teamId, teams, `queue:${effect.effectId}:team`);
-  for (const transfer of draft.upkeep.treasuryTransfers)
-    check(
-      transfer.characterId,
-      characters,
-      `transfer:${transfer.transferId}:character`,
-    );
-  for (const decision of draft.upkeep.teamDecisions)
-    check(decision.teamId, teams, `team:${decision.teamId}`);
-  for (const choice of choices) {
-    check(choice.teamId, teams, `${choice.choiceId}:team`);
-    if ('targetTeamId' in choice)
-      check(choice.targetTeamId, teams, `${choice.choiceId}:target-team`);
-    if ('characterId' in choice)
-      check(choice.characterId, characters, `${choice.choiceId}:character`);
-    if ('chooserCharacterId' in choice)
-      check(
-        choice.chooserCharacterId,
-        characters,
-        `${choice.choiceId}:chooser`,
-      );
-    if ('settlementId' in choice)
-      check(choice.settlementId, settlements, `${choice.choiceId}:settlement`);
-  }
-  for (const event of events)
-    for (const target of event.targets ?? []) {
-      const [value, ids] =
-        target.kind === 'team'
-          ? ([target.teamId, teams] as const)
-          : target.kind === 'character'
-            ? ([target.characterId, characters] as const)
-            : target.kind === 'settlement'
-              ? ([target.settlementId, settlements] as const)
-              : target.kind === 'item'
-                ? ([target.itemId, items] as const)
-                : target.kind === 'cache'
-                  ? ([target.cacheId, caches] as const)
-                  : ([target.eventId, eventIds] as const);
-      check(value, ids, `event:${event.eventId}:${target.kind}`);
-    }
-  return requirements;
 }
 
 export function resolveCanonicalWeeklyDraft(

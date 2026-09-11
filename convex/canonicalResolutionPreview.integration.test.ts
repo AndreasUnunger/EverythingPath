@@ -17,6 +17,7 @@ import {
   prepareCanonicalResolutionRecord,
 } from '../src/lib/canonical-weekly-resolution';
 import { persistentEventFixture } from '../tests/rules/persistent-event-fixture';
+import { roll } from '../tests/rules/upkeep-fixture';
 const modules = import.meta.glob('./**/*.ts');
 
 test('[rules.P78.projection-parity] browser and persisted Convex source yield the same complete preview and immutable source/outcome', async () => {
@@ -40,6 +41,31 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
   for (const kind of ['low_morale', 'theft', 'rivalry'] as const) {
     const { draft, snapshot } = persistentEventFixture(kind);
     snapshot.training = 15;
+    if (kind === 'low_morale') {
+      snapshot.bonuses = [
+        {
+          bonusId: 'gift',
+          source: 'reward',
+          check: 'any',
+          value: 5,
+          phase: 'activity',
+          availableWeek: 2,
+          consumedWeek: null,
+        },
+      ];
+      draft.activity.consumableIds = ['gift'];
+      draft.activity.slots = [
+        {
+          slotId: 'one',
+          choice: {
+            choiceId: 'drill',
+            actionId: 'drill_militia',
+            consumableIds: ['gift'],
+            rolls: { check: roll(20, 10), training: roll(6, 3, 4) },
+          },
+        },
+      ];
+    }
     draft.persistent.decisions = [{ kind: 'buyoff', eventId: 'carried' }];
     draft.tableAdjustments = [
       {
@@ -95,7 +121,13 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
     );
     expect(browser, kind).toEqual(server);
     expect(server.status, kind).toBe('ready');
-    expect(server.outcome?.militiaSnapshot.treasuryCopper).toBe(24003);
+    expect(server.outcome?.militiaSnapshot.treasuryCopper).toBe(
+      kind === 'low_morale' ? 21003 : 24003,
+    );
+    if (kind === 'low_morale') {
+      expect(server.outcome?.militiaSnapshot.training).toBe(21);
+      expect(server.outcome?.militiaSnapshot.bonuses[0]?.consumedWeek).toBe(2);
+    }
     expect(server.outcome?.context.carriedEvents).toEqual([]);
     const record = await player.run(async (ctx) => {
       const revision = await readOpenDraft(ctx, scope);

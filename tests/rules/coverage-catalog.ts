@@ -6165,7 +6165,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Every required roll, target, choice and acknowledgement controls readiness.',
           plannedTests: ['rules.P05.matrix'],
-          tests: ['rules.P05.matrix'],
+          tests: [
+            'rules.P05.matrix',
+            'rules.P78.consumables',
+            'rules.P78.consumable-targets',
+          ],
           gap: null,
         },
         {
@@ -6220,7 +6224,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Preview and committed state diff agree for every action and event, all ledgers, queues and identities.',
           plannedTests: ['rules.P06.full-plan'],
-          tests: ['rules.P06.full-plan', 'rules.P78.projection-parity'],
+          tests: [
+            'rules.P06.full-plan',
+            'rules.P06.compound-state',
+            'rules.P78.projection-parity',
+          ],
           gap: 'Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.',
         },
         {
@@ -6275,7 +6283,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Malformed references, missing entities and nonfinite numbers remain blocked.',
           plannedTests: ['rules.P07.integrity'],
-          tests: ['rules.P07.integrity', 'rules.P07.source-references'],
+          tests: [
+            'rules.P07.integrity',
+            'rules.P07.source-references',
+            'rules.P78.selected-references',
+          ],
           gap: null,
         },
         {

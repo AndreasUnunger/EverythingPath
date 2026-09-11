@@ -115,11 +115,14 @@ function check(
         helpful: choice.rolls?.check?.modifiers.some(
           (modifier) => modifier.sourceId === 'helpful',
         ),
-        bonusIds: choice.rolls?.check?.modifiers.flatMap((modifier) =>
-          modifier.sourceId.startsWith('bonus:')
-            ? [modifier.sourceId.slice(6)]
-            : [],
-        ),
+        bonusIds: [
+          ...(choice.consumableIds ?? []),
+          ...(choice.rolls?.check?.modifiers.flatMap((modifier) =>
+            modifier.sourceId.startsWith('bonus:')
+              ? [modifier.sourceId.slice(6)]
+              : [],
+          ) ?? []),
+        ],
       },
     ],
   });
@@ -738,6 +741,29 @@ function consumeBonuses(draft: WeeklyDraft, result: ActivityProjection) {
     result.plan.push({ kind: 'consume_bonus', bonusId, week: draft.week });
   }
 }
+function requireConsumableTargets(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+) {
+  for (const bonusId of draft.activity.consumableIds)
+    if (!result.checkUsage.bonusIds.includes(bonusId))
+      result.requirements.push(`activity:consumable:${bonusId}:check`);
+  for (const { choice } of draft.activity.slots) {
+    if (!choice) continue;
+    const check = result.checks.find(
+      (check) => check.checkId === choice.choiceId,
+    );
+    for (const bonusId of choice.consumableIds ?? [])
+      if (
+        !check?.modifiers.some(
+          (modifier) => modifier.source === `bonus:${bonusId}`,
+        )
+      )
+        result.requirements.push(
+          `${choice.choiceId}:consumable:${bonusId}:check`,
+        );
+  }
+}
 export function projectActivity(
   draft: WeeklyDraft,
   snapshot: UpkeepSnapshot,
@@ -781,6 +807,7 @@ export function projectActivity(
   }
   receiveEconomyOrders(draft, result);
   consumeBonuses(draft, result);
+  requireConsumableTargets(draft, result);
   result.requirements = [...new Set(result.requirements)];
   result.warnings = [...new Set(result.warnings)];
   result.ready = result.requirements.length === 0;

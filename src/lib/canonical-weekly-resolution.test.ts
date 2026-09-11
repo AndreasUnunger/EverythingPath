@@ -6,7 +6,10 @@ import {
   applyCanonicalResolutionPlan,
   prepareCanonicalResolutionRecord,
 } from './weekly-resolution';
-import { weeklySourceKey } from './canonical-weekly-source';
+import {
+  weeklySourceKey,
+  type CanonicalWeekState,
+} from './canonical-weekly-source';
 import { persistentEventFixture } from '../../tests/rules/persistent-event-fixture';
 import { resourceEventFixture } from '../../tests/rules/resource-event-fixture';
 import { characterFixture } from '../../tests/rules/character-fixture';
@@ -26,6 +29,114 @@ function resolve(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     militiaSnapshot: snapshot,
   });
 }
+
+test('[rules.P78.selected-references] historical operations and selected consumables reject foreign identities', () => {
+  const input = fixture();
+  input.revision.context = {
+    ...input.revision.context,
+    operatedSettlementIds: ['foreign'],
+  };
+  expect(projectWeeklyDraft(input).requirements).toContain(
+    'context:operated-settlement:foreign:reference',
+  );
+  input.revision.context = {
+    ...input.revision.context,
+    operatedSettlementIds: ['town'],
+  };
+  input.revision.activity.consumableIds = ['foreign'];
+  expect(projectWeeklyDraft(input).requirements).toContain(
+    'activity:consumable:foreign:reference',
+  );
+  input.revision.activity.consumableIds = [];
+  expect(projectWeeklyDraft(input).status).toBe('ready');
+});
+
+test('[rules.P78.consumables] selected one-use bonuses require an explicit check target and contribute once from authoritative facts', () => {
+  const { draft, snapshot, choice } = economyFixture('earn_gold');
+  draft.context = { ...draft.context, firstMilitiaWeek: true };
+  draft.event.chanceRoll = roll(100, 100);
+  snapshot.bonuses = [
+    {
+      bonusId: 'gift',
+      source: 'turn-around',
+      check: 'any',
+      value: 5,
+      teamId: 'team',
+      phase: 'activity',
+      availableWeek: 40,
+      consumedWeek: null,
+    },
+  ];
+  draft.activity.consumableIds = ['gift'];
+  expect(
+    projectWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }).status,
+  ).toBe('incomplete');
+  choice.consumableIds = ['gift'];
+  const result = resolve(draft, snapshot);
+  // Fixers are tier 3: (10 raw + 1 secondary Loyalty + 5 gift) x 3 gp.
+  expect(result.outcome!.militiaSnapshot.treasuryCopper).toBe(1004800);
+  expect(result.outcome!.militiaSnapshot.bonuses[0]!.consumedWeek).toBe(40);
+  expect(snapshot.bonuses[0]!.consumedWeek).toBeNull();
+  choice.rolls!.check!.modifiers = [
+    { sourceId: 'bonus:gift', value: 999, reason: 'Old entered modifier' },
+  ];
+  expect(resolve(draft, snapshot).outcome!.militiaSnapshot.treasuryCopper).toBe(
+    1004800,
+  );
+  snapshot.bonuses[0]!.consumedWeek = 39;
+  expect(
+    projectWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }).status,
+  ).toBe('incomplete');
+});
+
+test('[rules.P78.consumable-targets] selected bonuses cannot vanish on no-check actions or be used by two choices', () => {
+  const { draft, snapshot, choice } = economyFixture('earn_gold');
+  draft.context = { ...draft.context, firstMilitiaWeek: true };
+  draft.event.chanceRoll = roll(100, 100);
+  snapshot.bonuses = [
+    {
+      bonusId: 'gift',
+      source: 'reward',
+      check: 'any',
+      value: 5,
+      phase: 'activity',
+      availableWeek: 40,
+      consumedWeek: null,
+    },
+  ];
+  choice.consumableIds = ['gift'];
+  snapshot.roster.teams.push({
+    ...snapshot.roster.teams[0]!,
+    teamId: 'second',
+  });
+  draft.activity.slots[1]!.choice = {
+    ...choice,
+    choiceId: 'second-choice',
+    teamId: 'second',
+  };
+  expect(
+    projectWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }).status,
+  ).toBe('incomplete');
+  draft.activity.slots[1]!.choice = null;
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'work',
+    actionId: 'special',
+    instruction: 'Scout',
+    costCopper: 0,
+    consumableIds: ['gift'],
+    acknowledgements: [
+      {
+        acknowledgementId: 'work',
+        subjectId: 'special:work',
+        outcome: 'Scouted',
+      },
+    ],
+  };
+  expect(
+    projectWeeklyDraft({ revision: draft, militiaSnapshot: snapshot })
+      .requirements,
+  ).toContain('work:consumable:gift:check');
+});
 
 test('[rules.P05.matrix] mandatory phase rolls, targets and acknowledgements all block resolution while preserving a forecast', () => {
   const input = fixture();
@@ -144,7 +255,7 @@ test('[rules.P05.upstream] all draft facts and outside campaign changes invalida
   ).toEqual(reviewed.finalPlan);
 });
 
-test('[rules.P06.full-plan] full plans preserve resource, person, item, cache, market, order, event and successor outcomes', () => {
+test('[rules.P06.full-plan] ready action and event plans round-trip their full source and result', () => {
   const inputs = [
     ...(
       [
@@ -185,6 +296,321 @@ test('[rules.P06.full-plan] full plans preserve resource, person, item, cache, m
     expect(record.source).toEqual(draft);
     expect(record.sourceMilitiaSnapshot).toEqual(snapshot);
   }
+});
+
+test('[rules.P06.compound-state] the complete committed state matches independently specified officer, rescue, cache, market, queue and buyoff effects', () => {
+  const input = fixture();
+  const { revision: draft, militiaSnapshot: snapshot } = input;
+  snapshot.roster.teams = [
+    {
+      teamId: 'rescuers',
+      teamType: 'specialists',
+      name: 'Rescuers',
+      status: 'active',
+      rewardCapExempt: false,
+      managerCharacterId: null,
+      notes: '',
+    },
+    {
+      teamId: 'spies',
+      teamType: 'spies',
+      name: 'Spies',
+      status: 'active',
+      rewardCapExempt: false,
+      managerCharacterId: null,
+      notes: '',
+    },
+    {
+      teamId: 'fixers',
+      teamType: 'fixers',
+      name: 'Fixers',
+      status: 'active',
+      rewardCapExempt: false,
+      managerCharacterId: null,
+      notes: '',
+    },
+  ];
+  snapshot.economy = {
+    items: [
+      {
+        itemId: 'gear',
+        name: 'Supplies',
+        valueCopper: 1000,
+        weight: 1,
+        location: 'held',
+      },
+    ],
+    caches: [],
+    markets: [],
+    orders: [],
+  };
+  snapshot.characterActions = {
+    people: [
+      {
+        characterId: 'pc',
+        status: 'captured',
+        location: { kind: 'headquarters' },
+        directRescueRequired: false,
+        capture: { source: 'ordinary', week: 1 },
+      },
+    ],
+  };
+  draft.context = {
+    ...draft.context,
+    queuedEffects: [
+      {
+        effectId: 'old',
+        sourceId: 'old-event',
+        startsWeek: 2,
+        endsWeek: 2,
+        effect: {
+          kind: 'check_modifier',
+          check: 'loyalty',
+          phase: 'upkeep',
+          value: 1,
+        },
+      },
+    ],
+  };
+  draft.activity.slots = [
+    {
+      slotId: 'role-slot',
+      choice: {
+        choiceId: 'role',
+        actionId: 'change_officer_role',
+        characterId: 'pc',
+        fromRole: 'overseer',
+        toRole: 'ambassador',
+      },
+    },
+    {
+      slotId: 'rescue-slot',
+      choice: {
+        choiceId: 'rescue',
+        actionId: 'rescue_character',
+        teamId: 'rescuers',
+        characterId: 'pc',
+        destination: { kind: 'headquarters' },
+        rolls: { check: roll(20, 20) },
+      },
+    },
+    {
+      slotId: 'cache-slot',
+      choice: {
+        choiceId: 'cache',
+        actionId: 'secure_cache',
+        teamId: 'spies',
+        cacheId: 'hidden',
+        cacheClass: 'minor',
+        mode: 'place',
+        location: 'Bridge',
+        secure: false,
+        extradimensional: false,
+        itemIds: ['gear'],
+        purchases: [],
+        rolls: { check: roll(20, 20) },
+      },
+    },
+    {
+      slotId: 'market-slot',
+      choice: {
+        choiceId: 'market',
+        actionId: 'broker_market',
+        teamId: 'fixers',
+        settlementId: 'town',
+        purchases: [
+          { itemId: 'wand', name: 'Wand', priceCopper: 2000, weight: 1 },
+        ],
+      },
+    },
+  ];
+  draft.rulesExceptions = ['cache', 'market'].map((subjectId) => ({
+    exceptionId: `extra-${subjectId}`,
+    subjectId,
+    ruleId: 'action-capacity',
+    reason: 'Table grants extra actions',
+  }));
+  draft.acknowledgements = [
+    {
+      acknowledgementId: 'rescue-done',
+      subjectId: 'rescue_character:rescue',
+      outcome: 'The officer returns home',
+    },
+    {
+      acknowledgementId: 'wand-available',
+      subjectId: 'availability:wand',
+      outcome: 'Wand available in town',
+    },
+  ];
+  draft.event.occurrences = [
+    { eventId: 'storm', origin: { kind: 'rolled' }, tableRoll: roll(100, 54) },
+  ];
+  draft.persistent.decisions = [{ eventId: 'carried', kind: 'buyoff' }];
+  draft.tableAdjustments = [
+    {
+      kind: 'settlement_reputation',
+      adjustmentId: 'favor',
+      settlementId: 'town',
+      reputation: 'Friendly',
+      reason: 'The officer was rescued',
+    },
+  ];
+
+  // Authored from the scenario and rules, never from a projection or write plan:
+  // attrition -1 training; rescue +10 Notoriety; market 100 gp + wand 20 gp;
+  // rank-3 buyoff 60 gp; new order due next Activity; old queue expires.
+  const before: CanonicalWeekState = {
+    week: 2,
+    militiaSnapshot: structuredClone(snapshot),
+    context: {
+      firstMilitiaWeek: false,
+      startDay: 7,
+      uneventfulCarry: false,
+      carriedEvents: [
+        {
+          eventId: 'carried',
+          eventType: 'low_morale',
+          startedWeek: 1,
+          order: 0,
+          targets: [],
+        },
+      ],
+      queuedEffects: [
+        {
+          effectId: 'old',
+          sourceId: 'old-event',
+          startsWeek: 2,
+          endsWeek: 2,
+          effect: {
+            kind: 'check_modifier',
+            check: 'loyalty',
+            phase: 'upkeep',
+            value: 1,
+          },
+        },
+      ],
+      orders: [],
+      lastBuyoffWeek: null,
+    },
+  };
+  const expected: CanonicalWeekState = {
+    week: 3,
+    militiaSnapshot: {
+      ...structuredClone(snapshot),
+      training: 14,
+      treasuryCopper: 12000,
+      notoriety: 20,
+      roster: {
+        ...structuredClone(snapshot.roster),
+        officers: [{ role: 'ambassador', characterId: 'pc' }],
+      },
+      settlements: [{ ...snapshot.settlements[0]!, reputation: 'Friendly' }],
+      characterActions: {
+        people: [
+          {
+            characterId: 'pc',
+            status: 'available',
+            location: { kind: 'headquarters' },
+            directRescueRequired: false,
+            capture: null,
+            rescuedWeek: 2,
+          },
+        ],
+      },
+      economy: {
+        items: [
+          {
+            itemId: 'gear',
+            name: 'Supplies',
+            valueCopper: 1000,
+            weight: 1,
+            location: 'cache',
+          },
+          {
+            itemId: 'wand',
+            name: 'Wand',
+            valueCopper: 2000,
+            weight: 1,
+            location: 'order',
+          },
+        ],
+        caches: [
+          {
+            cacheId: 'hidden',
+            cacheClass: 'minor',
+            location: 'Bridge',
+            secure: false,
+            extradimensional: false,
+            itemIds: ['gear'],
+            status: 'hidden',
+            returnActivityWeek: null,
+          },
+        ],
+        markets: [
+          {
+            marketId: 'market:market',
+            source: 'broker_market',
+            settlementId: 'town',
+            availableWeek: 2,
+            expiresWeek: 2,
+            availability: 'small_city',
+            availabilityPercent: null,
+            salePercent: 50,
+            contraband: false,
+          },
+        ],
+        orders: [
+          {
+            orderId: 'order:market:wand',
+            itemId: 'wand',
+            source: 'broker_market',
+            settlementId: 'town',
+            mode: 'purchase',
+            orderedWeek: 2,
+            orderedDay: 7,
+            dueDay: null,
+            dueActivityWeek: 3,
+            priceCopper: 2000,
+            deliveryDays: null,
+            enchantmentValueCopper: 0,
+            receipt: null,
+          },
+        ],
+      },
+      eventBenefits: { skills: [], markets: [] },
+    },
+    context: {
+      firstMilitiaWeek: false,
+      startDay: 14,
+      uneventfulCarry: false,
+      carriedEvents: [],
+      queuedEffects: [
+        {
+          eventType: 'calm_before_the_storm',
+          effectId: 'event:storm:automatic_events',
+          sourceId: 'storm',
+          startsWeek: 3,
+          endsWeek: 3,
+          effect: { kind: 'automatic_events', count: 1 },
+        },
+      ],
+      orders: [],
+      lastBuyoffWeek: 2,
+      operatedSettlementIds: ['town'],
+    },
+  };
+  const result = resolveCanonicalWeeklyDraft(input);
+  expect(result.finalPlan.before).toEqual(before);
+  expect(result.outcome).toEqual(expected);
+  expect(applyCanonicalResolutionPlan(before, result.finalPlan)).toEqual(
+    expected,
+  );
+  const baseline = structuredClone(expected);
+  baseline.militiaSnapshot.settlements[0]!.reputation = 'Indifferent';
+  expect(result.baseline).toEqual(baseline);
+  expect(
+    prepareCanonicalResolutionRecord(result, 'compound').finalOutcome.data,
+  ).toEqual(expected);
 });
 
 test('[rules.P06.baseline] ordered Upkeep deposits and Activity costs precede Theft and persistent buyoff, then adjustments apply', () => {
