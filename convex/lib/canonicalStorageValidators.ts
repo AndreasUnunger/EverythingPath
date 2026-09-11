@@ -24,6 +24,7 @@ export const draftStorageSchema = scopeSchema.extend({
   // Closed rows are identity tombstones; the immutable record owns their source.
   draft: weeklyDraftSchema.nullable(),
   revision: z.number().int().nonnegative(),
+  initialDraft: weeklyDraftSchema.optional(),
   targetRevisions: z.array(targetRevisionSchema),
 });
 export const draftStorageValidator = zodOutputToConvex(draftStorageSchema);
@@ -49,6 +50,7 @@ export const operationStorageValidator = zodOutputToConvex(
   draftKeySchema.extend({
     ...operationSchema.shape,
     acceptedRevision: z.number().int().positive(),
+    acceptedDraft: weeklyDraftSchema.optional(),
   }),
 );
 

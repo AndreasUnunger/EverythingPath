@@ -1,3 +1,4 @@
+import { recruitedTeamId } from './weekly-draft-identities';
 import {
   resolveEventAction,
   finishCovertAction,
@@ -399,7 +400,7 @@ function recruit(
   naturalOne(result, choice);
   if (total === null || total < recruitment.dc) return;
   const team = {
-    teamId: `recruit:${choice.choiceId}`,
+    teamId: recruitedTeamId(choice.choiceId),
     teamType: choice.teamType!,
     name: definition.name,
     status: 'active' as const,

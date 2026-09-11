@@ -22,6 +22,7 @@ const scopeArgs = {
     v.literal('characterLedger'),
     v.literal('completeWeek'),
     v.literal('realtimeActionSlot'),
+    v.literal('canonicalPersistence'),
   ),
   token: v.string(),
 };
@@ -69,6 +70,13 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
     );
     for (const militia of militias) {
       const tables = [
+        'canonicalWeeklyDraft',
+        'canonicalDraftOperation',
+        'canonicalResolutionRecord',
+        'canonicalMilitiaState',
+        'canonicalCampaignInitialization',
+        'canonicalCampaignContext',
+        'canonicalRoster',
         'militiaTeam',
         'militiaWeekState',
         'militiaSettlementState',

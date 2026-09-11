@@ -12,11 +12,17 @@ export const caseKeys = [
   'characterLedger',
   'completeWeek',
   'realtimeActionSlot',
+  'canonicalPersistence',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
 
 // Provider IDs belong in the external resource declaration, never in this catalog.
 export const fixtureCatalog = {
+  canonicalPersistence: {
+    campaign: 'canonical-persistence-campaign',
+    militia: 'canonical-persistence-militia',
+    character: 'canonical-persistence-officer',
+  },
   smoke: {
     campaign: 'harness-campaign',
     militia: 'harness-militia',
@@ -134,6 +140,7 @@ export const deploymentFixtureSchema = z
                 existingMilitia: z.string().length(64),
                 characterLedger: z.string().length(64),
                 completeWeek: z.string().length(64),
+                canonicalPersistence: z.string().length(64),
                 realtimeActionSlot: z.string().length(64),
               })
               .strict(),

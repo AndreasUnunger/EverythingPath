@@ -46,6 +46,7 @@ export const deploymentFixture: DeploymentFixture = {
       existingMilitia: 'd'.repeat(64),
       characterLedger: 'c'.repeat(64),
       completeWeek: 'e'.repeat(64),
+      canonicalPersistence: 'c'.repeat(64),
       realtimeActionSlot: 'f'.repeat(64),
     },
   })),

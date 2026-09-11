@@ -516,3 +516,28 @@ passed. Independent QA exercised 21 schema-validated projections covering manage
 bonus scope, transfer eligibility, funds ordering, Theft, and matching exceptions
 without remaining findings. Canonical Workspace browser coverage remains a later
 gate.
+
+## Canonical persistence contract (#79)
+
+The mandatory and nightly gates include one `canonical-persistence` Chromium
+project after authentication. It runs the same contract scenarios as the memory
+adapter against the production Convex transport and actual isolated transactions.
+This is service-contract verification; the five existing browser journeys still
+exercise the supported user interface while the canonical Workspace is isolated.
+
+Each scenario resets the owned `canonicalPersistence` fixture. Separate GM and
+player browser sessions supply genuine Clerk Convex tokens to Node Convex clients;
+the clients use production queries, mutations and subscriptions. Tokens stay in
+memory, provider logging is disabled, and failures pass through the harness's
+sanitizer. Outsider and anonymous sessions must fail to read or edit the draft;
+a member request mixing its militia with another owned campaign must also fail,
+leaving the entire original draft unchanged. Internal fixture
+initialization and closing use the bound preview capability; normal editing still
+passes the application's authentication and campaign checks. Existing fixture
+cleanup removes the case after the test, including failed attempts.
+
+`E2E required` rejects a missing, skipped, failed, or retry-only persistence
+contract. The nightly matrix runs this contract once, alongside the existing
+browser/layout matrix. The aggregate and actual Playwright reporter tests cover
+missing-contract and retry-only failures. Run through `pnpm test:e2e` with the
+same dedicated resource declaration and secrets as the other journeys.

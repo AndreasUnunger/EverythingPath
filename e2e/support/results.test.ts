@@ -61,10 +61,19 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'canonical-persistence.spec.ts',
+      project: 'canonical-persistence',
+      title: 'shared persistence contract uses authenticated isolated Convex',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
-it('accepts exactly the required authentication and five journeys on their first attempts', () => {
+it('accepts required authentication, browser journeys and deployed persistence on first attempts', () => {
   expect(evaluateResults(passing())).toBe(true);
 });
 
@@ -78,7 +87,7 @@ it.each([
   'interrupted',
   undefined,
 ])('rejects a required result of %s', (status) => {
-  for (const index of [1, 2, 3, 4, 5]) {
+  for (const index of [1, 2, 3, 4, 5, 6]) {
     const report = passing();
     Object.assign(report.tests[index]!.results[0]!, { status });
     expect(evaluateResults(report)).toBe(false);
@@ -154,13 +163,19 @@ it('rejects a run that omits the complete-week journey', () => {
 
 it('rejects a run that omits the realtime Action Slot journey', () => {
   const report = passing();
+  report.tests.splice(5, 1);
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('rejects a run that omits the deployed persistence contract', () => {
+  const report = passing();
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);
 });
 
 function nightlyPassing() {
   const report = passing();
-  const critical = report.tests.slice(1);
+  const critical = report.tests.slice(1, 6);
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
     ...[critical[0]!, critical[1]!, critical[3]!].map((test) => ({
@@ -178,7 +193,7 @@ it('accepts the risk-based nightly matrix and rejects it as a mandatory run', ()
   expect(evaluateResults(passing(), 'nightly')).toBe(false);
 });
 it('requires every selected nightly project journey without skips or retry passes', () => {
-  for (let index = 0; index < 15; index++) {
+  for (let index = 0; index < nightlyPassing().tests.length; index++) {
     const missing = nightlyPassing();
     missing.tests.splice(index, 1);
     expect(evaluateResults(missing, 'nightly')).toBe(false);

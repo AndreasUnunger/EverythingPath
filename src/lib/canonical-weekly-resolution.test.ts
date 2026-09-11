@@ -14,7 +14,8 @@ import { persistentEventFixture } from '../../tests/rules/persistent-event-fixtu
 import { resourceEventFixture } from '../../tests/rules/resource-event-fixture';
 import { characterFixture } from '../../tests/rules/character-fixture';
 import { economyFixture } from '../../tests/rules/economy-fixture';
-import { roll } from '../../tests/rules/upkeep-fixture';
+import { roll, upkeepFixture } from '../../tests/rules/upkeep-fixture';
+import { createWeeklyDraft } from './weekly-draft';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import type { UpkeepSnapshot } from './rules-upkeep';
 
@@ -886,4 +887,57 @@ test('[rules.P07.order] conflicting adjustments apply in order after the baselin
   expect(weeklySourceKey(result.baseline)).not.toBe(
     weeklySourceKey(result.outcome),
   );
+});
+
+test('[rules.P79.intermediate-identity] an earlier recruited team remains a valid reference when dismissed later in the same Activity', () => {
+  const { snapshot } = upkeepFixture();
+  snapshot.treasuryCopper = 100000;
+  const draft = createWeeklyDraft({
+    draftId: 'recruit-dismiss',
+    week: 1,
+    slotIds: ['one', 'two'],
+    context: {
+      firstMilitiaWeek: true,
+      startDay: 0,
+      uneventfulCarry: false,
+      carriedEvents: [],
+      queuedEffects: [],
+      orders: [],
+      lastBuyoffWeek: null,
+    },
+  });
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'r',
+    actionId: 'recruit_team',
+    teamType: 'informants',
+    rolls: { check: roll(20, 20) },
+  };
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'd',
+    actionId: 'dismiss_team',
+    targetTeamId: 'recruit:r',
+    rolls: { check: roll(20, 20) },
+  };
+  draft.event.chanceRoll = roll(100, 100);
+  const preview = projectWeeklyDraft({
+    revision: draft,
+    militiaSnapshot: snapshot,
+  });
+  expect(preview.requirements).toEqual([]);
+  expect(preview.status).toBe('ready');
+  expect(preview.finalPlan?.after.militiaSnapshot.roster.teams).toEqual([]);
+  expect(preview.phases?.activity.plan).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'recruit_team',
+        team: expect.objectContaining({ teamId: 'recruit:r' }),
+      }),
+      expect.objectContaining({ kind: 'remove_team', teamId: 'recruit:r' }),
+    ]),
+  );
+  draft.activity.slots.reverse();
+  expect(
+    projectWeeklyDraft({ revision: draft, militiaSnapshot: snapshot })
+      .requirements,
+  ).toContain('d:target-team:reference');
 });

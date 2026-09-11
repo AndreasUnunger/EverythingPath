@@ -170,6 +170,36 @@ export async function fixtureCall(
   return parseFixtureResponse(operation, output);
 }
 
+export async function canonicalPersistenceFixtureCall(
+  run: Run,
+  operation: 'initialize' | 'close',
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const output = await command(
+    `canonical persistence fixture ${operation}`,
+    [
+      'exec',
+      'convex',
+      'run',
+      `canonicalPersistenceFixtures:${operation}`,
+      JSON.stringify(args),
+      '--preview-name',
+      run.resources.previewName,
+      '--env-file',
+      run.envFile,
+    ],
+    { cwd: run.workspace },
+  );
+  if (operation === 'close' && !output.trim()) return null;
+  try {
+    return JSON.parse(output) as unknown;
+  } catch {
+    throw new Error(
+      'Canonical persistence fixture returned an invalid response',
+    );
+  }
+}
+
 export function parseFixtureResponse(
   operation:
     | 'seedIdentityProjection'

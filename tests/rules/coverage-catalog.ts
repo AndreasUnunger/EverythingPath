@@ -6361,8 +6361,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Disjoint stale semantic edits coexist while same-target stale edits fail visibly.',
           plannedTests: ['rules.P09.disjoint'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P79.contract'],
+          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
         },
         {
           id: 'aggregate',
@@ -6370,8 +6370,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Move and swap are atomic multi-slot edits; obsolete detail edits cannot update a replacement choice.',
           plannedTests: ['rules.P09.aggregate'],
-          tests: ['rules.P09.aggregate'],
-          gap: 'Pure Weekly Draft aggregate passes; real adapter concurrency and Phase View integration remain for checkpoints 6–7.',
+          tests: ['rules.P09.aggregate', 'rules.P79.contract'],
+          gap: 'Pure aggregate and shared persistence adapter contract pass; Phase View integration remains for #81.',
         },
         {
           id: 'retry',
@@ -6379,8 +6379,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Accepted semantic edit increments revision once; retries are idempotent after dropped responses.',
           plannedTests: ['rules.P09.retry'],
-          tests: ['storage.retry'],
-          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
+          tests: ['storage.retry', 'rules.P79.contract'],
+          gap: 'Canonical editing adapter and authority outcomes are covered; Confirmation and Phase View outcomes remain for #80–81.',
         },
         {
           id: 'delivery',
@@ -6388,8 +6388,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Acknowledgements follow submission order and responses are monotonic.',
           plannedTests: ['rules.P09.delivery'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P79.contract'],
+          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
         },
         {
           id: 'shared',
@@ -6397,8 +6397,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Players edit unlocked slots with immediate feedback and recovery; no per-slot confirmation.',
           plannedTests: ['rules.P09.shared'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P79.contract'],
+          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
         },
       ],
     },
@@ -6416,8 +6416,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Actual unauthenticated or unauthorized campaign writes are rejected for edit, confirm, adjust, buyoff, rank and treasury.',
           plannedTests: ['rules.P10.scope'],
-          tests: ['storage.scope', 'storage.reconstruction'],
-          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
+          tests: [
+            'storage.scope',
+            'storage.reconstruction',
+            'rules.P79.authority',
+            'rules.P79.provenance',
+          ],
+          gap: 'Canonical editing adapter and authority outcomes are covered; Confirmation and Phase View outcomes remain for #80–81.',
         },
         {
           id: 'references',
@@ -6425,8 +6430,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Cross-campaign child references are rejected.',
           plannedTests: ['rules.P10.references'],
-          tests: ['storage.scope', 'storage.reconstruction'],
-          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
+          tests: [
+            'storage.scope',
+            'storage.reconstruction',
+            'rules.P79.authority',
+            'rules.P79.provenance',
+          ],
+          gap: 'Canonical editing adapter and authority outcomes are covered; Confirmation and Phase View outcomes remain for #80–81.',
         },
         {
           id: 'players',
@@ -6434,8 +6444,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All authorized players may stage and confirm.',
           plannedTests: ['rules.P10.players'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P79.contract'],
+          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
         },
         {
           id: 'gm',

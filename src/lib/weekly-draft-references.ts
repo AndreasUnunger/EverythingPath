@@ -1,7 +1,10 @@
+import { declaredChoiceEntities } from './weekly-draft-identities';
 import {
   actionChoiceEvents,
   type StagedActionChoice,
   type eventTargetSchema,
+  type eventTreeSchema,
+  type persistentDecisionSchema,
 } from './weekly-draft-facts';
 import type { z } from 'zod';
 import type { WeeklyDraft } from './weekly-draft-contract';
@@ -26,6 +29,22 @@ function actionReferences(choice: StagedActionChoice, check: ReferenceCheck) {
     check('character', choice.chooserCharacterId, `${id}:chooser`);
   if ('settlementId' in choice)
     check('settlement', choice.settlementId, `${id}:settlement`);
+  if (
+    choice.actionId === 'rescue_character' &&
+    choice.destination?.kind === 'refuge'
+  )
+    check('settlement', choice.destination.settlementId, `${id}:refuge`);
+  if (choice.actionId === 'secure_cache') {
+    if (choice.mode === 'retrieve')
+      check('cache', choice.cacheId, `${id}:cache`);
+    for (const itemId of choice.itemIds ?? [])
+      check('item', itemId, `${id}:item:${itemId}`);
+  }
+  if (choice.actionId === 'special_order' && choice.mode === 'enchantment')
+    check('item', choice.itemId, `${id}:item`);
+  if ('sales' in choice)
+    for (const itemId of choice.sales ?? [])
+      check('item', itemId, `${id}:sale:${itemId}`);
   for (const bonusId of choice.consumableIds ?? [])
     check('bonus', bonusId, `${id}:consumable:${bonusId}`);
 }
@@ -45,17 +64,56 @@ function targetIdentity(target: Target) {
       return target.eventId;
   }
 }
-function eventReferences(
-  events: { eventId: string; targets?: readonly Target[] }[],
+type OfficerReferences = {
+  officerCheck?: { characterId: string };
+  overseerCharacterId?: string;
+  strategistCharacterId?: string;
+};
+function officerReferences(
+  value: OfficerReferences,
+  check: ReferenceCheck,
+  path: string,
+) {
+  check('character', value.officerCheck?.characterId, `${path}:officer`);
+  check('character', value.overseerCharacterId, `${path}:overseer`);
+  check('character', value.strategistCharacterId, `${path}:strategist`);
+}
+function decisionReferences(
+  decision: z.infer<typeof persistentDecisionSchema> | undefined,
   check: ReferenceCheck,
 ) {
-  for (const event of events)
+  if (decision?.kind === 'mitigate')
+    officerReferences(decision, check, `decision:${decision.eventId}`);
+}
+type EventReferences = Omit<
+  Partial<z.infer<typeof eventTreeSchema>[number]>,
+  'mitigation' | 'targets'
+> & {
+  eventId: string;
+  targets?: readonly Target[];
+};
+function eventReferences(events: EventReferences[], check: ReferenceCheck) {
+  for (const event of events) {
+    const path = `event:${event.eventId}`;
     for (const target of event.targets ?? [])
+      check(target.kind, targetIdentity(target), `${path}:${target.kind}`);
+    officerReferences(event, check, path);
+    decisionReferences(event.persistentDecision, check);
+    for (const target of event.targetChecks ?? []) {
       check(
-        target.kind,
-        targetIdentity(target),
-        `event:${event.eventId}:${target.kind}`,
+        target.target.kind,
+        targetIdentity(target.target),
+        `${path}:target-check`,
       );
+      officerReferences(target, check, path);
+    }
+    if (event.sabotage) {
+      check('team', event.sabotage.teamId, `${path}:sabotage`);
+      officerReferences(event.sabotage, check, path);
+    }
+    for (const reward of event.rewards ?? [])
+      check('character', reward.characterId, `${path}:reward`);
+  }
 }
 function contextReferences(draft: WeeklyDraft, check: ReferenceCheck) {
   for (const settlementId of draft.context.operatedSettlementIds ?? [])
@@ -114,21 +172,11 @@ export function draftReferenceRequirements(
     ...choices.flatMap(actionChoiceEvents),
   ];
   const references: Record<ReferenceKind, Set<string>> = {
-    team: new Set(
-      [...before.roster.teams, ...after.roster.teams].map((x) => x.teamId),
-    ),
+    team: new Set(before.roster.teams.map((x) => x.teamId)),
     character: new Set(before.characters.map((x) => x.characterId)),
     settlement: new Set(before.settlements.map((x) => x.settlementId)),
-    item: new Set(
-      [...(before.economy?.items ?? []), ...(after.economy?.items ?? [])].map(
-        (x) => x.itemId,
-      ),
-    ),
-    cache: new Set(
-      [...(before.economy?.caches ?? []), ...(after.economy?.caches ?? [])].map(
-        (x) => x.cacheId,
-      ),
-    ),
+    item: new Set((before.economy?.items ?? []).map((x) => x.itemId)),
+    cache: new Set((before.economy?.caches ?? []).map((x) => x.cacheId)),
     event: new Set(events.map((x) => x.eventId)),
     bonus: new Set(before.bonuses.map((x) => x.bonusId)),
   };
@@ -138,7 +186,41 @@ export function draftReferenceRequirements(
   };
   contextReferences(draft, check);
   preparationReferences(draft, check);
-  for (const choice of choices) actionReferences(choice, check);
+  for (const choice of choices) {
+    actionReferences(choice, check);
+    const created = declaredChoiceEntities(choice);
+    for (const kind of ['team', 'item', 'cache'] as const)
+      for (const id of created[kind]) references[kind].add(id);
+  }
+  // Preserve intermediate identities even when later actions remove them, and
+  // include any additional entities emitted by resolved phase effects.
+  for (const team of after.roster.teams) references.team.add(team.teamId);
+  for (const item of after.economy?.items ?? [])
+    references.item.add(item.itemId);
+  for (const cache of after.economy?.caches ?? [])
+    references.cache.add(cache.cacheId);
   eventReferences(events, check);
+  for (const decision of draft.persistent.decisions)
+    decisionReferences(decision, check);
+  for (const adjustment of draft.tableAdjustments) {
+    if (adjustment.kind === 'team_status')
+      check(
+        'team',
+        adjustment.teamId,
+        `adjustment:${adjustment.adjustmentId}:team`,
+      );
+    if (adjustment.kind === 'settlement_reputation')
+      check(
+        'settlement',
+        adjustment.settlementId,
+        `adjustment:${adjustment.adjustmentId}:settlement`,
+      );
+    if (adjustment.kind === 'event_end')
+      check(
+        'event',
+        adjustment.eventId,
+        `adjustment:${adjustment.adjustmentId}:event`,
+      );
+  }
   return requirements;
 }

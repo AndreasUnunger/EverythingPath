@@ -93,6 +93,7 @@ export async function openDraft(
     draftId: draft.draftId,
     status: 'open',
     draft,
+    initialDraft: draft,
     revision: draft.revision,
     targetRevisions: [],
   });
@@ -331,6 +332,7 @@ async function closeRecordedDraft(
   await ctx.db.patch('canonicalWeeklyDraft', row._id, {
     status: 'closed',
     draft: null,
+    initialDraft: undefined,
   });
 }
 

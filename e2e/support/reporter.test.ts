@@ -17,6 +17,8 @@ it.each([
   'retry',
   'missing-multiplayer',
   'retry-multiplayer',
+  'missing-persistence',
+  'retry-persistence',
 ] as const)(
   'the reporter and Playwright agree on a %s required journey',
   async (mode) => {
@@ -61,6 +63,11 @@ it.each([
           join(directory, 'realtime-action-slot.spec.ts'),
           `import { test } from ${playwright}; test('players share a Staged Action Choice', async ({}, info) => { ${mode === 'retry-multiplayer' ? "if (info.retry === 0) throw new Error('Synthetic multiplayer failure');" : ''} });`,
         );
+      if (mode !== 'missing-persistence')
+        await writeFile(
+          join(directory, 'canonical-persistence.spec.ts'),
+          `import { test } from ${playwright}; test('shared persistence contract uses authenticated isolated Convex', async ({}, info) => { ${mode === 'retry-persistence' ? "if (info.retry === 0) throw new Error('Synthetic persistence failure');" : ''} });`,
+        );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,
@@ -69,7 +76,8 @@ it.each([
         retries: 1, reporter: [[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],
         projects: [
           { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
-          { name: 'chromium-tablet', testMatch: '*.spec.ts', dependencies: ['authentication'] },
+          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: 'canonical-persistence.spec.ts', dependencies: ['authentication'] },
+          { name: 'canonical-persistence', testMatch: 'canonical-persistence.spec.ts', dependencies: ['authentication'] },
         ],
       };`,
       );
@@ -92,14 +100,20 @@ it.each([
       expect(
         await readFile(join(artifactDirectory, 'report.html'), 'utf8'),
       ).toContain(`E2E ${mode === 'passed' ? 'passed' : 'failed'}`);
-      if (mode === 'retry' || mode === 'retry-multiplayer')
+      if (
+        mode === 'retry' ||
+        mode === 'retry-multiplayer' ||
+        mode === 'retry-persistence'
+      )
         expect(report).toMatchObject({
           tests: expect.arrayContaining([
             expect.objectContaining({
               file:
                 mode === 'retry'
                   ? 'access.spec.ts'
-                  : 'realtime-action-slot.spec.ts',
+                  : mode === 'retry-multiplayer'
+                    ? 'realtime-action-slot.spec.ts'
+                    : 'canonical-persistence.spec.ts',
               results: [
                 { status: 'failed', retry: 0 },
                 { status: 'passed', retry: 1 },

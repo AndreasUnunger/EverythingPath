@@ -7,7 +7,7 @@ import { expect, it } from 'vitest';
 import { resources, deploymentFixture } from './test-data';
 
 it.each(['mandatory', 'nightly'] as const)(
-  'loads the %s real Playwright config and discovers the serial setup and five tablet journeys without credentials',
+  'discovers %s authentication, browser journeys and deployed persistence without credentials',
   async (mode) => {
     const directory = await mkdtemp(join(tmpdir(), 'e2e-config-test-'));
     try {
@@ -42,8 +42,10 @@ it.each(['mandatory', 'nightly'] as const)(
       expect(result.stdout).toContain('character-ledger.spec.ts');
       expect(result.stdout).toContain('complete-week.spec.ts');
       expect(result.stdout).toContain('realtime-action-slot.spec.ts');
+      expect(result.stdout).toContain('[canonical-persistence]');
+      expect(result.stdout).toContain('canonical-persistence.spec.ts');
       expect(result.stdout).toContain(
-        mode === 'nightly' ? 'Total: 15 tests' : 'Total: 6 tests',
+        mode === 'nightly' ? 'Total: 16 tests' : 'Total: 7 tests',
       );
       if (mode === 'nightly') {
         expect(result.stdout).toContain('[webkit-tablet]');

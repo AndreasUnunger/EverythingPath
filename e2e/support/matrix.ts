@@ -20,6 +20,10 @@ export const criticalJourneys = [
   ],
   ['realtime-action-slot.spec.ts', 'players share a Staged Action Choice'],
 ] as const;
+const persistenceContract = [
+  'canonical-persistence.spec.ts',
+  'shared persistence contract uses authenticated isolated Convex',
+] as const;
 
 export function browserProjects(mode: SuiteMode): Project[] {
   const tablet: Project = {
@@ -35,6 +39,11 @@ export function browserProjects(mode: SuiteMode): Project[] {
   return [
     { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
     tablet,
+    {
+      ...tablet,
+      name: 'canonical-persistence',
+      testMatch: persistenceContract[0],
+    },
     ...(mode === 'nightly'
       ? [
           {
@@ -76,7 +85,7 @@ export function requiredTests(mode: SuiteMode) {
   return browserProjects(mode).flatMap((project) =>
     project.name === 'authentication'
       ? [['auth.setup.ts', project.name, 'prepare fresh role sessions']]
-      : criticalJourneys
+      : [...criticalJourneys, persistenceContract]
           .filter(([file]) => [project.testMatch].flat().includes(file))
           .map(([file, title]) => [file, project.name!, title]),
   );

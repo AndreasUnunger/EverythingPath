@@ -1,3 +1,4 @@
+import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 import { campaignContextDataSchema } from '../src/lib/canonical-campaign-context';
 import { canonicalRosterDataSchema } from '../src/lib/canonical-roster';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
@@ -780,6 +781,12 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  canonicalMilitiaState: defineTable({
+    campaignId: v.id('campaign'),
+    militiaId: v.id('militia'),
+    revision: v.number(),
+    snapshot: zodOutputToConvex(militiaSnapshotSchema),
+  }).index('by_militiaId', ['militiaId']),
   canonicalCampaignInitialization: defineTable({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),
@@ -802,12 +809,20 @@ export default defineSchema({
   canonicalResolutionRecord: defineTable(recordStorageValidator)
     .index('by_recordId', ['recordId'])
     .index('by_sourceDraftId', ['record.source.draftId'])
-    .index('by_campaignId_and_week_and_sequence', ['campaignId', 'week', 'sequence']),
+    .index('by_campaignId_and_week_and_sequence', [
+      'campaignId',
+      'week',
+      'sequence',
+    ])
+    .index('by_militiaId', ['militiaId']),
   canonicalDraftOperation: defineTable(operationStorageValidator)
-    .index('by_draftId_and_operationId', ['draftId', 'operationId']),
+    .index('by_draftId_and_operationId', ['draftId', 'operationId'])
+    .index('by_draftId_and_acceptedRevision', ['draftId', 'acceptedRevision'])
+    .index('by_militiaId', ['militiaId']),
   canonicalWeeklyDraft: defineTable(draftStorageValidator)
     .index('by_draftId', ['draftId'])
-    .index('by_campaignId_and_status', ['campaignId', 'status']),
+    .index('by_campaignId_and_status', ['campaignId', 'status'])
+    .index('by_militiaId', ['militiaId']),
   e2eFixtureIdentity: defineTable({
     namespace: v.string(), workerKey: v.string(), userId: v.id('user'),
   }).index('by_namespace_and_workerKey', ['namespace', 'workerKey'])

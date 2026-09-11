@@ -229,6 +229,7 @@ describe('internal fixture boundary', () => {
         existingMilitia: 'e'.repeat(64),
         characterLedger: 'f'.repeat(64),
         completeWeek: 'g'.repeat(64),
+        canonicalPersistence: 'c'.repeat(64),
         realtimeActionSlot: 'h'.repeat(64),
       },
     };
