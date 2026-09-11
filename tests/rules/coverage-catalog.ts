@@ -6142,6 +6142,15 @@ export const coverageCatalog = {
         },
 
         {
+          id: 'upkeep-card-placement',
+          checkpoint: '7-workspace',
+          expected:
+            'Pointer placement highlights a selection target and stages one choice; invalid or cancelled drops return the card without changing selection, and tap/keyboard activation remain available.',
+          plannedTests: ['rules.P81.card-drag', 'rules.P81.card-return'],
+          tests: ['rules.P81.card-drag', 'rules.P81.card-return'],
+          gap: null,
+        },
+        {
           id: 'upkeep-recovery-adjustment',
           checkpoint: '7-workspace',
           expected:

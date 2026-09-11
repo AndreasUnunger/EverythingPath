@@ -1,11 +1,12 @@
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { upkeepFixture, roll } from '../../../tests/rules/upkeep-fixture';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
@@ -13,6 +14,8 @@ import { editWeeklyDraft } from '~/lib/weekly-draft';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { phaseView } from './phase-view';
 import { UpkeepView } from './upkeep-view';
+
+afterEach(cleanup);
 
 function fixture() {
   const { draft, snapshot } = upkeepFixture();

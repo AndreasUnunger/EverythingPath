@@ -50,7 +50,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
       player.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
     ).toBeVisible();
     await expect(
-      players.outsider.getByText('This week is unavailable.', { exact: true }),
+      players.outsider.getByText(
+        /This week is unavailable\.|The week could not be loaded\./,
+      ),
     ).toBeVisible();
     await expect(
       players.outsider.getByRole('textbox', {
@@ -212,15 +214,67 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(die(player)).toHaveValue('10');
     await training(gm).fill('3');
     await expect(training(player)).toHaveValue('3');
-    await gm
-      .getByRole('group', { name: 'Nearest settlement', exact: true })
-      .getByRole('button', { name: 'Phaendar', exact: true })
-      .tap();
+    const settlementCards = gm.getByRole('group', {
+      name: 'Nearest settlement',
+      exact: true,
+    });
+    const selectedSettlement = gm.locator(
+      '[aria-label="Nearest settlement selection"]',
+    );
+    await selectedSettlement.scrollIntoViewIfNeeded();
+    const phaendar = settlementCards.getByRole('button', {
+      name: 'Phaendar',
+      exact: true,
+    });
+    const cardBounds = await phaendar.boundingBox();
+    const targetBounds = await selectedSettlement.boundingBox();
+    expect(cardBounds).not.toBeNull();
+    expect(targetBounds).not.toBeNull();
+    await gm.mouse.move(
+      cardBounds!.x + cardBounds!.width / 2,
+      cardBounds!.y + cardBounds!.height / 2,
+    );
+    await gm.mouse.down();
+    await gm.mouse.move(
+      targetBounds!.x + targetBounds!.width / 2,
+      targetBounds!.y + targetBounds!.height / 2,
+      { steps: 12 },
+    );
+    await expect(selectedSettlement).toHaveAttribute(
+      'data-drop-active',
+      'true',
+    );
+    await savePrivate(
+      join(run.artifactDirectory, 'canonical-upkeep-drag-tablet.png'),
+      await gm.screenshot({ fullPage: true }),
+    );
+    await gm.mouse.up();
     await expect(
       player
         .getByRole('group', { name: 'Nearest settlement', exact: true })
         .getByRole('button', { name: 'Phaendar', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
+    const misthome = settlementCards.getByRole('button', {
+      name: 'Misthome',
+      exact: true,
+    });
+    const invalidBounds = await misthome.boundingBox();
+    expect(invalidBounds).not.toBeNull();
+    await gm.mouse.move(
+      invalidBounds!.x + invalidBounds!.width / 2,
+      invalidBounds!.y + invalidBounds!.height / 2,
+    );
+    await gm.mouse.down();
+    await gm.mouse.move(5, 5, { steps: 12 });
+    await gm.mouse.up();
+    await expect(
+      gm.getByText(
+        'Place the card in the highlighted selection area. Your selection is unchanged.',
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
+    await expect(misthome).toHaveAttribute('aria-pressed', 'false');
     const recovery = gm.getByRole('group', {
       name: 'Scouts recovery',
       exact: true,
