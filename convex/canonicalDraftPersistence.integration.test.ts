@@ -303,23 +303,57 @@ test('target tombstones live in indexed children and page reads restart before a
     afterRevision: 0,
     observedRevision: 40,
     observedStatus: 'open' as const,
-    cursor: null,
+    paginationOpts: { numItems: 16, cursor: null },
   };
   const page = await member.query(
     api.canonicalDraftPersistence.targets,
     request,
   );
   expect(page.restart).toBe(false);
-  expect(page.page).toHaveLength(16);
-  expect(page.isDone).toBe(false);
+  expect(page.pagination?.page).toHaveLength(16);
+  expect(page.pagination?.isDone).toBe(false);
+  const limited = await member.query(api.canonicalDraftPersistence.targets, {
+    ...request,
+    paginationOpts: {
+      numItems: 100,
+      cursor: null,
+      maximumRowsRead: 2,
+      maximumBytesRead: 100000,
+      id: 7,
+    },
+  });
+  expect(limited.pagination?.page).toHaveLength(2);
+  expect(limited.pagination?.pageStatus).toBe('SplitRequired');
+  expect(limited.pagination?.splitCursor).toEqual(expect.any(String));
+  const byteLimited = await member.query(
+    api.canonicalDraftPersistence.targets,
+    {
+      ...request,
+      paginationOpts: { numItems: 100, cursor: null, maximumBytesRead: 1 },
+    },
+  );
+  expect(byteLimited.pagination?.page).toHaveLength(1);
+  expect(byteLimited.pagination?.pageStatus).toBe('SplitRequired');
+  const bounded = await member.query(api.canonicalDraftPersistence.targets, {
+    ...request,
+    paginationOpts: {
+      numItems: 100,
+      cursor: null,
+      endCursor: page.pagination!.continueCursor,
+    },
+  });
+  expect(bounded.pagination?.page).toEqual(page.pagination?.page);
   await send(operation(40, 'latest', { kind: 'event_chance', roll: null }));
   const stale = await member.query(api.canonicalDraftPersistence.targets, {
     ...request,
-    cursor: page.continueCursor,
+    paginationOpts: {
+      ...request.paginationOpts,
+      cursor: page.pagination!.continueCursor,
+    },
   });
   expect(stale).toMatchObject({
     restart: true,
-    page: [],
+    pagination: null,
     observation: { revision: 41 },
   });
   await expect(

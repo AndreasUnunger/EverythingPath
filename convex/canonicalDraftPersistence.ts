@@ -1,5 +1,6 @@
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
+import { paginationOptsValidator } from 'convex/server';
 import {
   mutation,
   query,
@@ -11,7 +12,7 @@ import {
   draftObservationSchema,
   draftOperationSchema,
   draftReceiptSchema,
-  draftTargetPageSchema,
+  draftTargetPaginationValidator,
 } from '../src/lib/weekly-draft-persistence-contract';
 import {
   observeDraft,
@@ -21,7 +22,7 @@ import {
   deploymentFixtureSchema,
   guardFixtureScope,
 } from '../e2e/fixtures/catalog';
-import { ConvexError } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 
 // Canonical editing is executable on the owned preview only until the cutover.
 async function requireIsolated(
@@ -78,15 +79,21 @@ export const edit = mutation({
 });
 
 export const targets = query({
-  args: zodOutputToConvex(
-    draftKeySchema.extend({
-      afterRevision: z.number().int().nonnegative(),
-      observedRevision: z.number().int().nonnegative(),
-      observedStatus: z.enum(['open', 'closed']),
-      cursor: z.string().nullable(),
-    }),
-  ),
-  returns: zodOutputToConvex(draftTargetPageSchema),
+  args: {
+    ...zodOutputToConvex(
+      draftKeySchema.extend({
+        afterRevision: z.number().int().nonnegative(),
+        observedRevision: z.number().int().nonnegative(),
+        observedStatus: z.enum(['open', 'closed']),
+      }),
+    ).fields,
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: v.object({
+    restart: v.boolean(),
+    observation: zodOutputToConvex(draftObservationSchema),
+    pagination: v.union(v.null(), draftTargetPaginationValidator),
+  }),
   handler: async (ctx, args) => {
     await requireIsolated(ctx, args.campaignId);
     const observation = await observeDraft(ctx, args);
@@ -98,9 +105,7 @@ export const targets = query({
     )
       return {
         observation,
-        page: [],
-        isDone: false,
-        continueCursor: '',
+        pagination: null,
         restart: true,
       };
     const result = await ctx.db
@@ -108,16 +113,17 @@ export const targets = query({
       .withIndex('by_draftId_and_revision', (q) =>
         q.eq('draftId', args.draftId).gt('revision', args.afterRevision),
       )
-      .paginate({ numItems: 16, cursor: args.cursor });
+      .paginate(args.paginationOpts);
     return {
       restart: false,
       observation,
-      page: result.page.map((row) => ({
-        target: row.target,
-        revision: row.revision,
-      })),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
+      pagination: {
+        ...result,
+        page: result.page.map((row) => ({
+          target: row.target,
+          revision: row.revision,
+        })),
+      },
     };
   },
 });

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ConvexClient } from 'convex/browser';
 import { z } from 'zod';
+import { api } from '../convex/_generated/api';
 import type { Page } from '@playwright/test';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { createConvexDraftTransport } from '../src/lib/convex-draft-persistence';
@@ -23,6 +24,7 @@ test('shared persistence contract uses authenticated isolated Convex', async ({
   test.setTimeout(180_000);
   const run = await loadRun();
   const url = run.fixture!.convexUrl;
+  let nativePaginationVerified = false;
   const comparison = z
     .object({ campaignId: draftKeySchema.shape.campaignId })
     .parse(
@@ -120,10 +122,44 @@ test('shared persistence contract uses authenticated isolated Convex', async ({
           });
         },
         dispose: async () => {
-          await Promise.all([first.close(), second.close()]);
+          try {
+            const observation = await firstTransport.read();
+            if (
+              !nativePaginationVerified &&
+              observation.status === 'open' &&
+              observation.targetRevisions.length > 16
+            ) {
+              const result = await first.query(
+                api.canonicalDraftPersistence.targets,
+                {
+                  ...scope,
+                  afterRevision: 0,
+                  observedRevision: observation.revision,
+                  observedStatus: observation.status,
+                  paginationOpts: {
+                    numItems: 1,
+                    cursor: null,
+                    endCursor: null,
+                    maximumRowsRead: 1,
+                    maximumBytesRead: 100_000,
+                    id: 79,
+                  },
+                },
+              );
+              expect(result.restart).toBe(false);
+              expect(result.pagination).not.toBeNull();
+              expect(result.pagination!.page.length).toBeLessThanOrEqual(1);
+              expect(result.pagination!.isDone).toBe(false);
+              expect(result.pagination!.continueCursor).not.toBe('');
+              nativePaginationVerified = true;
+            }
+          } finally {
+            await Promise.all([first.close(), second.close()]);
+          }
         },
       };
     });
+    expect(nativePaginationVerified).toBe(true);
   } catch (error) {
     throw new Error(
       `Isolated authenticated persistence contract: ${sanitizeLog(

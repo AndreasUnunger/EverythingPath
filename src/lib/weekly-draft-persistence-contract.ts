@@ -1,3 +1,6 @@
+import { paginationResultValidator } from 'convex/server';
+import { v } from 'convex/values';
+import { convexToZod } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
 import {
   weeklyDraftDataSchema,
@@ -67,13 +70,12 @@ export function openObservation(
   };
 }
 
+export const draftTargetPaginationValidator = paginationResultValidator(
+  v.object({ target: v.string(), revision: v.number() }),
+);
 export const draftTargetPageSchema = z.strictObject({
   restart: z.boolean(),
   observation: draftObservationSchema,
-  page: z.array(
-    z.strictObject({ target: z.string(), revision: integerSchema }),
-  ),
-  isDone: z.boolean(),
-  continueCursor: z.string(),
+  pagination: convexToZod(draftTargetPaginationValidator).nullable(),
 });
 export type DraftTargetPage = z.infer<typeof draftTargetPageSchema>;

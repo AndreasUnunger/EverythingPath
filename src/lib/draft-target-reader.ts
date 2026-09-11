@@ -1,3 +1,4 @@
+import type { PaginationOptions } from 'convex/server';
 import {
   DraftTransportFailure,
   draftTargetPageSchema,
@@ -9,12 +10,13 @@ type PageRequest = {
   afterRevision: number;
   observedRevision: number;
   observedStatus: 'open' | 'closed';
-  cursor: string | null;
+  paginationOpts: PaginationOptions;
 };
 // Page heads must describe the same committed revision. A concurrent edit makes
 // us discard the partial merge and restart; no mixed snapshot reaches a client.
 export function createDraftTargetReader(
   fetchPage: (request: PageRequest) => Promise<DraftTargetPage>,
+  pageOptions: Omit<PaginationOptions, 'cursor'> = { numItems: 16 },
 ) {
   let cached: DraftObservation | null = null;
   let chain = Promise.resolve();
@@ -42,7 +44,7 @@ export function createDraftTargetReader(
             afterRevision: cached?.revision ?? 0,
             observedRevision: expected.revision,
             observedStatus: expected.status,
-            cursor,
+            paginationOpts: { ...pageOptions, cursor },
           }),
         );
         if (
@@ -54,6 +56,8 @@ export function createDraftTargetReader(
           expected = result.observation;
           break;
         }
+        if (!result.pagination) throw new Error('Missing native target page');
+        const pagination = result.pagination;
         if (first) expected = result.observation;
         else if (
           result.observation.revision !== expected.revision ||
@@ -63,8 +67,8 @@ export function createDraftTargetReader(
           break;
         }
         first = false;
-        for (const row of result.page) merged.set(row.target, row.revision);
-        if (result.isDone) {
+        for (const row of pagination.page) merged.set(row.target, row.revision);
+        if (pagination.isDone) {
           cached = {
             ...expected,
             targetRevisions: [...merged].map(([target, revision]) => ({
@@ -74,9 +78,9 @@ export function createDraftTargetReader(
           };
           return structuredClone(cached);
         }
-        if (cursor === result.continueCursor)
+        if (cursor === pagination.continueCursor)
           throw new Error('Repeated target page cursor');
-        cursor = result.continueCursor;
+        cursor = pagination.continueCursor;
       }
     }
     throw new DraftTransportFailure('Draft changed during target hydration');

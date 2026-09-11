@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { createWeeklyDraft } from './weekly-draft';
 import {
   openObservation,
+  draftTargetPageSchema,
   type DraftTargetPage,
 } from './weekly-draft-persistence-contract';
 import { createDraftTargetReader } from './draft-target-reader';
@@ -27,9 +28,13 @@ const page = (
 ): DraftTargetPage => ({
   restart: false,
   observation: head(revision),
-  page: [{ target, revision }],
-  isDone,
-  continueCursor: `${revision}-${target}`,
+  pagination: {
+    page: [{ target, revision }],
+    isDone,
+    continueCursor: `${revision}-${target}`,
+    splitCursor: null,
+    pageStatus: null,
+  },
 });
 
 test('target hydration discards mixed revision pages and retains cleared-target tombstones across deltas', async () => {
@@ -42,7 +47,10 @@ test('target hydration discards mixed revision pages and retains cleared-target 
   ];
   const requests: { afterRevision: number; cursor: string | null }[] = [];
   const read = createDraftTargetReader(async (request) => {
-    requests.push(request);
+    requests.push({
+      afterRevision: request.afterRevision,
+      cursor: request.paginationOpts.cursor,
+    });
     const result = pages.shift();
     if (!result) throw Error('Unexpected extra page');
     return result;
@@ -94,4 +102,29 @@ test('repeated mid-pagination changes fail within a bounded number of restarts',
     'changed during target hydration',
   );
   expect(calls).toBeLessThanOrEqual(8);
+});
+
+test('native pagination metadata survives decoding and client options retain optional native fields', async () => {
+  const value = page(1, 'target', true);
+  value.pagination!.splitCursor = 'native-split';
+  value.pagination!.pageStatus = 'SplitRecommended';
+  expect(draftTargetPageSchema.parse(value).pagination).toMatchObject({
+    splitCursor: 'native-split',
+    pageStatus: 'SplitRecommended',
+    continueCursor: '1-target',
+  });
+  const options = {
+    numItems: 7,
+    endCursor: null,
+    maximumRowsRead: 2,
+    maximumBytesRead: 2048,
+    id: 79,
+  };
+  const read = createDraftTargetReader(async (request) => {
+    expect(request.paginationOpts).toEqual({ ...options, cursor: null });
+    return value;
+  }, options);
+  expect((await read(head(1))).targetRevisions).toEqual([
+    { target: 'target', revision: 1 },
+  ]);
 });
