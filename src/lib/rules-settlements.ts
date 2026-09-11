@@ -47,7 +47,9 @@ export function projectSettlements(
   const facts = settlements.map((settlement) => {
     if (
       settlement.reputation === null ||
-      settlement.temporaryReputationShift === null
+      settlement.temporaryReputationShift === null ||
+      (settlement.reduceDangerReputationShift === undefined) !==
+        (settlement.reduceDangerUntilWeek === undefined)
     ) {
       requirements.push(`settlement:${settlement.settlementId}:reputation`);
       return {
@@ -64,7 +66,11 @@ export function projectSettlements(
       Math.min(
         4,
         REPUTATION_LEVELS.indexOf(settlement.reputation) +
-          settlement.temporaryReputationShift,
+          settlement.temporaryReputationShift +
+          (settlement.reduceDangerUntilWeek !== undefined &&
+          settlement.reduceDangerUntilWeek >= week
+            ? (settlement.reduceDangerReputationShift ?? 0)
+            : 0),
       ),
     );
     let reputation = REPUTATION_LEVELS[shiftedIndex]!;
@@ -79,6 +85,20 @@ export function projectSettlements(
   });
   return { settlements: facts, requirements };
 }
+export function getPurchaseCostCopper(
+  priceCopper: number,
+  reputationPercent: number,
+  marketDay: boolean,
+  discountPercent = 0,
+) {
+  return Math.round(
+    (priceCopper *
+      (100 + reputationPercent) *
+      (marketDay ? 95 : 100) *
+      (100 - discountPercent)) /
+      1000000,
+  );
+}
 export function projectPurchases(
   purchases: FoundationPurchase[],
   settlements: ReturnType<typeof projectSettlements>['settlements'],
@@ -92,11 +112,10 @@ export function projectPurchases(
     const costCopper =
       percent === null || percent === undefined
         ? null
-        : Math.round(
-            (purchase.priceCopper *
-              (100 + percent) *
-              (100 - (purchase.marketDay ? 5 : 0))) /
-              10000,
+        : getPurchaseCostCopper(
+            purchase.priceCopper,
+            percent,
+            purchase.marketDay ?? false,
           );
     return { ...purchase, costCopper };
   });

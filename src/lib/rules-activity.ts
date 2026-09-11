@@ -1,3 +1,22 @@
+import {
+  resolveEventAction,
+  finishCovertAction,
+  type EventActionChange,
+} from './rules-event-actions';
+import { resolveCharacterChoice } from './rules-character-actions';
+import type { CharacterActionChange } from './rules-character-state';
+import { projectTreasuryIncome } from './rules-treasury';
+import {
+  resolveSettlementChoice,
+  type SettlementChange,
+} from './rules-settlement-actions';
+import { actionRestrictions } from './rules-action-eligibility';
+import {
+  resolveEconomyChoice,
+  prepareEconomy,
+  receiveEconomyOrders,
+} from './rules-economy';
+import type { EconomyChange } from './rules-economy-state';
 import { getTeamCost, isUpgradePathAllowed } from './rules-teams';
 import teams from './militia-team-table';
 import type { OrganizationCheck } from './rules-officers';
@@ -14,6 +33,11 @@ import type { CheckUsage } from './rules-checks';
 
 type Choice = StagedActionChoice;
 export type ActivityChange =
+  | EventActionChange
+  | CharacterActionChange
+  | EconomyChange
+  | SettlementChange
+  | { kind: 'end_persistent_event'; choiceId: string; eventId: string }
   | { kind: 'consume_bonus'; bonusId: string; week: number }
   | {
       kind: 'officers';
@@ -42,10 +66,12 @@ export type ActivityChange =
     };
 export type ActivityProjection = {
   ready: boolean;
+  actionResults: { choiceId: string; succeeded: boolean | null }[];
   slots: (WeeklyDraft['activity']['slots'][number] & {
     overAllowance: boolean;
   })[];
   outcome: UpkeepSnapshot;
+  endedEventIds: string[];
   plan: ActivityChange[];
   requirements: string[];
   warnings: string[];
@@ -56,7 +82,7 @@ export type ActivityProjection = {
 function dice(
   result: ActivityProjection,
   choice: Choice,
-  key: 'check' | 'notoriety' | 'training',
+  key: 'check' | 'notoriety' | 'training' | 'delivery',
   count: number,
   sides: number,
 ) {
@@ -74,6 +100,7 @@ function check(
   result: ActivityProjection,
   choice: Choice,
   organizationCheck: OrganizationCheck = 'loyalty',
+  dc?: number,
 ) {
   const die = dice(result, choice, 'check', 1, 20);
   const facts = projectRulesFoundations({
@@ -99,6 +126,8 @@ function check(
   const projected = facts.checks[0]!;
   const sources = new Set([
     'rank-focus',
+    'gather-tier',
+    'knowledge-rank',
     'officers',
     'strategist',
     'helpful',
@@ -117,7 +146,7 @@ function check(
   for (const modifier of choice.rolls?.check?.modifiers ?? []) {
     if (
       sources.has(modifier.sourceId) ||
-      /^(bonus|queued|officer|manager):/.test(modifier.sourceId)
+      /^(bonus|queued|officer|manager|covert):/.test(modifier.sourceId)
     )
       continue;
     sources.add(modifier.sourceId);
@@ -127,6 +156,41 @@ function check(
     });
     projected.modifier += modifier.value;
     if (projected.total !== null) projected.total += modifier.value;
+  }
+  const covert = result.plan.find(
+    (effect) =>
+      effect.kind === 'covert_augmentation' &&
+      effect.targetChoiceId === choice.choiceId,
+  );
+  if (covert?.kind === 'covert_augmentation') {
+    projected.modifiers.push({
+      source: `covert:${covert.choiceId}`,
+      value: covert.bonus,
+    });
+    projected.modifier += covert.bonus;
+    if (projected.total !== null) projected.total += covert.bonus;
+  }
+  const actionModifier =
+    choice.actionId === 'gather_information'
+      ? {
+          source: 'gather-tier',
+          value:
+            2 *
+            (teams.find(
+              (entry) =>
+                entry.id ===
+                result.outcome.roster.teams.find(
+                  (team) => team.teamId === choice.teamId,
+                )?.teamType,
+            )?.tier ?? 0),
+        }
+      : choice.actionId === 'knowledge_check'
+        ? { source: 'knowledge-rank', value: result.outcome.rank }
+        : null;
+  if (actionModifier) {
+    projected.modifiers.push(actionModifier);
+    projected.modifier += actionModifier.value;
+    if (projected.total !== null) projected.total += actionModifier.value;
   }
   result.checks.push(...facts.checks);
   result.checkUsage = facts.checkUsage;
@@ -148,7 +212,12 @@ function check(
         key.startsWith('manager:'),
     ),
   );
-  return facts.checks[0]!.total;
+  const resolution = result.actionResults.find(
+    (entry) => entry.choiceId === choice.choiceId,
+  )!;
+  resolution.succeeded =
+    projected.total === null ? null : dc === undefined || projected.total >= dc;
+  return projected.total;
 }
 function value(
   result: ActivityProjection,
@@ -161,6 +230,19 @@ function value(
     kind === 'treasuryCopper' ? before + delta : Math.max(0, before + delta);
   result.outcome[kind] = after;
   result.plan.push({ kind, choiceId: choice.choiceId, before, after });
+}
+function income(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+  grossCopper: number,
+) {
+  const { retainedCopper } = projectTreasuryIncome(
+    grossCopper,
+    draft.context.carriedEvents,
+    result.endedEventIds,
+  );
+  value(result, choice, 'treasuryCopper', retainedCopper);
 }
 function dismiss(
   draft: WeeklyDraft,
@@ -182,7 +264,7 @@ function dismiss(
     choiceId: choice.choiceId,
     teamId: team.teamId,
   });
-  const total = check(draft, result, choice);
+  const total = check(draft, result, choice, 'loyalty', 10);
   if (total !== null && total < 10) {
     const gain = dice(result, choice, 'notoriety', 1, 6);
     if (gain !== null) value(result, choice, 'notoriety', gain);
@@ -239,7 +321,13 @@ function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
     )
   )
     return;
-  const total = check(draft, result, choice);
+  const total = check(
+    draft,
+    result,
+    choice,
+    'loyalty',
+    10 + result.outcome.rank,
+  );
   naturalOne(result, choice);
   if (total === null || total < 10 + result.outcome.rank) return;
   const gain = dice(result, choice, 'training', 2, 6);
@@ -288,7 +376,7 @@ function recruit(
     !exception(draft, result, choice, 'team-capacity')
   )
     return;
-  const total = check(draft, result, choice, recruitment.check);
+  const total = check(draft, result, choice, recruitment.check, recruitment.dc);
   naturalOne(result, choice);
   if (total === null || total < recruitment.dc) return;
   const team = {
@@ -431,7 +519,7 @@ function changeOfficer(
     after: structuredClone(after),
   });
 }
-function activityCheckEffects(
+export function activityCheckEffects(
   draft: WeeklyDraft,
 ): FoundationInput['queuedEffects'] {
   let queued = [...draft.context.queuedEffects];
@@ -509,6 +597,16 @@ function assignedTeam(
     return false;
   }
   let eligible = true;
+  if (
+    draft.context.queuedEffects.some(
+      (effect) =>
+        effect.startsWeek <= draft.week &&
+        draft.week <= effect.endsWeek &&
+        effect.effect.kind === 'team_unavailable' &&
+        effect.effect.teamId === team.teamId,
+    )
+  )
+    eligible = exception(draft, result, choice, 'team-unavailable') && eligible;
   if (team.status !== 'active')
     eligible = exception(draft, result, choice, 'team-condition') && eligible;
   if (
@@ -525,6 +623,52 @@ function resolveChoice(
   result: ActivityProjection,
   choice: Choice,
 ) {
+  if (
+    resolveEventAction(draft, result, choice, {
+      dice,
+      check,
+      value,
+      exception,
+      spend,
+      naturalOne,
+      income,
+    })
+  )
+    return;
+  if (
+    resolveEconomyChoice(draft, result, choice, {
+      dice,
+      check,
+      value,
+      exception,
+      spend,
+      naturalOne,
+      income,
+    })
+  )
+    return;
+  if (
+    resolveSettlementChoice(draft, result, choice, {
+      dice,
+      check,
+      value,
+      exception,
+      spend,
+    })
+  )
+    return;
+  if (
+    resolveCharacterChoice(draft, result, choice, {
+      dice,
+      check,
+      value,
+      exception,
+      spend,
+      naturalOne,
+      income,
+    })
+  )
+    return;
   switch (choice.actionId) {
     case 'change_officer_role':
       return changeOfficer(draft, result, choice);
@@ -575,8 +719,10 @@ export function projectActivity(
 ): ActivityProjection {
   const result: ActivityProjection = {
     ready: false,
+    actionResults: [],
     slots: [],
     outcome: structuredClone(snapshot),
+    endedEventIds: [],
     plan: [],
     requirements: [],
     warnings: [],
@@ -584,6 +730,7 @@ export function projectActivity(
     checkUsage: { bonusIds: [], helpful: false, overseer: false },
     teamUse: { usedTeamIds: [], upgradedTeamIds: [] },
   };
+  prepareEconomy(draft, result);
   let drills = 0;
   for (const [index, slot] of draft.activity.slots.entries()) {
     const choice = slot.choice;
@@ -597,10 +744,17 @@ export function projectActivity(
         exception(draft, result, choice, 'action-capacity') && eligible;
     if (choice.actionId === 'drill_militia')
       eligible = drillEligible(draft, result, choice, drills++) && eligible;
+    for (const rule of actionRestrictions(draft, choice))
+      eligible = exception(draft, result, choice, rule) && eligible;
     if (!eligible) continue;
     if (!assignedTeam(draft, result, choice)) continue;
+    result.actionResults.push({ choiceId: choice.choiceId, succeeded: null });
+    const planStart = result.plan.length;
+    const requirementStart = result.requirements.length;
     resolveChoice(draft, result, choice);
+    finishCovertAction(result, choice, planStart, requirementStart);
   }
+  receiveEconomyOrders(draft, result);
   consumeBonuses(draft, result);
   result.requirements = [...new Set(result.requirements)];
   result.warnings = [...new Set(result.warnings)];

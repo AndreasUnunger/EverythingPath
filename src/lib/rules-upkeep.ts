@@ -1,3 +1,6 @@
+import type { CharacterActionState } from './rules-character-state';
+import { projectTreasuryIncome } from './rules-treasury';
+import type { EconomyState } from './rules-economy-state';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import {
   projectRulesFoundations,
@@ -19,7 +22,12 @@ export type UpkeepSnapshot = Pick<
   | 'settlements'
   | 'bonuses'
   | 'apVolume'
-> & { treasuryCopper: number; notoriety: number };
+> & {
+  treasuryCopper: number;
+  notoriety: number;
+  economy?: EconomyState;
+  characterActions?: CharacterActionState;
+};
 type RawRoll = z.infer<typeof rawRollSchema>;
 type TrainingStep = 'attrition' | 'notoriety' | 'shortage';
 export type UpkeepChange =
@@ -521,15 +529,16 @@ function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
       transfer.direction === 'deposit' ? transfer.copper : -transfer.copper,
       transfer.characterId,
     );
-    const theft = draft.context.carriedEvents.find(
-      (event) => event.eventType === 'theft',
+    const income = projectTreasuryIncome(
+      transfer.copper,
+      draft.context.carriedEvents,
     );
-    if (theft && transfer.direction === 'deposit') {
-      const retained = Math.round(transfer.copper / 2);
+    const theftId = income.theftEventIds[0];
+    if (theftId && transfer.direction === 'deposit') {
       treasury(
         result,
-        `theft:${theft.eventId}:${transfer.transferId}`,
-        retained - transfer.copper,
+        `theft:${theftId}:${transfer.transferId}`,
+        income.retainedCopper - transfer.copper,
       );
     }
   }

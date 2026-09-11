@@ -260,7 +260,7 @@ test('[rules.A07.natural-one] natural one can succeed, calculated and entered so
   expect(projectActivity(draft, snapshot).outcome).toEqual(snapshot);
 });
 
-test('Activity keeps incomplete and unsupported choices unready, and enforces assigned team usage after upgrades', () => {
+test('Activity keeps missing action rolls unready and enforces assigned team usage after upgrades', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.treasuryCopper = 20000;
   snapshot.roster.teams.push({
@@ -288,7 +288,7 @@ test('Activity keeps incomplete and unsupported choices unready, and enforces as
   expect(result.ready).toBe(false);
   draft.activity.slots[0]!.choice = null;
   expect(projectActivity(draft, snapshot).requirements).toContain(
-    'earn:unresolved-action',
+    'earn:check:1d20',
   );
   draft.activity.slots[1]!.choice = {
     choiceId: 'partial',

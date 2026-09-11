@@ -1,0 +1,226 @@
+import { REPUTATION_LEVELS, type TEAM_IDS } from './militia-domain';
+import type { ActivityProjection } from './rules-activity';
+import type { ActivityHelpers } from './rules-economy';
+import type { WeeklyDraft } from './weekly-draft-contract';
+import type { StagedActionChoice } from './weekly-draft-facts';
+import { projectSettlements } from './rules-settlements';
+
+type Settlement = ActivityProjection['outcome']['settlements'][number];
+type Choice = Extract<
+  StagedActionChoice,
+  { actionId: 'activate_refuge' | 'reduce_danger' | 'spread_propaganda' }
+>;
+export type SettlementChange =
+  | {
+      kind: 'settlement';
+      choiceId: string;
+      before: Settlement;
+      after: Settlement;
+    }
+  | {
+      kind: 'settlement_benefit';
+      choiceId: string;
+      settlementId: string;
+      benefit: 'refuge' | 'open_movement';
+      expiresWeek: number;
+    }
+  | {
+      kind: 'propaganda_attempt';
+      choiceId: string;
+      settlementId: string;
+      acknowledgement: WeeklyDraft['acknowledgements'][number];
+    };
+const teams: Record<Choice['actionId'], readonly (typeof TEAM_IDS)[number][]> =
+  {
+    activate_refuge: ['conspirators', 'scholars', 'spellcasters'],
+    reduce_danger: ['defenders', 'guardians', 'infiltrators', 'specialists'],
+    spread_propaganda: ['propagandists', 'saboteurs', 'spies'],
+  };
+function change(
+  result: ActivityProjection,
+  choice: Choice,
+  settlement: Settlement,
+  after: Settlement,
+) {
+  result.plan.push({
+    kind: 'settlement',
+    choiceId: choice.choiceId,
+    before: { ...settlement },
+    after: { ...after },
+  });
+  Object.assign(settlement, after);
+}
+export function resolveSettlementChoice(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  staged: StagedActionChoice,
+  helpers: Pick<
+    ActivityHelpers,
+    'check' | 'dice' | 'value' | 'exception' | 'spend'
+  >,
+) {
+  if (!(staged.actionId in teams)) return false;
+  const choice = staged as Choice;
+  const required = (key: string) =>
+    result.requirements.push(`${choice.choiceId}:${key}`);
+  const team = result.outcome.roster.teams.find(
+    (entry) => entry.teamId === choice.teamId,
+  );
+  const settlement = result.outcome.settlements.find(
+    (entry) => entry.settlementId === choice.settlementId,
+  );
+  if (!team) required('team');
+  if (!settlement) required('settlement');
+  if (!team || !settlement) return true;
+  if (
+    !teams[choice.actionId].includes(team.teamType) &&
+    !helpers.exception(draft, result, choice, 'team-action')
+  )
+    return true;
+  if (
+    settlement.reputation === null ||
+    settlement.temporaryReputationShift === null ||
+    (settlement.reduceDangerReputationShift === undefined) !==
+      (settlement.reduceDangerUntilWeek === undefined)
+  ) {
+    required('settlement-reputation');
+    return true;
+  }
+  if (choice.actionId === 'activate_refuge') {
+    const effective = projectSettlements(
+      [
+        {
+          ...settlement,
+          refugeActivatedWeek: null,
+          refugeActiveUntilWeek: null,
+        },
+      ],
+      draft.week,
+    ).settlements[0]!;
+    if (
+      effective.reputation !== 'Hostile' &&
+      effective.reputation !== 'Unfriendly' &&
+      !helpers.exception(draft, result, choice, 'refuge-reputation')
+    )
+      return true;
+    change(result, choice, settlement, {
+      ...settlement,
+      refugeActivatedWeek: draft.week,
+      refugeActiveUntilWeek: draft.week,
+    });
+    result.plan.push({
+      kind: 'settlement_benefit',
+      choiceId: choice.choiceId,
+      settlementId: settlement.settlementId,
+      benefit: 'refuge',
+      expiresWeek: draft.week,
+    });
+    return true;
+  }
+  if (choice.actionId === 'reduce_danger') {
+    if (settlement.secured === null) {
+      required('settlement-secured');
+      return true;
+    }
+    if (
+      !settlement.secured &&
+      !helpers.exception(draft, result, choice, 'settlement-secured')
+    )
+      return true;
+    const total = helpers.check(draft, result, choice, 'security', 15);
+    if (total === null) return true;
+    if (total < 15) {
+      const gain = helpers.dice(result, choice, 'notoriety', 1, 4);
+      if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
+      return true;
+    }
+    const previous =
+      settlement.reduceDangerUntilWeek !== undefined &&
+      settlement.reduceDangerUntilWeek >= draft.week
+        ? (settlement.reduceDangerReputationShift ?? 0)
+        : 0;
+    change(result, choice, settlement, {
+      ...settlement,
+      reduceDangerReputationShift: previous + 1,
+      reduceDangerUntilWeek: draft.week,
+    });
+    result.plan.push({
+      kind: 'settlement_benefit',
+      choiceId: choice.choiceId,
+      settlementId: settlement.settlementId,
+      benefit: 'open_movement',
+      expiresWeek: draft.week,
+    });
+    for (const event of draft.context.carriedEvents) {
+      if (
+        event.eventType !== 'theft' ||
+        result.endedEventIds.includes(event.eventId)
+      )
+        continue;
+      result.endedEventIds.push(event.eventId);
+      result.plan.push({
+        kind: 'end_persistent_event',
+        choiceId: choice.choiceId,
+        eventId: event.eventId,
+      });
+    }
+    return true;
+  }
+  if (settlement.occupied === null) required('settlement-occupied');
+  if (choice.possible === undefined) required('propaganda-permission');
+  const acknowledgement = [
+    ...draft.acknowledgements,
+    ...(choice.acknowledgements ?? []),
+  ].find(
+    (entry) =>
+      entry.subjectId === `propaganda:${choice.choiceId}` &&
+      entry.outcome.trim(),
+  );
+  if (!acknowledgement)
+    required(`acknowledgement:propaganda:${choice.choiceId}`);
+  if (
+    settlement.occupied === null ||
+    choice.possible === undefined ||
+    !acknowledgement
+  )
+    return true;
+  if (choice.occupied !== undefined && choice.occupied !== settlement.occupied)
+    result.warnings.push(`${choice.choiceId}:settlement-occupied`);
+  if (
+    !choice.possible &&
+    !helpers.exception(draft, result, choice, 'propaganda-impossible')
+  )
+    return true;
+  if (
+    result.plan.some(
+      (entry) =>
+        entry.kind === 'propaganda_attempt' &&
+        entry.settlementId === settlement.settlementId,
+    ) &&
+    !helpers.exception(draft, result, choice, 'propaganda-limit')
+  )
+    return true;
+  if (!helpers.spend(draft, result, choice, 10000)) return true;
+  result.plan.push({
+    kind: 'propaganda_attempt',
+    choiceId: choice.choiceId,
+    settlementId: settlement.settlementId,
+    acknowledgement: { ...acknowledgement },
+  });
+  const total = helpers.check(
+    draft,
+    result,
+    choice,
+    'loyalty',
+    20 + (settlement.occupied ? 5 : 0),
+  );
+  if (total !== null && total >= 20 + (settlement.occupied ? 5 : 0))
+    change(result, choice, settlement, {
+      ...settlement,
+      reputation:
+        REPUTATION_LEVELS[
+          Math.min(4, REPUTATION_LEVELS.indexOf(settlement.reputation) + 1)
+        ]!,
+    });
+  return true;
+}

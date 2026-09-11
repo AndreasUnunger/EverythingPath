@@ -1,3 +1,4 @@
+import { eventTypeForPercentile } from '../src/lib/militia-event-table';
 import type { EventType } from '../src/lib/militia-domain';
 
 export type ResolvedEvent = {
@@ -61,30 +62,7 @@ export function clampPercent(raw: number) {
 export function resolveEventFromPercentile(percentile?: number): ResolvedEvent | null {
   if (percentile === undefined) return null;
   const value = clampPercent(percentile);
-  if (value <= 4) return { eventType: 'week_of_serenity', rolledValue: value, isTwiceClause: false };
-  if (value <= 12) return { eventType: 'war_games', rolledValue: value, isTwiceClause: false };
-  if (value <= 16) return { eventType: 'night_ops', rolledValue: value, isTwiceClause: false };
-  if (value <= 20) return { eventType: 'broke_the_code', rolledValue: value, isTwiceClause: false };
-  if (value <= 24) return { eventType: 'found_fire', rolledValue: value, isTwiceClause: false };
-  if (value <= 28) return { eventType: 'high_morale', rolledValue: value, isTwiceClause: false };
-  if (value <= 32) return { eventType: 'turn_around', rolledValue: value, isTwiceClause: false };
-  if (value <= 36) return { eventType: 'festival', rolledValue: value, isTwiceClause: false };
-  if (value <= 40) return { eventType: 'market_day', rolledValue: value, isTwiceClause: false };
-  if (value <= 44) return { eventType: 'hidden_agenda', rolledValue: value, isTwiceClause: false };
-  if (value <= 48) return { eventType: 'all_is_calm', rolledValue: value, isTwiceClause: false };
-  if (value <= 52) return { eventType: 'roll_twice', rolledValue: value, isTwiceClause: false };
-  if (value <= 56) return { eventType: 'calm_before_the_storm', rolledValue: value, isTwiceClause: false };
-  if (value <= 60) return { eventType: 'turncoat', rolledValue: value, isTwiceClause: false };
-  if (value <= 64) return { eventType: 'cache_discovered', rolledValue: value, isTwiceClause: false };
-  if (value <= 68) return { eventType: 'rivalry', rolledValue: value, isTwiceClause: false };
-  if (value <= 72) return { eventType: 'missing_in_action', rolledValue: value, isTwiceClause: false };
-  if (value <= 76) return { eventType: 'theft', rolledValue: value, isTwiceClause: false };
-  if (value <= 80) return { eventType: 'raid', rolledValue: value, isTwiceClause: false };
-  if (value <= 84) return { eventType: 'invasion', rolledValue: value, isTwiceClause: false };
-  if (value <= 88) return { eventType: 'low_morale', rolledValue: value, isTwiceClause: false };
-  if (value <= 96) return { eventType: 'sickness', rolledValue: value, isTwiceClause: false };
-  if (value <= 99) return { eventType: 'double_agent', rolledValue: value, isTwiceClause: false };
-  return { eventType: 'week_of_pain', rolledValue: value, isTwiceClause: false };
+  return { eventType: eventTypeForPercentile(value), rolledValue: value, isTwiceClause: false };
 }
 
 function pickGuaranteedPrimaryRoll({

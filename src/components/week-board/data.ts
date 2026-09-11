@@ -1,3 +1,4 @@
+import { militiaEventTable } from '~/lib/militia-event-table';
 import type {
   ActionCard,
   MilitiaEventDetails,
@@ -259,32 +260,7 @@ export const WEEK_PHASES: WeekPhase[] = [
   'week_closed',
 ];
 
-export const MILITIA_EVENT_TABLE: MilitiaEventEntry[] = [
-  { min: 1, max: 4, name: 'Week of Serenity' },
-  { min: 5, max: 12, name: 'War Games' },
-  { min: 13, max: 16, name: 'Night Ops' },
-  { min: 17, max: 20, name: 'Broke the Code' },
-  { min: 21, max: 24, name: 'Found Fire' },
-  { min: 25, max: 28, name: 'High Morale' },
-  { min: 29, max: 32, name: 'Turn Around' },
-  { min: 33, max: 36, name: 'Festival' },
-  { min: 37, max: 40, name: 'Market Day' },
-  { min: 41, max: 44, name: 'Hidden Agenda' },
-  { min: 45, max: 48, name: 'All Is Calm' },
-  { min: 49, max: 52, name: 'Roll Twice' },
-  { min: 53, max: 56, name: 'Calm before the Storm' },
-  { min: 57, max: 60, name: 'Turncoat' },
-  { min: 61, max: 64, name: 'Cache Discovered' },
-  { min: 65, max: 68, name: 'Rivalry' },
-  { min: 69, max: 72, name: 'Missing in Action' },
-  { min: 73, max: 76, name: 'Theft' },
-  { min: 77, max: 80, name: 'Raid' },
-  { min: 81, max: 84, name: 'Invasion' },
-  { min: 85, max: 88, name: 'Low Morale' },
-  { min: 89, max: 96, name: 'Sickness' },
-  { min: 97, max: 99, name: 'Double Agent' },
-  { min: 100, max: 100, name: 'Week of Pain' },
-];
+export const MILITIA_EVENT_TABLE: MilitiaEventEntry[] = militiaEventTable;
 
 export const MILITIA_EVENT_DETAILS: Record<string, MilitiaEventDetails> = {
   'All Is Calm': {

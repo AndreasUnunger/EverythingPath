@@ -8,8 +8,13 @@ import { resolve } from 'node:path';
 import schema from './schema';
 import { openDraft, readOpenDraft } from './lib/canonicalDraftStorage';
 import { projectActivity } from '../src/lib/rules-activity';
+import { projectActivityAndEventShaping } from '../src/lib/rules-event-shaping';
+import { eventActionFixture } from '../tests/rules/event-action-fixture';
 import { roll } from '../tests/rules/upkeep-fixture';
 import { activityFixture } from '../tests/rules/activity-fixture';
+import { settlementFixture } from '../tests/rules/settlement-fixture';
+import { characterFixture } from '../tests/rules/character-fixture';
+import { economyFixture } from '../tests/rules/economy-fixture';
 
 const modules = import.meta.glob('./**/*.ts');
 
@@ -42,23 +47,77 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
     'exceptional-recruitment',
     'persistent-morale',
     'persistent-agent',
+    'activate_refuge',
+    'reduce_danger',
+    'spread_propaganda',
+    'activate_black_market',
+    'broker_market',
+    'earn_gold',
+    'secure_cache',
+    'special_order',
+    'theft-income',
+    'theft-sale',
+    'rescue_character',
+    'restore_character',
+    'gather_information',
+    'knowledge_check',
+    'strike_team',
+    'special',
   ] as const) {
     const t = convexTest(schema, modules);
-    const fixture = activityFixture(
-      scenario === 'persistent-morale'
-        ? 'drill_militia'
-        : scenario === 'persistent-agent' ||
-            scenario === 'exceptional-recruitment'
-          ? 'recruit_team'
-          : scenario,
-    );
+    const fixture =
+      scenario === 'rescue_character' ||
+      scenario === 'restore_character' ||
+      scenario === 'gather_information' ||
+      scenario === 'knowledge_check' ||
+      scenario === 'strike_team' ||
+      scenario === 'special'
+        ? characterFixture(scenario)
+        : scenario === 'activate_refuge' ||
+            scenario === 'reduce_danger' ||
+            scenario === 'spread_propaganda'
+          ? settlementFixture(scenario)
+          : scenario === 'theft-income' || scenario === 'theft-sale'
+            ? economyFixture(
+                scenario === 'theft-income'
+                  ? 'earn_gold'
+                  : 'activate_black_market',
+              )
+            : scenario === 'activate_black_market' ||
+                scenario === 'broker_market' ||
+                scenario === 'earn_gold' ||
+                scenario === 'secure_cache' ||
+                scenario === 'special_order'
+              ? economyFixture(scenario)
+              : activityFixture(
+                  scenario === 'persistent-morale'
+                    ? 'drill_militia'
+                    : scenario === 'persistent-agent' ||
+                        scenario === 'exceptional-recruitment'
+                      ? 'recruit_team'
+                      : scenario,
+                );
     const snapshot = fixture.snapshot;
+    if (scenario === 'theft-sale') {
+      const choice = fixture.draft.activity.slots.find(
+        (slot) => slot.slotId === 'one',
+      )?.choice;
+      const item = snapshot.economy?.items.find(
+        (item) => item.itemId === 'gear',
+      );
+      if (choice?.actionId !== 'activate_black_market' || !item)
+        throw Error('Missing market fixture');
+      choice.sales = ['gear'];
+      item.valueCopper = 100;
+    }
     const eventType =
       scenario === 'persistent-morale'
         ? 'low_morale'
         : scenario === 'persistent-agent'
           ? 'double_agent'
-          : null;
+          : scenario === 'theft-income' || scenario === 'theft-sale'
+            ? 'theft'
+            : null;
     const draft: WeeklyDraft = {
       ...fixture.draft,
       context: {
@@ -150,6 +209,10 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
     );
     expect(browser, scenario).toEqual(server);
     expect(server.ready, scenario).toBe(true);
+    if (scenario === 'theft-income')
+      expect(server.outcome.treasuryCopper).toBe(1001650);
+    if (scenario === 'theft-sale')
+      expect(server.outcome.treasuryCopper).toBe(995028);
     if (scenario === 'persistent-agent') {
       expect(server.checks[0]?.total).toBe(13);
       expect(server.outcome.roster.teams).toEqual(snapshot.roster.teams);
@@ -159,6 +222,79 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
       expect(server.checks[0]?.total).toBe(11);
       expect(server.outcome.training).toBe(30);
     }
+    expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
+  }
+});
+
+test('[rules.A72.projection-parity] event shaping and reactive rolls agree in the browser bundle and persisted Convex source', async () => {
+  const bundle = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      lib: {
+        entry: resolve('src/lib/rules-event-shaping.ts'),
+        name: 'EventRules',
+        formats: ['iife'],
+      },
+    },
+  });
+  const output = Array.isArray(bundle) ? bundle[0] : bundle;
+  if (!output || !('output' in output)) throw Error('Expected browser bundle');
+  const script = output.output.find((entry) => entry.type === 'chunk');
+  if (script?.type !== 'chunk') throw Error('Expected JavaScript');
+  for (const action of [
+    'covert_action',
+    'guarantee_event',
+    'manipulate_events',
+    'sabotage',
+  ] as const) {
+    const { draft, snapshot } = eventActionFixture(action);
+    draft.event.chanceRoll = roll(100, 100);
+    const t = convexTest(schema, modules);
+    const scope = await t.run(async (ctx) => {
+      await ctx.db.insert('user', {
+        tokenIdentifier: 'test|player',
+        name: 'Player',
+        image: '',
+        orgIds: [{ orgId: 'test', role: 'member' }],
+      });
+      const campaignId = await ctx.db.insert('campaign', {
+        name: 'Preview',
+        ownerId: 'gm',
+        organizationId: 'test',
+        description: '',
+      });
+      const militiaId = await ctx.db.insert('militia', {
+        campaignId,
+        name: 'Militia',
+        HQLocation: 'HQ',
+        highestBoonReached: 3,
+        rank: 3,
+        training: 30,
+        treasury: 300,
+        focus: 'Loyalty',
+      });
+      return { campaignId, militiaId };
+    });
+    const player = t.withIdentity({ tokenIdentifier: 'test|player' });
+    await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
+    const server = await player.run(async (ctx) => {
+      const stored = await readOpenDraft(ctx, scope);
+      if (!stored) throw Error('Missing draft');
+      return projectActivityAndEventShaping(stored, snapshot);
+    });
+    const browser: unknown = runInNewContext(
+      `${script.code}; EventRules.projectActivityAndEventShaping(draft, snapshot)`,
+      {
+        structuredClone,
+        draft: JSON.parse(JSON.stringify(draft)) as unknown,
+        snapshot: structuredClone(snapshot),
+      },
+    );
+    expect(browser, action).toEqual(server);
+    expect(server.event.ready, action).toBe(true);
     expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
   }
 });

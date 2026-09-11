@@ -101,7 +101,7 @@ export const orderSchema = z.strictObject({
   itemId: id,
   settlementId: id,
   orderedDay: int,
-  dueDay: int,
+  dueDay: z.number().nonnegative(),
   priceCopper: int,
   receipt: z
     .strictObject({ receivedDay: int, acknowledgementId: id })
@@ -123,6 +123,11 @@ export const queuedEffectSchema = z.strictObject({
       value: int.min(1),
     }),
     z.strictObject({ kind: z.literal('event_chance'), value: signedInteger }),
+    z.strictObject({ kind: z.literal('all_is_calm') }),
+    z.strictObject({
+      kind: z.literal('automatic_events'),
+      count: int.min(1).max(2),
+    }),
     z.strictObject({ kind: z.literal('block_action'), actionId: id }),
     z.strictObject({ kind: z.literal('team_unavailable'), teamId: id }),
     z.strictObject({ kind: z.literal('narrative'), instruction: reason }),
@@ -177,6 +182,9 @@ const eventOccurrenceSchema = z.strictObject({
     .strictObject({
       choiceId: id,
       teamId: id.optional(),
+      check: z.enum(['loyalty', 'secrecy', 'security']).optional(),
+      overseerCharacterId: id.optional(),
+      acknowledgements: z.array(acknowledgementSchema).optional(),
       rolls: rollsSchema.optional(),
     })
     .optional(),
@@ -219,6 +227,17 @@ const commonChoice = {
   acknowledgements: z.array(acknowledgementSchema).optional(),
 };
 const settlement = { settlementId: id.optional() };
+const purchase = z.strictObject({
+  itemId: id,
+  priceCopper: int,
+  name: reason.optional(),
+  weight: z.number().nonnegative().optional(),
+});
+const marketplace = {
+  ...settlement,
+  purchases: z.array(purchase).optional(),
+  sales: z.array(id).optional(),
+};
 const character = {
   characterId: id.optional(),
   characterLevel: int.optional(),
@@ -243,14 +262,9 @@ function action<const Name extends string, Shape extends z.ZodRawShape>(
 }
 export const stagedActionChoiceSchema = z
   .discriminatedUnion('actionId', [
-    action('activate_black_market', settlement),
+    action('activate_black_market', marketplace),
     action('activate_refuge', settlement),
-    action('broker_market', {
-      ...settlement,
-      purchases: z
-        .array(z.strictObject({ itemId: id, priceCopper: int }))
-        .optional(),
-    }),
+    action('broker_market', marketplace),
     action('change_officer_role', {
       characterId: id.optional(),
       fromRole: officerRole.optional(),
@@ -272,6 +286,7 @@ export const stagedActionChoiceSchema = z
     action('knowledge_check', { subject: reason.optional() }),
     action('lie_low', {}),
     action('manipulate_events', {
+      chooserCharacterId: id.optional(),
       candidates: eventTreeSchema.optional(),
       selectedEventId: id.optional(),
     }),
@@ -286,7 +301,15 @@ export const stagedActionChoiceSchema = z
         .optional(),
     }),
     action('reduce_danger', settlement),
-    action('rescue_character', character),
+    action('rescue_character', {
+      ...character,
+      destination: z
+        .discriminatedUnion('kind', [
+          z.strictObject({ kind: z.literal('headquarters') }),
+          z.strictObject({ kind: z.literal('refuge'), settlementId: id }),
+        ])
+        .optional(),
+    }),
     action('restore_character', {
       ...character,
       mode: z
@@ -301,17 +324,24 @@ export const stagedActionChoiceSchema = z
         ])
         .optional(),
       effect: reason.optional(),
+      effectLevel: int.optional(),
       targetPresent: z.boolean().optional(),
     }),
     action('secure_cache', {
       mode: z.enum(['place', 'retrieve']).optional(),
       cacheId: id.optional(),
       cacheClass: z.enum(['minor', 'intermediate', 'major']).optional(),
+      itemIds: z.array(id).optional(),
+      purchases: z.array(purchase).optional(),
+      settlementId: id.optional(),
+      extradimensional: z.boolean().optional(),
       location: reason.optional(),
       secure: z.boolean().optional(),
     }),
     action('special', { instruction: reason.optional() }),
     action('special_order', {
+      name: reason.optional(),
+      weight: z.number().nonnegative().optional(),
       orderId: id.optional(),
       receipt: z
         .strictObject({ receivedDay: int, acknowledgementId: id })
@@ -325,6 +355,7 @@ export const stagedActionChoiceSchema = z
     }),
     action('spread_propaganda', {
       ...settlement,
+      possible: z.boolean().optional(),
       occupied: z.boolean().optional(),
     }),
     action('strike_team', {

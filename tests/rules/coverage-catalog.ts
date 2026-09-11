@@ -3187,8 +3187,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Black Marketeers pay 50 gp and Secrecy DC20 opens a one-week market with 90% availability and 55% sale profile.',
           plannedTests: ['rules.A01.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A01.success', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3196,8 +3196,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Total 19 fails, still charges 50 gp and adds 1d6 Notoriety.',
           plannedTests: ['rules.A01.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A01.failure', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'lifecycle',
@@ -3205,8 +3205,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Separate markets retain independent targets and expire after one week.',
           plannedTests: ['rules.A01.lifecycle'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A01.lifecycle', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'inputs',
@@ -3214,8 +3214,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing check or failure die prevents complete readiness.',
           plannedTests: ['rules.A01.inputs'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A01.inputs', 'rules.A06.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3233,8 +3233,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Conspirators, Scholars or Spellcasters make Hostile or Unfriendly refuge reputation one step better.',
           plannedTests: ['rules.A02.reputation'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A02.reputation', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'duration',
@@ -3242,8 +3242,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Refuge activation or renewal lasts one week.',
           plannedTests: ['rules.A02.duration'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A02.duration', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'interactions',
@@ -3270,8 +3270,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Merchants broker small-town markets; Black Marketeers and Fixers broker small-city markets.',
           plannedTests: ['rules.A03.profiles'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A03.profiles', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'payment',
@@ -3279,8 +3279,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Activation costs 100 gp plus all purchases paid upfront.',
           plannedTests: ['rules.A03.payment'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A03.payment', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'delivery',
@@ -3288,8 +3288,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each order arrives next Activity, independently of Special Order day timing.',
           plannedTests: ['rules.A03.delivery'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A03.delivery', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'expiry',
@@ -3297,8 +3297,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Market duration and delivered item availability follow the source without duplicate receipt.',
           plannedTests: ['rules.A03.expiry'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A03.expiry', 'rules.A06.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3353,8 +3353,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Spies give manager Charisma to all d20 rolls of the immediately following action only.',
           plannedTests: ['rules.A05.next'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A05.next', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'success',
@@ -3362,8 +3362,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful target action produces no action Notoriety, including natural-1 success.',
           plannedTests: ['rules.A05.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A05.success', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3371,8 +3371,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed target action keeps its Notoriety; unrelated same-type actions gain no benefit.',
           plannedTests: ['rules.A05.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A05.failure', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'contact',
@@ -3380,8 +3380,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Alternative contact or cache at a chosen site lasts one week.',
           plannedTests: ['rules.A05.contact'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A05.contact', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'raid',
@@ -3389,8 +3389,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Contact rescue and Raid override compose identically in browser and server.',
           plannedTests: ['rules.A05.raid'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A05.raid', 'rules.A72.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3500,8 +3500,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Treasury teams earn Loyalty total times their tier for tiers 1/2/3.',
           plannedTests: ['rules.A08.tiers'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A08.tiers', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'natural-one',
@@ -3509,8 +3509,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 still earns gold and adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A08.natural-one'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A08.natural-one', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'composition',
@@ -3518,8 +3518,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Queued and manager bonuses affect earned gold exactly once per team.',
           plannedTests: ['rules.A08.composition'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A08.composition', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'removed',
@@ -3527,8 +3527,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Clearing an action removes its earnings; invalid or exceptional negative outcomes remain explicit.',
           plannedTests: ['rules.A08.removed'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A08.removed', 'rules.A06.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3546,8 +3546,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Intelligence teams add twice their tier to Secrecy against DC15.',
           plannedTests: ['rules.A09.tiers'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A09.information'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'natural-one',
@@ -3555,8 +3555,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 is not automatic failure and adds 1d6 Notoriety.',
           plannedTests: ['rules.A09.natural-one'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A09.information'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'acknowledgement',
@@ -3564,8 +3564,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful intelligence requires recorded GM outcome acknowledgement.',
           plannedTests: ['rules.A09.acknowledgement'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A17.stale'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'repeat',
@@ -3573,8 +3573,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Separate teams retain independent checks and outcomes.',
           plannedTests: ['rules.A09.repeat'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A09.repeat'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
       ],
     },
@@ -3592,8 +3592,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Guarantee Event costs rank times 10 gp and adds 1d6 Notoriety per action.',
           plannedTests: ['rules.A10.cost'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A10.cost', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'choice',
@@ -3601,8 +3601,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Both event rolls and explicit chosen result are required.',
           plannedTests: ['rules.A10.choice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A10.choice', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'roll-twice',
@@ -3610,8 +3610,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Chosen Roll Twice expands to two valid final events.',
           plannedTests: ['rules.A10.roll-twice'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A10.roll-twice', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'precedence',
@@ -3619,8 +3619,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Forced All Is Calm and Sabotage use explicit event precedence rather than stale inputs.',
           plannedTests: ['rules.A10.precedence'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A10.precedence', 'rules.A72.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3638,8 +3638,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Scholars add rank to modified Secrecy total to determine achieved Knowledge DC.',
           plannedTests: ['rules.A11.dc'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A11.knowledge'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'record',
@@ -3647,8 +3647,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Identification or evaluation outcome and acknowledgement remain in confirmed source.',
           plannedTests: ['rules.A11.record'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A11.knowledge', 'rules.A17.stale'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
       ],
     },
@@ -3712,8 +3712,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Available Guardians guarantee an event with two rolls and one chosen result.',
           plannedTests: ['rules.A13.team'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A13.team', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'chooser',
@@ -3721,8 +3721,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Manager chooses or a random PC is recorded when no manager exists.',
           plannedTests: ['rules.A13.chooser'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A13.chooser', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'composition',
@@ -3730,8 +3730,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Guarantee Event and selected Roll Twice do not accidentally duplicate or discard results.',
           plannedTests: ['rules.A13.composition'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A13.composition', 'rules.A72.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3801,8 +3801,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Military team Security DC15 gives temporary +1 settlement reputation and open movement reminder.',
           plannedTests: ['rules.A15.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A15.success', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'failure',
@@ -3810,8 +3810,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Total 14 adds 1d4 Notoriety without a reputation gain.',
           plannedTests: ['rules.A15.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A15.failure', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'duration',
@@ -3819,8 +3819,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Temporary shift expires after one week and respects secured-town context.',
           plannedTests: ['rules.A15.duration'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A15.duration', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'theft',
@@ -3828,8 +3828,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful Reduce Danger permanently ends applicable persistent Theft.',
           plannedTests: ['rules.A15.theft'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A15.theft', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
       ],
     },
@@ -3847,8 +3847,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Upgraded military team Security DC10 plus level rescues to a valid location/refuge and adds level Notoriety.',
           plannedTests: ['rules.A16.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A16.rescue', 'rules.A17.ordered'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'failure',
@@ -3856,8 +3856,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed rescue adds floor(level divided by 2) Notoriety.',
           plannedTests: ['rules.A16.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A16.rescue'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'targets',
@@ -3865,8 +3865,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing or invalid target and inactive destination block completion; direct rescue records GM adjudication.',
           plannedTests: ['rules.A16.targets'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A16.eligibility', 'rules.A71.inputs'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'modifiers',
@@ -3874,8 +3874,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Raid DC override and Covert Action suppression apply once.',
           plannedTests: ['rules.A16.modifiers'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A16.rescue', 'rules.A16.raid-expiry'],
+          gap: 'Raid DC and expiry covered in #71; Covert suppression follows in #72, then full Workspace and Confirmation.',
         },
       ],
     },
@@ -3893,8 +3893,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Spellcasters provide the prescribed free party restoration modes.',
           plannedTests: ['rules.A17.party'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A17.restore', 'rules.A17.multiple', 'rules.A17.death'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'single',
@@ -3902,8 +3902,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Single-target restoration modes cost 1125, 6125, 1700 or 1650 gp as specified.',
           plannedTests: ['rules.A17.single'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A17.restore', 'rules.A17.death'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'presence',
@@ -3911,8 +3911,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Required body must be at HQ or active refuge; captured or invalid targets need correction.',
           plannedTests: ['rules.A17.presence'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A17.readiness', 'rules.A17.ordered'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'multiple',
@@ -3920,8 +3920,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple restorations sum their distinct costs and retain custom adjudication reasons.',
           plannedTests: ['rules.A17.multiple'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A17.multiple', 'rules.A17.readiness'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
       ],
     },
@@ -3939,8 +3939,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Available Saboteurs can react during Event; disabled or otherwise used teams show eligibility warning.',
           plannedTests: ['rules.A18.availability'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A18.availability', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'success',
@@ -3948,8 +3948,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Check DC15 plus rank negates only the selected event and still adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A18.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A18.success', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3957,8 +3957,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed Sabotage still adds 1d6 Notoriety.',
           plannedTests: ['rules.A18.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A18.failure', 'rules.A72.projection-parity'],
+          gap: null,
         },
         {
           id: 'composition',
@@ -3966,8 +3966,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Manager, queue and Overseer modifiers apply exactly once; missing dice block readiness.',
           plannedTests: ['rules.A18.composition'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A18.composition', 'rules.A72.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3998,8 +3998,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Minor cache limits are 5 lb and 900 gp at DC15.',
           plannedTests: ['rules.A19.minor'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A19.minor', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'intermediate',
@@ -4007,8 +4007,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Intermediate cache limits are 10 lb and 2500 gp at DC20.',
           plannedTests: ['rules.A19.intermediate'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A19.intermediate', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'major',
@@ -4016,8 +4016,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Major cache has 20 lb limit or extradimensional storage, no value cap, DC30.',
           plannedTests: ['rules.A19.major'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A19.major', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'secure',
@@ -4025,8 +4025,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Secure location adds 5 DC and requires tier-3 Saboteurs or Spies.',
           plannedTests: ['rules.A19.secure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A19.secure',
+            'rules.A19.double-agent',
+            'rules.A06.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -4034,8 +4038,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed placement returns the cache next Activity.',
           plannedTests: ['rules.A19.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A19.failure', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'retrieve',
@@ -4043,8 +4047,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Placement and retrieval have distinct targets and apply modifiers once; unused retrieval has no effect.',
           plannedTests: ['rules.A19.retrieve'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A19.retrieve', 'rules.A06.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -4062,8 +4066,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Special action records GM-defined description and outcome acknowledgement.',
           plannedTests: ['rules.A20.description'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A20.special', 'rules.A17.stale', 'rules.A71.inputs'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'adjustments',
@@ -4071,8 +4075,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Zero or nonzero cost/results are explicit; outcome adjustments and eligibility exceptions remain distinct.',
           plannedTests: ['rules.A20.adjustments'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A20.special', 'rules.A17.readiness'],
+          gap: 'Explicit Special cost and unchanged rules baseline covered in #71; whole-week Table Adjustment application remains the Resolution checkpoint.',
         },
       ],
     },
@@ -4109,8 +4113,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Fixers order one item or enchantment with 5% discount paid upfront at Confirmation.',
           plannedTests: ['rules.A21.price'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A21.price', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'ordinary',
@@ -4118,8 +4122,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ordinary delivery uses entered 2d6 days including 2 and 12 boundaries.',
           plannedTests: ['rules.A21.ordinary'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A21.ordinary', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'expedite',
@@ -4127,8 +4131,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Expediting adds 900 gp for one-day delivery.',
           plannedTests: ['rules.A21.expedite'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A21.expedite', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'enchantment',
@@ -4136,8 +4140,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Enchantment adds source-prescribed time per 1000 gp without losing due-day information.',
           plannedTests: ['rules.A21.enchantment'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A21.enchantment', 'rules.A06.projection-parity'],
+          gap: null,
         },
         {
           id: 'receipt',
@@ -4145,8 +4149,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Orders crossing weeks retain exact due day and explicit receipt applied once.',
           plannedTests: ['rules.A21.receipt'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A21.receipt',
+            'rules.A21.inputs',
+            'rules.A21.removed',
+            'rules.A06.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4164,8 +4173,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Espionage tier-2/3 pays 100 gp and rolls Loyalty DC20 or DC25 under occupation.',
           plannedTests: ['rules.A22.check'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A22.check', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'attempt',
@@ -4173,8 +4182,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each settlement allows one attempt per Activity even on failure; two settlements are independent.',
           plannedTests: ['rules.A22.attempt'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A22.attempt', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'success',
@@ -4182,8 +4191,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Success improves permanent reputation by one step up to Helpful.',
           plannedTests: ['rules.A22.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A22.success', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
         {
           id: 'adjudication',
@@ -4191,8 +4200,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: GM-disallowed or impossible targets show exception path; malformed references still block.',
           plannedTests: ['rules.A22.adjudication'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A22.adjudication', 'rules.A06.projection-parity'],
+          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
         },
       ],
     },
@@ -4210,8 +4219,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds.',
           plannedTests: ['rules.A23.combat'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A23.support'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'rank-one',
@@ -4219,8 +4228,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 provides zero rounds without an explicit adjustment.',
           plannedTests: ['rules.A23.rank-one'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A23.support'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'extraction',
@@ -4228,8 +4237,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Alternative records stabilization, gentle repose CL12 and body extraction.',
           plannedTests: ['rules.A23.extraction'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A23.support'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
         {
           id: 'duration',
@@ -4237,8 +4246,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Support lasts following week, requires location and once-use acknowledgement.',
           plannedTests: ['rules.A23.duration'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A23.support', 'rules.A71.inputs', 'rules.A17.stale'],
+          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
         },
       ],
     },
@@ -5603,6 +5612,24 @@ export const coverageCatalog = {
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
       ],
       cases: [
+        {
+          id: 'activity-income',
+          checkpoint: '4-activity',
+          expected:
+            'Activity earnings and sales retain half their copper-rounded gain under carried Theft; expenses remain full and end IDs restore later income.',
+          plannedTests: [
+            'rules.economy.theft-income',
+            'rules.economy.theft-order',
+            'rules.economy.theft-ending',
+          ],
+          tests: [
+            'rules.economy.theft-income',
+            'rules.economy.theft-order',
+            'rules.economy.theft-ending',
+            'rules.A06.projection-parity',
+          ],
+          gap: null,
+        },
         {
           id: 'base',
           checkpoint: '4-events',

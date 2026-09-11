@@ -12,16 +12,31 @@ import {
 } from './weekly-draft-facts';
 
 const text = z.string().trim().min(1, 'A value is required').max(500);
-export const contextSettlementSchema = z.strictObject({
-  settlementId: id,
-  name: text,
-  reputation: z.enum(REPUTATION_LEVELS).nullable(),
-  secured: z.boolean().nullable(),
-  occupied: z.boolean().nullable(),
-  temporaryReputationShift: z.number().int().nullable(),
-  refugeActivatedWeek: int.nullable(),
-  refugeActiveUntilWeek: int.nullable(),
-});
+export const contextSettlementSchema = z
+  .strictObject({
+    settlementId: id,
+    name: text,
+    reputation: z.enum(REPUTATION_LEVELS).nullable(),
+    secured: z.boolean().nullable(),
+    occupied: z.boolean().nullable(),
+    temporaryReputationShift: z.number().int().nullable(),
+    reduceDangerReputationShift: z.number().int().optional(),
+    reduceDangerUntilWeek: int.optional(),
+    refugeActivatedWeek: int.nullable(),
+    refugeActiveUntilWeek: int.nullable(),
+  })
+  .superRefine((settlement, ctx) => {
+    if (
+      (settlement.reduceDangerReputationShift === undefined) !==
+      (settlement.reduceDangerUntilWeek === undefined)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reduceDangerUntilWeek'],
+        message:
+          'A Reduce Danger benefit requires both its shift and expiry week',
+      });
+  });
 export const contextEventSchema = persistentEventSchema.extend({
   startedWeek: int.nullable(),
   order: int.nullable(),
@@ -35,7 +50,7 @@ export const contextEventSchema = persistentEventSchema.extend({
 export const contextOrderSchema = orderSchema.extend({
   settlementId: id.nullable(),
   orderedDay: int.nullable(),
-  dueDay: int.nullable(),
+  dueDay: z.number().nonnegative().nullable(),
   priceCopper: int.nullable(),
   source: z
     .enum(['special_order', 'broker_market', 'activate_black_market'])
