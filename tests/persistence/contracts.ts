@@ -653,4 +653,62 @@ export async function runPersistenceContract(
       'Partial ordered draft-created references stage without allowing future references',
     );
   });
+  await scenario(async ({ first, second }, op) => {
+    let revision = 0;
+    const acknowledge = (id: string): WeeklyDraftEdit => ({
+      kind: 'acknowledge',
+      acknowledgement: {
+        acknowledgementId: id,
+        subjectId: 'table',
+        outcome: 'Recorded at table',
+      },
+    });
+    const exception = (id: string): WeeklyDraftEdit => ({
+      kind: 'rules_exception',
+      exception: {
+        exceptionId: id,
+        subjectId: 'table',
+        ruleId: 'homebrew',
+        reason: 'Agreed at table',
+      },
+    });
+    const staleAck = op(0, acknowledge('original-ack'));
+    const staleException = op(0, exception('original-exception'));
+    for (let index = 0; index < 9; index++) {
+      const ackId = index === 0 ? 'original-ack' : `later-ack-${index}`;
+      const exceptionId =
+        index === 0 ? 'original-exception' : `later-exception-${index}`;
+      for (const edit of [
+        acknowledge(ackId),
+        { kind: 'clear_acknowledgement' as const, acknowledgementId: ackId },
+        exception(exceptionId),
+        { kind: 'clear_rules_exception' as const, exceptionId },
+      ]) {
+        await first.send(op(revision++, edit));
+      }
+    }
+    const before = await second.read();
+    check(
+      before.revision === 36 &&
+        before.draft?.acknowledgements.length === 0 &&
+        before.draft.rulesExceptions.length === 0,
+      'Repeated create/clear leaves empty current input collections',
+    );
+    check(
+      before.targetRevisions.length >= 18,
+      'Transport hydrates conflict tombstones across multiple target pages',
+    );
+    await rejects(
+      second.send(staleAck),
+      'Cleared acknowledgement tombstone prevents stale recreation',
+    );
+    await rejects(
+      second.send(staleException),
+      'Cleared exception tombstone prevents stale recreation',
+    );
+    check(
+      JSON.stringify(await second.read()) === JSON.stringify(before),
+      'Stale recreation must not change accepted source',
+    );
+  });
 }

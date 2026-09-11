@@ -70,6 +70,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
     );
     for (const militia of militias) {
       const tables = [
+        'canonicalDraftTarget',
         'canonicalWeeklyDraft',
         'canonicalDraftOperation',
         'canonicalResolutionRecord',

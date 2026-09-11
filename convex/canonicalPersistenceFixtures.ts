@@ -88,7 +88,6 @@ export const initialize = internalMutation({
       draft,
       initialDraft: draft,
       revision: 0,
-      targetRevisions: [],
     });
     return key;
   },

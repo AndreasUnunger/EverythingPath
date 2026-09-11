@@ -25,7 +25,6 @@ export const draftStorageSchema = scopeSchema.extend({
   draft: weeklyDraftSchema.nullable(),
   revision: z.number().int().nonnegative(),
   initialDraft: weeklyDraftSchema.optional(),
-  targetRevisions: z.array(targetRevisionSchema),
 });
 export const draftStorageValidator = zodOutputToConvex(draftStorageSchema);
 

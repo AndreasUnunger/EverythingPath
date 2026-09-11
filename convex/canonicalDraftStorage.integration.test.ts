@@ -107,8 +107,18 @@ test('[storage.retry] accepted revisions retain conflict metadata and retries do
   ).toEqual({
     status: 'open',
     revision: 1,
-    targetRevisions: [{ target: 'slot:left', revision: 1 }],
   });
+  expect(
+    await player.run(async (ctx) => {
+      const target = await ctx.db
+        .query('canonicalDraftTarget')
+        .withIndex('by_draftId_and_target', (q) =>
+          q.eq('draftId', draft.draftId).eq('target', 'slot:left'),
+        )
+        .unique();
+      return target && { target: target.target, revision: target.revision };
+    }),
+  ).toEqual({ target: 'slot:left', revision: 1 });
   await expect(
     player.run((ctx) =>
       saveDraftRevision(ctx, {

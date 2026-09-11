@@ -1,33 +1,15 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { makeFunctionReference } from 'convex/server';
-import { type z } from 'zod';
 import schema from './schema';
-import { internal } from './_generated/api';
+import { api, internal } from './_generated/api';
 import { deploymentFixture } from '../e2e/support/test-data';
 import type { FixtureScope } from '../e2e/fixtures/catalog';
-import type { draftKeySchema } from './lib/canonicalStorageValidators';
-import type {
-  DraftObservation,
-  DraftReceipt,
-  DraftOperation,
-} from '../src/lib/weekly-draft-persistence-contract';
+import type { DraftOperation } from '../src/lib/weekly-draft-persistence-contract';
 
-type Key = z.infer<typeof draftKeySchema>;
-const initialize = makeFunctionReference<
-  'mutation',
-  { scope: FixtureScope; draftId: string },
-  Key
->('canonicalPersistenceFixtures:initialize');
-const observe = makeFunctionReference<'query', Key, DraftObservation>(
-  'canonicalDraftPersistence:observe',
-);
-const edit = makeFunctionReference<
-  'mutation',
-  Omit<Key, 'draftId'> & { operation: DraftOperation },
-  DraftReceipt
->('canonicalDraftPersistence:edit');
+const initialize = internal.canonicalPersistenceFixtures.initialize;
+const observe = api.canonicalDraftPersistence.observe;
+const edit = api.canonicalDraftPersistence.edit;
 const modules = import.meta.glob('./**/*.ts');
 const fixtureScope: FixtureScope = {
   namespace: deploymentFixture.namespace,
@@ -277,4 +259,84 @@ test('all supplied entity references are campaign scoped even in partial decisio
       send(operation(0, `invalid-${index}`, intent)),
     ).rejects.toThrow('Invalid draft entity reference');
   expect((await member.query(observe, key)).revision).toBe(0);
+});
+
+test('target tombstones live in indexed children and page reads restart before applying a stale cursor', async () => {
+  const { t, key, member, send, operation } = await setup();
+  let revision = 0;
+  for (let index = 0; index < 20; index++) {
+    await send(
+      operation(revision++, `add-${index}`, {
+        kind: 'acknowledge',
+        acknowledgement: {
+          acknowledgementId: `ack-${index}`,
+          subjectId: 'table',
+          outcome: 'Agreed',
+        },
+      }),
+    );
+    await send(
+      operation(revision++, `clear-${index}`, {
+        kind: 'clear_acknowledgement',
+        acknowledgementId: `ack-${index}`,
+      }),
+    );
+  }
+  await t.run(async (ctx) => {
+    const draft = await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_draftId', (q) => q.eq('draftId', key.draftId))
+      .unique();
+    expect(draft).not.toHaveProperty('targetRevisions');
+    const target = await ctx.db
+      .query('canonicalDraftTarget')
+      .withIndex('by_draftId_and_target', (q) =>
+        q
+          .eq('draftId', key.draftId)
+          .eq('target', JSON.stringify(['acknowledgement', 'ack-0'])),
+      )
+      .unique();
+    expect(target?.revision).toBe(2);
+  });
+  const request = {
+    ...key,
+    afterRevision: 0,
+    observedRevision: 40,
+    observedStatus: 'open' as const,
+    cursor: null,
+  };
+  const page = await member.query(
+    api.canonicalDraftPersistence.targets,
+    request,
+  );
+  expect(page.restart).toBe(false);
+  expect(page.page).toHaveLength(16);
+  expect(page.isDone).toBe(false);
+  await send(operation(40, 'latest', { kind: 'event_chance', roll: null }));
+  const stale = await member.query(api.canonicalDraftPersistence.targets, {
+    ...request,
+    cursor: page.continueCursor,
+  });
+  expect(stale).toMatchObject({
+    restart: true,
+    page: [],
+    observation: { revision: 41 },
+  });
+  await expect(
+    send(
+      operation(0, 'stale-ack', {
+        kind: 'acknowledge',
+        acknowledgement: {
+          acknowledgementId: 'ack-0',
+          subjectId: 'table',
+          outcome: 'Old client',
+        },
+      }),
+    ),
+  ).rejects.toThrow('Target changed');
+  expect((await member.query(observe, key)).revision).toBe(41);
+  await t.mutation(internal.e2eFixtures.cleanupCase, fixtureScope);
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalDraftTarget').collect()),
+  ).toHaveLength(0);
 });

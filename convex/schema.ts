@@ -815,6 +815,12 @@ export default defineSchema({
       'sequence',
     ])
     .index('by_militiaId', ['militiaId']),
+  canonicalDraftTarget: defineTable({
+    campaignId: v.id('campaign'), militiaId: v.id('militia'), draftId: v.string(),
+    target: v.string(), revision: v.number(), subtreeRevision: v.number(),
+  }).index('by_draftId_and_target', ['draftId', 'target'])
+    .index('by_draftId_and_revision', ['draftId', 'revision'])
+    .index('by_militiaId', ['militiaId']),
   canonicalDraftOperation: defineTable(operationStorageValidator)
     .index('by_draftId_and_operationId', ['draftId', 'operationId'])
     .index('by_draftId_and_acceptedRevision', ['draftId', 'acceptedRevision'])

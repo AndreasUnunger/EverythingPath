@@ -1,3 +1,7 @@
+import {
+  requireUnchangedStoredTargets,
+  writeDraftTargets,
+} from './canonicalDraftTargets';
 import { ConvexError, compareValues } from 'convex/values';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { requireScope } from './canonicalDraftStorage';
@@ -20,10 +24,7 @@ export async function requireDraft(ctx: QueryCtx | MutationCtx, key: Key) {
     .query('canonicalWeeklyDraft')
     .withIndex('by_draftId', (q) => q.eq('draftId', key.draftId))
     .unique();
-  if (
-    row?.campaignId !== key.campaignId ||
-    row.militiaId !== key.militiaId
-  )
+  if (row?.campaignId !== key.campaignId || row.militiaId !== key.militiaId)
     throw new ConvexError('Invalid draft reference');
   return row;
 }
@@ -34,7 +35,7 @@ export async function observeDraft(ctx: QueryCtx | MutationCtx, key: Key) {
     revision: row.revision,
     status: row.status,
     draft: row.draft,
-    targetRevisions: row.targetRevisions,
+    targetRevisions: [],
   });
 }
 export async function persistDraftOperation(
@@ -87,7 +88,7 @@ export async function persistDraftOperation(
     accepted = acceptDraftOperation(
       weeklyDraftDataSchema.parse(row.draft),
       weeklyDraftDataSchema.parse(base),
-      row.targetRevisions,
+      [],
       operation,
     );
   } catch (error) {
@@ -95,6 +96,12 @@ export async function persistDraftOperation(
       error instanceof Error ? error.message : 'Invalid edit',
     );
   }
+  await requireUnchangedStoredTargets(
+    ctx,
+    key,
+    accepted.targets,
+    operation.baseRevision,
+  );
   const state = await ctx.db
     .query('canonicalMilitiaState')
     .withIndex('by_militiaId', (q) => q.eq('militiaId', key.militiaId))
@@ -107,8 +114,8 @@ export async function persistDraftOperation(
   await ctx.db.patch('canonicalWeeklyDraft', row._id, {
     draft: weeklyDraftDataSchema.parse(accepted.draft),
     revision: accepted.draft.revision,
-    targetRevisions: accepted.targetRevisions,
   });
+  await writeDraftTargets(ctx, key, accepted.targets, accepted.draft.revision);
   await ctx.db.insert('canonicalDraftOperation', {
     ...key,
     operationId: operation.operationId,

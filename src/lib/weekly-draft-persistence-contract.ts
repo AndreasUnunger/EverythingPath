@@ -66,3 +66,14 @@ export function openObservation(
     targetRevisions,
   };
 }
+
+export const draftTargetPageSchema = z.strictObject({
+  restart: z.boolean(),
+  observation: draftObservationSchema,
+  page: z.array(
+    z.strictObject({ target: z.string(), revision: integerSchema }),
+  ),
+  isDone: z.boolean(),
+  continueCursor: z.string(),
+});
+export type DraftTargetPage = z.infer<typeof draftTargetPageSchema>;

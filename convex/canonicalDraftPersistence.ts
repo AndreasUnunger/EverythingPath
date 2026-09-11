@@ -1,5 +1,5 @@
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
-import { type z } from 'zod';
+import { z } from 'zod';
 import {
   mutation,
   query,
@@ -11,6 +11,7 @@ import {
   draftObservationSchema,
   draftOperationSchema,
   draftReceiptSchema,
+  draftTargetPageSchema,
 } from '../src/lib/weekly-draft-persistence-contract';
 import {
   observeDraft,
@@ -73,5 +74,50 @@ export const edit = mutation({
       },
       args.operation,
     );
+  },
+});
+
+export const targets = query({
+  args: zodOutputToConvex(
+    draftKeySchema.extend({
+      afterRevision: z.number().int().nonnegative(),
+      observedRevision: z.number().int().nonnegative(),
+      observedStatus: z.enum(['open', 'closed']),
+      cursor: z.string().nullable(),
+    }),
+  ),
+  returns: zodOutputToConvex(draftTargetPageSchema),
+  handler: async (ctx, args) => {
+    await requireIsolated(ctx, args.campaignId);
+    const observation = await observeDraft(ctx, args);
+    if (observation.revision < args.observedRevision)
+      throw new ConvexError('Unknown observed revision');
+    if (
+      observation.revision !== args.observedRevision ||
+      observation.status !== args.observedStatus
+    )
+      return {
+        observation,
+        page: [],
+        isDone: false,
+        continueCursor: '',
+        restart: true,
+      };
+    const result = await ctx.db
+      .query('canonicalDraftTarget')
+      .withIndex('by_draftId_and_revision', (q) =>
+        q.eq('draftId', args.draftId).gt('revision', args.afterRevision),
+      )
+      .paginate({ numItems: 16, cursor: args.cursor });
+    return {
+      restart: false,
+      observation,
+      page: result.page.map((row) => ({
+        target: row.target,
+        revision: row.revision,
+      })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
   },
 });

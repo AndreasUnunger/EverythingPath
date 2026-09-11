@@ -21,6 +21,7 @@ import type * as lib_campaignInitialization from "../lib/campaignInitialization.
 import type * as lib_canonicalCampaignContext from "../lib/canonicalCampaignContext.js";
 import type * as lib_canonicalDraftPersistenceAuthority from "../lib/canonicalDraftPersistenceAuthority.js";
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
+import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
 import type * as lib_canonicalRoster from "../lib/canonicalRoster.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as migrations from "../migrations.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalCampaignContext": typeof lib_canonicalCampaignContext;
   "lib/canonicalDraftPersistenceAuthority": typeof lib_canonicalDraftPersistenceAuthority;
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
+  "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
   "lib/canonicalRoster": typeof lib_canonicalRoster;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   migrations: typeof migrations;

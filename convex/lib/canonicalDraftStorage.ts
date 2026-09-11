@@ -1,3 +1,4 @@
+import { writeDraftTargets } from './canonicalDraftTargets';
 import { editWeeklyDraft } from '../../src/lib/weekly-draft';
 import { canonicalResolutionRecordSchema } from '../../src/lib/canonical-resolution-record';
 import { ConvexError, compareValues } from 'convex/values';
@@ -95,7 +96,6 @@ export async function openDraft(
     draft,
     initialDraft: draft,
     revision: draft.revision,
-    targetRevisions: [],
   });
 }
 
@@ -144,7 +144,6 @@ export async function readDraftMetadata(
   return {
     status: row.status,
     revision: row.revision,
-    targetRevisions: row.targetRevisions,
   };
 }
 
@@ -203,19 +202,11 @@ export async function saveDraftRevision(
     compareValues(weeklyDraftDataSchema.parse(edited.draft), args.draft) !== 0
   )
     throw new ConvexError('Next draft must match the semantic edit');
-  const targetRevisions = new Map(
-    row.targetRevisions.map((value) => [value.target, value.revision]),
-  );
-  for (const target of args.targets)
-    targetRevisions.set(target, args.draft.revision);
   await ctx.db.patch('canonicalWeeklyDraft', row._id, {
     draft: args.draft,
     revision: args.draft.revision,
-    targetRevisions: Array.from(targetRevisions, ([target, revision]) => ({
-      target,
-      revision,
-    })),
   });
+  await writeDraftTargets(ctx, args, args.targets, args.draft.revision);
   await ctx.db.insert('canonicalDraftOperation', {
     campaignId: row.campaignId,
     militiaId: row.militiaId,

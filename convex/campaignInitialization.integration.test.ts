@@ -331,7 +331,7 @@ test('[initialization.preserve] preflight and restart preserve authoritative fac
     await gm.run((ctx) =>
       readDraftMetadata(ctx, { ...scope, draftId: 'initialization:fixture' }),
     ),
-  ).toEqual({ status: 'open', revision: 0, targetRevisions: [] });
+  ).toEqual({ status: 'open', revision: 0 });
   expect(
     await gm.run((ctx) => readEffectiveRecord(ctx, { ...scope, week: 8 })),
   ).toBeNull();
