@@ -4,7 +4,10 @@ import type { OrganizationCheck } from './rules-officers';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import type { StagedActionChoice } from './weekly-draft-facts';
 import type { UpkeepSnapshot } from './rules-upkeep';
-import { projectRulesFoundations } from './rules-foundations';
+import {
+  projectRulesFoundations,
+  type FoundationInput,
+} from './rules-foundations';
 import { getMinimumTreasuryForRank } from './militia-progression-rules';
 import { projectOfficers } from './rules-officers';
 import type { CheckUsage } from './rules-checks';
@@ -58,7 +61,7 @@ function dice(
   sides: number,
 ) {
   const raw = choice.rolls?.[key];
-  if (!raw || raw.sides !== sides || raw.dice.length !== count) {
+  if (raw?.sides !== sides || raw.dice.length !== count) {
     result.requirements.push(`${choice.choiceId}:${key}:${count}d${sides}`);
     return null;
   }
@@ -74,12 +77,7 @@ function check(
 ) {
   const die = dice(result, choice, 'check', 1, 20);
   const facts = projectRulesFoundations({
-    ...result.outcome,
-    week: draft.week,
-    slots: draft.activity.slots,
-    operatingSettlementId: draft.activity.operatingSettlementId ?? null,
-    queuedEffects: [...draft.context.queuedEffects],
-    checkUsage: result.checkUsage,
+    ...foundationInput(draft, result),
     checks: [
       {
         checkId: choice.choiceId,
@@ -87,6 +85,9 @@ function check(
         check: organizationCheck,
         choiceId: choice.choiceId,
         die: die ?? undefined,
+        helpful: choice.rolls?.check?.modifiers.some(
+          (modifier) => modifier.sourceId === 'helpful',
+        ),
         bonusIds: choice.rolls?.check?.modifiers.flatMap((modifier) =>
           modifier.sourceId.startsWith('bonus:')
             ? [modifier.sourceId.slice(6)]
@@ -97,8 +98,16 @@ function check(
   });
   const projected = facts.checks[0]!;
   const sources = new Set([
+    'rank-focus',
+    'officers',
+    'strategist',
+    'helpful',
+    'overseer-support',
+    ...result.outcome.roster.teams.flatMap((team) =>
+      team.managerCharacterId ? [team.managerCharacterId] : [],
+    ),
     ...projected.modifiers.map((modifier) => modifier.source),
-    ...result.outcome.roster.officers.map((officer) => officer.characterId),
+    ...result.outcome.roster.people.map((person) => person.characterId),
     ...draft.context.queuedEffects.flatMap((effect) => [
       effect.effectId,
       effect.sourceId,
@@ -126,6 +135,7 @@ function check(
         key === 'rank' ||
         key === 'focus' ||
         key.startsWith('officer:') ||
+        key.startsWith('manager:') ||
         key.startsWith(`${choice.choiceId}:`),
     ),
   );
@@ -271,14 +281,7 @@ function recruit(
     result.requirements.push(`${choice.choiceId}:recruitment-check`);
     return;
   }
-  const facts = projectRulesFoundations({
-    ...result.outcome,
-    week: draft.week,
-    slots: draft.activity.slots,
-    checks: [],
-    operatingSettlementId: null,
-    queuedEffects: [],
-  });
+  const facts = foundations(draft, result);
   if (
     facts.capacity.countedTeams >= facts.capacity.teams &&
     !exception(draft, result, choice, 'team-capacity')
@@ -309,6 +312,27 @@ function recruit(
     team: { ...team },
   });
 }
+function upgradeEligible(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+  team: UpkeepSnapshot['roster']['teams'][number],
+  toTeamType: string,
+) {
+  const departures: [boolean, string][] = [
+    [
+      result.teamUse.upgradedTeamIds.includes(team.teamId),
+      'team-upgrade-limit',
+    ],
+    [result.teamUse.usedTeamIds.includes(team.teamId), 'team-action-limit'],
+    [team.status !== 'active', 'team-condition'],
+    [!isUpgradePathAllowed(team.teamType, toTeamType), 'upgrade-tree'],
+  ];
+  for (const [violated, ruleId] of departures) {
+    if (violated && !exception(draft, result, choice, ruleId)) return false;
+  }
+  return true;
+}
 function upgrade(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -325,26 +349,7 @@ function upgrade(
     result.requirements.push(`${choice.choiceId}:upgrade-type`);
     return;
   }
-  if (
-    result.teamUse.upgradedTeamIds.includes(team.teamId) &&
-    !exception(draft, result, choice, 'team-upgrade-limit')
-  )
-    return;
-  if (
-    result.teamUse.usedTeamIds.includes(team.teamId) &&
-    !exception(draft, result, choice, 'team-action-limit')
-  )
-    return;
-  if (
-    team.status !== 'active' &&
-    !exception(draft, result, choice, 'team-condition')
-  )
-    return;
-  if (
-    !isUpgradePathAllowed(team.teamType, choice.toTeamType) &&
-    !exception(draft, result, choice, 'upgrade-tree')
-  )
-    return;
+  if (!upgradeEligible(draft, result, choice, team, choice.toTeamType)) return;
   if (!spend(draft, result, choice, getTeamCost(choice.toTeamType) * 100))
     return;
   result.plan.push({
@@ -425,8 +430,11 @@ function changeOfficer(
     after: structuredClone(after),
   });
 }
-function foundations(draft: WeeklyDraft, result: ActivityProjection) {
-  return projectRulesFoundations({
+function foundationInput(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+): FoundationInput {
+  return {
     ...result.outcome,
     week: draft.week,
     slots: draft.activity.slots,
@@ -434,7 +442,11 @@ function foundations(draft: WeeklyDraft, result: ActivityProjection) {
     operatingSettlementId: draft.activity.operatingSettlementId ?? null,
     queuedEffects: [...draft.context.queuedEffects],
     activity: result.teamUse,
-  });
+    checkUsage: result.checkUsage,
+  };
+}
+function foundations(draft: WeeklyDraft, result: ActivityProjection) {
+  return projectRulesFoundations(foundationInput(draft, result));
 }
 function lieLow(
   draft: WeeklyDraft,
@@ -495,6 +507,33 @@ function resolveChoice(
       result.requirements.push(`${choice.choiceId}:unresolved-action`);
   }
 }
+function drillEligible(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+  earlierDrills: number,
+) {
+  let eligible = true;
+  if (earlierDrills > 0)
+    eligible = exception(draft, result, choice, 'drill-limit');
+  const cap = foundations(draft, result).progression.highestPcLevel;
+  if (cap === null) {
+    result.requirements.push(`${choice.choiceId}:highest-level-pc`);
+    return false;
+  }
+  if (result.outcome.rank >= Math.min(cap, 20))
+    eligible = exception(draft, result, choice, 'maximum-rank') && eligible;
+  return eligible;
+}
+function consumeBonuses(draft: WeeklyDraft, result: ActivityProjection) {
+  for (const bonusId of result.checkUsage.bonusIds) {
+    const bonus = result.outcome.bonuses.find(
+      (bonus) => bonus.bonusId === bonusId,
+    )!;
+    bonus.consumedWeek = draft.week;
+    result.plan.push({ kind: 'consume_bonus', bonusId, week: draft.week });
+  }
+}
 export function projectActivity(
   draft: WeeklyDraft,
   snapshot: UpkeepSnapshot,
@@ -521,30 +560,13 @@ export function projectActivity(
     if (overAllowance)
       eligible =
         exception(draft, result, choice, 'action-capacity') && eligible;
-    if (choice.actionId === 'drill_militia') {
-      if (drills++ > 0)
-        eligible = exception(draft, result, choice, 'drill-limit') && eligible;
-      const cap = facts.progression.highestPcLevel;
-      if (cap === null) {
-        result.requirements.push(`${choice.choiceId}:highest-level-pc`);
-        eligible = false;
-      } else if (
-        result.outcome.rank >=
-        Math.min(cap, facts.progression.apRankCap ?? 20, 20)
-      )
-        eligible = exception(draft, result, choice, 'maximum-rank') && eligible;
-    }
+    if (choice.actionId === 'drill_militia')
+      eligible = drillEligible(draft, result, choice, drills++) && eligible;
     if (!eligible) continue;
     if (!assignedTeam(draft, result, choice)) continue;
     resolveChoice(draft, result, choice);
   }
-  for (const bonusId of result.checkUsage.bonusIds) {
-    const bonus = result.outcome.bonuses.find(
-      (bonus) => bonus.bonusId === bonusId,
-    )!;
-    bonus.consumedWeek = draft.week;
-    result.plan.push({ kind: 'consume_bonus', bonusId, week: draft.week });
-  }
+  consumeBonuses(draft, result);
   result.requirements = [...new Set(result.requirements)];
   result.warnings = [...new Set(result.warnings)];
   result.ready = result.requirements.length === 0;

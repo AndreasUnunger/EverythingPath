@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import schema from './schema';
 import { openDraft, readOpenDraft } from './lib/canonicalDraftStorage';
 import { projectActivity } from '../src/lib/rules-activity';
+import { roll } from '../tests/rules/upkeep-fixture';
 import { activityFixture } from '../tests/rules/activity-fixture';
 
 const modules = import.meta.glob('./**/*.ts');
@@ -37,9 +38,31 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
     'recruit_team',
     'upgrade_team',
     'lie_low',
+    'exceptional-recruitment',
   ] as const) {
     const t = convexTest(schema, modules);
-    const { draft, snapshot } = activityFixture(scenario);
+    const { draft, snapshot } = activityFixture(
+      scenario === 'exceptional-recruitment' ? 'recruit_team' : scenario,
+    );
+    if (scenario === 'exceptional-recruitment') {
+      const slot = draft.activity.slots[0];
+      if (!slot) throw new Error('Missing fixture slot');
+      slot.choice = {
+        choiceId: 'veterans',
+        actionId: 'recruit_team',
+        teamType: 'merchants',
+        recruitmentCheck: { check: 'loyalty', dc: 10 },
+        rolls: { check: roll(20, 10) },
+      };
+      draft.rulesExceptions = [
+        {
+          exceptionId: 'tier',
+          subjectId: 'veterans',
+          ruleId: 'recruit-tier',
+          reason: 'Veterans join',
+        },
+      ];
+    }
     const scope = await t.run(async (ctx) => {
       await ctx.db.insert('user', {
         tokenIdentifier: 'test|player',

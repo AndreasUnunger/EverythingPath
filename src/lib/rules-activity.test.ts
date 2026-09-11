@@ -364,7 +364,7 @@ test.each([
   ['moles', 14, 13],
   ['defenders', 14, 13],
 ] as const)(
-  '[rules.A14.checks] %s recruitment uses its own check and DC',
+  '[rules.A14.checks.%s] recruitment uses its own check and DC',
   (teamType, success, failure) => {
     const { draft, snapshot } = upkeepFixture();
     draft.activity.slots[0]!.choice = {
@@ -502,4 +502,113 @@ test('Rules Exceptions permit over-allowance choices but do not supply missing r
   expect(result.ready).toBe(true);
   expect(result.outcome.training).toBe(35);
   expect(result.slots).toHaveLength(2);
+});
+
+test('An adventure-volume recommendation does not replace the highest-PC Drill rank cap', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 4;
+  snapshot.apVolume = 1;
+  snapshot.treasuryCopper = 10000;
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: roll(20, 15), training: roll(6, 3, 4) },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.training).toBe(37);
+});
+
+test('Moving a choice off the Strategist slot removes its annotated bonus instead of preserving stale arithmetic', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 1;
+  snapshot.roster.officers = [{ role: 'strategist', characterId: 'pc' }];
+  const raw = roll(20, 7);
+  raw.modifiers = [
+    { sourceId: 'strategist', value: 2, reason: 'Bonus action' },
+  ];
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: raw, training: roll(6, 3, 4) },
+  };
+  expect(projectActivity(draft, snapshot).outcome.training).toBe(37);
+  draft.activity.slots.reverse();
+  const result = projectActivity(draft, snapshot);
+  expect(result.checks[0]!.total).toBe(9);
+  expect(result.outcome.training).toBe(30);
+});
+
+test('Helpful annotations require the operating settlement and can benefit only one Activity check', () => {
+  const { draft, snapshot } = upkeepFixture();
+  const raw = roll(20, 6);
+  raw.modifiers = [
+    { sourceId: 'helpful', value: 99, reason: 'Helpful settlement' },
+  ];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'first',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: raw },
+  };
+  let result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('first:helpful-ineligible');
+  expect(result.outcome.roster.teams).toEqual([]);
+  snapshot.settlements = [
+    {
+      settlementId: 'home',
+      name: 'Home',
+      reputation: 'Helpful',
+      secured: false,
+      occupied: false,
+      temporaryReputationShift: 0,
+      refugeActivatedWeek: null,
+      refugeActiveUntilWeek: null,
+    },
+  ];
+  draft.activity.operatingSettlementId = 'home';
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'second',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: raw },
+  };
+  result = projectActivity(draft, snapshot);
+  expect(result.checks.map((check) => check.total)).toEqual([11, 9]);
+  expect(result.checkUsage.helpful).toBe(true);
+  expect(result.requirements).toContain('second:helpful-already-used');
+  expect(result.outcome.roster.teams).toHaveLength(1);
+});
+
+test('Removing Strategist before its designated occurrence removes stale annotated bonuses even with an action exception', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 1;
+  snapshot.roster.officers = [{ role: 'strategist', characterId: 'pc' }];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'remove',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'strategist',
+  };
+  const raw = roll(20, 7);
+  raw.modifiers = [
+    { sourceId: 'strategist', value: 2, reason: 'Former bonus' },
+  ];
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: raw, training: roll(6, 3, 4) },
+  };
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'extra',
+      subjectId: 'drill',
+      ruleId: 'action-capacity',
+      reason: 'Extra action',
+    },
+  ];
+  const result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.checks[0]!.total).toBe(9);
+  expect(result.outcome.training).toBe(30);
 });

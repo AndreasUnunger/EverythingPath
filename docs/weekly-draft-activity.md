@@ -40,3 +40,10 @@ canonical Workspace/persistence cutover lands. No legacy scenarios were deleted.
 same projection of a persisted Convex draft for all six actions. The existing
 isolated browser harness protects the currently supported application path;
 it does not claim the future canonical Workspace UI is already connected.
+
+Verification for this extraction (2026-09-11): typecheck and lint; 569 tests in
+63 files; rules catalog validation with zero errors; and the mandatory browser
+journeys on disposable preview `e2e-local-andreasununger-slot-0`. Standards and
+spec review findings were addressed, including stale Strategist provenance and
+Helpful settlement eligibility/one-use consumption. The catalog retains explicit
+gaps for subsequent extraction and cutover work.

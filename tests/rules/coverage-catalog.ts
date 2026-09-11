@@ -3749,7 +3749,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Tier-1 recruitment uses each of the four tree-specific checks and DCs.',
           plannedTests: ['rules.A14.checks'],
-          tests: ['rules.A14.checks'],
+          tests: [
+            'rules.A14.checks.patrons',
+            'rules.A14.checks.informants',
+            'rules.A14.checks.moles',
+            'rules.A14.checks.defenders',
+          ],
           gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
