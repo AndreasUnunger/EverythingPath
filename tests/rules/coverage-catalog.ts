@@ -3058,8 +3058,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Drill appears at most once per Activity.',
           plannedTests: ['rules.T06.drill'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.T06.drill-once'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'exception',
@@ -3316,8 +3316,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One no-team action changes one PC role; ally or cohort departure needs Rules Exception.',
           plannedTests: ['rules.A04.pc'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A04.pc'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'move',
@@ -3325,8 +3325,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Move or unassign preserves character records.',
           plannedTests: ['rules.A04.move'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A04.pc', 'rules.A04.order'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'order',
@@ -3334,8 +3334,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Role changes affect later checks and consume their own actions.',
           plannedTests: ['rules.A04.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A04.order'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
       ],
     },
@@ -3417,8 +3417,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A06.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A06.failure', 'rules.A06.projection-parity'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'capacity',
@@ -3426,8 +3426,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice.',
           plannedTests: ['rules.A06.capacity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A06.capacity'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
       ],
     },
@@ -3445,8 +3445,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One no-team Drill costs rank times 10 gp even on failure.',
           plannedTests: ['rules.A07.cost'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A07.cost'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'success',
@@ -3454,8 +3454,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice.',
           plannedTests: ['rules.A07.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A07.success'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'natural-one',
@@ -3463,8 +3463,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 can succeed but also adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A07.natural-one'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A07.natural-one'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'maximum',
@@ -3472,8 +3472,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: At maximum rank Drill is unavailable by baseline with a reasoned exception path.',
           plannedTests: ['rules.A07.maximum'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.T06.drill-once'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'removed',
@@ -3481,8 +3481,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Removing or failing Drill removes its gain; no staged Drill means no Drill training.',
           plannedTests: ['rules.A07.removed'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A07.natural-one', 'rules.A07.cost'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
       ],
     },
@@ -3666,8 +3666,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Lie Low is normally the only Activity action.',
           plannedTests: ['rules.A12.exclusive'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A12.exclusivity'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'count',
@@ -3675,8 +3675,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Notoriety reduction counts active, disabled, missing and bonus teams.',
           plannedTests: ['rules.A12.count'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A12.exclusivity'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'floor',
@@ -3693,8 +3693,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Additional actions require a reasoned Rules Exception without rewriting the reduction.',
           plannedTests: ['rules.A12.exception'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A12.exclusivity'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
       ],
     },
@@ -3749,8 +3749,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Tier-1 recruitment uses each of the four tree-specific checks and DCs.',
           plannedTests: ['rules.A14.checks'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A14.checks'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'capacity',
@@ -3758,8 +3758,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure.',
           plannedTests: ['rules.A14.capacity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A06.capacity'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'natural-one',
@@ -3767,8 +3767,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 can succeed but adds 1d6 Notoriety.',
           plannedTests: ['rules.A14.natural-one'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A14.natural-one'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'identity',
@@ -4250,8 +4250,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Upgrade uses the selected valid tree edge and listed cost.',
           plannedTests: ['rules.A24.edges'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A24.tree'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
           id: 'per-team',
@@ -4277,8 +4277,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Insufficient funds or illegal edge needs explicit exception; malformed target blocks.',
           plannedTests: ['rules.A24.warning'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A24.warning'],
+          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
       ],
     },

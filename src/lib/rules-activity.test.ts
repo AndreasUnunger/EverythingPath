@@ -1,0 +1,505 @@
+import { expect, test } from 'vitest';
+import { upkeepFixture, roll } from '../../tests/rules/upkeep-fixture';
+import { projectActivity } from './rules-activity';
+
+test('[rules.A06.failure] failed dismissal removes its target and adds rolled Notoriety', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.teams.push({
+    teamId: 'old',
+    teamType: 'patrons',
+    name: 'Old',
+    status: 'active',
+    managerCharacterId: null,
+    rewardCapExempt: false,
+    notes: '',
+  });
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'dismiss',
+    actionId: 'dismiss_team',
+    targetTeamId: 'old',
+    rolls: { check: roll(20, 6), notoriety: roll(6, 4) },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.outcome.roster.teams).toEqual([]);
+  expect(result.outcome.notoriety).toBe(4);
+  expect(result.plan).toContainEqual({
+    kind: 'remove_team',
+    choiceId: 'dismiss',
+    teamId: 'old',
+  });
+  expect(result.ready).toBe(true);
+});
+
+test('[rules.A07.success] successful staged Drill pays baseline cost and adds rolled training plus Commandant Hit Dice', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: roll(20, 10), training: roll(6, 2, 5) },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.outcome.training).toBe(47);
+  expect(result.outcome.treasuryCopper).toBe(0);
+  expect(result.ready).toBe(true);
+});
+
+test('[rules.A06.capacity] dismissal frees capacity for recruitment in slot order, preserving separate team identities', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 1;
+  snapshot.roster.officers.push({ role: 'strategist', characterId: 'pc' });
+  snapshot.roster.teams.push(
+    {
+      teamId: 'old',
+      teamType: 'patrons',
+      name: 'Old',
+      status: 'active',
+      managerCharacterId: null,
+      rewardCapExempt: false,
+      notes: '',
+    },
+    {
+      teamId: 'other',
+      teamType: 'patrons',
+      name: 'Other',
+      status: 'active',
+      managerCharacterId: null,
+      rewardCapExempt: false,
+      notes: '',
+    },
+  );
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'dismiss',
+    actionId: 'dismiss_team',
+    targetTeamId: 'old',
+    rolls: { check: roll(20, 8), notoriety: roll(6, 3) },
+  };
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'recruit',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: roll(20, 10) },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.outcome.roster.teams.map((team) => team.teamId)).toEqual([
+    'other',
+    'recruit:recruit',
+  ]);
+  expect(result.ready).toBe(true);
+  draft.activity.slots.reverse();
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'recruit:team-capacity:exception',
+  );
+});
+
+test('[rules.A24.tree] Upgrade preserves identity and manager, charges the listed edge cost, and prohibits a second upgrade', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.treasuryCopper = 30000;
+  snapshot.roster.teams.push({
+    teamId: 'team',
+    teamType: 'patrons',
+    name: 'Our team',
+    status: 'active',
+    managerCharacterId: 'pc',
+    rewardCapExempt: true,
+    notes: 'Keep',
+  });
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'upgrade',
+    actionId: 'upgrade_team',
+    targetTeamId: 'team',
+    toTeamType: 'merchants',
+  };
+  let result = projectActivity(draft, snapshot);
+  expect(result.outcome.treasuryCopper).toBe(25000);
+  expect(result.outcome.roster.teams[0]).toEqual({
+    ...snapshot.roster.teams[0],
+    teamType: 'merchants',
+  });
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'again',
+    actionId: 'upgrade_team',
+    targetTeamId: 'team',
+    toTeamType: 'fixers',
+  };
+  result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('again:team-upgrade-limit:exception');
+  expect(result.outcome.roster.teams[0]!.teamType).toBe('merchants');
+});
+
+test('[rules.A04.order] changing to Strategist grants a later bonus action; removal retains the choice with an exception requirement', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 1;
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'ambassador',
+    toRole: 'strategist',
+  };
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: roll(20, 8), training: roll(6, 2, 3) },
+  };
+  let result = projectActivity(draft, snapshot);
+  expect(result.outcome.roster.officers).toEqual([
+    { role: 'strategist', characterId: 'pc' },
+  ]);
+  expect(result.outcome.training).toBe(35);
+  expect(result.checks[0]!.total).toBe(12);
+  expect(result.ready).toBe(true);
+  snapshot.roster.officers = [{ role: 'strategist', characterId: 'pc' }];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'strategist',
+    toRole: 'ambassador',
+  };
+  result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('drill:action-capacity:exception');
+  expect(result.slots[1]!.choice?.choiceId).toBe('drill');
+  expect(result.outcome.training).toBe(30);
+});
+
+test('[rules.A12.exclusivity] Lie Low counts all teams and requires a reasoned exception alongside other actions', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.notoriety = 3;
+  snapshot.roster.teams.push({
+    teamId: 'team',
+    teamType: 'patrons',
+    name: 'Team',
+    status: 'missing',
+    managerCharacterId: null,
+    rewardCapExempt: true,
+    notes: '',
+  });
+  draft.activity.slots[0]!.choice = { choiceId: 'low', actionId: 'lie_low' };
+  expect(projectActivity(draft, snapshot).outcome.notoriety).toBe(2);
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'ambassador',
+  };
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'low:lie-low-exclusivity:exception',
+  );
+  draft.rulesExceptions.push({
+    exceptionId: 'exception',
+    subjectId: 'low',
+    ruleId: 'lie-low-exclusivity',
+    reason: 'Table ruling',
+  });
+  expect(projectActivity(draft, snapshot).outcome.notoriety).toBe(2);
+  expect(projectActivity(draft, snapshot).ready).toBe(true);
+});
+
+test('[rules.T06.drill-once] duplicate Drill and maximum rank need exceptions without changing baseline arithmetic', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.treasuryCopper = 10000;
+  snapshot.characters[0]!.level = 3;
+  const drill = {
+    choiceId: 'first',
+    actionId: 'drill_militia' as const,
+    rolls: { check: roll(20, 15), training: roll(6, 2, 3) },
+  };
+  draft.activity.slots[0]!.choice = drill;
+  draft.activity.slots[1]!.choice = { ...drill, choiceId: 'second' };
+  let result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('first:maximum-rank:exception');
+  expect(result.requirements).toContain('second:drill-limit:exception');
+  draft.rulesExceptions = ['first', 'second'].flatMap((subjectId) => [
+    {
+      exceptionId: subjectId,
+      subjectId,
+      ruleId: 'maximum-rank',
+      reason: 'Training beyond cap',
+    },
+    ...(subjectId === 'second'
+      ? [
+          {
+            exceptionId: 'repeat',
+            subjectId,
+            ruleId: 'drill-limit',
+            reason: 'Extra drill',
+          },
+        ]
+      : []),
+  ]);
+  result = projectActivity(draft, snapshot);
+  expect(result.outcome.training).toBe(40);
+  expect(result.outcome.treasuryCopper).toBe(4000);
+  expect(result.ready).toBe(true);
+});
+
+test('[rules.A07.natural-one] natural one can succeed, calculated and entered sources count once, and missing dice remain required', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.characters[0]!.charisma = 34;
+  const raw = roll(20, 1);
+  raw.modifiers = [
+    { sourceId: 'officers', value: 12, reason: 'Already calculated' },
+    { sourceId: 'table', value: 1, reason: 'Circumstance' },
+  ];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: raw, training: roll(6, 3, 4), notoriety: roll(6, 5) },
+  };
+  let result = projectActivity(draft, snapshot);
+  expect(result.checks[0]!.total).toBe(17);
+  expect(result.outcome.training).toBe(37);
+  expect(result.outcome.notoriety).toBe(5);
+  delete draft.activity.slots[0]!.choice.rolls!.training;
+  result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(false);
+  expect(result.outcome.training).toBe(30);
+  draft.activity.slots[0]!.choice = null;
+  expect(projectActivity(draft, snapshot).outcome).toEqual(snapshot);
+});
+
+test('Activity keeps incomplete and unsupported choices unready, and enforces assigned team usage after upgrades', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.treasuryCopper = 20000;
+  snapshot.roster.teams.push({
+    teamId: 'team',
+    teamType: 'patrons',
+    name: 'Team',
+    status: 'active',
+    managerCharacterId: null,
+    rewardCapExempt: false,
+    notes: '',
+  });
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'upgrade',
+    actionId: 'upgrade_team',
+    targetTeamId: 'team',
+    toTeamType: 'merchants',
+  };
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'earn',
+    actionId: 'earn_gold',
+    teamId: 'team',
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('earn:team-action-limit:exception');
+  expect(result.ready).toBe(false);
+  draft.activity.slots[0]!.choice = null;
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'earn:unresolved-action',
+  );
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'partial',
+    actionId: 'dismiss_team',
+  };
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'partial:target-team',
+  );
+});
+
+test('Exceptional higher-tier recruitment requires an explicit check and DC, while ordinary recruitment keeps its baseline', () => {
+  const { draft, snapshot } = upkeepFixture();
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'recruit',
+    actionId: 'recruit_team',
+    teamType: 'merchants',
+    rolls: { check: roll(20, 15) },
+  };
+  draft.rulesExceptions.push({
+    exceptionId: 'tier',
+    subjectId: 'recruit',
+    ruleId: 'recruit-tier',
+    reason: 'Veterans join',
+  });
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'recruit:recruitment-check',
+  );
+  draft.activity.slots[0]!.choice.recruitmentCheck = {
+    check: 'loyalty',
+    dc: 15,
+  };
+  expect(
+    projectActivity(draft, snapshot).outcome.roster.teams[0]!.teamType,
+  ).toBe('merchants');
+  draft.activity.slots[0]!.choice.teamType = 'patrons';
+  draft.activity.slots[0]!.choice.recruitmentCheck.dc = 100;
+  expect(
+    projectActivity(draft, snapshot).outcome.roster.teams[0]!.teamType,
+  ).toBe('patrons');
+});
+
+test('Activity reserves and records one-use bonuses in its baseline plan', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.bonuses.push({
+    bonusId: 'reward',
+    source: 'event',
+    check: 'loyalty',
+    value: 4,
+    availableWeek: 40,
+    consumedWeek: null,
+  });
+  const raw = roll(20, 6);
+  raw.modifiers = [{ sourceId: 'bonus:reward', value: 4, reason: 'Reward' }];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'recruit',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: raw },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.checks[0]!.total).toBe(13);
+  expect(result.outcome.bonuses[0]!.consumedWeek).toBe(40);
+  expect(result.plan).toContainEqual({
+    kind: 'consume_bonus',
+    bonusId: 'reward',
+    week: 40,
+  });
+  expect(snapshot.bonuses[0]!.consumedWeek).toBe(null);
+});
+
+test.each([
+  ['patrons', 7, 6],
+  ['informants', 7, 6],
+  ['moles', 14, 13],
+  ['defenders', 14, 13],
+] as const)(
+  '[rules.A14.checks] %s recruitment uses its own check and DC',
+  (teamType, success, failure) => {
+    const { draft, snapshot } = upkeepFixture();
+    draft.activity.slots[0]!.choice = {
+      choiceId: 'recruit',
+      actionId: 'recruit_team',
+      teamType,
+      rolls: { check: roll(20, success) },
+    };
+    expect(
+      projectActivity(draft, snapshot).outcome.roster.teams[0]?.teamType,
+    ).toBe(teamType);
+    draft.activity.slots[0]!.choice.rolls!.check = roll(20, failure);
+    expect(projectActivity(draft, snapshot).outcome.roster.teams).toEqual([]);
+  },
+);
+
+test('[rules.A14.natural-one] recruitment natural one can succeed but adds Notoriety', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.characters[0]!.charisma = 24;
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'recruit',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: roll(20, 1), notoriety: roll(6, 6) },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.outcome.roster.teams).toHaveLength(1);
+  expect(result.outcome.notoriety).toBe(6);
+});
+
+test('[rules.A24.warning] upgrade exceptions allow insufficient funds and a different tree while references remain required', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.teams = [
+    {
+      teamId: 'team',
+      teamType: 'patrons',
+      name: 'Team',
+      status: 'active',
+      managerCharacterId: null,
+      rewardCapExempt: false,
+      notes: '',
+    },
+  ];
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'upgrade',
+    actionId: 'upgrade_team',
+    targetTeamId: 'team',
+    toTeamType: 'propagandists',
+    costCopper: 1,
+  };
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'upgrade:upgrade-tree:exception',
+  );
+  draft.rulesExceptions = ['upgrade-tree', 'treasury'].map((ruleId) => ({
+    exceptionId: ruleId,
+    subjectId: 'upgrade',
+    ruleId,
+    reason: 'Table exception',
+  }));
+  const result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.treasuryCopper).toBe(-22000);
+  expect(result.outcome.roster.teams[0]!.teamType).toBe('propagandists');
+  expect(result.warnings).toContain('upgrade:calculated-cost');
+  draft.activity.slots[0]!.choice.targetTeamId = 'unknown';
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'upgrade:target-team',
+  );
+});
+
+test('[rules.A04.pc] NPC role changes require exceptions; unassigning preserves people and characters', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.people[0]!.kind = 'officer_npc';
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'ambassador',
+  };
+  expect(projectActivity(draft, snapshot).requirements).toContain(
+    'role:officer-pc:exception',
+  );
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'npc',
+      subjectId: 'role',
+      ruleId: 'officer-pc',
+      reason: 'Ally agrees',
+    },
+  ];
+  const result = projectActivity(draft, snapshot);
+  expect(result.outcome.roster.officers).toEqual([]);
+  expect(result.outcome.roster.people).toEqual(snapshot.roster.people);
+  expect(result.outcome.characters).toEqual(snapshot.characters);
+});
+
+test('[rules.A07.cost] failed Drill costs treasury but never adds Commandant training or needs its gain dice', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });
+  snapshot.roster.people[0]!.hitDice = null;
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+    rolls: { check: roll(20, 2) },
+  };
+  const result = projectActivity(draft, snapshot);
+  expect(result.outcome.training).toBe(30);
+  expect(result.outcome.treasuryCopper).toBe(0);
+  expect(result.ready).toBe(true);
+});
+
+test('Rules Exceptions permit over-allowance choices but do not supply missing rolls', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 1;
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+  };
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'extra',
+      subjectId: 'drill',
+      ruleId: 'action-capacity',
+      reason: 'Extra action',
+    },
+  ];
+  let result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('drill:check:1d20');
+  expect(result.slots[1]!.overAllowance).toBe(true);
+  draft.activity.slots[1]!.choice.rolls = {
+    check: roll(20, 12),
+    training: roll(6, 2, 3),
+  };
+  result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.training).toBe(35);
+  expect(result.slots).toHaveLength(2);
+});

@@ -1,0 +1,552 @@
+import { getTeamCost, isUpgradePathAllowed } from './rules-teams';
+import teams from './militia-team-table';
+import type { OrganizationCheck } from './rules-officers';
+import type { WeeklyDraft } from './weekly-draft-contract';
+import type { StagedActionChoice } from './weekly-draft-facts';
+import type { UpkeepSnapshot } from './rules-upkeep';
+import { projectRulesFoundations } from './rules-foundations';
+import { getMinimumTreasuryForRank } from './militia-progression-rules';
+import { projectOfficers } from './rules-officers';
+import type { CheckUsage } from './rules-checks';
+
+type Choice = StagedActionChoice;
+export type ActivityChange =
+  | { kind: 'consume_bonus'; bonusId: string; week: number }
+  | {
+      kind: 'officers';
+      choiceId: string;
+      before: UpkeepSnapshot['roster']['officers'];
+      after: UpkeepSnapshot['roster']['officers'];
+    }
+  | {
+      kind: 'upgrade_team';
+      choiceId: string;
+      teamId: string;
+      before: string;
+      after: string;
+    }
+  | {
+      kind: 'recruit_team';
+      choiceId: string;
+      team: UpkeepSnapshot['roster']['teams'][number];
+    }
+  | { kind: 'remove_team'; choiceId: string; teamId: string }
+  | {
+      kind: 'notoriety' | 'training' | 'treasuryCopper';
+      choiceId: string;
+      before: number;
+      after: number;
+    };
+export type ActivityProjection = {
+  ready: boolean;
+  slots: (WeeklyDraft['activity']['slots'][number] & {
+    overAllowance: boolean;
+  })[];
+  outcome: UpkeepSnapshot;
+  plan: ActivityChange[];
+  requirements: string[];
+  warnings: string[];
+  checks: ReturnType<typeof projectRulesFoundations>['checks'];
+  checkUsage: CheckUsage;
+  teamUse: { usedTeamIds: string[]; upgradedTeamIds: string[] };
+};
+function dice(
+  result: ActivityProjection,
+  choice: Choice,
+  key: 'check' | 'notoriety' | 'training',
+  count: number,
+  sides: number,
+) {
+  const raw = choice.rolls?.[key];
+  if (!raw || raw.sides !== sides || raw.dice.length !== count) {
+    result.requirements.push(`${choice.choiceId}:${key}:${count}d${sides}`);
+    return null;
+  }
+  if (raw.dice.some((value) => value < 1 || value > sides))
+    result.warnings.push(`${choice.choiceId}:${key}:roll-range`);
+  return raw.dice.reduce((sum, value) => sum + value, 0);
+}
+function check(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+  organizationCheck: OrganizationCheck = 'loyalty',
+) {
+  const die = dice(result, choice, 'check', 1, 20);
+  const facts = projectRulesFoundations({
+    ...result.outcome,
+    week: draft.week,
+    slots: draft.activity.slots,
+    operatingSettlementId: draft.activity.operatingSettlementId ?? null,
+    queuedEffects: [...draft.context.queuedEffects],
+    checkUsage: result.checkUsage,
+    checks: [
+      {
+        checkId: choice.choiceId,
+        phase: 'activity',
+        check: organizationCheck,
+        choiceId: choice.choiceId,
+        die: die ?? undefined,
+        bonusIds: choice.rolls?.check?.modifiers.flatMap((modifier) =>
+          modifier.sourceId.startsWith('bonus:')
+            ? [modifier.sourceId.slice(6)]
+            : [],
+        ),
+      },
+    ],
+  });
+  const projected = facts.checks[0]!;
+  const sources = new Set([
+    ...projected.modifiers.map((modifier) => modifier.source),
+    ...result.outcome.roster.officers.map((officer) => officer.characterId),
+    ...draft.context.queuedEffects.flatMap((effect) => [
+      effect.effectId,
+      effect.sourceId,
+    ]),
+  ]);
+  for (const modifier of choice.rolls?.check?.modifiers ?? []) {
+    if (
+      sources.has(modifier.sourceId) ||
+      /^(bonus|queued|officer|manager):/.test(modifier.sourceId)
+    )
+      continue;
+    sources.add(modifier.sourceId);
+    projected.modifiers.push({
+      source: modifier.sourceId,
+      value: modifier.value,
+    });
+    projected.modifier += modifier.value;
+    if (projected.total !== null) projected.total += modifier.value;
+  }
+  result.checks.push(...facts.checks);
+  result.checkUsage = facts.checkUsage;
+  result.requirements.push(
+    ...facts.requirements.filter(
+      (key) =>
+        key === 'rank' ||
+        key === 'focus' ||
+        key.startsWith('officer:') ||
+        key.startsWith(`${choice.choiceId}:`),
+    ),
+  );
+  result.warnings.push(
+    ...facts.warnings.filter(
+      (key) =>
+        key.startsWith(`${choice.choiceId}:`) ||
+        key.startsWith('officer:') ||
+        key.startsWith('manager:'),
+    ),
+  );
+  return facts.checks[0]!.total;
+}
+function value(
+  result: ActivityProjection,
+  choice: Choice,
+  kind: 'notoriety' | 'training' | 'treasuryCopper',
+  delta: number,
+) {
+  const before = result.outcome[kind];
+  const after =
+    kind === 'treasuryCopper' ? before + delta : Math.max(0, before + delta);
+  result.outcome[kind] = after;
+  result.plan.push({ kind, choiceId: choice.choiceId, before, after });
+}
+function dismiss(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Extract<Choice, { actionId: 'dismiss_team' }>,
+) {
+  const team = result.outcome.roster.teams.find(
+    (team) => team.teamId === choice.targetTeamId,
+  );
+  if (!team) {
+    result.requirements.push(`${choice.choiceId}:target-team`);
+    return;
+  }
+  result.outcome.roster.teams = result.outcome.roster.teams.filter(
+    (entry) => entry.teamId !== team.teamId,
+  );
+  result.plan.push({
+    kind: 'remove_team',
+    choiceId: choice.choiceId,
+    teamId: team.teamId,
+  });
+  const total = check(draft, result, choice);
+  if (total !== null && total < 10) {
+    const gain = dice(result, choice, 'notoriety', 1, 6);
+    if (gain !== null) value(result, choice, 'notoriety', gain);
+  }
+}
+function exception(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+  ruleId: string,
+) {
+  result.warnings.push(`${choice.choiceId}:${ruleId}`);
+  if (
+    !draft.rulesExceptions.some(
+      (entry) =>
+        entry.subjectId === choice.choiceId &&
+        entry.ruleId === ruleId &&
+        entry.reason.trim(),
+    )
+  ) {
+    result.requirements.push(`${choice.choiceId}:${ruleId}:exception`);
+    return false;
+  }
+  return true;
+}
+function spend(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+  cost: number,
+) {
+  if (choice.costCopper !== undefined && choice.costCopper !== cost)
+    result.warnings.push(`${choice.choiceId}:calculated-cost`);
+  if (
+    result.outcome.treasuryCopper < cost &&
+    !exception(draft, result, choice, 'treasury')
+  )
+    return false;
+  value(result, choice, 'treasuryCopper', -cost);
+  return true;
+}
+function naturalOne(result: ActivityProjection, choice: Choice) {
+  if (choice.rolls?.check?.dice[0] !== 1) return;
+  const gain = dice(result, choice, 'notoriety', 1, 6);
+  if (gain !== null) value(result, choice, 'notoriety', gain);
+}
+function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
+  if (
+    !spend(
+      draft,
+      result,
+      choice,
+      getMinimumTreasuryForRank(result.outcome.rank) * 100,
+    )
+  )
+    return;
+  const total = check(draft, result, choice);
+  naturalOne(result, choice);
+  if (total === null || total < 10 + result.outcome.rank) return;
+  const gain = dice(result, choice, 'training', 2, 6);
+  const officers = projectOfficers(
+    result.outcome.roster,
+    result.outcome.characters,
+    result.outcome.focus,
+  );
+  result.requirements.push(...officers.requirements);
+  if (gain !== null && officers.commandantTrainingBonus !== null)
+    value(result, choice, 'training', gain + officers.commandantTrainingBonus);
+}
+const recruitmentChecks: Record<string, OrganizationCheck | undefined> = {
+  Loyalty: 'loyalty',
+  Secrecy: 'secrecy',
+  Security: 'security',
+};
+function recruit(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Extract<Choice, { actionId: 'recruit_team' }>,
+) {
+  const definition = teams.find((team) => team.id === choice.teamType);
+  if (!definition) {
+    result.requirements.push(`${choice.choiceId}:team-type`);
+    return;
+  }
+  if (
+    !definition.recruitment &&
+    !exception(draft, result, choice, 'recruit-tier')
+  )
+    return;
+  const recruitment = definition.recruitment
+    ? {
+        check: recruitmentChecks[definition.recruitment.check],
+        dc: definition.recruitment.dc,
+      }
+    : choice.recruitmentCheck;
+  if (!recruitment?.check) {
+    result.requirements.push(`${choice.choiceId}:recruitment-check`);
+    return;
+  }
+  const facts = projectRulesFoundations({
+    ...result.outcome,
+    week: draft.week,
+    slots: draft.activity.slots,
+    checks: [],
+    operatingSettlementId: null,
+    queuedEffects: [],
+  });
+  if (
+    facts.capacity.countedTeams >= facts.capacity.teams &&
+    !exception(draft, result, choice, 'team-capacity')
+  )
+    return;
+  const total = check(draft, result, choice, recruitment.check);
+  naturalOne(result, choice);
+  if (total === null || total < recruitment.dc) return;
+  const team = {
+    teamId: `recruit:${choice.choiceId}`,
+    teamType: choice.teamType!,
+    name: definition.name,
+    status: 'active' as const,
+    managerCharacterId: null,
+    rewardCapExempt: false,
+    notes: '',
+  };
+  if (
+    result.outcome.roster.teams.some((entry) => entry.teamId === team.teamId)
+  ) {
+    result.requirements.push(`${choice.choiceId}:duplicate-team`);
+    return;
+  }
+  result.outcome.roster.teams.push(team);
+  result.plan.push({
+    kind: 'recruit_team',
+    choiceId: choice.choiceId,
+    team: { ...team },
+  });
+}
+function upgrade(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Extract<Choice, { actionId: 'upgrade_team' }>,
+) {
+  const team = result.outcome.roster.teams.find(
+    (team) => team.teamId === choice.targetTeamId,
+  );
+  if (!team) {
+    result.requirements.push(`${choice.choiceId}:target-team`);
+    return;
+  }
+  if (!choice.toTeamType) {
+    result.requirements.push(`${choice.choiceId}:upgrade-type`);
+    return;
+  }
+  if (
+    result.teamUse.upgradedTeamIds.includes(team.teamId) &&
+    !exception(draft, result, choice, 'team-upgrade-limit')
+  )
+    return;
+  if (
+    result.teamUse.usedTeamIds.includes(team.teamId) &&
+    !exception(draft, result, choice, 'team-action-limit')
+  )
+    return;
+  if (
+    team.status !== 'active' &&
+    !exception(draft, result, choice, 'team-condition')
+  )
+    return;
+  if (
+    !isUpgradePathAllowed(team.teamType, choice.toTeamType) &&
+    !exception(draft, result, choice, 'upgrade-tree')
+  )
+    return;
+  if (!spend(draft, result, choice, getTeamCost(choice.toTeamType) * 100))
+    return;
+  result.plan.push({
+    kind: 'upgrade_team',
+    choiceId: choice.choiceId,
+    teamId: team.teamId,
+    before: team.teamType,
+    after: choice.toTeamType,
+  });
+  team.teamType = choice.toTeamType;
+  result.teamUse.upgradedTeamIds.push(team.teamId);
+}
+function changeOfficer(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Extract<Choice, { actionId: 'change_officer_role' }>,
+) {
+  const person = result.outcome.roster.people.find(
+    (person) => person.characterId === choice.characterId,
+  );
+  if (
+    !person ||
+    !result.outcome.characters.some(
+      (character) => character.characterId === person.characterId,
+    )
+  ) {
+    result.requirements.push(`${choice.choiceId}:character`);
+    return;
+  }
+  if (!choice.fromRole && !choice.toRole) {
+    result.requirements.push(`${choice.choiceId}:officer-role`);
+    return;
+  }
+  if (person.kind !== 'pc' && !exception(draft, result, choice, 'officer-pc'))
+    return;
+  const before = result.outcome.roster.officers;
+  if (
+    choice.fromRole &&
+    !before.some(
+      (officer) =>
+        officer.characterId === person.characterId &&
+        officer.role === choice.fromRole,
+    )
+  ) {
+    result.requirements.push(`${choice.choiceId}:from-role`);
+    return;
+  }
+  const after = before.filter(
+    (officer) =>
+      !(
+        officer.characterId === person.characterId &&
+        officer.role === choice.fromRole
+      ),
+  );
+  if (choice.toRole) {
+    if (
+      after.some(
+        (officer) =>
+          officer.characterId === person.characterId &&
+          officer.role === choice.toRole,
+      )
+    ) {
+      result.requirements.push(`${choice.choiceId}:duplicate-role`);
+      return;
+    }
+    if (
+      after.some((officer) => officer.characterId === person.characterId) &&
+      !exception(draft, result, choice, 'officer-role-limit')
+    )
+      return;
+    after.push({ characterId: person.characterId, role: choice.toRole });
+  }
+  result.outcome.roster.officers = after;
+  result.plan.push({
+    kind: 'officers',
+    choiceId: choice.choiceId,
+    before: structuredClone(before),
+    after: structuredClone(after),
+  });
+}
+function foundations(draft: WeeklyDraft, result: ActivityProjection) {
+  return projectRulesFoundations({
+    ...result.outcome,
+    week: draft.week,
+    slots: draft.activity.slots,
+    checks: [],
+    operatingSettlementId: draft.activity.operatingSettlementId ?? null,
+    queuedEffects: [...draft.context.queuedEffects],
+    activity: result.teamUse,
+  });
+}
+function lieLow(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+) {
+  if (
+    draft.activity.slots.filter((slot) => slot.choice).length > 1 &&
+    !exception(draft, result, choice, 'lie-low-exclusivity')
+  )
+    return;
+  value(result, choice, 'notoriety', -result.outcome.roster.teams.length);
+}
+function assignedTeam(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+) {
+  if (!choice.teamId) return true;
+  const team = result.outcome.roster.teams.find(
+    (team) => team.teamId === choice.teamId,
+  );
+  if (!team) {
+    result.requirements.push(`${choice.choiceId}:team`);
+    return false;
+  }
+  let eligible = true;
+  if (team.status !== 'active')
+    eligible = exception(draft, result, choice, 'team-condition') && eligible;
+  if (
+    result.teamUse.usedTeamIds.includes(team.teamId) ||
+    result.teamUse.upgradedTeamIds.includes(team.teamId)
+  )
+    eligible =
+      exception(draft, result, choice, 'team-action-limit') && eligible;
+  if (eligible) result.teamUse.usedTeamIds.push(team.teamId);
+  return eligible;
+}
+function resolveChoice(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+  choice: Choice,
+) {
+  switch (choice.actionId) {
+    case 'change_officer_role':
+      return changeOfficer(draft, result, choice);
+    case 'dismiss_team':
+      return dismiss(draft, result, choice);
+    case 'drill_militia':
+      return drill(draft, result, choice);
+    case 'recruit_team':
+      return recruit(draft, result, choice);
+    case 'upgrade_team':
+      return upgrade(draft, result, choice);
+    case 'lie_low':
+      return lieLow(draft, result, choice);
+    default:
+      result.requirements.push(`${choice.choiceId}:unresolved-action`);
+  }
+}
+export function projectActivity(
+  draft: WeeklyDraft,
+  snapshot: UpkeepSnapshot,
+): ActivityProjection {
+  const result: ActivityProjection = {
+    ready: false,
+    slots: [],
+    outcome: structuredClone(snapshot),
+    plan: [],
+    requirements: [],
+    warnings: [],
+    checks: [],
+    checkUsage: { bonusIds: [], helpful: false, overseer: false },
+    teamUse: { usedTeamIds: [], upgradedTeamIds: [] },
+  };
+  let drills = 0;
+  for (const [index, slot] of draft.activity.slots.entries()) {
+    const choice = slot.choice;
+    const facts = foundations(draft, result);
+    const overAllowance = index >= facts.capacity.actions && choice !== null;
+    result.slots.push({ ...structuredClone(slot), overAllowance });
+    if (!choice) continue;
+    let eligible = true;
+    if (overAllowance)
+      eligible =
+        exception(draft, result, choice, 'action-capacity') && eligible;
+    if (choice.actionId === 'drill_militia') {
+      if (drills++ > 0)
+        eligible = exception(draft, result, choice, 'drill-limit') && eligible;
+      const cap = facts.progression.highestPcLevel;
+      if (cap === null) {
+        result.requirements.push(`${choice.choiceId}:highest-level-pc`);
+        eligible = false;
+      } else if (
+        result.outcome.rank >=
+        Math.min(cap, facts.progression.apRankCap ?? 20, 20)
+      )
+        eligible = exception(draft, result, choice, 'maximum-rank') && eligible;
+    }
+    if (!eligible) continue;
+    if (!assignedTeam(draft, result, choice)) continue;
+    resolveChoice(draft, result, choice);
+  }
+  for (const bonusId of result.checkUsage.bonusIds) {
+    const bonus = result.outcome.bonuses.find(
+      (bonus) => bonus.bonusId === bonusId,
+    )!;
+    bonus.consumedWeek = draft.week;
+    result.plan.push({ kind: 'consume_bonus', bonusId, week: draft.week });
+  }
+  result.requirements = [...new Set(result.requirements)];
+  result.warnings = [...new Set(result.warnings)];
+  result.ready = result.requirements.length === 0;
+  return result;
+}

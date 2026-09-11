@@ -275,7 +275,16 @@ export const stagedActionChoiceSchema = z
       candidates: eventTreeSchema.optional(),
       selectedEventId: id.optional(),
     }),
-    action('recruit_team', { teamType: z.enum(TEAM_IDS).optional() }),
+    action('recruit_team', {
+      teamType: z.enum(TEAM_IDS).optional(),
+      // Required only when an exception permits a team without recruitment rules.
+      recruitmentCheck: z
+        .strictObject({
+          check: z.enum(['loyalty', 'secrecy', 'security']),
+          dc: int,
+        })
+        .optional(),
+    }),
     action('reduce_danger', settlement),
     action('rescue_character', character),
     action('restore_character', {
