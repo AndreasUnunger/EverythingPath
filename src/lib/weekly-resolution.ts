@@ -24,6 +24,14 @@ import type {
   WeeklyResolutionChange,
 } from './weekly-resolution-contract';
 
+export {
+  projectWeeklyDraft,
+  resolveCanonicalWeeklyDraft,
+  resolveReviewedWeeklyDraft,
+  applyCanonicalResolutionPlan,
+  prepareCanonicalResolutionRecord,
+} from './canonical-weekly-resolution';
+
 export const WEEKLY_RESOLUTION_RULESET_VERSION = 1;
 
 export const WEEKLY_RESOLUTION_RULE_SOURCES = {

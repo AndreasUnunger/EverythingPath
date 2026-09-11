@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { compareValues } from 'convex/values';
+import { militiaSnapshotSchema } from './canonical-weekly-source';
 import {
   weeklyDraftDataSchema,
   weekStartFactsSchema,
@@ -12,9 +13,9 @@ import {
   tableAdjustmentSchema,
 } from './weekly-draft-facts';
 
-// The projection will supply typed plans at checkpoint 5. Keep their versioned
-// payload lossless here without guessing the richer campaign model in #63.
-// JSON is restricted to Convex-compatible, finite data; it is never executable.
+// Versioned artifacts retain earlier extraction records. Canonical Weekly
+// Resolution supplies typed complete plans in format 2; their source snapshot
+// lets history render against the reviewed facts rather than today's militia.
 export const resolutionPayloadSchema = z.record(
   z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/),
   z.json(),
@@ -27,6 +28,7 @@ export const canonicalResolutionRecordSchema = z
   .strictObject({
     recordId: id,
     source: weeklyDraftDataSchema,
+    sourceMilitiaSnapshot: militiaSnapshotSchema.optional(),
     provenance: z.enum([
       'confirmation',
       'historical_reconstruction',

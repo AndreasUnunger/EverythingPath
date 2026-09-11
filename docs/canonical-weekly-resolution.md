@@ -1,0 +1,39 @@
+# Canonical Weekly Resolution (#78)
+
+`projectWeeklyDraft({ revision, militiaSnapshot })` is the shared pure preview
+interface. `revision` is a complete canonical Weekly Draft (which may contain
+partial choices); `militiaSnapshot` contains the authoritative current values,
+roster, character, settlement, bonus, economy and event-benefit facts. All of
+those source facts participate in `sourceKey`, including external changes that
+leave the draft revision unchanged. Callers must not substitute legacy entered
+totals for raw dice.
+
+The preview composes Upkeep, ordered Activity, Event and Persistent projections.
+It returns known outcomes and requirements for incomplete drafts, but only a
+ready week has a baseline plan and final plan. Successor preparation includes
+carry, queue expiry, delivery state, event ending and fixed next-week context.
+Typed Table Adjustments apply in order after this baseline. Rules Exceptions
+permit choices and preserve their reasons without changing arithmetic.
+
+Each plan contains the complete typed `before` and `after` state plus ordered
+phase effects and adjudication. A persistence adapter applies `after` exactly;
+it must not replay the effects' arithmetic or add business outcomes in write
+loops. `applyCanonicalResolutionPlan` demonstrates this contract and rejects
+changed source state. `resolveReviewedWeeklyDraft` recomputes from the authority's
+current source and rejects a changed reviewed source key. Neither function is an
+authorization boundary; the subsequent Persistence implementation must perform
+scope checks and execute application, record creation and successor creation in
+one transaction.
+
+`prepareCanonicalResolutionRecord` captures the complete draft, original militia
+snapshot, baseline and adjusted plans, warnings, adjudication, final state and
+successor context. Embedded choice/event acknowledgements remain in the complete
+source. Format 2 records use canonical ruleset version 2. Older isolated
+extraction records can still be read without claiming that they have complete
+canonical outcomes.
+
+This path stays isolated until the approved cutover. The supported legacy
+`resolveWeeklyDraft` path remains unchanged. Pure worked examples, complete-plan
+application tests and a browser bundle versus persisted Convex-source parity
+test cover this boundary. Deployed atomic application and canonical Workspace
+interactions are the following implementation checkpoints.

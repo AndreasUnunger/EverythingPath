@@ -6165,8 +6165,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Every required roll, target, choice and acknowledgement controls readiness.',
           plannedTests: ['rules.P05.matrix'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P05.matrix'],
+          gap: null,
         },
         {
           id: 'zero',
@@ -6174,8 +6174,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Explicit zero differs from missing input; malformed values block Confirmation.',
           plannedTests: ['rules.P05.zero'],
-          tests: ['draft.partial', 'draft.integrity'],
-          gap: 'Contract preserves absent versus zero and rejects malformed inputs; Resolution readiness and Confirmation remain for checkpoint 5.',
+          tests: ['rules.P05.zero'],
+          gap: null,
         },
         {
           id: 'optional',
@@ -6183,8 +6183,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Optional mitigation unattempted is valid; attempted incomplete mitigation is not.',
           plannedTests: ['rules.P05.optional'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P05.optional'],
+          gap: null,
         },
         {
           id: 'partial',
@@ -6192,8 +6192,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Incomplete source still produces a partial preview.',
           plannedTests: ['rules.P05.partial'],
-          tests: ['draft.partial', 'draft.action-facts'],
-          gap: 'Contract retains partial typed choices; derived readiness remains for checkpoint 5.',
+          tests: ['rules.P05.partial'],
+          gap: null,
         },
         {
           id: 'upstream',
@@ -6201,8 +6201,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Changed upstream choices invalidate dependent input relevance consistently in browser and server.',
           plannedTests: ['rules.P05.upstream'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P05.upstream', 'rules.P78.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -6220,8 +6220,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Preview and committed state diff agree for every action and event, all ledgers, queues and identities.',
           plannedTests: ['rules.P06.full-plan'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P06.full-plan', 'rules.P78.projection-parity'],
+          gap: 'Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.',
         },
         {
           id: 'baseline',
@@ -6229,8 +6229,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Complete Rules Baseline precedes ordered typed Table Adjustments.',
           plannedTests: ['rules.P06.baseline'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P06.baseline'],
+          gap: null,
         },
         {
           id: 'no-hidden',
@@ -6238,8 +6238,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Confirmation applies the reviewed plan with no hidden writes or double-applied resource totals.',
           plannedTests: ['rules.P06.no-hidden'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P06.no-hidden'],
+          gap: 'Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.',
         },
       ],
     },
@@ -6257,8 +6257,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Shared Table Adjustments and Rules Exceptions require reasons retained in history.',
           plannedTests: ['rules.P07.reason'],
-          tests: ['draft.exceptions'],
-          gap: 'Contract requires reasons; shared UI and confirmed-source evidence remain for later checkpoints.',
+          tests: ['rules.P07.reason'],
+          gap: 'Reasons and complete confirmed source persist; shared Workspace UI remains checkpoint 7.',
         },
         {
           id: 'distinction',
@@ -6266,8 +6266,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rules Exception permits a choice without changing arithmetic; adjustment changes a result.',
           plannedTests: ['rules.P07.distinction'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P07.distinction'],
+          gap: null,
         },
         {
           id: 'integrity',
@@ -6275,8 +6275,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Malformed references, missing entities and nonfinite numbers remain blocked.',
           plannedTests: ['rules.P07.integrity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P07.integrity', 'rules.P07.source-references'],
+          gap: null,
         },
         {
           id: 'order',
@@ -6284,8 +6284,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ordered conflicting adjustments recompute after baseline changes and target specific event instances.',
           plannedTests: ['rules.P07.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P07.order'],
+          gap: null,
         },
       ],
     },
