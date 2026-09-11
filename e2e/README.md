@@ -508,3 +508,11 @@ canonical scenarios through the browser-target bundle and Convex-test stored
 source; complete Workspace and Confirmation parity remain later gates. Standards
 and specification reviews have no remaining findings. This is local preview
 verification, not hosted CI evidence or a production cutover.
+
+Follow-up QA fixes passed on 2026-09-11 in `everythingpath-e2e-aVbLtS`:
+all five supported browser journeys passed against the same isolated preview.
+All 544 tests, both application and Convex typechecks, lint, and the rules catalog
+passed. Independent QA exercised 21 schema-validated projections covering manager
+bonus scope, transfer eligibility, funds ordering, Theft, and matching exceptions
+without remaining findings. Canonical Workspace browser coverage remains a later
+gate.

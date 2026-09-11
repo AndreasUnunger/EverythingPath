@@ -129,7 +129,6 @@ function check(
   id: string,
   result: UpkeepProjection,
   organizationCheck: 'loyalty' | 'security' = 'loyalty',
-  teamId?: string,
 ) {
   const die = dice(raw, 1, 20, id, result);
   if (die === null) return null;
@@ -148,7 +147,6 @@ function check(
         phase: 'upkeep',
         check: organizationCheck,
         die,
-        teamId,
         bonusIds,
       },
     ],
@@ -157,10 +155,7 @@ function check(
   const projected = facts.checks[0]!;
   applyEnteredModifiers(draft, state, raw, projected);
   result.checks.push(projected);
-  const managerId = state.roster.teams.find(
-    (team) => team.teamId === teamId,
-  )?.managerCharacterId;
-  const diagnostics = checkDiagnostics(facts, id, managerId);
+  const diagnostics = checkDiagnostics(facts, id);
   result.requirements.push(...diagnostics.requirements);
   result.warnings.push(...diagnostics.warnings);
   return projected.total;
@@ -203,21 +198,16 @@ function applyEnteredModifiers(
 function checkDiagnostics(
   facts: ReturnType<typeof projectRulesFoundations>,
   id: string,
-  managerId: string | null | undefined,
 ) {
   const requirements = facts.requirements.filter(
     (key) =>
       key === 'focus' ||
       key === 'rank' ||
       key.startsWith('officer:') ||
-      key.startsWith(`${id}:`) ||
-      key === `manager:${managerId}:character`,
+      key.startsWith(`${id}:`),
   );
   const warnings = facts.warnings.filter(
-    (key) =>
-      key.startsWith(`${id}:`) ||
-      key.startsWith('officer:') ||
-      key === `manager:${managerId}:archived`,
+    (key) => key.startsWith(`${id}:`) || key.startsWith('officer:'),
   );
   return { requirements, warnings };
 }
@@ -422,7 +412,6 @@ function missingTeam(
     `team:${teamId}:return`,
     result,
     'security',
-    teamId,
   );
   if (total === null) return;
   if (decision?.roll?.dice[0] === 1) {
@@ -489,6 +478,22 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
     }
   }
 }
+function transferException(
+  draft: WeeklyDraft,
+  result: UpkeepProjection,
+  transferId: string,
+  rule: 'officer' | 'funds',
+) {
+  result.warnings.push(`transfer:${transferId}:${rule}`);
+  if (
+    !draft.rulesExceptions.some(
+      (exception) =>
+        exception.subjectId === transferId &&
+        exception.ruleId === `upkeep-transfer-${rule}`,
+    )
+  )
+    result.requirements.push(`transfer:${transferId}:${rule}-exception`);
+}
 function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
   for (const transfer of draft.upkeep.treasuryTransfers) {
     if (
@@ -504,7 +509,12 @@ function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
         (officer) => officer.characterId === transfer.characterId,
       )
     )
-      result.warnings.push(`transfer:${transfer.transferId}:officer`);
+      transferException(draft, result, transfer.transferId, 'officer');
+    if (
+      transfer.direction === 'withdraw' &&
+      transfer.copper > result.outcome.treasuryCopper
+    )
+      transferException(draft, result, transfer.transferId, 'funds');
     treasury(
       result,
       transfer.transferId,

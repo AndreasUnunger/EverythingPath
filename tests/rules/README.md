@@ -122,7 +122,15 @@ for `upkeep-recovery-funds` and `upkeep-team-removal` use the team identity as t
 subject. A boon acknowledgement uses `upkeep:boon:<rank>:<characterId>` and records
 the table's actual reward handling; the projection does not modify character
 sheets. Missing-team return changes have `timing: end`; the post-Upkeep roster
-keeps those teams missing so they cannot act early.
+keeps those teams missing so they cannot act early. Missing-team return checks
+exclude manager bonuses, which apply only to militia actions.
+
+Transfers check officer eligibility and available funds in their staged order.
+Non-officer transfers and withdrawals exceeding the running treasury retain their
+projected outcome and warning, but require reasoned exceptions before Upkeep is
+ready. Use `upkeep-transfer-officer` or `upkeep-transfer-funds` with the transfer
+identity as the subject. Each violation needs its own matching exception; later
+deposits do not excuse earlier overdrafts.
 
 `upkeepProjection.integration.test.ts` builds the browser entry as JavaScript,
 executes that bundle in an isolated VM, and compares its complete outcomes with

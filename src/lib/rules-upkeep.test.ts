@@ -793,3 +793,138 @@ test('[rules.U02.persistent-morale] carried Low Morale affects both Loyalty chec
     );
   }
 });
+
+test('[rules.T08.manager-scope] a missing team return check receives no manager bonus', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.training = 15;
+  snapshot.roster.officers = [];
+  snapshot.characters[0]!.charisma = 18;
+  snapshot.roster.teams = [
+    {
+      teamId: 'missing',
+      teamType: 'patrons',
+      name: 'Patrons',
+      status: 'missing',
+      rewardCapExempt: false,
+      managerCharacterId: 'pc',
+      notes: '',
+    },
+  ];
+  draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  draft.upkeep.teamDecisions = [
+    { teamId: 'missing', decision: 'recover', roll: roll(20, 10) },
+  ];
+  const result = projectUpkeep(draft, snapshot);
+  expect(result.checks[0]?.total).toBe(11);
+  expect(result.plan.some((change) => change.kind === 'team_status')).toBe(
+    false,
+  );
+  expect(result.outcome.roster.teams[0]?.status).toBe('missing');
+  draft.upkeep.teamDecisions[0]!.roll = roll(20, 14);
+  expect(projectUpkeep(draft, snapshot).plan).toContainEqual({
+    kind: 'team_status',
+    teamId: 'missing',
+    status: 'active',
+    timing: 'end',
+  });
+});
+
+test('[rules.U05.overdraft] each withdrawal checks running funds and requires its own reasoned exception', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.training = 15;
+  draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  draft.upkeep.treasuryTransfers = [
+    {
+      transferId: 'withdraw',
+      characterId: 'pc',
+      direction: 'withdraw',
+      copper: 3100,
+    },
+  ];
+  let result = projectUpkeep(draft, snapshot);
+  expect(result.outcome.treasuryCopper).toBe(-100);
+  expect(result.warnings).toContain('transfer:withdraw:funds');
+  expect(result.requirements).toContain('transfer:withdraw:funds-exception');
+  expect(result.ready).toBe(false);
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'credit',
+      subjectId: 'withdraw',
+      ruleId: 'upkeep-transfer-funds',
+      reason: 'The table approves a loan',
+    },
+  ];
+  result = projectUpkeep(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.treasuryCopper).toBe(-100);
+  draft.rulesExceptions = [];
+  draft.upkeep.treasuryTransfers.unshift({
+    transferId: 'deposit',
+    characterId: 'pc',
+    direction: 'deposit',
+    copper: 100,
+  });
+  expect(projectUpkeep(draft, snapshot)).toMatchObject({
+    ready: true,
+    warnings: [],
+    outcome: { treasuryCopper: 0 },
+  });
+  draft.upkeep.treasuryTransfers.reverse();
+  expect(projectUpkeep(draft, snapshot).requirements).toContain(
+    'transfer:withdraw:funds-exception',
+  );
+  expect(snapshot.treasuryCopper).toBe(3000);
+});
+
+test('[rules.U05.officer-exception] non-officer transfers require an exception for that transfer and rule', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.training = 15;
+  snapshot.roster.officers = [];
+  draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  for (const direction of ['deposit', 'withdraw'] as const) {
+    draft.upkeep.treasuryTransfers = [
+      { transferId: 'transfer', characterId: 'pc', direction, copper: 100 },
+    ];
+    for (const exceptions of [
+      [],
+      [
+        {
+          exceptionId: 'other',
+          subjectId: 'other',
+          ruleId: 'upkeep-transfer-officer',
+          reason: 'Approved',
+        },
+      ],
+      [
+        {
+          exceptionId: 'other',
+          subjectId: 'transfer',
+          ruleId: 'upkeep-transfer-funds',
+          reason: 'Approved',
+        },
+      ],
+    ]) {
+      draft.rulesExceptions = exceptions;
+      const result = projectUpkeep(draft, snapshot);
+      expect(result.ready).toBe(false);
+      expect(result.warnings).toContain('transfer:transfer:officer');
+      expect(result.requirements).toContain(
+        'transfer:transfer:officer-exception',
+      );
+    }
+    draft.rulesExceptions = [
+      {
+        exceptionId: 'approved',
+        subjectId: 'transfer',
+        ruleId: 'upkeep-transfer-officer',
+        reason: 'The officers delegate this transfer',
+      },
+    ];
+    const result = projectUpkeep(draft, snapshot);
+    expect(result.ready).toBe(true);
+    expect(result.warnings).toContain('transfer:transfer:officer');
+    expect(result.outcome.treasuryCopper).toBe(
+      direction === 'deposit' ? 3100 : 2900,
+    );
+  }
+});

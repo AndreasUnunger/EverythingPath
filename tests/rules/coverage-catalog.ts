@@ -2716,8 +2716,16 @@ export const coverageCatalog = {
           checkpoint: '4-upkeep',
           expected:
             'Phase View / Resolution Preview: Deposits and withdrawals are staged after preceding Upkeep steps.',
-          plannedTests: ['rules.U05.order'],
-          tests: ['rules.U05.order'],
+          plannedTests: [
+            'rules.U05.order',
+            'rules.U05.overdraft',
+            'rules.U05.officer-exception',
+          ],
+          tests: [
+            'rules.U05.order',
+            'rules.U05.overdraft',
+            'rules.U05.officer-exception',
+          ],
           gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
@@ -3132,8 +3140,8 @@ export const coverageCatalog = {
           checkpoint: '4-teams',
           expected:
             'Phase View / Resolution Preview: Security DC15 returns a missing team at end-week, unavailable during Activity.',
-          plannedTests: ['rules.T08.return'],
-          tests: ['rules.T08.return'],
+          plannedTests: ['rules.T08.return', 'rules.T08.manager-scope'],
+          tests: ['rules.T08.return', 'rules.T08.manager-scope'],
           gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
