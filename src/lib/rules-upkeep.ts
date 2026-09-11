@@ -619,3 +619,69 @@ export function projectUpkeep(
   result.ready = result.requirements.length === 0;
   return result;
 }
+
+// Input affordances share the rule model; presentation supplies only raw dice.
+export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
+  const projection = projectUpkeep(draft, snapshot);
+  const attritionCheck = projection.checks.find(
+    (check) => check.checkId === 'upkeep:attrition',
+  );
+  const previewCheck = (id: string) =>
+    projection.checks.find((check) => check.checkId === id) ??
+    projectRulesFoundations({
+      ...foundationInput(draft, snapshot),
+      checks: [{ checkId: id, phase: 'upkeep', check: 'loyalty' }],
+    }).checks[0]!;
+  const fields: {
+    field: 'check' | 'training' | 'notoriety' | 'loss' | 'notorietyCheck';
+    count: number;
+    sides: number;
+    dc: number | null;
+    check: ReturnType<typeof previewCheck> | null;
+  }[] = [];
+  if (!projection.skipped) {
+    fields.push({
+      field: 'check',
+      count: 1,
+      sides: 20,
+      dc: 10,
+      check: previewCheck('upkeep:attrition'),
+    });
+    if (attritionCheck?.total !== null && attritionCheck?.total !== undefined) {
+      const success =
+        attritionCheck.total >= 10 || draft.upkeep.rolls.check?.dice[0] === 20;
+      fields.push({
+        field: 'training',
+        count: success ? 1 : 2,
+        sides: success ? 6 : 4,
+        dc: null,
+        check: null,
+      });
+    }
+    if (snapshot.notoriety >= 100)
+      fields.push(
+        { field: 'notoriety', count: 1, sides: 20, dc: null, check: null },
+        {
+          field: 'notorietyCheck',
+          count: 1,
+          sides: 20,
+          dc: 15,
+          check: previewCheck('upkeep:notoriety'),
+        },
+      );
+    if (
+      projection.requirements.some((key) =>
+        key.startsWith('upkeep:shortage'),
+      ) ||
+      projection.plan.some(
+        (change) => change.kind === 'training' && change.step === 'shortage',
+      )
+    )
+      fields.push({ field: 'loss', count: 2, sides: 4, dc: null, check: null });
+  }
+  return {
+    projection,
+    fields,
+    minimumTreasuryCopper: getMinimumTreasuryForRank(snapshot.rank) * 100,
+  };
+}

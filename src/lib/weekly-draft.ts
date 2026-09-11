@@ -57,6 +57,37 @@ const draftEditHandlers: {
   add_slot: (next, edit) => {
     next.activity.slots.push({ slotId: edit.slotId, choice: null });
   },
+  upkeep_roll: (next, edit) => {
+    if (edit.field === 'notorietyCheck') {
+      if (edit.roll === null) delete next.upkeep.notorietyCheck;
+      else next.upkeep.notorietyCheck = edit.roll;
+    } else if (edit.roll === null) delete next.upkeep.rolls[edit.field];
+    else next.upkeep.rolls[edit.field] = edit.roll;
+  },
+  upkeep_settlement: (next, edit) => {
+    if (edit.settlementId === null) delete next.upkeep.nearestSettlementId;
+    else next.upkeep.nearestSettlementId = edit.settlementId;
+  },
+  upkeep_team: (next, edit) => {
+    if (edit.decision && edit.decision.teamId !== edit.teamId)
+      return 'invalid_team';
+    next.upkeep.teamDecisions = next.upkeep.teamDecisions.filter(
+      (item) => item.teamId !== edit.teamId,
+    );
+    if (edit.decision) next.upkeep.teamDecisions.push(edit.decision);
+  },
+  upkeep_transfer: (next, edit) => {
+    const index = next.upkeep.treasuryTransfers.findIndex(
+      (item) => item.transferId === edit.transfer.transferId,
+    );
+    if (index < 0) next.upkeep.treasuryTransfers.push(edit.transfer);
+    else next.upkeep.treasuryTransfers[index] = edit.transfer;
+  },
+  clear_upkeep_transfer: (next, edit) => {
+    next.upkeep.treasuryTransfers = next.upkeep.treasuryTransfers.filter(
+      (item) => item.transferId !== edit.transferId,
+    );
+  },
   upkeep: (next, edit) => {
     next.upkeep = edit.inputs;
   },

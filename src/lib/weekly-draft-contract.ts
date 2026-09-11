@@ -252,6 +252,25 @@ export const weeklyDraftEditSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('add_slot'), slotId: id }),
   z.strictObject({ kind: z.literal('upkeep'), inputs: upkeepSchema }),
   z.strictObject({
+    kind: z.literal('upkeep_roll'),
+    field: z.enum(['check', 'training', 'notoriety', 'loss', 'notorietyCheck']),
+    roll: rawRollSchema.nullable(),
+  }),
+  z.strictObject({
+    kind: z.literal('upkeep_settlement'),
+    settlementId: id.nullable(),
+  }),
+  z.strictObject({
+    kind: z.literal('upkeep_team'),
+    teamId: id,
+    decision: upkeepSchema.shape.teamDecisions.unwrap().element.nullable(),
+  }),
+  z.strictObject({
+    kind: z.literal('upkeep_transfer'),
+    transfer: upkeepSchema.shape.treasuryTransfers.unwrap().element,
+  }),
+  z.strictObject({ kind: z.literal('clear_upkeep_transfer'), transferId: id }),
+  z.strictObject({
     kind: z.literal('operating_settlement'),
     settlementId: id.nullable(),
   }),

@@ -174,6 +174,7 @@ export async function canonicalPersistenceFixtureCall(
   run: Run,
   operation:
     | 'initialize'
+    | 'initializeUpkeep'
     | 'close'
     | 'changeSource'
     | 'blockSuccessor'

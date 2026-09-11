@@ -1,0 +1,86 @@
+'use client';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Input } from '~/components/ui/input';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from '~/components/ui/form';
+const digits = z
+  .string()
+  .regex(/^[0-9]*$/, 'Use digits only.')
+  .refine(
+    (value) => value === '' || Number.isSafeInteger(Number(value)),
+    'Enter a smaller whole number.',
+  );
+export function WholeNumberField({
+  label,
+  value,
+  required = false,
+  disabled = false,
+  onValue,
+}: {
+  label: string;
+  value: number | null;
+  required?: boolean;
+  disabled?: boolean;
+  onValue: (value: number | null) => void;
+}) {
+  const form = useForm({
+    values: { value: value === null ? '' : String(value) },
+    mode: 'onBlur',
+    resolver: zodResolver(
+      z.object({
+        value: digits.refine(
+          (value) => !required || value !== '',
+          'A value is required.',
+        ),
+      }),
+    ),
+    resetOptions: { keepErrors: true },
+  });
+  return (
+    <Form {...form}>
+      <FormField
+        control={form.control}
+        name="value"
+        render={({ field }) => (
+          <FormItem className="min-w-0 space-y-1">
+            <FormLabel className="text-xs">{label}</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                disabled={disabled}
+                className="font-mono"
+                onChange={(event) => {
+                  const text = event.target.value;
+                  const parsed = digits.safeParse(text);
+                  if (!parsed.success) {
+                    form.setError('value', {
+                      message: parsed.error.issues[0]!.message,
+                    });
+                    return;
+                  }
+                  form.clearErrors('value');
+                  field.onChange(text);
+                  onValue(text === '' ? null : Number(text));
+                }}
+              />
+            </FormControl>
+            <div className="min-h-5">
+              <FormMessage role="alert" />
+            </div>
+          </FormItem>
+        )}
+      />
+    </Form>
+  );
+}

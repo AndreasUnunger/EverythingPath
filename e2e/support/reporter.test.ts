@@ -19,6 +19,8 @@ it.each([
   'retry-multiplayer',
   'missing-persistence',
   'retry-persistence',
+  'missing-workspace',
+  'retry-workspace',
 ] as const)(
   'the reporter and Playwright agree on a %s required journey',
   async (mode) => {
@@ -68,6 +70,11 @@ it.each([
           join(directory, 'canonical-persistence.spec.ts'),
           `import { test } from ${playwright}; test('shared persistence contract uses authenticated isolated Convex', async ({}, info) => { ${mode === 'retry-persistence' ? "if (info.retry === 0) throw new Error('Synthetic persistence failure');" : ''} });`,
         );
+      if (mode !== 'missing-workspace')
+        await writeFile(
+          join(directory, 'canonical-workspace.spec.ts'),
+          `import { test } from ${playwright}; test('players prepare shared Upkeep with independent navigation and save recovery', async ({}, info) => { ${mode === 'retry-workspace' ? "if(info.retry===0) throw new Error('Synthetic Workspace failure');" : ''} });`,
+        );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,
@@ -76,8 +83,9 @@ it.each([
         retries: 1, reporter: [[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],
         projects: [
           { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
-          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: 'canonical-persistence.spec.ts', dependencies: ['authentication'] },
+          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: ['canonical-persistence.spec.ts','canonical-workspace.spec.ts'], dependencies: ['authentication'] },
           { name: 'canonical-persistence', testMatch: 'canonical-persistence.spec.ts', dependencies: ['authentication'] },
+          { name: 'canonical-workspace', testMatch: 'canonical-workspace.spec.ts', dependencies: ['authentication'] },
         ],
       };`,
       );
@@ -103,7 +111,8 @@ it.each([
       if (
         mode === 'retry' ||
         mode === 'retry-multiplayer' ||
-        mode === 'retry-persistence'
+        mode === 'retry-persistence' ||
+        mode === 'retry-workspace'
       )
         expect(report).toMatchObject({
           tests: expect.arrayContaining([
@@ -113,7 +122,9 @@ it.each([
                   ? 'access.spec.ts'
                   : mode === 'retry-multiplayer'
                     ? 'realtime-action-slot.spec.ts'
-                    : 'canonical-persistence.spec.ts',
+                    : mode === 'retry-persistence'
+                      ? 'canonical-persistence.spec.ts'
+                      : 'canonical-workspace.spec.ts',
               results: [
                 { status: 'failed', retry: 0 },
                 { status: 'passed', retry: 1 },

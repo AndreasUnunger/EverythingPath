@@ -1,3 +1,4 @@
+import { internal } from './_generated/api';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
 import { v } from 'convex/values';
@@ -233,5 +234,75 @@ export const inspect = internalMutation({
       openDrafts: drafts.map((draft) => draft.draft),
       records: records.map((row) => row.record),
     });
+  },
+});
+
+export const initializeUpkeep = internalMutation({
+  args: { scope: zodOutputToConvex(fixtureScopeSchema), draftId: v.string() },
+  returns: zodOutputToConvex(draftKeySchema),
+  handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
+    const key = await ctx.runMutation(
+      internal.canonicalPersistenceFixtures.initialize,
+      args,
+    );
+    const { state, row } = await ownedSource(ctx, {
+      ...key,
+      scope: args.scope,
+    });
+    const character = await ctx.db
+      .query('character')
+      .withIndex('by_campaignId', (q) => q.eq('campaignId', key.campaignId))
+      .first();
+    if (!character) throw new Error('Missing fixture officer');
+    const snapshot = militiaSnapshotSchema.parse({
+      ...state.snapshot,
+      rank: 2,
+      training: 14,
+      treasuryCopper: 5000,
+      roster: {
+        people: [{ characterId: character._id, kind: 'pc', hitDice: 2 }],
+        teams: [],
+        officers: [{ characterId: character._id, role: 'ambassador' }],
+      },
+      characters: [
+        {
+          characterId: character._id,
+          level: 2,
+          strength: 10,
+          dexterity: 10,
+          constitution: 10,
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 10,
+          isActive: true,
+        },
+      ],
+    });
+    const draft = createWeeklyDraft({
+      draftId: args.draftId,
+      week: 4,
+      slotIds: ['left', 'right', 'extra'],
+      context: {
+        firstMilitiaWeek: false,
+        startDay: 21,
+        uneventfulCarry: false,
+        carriedEvents: [],
+        queuedEffects: [],
+        orders: [],
+        lastBuyoffWeek: null,
+      },
+    });
+    draft.event.chanceRoll = {
+      dice: [100],
+      sides: 100,
+      provenance: { kind: 'table' },
+      modifiers: [],
+    };
+    await ctx.db.patch('canonicalMilitiaState', state._id, { snapshot });
+    await ctx.db.patch('canonicalWeeklyDraft', row._id, {
+      draft: weeklyDraftDataSchema.parse(draft),
+      initialDraft: weeklyDraftDataSchema.parse(draft),
+    });
+    return key;
   },
 });

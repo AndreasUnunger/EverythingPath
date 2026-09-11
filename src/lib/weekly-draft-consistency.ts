@@ -131,6 +131,20 @@ function editTargets(base: WeeklyDraft, edit: WeeklyDraftEdit): Path[] {
         ...path,
       ]);
     }
+    case 'upkeep_roll':
+      return [
+        edit.field === 'notorietyCheck'
+          ? ['upkeep', 'notorietyCheck']
+          : ['upkeep', 'rolls', edit.field],
+      ];
+    case 'upkeep_settlement':
+      return [['upkeep', 'nearestSettlementId']];
+    case 'upkeep_team':
+      return [['upkeep', 'teamDecisions', edit.teamId]];
+    case 'upkeep_transfer':
+      return [['upkeep', 'treasuryTransfers', edit.transfer.transferId]];
+    case 'clear_upkeep_transfer':
+      return [['upkeep', 'treasuryTransfers', edit.transferId]];
     case 'operating_settlement':
       return [['activity', 'operatingSettlementId']];
     case 'consumables':

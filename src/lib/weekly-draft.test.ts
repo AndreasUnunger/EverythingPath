@@ -656,3 +656,30 @@ test('[draft.candidate-decisions] keeps candidate mitigation owned by its choice
     }).ok,
   ).toBe(false);
 });
+
+test('focused Upkeep edits preserve other facts and distinguish zero from an explicit clear', () => {
+  const draft = createWeeklyDraft({
+    draftId: 'focused-upkeep',
+    week: 4,
+    context,
+    slotIds: ['a'],
+  });
+  const set = editWeeklyDraft(draft, {
+    kind: 'upkeep_roll',
+    field: 'check',
+    roll: {
+      dice: [0],
+      sides: 20,
+      provenance: { kind: 'table' },
+      modifiers: [],
+    },
+  });
+  expect(set.ok && set.draft.upkeep.rolls.check?.dice).toEqual([0]);
+  if (!set.ok) throw new Error(set.error);
+  const clear = editWeeklyDraft(set.draft, {
+    kind: 'upkeep_roll',
+    field: 'check',
+    roll: null,
+  });
+  expect(clear.ok && clear.draft.upkeep.rolls.check).toBeUndefined();
+});

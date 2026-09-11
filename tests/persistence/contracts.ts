@@ -711,4 +711,49 @@ export async function runPersistenceContract(
       'Stale recreation must not change accepted source',
     );
   });
+  await scenario(async ({ first, second }, op) => {
+    await first.send(
+      op(0, {
+        kind: 'upkeep_roll',
+        field: 'check',
+        roll: {
+          dice: [0],
+          sides: 20,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      }),
+    );
+    await second.send(
+      op(0, {
+        kind: 'upkeep_roll',
+        field: 'training',
+        roll: {
+          dice: [3],
+          sides: 6,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      }),
+    );
+    let current = await first.read();
+    check(
+      current.draft?.upkeep.rolls.check?.dice[0] === 0 &&
+        current.draft.upkeep.rolls.training?.dice[0] === 3,
+      'Disjoint focused Upkeep rolls coexist and zero remains entered',
+    );
+    await rejects(
+      second.send(op(0, { kind: 'upkeep_roll', field: 'check', roll: null })),
+      'Stale focused clear cannot erase another player roll',
+    );
+    await first.send(
+      op(2, { kind: 'upkeep_roll', field: 'check', roll: null }),
+    );
+    current = await second.read();
+    check(
+      current.draft?.upkeep.rolls.check === undefined &&
+        current.draft?.upkeep.rolls.training?.dice[0] === 3,
+      'Explicit clear removes only its roll',
+    );
+  });
 }

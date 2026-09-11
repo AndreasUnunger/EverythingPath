@@ -1,3 +1,5 @@
+import { workspaceSourceSchema } from '../src/lib/weekly-workspace-source';
+import { requireScope } from './lib/canonicalDraftStorage';
 import { internal } from './_generated/api';
 import { internalMutation } from './_generated/server';
 import {
@@ -209,5 +211,58 @@ export const retireClosedDraft = internalMutation({
         },
       );
     return null;
+  },
+});
+
+export const workspace = query({
+  args: { campaignId: v.id('campaign') },
+  returns: v.union(v.null(), zodOutputToConvex(workspaceSourceSchema)),
+  handler: async (ctx, args) => {
+    try {
+      await requireIsolated(ctx, args.campaignId);
+    } catch {
+      return null;
+    }
+    const militia = await ctx.db
+      .query('militia')
+      .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
+      .unique();
+    if (!militia) return null;
+    const scope = { campaignId: args.campaignId, militiaId: militia._id };
+    await requireScope(ctx, scope);
+    const draft = await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_campaignId_and_status', (q) =>
+        q.eq('campaignId', args.campaignId).eq('status', 'open'),
+      )
+      .unique();
+    const source = await ctx.db
+      .query('canonicalMilitiaState')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .unique();
+    if (
+      !draft ||
+      !source ||
+      draft.militiaId !== militia._id ||
+      source.campaignId !== args.campaignId
+    )
+      return null;
+    const people = await Promise.all(
+      source.snapshot.roster.people.map(async (person) => {
+        const id = ctx.db.normalizeId('character', person.characterId);
+        const character = id ? await ctx.db.get('character', id) : null;
+        return {
+          characterId: person.characterId,
+          name:
+            character?.campaignId === args.campaignId ? character.name : null,
+        };
+      }),
+    );
+    return workspaceSourceSchema.parse({
+      key: { ...scope, draftId: draft.draftId },
+      sourceRevision: source.revision,
+      snapshot: source.snapshot,
+      people,
+    });
   },
 });

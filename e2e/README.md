@@ -551,3 +551,25 @@ contract. The nightly matrix runs this contract once, alongside the existing
 browser/layout matrix. The aggregate and actual Playwright reporter tests cover
 missing-contract and retry-only failures. Run through `pnpm test:e2e` with the
 same dedicated resource declaration and secrets as the other journeys.
+
+## Canonical Upkeep Workspace journey (#81)
+
+The required `canonical-workspace` Chromium project opens the isolated Workspace
+with two authenticated players. Its owned fixture starts in week four so the
+journey enters real Upkeep rolls, checks calculated defaults and shared outcomes,
+and stages an officer transfer. Keyboard and clipboard interactions verify that
+invalid text preserves the current digits, zero remains distinct from clearing,
+and field errors appear in the application.
+
+The journey holds one outgoing edit at the browser's WebSocket boundary while
+queries and authentication continue normally. A second player's same-field edit
+then produces a real server rejection when the held edit is released. This checks
+immediate pending feedback, independent phase navigation, the page-exit warning,
+restoration of the latest accepted value, and a successful explicit retry. An
+ordinary player confirms the complete week and both browsers observe its successor.
+
+Successful runs save `canonical-upkeep-tablet.png`, `canonical-upkeep-phone.png`,
+`canonical-upkeep-desktop.png`, and `canonical-upkeep-errors-tablet.png` for
+visual inspection. The original five
+campaign journeys and the deployed editing/Confirmation contracts remain required.
+The Workspace route remains unavailable to live campaigns during this extraction.

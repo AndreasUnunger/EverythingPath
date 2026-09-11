@@ -578,3 +578,84 @@ test('[rules.P80.authority] ready Confirmation requires campaign authority and r
     await t.run((ctx) => ctx.db.query('canonicalResolutionRecord').take(1)),
   ).toEqual([]);
 });
+
+test('[rules.P81.gateway] isolated Workspace source is authenticated, observes external facts and follows the empty successor', async () => {
+  vi.useFakeTimers();
+  const { t } = await setup();
+  await t.mutation(internal.e2eFixtures.resetCase, { ...fixtureScope, now: 2 });
+  const key = await t.mutation(
+    internal.canonicalPersistenceFixtures.initializeUpkeep,
+    { scope: fixtureScope, draftId: 'upkeep-view' },
+  );
+  const user = await t.run((ctx) => ctx.db.query('user').first());
+  if (!user) throw new Error('Missing fixture member');
+  const member = t.withIdentity({ tokenIdentifier: user.tokenIdentifier });
+  await expect(
+    t.query(api.canonicalDraftPersistence.workspace, {
+      campaignId: key.campaignId,
+    }),
+  ).rejects.toThrow('Campaign access required');
+  const source = await member.query(api.canonicalDraftPersistence.workspace, {
+    campaignId: key.campaignId,
+  });
+  expect(source).toMatchObject({
+    key,
+    sourceRevision: 0,
+    snapshot: { rank: 2, training: 14, treasuryCopper: 5000 },
+  });
+  expect(source?.people[0]?.name).toBeTruthy();
+  for (const [revision, edit] of [
+    {
+      kind: 'upkeep_roll' as const,
+      field: 'check' as const,
+      roll: {
+        dice: [10],
+        sides: 20,
+        provenance: { kind: 'table' as const },
+        modifiers: [],
+      },
+    },
+    {
+      kind: 'upkeep_roll' as const,
+      field: 'training' as const,
+      roll: {
+        dice: [3],
+        sides: 6,
+        provenance: { kind: 'table' as const },
+        modifiers: [],
+      },
+    },
+  ].entries())
+    await member.mutation(api.canonicalDraftPersistence.edit, {
+      campaignId: key.campaignId,
+      militiaId: key.militiaId,
+      operation: {
+        draftId: key.draftId,
+        operationId: `upkeep-${revision}`,
+        baseRevision: revision,
+        edit,
+      },
+    });
+  const review = await member.query(api.canonicalDraftPersistence.preview, key);
+  expect(review.status).toBe('ready');
+  await member.mutation(api.canonicalDraftPersistence.confirm, {
+    ...key,
+    operation: { operationId: 'workspace-next', reviewed: review.reviewed },
+  });
+  const successor = await member.query(
+    api.canonicalDraftPersistence.workspace,
+    { campaignId: key.campaignId },
+  );
+  expect(successor).toMatchObject({
+    sourceRevision: 1,
+    key: { draftId: 'next:workspace-next' },
+    snapshot: { training: 11, treasuryCopper: 5000 },
+  });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  vi.stubEnv('E2E_ENABLED', 'false');
+  expect(
+    await member.query(api.canonicalDraftPersistence.workspace, {
+      campaignId: key.campaignId,
+    }),
+  ).toBeNull();
+});

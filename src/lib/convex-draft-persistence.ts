@@ -1,3 +1,8 @@
+import type {
+  FunctionReference,
+  FunctionArgs,
+  FunctionReturnType,
+} from 'convex/server';
 import {
   acceptedWeeklyPreviewSchema,
   confirmationReceiptSchema,
@@ -17,9 +22,18 @@ import {
   type DraftTransport,
 } from './weekly-draft-persistence-contract';
 
+export type ConvexDraftClient = Pick<ConvexClient, 'query' | 'mutation'> & {
+  onUpdate<Query extends FunctionReference<'query'>>(
+    query: Query,
+    args: FunctionArgs<Query>,
+    next: (value: FunctionReturnType<Query>) => unknown,
+    failed?: (error: Error) => unknown,
+  ): () => void;
+};
+
 type Key = z.infer<typeof draftKeySchema>;
 export function createConvexDraftTransport(
-  client: ConvexClient,
+  client: ConvexDraftClient,
   key: Key,
 ): DraftTransport & ConfirmationTransport {
   const hydrate = createDraftTargetReader((request) =>

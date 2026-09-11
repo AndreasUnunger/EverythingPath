@@ -6123,13 +6123,32 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'states',
+          checkpoint: '7-workspace',
+          expected:
+            'Only ready Workspace states expose semantic operations; unavailable/loading/failed recover when a valid source becomes available.',
+          plannedTests: ['rules.P81.states'],
+          tests: ['rules.P81.states'],
+          gap: null,
+        },
+        {
+          id: 'upkeep-input',
+          checkpoint: '7-workspace',
+          expected:
+            'Upkeep raw input preserves zero versus clear, rejects invalid text without mutation, and displays deterministic bonuses and field-level required/format errors.',
+          plannedTests: ['rules.P81.digits', 'rules.P81.workspace'],
+          tests: ['rules.P81.digits', 'rules.P81.workspace'],
+          gap: null,
+        },
+
+        {
           id: 'snapshot',
           checkpoint: '7-workspace',
           expected:
             'Phase View / Resolution Preview: Persistent Phase Eligibility comes from unresolved events carried into week.',
           plannedTests: ['rules.P04.snapshot'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P81.eligibility', 'rules.P81.states'],
+          gap: null,
         },
         {
           id: 'stable',
@@ -6137,8 +6156,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ending or creating persistence midweek does not alter eligibility.',
           plannedTests: ['rules.P04.stable'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P81.eligibility'],
+          gap: null,
         },
         {
           id: 'navigation',
@@ -6146,8 +6165,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Phase navigation is local and immediate while shared edits are pending.',
           plannedTests: ['rules.P04.navigation'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P81.recovery'],
+          gap: null,
         },
       ],
     },
@@ -6372,7 +6391,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Disjoint stale semantic edits coexist while same-target stale edits fail visibly.',
           plannedTests: ['rules.P09.disjoint'],
           tests: ['rules.P79.contract'],
-          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
+          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
         },
         {
           id: 'aggregate',
@@ -6399,7 +6418,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Acknowledgements follow submission order and responses are monotonic.',
           plannedTests: ['rules.P09.delivery'],
           tests: ['rules.P79.contract'],
-          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
+          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
         },
         {
           id: 'shared',
@@ -6408,7 +6427,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Players edit unlocked slots with immediate feedback and recovery; no per-slot confirmation.',
           plannedTests: ['rules.P09.shared'],
           tests: ['rules.P79.contract'],
-          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
+          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
         },
       ],
     },
@@ -6455,7 +6474,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: All authorized players may stage and confirm.',
           plannedTests: ['rules.P10.players'],
           tests: ['rules.P79.contract'],
-          gap: 'Shared persistence contract passes in memory and the isolated Convex adapter; Phase View integration remains for #81.',
+          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
         },
         {
           id: 'gm',

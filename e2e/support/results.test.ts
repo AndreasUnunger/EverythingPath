@@ -70,6 +70,16 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'canonical-workspace.spec.ts',
+      project: 'canonical-workspace',
+      title:
+        'players prepare shared Upkeep with independent navigation and save recovery',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
@@ -87,7 +97,7 @@ it.each([
   'interrupted',
   undefined,
 ])('rejects a required result of %s', (status) => {
-  for (const index of [1, 2, 3, 4, 5, 6]) {
+  for (const index of [1, 2, 3, 4, 5, 6, 7]) {
     const report = passing();
     Object.assign(report.tests[index]!.results[0]!, { status });
     expect(evaluateResults(report)).toBe(false);
@@ -169,7 +179,7 @@ it('rejects a run that omits the realtime Action Slot journey', () => {
 
 it('rejects a run that omits the deployed persistence contract', () => {
   const report = passing();
-  report.tests.pop();
+  report.tests.splice(6, 1);
   expect(evaluateResults(report)).toBe(false);
 });
 
@@ -207,4 +217,10 @@ it('requires every selected nightly project journey without skips or retry passe
     Object.assign(skipped.tests[index]!, { annotations: ['skip'] });
     expect(evaluateResults(skipped, 'nightly')).toBe(false);
   }
+});
+
+it('rejects a missing canonical Workspace UI journey', () => {
+  const report = passing();
+  report.tests.pop();
+  expect(evaluateResults(report)).toBe(false);
 });
