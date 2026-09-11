@@ -108,6 +108,7 @@ function check(
     ),
     ...projected.modifiers.map((modifier) => modifier.source),
     ...result.outcome.roster.people.map((person) => person.characterId),
+    ...draft.context.carriedEvents.map((event) => event.eventId),
     ...draft.context.queuedEffects.flatMap((effect) => [
       effect.effectId,
       effect.sourceId,
@@ -430,6 +431,40 @@ function changeOfficer(
     after: structuredClone(after),
   });
 }
+function activityCheckEffects(
+  draft: WeeklyDraft,
+): FoundationInput['queuedEffects'] {
+  let queued = [...draft.context.queuedEffects];
+  for (const [eventType, check] of [
+    ['low_morale', 'loyalty'],
+    ['double_agent', 'secrecy'],
+  ] as const) {
+    const carried = draft.context.carriedEvents.filter(
+      (event) => event.eventType === eventType,
+    );
+    const sources = new Set(carried.map((event) => event.eventId));
+    // Twice makes these events persistent; it does not stack their penalty.
+    // Replace queued copies by source, leaving unrelated effects untouched.
+    queued = queued.filter(
+      (effect) =>
+        !(
+          sources.has(effect.sourceId) &&
+          effect.effect.kind === 'check_modifier' &&
+          effect.effect.check === check
+        ),
+    );
+    const event = carried[0];
+    if (event)
+      queued.push({
+        effectId: `persistent:${event.eventId}`,
+        sourceId: event.eventId,
+        startsWeek: draft.week,
+        endsWeek: draft.week,
+        effect: { kind: 'check_modifier', check, value: -2 },
+      });
+  }
+  return queued;
+}
 function foundationInput(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -440,7 +475,7 @@ function foundationInput(
     slots: draft.activity.slots,
     checks: [],
     operatingSettlementId: draft.activity.operatingSettlementId ?? null,
-    queuedEffects: [...draft.context.queuedEffects],
+    queuedEffects: activityCheckEffects(draft),
     activity: result.teamUse,
     checkUsage: result.checkUsage,
   };

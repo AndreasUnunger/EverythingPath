@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { activityFixture } from '../../tests/rules/activity-fixture';
 import { upkeepFixture, roll } from '../../tests/rules/upkeep-fixture';
 import { projectActivity } from './rules-activity';
 
@@ -611,4 +612,101 @@ test('Removing Strategist before its designated occurrence removes stale annotat
   expect(result.ready).toBe(true);
   expect(result.checks[0]!.total).toBe(9);
   expect(result.outcome.training).toBe(30);
+});
+
+test.each([
+  ['low_morale', 'drill_militia', 'loyalty', 11],
+  ['double_agent', 'recruit_team', 'secrecy', 13],
+] as const)(
+  '[rules.activity.persistent.%s] carried penalties change success and apply only once',
+  (eventType, actionId, check, total) => {
+    const { draft, snapshot } = activityFixture(actionId);
+    if (actionId === 'recruit_team')
+      draft.activity.slots[0]!.choice = {
+        choiceId: 'recruit',
+        actionId,
+        teamType: 'moles',
+        rolls: { check: roll(20, 14) },
+      };
+    expect(projectActivity(draft, snapshot).ready).toBe(true);
+    for (const copies of [1, 2]) {
+      const carriedEvents = Array.from({ length: copies }, (_, order) => ({
+        eventId: `penalty-${order}`,
+        eventType,
+        startedWeek: 39,
+        order,
+        targets: [],
+      }));
+      for (const queued of [false, true]) {
+        const source = {
+          ...draft,
+          context: {
+            ...draft.context,
+            persistentPhaseEligible: true,
+            carriedEvents,
+            queuedEffects: queued
+              ? carriedEvents.map((event) => ({
+                  effectId: `queue-${event.eventId}`,
+                  sourceId: event.eventId,
+                  startsWeek: 40,
+                  endsWeek: 40,
+                  effect: { kind: 'check_modifier' as const, check, value: -2 },
+                }))
+              : [],
+          },
+        };
+        const result = projectActivity(source, snapshot);
+        expect(result.ready).toBe(true);
+        expect(result.checks[0]!.total).toBe(total);
+        expect(result.outcome.training).toBe(30);
+        expect(result.outcome.roster.teams).toEqual(snapshot.roster.teams);
+        expect(projectActivity(draft, snapshot).checks[0]!.total).toBe(
+          total + 2,
+        );
+      }
+    }
+  },
+);
+
+test('Carried penalties preserve unrelated queued modifiers and do not reapply entered event provenance', () => {
+  const { draft, snapshot } = activityFixture('drill_militia');
+  const choice = draft.activity.slots[0]?.choice;
+  if (!choice?.rolls?.check) throw new Error('Missing fixture check');
+  choice.rolls.check.modifiers = [
+    { sourceId: 'morale', value: -2, reason: 'Low Morale' },
+  ];
+  const source = {
+    ...draft,
+    context: {
+      ...draft.context,
+      persistentPhaseEligible: true,
+      carriedEvents: [
+        {
+          eventId: 'morale',
+          eventType: 'low_morale' as const,
+          startedWeek: 39,
+          order: 0,
+          targets: [],
+        },
+      ],
+      queuedEffects: [
+        {
+          effectId: 'support',
+          sourceId: 'ally',
+          startsWeek: 40,
+          endsWeek: 40,
+          effect: {
+            kind: 'check_modifier' as const,
+            check: 'loyalty' as const,
+            value: 1,
+          },
+        },
+      ],
+    },
+  };
+  const before = structuredClone(source);
+  const result = projectActivity(source, snapshot);
+  expect(result.checks[0]!.total).toBe(12);
+  expect(result.outcome.training).toBe(30);
+  expect(source).toEqual(before);
 });

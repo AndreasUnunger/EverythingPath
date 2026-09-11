@@ -3454,7 +3454,7 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice.',
           plannedTests: ['rules.A07.success'],
-          tests: ['rules.A07.success'],
+          tests: ['rules.A07.success', 'rules.activity.persistent.low_morale'],
           gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
         },
         {
@@ -3750,6 +3750,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Tier-1 recruitment uses each of the four tree-specific checks and DCs.',
           plannedTests: ['rules.A14.checks'],
           tests: [
+            'rules.activity.persistent.double_agent',
             'rules.A14.checks.patrons',
             'rules.A14.checks.informants',
             'rules.A14.checks.moles',

@@ -1,5 +1,6 @@
 // @vitest-environment edge-runtime
 import { expect, test } from 'vitest';
+import type { WeeklyDraft } from '../src/lib/weekly-draft-contract';
 import { convexTest } from 'convex-test';
 import { build } from 'vite';
 import { runInNewContext } from 'node:vm';
@@ -39,11 +40,55 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
     'upgrade_team',
     'lie_low',
     'exceptional-recruitment',
+    'persistent-morale',
+    'persistent-agent',
   ] as const) {
     const t = convexTest(schema, modules);
-    const { draft, snapshot } = activityFixture(
-      scenario === 'exceptional-recruitment' ? 'recruit_team' : scenario,
+    const fixture = activityFixture(
+      scenario === 'persistent-morale'
+        ? 'drill_militia'
+        : scenario === 'persistent-agent' ||
+            scenario === 'exceptional-recruitment'
+          ? 'recruit_team'
+          : scenario,
     );
+    const snapshot = fixture.snapshot;
+    const eventType =
+      scenario === 'persistent-morale'
+        ? 'low_morale'
+        : scenario === 'persistent-agent'
+          ? 'double_agent'
+          : null;
+    const draft: WeeklyDraft = {
+      ...fixture.draft,
+      context: {
+        ...fixture.draft.context,
+        persistentPhaseEligible: eventType !== null,
+        carriedEvents: eventType
+          ? [
+              {
+                eventId: 'penalty',
+                eventType,
+                startedWeek: 39,
+                order: 0,
+                targets: [],
+              },
+            ]
+          : [],
+      },
+    };
+    if (scenario === 'persistent-agent')
+      draft.activity.slots = [
+        {
+          slotId: 'one',
+          choice: {
+            choiceId: 'recruit',
+            actionId: 'recruit_team',
+            teamType: 'moles',
+            rolls: { check: roll(20, 14) },
+          },
+        },
+      ];
     if (scenario === 'exceptional-recruitment') {
       const slot = draft.activity.slots[0];
       if (!slot) throw new Error('Missing fixture slot');
@@ -105,7 +150,15 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
     );
     expect(browser, scenario).toEqual(server);
     expect(server.ready, scenario).toBe(true);
-    expect(server.plan.length, scenario).toBeGreaterThan(0);
+    if (scenario === 'persistent-agent') {
+      expect(server.checks[0]?.total).toBe(13);
+      expect(server.outcome.roster.teams).toEqual(snapshot.roster.teams);
+      expect(server.plan).toEqual([]);
+    } else expect(server.plan.length, scenario).toBeGreaterThan(0);
+    if (scenario === 'persistent-morale') {
+      expect(server.checks[0]?.total).toBe(11);
+      expect(server.outcome.training).toBe(30);
+    }
     expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
   }
 });

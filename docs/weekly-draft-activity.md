@@ -4,7 +4,9 @@
 projected **post-Upkeep** snapshot (`projectUpkeep(...).outcome`). It folds slots
 in order and returns a partial outcome, ordered baseline change plan, check
 modifier explanations, retained slots, requirements, warnings, and team/check
-usage for subsequent phase work. It never writes state or applies Table
+usage for subsequent phase work. Carried Low Morale and Double Agent penalties
+apply to Activity checks once, including when queued copies also exist. It never
+writes state or applies Table
 Adjustments. Missing inputs leave the projection unready.
 
 The implemented actions are Change Officer Role, Dismiss Team, Drill Militia,
@@ -41,7 +43,7 @@ same projection of a persisted Convex draft for all six actions. The existing
 isolated browser harness protects the currently supported application path;
 it does not claim the future canonical Workspace UI is already connected.
 
-Verification for this extraction (2026-09-11): typecheck and lint; 569 tests in
+Verification for this extraction (2026-09-11): typecheck and lint; 572 tests in
 63 files; rules catalog validation with zero errors; and the mandatory browser
 journeys on disposable preview `e2e-local-andreasununger-slot-0`. Standards and
 spec review findings were addressed, including stale Strategist provenance and
