@@ -102,7 +102,16 @@ export function phaseView(
         const decision = draft.upkeep.teamDecisions.find(
           (entry) => entry.teamId === team.teamId,
         );
+        const adjustment = draft.tableAdjustments.find(
+          (item) => item.adjustmentId === `upkeep-recovery:${team.teamId}`,
+        );
         return {
+          recoveryAdjustment:
+            adjustment?.kind === 'militia_value' &&
+            adjustment.field === 'treasuryCopper' &&
+            adjustment.operation === 'add'
+              ? { deltaCopper: adjustment.value, reason: adjustment.reason }
+              : null,
           teamId: team.teamId,
           name: team.name,
           status: team.status,

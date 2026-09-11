@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
+import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import { test, expect } from './support/fixtures';
 import {
   canonicalPersistenceFixtureCall,
   loadRun,
+  fixtureCall,
   savePrivate,
 } from './support/process';
 import { controlNextDraftEdit } from './support/held-mutation';
@@ -46,6 +48,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     ).toBeVisible();
     await expect(
       player.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
+    ).toBeVisible();
+    await expect(
+      players.outsider.getByText('This week is unavailable.', { exact: true }),
     ).toBeVisible();
     await expect(
       players.outsider.getByRole('textbox', {
@@ -158,21 +163,21 @@ test('players prepare shared Upkeep with independent navigation and save recover
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
-      const officer = gm.getByRole('combobox', {
-        name: 'Officer',
-        exact: true,
-      });
-      const controlBounds = await officer.boundingBox();
-      const arrowBounds = await officer.locator('svg').last().boundingBox();
-      expect(controlBounds).not.toBeNull();
-      expect(arrowBounds).not.toBeNull();
-      expect(arrowBounds!.x + arrowBounds!.width).toBeLessThanOrEqual(
-        controlBounds!.x + controlBounds!.width,
-      );
+      const officer = gm
+        .getByRole('group', { name: 'Officer', exact: true })
+        .getByRole('button')
+        .first();
+      const bounds = await officer.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expect(
+        await officer.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
       if (name === 'phone') {
         await officer.tap();
-        await expect(gm.getByRole('option').first()).toBeVisible();
-        await gm.keyboard.press('Escape');
+        await expect(officer).toHaveAttribute('aria-pressed', 'true');
       }
       await savePrivate(
         join(run.artifactDirectory, `canonical-upkeep-${name}.png`),
@@ -189,6 +194,193 @@ test('players prepare shared Upkeep with independent navigation and save recover
       .click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+    await fixtureCall(run, 'resetCase', {
+      ...ownedCase.scope,
+      now: 1_700_000_000_000,
+    });
+    const choicesScope = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+        scope: ownedCase.scope,
+        draftId: randomUUID(),
+        choices: true,
+      }),
+    );
+    const choicesRoute = `/canonical-workspace?campaign=${choicesScope.campaignId}`;
+    await Promise.all([gm.goto(choicesRoute), player.goto(choicesRoute)]);
+    await expect(die(gm)).toBeVisible();
+    await die(gm).fill('10');
+    await expect(die(player)).toHaveValue('10');
+    await training(gm).fill('3');
+    await expect(training(player)).toHaveValue('3');
+    await gm
+      .getByRole('group', { name: 'Nearest settlement', exact: true })
+      .getByRole('button', { name: 'Phaendar', exact: true })
+      .tap();
+    await expect(
+      player
+        .getByRole('group', { name: 'Nearest settlement', exact: true })
+        .getByRole('button', { name: 'Phaendar', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    const recovery = gm.getByRole('group', {
+      name: 'Scouts recovery',
+      exact: true,
+    });
+    const remoteRecovery = player.getByRole('group', {
+      name: 'Scouts recovery',
+      exact: true,
+    });
+    await expect(
+      recovery.getByRole('textbox', {
+        name: 'Recovery cost (copper)',
+        exact: true,
+      }),
+    ).toHaveValue('2000');
+    await recovery
+      .getByRole('button', { name: 'Recover team', exact: true })
+      .click();
+    await expect(
+      remoteRecovery.getByRole('button', { name: 'Recover team', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await recovery
+      .getByRole('textbox', { name: 'Recovery cost (copper)', exact: true })
+      .fill('1500');
+    await recovery
+      .getByRole('button', { name: 'Stage recovery', exact: true })
+      .click();
+    await expect(
+      recovery.getByRole('alert').filter({
+        hasText: 'A reason is required for a changed recovery cost.',
+      }),
+    ).toBeVisible();
+    await expect(
+      remoteRecovery.getByRole('textbox', {
+        name: 'Recovery cost (copper)',
+        exact: true,
+      }),
+    ).toHaveValue('2000');
+    await recovery
+      .getByRole('textbox', {
+        name: 'Reason for recovery adjustment',
+        exact: true,
+      })
+      .fill('Local healer donated supplies');
+    await recovery
+      .getByRole('button', { name: 'Stage recovery', exact: true })
+      .click();
+    await expect(
+      remoteRecovery.getByRole('textbox', {
+        name: 'Recovery cost (copper)',
+        exact: true,
+      }),
+    ).toHaveValue('1500');
+    await expect(
+      remoteRecovery.getByRole('textbox', {
+        name: 'Reason for recovery adjustment',
+        exact: true,
+      }),
+    ).toHaveValue('Local healer donated supplies');
+    await gm.getByRole('button', { name: 'Summary', exact: true }).click();
+    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    for (const page of [gm, player]) {
+      await expect(
+        page.getByText('Rules baseline: 3000 cp', { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText('3500 cp', { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Confirm week', exact: true }),
+      ).toBeEnabled();
+    }
+    await savePrivate(
+      join(run.artifactDirectory, 'canonical-recovery-summary-tablet.png'),
+      await gm.screenshot({ fullPage: true }),
+    );
+    await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    await player.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    await recovery
+      .getByRole('button', { name: 'Leave team', exact: true })
+      .click();
+    await expect(
+      remoteRecovery.getByRole('button', { name: 'Leave team', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      remoteRecovery.getByRole('textbox', {
+        name: 'Recovery cost (copper)',
+        exact: true,
+      }),
+    ).toHaveValue('2000');
+    await expect(
+      remoteRecovery.getByRole('textbox', {
+        name: 'Reason for recovery adjustment',
+        exact: true,
+      }),
+    ).toHaveValue('');
+    await expect(
+      remoteRecovery.getByText('Recovery adjustment:', { exact: false }),
+    ).toHaveCount(0);
+    await recovery
+      .getByRole('textbox', { name: 'Recovery cost (copper)', exact: true })
+      .fill('1500');
+    await recovery
+      .getByRole('textbox', {
+        name: 'Reason for recovery adjustment',
+        exact: true,
+      })
+      .fill('Local healer donated supplies');
+    await recovery
+      .getByRole('button', { name: 'Stage recovery', exact: true })
+      .click();
+    await expect(
+      remoteRecovery.getByRole('button', { name: 'Recover team', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    for (const [name, width, height] of [
+      ['tablet', 1194, 834],
+      ['phone', 390, 844],
+    ] as const) {
+      await gm.setViewportSize({ width, height });
+      expect(
+        await gm.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await savePrivate(
+        join(run.artifactDirectory, `canonical-recovery-${name}.png`),
+        await gm.screenshot({ fullPage: true }),
+      );
+    }
+    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    await expect(
+      player.getByRole('button', { name: 'Confirm week', exact: true }),
+    ).toBeEnabled();
+    await player
+      .getByRole('button', { name: 'Confirm week', exact: true })
+      .click();
+    await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+    const committed = confirmationInspectionSchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'inspect', {
+        ...choicesScope,
+        scope: ownedCase.scope,
+      }),
+    );
+    expect(committed.snapshot.treasuryCopper).toBe(3500);
+    expect(committed.records).toHaveLength(1);
+    expect(committed.records[0]?.sourceMilitiaSnapshot?.treasuryCopper).toBe(
+      5000,
+    );
+    expect(committed.records[0]?.source.upkeep.teamDecisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ decision: 'recover', costCopper: 2000 }),
+      ]),
+    );
+    expect(committed.records[0]?.adjudication.tableAdjustments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'militia_value',
+          field: 'treasuryCopper',
+          value: 500,
+          reason: 'Local healer donated supplies',
+        }),
+      ]),
+    );
   } finally {
     network.release();
   }

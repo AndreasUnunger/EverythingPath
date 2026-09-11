@@ -13,13 +13,9 @@ import {
   FormControl,
   FormMessage,
 } from '~/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select';
+import { ChoiceCards } from './choice-cards';
+import { TeamRecovery } from './team-recovery';
+import { upkeepWarningMessages } from './upkeep-warnings';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RollFact, UpkeepView as UpkeepFacts } from './types';
 import { WholeNumberField } from './whole-number-field';
@@ -188,32 +184,18 @@ function Transfers({
             control={form.control}
             name="characterId"
             render={({ field }) => (
-              <FormItem className="min-w-0">
-                <FormLabel>Officer</FormLabel>
-                <Select
+              <FormItem className="min-w-0 sm:col-span-2">
+                <ChoiceCards
+                  label="Officer"
                   value={field.value}
-                  onValueChange={field.onChange}
                   disabled={disabled}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full min-w-0 *:data-[slot=select-value]:block">
-                      <SelectValue
-                        className="min-w-0 overflow-hidden text-ellipsis"
-                        placeholder="Choose an officer"
-                      />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {officers.map((person) => (
-                      <SelectItem
-                        key={person.characterId}
-                        value={person.characterId}
-                      >
-                        {person.name ?? person.roles.join(', ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={field.onChange}
+                  choices={officers.map((person) => ({
+                    value: person.characterId,
+                    label: person.name ?? person.roles.join(', '),
+                    description: person.roles.join(', '),
+                  }))}
+                />
                 <FormMessage role="alert" />
               </FormItem>
             )}
@@ -222,23 +204,25 @@ function Transfers({
             control={form.control}
             name="direction"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Transfer direction</FormLabel>
-                <Select
+              <FormItem className="min-w-0 sm:col-span-2">
+                <ChoiceCards
+                  label="Transfer direction"
                   value={field.value}
-                  onValueChange={field.onChange}
                   disabled={disabled}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="deposit">Deposit</SelectItem>
-                    <SelectItem value="withdraw">Withdraw</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={field.onChange}
+                  choices={[
+                    {
+                      value: 'deposit',
+                      label: 'Deposit',
+                      description: 'Give copper to the militia.',
+                    },
+                    {
+                      value: 'withdraw',
+                      label: 'Withdraw',
+                      description: 'Take copper from the treasury.',
+                    },
+                  ]}
+                />
                 <FormMessage role="alert" />
               </FormItem>
             )}
@@ -427,104 +411,33 @@ export function UpkeepView({
           </div>
           {view.nearestSettlement.choices.length > 0 && (
             <Card className="space-y-2 p-4">
-              <label
-                className="text-sm font-semibold"
-                id="nearest-settlement-label"
-              >
-                Nearest settlement
-                {view.nearestSettlement.required ? ' · required' : ''}
-              </label>
-              <Select
+              <ChoiceCards
+                label={`Nearest settlement${view.nearestSettlement.required ? ' · required' : ''}`}
                 value={view.nearestSettlement.selected ?? 'none'}
-                onValueChange={(value) =>
+                disabled={disabled}
+                choices={[
+                  { value: 'none', label: 'No selection' },
+                  ...view.nearestSettlement.choices.map((settlement) => ({
+                    value: settlement.settlementId,
+                    label: settlement.name,
+                  })),
+                ]}
+                onChange={(value) =>
                   edit({
                     kind: 'upkeep_settlement',
                     settlementId: value === 'none' ? null : value,
                   })
                 }
-                disabled={disabled}
-              >
-                <SelectTrigger
-                  aria-labelledby="nearest-settlement-label"
-                  className="w-full"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No selection</SelectItem>
-                  {view.nearestSettlement.choices.map((settlement) => (
-                    <SelectItem
-                      key={settlement.settlementId}
-                      value={settlement.settlementId}
-                    >
-                      {settlement.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </Card>
           )}
           {view.teams.map((team) => (
-            <Card key={team.teamId} className="space-y-3 p-4">
-              <h3 className="font-semibold">
-                {team.name} · {team.status}
-              </h3>
-              <p className="text-sm">Recovery cost: {team.costCopper} copper</p>
-              <div className="flex flex-wrap gap-2">
-                {(['recover', 'leave', 'remove'] as const).map((decision) => (
-                  <Button
-                    key={decision}
-                    variant={team.decision === decision ? 'default' : 'outline'}
-                    disabled={disabled}
-                    onClick={() =>
-                      edit({
-                        kind: 'upkeep_team',
-                        teamId: team.teamId,
-                        decision: {
-                          teamId: team.teamId,
-                          decision,
-                          costCopper: team.costCopper,
-                        },
-                      })
-                    }
-                  >
-                    {decision === 'recover'
-                      ? 'Recover team'
-                      : decision === 'leave'
-                        ? 'Leave team'
-                        : 'Remove team'}
-                  </Button>
-                ))}
-              </div>
-              {team.needsReturnRoll && (
-                <WholeNumberField
-                  label={`${team.name} return die`}
-                  value={team.roll}
-                  required
-                  disabled={disabled}
-                  onValue={(value) =>
-                    edit({
-                      kind: 'upkeep_team',
-                      teamId: team.teamId,
-                      decision: {
-                        teamId: team.teamId,
-                        decision: team.decision ?? 'leave',
-                        ...(value === null
-                          ? {}
-                          : {
-                              roll: {
-                                dice: [value],
-                                sides: 20,
-                                provenance: { kind: 'table' },
-                                modifiers: [],
-                              },
-                            }),
-                      },
-                    })
-                  }
-                />
-              )}
-            </Card>
+            <TeamRecovery
+              key={team.teamId}
+              team={team}
+              edit={edit}
+              disabled={disabled}
+            />
           ))}
           {view.boons.map((boon) => (
             <Card key={boon.subjectId} className="space-y-3 p-4">
@@ -612,13 +525,16 @@ export function UpkeepView({
         </>
       )}
       {view.warnings.length > 0 && (
-        <p
-          role="note"
-          className="rounded-md border border-amber-500/50 p-3 text-sm"
+        <ul
+          aria-label="Upkeep warnings"
+          className="space-y-2 rounded-md border border-amber-500/50 p-3 text-sm"
         >
-          Some choices differ from the usual rules. Review the entered dice and
-          table decisions.
-        </p>
+          {upkeepWarningMessages(view).map((message) => (
+            <li key={message} role="note">
+              {message}
+            </li>
+          ))}
+        </ul>
       )}
       {!view.ready && (
         <p className="text-muted-foreground text-sm">

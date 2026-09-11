@@ -114,6 +114,14 @@ export function WeeklyWorkspaceBoard() {
                 <dd className="font-mono text-xl">
                   {view.outcome.militiaSnapshot.treasuryCopper} cp
                 </dd>
+                {view.baseline &&
+                  view.baseline.militiaSnapshot.treasuryCopper !==
+                    view.outcome.militiaSnapshot.treasuryCopper && (
+                    <dd className="text-muted-foreground text-xs">
+                      Rules baseline:{' '}
+                      {view.baseline.militiaSnapshot.treasuryCopper} cp
+                    </dd>
+                  )}
               </div>
               <div>
                 <dt>Next week</dt>

@@ -140,7 +140,10 @@ function editTargets(base: WeeklyDraft, edit: WeeklyDraftEdit): Path[] {
     case 'upkeep_settlement':
       return [['upkeep', 'nearestSettlementId']];
     case 'upkeep_team':
-      return [['upkeep', 'teamDecisions', edit.teamId]];
+      return [
+        ['upkeep', 'teamDecisions', edit.teamId],
+        ['tableAdjustments', `upkeep-recovery:${edit.teamId}`],
+      ];
     case 'upkeep_transfer':
       return [['upkeep', 'treasuryTransfers', edit.transfer.transferId]];
     case 'clear_upkeep_transfer':

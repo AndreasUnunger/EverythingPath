@@ -51,6 +51,7 @@ export type UpkeepView = {
     status: 'active' | 'disabled' | 'missing' | 'blocked';
     decision: 'recover' | 'leave' | 'remove' | null;
     costCopper: number;
+    recoveryAdjustment: { deltaCopper: number; reason: string } | null;
     roll: number | null;
     needsReturnRoll: boolean;
   }[];

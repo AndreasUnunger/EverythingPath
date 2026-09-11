@@ -264,6 +264,13 @@ export const weeklyDraftEditSchema = z.discriminatedUnion('kind', [
     kind: z.literal('upkeep_team'),
     teamId: id,
     decision: upkeepSchema.shape.teamDecisions.unwrap().element.nullable(),
+    recoveryAdjustment: z
+      .strictObject({
+        deltaCopper: z.number().int(),
+        reason: z.string().trim().min(1),
+      })
+      .nullable()
+      .optional(),
   }),
   z.strictObject({
     kind: z.literal('upkeep_transfer'),

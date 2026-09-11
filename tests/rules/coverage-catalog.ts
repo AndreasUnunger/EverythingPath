@@ -6142,6 +6142,33 @@ export const coverageCatalog = {
         },
 
         {
+          id: 'upkeep-recovery-adjustment',
+          checkpoint: '7-workspace',
+          expected:
+            'Recovery cards default to the deterministic cost; a reasoned override atomically stages the team decision and an ordered treasury adjustment after the unchanged baseline, with stale target conflicts leaving both unchanged.',
+          plannedTests: [
+            'rules.P81.recovery-adjustment',
+            'rules.P81.recovery-arbitration',
+            'rules.P81.recovery-transaction',
+          ],
+          tests: [
+            'rules.P81.recovery-adjustment',
+            'rules.P81.recovery-arbitration',
+            'rules.P81.recovery-transaction',
+          ],
+          gap: null,
+        },
+        {
+          id: 'upkeep-warning-context',
+          checkpoint: '7-workspace',
+          expected:
+            'Upkeep warnings identify the affected team, officer, roll, or transfer and explain the advisory departure without rendering internal identifiers.',
+          plannedTests: ['rules.P81.warning-context'],
+          tests: ['rules.P81.warning-context'],
+          gap: null,
+        },
+
+        {
           id: 'snapshot',
           checkpoint: '7-workspace',
           expected:

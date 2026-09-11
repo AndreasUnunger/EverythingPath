@@ -238,12 +238,16 @@ export const inspect = internalMutation({
 });
 
 export const initializeUpkeep = internalMutation({
-  args: { scope: zodOutputToConvex(fixtureScopeSchema), draftId: v.string() },
+  args: {
+    scope: zodOutputToConvex(fixtureScopeSchema),
+    draftId: v.string(),
+    choices: v.optional(v.boolean()),
+  },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
     const key = await ctx.runMutation(
       internal.canonicalPersistenceFixtures.initialize,
-      args,
+      { scope: args.scope, draftId: args.draftId },
     );
     const { state, row } = await ownedSource(ctx, {
       ...key,
@@ -261,9 +265,45 @@ export const initializeUpkeep = internalMutation({
       treasuryCopper: 5000,
       roster: {
         people: [{ characterId: character._id, kind: 'pc', hitDice: 2 }],
-        teams: [],
+        teams: args.choices
+          ? [
+              {
+                teamId: 'upkeep-scouts',
+                teamType: 'patrons',
+                name: 'Scouts',
+                status: 'disabled',
+                managerCharacterId: null,
+                rewardCapExempt: false,
+                notes: '',
+              },
+            ]
+          : [],
         officers: [{ characterId: character._id, role: 'ambassador' }],
       },
+      settlements: args.choices
+        ? [
+            {
+              settlementId: 'phaendar',
+              name: 'Phaendar',
+              reputation: 'Indifferent',
+              secured: false,
+              occupied: false,
+              temporaryReputationShift: 0,
+              refugeActivatedWeek: null,
+              refugeActiveUntilWeek: null,
+            },
+            {
+              settlementId: 'misthome',
+              name: 'Misthome',
+              reputation: 'Indifferent',
+              secured: false,
+              occupied: false,
+              temporaryReputationShift: 0,
+              refugeActivatedWeek: null,
+              refugeActiveUntilWeek: null,
+            },
+          ]
+        : [],
       characters: [
         {
           characterId: character._id,

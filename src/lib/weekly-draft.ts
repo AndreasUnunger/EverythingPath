@@ -75,6 +75,30 @@ const draftEditHandlers: {
       (item) => item.teamId !== edit.teamId,
     );
     if (edit.decision) next.upkeep.teamDecisions.push(edit.decision);
+    const adjustmentId = `upkeep-recovery:${edit.teamId}`;
+    if (
+      edit.recoveryAdjustment !== undefined ||
+      edit.decision?.decision !== 'recover'
+    ) {
+      const index = next.tableAdjustments.findIndex(
+        (item) => item.adjustmentId === adjustmentId,
+      );
+      const adjustment =
+        edit.decision?.decision === 'recover' && edit.recoveryAdjustment
+          ? {
+              kind: 'militia_value' as const,
+              adjustmentId,
+              field: 'treasuryCopper' as const,
+              operation: 'add' as const,
+              value: edit.recoveryAdjustment.deltaCopper,
+              reason: edit.recoveryAdjustment.reason,
+            }
+          : null;
+      if (index >= 0) {
+        if (adjustment) next.tableAdjustments[index] = adjustment;
+        else next.tableAdjustments.splice(index, 1);
+      } else if (adjustment) next.tableAdjustments.push(adjustment);
+    }
   },
   upkeep_transfer: (next, edit) => {
     const index = next.upkeep.treasuryTransfers.findIndex(

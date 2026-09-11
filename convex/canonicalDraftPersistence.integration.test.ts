@@ -659,3 +659,73 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
     }),
   ).toBeNull();
 });
+
+test('[rules.P81.recovery-transaction] recovery and its reasoned adjustment commit together and reject stale direct adjustments without partial writes', async () => {
+  const { t } = await setup();
+  await t.mutation(internal.e2eFixtures.resetCase, { ...fixtureScope, now: 2 });
+  const key = await t.mutation(
+    internal.canonicalPersistenceFixtures.initializeUpkeep,
+    { scope: fixtureScope, draftId: 'recovery', choices: true },
+  );
+  const user = await t.run((ctx) => ctx.db.query('user').first());
+  if (!user) throw new Error('Missing member');
+  const member = t.withIdentity({ tokenIdentifier: user.tokenIdentifier });
+  const send = (
+    baseRevision: number,
+    operationId: string,
+    intent: DraftOperation['edit'],
+  ) =>
+    member.mutation(edit, {
+      campaignId: key.campaignId,
+      militiaId: key.militiaId,
+      operation: {
+        draftId: key.draftId,
+        baseRevision,
+        operationId,
+        edit: intent,
+      },
+    });
+  const source = await member.query(api.canonicalDraftPersistence.workspace, {
+    campaignId: key.campaignId,
+  });
+  expect(source?.snapshot.settlements.map((item) => item.name)).toEqual([
+    'Phaendar',
+    'Misthome',
+  ]);
+  await send(0, 'recover', {
+    kind: 'upkeep_team',
+    teamId: 'upkeep-scouts',
+    decision: {
+      teamId: 'upkeep-scouts',
+      decision: 'recover',
+      costCopper: 2000,
+    },
+    recoveryAdjustment: { deltaCopper: 500, reason: 'Local healers discount' },
+  });
+  const accepted = await member.query(observe, key);
+  expect(accepted.draft?.upkeep.teamDecisions[0]?.decision).toBe('recover');
+  expect(accepted.draft?.tableAdjustments).toEqual([
+    {
+      kind: 'militia_value',
+      adjustmentId: 'upkeep-recovery:upkeep-scouts',
+      field: 'treasuryCopper',
+      operation: 'add',
+      value: 500,
+      reason: 'Local healers discount',
+    },
+  ]);
+  await expect(
+    send(0, 'stale-adjustment', { kind: 'table_adjustments', adjustments: [] }),
+  ).rejects.toThrow('Target changed');
+  expect(await member.query(observe, key)).toEqual(accepted);
+  await send(1, 'adjudicate', { kind: 'table_adjustments', adjustments: [] });
+  const adjudicated = await member.query(observe, key);
+  await expect(
+    send(1, 'stale-leave', {
+      kind: 'upkeep_team',
+      teamId: 'upkeep-scouts',
+      decision: { teamId: 'upkeep-scouts', decision: 'leave' },
+    }),
+  ).rejects.toThrow('Target changed');
+  expect(await member.query(observe, key)).toEqual(adjudicated);
+});
