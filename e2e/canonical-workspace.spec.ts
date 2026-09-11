@@ -221,7 +221,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const selectedSettlement = gm.locator(
       '[aria-label="Nearest settlement selection"]',
     );
-    await selectedSettlement.scrollIntoViewIfNeeded();
+    await settlementCards.scrollIntoViewIfNeeded();
     const phaendar = settlementCards.getByRole('button', {
       name: 'Phaendar',
       exact: true,
@@ -230,6 +230,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const targetBounds = await selectedSettlement.boundingBox();
     expect(cardBounds).not.toBeNull();
     expect(targetBounds).not.toBeNull();
+    expect(cardBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(cardBounds!.y + cardBounds!.height).toBeLessThanOrEqual(834);
+    expect(targetBounds!.y).toBeGreaterThanOrEqual(0);
     await gm.mouse.move(
       cardBounds!.x + cardBounds!.width / 2,
       cardBounds!.y + cardBounds!.height / 2,
