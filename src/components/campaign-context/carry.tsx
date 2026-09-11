@@ -12,6 +12,7 @@ import type { NamedReference } from './events';
 const effectChoices = {
   check_modifier: { kind: 'check_modifier', check: 'loyalty', value: 0 },
   event_chance: { kind: 'event_chance', value: 0 },
+  upkeep_loss_multiplier: { kind: 'upkeep_loss_multiplier', value: 2 },
   block_action: { kind: 'block_action', actionId: '' },
   team_unavailable: { kind: 'team_unavailable', teamId: '' },
   narrative: { kind: 'narrative', instruction: '' },
@@ -141,7 +142,8 @@ export function Carry({ teams }: { teams: NamedReference[] }) {
                 />
               )}
               {(effect?.kind === 'check_modifier' ||
-                effect?.kind === 'event_chance') && (
+                effect?.kind === 'event_chance' ||
+                effect?.kind === 'upkeep_loss_multiplier') && (
                 <CampaignContextField
                   name={`queuedEffects.${i}.effect.value`}
                   label="Effect amount"

@@ -49,6 +49,9 @@ const contextSchema = weekStartFactsSchema
   )
   .transform(immutable);
 const upkeepSchema = z.strictObject({
+  // check/training: attrition; notoriety: maximum-Notoriety loss; loss: treasury shortage.
+  notorietyCheck: rawRollSchema.optional(),
+  nearestSettlementId: id.optional(),
   rolls: rollsSchema.default({}),
   treasuryTransfers: z
     .array(

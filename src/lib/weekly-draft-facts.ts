@@ -118,6 +118,10 @@ export const queuedEffectSchema = z.strictObject({
       check: z.enum(['loyalty', 'secrecy', 'security']),
       value: signedInteger,
     }),
+    z.strictObject({
+      kind: z.literal('upkeep_loss_multiplier'),
+      value: int.min(1),
+    }),
     z.strictObject({ kind: z.literal('event_chance'), value: signedInteger }),
     z.strictObject({ kind: z.literal('block_action'), actionId: id }),
     z.strictObject({ kind: z.literal('team_unavailable'), teamId: id }),

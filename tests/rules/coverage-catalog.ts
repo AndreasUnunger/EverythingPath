@@ -2521,8 +2521,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: First militia week skips Upkeep independent of displayed week number and entered attrition.',
           plannedTests: ['rules.U01.first-use'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U01.first-use'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'import',
@@ -2530,8 +2530,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Imported first-use metadata controls skipping rather than a week-number heuristic.',
           plannedTests: ['rules.U01.import'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U01.import'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'recompute',
@@ -2539,8 +2539,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Earlier phase edits recompute downstream eligibility and outcomes.',
           plannedTests: ['rules.U01.recompute'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U01.recompute'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
       ],
     },
@@ -2558,8 +2558,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty total 10 or higher loses rolled 1d6 training.',
           plannedTests: ['rules.U02.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U02.success'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'failure',
@@ -2567,8 +2567,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty total 9 or lower loses rolled 2d4 plus rank.',
           plannedTests: ['rules.U02.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U02.failure'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'natural-twenty',
@@ -2576,17 +2576,29 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 20 gains rolled 1d6 training instead of losing training.',
           plannedTests: ['rules.U02.natural-twenty'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U02.natural-twenty'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'modifiers',
           checkpoint: '4-upkeep',
           expected:
             'Phase View / Resolution Preview: Officer and queued modifiers compose once; Week of Pain doubles losses, not natural-20 gain.',
-          plannedTests: ['rules.U02.modifiers'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          plannedTests: [
+            'rules.U02.modifiers',
+            'rules.U02.provenance',
+            'rules.U02.consumption',
+            'rules.U02.sources',
+            'rules.U02.persistent-morale',
+          ],
+          tests: [
+            'rules.U02.modifiers',
+            'rules.U02.provenance',
+            'rules.U02.consumption',
+            'rules.U02.sources',
+            'rules.U02.persistent-morale',
+          ],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'readiness',
@@ -2594,8 +2606,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing required check or loss/gain dice prevents complete readiness.',
           plannedTests: ['rules.U02.readiness'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U02.readiness'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
       ],
     },
@@ -2613,8 +2625,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Notoriety 99 has no maximum penalty; 100 loses 1d20 plus rank.',
           plannedTests: ['rules.U03.threshold'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U03.threshold'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'reputation',
@@ -2622,8 +2634,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed Loyalty DC15 reduces nearest settlement one step with Unfriendly floor.',
           plannedTests: ['rules.U03.reputation'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U03.reputation'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'inputs',
@@ -2631,8 +2643,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing applicable die, check or settlement blocks Confirmation.',
           plannedTests: ['rules.U03.inputs'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U03.inputs'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'recompute',
@@ -2640,8 +2652,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Projected Notoriety and queued Loyalty modifiers control applicability and clear stale penalties.',
           plannedTests: ['rules.U03.recompute'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U03.recompute'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
       ],
     },
@@ -2658,9 +2670,9 @@ export const coverageCatalog = {
           checkpoint: '4-upkeep',
           expected:
             'Phase View / Resolution Preview: Treasury below rank times 10 after recovery payments loses rolled 2d4 plus rank.',
-          plannedTests: ['rules.U04.shortage'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          plannedTests: ['rules.U04.shortage', 'rules.U04.recovery-inputs'],
+          tests: ['rules.U04.shortage', 'rules.U04.recovery-inputs'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'boundary',
@@ -2668,8 +2680,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Exactly minimum treasury avoids shortage; later deposits do not erase it.',
           plannedTests: ['rules.U04.boundary'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U04.boundary'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'rank',
@@ -2677,8 +2689,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank increases use post-loss training, cross multiple thresholds and stop at PC cap.',
           plannedTests: ['rules.U04.rank'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U04.rank'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'boons',
@@ -2686,8 +2698,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each newly crossed boon is calculated immediately once.',
           plannedTests: ['rules.U04.boons'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U04.boons'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
       ],
     },
@@ -2705,8 +2717,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Deposits and withdrawals are staged after preceding Upkeep steps.',
           plannedTests: ['rules.U05.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U05.order'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'preview',
@@ -2714,8 +2726,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Preview includes all deposits and withdrawals before Event Theft.',
           plannedTests: ['rules.U05.preview'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.U05.preview'],
+          gap: 'Incoming persistent Theft and Upkeep transfers covered in #67; subsequent Activity/Event resource ordering and Confirmation remain required.',
         },
         {
           id: 'authority',
@@ -3102,8 +3114,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Insufficient recovery funds produce an advisory warning and exception path.',
           plannedTests: ['rules.T07.funds'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.T07.funds'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
       ],
     },
@@ -3121,8 +3133,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Security DC15 returns a missing team at end-week, unavailable during Activity.',
           plannedTests: ['rules.T08.return'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.T08.return'],
+          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
         },
         {
           id: 'failure',
@@ -6405,9 +6417,12 @@ export const coverageCatalog = {
           checkpoint: '3-test-infrastructure',
           expected:
             'Identical canonical fixtures through browser and Convex entry paths produce the same Phase Views and Resolution Preview.',
-          plannedTests: ['rules.GATE.projection-parity'],
-          tests: [],
-          gap: 'Canonical projection entry paths and parity suite are not yet implemented.',
+          plannedTests: [
+            'rules.GATE.projection-parity',
+            'rules.U01.projection-parity',
+          ],
+          tests: ['rules.U01.projection-parity'],
+          gap: 'Upkeep browser-target bundle and Convex stored-source projection parity covered in #67; complete Workspace Phase View and whole-week Confirmation entry-path parity remain required.',
         },
         {
           id: 'adapter-contract',

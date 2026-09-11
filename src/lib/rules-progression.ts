@@ -81,7 +81,7 @@ export function projectProgression(
   const earnedRank =
     MILITIA_ADVANCEMENT.filter(
       (x) => x.training <= training && x.rank <= (highestPcLevel ?? rank),
-    ).at(-1)?.rank ?? rank;
+    ).slice(-1)[0]?.rank ?? rank;
   const eligibleRank = Math.max(rank, earnedRank);
   const apRankCap = apVolume ? apCaps[apVolume] : null;
   return {

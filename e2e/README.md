@@ -490,3 +490,21 @@ unknown versus zero, repeated event instances, receipt consistency, fractional
 enchantment input and field-level target repair. Both standards and specification
 reviews have no outstanding findings. This is local preview evidence, not a
 production deployment or canonical cutover.
+
+## Upkeep extraction (#67)
+
+Local verification on 2026-09-11 passed authentication and all five required
+browser journeys on their first attempts against the recreated
+`e2e-local-andreasununger-slot-0` preview and production web build. The successful
+run is `everythingpath-e2e-sFMIfI`; its safe report records zero errors. This
+preserves the supported legacy path while canonical Upkeep remains isolated.
+
+The initial deployment attempt exposed `Array.at()` in the shared progression
+module against Convex's older TypeScript library target. Equivalent indexing
+restored compatibility. Both application and Convex typechecks, lint, all 541
+Vitest tests, and the rules catalog now pass. The catalog records 140 covered
+cases, 472 explicit remaining gaps, and zero errors. Upkeep parity compares seven
+canonical scenarios through the browser-target bundle and Convex-test stored
+source; complete Workspace and Confirmation parity remain later gates. Standards
+and specification reviews have no remaining findings. This is local preview
+verification, not hosted CI evidence or a production cutover.

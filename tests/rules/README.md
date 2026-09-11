@@ -91,3 +91,44 @@ All rule cases ultimately need Phase View/Resolution Preview evidence and applic
 Confirmation parity; the checkpoint is where their behavior is implemented, not an
 exemption from later gates. Canonical contracts in step 2 prepare these facts; step 9
 activation remains contingent on complete review and a separately approved cutover.
+
+## Upkeep extraction (#67)
+
+`projectUpkeep(draft, snapshot)` is the shared pure Upkeep projection. Supply the
+same week-start militia snapshot on each edit. It returns the ordered baseline
+plan, partial post-Upkeep outcome, check explanations, boon packages, warnings and
+missing requirements. Preview never mutates either input. `ready` describes
+Upkeep only; it cannot authorize whole-week Confirmation. Table Adjustments apply
+after the complete weekly baseline in the later resolution composition.
+
+The canonical Upkeep roll keys are `check` (attrition Loyalty), `training`
+(attrition loss/gain), `notoriety` (maximum-Notoriety training loss), and `loss`
+(treasury-shortage loss). `notorietyCheck` is the independent DC15 Loyalty check;
+`nearestSettlementId` is required when that check fails. Dice count and sides must
+match the selected branch; totals do not encode natural-roll provenance. Unused
+rolls never produce effects. `upkeep_loss_multiplier` is an explicit dated queued
+effect; repeated Week of Pain multipliers do not compound and never multiply a
+gain. Carried Low Morale supplies its ongoing Loyalty penalty even without a
+queue, and a matching queued penalty is applied only once. The campaign-context
+editor supports entering the loss multiplier.
+
+For organization checks, calculated modifier source IDs are provenance rather
+than second additions.
+`bonus:<identity>` selects a one-use bonus; consumed IDs and changes carry forward
+into later phases. Other entered modifiers carry their own source and reason.
+Recovery uses the current minimum treasury; a differing entered cost is flagged
+and leaves the baseline intact for later Table Adjustment. Reasoned exceptions
+for `upkeep-recovery-funds` and `upkeep-team-removal` use the team identity as their
+subject. A boon acknowledgement uses `upkeep:boon:<rank>:<characterId>` and records
+the table's actual reward handling; the projection does not modify character
+sheets. Missing-team return changes have `timing: end`; the post-Upkeep roster
+keeps those teams missing so they cannot act early.
+
+`upkeepProjection.integration.test.ts` builds the browser entry as JavaScript,
+executes that bundle in an isolated VM, and compares its complete outcomes with
+projection from actual Convex-test draft storage. It checks fixed literal outcomes
+as well as equality and verifies that preview leaves the draft untouched. This is
+pure browser-build/storage parity, not an authenticated canonical Workspace
+journey. The existing five-journey browser harness remains the supported-path
+extraction gate. No canonical endpoint, live route, legacy-write replacement or
+campaign cutover is activated by this extraction.
