@@ -6123,6 +6123,19 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'activity-cards',
+          checkpoint: '7-workspace',
+          expected:
+            'Activity exposes complete shared choices, retains extra slots and supports accessible placement and nested typed details with precise copper input.',
+          plannedTests: [
+            'rules.P82.workspace',
+            'rules.P82.cards',
+            'rules.P82.nested',
+          ],
+          tests: ['rules.P82.workspace', 'rules.P82.cards', 'rules.P82.nested'],
+          gap: null,
+        },
+        {
           id: 'states',
           checkpoint: '7-workspace',
           expected:

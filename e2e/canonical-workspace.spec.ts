@@ -1,3 +1,4 @@
+import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
@@ -16,7 +17,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
   players,
   ownedCase,
 }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(240_000);
   const run = await loadRun();
   const scope = draftKeySchema.parse(
     await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
@@ -68,6 +69,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(training(player)).toHaveValue('3');
     await expect(gm.getByTestId('upkeep-training')).toHaveText('11');
     await saved();
+    await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
     await die(gm).pressSequentially('x');
     await expect(die(gm)).toHaveValue('10');
     await expect(

@@ -1,3 +1,4 @@
+import { activityView } from './activity-facts';
 import { upkeepInputFacts } from '~/lib/rules-upkeep';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
@@ -18,14 +19,7 @@ export function phaseView(
       requirements: preview.requirements,
       warnings: preview.warnings,
     };
-  if (phase === 'activity')
-    return {
-      phase,
-      ready: preview.phases?.activity.ready ?? false,
-      occupiedSlots: draft.activity.slots.filter((slot) => slot.choice).length,
-      requirements: preview.phases?.activity.requirements ?? [],
-      warnings: preview.phases?.activity.warnings ?? [],
-    };
+  if (phase === 'activity') return activityView(draft, source, preview);
   if (phase === 'event')
     return {
       phase,

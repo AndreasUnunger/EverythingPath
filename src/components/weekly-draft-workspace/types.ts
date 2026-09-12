@@ -1,3 +1,5 @@
+import type { ActivityProjection } from '~/lib/rules-activity';
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -69,15 +71,32 @@ export type UpkeepView = {
   requirements: string[];
   warnings: string[];
 };
+export type ActivityView = {
+  phase: 'activity';
+  ready: boolean;
+  occupiedSlots: number;
+  slots: (ActivityProjection['slots'][number] & {
+    requirements: string[];
+    warnings: string[];
+    exceptions: { exceptionId: string; ruleId: string; reason: string }[];
+  })[];
+  actions: { actionId: StagedActionChoice['actionId']; name: string }[];
+  teams: { value: string; label: string; description: string }[];
+  settlements: { value: string; label: string }[];
+  people: { value: string; label: string }[];
+  items: { value: string; label: string }[];
+  caches: { value: string; label: string }[];
+  events: { value: string; label: string }[];
+  bonuses: { value: string; label: string }[];
+  startDay: number;
+  operatingSettlementId: string | null;
+  checks: ActivityProjection['checks'];
+  requirements: string[];
+  warnings: string[];
+};
 export type PhaseView =
   | UpkeepView
-  | {
-      phase: 'activity';
-      ready: boolean;
-      occupiedSlots: number;
-      requirements: string[];
-      warnings: string[];
-    }
+  | ActivityView
   | {
       phase: 'event';
       ready: boolean;

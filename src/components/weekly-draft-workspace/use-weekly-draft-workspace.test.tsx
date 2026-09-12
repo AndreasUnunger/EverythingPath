@@ -301,3 +301,55 @@ test('[rules.P81.eligibility] carried-event eligibility remains enabled after en
   ).toBe('upkeep');
   fresh.unmount();
 });
+
+test('[rules.P82.workspace] Activity exposes complete choices and retained extra slots through shared movement', async () => {
+  const { gateway } = fixture();
+  const first = renderWorkspace(gateway);
+  const second = renderWorkspace(gateway);
+  await waitFor(() => expect(first.result.current.status).toBe('ready'));
+  await act(async () => {
+    if (first.result.current.status !== 'ready') throw Error('not ready');
+    first.result.current.viewPhase('activity');
+    await first.result.current.edit({ kind: 'add_slot', slotId: 'middle' });
+    await first.result.current.edit({ kind: 'add_slot', slotId: 'right' });
+    await first.result.current.edit({
+      kind: 'stage',
+      slotId: 'left',
+      choice: {
+        choiceId: 'drill',
+        actionId: 'drill_militia',
+        costCopper: 0,
+        rolls: {
+          check: {
+            dice: [10],
+            sides: 20,
+            provenance: { kind: 'table' },
+            modifiers: [],
+          },
+        },
+      },
+    });
+    await first.result.current.edit({
+      kind: 'move',
+      fromSlotId: 'left',
+      toSlotId: 'right',
+      choiceId: 'drill',
+    });
+  });
+  await waitFor(() => {
+    const state = first.result.current;
+    if (state.status !== 'ready' || state.phaseView.phase !== 'activity')
+      throw Error('not activity');
+    expect(state.phaseView.slots[0]?.choice).toBeNull();
+    expect(state.phaseView.slots[2]?.choice).toMatchObject({
+      choiceId: 'drill',
+      costCopper: 0,
+      rolls: { check: { dice: [10] } },
+    });
+    expect(state.phaseView.slots[2]?.overAllowance).toBe(true);
+    expect(
+      second.result.current.status === 'ready' &&
+        second.result.current.phaseView.phase,
+    ).toBe('upkeep');
+  });
+});

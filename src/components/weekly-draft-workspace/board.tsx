@@ -9,6 +9,7 @@ import {
   useWeeklyDraftWorkspace,
 } from './use-weekly-draft-workspace';
 import { createConvexWorkspaceGateway } from './gateway';
+import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
 import type { Phase } from './types';
 const phaseLabels: Record<Phase, string> = {
@@ -98,6 +99,12 @@ export function WeeklyWorkspaceBoard() {
           edit={workspace.edit}
           disabled={workspace.feedback === 'confirming'}
         />
+      ) : view.phase === 'activity' ? (
+        <ActivityView
+          view={view}
+          edit={workspace.edit}
+          disabled={workspace.feedback === 'confirming'}
+        />
       ) : view.phase === 'summary' ? (
         <Card className="space-y-3 p-5">
           <h2 className="text-lg font-semibold">Review the week</h2>
@@ -153,9 +160,6 @@ export function WeeklyWorkspaceBoard() {
               ? 'This phase is ready.'
               : 'This phase needs more preparation.'}
           </p>
-          {view.phase === 'activity' && (
-            <p className="text-sm">Staged actions: {view.occupiedSlots}</p>
-          )}
         </Card>
       )}
     </main>
