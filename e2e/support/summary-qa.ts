@@ -62,6 +62,10 @@ export async function reviewSummaryWorkspace(
     .getByRole('region', { name: 'Final preview', exact: true })
     .innerText();
   let form = await start(page, 'Militia value');
+  await expect(button(form, 'Treasury (copper)')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await button(form, 'Save adjustment').click();
   await expect(form.getByRole('alert')).not.toHaveCount(0);
   await expect(region(peer).locator('article')).toHaveCount(0);
@@ -136,6 +140,43 @@ export async function reviewSummaryWorkspace(
           `${name}: ${label} text fits`,
         ).toBe(true);
     }
+    const splitWords = await region(page)
+      .locator('button')
+      .evaluateAll((buttons) => {
+        const split: string[] = [];
+        for (const button of buttons) {
+          const group = button
+            .closest('[role="group"]')
+            ?.getAttribute('aria-label');
+          if (
+            group &&
+            !['Field', 'Operation', 'Status', 'New Table Adjustment'].includes(
+              group,
+            )
+          )
+            continue;
+          const walker = document.createTreeWalker(
+            button,
+            NodeFilter.SHOW_TEXT,
+          );
+          let node = walker.nextNode();
+          while (node) {
+            for (const match of (node.textContent ?? '').matchAll(/\S+/g)) {
+              const range = document.createRange();
+              range.setStart(node, match.index);
+              range.setEnd(node, match.index + match[0].length);
+              if (range.getClientRects().length > 1) split.push(match[0]);
+            }
+            node = walker.nextNode();
+          }
+        }
+        return split;
+      });
+    expect(
+      splitWords,
+      `${name}: adjustment cards keep individual words readable`,
+    ).toEqual([]);
+    await expect(region(page)).not.toContainText('TreasuryCopper');
     await savePrivate(
       join(artifactDirectory, `reviewer-summary-${name}.png`),
       await page.screenshot({ fullPage: true }),
@@ -150,8 +191,9 @@ export async function reviewSummaryWorkspace(
   }
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
   // Compare the displayed pre-adjustment outcome with the restored one, with disclosures closed again.
-  for (const disclosure of await final.locator('details[open]').all())
-    await disclosure.locator('summary').first().click();
+  for (const disclosure of await final.locator('details').all())
+    if (await disclosure.evaluate((element) => element.hasAttribute('open')))
+      await disclosure.locator('summary').first().click();
   for (const title of ['Rank', 'Notoriety', 'Focus'])
     await final
       .locator('summary')

@@ -35,6 +35,9 @@ test('[rules.P85.adjustment] signed copper adjustment requires a reason and stag
   const edit = vi.fn().mockResolvedValue('accepted');
   render(<SummaryView view={view} edit={edit} {...controls} />);
   fireEvent.click(screen.getByRole('button', { name: 'Militia value' }));
+  expect(
+    screen.getByRole('button', { name: 'Treasury (copper)' }),
+  ).toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: 'Value' }), {
     target: { value: '-125' },
   });

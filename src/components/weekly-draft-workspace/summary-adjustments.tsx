@@ -34,6 +34,15 @@ export function SummaryAdjustments({
   edit: Edit;
   disabled: boolean;
 }) {
+  const options = {
+    ...view.options,
+    field: [
+      { value: 'training', label: 'Training' },
+      { value: 'treasuryCopper', label: 'Treasury (copper)' },
+      { value: 'notoriety', label: 'Notoriety' },
+      { value: 'rank', label: 'Rank' },
+    ],
+  };
   const [adding, setAdding] = useState<{
     id: string;
     kind: Adjustment['kind'];
@@ -43,7 +52,10 @@ export function SummaryAdjustments({
       setAdding(null);
   };
   return (
-    <section className="min-w-0 space-y-3" aria-label="Table Adjustments">
+    <section
+      className="min-w-0 space-y-3 [&_.grid]:grid-cols-1 sm:[&_.grid]:grid-cols-2"
+      aria-label="Table Adjustments"
+    >
       <h2 className="text-lg font-semibold">Table Adjustments</h2>
       <p className="text-muted-foreground text-sm">
         Apply in the order shown, after the complete Rules Baseline. Every
@@ -64,7 +76,7 @@ export function SummaryAdjustments({
                 ([key]) => key !== 'adjustmentId',
               ),
             )}
-            options={view.options}
+            options={options}
             disabled={disabled}
             onValue={(value) => {
               if (value === undefined) {
@@ -147,7 +159,7 @@ export function SummaryAdjustments({
               ? { kind: adding.kind, field: 'treasuryCopper', operation: 'add' }
               : { kind: adding.kind }
           }
-          options={view.options}
+          options={options}
           disabled={disabled}
           onValue={(value) => {
             if (value === undefined) {
