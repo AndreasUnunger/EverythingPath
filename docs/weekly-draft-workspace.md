@@ -74,3 +74,11 @@ The first Event gate (`b7POu3`) exposed a race in the browser scenario: the held
 - Full sequential verification passes 895 tests across 90 files, with 382 covered catalog cases, 290 explicit gaps and zero errors. Independent Standards re-review has no remaining documented violations; Spec static review has no remaining findings. Final browser and live UI evidence follow below.
 
 Independent browser QA in `dIWa7V` found phone buttons clipped by their container even though document-width checks passed. The structured Save/Clear row now wraps, and Event action labels can wrap within the available width. The browser gate now verifies the bounding rectangle and text overflow of each visible Event button at tablet, phone and desktop widths. This follow-up requires its own final source gate.
+
+### Final Event verification
+
+Application source `aaeec63` passes typecheck, lint and the full rules check: 895 tests across 90 files, with 382 covered catalog cases, 290 explicit gaps and zero errors. The final mandatory browser gate `FP4neT` passed all nine required results on their first attempts, with zero report errors and runner exit code 0. This includes the complete Upkeep/Activity/Event Workspace journey, authentication, five supported legacy journeys, twelve deployed editing scenarios and eight deployed Confirmation scenarios.
+
+Independent Standards review reports zero documented violations, with the reference-facts coupling observation above remaining nonblocking. Independent Spec review reports zero outstanding findings after directly opening Event details, navigating independently between Event and Summary, and inspecting final tablet/phone/desktop screenshots. Expanded Save/Clear controls and long action labels fit within the phone layout. Gate assertions separately check the bounds and text overflow of all visible Event buttons at each viewport.
+
+The safe report, canonical Event screenshots and independent `reviewer-event-*.png` evidence are under `e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-FP4neT/`. The runner completed cleanup. Verification used the disposable owned preview and dedicated authenticated identities; no production campaign was activated, no production cutover occurred, and no branch was pushed.
