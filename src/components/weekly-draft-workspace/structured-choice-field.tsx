@@ -558,7 +558,7 @@ export function StructuredChoiceField({
         issues={issues}
         disabled={disabled}
       />
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button variant="outline" type="submit" disabled={disabled}>
           Save {choiceFieldLabel(name).toLowerCase()}
         </Button>

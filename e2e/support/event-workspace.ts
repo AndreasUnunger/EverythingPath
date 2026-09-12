@@ -125,6 +125,21 @@ export async function exerciseEventWorkspace(
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
+    for (const button of await gm
+      .locator('section[aria-label="Event preparation"]')
+      .getByRole('button')
+      .all()) {
+      if (!(await button.isVisible())) continue;
+      const bounds = await button.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expect(
+        await button.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+    }
     await savePrivate(
       join(artifactDirectory, `canonical-event-${name}.png`),
       await gm.screenshot({ fullPage: true }),

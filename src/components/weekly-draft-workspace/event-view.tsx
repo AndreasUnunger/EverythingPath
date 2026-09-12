@@ -70,7 +70,10 @@ export function EventView({ view, edit, disabled }: Props) {
     saveTree([...tree(owner), { eventId: crypto.randomUUID(), origin }], owner);
   }
   return (
-    <section aria-label="Event preparation" className="space-y-4">
+    <section
+      aria-label="Event preparation"
+      className="space-y-4 [&_button]:h-auto [&_button]:max-w-full [&_button]:[overflow-wrap:anywhere] [&_button]:whitespace-normal"
+    >
       <Card className="space-y-3 p-5">
         <h2 className="text-lg font-semibold">Prepare events</h2>
         <p>Event chance: {view.chance}%</p>
