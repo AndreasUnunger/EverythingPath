@@ -138,10 +138,8 @@ export function SummaryView({
           <p>No rules warnings.</p>
         ) : (
           <ul className="list-disc space-y-2 pl-5">
-            {view.warnings.map((warning, index) => (
-              <li key={`${warning}:${index}`}>
-                {summaryMessage(warning, view, true)}
-              </li>
+            {[...new Set(view.warnings)].map((warning) => (
+              <li key={warning}>{summaryMessage(warning, view, true)}</li>
             ))}
           </ul>
         )}

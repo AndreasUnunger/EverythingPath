@@ -1,3 +1,7 @@
+import {
+  reviewSummaryWorkspace,
+  reviewSummarySettlement,
+} from './support/summary-qa';
 import { reviewPersistentWorkspace } from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
@@ -384,7 +388,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await player.getByRole('button', { name: 'Summary', exact: true }).click();
     for (const page of [gm, player]) {
       await expect(
-        page.getByText('Rules baseline: 3000 cp', { exact: true }),
+        page
+          .getByRole('region', { name: 'Rules Baseline', exact: true })
+          .getByText('3000 cp', { exact: true }),
       ).toBeVisible();
       await expect(page.getByText('3500 cp', { exact: true })).toBeVisible();
       await expect(
@@ -450,6 +456,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     }
     await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
     await exerciseEventWorkspace(gm, player, network, run.artifactDirectory);
+    await reviewSummarySettlement(gm, player);
     await player.getByRole('button', { name: 'Summary', exact: true }).click();
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),
@@ -497,6 +504,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     );
     const persistentRoute = `/canonical-workspace?campaign=${persistentScope.campaignId}`;
     await Promise.all([gm.goto(persistentRoute), player.goto(persistentRoute)]);
+    await reviewSummaryWorkspace(gm, player, run.artifactDirectory);
     await exercisePersistentWorkspace(
       gm,
       player,

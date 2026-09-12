@@ -768,3 +768,67 @@ test('[rules.P85.summary] Summary exposes ordered adjudication and complete name
   ]);
   hook.unmount();
 });
+
+test('[rules.P85.event-identity] ending the first event leaves later event names stable in both Summary outcomes', async () => {
+  const { draft, snapshot } = persistentEventFixture('theft');
+  draft.context = {
+    ...draft.context,
+    carriedEvents: [
+      ...draft.context.carriedEvents,
+      { ...draft.context.carriedEvents[0]!, eventId: 'second', order: 1 },
+    ],
+  };
+  const source = workspaceSourceSchema.parse({
+    key: {
+      campaignId: 'campaign',
+      militiaId: 'militia',
+      draftId: draft.draftId,
+    },
+    sourceRevision: 0,
+    snapshot,
+    people: [],
+  });
+  const authority = createMemoryDraftAuthority(draft, snapshot);
+  const hook = renderWorkspace({
+    subscribe(next) {
+      next(source);
+      return () => undefined;
+    },
+    transport: () => authority.transport,
+  });
+  await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+  const workspace = hook.result.current;
+  if (workspace.status !== 'ready') throw new Error('Expected Workspace');
+  await act(() =>
+    workspace.edit({
+      kind: 'table_adjustments',
+      adjustments: [
+        {
+          adjustmentId: 'ending',
+          kind: 'event_end',
+          eventId: 'carried',
+          reason: 'Captured the thief',
+        },
+      ],
+    }),
+  );
+  act(() => workspace.viewPhase('summary'));
+  const current = hook.result.current;
+  if (current.status !== 'ready' || current.phaseView.phase !== 'summary')
+    throw new Error('Expected Summary');
+  expect(current.phaseView.options.eventId).toContainEqual({
+    value: 'second',
+    label: 'Theft · Event 2',
+  });
+  expect(
+    current.phaseView.baseline?.context.carriedEvents.map(
+      (item) => item.eventId,
+    ),
+  ).toEqual(['carried', 'second']);
+  expect(
+    current.phaseView.outcome?.context.carriedEvents.map(
+      (item) => item.eventId,
+    ),
+  ).toEqual(['second']);
+  hook.unmount();
+});

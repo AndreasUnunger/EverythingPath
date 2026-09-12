@@ -168,3 +168,122 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
     exceptionId: 'exception',
   });
 });
+
+test('[rules.P85.outcomes] full preview includes named event bonuses and future effects without exposing event identities', () => {
+  const state = {
+    week: 5,
+    militiaSnapshot: {
+      rank: 2,
+      training: 14,
+      treasuryCopper: 5000,
+      notoriety: 0,
+      focus: 'Loyalty' as const,
+      roster: { people: [], teams: [], officers: [] },
+      characters: [],
+      settlements: [],
+      bonuses: [
+        {
+          bonusId: 'hidden-bonus',
+          source: 'hidden-event',
+          check: 'loyalty' as const,
+          value: 2,
+          availableWeek: 5,
+          consumedWeek: null,
+        },
+      ],
+    },
+    context: {
+      firstMilitiaWeek: false,
+      startDay: 28,
+      uneventfulCarry: true,
+      carriedEvents: [],
+      queuedEffects: [
+        {
+          effectId: 'hidden-effect',
+          sourceId: 'hidden-event',
+          startsWeek: 5,
+          endsWeek: 6,
+          effect: {
+            kind: 'narrative' as const,
+            instruction: 'Neighbors_supply_scouts',
+          },
+        },
+      ],
+      orders: [],
+      lastBuyoffWeek: null,
+    },
+  };
+  render(
+    <SummaryView
+      view={{
+        ...view,
+        baseline: state,
+        outcome: state,
+        options: {
+          eventId: [{ value: 'hidden-event', label: 'High Morale · Event 1' }],
+          sourceId: [{ value: 'hidden-event', label: 'High Morale · Event 1' }],
+        },
+      }}
+      edit={vi.fn()}
+      {...controls}
+    />,
+  );
+  expect(screen.queryByText('hidden-event')).not.toBeInTheDocument();
+  expect(screen.queryByText('hidden-bonus')).not.toBeInTheDocument();
+  expect(screen.queryByText('hidden-effect')).not.toBeInTheDocument();
+  expect(
+    screen.getAllByText('High Morale · Event 1').length,
+  ).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText('Neighbors_supply_scouts')).toHaveLength(2);
+});
+
+test('[rules.P85.readiness] readiness names the required decisions and warnings never expose opaque targets', () => {
+  render(
+    <SummaryView
+      view={{
+        ...view,
+        ready: false,
+        requirements: [
+          'upkeep:attrition-training:roll',
+          'choice-secret:team-type',
+          'team:team-secret:recovery-decision',
+          'choice-secret:treasury:exception',
+        ],
+        warnings: ['choice-secret:opaque-secret'],
+        options: {
+          subjectId: [
+            { value: 'choice-secret', label: 'Recruit Team · Slot 1' },
+            { value: 'team-secret', label: 'Scouts' },
+          ],
+        },
+      }}
+      edit={vi.fn()}
+      {...controls}
+      canConfirm={false}
+    />,
+  );
+  expect(
+    screen.getByText('Upkeep: Enter the attrition training roll.'),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Recruit Team · Slot 1: Choose the type of team to recruit.',
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Scouts: Choose whether to recover, leave or remove this disabled team.',
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Recruit Team · Slot 1: Review this rules departure in the affected phase with the table.',
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Recruit Team · Slot 1: The calculated cost exceeds the available treasury. Record a reasoned Rules Exception or revise the choice.',
+    ),
+  ).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain('secret');
+});

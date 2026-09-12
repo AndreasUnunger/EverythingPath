@@ -6129,6 +6129,9 @@ export const coverageCatalog = {
             'Summary exposes complete baseline and final outcomes with ordered reasoned adjudication; rejected saves and Confirmation require explicit fresh review before another attempt.',
           plannedTests: [
             'rules.P85.summary',
+            'rules.P85.readiness',
+            'rules.P85.outcomes',
+            'rules.P85.event-identity',
             'rules.P85.adjustment',
             'rules.P85.order',
             'rules.P85.exception',
@@ -6138,6 +6141,9 @@ export const coverageCatalog = {
           ],
           tests: [
             'rules.P85.summary',
+            'rules.P85.readiness',
+            'rules.P85.outcomes',
+            'rules.P85.event-identity',
             'rules.P85.adjustment',
             'rules.P85.order',
             'rules.P85.exception',

@@ -1,9 +1,73 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
-import { activityWarning } from './activity-warnings';
-import { choiceFieldLabel } from './structured-choice-field';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
-export function summaryMessage(code: string, view: Summary, warning = false) {
+const messages: Record<string, string> = {
+  'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
+  'upkeep:attrition-training:roll': 'Enter the attrition training roll.',
+  'upkeep:notoriety-training:roll': 'Enter the Notoriety training loss roll.',
+  'upkeep:notoriety:nearest-settlement':
+    'Choose the nearest settlement for Notoriety consequences.',
+  'upkeep:notoriety:settlement-reputation':
+    'Enter the nearest settlement’s reputation.',
+  'rank:boon-acknowledgement': 'Record the earned rank boon.',
+  'rank:ap-cap': 'The militia rank exceeds the adventure progression limit.',
+  'rank:pc-cap': 'The militia rank exceeds the highest player-character level.',
+  'return:roll': 'Enter the missing team’s return roll.',
+  'recovery-decision':
+    'Choose whether to recover, leave or remove this disabled team.',
+  'recovery-funds': 'Recovery costs exceed the available treasury.',
+  'recovery-cost-baseline':
+    'The entered recovery cost differs from the calculated cost.',
+  'removal-exception':
+    'Removing this team requires a reasoned Rules Exception.',
+  'persistent-ending': 'Ending this event requires a reasoned Rules Exception.',
+  'buyoff-cooldown':
+    'This buyoff falls within the militia’s four-week waiting period.',
+  'buyoff-cost-recomputed':
+    'The recorded amount differs from the calculated buyoff cost.',
+  'officer-assignment':
+    'Choose an assigned officer or record a reasoned Rules Exception.',
+  'team-type': 'Choose the type of team to recruit.',
+  'upgrade-type': 'Choose the upgraded team type.',
+  'recruitment-check': 'Choose the recruitment check.',
+  'target-team': 'Choose the target team.',
+  'duplicate-team': 'Choose a new team that is not already on the roster.',
+  'officer-role': 'Choose an officer role.',
+  'from-role': 'Choose the officer role to leave.',
+  'duplicate-role': 'This character already holds the selected officer role.',
+  character: 'Choose an available character.',
+  'highest-level-pc': 'Enter the highest player-character level.',
+  'unresolved-action': 'Choose an available action.',
+  'action-capacity': 'This choice exceeds the action allowance.',
+  'team-capacity': 'Recruitment exceeds the team allowance.',
+  'team-action': 'This team does not normally perform this action.',
+  'team-unavailable': 'This team is unavailable for this Activity.',
+  'team-condition':
+    'This team’s condition does not normally permit this action.',
+  'team-action-limit': 'This team has reached its Activity action allowance.',
+  'team-used': 'This team has already acted this Activity.',
+  'action-blocked': 'An event prevents this action during this Activity.',
+  'lie-low-exclusivity': 'Lie Low normally uses the entire Activity.',
+  'drill-limit': 'Drill Militia is normally available once per Activity.',
+  'calculated-cost':
+    'The entered cost differs from the rules calculation. The preview uses the calculated cost; changing this field does not adjust the treasury outcome.',
+  'duplicate-decision': 'Keep one decision for this persistent event.',
+  'no-mitigation-rule':
+    'This event has no standard temporary mitigation option.',
+  'no-event': 'Choose an event for this reactive action.',
+  'invalid-roll': 'Enter a whole-number check roll.',
+  roll: 'Enter the required check roll.',
+  treasury: 'The calculated cost exceeds the available treasury.',
+  funds: 'This transfer exceeds the available treasury.',
+};
+
+const adjustmentTargets: Record<string, string> = {
+  team: 'team',
+  settlement: 'settlement',
+  event: 'event',
+};
+
+function adjustmentMessage(code: string, view: Summary) {
   const adjustment = view.adjustments.find((item) =>
     code.startsWith(`adjustment:${item.adjustmentId}:`),
   );
@@ -12,15 +76,29 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
       ? `Table Adjustment “${adjustment.reason}” exceeds the supported whole-number range.`
       : code.endsWith(`:${adjustment.reason}`)
         ? `Table Adjustment: ${adjustment.reason}`
-        : `Table Adjustment “${adjustment.reason}”: choose an available ${code.split(':').at(-1)}.`;
-  const owner = (view.options.subjectId ?? [])
-    .filter(
-      (item) =>
-        code.startsWith(`${item.value}:`) ||
-        code.startsWith(`team:${item.value}:`) ||
-        code.startsWith(`transfer:${item.value}:`),
-    )
+        : `Table Adjustment “${adjustment.reason}”: choose an available ${adjustmentTargets[code.split(':').at(-1) ?? ''] ?? 'target'}.`;
+  return null;
+}
+
+function messageOwner(code: string, view: Summary) {
+  return (view.options.subjectId ?? [])
+    .filter((item) => `:${code}:`.includes(`:${item.value}:`))
     .sort((a, b) => b.value.length - a.value.length)[0];
+}
+
+function requiredRoll(code: string) {
+  const match = /^(.*):dice:(\d+d\d+)$/.exec(code);
+  if (!match) return null;
+  const prompt = messages[`${match[1]}:roll`];
+  return prompt
+    ? `${prompt.slice(0, -1)} (${match[2]}).`
+    : `Enter the required roll (${match[2]}).`;
+}
+
+export function summaryMessage(code: string, view: Summary, warning = false) {
+  const adjustment = adjustmentMessage(code, view);
+  if (adjustment) return adjustment;
+  const owner = messageOwner(code, view);
   const prefix = owner
     ? `${owner.label}: `
     : code.startsWith('upkeep:')
@@ -32,45 +110,31 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
     ? code.slice(code.indexOf(owner.value) + owner.value.length + 1)
     : code;
   const key = tail.replace(/:exception$/, '');
-  const messages: Record<string, string> = {
-    'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
-    'upkeep:notoriety:nearest-settlement':
-      'Choose the nearest settlement for Notoriety consequences.',
-    'rank:boon-acknowledgement': 'Record the earned rank boon.',
-    'rank:ap-cap': 'The militia rank exceeds the adventure progression limit.',
-    'rank:pc-cap':
-      'The militia rank exceeds the highest player-character level.',
-    'return:roll': 'Enter the missing team’s return roll.',
-    'recovery-funds': 'Recovery costs exceed the available treasury.',
-    'recovery-cost-baseline':
-      'The entered recovery cost differs from the calculated cost.',
-    'removal-exception':
-      'Removing this team requires a reasoned Rules Exception.',
-    'persistent-ending':
-      'Ending this event requires a reasoned Rules Exception.',
-    'buyoff-cooldown':
-      'This buyoff falls within the militia’s four-week waiting period.',
-    'buyoff-cost-recomputed':
-      'The recorded amount differs from the calculated buyoff cost.',
-    'officer-assignment':
-      'Choose an assigned officer or record a reasoned Rules Exception.',
-    treasury: 'The calculated cost exceeds the available treasury.',
-    funds: 'This transfer exceeds the available treasury.',
-    officer: 'This transfer is for a character without an officer assignment.',
-  };
-  if (messages[key]) return prefix + messages[key];
-  if (warning && owner?.label.includes('Slot'))
-    return prefix + activityWarning(`${owner.value}:${tail}`, owner.value);
-  if (
-    warning &&
-    /roll-range|calculated-event|event-eligibility|alchemical-reward/.test(code)
-  )
-    return prefix + eventWarning(code);
+  if (/reference|Unknown|revision/.test(code))
+    return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
+  if (code.startsWith('transfer:') && key === 'officer')
+    return `${prefix}This transfer is for a character without an officer assignment.`;
+  const known = messages[key];
+  if (known)
+    return (
+      prefix +
+      known +
+      (!warning && code.endsWith(':exception')
+        ? ' Record a reasoned Rules Exception or revise the choice.'
+        : '')
+    );
+  const roll = requiredRoll(tail);
+  if (roll) return prefix + roll;
+  if (warning)
+    return (
+      prefix +
+      (/roll-range|calculated-event|event-eligibility|alchemical-reward/.test(
+        code,
+      )
+        ? eventWarning(code)
+        : 'Review this rules departure in the affected phase with the table.')
+    );
   const translated = eventRequirement(code);
   if (!translated.startsWith('An earlier')) return prefix + translated;
-  if (owner)
-    return `${prefix}${choiceFieldLabel(tail.replaceAll(':', '_').replaceAll('-', '_'))}. ${warning ? 'Review this departure with the table.' : 'Complete this decision before confirming.'}`;
-  if (/reference|Unknown|source|revision/.test(code))
-    return 'A selected character, team, settlement or asset is no longer available. Review the affected choice.';
-  return `${prefix}A required rule decision needs attention. Review the phase’s highlighted choices.`;
+  return `${prefix}Complete the highlighted decision in the affected phase before confirming.`;
 }

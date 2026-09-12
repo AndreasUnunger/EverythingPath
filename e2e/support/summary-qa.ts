@@ -1,0 +1,192 @@
+import { join } from 'node:path';
+import { expect, type Page, type Locator } from '@playwright/test';
+import { savePrivate } from './process';
+
+const region = (page: Page) =>
+  page.getByRole('region', { name: 'Table Adjustments', exact: true });
+const button = (scope: Locator, name: string) =>
+  scope.getByRole('button', { name, exact: true });
+async function openSummary(page: Page) {
+  await page.getByRole('button', { name: 'Summary', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Review the week', exact: true }),
+  ).toBeVisible();
+}
+async function start(page: Page, kind: string) {
+  await region(page)
+    .getByRole('group', { name: 'New Table Adjustment', exact: true })
+    .getByRole('button', { name: kind, exact: true })
+    .click();
+  return region(page).locator('form').last();
+}
+async function save(page: Page, peer: Page, form: Locator, reason: string) {
+  await form.getByRole('textbox', { name: 'Reason', exact: true }).fill(reason);
+  await button(form, 'Save adjustment').click();
+  await expect(
+    region(peer)
+      .getByRole('textbox', { name: 'Reason', exact: true })
+      .filter({ visible: true })
+      .last(),
+  ).toHaveValue(reason);
+  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+}
+async function choose(form: Locator, field: string, value: string) {
+  await form
+    .getByRole('group', { name: field, exact: true })
+    .getByRole('button', { name: value, exact: true })
+    .click();
+}
+async function openOutcomes(page: Page) {
+  for (const title of ['Rules Baseline', 'Final preview']) {
+    const outcome = page.getByRole('region', { name: title, exact: true });
+    for (const disclosure of await outcome.locator('details').all()) {
+      if (
+        !(await disclosure.evaluate((element) => element.hasAttribute('open')))
+      )
+        await disclosure.locator('summary').first().click();
+    }
+    await expect(outcome).toContainText('Future week');
+    await expect(outcome).toContainText('Roster');
+    await expect(outcome).toContainText('Officers');
+  }
+}
+
+/** Real controls, all outcome disclosures, and responsive layout on the owned persistent fixture. */
+export async function reviewSummaryWorkspace(
+  page: Page,
+  peer: Page,
+  artifactDirectory: string,
+) {
+  await Promise.all([openSummary(page), openSummary(peer)]);
+  const baseline = await page
+    .getByRole('region', { name: 'Final preview', exact: true })
+    .innerText();
+  let form = await start(page, 'Militia value');
+  await button(form, 'Save adjustment').click();
+  await expect(form.getByRole('alert')).not.toHaveCount(0);
+  await expect(region(peer).locator('article')).toHaveCount(0);
+  await choose(form, 'Operation', 'Set');
+  await form.getByRole('textbox', { name: 'Value', exact: true }).fill('50000');
+  await save(
+    page,
+    peer,
+    form,
+    'The table sets the treasury after the rules calculation.',
+  );
+  form = await start(page, 'Militia value');
+  await form.getByRole('textbox', { name: 'Value', exact: true }).fill('-7');
+  await save(page, peer, form, 'Seven copper paid for local supplies.');
+  await expect(
+    page.getByRole('region', { name: 'Final preview', exact: true }),
+  ).toContainText('49993 cp');
+  await button(region(page), 'Move adjustment 2 earlier').click();
+  await expect(
+    peer.getByRole('region', { name: 'Final preview', exact: true }),
+  ).toContainText('50000 cp');
+  await button(region(page), 'Move adjustment 1 later').click();
+  await expect(
+    peer.getByRole('region', { name: 'Final preview', exact: true }),
+  ).toContainText('49993 cp');
+  form = await start(page, 'Team condition');
+  await choose(form, 'Team', 'Scouts');
+  await choose(form, 'Status', 'Disabled');
+  await save(page, peer, form, 'Scouts rest after a narrative encounter.');
+  form = await start(page, 'End persistent event');
+  await choose(form, 'Event', 'Theft · Event 1');
+  await save(page, peer, form, 'The thieves have left the region.');
+  await expect(region(peer).locator('article')).toHaveCount(4);
+  await openOutcomes(page);
+  const final = page.getByRole('region', {
+    name: 'Final preview',
+    exact: true,
+  });
+  await expect(final).toContainText('Scouts');
+  await expect(final).toContainText('Disabled');
+  await expect(final).not.toContainText('theft-old');
+  await expect(final).not.toContainText('persistent-team-');
+  for (const [name, width, height] of [
+    ['tablet', 1194, 834],
+    ['phone', 390, 844],
+    ['desktop', 1440, 900],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      `${name}: document fits`,
+    ).toBe(true);
+    for (const control of await page.locator('main button, main input').all()) {
+      if (!(await control.isVisible())) continue;
+      const bounds = await control.boundingBox();
+      const label =
+        (await control.getAttribute('aria-label')) ??
+        (await control.textContent());
+      expect(bounds, `${name}: ${label}`).not.toBeNull();
+      expect(bounds!.x, `${name}: ${label}`).toBeGreaterThanOrEqual(0);
+      expect(
+        bounds!.x + bounds!.width,
+        `${name}: ${label}`,
+      ).toBeLessThanOrEqual(width);
+      if (await control.evaluate((element) => element.tagName === 'BUTTON'))
+        expect(
+          await control.evaluate(
+            (element) => element.scrollWidth <= element.clientWidth,
+          ),
+          `${name}: ${label} text fits`,
+        ).toBe(true);
+    }
+    await savePrivate(
+      join(artifactDirectory, `reviewer-summary-${name}.png`),
+      await page.screenshot({ fullPage: true }),
+    );
+  }
+  for (let count = 4; count > 0; count--) {
+    await button(
+      region(page).locator('article').last(),
+      'Clear adjustment',
+    ).click();
+    await expect(region(peer).locator('article')).toHaveCount(count - 1);
+  }
+  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  // Compare the displayed pre-adjustment outcome with the restored one, with disclosures closed again.
+  for (const disclosure of await final.locator('details[open]').all())
+    await disclosure.locator('summary').first().click();
+  for (const title of ['Rank', 'Notoriety', 'Focus'])
+    await final
+      .locator('summary')
+      .filter({ hasText: new RegExp(`^${title}$`) })
+      .click();
+  await expect(final).toHaveText(baseline, { useInnerText: true });
+  await page.setViewportSize({ width: 1194, height: 834 });
+}
+
+/** Settlement variant uses the owned fixture that actually contains settlements. */
+export async function reviewSummarySettlement(page: Page, peer: Page) {
+  await Promise.all([openSummary(page), openSummary(peer)]);
+  const count = await region(page).locator('article').count();
+  const form = await start(page, 'Settlement reputation');
+  await choose(form, 'Settlement', 'Phaendar');
+  await choose(form, 'Reputation', 'Friendly');
+  await save(
+    page,
+    peer,
+    form,
+    'The settlement welcomed the militia after a table ruling.',
+  );
+  const final = peer.getByRole('region', {
+    name: 'Final preview',
+    exact: true,
+  });
+  await final
+    .locator('summary')
+    .filter({ hasText: /^Settlements$/ })
+    .click();
+  await expect(final).toContainText('Friendly');
+  await button(
+    region(page).locator('article').last(),
+    'Clear adjustment',
+  ).click();
+  await expect(region(peer).locator('article')).toHaveCount(count);
+  await expect(final).not.toContainText('Friendly');
+}

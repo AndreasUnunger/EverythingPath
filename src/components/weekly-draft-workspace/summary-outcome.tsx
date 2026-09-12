@@ -29,6 +29,28 @@ function factLabel(key: string) {
   return labels[key] ?? choiceFieldLabel(key);
 }
 function namedValue(value: string, field: string, view: Summary) {
+  if (field === 'source') {
+    const named = [
+      ...(view.options.eventId ?? []),
+      ...(view.options.subjectId ?? []),
+    ].find((item) => item.value === value);
+    if (named) return named.label;
+  }
+  if (
+    [
+      'kind',
+      'eventType',
+      'status',
+      'teamType',
+      'check',
+      'phase',
+      'bonusType',
+      'reputation',
+      'receiptStatus',
+      'operation',
+    ].includes(field)
+  )
+    return choiceFieldLabel(value);
   if (field === 'actionId') return choiceFieldLabel(value);
   const key =
     field === 'sourceEventIds'
@@ -51,7 +73,16 @@ function namedValue(value: string, field: string, view: Summary) {
       view.options[key]?.find((item) => item.value === value)?.label ??
       'Recorded source'
     );
-  return value.includes('_') ? choiceFieldLabel(value) : value;
+  return value;
+}
+function factEntries(values: unknown[]) {
+  const occurrences = new Map<string, number>();
+  return values.map((value) => {
+    const signature = JSON.stringify(value);
+    const occurrence = occurrences.get(signature) ?? 0;
+    occurrences.set(signature, occurrence + 1);
+    return { value, key: `${signature}:${occurrence}` };
+  });
 }
 export function SummaryFacts({
   value,
@@ -76,11 +107,8 @@ export function SummaryFacts({
   if (Array.isArray(value))
     return value.length ? (
       <ol className="space-y-3">
-        {value.map((item: unknown, index) => (
-          <li
-            key={`${field}:${JSON.stringify(item)}:${index}`}
-            className="min-w-0 border-l pl-3"
-          >
+        {factEntries(value).map(({ value: item, key }) => (
+          <li key={key} className="min-w-0 border-l pl-3">
             <SummaryFacts value={item} field={field} view={view} />
           </li>
         ))}

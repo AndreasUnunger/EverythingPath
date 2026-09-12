@@ -113,7 +113,9 @@ export function summaryView(
       })),
       eventId: state.context.carriedEvents.map((event, index) => ({
         value: event.eventId,
-        label: `${activityLabel(event.eventType)} · Event ${index + 1}`,
+        label:
+          options.eventId?.find((item) => item.value === event.eventId)
+            ?.label ?? `${activityLabel(event.eventType)} · Event ${index + 1}`,
       })),
     }))
       options[field] = [
