@@ -184,3 +184,28 @@ test('[rules.P84.copper] buyoff cost preserves zero and clear and rejects malfor
   });
   expect(screen.getByText('Projected buyoff cost: 4000 cp.')).toBeVisible();
 });
+
+test('[rules.P84.theft] Theft offers only its applicable Loyalty roll and named Overseer support', () => {
+  render(
+    <PersistentView
+      view={{
+        ...view,
+        events: [
+          {
+            ...event,
+            eventType: 'theft',
+            decision: { kind: 'mitigate', eventId: 'rivalry' },
+          },
+        ],
+      }}
+      edit={vi.fn()}
+      disabled={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add rolls' }));
+  expect(screen.getByRole('button', { name: 'Add check' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Add notoriety' })).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Add officer check' }),
+  ).toBeNull();
+});

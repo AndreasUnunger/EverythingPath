@@ -28,12 +28,12 @@ export async function exercisePersistentWorkspace(
     gm.getByText('First buyoff is available immediately.', { exact: true }),
   ).toBeVisible();
   await button(old(gm), 'Buy off event').click();
-  await expect(old(player)).toContainText('Buyoff staged: 6000 cp.');
+  await expect(old(player)).toContainText('Buyoff staged: 4000 cp.');
   await expect(
     gm.getByText('Next buyoff: week 8.', { exact: true }),
   ).toBeVisible();
   await expect(
-    recent(player).getByText('Buyoff staged: 6000 cp.', { exact: true }),
+    recent(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),
   ).toHaveCount(0);
   await button(recent(player), 'Buy off event').click();
   await expect(
@@ -46,14 +46,14 @@ export async function exercisePersistentWorkspace(
     .getByRole('textbox', { name: 'Persistent exception reason', exact: true })
     .fill('The table permits both buyoffs this week.');
   await button(recent(gm), 'Save persistent exception reason').click();
-  await expect(recent(player)).toContainText('Buyoff staged: 6000 cp.');
+  await expect(recent(player)).toContainText('Buyoff staged: 4000 cp.');
   await button(recent(player), 'Clear decision').click();
   await expect(
-    recent(gm).getByText('Buyoff staged: 6000 cp.', { exact: true }),
+    recent(gm).getByText('Buyoff staged: 4000 cp.', { exact: true }),
   ).toHaveCount(0);
   await button(old(gm), 'Clear decision').click();
   await expect(
-    old(player).getByText('Buyoff staged: 6000 cp.', { exact: true }),
+    old(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),
   ).toHaveCount(0);
 
   await old(gm)
@@ -114,7 +114,7 @@ export async function exercisePersistentWorkspace(
       player.getByRole('heading', { name: /· Persistent$/ }),
     ).toBeVisible();
     await button(old(player), 'Buy off event').click();
-    await expect(old(observer)).toContainText('Buyoff staged: 6000 cp.');
+    await expect(old(observer)).toContainText('Buyoff staged: 4000 cp.');
     network.release();
     await expect(
       gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
@@ -125,15 +125,15 @@ export async function exercisePersistentWorkspace(
     await observer.close();
   }
   await phase(gm, 'Persistent');
-  await expect(old(gm)).toContainText('Buyoff staged: 6000 cp.');
+  await expect(old(gm)).toContainText('Buyoff staged: 4000 cp.');
   await button(old(gm), 'Clear decision').click();
   await expect(
-    old(player).getByText('Buyoff staged: 6000 cp.', { exact: true }),
+    old(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),
   ).toHaveCount(0);
   await button(old(player), 'Buy off event').click();
-  await expect(old(gm)).toContainText('Buyoff staged: 6000 cp.');
+  await expect(old(gm)).toContainText('Buyoff staged: 4000 cp.');
   await button(recent(gm), 'Buy off event').click();
-  await expect(recent(player)).toContainText('Buyoff staged: 6000 cp.');
+  await expect(recent(player)).toContainText('Buyoff staged: 4000 cp.');
 
   await button(rivalry(player), 'Attempt officer ending').click();
   await button(rivalry(player), 'Add officer check').click();

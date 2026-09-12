@@ -765,7 +765,7 @@ test('[rules.P84.fixture] isolated Persistent preparation projects independent c
   });
   const staged = await member.query(api.canonicalDraftPersistence.preview, key);
   expect(staged.outcome?.militiaSnapshot.treasuryCopper).toBe(
-    (review.outcome?.militiaSnapshot.treasuryCopper ?? 0) - 6000,
+    (review.outcome?.militiaSnapshot.treasuryCopper ?? 0) - 4000,
   );
   expect(staged.outcome?.context.lastBuyoffWeek).toBe(4);
 });

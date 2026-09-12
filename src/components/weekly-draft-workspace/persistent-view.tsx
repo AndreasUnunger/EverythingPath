@@ -1,4 +1,6 @@
 'use client';
+import { z } from 'zod';
+import { rollsSchema } from '~/lib/weekly-draft-facts';
 import { persistentDecisionSchema } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { WholeNumberField } from './whole-number-field';
@@ -23,11 +25,17 @@ const officerDecision = mitigation.omit({
   targets: true,
   strategistCharacterId: true,
 });
-const theftDecision = mitigation.omit({
-  officerCheck: true,
-  targets: true,
-  strategistCharacterId: true,
-});
+const theftDecision = mitigation
+  .omit({
+    officerCheck: true,
+    targets: true,
+    strategistCharacterId: true,
+  })
+  .extend({
+    rolls: z
+      .strictObject({ check: rollsSchema.valueType.optional() })
+      .optional(),
+  });
 
 export function PersistentView({ view, edit, disabled }: Props) {
   return (

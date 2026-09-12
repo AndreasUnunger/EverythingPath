@@ -1,3 +1,4 @@
+import { reviewPersistentWorkspace } from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
@@ -462,6 +463,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
       network,
       run.artifactDirectory,
     );
+    await reviewPersistentWorkspace(gm, run.artifactDirectory);
   } finally {
     network.release();
   }
