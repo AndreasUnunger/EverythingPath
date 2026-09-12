@@ -729,3 +729,43 @@ test('[rules.P81.recovery-transaction] recovery and its reasoned adjustment comm
   ).rejects.toThrow('Target changed');
   expect(await member.query(observe, key)).toEqual(adjudicated);
 });
+
+test('[rules.P84.fixture] isolated Persistent preparation projects independent carried events and current buyoff cost', async () => {
+  const { t } = await setup();
+  await t.mutation(internal.e2eFixtures.resetCase, { ...fixtureScope, now: 2 });
+  const key = await t.mutation(
+    internal.canonicalPersistenceFixtures.initializeUpkeep,
+    { scope: fixtureScope, draftId: 'persistent-view', persistent: true },
+  );
+  const user = await t.run((ctx) => ctx.db.query('user').first());
+  if (!user) throw new Error('Missing fixture member');
+  const member = t.withIdentity({ tokenIdentifier: user.tokenIdentifier });
+  const source = await member.query(api.canonicalDraftPersistence.workspace, {
+    campaignId: key.campaignId,
+  });
+  expect(source?.snapshot.treasuryCopper).toBe(50000);
+  const observed = await member.query(observe, key);
+  expect(
+    observed.draft?.context.carriedEvents.map((event) => event.eventType),
+  ).toEqual(['theft', 'theft', 'rivalry']);
+  const review = await member.query(api.canonicalDraftPersistence.preview, key);
+  expect(review.status).toBe('ready');
+  await member.mutation(edit, {
+    campaignId: key.campaignId,
+    militiaId: key.militiaId,
+    operation: {
+      draftId: key.draftId,
+      baseRevision: 0,
+      operationId: 'buyoff',
+      edit: {
+        kind: 'persistent_decision',
+        decision: { kind: 'buyoff', eventId: 'theft-old' },
+      },
+    },
+  });
+  const staged = await member.query(api.canonicalDraftPersistence.preview, key);
+  expect(staged.outcome?.militiaSnapshot.treasuryCopper).toBe(
+    (review.outcome?.militiaSnapshot.treasuryCopper ?? 0) - 6000,
+  );
+  expect(staged.outcome?.context.lastBuyoffWeek).toBe(4);
+});

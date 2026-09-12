@@ -242,6 +242,7 @@ export const initializeUpkeep = internalMutation({
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
     choices: v.optional(v.boolean()),
+    persistent: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
@@ -338,6 +339,62 @@ export const initializeUpkeep = internalMutation({
       provenance: { kind: 'table' },
       modifiers: [],
     };
+    if (args.persistent) {
+      snapshot.treasuryCopper = 50000;
+      snapshot.roster.teams = ['Scouts', 'Rangers'].map((name, index) => ({
+        teamId: `persistent-team-${index}`,
+        teamType: 'patrons',
+        name,
+        status: 'active',
+        managerCharacterId: null,
+        rewardCapExempt: false,
+        notes: '',
+      }));
+      draft.context = {
+        ...draft.context,
+        persistentPhaseEligible: true,
+        carriedEvents: [
+          {
+            eventId: 'theft-old',
+            eventType: 'theft',
+            startedWeek: 1,
+            order: 0,
+            targets: [],
+          },
+          {
+            eventId: 'theft-new',
+            eventType: 'theft',
+            startedWeek: 2,
+            order: 1,
+            targets: [],
+          },
+          {
+            eventId: 'rivalry',
+            eventType: 'rivalry',
+            startedWeek: 3,
+            order: 2,
+            targets: snapshot.roster.teams.map((team) => ({
+              kind: 'team',
+              teamId: team.teamId,
+            })),
+          },
+        ],
+      };
+      draft.upkeep.rolls = {
+        check: {
+          dice: [20],
+          sides: 20,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+        training: {
+          dice: [1],
+          sides: 6,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      };
+    }
     await ctx.db.patch('canonicalMilitiaState', state._id, { snapshot });
     await ctx.db.patch('canonicalWeeklyDraft', row._id, {
       draft: weeklyDraftDataSchema.parse(draft),

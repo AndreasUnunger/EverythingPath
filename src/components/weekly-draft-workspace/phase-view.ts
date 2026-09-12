@@ -1,3 +1,4 @@
+import { persistentView } from './persistent-facts';
 import { eventView } from './event-facts';
 import { activityView } from './activity-facts';
 import { upkeepInputFacts } from '~/lib/rules-upkeep';
@@ -22,14 +23,7 @@ export function phaseView(
     };
   if (phase === 'activity') return activityView(draft, source, preview);
   if (phase === 'event') return eventView(draft, source, preview);
-  if (phase === 'persistent')
-    return {
-      phase,
-      ready: preview.phases?.persistent.ready ?? false,
-      carriedCount: draft.context.carriedEvents.length,
-      requirements: preview.phases?.persistent.requirements ?? [],
-      warnings: preview.phases?.persistent.warnings ?? [],
-    };
+  if (phase === 'persistent') return persistentView(draft, source, preview);
   const { projection, fields, minimumTreasuryCopper } = upkeepInputFacts(
     draft,
     source.snapshot,

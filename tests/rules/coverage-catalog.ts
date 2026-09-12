@@ -6123,6 +6123,29 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'persistent-preparation',
+          checkpoint: '7-workspace',
+          expected:
+            'Carried event instances retain fixed navigation eligibility, named targets and age/order while mitigation, officer ending, reasoned ending and buyoff remain shared staged decisions; buyoffs share the projected cooldown.',
+          plannedTests: [
+            'rules.P84.workspace',
+            'rules.P84.decisions',
+            'rules.P84.ending',
+            'rules.P84.officer',
+            'rules.P84.copper',
+            'rules.P81.eligibility',
+          ],
+          tests: [
+            'rules.P84.workspace',
+            'rules.P84.decisions',
+            'rules.P84.ending',
+            'rules.P84.officer',
+            'rules.P84.copper',
+            'rules.P81.eligibility',
+          ],
+          gap: null,
+        },
+        {
           id: 'event-preparation',
           checkpoint: '7-workspace',
           expected:

@@ -509,3 +509,103 @@ test('[rules.P83.workspace] Event occurrences and required branches recompute af
   });
   expect(ready().phaseView.requirements).not.toContain('root:roll_twice:2');
 });
+
+test('[rules.P84.workspace] carried instances retain targets and order while buyoff stages an ending and shared cooldown', async () => {
+  const { draft, snapshot } = persistentEventFixture('double_agent');
+  draft.context = {
+    ...draft.context,
+    carriedEvents: [
+      ...draft.context.carriedEvents,
+      { ...draft.context.carriedEvents[0]!, eventId: 'second', order: 1 },
+    ],
+  };
+  snapshot.treasuryCopper = 100000;
+  const source = workspaceSourceSchema.parse({
+    key: {
+      campaignId: 'campaign',
+      militiaId: 'militia',
+      draftId: draft.draftId,
+    },
+    sourceRevision: 0,
+    snapshot,
+    people: [],
+  });
+  const authority = createMemoryDraftAuthority(draft, snapshot);
+  const gateway: WorkspaceGateway = {
+    subscribe(next) {
+      next(source);
+      return () => undefined;
+    },
+    transport: () => authority.transport,
+  };
+  const first = renderWorkspace(gateway);
+  const second = renderWorkspace(gateway);
+  await waitFor(() => expect(first.result.current.status).toBe('ready'));
+  const ready = () => {
+    const state = first.result.current;
+    if (state.status !== 'ready') throw Error('Expected ready');
+    return state;
+  };
+  act(() => ready().viewPhase('persistent'));
+  expect(ready().phaseView).toMatchObject({
+    phase: 'persistent',
+    firstBuyoff: true,
+    nextBuyoffWeek: 2,
+    events: [
+      { eventId: 'carried', startedWeek: 1, order: 0, ended: false },
+      { eventId: 'second', order: 1 },
+    ],
+  });
+  await act(() =>
+    ready().edit({
+      kind: 'persistent_decision',
+      decision: { kind: 'buyoff', eventId: 'carried' },
+    }),
+  );
+  expect(ready().phaseView).toMatchObject({
+    phase: 'persistent',
+    nextBuyoffWeek: 6,
+    events: [
+      { eventId: 'carried', ended: true, decision: { kind: 'buyoff' } },
+      { eventId: 'second', ended: false },
+    ],
+  });
+  await act(() =>
+    ready().edit({
+      kind: 'persistent_decision',
+      decision: { kind: 'buyoff', eventId: 'second' },
+    }),
+  );
+  expect(ready().phaseView).toMatchObject({
+    events: [
+      { ended: true },
+      {
+        ended: false,
+        exceptions: expect.arrayContaining([
+          expect.objectContaining({
+            ruleId: 'buyoff-cooldown',
+            subjectId: 'second',
+          }),
+        ]),
+      },
+    ],
+  });
+  act(() => {
+    const state = second.result.current;
+    if (state.status === 'ready') state.viewPhase('persistent');
+  });
+  await waitFor(() =>
+    expect(
+      second.result.current.status === 'ready' &&
+        second.result.current.phaseView,
+    ).toEqual(ready().phaseView),
+  );
+  await act(() =>
+    ready().edit({ kind: 'clear_persistent_decision', eventId: 'carried' }),
+  );
+  expect(ready().phaseView).toMatchObject({
+    events: [{ ended: false }, { ended: true }],
+  });
+  first.unmount();
+  second.unmount();
+});

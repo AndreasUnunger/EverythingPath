@@ -1,4 +1,5 @@
 import { exerciseEventWorkspace } from './support/event-workspace';
+import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -441,6 +442,25 @@ test('players prepare shared Upkeep with independent navigation and save recover
           reason: 'Local healer donated supplies',
         }),
       ]),
+    );
+    await fixtureCall(run, 'resetCase', {
+      ...ownedCase.scope,
+      now: 1_700_000_000_000,
+    });
+    const persistentScope = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+        scope: ownedCase.scope,
+        draftId: randomUUID(),
+        persistent: true,
+      }),
+    );
+    const persistentRoute = `/canonical-workspace?campaign=${persistentScope.campaignId}`;
+    await Promise.all([gm.goto(persistentRoute), player.goto(persistentRoute)]);
+    await exercisePersistentWorkspace(
+      gm,
+      player,
+      network,
+      run.artifactDirectory,
     );
   } finally {
     network.release();

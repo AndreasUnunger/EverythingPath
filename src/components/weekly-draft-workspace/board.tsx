@@ -9,6 +9,7 @@ import {
   useWeeklyDraftWorkspace,
 } from './use-weekly-draft-workspace';
 import { createConvexWorkspaceGateway } from './gateway';
+import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
@@ -112,6 +113,12 @@ export function WeeklyWorkspaceBoard() {
           edit={workspace.edit}
           disabled={workspace.feedback === 'confirming'}
         />
+      ) : view.phase === 'persistent' ? (
+        <PersistentView
+          view={view}
+          edit={workspace.edit}
+          disabled={workspace.feedback === 'confirming'}
+        />
       ) : view.phase === 'summary' ? (
         <Card className="space-y-3 p-5">
           <h2 className="text-lg font-semibold">Review the week</h2>
@@ -159,16 +166,7 @@ export function WeeklyWorkspaceBoard() {
             Confirm week
           </Button>
         </Card>
-      ) : (
-        <Card className="space-y-2 p-5">
-          <h2 className="text-lg font-semibold">{phaseLabels[view.phase]}</h2>
-          <p className="text-sm">
-            {view.ready
-              ? 'This phase is ready.'
-              : 'This phase needs more preparation.'}
-          </p>
-        </Card>
-      )}
+      ) : null}
     </main>
   );
 }

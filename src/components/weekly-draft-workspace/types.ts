@@ -1,3 +1,4 @@
+import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
 import type { ActivityProjection } from '~/lib/rules-activity';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
@@ -125,17 +126,33 @@ export type EventView = {
   requirements: string[];
   warnings: string[];
 };
+export type PersistentView = {
+  phase: 'persistent';
+  ready: boolean;
+  firstBuyoff: boolean;
+  nextBuyoffWeek: number | null;
+  buyoffCostCopper: number | null;
+  options: EventView['options'];
+  events: (WeeklyDraft['context']['carriedEvents'][number] & {
+    name: string;
+    ageWeeks: number;
+    targetNames: string[];
+    decision: WeeklyDraft['persistent']['decisions'][number] | null;
+    ended: boolean;
+    changes: PersistentChange[];
+    checks: ActivityView['checks'];
+    exceptions: WeeklyDraft['rulesExceptions'];
+    requirements: string[];
+    warnings: string[];
+  })[];
+  requirements: string[];
+  warnings: string[];
+};
 export type PhaseView =
   | UpkeepView
   | ActivityView
   | EventView
-  | {
-      phase: 'persistent';
-      ready: boolean;
-      carriedCount: number;
-      requirements: string[];
-      warnings: string[];
-    }
+  | PersistentView
   | {
       phase: 'summary';
       ready: boolean;
