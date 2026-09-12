@@ -44,3 +44,11 @@ The #82 review audited all 23 action variants. Keep these contracts when reusing
 - Cross-field refinement errors belong beside the edited field. A failed clear keeps the field contents. Nested schema optionality is not permission to hide required ownership or expose opaque identifiers.
 
 Observable regressions are named `rules.P82.receipt`, `rules.P82.sources`, `rules.P82.modifiers`, `rules.P82.nested-acknowledgements`, `rules.P82.declared-references`, `rules.P82.validation`, `rules.P82.union`, `rules.P82.decimal`, and `rules.P82.references`. Global Event/Persistent acknowledgements, phase presentation, and broader Summary work remain in their subsequent issues.
+
+### Final Activity verification
+
+The final application source at `66ec2e5` passes typecheck, lint and the complete rules check: 888 tests across 89 files, with 381 covered catalog cases, 290 explicit gaps and zero catalog errors. The mandatory isolated browser gate `3OoA0D` passed all nine required results on their first attempts, with zero report errors and runner exit code 0. This includes the expanded two-player Workspace journey, authentication, five supported legacy journeys, and the separately reported deployed editing and Confirmation contracts. Safe evidence and tablet/phone/desktop screenshots are under `e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-3OoA0D/`.
+
+Independent Standards review reports zero documented-standard violations and one nonblocking complexity observation: the structured field dispatcher and object preparation combine several schema and domain branches. Independent Spec review reports zero remaining substantive gaps after its 23-action audit and provenance correction. Reviewers exercised the real UI and inspected screenshots; the detailed receipt/modifier invariants additionally have focused interaction tests.
+
+The horizontal action deck retains one nonblocking usability observation: touch scrolling starts in deck padding or gaps because card faces support intentional dragging. Keyboard and trackpad navigation remain available. Verification used the disposable owned preview and dedicated authenticated players; no production cutover occurred.
