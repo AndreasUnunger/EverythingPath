@@ -809,5 +809,60 @@ export async function runPersistenceContract(
       ),
       'A removed occurrence cannot be resurrected',
     );
+    await first.send(
+      op(4, {
+        kind: 'stage',
+        slotId: 'left',
+        choice: {
+          choiceId: 'event-choice',
+          actionId: 'guarantee_event',
+          candidates: [firstEvent],
+        },
+      }),
+    );
+    await first.send(
+      op(5, {
+        kind: 'event_occurrence',
+        occurrence: { ...firstEvent, tableRoll: roll(45) },
+      }),
+    );
+    const choice = (await second.read()).draft?.activity.slots[0]?.choice;
+    check(
+      choice?.actionId === 'guarantee_event' &&
+        choice.candidates?.[0]?.tableRoll?.dice[0] === 45,
+      'Occurrence edits retain Activity ownership',
+    );
+    await rejects(
+      second.send(
+        op(5, {
+          kind: 'detail',
+          slotId: 'left',
+          choiceId: 'event-choice',
+          choice: {
+            choiceId: 'event-choice',
+            actionId: 'guarantee_event',
+            candidates: [],
+          },
+        }),
+      ),
+      'Candidate replacement conflicts with edited occurrences',
+    );
+    await first.send(
+      op(6, {
+        kind: 'move',
+        fromSlotId: 'left',
+        toSlotId: 'right',
+        choiceId: 'event-choice',
+      }),
+    );
+    await rejects(
+      second.send(
+        op(6, {
+          kind: 'event_occurrence',
+          occurrence: { ...firstEvent, tableRoll: roll(46) },
+        }),
+      ),
+      'Delayed occurrence edits conflict with owner movement',
+    );
   });
 }

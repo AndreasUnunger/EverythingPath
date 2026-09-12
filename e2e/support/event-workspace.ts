@@ -119,6 +119,15 @@ export async function exerciseEventWorkspace(
       await gm.screenshot({ fullPage: true }),
     );
   }
+  await occurrence(gm, 3)
+    .getByRole('button', { name: 'Clear event acknowledgement', exact: true })
+    .click();
+  await expect(
+    occurrence(player, 3).getByRole('textbox', {
+      name: 'Event outcome acknowledgement',
+      exact: true,
+    }),
+  ).toHaveValue('');
   // Restore the supported journey's prepared week so its exact Confirmation assertions remain meaningful.
   await occurrence(gm, 1)
     .getByRole('button', {

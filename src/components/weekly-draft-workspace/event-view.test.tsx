@@ -87,7 +87,7 @@ test('[rules.P83.acknowledgement] event notes use the occurrence subject and an 
     expect(edit).toHaveBeenCalledWith({
       kind: 'acknowledge',
       acknowledgement: {
-        acknowledgementId: expect.any(String),
+        acknowledgementId: 'event:root',
         subjectId: 'event:root',
         outcome: 'The table repelled the invaders.',
       },
@@ -261,4 +261,52 @@ test('[rules.P83.candidates] Event edits preserve complete Activity candidate ow
     choiceId: 'choice',
     choice: { ...owner.choice, selectedEventId: 'root' },
   });
+});
+
+test('[rules.P83.modifiers] Event checks explain each contribution without exposing source identities', () => {
+  render(
+    <EventView
+      view={{
+        ...view,
+        occurrences: [
+          {
+            ...view.occurrences[0]!,
+            occurrence: {
+              ...view.occurrences[0]!.occurrence,
+              rolls: {
+                check: {
+                  dice: [10],
+                  sides: 20,
+                  provenance: { kind: 'table' },
+                  modifiers: [
+                    {
+                      sourceId: 'weather-source',
+                      value: -2,
+                      reason: 'Heavy rain',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        checks: [
+          {
+            checkId: 'root:theft',
+            modifier: 1,
+            total: 11,
+            modifiers: [
+              { source: 'rank-focus', value: 3 },
+              { source: 'weather-source', value: -2 },
+            ],
+          },
+        ],
+      }}
+      edit={vi.fn()}
+      disabled={false}
+    />,
+  );
+  expect(screen.getByText('Rank and focus: +3')).toBeVisible();
+  expect(screen.getByText('Heavy rain: -2')).toBeVisible();
+  expect(screen.queryByText('weather-source')).not.toBeInTheDocument();
 });

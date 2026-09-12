@@ -1,0 +1,72 @@
+import type { EventView } from './types';
+export function EventChecks({
+  item,
+  view,
+}: {
+  item: EventView['occurrences'][number];
+  view: EventView;
+}) {
+  const occurrence = item.occurrence;
+  const inputModifiers = [
+    occurrence.tableRoll,
+    occurrence.officerCheck?.roll,
+    ...Object.values(occurrence.rolls ?? {}),
+    ...Object.values(occurrence.sabotage?.rolls ?? {}),
+    ...(occurrence.targetChecks ?? []).flatMap((target) =>
+      Object.values(target.rolls ?? {}),
+    ),
+  ].flatMap((roll) => roll?.modifiers ?? []);
+  const names: Record<string, string> = {
+    'rank-focus': 'Rank and focus',
+    officers: 'Officers',
+    'overseer-support': 'Overseer support',
+    strategist: 'Strategist',
+    helpful: 'Helpful settlement support',
+  };
+  const checks = view.checks.filter((check) =>
+    check.checkId.startsWith(`${occurrence.eventId}:`),
+  );
+  return checks.map((check) => {
+    const target = [
+      ...(view.options.characterId ?? []),
+      ...(view.options.cacheId ?? []),
+    ].find((target) => check.checkId.includes(`:${target.value}:`));
+    const kind = check.checkId.includes(':sabotage:')
+      ? 'Sabotage'
+      : ({
+          sickness: 'Sickness',
+          theft: 'Theft',
+          rivalry: 'Rivalry',
+          diplomacy: 'Diplomacy',
+          mitigation: 'Mitigation',
+        }[check.checkId.split(':').at(-1)!] ?? 'Event');
+    return (
+      <div key={check.checkId} className="space-y-1 text-sm">
+        <p>
+          {target ? `${target.label} · ` : ''}
+          {kind} check · Calculated bonus: {check.modifier >= 0 ? '+' : ''}
+          {check.modifier} · Total: {check.total ?? 'Awaiting roll'}
+        </p>
+        <ul
+          aria-label={`${kind} modifiers`}
+          className="text-muted-foreground space-y-1 text-xs"
+        >
+          {check.modifiers.map((modifier) => (
+            <li key={modifier.source}>
+              {inputModifiers.find(
+                (input) => input.sourceId === modifier.source,
+              )?.reason ??
+                view.options.modifierSources?.find(
+                  (option) => option.value === modifier.source,
+                )?.label ??
+                names[modifier.source] ??
+                'Calculated modifier'}
+              : {modifier.value >= 0 ? '+' : ''}
+              {modifier.value}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  });
+}

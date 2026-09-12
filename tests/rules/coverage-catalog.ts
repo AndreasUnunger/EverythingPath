@@ -6134,6 +6134,7 @@ export const coverageCatalog = {
             'rules.P83.details',
             'rules.P83.ownership',
             'rules.P83.candidates',
+            'rules.P83.modifiers',
             'rules.P79.contract',
           ],
           tests: [
@@ -6143,6 +6144,7 @@ export const coverageCatalog = {
             'rules.P83.details',
             'rules.P83.ownership',
             'rules.P83.candidates',
+            'rules.P83.modifiers',
             'rules.P79.contract',
           ],
           gap: null,

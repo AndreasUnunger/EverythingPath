@@ -1,5 +1,6 @@
 'use client';
 import { eventRequirement, eventWarning, eventChange } from './event-messages';
+import { EventChecks } from './event-checks';
 import { useState } from 'react';
 import {
   rawRollSchema,
@@ -357,7 +358,8 @@ function EventOccurrence({
                 kind: 'acknowledge',
                 acknowledgement: {
                   acknowledgementId:
-                    acknowledgement?.acknowledgementId ?? crypto.randomUUID(),
+                    acknowledgement?.acknowledgementId ??
+                    `event:${occurrence.eventId}`,
                   subjectId: `event:${occurrence.eventId}`,
                   outcome,
                 },
@@ -380,19 +382,7 @@ function EventOccurrence({
           )}
         </div>
       )}
-      {view.checks
-        .filter(
-          (check) =>
-            check.checkId.startsWith(`${occurrence.eventId}:`) ||
-            (occurrence.sabotage !== undefined &&
-              check.checkId.startsWith(occurrence.sabotage.choiceId)),
-        )
-        .map((check) => (
-          <p key={check.checkId} className="text-sm">
-            Calculated check bonus: {check.modifier >= 0 ? '+' : ''}
-            {check.modifier} · Total: {check.total ?? 'Awaiting roll'}
-          </p>
-        ))}
+      <EventChecks item={item} view={view} />
       {item.warnings.map((warning) => (
         <p key={warning} className="text-amber-700">
           {eventWarning(warning)}
