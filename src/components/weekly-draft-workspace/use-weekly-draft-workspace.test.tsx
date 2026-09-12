@@ -203,6 +203,119 @@ test('[rules.P81.recovery] players navigate independently while a pending edit f
   second.unmount();
 });
 
+test('[rules.P85.rereview] rejected Confirmation requires an explicit review of the updated accepted week', async () => {
+  const { gateway, authority, source } = fixture();
+  let receive!: (value: typeof source) => void;
+  const screen = renderWorkspace({
+    ...gateway,
+    subscribe(next) {
+      receive = next;
+      next(source);
+      return () => undefined;
+    },
+  });
+  const current = () => {
+    const state = screen.result.current;
+    if (state.status !== 'ready') throw new Error('Expected ready Workspace');
+    return state;
+  };
+  await waitFor(() => expect(screen.result.current.status).toBe('ready'));
+  await act(() => current().edit(roll('check', 20)));
+  await act(() => current().edit(roll('training', 1)));
+  await waitFor(() => expect(current().canConfirm).toBe(true));
+  act(() => current().viewPhase('summary'));
+  authority.changeSource('treasury');
+  await act(async () => expect(await current().confirm()).toBe('failed'));
+  act(() => current().viewPhase('summary'));
+  expect(current()).toMatchObject({
+    reviewRequired: true,
+    forecastPending: true,
+  });
+  act(() =>
+    receive({
+      ...source,
+      sourceRevision: 1,
+      snapshot: { ...source.snapshot, treasuryCopper: 5007 },
+    }),
+  );
+  await waitFor(() => expect(current().forecastPending).toBe(false));
+  expect(current()).toMatchObject({ reviewRequired: true, canConfirm: false });
+  await act(async () => expect(await current().confirm()).toBe('failed'));
+  expect(current().phaseView).toMatchObject({
+    phase: 'summary',
+    outcome: { militiaSnapshot: { treasuryCopper: 5007 } },
+  });
+  act(() => current().viewPhase('summary'));
+  expect(current()).toMatchObject({ reviewRequired: false, canConfirm: true });
+  await act(async () => expect(await current().confirm()).toBe('accepted'));
+  screen.unmount();
+});
+
+test('[rules.P85.failed-save] failed edits require re-review and pending work cannot acknowledge the updated week', async () => {
+  const { gateway, authority } = fixture();
+  let held: Promise<void> | null = null;
+  let release!: () => void;
+  const screen = renderWorkspace({
+    ...gateway,
+    transport: () => ({
+      ...authority.transport,
+      async send(operation) {
+        if (held) await held;
+        return authority.transport.send(operation);
+      },
+    }),
+  });
+  const other = renderWorkspace(gateway);
+  const current = () => {
+    const state = screen.result.current;
+    if (state.status !== 'ready') throw new Error('Expected ready Workspace');
+    return state;
+  };
+  await waitFor(() => expect(screen.result.current.status).toBe('ready'));
+  await act(() => current().edit(roll('check', 20)));
+  await act(() => current().edit(roll('training', 1)));
+  await waitFor(() => expect(current().canConfirm).toBe(true));
+  held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let saving!: Promise<'accepted' | 'failed'>;
+  act(() => {
+    saving = current().edit(roll('check', 18));
+  });
+  await act(async () => {
+    const competing = other.result.current;
+    if (competing.status !== 'ready')
+      throw new Error('Expected other Workspace');
+    await competing.edit(roll('check', 16));
+    release();
+    expect(await saving).toBe('failed');
+  });
+  await waitFor(() => expect(current().forecastPending).toBe(false));
+  expect(current()).toMatchObject({ reviewRequired: true, canConfirm: false });
+  held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  act(() => {
+    saving = current().edit(roll('training', 2));
+    current().viewPhase('summary');
+  });
+  expect(current()).toMatchObject({
+    reviewRequired: true,
+    canConfirm: false,
+    pendingWork: true,
+  });
+  await act(async () => {
+    release();
+    expect(await saving).toBe('accepted');
+  });
+  await waitFor(() => expect(current().forecastPending).toBe(false));
+  expect(current()).toMatchObject({ reviewRequired: true, canConfirm: false });
+  act(() => current().viewPhase('summary'));
+  expect(current()).toMatchObject({ reviewRequired: false, canConfirm: true });
+  screen.unmount();
+  other.unmount();
+});
+
 test('[rules.P81.states] loading, failed and unavailable never expose editing and a later available source recovers', async () => {
   const { gateway, source } = fixture();
   let next!: (value: typeof source | null) => void;
@@ -608,4 +721,50 @@ test('[rules.P84.workspace] carried instances retain targets and order while buy
   });
   first.unmount();
   second.unmount();
+});
+
+test('[rules.P85.summary] Summary exposes ordered adjudication and complete named baseline and final facts', async () => {
+  const { gateway, source } = fixture();
+  source.people = [{ characterId: 'pc', name: 'Nora' }];
+  const hook = renderWorkspace(gateway);
+  await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+  const workspace = hook.result.current;
+  if (workspace.status !== 'ready') throw new Error('Expected Workspace');
+  await act(() =>
+    workspace.edit({
+      kind: 'table_adjustments',
+      adjustments: [
+        {
+          adjustmentId: 'grant',
+          kind: 'militia_value',
+          field: 'treasuryCopper',
+          operation: 'add',
+          value: 125,
+          reason: 'Village reward',
+        },
+        {
+          adjustmentId: 'set',
+          kind: 'militia_value',
+          field: 'treasuryCopper',
+          operation: 'set',
+          value: 6125,
+          reason: 'Table correction',
+        },
+      ],
+    }),
+  );
+  act(() => workspace.viewPhase('summary'));
+  const current = hook.result.current;
+  if (current.status !== 'ready' || current.phaseView.phase !== 'summary')
+    throw new Error('Expected Summary');
+  expect(current.phaseView.adjustments.map((item) => item.reason)).toEqual([
+    'Village reward',
+    'Table correction',
+  ]);
+  expect(current.phaseView.baseline?.militiaSnapshot.treasuryCopper).toBe(5000);
+  expect(current.phaseView.outcome?.militiaSnapshot.treasuryCopper).toBe(6125);
+  expect(current.phaseView.people).toEqual([
+    { characterId: 'pc', name: 'Nora' },
+  ]);
+  hook.unmount();
 });

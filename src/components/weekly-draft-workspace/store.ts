@@ -23,6 +23,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   let sequence = 0;
   let active = false;
   let reviewed: AcceptedWeeklyPreview | null = null;
+  let reviewRequired = false;
   let previewRequest = '';
   let previewGeneration = 0;
   const listeners = new Set<() => void>();
@@ -74,12 +75,14 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
           ? 'pending'
           : feedback,
       canConfirm: Boolean(
+        !reviewRequired &&
         matching &&
         reviewed?.status === 'ready' &&
         pending.length === 0 &&
         !observed.pending &&
         !observed.confirming,
       ),
+      reviewRequired,
       forecastPending: pending.length > 0 || !matching,
       pendingWork:
         pending.length > 0 || observed.pending > 0 || observed.confirming,
@@ -128,6 +131,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     if (owner === persistence && active) {
       pending = pending.filter((entry) => entry.id !== item.id);
       feedback = result === 'accepted' ? 'saved' : 'failed';
+      if (result === 'failed') reviewRequired = true;
       previewRequest = '';
       rebuild();
     }
@@ -139,16 +143,20 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       !state.phases.some((item) => item.phase === next && item.available)
     )
       return;
+    if (next === 'summary' && !state.forecastPending && !state.pendingWork)
+      reviewRequired = false;
     phase = next;
     rebuild();
   }
   async function confirm(): Promise<'accepted' | 'failed'> {
     const owner = persistence;
     const review = reviewed;
-    if (state.status !== 'ready' || !owner || !review) return 'failed';
+    if (state.status !== 'ready' || !owner || !review || reviewRequired)
+      return 'failed';
     const result = await owner.confirm(review);
     if (active && owner === persistence) {
       feedback = result === 'accepted' ? 'saved' : 'failed';
+      reviewRequired = result === 'failed';
       reviewed = null;
       previewRequest = '';
       rebuild();
@@ -172,6 +180,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       phase = 'upkeep';
       pending = [];
       reviewed = null;
+      reviewRequired = false;
       previewRequest = '';
       previewGeneration++;
       const owner = createDraftPersistence(gateway!.transport(next));

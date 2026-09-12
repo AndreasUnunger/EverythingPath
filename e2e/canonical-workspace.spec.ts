@@ -3,6 +3,8 @@ import { exerciseEventWorkspace } from './support/event-workspace';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import type { Page } from '@playwright/test';
 import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
@@ -14,6 +16,44 @@ import {
   savePrivate,
 } from './support/process';
 import { controlNextDraftEdit } from './support/held-mutation';
+import { controlTransport } from './support/transport';
+
+function observeEditRejection(page: Page) {
+  let rejected = false;
+  page.on('websocket', (socket) => {
+    const requests = new Set<number>();
+    socket.on('framesent', ({ payload }) => {
+      try {
+        const parsed = z
+          .object({
+            type: z.literal('Mutation'),
+            requestId: z.number(),
+            udfPath: z.literal('canonicalDraftPersistence:edit'),
+          })
+          .safeParse(JSON.parse(payload.toString()));
+        if (parsed.success) requests.add(parsed.data.requestId);
+      } catch {
+        /* Non-protocol frames are irrelevant. */
+      }
+    });
+    socket.on('framereceived', ({ payload }) => {
+      try {
+        const parsed = z
+          .object({
+            type: z.literal('MutationResponse'),
+            requestId: z.number(),
+            success: z.literal(false),
+          })
+          .safeParse(JSON.parse(payload.toString()));
+        if (parsed.success && requests.has(parsed.data.requestId))
+          rejected = true;
+      } catch {
+        /* Provider payloads remain private. */
+      }
+    });
+  });
+  return () => rejected;
+}
 
 test.use({ caseKey: 'canonicalPersistence' });
 test('players prepare shared Upkeep with independent navigation and save recovery', async ({
@@ -499,6 +539,131 @@ test('players prepare shared Upkeep with independent navigation and save recover
       lastBuyoffWeek: 4,
       persistentPhaseEligible: false,
     });
+    await fixtureCall(run, 'resetCase', {
+      ...ownedCase.scope,
+      now: 1_700_000_000_000,
+    });
+    const summaryScope = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+        scope: ownedCase.scope,
+        draftId: randomUUID(),
+      }),
+    );
+    const summaryRoute = `/canonical-workspace?campaign=${summaryScope.campaignId}`;
+    const first = await gm.context().newPage();
+    const second = await player.context().newPage();
+    const late = await gm.context().newPage();
+    const firstTransport = await controlTransport(
+      first,
+      run.fixture!.convexUrl,
+    );
+    const secondTransport = await controlTransport(
+      second,
+      run.fixture!.convexUrl,
+    );
+    const lateTransport = await controlNextDraftEdit(
+      late,
+      run.fixture!.convexUrl,
+    );
+    const lateRejected = observeEditRejection(late);
+    const releases: (() => void)[] = [];
+    const summary = (page: Page) =>
+      page.getByRole('button', { name: 'Summary', exact: true }).click();
+    const confirm = (page: Page) =>
+      page.getByRole('button', { name: 'Confirm week', exact: true });
+    try {
+      await Promise.all([
+        first.goto(summaryRoute),
+        second.goto(summaryRoute),
+        late.goto(summaryRoute),
+      ]);
+      await die(first).fill('20');
+      await expect(die(second)).toHaveValue('20');
+      await training(first).fill('1');
+      await expect(training(second)).toHaveValue('1');
+      await Promise.all([summary(first), summary(second)]);
+      await expect(confirm(first)).toBeEnabled();
+      await expect(confirm(second)).toBeEnabled();
+      const stale = firstTransport.next('delay-request');
+      releases.push(stale.release);
+      await confirm(first).click();
+      await expect.poll(stale.observed).toBe(true);
+      await expect(first.getByRole('status')).toHaveText(
+        'Confirming the week…',
+      );
+      await canonicalPersistenceFixtureCall(run, 'changeSource', {
+        ...summaryScope,
+        scope: ownedCase.scope,
+        change: 'treasury',
+      });
+      await expect(
+        second.getByRole('region', { name: 'Final preview', exact: true }),
+      ).toContainText('5007 cp');
+      stale.release();
+      await expect(
+        first.getByRole('button', { name: 'Review updated week', exact: true }),
+      ).toBeEnabled();
+      await expect(confirm(first)).toBeDisabled();
+      await expect(
+        first.getByRole('region', { name: 'Final preview', exact: true }),
+      ).toContainText('5007 cp');
+      await first
+        .getByRole('button', { name: 'Review updated week', exact: true })
+        .click();
+      await expect(confirm(first)).toBeEnabled();
+      await expect(confirm(second)).toBeEnabled();
+      const delayed = lateTransport.hold();
+      releases.push(() => lateTransport.release());
+      await die(late).fill('7');
+      await delayed;
+      await summary(late);
+      await expect(confirm(late)).toBeDisabled();
+      await expect(
+        late.getByText('Review will be ready when your changes are saved.', {
+          exact: true,
+        }),
+      ).toBeVisible();
+      const raceFirst = firstTransport.next('delay-request');
+      const raceSecond = secondTransport.next('delay-request');
+      releases.push(raceFirst.release, raceSecond.release);
+      await Promise.all([confirm(first).click(), confirm(second).click()]);
+      await expect.poll(raceFirst.observed).toBe(true);
+      await expect.poll(raceSecond.observed).toBe(true);
+      raceFirst.release();
+      raceSecond.release();
+      for (const page of [first, second, late])
+        await expect(
+          page.getByRole('heading', { name: /Week 5/ }),
+        ).toBeVisible();
+      lateTransport.release();
+      await expect.poll(lateRejected).toBe(true);
+      const resolved = confirmationInspectionSchema.parse(
+        await canonicalPersistenceFixtureCall(run, 'inspect', {
+          ...summaryScope,
+          scope: ownedCase.scope,
+        }),
+      );
+      expect(resolved.records).toHaveLength(1);
+      expect(resolved.openDrafts).toHaveLength(1);
+      expect(resolved.snapshot.treasuryCopper).toBe(5007);
+      expect(resolved.records[0]?.source.upkeep.rolls.check?.dice).toEqual([
+        20,
+      ]);
+      expect(resolved.openDrafts[0]?.upkeep.rolls.check).toBeUndefined();
+      for (const page of [first, second, late]) {
+        await summary(page);
+        await expect(
+          page.getByRole('region', { name: 'Final preview', exact: true }),
+        ).toContainText('5007 cp');
+      }
+      await savePrivate(
+        join(run.artifactDirectory, 'canonical-confirmation-successor.png'),
+        await first.screenshot({ fullPage: true }),
+      );
+    } finally {
+      for (const release of releases) release();
+      await Promise.all([first.close(), second.close(), late.close()]);
+    }
   } finally {
     network.release();
   }

@@ -1,3 +1,4 @@
+import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
 import type { ActivityProjection } from '~/lib/rules-activity';
@@ -155,6 +156,14 @@ export type PhaseView =
   | PersistentView
   | {
       phase: 'summary';
+      effects: Omit<CanonicalResolutionEffects, 'adjudication'> | null;
+      adjustments: WeeklyDraft['tableAdjustments'];
+      exceptions: (WeeklyDraft['rulesExceptions'][number] & { name: string })[];
+      acknowledgements: (WeeklyDraft['acknowledgements'][number] & {
+        name: string;
+      })[];
+      people: { characterId: string; name: string }[];
+      options: EventView['options'];
       ready: boolean;
       baseline: CanonicalWeekState | null;
       outcome: CanonicalWeekState | null;
@@ -172,6 +181,7 @@ export type WeeklyDraftWorkspace =
       phases: { phase: Phase; available: boolean }[];
       feedback: 'idle' | 'pending' | 'saved' | 'failed' | 'confirming';
       canConfirm: boolean;
+      reviewRequired: boolean;
       forecastPending: boolean;
       pendingWork: boolean;
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;

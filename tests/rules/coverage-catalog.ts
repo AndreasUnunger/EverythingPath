@@ -6123,6 +6123,31 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'summary-confirmation',
+          checkpoint: '7-workspace',
+          expected:
+            'Summary exposes complete baseline and final outcomes with ordered reasoned adjudication; rejected saves and Confirmation require explicit fresh review before another attempt.',
+          plannedTests: [
+            'rules.P85.summary',
+            'rules.P85.adjustment',
+            'rules.P85.order',
+            'rules.P85.exception',
+            'rules.P85.review',
+            'rules.P85.rereview',
+            'rules.P85.failed-save',
+          ],
+          tests: [
+            'rules.P85.summary',
+            'rules.P85.adjustment',
+            'rules.P85.order',
+            'rules.P85.exception',
+            'rules.P85.review',
+            'rules.P85.rereview',
+            'rules.P85.failed-save',
+          ],
+          gap: null,
+        },
+        {
           id: 'persistent-preparation',
           checkpoint: '7-workspace',
           expected:

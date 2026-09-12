@@ -1,3 +1,4 @@
+import { summaryView } from './summary-facts';
 import { persistentView } from './persistent-facts';
 import { eventView } from './event-facts';
 import { activityView } from './activity-facts';
@@ -12,15 +13,11 @@ export function phaseView(
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
 ): PhaseView {
-  if (phase === 'summary')
-    return {
-      phase,
-      ready: preview.status === 'ready',
-      baseline: preview.baseline,
-      outcome: preview.outcome,
-      requirements: preview.requirements,
-      warnings: preview.warnings,
-    };
+  if (phase === 'summary') {
+    const upkeep = phaseView('upkeep', draft, source, preview);
+    if (upkeep.phase !== 'upkeep') throw new Error('Expected Upkeep facts');
+    return summaryView(draft, source, preview, upkeep);
+  }
   if (phase === 'activity') return activityView(draft, source, preview);
   if (phase === 'event') return eventView(draft, source, preview);
   if (phase === 'persistent') return persistentView(draft, source, preview);

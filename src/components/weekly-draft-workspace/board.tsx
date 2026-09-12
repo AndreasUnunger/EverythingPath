@@ -9,6 +9,7 @@ import {
   useWeeklyDraftWorkspace,
 } from './use-weekly-draft-workspace';
 import { createConvexWorkspaceGateway } from './gateway';
+import { SummaryView } from './summary-view';
 import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
@@ -120,52 +121,18 @@ export function WeeklyWorkspaceBoard() {
           disabled={workspace.feedback === 'confirming'}
         />
       ) : view.phase === 'summary' ? (
-        <Card className="space-y-3 p-5">
-          <h2 className="text-lg font-semibold">Review the week</h2>
-          {view.outcome && (
-            <dl className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <dt>Training</dt>
-                <dd className="font-mono text-xl">
-                  {view.outcome.militiaSnapshot.training}
-                </dd>
-              </div>
-              <div>
-                <dt>Treasury</dt>
-                <dd className="font-mono text-xl">
-                  {view.outcome.militiaSnapshot.treasuryCopper} cp
-                </dd>
-                {view.baseline &&
-                  view.baseline.militiaSnapshot.treasuryCopper !==
-                    view.outcome.militiaSnapshot.treasuryCopper && (
-                    <dd className="text-muted-foreground text-xs">
-                      Rules baseline:{' '}
-                      {view.baseline.militiaSnapshot.treasuryCopper} cp
-                    </dd>
-                  )}
-              </div>
-              <div>
-                <dt>Next week</dt>
-                <dd className="font-mono text-xl">{view.outcome.week}</dd>
-              </div>
-            </dl>
-          )}
-          <p className="text-sm">
-            {workspace.forecastPending
-              ? 'Review will be ready when your changes are saved.'
-              : view.ready
-                ? 'The week is ready for confirmation.'
-                : 'Some rolls or decisions still need attention.'}
-          </p>
-          <Button
-            disabled={!workspace.canConfirm}
-            onClick={() => {
-              void workspace.confirm();
-            }}
-          >
-            Confirm week
-          </Button>
-        </Card>
+        <SummaryView
+          view={view}
+          edit={workspace.edit}
+          disabled={workspace.feedback === 'confirming'}
+          canConfirm={workspace.canConfirm}
+          forecastPending={workspace.forecastPending}
+          reviewRequired={workspace.reviewRequired}
+          confirm={() => {
+            void workspace.confirm();
+          }}
+          review={() => workspace.viewPhase('summary')}
+        />
       ) : null}
     </main>
   );
