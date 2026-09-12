@@ -94,6 +94,20 @@ export function eventView(
     checks: projection?.checks ?? [],
     options: {
       ...references,
+      eventId: references.eventId.map((option) => {
+        const index = occurrences.findIndex(
+          ({ occurrence }) => occurrence.eventId === option.value,
+        );
+        const resolved = projection?.tree.find(
+          (event) => event.eventId === option.value,
+        );
+        return index < 0
+          ? option
+          : {
+              ...option,
+              label: `Event ${index + 1}: ${activityLabel(resolved?.eventType ?? 'awaiting_roll')}`,
+            };
+      }),
       itemId: [
         ...new Map(
           [

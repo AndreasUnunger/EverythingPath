@@ -476,6 +476,11 @@ test('[rules.P83.workspace] Event occurrences and required branches recompute af
   expect(ready().phaseView).toMatchObject({
     phase: 'event',
     chance: 10,
+    options: {
+      eventId: expect.arrayContaining([
+        { value: 'root', label: 'Event 1: Roll Twice' },
+      ]),
+    },
     occurrences: [
       { occurrence: { eventId: 'root' }, resolvedType: 'roll_twice' },
     ],
