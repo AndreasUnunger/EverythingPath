@@ -9,6 +9,7 @@ import { WholeNumberField } from './whole-number-field';
 import { activityLabel } from './activity-facts';
 type Options = Record<string, { value: string; label: string }[]>;
 export function choiceFieldLabel(field: string) {
+  if (/^\d+$/.test(field)) return `Entry ${Number(field) + 1}`;
   return activityLabel(field.replace(/([a-z])([A-Z])/g, '$1_$2'))
     .replace(/ Ids?$/, '')
     .replace(/Copper$/, '(copper)');
@@ -55,16 +56,7 @@ function record(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
-function Fields({
-  schema,
-  value,
-  change,
-  name,
-  options,
-  path = '',
-  issues,
-  disabled,
-}: {
+type FieldProps = {
   schema: z.ZodType;
   value: unknown;
   change: (value: unknown) => void;
@@ -73,185 +65,236 @@ function Fields({
   path?: string;
   issues: z.core.$ZodIssue[];
   disabled: boolean;
-}) {
-  const id = useId();
-  const [formatError, setFormatError] = useState('');
-  const base = unwrap(schema);
-  const error =
-    formatError ||
-    issues.find((issue) => issue.path.join('.') === path)?.message;
-  const title = choiceFieldLabel(name);
-  const nested = (
-    child: z.ZodType,
-    childValue: unknown,
-    childName: string,
-    update: (value: unknown) => void,
+};
+function nestedField(props: FieldProps) {
+  return (
+    schema: z.ZodType,
+    value: unknown,
+    name: string,
+    change: (value: unknown) => void,
   ) => (
     <Fields
-      key={childName}
-      schema={child}
-      value={childValue}
-      name={childName}
-      change={update}
-      options={/^\d+$/.test(childName) && options[name] ? { ...options, [childName]: options[name] } : options}
-      path={path ? `${path}.${childName}` : childName}
-      issues={issues}
-      disabled={disabled}
+      key={name}
+      schema={schema}
+      value={value}
+      name={name}
+      change={change}
+      options={
+        /^\d+$/.test(name) && props.options[props.name]
+          ? { ...props.options, [name]: props.options[props.name]! }
+          : props.options
+      }
+      path={props.path ? `${props.path}.${name}` : name}
+      issues={props.issues}
+      disabled={props.disabled}
     />
   );
+}
+function Fields(props: FieldProps) {
+  const base = unwrap(props.schema);
   if (base instanceof z.ZodLiteral) return null;
+  const structured =
+    base instanceof z.ZodObject ||
+    base instanceof z.ZodArray ||
+    base instanceof z.ZodRecord ||
+    base instanceof z.ZodDiscriminatedUnion;
   if (
-    schema instanceof z.ZodOptional &&
-    value === undefined &&
-    (base instanceof z.ZodObject ||
-      base instanceof z.ZodArray ||
-      base instanceof z.ZodRecord ||
-      base instanceof z.ZodDiscriminatedUnion)
+    props.schema instanceof z.ZodOptional &&
+    props.value === undefined &&
+    structured
   )
     return (
       <Button
         type="button"
         variant="outline"
-        disabled={disabled}
-        onClick={() => change(initial(base))}
+        disabled={props.disabled}
+        onClick={() => props.change(initial(base))}
       >
-        Add {title.toLowerCase()}
+        Add {choiceFieldLabel(props.name).toLowerCase()}
       </Button>
     );
-  if (base instanceof z.ZodDiscriminatedUnion) {
-    const discriminator = String(base.def.discriminator);
-    const selected = record(value)[discriminator];
-    const variants = base.options.filter(
-      (option): option is z.ZodObject => option instanceof z.ZodObject,
-    );
-    const selectedSchema = variants.find(
-      (option) =>
-        option.shape[discriminator] instanceof z.ZodLiteral &&
-        option.shape[discriminator].value === selected,
-    );
-    return (
-      <div className="space-y-3 rounded-md border p-3">
-        <ChoiceCards
-          label={title}
-          value={typeof selected === 'string' ? selected : ''}
-          choices={variants.map((option) => {
-            const value = String(
-              (option.shape[discriminator] as z.ZodLiteral<string>).value,
-            );
-            return { value, label: activityLabel(value) };
-          })}
+  if (base instanceof z.ZodDiscriminatedUnion)
+    return <UnionFields {...props} base={base} />;
+  if (base instanceof z.ZodObject || base instanceof z.ZodRecord)
+    return <ObjectFields {...props} base={base} />;
+  if (base instanceof z.ZodArray) return <ArrayFields {...props} base={base} />;
+  return <ScalarField {...props} base={base} />;
+}
+function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
+  const {
+    value,
+    change,
+    name,
+    options,
+    path = '',
+    issues,
+    disabled,
+    base,
+  } = props;
+  const title = choiceFieldLabel(name);
+  const discriminator = String(base.def.discriminator);
+  const selected = record(value)[discriminator];
+  const variants = base.options.filter(
+    (option): option is z.ZodObject => option instanceof z.ZodObject,
+  );
+  const selectedSchema = variants.find(
+    (option) =>
+      option.shape[discriminator] instanceof z.ZodLiteral &&
+      option.shape[discriminator].value === selected,
+  );
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <ChoiceCards
+        label={title}
+        value={typeof selected === 'string' ? selected : ''}
+        choices={variants.map((option) => {
+          const value = String(
+            (option.shape[discriminator] as z.ZodLiteral<string>).value,
+          );
+          return { value, label: activityLabel(value) };
+        })}
+        disabled={disabled}
+        onChange={(selected) => {
+          const option = variants.find(
+            (option) =>
+              (option.shape[discriminator] as z.ZodLiteral<string>).value ===
+              selected,
+          )!;
+          change(initial(option));
+        }}
+      />
+      {selectedSchema && (
+        <Fields
+          schema={selectedSchema}
+          value={value}
+          change={change}
+          name={name}
+          options={options}
+          path={path}
+          issues={issues}
           disabled={disabled}
-          onChange={(selected) => {
-            const option = variants.find(
-              (option) =>
-                (option.shape[discriminator] as z.ZodLiteral<string>).value ===
-                selected,
-            )!;
-            change(initial(option));
-          }}
         />
-        {selectedSchema && (
-          <Fields
-            schema={selectedSchema}
-            value={value}
-            change={change}
-            name={name}
-            options={options}
-            path={path}
-            issues={issues}
-            disabled={disabled}
-          />
-        )}
-      </div>
-    );
-  }
-  if (base instanceof z.ZodObject || base instanceof z.ZodRecord) {
-    const object = record(value);
-    const fields: [string, z.ZodType][] =
-      base instanceof z.ZodObject
-        ? (Object.entries(base.shape) as [string, z.ZodType][])
-        : base.keyType instanceof z.ZodEnum
-          ? base.keyType.options.map((key) => [
-              String(key),
-              (base.valueType as z.ZodType).optional(),
-            ])
-          : [];
-    return (
-      <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
-        <legend className="text-sm font-semibold">{title}</legend>
-        {fields.map(([key, child]) => {
-          if (
-            ['eventId', 'itemId', 'acknowledgementId'].includes(key) &&
-            !('kind' in object)
-          )
-            return null;
-          return nested(child, object[key], key, (next) =>
+      )}
+    </div>
+  );
+}
+function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
+  const { value, change, name, path = '', issues, base } = props;
+  const title = choiceFieldLabel(name);
+  const error = issues.find((issue) => issue.path.join('.') === path)?.message;
+  const nested = nestedField(props);
+  const object = record(value);
+  const fields: [string, z.ZodType][] =
+    base instanceof z.ZodObject
+      ? (Object.entries(base.shape) as [string, z.ZodType][])
+      : base.keyType instanceof z.ZodEnum
+        ? base.keyType.options.map((key) => [
+            String(key),
+            (base.valueType as z.ZodType).optional(),
+          ])
+        : [];
+  return (
+    <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
+      <legend className="text-sm font-semibold">{title}</legend>
+      {fields.map(([key, child]) => {
+        if (
+          ['eventId', 'itemId', 'acknowledgementId'].includes(key) &&
+          (name === 'persistentDecision' || !('kind' in object))
+        )
+          return null;
+        return nested(child, object[key], key, (next) =>
+          change(
+            Object.fromEntries(
+              Object.entries({
+                ...object,
+                [key]:
+                  key === 'persistentDecision' &&
+                  next !== undefined &&
+                  typeof object.eventId === 'string'
+                    ? { ...record(next), eventId: object.eventId }
+                    : next,
+              }).filter(([, value]) => value !== undefined),
+            ),
+          ),
+        );
+      })}
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+function ArrayFields(props: FieldProps & { base: z.ZodArray }) {
+  const { value, change, name, path = '', issues, disabled, base } = props;
+  const title = choiceFieldLabel(name);
+  const error = issues.find((issue) => issue.path.join('.') === path)?.message;
+  const nested = nestedField(props);
+  const values = Array.isArray(value) ? (value as unknown[]) : [];
+  return (
+    <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
+      <legend className="text-sm font-semibold">{title}</legend>
+      {values.map((entry, index) => (
+        <div
+          key={scalarText(
+            record(entry).eventId ?? record(entry).itemId ?? index,
+          )}
+          className="space-y-2"
+        >
+          {nested(base.element as z.ZodType, entry, String(index), (next) =>
             change(
-              Object.fromEntries(
-                Object.entries({ ...object, [key]: next }).filter(
-                  ([, value]) => value !== undefined,
-                ),
+              values.map((item, itemIndex) =>
+                itemIndex === index ? next : item,
               ),
             ),
-          );
-        })}
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </fieldset>
-    );
-  }
-  if (base instanceof z.ZodArray) {
-    const values = Array.isArray(value) ? (value as unknown[]) : [];
-    return (
-      <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
-        <legend className="text-sm font-semibold">{title}</legend>
-        {values.map((entry, index) => (
-          <div
-            key={scalarText(
-              record(entry).eventId ?? record(entry).itemId ?? index,
-            )}
-            className="space-y-2"
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            onClick={() =>
+              change(values.filter((_, itemIndex) => itemIndex !== index))
+            }
           >
-            {nested(base.element as z.ZodType, entry, String(index), (next) =>
-              change(
-                values.map((item, itemIndex) =>
-                  itemIndex === index ? next : item,
-                ),
-              ),
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={disabled}
-              onClick={() =>
-                change(values.filter((_, itemIndex) => itemIndex !== index))
-              }
-            >
-              Remove {title.toLowerCase()} {index + 1}
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          onClick={() =>
-            change([...values, initial(base.element as z.ZodType)])
-          }
-        >
-          Add {title.toLowerCase()} entry
-        </Button>
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </fieldset>
-    );
-  }
+            Remove {title.toLowerCase()} {index + 1}
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => change([...values, initial(base.element as z.ZodType)])}
+      >
+        Add {title.toLowerCase()} entry
+      </Button>
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+function ScalarField(props: FieldProps & { base: z.ZodType }) {
+  const {
+    value,
+    change,
+    name,
+    options,
+    path = '',
+    issues,
+    disabled,
+    base,
+  } = props;
+  const title = choiceFieldLabel(name);
+  const { schema } = props;
+  const id = useId();
+  const [formatError, setFormatError] = useState('');
+  const error =
+    formatError ||
+    issues.find((issue) => issue.path.join('.') === path)?.message;
   const choices =
     options[name] ??
     (base instanceof z.ZodEnum
@@ -360,7 +403,7 @@ export function StructuredChoiceField({
   value: unknown;
   name: string;
   options: Options;
-  onValue: (value: unknown) => void;
+  onValue: (value: unknown) => boolean | void;
   disabled: boolean;
 }) {
   const form = useForm<{ value: unknown }>({ values: { value } });
@@ -409,8 +452,7 @@ export function StructuredChoiceField({
           type="button"
           disabled={disabled}
           onClick={() => {
-            form.reset({ value: undefined });
-            onValue(undefined);
+            if (onValue(undefined) !== false) form.reset({ value: undefined });
           }}
         >
           Clear {choiceFieldLabel(name).toLowerCase()}

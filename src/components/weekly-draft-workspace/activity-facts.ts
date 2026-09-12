@@ -42,6 +42,15 @@ export function activityView(
       ]);
       return {
         ...structuredClone(slot),
+        calculatedCostCopper: (projection?.plan ?? []).reduce<number | null>(
+          (cost, change) =>
+            change.kind === 'treasuryCopper' &&
+            change.choiceId === choiceId &&
+            change.after < change.before
+              ? (cost ?? 0) + change.before - change.after
+              : cost,
+          null,
+        ),
         overAllowance:
           projection?.slots.find((entry) => entry.slotId === slot.slotId)
             ?.overAllowance ?? false,

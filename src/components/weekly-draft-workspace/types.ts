@@ -78,6 +78,7 @@ export type ActivityView = {
   slots: (ActivityProjection['slots'][number] & {
     requirements: string[];
     warnings: string[];
+    calculatedCostCopper: number | null;
     exceptions: { exceptionId: string; ruleId: string; reason: string }[];
   })[];
   actions: { actionId: StagedActionChoice['actionId']; name: string }[];

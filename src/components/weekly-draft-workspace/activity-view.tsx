@@ -1,9 +1,11 @@
 'use client';
+import { createPortal } from 'react-dom';
 import { GripVertical } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ActivityView as Facts } from './types';
+import { activityWarning } from './activity-warnings';
 import { activityLabel } from './activity-facts';
 import { useActivityPlacement } from './use-activity-placement';
 import { ActivityDetails } from './activity-details';
@@ -41,22 +43,11 @@ export function ActivityView({
         onPointerMove={placement.move}
         onPointerUp={placement.up}
         onPointerCancel={placement.cancel}
-        onLostPointerCapture={() => {
-          if (placement.drag) placement.cancel();
-        }}
+        onLostPointerCapture={placement.lostCapture}
         onKeyDown={(event) => {
           if (event.key === 'Escape') placement.cancel();
         }}
-        style={
-          moving && placement.drag
-            ? {
-                transform: `translate(${placement.drag.x - placement.drag.startX}px, ${placement.drag.y - placement.drag.startY}px)`,
-                position: 'relative',
-                zIndex: 30,
-                transition: 'none',
-              }
-            : undefined
-        }
+        style={moving ? { opacity: 0.4 } : undefined}
         className="h-auto min-h-24 w-full min-w-0 cursor-grab touch-none flex-col items-start justify-between gap-3 rounded-lg border-2 p-3 text-left whitespace-normal transition-transform select-none hover:-translate-y-1 focus-visible:-translate-y-1 active:cursor-grabbing motion-reduce:transform-none"
       >
         <GripVertical aria-hidden className="size-4" />
@@ -66,6 +57,28 @@ export function ActivityView({
   }
   return (
     <section className="space-y-4" aria-label="Activity choices">
+      {placement.drag?.moved &&
+        createPortal(
+          <div
+            aria-hidden
+            className="bg-card text-card-foreground pointer-events-none fixed z-50 w-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 p-4 shadow-xl"
+            style={{ left: placement.drag.x, top: placement.drag.y }}
+          >
+            {activityLabel(
+              placement.drag.selection.kind === 'deck'
+                ? placement.drag.selection.actionId
+                : (view.slots.find(
+                    (slot) =>
+                      slot.slotId ===
+                      (placement.drag?.selection.kind === 'slot'
+                        ? placement.drag.selection.slotId
+                        : ''),
+                  )?.choice?.actionId ?? 'action'),
+            )}
+          </div>,
+          document.body,
+        )}
+
       <p className="text-sm">
         Prepare actions together. Move a whole choice with its team and details,
         swap occupied slots, or drag a staged card outside the slots to clear
@@ -134,6 +147,15 @@ export function ActivityView({
                 record an exception with a reason.
               </p>
             )}
+            {slot.choice &&
+              slot.warnings.map((warning) => (
+                <p
+                  key={warning}
+                  className="text-sm text-amber-700 dark:text-amber-300"
+                >
+                  {activityWarning(warning, slot.choice!.choiceId)}
+                </p>
+              ))}
             {slot.choice ? (
               dragButton(
                 {
@@ -154,7 +176,12 @@ export function ActivityView({
                 className="w-full"
                 onClick={() => placement.place(slot.slotId)}
               >
-                {slot.choice ? 'Replace' : 'Place in'} Action Slot {index + 1}
+                {slot.choice
+                  ? placement.selection.kind === 'slot'
+                    ? 'Swap with'
+                    : 'Replace'
+                  : 'Place in'}{' '}
+                Action Slot {index + 1}
               </Button>
             )}
             {slot.choice && (

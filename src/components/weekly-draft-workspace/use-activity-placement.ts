@@ -114,6 +114,9 @@ export function useActivityPlacement(
     return null;
   }
   return {
+    lostCapture: () => {
+      if (active.current) cancel();
+    },
     selection,
     drag,
     feedback,

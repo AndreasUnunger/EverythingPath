@@ -1,5 +1,6 @@
 'use client';
 import { z } from 'zod';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -19,14 +20,12 @@ import {
 } from '~/components/ui/form';
 import { WholeNumberField } from './whole-number-field';
 import { ChoiceCards } from './choice-cards';
-import { StructuredChoiceField } from './structured-choice-field';
+import {
+  choiceFieldLabel as label,
+  StructuredChoiceField,
+} from './structured-choice-field';
 import { activityLabel } from './activity-facts';
 import type { ActivityView } from './types';
-function label(field: string) {
-  return activityLabel(field.replace(/([a-z])([A-Z])/g, '$1_$2'))
-    .replace(/ Id$/, '')
-    .replace(/Copper$/, '(copper)');
-}
 export function ActivityText({
   name,
   value,
@@ -83,11 +82,15 @@ function ChoiceFields({
   view,
   disabled,
   change,
+  calculatedCostCopper,
+  detailError,
 }: {
   choice: StagedActionChoice;
   view: ActivityView;
   disabled: boolean;
-  change: (field: string, value: unknown) => void;
+  change: (field: string, value: unknown) => boolean;
+  calculatedCostCopper: number | null;
+  detailError: { field: string; message: string } | null;
 }) {
   const shape = stagedActionChoiceSchema.options.find(
     (option) => option.shape.actionId.value === choice.actionId,
@@ -100,144 +103,164 @@ function ChoiceFields({
     'acknowledgements',
     'orderId',
   ]);
-  return Object.entries(shape).flatMap(([field, wrapped]) => {
-    if (hidden.has(field)) return [];
-    const schema =
-      wrapped instanceof z.ZodOptional
-        ? (wrapped.unwrap() as z.ZodType)
-        : (wrapped as z.ZodType);
-    const value = values[field];
-    const fieldLabel = label(field);
-    let options:
-      | { value: string; label: string; description?: string }[]
-      | null = null;
-    if (field === 'teamId' || field === 'targetTeamId') options = view.teams;
-    else if (field === 'settlementId') options = view.settlements;
-    else if (field.endsWith('CharacterId') || field === 'characterId')
-      options = view.people;
-    else if (field === 'itemId')
-      options =
-        choice.actionId === 'special_order' && choice.mode !== 'enchantment'
-          ? [
-              {
-                value: typeof value === 'string' ? value : crypto.randomUUID(),
-                label: 'New ordered item',
-              },
-            ]
-          : view.items;
-    else if (field === 'cacheId')
-      options =
-        choice.actionId === 'secure_cache' && choice.mode !== 'retrieve'
-          ? [
-              {
-                value: typeof value === 'string' ? value : crypto.randomUUID(),
-                label: 'New cache',
-              },
-            ]
-          : view.caches;
-    else if (field === 'selectedEventId')
-      options =
-        'candidates' in choice
-          ? (choice.candidates ?? []).map((event, index) => ({
-              value: event.eventId,
-              label: `Candidate ${index + 1}: ${activityLabel(event.eventType ?? 'unselected_event')}`,
-            }))
-          : [];
-    else if (field === 'followingChoiceId')
-      options = view.slots.flatMap((slot) =>
-        slot.choice && slot.choice.choiceId !== choice.choiceId
-          ? [
-              {
-                value: slot.choice.choiceId,
-                label: activityLabel(slot.choice.actionId),
-              },
-            ]
-          : [],
-      );
-    else if (schema instanceof z.ZodEnum)
-      options = schema.options.map((option) => ({
-        value: String(option),
-        label: activityLabel(String(option)),
-      }));
-    else if (schema instanceof z.ZodBoolean)
-      options = [
-        { value: 'true', label: 'Yes' },
-        { value: 'false', label: 'No' },
-      ];
-    if (options)
+  return Object.entries(shape)
+    .flatMap(([field, wrapped]) => {
+      if (hidden.has(field)) return [];
+      const schema =
+        wrapped instanceof z.ZodOptional
+          ? (wrapped.unwrap() as z.ZodType)
+          : (wrapped as z.ZodType);
+      const value =
+        values[field] ??
+        (field === 'costCopper'
+          ? (calculatedCostCopper ?? undefined)
+          : undefined);
+      const fieldLabel = label(field);
+      let options:
+        | { value: string; label: string; description?: string }[]
+        | null = null;
+      if (field === 'teamId' || field === 'targetTeamId') options = view.teams;
+      else if (field === 'settlementId') options = view.settlements;
+      else if (field.endsWith('CharacterId') || field === 'characterId')
+        options = view.people;
+      else if (field === 'itemId')
+        options =
+          choice.actionId === 'special_order' && choice.mode !== 'enchantment'
+            ? [
+                {
+                  value:
+                    typeof value === 'string' ? value : crypto.randomUUID(),
+                  label: 'New ordered item',
+                },
+              ]
+            : view.items;
+      else if (field === 'cacheId')
+        options =
+          choice.actionId === 'secure_cache' && choice.mode !== 'retrieve'
+            ? [
+                {
+                  value:
+                    typeof value === 'string' ? value : crypto.randomUUID(),
+                  label: 'New cache',
+                },
+              ]
+            : view.caches;
+      else if (field === 'selectedEventId')
+        options =
+          'candidates' in choice
+            ? (choice.candidates ?? []).map((event, index) => ({
+                value: event.eventId,
+                label: `Candidate ${index + 1}: ${activityLabel(event.eventType ?? 'unselected_event')}`,
+              }))
+            : [];
+      else if (field === 'followingChoiceId')
+        options = view.slots.flatMap((slot) =>
+          slot.choice && slot.choice.choiceId !== choice.choiceId
+            ? [
+                {
+                  value: slot.choice.choiceId,
+                  label: activityLabel(slot.choice.actionId),
+                },
+              ]
+            : [],
+        );
+      else if (schema instanceof z.ZodEnum)
+        options = schema.options.map((option) => ({
+          value: String(option),
+          label: activityLabel(String(option)),
+        }));
+      else if (schema instanceof z.ZodBoolean)
+        options = [
+          { value: 'true', label: 'Yes' },
+          { value: 'false', label: 'No' },
+        ];
+      if (options)
+        return [
+          <ChoiceCards
+            key={field}
+            label={fieldLabel}
+            value={
+              typeof value === 'string' || typeof value === 'boolean'
+                ? String(value)
+                : ''
+            }
+            choices={[{ value: '', label: 'Not selected' }, ...options]}
+            disabled={disabled}
+            onChange={(selected) =>
+              change(
+                field,
+                selected === ''
+                  ? undefined
+                  : schema instanceof z.ZodBoolean
+                    ? selected === 'true'
+                    : selected,
+              )
+            }
+          />,
+        ];
+      if (schema instanceof z.ZodNumber && schema.isInt)
+        return [
+          <WholeNumberField
+            key={field}
+            label={fieldLabel}
+            value={typeof value === 'number' ? value : null}
+            disabled={disabled}
+            onValue={(number) => change(field, number ?? undefined)}
+          />,
+        ];
+      if (schema instanceof z.ZodString)
+        return [
+          <ActivityText
+            key={field}
+            name={fieldLabel}
+            value={typeof value === 'string' ? value : ''}
+            disabled={disabled}
+            onValue={(text) => change(field, text.trim() || undefined)}
+          />,
+        ];
       return [
-        <ChoiceCards
+        <StructuredChoiceField
           key={field}
-          label={fieldLabel}
-          value={
-            typeof value === 'string' || typeof value === 'boolean'
-              ? String(value)
-              : ''
-          }
-          choices={[{ value: '', label: 'Not selected' }, ...options]}
+          schema={wrapped as z.ZodType}
+          name={field}
+          value={value}
           disabled={disabled}
-          onChange={(selected) =>
-            change(
-              field,
-              selected === ''
-                ? undefined
-                : schema instanceof z.ZodBoolean
-                  ? selected === 'true'
-                  : selected,
-            )
-          }
+          onValue={(value) => change(field, value)}
+          options={{
+            teamId: view.teams,
+            settlementId: view.settlements,
+            characterId: view.people,
+            ownerCharacterId: view.people,
+            overseerCharacterId: view.people,
+            strategistCharacterId: view.people,
+            chooserCharacterId: view.people,
+            parentEventId:
+              'candidates' in choice
+                ? (choice.candidates ?? []).map((event, index) => ({
+                    value: event.eventId,
+                    label: `Candidate ${index + 1}`,
+                  }))
+                : [],
+            eventId: view.events,
+            itemId: view.items,
+            itemIds: view.items,
+            sales: view.items,
+            consumableIds: view.bonuses,
+            cacheId: view.caches,
+          }}
         />,
       ];
-    if (schema instanceof z.ZodNumber && schema.isInt)
-      return [
-        <WholeNumberField
-          key={field}
-          label={fieldLabel}
-          value={typeof value === 'number' ? value : null}
-          disabled={disabled}
-          onValue={(number) => change(field, number ?? undefined)}
-        />,
-      ];
-    if (schema instanceof z.ZodString)
-      return [
-        <ActivityText
-          key={field}
-          name={fieldLabel}
-          value={typeof value === 'string' ? value : ''}
-          disabled={disabled}
-          onValue={(text) => change(field, text.trim() || undefined)}
-        />,
-      ];
-    return [
-      <StructuredChoiceField
-        key={field}
-        schema={wrapped as z.ZodType}
-        name={field}
-        value={value}
-        disabled={disabled}
-        onValue={(value) => change(field, value)}
-        options={{
-          teamId: view.teams,
-          settlementId: view.settlements,
-          characterId: view.people,
-          ownerCharacterId: view.people,
-          overseerCharacterId: view.people,
-          strategistCharacterId: view.people,
-          chooserCharacterId: view.people,
-          parentEventId:
-            'candidates' in choice
-              ? (choice.candidates ?? []).map((event, index) => ({
-                  value: event.eventId,
-                  label: `Candidate ${index + 1}`,
-                }))
-              : [],
-          eventId: view.events,
-          itemId: view.items,
-          cacheId: view.caches,
-        }}
-      />,
-    ];
-  });
+    })
+    .map((element) => (
+      <div key={element.key} className="space-y-1">
+        {element}
+        {detailError?.field === element.key && (
+          <p role="alert" className="text-destructive text-sm">
+            {detailError.message}
+          </p>
+        )}
+      </div>
+    ));
 }
 function ChoiceRolls({
   choice,
@@ -316,6 +339,10 @@ export function ActivityDetails({
   disabled: boolean;
 }) {
   const choice = slot.choice!;
+  const [detailError, setDetailError] = useState<{
+    field: string;
+    message: string;
+  } | null>(null);
   function change(field: string, value: unknown) {
     const next = Object.fromEntries(
       Object.entries({ ...choice, [field]: value }).filter(
@@ -323,23 +350,38 @@ export function ActivityDetails({
       ),
     );
     const parsed = stagedActionChoiceSchema.safeParse(next);
-    if (parsed.success)
-      edit({
-        kind: 'detail',
-        slotId: slot.slotId,
-        choiceId: choice.choiceId,
-        choice: parsed.data,
+    if (!parsed.success) {
+      setDetailError({
+        field,
+        message: `${label(field)}: ${parsed.error.issues[0]!.message}`,
       });
+      return false;
+    }
+    setDetailError(null);
+    edit({
+      kind: 'detail',
+      slotId: slot.slotId,
+      choiceId: choice.choiceId,
+      choice: parsed.data,
+    });
+    return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
   return (
     <div className="space-y-3">
       <ChoiceFields
         choice={choice}
+        calculatedCostCopper={slot.calculatedCostCopper}
+        detailError={detailError}
         view={view}
         change={change}
         disabled={disabled}
       />
+      {slot.calculatedCostCopper !== null && (
+        <p className="text-sm">
+          Calculated cost: {slot.calculatedCostCopper} cp
+        </p>
+      )}
       <ChoiceRolls
         choice={choice}
         requirements={slot.requirements}
@@ -351,6 +393,17 @@ export function ActivityDetails({
           Calculated bonus: {check.modifier >= 0 ? '+' : ''}
           {check.modifier} · Total: {check.total ?? 'Awaiting roll'}
         </p>
+      )}
+      {check && (
+        <ul className="text-muted-foreground space-y-1 text-xs">
+          {check.modifiers.map((modifier) => (
+            <li key={modifier.source}>
+              {label(modifier.source.split(':')[0]!.replaceAll('-', '_'))}:{' '}
+              {modifier.value >= 0 ? '+' : ''}
+              {modifier.value}
+            </li>
+          ))}
+        </ul>
       )}
       {[
         ...new Set([
@@ -392,6 +445,8 @@ export function ActivityDetails({
       {slot.exceptions.map((exception) => (
         <div
           key={exception.exceptionId}
+          role="group"
+          aria-label={`${activityLabel(exception.ruleId.replaceAll('-', '_'))} exception`}
           className="space-y-2 rounded-md border border-amber-500 p-3"
         >
           <p className="text-sm">

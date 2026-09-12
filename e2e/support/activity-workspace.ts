@@ -66,6 +66,22 @@ export async function exerciseActivityWorkspace(
     .getByRole('textbox', { name: 'Cost (copper)', exact: true })
     .fill('0');
   await saved(gm);
+  const rankException = slot(gm, 1).getByRole('group', {
+    name: 'Maximum Rank exception',
+    exact: true,
+  });
+  await rankException
+    .getByRole('textbox', { name: 'Exception reason', exact: true })
+    .fill('The table permits this training exercise');
+  await rankException
+    .getByRole('button', { name: 'Save exception reason', exact: true })
+    .click();
+  await saved(gm);
+  await slot(gm, 1)
+    .getByRole('group', { name: 'Team', exact: true })
+    .getByRole('button', { name: 'Scouts', exact: true })
+    .click();
+  await saved(gm);
   await slot(gm, 1)
     .getByRole('textbox', { name: 'Check die 1', exact: true })
     .fill('10');
@@ -78,16 +94,45 @@ export async function exerciseActivityWorkspace(
     .getByRole('button', { name: 'Place in Action Slot 2', exact: true })
     .click();
   await expect(card(player, 2, 'Drill Militia')).toBeVisible();
-  await choose(player, 'Earn Gold', 1);
+  await choose(player, 'Gather Information', 1);
+  await slot(player, 1)
+    .getByText('Edit Gather Information details', { exact: true })
+    .click();
+  await slot(player, 1)
+    .getByRole('textbox', { name: 'Subject', exact: true })
+    .fill('Ironfang patrol routes');
+  await slot(player, 1)
+    .getByRole('button', { name: 'Save subject', exact: true })
+    .click();
+  await saved(player);
+  await slot(player, 1)
+    .getByText('Edit Gather Information details', { exact: true })
+    .click();
+
   await card(gm, 2, 'Drill Militia').click();
   await gm
-    .getByRole('button', { name: 'Replace Action Slot 1', exact: true })
+    .getByRole('button', { name: 'Swap with Action Slot 1', exact: true })
     .click();
   await expect(card(player, 1, 'Drill Militia')).toBeVisible();
-  await expect(card(player, 2, 'Earn Gold')).toBeVisible();
+  await expect(card(player, 2, 'Gather Information')).toBeVisible();
+  await slot(player, 2)
+    .getByText('Edit Gather Information details', { exact: true })
+    .click();
+  await expect(
+    slot(player, 2).getByRole('textbox', { name: 'Subject', exact: true }),
+  ).toHaveValue('Ironfang patrol routes');
+  await slot(player, 2)
+    .getByText('Edit Gather Information details', { exact: true })
+    .click();
+
   await slot(player, 1)
     .getByText('Edit Drill Militia details', { exact: true })
     .click();
+  await expect(
+    slot(player, 1)
+      .getByRole('group', { name: 'Team', exact: true })
+      .getByRole('button', { name: 'Scouts', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
   await expect(
     slot(player, 1).getByRole('textbox', {
       name: 'Cost (copper)',
@@ -105,6 +150,44 @@ export async function exerciseActivityWorkspace(
   await expect(
     slot(gm, 3).getByText(/exceeds the action allowance/),
   ).toBeVisible();
+  await slot(gm, 3)
+    .getByText('Edit Drill Militia details', { exact: true })
+    .click();
+  const capacityException = slot(gm, 3).getByRole('group', {
+    name: 'Action Capacity exception',
+    exact: true,
+  });
+  await capacityException
+    .getByRole('textbox', { name: 'Exception reason', exact: true })
+    .fill('An extra training day was granted');
+  await capacityException
+    .getByRole('button', { name: 'Save exception reason', exact: true })
+    .click();
+  await saved(gm);
+  await slot(player, 3)
+    .getByText('Edit Drill Militia details', { exact: true })
+    .click();
+  await expect(
+    slot(player, 3)
+      .getByRole('group', { name: 'Action Capacity exception', exact: true })
+      .getByRole('textbox', { name: 'Exception reason', exact: true }),
+  ).toHaveValue('An extra training day was granted');
+  await slot(gm, 3)
+    .getByRole('group', { name: 'Action Capacity exception', exact: true })
+    .getByRole('button', { name: 'Remove exception', exact: true })
+    .click();
+  await saved(gm);
+  await slot(gm, 3)
+    .getByRole('group', { name: 'Maximum Rank exception', exact: true })
+    .getByRole('button', { name: 'Remove exception', exact: true })
+    .click();
+  await saved(gm);
+  await slot(gm, 3)
+    .getByText('Edit Drill Militia details', { exact: true })
+    .click();
+  await slot(player, 3)
+    .getByText('Edit Drill Militia details', { exact: true })
+    .click();
   await drag(gm, card(gm, 3, 'Drill Militia'), null);
   await expect(slot(player, 3).getByText('Empty slot')).toBeVisible();
   await drag(
@@ -120,13 +203,13 @@ export async function exerciseActivityWorkspace(
     .click();
   await captured;
   await gm.getByRole('button', { name: 'Event', exact: true }).click();
-  await choose(player, 'Earn Gold', 1, true);
+  await choose(player, 'Gather Information', 1, true);
   network.release();
   await expect(
     gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
   ).toBeVisible();
   await gm.getByRole('button', { name: 'Activity', exact: true }).click();
-  await expect(card(gm, 1, 'Earn Gold')).toBeVisible();
+  await expect(card(gm, 1, 'Gather Information')).toBeVisible();
   await choose(gm, 'Drill Militia', 1, true);
   for (const [name, width, height] of [
     ['tablet', 1194, 834],
@@ -147,7 +230,7 @@ export async function exerciseActivityWorkspace(
   await gm.setViewportSize({ width: 1194, height: 834 });
   for (const [position, action] of [
     [1, 'Drill Militia'],
-    [2, 'Earn Gold'],
+    [2, 'Gather Information'],
   ] as const) {
     await card(gm, position, action).click();
     await gm

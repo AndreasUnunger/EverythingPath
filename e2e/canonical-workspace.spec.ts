@@ -69,7 +69,6 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(training(player)).toHaveValue('3');
     await expect(gm.getByTestId('upkeep-training')).toHaveText('11');
     await saved();
-    await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
     await die(gm).pressSequentially('x');
     await expect(die(gm)).toHaveValue('10');
     await expect(
@@ -406,6 +405,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
         await gm.screenshot({ fullPage: true }),
       );
     }
+    await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
     await player.getByRole('button', { name: 'Summary', exact: true }).click();
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),
