@@ -1,7 +1,11 @@
 import type { EventOutcomeProjection } from './rules-event-outcomes';
 import type { EventDispatch } from './rules-event-selection';
 import type { WeeklyDraft } from './weekly-draft-contract';
-import { eventCheck, eventDie } from './rules-event-checks';
+import {
+  eventCheck,
+  eventDie,
+  eventMitigationAttempted,
+} from './rules-event-checks';
 type Persistent = WeeklyDraft['context']['carriedEvents'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type RecurringEventChange =
@@ -324,9 +328,10 @@ function resolveTheft(context: RecurringEventContext) {
     persistRecurringEvent(context);
     return true;
   }
-  const attempted =
-    event.mitigation === 'attempted' ||
-    (event.mitigation !== 'unattempted' && !!event.rolls?.check);
+  const attempted = eventMitigationAttempted(
+    event.mitigation,
+    event.rolls?.check,
+  );
   const total = attempted
     ? eventCheck(
         draft,

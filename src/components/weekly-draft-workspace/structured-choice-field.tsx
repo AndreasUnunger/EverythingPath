@@ -23,13 +23,29 @@ function unwrap(schema: z.ZodType): z.ZodType {
     return unwrap(schema.unwrap() as z.ZodType);
   return schema;
 }
-function initial(schema: z.ZodType, field = ''): unknown {
+function initial(
+  schema: z.ZodType,
+  field = '',
+  rollSides: Record<string, number> = {},
+): unknown {
   if (schema instanceof z.ZodOptional) return undefined;
   const base = unwrap(schema);
   if (base instanceof z.ZodLiteral) return base.value;
   if (base instanceof z.ZodDiscriminatedUnion)
-    return initial(base.options[0] as z.ZodType);
+    return initial(base.options[0] as z.ZodType, field, rollSides);
   if (base instanceof z.ZodArray) return [];
+  if (
+    base instanceof z.ZodObject &&
+    'dice' in base.shape &&
+    'sides' in base.shape &&
+    'provenance' in base.shape
+  )
+    return {
+      dice: [],
+      ...(rollSides[field] ? { sides: rollSides[field] } : {}),
+      provenance: { kind: 'table' },
+      modifiers: [],
+    };
   if (
     base instanceof z.ZodObject &&
     'sourceId' in base.shape &&
@@ -40,7 +56,10 @@ function initial(schema: z.ZodType, field = ''): unknown {
   if (base instanceof z.ZodObject)
     return Object.fromEntries(
       Object.entries(base.shape)
-        .map(([key, child]) => [key, initial(child as z.ZodType, key)])
+        .map(([key, child]) => [
+          key,
+          initial(child as z.ZodType, key, rollSides),
+        ])
         .filter(([, value]) => value !== undefined),
     );
   if (base instanceof z.ZodRecord) return {};
@@ -74,6 +93,7 @@ type FieldProps = {
   disabled: boolean;
   modifierContext?: boolean;
   ownerEventId?: string;
+  rollSides?: Record<string, number>;
   acknowledgementSubject?: string;
 };
 function nestedField(props: FieldProps) {
@@ -85,6 +105,7 @@ function nestedField(props: FieldProps) {
   ) => (
     <Fields
       key={name}
+      rollSides={props.rollSides}
       modifierContext={props.modifierContext}
       ownerEventId={props.ownerEventId}
       acknowledgementSubject={props.acknowledgementSubject}
@@ -129,7 +150,7 @@ function Fields(props: FieldProps) {
         type="button"
         variant="outline"
         disabled={props.disabled}
-        onClick={() => props.change(initial(base))}
+        onClick={() => props.change(initial(base, props.name, props.rollSides))}
       >
         Add {choiceFieldLabel(props.name).toLowerCase()}
       </Button>
@@ -181,11 +202,12 @@ function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
               (option.shape[discriminator] as z.ZodLiteral<string>).value ===
               selected,
           )!;
-          change(initial(option));
+          change(initial(option, name, props.rollSides));
         }}
       />
       {selectedSchema && (
         <Fields
+          rollSides={props.rollSides}
           modifierContext={props.modifierContext}
           ownerEventId={props.ownerEventId}
           acknowledgementSubject={props.acknowledgementSubject}
@@ -223,7 +245,8 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
   const error = issues.find((issue) => issue.path.join('.') === path)?.message;
   const object = record(value);
   const ownerEventId =
-    typeof object.eventId === 'string' && 'origin' in object
+    typeof object.eventId === 'string' &&
+    ('origin' in object || name === 'occurrence')
       ? object.eventId
       : props.ownerEventId;
   const acknowledgementSubject =
@@ -347,7 +370,12 @@ function ArrayFields(props: FieldProps & { base: z.ZodArray }) {
         type="button"
         variant="outline"
         disabled={disabled}
-        onClick={() => change([...values, initial(base.element as z.ZodType)])}
+        onClick={() =>
+          change([
+            ...values,
+            initial(base.element as z.ZodType, name, props.rollSides),
+          ])
+        }
       >
         Add {title.toLowerCase()} entry
       </Button>
@@ -482,7 +510,9 @@ export function StructuredChoiceField({
   options,
   onValue,
   disabled,
+  rollSides = {},
 }: {
+  rollSides?: Record<string, number>;
   schema: z.ZodType;
   value: unknown;
   name: string;
@@ -516,6 +546,7 @@ export function StructuredChoiceField({
       })}
     >
       <Fields
+        rollSides={rollSides}
         schema={schema}
         value={form.watch('value')}
         change={(value) => {

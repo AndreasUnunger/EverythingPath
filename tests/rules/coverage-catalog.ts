@@ -6123,6 +6123,31 @@ export const coverageCatalog = {
       ],
       cases: [
         {
+          id: 'event-preparation',
+          checkpoint: '7-workspace',
+          expected:
+            'Event occurrences expose independent branches, typed raw inputs, explicit clears, reactive decisions and owner-bound narrative outcomes through Workspace; disjoint occurrence edits coexist and stale edits recover visibly.',
+          plannedTests: [
+            'rules.P83.workspace',
+            'rules.P83.input',
+            'rules.P83.acknowledgement',
+            'rules.P83.details',
+            'rules.P83.ownership',
+            'rules.P83.candidates',
+            'rules.P79.contract',
+          ],
+          tests: [
+            'rules.P83.workspace',
+            'rules.P83.input',
+            'rules.P83.acknowledgement',
+            'rules.P83.details',
+            'rules.P83.ownership',
+            'rules.P83.candidates',
+            'rules.P79.contract',
+          ],
+          gap: null,
+        },
+        {
           id: 'activity-cards',
           checkpoint: '7-workspace',
           expected:

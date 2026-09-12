@@ -3,7 +3,11 @@ import type { EventOutcomeProjection } from './rules-event-outcomes';
 import type { UpkeepSnapshot } from './rules-upkeep';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import type { TrackedCharacter } from './rules-character-state';
-import { eventCheck, eventDie } from './rules-event-checks';
+import {
+  eventCheck,
+  eventDie,
+  eventMitigationAttempted,
+} from './rules-event-checks';
 type Event = EventDispatch['event'];
 type Cache = NonNullable<UpkeepSnapshot['economy']>['caches'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
@@ -235,10 +239,10 @@ function checkThreatMitigation(
         input.target.kind === 'character' &&
         input.target.characterId === target.characterId,
   );
-  const attempted =
-    (input?.mitigation ?? event.mitigation) === 'attempted' ||
-    ((input?.mitigation ?? event.mitigation) !== 'unattempted' &&
-      !!(input?.rolls?.check ?? event.rolls?.check));
+  const attempted = eventMitigationAttempted(
+    input?.mitigation ?? event.mitigation,
+    input?.rolls?.check ?? event.rolls?.check,
+  );
   if (!attempted) return false;
   const targetId =
     'cacheId' in target

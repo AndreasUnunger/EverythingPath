@@ -11,6 +11,7 @@ import {
   persistentDecisionSchema,
   actionChoiceEvents,
   eventTreeSchema,
+  eventOccurrenceSchema,
   acknowledgementSchema,
   rulesExceptionSchema,
   tableAdjustmentSchema,
@@ -288,6 +289,10 @@ export const weeklyDraftEditSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('event_chance'),
     roll: rawRollSchema.nullable(),
+  }),
+  z.strictObject({
+    kind: z.literal('event_occurrence'),
+    occurrence: eventOccurrenceSchema,
   }),
   z.strictObject({
     kind: z.literal('event_tree'),

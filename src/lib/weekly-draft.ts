@@ -126,6 +126,16 @@ const draftEditHandlers: {
     if (edit.roll === null) delete next.event.chanceRoll;
     else next.event.chanceRoll = edit.roll;
   },
+  event_occurrence: (next, edit) => {
+    const event = currentEvent(next, edit.occurrence.eventId);
+    if (
+      !event ||
+      JSON.stringify(event.origin) !== JSON.stringify(edit.occurrence.origin)
+    )
+      return 'obsolete_event';
+    for (const key of Object.keys(event)) Reflect.deleteProperty(event, key);
+    Object.assign(event, edit.occurrence);
+  },
   event_tree: (next, edit) => {
     next.event.occurrences = edit.occurrences;
   },

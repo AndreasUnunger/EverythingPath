@@ -112,3 +112,47 @@ export function eventCheck(
     ? null
     : projected.total;
 }
+
+// Raw dice required by the event input contract; calculations remain in the resolvers.
+export function eventInputRollSides(
+  eventType: string | null,
+): Record<string, number> {
+  return {
+    tableRoll: 100,
+    check: 20,
+    roll: 20,
+    notoriety: 6,
+    loss: eventType === 'raid' ? 100 : 6,
+  };
+}
+
+export function eventMitigationAttempted(
+  mitigation: Event['mitigation'],
+  roll: Raw,
+) {
+  return (
+    mitigation === 'attempted' ||
+    (mitigation !== 'unattempted' && Boolean(roll))
+  );
+}
+export function eventMitigationInput(
+  event: Event,
+  mode: EventDispatch['mode'] | null,
+): 'unavailable' | 'unattempted' | 'attempted' {
+  if (event.eventType === 'rivalry' && mode === 'twice')
+    return event.officerCheck ? 'attempted' : 'unattempted';
+  if (
+    !['raid', 'cache_discovered', 'theft'].includes(event.eventType ?? '') ||
+    (event.eventType === 'theft' && mode === 'twice')
+  )
+    return 'unavailable';
+  return eventMitigationAttempted(event.mitigation, event.rolls?.check) ||
+    event.targetChecks?.some((input) =>
+      eventMitigationAttempted(
+        input.mitigation ?? event.mitigation,
+        input.rolls?.check ?? event.rolls?.check,
+      ),
+    )
+    ? 'attempted'
+    : 'unattempted';
+}

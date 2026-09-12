@@ -9,6 +9,7 @@ import {
   useWeeklyDraftWorkspace,
 } from './use-weekly-draft-workspace';
 import { createConvexWorkspaceGateway } from './gateway';
+import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
 import type { Phase } from './types';
@@ -101,6 +102,12 @@ export function WeeklyWorkspaceBoard() {
         />
       ) : view.phase === 'activity' ? (
         <ActivityView
+          view={view}
+          edit={workspace.edit}
+          disabled={workspace.feedback === 'confirming'}
+        />
+      ) : view.phase === 'event' ? (
+        <EventView
           view={view}
           edit={workspace.edit}
           disabled={workspace.feedback === 'confirming'}

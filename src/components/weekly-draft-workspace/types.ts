@@ -1,7 +1,8 @@
+import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
 import type { ActivityProjection } from '~/lib/rules-activity';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
-import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
+import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
 export type UpkeepRollField = Extract<
@@ -97,15 +98,37 @@ export type ActivityView = {
   requirements: string[];
   warnings: string[];
 };
+export type EventView = {
+  phase: 'event';
+  ready: boolean;
+  chance: number;
+  chanceRoll: WeeklyDraft['event']['chanceRoll'] | null;
+  guaranteed: boolean;
+  occurrences: {
+    occurrence: WeeklyDraft['event']['occurrences'][number];
+    resolvedType: string | null;
+    optionalMitigation: 'unavailable' | 'unattempted' | 'attempted';
+    rollSides: Record<string, number>;
+    exceptionChoices: WeeklyDraft['rulesExceptions'];
+    changes: EventOutcomeChange[];
+    mode: string | null;
+    selected: boolean;
+    negated: boolean;
+    requirements: string[];
+    warnings: string[];
+    owner: { slotId: string; choice: StagedActionChoice } | null;
+  }[];
+  acknowledgements: WeeklyDraft['acknowledgements'];
+  exceptions: WeeklyDraft['rulesExceptions'];
+  checks: ActivityView['checks'];
+  options: Record<string, { value: string; label: string }[]>;
+  requirements: string[];
+  warnings: string[];
+};
 export type PhaseView =
   | UpkeepView
   | ActivityView
-  | {
-      phase: 'event';
-      ready: boolean;
-      requirements: string[];
-      warnings: string[];
-    }
+  | EventView
   | {
       phase: 'persistent';
       ready: boolean;

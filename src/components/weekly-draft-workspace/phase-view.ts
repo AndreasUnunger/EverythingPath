@@ -1,3 +1,4 @@
+import { eventView } from './event-facts';
 import { activityView } from './activity-facts';
 import { upkeepInputFacts } from '~/lib/rules-upkeep';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
@@ -20,13 +21,7 @@ export function phaseView(
       warnings: preview.warnings,
     };
   if (phase === 'activity') return activityView(draft, source, preview);
-  if (phase === 'event')
-    return {
-      phase,
-      ready: preview.phases?.event.ready ?? false,
-      requirements: preview.phases?.event.requirements ?? [],
-      warnings: preview.phases?.event.warnings ?? [],
-    };
+  if (phase === 'event') return eventView(draft, source, preview);
   if (phase === 'persistent')
     return {
       phase,

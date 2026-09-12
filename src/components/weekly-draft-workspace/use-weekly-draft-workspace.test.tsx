@@ -436,3 +436,71 @@ test('[rules.P82.declared-references] incomplete staged creations remain named c
     });
   });
 });
+
+test('[rules.P83.workspace] Event occurrences and required branches recompute after shared upstream edits', async () => {
+  const { gateway } = fixture();
+  const player = renderWorkspace(gateway);
+  await waitFor(() => expect(player.result.current.status).toBe('ready'));
+  const ready = () => {
+    const value = player.result.current;
+    if (value.status !== 'ready') throw new Error('Expected ready');
+    return value;
+  };
+  await act(async () => {
+    ready().viewPhase('event');
+    await ready().edit({
+      kind: 'event_chance',
+      roll: {
+        dice: [1],
+        sides: 100,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      },
+    });
+    await ready().edit({
+      kind: 'event_tree',
+      occurrences: [
+        {
+          eventId: 'root',
+          origin: { kind: 'rolled' },
+          tableRoll: {
+            dice: [50],
+            sides: 100,
+            provenance: { kind: 'table' },
+            modifiers: [],
+          },
+        },
+      ],
+    });
+  });
+  expect(ready().phaseView).toMatchObject({
+    phase: 'event',
+    chance: 10,
+    occurrences: [
+      { occurrence: { eventId: 'root' }, resolvedType: 'roll_twice' },
+    ],
+    requirements: expect.arrayContaining(['root:roll_twice:2']),
+  });
+  await act(async () => {
+    await ready().edit({
+      kind: 'event_tree',
+      occurrences: [
+        {
+          eventId: 'root',
+          origin: { kind: 'rolled' },
+          tableRoll: {
+            dice: [45],
+            sides: 100,
+            provenance: { kind: 'table' },
+            modifiers: [],
+          },
+        },
+      ],
+    });
+  });
+  expect(ready().phaseView).toMatchObject({
+    phase: 'event',
+    occurrences: [{ resolvedType: 'all_is_calm' }],
+  });
+  expect(ready().phaseView.requirements).not.toContain('root:roll_twice:2');
+});

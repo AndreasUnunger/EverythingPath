@@ -154,6 +154,8 @@ function editTargets(base: WeeklyDraft, edit: WeeklyDraftEdit): Path[] {
       return [['activity', 'consumableIds']];
     case 'event_chance':
       return [['event', 'chanceRoll']];
+    case 'event_occurrence':
+      return [persistentTarget(base, edit.occurrence.eventId).slice(0, -1)];
     case 'event_tree':
       return [['event', 'tree']];
     case 'persistent_decision':

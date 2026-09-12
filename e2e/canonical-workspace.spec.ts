@@ -1,3 +1,4 @@
+import { exerciseEventWorkspace } from './support/event-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -17,7 +18,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
   players,
   ownedCase,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
   const run = await loadRun();
   const scope = draftKeySchema.parse(
     await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
@@ -406,6 +407,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
       );
     }
     await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
+    await exerciseEventWorkspace(gm, player, network, run.artifactDirectory);
     await player.getByRole('button', { name: 'Summary', exact: true }).click();
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),

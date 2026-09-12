@@ -756,4 +756,58 @@ export async function runPersistenceContract(
       'Explicit clear removes only its roll',
     );
   });
+  await scenario(async ({ first, second }, op) => {
+    const firstEvent = {
+      eventId: 'first-event',
+      origin: { kind: 'rolled' as const },
+    };
+    const secondEvent = {
+      eventId: 'second-event',
+      origin: { kind: 'replacement' as const, parentEventId: 'first-event' },
+    };
+    await first.send(
+      op(0, { kind: 'event_tree', occurrences: [firstEvent, secondEvent] }),
+    );
+    await first.send(
+      op(1, {
+        kind: 'event_occurrence',
+        occurrence: { ...firstEvent, tableRoll: roll(50) },
+      }),
+    );
+    await second.send(
+      op(1, {
+        kind: 'event_occurrence',
+        occurrence: { ...secondEvent, tableRoll: roll(45) },
+      }),
+    );
+    const observed = await first.read();
+    check(
+      observed.draft?.event.occurrences[0]?.tableRoll?.dice[0] === 50 &&
+        observed.draft.event.occurrences[1]?.tableRoll?.dice[0] === 45,
+      'Disjoint stale occurrence inputs coexist',
+    );
+    await rejects(
+      second.send(
+        op(1, {
+          kind: 'event_occurrence',
+          occurrence: { ...firstEvent, tableRoll: roll(46) },
+        }),
+      ),
+      'Same occurrence rejects stale inputs',
+    );
+    await rejects(
+      second.send(op(1, { kind: 'event_tree', occurrences: [] })),
+      'Stale tree removal cannot erase accepted occurrence inputs',
+    );
+    await first.send(op(3, { kind: 'event_tree', occurrences: [] }));
+    await rejects(
+      second.send(
+        op(3, {
+          kind: 'event_occurrence',
+          occurrence: { ...secondEvent, tableRoll: roll(47) },
+        }),
+      ),
+      'A removed occurrence cannot be resurrected',
+    );
+  });
 }

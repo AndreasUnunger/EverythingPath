@@ -181,7 +181,7 @@ export const persistentDecisionSchema = z.discriminatedUnion('kind', [
     acknowledgement: acknowledgementSchema,
   }),
 ]);
-const eventOccurrenceSchema = z.strictObject({
+export const eventOccurrenceSchema = z.strictObject({
   eventId: id,
   origin: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('rolled') }),
