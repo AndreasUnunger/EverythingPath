@@ -71,6 +71,16 @@ const passing = () => ({
       results: [{ status: 'passed', retry: 0 }],
     },
     {
+      file: 'canonical-confirmation.spec.ts',
+      project: 'canonical-confirmation',
+      title:
+        'shared Confirmation contract commits reviewed weeks in isolated Convex',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
       file: 'canonical-workspace.spec.ts',
       project: 'canonical-workspace',
       title:
@@ -222,5 +232,24 @@ it('requires every selected nightly project journey without skips or retry passe
 it('rejects a missing canonical Workspace UI journey', () => {
   const report = passing();
   report.tests.pop();
+  expect(evaluateResults(report)).toBe(false);
+});
+
+it('requires the independent Confirmation contract even when editing passed', () => {
+  const report = passing();
+  report.tests = report.tests.filter(
+    (test) => !test.title.startsWith('shared Confirmation'),
+  );
+  expect(evaluateResults(report)).toBe(false);
+});
+it('rejects a passing Confirmation retry after a failed first attempt', () => {
+  const report = passing();
+  const confirmation = report.tests.find((test) =>
+    test.title.startsWith('shared Confirmation'),
+  )!;
+  confirmation.results = [
+    { status: 'failed', retry: 0 },
+    { status: 'passed', retry: 1 },
+  ];
   expect(evaluateResults(report)).toBe(false);
 });

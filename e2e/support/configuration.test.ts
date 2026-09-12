@@ -43,11 +43,16 @@ it.each(['mandatory', 'nightly'] as const)(
       expect(result.stdout).toContain('complete-week.spec.ts');
       expect(result.stdout).toContain('realtime-action-slot.spec.ts');
       expect(result.stdout).toContain('[canonical-persistence]');
+      expect(result.stdout).toContain('[canonical-confirmation]');
+      expect(result.stdout).toContain('canonical-confirmation.spec.ts');
       expect(result.stdout).toContain('canonical-persistence.spec.ts');
+      expect(result.stdout).toContain(
+        'shared Confirmation contract commits reviewed weeks in isolated Convex',
+      );
       expect(result.stdout).toContain('[canonical-workspace]');
       expect(result.stdout).toContain('canonical-workspace.spec.ts');
       expect(result.stdout).toContain(
-        mode === 'nightly' ? 'Total: 17 tests' : 'Total: 8 tests',
+        mode === 'nightly' ? 'Total: 18 tests' : 'Total: 9 tests',
       );
       if (mode === 'nightly') {
         expect(result.stdout).toContain('[webkit-tablet]');

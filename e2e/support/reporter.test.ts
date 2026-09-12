@@ -19,6 +19,8 @@ it.each([
   'retry-multiplayer',
   'missing-persistence',
   'retry-persistence',
+  'missing-confirmation',
+  'retry-confirmation',
   'missing-workspace',
   'retry-workspace',
 ] as const)(
@@ -68,7 +70,12 @@ it.each([
       if (mode !== 'missing-persistence')
         await writeFile(
           join(directory, 'canonical-persistence.spec.ts'),
-          `import { test } from ${playwright}; test('shared persistence contract uses authenticated isolated Convex', async ({}, info) => { ${mode === 'retry-persistence' ? "if (info.retry === 0) throw new Error('Synthetic persistence failure');" : ''} });`,
+          `import {test} from ${playwright}; test('shared persistence contract uses authenticated isolated Convex', async ({},info)=>{${mode === 'retry-persistence' ? "if(info.retry===0)throw new Error('Synthetic persistence failure');" : ''}});`,
+        );
+      if (mode !== 'missing-confirmation')
+        await writeFile(
+          join(directory, 'canonical-confirmation.spec.ts'),
+          `import {test} from ${playwright}; test('shared Confirmation contract commits reviewed weeks in isolated Convex', async ({},info)=>{${mode === 'retry-confirmation' ? "if(info.retry===0)throw new Error('Synthetic Confirmation failure');" : ''}});`,
         );
       if (mode !== 'missing-workspace')
         await writeFile(
@@ -83,8 +90,9 @@ it.each([
         retries: 1, reporter: [[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],
         projects: [
           { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
-          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: ['canonical-persistence.spec.ts','canonical-workspace.spec.ts'], dependencies: ['authentication'] },
+          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: ['canonical-persistence.spec.ts','canonical-confirmation.spec.ts','canonical-workspace.spec.ts'], dependencies: ['authentication'] },
           { name: 'canonical-persistence', testMatch: 'canonical-persistence.spec.ts', dependencies: ['authentication'] },
+          { name: 'canonical-confirmation', testMatch: 'canonical-confirmation.spec.ts', dependencies: ['authentication'] },
           { name: 'canonical-workspace', testMatch: 'canonical-workspace.spec.ts', dependencies: ['authentication'] },
         ],
       };`,
@@ -112,6 +120,7 @@ it.each([
         mode === 'retry' ||
         mode === 'retry-multiplayer' ||
         mode === 'retry-persistence' ||
+        mode === 'retry-confirmation' ||
         mode === 'retry-workspace'
       )
         expect(report).toMatchObject({
@@ -124,7 +133,9 @@ it.each([
                     ? 'realtime-action-slot.spec.ts'
                     : mode === 'retry-persistence'
                       ? 'canonical-persistence.spec.ts'
-                      : 'canonical-workspace.spec.ts',
+                      : mode === 'retry-confirmation'
+                        ? 'canonical-confirmation.spec.ts'
+                        : 'canonical-workspace.spec.ts',
               results: [
                 { status: 'failed', retry: 0 },
                 { status: 'passed', retry: 1 },

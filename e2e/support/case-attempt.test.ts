@@ -4,8 +4,33 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { caseAttempt, claimCaseKey } from './case-attempt';
+import { browserProjects } from './matrix';
 
 describe('case ownership and retry lifecycle', () => {
+  it('gives editing and Confirmation separate ownership for their declared cases', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'e2e-contract-ownership-'));
+    try {
+      for (const file of [
+        'canonical-persistence.spec.ts',
+        'canonical-confirmation.spec.ts',
+      ]) {
+        const project = browserProjects('mandatory').find((candidate) =>
+          [candidate.testMatch].flat().includes(file),
+        );
+        expect(project?.name).toBeDefined();
+        for (const caseKey of ['canonicalPersistence', 'isolation']) {
+          await claimCaseKey(
+            directory,
+            `${project?.name}-worker-0`,
+            caseKey,
+            file,
+          );
+        }
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   it('resets before contexts on both the initial attempt and retry, even when cleanup fails', async () => {
     const order: string[] = [];
     for (let attempt = 0; attempt < 2; attempt++) {

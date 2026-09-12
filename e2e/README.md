@@ -578,3 +578,29 @@ Successful runs save `canonical-upkeep-tablet.png`, `canonical-upkeep-phone.png`
 visual inspection. The original five
 campaign journeys and the deployed editing/Confirmation contracts remain required.
 The Workspace route remains unavailable to live campaigns during this extraction.
+
+## Independent service contract deadlines (PR #93)
+
+CI run `34683202465` retained the first failure in `progress.json`: authentication
+and all six application journeys passed on their first attempts, while the
+combined service test exceeded its 300-second deadline. Its completed fixture
+commands consumed about 145 seconds, with continued progress through editing and
+Confirmation. The resulting diagnostic retry then reached the unchanged
+720-second overall deadline. The isolated local baseline completed the combined
+test in 226 seconds, so a local pass alone did not establish adequate CI margin.
+
+The unchanged 11-scenario editing contract and eight-scenario Confirmation
+contract now run as separately required tests, each retaining the 300-second
+limit. Confirmation still includes its independent literal-state and authority
+checks. `canonical-persistence` and `canonical-confirmation` use separate project
+ownership namespaces for the existing declared fixture capabilities, with one
+worker and a fresh reset per scenario. The fixture ownership guard is unchanged.
+The mandatory matrix requires nine first-attempt results and nightly requires
+18. Omitting either contract or passing only on a retry fails the aggregate;
+neither the 720-second workflow budget nor retry acceptance was relaxed.
+
+Local verification of the split passes 873 tests, typecheck, lint and the rules
+catalog (380 covered cases, 290 explicit gaps, zero errors). The focused aggregate
+regression first failed when Confirmation was absent, then passed with the new
+required test. Actual reporter-protocol tests also reject missing and retry-only
+Confirmation results. Fresh full isolated QA and the hosted CI rerun are pending.

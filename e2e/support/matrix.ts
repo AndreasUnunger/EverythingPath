@@ -25,6 +25,11 @@ const persistenceContract = [
   'shared persistence contract uses authenticated isolated Convex',
 ] as const;
 
+const confirmationContract = [
+  'canonical-confirmation.spec.ts',
+  'shared Confirmation contract commits reviewed weeks in isolated Convex',
+] as const;
+
 const workspaceJourney = [
   'canonical-workspace.spec.ts',
   'players prepare shared Upkeep with independent navigation and save recovery',
@@ -49,6 +54,11 @@ export function browserProjects(mode: SuiteMode): Project[] {
       ...tablet,
       name: 'canonical-persistence',
       testMatch: persistenceContract[0],
+    },
+    {
+      ...tablet,
+      name: 'canonical-confirmation',
+      testMatch: confirmationContract[0],
     },
     ...(mode === 'nightly'
       ? [
@@ -91,7 +101,12 @@ export function requiredTests(mode: SuiteMode) {
   return browserProjects(mode).flatMap((project) =>
     project.name === 'authentication'
       ? [['auth.setup.ts', project.name, 'prepare fresh role sessions']]
-      : [...criticalJourneys, persistenceContract, workspaceJourney]
+      : [
+          ...criticalJourneys,
+          persistenceContract,
+          confirmationContract,
+          workspaceJourney,
+        ]
           .filter(([file]) => [project.testMatch].flat().includes(file))
           .map(([file, title]) => [file, project.name!, title]),
   );
