@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
+import { z } from 'zod';
 import { command, parseFixtureResponse } from './process';
 import { resources } from './test-data';
 
@@ -76,6 +77,32 @@ it('persists safe service diagnostics while a process is still running and close
     expect(
       await readFile(join(artifactDirectory, 'diagnostics.log'), 'utf8'),
     ).not.toContain('opaque-provider-secret');
+    const timingText = await readFile(
+      join(artifactDirectory, 'timings.jsonl'),
+      'utf8',
+    );
+    expect(timingText).not.toContain('opaque-provider-secret');
+    const timings = z
+      .array(
+        z.object({
+          commandId: z.string(),
+          stage: z.string(),
+          status: z.string(),
+          elapsedMs: z.number(),
+        }),
+      )
+      .parse(
+        timingText
+          .trim()
+          .split('\n')
+          .map((line): unknown => JSON.parse(line)),
+      );
+    expect(timings).toMatchObject([
+      { stage: 'production application server', status: 'started' },
+      { stage: 'production application server', status: 'failed' },
+    ]);
+    expect(timings[1]!.commandId).toBe(timings[0]!.commandId);
+    expect(timings[1]!.elapsedMs).toBeGreaterThan(timings[0]!.elapsedMs);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

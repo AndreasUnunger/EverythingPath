@@ -2,7 +2,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { resources } from './test-data';
 import { evaluateResults } from './results';
@@ -156,3 +156,94 @@ async function writeAccessJourney(
     `import { test } from ${playwright}; test${modifier}('organization members can open their campaign and outsiders cannot', ${options} async ({}, info) => { ${body} });`,
   );
 }
+
+it('keeps safe completed-attempt evidence when the runner is killed before onEnd', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'e2e-interrupted-reporter-'));
+  const artifactDirectory = join(directory, 'artifacts');
+  const runFile = join(directory, 'run.json');
+  try {
+    await writeFile(
+      runFile,
+      JSON.stringify({
+        resources,
+        workspace: directory,
+        sourceRoot: process.cwd(),
+        privateDirectory: directory,
+        artifactDirectory,
+        envFile: join(directory, 'convex.env'),
+        baseURL: 'http://localhost:49123',
+      }),
+    );
+    const playwright = JSON.stringify(
+      resolve('node_modules/@playwright/test/index.mjs'),
+    );
+    await writeFile(
+      join(directory, 'interrupted.spec.ts'),
+      `import {test} from ${playwright}; test('completed service timeout',async()=>{test.setTimeout(50);await new Promise(()=>{});}); test('later work',async()=>{await new Promise(()=>{});});`,
+    );
+    const config = join(directory, 'playwright.config.ts');
+    await writeFile(
+      config,
+      `export default {testDir:${JSON.stringify(directory)},workers:1,retries:0,reporter:[[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],projects:[{name:'canonical-persistence',testMatch:'interrupted.spec.ts'}]};`,
+    );
+    await new Promise<void>((resolveDone, reject) => {
+      const child = spawn(
+        process.execPath,
+        [
+          resolve('node_modules/@playwright/test/cli.js'),
+          'test',
+          '--config',
+          config,
+        ],
+        {
+          env: { ...process.env, E2E_RUN_FILE: runFile },
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: process.platform !== 'win32',
+        },
+      );
+      let observed = false;
+      let output = '';
+      const kill = () => {
+        if (child.pid && process.platform !== 'win32')
+          process.kill(-child.pid, 'SIGKILL');
+        else child.kill('SIGKILL');
+      };
+      const deadline = setTimeout(kill, 8000);
+      child.stdout.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        if (
+          !observed &&
+          output.includes(
+            'timedOut: canonical-persistence: completed service timeout',
+          )
+        ) {
+          observed = true;
+          kill();
+        }
+      });
+      child.on('error', reject);
+      child.on('close', () => {
+        clearTimeout(deadline);
+        if (observed) resolveDone();
+        else reject(new Error('Completed timeout was not reported'));
+      });
+    });
+    const checkpoint = JSON.parse(
+      await readFile(join(artifactDirectory, 'progress.json'), 'utf8'),
+    ) as unknown;
+    expect(checkpoint).toMatchObject({
+      status: 'running',
+      evidence: [
+        {
+          project: 'canonical-persistence',
+          status: 'timedOut',
+          retry: 0,
+          errors: [expect.stringContaining('50ms')],
+        },
+      ],
+    });
+    expect(evaluateResults(checkpoint, 'mandatory')).toBe(false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}, 10000);

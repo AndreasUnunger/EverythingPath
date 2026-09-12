@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -39,6 +40,8 @@ export async function command(
   args: string[],
   options: { cwd: string; env?: NodeJS.ProcessEnv; timeout?: number },
 ) {
+  const commandId = randomUUID();
+  const startedAt = performance.now();
   const environment = { ...(options.env ?? process.env) };
   if (environment.CONVEX_DEPLOY_KEY?.startsWith('preview:')) {
     // Convex otherwise prefers ~/.convex/config.json over preview deploy keys.
@@ -58,6 +61,16 @@ export async function command(
     await appendFile(
       join(run.artifactDirectory, 'stages.log'),
       `${stage}: ${status}\n`,
+    );
+    await appendFile(
+      join(run.artifactDirectory, 'timings.jsonl'),
+      `${JSON.stringify({
+        commandId,
+        stage,
+        status,
+        at: new Date().toISOString(),
+        elapsedMs: Math.round(performance.now() - startedAt),
+      })}\n`,
     );
   };
   await log('started');

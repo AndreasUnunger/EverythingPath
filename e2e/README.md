@@ -110,7 +110,12 @@ mutation hooks, fake authentication or hidden staging endpoints are provided.
 
 Only upload the current `e2e-artifacts/<previewName>/<runId>/`, with 30-day retention. The custom
 reporter keeps safe assertion messages, test outcomes and timings; auth setup
-errors are replaced with a fixed diagnostic. `stages.log` records stage outcomes;
+errors are replaced with a fixed diagnostic. Each completed attempt is atomically
+checkpointed in `progress.json`, so an outer deadline retains the first failure
+even if `onEnd` cannot write the final report. Its status remains `running` and
+can never satisfy the aggregate gate. `stages.log` records stage outcomes;
+`timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
+without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
 as schema validation, authentication, rate limits and connection failures) without
 provider payloads. Failed multiplayer contexts retain application-page

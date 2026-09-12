@@ -9,9 +9,10 @@ import type {
   TestStep,
 } from '@playwright/test/reporter';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { evaluateResults } from './results';
-import { loadRun } from './process';
+import { loadRun, runSchema } from './process';
 import { sanitizeLog } from './artifacts';
 
 export default class SafeReporter implements Reporter {
@@ -80,6 +81,23 @@ export default class SafeReporter implements Reporter {
           sanitizeLog(description ?? 'No visible state'),
         ),
     });
+    // onTestEnd is synchronous in Playwright's reporter protocol. Checkpoint
+    // before announcing completion so an outer deadline cannot erase the first
+    // failed attempt. Only onEnd can produce an aggregate passing report.
+    const runFile = process.env.E2E_RUN_FILE;
+    if (!runFile) throw new Error('Missing E2E run declaration');
+    const run = runSchema.parse(JSON.parse(readFileSync(runFile, 'utf8')));
+    mkdirSync(run.artifactDirectory, { recursive: true });
+    const checkpoint = join(run.artifactDirectory, 'progress.json');
+    writeFileSync(
+      `${checkpoint}.tmp`,
+      JSON.stringify(
+        { status: 'running', errors: this.errors, evidence: this.results },
+        null,
+        2,
+      ),
+    );
+    renameSync(`${checkpoint}.tmp`, checkpoint);
     process.stdout.write(
       `${result.status}: ${test.parent.project()?.name}: ${journey} (attempt ${result.retry + 1})\n`,
     );
