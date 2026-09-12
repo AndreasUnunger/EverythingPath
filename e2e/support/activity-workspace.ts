@@ -8,6 +8,7 @@ export async function exerciseActivityWorkspace(
   network: Awaited<ReturnType<typeof controlNextDraftEdit>>,
   artifactDirectory: string,
 ) {
+  await gm.setViewportSize({ width: 1194, height: 834 });
   const slot = (page: Page, position: number) =>
     page.locator(`[aria-label="Action Slot ${position}"]`);
   const card = (page: Page, position: number, action: string) =>

@@ -89,6 +89,8 @@ export type ActivityView = {
   caches: { value: string; label: string }[];
   events: { value: string; label: string }[];
   bonuses: { value: string; label: string }[];
+  automaticSources: { value: string; label: string }[];
+  modifierSources: { value: string; label: string }[];
   startDay: number;
   operatingSettlementId: string | null;
   checks: ActivityProjection['checks'];

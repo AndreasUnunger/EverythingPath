@@ -5,8 +5,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi, type Mock } from 'vitest';
 afterEach(cleanup);
+import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
 const view: Facts = {
@@ -39,6 +40,8 @@ const view: Facts = {
   events: [],
   bonuses: [],
   startDay: 21,
+  automaticSources: [],
+  modifierSources: [{ value: 'helpful', label: 'Helpful settlement support' }],
   teams: [],
   settlements: [],
   people: [],
@@ -48,7 +51,7 @@ const view: Facts = {
   warnings: [],
 };
 test('[rules.P82.cards] accessible placement moves whole choices and deck placement replaces occupied choices', () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(<ActivityView view={view} edit={edit} disabled={false} />);
   fireEvent.click(
     screen.getByRole('button', {
@@ -79,7 +82,7 @@ test('[rules.P82.cards] accessible placement moves whole choices and deck placem
 });
 
 test('[rules.P82.nested] a purchase keeps copper precision, requires its price and stages a complete typed detail', async () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   const purchaseView: Facts = {
     ...view,
     slots: [
@@ -128,7 +131,7 @@ test('[rules.P82.nested] a purchase keeps copper precision, requires its price a
 });
 
 test('[rules.P82.union] optional destination can be added and saved without inventing a character reference', async () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
       view={{
@@ -162,7 +165,7 @@ test('[rules.P82.union] optional destination can be added and saved without inve
 });
 
 test('[rules.P82.decimal] item weight can be typed as a decimal and complete detail failures are visible', async () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
       view={{
@@ -197,7 +200,7 @@ test('[rules.P82.decimal] item weight can be typed as a decimal and complete det
 });
 
 test('[rules.P82.references] cache item lists use named cards instead of internal references', async () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
       view={{
@@ -232,7 +235,7 @@ test('[rules.P82.references] cache item lists use named cards instead of interna
 });
 
 test('[rules.P82.validation] removing a selected event candidate explains the structural failure', async () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
       view={{
@@ -268,7 +271,7 @@ test('[rules.P82.validation] removing a selected event candidate explains the st
 });
 
 test('[rules.P82.candidate-owner] a persistent candidate decision belongs to the event being edited', async () => {
-  const edit = vi.fn();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
       view={{
@@ -329,7 +332,7 @@ test('[rules.P82.warnings] staged cards explain range and calculated-cost mismat
           },
         ],
       }}
-      edit={vi.fn()}
+      edit={vi.fn<(edit: WeeklyDraftEdit) => void>()}
       disabled={false}
     />,
   );
@@ -339,3 +342,232 @@ test('[rules.P82.warnings] staged cards explain range and calculated-cost mismat
   ).toBeVisible();
   expect(screen.queryByText('drill:check:roll-range')).not.toBeInTheDocument();
 });
+
+test('[rules.P82.receipt] recording an order receipt binds its notes to the same receipt and order', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={{
+        ...view,
+        slots: [
+          {
+            ...view.slots[0]!,
+            choice: {
+              choiceId: 'order-choice',
+              actionId: 'special_order',
+              orderId: 'order',
+            },
+          },
+        ],
+      }}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  screen
+    .getByText('Edit Special Order details')
+    .parentElement!.setAttribute('open', '');
+  fireEvent.change(screen.getByRole('textbox', { name: 'Receipt notes' }), {
+    target: { value: 'The ordered potion arrived' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Record receipt' }));
+  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
+  const choice = detailChoice(edit);
+  if (choice.actionId !== 'special_order') throw new Error('Expected order');
+  expect(choice.receipt).toEqual({
+    receivedDay: 21,
+    acknowledgementId: expect.any(String),
+  });
+  expect(choice.acknowledgements).toEqual([
+    {
+      acknowledgementId: choice.receipt!.acknowledgementId,
+      subjectId: 'order',
+      outcome: 'The ordered potion arrived',
+    },
+  ]);
+});
+
+test('[rules.P82.modifiers] players type a signed custom check modifier with a reason', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={{
+        ...view,
+        slots: [
+          {
+            ...view.slots[0]!,
+            choice: {
+              choiceId: 'drill',
+              actionId: 'drill_militia',
+              rolls: {
+                check: {
+                  dice: [10],
+                  sides: 20,
+                  provenance: { kind: 'table' },
+                  modifiers: [],
+                },
+              },
+            },
+          },
+        ],
+      }}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  screen
+    .getByText('Edit Drill Militia details')
+    .parentElement!.setAttribute('open', '');
+  screen
+    .getByText('Check sources and modifiers')
+    .parentElement!.setAttribute('open', '');
+  fireEvent.click(screen.getByRole('button', { name: 'Add modifiers entry' }));
+  const amount = screen.getByRole('textbox', { name: 'Value' });
+  fireEvent.change(amount, { target: { value: '-' } });
+  expect(amount).toHaveValue('-');
+  fireEvent.change(amount, { target: { value: '-2' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Reason' }), {
+    target: { value: 'Heavy rain' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save modifiers' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        choice: expect.objectContaining({
+          rolls: {
+            check: {
+              dice: [10],
+              sides: 20,
+              provenance: { kind: 'table' },
+              modifiers: [
+                {
+                  sourceId: expect.stringMatching(/^custom:/),
+                  value: -2,
+                  reason: 'Heavy rain',
+                },
+              ],
+            },
+          },
+        }),
+      }),
+    ),
+  );
+});
+
+test('[rules.P82.sources] automatic candidates select a named queued source', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={{
+        ...view,
+        automaticSources: [
+          { value: 'queue-source', label: 'Queued celebration' },
+        ],
+        slots: [
+          {
+            ...view.slots[0]!,
+            choice: {
+              choiceId: 'guarantee',
+              actionId: 'guarantee_event',
+              candidates: [
+                {
+                  eventId: 'candidate',
+                  origin: { kind: 'automatic', sourceId: 'old-source' },
+                },
+              ],
+            },
+          },
+        ],
+      }}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  screen
+    .getByText('Edit Guarantee Event details')
+    .parentElement!.setAttribute('open', '');
+  fireEvent.click(screen.getByRole('button', { name: 'Queued celebration' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        choice: expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              origin: { kind: 'automatic', sourceId: 'queue-source' },
+            }),
+          ],
+        }),
+      }),
+    ),
+  );
+  expect(screen.queryByDisplayValue('old-source')).not.toBeInTheDocument();
+});
+
+test('[rules.P82.nested-acknowledgements] event ending and sabotage notes bind to their owning candidate', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={{
+        ...view,
+        slots: [
+          {
+            ...view.slots[0]!,
+            choice: {
+              choiceId: 'guarantee',
+              actionId: 'guarantee_event',
+              candidates: [
+                {
+                  eventId: 'candidate',
+                  origin: { kind: 'rolled' },
+                  persistent: true,
+                },
+              ],
+            },
+          },
+        ],
+      }}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  screen
+    .getByText('Edit Guarantee Event details')
+    .parentElement!.setAttribute('open', '');
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Add persistent decision' }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: /^End$/ }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Outcome' }), {
+    target: { value: 'The event was resolved at the table' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Add sabotage' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add acknowledgements' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Add acknowledgements entry' }),
+  );
+  fireEvent.change(screen.getAllByRole('textbox', { name: 'Outcome' })[1]!, {
+    target: { value: 'Saboteurs disrupted the event' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
+  const choice = detailChoice(edit);
+  if (choice.actionId !== 'guarantee_event')
+    throw new Error('Expected event choice');
+  const candidate = choice.candidates![0]!;
+  if (candidate.persistentDecision?.kind !== 'end' || !candidate.sabotage)
+    throw new Error('Expected both decisions');
+  expect(candidate.persistentDecision.acknowledgement.subjectId).toBe(
+    'candidate',
+  );
+  expect(candidate.sabotage.choiceId).toEqual(expect.any(String));
+  expect(candidate.sabotage.acknowledgements![0]!.subjectId).toBe(
+    `sabotage:candidate:${candidate.sabotage.choiceId}`,
+  );
+});
+
+function detailChoice(edit: Mock<(edit: WeeklyDraftEdit) => void>) {
+  const operation = edit.mock.calls[0]![0];
+  if (operation.kind !== 'detail') throw new Error('Expected detail edit');
+  return operation.choice;
+}

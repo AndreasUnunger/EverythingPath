@@ -1,10 +1,16 @@
 'use client';
 import { z } from 'zod';
+import { ActivityReceipt } from './activity-receipt';
+import {
+  activityReferenceOptions,
+  actionReferenceOptions,
+} from './activity-input-options';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   stagedActionChoiceSchema,
+  rawRollSchema,
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
@@ -24,7 +30,7 @@ import {
   choiceFieldLabel as label,
   StructuredChoiceField,
 } from './structured-choice-field';
-import { activityLabel } from './activity-facts';
+import { activityLabel } from './activity-labels';
 import type { ActivityView } from './types';
 export function ActivityText({
   name,
@@ -96,12 +102,14 @@ function ChoiceFields({
     (option) => option.shape.actionId.value === choice.actionId,
   )!.shape;
   const values: Record<string, unknown> = choice;
+  const references = actionReferenceOptions(choice, view);
   const hidden = new Set([
     'choiceId',
     'actionId',
     'rolls',
     'acknowledgements',
     'orderId',
+    'receipt',
   ]);
   return Object.entries(shape)
     .flatMap(([field, wrapped]) => {
@@ -116,60 +124,14 @@ function ChoiceFields({
           ? (calculatedCostCopper ?? undefined)
           : undefined);
       const fieldLabel = label(field);
-      let options:
-        | { value: string; label: string; description?: string }[]
-        | null = null;
-      if (field === 'teamId' || field === 'targetTeamId') options = view.teams;
-      else if (field === 'settlementId') options = view.settlements;
-      else if (field.endsWith('CharacterId') || field === 'characterId')
-        options = view.people;
-      else if (field === 'itemId')
-        options =
-          choice.actionId === 'special_order' && choice.mode !== 'enchantment'
-            ? [
-                {
-                  value:
-                    typeof value === 'string' ? value : crypto.randomUUID(),
-                  label: 'New ordered item',
-                },
-              ]
-            : view.items;
-      else if (field === 'cacheId')
-        options =
-          choice.actionId === 'secure_cache' && choice.mode !== 'retrieve'
-            ? [
-                {
-                  value:
-                    typeof value === 'string' ? value : crypto.randomUUID(),
-                  label: 'New cache',
-                },
-              ]
-            : view.caches;
-      else if (field === 'selectedEventId')
-        options =
-          'candidates' in choice
-            ? (choice.candidates ?? []).map((event, index) => ({
-                value: event.eventId,
-                label: `Candidate ${index + 1}: ${activityLabel(event.eventType ?? 'unselected_event')}`,
-              }))
-            : [];
-      else if (field === 'followingChoiceId')
-        options = view.slots.flatMap((slot) =>
-          slot.choice && slot.choice.choiceId !== choice.choiceId
-            ? [
-                {
-                  value: slot.choice.choiceId,
-                  label: activityLabel(slot.choice.actionId),
-                },
-              ]
-            : [],
-        );
-      else if (schema instanceof z.ZodEnum)
+      let options =
+        schema instanceof z.ZodArray ? null : (references[field] ?? null);
+      if (!options && schema instanceof z.ZodEnum)
         options = schema.options.map((option) => ({
           value: String(option),
           label: activityLabel(String(option)),
         }));
-      else if (schema instanceof z.ZodBoolean)
+      else if (!options && schema instanceof z.ZodBoolean)
         options = [
           { value: 'true', label: 'Yes' },
           { value: 'false', label: 'No' },
@@ -226,28 +188,7 @@ function ChoiceFields({
           value={value}
           disabled={disabled}
           onValue={(value) => change(field, value)}
-          options={{
-            teamId: view.teams,
-            settlementId: view.settlements,
-            characterId: view.people,
-            ownerCharacterId: view.people,
-            overseerCharacterId: view.people,
-            strategistCharacterId: view.people,
-            chooserCharacterId: view.people,
-            parentEventId:
-              'candidates' in choice
-                ? (choice.candidates ?? []).map((event, index) => ({
-                    value: event.eventId,
-                    label: `Candidate ${index + 1}`,
-                  }))
-                : [],
-            eventId: view.events,
-            itemId: view.items,
-            itemIds: view.items,
-            sales: view.items,
-            consumableIds: view.bonuses,
-            cacheId: view.caches,
-          }}
+          options={activityReferenceOptions(choice, view)}
         />,
       ];
     })
@@ -265,11 +206,13 @@ function ChoiceFields({
 function ChoiceRolls({
   choice,
   requirements,
+  view,
   disabled,
   change,
 }: {
   choice: StagedActionChoice;
   requirements: string[];
+  view: ActivityView;
   disabled: boolean;
   change: (field: string, value: unknown) => void;
 }) {
@@ -323,6 +266,31 @@ function ChoiceRolls({
             />
           ))}
         </div>
+        {roll && (
+          <details className="space-y-2">
+            <summary className="cursor-pointer text-sm">
+              {activityLabel(field)} sources and modifiers
+            </summary>
+            <p className="text-muted-foreground text-xs">
+              Rules bonuses are calculated automatically. Choose settlement
+              support, an available bonus, or record a custom table modifier
+              with a reason.
+            </p>
+            <StructuredChoiceField
+              schema={rawRollSchema.shape.modifiers.optional()}
+              value={roll.modifiers}
+              name="modifiers"
+              disabled={disabled}
+              options={activityReferenceOptions(choice, view)}
+              onValue={(modifiers) =>
+                change('rolls', {
+                  ...choice.rolls,
+                  [field]: { ...roll, modifiers: modifiers ?? [] },
+                })
+              }
+            />
+          </details>
+        )}
       </fieldset>
     );
   });
@@ -344,11 +312,16 @@ export function ActivityDetails({
     message: string;
   } | null>(null);
   function change(field: string, value: unknown) {
-    const next = Object.fromEntries(
-      Object.entries({ ...choice, [field]: value }).filter(
-        ([, value]) => value !== undefined,
+    return saveChoice(
+      field,
+      Object.fromEntries(
+        Object.entries({ ...choice, [field]: value }).filter(
+          ([, value]) => value !== undefined,
+        ),
       ),
     );
+  }
+  function saveChoice(field: string, next: unknown) {
     const parsed = stagedActionChoiceSchema.safeParse(next);
     if (!parsed.success) {
       setDetailError({
@@ -382,7 +355,16 @@ export function ActivityDetails({
           Calculated cost: {slot.calculatedCostCopper} cp
         </p>
       )}
+      {choice.actionId === 'special_order' && (
+        <ActivityReceipt
+          choice={choice}
+          startDay={view.startDay}
+          disabled={disabled}
+          save={(next) => saveChoice('receipt', next)}
+        />
+      )}
       <ChoiceRolls
+        view={view}
         choice={choice}
         requirements={slot.requirements}
         change={change}
@@ -398,8 +380,21 @@ export function ActivityDetails({
         <ul className="text-muted-foreground space-y-1 text-xs">
           {check.modifiers.map((modifier) => (
             <li key={modifier.source}>
-              {label(modifier.source.split(':')[0]!.replaceAll('-', '_'))}:{' '}
-              {modifier.value >= 0 ? '+' : ''}
+              {choice.rolls?.check?.modifiers.find(
+                (entry) => entry.sourceId === modifier.source,
+              )?.reason ??
+                view.modifierSources.find(
+                  (entry) => entry.value === modifier.source,
+                )?.label ??
+                {
+                  'rank-focus': 'Rank and focus',
+                  officers: 'Officers',
+                  strategist: 'Strategist',
+                  'gather-tier': 'Information gathering',
+                  'knowledge-rank': 'Militia knowledge',
+                }[modifier.source] ??
+                'Calculated modifier'}
+              : {modifier.value >= 0 ? '+' : ''}
               {modifier.value}
             </li>
           ))}

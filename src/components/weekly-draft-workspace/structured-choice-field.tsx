@@ -6,7 +6,7 @@ import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { ChoiceCards } from './choice-cards';
 import { WholeNumberField } from './whole-number-field';
-import { activityLabel } from './activity-facts';
+import { activityLabel } from './activity-labels';
 type Options = Record<string, { value: string; label: string }[]>;
 export function choiceFieldLabel(field: string) {
   if (/^\d+$/.test(field)) return `Entry ${Number(field) + 1}`;
@@ -30,6 +30,13 @@ function initial(schema: z.ZodType, field = ''): unknown {
   if (base instanceof z.ZodDiscriminatedUnion)
     return initial(base.options[0] as z.ZodType);
   if (base instanceof z.ZodArray) return [];
+  if (
+    base instanceof z.ZodObject &&
+    'sourceId' in base.shape &&
+    'value' in base.shape &&
+    'reason' in base.shape
+  )
+    return { sourceId: `custom:${crypto.randomUUID()}`, value: 0 };
   if (base instanceof z.ZodObject)
     return Object.fromEntries(
       Object.entries(base.shape)
@@ -39,7 +46,7 @@ function initial(schema: z.ZodType, field = ''): unknown {
   if (base instanceof z.ZodRecord) return {};
   if (
     base instanceof z.ZodString &&
-    ['eventId', 'itemId', 'acknowledgementId'].includes(field)
+    ['eventId', 'itemId', 'acknowledgementId', 'choiceId'].includes(field)
   )
     return crypto.randomUUID();
   return undefined;
@@ -65,6 +72,9 @@ type FieldProps = {
   path?: string;
   issues: z.core.$ZodIssue[];
   disabled: boolean;
+  modifierContext?: boolean;
+  ownerEventId?: string;
+  acknowledgementSubject?: string;
 };
 function nestedField(props: FieldProps) {
   return (
@@ -75,6 +85,9 @@ function nestedField(props: FieldProps) {
   ) => (
     <Fields
       key={name}
+      modifierContext={props.modifierContext}
+      ownerEventId={props.ownerEventId}
+      acknowledgementSubject={props.acknowledgementSubject}
       schema={schema}
       value={value}
       name={name}
@@ -165,6 +178,9 @@ function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
       />
       {selectedSchema && (
         <Fields
+          modifierContext={props.modifierContext}
+          ownerEventId={props.ownerEventId}
+          acknowledgementSubject={props.acknowledgementSubject}
           schema={selectedSchema}
           value={value}
           change={change}
@@ -178,12 +194,64 @@ function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
     </div>
   );
 }
+function optionsForSource(
+  options: Options,
+  name: string,
+  modifier: boolean,
+  current: unknown,
+) {
+  if (name === 'origin') return options.automaticSources ?? [];
+  if (!modifier) return null;
+  const known = options.modifierSources ?? [];
+  const custom =
+    typeof current === 'string' && !known.some((item) => item.value === current)
+      ? current
+      : `custom:${crypto.randomUUID()}`;
+  return [...known, { value: custom, label: 'Custom table modifier' }];
+}
 function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
   const { value, change, name, path = '', issues, base } = props;
   const title = choiceFieldLabel(name);
   const error = issues.find((issue) => issue.path.join('.') === path)?.message;
-  const nested = nestedField(props);
   const object = record(value);
+  const ownerEventId =
+    typeof object.eventId === 'string' && 'origin' in object
+      ? object.eventId
+      : props.ownerEventId;
+  const acknowledgementSubject =
+    name === 'persistentDecision' &&
+    object.kind === 'end' &&
+    typeof object.eventId === 'string'
+      ? object.eventId
+      : name === 'sabotage' &&
+          typeof object.choiceId === 'string' &&
+          ownerEventId
+        ? `sabotage:${ownerEventId}:${object.choiceId}`
+        : props.acknowledgementSubject;
+  const modifier = props.modifierContext || path.includes('modifiers');
+  const knownSources = optionsForSource(
+    props.options,
+    name,
+    Boolean(modifier),
+    object.sourceId,
+  );
+  const nested = nestedField({
+    ...props,
+    ownerEventId,
+    acknowledgementSubject,
+    options: knownSources
+      ? { ...props.options, sourceId: knownSources }
+      : props.options,
+  });
+  if (name === 'provenance')
+    return (
+      <p className="text-muted-foreground text-xs">
+        {object.kind === 'generated'
+          ? 'Original generated roll provenance is retained.'
+          : 'Roll recorded at the table.'}
+      </p>
+    );
+
   const fields: [string, z.ZodType][] =
     base instanceof z.ZodObject
       ? (Object.entries(base.shape) as [string, z.ZodType][])
@@ -198,8 +266,17 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
       <legend className="text-sm font-semibold">{title}</legend>
       {fields.map(([key, child]) => {
         if (
-          ['eventId', 'itemId', 'acknowledgementId'].includes(key) &&
-          (name === 'persistentDecision' || !('kind' in object))
+          [
+            'eventId',
+            'itemId',
+            'acknowledgementId',
+            'choiceId',
+            'subjectId',
+          ].includes(key) &&
+          (key === 'subjectId' ||
+            key === 'choiceId' ||
+            name === 'persistentDecision' ||
+            !('kind' in object))
         )
           return null;
         return nested(child, object[key], key, (next) =>
@@ -207,6 +284,9 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
             Object.fromEntries(
               Object.entries({
                 ...object,
+                ...('acknowledgementId' in object && acknowledgementSubject
+                  ? { subjectId: acknowledgementSubject }
+                  : {}),
                 [key]:
                   key === 'persistentDecision' &&
                   next !== undefined &&
@@ -230,7 +310,10 @@ function ArrayFields(props: FieldProps & { base: z.ZodArray }) {
   const { value, change, name, path = '', issues, disabled, base } = props;
   const title = choiceFieldLabel(name);
   const error = issues.find((issue) => issue.path.join('.') === path)?.message;
-  const nested = nestedField(props);
+  const nested = nestedField({
+    ...props,
+    modifierContext: props.modifierContext || name === 'modifiers',
+  });
   const values = Array.isArray(value) ? (value as unknown[]) : [];
   return (
     <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
@@ -367,7 +450,9 @@ function ScalarField(props: FieldProps & { base: z.ZodType }) {
             if (
               text !== '' &&
               (!/^-?[0-9]*(?:\.[0-9]*)?$/.test(text) ||
-                !Number.isFinite(Number(text)))
+                (text !== '-' &&
+                  !text.endsWith('.') &&
+                  !Number.isFinite(Number(text))))
             ) {
               setFormatError('Enter a valid number.');
               return;

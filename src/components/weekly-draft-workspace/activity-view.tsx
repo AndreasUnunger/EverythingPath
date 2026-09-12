@@ -6,7 +6,7 @@ import { Card } from '~/components/ui/card';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ActivityView as Facts } from './types';
 import { activityWarning } from './activity-warnings';
-import { activityLabel } from './activity-facts';
+import { activityLabel } from './activity-labels';
 import { useActivityPlacement } from './use-activity-placement';
 import { ActivityDetails } from './activity-details';
 import { ChoiceCards } from './choice-cards';
@@ -148,14 +148,21 @@ export function ActivityView({
               </p>
             )}
             {slot.choice &&
-              slot.warnings.map((warning) => (
-                <p
-                  key={warning}
-                  className="text-sm text-amber-700 dark:text-amber-300"
-                >
-                  {activityWarning(warning, slot.choice!.choiceId)}
-                </p>
-              ))}
+              slot.warnings
+                .filter(
+                  (warning) =>
+                    !(
+                      slot.overAllowance && warning.endsWith(':action-capacity')
+                    ),
+                )
+                .map((warning) => (
+                  <p
+                    key={warning}
+                    className="text-sm text-amber-700 dark:text-amber-300"
+                  >
+                    {activityWarning(warning, slot.choice!.choiceId)}
+                  </p>
+                ))}
             {slot.choice ? (
               dragButton(
                 {

@@ -353,3 +353,86 @@ test('[rules.P82.workspace] Activity exposes complete choices and retained extra
     ).toBe('upkeep');
   });
 });
+
+test('[rules.P82.declared-references] incomplete staged creations remain named choices for later actions', async () => {
+  const { gateway } = fixture();
+  const workspace = renderWorkspace(gateway);
+  await waitFor(() => expect(workspace.result.current.status).toBe('ready'));
+  await act(async () => {
+    const state = workspace.result.current;
+    if (state.status !== 'ready') throw new Error('Expected Workspace');
+    state.viewPhase('activity');
+    await state.edit({
+      kind: 'stage',
+      slotId: 'left',
+      choice: {
+        choiceId: 'recruits',
+        actionId: 'recruit_team',
+        teamType: 'patrons',
+      },
+    });
+    await state.edit({ kind: 'add_slot', slotId: 'market' });
+    await state.edit({
+      kind: 'stage',
+      slotId: 'market',
+      choice: {
+        choiceId: 'purchase',
+        actionId: 'broker_market',
+        purchases: [
+          { itemId: 'potion', priceCopper: 123, name: 'Healing potion' },
+        ],
+      },
+    });
+    await state.edit({ kind: 'add_slot', slotId: 'cache' });
+    await state.edit({
+      kind: 'stage',
+      slotId: 'cache',
+      choice: {
+        choiceId: 'cache-choice',
+        actionId: 'secure_cache',
+        mode: 'place',
+        cacheId: 'mill',
+        location: 'Under the mill',
+      },
+    });
+    await state.edit({ kind: 'add_slot', slotId: 'events' });
+    await state.edit({
+      kind: 'stage',
+      slotId: 'events',
+      choice: {
+        choiceId: 'guarantee',
+        actionId: 'guarantee_event',
+        candidates: [
+          {
+            eventId: 'rivalry',
+            eventType: 'rivalry',
+            origin: { kind: 'rolled' },
+          },
+        ],
+      },
+    });
+  });
+  await waitFor(() => {
+    const state = workspace.result.current;
+    if (state.status !== 'ready' || state.phaseView.phase !== 'activity')
+      throw new Error('Expected Activity');
+    expect(state.phaseView.teams).toContainEqual(
+      expect.objectContaining({
+        value: 'recruit:recruits',
+        label: 'Recruit Team · Slot 1',
+      }),
+    );
+    expect(state.phaseView.items).toContainEqual({
+      value: 'potion',
+      label: 'Healing potion',
+    });
+    expect(state.phaseView.caches).toContainEqual({
+      value: 'mill',
+      label: 'Under the mill',
+    });
+    expect(state.phaseView.events).toContainEqual({
+      value: 'rivalry',
+      label: 'Rivalry · Event 1',
+    });
+  });
+});
