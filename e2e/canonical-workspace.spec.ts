@@ -189,6 +189,18 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(gm.getByRole('status')).toHaveText(
       'Changes could not be saved. The latest saved values are shown.',
     );
+    await expect(
+      gm.getByRole('button', { name: 'Confirm week', exact: true }),
+    ).toBeDisabled();
+    const updatedReview = gm.getByRole('button', {
+      name: 'Review updated week',
+      exact: true,
+    });
+    await expect(updatedReview).toBeEnabled();
+    await updatedReview.click();
+    await expect(
+      gm.getByRole('button', { name: 'Confirm week', exact: true }),
+    ).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await expect(die(gm)).toHaveValue('14');
     await die(gm).fill('16');
