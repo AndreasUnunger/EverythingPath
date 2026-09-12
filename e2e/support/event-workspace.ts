@@ -86,19 +86,30 @@ export async function exerciseEventWorkspace(
   await expect(table(player, 2)).toHaveValue('');
   await table(gm, 2).fill('45');
   await expect(table(player, 2)).toHaveValue('45');
-  const held = network.hold();
-  await table(gm, 2).fill('46');
-  await held;
-  await expect(
-    gm.getByRole('status').filter({ hasText: 'Saving changes…' }),
-  ).toBeVisible();
-  await phase(gm, 'Summary');
-  await table(player, 2).fill('47');
-  network.release();
-  await expect(
-    gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
-  ).toBeVisible();
-  await expect(gm.getByRole('heading', { name: /· Summary$/ })).toBeVisible();
+  const observer = await gm.context().newPage();
+  try {
+    await observer.goto(gm.url());
+    await phase(observer, 'Event');
+    await expect(table(observer, 2)).toHaveValue('45');
+    const held = network.hold();
+    await table(gm, 2).fill('46');
+    await held;
+    await expect(
+      gm.getByRole('status').filter({ hasText: 'Saving changes…' }),
+    ).toBeVisible();
+    await phase(gm, 'Summary');
+    await table(player, 2).fill('47');
+    // A third read-only tab proves the competing mutation was accepted before releasing the stale edit.
+    await expect(table(observer, 2)).toHaveValue('47');
+    network.release();
+    await expect(
+      gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
+    ).toBeVisible();
+    await expect(gm.getByRole('heading', { name: /· Summary$/ })).toBeVisible();
+  } finally {
+    network.release();
+    await observer.close();
+  }
   await phase(gm, 'Event');
   await expect(table(gm, 2)).toHaveValue('47');
   await table(gm, 2).fill('45');

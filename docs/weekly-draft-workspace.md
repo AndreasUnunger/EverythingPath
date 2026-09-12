@@ -62,3 +62,13 @@ A focused `event_occurrence` operation edits an existing occurrence in its ownin
 The two-player browser journey includes Event selection and Roll Twice branches, shared Invasion preparation and narrative notes, invalid/zero/clear behavior, same-occurrence conflict recovery with independent navigation, and tablet/phone/desktop layouts. The supported live board continues to use its established path until cutover; this extraction only changes the isolated canonical Workspace and does not fabricate or dual-write live campaign inputs.
 
 Verification and independent review evidence will be recorded after the final gate.
+
+The first Event gate (`b7POu3`) exposed a race in the browser scenario: the held mutation was released before the competitor’s edit had been observed as accepted. The corrected scenario waits for a separate read-only tab to display that accepted die before releasing the stale request. The application’s independent-occurrence consistency contract passed against the real adapter during this run; the failed browser run is not completion evidence.
+
+### Event handoff for Persistent (#84)
+
+- Reuse the structured editor’s optional `rollSides` facts for known raw dice defaults; input formatting and partial decimal/signed text remain browser-owned. Event input defaults and optional-mitigation facts live with the shared rules implementation.
+- An occurrence editor keeps its hidden event identity, and nested ending/Sabotage acknowledgements bind to their owning event/choice. Global event acknowledgement identities are deterministic on first save, so competing first notes have one conflict target; retain this principle for new Persistent acknowledgement controls.
+- `event_occurrence` changes only an existing occurrence, preserves its origin, and locates its current tree from canonical ownership. Whole-tree changes, candidate replacement and owner movement conflict with stale occurrence edits. `persistent_decision` and `clear_persistent_decision` retain their narrower decision targets.
+- Named references currently reuse Activity facts. Standards review recorded a nonblocking opportunity to share the reference-facts builder directly as Persistent adopts the editor.
+- Full sequential verification passes 895 tests across 90 files, with 382 covered catalog cases, 290 explicit gaps and zero errors. Independent Standards re-review has no remaining documented violations; Spec static review has no remaining findings. Final browser and live UI evidence follow below.
