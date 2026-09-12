@@ -571,3 +571,60 @@ function detailChoice(edit: Mock<(edit: WeeklyDraftEdit) => void>) {
   if (operation.kind !== 'detail') throw new Error('Expected detail edit');
   return operation.choice;
 }
+
+test('[rules.P82.provenance] recorded roll provenance stays intact without offering incomplete source selection', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={{
+        ...view,
+        slots: [
+          {
+            ...view.slots[0]!,
+            choice: {
+              choiceId: 'guarantee',
+              actionId: 'guarantee_event',
+              candidates: [
+                {
+                  eventId: 'candidate',
+                  origin: { kind: 'rolled' },
+                  tableRoll: {
+                    dice: [50],
+                    sides: 100,
+                    provenance: { kind: 'generated', sourceId: 'recorded-die' },
+                    modifiers: [],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  screen
+    .getByText('Edit Guarantee Event details')
+    .parentElement!.setAttribute('open', '');
+  expect(
+    screen.queryByRole('button', { name: 'Generated' }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue('recorded-die')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        choice: expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              tableRoll: expect.objectContaining({
+                provenance: { kind: 'generated', sourceId: 'recorded-die' },
+              }),
+            }),
+          ],
+        }),
+      }),
+    ),
+  );
+});

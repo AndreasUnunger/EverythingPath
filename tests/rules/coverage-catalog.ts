@@ -6142,6 +6142,7 @@ export const coverageCatalog = {
             'rules.P82.sources',
             'rules.P82.nested-acknowledgements',
             'rules.P82.declared-references',
+            'rules.P82.provenance',
           ],
           tests: ['rules.P82.workspace', 'rules.P82.cards', 'rules.P82.nested'],
           gap: null,

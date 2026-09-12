@@ -104,6 +104,14 @@ function nestedField(props: FieldProps) {
   );
 }
 function Fields(props: FieldProps) {
+  if (props.name === 'provenance')
+    return (
+      <p className="text-muted-foreground text-xs">
+        {record(props.value).kind === 'generated'
+          ? 'Recorded roll.'
+          : 'Rolled at the table.'}
+      </p>
+    );
   const base = unwrap(props.schema);
   if (base instanceof z.ZodLiteral) return null;
   const structured =
@@ -228,7 +236,7 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
           ownerEventId
         ? `sabotage:${ownerEventId}:${object.choiceId}`
         : props.acknowledgementSubject;
-  const modifier = props.modifierContext || path.includes('modifiers');
+  const modifier = props.modifierContext === true || path.includes('modifiers');
   const knownSources = optionsForSource(
     props.options,
     name,
@@ -243,15 +251,6 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
       ? { ...props.options, sourceId: knownSources }
       : props.options,
   });
-  if (name === 'provenance')
-    return (
-      <p className="text-muted-foreground text-xs">
-        {object.kind === 'generated'
-          ? 'Original generated roll provenance is retained.'
-          : 'Roll recorded at the table.'}
-      </p>
-    );
-
   const fields: [string, z.ZodType][] =
     base instanceof z.ZodObject
       ? (Object.entries(base.shape) as [string, z.ZodType][])
@@ -312,7 +311,7 @@ function ArrayFields(props: FieldProps & { base: z.ZodArray }) {
   const error = issues.find((issue) => issue.path.join('.') === path)?.message;
   const nested = nestedField({
     ...props,
-    modifierContext: props.modifierContext || name === 'modifiers',
+    modifierContext: props.modifierContext === true || name === 'modifiers',
   });
   const values = Array.isArray(value) ? (value as unknown[]) : [];
   return (
