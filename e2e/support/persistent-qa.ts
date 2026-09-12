@@ -66,23 +66,33 @@ export async function reviewPersistentWorkspace(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
+      `${name}: document must fit the viewport`,
     ).toBe(true);
-    for (const control of await section.locator('button, input').all()) {
-      if (!(await control.isVisible())) continue;
-      const bounds = await control.boundingBox();
-      expect(bounds).not.toBeNull();
-      expect(bounds!.x).toBeGreaterThanOrEqual(0);
-      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-      expect(
-        await control.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth,
-        ),
-      ).toBe(true);
-    }
     await savePrivate(
       join(artifactDirectory, `reviewer-persistent-${name}.png`),
       await page.screenshot({ fullPage: true }),
     );
+    for (const control of await section.locator('button, input').all()) {
+      if (!(await control.isVisible())) continue;
+      const details = await control.evaluate((element) => ({
+        tag: element.tagName,
+        label:
+          element.getAttribute('aria-label') ??
+          (element instanceof HTMLInputElement
+            ? element.labels?.[0]?.textContent
+            : element.textContent) ??
+          'Unlabelled control',
+        contentFits: element.scrollWidth <= element.clientWidth,
+      }));
+      const description = `${name}: ${details.tag} ${details.label}`;
+      const bounds = await control.boundingBox();
+      expect(bounds, description).not.toBeNull();
+      expect(bounds!.x, description).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width, description).toBeLessThanOrEqual(width);
+      // Text inputs intentionally scroll long entered values inside their bounds.
+      if (details.tag === 'BUTTON')
+        expect(details.contentFits, description).toBe(true);
+    }
   }
   // Discard the unsaved roll and restore the previously reviewed buyoff.
   await theft

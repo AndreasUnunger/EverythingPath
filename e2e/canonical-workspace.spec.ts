@@ -464,6 +464,41 @@ test('players prepare shared Upkeep with independent navigation and save recover
       run.artifactDirectory,
     );
     await reviewPersistentWorkspace(gm, run.artifactDirectory);
+    const beforePersistentConfirmation = confirmationInspectionSchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'inspect', {
+        ...persistentScope,
+        scope: ownedCase.scope,
+      }),
+    );
+    expect(beforePersistentConfirmation.snapshot.treasuryCopper).toBe(50000);
+    expect(beforePersistentConfirmation.records).toHaveLength(0);
+    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    await expect(
+      player.getByRole('button', { name: 'Confirm week', exact: true }),
+    ).toBeEnabled();
+    await player
+      .getByRole('button', { name: 'Confirm week', exact: true })
+      .click();
+    for (const page of [gm, player]) {
+      await expect(page.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Persistent', exact: true }),
+      ).toBeDisabled();
+    }
+    const afterPersistentConfirmation = confirmationInspectionSchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'inspect', {
+        ...persistentScope,
+        scope: ownedCase.scope,
+      }),
+    );
+    expect(afterPersistentConfirmation.snapshot.treasuryCopper).toBe(42000);
+    expect(afterPersistentConfirmation.records).toHaveLength(1);
+    expect(afterPersistentConfirmation.openDrafts).toHaveLength(1);
+    expect(afterPersistentConfirmation.openDrafts[0]?.context).toMatchObject({
+      carriedEvents: [],
+      lastBuyoffWeek: 4,
+      persistentPhaseEligible: false,
+    });
   } finally {
     network.release();
   }
