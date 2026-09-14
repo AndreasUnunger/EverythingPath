@@ -121,6 +121,9 @@ test('existing militia state survives reload within its campaign', async ({
   ownedCase,
   comparisonCase,
 }) => {
+  // WebKit pointer clicks take about one second each; this full setup and
+  // reload journey has over fifty before its final ledger assertions.
+  test.setTimeout(120_000);
   if (!comparisonCase)
     throw new Error('This journey requires a comparison campaign');
   await page.goto('/campaigns');

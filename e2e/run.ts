@@ -90,7 +90,9 @@ async function main() {
       privateDirectory,
       artifactDirectory,
       envFile,
-      baseURL: `http://localhost:${await availablePort()}`,
+      // WebKit rejects Clerk's Domain=localhost client cookie. The loopback
+      // IP accepts that domain-scoped cookie without altering real auth.
+      baseURL: `http://127.0.0.1:${await availablePort()}`,
     };
     const runFile = join(privateDirectory, 'run.json');
     await savePrivate(runFile, JSON.stringify(run));

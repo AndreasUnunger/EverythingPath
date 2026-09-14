@@ -97,6 +97,29 @@ export const initialize = internalMutation({
     return key;
   },
 });
+// One guarded transaction avoids a separate CLI startup for every contract case.
+export const resetAndInitialize = internalMutation({
+  args: {
+    scope: zodOutputToConvex(fixtureScopeSchema),
+    draftId: v.string(),
+    now: v.number(),
+  },
+  returns: zodOutputToConvex(draftKeySchema),
+  handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
+    await ctx.runMutation(internal.e2eFixtures.resetCase, {
+      ...args.scope,
+      now: args.now,
+    });
+    return await ctx.runMutation(
+      internal.canonicalPersistenceFixtures.initialize,
+      {
+        scope: args.scope,
+        draftId: args.draftId,
+      },
+    );
+  },
+});
+
 export const close = internalMutation({
   args: zodOutputToConvex(draftKeySchema.extend({ scope: fixtureScopeSchema })),
   returns: v.null(),

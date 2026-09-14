@@ -187,6 +187,7 @@ export async function canonicalPersistenceFixtureCall(
   run: Run,
   operation:
     | 'initialize'
+    | 'resetAndInitialize'
     | 'initializeUpkeep'
     | 'close'
     | 'changeSource'

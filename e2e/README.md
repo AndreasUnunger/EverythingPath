@@ -39,7 +39,9 @@ and other target selectors from the invoking shell. The runner intentionally doe
 not load `.env.local`. It copies application sources into a temporary workspace,
 provides an explicit Convex env file and builds using the URL returned by Convex's
 preview creation callback. `next start` serves the production build on a free
-loopback port. The callback installs the preview's Clerk issuer and fixture config.
+IPv4 loopback port. Browsers use `127.0.0.1` because WebKit rejects Clerk's
+`Domain=localhost` client cookie. The server uses `localhost` with IPv4-first
+DNS resolution so Next's internal middleware rewrites use a consistent hostname. The callback installs the preview's Clerk issuer and fixture config.
 Every child command pins Convex API authentication to the declared preview key.
 The Convex CLI otherwise prefers a saved personal login over a preview key, which
 can make an invalid key appear to work locally and then fail in CI. The harness
@@ -604,3 +606,30 @@ catalog (380 covered cases, 290 explicit gaps, zero errors). The focused aggrega
 regression first failed when Confirmation was absent, then passed with the new
 required test. Actual reporter-protocol tests also reject missing and retry-only
 Confirmation results. Fresh full isolated QA and the hosted CI rerun are pending.
+
+
+## E2E failure follow-up (2026-09-14)
+
+Required CI run `34721636351` reached the 720-second deadline while the final
+Confirmation contract was still progressing. Each contract scenario now resets
+and initializes its owned fixture in one guarded transaction, and each contract
+test reuses its authenticated clients across scenarios. Reset isolation,
+per-scenario authorization checks, transaction assertions, and required results
+remain intact. A Convex integration regression proves fresh case creation and
+rollback when initialization or capability validation fails.
+
+Nightly runs `34745454875` and `34820347494` exhausted the existing-militia
+journey's 60-second deadline at different controls. The traces showed continued
+progress through more than fifty pointer interactions. That full onboarding and
+reload journey now has a 120-second deadline; the aggregate budget stays at 720
+seconds and retries still cannot satisfy the gate.
+
+A full local nightly run then exposed WebKit's Clerk redirect loop during the
+Action Slot reload assertions. A controlled cookie probe showed that WebKit
+rejects `Domain=localhost` but accepts `Domain=127.0.0.1`. The harness now uses
+the latter origin, with a localhost server hostname to avoid
+[Next's loopback rewrite mismatch](https://github.com/vercel/next.js/issues/94745).
+The final hostname pair passed a temporary 30-reload live WebKit stress probe
+(`everythingpath-e2e-6JnKBJ`); that focused run intentionally did not satisfy the
+aggregate gate. All temporary probes were removed, and the original real reload
+assertions remain unchanged.

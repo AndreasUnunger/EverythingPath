@@ -769,3 +769,39 @@ test('[rules.P84.fixture] isolated Persistent preparation projects independent c
   );
   expect(staged.outcome?.context.lastBuyoffWeek).toBe(4);
 });
+
+test('combined contract setup starts a fresh case and rolls back an invalid initialization', async () => {
+  const { t, key } = await setup();
+  const reset = internal.canonicalPersistenceFixtures.resetAndInitialize;
+  const args = { scope: fixtureScope, draftId: 'next-case', now: 2 };
+  const next = await t.mutation(reset, args);
+  expect(next.campaignId).not.toBe(key.campaignId);
+  const inspection = await t.mutation(
+    internal.canonicalPersistenceFixtures.inspect,
+    {
+      ...next,
+      scope: fixtureScope,
+    },
+  );
+  expect(inspection.records).toHaveLength(0);
+  expect(inspection.openDrafts).toHaveLength(1);
+  await expect(t.mutation(reset, { ...args, draftId: '' })).rejects.toThrow();
+  expect(
+    await t.mutation(internal.canonicalPersistenceFixtures.inspect, {
+      ...next,
+      scope: fixtureScope,
+    }),
+  ).toEqual(inspection);
+  await expect(
+    t.mutation(reset, {
+      ...args,
+      scope: { ...fixtureScope, token: 'invalid' },
+    }),
+  ).rejects.toThrow();
+  expect(
+    await t.mutation(internal.canonicalPersistenceFixtures.inspect, {
+      ...next,
+      scope: fixtureScope,
+    }),
+  ).toEqual(inspection);
+});

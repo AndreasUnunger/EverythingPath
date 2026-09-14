@@ -3,10 +3,7 @@ import { ConvexClient } from 'convex/browser';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { createConvexDraftTransport } from '../src/lib/convex-draft-persistence';
 import { test, expect } from './support/fixtures';
-import {
-  canonicalPersistenceFixtureCall,
-  fixtureCall,
-} from './support/process';
+import { canonicalPersistenceFixtureCall } from './support/process';
 import { sanitizeLog } from './support/artifacts';
 import { prepareContract } from './support/canonical-contract';
 import {
@@ -27,24 +24,21 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
     players,
     comparisonCase!.scope,
   );
+  const first = connect(players.gm);
+  const second = connect(players.player);
+  const outsider = connect(players.outsider);
+  const anonymous = new ConvexClient(url, { logger: false });
   try {
     const confirmationHarness = async (
       verifyConfirmationAuthorization = false,
     ): Promise<ConfirmationContractHarness> => {
-      await fixtureCall(run, 'resetCase', {
-        ...ownedCase.scope,
-        now: 1_700_000_000_000,
-      });
       const scope = draftKeySchema.parse(
-        await canonicalPersistenceFixtureCall(run, 'initialize', {
+        await canonicalPersistenceFixtureCall(run, 'resetAndInitialize', {
           scope: ownedCase.scope,
+          now: 1_700_000_000_000,
           draftId: randomUUID(),
         }),
       );
-      const first = connect(players.gm);
-      const second = connect(players.player);
-      const outsider = connect(players.outsider);
-      const anonymous = new ConvexClient(url, { logger: false });
       const firstTransport = createConvexDraftTransport(first, scope);
       const inspect = async () =>
         confirmationInspectionSchema.parse(
@@ -53,55 +47,43 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
             scope: ownedCase.scope,
           }),
         );
-      try {
-        if (verifyConfirmationAuthorization) {
-          await firstTransport.send({
-            draftId: scope.draftId,
-            operationId: randomUUID(),
-            baseRevision: 0,
-            edit: {
-              kind: 'event_chance',
-              roll: {
-                dice: [100],
-                sides: 100,
-                provenance: { kind: 'table' },
-                modifiers: [],
-              },
+      if (verifyConfirmationAuthorization) {
+        await firstTransport.send({
+          draftId: scope.draftId,
+          operationId: randomUUID(),
+          baseRevision: 0,
+          edit: {
+            kind: 'event_chance',
+            roll: {
+              dice: [100],
+              sides: 100,
+              provenance: { kind: 'table' },
+              modifiers: [],
             },
-          });
-        }
-        const before = await inspect();
-        const preview = await firstTransport.preview();
-        if (verifyConfirmationAuthorization)
-          expect(preview.status).toBe('ready');
-        for (const denied of [
-          createConvexDraftTransport(outsider, scope),
-          createConvexDraftTransport(anonymous, scope),
-          createConvexDraftTransport(first, {
-            ...scope,
-            campaignId: comparison.campaignId,
-          }),
-        ]) {
-          await expect(denied.preview()).rejects.toThrow();
-          if (verifyConfirmationAuthorization)
-            await expect(
-              denied.confirm({
-                operationId: randomUUID(),
-                reviewed: preview.reviewed,
-              }),
-            ).rejects.toThrow();
-        }
-        expect(await inspect()).toEqual(before);
-      } catch (error) {
-        await Promise.all([
-          first.close(),
-          second.close(),
-          outsider.close(),
-          anonymous.close(),
-        ]);
-        throw error;
+          },
+        });
       }
-      await Promise.all([outsider.close(), anonymous.close()]);
+      const before = await inspect();
+      const preview = await firstTransport.preview();
+      if (verifyConfirmationAuthorization) expect(preview.status).toBe('ready');
+      for (const denied of [
+        createConvexDraftTransport(outsider, scope),
+        createConvexDraftTransport(anonymous, scope),
+        createConvexDraftTransport(first, {
+          ...scope,
+          campaignId: comparison.campaignId,
+        }),
+      ]) {
+        await expect(denied.preview()).rejects.toThrow();
+        if (verifyConfirmationAuthorization)
+          await expect(
+            denied.confirm({
+              operationId: randomUUID(),
+              reviewed: preview.reviewed,
+            }),
+          ).rejects.toThrow();
+      }
+      expect(await inspect()).toEqual(before);
       return {
         first: firstTransport,
         second: createConvexDraftTransport(second, scope),
@@ -121,7 +103,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
           });
         },
         dispose: async () => {
-          await Promise.all([first.close(), second.close()]);
+          // Authenticated connections belong to the whole contract run.
         },
       };
     };
@@ -243,5 +225,12 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         error instanceof Error ? error.message : 'Verification failed',
       )}`,
     );
+  } finally {
+    await Promise.all([
+      first.close(),
+      second.close(),
+      outsider.close(),
+      anonymous.close(),
+    ]);
   }
 });
