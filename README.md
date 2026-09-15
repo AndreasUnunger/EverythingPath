@@ -73,6 +73,10 @@ pnpm dev
 Press Ctrl+C to stop both services. To run either service separately, use
 `pnpm dev:web` or `pnpm dev:convex`.
 
+`dev:convex` ignores deploy keys and deployment tokens so credentials saved for
+preview or production builds do not override your local `CONVEX_DEPLOYMENT`.
+Development uses your Convex CLI login; run `pnpm exec convex login` if needed.
+
 ## Build and deployment
 
 `pnpm build` and `pnpm build:web` build only the Next.js application. They use

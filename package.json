@@ -10,7 +10,7 @@
     "check:convex-generated": "bash scripts/check-convex-generated.sh",
     "dev": "bash scripts/dev.sh",
     "dev:web": "next dev --turbopack",
-    "dev:convex": "convex dev",
+    "dev:convex": "CONVEX_DEPLOY_KEY= CONVEX_DEPLOYMENT_TOKEN= convex dev",
     "deploy:convex": "bash scripts/deploy-convex.sh",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
