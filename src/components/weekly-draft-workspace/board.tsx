@@ -35,8 +35,10 @@ function usePendingExitWarning(pending: boolean) {
 }
 export function WeeklyWorkspaceBoard({
   historyHref,
+  setupHref,
 }: {
   historyHref?: string;
+  setupHref?: string;
 }) {
   const workspace = useWeeklyDraftWorkspace();
   usePendingExitWarning(workspace.status === 'ready' && workspace.pendingWork);
@@ -61,6 +63,11 @@ export function WeeklyWorkspaceBoard({
             </>
           )}
         </Card>
+        {workspace.status === 'unavailable' && setupHref && (
+          <Button asChild className="mt-4">
+            <a href={setupHref}>Set up militia</a>
+          </Button>
+        )}
       </main>
     );
   const view = workspace.phaseView;
@@ -87,6 +94,15 @@ export function WeeklyWorkspaceBoard({
                   : 'Prepare the week together.'}
         </p>
       </header>
+      {workspace.setupNotes && (
+        <aside
+          aria-label="Setup notes"
+          className="border-primary/40 bg-primary/10 border p-3 text-sm"
+        >
+          <h2 className="font-semibold">Setup notes</h2>
+          <p>{workspace.setupNotes}</p>
+        </aside>
+      )}
       {historyHref && (
         <Button asChild variant="outline">
           <a href={historyHref}>Finished weeks</a>
@@ -148,17 +164,19 @@ export function WeeklyWorkspaceBoard({
 }
 export function CanonicalWorkspaceScreen({
   campaign,
+  initialPhase,
 }: {
   campaign: string | null;
+  initialPhase?: Phase;
 }) {
   const convex = useConvex();
   const auth = useConvexAuth();
   const gateway = useMemo(() => {
     const parsed = zid('campaign').safeParse(campaign);
     return parsed.success && auth.isAuthenticated
-      ? createConvexWorkspaceGateway(convex, parsed.data)
+      ? createConvexWorkspaceGateway(convex, parsed.data, initialPhase)
       : null;
-  }, [campaign, convex, auth.isAuthenticated]);
+  }, [campaign, convex, auth.isAuthenticated, initialPhase]);
   if (auth.isLoading)
     return (
       <p role="status" className="p-6">
@@ -168,6 +186,11 @@ export function CanonicalWorkspaceScreen({
   return (
     <WeeklyDraftWorkspaceProvider gateway={gateway}>
       <WeeklyWorkspaceBoard
+        setupHref={
+          campaign
+            ? `/canonical-setup?campaign=${encodeURIComponent(campaign)}`
+            : undefined
+        }
         historyHref={
           campaign
             ? `/canonical-history?campaign=${encodeURIComponent(campaign)}`

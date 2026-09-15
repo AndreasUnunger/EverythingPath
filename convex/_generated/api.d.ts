@@ -12,6 +12,7 @@ import type * as campaign from "../campaign.js";
 import type * as canonicalDraftPersistence from "../canonicalDraftPersistence.js";
 import type * as canonicalHistory from "../canonicalHistory.js";
 import type * as canonicalPersistenceFixtures from "../canonicalPersistenceFixtures.js";
+import type * as canonicalSetup from "../canonicalSetup.js";
 import type * as character from "../character.js";
 import type * as clerk from "../clerk.js";
 import type * as data_spells from "../data/spells.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   canonicalDraftPersistence: typeof canonicalDraftPersistence;
   canonicalHistory: typeof canonicalHistory;
   canonicalPersistenceFixtures: typeof canonicalPersistenceFixtures;
+  canonicalSetup: typeof canonicalSetup;
   character: typeof character;
   clerk: typeof clerk;
   "data/spells": typeof data_spells;

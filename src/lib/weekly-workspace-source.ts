@@ -3,6 +3,7 @@ import { draftKeySchema } from '../../convex/lib/canonicalStorageValidators';
 import { militiaSnapshotSchema } from './canonical-weekly-source';
 export const workspaceSourceSchema = z.strictObject({
   key: draftKeySchema,
+  setupNotes: z.string().optional(),
   sourceRevision: z.number().int().nonnegative(),
   snapshot: militiaSnapshotSchema,
   people: z.array(

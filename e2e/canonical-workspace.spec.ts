@@ -1,3 +1,4 @@
+import { exerciseMilitiaSetup } from './support/setup-workspace';
 import {
   reviewSummaryWorkspace,
   reviewSummarySettlement,
@@ -64,8 +65,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
   players,
   ownedCase,
 }) => {
-  test.setTimeout(360_000);
+  test.setTimeout(420_000);
   const run = await loadRun();
+  await exerciseMilitiaSetup(run, ownedCase.scope, players);
   const scope = draftKeySchema.parse(
     await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
       scope: ownedCase.scope,

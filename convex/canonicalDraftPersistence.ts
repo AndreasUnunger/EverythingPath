@@ -224,7 +224,12 @@ export const workspace = query({
         };
       }),
     );
+    const initialization = await ctx.db
+      .query('canonicalCampaignInitialization')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+      .unique();
     return workspaceSourceSchema.parse({
+      setupNotes: initialization?.setupNotes,
       key: { ...scope, draftId: draft.draftId },
       sourceRevision: source.revision,
       snapshot: source.snapshot,

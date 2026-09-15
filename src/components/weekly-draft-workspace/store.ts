@@ -39,6 +39,8 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       publish({ status: 'loading' });
       return;
     }
+    if (phase === 'persistent' && !accepted.context.persistentPhaseEligible)
+      phase = 'upkeep';
     let forecast: WeeklyDraft = accepted;
     for (const item of pending) {
       const result = editWeeklyDraft(forecast, item.edit);
@@ -54,6 +56,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       reviewed.reviewed.revision === accepted.revision;
     publish({
       status: 'ready',
+      setupNotes: source.setupNotes,
       week: accepted.week,
       phaseView: phaseView(phase, forecast, source, preview),
       phases: (
@@ -176,8 +179,8 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     if (source?.key.draftId !== next.key.draftId) {
       stopPersistence();
       persistence?.dispose();
+      phase = source ? 'upkeep' : (gateway?.initialPhase ?? 'upkeep');
       source = next;
-      phase = 'upkeep';
       pending = [];
       reviewed = null;
       reviewRequired = false;

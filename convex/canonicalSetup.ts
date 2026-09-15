@@ -1,0 +1,220 @@
+import { z } from 'zod';
+import { ConvexError, v } from 'convex/values';
+import { zodOutputToConvex } from 'convex-helpers/server/zod4';
+import {
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from './_generated/server';
+import type { Id } from './_generated/dataModel';
+import { requireIsolated } from './lib/canonicalIsolation';
+import { openDraft } from './lib/canonicalDraftStorage';
+import { draftKeySchema } from './lib/canonicalStorageValidators';
+import {
+  militiaSetupSchema,
+  prepareMilitiaSetup,
+} from '../src/lib/canonical-setup';
+import {
+  militiaSnapshotSchema,
+  weeklySourceKey,
+} from '../src/lib/canonical-weekly-source';
+
+async function requireSetupAccess(
+  ctx: MutationCtx | QueryCtx,
+  campaignId: Id<'campaign'>,
+) {
+  await requireIsolated(ctx, campaignId);
+  const campaign = await ctx.db.get('campaign', campaignId);
+  const identity = await ctx.auth.getUserIdentity();
+  const user =
+    identity &&
+    (await ctx.db
+      .query('user')
+      .withIndex('by_tokenIdentifier', (q) =>
+        q.eq('tokenIdentifier', identity.tokenIdentifier),
+      )
+      .unique());
+  if (
+    !campaign ||
+    !user?.orgIds.some((org) => org.orgId === campaign.organizationId)
+  )
+    throw new ConvexError('Campaign access required for militia setup');
+  return campaign;
+}
+const setupCharacterSchema =
+  militiaSnapshotSchema.shape.characters.element.extend({ name: z.string() });
+export const options = query({
+  args: { campaignId: v.id('campaign') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      name: v.string(),
+      characters: v.array(zodOutputToConvex(setupCharacterSchema)),
+      started: v.boolean(),
+    }),
+  ),
+  handler: async (ctx, { campaignId }) => {
+    let campaign;
+    try {
+      campaign = await requireSetupAccess(ctx, campaignId);
+    } catch {
+      return null;
+    }
+    const characters = await ctx.db
+      .query('character')
+      .withIndex('by_campaignId', (q) => q.eq('campaignId', campaignId))
+      .take(257);
+    if (characters.length > 256)
+      throw new ConvexError('This campaign exceeds the setup character limit');
+    const draft = await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_campaignId_and_status', (q) =>
+        q.eq('campaignId', campaignId),
+      )
+      .first();
+    return {
+      name: campaign.name,
+      started: !!draft,
+      characters: characters.map((character) => ({
+        characterId: character._id,
+        name: character.name,
+        level: character.level,
+        strength: character.strength,
+        dexterity: character.dexterity,
+        constitution: character.constitution,
+        intelligence: character.intelligence,
+        wisdom: character.wisdom,
+        charisma: character.charisma,
+        isActive: character.isActive !== false,
+      })),
+    };
+  },
+});
+export const initialize = mutation({
+  args: {
+    campaignId: v.id('campaign'),
+    initializationId: v.string(),
+    setup: zodOutputToConvex(militiaSetupSchema),
+  },
+  returns: zodOutputToConvex(draftKeySchema),
+  handler: async (ctx, args) => {
+    const campaign = await requireSetupAccess(ctx, args.campaignId);
+    const initializationId = z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .parse(args.initializationId);
+    const setup = militiaSetupSchema.parse(args.setup);
+    const sourceToken = weeklySourceKey(setup);
+    if (new TextEncoder().encode(sourceToken).length > 750_000)
+      throw new ConvexError('Setup is too large to save in one transaction');
+    const militia = await ctx.db
+      .query('militia')
+      .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
+      .unique();
+    const receipt =
+      militia &&
+      (await ctx.db
+        .query('canonicalCampaignInitialization')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+        .unique());
+    if (receipt) {
+      if (
+        receipt.campaignId !== args.campaignId ||
+        receipt.initializationId !== initializationId ||
+        receipt.sourceToken !== sourceToken
+      )
+        throw new ConvexError(
+          'Militia setup is already complete. Open the current week.',
+        );
+      return {
+        campaignId: args.campaignId,
+        militiaId: receipt.militiaId,
+        draftId: receipt.draftId,
+      };
+    }
+    await requireReviewedCharacters(
+      ctx,
+      args.campaignId,
+      setup.state.militiaSnapshot.characters,
+    );
+    const prior =
+      militia &&
+      (await ctx.db
+        .query('canonicalMilitiaState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
+        .unique());
+    if (prior)
+      throw new ConvexError(
+        'Militia setup is already complete. Open the current week.',
+      );
+    const draftId = `setup:${initializationId}`;
+    const plan = prepareMilitiaSetup(setup, draftId);
+    const militiaId =
+      militia?._id ??
+      (await ctx.db.insert('militia', {
+        campaignId: args.campaignId,
+        name: campaign.name,
+        HQLocation: '',
+        highestBoonReached: plan.snapshot.rank,
+        rank: plan.snapshot.rank,
+        training: plan.snapshot.training,
+        treasury: plan.snapshot.treasuryCopper / 100,
+        notoriety: plan.snapshot.notoriety,
+        focus: plan.snapshot.focus,
+      }));
+    const key = { campaignId: args.campaignId, militiaId, draftId };
+    await openDraft(ctx, {
+      campaignId: args.campaignId,
+      militiaId,
+      draft: plan.draft,
+    });
+    await ctx.db.insert('canonicalMilitiaState', {
+      campaignId: args.campaignId,
+      militiaId,
+      revision: 0,
+      snapshot: plan.snapshot,
+    });
+    await ctx.db.insert('canonicalCampaignInitialization', {
+      campaignId: args.campaignId,
+      militiaId,
+      draftId,
+      initializationId,
+      sourceToken,
+      setupNotes: setup.notes,
+    });
+    return key;
+  },
+});
+
+async function requireReviewedCharacters(
+  ctx: MutationCtx,
+  campaignId: Id<'campaign'>,
+  characters: z.infer<typeof militiaSnapshotSchema>['characters'],
+) {
+  for (const person of characters) {
+    const id = ctx.db.normalizeId('character', person.characterId);
+    const character = id && (await ctx.db.get('character', id));
+    if (character?.campaignId !== campaignId)
+      throw new ConvexError('Choose characters belonging to this campaign');
+    for (const stat of [
+      'level',
+      'strength',
+      'dexterity',
+      'constitution',
+      'intelligence',
+      'wisdom',
+      'charisma',
+    ] as const)
+      if (person[stat] !== character[stat])
+        throw new ConvexError(
+          'Character facts changed. Reload setup to review the ledger.',
+        );
+    if (person.isActive !== (character.isActive !== false))
+      throw new ConvexError(
+        'Character facts changed. Reload setup to review the ledger.',
+      );
+  }
+}

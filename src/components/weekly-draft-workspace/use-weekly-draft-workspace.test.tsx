@@ -832,3 +832,33 @@ test('[rules.P85.event-identity] ending the first event leaves later event names
   ).toEqual(['second']);
   hook.unmount();
 });
+
+test('[setup.navigation] setup opens the requested local phase without moving another player', async () => {
+  const { gateway } = fixture();
+  const first = renderWorkspace({ ...gateway, initialPhase: 'event' });
+  const second = renderWorkspace(gateway);
+  await waitFor(() =>
+    expect(first.result.current).toMatchObject({
+      status: 'ready',
+      phaseView: { phase: 'event' },
+    }),
+  );
+  await waitFor(() =>
+    expect(second.result.current).toMatchObject({
+      status: 'ready',
+      phaseView: { phase: 'upkeep' },
+    }),
+  );
+  first.unmount();
+  second.unmount();
+  const unavailablePhase = renderWorkspace({
+    ...gateway,
+    initialPhase: 'persistent',
+  });
+  await waitFor(() =>
+    expect(unavailablePhase.result.current).toMatchObject({
+      status: 'ready',
+      phaseView: { phase: 'upkeep' },
+    }),
+  );
+});

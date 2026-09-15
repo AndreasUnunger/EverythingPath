@@ -36,8 +36,8 @@ async function closeWithEvidence(
     if (info.status !== info.expectedStatus) {
       for (const [index, page] of context.pages().entries()) {
         if (
-          ['/campaigns', '/canonical-workspace'].some((path) =>
-            page.url().startsWith(`${run.baseURL}${path}`),
+          ['/campaigns', '/canonical-workspace', '/canonical-setup'].some(
+            (path) => page.url().startsWith(`${run.baseURL}${path}`),
           )
         ) {
           const visible = await page

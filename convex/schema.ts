@@ -791,6 +791,7 @@ export default defineSchema({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),
     initializationId: v.string(),
+    setupNotes: v.optional(v.string()),
     draftId: v.string(),
     sourceToken: v.string(),
   }).index('by_militiaId', ['militiaId']),

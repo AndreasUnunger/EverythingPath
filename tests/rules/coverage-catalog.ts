@@ -1017,8 +1017,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: New militia shows rank 1, training 0, treasury 10 gp and chosen focus.',
           plannedTests: ['rules.F01.fresh'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['setup.defaults', 'setup.lifecycle'],
+          gap: null,
         },
         {
           id: 'import',
@@ -1026,8 +1026,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Explicit mid-campaign state and focus survive initialization.',
           plannedTests: ['rules.F01.import'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['setup.import', 'setup.confirmation', 'setup.form'],
+          gap: null,
         },
         {
           id: 'rank-cap',
@@ -1035,8 +1035,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank cannot normally exceed 20 or highest PC level; departures are visible.',
           plannedTests: ['rules.F01.rank-cap'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['setup.rank-cap'],
+          gap: null,
         },
       ],
     },
@@ -6659,6 +6659,26 @@ export const coverageCatalog = {
             'context.references',
             'context.ui-targets',
             'context.roster-reference',
+          ],
+          gap: null,
+        },
+        {
+          id: 'setup-lifecycle',
+          checkpoint: '7-workspace',
+          expected:
+            'New and existing militia setup create one ordinary draft without resolving the week, preserve reference integrity and local navigation, and retain advisory deviations.',
+          plannedTests: ['setup.lifecycle'],
+          tests: [
+            'setup.lifecycle',
+            'setup.import',
+            'setup.authority',
+            'setup.references',
+            'setup.confirmation',
+            'setup.integrity',
+            'setup.navigation',
+            'setup.form',
+            'setup.carry-form',
+            'setup.required-facts',
           ],
           gap: null,
         },

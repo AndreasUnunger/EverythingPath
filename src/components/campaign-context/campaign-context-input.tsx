@@ -12,11 +12,13 @@ export function CampaignContextInput({
   value,
   onValueChange,
   numeric,
+  numericFormat,
   ...props
 }: Omit<ComponentProps<typeof Input>, 'value' | 'onChange'> & {
   value: unknown;
   onValueChange: (value: unknown) => void;
   numeric?: boolean;
+  numericFormat?: 'integer' | 'decimal';
 }) {
   const [input, setInput] = useState({ source: value, text: display(value) });
   return (
@@ -29,7 +31,12 @@ export function CampaignContextInput({
         const parsed = numeric
           ? text.trim() === ''
             ? null
-            : Number.isFinite(Number(text))
+            : (!numericFormat ||
+                  (numericFormat === 'integer'
+                    ? /^[+-]?\d+$/
+                    : /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/
+                  ).test(text.trim())) &&
+                Number.isFinite(Number(text))
               ? Number(text)
               : text
           : text;

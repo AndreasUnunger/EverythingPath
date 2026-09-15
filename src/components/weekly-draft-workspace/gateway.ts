@@ -1,3 +1,4 @@
+import type { Phase } from './types';
 import type { ConvexReactClient } from 'convex/react';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { api } from '../../../convex/_generated/api';
@@ -12,6 +13,7 @@ import {
 import type { DraftTransport } from '~/lib/weekly-draft-persistence-contract';
 import type { ConfirmationTransport } from '~/lib/weekly-confirmation-contract';
 export type WorkspaceGateway = {
+  initialPhase?: Phase;
   subscribe(
     next: (source: WorkspaceSource | null) => void,
     failed: () => void,
@@ -21,6 +23,7 @@ export type WorkspaceGateway = {
 export function createConvexWorkspaceGateway(
   react: ConvexReactClient,
   campaignId: Id<'campaign'>,
+  initialPhase?: Phase,
 ): WorkspaceGateway {
   const client: ConvexDraftClient = {
     query: react.query.bind(react),
@@ -41,6 +44,7 @@ export function createConvexWorkspaceGateway(
     },
   };
   return {
+    initialPhase,
     subscribe(next, failed) {
       return client.onUpdate(
         api.canonicalDraftPersistence.workspace,

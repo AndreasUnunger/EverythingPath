@@ -176,6 +176,7 @@ export type WeeklyDraftWorkspace =
   | { status: 'failed' }
   | {
       status: 'ready';
+      setupNotes?: string;
       week: number;
       phaseView: PhaseView;
       phases: { phase: Phase; available: boolean }[];
