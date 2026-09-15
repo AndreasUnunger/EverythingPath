@@ -16,7 +16,7 @@ try {
       '--port',
       new URL(run.baseURL).port,
     ],
-    { cwd: run.workspace, env: environment, timeout: 720_000 },
+    { cwd: run.workspace, env: environment, timeout: 900_000 },
   );
 } catch {
   // Playwright normally terminates the server during teardown. The command

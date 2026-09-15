@@ -18,7 +18,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: true,
   timeout: 60_000,
-  globalTimeout: 720_000,
+  globalTimeout: 900_000,
   expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
   failOnFlakyTests: true,

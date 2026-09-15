@@ -211,11 +211,11 @@ scripts before submitting them. Branch patterns alone do not establish trust.
 Do not move service keys to repository or organization secrets. Revisit this
 policy before giving other contributors write access.
 
-The runner budgets twelve minutes across preview/build/browser execution. CI also
-shares one twelve-minute deadline across setup, installation and execution, with
+The runner budgets fifteen minutes across preview/build/browser execution. CI also
+shares one fifteen-minute deadline across setup, installation and execution, with
 interrupt then forced termination. Artifact upload has a separate one-minute cap. The
-access job has fourteen minutes including installation and artifact finalization;
-the aggregate has one minute, keeping the jobs' execution budget at fifteen.
+access job has seventeen minutes including installation and artifact finalization;
+the aggregate has one minute, keeping the jobs' execution budget at eighteen.
 GitHub queue and environment approval wait time are outside job execution limits.
 A hard job cancellation may prevent evidence finalization, and never passes the gate.
 
@@ -633,3 +633,20 @@ The final hostname pair passed a temporary 30-reload live WebKit stress probe
 (`everythingpath-e2e-6JnKBJ`); that focused run intentionally did not satisfy the
 aggregate gate. All temporary probes were removed, and the original real reload
 assertions remain unchanged.
+
+
+## Expanded suite deadline (2026-09-15)
+
+PR #93 run `35006064700` was interrupted at the 720-second workflow deadline.
+All eight completed required results passed on their first attempts; the ninth,
+Confirmation, was still progressing through historical-view assertions. The
+expanded canonical Workspace journey, now including new and mid-campaign setup,
+took 230 seconds. Installation and preview/build consumed about two minutes
+before browser execution, leaving insufficient room for the complete suite.
+
+The aggregate execution budget is now 900 seconds in CI, the local runner,
+Playwright, and its application server. The CI job allows another two minutes
+for teardown and evidence retention. Individual test deadlines, one-worker
+fixture isolation, all required results, and first-attempt acceptance are
+unchanged. This explicitly supersedes the earlier 720-second budget; it does
+not classify incomplete or retry-only results as passing.
