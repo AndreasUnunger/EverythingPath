@@ -33,7 +33,11 @@ function usePendingExitWarning(pending: boolean) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
 }
-export function WeeklyWorkspaceBoard() {
+export function WeeklyWorkspaceBoard({
+  historyHref,
+}: {
+  historyHref?: string;
+}) {
   const workspace = useWeeklyDraftWorkspace();
   usePendingExitWarning(workspace.status === 'ready' && workspace.pendingWork);
   if (workspace.status !== 'ready')
@@ -83,6 +87,11 @@ export function WeeklyWorkspaceBoard() {
                   : 'Prepare the week together.'}
         </p>
       </header>
+      {historyHref && (
+        <Button asChild variant="outline">
+          <a href={historyHref}>Finished weeks</a>
+        </Button>
+      )}
       <nav aria-label="Week phases" className="flex flex-wrap gap-2">
         {workspace.phases.map((item) => (
           <Button
@@ -158,7 +167,13 @@ export function CanonicalWorkspaceScreen({
     );
   return (
     <WeeklyDraftWorkspaceProvider gateway={gateway}>
-      <WeeklyWorkspaceBoard />
+      <WeeklyWorkspaceBoard
+        historyHref={
+          campaign
+            ? `/canonical-history?campaign=${encodeURIComponent(campaign)}`
+            : undefined
+        }
+      />
     </WeeklyDraftWorkspaceProvider>
   );
 }

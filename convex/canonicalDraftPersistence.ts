@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { workspaceSourceSchema } from '../src/lib/weekly-workspace-source';
 import { requireScope } from './lib/canonicalDraftStorage';
 import { internal } from './_generated/api';
@@ -9,14 +10,8 @@ import {
 } from '../src/lib/weekly-confirmation-contract';
 import { previewDraft, confirmDraft } from './lib/canonicalConfirmation';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
-import { z } from 'zod';
 import { paginationOptsValidator } from 'convex/server';
-import {
-  mutation,
-  query,
-  type MutationCtx,
-  type QueryCtx,
-} from './_generated/server';
+import { mutation, query } from './_generated/server';
 import {
   draftKeySchema,
   canonicalRecordValidator,
@@ -31,38 +26,9 @@ import {
   observeDraft,
   persistDraftOperation,
 } from './lib/canonicalDraftPersistenceAuthority';
-import {
-  deploymentFixtureSchema,
-  guardFixtureScope,
-} from '../e2e/fixtures/catalog';
+import { requireIsolated } from './lib/canonicalIsolation';
 import { ConvexError, v } from 'convex/values';
 
-// Canonical editing is executable on the owned preview only until the cutover.
-async function requireIsolated(
-  ctx: QueryCtx | MutationCtx,
-  campaignId: z.infer<typeof draftKeySchema>['campaignId'],
-) {
-  const campaign = await ctx.db.get('campaign', campaignId);
-  const fixture = campaign?.e2eFixture;
-  try {
-    const config = deploymentFixtureSchema.parse(
-      JSON.parse(process.env.E2E_FIXTURE_CONFIG ?? 'null'),
-    );
-    if (fixture?.caseKey !== 'canonicalPersistence')
-      throw new Error('Unavailable');
-    const token = config.workers.find(
-      (worker) => worker.key === fixture.workerKey,
-    )?.cases.canonicalPersistence;
-    if (!token) throw new Error('Unavailable');
-    guardFixtureScope(process.env, {
-      ...fixture,
-      caseKey: 'canonicalPersistence',
-      token,
-    });
-  } catch {
-    throw new ConvexError('Canonical editing is not enabled for this campaign');
-  }
-}
 export const observe = query({
   args: zodOutputToConvex(draftKeySchema),
   returns: zodOutputToConvex(draftObservationSchema),

@@ -10,6 +10,7 @@
 
 import type * as campaign from "../campaign.js";
 import type * as canonicalDraftPersistence from "../canonicalDraftPersistence.js";
+import type * as canonicalHistory from "../canonicalHistory.js";
 import type * as canonicalPersistenceFixtures from "../canonicalPersistenceFixtures.js";
 import type * as character from "../character.js";
 import type * as clerk from "../clerk.js";
@@ -23,6 +24,7 @@ import type * as lib_canonicalConfirmation from "../lib/canonicalConfirmation.js
 import type * as lib_canonicalDraftPersistenceAuthority from "../lib/canonicalDraftPersistenceAuthority.js";
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
+import type * as lib_canonicalIsolation from "../lib/canonicalIsolation.js";
 import type * as lib_canonicalRoster from "../lib/canonicalRoster.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as migrations from "../migrations.js";
@@ -43,6 +45,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   campaign: typeof campaign;
   canonicalDraftPersistence: typeof canonicalDraftPersistence;
+  canonicalHistory: typeof canonicalHistory;
   canonicalPersistenceFixtures: typeof canonicalPersistenceFixtures;
   character: typeof character;
   clerk: typeof clerk;
@@ -56,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalDraftPersistenceAuthority": typeof lib_canonicalDraftPersistenceAuthority;
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
+  "lib/canonicalIsolation": typeof lib_canonicalIsolation;
   "lib/canonicalRoster": typeof lib_canonicalRoster;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   migrations: typeof migrations;

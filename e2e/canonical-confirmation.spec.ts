@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import { ConvexClient } from 'convex/browser';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { createConvexDraftTransport } from '../src/lib/convex-draft-persistence';
@@ -29,6 +30,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
   const outsider = connect(players.outsider);
   const anonymous = new ConvexClient(url, { logger: false });
   try {
+    let activeCampaign: string | undefined;
     const confirmationHarness = async (
       verifyConfirmationAuthorization = false,
     ): Promise<ConfirmationContractHarness> => {
@@ -39,6 +41,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
           draftId: randomUUID(),
         }),
       );
+      activeCampaign = scope.campaignId;
       const firstTransport = createConvexDraftTransport(first, scope);
       const inspect = async () =>
         confirmationInspectionSchema.parse(
@@ -216,6 +219,105 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       ]);
       expect(record.provenance).toBe('confirmation');
       expect(record.supersedesRecordId).toBeNull();
+      const historyRoute = `/canonical-history?campaign=${activeCampaign}`;
+      await Promise.all([
+        players.gm.goto(historyRoute),
+        players.player.goto(historyRoute),
+        players.outsider.goto(historyRoute),
+      ]);
+      for (const page of [players.gm, players.player]) {
+        await expect(
+          page.getByRole('heading', { name: 'Week 1 · History' }),
+        ).toBeVisible();
+        await expect(
+          page
+            .getByRole('region', { name: 'Final outcome' })
+            .getByText('87', { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page
+            .getByRole('region', { name: 'Table adjustments' })
+            .getByText('Found seven copper'),
+        ).toBeVisible();
+        await expect(page.getByRole('textbox')).toHaveCount(0);
+        await expect(
+          page.getByRole('button', { name: 'Confirm week', exact: true }),
+        ).toHaveCount(0);
+      }
+      await expect(
+        players.gm.getByRole('heading', { name: 'GM history correction' }),
+      ).toBeVisible();
+      await expect(
+        players.player.getByRole('heading', { name: 'GM history correction' }),
+      ).toHaveCount(0);
+      await expect(
+        players.outsider.getByRole('heading', { name: 'Week 1 · History' }),
+      ).toHaveCount(0);
+      await expect(
+        players.outsider.getByRole('main').getByRole('alert'),
+      ).toContainText('History could not be loaded');
+      await players.player.screenshot({
+        path: join(run.artifactDirectory, 'canonical-history-tablet.png'),
+        fullPage: true,
+      });
+      await players.player
+        .getByText('Rules baseline plan', { exact: true })
+        .click();
+      await expect(
+        players.player
+          .getByRole('region', { name: 'Rules baseline plan' })
+          .getByText('Starting state', { exact: true })
+          .first(),
+      ).toBeVisible();
+      await players.player
+        .getByRole('region', { name: 'Rules baseline plan' })
+        .scrollIntoViewIfNeeded();
+      await players.player.screenshot({
+        path: join(run.artifactDirectory, 'canonical-history-plan-tablet.png'),
+      });
+      await players.player.setViewportSize({ width: 390, height: 844 });
+      expect(
+        await players.player.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await players.player.screenshot({
+        path: join(run.artifactDirectory, 'canonical-history-phone.png'),
+      });
+      await players.player.setViewportSize({ width: 1194, height: 834 });
+      await literal.changeSource('treasury');
+      await expect
+        .poll(async () => (await literal.inspect()).snapshot.treasuryCopper)
+        .toBe(94);
+      await players.player.reload();
+      await expect(
+        players.player
+          .getByRole('region', { name: 'Final outcome' })
+          .getByText('87', { exact: true }),
+      ).toBeVisible();
+      await players.gm
+        .getByRole('button', { name: 'Confirmed week · Entry 1' })
+        .click();
+      await expect(
+        players.gm.getByRole('heading', { name: 'Week 1 · History' }),
+      ).toBeVisible();
+      await players.player
+        .getByRole('link', { name: 'Return to current week' })
+        .click();
+      await expect(
+        players.player.getByRole('heading', { name: 'Week 2 · Upkeep' }),
+      ).toBeVisible();
+      await expect(
+        players.gm.getByRole('heading', { name: 'Week 1 · History' }),
+      ).toBeVisible();
+      await players.player
+        .getByRole('link', { name: 'Finished weeks' })
+        .click();
+      await expect(
+        players.player
+          .getByRole('region', { name: 'Final outcome' })
+          .getByText('87', { exact: true }),
+      ).toBeVisible();
     } finally {
       await literal.dispose();
     }
