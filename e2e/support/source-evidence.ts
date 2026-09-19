@@ -20,9 +20,8 @@ export function sourceFingerprint(root: string) {
         file &&
         !file.startsWith('.agents/') &&
         !file.startsWith('agent/') &&
-        (/\.(?:tsx?|jsx?|mjs|cjs|json|ya?ml)$/.test(file) ||
-          file.startsWith('docs/ai/ironfang-militia/') ||
-          file.startsWith('tests/rules/')),
+        (!file.startsWith('docs/') ||
+          file.startsWith('docs/ai/ironfang-militia/')),
     );
   const hash = createHash('sha256');
   for (const file of [...new Set(files)].sort()) {

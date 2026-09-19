@@ -13,6 +13,7 @@ test('evidence follows working source, new tests, rules and configuration while 
     writeFileSync(join(root, '.gitignore'), '.private/\n');
     mkdirSync(join(root, '.private'));
     mkdirSync(join(root, 'docs/ai/ironfang-militia'), { recursive: true });
+    mkdirSync(join(root, 'public'));
     writeFileSync(join(root, 'app.ts'), 'export const value = 1;');
     execFileSync('git', ['add', '.'], { cwd: root });
     const initial = sourceFingerprint(root);
@@ -24,6 +25,8 @@ test('evidence follows working source, new tests, rules and configuration while 
       ['new.test.ts', 'New test'],
       ['docs/ai/ironfang-militia/militia-rules.md', 'Changed rule'],
       ['tsconfig.json', '{}'],
+      ['globals.css', 'body { display: none; }'],
+      ['public/banner.svg', '<svg />'],
     ]) {
       const before = sourceFingerprint(root);
       writeFileSync(join(root, file!), content!);
