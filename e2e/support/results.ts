@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { requiredTests, type SuiteMode } from './matrix';
+import { requiredTests, type SuiteMode } from './matrix.ts';
 
 export const passedTestSchema = z.object({
   file: z.string(),

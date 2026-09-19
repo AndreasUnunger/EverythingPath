@@ -4,6 +4,7 @@ import { basename, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { createServer } from 'node:net';
 import { evaluateResults } from './support/results';
+import { sourceFingerprint } from './support/source-evidence';
 import { loadTargets } from './support/configuration';
 import { verifyClerkCohorts } from './support/clerk';
 import { command, loadRun, savePrivate, type Run } from './support/process';
@@ -79,13 +80,17 @@ async function main() {
       basename(temporary),
     );
     // Explicit file list prevents Next/Clerk/Convex from auto-loading personal .env files.
+    const testedSource = sourceFingerprint(sourceRoot);
     await copyBuildWorkspace(sourceRoot, workspace);
+    if (sourceFingerprint(sourceRoot) !== testedSource)
+      throw new Error('E2E source changed while preparing the test workspace');
     const envFile = join(privateDirectory, 'convex.env');
     await savePrivate(envFile, `CONVEX_DEPLOY_KEY=${targets.previewKey}\n`);
     const run: Run = {
       mode: values.nightly ? 'nightly' : 'mandatory',
       resources: targets.resources,
       sourceRoot,
+      sourceFingerprint: testedSource,
       workspace,
       privateDirectory,
       artifactDirectory,

@@ -18,6 +18,31 @@ replacement behavior, parity/adapter/browser suites and full-corpus human review
 remain explicit gaps. Passing the extraction gate does not mean rules completeness
 or cutover approval. This ticket does not extract or activate application behavior.
 
+## Acceptance evidence (#88)
+
+Run the mandatory isolated browser harness as documented in `e2e/README.md`, then
+run `pnpm -s acceptance:check --browser-report /absolute/path/to/report.json`.
+Use the safe report path printed by that **new** E2E run. The acceptance command
+performs typecheck, lint, build-boundary tests and the full Vitest collection plus
+strict rules check. It records every command result in `coverage/acceptance.json`,
+including failures, and returns nonzero until all gates pass.
+
+The catalog's `serviceTests` references require the complete mandatory suite:
+`live.workspace`, `live.persistence` and `live.confirmation`. Local memory and
+Convex-test results cannot substitute for this evidence. Missing service evidence
+is an explicit gap in the extraction report; failed, skipped, retry-only, incomplete,
+or stale supplied reports are errors. The safe E2E report fingerprints working
+application/test/configuration sources, dependency files and normative corpus and
+decision snapshots. A code, test or rules change requires a new E2E run. Explanatory
+Markdown reports are excluded so evidence can be recorded after verification.
+
+`coverage/rules-report.md` includes a source-by-source human review index,
+fingerprints, mapped behavior cases, named tests and unresolved gaps.
+`coverage/rules-evidence.json` retains the machine-readable result. The user
+confirmed that human review has not occurred; no automated result clears that
+requirement. This report prepares review and must not be described as cutover
+readiness while any human, rules, parity or rehearsal gap remains.
+
 ## Adding evidence
 
 1. Find the case and source section. Read its audit `remainingCases` as well as the

@@ -29,4 +29,5 @@ jobs:
           path: |
             coverage/rules-report.md
             coverage/rules-tests.json
+            coverage/rules-evidence.json
           if-no-files-found: warn

@@ -6,6 +6,7 @@ export interface CoverageCase {
   expected: string;
   plannedTests: string[];
   tests: string[];
+  serviceTests?: string[];
   gap: string | null;
 }
 
@@ -82,6 +83,7 @@ type CoverageOptions = {
   strict?: boolean;
   requiredCases?: string[];
   corpusPaths?: string[];
+  serviceResults?: TestResults;
 };
 type CoverageSource = CoverageCatalog['sources'][number];
 type CoverageRule = CoverageCatalog['rules'][number];
@@ -96,6 +98,7 @@ export function checkCoverage(
 }
 
 class CoverageCheck {
+  private serviceResults?: TestResults;
   private errors: string[] = [];
   private covered: string[] = [];
   private gaps: string[] = [];
@@ -119,7 +122,10 @@ class CoverageCheck {
   }
 
   check(options: CoverageOptions) {
+    this.serviceResults = options.serviceResults;
     if (!this.results.success) this.errors.push('Collected test run failed');
+    if (this.serviceResults && !this.serviceResults.success)
+      this.errors.push('Collected service run failed');
     for (const source of this.catalog.sources) this.checkSource(source);
     this.checkCorpus(options.corpusPaths ?? []);
     for (const auditId of this.catalog.auditIds) {
@@ -225,14 +231,22 @@ class CoverageCheck {
     this.checkCaseMetadata(id, entry);
     // Check every reference even when sources are invalid or a gap is declared.
     const evidence = entry.tests.map((testId) =>
-      this.checkEvidence(id, testId),
+      this.checkEvidence(id, testId, this.results),
     );
+    for (const testId of entry.serviceTests ?? []) {
+      if (this.serviceResults)
+        evidence.push(this.checkEvidence(id, testId, this.serviceResults));
+      else {
+        this.gaps.push(`${id}: missing service evidence ${testId}`);
+        evidence.push(false);
+      }
+    }
     const passing =
-      entry.tests.length > 0 && validSources && evidence.every(Boolean);
+      evidence.length > 0 && validSources && evidence.every(Boolean);
     if (entry.gap?.trim()) this.gaps.push(`${id}: ${entry.gap}`);
     // Partial passing evidence is reported but an explicit gap still prevents completeness.
     if (passing) this.covered.push(id);
-    else if (!entry.tests.length && !entry.gap?.trim())
+    else if (!evidence.length && !entry.gap?.trim())
       this.errors.push(`${id}: unmapped case`);
   }
 
@@ -249,8 +263,8 @@ class CoverageCheck {
     }
   }
 
-  private checkEvidence(id: string, testId: string) {
-    const matches = this.results.testResults.flatMap((file) =>
+  private checkEvidence(id: string, testId: string, results: TestResults) {
+    const matches = results.testResults.flatMap((file) =>
       file.assertionResults
         .filter((test) => test.fullName.includes(`[${testId}]`))
         .map((test) => ({ test, file })),
@@ -309,6 +323,23 @@ export function renderCoverageReport(
     ...result.errors.map((error) => `- ${error}`),
     ...(result.errors.length ? [] : ['None.']),
     '',
+    '## Human corpus review',
+    '',
+    catalog.corpusReview.gap ??
+      `Reviewed by ${catalog.corpusReview.reviewedBy}; ${catalog.corpusReview.reviewReference}`,
+    '',
+    'Review every source section against its mapped behavior and tests, including all actions, event outcomes, team trees, officers/managers, sequence, and product/persistence decisions. Classify introductory text explicitly; a fingerprint alone does not establish semantic review. Record reviewer, date, reference, and unresolved findings before clearing review gaps.',
+    '',
+    '| Source section | SHA-256 | Mapped rules / review gap |',
+    '|---|---|---|',
+    ...catalog.sources.map((source) => {
+      const rules = catalog.rules
+        .filter((rule) => rule.sources.includes(source.id))
+        .map((rule) => rule.id)
+        .join(', ');
+      return `| [${source.id}: ${source.heading ?? source.path}](../${source.path}) | ${source.fingerprint} | ${rules || 'No rule mapping'}${source.reviewGap ? '; ' + source.reviewGap : ''} |`;
+    }),
+    '',
   ];
   for (const rule of catalog.rules) {
     lines.push(
@@ -332,11 +363,11 @@ export function renderCoverageReport(
       const id = `${rule.id}.${entry.id}`;
       const status = result.covered.includes(id)
         ? 'PASS'
-        : entry.tests.length
+        : entry.tests.length || entry.serviceTests?.length
           ? 'UNVERIFIED'
           : 'GAP';
       lines.push(
-        `| ${id} / ${entry.checkpoint} | ${escape(entry.expected)} | ${status}; planned: ${entry.plannedTests.join(', ')}; mapped: ${entry.tests.join(', ') || 'none'}${entry.gap ? '; ' + escape(entry.gap) : ''} |`,
+        `| ${id} / ${entry.checkpoint} | ${escape(entry.expected)} | ${status}; planned: ${entry.plannedTests.join(', ')}; mapped: ${entry.tests.join(', ') || 'none'}; service: ${entry.serviceTests?.length ? entry.serviceTests.join(', ') : 'none'}${entry.gap ? '; ' + escape(entry.gap) : ''} |`,
       );
     }
     lines.push('');

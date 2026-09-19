@@ -1,0 +1,35 @@
+// @vitest-environment node
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { expect, test } from 'vitest';
+import { sourceFingerprint } from './source-evidence';
+
+test('evidence follows working source, new tests, rules and configuration while ignoring private credentials and reports', () => {
+  const root = mkdtempSync(join(tmpdir(), 'source-evidence-'));
+  try {
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    writeFileSync(join(root, '.gitignore'), '.private/\n');
+    mkdirSync(join(root, '.private'));
+    mkdirSync(join(root, 'docs/ai/ironfang-militia'), { recursive: true });
+    writeFileSync(join(root, 'app.ts'), 'export const value = 1;');
+    execFileSync('git', ['add', '.'], { cwd: root });
+    const initial = sourceFingerprint(root);
+    writeFileSync(join(root, '.private/credentials.json'), '{"private":true}');
+    writeFileSync(join(root, 'docs/review.md'), 'Human report');
+    expect(sourceFingerprint(root)).toBe(initial);
+    for (const [file, content] of [
+      ['app.ts', 'export const value = 2;'],
+      ['new.test.ts', 'New test'],
+      ['docs/ai/ironfang-militia/militia-rules.md', 'Changed rule'],
+      ['tsconfig.json', '{}'],
+    ]) {
+      const before = sourceFingerprint(root);
+      writeFileSync(join(root, file!), content!);
+      expect(sourceFingerprint(root)).not.toBe(before);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

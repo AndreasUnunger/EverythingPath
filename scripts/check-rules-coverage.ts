@@ -9,12 +9,15 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { coverageCatalog } from '../tests/rules/coverage-catalog.ts';
 import {
   checkCoverage,
   renderCoverageReport,
 } from '../tests/rules/check-coverage.ts';
+import { collectServiceEvidence } from '../tests/rules/service-evidence.ts';
+import { sourceFingerprint } from '../e2e/support/source-evidence.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = resolve(root, 'coverage');
@@ -38,12 +41,20 @@ const resultsSchema = z.object({
 });
 
 try {
-  if (process.argv.slice(2).some((arg) => arg !== '--strict'))
-    throw new Error('Usage: pnpm rules:check [--strict]');
+  const { values } = parseArgs({
+    options: {
+      strict: { type: 'boolean' },
+      'browser-report': { type: 'string' },
+    },
+    strict: true,
+  });
+  const testedSource = sourceFingerprint(root);
   mkdirSync(output, { recursive: true });
   // Always collect fresh results. A prior passing report cannot mask a failed
   // collection, interrupted run, or renamed/missing test in this checkout.
   rmSync(join(output, 'rules-report.md'), { force: true });
+  rmSync(join(output, 'rules-tests.json'), { force: true });
+  rmSync(join(output, 'rules-evidence.json'), { force: true });
   const run = spawnSync(
     'pnpm',
     [
@@ -84,8 +95,23 @@ try {
       'Catalog must retain all 95 entries from the #54 audit snapshot',
     );
   }
+  let serviceResults;
+  const serviceErrors: string[] = [];
+  if (values['browser-report']) {
+    try {
+      serviceResults = collectServiceEvidence(
+        JSON.parse(readFileSync(resolve(values['browser-report']), 'utf8')),
+        testedSource,
+      );
+    } catch {
+      serviceErrors.push(
+        'Browser report missing, malformed, unsuccessful, or from different source; rerun the mandatory E2E gate.',
+      );
+    }
+  }
   const result = checkCoverage(coverageCatalog, results, files, {
-    strict: process.argv.includes('--strict'),
+    strict: values.strict,
+    serviceResults,
     corpusPaths,
     requiredCases: z
       .array(z.string())
@@ -98,11 +124,31 @@ try {
         ),
       ),
   });
+  result.errors.push(...serviceErrors);
+  if (sourceFingerprint(root) !== testedSource)
+    result.errors.push(
+      'Source changed during verification; rerun against stable source',
+    );
   if (run.status !== 0)
     result.errors.push(`Test process exited ${run.status ?? run.signal}`);
   writeFileSync(
     join(output, 'rules-report.md'),
-    renderCoverageReport(coverageCatalog, result),
+    renderCoverageReport(coverageCatalog, result) +
+      `\n## Run evidence\n\nSource fingerprint: \`${testedSource}\`.\n\nService evidence: ${serviceResults ? 'complete mandatory first-attempt suite for this source' : 'not established'}.\n`,
+  );
+  writeFileSync(
+    join(output, 'rules-evidence.json'),
+    JSON.stringify(
+      {
+        sourceFingerprint: testedSource,
+        generatedAt: new Date().toISOString(),
+        strict: values.strict ?? false,
+        serviceEvidence: Boolean(serviceResults),
+        ...result,
+      },
+      null,
+      2,
+    ) + '\n',
   );
   writeFileSync(
     join(output, 'rules-tests.json'),

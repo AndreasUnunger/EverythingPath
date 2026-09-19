@@ -124,6 +124,7 @@ export default class SafeReporter implements Reporter {
       JSON.stringify(
         {
           ...evaluation,
+          sourceFingerprint: run.sourceFingerprint,
           status: failed ? 'failed' : 'passed',
           evidence: this.results,
         },

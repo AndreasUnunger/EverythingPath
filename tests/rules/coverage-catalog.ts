@@ -6426,8 +6426,15 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Shared Table Adjustments and Rules Exceptions require reasons retained in history.',
           plannedTests: ['rules.P07.reason'],
-          tests: ['rules.P07.reason'],
-          gap: 'Reasons and complete confirmed source persist; shared Workspace UI remains checkpoint 7.',
+          tests: [
+            'rules.P07.reason',
+            'rules.P85.adjustment',
+            'rules.P85.exception',
+            'rules.P85.summary',
+            'rules.P86.display',
+          ],
+          serviceTests: ['live.workspace', 'live.confirmation'],
+          gap: null,
         },
         {
           id: 'distinction',
@@ -6538,8 +6545,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Disjoint stale semantic edits coexist while same-target stale edits fail visibly.',
           plannedTests: ['rules.P09.disjoint'],
-          tests: ['rules.P79.contract'],
-          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
+          tests: [
+            'rules.P79.contract',
+            'rules.P81.recovery',
+            'rules.P82.workspace',
+          ],
+          serviceTests: ['live.workspace', 'live.persistence'],
+          gap: null,
         },
         {
           id: 'aggregate',
@@ -6547,8 +6559,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Move and swap are atomic multi-slot edits; obsolete detail edits cannot update a replacement choice.',
           plannedTests: ['rules.P09.aggregate'],
-          tests: ['rules.P09.aggregate', 'rules.P79.contract'],
-          gap: 'Pure aggregate and shared persistence adapter contract pass; Phase View integration remains for #81.',
+          tests: [
+            'rules.P09.aggregate',
+            'rules.P79.contract',
+            'rules.P82.workspace',
+          ],
+          serviceTests: ['live.workspace', 'live.persistence'],
+          gap: null,
         },
         {
           id: 'retry',
@@ -6556,8 +6573,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Accepted semantic edit increments revision once; retries are idempotent after dropped responses.',
           plannedTests: ['rules.P09.retry'],
-          tests: ['storage.retry', 'rules.P79.contract'],
-          gap: 'Canonical editing adapter and authority outcomes are covered; Confirmation and Phase View outcomes remain for #80–81.',
+          tests: [
+            'storage.retry',
+            'rules.P79.contract',
+            'rules.P80.contract',
+            'rules.P85.failed-save',
+          ],
+          serviceTests: ['live.persistence', 'live.confirmation'],
+          gap: null,
         },
         {
           id: 'delivery',
@@ -6566,7 +6589,8 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Acknowledgements follow submission order and responses are monotonic.',
           plannedTests: ['rules.P09.delivery'],
           tests: ['rules.P79.contract'],
-          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
+          serviceTests: ['live.persistence'],
+          gap: null,
         },
         {
           id: 'shared',
@@ -6574,8 +6598,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Players edit unlocked slots with immediate feedback and recovery; no per-slot confirmation.',
           plannedTests: ['rules.P09.shared'],
-          tests: ['rules.P79.contract'],
-          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
+          tests: [
+            'rules.P79.contract',
+            'rules.P81.recovery',
+            'rules.P82.workspace',
+          ],
+          serviceTests: ['live.workspace'],
+          gap: null,
         },
       ],
     },
@@ -6597,9 +6626,11 @@ export const coverageCatalog = {
             'storage.scope',
             'storage.reconstruction',
             'rules.P79.authority',
-            'rules.P79.provenance',
+            'rules.P80.authority',
+            'rules.P81.gateway',
           ],
-          gap: 'Canonical editing adapter and authority outcomes are covered; Confirmation and Phase View outcomes remain for #80–81.',
+          serviceTests: ['live.persistence', 'live.confirmation'],
+          gap: null,
         },
         {
           id: 'references',
@@ -6611,9 +6642,10 @@ export const coverageCatalog = {
             'storage.scope',
             'storage.reconstruction',
             'rules.P79.authority',
-            'rules.P79.provenance',
+            'rules.P80.authority',
           ],
-          gap: 'Canonical editing adapter and authority outcomes are covered; Confirmation and Phase View outcomes remain for #80–81.',
+          serviceTests: ['live.persistence', 'live.confirmation'],
+          gap: null,
         },
         {
           id: 'players',
@@ -6621,8 +6653,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All authorized players may stage and confirm.',
           plannedTests: ['rules.P10.players'],
-          tests: ['rules.P79.contract'],
-          gap: 'Upkeep Workspace integration is covered in #81; Activity card interactions remain #82.',
+          tests: [
+            'rules.P79.contract',
+            'rules.P80.contract',
+            'setup.confirmation',
+          ],
+          serviceTests: ['live.workspace', 'live.confirmation'],
+          gap: null,
         },
         {
           id: 'gm',
@@ -6630,8 +6667,9 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: GM correction controls are hidden from other players and protected at authority boundary.',
           plannedTests: ['rules.P10.gm'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P86.authority', 'rules.P86.controls'],
+          serviceTests: ['live.confirmation'],
+          gap: null,
         },
       ],
     },
@@ -6688,8 +6726,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Historical views read complete immutable records rather than live state.',
           plannedTests: ['rules.P11.immutable'],
-          tests: ['storage.history'],
-          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
+          tests: [
+            'storage.history',
+            'rules.P86.history',
+            'rules.P86.display',
+            'rules.P86.labels',
+          ],
+          serviceTests: ['live.confirmation'],
+          gap: null,
         },
         {
           id: 'effective',
@@ -6697,8 +6741,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Newest nonsuperseded record is effective; older records remain an audit trail.',
           plannedTests: ['rules.P11.effective'],
-          tests: ['storage.history'],
-          gap: 'Isolated canonical storage evidence from #62; full adapter/Confirmation, canonical entity reference mapping and Phase View outcomes remain for later checkpoints.',
+          tests: [
+            'storage.history',
+            'rules.P86.history',
+            'rules.P86.navigation',
+            'rules.P86.controls',
+          ],
+          serviceTests: [],
+          gap: null,
         },
         {
           id: 'cutover',
@@ -6757,8 +6807,18 @@ export const coverageCatalog = {
             'rules.GATE.projection-parity',
             'rules.U01.projection-parity',
           ],
-          tests: ['rules.U01.projection-parity'],
-          gap: 'Upkeep browser-target bundle and Convex stored-source projection parity covered in #67; complete Workspace Phase View and whole-week Confirmation entry-path parity remain required.',
+          tests: [
+            'rules.U01.projection-parity',
+            'rules.P78.projection-parity',
+            'rules.P77.projection-parity',
+            'rules.P81.workspace',
+            'rules.P82.workspace',
+            'rules.P83.workspace',
+            'rules.P84.workspace',
+            'rules.P85.summary',
+          ],
+          serviceTests: ['live.workspace', 'live.confirmation'],
+          gap: 'Upkeep and compound weekly browser-build/stored-source parity plus Workspace phase tests are mapped; a complete shared fixture matrix through browser Workspace and deployed Confirmation for all rules permutations is not established.',
         },
         {
           id: 'adapter-contract',
@@ -6772,6 +6832,7 @@ export const coverageCatalog = {
             'rules.P80.atomic',
             'rules.P80.rollback',
           ],
+          serviceTests: ['live.persistence', 'live.confirmation'],
           gap: null,
         },
         {
@@ -6781,12 +6842,13 @@ export const coverageCatalog = {
             'Two authenticated browser contexts agree on edits and Confirmation, retain independent navigation and show conflict recovery.',
           plannedTests: ['rules.GATE.two-player'],
           tests: [],
-          gap: 'Isolated two-player browser runner and fixtures remain required by #53; this catalog does not provision them.',
+          serviceTests: ['live.workspace', 'live.confirmation'],
+          gap: null,
         },
       ],
     },
   ],
   corpusReview: {
-    gap: 'Full-corpus human semantic review, browser/Convex parity, and cutover completeness remain required by #53/#55/#57.',
+    gap: 'Human review has not occurred (confirmed by the user for #88). Review all rules/tables and accepted product/persistence decisions; record reviewer and review reference before clearing this gap.',
   },
 } satisfies CoverageCatalog;

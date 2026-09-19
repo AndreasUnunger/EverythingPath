@@ -58,6 +58,27 @@ test('known gaps are allowed during extraction but fail the strict completeness 
   ).toContain('Completeness gate: 2 remaining gaps');
 });
 
+test('service evidence is required independently of passing local tests', () => {
+  const catalog = fixtureCatalog();
+  const entry = catalog.rules[0]!.cases[0]!;
+  Object.assign(entry, { serviceTests: ['live.workspace'] });
+  const missing = checkCoverage(catalog, report(), fixtureFiles);
+  expect(missing.covered).toEqual([]);
+  expect(missing.gaps).toContain(
+    'F01.initial-rank: missing service evidence live.workspace',
+  );
+  const serviceResults = report();
+  serviceResults.testResults[0]!.assertionResults[0]!.fullName =
+    '[live.workspace] two players';
+  expect(
+    checkCoverage(catalog, report(), fixtureFiles, { serviceResults }).covered,
+  ).toEqual(['F01.initial-rank']);
+  serviceResults.testResults[0]!.assertionResults[0]!.status = 'skipped';
+  expect(
+    checkCoverage(catalog, report(), fixtureFiles, { serviceResults }).errors,
+  ).toContain('F01.initial-rank: test live.workspace did not pass');
+});
+
 test('source edits invalidate coverage and new sections require an explicit mapping or review gap', () => {
   const result = checkCoverage(fixtureCatalog(), report(), {
     'rules.md': '## Rank\n\nInitial rank is 2.\n\n## New rule\nNew behavior.\n',

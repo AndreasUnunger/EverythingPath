@@ -16,6 +16,7 @@ export const runSchema = z.object({
   artifactDirectory: z.string(),
   envFile: z.string(),
   baseURL: z.string().regex(/^http:\/\/(?:localhost|127\.0\.0\.1):[0-9]+$/),
+  sourceFingerprint: z.string().optional(),
   fixture: deploymentFixtureSchema.optional(),
 });
 export type Run = z.infer<typeof runSchema>;

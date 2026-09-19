@@ -86,9 +86,40 @@ export async function runConfirmationContract(
     await edit(chance);
     const review = await h.first.preview();
     check(review.status === 'ready', 'accepted source is ready');
+    const reviewedDraft = await h.first.read();
     const operation = { operationId: 'exact-week', reviewed: review.reviewed };
     const receipt = await h.first.confirm(operation);
     const state = await h.inspect();
+    equal(
+      state.snapshot,
+      review.outcome?.militiaSnapshot,
+      'entire committed snapshot equals the reviewed outcome',
+    );
+    equal(
+      receipt.record.source,
+      reviewedDraft.draft,
+      'complete reviewed draft retained',
+    );
+    equal(
+      receipt.record.finalOutcome.data,
+      review.outcome,
+      'entire recorded outcome equals preview',
+    );
+    equal(
+      receipt.record.finalPlan.data.after,
+      review.outcome,
+      'final plan equals committed outcome',
+    );
+    equal(
+      receipt.record.baselinePlan.data.after,
+      review.baseline,
+      'recorded baseline equals reviewed baseline',
+    );
+    equal(
+      receipt.successor.context,
+      { ...review.outcome?.context, persistentPhaseEligible: false },
+      'successor retains all preview context and fixes eligibility for its empty carried events',
+    );
     equal(
       state.snapshot,
       {

@@ -25,7 +25,8 @@
     "test:watch": "NODE_OPTIONS='--experimental-require-module --no-warnings' vitest",
     "typecheck": "tsc --noEmit",
     "rules:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-rules-coverage.ts",
-    "rules:complete": "pnpm -s rules:check --strict"
+    "rules:complete": "pnpm -s rules:check --strict",
+    "acceptance:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-acceptance.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",

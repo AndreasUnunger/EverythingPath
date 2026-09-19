@@ -156,6 +156,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         });
       }
       const reviewed = await literal.second.preview();
+      const reviewedDraft = await literal.second.read();
       expect(reviewed.status).toBe('ready');
       expect(reviewed.baseline?.militiaSnapshot.treasuryCopper).toBe(80);
       await literal.second.confirm({
@@ -201,6 +202,19 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         ),
       ).toBe(true);
       const record = committed.records[0]!;
+      expect(committed.snapshot).toEqual(reviewed.outcome?.militiaSnapshot);
+      expect(record.source).toEqual(reviewedDraft.draft);
+      expect(record.baselinePlan.data.after).toEqual(reviewed.baseline);
+      expect(record.finalPlan.data.after).toEqual(reviewed.outcome);
+      expect(record.finalOutcome.data).toEqual(reviewed.outcome);
+      expect(record.successorContext).toEqual(reviewed.outcome?.context);
+      expect(committed.openDrafts[0]!.context).toEqual({
+        ...reviewed.outcome?.context,
+        persistentPhaseEligible: false,
+      });
+      expect(record.adjudication.acknowledgements).toEqual(
+        reviewedDraft.draft?.acknowledgements,
+      );
       expect(record.sourceMilitiaSnapshot?.treasuryCopper).toBe(100);
       expect(record.source.activity.slots[0]?.choice).toMatchObject({
         choiceId: 'scout',
