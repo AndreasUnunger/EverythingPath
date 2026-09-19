@@ -6,6 +6,11 @@ suite does not supply that approval or resolve the catalog's remaining cases.
 
 ## Review materials
 
+**For the human review, use the [single-document checklist](militia-human-review-checklist.md).**
+It includes the complete rules/tables and accepted policies, all 489 behavior checks,
+and stable reply IDs. You can send decisions and corrections in chat without
+opening the documents below or editing files.
+
 - [Complete source and behavior review report](weekly-draft-acceptance-review.md):
   every registered source section and fingerprint, all 489 expanded cases,
   expected outcomes, named tests, service evidence, and remaining gaps.
