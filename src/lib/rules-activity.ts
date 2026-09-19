@@ -231,7 +231,11 @@ function value(
 ) {
   const before = result.outcome[kind];
   const after =
-    kind === 'treasuryCopper' ? before + delta : Math.max(0, before + delta);
+    kind === 'treasuryCopper'
+      ? before + delta
+      : kind === 'notoriety'
+        ? Math.max(0, Math.min(100, before + delta))
+        : Math.max(0, before + delta);
   result.outcome[kind] = after;
   result.plan.push({ kind, choiceId: choice.choiceId, before, after });
 }

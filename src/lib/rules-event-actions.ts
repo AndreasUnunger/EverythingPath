@@ -201,7 +201,10 @@ export function finishCovertAction(
     return;
   const prior = result.plan.slice(0, planStart);
   for (const change of result.plan.slice(planStart)) {
-    if (change.kind === 'notoriety' && change.after > change.before)
+    // Lie Low is the only action that lowers Notoriety. Every other recorded
+    // effect is an attempted gain, even if the cap makes its observed delta
+    // zero or negative for an imported above-cap value.
+    if (change.kind === 'notoriety' && choice.actionId !== 'lie_low')
       result.outcome.notoriety -= change.after - change.before;
     else prior.push(change);
   }

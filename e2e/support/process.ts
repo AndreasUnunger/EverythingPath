@@ -190,6 +190,7 @@ export async function canonicalPersistenceFixtureCall(
     | 'initialize'
     | 'resetAndInitialize'
     | 'initializeUpkeep'
+    | 'installAcceptanceSource'
     | 'close'
     | 'changeSource'
     | 'blockSuccessor'
@@ -212,7 +213,12 @@ export async function canonicalPersistenceFixtureCall(
     { cwd: run.workspace },
   );
   if (
-    ['close', 'changeSource', 'blockSuccessor'].includes(operation) &&
+    [
+      'close',
+      'changeSource',
+      'blockSuccessor',
+      'installAcceptanceSource',
+    ].includes(operation) &&
     !output.trim()
   )
     return null;

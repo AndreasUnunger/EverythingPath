@@ -221,7 +221,11 @@ function recordSabotageOutcome(
     ) ?? null;
   if (!acknowledgement)
     result.requirements.push(`${choice.choiceId}:acknowledgement`);
-  if (notoriety !== null) result.outcome.notoriety += notoriety;
+  if (notoriety !== null)
+    result.outcome.notoriety = Math.max(
+      0,
+      Math.min(100, result.outcome.notoriety + notoriety),
+    );
   if (succeeded) result.negatedEventIds.push(event.eventId);
   result.sabotage.push({
     choiceId: choice.choiceId,

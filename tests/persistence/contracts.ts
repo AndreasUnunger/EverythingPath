@@ -376,6 +376,43 @@ export async function runPersistenceContract(
     }
   });
   await scenario(async ({ first, second }, op) => {
+    await first.send(
+      op(0, {
+        kind: 'event_tree',
+        occurrences: [
+          {
+            eventId: 'buyoff-target',
+            origin: { kind: 'rolled' },
+            eventType: 'theft',
+            persistent: true,
+          },
+        ],
+      }),
+    );
+    await first.send(
+      op(1, {
+        kind: 'persistent_decision',
+        decision: { kind: 'buyoff', eventId: 'buyoff-target' },
+      }),
+    );
+    await rejects(
+      second.send(
+        op(1, {
+          kind: 'persistent_decision',
+          decision: { kind: 'unattempted', eventId: 'buyoff-target' },
+        }),
+      ),
+      'Stale same-event decision cannot overwrite staged buyoff',
+    );
+    const accepted = await second.read();
+    check(
+      accepted.revision === 2 &&
+        accepted.draft?.event.occurrences[0]?.persistentDecision?.kind === 'buyoff',
+      'Both players retain the accepted buyoff without a second revision',
+    );
+  });
+
+  await scenario(async ({ first, second }, op) => {
     const event = {
       eventId: 'persistent',
       origin: { kind: 'rolled' as const },

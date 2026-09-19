@@ -1,12 +1,12 @@
 # Weekly Draft rules coverage
 
-95 audit entries; 489 expanded cases; 390 cases with passing mapped evidence; 274 explicit gaps; 1 errors.
+95 audit entries; 489 expanded cases; 488 cases with passing mapped evidence; 11 explicit gaps; 1 errors.
 
 Passing evidence is traceability, not proof of semantic completeness. Full-corpus human review and the strict gate remain required before cutover.
 
 ## Errors
 
-- Completeness gate: 274 remaining gaps
+- Completeness gate: 11 remaining gaps
 
 ## Human corpus review
 
@@ -144,30 +144,30 @@ Sources: [R005: ## Scope](../docs/ai/ironfang-militia/militia-rules.md); [R021: 
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F02.thresholds / 4-foundations | Phase View / Resolution Preview: Each training threshold is evaluated below, at and above its boundary. | GAP; planned: rules.F02.thresholds; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F02.retention / 4-foundations | Phase View / Resolution Preview: Training loss never reduces existing rank. | PASS; planned: rules.F02.retention; mapped: rules.F02.retention; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.pc-cap / 4-foundations | Phase View / Resolution Preview: Multiple rank gains stop at highest PC level; missing PC facts require input. | PASS; planned: rules.F02.pc-cap; mapped: rules.F02.pc-cap; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.ap-caps / 4-foundations | Phase View / Resolution Preview: Volume caps 4/7/10/13/15/17 produce advisory warnings. | PASS; planned: rules.F02.ap-caps; mapped: rules.F02.ap-caps; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-1-threshold / 4-foundations | Phase View / Resolution Preview: Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-1-threshold; mapped: rules.F02.rank-1-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-2-threshold / 4-foundations | Phase View / Resolution Preview: Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-2-threshold; mapped: rules.F02.rank-2-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-3-threshold / 4-foundations | Phase View / Resolution Preview: Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-3-threshold; mapped: rules.F02.rank-3-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-4-threshold / 4-foundations | Phase View / Resolution Preview: Rank 4 minimum training is 20; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-4-threshold; mapped: rules.F02.rank-4-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-5-threshold / 4-foundations | Phase View / Resolution Preview: Rank 5 minimum training is 30; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-5-threshold; mapped: rules.F02.rank-5-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-6-threshold / 4-foundations | Phase View / Resolution Preview: Rank 6 minimum training is 40; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-6-threshold; mapped: rules.F02.rank-6-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-7-threshold / 4-foundations | Phase View / Resolution Preview: Rank 7 minimum training is 55; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-7-threshold; mapped: rules.F02.rank-7-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-8-threshold / 4-foundations | Phase View / Resolution Preview: Rank 8 minimum training is 75; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-8-threshold; mapped: rules.F02.rank-8-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-9-threshold / 4-foundations | Phase View / Resolution Preview: Rank 9 minimum training is 105; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-9-threshold; mapped: rules.F02.rank-9-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-10-threshold / 4-foundations | Phase View / Resolution Preview: Rank 10 minimum training is 160; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-10-threshold; mapped: rules.F02.rank-10-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-11-threshold / 4-foundations | Phase View / Resolution Preview: Rank 11 minimum training is 235; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-11-threshold; mapped: rules.F02.rank-11-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-12-threshold / 4-foundations | Phase View / Resolution Preview: Rank 12 minimum training is 330; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-12-threshold; mapped: rules.F02.rank-12-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-13-threshold / 4-foundations | Phase View / Resolution Preview: Rank 13 minimum training is 475; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-13-threshold; mapped: rules.F02.rank-13-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-14-threshold / 4-foundations | Phase View / Resolution Preview: Rank 14 minimum training is 665; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-14-threshold; mapped: rules.F02.rank-14-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-15-threshold / 4-foundations | Phase View / Resolution Preview: Rank 15 minimum training is 855; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-15-threshold; mapped: rules.F02.rank-15-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-16-threshold / 4-foundations | Phase View / Resolution Preview: Rank 16 minimum training is 1,350; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-16-threshold; mapped: rules.F02.rank-16-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-17-threshold / 4-foundations | Phase View / Resolution Preview: Rank 17 minimum training is 1,900; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-17-threshold; mapped: rules.F02.rank-17-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-18-threshold / 4-foundations | Phase View / Resolution Preview: Rank 18 minimum training is 2,700; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-18-threshold; mapped: rules.F02.rank-18-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-19-threshold / 4-foundations | Phase View / Resolution Preview: Rank 19 minimum training is 3,850; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-19-threshold; mapped: rules.F02.rank-19-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F02.rank-20-threshold / 4-foundations | Phase View / Resolution Preview: Rank 20 minimum training is 5,350; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-20-threshold; mapped: rules.F02.rank-20-threshold; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
+| F02.thresholds / 4-foundations | Phase View / Resolution Preview: Each training threshold is evaluated below, at and above its boundary. | PASS; planned: rules.F02.thresholds; mapped: rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.F02.rank-1-threshold, rules.F02.rank-2-threshold, rules.F02.rank-3-threshold, rules.F02.rank-4-threshold, rules.F02.rank-5-threshold, rules.F02.rank-6-threshold, rules.F02.rank-7-threshold, rules.F02.rank-8-threshold, rules.F02.rank-9-threshold, rules.F02.rank-10-threshold, rules.F02.rank-11-threshold, rules.F02.rank-12-threshold, rules.F02.rank-13-threshold, rules.F02.rank-14-threshold, rules.F02.rank-15-threshold, rules.F02.rank-16-threshold, rules.F02.rank-17-threshold, rules.F02.rank-18-threshold, rules.F02.rank-19-threshold, rules.F02.rank-20-threshold, rules.GATE.projection-parity; service: none |
+| F02.retention / 4-foundations | Phase View / Resolution Preview: Training loss never reduces existing rank. | PASS; planned: rules.F02.retention; mapped: rules.F02.retention, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.pc-cap / 4-foundations | Phase View / Resolution Preview: Multiple rank gains stop at highest PC level; missing PC facts require input. | PASS; planned: rules.F02.pc-cap; mapped: rules.F02.pc-cap, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.ap-caps / 4-foundations | Phase View / Resolution Preview: Volume caps 4/7/10/13/15/17 produce advisory warnings. | PASS; planned: rules.F02.ap-caps; mapped: rules.F02.ap-caps, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-1-threshold / 4-foundations | Phase View / Resolution Preview: Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-1-threshold; mapped: rules.F02.rank-1-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-2-threshold / 4-foundations | Phase View / Resolution Preview: Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-2-threshold; mapped: rules.F02.rank-2-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-3-threshold / 4-foundations | Phase View / Resolution Preview: Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-3-threshold; mapped: rules.F02.rank-3-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-4-threshold / 4-foundations | Phase View / Resolution Preview: Rank 4 minimum training is 20; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-4-threshold; mapped: rules.F02.rank-4-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-5-threshold / 4-foundations | Phase View / Resolution Preview: Rank 5 minimum training is 30; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-5-threshold; mapped: rules.F02.rank-5-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-6-threshold / 4-foundations | Phase View / Resolution Preview: Rank 6 minimum training is 40; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-6-threshold; mapped: rules.F02.rank-6-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-7-threshold / 4-foundations | Phase View / Resolution Preview: Rank 7 minimum training is 55; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-7-threshold; mapped: rules.F02.rank-7-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-8-threshold / 4-foundations | Phase View / Resolution Preview: Rank 8 minimum training is 75; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-8-threshold; mapped: rules.F02.rank-8-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-9-threshold / 4-foundations | Phase View / Resolution Preview: Rank 9 minimum training is 105; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-9-threshold; mapped: rules.F02.rank-9-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-10-threshold / 4-foundations | Phase View / Resolution Preview: Rank 10 minimum training is 160; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-10-threshold; mapped: rules.F02.rank-10-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-11-threshold / 4-foundations | Phase View / Resolution Preview: Rank 11 minimum training is 235; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-11-threshold; mapped: rules.F02.rank-11-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-12-threshold / 4-foundations | Phase View / Resolution Preview: Rank 12 minimum training is 330; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-12-threshold; mapped: rules.F02.rank-12-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-13-threshold / 4-foundations | Phase View / Resolution Preview: Rank 13 minimum training is 475; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-13-threshold; mapped: rules.F02.rank-13-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-14-threshold / 4-foundations | Phase View / Resolution Preview: Rank 14 minimum training is 665; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-14-threshold; mapped: rules.F02.rank-14-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-15-threshold / 4-foundations | Phase View / Resolution Preview: Rank 15 minimum training is 855; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-15-threshold; mapped: rules.F02.rank-15-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-16-threshold / 4-foundations | Phase View / Resolution Preview: Rank 16 minimum training is 1,350; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-16-threshold; mapped: rules.F02.rank-16-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-17-threshold / 4-foundations | Phase View / Resolution Preview: Rank 17 minimum training is 1,900; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-17-threshold; mapped: rules.F02.rank-17-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-18-threshold / 4-foundations | Phase View / Resolution Preview: Rank 18 minimum training is 2,700; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-18-threshold; mapped: rules.F02.rank-18-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-19-threshold / 4-foundations | Phase View / Resolution Preview: Rank 19 minimum training is 3,850; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-19-threshold; mapped: rules.F02.rank-19-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
+| F02.rank-20-threshold / 4-foundations | Phase View / Resolution Preview: Rank 20 minimum training is 5,350; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-20-threshold; mapped: rules.F02.rank-20-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
 
 ## F03
 
@@ -175,29 +175,29 @@ Sources: [R032: ### Organization Checks](../docs/ai/ironfang-militia/militia-rul
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F03.rank-focus / 4-foundations | Phase View / Resolution Preview: All 20 ranks and three focuses use Table 6-1 focused and secondary bonuses. | GAP; planned: rules.F03.rank-focus; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F03.missing-focus / 4-foundations | Phase View / Resolution Preview: Missing focus requires selection; invalid focus is rejected. | GAP; planned: rules.F03.missing-focus; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F03.composition / 4-foundations | Phase View / Resolution Preview: Negative, officer and contextual modifiers apply exactly once with explanations. | PASS; planned: rules.F03.composition; mapped: rules.F03.composition; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-1-focus / 4-foundations | Phase View / Resolution Preview: Rank 1: each of Loyalty/Secrecy/Security focuses gets +2; other checks get +0. | PASS; planned: rules.F03.rank-1-focus; mapped: rules.F03.rank-1-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-2-focus / 4-foundations | Phase View / Resolution Preview: Rank 2: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +0. | PASS; planned: rules.F03.rank-2-focus; mapped: rules.F03.rank-2-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-3-focus / 4-foundations | Phase View / Resolution Preview: Rank 3: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +1. | PASS; planned: rules.F03.rank-3-focus; mapped: rules.F03.rank-3-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-4-focus / 4-foundations | Phase View / Resolution Preview: Rank 4: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1. | PASS; planned: rules.F03.rank-4-focus; mapped: rules.F03.rank-4-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-5-focus / 4-foundations | Phase View / Resolution Preview: Rank 5: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1. | PASS; planned: rules.F03.rank-5-focus; mapped: rules.F03.rank-5-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-6-focus / 4-foundations | Phase View / Resolution Preview: Rank 6: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2. | PASS; planned: rules.F03.rank-6-focus; mapped: rules.F03.rank-6-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-7-focus / 4-foundations | Phase View / Resolution Preview: Rank 7: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2. | PASS; planned: rules.F03.rank-7-focus; mapped: rules.F03.rank-7-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-8-focus / 4-foundations | Phase View / Resolution Preview: Rank 8: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +2. | PASS; planned: rules.F03.rank-8-focus; mapped: rules.F03.rank-8-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-9-focus / 4-foundations | Phase View / Resolution Preview: Rank 9: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +3. | PASS; planned: rules.F03.rank-9-focus; mapped: rules.F03.rank-9-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-10-focus / 4-foundations | Phase View / Resolution Preview: Rank 10: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3. | PASS; planned: rules.F03.rank-10-focus; mapped: rules.F03.rank-10-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-11-focus / 4-foundations | Phase View / Resolution Preview: Rank 11: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3. | PASS; planned: rules.F03.rank-11-focus; mapped: rules.F03.rank-11-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-12-focus / 4-foundations | Phase View / Resolution Preview: Rank 12: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4. | PASS; planned: rules.F03.rank-12-focus; mapped: rules.F03.rank-12-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-13-focus / 4-foundations | Phase View / Resolution Preview: Rank 13: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4. | PASS; planned: rules.F03.rank-13-focus; mapped: rules.F03.rank-13-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-14-focus / 4-foundations | Phase View / Resolution Preview: Rank 14: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +4. | PASS; planned: rules.F03.rank-14-focus; mapped: rules.F03.rank-14-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-15-focus / 4-foundations | Phase View / Resolution Preview: Rank 15: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +5. | PASS; planned: rules.F03.rank-15-focus; mapped: rules.F03.rank-15-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-16-focus / 4-foundations | Phase View / Resolution Preview: Rank 16: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5. | PASS; planned: rules.F03.rank-16-focus; mapped: rules.F03.rank-16-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-17-focus / 4-foundations | Phase View / Resolution Preview: Rank 17: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5. | PASS; planned: rules.F03.rank-17-focus; mapped: rules.F03.rank-17-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-18-focus / 4-foundations | Phase View / Resolution Preview: Rank 18: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6. | PASS; planned: rules.F03.rank-18-focus; mapped: rules.F03.rank-18-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-19-focus / 4-foundations | Phase View / Resolution Preview: Rank 19: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6. | PASS; planned: rules.F03.rank-19-focus; mapped: rules.F03.rank-19-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F03.rank-20-focus / 4-foundations | Phase View / Resolution Preview: Rank 20: each of Loyalty/Secrecy/Security focuses gets +12; other checks get +6. | PASS; planned: rules.F03.rank-20-focus; mapped: rules.F03.rank-20-focus; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
+| F03.rank-focus / 4-foundations | Phase View / Resolution Preview: All 20 ranks and three focuses use Table 6-1 focused and secondary bonuses. | PASS; planned: rules.F03.rank-focus; mapped: rules.acceptance.foundation-ranks, rules.F03.rank-1-focus, rules.F03.rank-2-focus, rules.F03.rank-3-focus, rules.F03.rank-4-focus, rules.F03.rank-5-focus, rules.F03.rank-6-focus, rules.F03.rank-7-focus, rules.F03.rank-8-focus, rules.F03.rank-9-focus, rules.F03.rank-10-focus, rules.F03.rank-11-focus, rules.F03.rank-12-focus, rules.F03.rank-13-focus, rules.F03.rank-14-focus, rules.F03.rank-15-focus, rules.F03.rank-16-focus, rules.F03.rank-17-focus, rules.F03.rank-18-focus, rules.F03.rank-19-focus, rules.F03.rank-20-focus, rules.GATE.projection-parity; service: none |
+| F03.missing-focus / 4-foundations | Phase View / Resolution Preview: Missing focus requires selection; invalid focus is rejected. | PASS; planned: rules.F03.missing-focus; mapped: rules.acceptance.foundation-ranks, rules.acceptance.foundation-focus, rules.GATE.projection-parity; service: none |
+| F03.composition / 4-foundations | Phase View / Resolution Preview: Negative, officer and contextual modifiers apply exactly once with explanations. | PASS; planned: rules.F03.composition; mapped: rules.F03.composition, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-1-focus / 4-foundations | Phase View / Resolution Preview: Rank 1: each of Loyalty/Secrecy/Security focuses gets +2; other checks get +0. | PASS; planned: rules.F03.rank-1-focus; mapped: rules.F03.rank-1-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-2-focus / 4-foundations | Phase View / Resolution Preview: Rank 2: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +0. | PASS; planned: rules.F03.rank-2-focus; mapped: rules.F03.rank-2-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-3-focus / 4-foundations | Phase View / Resolution Preview: Rank 3: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +1. | PASS; planned: rules.F03.rank-3-focus; mapped: rules.F03.rank-3-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-4-focus / 4-foundations | Phase View / Resolution Preview: Rank 4: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1. | PASS; planned: rules.F03.rank-4-focus; mapped: rules.F03.rank-4-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-5-focus / 4-foundations | Phase View / Resolution Preview: Rank 5: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1. | PASS; planned: rules.F03.rank-5-focus; mapped: rules.F03.rank-5-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-6-focus / 4-foundations | Phase View / Resolution Preview: Rank 6: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2. | PASS; planned: rules.F03.rank-6-focus; mapped: rules.F03.rank-6-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-7-focus / 4-foundations | Phase View / Resolution Preview: Rank 7: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2. | PASS; planned: rules.F03.rank-7-focus; mapped: rules.F03.rank-7-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-8-focus / 4-foundations | Phase View / Resolution Preview: Rank 8: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +2. | PASS; planned: rules.F03.rank-8-focus; mapped: rules.F03.rank-8-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-9-focus / 4-foundations | Phase View / Resolution Preview: Rank 9: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +3. | PASS; planned: rules.F03.rank-9-focus; mapped: rules.F03.rank-9-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-10-focus / 4-foundations | Phase View / Resolution Preview: Rank 10: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3. | PASS; planned: rules.F03.rank-10-focus; mapped: rules.F03.rank-10-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-11-focus / 4-foundations | Phase View / Resolution Preview: Rank 11: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3. | PASS; planned: rules.F03.rank-11-focus; mapped: rules.F03.rank-11-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-12-focus / 4-foundations | Phase View / Resolution Preview: Rank 12: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4. | PASS; planned: rules.F03.rank-12-focus; mapped: rules.F03.rank-12-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-13-focus / 4-foundations | Phase View / Resolution Preview: Rank 13: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4. | PASS; planned: rules.F03.rank-13-focus; mapped: rules.F03.rank-13-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-14-focus / 4-foundations | Phase View / Resolution Preview: Rank 14: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +4. | PASS; planned: rules.F03.rank-14-focus; mapped: rules.F03.rank-14-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-15-focus / 4-foundations | Phase View / Resolution Preview: Rank 15: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +5. | PASS; planned: rules.F03.rank-15-focus; mapped: rules.F03.rank-15-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-16-focus / 4-foundations | Phase View / Resolution Preview: Rank 16: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5. | PASS; planned: rules.F03.rank-16-focus; mapped: rules.F03.rank-16-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-17-focus / 4-foundations | Phase View / Resolution Preview: Rank 17: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5. | PASS; planned: rules.F03.rank-17-focus; mapped: rules.F03.rank-17-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-18-focus / 4-foundations | Phase View / Resolution Preview: Rank 18: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6. | PASS; planned: rules.F03.rank-18-focus; mapped: rules.F03.rank-18-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-19-focus / 4-foundations | Phase View / Resolution Preview: Rank 19: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6. | PASS; planned: rules.F03.rank-19-focus; mapped: rules.F03.rank-19-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F03.rank-20-focus / 4-foundations | Phase View / Resolution Preview: Rank 20: each of Loyalty/Secrecy/Security focuses gets +12; other checks get +6. | PASS; planned: rules.F03.rank-20-focus; mapped: rules.F03.rank-20-focus, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 
 ## F04
 
@@ -205,30 +205,30 @@ Sources: [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/m
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F04.allowance / 4-foundations | Phase View / Resolution Preview: Rank 1 grants one action; remaining rank boundaries follow Table 6-1. | GAP; planned: rules.F04.allowance; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F04.strategist / 4-foundations | Phase View / Resolution Preview: Strategist adds one action once even with multiple holders. | GAP; planned: rules.F04.strategist; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F04.shrink / 4-foundations | Phase View / Resolution Preview: Allowance shrink preserves occupied choices and shows exception warnings. | PASS; planned: rules.F04.shrink; mapped: rules.F04.shrink; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.context / 4-foundations | Phase View / Resolution Preview: Upkeep rank changes and event or ally allowances recompute available actions. | GAP; planned: rules.F04.context; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F04.rank-1-actions / 4-foundations | Phase View / Resolution Preview: Rank 1 baseline allowance is 1 actions. | PASS; planned: rules.F04.rank-1-actions; mapped: rules.F04.rank-1-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-2-actions / 4-foundations | Phase View / Resolution Preview: Rank 2 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-2-actions; mapped: rules.F04.rank-2-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-3-actions / 4-foundations | Phase View / Resolution Preview: Rank 3 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-3-actions; mapped: rules.F04.rank-3-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-4-actions / 4-foundations | Phase View / Resolution Preview: Rank 4 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-4-actions; mapped: rules.F04.rank-4-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-5-actions / 4-foundations | Phase View / Resolution Preview: Rank 5 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-5-actions; mapped: rules.F04.rank-5-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-6-actions / 4-foundations | Phase View / Resolution Preview: Rank 6 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-6-actions; mapped: rules.F04.rank-6-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-7-actions / 4-foundations | Phase View / Resolution Preview: Rank 7 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-7-actions; mapped: rules.F04.rank-7-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-8-actions / 4-foundations | Phase View / Resolution Preview: Rank 8 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-8-actions; mapped: rules.F04.rank-8-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-9-actions / 4-foundations | Phase View / Resolution Preview: Rank 9 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-9-actions; mapped: rules.F04.rank-9-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-10-actions / 4-foundations | Phase View / Resolution Preview: Rank 10 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-10-actions; mapped: rules.F04.rank-10-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-11-actions / 4-foundations | Phase View / Resolution Preview: Rank 11 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-11-actions; mapped: rules.F04.rank-11-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-12-actions / 4-foundations | Phase View / Resolution Preview: Rank 12 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-12-actions; mapped: rules.F04.rank-12-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-13-actions / 4-foundations | Phase View / Resolution Preview: Rank 13 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-13-actions; mapped: rules.F04.rank-13-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-14-actions / 4-foundations | Phase View / Resolution Preview: Rank 14 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-14-actions; mapped: rules.F04.rank-14-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-15-actions / 4-foundations | Phase View / Resolution Preview: Rank 15 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-15-actions; mapped: rules.F04.rank-15-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-16-actions / 4-foundations | Phase View / Resolution Preview: Rank 16 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-16-actions; mapped: rules.F04.rank-16-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-17-actions / 4-foundations | Phase View / Resolution Preview: Rank 17 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-17-actions; mapped: rules.F04.rank-17-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-18-actions / 4-foundations | Phase View / Resolution Preview: Rank 18 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-18-actions; mapped: rules.F04.rank-18-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-19-actions / 4-foundations | Phase View / Resolution Preview: Rank 19 baseline allowance is 6 actions. | PASS; planned: rules.F04.rank-19-actions; mapped: rules.F04.rank-19-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F04.rank-20-actions / 4-foundations | Phase View / Resolution Preview: Rank 20 baseline allowance is 6 actions. | PASS; planned: rules.F04.rank-20-actions; mapped: rules.F04.rank-20-actions; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
+| F04.allowance / 4-foundations | Phase View / Resolution Preview: Rank 1 grants one action; remaining rank boundaries follow Table 6-1. | PASS; planned: rules.F04.allowance; mapped: rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.strategist / 4-foundations | Phase View / Resolution Preview: Strategist adds one action once even with multiple holders. | PASS; planned: rules.F04.strategist; mapped: rules.acceptance.foundation-ranks, rules.acceptance.strategist, rules.A04.order, rules.GATE.projection-parity; service: none |
+| F04.shrink / 4-foundations | Phase View / Resolution Preview: Allowance shrink preserves occupied choices and shows exception warnings. | PASS; planned: rules.F04.shrink; mapped: rules.F04.shrink, rules.acceptance.foundation-ranks, rules.U01.recompute, rules.A04.order, rules.GATE.projection-parity; service: none |
+| F04.context / 4-foundations | Phase View / Resolution Preview: Upkeep rank changes and event or ally allowances recompute available actions. | PASS; planned: rules.F04.context; mapped: rules.acceptance.foundation-ranks, rules.U01.recompute, rules.A04.order, rules.GATE.projection-parity; service: none; Upkeep rank and Strategist recomputation are covered. The corpus mentions ally/event action allowances without numeric definitions; replacement has no typed contextual allowance beyond reasoned action-capacity exceptions. Human rule classification remains pending. |
+| F04.rank-1-actions / 4-foundations | Phase View / Resolution Preview: Rank 1 baseline allowance is 1 actions. | PASS; planned: rules.F04.rank-1-actions; mapped: rules.F04.rank-1-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-2-actions / 4-foundations | Phase View / Resolution Preview: Rank 2 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-2-actions; mapped: rules.F04.rank-2-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-3-actions / 4-foundations | Phase View / Resolution Preview: Rank 3 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-3-actions; mapped: rules.F04.rank-3-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-4-actions / 4-foundations | Phase View / Resolution Preview: Rank 4 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-4-actions; mapped: rules.F04.rank-4-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-5-actions / 4-foundations | Phase View / Resolution Preview: Rank 5 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-5-actions; mapped: rules.F04.rank-5-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-6-actions / 4-foundations | Phase View / Resolution Preview: Rank 6 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-6-actions; mapped: rules.F04.rank-6-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-7-actions / 4-foundations | Phase View / Resolution Preview: Rank 7 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-7-actions; mapped: rules.F04.rank-7-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-8-actions / 4-foundations | Phase View / Resolution Preview: Rank 8 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-8-actions; mapped: rules.F04.rank-8-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-9-actions / 4-foundations | Phase View / Resolution Preview: Rank 9 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-9-actions; mapped: rules.F04.rank-9-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-10-actions / 4-foundations | Phase View / Resolution Preview: Rank 10 baseline allowance is 3 actions. | PASS; planned: rules.F04.rank-10-actions; mapped: rules.F04.rank-10-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-11-actions / 4-foundations | Phase View / Resolution Preview: Rank 11 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-11-actions; mapped: rules.F04.rank-11-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-12-actions / 4-foundations | Phase View / Resolution Preview: Rank 12 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-12-actions; mapped: rules.F04.rank-12-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-13-actions / 4-foundations | Phase View / Resolution Preview: Rank 13 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-13-actions; mapped: rules.F04.rank-13-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-14-actions / 4-foundations | Phase View / Resolution Preview: Rank 14 baseline allowance is 4 actions. | PASS; planned: rules.F04.rank-14-actions; mapped: rules.F04.rank-14-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-15-actions / 4-foundations | Phase View / Resolution Preview: Rank 15 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-15-actions; mapped: rules.F04.rank-15-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-16-actions / 4-foundations | Phase View / Resolution Preview: Rank 16 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-16-actions; mapped: rules.F04.rank-16-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-17-actions / 4-foundations | Phase View / Resolution Preview: Rank 17 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-17-actions; mapped: rules.F04.rank-17-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-18-actions / 4-foundations | Phase View / Resolution Preview: Rank 18 baseline allowance is 5 actions. | PASS; planned: rules.F04.rank-18-actions; mapped: rules.F04.rank-18-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-19-actions / 4-foundations | Phase View / Resolution Preview: Rank 19 baseline allowance is 6 actions. | PASS; planned: rules.F04.rank-19-actions; mapped: rules.F04.rank-19-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F04.rank-20-actions / 4-foundations | Phase View / Resolution Preview: Rank 20 baseline allowance is 6 actions. | PASS; planned: rules.F04.rank-20-actions; mapped: rules.F04.rank-20-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 
 ## F05
 
@@ -236,30 +236,30 @@ Sources: [R101: ### Maximum Teams](../docs/ai/ironfang-militia/militia-rules.md)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F05.caps / 4-foundations | Phase View / Resolution Preview: All Table 6-1 team caps count active, disabled and missing teams. | GAP; planned: rules.F05.caps; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F05.rewards / 4-foundations | Phase View / Resolution Preview: Reward teams do not consume capacity. | PASS; planned: rules.F05.rewards; mapped: rules.F05.rewards; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.identity / 4-foundations | Phase View / Resolution Preview: Repeated team types retain separate identities and consume separate capacity. | GAP; planned: rules.F05.identity; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F05.order / 4-foundations | Phase View / Resolution Preview: Dismiss then recruit frees capacity; recruit then dismiss warns at the earlier step. | GAP; planned: rules.F05.order; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F05.rank-1-teams / 4-foundations | Phase View / Resolution Preview: Rank 1 cap is 2 non-reward teams. | PASS; planned: rules.F05.rank-1-teams; mapped: rules.F05.rank-1-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-2-teams / 4-foundations | Phase View / Resolution Preview: Rank 2 cap is 2 non-reward teams. | PASS; planned: rules.F05.rank-2-teams; mapped: rules.F05.rank-2-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-3-teams / 4-foundations | Phase View / Resolution Preview: Rank 3 cap is 3 non-reward teams. | PASS; planned: rules.F05.rank-3-teams; mapped: rules.F05.rank-3-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-4-teams / 4-foundations | Phase View / Resolution Preview: Rank 4 cap is 3 non-reward teams. | PASS; planned: rules.F05.rank-4-teams; mapped: rules.F05.rank-4-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-5-teams / 4-foundations | Phase View / Resolution Preview: Rank 5 cap is 4 non-reward teams. | PASS; planned: rules.F05.rank-5-teams; mapped: rules.F05.rank-5-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-6-teams / 4-foundations | Phase View / Resolution Preview: Rank 6 cap is 4 non-reward teams. | PASS; planned: rules.F05.rank-6-teams; mapped: rules.F05.rank-6-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-7-teams / 4-foundations | Phase View / Resolution Preview: Rank 7 cap is 4 non-reward teams. | PASS; planned: rules.F05.rank-7-teams; mapped: rules.F05.rank-7-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-8-teams / 4-foundations | Phase View / Resolution Preview: Rank 8 cap is 5 non-reward teams. | PASS; planned: rules.F05.rank-8-teams; mapped: rules.F05.rank-8-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-9-teams / 4-foundations | Phase View / Resolution Preview: Rank 9 cap is 5 non-reward teams. | PASS; planned: rules.F05.rank-9-teams; mapped: rules.F05.rank-9-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-10-teams / 4-foundations | Phase View / Resolution Preview: Rank 10 cap is 5 non-reward teams. | PASS; planned: rules.F05.rank-10-teams; mapped: rules.F05.rank-10-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-11-teams / 4-foundations | Phase View / Resolution Preview: Rank 11 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-11-teams; mapped: rules.F05.rank-11-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-12-teams / 4-foundations | Phase View / Resolution Preview: Rank 12 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-12-teams; mapped: rules.F05.rank-12-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-13-teams / 4-foundations | Phase View / Resolution Preview: Rank 13 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-13-teams; mapped: rules.F05.rank-13-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-14-teams / 4-foundations | Phase View / Resolution Preview: Rank 14 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-14-teams; mapped: rules.F05.rank-14-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-15-teams / 4-foundations | Phase View / Resolution Preview: Rank 15 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-15-teams; mapped: rules.F05.rank-15-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-16-teams / 4-foundations | Phase View / Resolution Preview: Rank 16 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-16-teams; mapped: rules.F05.rank-16-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-17-teams / 4-foundations | Phase View / Resolution Preview: Rank 17 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-17-teams; mapped: rules.F05.rank-17-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-18-teams / 4-foundations | Phase View / Resolution Preview: Rank 18 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-18-teams; mapped: rules.F05.rank-18-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-19-teams / 4-foundations | Phase View / Resolution Preview: Rank 19 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-19-teams; mapped: rules.F05.rank-19-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F05.rank-20-teams / 4-foundations | Phase View / Resolution Preview: Rank 20 cap is 8 non-reward teams. | PASS; planned: rules.F05.rank-20-teams; mapped: rules.F05.rank-20-teams; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
+| F05.caps / 4-foundations | Phase View / Resolution Preview: All Table 6-1 team caps count active, disabled and missing teams. | PASS; planned: rules.F05.caps; mapped: rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rewards / 4-foundations | Phase View / Resolution Preview: Reward teams do not consume capacity. | PASS; planned: rules.F05.rewards; mapped: rules.F05.rewards, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.identity / 4-foundations | Phase View / Resolution Preview: Repeated team types retain separate identities and consume separate capacity. | PASS; planned: rules.F05.identity; mapped: rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.order / 4-foundations | Phase View / Resolution Preview: Dismiss then recruit frees capacity; recruit then dismiss warns at the earlier step. | PASS; planned: rules.F05.order; mapped: rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.A06.capacity, rules.GATE.projection-parity; service: none |
+| F05.rank-1-teams / 4-foundations | Phase View / Resolution Preview: Rank 1 cap is 2 non-reward teams. | PASS; planned: rules.F05.rank-1-teams; mapped: rules.F05.rank-1-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-2-teams / 4-foundations | Phase View / Resolution Preview: Rank 2 cap is 2 non-reward teams. | PASS; planned: rules.F05.rank-2-teams; mapped: rules.F05.rank-2-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-3-teams / 4-foundations | Phase View / Resolution Preview: Rank 3 cap is 3 non-reward teams. | PASS; planned: rules.F05.rank-3-teams; mapped: rules.F05.rank-3-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-4-teams / 4-foundations | Phase View / Resolution Preview: Rank 4 cap is 3 non-reward teams. | PASS; planned: rules.F05.rank-4-teams; mapped: rules.F05.rank-4-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-5-teams / 4-foundations | Phase View / Resolution Preview: Rank 5 cap is 4 non-reward teams. | PASS; planned: rules.F05.rank-5-teams; mapped: rules.F05.rank-5-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-6-teams / 4-foundations | Phase View / Resolution Preview: Rank 6 cap is 4 non-reward teams. | PASS; planned: rules.F05.rank-6-teams; mapped: rules.F05.rank-6-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-7-teams / 4-foundations | Phase View / Resolution Preview: Rank 7 cap is 4 non-reward teams. | PASS; planned: rules.F05.rank-7-teams; mapped: rules.F05.rank-7-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-8-teams / 4-foundations | Phase View / Resolution Preview: Rank 8 cap is 5 non-reward teams. | PASS; planned: rules.F05.rank-8-teams; mapped: rules.F05.rank-8-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-9-teams / 4-foundations | Phase View / Resolution Preview: Rank 9 cap is 5 non-reward teams. | PASS; planned: rules.F05.rank-9-teams; mapped: rules.F05.rank-9-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-10-teams / 4-foundations | Phase View / Resolution Preview: Rank 10 cap is 5 non-reward teams. | PASS; planned: rules.F05.rank-10-teams; mapped: rules.F05.rank-10-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-11-teams / 4-foundations | Phase View / Resolution Preview: Rank 11 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-11-teams; mapped: rules.F05.rank-11-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-12-teams / 4-foundations | Phase View / Resolution Preview: Rank 12 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-12-teams; mapped: rules.F05.rank-12-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-13-teams / 4-foundations | Phase View / Resolution Preview: Rank 13 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-13-teams; mapped: rules.F05.rank-13-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-14-teams / 4-foundations | Phase View / Resolution Preview: Rank 14 cap is 6 non-reward teams. | PASS; planned: rules.F05.rank-14-teams; mapped: rules.F05.rank-14-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-15-teams / 4-foundations | Phase View / Resolution Preview: Rank 15 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-15-teams; mapped: rules.F05.rank-15-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-16-teams / 4-foundations | Phase View / Resolution Preview: Rank 16 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-16-teams; mapped: rules.F05.rank-16-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-17-teams / 4-foundations | Phase View / Resolution Preview: Rank 17 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-17-teams; mapped: rules.F05.rank-17-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-18-teams / 4-foundations | Phase View / Resolution Preview: Rank 18 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-18-teams; mapped: rules.F05.rank-18-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-19-teams / 4-foundations | Phase View / Resolution Preview: Rank 19 cap is 7 non-reward teams. | PASS; planned: rules.F05.rank-19-teams; mapped: rules.F05.rank-19-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
+| F05.rank-20-teams / 4-foundations | Phase View / Resolution Preview: Rank 20 cap is 8 non-reward teams. | PASS; planned: rules.F05.rank-20-teams; mapped: rules.F05.rank-20-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 
 ## F06
 
@@ -267,10 +267,10 @@ Sources: [R044: ### Training](../docs/ai/ironfang-militia/militia-rules.md); [R0
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F06.notoriety / 4-foundations | Phase View / Resolution Preview: Calculated Notoriety is bounded 0–100 through additive effects. | GAP; planned: rules.F06.notoriety; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F06.money / 4-foundations | Phase View / Resolution Preview: Minimum treasury is rank times 10 gp; spending and gains retain copper precision. | GAP; planned: rules.F06.money; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F06.override / 4-foundations | Phase View / Resolution Preview: Explicit adjustments appear after the bounded baseline. | GAP; planned: rules.F06.override; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F06.removed-action / 4-foundations | Phase View / Resolution Preview: Deselected actions contribute no stale resource totals. | GAP; planned: rules.F06.removed-action; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| F06.notoriety / 4-foundations | Phase View / Resolution Preview: Calculated Notoriety is bounded 0–100 through additive effects. | PASS; planned: rules.F06.notoriety; mapped: rules.E88.covert-cap, rules.acceptance.notoriety-bounds, rules.GATE.projection-parity; service: none |
+| F06.money / 4-foundations | Phase View / Resolution Preview: Minimum treasury is rank times 10 gp; spending and gains retain copper precision. | PASS; planned: rules.F06.money; mapped: rules.acceptance.foundation-ranks, rules.A03.payment, rules.U05.order, rules.GATE.projection-parity; service: none |
+| F06.override / 4-foundations | Phase View / Resolution Preview: Explicit adjustments appear after the bounded baseline. | PASS; planned: rules.F06.override; mapped: rules.E88.covert-cap, rules.acceptance.notoriety-bounds, rules.GATE.projection-parity; service: none |
+| F06.removed-action / 4-foundations | Phase View / Resolution Preview: Deselected actions contribute no stale resource totals. | PASS; planned: rules.F06.removed-action; mapped: rules.E88.covert-cap, rules.A08.removed, rules.A07.natural-one, rules.GATE.projection-parity; service: none |
 
 ## F07
 
@@ -278,12 +278,12 @@ Sources: [R051: ### Reputation](../docs/ai/ironfang-militia/militia-rules.md); [
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F07.hostile / 4-foundations | Phase View / Resolution Preview: Hostile shows 1d4-day sightings, +5% prices and +5 social DC. | GAP; planned: rules.F07.hostile; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F07.unfriendly / 4-foundations | Phase View / Resolution Preview: Unfriendly shows +2 social DC and +5 operating-settlement event result. | GAP; planned: rules.F07.unfriendly; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F07.indifferent / 4-foundations | Phase View / Resolution Preview: Indifferent adds no modifier. | GAP; planned: rules.F07.indifferent; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F07.friendly / 4-foundations | Phase View / Resolution Preview: Friendly shows -2 social DC and -5 operating-settlement event result. | GAP; planned: rules.F07.friendly; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F07.helpful / 4-foundations | Phase View / Resolution Preview: Helpful grants -5% prices and +2 to exactly one eligible Activity check. | PASS; planned: rules.F07.helpful; mapped: rules.F07.helpful; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F07.effective / 4-foundations | Phase View / Resolution Preview: Refuge and Reduce Danger shifts affect the selected settlement; Market Day price effects compose. | PASS; planned: rules.F07.effective; mapped: rules.F07.effective; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
+| F07.hostile / 4-foundations | Phase View / Resolution Preview: Hostile shows 1d4-day sightings, +5% prices and +5 social DC. | PASS; planned: rules.F07.hostile; mapped: rules.acceptance.reputation-rows, rules.GATE.projection-parity; service: none |
+| F07.unfriendly / 4-foundations | Phase View / Resolution Preview: Unfriendly shows +2 social DC and +5 operating-settlement event result. | PASS; planned: rules.F07.unfriendly; mapped: rules.acceptance.reputation-rows, rules.GATE.projection-parity; service: none |
+| F07.indifferent / 4-foundations | Phase View / Resolution Preview: Indifferent adds no modifier. | PASS; planned: rules.F07.indifferent; mapped: rules.acceptance.reputation-rows, rules.GATE.projection-parity; service: none |
+| F07.friendly / 4-foundations | Phase View / Resolution Preview: Friendly shows -2 social DC and -5 operating-settlement event result. | PASS; planned: rules.F07.friendly; mapped: rules.acceptance.reputation-rows, rules.GATE.projection-parity; service: none |
+| F07.helpful / 4-foundations | Phase View / Resolution Preview: Helpful grants -5% prices and +2 to exactly one eligible Activity check. | PASS; planned: rules.F07.helpful; mapped: rules.F07.helpful, rules.acceptance.reputation-rows, rules.settlements.modifiers, rules.A03.payment, rules.GATE.projection-parity; service: none |
+| F07.effective / 4-foundations | Phase View / Resolution Preview: Refuge and Reduce Danger shifts affect the selected settlement; Market Day price effects compose. | PASS; planned: rules.F07.effective; mapped: rules.F07.effective, rules.acceptance.reputation-rows, rules.settlements.prices, rules.A15.duration, rules.A03.payment, rules.GATE.projection-parity; service: none |
 
 ## F08
 
@@ -291,11 +291,11 @@ Sources: [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/m
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| F08.skilled / 4-foundations | Phase View / Resolution Preview: Ranks 2/7/12/17 award one skill rank to each PC. | GAP; planned: rules.F08.skilled; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F08.gifts / 4-foundations | Phase View / Resolution Preview: Ranks 3/6/8/11/13/16/18 record the prescribed gift acknowledgement. | GAP; planned: rules.F08.gifts; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F08.titles / 4-foundations | Phase View / Resolution Preview: Ranks 4/9/14/19 record a title and eligible feat choice. | GAP; planned: rules.F08.titles; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F08.xp / 4-foundations | Phase View / Resolution Preview: Ranks 5/10/15/20 split the story XP among PCs. | GAP; planned: rules.F08.xp; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F08.recipients / 4-foundations | Phase View / Resolution Preview: Multiple crossed milestones award once to PCs, excluding NPC officers and cohorts. | GAP; planned: rules.F08.recipients; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| F08.skilled / 4-foundations | Phase View / Resolution Preview: Ranks 2/7/12/17 award one skill rank to each PC. | PASS; planned: rules.F08.skilled; mapped: rules.acceptance.foundation-boons, rules.F09.packages, rules.GATE.projection-parity; service: none |
+| F08.gifts / 4-foundations | Phase View / Resolution Preview: Ranks 3/6/8/11/13/16/18 record the prescribed gift acknowledgement. | PASS; planned: rules.F08.gifts; mapped: rules.acceptance.foundation-boons, rules.F09.packages, rules.GATE.projection-parity; service: none |
+| F08.titles / 4-foundations | Phase View / Resolution Preview: Ranks 4/9/14/19 record a title and eligible feat choice. | PASS; planned: rules.F08.titles; mapped: rules.acceptance.foundation-boons, rules.F09.packages, rules.GATE.projection-parity; service: none |
+| F08.xp / 4-foundations | Phase View / Resolution Preview: Ranks 5/10/15/20 split the story XP among PCs. | PASS; planned: rules.F08.xp; mapped: rules.acceptance.foundation-boons, rules.acceptance.xp-shares, rules.GATE.projection-parity; service: none |
+| F08.recipients / 4-foundations | Phase View / Resolution Preview: Multiple crossed milestones award once to PCs, excluding NPC officers and cohorts. | PASS; planned: rules.F08.recipients; mapped: rules.acceptance.foundation-boons, rules.acceptance.xp-shares, rules.U04.boons, rules.GATE.projection-parity; service: none |
 
 ## F09
 
@@ -304,10 +304,10 @@ Sources: [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/m
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | F09.context-money / 3-context | Preparation preserves integer copper values, including zero, separately from unknown money. | PASS; planned: context.absence, context.events-assets; mapped: context.absence, context.events-assets; service: none |
-| F09.packages / 4-foundations | Phase View / Resolution Preview: Gift choices and title feats match the exact packages in the cited source. | PASS; planned: rules.F09.packages; mapped: rules.F09.packages; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F09.xp-rounding / 4-foundations | Phase View / Resolution Preview: 1200/3200/6400/25600 XP split among PCs rounds down. | PASS; planned: rules.F09.xp-rounding; mapped: rules.F09.xp-rounding; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| F09.qualification / 4-foundations | Phase View / Resolution Preview: Champion feat requires qualification or an explicit Rules Exception. | GAP; planned: rules.F09.qualification; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| F09.acknowledgement / 4-foundations | Phase View / Resolution Preview: Chosen rewards and narrative acknowledgement persist in confirmed history. | GAP; planned: rules.F09.acknowledgement; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| F09.packages / 4-foundations | Phase View / Resolution Preview: Gift choices and title feats match the exact packages in the cited source. | PASS; planned: rules.F09.packages; mapped: rules.F09.packages, rules.acceptance.foundation-boons, rules.GATE.projection-parity; service: none |
+| F09.xp-rounding / 4-foundations | Phase View / Resolution Preview: 1200/3200/6400/25600 XP split among PCs rounds down. | PASS; planned: rules.F09.xp-rounding; mapped: rules.F09.xp-rounding, rules.acceptance.foundation-boons, rules.acceptance.xp-shares, rules.GATE.projection-parity; service: none |
+| F09.qualification / 4-foundations | Phase View / Resolution Preview: Champion feat requires qualification or an explicit Rules Exception. | PASS; planned: rules.F09.qualification; mapped: rules.acceptance.foundation-boons, rules.GATE.projection-parity; service: none |
+| F09.acknowledgement / 4-foundations | Phase View / Resolution Preview: Chosen rewards and narrative acknowledgement persist in confirmed history. | PASS; planned: rules.F09.acknowledgement; mapped: rules.acceptance.foundation-boons, rules.GATE.projection-parity; service: none |
 
 ## O01
 
@@ -316,9 +316,9 @@ Sources: [R121: ## Officers](../docs/ai/ironfang-militia/militia-rules.md); [D53
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | O01.roster-holders / 3-roster | Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments. | PASS; planned: roster.shared, roster.ui, roster.mapping; mapped: roster.shared, roster.ui, roster.mapping; service: none |
-| O01.nonstack / 4-officers | Phase View / Resolution Preview: Multiple holders select one applicable role bonus rather than summing. | GAP; planned: rules.O01.nonstack; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O01.commandants / 4-officers | Phase View / Resolution Preview: Commandant Hit Dice stack. | PASS; planned: rules.O01.commandants; mapped: rules.O01.commandants; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| O01.ordered-role / 4-officers | Phase View / Resolution Preview: Ordered assignment and removal recompute later checks. | GAP; planned: rules.O01.ordered-role; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| O01.nonstack / 4-officers | Phase View / Resolution Preview: Multiple holders select one applicable role bonus rather than summing. | PASS; planned: rules.O01.nonstack; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O01.commandants / 4-officers | Phase View / Resolution Preview: Commandant Hit Dice stack. | PASS; planned: rules.O01.commandants; mapped: rules.O01.commandants, rules.acceptance.officer-abilities, rules.acceptance.commandants, rules.GATE.projection-parity; service: none |
+| O01.ordered-role / 4-officers | Phase View / Resolution Preview: Ordered assignment and removal recompute later checks. | PASS; planned: rules.O01.ordered-role; mapped: rules.acceptance.officer-abilities, rules.A04.order, rules.GATE.projection-parity; service: none |
 
 ## O02
 
@@ -326,10 +326,10 @@ Sources: [R125: ### Ambassador](../docs/ai/ironfang-militia/militia-rules.md); [
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| O02.ambassador / 4-officers | Phase View / Resolution Preview: Ambassador selects Constitution or Charisma for Loyalty. | GAP; planned: rules.O02.ambassador; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O02.marshal / 4-officers | Phase View / Resolution Preview: Marshal selects Strength or Wisdom for Security. | GAP; planned: rules.O02.marshal; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O02.spymaster / 4-officers | Phase View / Resolution Preview: Spymaster selects Dexterity or Intelligence for Secrecy. | GAP; planned: rules.O02.spymaster; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O02.identity / 4-officers | Phase View / Resolution Preview: Absent or archived characters cannot silently contribute; tied and negative modifiers remain correct. | GAP; planned: rules.O02.identity; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| O02.ambassador / 4-officers | Phase View / Resolution Preview: Ambassador selects Constitution or Charisma for Loyalty. | PASS; planned: rules.O02.ambassador; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.marshal / 4-officers | Phase View / Resolution Preview: Marshal selects Strength or Wisdom for Security. | PASS; planned: rules.O02.marshal; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.spymaster / 4-officers | Phase View / Resolution Preview: Spymaster selects Dexterity or Intelligence for Secrecy. | PASS; planned: rules.O02.spymaster; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.identity / 4-officers | Phase View / Resolution Preview: Absent or archived characters cannot silently contribute; tied and negative modifiers remain correct. | PASS; planned: rules.O02.identity; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
 
 ## O03
 
@@ -338,9 +338,9 @@ Sources: [R129: ### Commandant](../docs/ai/ironfang-militia/militia-rules.md); [
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | O03.roster-hit-dice / 3-roster | Roster preparation retains explicit Commandant Hit Dice separately from level and reports unknown legacy Hit Dice for preflight resolution. | PASS; planned: roster.shared, roster.mapping, roster.ui; mapped: roster.shared, roster.mapping, roster.ui; service: none |
-| O03.success / 4-officers | Phase View / Resolution Preview: Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level. | GAP; planned: rules.O03.success; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O03.failure / 4-officers | Phase View / Resolution Preview: Failed Drill adds no Commandant training. | GAP; planned: rules.O03.failure; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O03.natural-one / 4-officers | Phase View / Resolution Preview: Natural 1 can still succeed and add Commandants while adding rolled Notoriety. | GAP; planned: rules.O03.natural-one; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| O03.success / 4-officers | Phase View / Resolution Preview: Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level. | PASS; planned: rules.O03.success; mapped: rules.acceptance.commandants, rules.GATE.projection-parity; service: none |
+| O03.failure / 4-officers | Phase View / Resolution Preview: Failed Drill adds no Commandant training. | PASS; planned: rules.O03.failure; mapped: rules.A18.failure, rules.A72.projection-parity, rules.A16.rescue, rules.A15.failure, rules.A06.projection-parity, rules.A06.failure, rules.A05.failure, rules.A01.failure, rules.U02.failure, rules.acceptance.commandants, rules.GATE.projection-parity; service: none |
+| O03.natural-one / 4-officers | Phase View / Resolution Preview: Natural 1 can still succeed and add Commandants while adding rolled Notoriety. | PASS; planned: rules.O03.natural-one; mapped: rules.A07.natural-one, rules.acceptance.commandants, rules.GATE.projection-parity; service: none |
 
 ## O04
 
@@ -348,10 +348,10 @@ Sources: [R137: ### Overseer](../docs/ai/ironfang-militia/militia-rules.md); [D5
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| O04.secondary / 4-officers | Phase View / Resolution Preview: Overseer adds +1 to both secondary checks, not focused checks. | GAP; planned: rules.O04.secondary; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O04.event / 4-officers | Phase View / Resolution Preview: One selected Event check receives the appropriate best ability modifier. | GAP; planned: rules.O04.event; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O04.one-use / 4-officers | Phase View / Resolution Preview: Two event occurrences cannot both consume the one-use bonus. | PASS; planned: rules.O04.one-use; mapped: rules.O04.one-use; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| O04.absent / 4-officers | Phase View / Resolution Preview: No Overseer contributes no bonus; included modifiers are not added twice. | GAP; planned: rules.O04.absent; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| O04.secondary / 4-officers | Phase View / Resolution Preview: Overseer adds +1 to both secondary checks, not focused checks. | PASS; planned: rules.O04.secondary; mapped: rules.acceptance.overseer, rules.GATE.projection-parity; service: none |
+| O04.event / 4-officers | Phase View / Resolution Preview: One selected Event check receives the appropriate best ability modifier. | PASS; planned: rules.O04.event; mapped: rules.acceptance.overseer, rules.EV03.modifiers, rules.GATE.projection-parity; service: none |
+| O04.one-use / 4-officers | Phase View / Resolution Preview: Two event occurrences cannot both consume the one-use bonus. | PASS; planned: rules.O04.one-use; mapped: rules.O04.one-use, rules.acceptance.overseer, rules.GATE.projection-parity; service: none |
+| O04.absent / 4-officers | Phase View / Resolution Preview: No Overseer contributes no bonus; included modifiers are not added twice. | PASS; planned: rules.O04.absent; mapped: rules.acceptance.overseer, rules.EV03.modifiers, rules.GATE.projection-parity; service: none |
 
 ## O05
 
@@ -359,9 +359,9 @@ Sources: [R149: ### Strategist](../docs/ai/ironfang-militia/militia-rules.md); [
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| O05.slot / 4-officers | Phase View / Resolution Preview: Only the designated bonus action receives +2 to all related checks. | GAP; planned: rules.O05.slot; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O05.holders / 4-officers | Phase View / Resolution Preview: Multiple Strategists grant one action and one designated bonus. | GAP; planned: rules.O05.holders; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O05.ordered / 4-officers | Phase View / Resolution Preview: Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices. | PASS; planned: rules.O05.ordered; mapped: rules.O05.ordered; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
+| O05.slot / 4-officers | Phase View / Resolution Preview: Only the designated bonus action receives +2 to all related checks. | PASS; planned: rules.O05.slot; mapped: rules.acceptance.strategist, rules.GATE.projection-parity; service: none |
+| O05.holders / 4-officers | Phase View / Resolution Preview: Multiple Strategists grant one action and one designated bonus. | PASS; planned: rules.O05.holders; mapped: rules.acceptance.strategist, rules.GATE.projection-parity; service: none |
+| O05.ordered / 4-officers | Phase View / Resolution Preview: Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices. | PASS; planned: rules.O05.ordered; mapped: rules.O05.ordered, rules.acceptance.strategist, rules.A04.order, rules.GATE.projection-parity; service: none |
 
 ## O06
 
@@ -370,10 +370,10 @@ Sources: [R093: ### Officers and Teams Management](../docs/ai/ironfang-militia/m
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | O06.roster-manager-warnings / 3-roster | Roster preparation validates campaign-scoped manager references and warns about manager limits without rejecting structurally valid rosters. | PASS; planned: roster.identities, roster.limits, roster.references; mapped: roster.identities, roster.limits, roster.references; service: none |
-| O06.capacity / 4-officers | Phase View / Resolution Preview: PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one. | PASS; planned: rules.O06.capacity; mapped: rules.O06.capacity; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| O06.checks / 4-officers | Phase View / Resolution Preview: Each team check uses its own manager Charisma bonus exactly once. | GAP; planned: rules.O06.checks; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O06.changes / 4-officers | Phase View / Resolution Preview: Ordered manager reassignment affects subsequent checks for independently identified teams. | GAP; planned: rules.O06.changes; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| O06.references / 4-officers | Phase View / Resolution Preview: Missing or archived manager identities are surfaced rather than fabricated. | GAP; planned: rules.O06.references; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| O06.capacity / 4-officers | Phase View / Resolution Preview: PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one. | PASS; planned: rules.O06.capacity; mapped: rules.A06.capacity, rules.O06.capacity, rules.acceptance.manager-checks, rules.F05.rewards, rules.GATE.projection-parity; service: none |
+| O06.checks / 4-officers | Phase View / Resolution Preview: Each team check uses its own manager Charisma bonus exactly once. | PASS; planned: rules.O06.checks; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none |
+| O06.changes / 4-officers | Phase View / Resolution Preview: Ordered manager reassignment affects subsequent checks for independently identified teams. | PASS; planned: rules.O06.changes; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none; Changing the current manager recomputes separately identified team checks; ordered within-week manager reassignment is not represented by a Weekly Draft choice and requires a product/rules timing decision. |
+| O06.references / 4-officers | Phase View / Resolution Preview: Missing or archived manager identities are surfaced rather than fabricated. | PASS; planned: rules.O06.references; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none |
 
 ## U01
 
@@ -382,10 +382,10 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | U01.context-first-use / 3-context | Preparation retains explicit first-use and uneventful carry facts without running Upkeep or changing live militia state. | PASS; planned: context.absence, context.shared; mapped: context.absence, context.shared; service: none |
-| U01.sequence / 4-upkeep | Phase View / Resolution Preview: Upkeep precedes Activity, which precedes Event. | GAP; planned: rules.U01.sequence; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| U01.first-use / 4-upkeep | Phase View / Resolution Preview: First militia week skips Upkeep independent of displayed week number and entered attrition. | PASS; planned: rules.U01.first-use; mapped: rules.U01.first-use; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U01.import / 4-upkeep | Phase View / Resolution Preview: Imported first-use metadata controls skipping rather than a week-number heuristic. | PASS; planned: rules.U01.import; mapped: rules.U01.import; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U01.recompute / 4-upkeep | Phase View / Resolution Preview: Earlier phase edits recompute downstream eligibility and outcomes. | PASS; planned: rules.U01.recompute; mapped: rules.U01.recompute; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
+| U01.sequence / 4-upkeep | Phase View / Resolution Preview: Upkeep precedes Activity, which precedes Event. | PASS; planned: rules.U01.sequence; mapped: rules.P06.baseline, rules.T07.same-week, rules.GATE.projection-parity; service: none |
+| U01.first-use / 4-upkeep | Phase View / Resolution Preview: First militia week skips Upkeep independent of displayed week number and entered attrition. | PASS; planned: rules.U01.first-use; mapped: rules.U01.first-use, rules.GATE.projection-parity; service: none |
+| U01.import / 4-upkeep | Phase View / Resolution Preview: Imported first-use metadata controls skipping rather than a week-number heuristic. | PASS; planned: rules.U01.import; mapped: rules.U01.import, rules.GATE.projection-parity; service: none |
+| U01.recompute / 4-upkeep | Phase View / Resolution Preview: Earlier phase edits recompute downstream eligibility and outcomes. | PASS; planned: rules.U01.recompute; mapped: rules.U01.recompute, rules.GATE.projection-parity; service: none |
 
 ## U02
 
@@ -393,11 +393,11 @@ Sources: [R219: ### Step 1: Training Attrition](../docs/ai/ironfang-militia/mili
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| U02.success / 4-upkeep | Phase View / Resolution Preview: Loyalty total 10 or higher loses rolled 1d6 training. | PASS; planned: rules.U02.success; mapped: rules.U02.success; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U02.failure / 4-upkeep | Phase View / Resolution Preview: Loyalty total 9 or lower loses rolled 2d4 plus rank. | PASS; planned: rules.U02.failure; mapped: rules.U02.failure; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U02.natural-twenty / 4-upkeep | Phase View / Resolution Preview: Natural 20 gains rolled 1d6 training instead of losing training. | PASS; planned: rules.U02.natural-twenty; mapped: rules.U02.natural-twenty; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U02.modifiers / 4-upkeep | Phase View / Resolution Preview: Officer and queued modifiers compose once; Week of Pain doubles losses, not natural-20 gain. | PASS; planned: rules.U02.modifiers, rules.U02.provenance, rules.U02.consumption, rules.U02.sources, rules.U02.persistent-morale; mapped: rules.U02.modifiers, rules.U02.provenance, rules.U02.consumption, rules.U02.sources, rules.U02.persistent-morale; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U02.readiness / 4-upkeep | Phase View / Resolution Preview: Missing required check or loss/gain dice prevents complete readiness. | PASS; planned: rules.U02.readiness; mapped: rules.U02.readiness; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
+| U02.success / 4-upkeep | Phase View / Resolution Preview: Loyalty total 10 or higher loses rolled 1d6 training. | PASS; planned: rules.U02.success; mapped: rules.U02.success, rules.U02.dice-boundaries, rules.GATE.projection-parity; service: none |
+| U02.failure / 4-upkeep | Phase View / Resolution Preview: Loyalty total 9 or lower loses rolled 2d4 plus rank. | PASS; planned: rules.U02.failure; mapped: rules.U02.failure, rules.U02.dice-boundaries, rules.GATE.projection-parity; service: none |
+| U02.natural-twenty / 4-upkeep | Phase View / Resolution Preview: Natural 20 gains rolled 1d6 training instead of losing training. | PASS; planned: rules.U02.natural-twenty; mapped: rules.U02.natural-twenty, rules.U02.dice-boundaries, rules.GATE.projection-parity; service: none |
+| U02.modifiers / 4-upkeep | Phase View / Resolution Preview: Officer and queued modifiers compose once; Week of Pain doubles losses, not natural-20 gain. | PASS; planned: rules.U02.modifiers, rules.U02.provenance, rules.U02.consumption, rules.U02.sources, rules.U02.persistent-morale; mapped: rules.A16.rescue, rules.A16.raid-expiry, rules.U02.modifiers, rules.U02.provenance, rules.U02.consumption, rules.U02.sources, rules.U02.persistent-morale, rules.GATE.projection-parity; service: none |
+| U02.readiness / 4-upkeep | Phase View / Resolution Preview: Missing required check or loss/gain dice prevents complete readiness. | PASS; planned: rules.U02.readiness; mapped: rules.U02.readiness, rules.GATE.projection-parity; service: none |
 
 ## U03
 
@@ -405,10 +405,10 @@ Sources: [R226: ### Step 2: Maximum-Notoriety Penalties](../docs/ai/ironfang-mil
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| U03.threshold / 4-upkeep | Phase View / Resolution Preview: Notoriety 99 has no maximum penalty; 100 loses 1d20 plus rank. | PASS; planned: rules.U03.threshold; mapped: rules.U03.threshold; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U03.reputation / 4-upkeep | Phase View / Resolution Preview: Failed Loyalty DC15 reduces nearest settlement one step with Unfriendly floor. | PASS; planned: rules.U03.reputation; mapped: rules.U03.reputation; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U03.inputs / 4-upkeep | Phase View / Resolution Preview: Missing applicable die, check or settlement blocks Confirmation. | PASS; planned: rules.U03.inputs; mapped: rules.U03.inputs; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U03.recompute / 4-upkeep | Phase View / Resolution Preview: Projected Notoriety and queued Loyalty modifiers control applicability and clear stale penalties. | PASS; planned: rules.U03.recompute; mapped: rules.U03.recompute; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
+| U03.threshold / 4-upkeep | Phase View / Resolution Preview: Notoriety 99 has no maximum penalty; 100 loses 1d20 plus rank. | PASS; planned: rules.U03.threshold; mapped: rules.U03.threshold, rules.GATE.projection-parity; service: none |
+| U03.reputation / 4-upkeep | Phase View / Resolution Preview: Failed Loyalty DC15 reduces nearest settlement one step with Unfriendly floor. | PASS; planned: rules.U03.reputation; mapped: rules.U03.reputation, rules.GATE.projection-parity; service: none |
+| U03.inputs / 4-upkeep | Phase View / Resolution Preview: Missing applicable die, check or settlement blocks Confirmation. | PASS; planned: rules.U03.inputs; mapped: rules.EV21.inputs, rules.E75.projection-parity, rules.EV12.inputs, rules.EV12.operation-scope, rules.EV12.settlement-exception, rules.E74.projection-parity, rules.A01.inputs, rules.A06.projection-parity, rules.U03.inputs, rules.GATE.projection-parity; service: none |
+| U03.recompute / 4-upkeep | Phase View / Resolution Preview: Projected Notoriety and queued Loyalty modifiers control applicability and clear stale penalties. | PASS; planned: rules.U03.recompute; mapped: rules.U03.recompute, rules.GATE.projection-parity; service: none |
 
 ## U04
 
@@ -416,10 +416,10 @@ Sources: [R232: ### Step 3: Treasury-Shortage Penalties](../docs/ai/ironfang-mil
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| U04.shortage / 4-upkeep | Phase View / Resolution Preview: Treasury below rank times 10 after recovery payments loses rolled 2d4 plus rank. | PASS; planned: rules.U04.shortage, rules.U04.recovery-inputs; mapped: rules.U04.shortage, rules.U04.recovery-inputs; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U04.boundary / 4-upkeep | Phase View / Resolution Preview: Exactly minimum treasury avoids shortage; later deposits do not erase it. | PASS; planned: rules.U04.boundary; mapped: rules.U04.boundary; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U04.rank / 4-upkeep | Phase View / Resolution Preview: Rank increases use post-loss training, cross multiple thresholds and stop at PC cap. | PASS; planned: rules.U04.rank; mapped: rules.U04.rank; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U04.boons / 4-upkeep | Phase View / Resolution Preview: Each newly crossed boon is calculated immediately once. | PASS; planned: rules.U04.boons; mapped: rules.U04.boons; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
+| U04.shortage / 4-upkeep | Phase View / Resolution Preview: Treasury below rank times 10 after recovery payments loses rolled 2d4 plus rank. | PASS; planned: rules.U04.shortage, rules.U04.recovery-inputs; mapped: rules.U04.shortage, rules.U04.recovery-inputs, rules.GATE.projection-parity; service: none |
+| U04.boundary / 4-upkeep | Phase View / Resolution Preview: Exactly minimum treasury avoids shortage; later deposits do not erase it. | PASS; planned: rules.U04.boundary; mapped: rules.U04.boundary, rules.GATE.projection-parity; service: none |
+| U04.rank / 4-upkeep | Phase View / Resolution Preview: Rank increases use post-loss training, cross multiple thresholds and stop at PC cap. | PASS; planned: rules.U04.rank; mapped: rules.U04.rank, rules.GATE.projection-parity; service: none |
+| U04.boons / 4-upkeep | Phase View / Resolution Preview: Each newly crossed boon is calculated immediately once. | PASS; planned: rules.U04.boons; mapped: rules.U04.boons, rules.GATE.projection-parity; service: none |
 
 ## U05
 
@@ -427,9 +427,9 @@ Sources: [R244: ### Step 5: Deposits and Withdrawals](../docs/ai/ironfang-militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| U05.order / 4-upkeep | Phase View / Resolution Preview: Deposits and withdrawals are staged after preceding Upkeep steps. | PASS; planned: rules.U05.order, rules.U05.overdraft, rules.U05.officer-exception; mapped: rules.U05.order, rules.U05.overdraft, rules.U05.officer-exception; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| U05.preview / 4-upkeep | Phase View / Resolution Preview: Preview includes all deposits and withdrawals before Event Theft. | PASS; planned: rules.U05.preview; mapped: rules.U05.preview; service: none; Incoming persistent Theft and Upkeep transfers covered in #67; subsequent Activity/Event resource ordering and Confirmation remain required. |
-| U05.authority / 4-upkeep | Phase View / Resolution Preview: Allowed players can stage transfers; Confirmation applies them once under races. | GAP; planned: rules.U05.authority; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| U05.order / 4-upkeep | Phase View / Resolution Preview: Deposits and withdrawals are staged after preceding Upkeep steps. | PASS; planned: rules.U05.order, rules.U05.overdraft, rules.U05.officer-exception; mapped: rules.U05.order, rules.U05.overdraft, rules.U05.officer-exception, rules.GATE.projection-parity; service: none |
+| U05.preview / 4-upkeep | Phase View / Resolution Preview: Preview includes all deposits and withdrawals before Event Theft. | PASS; planned: rules.U05.preview; mapped: rules.U05.preview, rules.GATE.projection-parity; service: none |
+| U05.authority / 4-upkeep | Phase View / Resolution Preview: Allowed players can stage transfers; Confirmation applies them once under races. | PASS; planned: rules.U05.authority; mapped: rules.P81.workspace, rules.P81.gateway, rules.P80.authority, rules.P80.atomic, rules.P06.baseline, rules.GATE.projection-parity; service: none |
 
 ## U06
 
@@ -437,10 +437,10 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| U06.cost-theft / 4-upkeep | Phase View / Resolution Preview: Activity costs precede Event Theft so theft uses remaining treasury. | GAP; planned: rules.U06.cost-theft; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| U06.deposit-theft / 4-upkeep | Phase View / Resolution Preview: Deposits precede Event Theft and use persistent incoming-gain policy. | GAP; planned: rules.U06.deposit-theft; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| U06.action-order / 4-upkeep | Phase View / Resolution Preview: Reordering two dependent actions changes the later result and availability. | GAP; planned: rules.U06.action-order; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| U06.failure / 4-upkeep | Phase View / Resolution Preview: Failed preceding operations recompute later capacity and costs without stale gains. | GAP; planned: rules.U06.failure; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| U06.cost-theft / 4-upkeep | Phase View / Resolution Preview: Activity costs precede Event Theft so theft uses remaining treasury. | PASS; planned: rules.U06.cost-theft; mapped: rules.P06.baseline, rules.GATE.projection-parity; service: none |
+| U06.deposit-theft / 4-upkeep | Phase View / Resolution Preview: Deposits precede Event Theft and use persistent incoming-gain policy. | PASS; planned: rules.U06.deposit-theft; mapped: rules.P06.baseline, rules.U05.preview, rules.GATE.projection-parity; service: none |
+| U06.action-order / 4-upkeep | Phase View / Resolution Preview: Reordering two dependent actions changes the later result and availability. | PASS; planned: rules.U06.action-order; mapped: rules.A06.capacity, rules.teams.action-upgrade-order, rules.economy.theft-order, rules.GATE.projection-parity; service: none |
+| U06.failure / 4-upkeep | Phase View / Resolution Preview: Failed preceding operations recompute later capacity and costs without stale gains. | PASS; planned: rules.U06.failure; mapped: rules.teams.recruit-then-act, rules.A17.ordered, rules.economy.theft-order, rules.GATE.projection-parity; service: none |
 
 ## T01
 
@@ -448,9 +448,9 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| T01.recruit / 4-teams | Phase View / Resolution Preview: Moles are tier 1, size 3, Secrecy DC15. | GAP; planned: rules.T01.recruit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T01.upgrade / 4-teams | Phase View / Resolution Preview: Propagandists cost 250 gp; Saboteurs and Spies each cost 1000 gp. | GAP; planned: rules.T01.upgrade; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T01.inherit / 4-teams | Phase View / Resolution Preview: Both branches inherit all earlier actions; cross-tree and skipped-tier upgrades warn. | GAP; planned: rules.T01.inherit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T01.recruit / 4-teams | Phase View / Resolution Preview: Moles are tier 1, size 3, Secrecy DC15. | PASS; planned: rules.T01.recruit; mapped: rules.teams.definitions, rules.A14.checks.moles, rules.GATE.projection-parity; service: none |
+| T01.upgrade / 4-teams | Phase View / Resolution Preview: Propagandists cost 250 gp; Saboteurs and Spies each cost 1000 gp. | PASS; planned: rules.T01.upgrade; mapped: rules.T03.upgrade, rules.teams.all-edges, rules.teams.definitions, rules.GATE.projection-parity; service: none |
+| T01.inherit / 4-teams | Phase View / Resolution Preview: Both branches inherit all earlier actions; cross-tree and skipped-tier upgrades warn. | PASS; planned: rules.T01.inherit; mapped: rules.teams.definitions, rules.teams.illegal-edges, rules.activity.acceptance-ready, rules.GATE.projection-parity; service: none |
 
 ## T02
 
@@ -458,9 +458,9 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| T02.recruit / 4-teams | Phase View / Resolution Preview: Informants are tier 1, size 6, Loyalty DC10. | GAP; planned: rules.T02.recruit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T02.upgrade / 4-teams | Phase View / Resolution Preview: Conspirators cost 250 gp; Scholars and Spellcasters each cost 1000 gp. | GAP; planned: rules.T02.upgrade; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T02.inherit / 4-teams | Phase View / Resolution Preview: Both branches inherit all earlier actions; invalid edges warn. | GAP; planned: rules.T02.inherit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T02.recruit / 4-teams | Phase View / Resolution Preview: Informants are tier 1, size 6, Loyalty DC10. | PASS; planned: rules.T02.recruit; mapped: rules.teams.definitions, rules.A14.checks.informants, rules.GATE.projection-parity; service: none |
+| T02.upgrade / 4-teams | Phase View / Resolution Preview: Conspirators cost 250 gp; Scholars and Spellcasters each cost 1000 gp. | PASS; planned: rules.T02.upgrade; mapped: rules.teams.all-edges, rules.teams.definitions, rules.GATE.projection-parity; service: none |
+| T02.inherit / 4-teams | Phase View / Resolution Preview: Both branches inherit all earlier actions; invalid edges warn. | PASS; planned: rules.T02.inherit; mapped: rules.teams.definitions, rules.teams.illegal-edges, rules.activity.acceptance-ready, rules.GATE.projection-parity; service: none |
 
 ## T03
 
@@ -468,9 +468,9 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| T03.recruit / 4-teams | Phase View / Resolution Preview: Defenders are tier 1, size 6, Security DC15. | GAP; planned: rules.T03.recruit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T03.upgrade / 4-teams | Phase View / Resolution Preview: Infiltrators cost 250 gp; Guardians and Specialists each display and charge 1000 gp. | PASS; planned: rules.T03.upgrade; mapped: rules.T03.upgrade; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| T03.inherit / 4-teams | Phase View / Resolution Preview: Both military branches inherit all earlier actions. | GAP; planned: rules.T03.inherit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T03.recruit / 4-teams | Phase View / Resolution Preview: Defenders are tier 1, size 6, Security DC15. | PASS; planned: rules.T03.recruit; mapped: rules.teams.definitions, rules.A14.checks.defenders, rules.GATE.projection-parity; service: none |
+| T03.upgrade / 4-teams | Phase View / Resolution Preview: Infiltrators cost 250 gp; Guardians and Specialists each display and charge 1000 gp. | PASS; planned: rules.T03.upgrade; mapped: rules.T03.upgrade, rules.teams.all-edges, rules.teams.definitions, rules.GATE.projection-parity; service: none |
+| T03.inherit / 4-teams | Phase View / Resolution Preview: Both military branches inherit all earlier actions. | PASS; planned: rules.T03.inherit; mapped: rules.teams.definitions, rules.teams.illegal-edges, rules.activity.acceptance-ready, rules.GATE.projection-parity; service: none |
 
 ## T04
 
@@ -478,9 +478,9 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| T04.recruit / 4-teams | Phase View / Resolution Preview: Patrons are tier 1, size 6, Loyalty DC10. | GAP; planned: rules.T04.recruit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T04.upgrade / 4-teams | Phase View / Resolution Preview: Merchants cost 50 gp; Black Marketeers and Fixers each cost 200 gp. | GAP; planned: rules.T04.upgrade; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T04.inherit / 4-teams | Phase View / Resolution Preview: Both treasury branches inherit all earlier actions. | GAP; planned: rules.T04.inherit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T04.recruit / 4-teams | Phase View / Resolution Preview: Patrons are tier 1, size 6, Loyalty DC10. | PASS; planned: rules.T04.recruit; mapped: rules.teams.definitions, rules.A14.checks.patrons, rules.GATE.projection-parity; service: none |
+| T04.upgrade / 4-teams | Phase View / Resolution Preview: Merchants cost 50 gp; Black Marketeers and Fixers each cost 200 gp. | PASS; planned: rules.T04.upgrade; mapped: rules.teams.all-edges, rules.teams.definitions, rules.GATE.projection-parity; service: none |
+| T04.inherit / 4-teams | Phase View / Resolution Preview: Both treasury branches inherit all earlier actions. | PASS; planned: rules.T04.inherit; mapped: rules.teams.definitions, rules.teams.illegal-edges, rules.activity.acceptance-ready, rules.GATE.projection-parity; service: none |
 
 ## T05
 
@@ -488,10 +488,10 @@ Sources: [R154: ## Teams](../docs/ai/ironfang-militia/militia-rules.md); [R443: 
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| T05.recruit-act / 4-teams | Phase View / Resolution Preview: Successful new tier-1 recruits can act immediately when slots remain. | GAP; planned: rules.T05.recruit-act; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T05.failed-recruit / 4-teams | Phase View / Resolution Preview: Failed recruitment creates no team to act. | GAP; planned: rules.T05.failed-recruit; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T05.upgrade-act / 4-teams | Phase View / Resolution Preview: An upgraded team cannot act that Activity; ordered prior actions remain accounted for. | PASS; planned: rules.T05.upgrade-act; mapped: rules.T05.upgrade-act; service: none; Pure foundation projection covered in #66; phase integration and Confirmation parity remain required. |
-| T05.repeat-upgrade / 4-teams | Phase View / Resolution Preview: Each team upgrades at most once per week; different teams can upgrade independently. | GAP; planned: rules.T05.repeat-upgrade; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T05.recruit-act / 4-teams | Phase View / Resolution Preview: Successful new tier-1 recruits can act immediately when slots remain. | PASS; planned: rules.T05.recruit-act; mapped: rules.teams.recruit-then-act, rules.GATE.projection-parity; service: none |
+| T05.failed-recruit / 4-teams | Phase View / Resolution Preview: Failed recruitment creates no team to act. | PASS; planned: rules.T05.failed-recruit; mapped: rules.teams.recruit-then-act, rules.GATE.projection-parity; service: none |
+| T05.upgrade-act / 4-teams | Phase View / Resolution Preview: An upgraded team cannot act that Activity; ordered prior actions remain accounted for. | PASS; planned: rules.T05.upgrade-act; mapped: rules.T05.upgrade-act, rules.teams.action-upgrade-order, rules.teams.all-edges, rules.GATE.projection-parity; service: none |
+| T05.repeat-upgrade / 4-teams | Phase View / Resolution Preview: Each team upgrades at most once per week; different teams can upgrade independently. | PASS; planned: rules.T05.repeat-upgrade; mapped: rules.teams.independent-upgrades, rules.GATE.projection-parity; service: none |
 
 ## T06
 
@@ -500,11 +500,11 @@ Sources: [R248: ## Activity Phase](../docs/ai/ironfang-militia/militia-rules.md)
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | T06.roster-identities / 3-roster | Roster preparation preserves individual identities for repeated types and reward exemptions; cap warnings do not remove teams. | PASS; planned: roster.identities, roster.limits, roster.validation, roster.ui-teams; mapped: roster.identities, roster.limits, roster.validation, roster.ui-teams; service: none |
-| T06.team-use / 4-teams | Phase View / Resolution Preview: One team normally takes one Activity action; two teams can select the same repeatable action. | GAP; planned: rules.T06.team-use; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T06.capability / 4-teams | Phase View / Resolution Preview: Team capability, condition and slot allowance produce specific eligibility warnings. | GAP; planned: rules.T06.capability; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T06.lie-low / 4-teams | Phase View / Resolution Preview: Lie Low excludes other Activity actions. | GAP; planned: rules.T06.lie-low; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T06.drill / 4-teams | Phase View / Resolution Preview: Drill appears at most once per Activity. | PASS; planned: rules.T06.drill; mapped: rules.T06.drill-once; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| T06.exception / 4-teams | Phase View / Resolution Preview: A shared reasoned Rules Exception permits an unusual choice without changing arithmetic. | GAP; planned: rules.T06.exception; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T06.team-use / 4-teams | Phase View / Resolution Preview: One team normally takes one Activity action; two teams can select the same repeatable action. | PASS; planned: rules.T06.team-use; mapped: rules.teams.use-eligibility, rules.P82.cards, rules.GATE.projection-parity; service: none |
+| T06.capability / 4-teams | Phase View / Resolution Preview: Team capability, condition and slot allowance produce specific eligibility warnings. | PASS; planned: rules.T06.capability; mapped: rules.teams.use-eligibility, rules.A04.order, rules.GATE.projection-parity; service: none |
+| T06.lie-low / 4-teams | Phase View / Resolution Preview: Lie Low excludes other Activity actions. | PASS; planned: rules.T06.lie-low; mapped: rules.A12.exclusivity, rules.GATE.projection-parity; service: none |
+| T06.drill / 4-teams | Phase View / Resolution Preview: Drill appears at most once per Activity. | PASS; planned: rules.T06.drill; mapped: rules.T06.drill-once, rules.GATE.projection-parity; service: none |
+| T06.exception / 4-teams | Phase View / Resolution Preview: A shared reasoned Rules Exception permits an unusual choice without changing arithmetic. | PASS; planned: rules.T06.exception; mapped: rules.teams.use-eligibility, rules.A12.exclusivity, rules.P82.workspace, rules.GATE.projection-parity; service: none |
 
 ## T07
 
@@ -513,10 +513,10 @@ Sources: [R165: #### Disabled](../docs/ai/ironfang-militia/militia-rules.md); [D
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | T07.roster-conditions / 3-roster | Roster preparation retains independent disabled and missing conditions for individual teams of the same type. | PASS; planned: roster.shared, roster.ui-teams; mapped: roster.shared, roster.ui-teams; service: none |
-| T07.disabled / 4-teams | Phase View / Resolution Preview: Disabled teams cannot act until recovery. | GAP; planned: rules.T07.disabled; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T07.payment / 4-teams | Phase View / Resolution Preview: Each selected disabled team recovers at start-Upkeep for current minimum treasury. | GAP; planned: rules.T07.payment; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T07.narrative / 4-teams | Phase View / Resolution Preview: Narrative recovery records adjudication and enables same-week action. | GAP; planned: rules.T07.narrative; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T07.funds / 4-teams | Phase View / Resolution Preview: Insufficient recovery funds produce an advisory warning and exception path. | PASS; planned: rules.T07.funds; mapped: rules.T07.funds; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
+| T07.disabled / 4-teams | Phase View / Resolution Preview: Disabled teams cannot act until recovery. | PASS; planned: rules.T07.disabled; mapped: rules.T07.individual-cost, rules.teams.use-eligibility, rules.GATE.projection-parity; service: none |
+| T07.payment / 4-teams | Phase View / Resolution Preview: Each selected disabled team recovers at start-Upkeep for current minimum treasury. | PASS; planned: rules.T07.payment; mapped: rules.T07.individual-cost, rules.T07.same-week, rules.GATE.projection-parity; service: none |
+| T07.narrative / 4-teams | Phase View / Resolution Preview: Narrative recovery records adjudication and enables same-week action. | PASS; planned: rules.T07.narrative; mapped: rules.T07.same-week, rules.P81.recovery-adjustment, rules.P81.recovery-arbitration, rules.GATE.projection-parity; service: none |
+| T07.funds / 4-teams | Phase View / Resolution Preview: Insufficient recovery funds produce an advisory warning and exception path. | PASS; planned: rules.T07.funds; mapped: rules.T07.funds, rules.GATE.projection-parity; service: none |
 
 ## T08
 
@@ -524,10 +524,10 @@ Sources: [R171: #### Missing](../docs/ai/ironfang-militia/militia-rules.md); [D5
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| T08.return / 4-teams | Phase View / Resolution Preview: Security DC15 returns a missing team at end-week, unavailable during Activity. | PASS; planned: rules.T08.return, rules.T08.manager-scope; mapped: rules.T08.return, rules.T08.manager-scope; service: none; Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required. |
-| T08.failure / 4-teams | Phase View / Resolution Preview: Total 14 fails recovery; natural 1 permanently loses the team even with a high modifier. | GAP; planned: rules.T08.failure; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T08.capacity / 4-teams | Phase View / Resolution Preview: Missing teams still count toward capacity. | GAP; planned: rules.T08.capacity; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| T08.ordering / 4-teams | Phase View / Resolution Preview: Scheduled return, Sickness and Turn Around use explicit ordered condition outcomes. | GAP; planned: rules.T08.ordering; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| T08.return / 4-teams | Phase View / Resolution Preview: Security DC15 returns a missing team at end-week, unavailable during Activity. | PASS; planned: rules.T08.return, rules.T08.manager-scope; mapped: rules.T08.return, rules.T08.manager-scope, rules.GATE.projection-parity; service: none |
+| T08.failure / 4-teams | Phase View / Resolution Preview: Total 14 fails recovery; natural 1 permanently loses the team even with a high modifier. | PASS; planned: rules.T08.failure; mapped: rules.T08.return, rules.T08.natural-one, rules.GATE.projection-parity; service: none |
+| T08.capacity / 4-teams | Phase View / Resolution Preview: Missing teams still count toward capacity. | PASS; planned: rules.T08.capacity; mapped: rules.A06.capacity, rules.F05.rewards, rules.GATE.projection-parity; service: none |
+| T08.ordering / 4-teams | Phase View / Resolution Preview: Scheduled return, Sickness and Turn Around use explicit ordered condition outcomes. | PASS; planned: rules.T08.ordering; mapped: rules.EV18.ordering, rules.E03.outcome-replacement, rules.E03.replacement-sabotage, rules.E03.replacement-duplicates, rules.E75.projection-parity, rules.T08.condition-order, rules.EV13.no-early-return, rules.EV13.new-absence, rules.GATE.projection-parity; service: none |
 
 ## A01
 
@@ -546,9 +546,9 @@ Sources: [R262: ## Action: Activate Refuge](../docs/ai/ironfang-militia/militia-
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A02.reputation / 4-activity | Phase View / Resolution Preview: Conspirators, Scholars or Spellcasters make Hostile or Unfriendly refuge reputation one step better. | PASS; planned: rules.A02.reputation; mapped: rules.A02.reputation, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A02.duration / 4-activity | Phase View / Resolution Preview: Refuge activation or renewal lasts one week. | PASS; planned: rules.A02.duration; mapped: rules.A02.duration, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A02.interactions / 4-activity | Phase View / Resolution Preview: Active refuge is available to same-week rescue and scoped Raid outcomes. | GAP; planned: rules.A02.interactions; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| A02.reputation / 4-activity | Phase View / Resolution Preview: Conspirators, Scholars or Spellcasters make Hostile or Unfriendly refuge reputation one step better. | PASS; planned: rules.A02.reputation; mapped: rules.A02.reputation, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A02.duration / 4-activity | Phase View / Resolution Preview: Refuge activation or renewal lasts one week. | PASS; planned: rules.A02.duration; mapped: rules.A15.duration, rules.A06.projection-parity, rules.A02.duration, rules.GATE.projection-parity; service: none |
+| A02.interactions / 4-activity | Phase View / Resolution Preview: Active refuge is available to same-week rescue and scoped Raid outcomes. | PASS; planned: rules.A02.interactions; mapped: rules.A02.rescue-order, rules.A17.ordered, rules.EV15.base, rules.settlements.prices, rules.GATE.projection-parity; service: none |
 
 ## A03
 
@@ -559,7 +559,7 @@ Sources: [R268: ## Action: Broker Market](../docs/ai/ironfang-militia/militia-ru
 | A03.profiles / 4-activity | Phase View / Resolution Preview: Merchants broker small-town markets; Black Marketeers and Fixers broker small-city markets. | PASS; planned: rules.A03.profiles; mapped: rules.A03.profiles, rules.A06.projection-parity; service: none |
 | A03.payment / 4-activity | Phase View / Resolution Preview: Activation costs 100 gp plus all purchases paid upfront. | PASS; planned: rules.A03.payment; mapped: rules.A03.payment, rules.A06.projection-parity; service: none |
 | A03.delivery / 4-activity | Phase View / Resolution Preview: Each order arrives next Activity, independently of Special Order day timing. | PASS; planned: rules.A03.delivery; mapped: rules.A03.delivery, rules.A06.projection-parity; service: none |
-| A03.expiry / 4-activity | Phase View / Resolution Preview: Market duration and delivered item availability follow the source without duplicate receipt. | PASS; planned: rules.A03.expiry; mapped: rules.A03.expiry, rules.A06.projection-parity; service: none |
+| A03.expiry / 4-activity | Phase View / Resolution Preview: Market duration and delivered item availability follow the source without duplicate receipt. | PASS; planned: rules.A03.expiry; mapped: rules.EV24.twice, rules.E76.projection-parity, rules.A03.expiry, rules.A06.projection-parity; service: none |
 
 ## A04
 
@@ -567,9 +567,9 @@ Sources: [R277: ## Action: Change Officer Role](../docs/ai/ironfang-militia/mili
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A04.pc / 4-activity | Phase View / Resolution Preview: One no-team action changes one PC role; ally or cohort departure needs Rules Exception. | PASS; planned: rules.A04.pc; mapped: rules.A04.pc; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A04.move / 4-activity | Phase View / Resolution Preview: Move or unassign preserves character records. | PASS; planned: rules.A04.move; mapped: rules.A04.pc, rules.A04.order; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A04.order / 4-activity | Phase View / Resolution Preview: Role changes affect later checks and consume their own actions. | PASS; planned: rules.A04.order; mapped: rules.A04.order; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
+| A04.pc / 4-activity | Phase View / Resolution Preview: One no-team action changes one PC role; ally or cohort departure needs Rules Exception. | PASS; planned: rules.A04.pc; mapped: rules.A04.pc, rules.GATE.projection-parity; service: none |
+| A04.move / 4-activity | Phase View / Resolution Preview: Move or unassign preserves character records. | PASS; planned: rules.A04.move; mapped: rules.A04.pc, rules.A04.order, rules.GATE.projection-parity; service: none |
+| A04.order / 4-activity | Phase View / Resolution Preview: Role changes affect later checks and consume their own actions. | PASS; planned: rules.A04.order; mapped: rules.EV20.order, rules.E74.projection-parity, rules.A04.order, rules.GATE.projection-parity; service: none |
 
 ## A05
 
@@ -577,9 +577,9 @@ Sources: [R283: ## Action: Covert Action](../docs/ai/ironfang-militia/militia-ru
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A05.next / 4-activity | Phase View / Resolution Preview: Spies give manager Charisma to all d20 rolls of the immediately following action only. | PASS; planned: rules.A05.next; mapped: rules.A05.next, rules.A72.projection-parity; service: none |
-| A05.success / 4-activity | Phase View / Resolution Preview: Successful target action produces no action Notoriety, including natural-1 success. | PASS; planned: rules.A05.success; mapped: rules.A05.success, rules.A72.projection-parity; service: none |
-| A05.failure / 4-activity | Phase View / Resolution Preview: Failed target action keeps its Notoriety; unrelated same-type actions gain no benefit. | PASS; planned: rules.A05.failure; mapped: rules.A05.failure, rules.A72.projection-parity; service: none |
+| A05.next / 4-activity | Phase View / Resolution Preview: Spies give manager Charisma to all d20 rolls of the immediately following action only. | PASS; planned: rules.A05.next; mapped: rules.E88.covert-cap, rules.A05.next, rules.A72.projection-parity; service: none |
+| A05.success / 4-activity | Phase View / Resolution Preview: Successful target action produces no action Notoriety, including natural-1 success. | PASS; planned: rules.A05.success; mapped: rules.E88.covert-cap, rules.A05.success, rules.A72.projection-parity; service: none |
+| A05.failure / 4-activity | Phase View / Resolution Preview: Failed target action keeps its Notoriety; unrelated same-type actions gain no benefit. | PASS; planned: rules.A05.failure; mapped: rules.E88.covert-cap, rules.A05.failure, rules.A72.projection-parity; service: none |
 | A05.contact / 4-activity | Phase View / Resolution Preview: Alternative contact or cache at a chosen site lasts one week. | PASS; planned: rules.A05.contact; mapped: rules.A05.contact, rules.A72.projection-parity; service: none |
 | A05.raid / 4-activity | Phase View / Resolution Preview: Contact rescue and Raid override compose identically in browser and server. | PASS; planned: rules.A05.raid; mapped: rules.A05.raid, rules.A72.projection-parity; service: none |
 
@@ -589,9 +589,9 @@ Sources: [R291: ## Action: Dismiss Team](../docs/ai/ironfang-militia/militia-rul
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A06.success / 4-activity | Phase View / Resolution Preview: Loyalty DC10 removes the chosen team. | GAP; planned: rules.A06.success; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| A06.failure / 4-activity | Phase View / Resolution Preview: Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety. | PASS; planned: rules.A06.failure; mapped: rules.A06.failure, rules.A06.projection-parity; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A06.capacity / 4-activity | Phase View / Resolution Preview: Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice. | PASS; planned: rules.A06.capacity; mapped: rules.A06.capacity; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
+| A06.success / 4-activity | Phase View / Resolution Preview: Loyalty DC10 removes the chosen team. | PASS; planned: rules.A06.success; mapped: rules.A06.success-repeat, rules.GATE.projection-parity; service: none |
+| A06.failure / 4-activity | Phase View / Resolution Preview: Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety. | PASS; planned: rules.A06.failure; mapped: rules.A06.failure, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A06.capacity / 4-activity | Phase View / Resolution Preview: Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice. | PASS; planned: rules.A06.capacity; mapped: rules.A06.capacity, rules.A06.success-repeat, rules.GATE.projection-parity; service: none |
 
 ## A07
 
@@ -599,11 +599,11 @@ Sources: [R298: ## Action: Drill Militia](../docs/ai/ironfang-militia/militia-ru
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A07.cost / 4-activity | Phase View / Resolution Preview: One no-team Drill costs rank times 10 gp even on failure. | PASS; planned: rules.A07.cost; mapped: rules.A07.cost; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A07.success / 4-activity | Phase View / Resolution Preview: Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice. | PASS; planned: rules.A07.success; mapped: rules.A07.success, rules.activity.persistent.low_morale; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A07.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 can succeed but also adds rolled 1d6 Notoriety. | PASS; planned: rules.A07.natural-one; mapped: rules.A07.natural-one; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A07.maximum / 4-activity | Phase View / Resolution Preview: At maximum rank Drill is unavailable by baseline with a reasoned exception path. | PASS; planned: rules.A07.maximum; mapped: rules.T06.drill-once; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A07.removed / 4-activity | Phase View / Resolution Preview: Removing or failing Drill removes its gain; no staged Drill means no Drill training. | PASS; planned: rules.A07.removed; mapped: rules.A07.natural-one, rules.A07.cost; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
+| A07.cost / 4-activity | Phase View / Resolution Preview: One no-team Drill costs rank times 10 gp even on failure. | PASS; planned: rules.A07.cost; mapped: rules.A07.cost, rules.GATE.projection-parity; service: none |
+| A07.success / 4-activity | Phase View / Resolution Preview: Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice. | PASS; planned: rules.A07.success; mapped: rules.A07.success, rules.activity.persistent.low_morale, rules.GATE.projection-parity; service: none |
+| A07.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 can succeed but also adds rolled 1d6 Notoriety. | PASS; planned: rules.A07.natural-one; mapped: rules.A14.natural-one, rules.A07.natural-one, rules.GATE.projection-parity; service: none |
+| A07.maximum / 4-activity | Phase View / Resolution Preview: At maximum rank Drill is unavailable by baseline with a reasoned exception path. | PASS; planned: rules.A07.maximum; mapped: rules.T06.drill-once, rules.GATE.projection-parity; service: none |
+| A07.removed / 4-activity | Phase View / Resolution Preview: Removing or failing Drill removes its gain; no staged Drill means no Drill training. | PASS; planned: rules.A07.removed; mapped: rules.A08.removed, rules.A06.projection-parity, rules.A07.natural-one, rules.A07.cost, rules.GATE.projection-parity; service: none |
 
 ## A08
 
@@ -612,8 +612,8 @@ Sources: [R308: ## Action: Earn Gold](../docs/ai/ironfang-militia/militia-rules.
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | A08.tiers / 4-activity | Phase View / Resolution Preview: Treasury teams earn Loyalty total times their tier for tiers 1/2/3. | PASS; planned: rules.A08.tiers; mapped: rules.A08.tiers, rules.A06.projection-parity; service: none |
-| A08.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 still earns gold and adds rolled 1d6 Notoriety. | PASS; planned: rules.A08.natural-one; mapped: rules.A08.natural-one, rules.A06.projection-parity; service: none |
-| A08.composition / 4-activity | Phase View / Resolution Preview: Queued and manager bonuses affect earned gold exactly once per team. | PASS; planned: rules.A08.composition; mapped: rules.A08.composition, rules.A06.projection-parity; service: none |
+| A08.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 still earns gold and adds rolled 1d6 Notoriety. | PASS; planned: rules.A08.natural-one; mapped: rules.A09.information, rules.A08.natural-one, rules.A06.projection-parity; service: none |
+| A08.composition / 4-activity | Phase View / Resolution Preview: Queued and manager bonuses affect earned gold exactly once per team. | PASS; planned: rules.A08.composition; mapped: rules.A18.composition, rules.A72.projection-parity, rules.A08.composition, rules.A06.projection-parity; service: none |
 | A08.removed / 4-activity | Phase View / Resolution Preview: Clearing an action removes its earnings; invalid or exceptional negative outcomes remain explicit. | PASS; planned: rules.A08.removed; mapped: rules.A08.removed, rules.A06.projection-parity; service: none |
 
 ## A09
@@ -622,10 +622,10 @@ Sources: [R315: ## Action: Gather Information](../docs/ai/ironfang-militia/milit
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A09.tiers / 4-activity | Phase View / Resolution Preview: Intelligence teams add twice their tier to Secrecy against DC15. | PASS; planned: rules.A09.tiers; mapped: rules.A09.information; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A09.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 is not automatic failure and adds 1d6 Notoriety. | PASS; planned: rules.A09.natural-one; mapped: rules.A09.information; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A09.acknowledgement / 4-activity | Phase View / Resolution Preview: Successful intelligence requires recorded GM outcome acknowledgement. | PASS; planned: rules.A09.acknowledgement; mapped: rules.A17.stale; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A09.repeat / 4-activity | Phase View / Resolution Preview: Separate teams retain independent checks and outcomes. | PASS; planned: rules.A09.repeat; mapped: rules.A09.repeat; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
+| A09.tiers / 4-activity | Phase View / Resolution Preview: Intelligence teams add twice their tier to Secrecy against DC15. | PASS; planned: rules.A09.tiers; mapped: rules.A09.information, rules.A09.boundaries, rules.GATE.projection-parity; service: none |
+| A09.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 is not automatic failure and adds 1d6 Notoriety. | PASS; planned: rules.A09.natural-one; mapped: rules.A09.information, rules.A09.boundaries, rules.GATE.projection-parity; service: none |
+| A09.acknowledgement / 4-activity | Phase View / Resolution Preview: Successful intelligence requires recorded GM outcome acknowledgement. | PASS; planned: rules.A09.acknowledgement; mapped: rules.A17.stale, rules.GATE.projection-parity; service: none |
+| A09.repeat / 4-activity | Phase View / Resolution Preview: Separate teams retain independent checks and outcomes. | PASS; planned: rules.A09.repeat; mapped: rules.A09.repeat, rules.GATE.projection-parity; service: none |
 
 ## A10
 
@@ -644,8 +644,8 @@ Sources: [R329: ## Action: Knowledge Check](../docs/ai/ironfang-militia/militia-
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A11.dc / 4-activity | Phase View / Resolution Preview: Scholars add rank to modified Secrecy total to determine achieved Knowledge DC. | PASS; planned: rules.A11.dc; mapped: rules.A11.knowledge; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A11.record / 4-activity | Phase View / Resolution Preview: Identification or evaluation outcome and acknowledgement remain in confirmed source. | PASS; planned: rules.A11.record; mapped: rules.A11.knowledge, rules.A17.stale; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
+| A11.dc / 4-activity | Phase View / Resolution Preview: Scholars add rank to modified Secrecy total to determine achieved Knowledge DC. | PASS; planned: rules.A11.dc; mapped: rules.A11.knowledge, rules.GATE.projection-parity; service: none |
+| A11.record / 4-activity | Phase View / Resolution Preview: Identification or evaluation outcome and acknowledgement remain in confirmed source. | PASS; planned: rules.A11.record; mapped: rules.A11.knowledge, rules.A17.stale, rules.GATE.projection-parity; service: none |
 
 ## A12
 
@@ -653,10 +653,10 @@ Sources: [R336: ## Action: Lie Low](../docs/ai/ironfang-militia/militia-rules.md
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A12.exclusive / 4-activity | Phase View / Resolution Preview: No-team Lie Low is normally the only Activity action. | PASS; planned: rules.A12.exclusive; mapped: rules.A12.exclusivity; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A12.count / 4-activity | Phase View / Resolution Preview: Notoriety reduction counts active, disabled, missing and bonus teams. | PASS; planned: rules.A12.count; mapped: rules.A12.exclusivity; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A12.floor / 4-activity | Phase View / Resolution Preview: Zero teams reduces nothing; reduction below zero stops at baseline zero. | GAP; planned: rules.A12.floor; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| A12.exception / 4-activity | Phase View / Resolution Preview: Additional actions require a reasoned Rules Exception without rewriting the reduction. | PASS; planned: rules.A12.exception; mapped: rules.A12.exclusivity; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
+| A12.exclusive / 4-activity | Phase View / Resolution Preview: No-team Lie Low is normally the only Activity action. | PASS; planned: rules.A12.exclusive; mapped: rules.A12.exclusivity, rules.GATE.projection-parity; service: none |
+| A12.count / 4-activity | Phase View / Resolution Preview: Notoriety reduction counts active, disabled, missing and bonus teams. | PASS; planned: rules.A12.count; mapped: rules.A12.exclusivity, rules.A12.count-floor, rules.GATE.projection-parity; service: none |
+| A12.floor / 4-activity | Phase View / Resolution Preview: Zero teams reduces nothing; reduction below zero stops at baseline zero. | PASS; planned: rules.A12.floor; mapped: rules.A12.count-floor, rules.GATE.projection-parity; service: none |
+| A12.exception / 4-activity | Phase View / Resolution Preview: Additional actions require a reasoned Rules Exception without rewriting the reduction. | PASS; planned: rules.A12.exception; mapped: rules.A12.exclusivity, rules.GATE.projection-parity; service: none |
 
 ## A13
 
@@ -674,10 +674,10 @@ Sources: [R349: ## Action: Recruit Team](../docs/ai/ironfang-militia/militia-rul
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A14.checks / 4-activity | Phase View / Resolution Preview: Tier-1 recruitment uses each of the four tree-specific checks and DCs. | PASS; planned: rules.A14.checks; mapped: rules.activity.persistent.double_agent, rules.A14.checks.patrons, rules.A14.checks.informants, rules.A14.checks.moles, rules.A14.checks.defenders; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A14.capacity / 4-activity | Phase View / Resolution Preview: Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure. | PASS; planned: rules.A14.capacity; mapped: rules.A06.capacity; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A14.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 can succeed but adds 1d6 Notoriety. | PASS; planned: rules.A14.natural-one; mapped: rules.A14.natural-one; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A14.identity / 4-activity | Phase View / Resolution Preview: Successful repeated types create independent teams that may act immediately. | GAP; planned: rules.A14.identity; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| A14.checks / 4-activity | Phase View / Resolution Preview: Tier-1 recruitment uses each of the four tree-specific checks and DCs. | PASS; planned: rules.A14.checks; mapped: rules.activity.persistent.double_agent, rules.A14.checks.patrons, rules.A14.checks.informants, rules.A14.checks.moles, rules.A14.checks.defenders, rules.GATE.projection-parity; service: none |
+| A14.capacity / 4-activity | Phase View / Resolution Preview: Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure. | PASS; planned: rules.A14.capacity; mapped: rules.A06.capacity, rules.GATE.projection-parity; service: none |
+| A14.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 can succeed but adds 1d6 Notoriety. | PASS; planned: rules.A14.natural-one; mapped: rules.A14.natural-one, rules.GATE.projection-parity; service: none |
+| A14.identity / 4-activity | Phase View / Resolution Preview: Successful repeated types create independent teams that may act immediately. | PASS; planned: rules.A14.identity; mapped: rules.A06.capacity, rules.teams.recruit-then-act, rules.GATE.projection-parity; service: none |
 
 ## A15
 
@@ -685,10 +685,10 @@ Sources: [R356: ## Action: Reduce Danger](../docs/ai/ironfang-militia/militia-ru
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A15.success / 4-activity | Phase View / Resolution Preview: Military team Security DC15 gives temporary +1 settlement reputation and open movement reminder. | PASS; planned: rules.A15.success; mapped: rules.A15.success, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A15.failure / 4-activity | Phase View / Resolution Preview: Total 14 adds 1d4 Notoriety without a reputation gain. | PASS; planned: rules.A15.failure; mapped: rules.A15.failure, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A15.duration / 4-activity | Phase View / Resolution Preview: Temporary shift expires after one week and respects secured-town context. | PASS; planned: rules.A15.duration; mapped: rules.A15.duration, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A15.theft / 4-activity | Phase View / Resolution Preview: Successful Reduce Danger permanently ends applicable persistent Theft. | PASS; planned: rules.A15.theft; mapped: rules.A15.theft, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
+| A15.success / 4-activity | Phase View / Resolution Preview: Military team Security DC15 gives temporary +1 settlement reputation and open movement reminder. | PASS; planned: rules.A15.success; mapped: rules.A15.success, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A15.failure / 4-activity | Phase View / Resolution Preview: Total 14 adds 1d4 Notoriety without a reputation gain. | PASS; planned: rules.A15.failure; mapped: rules.A15.failure, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A15.duration / 4-activity | Phase View / Resolution Preview: Temporary shift expires after one week and respects secured-town context. | PASS; planned: rules.A15.duration; mapped: rules.A15.duration, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A15.theft / 4-activity | Phase View / Resolution Preview: Successful Reduce Danger permanently ends applicable persistent Theft. | PASS; planned: rules.A15.theft; mapped: rules.A15.theft, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
 
 ## A16
 
@@ -696,10 +696,10 @@ Sources: [R363: ## Action: Rescue Character](../docs/ai/ironfang-militia/militia
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A16.success / 4-activity | Phase View / Resolution Preview: Upgraded military team Security DC10 plus level rescues to a valid location/refuge and adds level Notoriety. | PASS; planned: rules.A16.success; mapped: rules.A16.rescue, rules.A17.ordered; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A16.failure / 4-activity | Phase View / Resolution Preview: Failed rescue adds floor(level divided by 2) Notoriety. | PASS; planned: rules.A16.failure; mapped: rules.A16.rescue; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A16.targets / 4-activity | Phase View / Resolution Preview: Missing or invalid target and inactive destination block completion; direct rescue records GM adjudication. | PASS; planned: rules.A16.targets; mapped: rules.A16.eligibility, rules.A71.inputs; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A16.modifiers / 4-activity | Phase View / Resolution Preview: Raid DC override and Covert Action suppression apply once. | PASS; planned: rules.A16.modifiers; mapped: rules.A16.rescue, rules.A16.raid-expiry; service: none; Raid DC and expiry covered in #71; Covert suppression follows in #72, then full Workspace and Confirmation. |
+| A16.success / 4-activity | Phase View / Resolution Preview: Upgraded military team Security DC10 plus level rescues to a valid location/refuge and adds level Notoriety. | PASS; planned: rules.A16.success; mapped: rules.A16.rescue, rules.A17.ordered, rules.GATE.projection-parity; service: none |
+| A16.failure / 4-activity | Phase View / Resolution Preview: Failed rescue adds floor(level divided by 2) Notoriety. | PASS; planned: rules.A16.failure; mapped: rules.A16.rescue, rules.GATE.projection-parity; service: none |
+| A16.targets / 4-activity | Phase View / Resolution Preview: Missing or invalid target and inactive destination block completion; direct rescue records GM adjudication. | PASS; planned: rules.A16.targets; mapped: rules.A16.eligibility, rules.A71.inputs, rules.GATE.projection-parity; service: none |
+| A16.modifiers / 4-activity | Phase View / Resolution Preview: Raid DC override and Covert Action suppression apply once. | PASS; planned: rules.A16.modifiers; mapped: rules.A16.rescue, rules.A16.raid-expiry, rules.A05.raid, rules.A05.success, rules.GATE.projection-parity; service: none |
 
 ## A17
 
@@ -707,10 +707,10 @@ Sources: [R372: ## Action: Restore Character](../docs/ai/ironfang-militia/militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A17.party / 4-activity | Phase View / Resolution Preview: Spellcasters provide the prescribed free party restoration modes. | PASS; planned: rules.A17.party; mapped: rules.A17.restore, rules.A17.multiple, rules.A17.death; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A17.single / 4-activity | Phase View / Resolution Preview: Single-target restoration modes cost 1125, 6125, 1700 or 1650 gp as specified. | PASS; planned: rules.A17.single; mapped: rules.A17.restore, rules.A17.death; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A17.presence / 4-activity | Phase View / Resolution Preview: Required body must be at HQ or active refuge; captured or invalid targets need correction. | PASS; planned: rules.A17.presence; mapped: rules.A17.readiness, rules.A17.ordered; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A17.multiple / 4-activity | Phase View / Resolution Preview: Multiple restorations sum their distinct costs and retain custom adjudication reasons. | PASS; planned: rules.A17.multiple; mapped: rules.A17.multiple, rules.A17.readiness; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
+| A17.party / 4-activity | Phase View / Resolution Preview: Spellcasters provide the prescribed free party restoration modes. | PASS; planned: rules.A17.party; mapped: rules.A17.restore, rules.A17.multiple, rules.A17.death, rules.GATE.projection-parity; service: none |
+| A17.single / 4-activity | Phase View / Resolution Preview: Single-target restoration modes cost 1125, 6125, 1700 or 1650 gp as specified. | PASS; planned: rules.A17.single; mapped: rules.A17.restore, rules.A17.death, rules.GATE.projection-parity; service: none |
+| A17.presence / 4-activity | Phase View / Resolution Preview: Required body must be at HQ or active refuge; captured or invalid targets need correction. | PASS; planned: rules.A17.presence; mapped: rules.A17.readiness, rules.A17.ordered, rules.GATE.projection-parity; service: none |
+| A17.multiple / 4-activity | Phase View / Resolution Preview: Multiple restorations sum their distinct costs and retain custom adjudication reasons. | PASS; planned: rules.A17.multiple; mapped: rules.A17.multiple, rules.A17.readiness, rules.GATE.projection-parity; service: none |
 
 ## A18
 
@@ -742,8 +742,8 @@ Sources: [R407: ## Action: Special](../docs/ai/ironfang-militia/militia-rules.md
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A20.description / 4-activity | Phase View / Resolution Preview: No-team Special action records GM-defined description and outcome acknowledgement. | PASS; planned: rules.A20.description; mapped: rules.A20.special, rules.A17.stale, rules.A71.inputs; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A20.adjustments / 4-activity | Phase View / Resolution Preview: Zero or nonzero cost/results are explicit; outcome adjustments and eligibility exceptions remain distinct. | PASS; planned: rules.A20.adjustments; mapped: rules.A20.special, rules.A17.readiness; service: none; Explicit Special cost and unchanged rules baseline covered in #71; whole-week Table Adjustment application remains the Resolution checkpoint. |
+| A20.description / 4-activity | Phase View / Resolution Preview: No-team Special action records GM-defined description and outcome acknowledgement. | PASS; planned: rules.A20.description; mapped: rules.A20.special, rules.A17.stale, rules.A71.inputs, rules.GATE.projection-parity; service: none |
+| A20.adjustments / 4-activity | Phase View / Resolution Preview: Zero or nonzero cost/results are explicit; outcome adjustments and eligibility exceptions remain distinct. | PASS; planned: rules.A20.adjustments; mapped: rules.A20.special, rules.A17.readiness, rules.P06.baseline, rules.teams.use-eligibility, rules.GATE.projection-parity; service: none |
 
 ## A21
 
@@ -764,10 +764,10 @@ Sources: [R423: ## Action: Spread Propaganda](../docs/ai/ironfang-militia/militi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A22.check / 4-activity | Phase View / Resolution Preview: Espionage tier-2/3 pays 100 gp and rolls Loyalty DC20 or DC25 under occupation. | PASS; planned: rules.A22.check; mapped: rules.A22.check, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A22.attempt / 4-activity | Phase View / Resolution Preview: Each settlement allows one attempt per Activity even on failure; two settlements are independent. | PASS; planned: rules.A22.attempt; mapped: rules.A22.attempt, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A22.success / 4-activity | Phase View / Resolution Preview: Success improves permanent reputation by one step up to Helpful. | PASS; planned: rules.A22.success; mapped: rules.A22.success, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
-| A22.adjudication / 4-activity | Phase View / Resolution Preview: GM-disallowed or impossible targets show exception path; malformed references still block. | PASS; planned: rules.A22.adjudication; mapped: rules.A22.adjudication, rules.A06.projection-parity; service: none; Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required. |
+| A22.check / 4-activity | Phase View / Resolution Preview: Espionage tier-2/3 pays 100 gp and rolls Loyalty DC20 or DC25 under occupation. | PASS; planned: rules.A22.check; mapped: rules.A22.check, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A22.attempt / 4-activity | Phase View / Resolution Preview: Each settlement allows one attempt per Activity even on failure; two settlements are independent. | PASS; planned: rules.A22.attempt; mapped: rules.A22.attempt, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A22.success / 4-activity | Phase View / Resolution Preview: Success improves permanent reputation by one step up to Helpful. | PASS; planned: rules.A22.success; mapped: rules.A22.success, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
+| A22.adjudication / 4-activity | Phase View / Resolution Preview: GM-disallowed or impossible targets show exception path; malformed references still block. | PASS; planned: rules.A22.adjudication; mapped: rules.A22.adjudication, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
 
 ## A23
 
@@ -775,10 +775,10 @@ Sources: [R432: ## Action: Strike Team](../docs/ai/ironfang-militia/militia-rule
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A23.combat / 4-activity | Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds. | PASS; planned: rules.A23.combat; mapped: rules.A23.support; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A23.rank-one / 4-activity | Phase View / Resolution Preview: Rank 1 provides zero rounds without an explicit adjustment. | PASS; planned: rules.A23.rank-one; mapped: rules.A23.support; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A23.extraction / 4-activity | Phase View / Resolution Preview: Alternative records stabilization, gentle repose CL12 and body extraction. | PASS; planned: rules.A23.extraction; mapped: rules.A23.support; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
-| A23.duration / 4-activity | Phase View / Resolution Preview: Support lasts following week, requires location and once-use acknowledgement. | PASS; planned: rules.A23.duration; mapped: rules.A23.support, rules.A71.inputs, rules.A17.stale; service: none; Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints. |
+| A23.combat / 4-activity | Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds. | PASS; planned: rules.A23.combat; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
+| A23.rank-one / 4-activity | Phase View / Resolution Preview: Rank 1 provides zero rounds without an explicit adjustment. | PASS; planned: rules.A23.rank-one; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
+| A23.extraction / 4-activity | Phase View / Resolution Preview: Alternative records stabilization, gentle repose CL12 and body extraction. | PASS; planned: rules.A23.extraction; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
+| A23.duration / 4-activity | Phase View / Resolution Preview: Support lasts following week, requires location and once-use acknowledgement. | PASS; planned: rules.A23.duration; mapped: rules.A23.support, rules.A71.inputs, rules.A17.stale, rules.GATE.projection-parity; service: none |
 
 ## A24
 
@@ -786,10 +786,10 @@ Sources: [R443: ## Action: Upgrade Team](../docs/ai/ironfang-militia/militia-rul
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A24.edges / 4-activity | Phase View / Resolution Preview: No-team Upgrade uses the selected valid tree edge and listed cost. | PASS; planned: rules.A24.edges; mapped: rules.A24.tree; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
-| A24.per-team / 4-activity | Phase View / Resolution Preview: Multiple distinct teams may upgrade but one team cannot upgrade twice per week. | GAP; planned: rules.A24.per-team; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| A24.preserve / 4-activity | Phase View / Resolution Preview: Upgrade preserves manager and inherited capabilities while preventing same-Activity action. | GAP; planned: rules.A24.preserve; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| A24.warning / 4-activity | Phase View / Resolution Preview: Insufficient funds or illegal edge needs explicit exception; malformed target blocks. | PASS; planned: rules.A24.warning; mapped: rules.A24.warning; service: none; Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required. |
+| A24.edges / 4-activity | Phase View / Resolution Preview: No-team Upgrade uses the selected valid tree edge and listed cost. | PASS; planned: rules.A24.edges; mapped: rules.A24.tree, rules.teams.all-edges, rules.GATE.projection-parity; service: none |
+| A24.per-team / 4-activity | Phase View / Resolution Preview: Multiple distinct teams may upgrade but one team cannot upgrade twice per week. | PASS; planned: rules.A24.per-team; mapped: rules.teams.independent-upgrades, rules.GATE.projection-parity; service: none |
+| A24.preserve / 4-activity | Phase View / Resolution Preview: Upgrade preserves manager and inherited capabilities while preventing same-Activity action. | PASS; planned: rules.A24.preserve; mapped: rules.teams.all-edges, rules.teams.definitions, rules.teams.action-upgrade-order, rules.GATE.projection-parity; service: none |
+| A24.warning / 4-activity | Phase View / Resolution Preview: Insufficient funds or illegal edge needs explicit exception; malformed target blocks. | PASS; planned: rules.A24.warning; mapped: rules.A24.warning, rules.GATE.projection-parity; service: none |
 
 ## E01
 
@@ -808,7 +808,7 @@ Sources: [T056: ## Table 6-3: Militia Events (d%)](../docs/ai/ironfang-militia/m
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| E02.intervals / 4-events | Phase View / Resolution Preview: Every Table 6-3 lower and upper endpoint maps to its specified event. | GAP; planned: rules.E02.intervals; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| E02.intervals / 4-events | Phase View / Resolution Preview: Every Table 6-3 lower and upper endpoint maps to its specified event. | PASS; planned: rules.E02.intervals; mapped: rules.E02.interval-1-4, rules.E02.interval-5-12, rules.E02.interval-13-16, rules.E02.interval-17-20, rules.E02.interval-21-24, rules.E02.interval-25-28, rules.E02.interval-29-32, rules.E02.interval-33-36, rules.E02.interval-37-40, rules.E02.interval-41-44, rules.E02.interval-45-48, rules.E02.interval-49-52, rules.E02.interval-53-56, rules.E02.interval-57-60, rules.E02.interval-61-64, rules.E02.interval-65-68, rules.E02.interval-69-72, rules.E02.interval-73-76, rules.E02.interval-77-80, rules.E02.interval-81-84, rules.E02.interval-85-88, rules.E02.interval-89-96, rules.E02.interval-97-99, rules.E02.interval-100-100, rules.E02.integrity, rules.E02.parity, rules.GATE.projection-parity; service: none |
 | E02.integrity / 4-events | Phase View / Resolution Preview: Missing, nonfinite, fractional or out-of-range percentile input is surfaced as invalid input or explicit rules departure as appropriate. | PASS; planned: rules.E02.integrity; mapped: rules.E02.integrity; service: none |
 | E02.parity / 4-events | Phase View / Resolution Preview: Browser and Convex entry paths produce identical event mapping. | PASS; planned: rules.E02.parity; mapped: rules.E02.parity; service: none |
 | E02.interval-1-4 / 4-events | Phase View / Resolution Preview: both endpoints of 1-4 resolve to Week of Serenity. | PASS; planned: rules.E02.interval-1-4; mapped: rules.E02.interval-1-4; service: none |
@@ -842,8 +842,8 @@ Sources: [R460: ### Event Resolution Notes](../docs/ai/ironfang-militia/militia-
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| E03.eligibility / 4-events | Phase View / Resolution Preview: Events with no eligible roster, cache, refuge or town require replacement rolls. | PASS; planned: rules.E03.eligibility; mapped: rules.E03.eligibility, rules.E03.candidates; service: none |
-| E03.targets / 4-events | Phase View / Resolution Preview: Inaccessible targets cannot silently stand in for eligible targets. | GAP; planned: rules.E03.targets; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| E03.eligibility / 4-events | Phase View / Resolution Preview: Events with no eligible roster, cache, refuge or town require replacement rolls. | PASS; planned: rules.E03.eligibility; mapped: rules.P01.eligibility, rules.P77.projection-parity, rules.E03.eligibility, rules.E03.candidates; service: none |
+| E03.targets / 4-events | Phase View / Resolution Preview: Inaccessible targets cannot silently stand in for eligible targets. | PASS; planned: rules.E03.targets; mapped: rules.E03.eligibility, rules.E03.nested, rules.EV13.inputs, rules.EV12.operation-scope, rules.EV12.settlement-exception, rules.E03.outcome-replacement, rules.GATE.projection-parity; service: none |
 | E03.nested / 4-events | Phase View / Resolution Preview: Replacement rolls remain required after nested Roll Twice until valid outcomes exist. | PASS; planned: rules.E03.nested; mapped: rules.E03.nested; service: none |
 
 ## E04
@@ -876,10 +876,10 @@ Sources: [R088: ### Active and Persistent Events](../docs/ai/ironfang-militia/mi
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| E06.due / 4-events | Phase View / Resolution Preview: Only due-week queued effects apply; future effects remain and consumed effects expire. | GAP; planned: rules.E06.due; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| E06.automatic / 4-events | Phase View / Resolution Preview: Multiple automatic events and normal event keep separate rolls and source order. | GAP; planned: rules.E06.automatic; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| E06.preserve / 4-events | Phase View / Resolution Preview: Cutover preserves source, age and due context without running effects. | GAP; planned: rules.E06.preserve; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| E06.retry / 4-events | Phase View / Resolution Preview: Retries do not apply queued effects twice. | GAP; planned: rules.E06.retry; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| E06.due / 4-events | Phase View / Resolution Preview: Only due-week queued effects apply; future effects remain and consumed effects expire. | PASS; planned: rules.E06.due; mapped: rules.E01.queued, rules.E88.complete, rules.GATE.projection-parity; service: none |
+| E06.automatic / 4-events | Phase View / Resolution Preview: Multiple automatic events and normal event keep separate rolls and source order. | PASS; planned: rules.E06.automatic; mapped: rules.E04.independent, rules.EV04.twice, rules.E88.complete, rules.GATE.projection-parity; service: none |
+| E06.preserve / 4-events | Phase View / Resolution Preview: Cutover preserves source, age and due context without running effects. | PASS; planned: rules.E06.preserve; mapped: context.events-assets, rules.E88.complete, rules.GATE.projection-parity; service: none; Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover. |
+| E06.retry / 4-events | Phase View / Resolution Preview: Retries do not apply queued effects twice. | PASS; planned: rules.E06.retry; mapped: rules.E88.complete, rules.P80.atomic, rules.GATE.projection-parity; service: none |
 
 ## E07
 
@@ -887,10 +887,10 @@ Sources: [R137: ### Overseer](../docs/ai/ironfang-militia/militia-rules.md); [R1
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| E07.phase / 4-events | Phase View / Resolution Preview: Each queued modifier applies only to its prescribed phase and check type. | GAP; planned: rules.E07.phase; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| E07.once / 4-events | Phase View / Resolution Preview: Officer, manager and queue modifiers compose once with positive and negative values. | GAP; planned: rules.E07.once; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| E07.one-check / 4-events | Phase View / Resolution Preview: Team one-check bonus is consumed by one eligible check. | GAP; planned: rules.E07.one-check; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| E07.stale / 4-events | Phase View / Resolution Preview: Disabled or deselected secondary inputs cannot contribute hidden modifiers. | GAP; planned: rules.E07.stale; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| E07.phase / 4-events | Phase View / Resolution Preview: Each queued modifier applies only to its prescribed phase and check type. | PASS; planned: rules.E07.phase; mapped: rules.E07.phase, rules.EV23.expiry, rules.GATE.projection-parity; service: none |
+| E07.once / 4-events | Phase View / Resolution Preview: Officer, manager and queue modifiers compose once with positive and negative values. | PASS; planned: rules.E07.once; mapped: rules.F03.composition, rules.A18.composition, rules.A18.carried, rules.E07.phase, rules.GATE.projection-parity; service: none |
+| E07.one-check / 4-events | Phase View / Resolution Preview: Team one-check bonus is consumed by one eligible check. | PASS; planned: rules.E07.one-check; mapped: rules.EV20.none, rules.P78.consumables, rules.P78.consumable-targets, rules.GATE.projection-parity; service: none |
+| E07.stale / 4-events | Phase View / Resolution Preview: Disabled or deselected secondary inputs cannot contribute hidden modifiers. | PASS; planned: rules.E07.stale; mapped: rules.E07.stale, rules.A18.failure, rules.A18.composition, rules.GATE.projection-parity; service: none |
 
 ## EV01
 
@@ -899,7 +899,7 @@ Sources: [R468: ## Event: All Is Calm](../docs/ai/ironfang-militia/militia-rules
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | EV01.base / 4-events | Phase View / Resolution Preview: All Is Calm produces no event. | PASS; planned: rules.EV01.base; mapped: rules.EV01.base, rules.E74.projection-parity; service: none |
-| EV01.twice / 4-events | Phase View / Resolution Preview: Twice forces the same result next week without chance roll or uneventful carry chain. | PASS; planned: rules.EV01.twice; mapped: rules.EV01.twice, rules.E74.projection-parity; service: none |
+| EV01.twice / 4-events | Phase View / Resolution Preview: Twice forces the same result next week without chance roll or uneventful carry chain. | PASS; planned: rules.EV01.twice; mapped: rules.EV24.twice, rules.E76.projection-parity, rules.EV23.twice, rules.EV21.twice, rules.E75.projection-parity, rules.EV18.twice, rules.EV16.twice, rules.EV16.check, rules.EV14.twice, rules.E74.projection-parity, rules.EV13.twice, rules.EV12.twice, rules.EV11.twice, rules.EV09.twice, rules.EV08.twice, rules.EV07.twice, rules.EV06.twice, rules.EV04.twice, rules.EV03.twice, rules.EV02.twice, rules.EV01.twice; service: none |
 | EV01.precedence / 4-events | Phase View / Resolution Preview: Automatic Calm before the Storm events remain independently accounted for; stale trigger and Sabotage inputs do not execute. | PASS; planned: rules.EV01.precedence; mapped: rules.EV01.precedence, rules.E74.projection-parity; service: none |
 
 ## EV02
@@ -920,7 +920,7 @@ Sources: [R479: ## Event: Cache Discovered](../docs/ai/ironfang-militia/militia-
 |---|---|---|
 | EV03.base / 4-events | Phase View / Resolution Preview: Lose one selected hidden or planned cache unless Secrecy DC10 plus rank retrieves it. | PASS; planned: rules.EV03.base; mapped: rules.EV03.loss, rules.EV03.inputs, rules.E75.projection-parity; service: none |
 | EV03.twice / 4-events | Phase View / Resolution Preview: Twice threatens all applicable caches with explicit mitigation scope. | PASS; planned: rules.EV03.twice; mapped: rules.EV03.twice, rules.E75.projection-parity; service: none |
-| EV03.empty / 4-events | Phase View / Resolution Preview: No eligible caches requires reroll. | PASS; planned: rules.EV03.empty; mapped: rules.EV03.empty, rules.E75.projection-parity; service: none |
+| EV03.empty / 4-events | Phase View / Resolution Preview: No eligible caches requires reroll. | PASS; planned: rules.EV03.empty; mapped: rules.EV20.empty, rules.E74.projection-parity, rules.EV15.empty, rules.E75.projection-parity, rules.EV13.empty, rules.EV03.empty; service: none |
 | EV03.multiple / 4-events | Phase View / Resolution Preview: Two or more caches retain distinct loss and recovery outcomes and modifier-aware checks. | PASS; planned: rules.EV03.multiple; mapped: rules.EV03.mitigate, rules.EV03.modifiers, rules.E75.projection-parity; service: none |
 
 ## EV04
@@ -932,7 +932,7 @@ Sources: [R485: ## Event: Calm before the Storm](../docs/ai/ironfang-militia/mil
 | EV04.base / 4-events | Phase View / Resolution Preview: No event now; next week one automatic table event precedes normal Event processing. | PASS; planned: rules.EV04.base; mapped: rules.EV04.base, rules.E76.projection-parity; service: none |
 | EV04.twice / 4-events | Phase View / Resolution Preview: Twice queues two automatic events, not three. | PASS; planned: rules.EV04.twice; mapped: rules.EV04.twice, rules.E76.projection-parity; service: none |
 | EV04.reroll / 4-events | Phase View / Resolution Preview: Automatic Roll Twice results require replacement without suppressing independent normal rolls. | PASS; planned: rules.EV04.reroll; mapped: rules.EV04.replacement, rules.E76.projection-parity; service: none |
-| EV04.order / 4-events | Phase View / Resolution Preview: Order-sensitive outcomes use independent rolls and do not create uneventful carry. | PASS; planned: rules.EV04.order; mapped: rules.EV04.twice, rules.E76.projection-parity; service: none |
+| EV04.order / 4-events | Phase View / Resolution Preview: Order-sensitive outcomes use independent rolls and do not create uneventful carry. | PASS; planned: rules.EV04.order; mapped: rules.P07.order, rules.EV20.order, rules.E74.projection-parity, rules.EV19.base, rules.E76.projection-parity, rules.EV04.twice; service: none |
 
 ## EV05
 
@@ -941,9 +941,9 @@ Sources: [R492: ## Event: Double Agent (Persistent-capable)](../docs/ai/ironfang
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | EV05.base / 4-events | Phase View / Resolution Preview: Nonpersistent Double Agent blocks only next Activity Secure Cache and applies one -2 Secrecy penalty. | PASS; planned: rules.EV05.base; mapped: rules.EV05.base, rules.E76.projection-parity; service: none |
-| EV05.persistent / 4-events | Phase View / Resolution Preview: Twice keeps the restriction and single -2 penalty across all affected weeks. | PASS; planned: rules.EV05.persistent; mapped: rules.EV05.twice, rules.EV05.single-penalty, rules.E76.projection-parity; service: none |
-| EV05.end / 4-events | Phase View / Resolution Preview: Ending or buyoff removes future restriction and penalty. | GAP; planned: rules.EV05.end; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| EV05.exception / 4-events | Phase View / Resolution Preview: Staged cache action remains visible with warning and reasoned exception path. | GAP; planned: rules.EV05.exception; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| EV05.persistent / 4-events | Phase View / Resolution Preview: Twice keeps the restriction and single -2 penalty across all affected weeks. | PASS; planned: rules.EV05.persistent; mapped: rules.EV19.twice, rules.EV19.ending, rules.E76.projection-parity, rules.EV05.twice, rules.EV05.single-penalty; service: none |
+| EV05.end / 4-events | Phase View / Resolution Preview: Ending or buyoff removes future restriction and penalty. | PASS; planned: rules.EV05.end; mapped: rules.EV05.exception, rules.E88.complete, rules.GATE.projection-parity; service: none |
+| EV05.exception / 4-events | Phase View / Resolution Preview: Staged cache action remains visible with warning and reasoned exception path. | PASS; planned: rules.EV05.exception; mapped: rules.EV05.exception, rules.GATE.projection-parity; service: none |
 
 ## EV06
 
@@ -953,7 +953,7 @@ Sources: [R498: ## Event: Festival](../docs/ai/ironfang-militia/militia-rules.md
 |---|---|---|
 | EV06.base / 4-events | Phase View / Resolution Preview: Chosen recently used town grants +2 morale Bluff, Diplomacy and Intimidate for a week. | PASS; planned: rules.EV06.base; mapped: rules.EV06.base, rules.E74.projection-parity; service: none |
 | EV06.twice / 4-events | Phase View / Resolution Preview: Twice replaces bonus with +5. | PASS; planned: rules.EV06.twice; mapped: rules.EV06.twice, rules.E74.projection-parity; service: none |
-| EV06.record / 4-events | Phase View / Resolution Preview: Town selection, duration and acknowledgement are recorded. | PASS; planned: rules.EV06.record; mapped: rules.EV06.record, rules.EV06.operation-scope, rules.EV12.settlement-exception, rules.E74.projection-parity; service: none |
+| EV06.record / 4-events | Phase View / Resolution Preview: Town selection, duration and acknowledgement are recorded. | PASS; planned: rules.EV06.record; mapped: rules.EV14.record, rules.E74.projection-parity, rules.EV07.record, rules.EV06.record, rules.EV06.operation-scope, rules.EV12.settlement-exception; service: none |
 
 ## EV07
 
@@ -984,7 +984,7 @@ Sources: [R515: ## Event: High Morale](../docs/ai/ironfang-militia/militia-rules
 | EV09.base / 4-events | Phase View / Resolution Preview: End one persistent event immediately and give upcoming Loyalty +2. | PASS; planned: rules.EV09.base; mapped: rules.EV09.base, rules.E76.projection-parity; service: none |
 | EV09.twice / 4-events | Phase View / Resolution Preview: Actual duplicate pair ends two total and gives +5, not three and +7. | PASS; planned: rules.EV09.twice; mapped: rules.EV09.twice, rules.E76.projection-parity; service: none |
 | EV09.targets / 4-events | Phase View / Resolution Preview: Zero to three active events, age ties and new same-week persistence retain explicit selected endings. | PASS; planned: rules.EV09.targets; mapped: rules.EV09.empty, rules.E76.projection-parity; service: none |
-| EV09.recompute / 4-events | Phase View / Resolution Preview: Ended event modifiers are removed from dependent checks. | GAP; planned: rules.EV09.recompute; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| EV09.recompute / 4-events | Phase View / Resolution Preview: Ended event modifiers are removed from dependent checks. | PASS; planned: rules.EV09.recompute; mapped: rules.EV09.recompute, rules.E88.complete, rules.GATE.projection-parity; service: none |
 
 ## EV10
 
@@ -994,7 +994,7 @@ Sources: [R521: ## Event: Invasion](../docs/ai/ironfang-militia/militia-rules.md
 |---|---|---|
 | EV10.encounter / 4-events | Phase View / Resolution Preview: Show and record GM random encounter at APL plus 1 CR. | PASS; planned: rules.EV10.encounter; mapped: rules.EV10.base, rules.E75.projection-parity; service: none |
 | EV10.acknowledgement / 4-events | Phase View / Resolution Preview: Required encounter acknowledgement is retained. | PASS; planned: rules.EV10.acknowledgement; mapped: rules.EV10.inputs, rules.E75.projection-parity; service: none |
-| EV10.duplicate / 4-events | Phase View / Resolution Preview: No Twice clause means two independent encounters. | PASS; planned: rules.EV10.duplicate; mapped: rules.EV10.duplicate, rules.E75.projection-parity; service: none |
+| EV10.duplicate / 4-events | Phase View / Resolution Preview: No Twice clause means two independent encounters. | PASS; planned: rules.EV10.duplicate; mapped: rules.EV22.duplicate, rules.E74.projection-parity, rules.EV10.duplicate, rules.E75.projection-parity; service: none |
 
 ## EV11
 
@@ -1004,7 +1004,7 @@ Sources: [R525: ## Event: Low Morale (Persistent-capable)](../docs/ai/ironfang-m
 |---|---|---|
 | EV11.base / 4-events | Phase View / Resolution Preview: Loyalty -2 applies for the prescribed week. | PASS; planned: rules.EV11.base; mapped: rules.EV11.base, rules.E76.projection-parity; service: none |
 | EV11.twice / 4-events | Phase View / Resolution Preview: Twice makes one persistent -2 effect, not doubled penalties. | PASS; planned: rules.EV11.twice; mapped: rules.EV11.twice, rules.E76.projection-parity; service: none |
-| EV11.duration / 4-events | Phase View / Resolution Preview: First and later weeks affect relevant Loyalty checks until ending. | GAP; planned: rules.EV11.duration; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| EV11.duration / 4-events | Phase View / Resolution Preview: First and later weeks affect relevant Loyalty checks until ending. | PASS; planned: rules.EV11.duration; mapped: rules.EV11.duration, rules.EV11.base, rules.EV11.twice, rules.GATE.projection-parity; service: none |
 
 ## EV12
 
@@ -1015,7 +1015,7 @@ Sources: [R530: ## Event: Market Day](../docs/ai/ironfang-militia/militia-rules.
 | EV12.base / 4-events | Phase View / Resolution Preview: Chosen operated town gives extra 5% discount on all items and services. | PASS; planned: rules.EV12.base; mapped: rules.EV12.base, rules.E74.projection-parity; service: none |
 | EV12.twice / 4-events | Phase View / Resolution Preview: Twice covers all operated marketplaces including Broker Market. | PASS; planned: rules.EV12.twice; mapped: rules.EV12.twice, rules.E74.projection-parity; service: none |
 | EV12.composition / 4-events | Phase View / Resolution Preview: Reputation discounts compose and town services are not limited to tracked market rows. | PASS; planned: rules.EV12.composition; mapped: rules.EV12.composition, rules.E74.projection-parity; service: none |
-| EV12.inputs / 4-events | Phase View / Resolution Preview: Missing target blocks completion and discount expires at prescribed time. | PASS; planned: rules.EV12.inputs; mapped: rules.EV12.inputs, rules.EV12.operation-scope, rules.EV12.settlement-exception, rules.E74.projection-parity; service: none |
+| EV12.inputs / 4-events | Phase View / Resolution Preview: Missing target blocks completion and discount expires at prescribed time. | PASS; planned: rules.EV12.inputs; mapped: rules.EV21.inputs, rules.E75.projection-parity, rules.EV12.inputs, rules.EV12.operation-scope, rules.EV12.settlement-exception, rules.E74.projection-parity; service: none |
 
 ## EV13
 
@@ -1057,8 +1057,8 @@ Sources: [R551: ## Event: Rivalry (Persistent-capable)](../docs/ai/ironfang-mili
 |---|---|---|
 | EV16.targets / 4-events | Phase View / Resolution Preview: Two distinct randomly selected teams cannot act next Activity; selected identities persist. | PASS; planned: rules.EV16.targets; mapped: rules.EV16.base, rules.EV16.inputs, rules.E76.projection-parity; service: none |
 | EV16.twice / 4-events | Phase View / Resolution Preview: Twice persists across weeks until officer Bluff, Diplomacy or Intimidate reaches DC20. | PASS; planned: rules.EV16.twice; mapped: rules.EV16.twice, rules.EV16.check, rules.E76.projection-parity; service: none |
-| EV16.boundary / 4-events | Phase View / Resolution Preview: Each of the three skills fails at 19 and ends at 20. | GAP; planned: rules.EV16.boundary; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| EV16.empty / 4-events | Phase View / Resolution Preview: Insufficient eligible teams requires reroll; ending releases both targets. | GAP; planned: rules.EV16.empty; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| EV16.boundary / 4-events | Phase View / Resolution Preview: Each of the three skills fails at 19 and ends at 20. | PASS; planned: rules.EV16.boundary; mapped: rules.P02.rivalry.bluff, rules.P02.rivalry.diplomacy, rules.P02.rivalry.intimidate, rules.EV16.check, rules.GATE.projection-parity; service: none |
+| EV16.empty / 4-events | Phase View / Resolution Preview: Insufficient eligible teams requires reroll; ending releases both targets. | PASS; planned: rules.EV16.empty; mapped: rules.E03.eligibility, rules.P02.rivalry.bluff, rules.P02.rivalry.diplomacy, rules.P02.rivalry.intimidate, rules.GATE.projection-parity; service: none |
 
 ## EV17
 
@@ -1066,9 +1066,9 @@ Sources: [R556: ## Event: Roll Twice](../docs/ai/ironfang-militia/militia-rules.
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| EV17.expansion / 4-events | Phase View / Resolution Preview: Roll Twice produces two valid outcomes with each event's own Twice policy. | GAP; planned: rules.EV17.expansion; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| EV17.reroll / 4-events | Phase View / Resolution Preview: Repeated Roll Twice outcomes are rerolled. | GAP; planned: rules.EV17.reroll; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
-| EV17.namespace / 4-events | Phase View / Resolution Preview: Normal and automatic events retain independent occurrence identities. | GAP; planned: rules.EV17.namespace; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| EV17.expansion / 4-events | Phase View / Resolution Preview: Roll Twice produces two valid outcomes with each event's own Twice policy. | PASS; planned: rules.EV17.expansion; mapped: rules.E04.two, rules.E04.no-clause, rules.E04.clause, rules.E88.complete, rules.GATE.projection-parity; service: none |
+| EV17.reroll / 4-events | Phase View / Resolution Preview: Repeated Roll Twice outcomes are rerolled. | PASS; planned: rules.EV17.reroll; mapped: rules.E04.reroll, rules.E03.nested, rules.EV04.replacement, rules.GATE.projection-parity; service: none |
+| EV17.namespace / 4-events | Phase View / Resolution Preview: Normal and automatic events retain independent occurrence identities. | PASS; planned: rules.EV17.namespace; mapped: rules.E04.independent, rules.EV04.twice, rules.EV04.replacement, rules.E88.complete, rules.GATE.projection-parity; service: none |
 
 ## EV18
 
@@ -1134,7 +1134,7 @@ Sources: [R587: ## Event: Week of Pain](../docs/ai/ironfang-militia/militia-rule
 | EV23.checks / 4-events | Phase View / Resolution Preview: Next week all organization checks take -1 across all phases. | PASS; planned: rules.EV23.checks; mapped: rules.EV23.base, rules.E76.projection-parity; service: none |
 | EV23.losses / 4-events | Phase View / Resolution Preview: Next Upkeep doubles all training losses but not natural-20 gains. | PASS; planned: rules.EV23.losses; mapped: rules.EV23.twice, rules.E76.projection-parity; service: none |
 | EV23.twice / 4-events | Phase View / Resolution Preview: Duplicate adds no extra effect. | PASS; planned: rules.EV23.twice; mapped: rules.EV23.twice, rules.E76.projection-parity; service: none |
-| EV23.expiry / 4-events | Phase View / Resolution Preview: Effects expire after next week and retain correct composition with Serenity. | GAP; planned: rules.EV23.expiry; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| EV23.expiry / 4-events | Phase View / Resolution Preview: Effects expire after next week and retain correct composition with Serenity. | PASS; planned: rules.EV23.expiry; mapped: rules.EV23.serenity-composition, rules.EV24.twice, rules.E76.projection-parity, rules.EV23.expiry, rules.EV23.twice, rules.GATE.projection-parity; service: none |
 
 ## EV24
 
@@ -1177,7 +1177,7 @@ Sources: [R599: ## Persistent Events Rules](../docs/ai/ironfang-militia/militia-
 | P03.first / 4-persistence | Phase View / Resolution Preview: First buyoff is immediately available even before week 4. | PASS; planned: rules.P03.first; mapped: rules.P03.first, rules.P77.projection-parity; service: none |
 | P03.cooldown / 4-persistence | Phase View / Resolution Preview: Buyoff in week 2 blocks week 5 and permits week 6 across all persistent event targets. | PASS; planned: rules.P03.cooldown; mapped: rules.P03.cooldown.5, rules.P03.cooldown.6, rules.P77.projection-parity; service: none |
 | P03.cost / 4-persistence | Phase View / Resolution Preview: Cost is twice current minimum treasury and insufficient funds use warning/exception policy. | PASS; planned: rules.P03.cost; mapped: rules.P03.cost, rules.P77.projection-parity; service: none |
-| P03.stage / 4-persistence | Phase View / Resolution Preview: Buyoff remains staged until exact Confirmation and competing player edits cannot double-spend. | GAP; planned: rules.P03.stage; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| P03.stage / 4-persistence | Phase View / Resolution Preview: Buyoff remains staged until exact Confirmation and competing player edits cannot double-spend. | PASS; planned: rules.P03.stage; mapped: rules.P03.first, rules.P84.decisions, rules.E88.complete, rules.P80.atomic, rules.GATE.projection-parity, rules.P79.contract, rules.P80.contract; service: none |
 
 ## P04
 
@@ -1216,9 +1216,9 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| P06.full-plan / 5-resolution | Phase View / Resolution Preview: Preview and committed state diff agree for every action and event, all ledgers, queues and identities. | PASS; planned: rules.P06.full-plan; mapped: rules.P06.full-plan, rules.P06.compound-state, rules.P78.projection-parity; service: none; Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate. |
+| P06.full-plan / 5-resolution | Phase View / Resolution Preview: Preview and committed state diff agree for every action and event, all ledgers, queues and identities. | PASS; planned: rules.P06.full-plan; mapped: rules.P06.full-plan, rules.P06.compound-state, rules.P78.projection-parity, rules.GATE.projection-parity, rules.P80.atomic, rules.P80.rollback; service: live.confirmation |
 | P06.baseline / 5-resolution | Phase View / Resolution Preview: Complete Rules Baseline precedes ordered typed Table Adjustments. | PASS; planned: rules.P06.baseline; mapped: rules.P06.baseline; service: none |
-| P06.no-hidden / 5-resolution | Phase View / Resolution Preview: Confirmation applies the reviewed plan with no hidden writes or double-applied resource totals. | PASS; planned: rules.P06.no-hidden; mapped: rules.P06.no-hidden; service: none; Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate. |
+| P06.no-hidden / 5-resolution | Phase View / Resolution Preview: Confirmation applies the reviewed plan with no hidden writes or double-applied resource totals. | PASS; planned: rules.P06.no-hidden; mapped: rules.P06.no-hidden, rules.P06.compound-state, rules.GATE.projection-parity, rules.P80.atomic, rules.P80.rollback; service: live.confirmation |
 
 ## P07
 
@@ -1275,9 +1275,9 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 | P11.setup-lifecycle / 7-workspace | New and existing militia setup create one ordinary draft without resolving the week, preserve reference integrity and local navigation, and retain advisory deviations. | PASS; planned: setup.lifecycle; mapped: setup.lifecycle, setup.import, setup.authority, setup.references, setup.confirmation, setup.integrity, setup.navigation, setup.form, setup.carry-form, setup.required-facts; service: none |
 | P11.immutable / 8-cutover-rehearsal | Phase View / Resolution Preview: Historical views read complete immutable records rather than live state. | PASS; planned: rules.P11.immutable; mapped: storage.history, rules.P86.history, rules.P86.display, rules.P86.labels; service: live.confirmation |
 | P11.effective / 8-cutover-rehearsal | Phase View / Resolution Preview: Newest nonsuperseded record is effective; older records remain an audit trail. | PASS; planned: rules.P11.effective; mapped: storage.history, rules.P86.history, rules.P86.navigation, rules.P86.controls; service: none |
-| P11.cutover / 8-cutover-rehearsal | Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history. | PASS; planned: rules.P11.cutover; mapped: initialization.preserve, initialization.preflight, initialization.stale, initialization.retry, initialization.first-use, initialization.queues, initialization.expiry, initialization.unsupported-queue, initialization.delivery, initialization.new-event, initialization.ended-event, initialization.prior-ended-event, initialization.unknown-end, initialization.source-size; service: none; Isolated initializer evidence from #65; deployment pause, legacy-write rejection and recovery rehearsal remain for the cutover checkpoint. |
+| P11.cutover / 8-cutover-rehearsal | Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history. | PASS; planned: rules.P11.cutover; mapped: initialization.preserve, initialization.preflight, initialization.stale, initialization.retry, initialization.first-use, initialization.queues, initialization.expiry, initialization.unsupported-queue, initialization.delivery, initialization.new-event, initialization.ended-event, initialization.prior-ended-event, initialization.unknown-end, initialization.source-size; service: none; Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90. |
 | P11.no-execution / 8-cutover-rehearsal | Phase View / Resolution Preview: Initialization creates one empty draft without Upkeep, queue execution or advancement. | PASS; planned: rules.P11.no-execution; mapped: initialization.preserve; service: none |
-| P11.legacy / 8-cutover-rehearsal | Phase View / Resolution Preview: Server rejects legacy writes; pre-reopen recovery restores compatible state without losing newly accepted work. | GAP; planned: rules.P11.legacy; mapped: none; service: none; Replacement outcome test not yet mapped; see audit remainingCases for additional permutations. |
+| P11.legacy / 8-cutover-rehearsal | Phase View / Resolution Preview: Server rejects legacy writes; pre-reopen recovery restores compatible state without losing newly accepted work. | GAP; planned: rules.P11.legacy; mapped: none; service: none; Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88. |
 
 ## GATE
 
@@ -1285,7 +1285,7 @@ Sources: [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55:
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| GATE.projection-parity / 3-test-infrastructure | Identical canonical fixtures through browser and Convex entry paths produce the same Phase Views and Resolution Preview. | PASS; planned: rules.GATE.projection-parity, rules.U01.projection-parity; mapped: rules.U01.projection-parity, rules.P78.projection-parity, rules.P77.projection-parity, rules.P81.workspace, rules.P82.workspace, rules.P83.workspace, rules.P84.workspace, rules.P85.summary; service: live.workspace, live.confirmation; Upkeep and compound weekly browser-build/stored-source parity plus Workspace phase tests are mapped; a complete shared fixture matrix through browser Workspace and deployed Confirmation for all rules permutations is not established. |
+| GATE.projection-parity / 3-test-infrastructure | Identical canonical fixtures through browser and Convex entry paths produce the same Phase Views and Resolution Preview. | PASS; planned: rules.GATE.projection-parity, rules.U01.projection-parity; mapped: rules.U01.projection-parity, rules.P78.projection-parity, rules.P77.projection-parity, rules.P81.workspace, rules.P82.workspace, rules.P83.workspace, rules.P84.workspace, rules.P85.summary, rules.GATE.projection-parity; service: live.workspace, live.confirmation |
 | GATE.adapter-contract / 6-adapters | Shared persistence contract scenarios pass against in-memory and actual isolated Convex persistence. | PASS; planned: rules.GATE.adapter-contract; mapped: rules.P79.contract, rules.P80.contract, rules.P80.atomic, rules.P80.rollback; service: live.persistence, live.confirmation |
 | GATE.two-player / 3-test-infrastructure | Two authenticated browser contexts agree on edits and Confirmation, retain independent navigation and show conflict recovery. | PASS; planned: rules.GATE.two-player; mapped: none; service: live.workspace, live.confirmation |
 
@@ -1296,278 +1296,15 @@ Sources: [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55:
 - R163: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
 - R178: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
 - R217: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
-- F02.thresholds: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F02.retention: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.pc-cap: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.ap-caps: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-1-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-2-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-3-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-4-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-5-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-6-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-7-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-8-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-9-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-10-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-11-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-12-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-13-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-14-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-15-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-16-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-17-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-18-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-19-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F02.rank-20-threshold: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-focus: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F03.missing-focus: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F03.composition: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-1-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-2-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-3-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-4-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-5-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-6-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-7-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-8-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-9-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-10-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-11-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-12-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-13-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-14-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-15-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-16-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-17-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-18-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-19-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F03.rank-20-focus: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.allowance: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F04.strategist: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F04.shrink: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.context: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F04.rank-1-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-2-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-3-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-4-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-5-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-6-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-7-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-8-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-9-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-10-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-11-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-12-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-13-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-14-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-15-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-16-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-17-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-18-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-19-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F04.rank-20-actions: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.caps: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F05.rewards: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.identity: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F05.order: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F05.rank-1-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-2-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-3-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-4-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-5-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-6-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-7-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-8-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-9-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-10-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-11-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-12-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-13-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-14-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-15-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-16-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-17-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-18-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-19-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F05.rank-20-teams: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F06.notoriety: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F06.money: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F06.override: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F06.removed-action: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F07.hostile: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F07.unfriendly: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F07.indifferent: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F07.friendly: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F07.helpful: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F07.effective: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F08.skilled: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F08.gifts: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F08.titles: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F08.xp: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F08.recipients: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F09.packages: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F09.xp-rounding: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- F09.qualification: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- F09.acknowledgement: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O01.nonstack: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O01.commandants: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- O01.ordered-role: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O02.ambassador: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O02.marshal: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O02.spymaster: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O02.identity: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O03.success: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O03.failure: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O03.natural-one: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O04.secondary: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O04.event: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O04.one-use: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- O04.absent: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O05.slot: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O05.holders: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O05.ordered: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- O06.capacity: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- O06.checks: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O06.changes: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- O06.references: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- U01.sequence: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- U01.first-use: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U01.import: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U01.recompute: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U02.success: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U02.failure: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U02.natural-twenty: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U02.modifiers: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U02.readiness: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U03.threshold: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U03.reputation: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U03.inputs: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U03.recompute: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U04.shortage: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U04.boundary: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U04.rank: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U04.boons: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U05.order: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- U05.preview: Incoming persistent Theft and Upkeep transfers covered in #67; subsequent Activity/Event resource ordering and Confirmation remain required.
-- U05.authority: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- U06.cost-theft: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- U06.deposit-theft: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- U06.action-order: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- U06.failure: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T01.recruit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T01.upgrade: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T01.inherit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T02.recruit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T02.upgrade: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T02.inherit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T03.recruit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T03.upgrade: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- T03.inherit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T04.recruit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T04.upgrade: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T04.inherit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T05.recruit-act: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T05.failed-recruit: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T05.upgrade-act: Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.
-- T05.repeat-upgrade: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T06.team-use: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T06.capability: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T06.lie-low: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T06.drill: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- T06.exception: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T07.disabled: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T07.payment: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T07.narrative: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T07.funds: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- T08.return: Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.
-- T08.failure: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T08.capacity: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- T08.ordering: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A02.reputation: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A02.duration: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A02.interactions: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A04.pc: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A04.move: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A04.order: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A06.success: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A06.failure: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A06.capacity: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A07.cost: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A07.success: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A07.natural-one: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A07.maximum: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A07.removed: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A09.tiers: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A09.natural-one: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A09.acknowledgement: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A09.repeat: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A11.dc: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A11.record: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A12.exclusive: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A12.count: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A12.floor: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A12.exception: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A14.checks: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A14.capacity: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A14.natural-one: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A14.identity: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A15.success: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A15.failure: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A15.duration: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A15.theft: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A16.success: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A16.failure: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A16.targets: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A16.modifiers: Raid DC and expiry covered in #71; Covert suppression follows in #72, then full Workspace and Confirmation.
-- A17.party: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A17.single: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A17.presence: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A17.multiple: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A20.description: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A20.adjustments: Explicit Special cost and unchanged rules baseline covered in #71; whole-week Table Adjustment application remains the Resolution checkpoint.
-- A22.check: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A22.attempt: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A22.success: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A22.adjudication: Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.
-- A23.combat: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A23.rank-one: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A23.extraction: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A23.duration: Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.
-- A24.edges: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- A24.per-team: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A24.preserve: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- A24.warning: Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.
-- E02.intervals: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E03.targets: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E06.due: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E06.automatic: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E06.preserve: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E06.retry: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E07.phase: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E07.once: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E07.one-check: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- E07.stale: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV05.end: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV05.exception: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV09.recompute: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV11.duration: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV16.boundary: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV16.empty: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV17.expansion: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV17.reroll: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV17.namespace: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- EV23.expiry: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- P03.stage: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- P06.full-plan: Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.
-- P06.no-hidden: Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.
-- P11.cutover: Isolated initializer evidence from #65; deployment pause, legacy-write rejection and recovery rehearsal remain for the cutover checkpoint.
-- P11.legacy: Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.
-- GATE.projection-parity: Upkeep and compound weekly browser-build/stored-source parity plus Workspace phase tests are mapped; a complete shared fixture matrix through browser Workspace and deployed Confirmation for all rules permutations is not established.
+- F04.context: Upkeep rank and Strategist recomputation are covered. The corpus mentions ally/event action allowances without numeric definitions; replacement has no typed contextual allowance beyond reasoned action-capacity exceptions. Human rule classification remains pending.
+- O06.changes: Changing the current manager recomputes separately identified team checks; ordered within-week manager reassignment is not represented by a Weekly Draft choice and requires a product/rules timing decision.
+- E06.preserve: Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover.
+- P11.cutover: Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90.
+- P11.legacy: Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.
 - Corpus review: Human review has not occurred (confirmed by the user for #88). Review all rules/tables and accepted product/persistence decisions; record reviewer and review reference before clearing this gap.
 
 ## Run evidence
 
-Source fingerprint: `c75dd8a46a3bd775eedd4f8d15972e45d8207bf600e72ff37572d713f8b8d740`.
+Source fingerprint: `266846091b3e7e140074e1940a09852bbed29d442b2f165531ec673d1a90c072`.
 
 Service evidence: complete mandatory first-attempt suite for this source.

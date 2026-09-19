@@ -1066,8 +1066,32 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each training threshold is evaluated below, at and above its boundary.',
           plannedTests: ['rules.F02.thresholds'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.F02.rank-1-threshold',
+            'rules.F02.rank-2-threshold',
+            'rules.F02.rank-3-threshold',
+            'rules.F02.rank-4-threshold',
+            'rules.F02.rank-5-threshold',
+            'rules.F02.rank-6-threshold',
+            'rules.F02.rank-7-threshold',
+            'rules.F02.rank-8-threshold',
+            'rules.F02.rank-9-threshold',
+            'rules.F02.rank-10-threshold',
+            'rules.F02.rank-11-threshold',
+            'rules.F02.rank-12-threshold',
+            'rules.F02.rank-13-threshold',
+            'rules.F02.rank-14-threshold',
+            'rules.F02.rank-15-threshold',
+            'rules.F02.rank-16-threshold',
+            'rules.F02.rank-17-threshold',
+            'rules.F02.rank-18-threshold',
+            'rules.F02.rank-19-threshold',
+            'rules.F02.rank-20-threshold',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'retention',
@@ -1075,8 +1099,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Training loss never reduces existing rank.',
           plannedTests: ['rules.F02.retention'],
-          tests: ['rules.F02.retention'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.retention',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'pc-cap',
@@ -1084,8 +1113,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple rank gains stop at highest PC level; missing PC facts require input.',
           plannedTests: ['rules.F02.pc-cap'],
-          tests: ['rules.F02.pc-cap'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.pc-cap',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'ap-caps',
@@ -1093,8 +1127,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Volume caps 4/7/10/13/15/17 produce advisory warnings.',
           plannedTests: ['rules.F02.ap-caps'],
-          tests: ['rules.F02.ap-caps'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.ap-caps',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-1-threshold',
@@ -1102,8 +1141,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-1-threshold'],
-          tests: ['rules.F02.rank-1-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-1-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-2-threshold',
@@ -1111,8 +1155,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-2-threshold'],
-          tests: ['rules.F02.rank-2-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-2-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-3-threshold',
@@ -1120,8 +1169,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-3-threshold'],
-          tests: ['rules.F02.rank-3-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-3-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-4-threshold',
@@ -1129,8 +1183,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4 minimum training is 20; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-4-threshold'],
-          tests: ['rules.F02.rank-4-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-4-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-5-threshold',
@@ -1138,8 +1197,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5 minimum training is 30; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-5-threshold'],
-          tests: ['rules.F02.rank-5-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-5-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-6-threshold',
@@ -1147,8 +1211,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6 minimum training is 40; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-6-threshold'],
-          tests: ['rules.F02.rank-6-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-6-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-7-threshold',
@@ -1156,8 +1225,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7 minimum training is 55; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-7-threshold'],
-          tests: ['rules.F02.rank-7-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-7-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-8-threshold',
@@ -1165,8 +1239,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8 minimum training is 75; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-8-threshold'],
-          tests: ['rules.F02.rank-8-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-8-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-9-threshold',
@@ -1174,8 +1253,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9 minimum training is 105; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-9-threshold'],
-          tests: ['rules.F02.rank-9-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-9-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-10-threshold',
@@ -1183,8 +1267,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10 minimum training is 160; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-10-threshold'],
-          tests: ['rules.F02.rank-10-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-10-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-11-threshold',
@@ -1192,8 +1281,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11 minimum training is 235; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-11-threshold'],
-          tests: ['rules.F02.rank-11-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-11-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-12-threshold',
@@ -1201,8 +1295,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12 minimum training is 330; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-12-threshold'],
-          tests: ['rules.F02.rank-12-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-12-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-13-threshold',
@@ -1210,8 +1309,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13 minimum training is 475; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-13-threshold'],
-          tests: ['rules.F02.rank-13-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-13-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-14-threshold',
@@ -1219,8 +1323,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14 minimum training is 665; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-14-threshold'],
-          tests: ['rules.F02.rank-14-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-14-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-15-threshold',
@@ -1228,8 +1337,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15 minimum training is 855; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-15-threshold'],
-          tests: ['rules.F02.rank-15-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-15-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-16-threshold',
@@ -1237,8 +1351,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16 minimum training is 1,350; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-16-threshold'],
-          tests: ['rules.F02.rank-16-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-16-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-17-threshold',
@@ -1246,8 +1365,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17 minimum training is 1,900; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-17-threshold'],
-          tests: ['rules.F02.rank-17-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-17-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-18-threshold',
@@ -1255,8 +1379,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18 minimum training is 2,700; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-18-threshold'],
-          tests: ['rules.F02.rank-18-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-18-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-19-threshold',
@@ -1264,8 +1393,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19 minimum training is 3,850; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-19-threshold'],
-          tests: ['rules.F02.rank-19-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-19-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-20-threshold',
@@ -1273,8 +1407,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20 minimum training is 5,350; compare below/exact/above while retaining existing rank and applying PC cap.',
           plannedTests: ['rules.F02.rank-20-threshold'],
-          tests: ['rules.F02.rank-20-threshold'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F02.rank-20-threshold',
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-thresholds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -1302,8 +1441,31 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All 20 ranks and three focuses use Table 6-1 focused and secondary bonuses.',
           plannedTests: ['rules.F03.rank-focus'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.F03.rank-1-focus',
+            'rules.F03.rank-2-focus',
+            'rules.F03.rank-3-focus',
+            'rules.F03.rank-4-focus',
+            'rules.F03.rank-5-focus',
+            'rules.F03.rank-6-focus',
+            'rules.F03.rank-7-focus',
+            'rules.F03.rank-8-focus',
+            'rules.F03.rank-9-focus',
+            'rules.F03.rank-10-focus',
+            'rules.F03.rank-11-focus',
+            'rules.F03.rank-12-focus',
+            'rules.F03.rank-13-focus',
+            'rules.F03.rank-14-focus',
+            'rules.F03.rank-15-focus',
+            'rules.F03.rank-16-focus',
+            'rules.F03.rank-17-focus',
+            'rules.F03.rank-18-focus',
+            'rules.F03.rank-19-focus',
+            'rules.F03.rank-20-focus',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'missing-focus',
@@ -1311,8 +1473,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing focus requires selection; invalid focus is rejected.',
           plannedTests: ['rules.F03.missing-focus'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.foundation-focus',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'composition',
@@ -1320,8 +1486,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Negative, officer and contextual modifiers apply exactly once with explanations.',
           plannedTests: ['rules.F03.composition'],
-          tests: ['rules.F03.composition'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.composition',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-1-focus',
@@ -1329,8 +1499,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1: each of Loyalty/Secrecy/Security focuses gets +2; other checks get +0.',
           plannedTests: ['rules.F03.rank-1-focus'],
-          tests: ['rules.F03.rank-1-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-1-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-2-focus',
@@ -1338,8 +1512,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +0.',
           plannedTests: ['rules.F03.rank-2-focus'],
-          tests: ['rules.F03.rank-2-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-2-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-3-focus',
@@ -1347,8 +1525,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +1.',
           plannedTests: ['rules.F03.rank-3-focus'],
-          tests: ['rules.F03.rank-3-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-3-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-4-focus',
@@ -1356,8 +1538,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.',
           plannedTests: ['rules.F03.rank-4-focus'],
-          tests: ['rules.F03.rank-4-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-4-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-5-focus',
@@ -1365,8 +1551,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.',
           plannedTests: ['rules.F03.rank-5-focus'],
-          tests: ['rules.F03.rank-5-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-5-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-6-focus',
@@ -1374,8 +1564,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.',
           plannedTests: ['rules.F03.rank-6-focus'],
-          tests: ['rules.F03.rank-6-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-6-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-7-focus',
@@ -1383,8 +1577,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.',
           plannedTests: ['rules.F03.rank-7-focus'],
-          tests: ['rules.F03.rank-7-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-7-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-8-focus',
@@ -1392,8 +1590,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +2.',
           plannedTests: ['rules.F03.rank-8-focus'],
-          tests: ['rules.F03.rank-8-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-8-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-9-focus',
@@ -1401,8 +1603,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +3.',
           plannedTests: ['rules.F03.rank-9-focus'],
-          tests: ['rules.F03.rank-9-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-9-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-10-focus',
@@ -1410,8 +1616,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.',
           plannedTests: ['rules.F03.rank-10-focus'],
-          tests: ['rules.F03.rank-10-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-10-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-11-focus',
@@ -1419,8 +1629,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.',
           plannedTests: ['rules.F03.rank-11-focus'],
-          tests: ['rules.F03.rank-11-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-11-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-12-focus',
@@ -1428,8 +1642,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.',
           plannedTests: ['rules.F03.rank-12-focus'],
-          tests: ['rules.F03.rank-12-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-12-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-13-focus',
@@ -1437,8 +1655,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.',
           plannedTests: ['rules.F03.rank-13-focus'],
-          tests: ['rules.F03.rank-13-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-13-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-14-focus',
@@ -1446,8 +1668,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +4.',
           plannedTests: ['rules.F03.rank-14-focus'],
-          tests: ['rules.F03.rank-14-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-14-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-15-focus',
@@ -1455,8 +1681,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +5.',
           plannedTests: ['rules.F03.rank-15-focus'],
-          tests: ['rules.F03.rank-15-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-15-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-16-focus',
@@ -1464,8 +1694,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.',
           plannedTests: ['rules.F03.rank-16-focus'],
-          tests: ['rules.F03.rank-16-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-16-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-17-focus',
@@ -1473,8 +1707,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.',
           plannedTests: ['rules.F03.rank-17-focus'],
-          tests: ['rules.F03.rank-17-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-17-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-18-focus',
@@ -1482,8 +1720,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.',
           plannedTests: ['rules.F03.rank-18-focus'],
-          tests: ['rules.F03.rank-18-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-18-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-19-focus',
@@ -1491,8 +1733,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.',
           plannedTests: ['rules.F03.rank-19-focus'],
-          tests: ['rules.F03.rank-19-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-19-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-20-focus',
@@ -1500,8 +1746,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20: each of Loyalty/Secrecy/Security focuses gets +12; other checks get +6.',
           plannedTests: ['rules.F03.rank-20-focus'],
-          tests: ['rules.F03.rank-20-focus'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F03.rank-20-focus',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -1519,8 +1769,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 grants one action; remaining rank boundaries follow Table 6-1.',
           plannedTests: ['rules.F04.allowance'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'strategist',
@@ -1528,8 +1781,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Strategist adds one action once even with multiple holders.',
           plannedTests: ['rules.F04.strategist'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.acceptance.strategist',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'shrink',
@@ -1537,8 +1795,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Allowance shrink preserves occupied choices and shows exception warnings.',
           plannedTests: ['rules.F04.shrink'],
-          tests: ['rules.F04.shrink'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.shrink',
+            'rules.acceptance.foundation-ranks',
+            'rules.U01.recompute',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'context',
@@ -1546,8 +1810,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Upkeep rank changes and event or ally allowances recompute available actions.',
           plannedTests: ['rules.F04.context'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.U01.recompute',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: 'Upkeep rank and Strategist recomputation are covered. The corpus mentions ally/event action allowances without numeric definitions; replacement has no typed contextual allowance beyond reasoned action-capacity exceptions. Human rule classification remains pending.',
         },
         {
           id: 'rank-1-actions',
@@ -1555,8 +1824,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 baseline allowance is 1 actions.',
           plannedTests: ['rules.F04.rank-1-actions'],
-          tests: ['rules.F04.rank-1-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-1-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-2-actions',
@@ -1564,8 +1837,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-2-actions'],
-          tests: ['rules.F04.rank-2-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-2-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-3-actions',
@@ -1573,8 +1850,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-3-actions'],
-          tests: ['rules.F04.rank-3-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-3-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-4-actions',
@@ -1582,8 +1863,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-4-actions'],
-          tests: ['rules.F04.rank-4-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-4-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-5-actions',
@@ -1591,8 +1876,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-5-actions'],
-          tests: ['rules.F04.rank-5-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-5-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-6-actions',
@@ -1600,8 +1889,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6 baseline allowance is 2 actions.',
           plannedTests: ['rules.F04.rank-6-actions'],
-          tests: ['rules.F04.rank-6-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-6-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-7-actions',
@@ -1609,8 +1902,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-7-actions'],
-          tests: ['rules.F04.rank-7-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-7-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-8-actions',
@@ -1618,8 +1915,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-8-actions'],
-          tests: ['rules.F04.rank-8-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-8-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-9-actions',
@@ -1627,8 +1928,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-9-actions'],
-          tests: ['rules.F04.rank-9-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-9-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-10-actions',
@@ -1636,8 +1941,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10 baseline allowance is 3 actions.',
           plannedTests: ['rules.F04.rank-10-actions'],
-          tests: ['rules.F04.rank-10-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-10-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-11-actions',
@@ -1645,8 +1954,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-11-actions'],
-          tests: ['rules.F04.rank-11-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-11-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-12-actions',
@@ -1654,8 +1967,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-12-actions'],
-          tests: ['rules.F04.rank-12-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-12-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-13-actions',
@@ -1663,8 +1980,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-13-actions'],
-          tests: ['rules.F04.rank-13-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-13-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-14-actions',
@@ -1672,8 +1993,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14 baseline allowance is 4 actions.',
           plannedTests: ['rules.F04.rank-14-actions'],
-          tests: ['rules.F04.rank-14-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-14-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-15-actions',
@@ -1681,8 +2006,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-15-actions'],
-          tests: ['rules.F04.rank-15-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-15-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-16-actions',
@@ -1690,8 +2019,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-16-actions'],
-          tests: ['rules.F04.rank-16-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-16-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-17-actions',
@@ -1699,8 +2032,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-17-actions'],
-          tests: ['rules.F04.rank-17-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-17-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-18-actions',
@@ -1708,8 +2045,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18 baseline allowance is 5 actions.',
           plannedTests: ['rules.F04.rank-18-actions'],
-          tests: ['rules.F04.rank-18-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-18-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-19-actions',
@@ -1717,8 +2058,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19 baseline allowance is 6 actions.',
           plannedTests: ['rules.F04.rank-19-actions'],
-          tests: ['rules.F04.rank-19-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-19-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-20-actions',
@@ -1726,8 +2071,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20 baseline allowance is 6 actions.',
           plannedTests: ['rules.F04.rank-20-actions'],
-          tests: ['rules.F04.rank-20-actions'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F04.rank-20-actions',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -1756,8 +2105,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: All Table 6-1 team caps count active, disabled and missing teams.',
           plannedTests: ['rules.F05.caps'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rewards',
@@ -1765,8 +2118,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Reward teams do not consume capacity.',
           plannedTests: ['rules.F05.rewards'],
-          tests: ['rules.F05.rewards'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rewards',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'identity',
@@ -1774,8 +2132,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Repeated team types retain separate identities and consume separate capacity.',
           plannedTests: ['rules.F05.identity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'order',
@@ -1783,8 +2145,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Dismiss then recruit frees capacity; recruit then dismiss warns at the earlier step.',
           plannedTests: ['rules.F05.order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.A06.capacity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-1-teams',
@@ -1792,8 +2159,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 cap is 2 non-reward teams.',
           plannedTests: ['rules.F05.rank-1-teams'],
-          tests: ['rules.F05.rank-1-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-1-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-2-teams',
@@ -1801,8 +2173,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 2 cap is 2 non-reward teams.',
           plannedTests: ['rules.F05.rank-2-teams'],
-          tests: ['rules.F05.rank-2-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-2-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-3-teams',
@@ -1810,8 +2187,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 3 cap is 3 non-reward teams.',
           plannedTests: ['rules.F05.rank-3-teams'],
-          tests: ['rules.F05.rank-3-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-3-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-4-teams',
@@ -1819,8 +2201,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 4 cap is 3 non-reward teams.',
           plannedTests: ['rules.F05.rank-4-teams'],
-          tests: ['rules.F05.rank-4-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-4-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-5-teams',
@@ -1828,8 +2215,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 5 cap is 4 non-reward teams.',
           plannedTests: ['rules.F05.rank-5-teams'],
-          tests: ['rules.F05.rank-5-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-5-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-6-teams',
@@ -1837,8 +2229,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 6 cap is 4 non-reward teams.',
           plannedTests: ['rules.F05.rank-6-teams'],
-          tests: ['rules.F05.rank-6-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-6-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-7-teams',
@@ -1846,8 +2243,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 7 cap is 4 non-reward teams.',
           plannedTests: ['rules.F05.rank-7-teams'],
-          tests: ['rules.F05.rank-7-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-7-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-8-teams',
@@ -1855,8 +2257,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 8 cap is 5 non-reward teams.',
           plannedTests: ['rules.F05.rank-8-teams'],
-          tests: ['rules.F05.rank-8-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-8-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-9-teams',
@@ -1864,8 +2271,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 9 cap is 5 non-reward teams.',
           plannedTests: ['rules.F05.rank-9-teams'],
-          tests: ['rules.F05.rank-9-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-9-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-10-teams',
@@ -1873,8 +2285,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 10 cap is 5 non-reward teams.',
           plannedTests: ['rules.F05.rank-10-teams'],
-          tests: ['rules.F05.rank-10-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-10-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-11-teams',
@@ -1882,8 +2299,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 11 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-11-teams'],
-          tests: ['rules.F05.rank-11-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-11-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-12-teams',
@@ -1891,8 +2313,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 12 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-12-teams'],
-          tests: ['rules.F05.rank-12-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-12-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-13-teams',
@@ -1900,8 +2327,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 13 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-13-teams'],
-          tests: ['rules.F05.rank-13-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-13-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-14-teams',
@@ -1909,8 +2341,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 14 cap is 6 non-reward teams.',
           plannedTests: ['rules.F05.rank-14-teams'],
-          tests: ['rules.F05.rank-14-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-14-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-15-teams',
@@ -1918,8 +2355,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 15 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-15-teams'],
-          tests: ['rules.F05.rank-15-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-15-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-16-teams',
@@ -1927,8 +2369,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 16 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-16-teams'],
-          tests: ['rules.F05.rank-16-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-16-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-17-teams',
@@ -1936,8 +2383,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 17 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-17-teams'],
-          tests: ['rules.F05.rank-17-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-17-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-18-teams',
@@ -1945,8 +2397,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 18 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-18-teams'],
-          tests: ['rules.F05.rank-18-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-18-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-19-teams',
@@ -1954,8 +2411,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 19 cap is 7 non-reward teams.',
           plannedTests: ['rules.F05.rank-19-teams'],
-          tests: ['rules.F05.rank-19-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-19-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'rank-20-teams',
@@ -1963,8 +2425,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 20 cap is 8 non-reward teams.',
           plannedTests: ['rules.F05.rank-20-teams'],
-          tests: ['rules.F05.rank-20-teams'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F05.rank-20-teams',
+            'rules.acceptance.team-capacity',
+            'rules.acceptance.foundation-ranks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -1993,8 +2460,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Calculated Notoriety is bounded 0–100 through additive effects.',
           plannedTests: ['rules.F06.notoriety'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E88.covert-cap',
+            'rules.acceptance.notoriety-bounds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'money',
@@ -2002,8 +2473,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Minimum treasury is rank times 10 gp; spending and gains retain copper precision.',
           plannedTests: ['rules.F06.money'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-ranks',
+            'rules.A03.payment',
+            'rules.U05.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'override',
@@ -2011,8 +2487,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Explicit adjustments appear after the bounded baseline.',
           plannedTests: ['rules.F06.override'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E88.covert-cap',
+            'rules.acceptance.notoriety-bounds',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'removed-action',
@@ -2020,8 +2500,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Deselected actions contribute no stale resource totals.',
           plannedTests: ['rules.F06.removed-action'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E88.covert-cap',
+            'rules.A08.removed',
+            'rules.A07.natural-one',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2039,8 +2524,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Hostile shows 1d4-day sightings, +5% prices and +5 social DC.',
           plannedTests: ['rules.F07.hostile'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.reputation-rows',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'unfriendly',
@@ -2048,8 +2536,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Unfriendly shows +2 social DC and +5 operating-settlement event result.',
           plannedTests: ['rules.F07.unfriendly'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.reputation-rows',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'indifferent',
@@ -2057,8 +2548,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Indifferent adds no modifier.',
           plannedTests: ['rules.F07.indifferent'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.reputation-rows',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'friendly',
@@ -2066,8 +2560,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Friendly shows -2 social DC and -5 operating-settlement event result.',
           plannedTests: ['rules.F07.friendly'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.reputation-rows',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'helpful',
@@ -2075,8 +2572,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Helpful grants -5% prices and +2 to exactly one eligible Activity check.',
           plannedTests: ['rules.F07.helpful'],
-          tests: ['rules.F07.helpful'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F07.helpful',
+            'rules.acceptance.reputation-rows',
+            'rules.settlements.modifiers',
+            'rules.A03.payment',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'effective',
@@ -2084,8 +2587,15 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Refuge and Reduce Danger shifts affect the selected settlement; Market Day price effects compose.',
           plannedTests: ['rules.F07.effective'],
-          tests: ['rules.F07.effective'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F07.effective',
+            'rules.acceptance.reputation-rows',
+            'rules.settlements.prices',
+            'rules.A15.duration',
+            'rules.A03.payment',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2103,8 +2613,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ranks 2/7/12/17 award one skill rank to each PC.',
           plannedTests: ['rules.F08.skilled'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.F09.packages',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'gifts',
@@ -2112,8 +2626,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ranks 3/6/8/11/13/16/18 record the prescribed gift acknowledgement.',
           plannedTests: ['rules.F08.gifts'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.F09.packages',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'titles',
@@ -2121,8 +2639,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ranks 4/9/14/19 record a title and eligible feat choice.',
           plannedTests: ['rules.F08.titles'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.F09.packages',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'xp',
@@ -2130,8 +2652,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ranks 5/10/15/20 split the story XP among PCs.',
           plannedTests: ['rules.F08.xp'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.acceptance.xp-shares',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'recipients',
@@ -2139,8 +2665,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple crossed milestones award once to PCs, excluding NPC officers and cohorts.',
           plannedTests: ['rules.F08.recipients'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.acceptance.xp-shares',
+            'rules.U04.boons',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2167,8 +2698,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Gift choices and title feats match the exact packages in the cited source.',
           plannedTests: ['rules.F09.packages'],
-          tests: ['rules.F09.packages'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F09.packages',
+            'rules.acceptance.foundation-boons',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'xp-rounding',
@@ -2176,8 +2711,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: 1200/3200/6400/25600 XP split among PCs rounds down.',
           plannedTests: ['rules.F09.xp-rounding'],
-          tests: ['rules.F09.xp-rounding'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.F09.xp-rounding',
+            'rules.acceptance.foundation-boons',
+            'rules.acceptance.xp-shares',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'qualification',
@@ -2185,8 +2725,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Champion feat requires qualification or an explicit Rules Exception.',
           plannedTests: ['rules.F09.qualification'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'acknowledgement',
@@ -2194,8 +2737,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Chosen rewards and narrative acknowledgement persist in confirmed history.',
           plannedTests: ['rules.F09.acknowledgement'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.foundation-boons',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2222,8 +2768,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple holders select one applicable role bonus rather than summing.',
           plannedTests: ['rules.O01.nonstack'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.officer-abilities',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'commandants',
@@ -2231,8 +2780,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Commandant Hit Dice stack.',
           plannedTests: ['rules.O01.commandants'],
-          tests: ['rules.O01.commandants'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.O01.commandants',
+            'rules.acceptance.officer-abilities',
+            'rules.acceptance.commandants',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'ordered-role',
@@ -2240,8 +2794,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ordered assignment and removal recompute later checks.',
           plannedTests: ['rules.O01.ordered-role'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.officer-abilities',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2269,8 +2827,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ambassador selects Constitution or Charisma for Loyalty.',
           plannedTests: ['rules.O02.ambassador'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.officer-abilities',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'marshal',
@@ -2278,8 +2839,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Marshal selects Strength or Wisdom for Security.',
           plannedTests: ['rules.O02.marshal'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.officer-abilities',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'spymaster',
@@ -2287,8 +2851,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Spymaster selects Dexterity or Intelligence for Secrecy.',
           plannedTests: ['rules.O02.spymaster'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.officer-abilities',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'identity',
@@ -2296,8 +2863,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Absent or archived characters cannot silently contribute; tied and negative modifiers remain correct.',
           plannedTests: ['rules.O02.identity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.officer-abilities',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2324,8 +2894,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level.',
           plannedTests: ['rules.O03.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.commandants',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -2333,8 +2906,20 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed Drill adds no Commandant training.',
           plannedTests: ['rules.O03.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A18.failure',
+            'rules.A72.projection-parity',
+            'rules.A16.rescue',
+            'rules.A15.failure',
+            'rules.A06.projection-parity',
+            'rules.A06.failure',
+            'rules.A05.failure',
+            'rules.A01.failure',
+            'rules.U02.failure',
+            'rules.acceptance.commandants',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'natural-one',
@@ -2342,8 +2927,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 can still succeed and add Commandants while adding rolled Notoriety.',
           plannedTests: ['rules.O03.natural-one'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A07.natural-one',
+            'rules.acceptance.commandants',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2361,8 +2950,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Overseer adds +1 to both secondary checks, not focused checks.',
           plannedTests: ['rules.O04.secondary'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.acceptance.overseer', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'event',
@@ -2370,8 +2959,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One selected Event check receives the appropriate best ability modifier.',
           plannedTests: ['rules.O04.event'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.overseer',
+            'rules.EV03.modifiers',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'one-use',
@@ -2379,8 +2972,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Two event occurrences cannot both consume the one-use bonus.',
           plannedTests: ['rules.O04.one-use'],
-          tests: ['rules.O04.one-use'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.O04.one-use',
+            'rules.acceptance.overseer',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'absent',
@@ -2388,8 +2985,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No Overseer contributes no bonus; included modifiers are not added twice.',
           plannedTests: ['rules.O04.absent'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.overseer',
+            'rules.EV03.modifiers',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2407,8 +3008,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Only the designated bonus action receives +2 to all related checks.',
           plannedTests: ['rules.O05.slot'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.strategist',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'holders',
@@ -2416,8 +3020,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple Strategists grant one action and one designated bonus.',
           plannedTests: ['rules.O05.holders'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.strategist',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'ordered',
@@ -2425,8 +3032,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices.',
           plannedTests: ['rules.O05.ordered'],
-          tests: ['rules.O05.ordered'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.O05.ordered',
+            'rules.acceptance.strategist',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2457,8 +3069,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one.',
           plannedTests: ['rules.O06.capacity'],
-          tests: ['rules.O06.capacity'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.A06.capacity',
+            'rules.O06.capacity',
+            'rules.acceptance.manager-checks',
+            'rules.F05.rewards',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'checks',
@@ -2466,8 +3084,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each team check uses its own manager Charisma bonus exactly once.',
           plannedTests: ['rules.O06.checks'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.manager-checks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'changes',
@@ -2475,8 +3096,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ordered manager reassignment affects subsequent checks for independently identified teams.',
           plannedTests: ['rules.O06.changes'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.manager-checks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: 'Changing the current manager recomputes separately identified team checks; ordered within-week manager reassignment is not represented by a Weekly Draft choice and requires a product/rules timing decision.',
         },
         {
           id: 'references',
@@ -2484,8 +3108,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing or archived manager identities are surfaced rather than fabricated.',
           plannedTests: ['rules.O06.references'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.acceptance.manager-checks',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2512,8 +3139,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Upkeep precedes Activity, which precedes Event.',
           plannedTests: ['rules.U01.sequence'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P06.baseline',
+            'rules.T07.same-week',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'first-use',
@@ -2521,8 +3152,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: First militia week skips Upkeep independent of displayed week number and entered attrition.',
           plannedTests: ['rules.U01.first-use'],
-          tests: ['rules.U01.first-use'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U01.first-use', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'import',
@@ -2530,8 +3161,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Imported first-use metadata controls skipping rather than a week-number heuristic.',
           plannedTests: ['rules.U01.import'],
-          tests: ['rules.U01.import'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U01.import', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'recompute',
@@ -2539,8 +3170,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Earlier phase edits recompute downstream eligibility and outcomes.',
           plannedTests: ['rules.U01.recompute'],
-          tests: ['rules.U01.recompute'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U01.recompute', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -2558,8 +3189,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty total 10 or higher loses rolled 1d6 training.',
           plannedTests: ['rules.U02.success'],
-          tests: ['rules.U02.success'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: [
+            'rules.U02.success',
+            'rules.U02.dice-boundaries',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -2567,8 +3202,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty total 9 or lower loses rolled 2d4 plus rank.',
           plannedTests: ['rules.U02.failure'],
-          tests: ['rules.U02.failure'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: [
+            'rules.U02.failure',
+            'rules.U02.dice-boundaries',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'natural-twenty',
@@ -2576,8 +3215,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 20 gains rolled 1d6 training instead of losing training.',
           plannedTests: ['rules.U02.natural-twenty'],
-          tests: ['rules.U02.natural-twenty'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: [
+            'rules.U02.natural-twenty',
+            'rules.U02.dice-boundaries',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'modifiers',
@@ -2592,13 +3235,16 @@ export const coverageCatalog = {
             'rules.U02.persistent-morale',
           ],
           tests: [
+            'rules.A16.rescue',
+            'rules.A16.raid-expiry',
             'rules.U02.modifiers',
             'rules.U02.provenance',
             'rules.U02.consumption',
             'rules.U02.sources',
             'rules.U02.persistent-morale',
+            'rules.GATE.projection-parity',
           ],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          gap: null,
         },
         {
           id: 'readiness',
@@ -2606,8 +3252,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing required check or loss/gain dice prevents complete readiness.',
           plannedTests: ['rules.U02.readiness'],
-          tests: ['rules.U02.readiness'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U02.readiness', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -2625,8 +3271,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Notoriety 99 has no maximum penalty; 100 loses 1d20 plus rank.',
           plannedTests: ['rules.U03.threshold'],
-          tests: ['rules.U03.threshold'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U03.threshold', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'reputation',
@@ -2634,8 +3280,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed Loyalty DC15 reduces nearest settlement one step with Unfriendly floor.',
           plannedTests: ['rules.U03.reputation'],
-          tests: ['rules.U03.reputation'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U03.reputation', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'inputs',
@@ -2643,8 +3289,19 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing applicable die, check or settlement blocks Confirmation.',
           plannedTests: ['rules.U03.inputs'],
-          tests: ['rules.U03.inputs'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: [
+            'rules.EV21.inputs',
+            'rules.E75.projection-parity',
+            'rules.EV12.inputs',
+            'rules.EV12.operation-scope',
+            'rules.EV12.settlement-exception',
+            'rules.E74.projection-parity',
+            'rules.A01.inputs',
+            'rules.A06.projection-parity',
+            'rules.U03.inputs',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'recompute',
@@ -2652,8 +3309,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Projected Notoriety and queued Loyalty modifiers control applicability and clear stale penalties.',
           plannedTests: ['rules.U03.recompute'],
-          tests: ['rules.U03.recompute'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U03.recompute', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -2671,8 +3328,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Treasury below rank times 10 after recovery payments loses rolled 2d4 plus rank.',
           plannedTests: ['rules.U04.shortage', 'rules.U04.recovery-inputs'],
-          tests: ['rules.U04.shortage', 'rules.U04.recovery-inputs'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: [
+            'rules.U04.shortage',
+            'rules.U04.recovery-inputs',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'boundary',
@@ -2680,8 +3341,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Exactly minimum treasury avoids shortage; later deposits do not erase it.',
           plannedTests: ['rules.U04.boundary'],
-          tests: ['rules.U04.boundary'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U04.boundary', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'rank',
@@ -2689,8 +3350,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank increases use post-loss training, cross multiple thresholds and stop at PC cap.',
           plannedTests: ['rules.U04.rank'],
-          tests: ['rules.U04.rank'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U04.rank', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'boons',
@@ -2698,8 +3359,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each newly crossed boon is calculated immediately once.',
           plannedTests: ['rules.U04.boons'],
-          tests: ['rules.U04.boons'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.U04.boons', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -2725,8 +3386,9 @@ export const coverageCatalog = {
             'rules.U05.order',
             'rules.U05.overdraft',
             'rules.U05.officer-exception',
+            'rules.GATE.projection-parity',
           ],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          gap: null,
         },
         {
           id: 'preview',
@@ -2734,8 +3396,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Preview includes all deposits and withdrawals before Event Theft.',
           plannedTests: ['rules.U05.preview'],
-          tests: ['rules.U05.preview'],
-          gap: 'Incoming persistent Theft and Upkeep transfers covered in #67; subsequent Activity/Event resource ordering and Confirmation remain required.',
+          tests: ['rules.U05.preview', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'authority',
@@ -2743,8 +3405,15 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Allowed players can stage transfers; Confirmation applies them once under races.',
           plannedTests: ['rules.U05.authority'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P81.workspace',
+            'rules.P81.gateway',
+            'rules.P80.authority',
+            'rules.P80.atomic',
+            'rules.P06.baseline',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2772,8 +3441,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Activity costs precede Event Theft so theft uses remaining treasury.',
           plannedTests: ['rules.U06.cost-theft'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.P06.baseline', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'deposit-theft',
@@ -2781,8 +3450,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Deposits precede Event Theft and use persistent incoming-gain policy.',
           plannedTests: ['rules.U06.deposit-theft'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P06.baseline',
+            'rules.U05.preview',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'action-order',
@@ -2790,8 +3463,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Reordering two dependent actions changes the later result and availability.',
           plannedTests: ['rules.U06.action-order'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A06.capacity',
+            'rules.teams.action-upgrade-order',
+            'rules.economy.theft-order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -2799,8 +3477,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed preceding operations recompute later capacity and costs without stale gains.',
           plannedTests: ['rules.U06.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.recruit-then-act',
+            'rules.A17.ordered',
+            'rules.economy.theft-order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2818,8 +3501,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Moles are tier 1, size 3, Secrecy DC15.',
           plannedTests: ['rules.T01.recruit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.A14.checks.moles',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'upgrade',
@@ -2827,8 +3514,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Propagandists cost 250 gp; Saboteurs and Spies each cost 1000 gp.',
           plannedTests: ['rules.T01.upgrade'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.T03.upgrade',
+            'rules.teams.all-edges',
+            'rules.teams.definitions',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'inherit',
@@ -2836,8 +3528,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Both branches inherit all earlier actions; cross-tree and skipped-tier upgrades warn.',
           plannedTests: ['rules.T01.inherit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.teams.illegal-edges',
+            'rules.activity.acceptance-ready',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2855,8 +3552,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Informants are tier 1, size 6, Loyalty DC10.',
           plannedTests: ['rules.T02.recruit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.A14.checks.informants',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'upgrade',
@@ -2864,8 +3565,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Conspirators cost 250 gp; Scholars and Spellcasters each cost 1000 gp.',
           plannedTests: ['rules.T02.upgrade'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.all-edges',
+            'rules.teams.definitions',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'inherit',
@@ -2873,8 +3578,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Both branches inherit all earlier actions; invalid edges warn.',
           plannedTests: ['rules.T02.inherit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.teams.illegal-edges',
+            'rules.activity.acceptance-ready',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2892,8 +3602,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Defenders are tier 1, size 6, Security DC15.',
           plannedTests: ['rules.T03.recruit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.A14.checks.defenders',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'upgrade',
@@ -2901,8 +3615,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Infiltrators cost 250 gp; Guardians and Specialists each display and charge 1000 gp.',
           plannedTests: ['rules.T03.upgrade'],
-          tests: ['rules.T03.upgrade'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.T03.upgrade',
+            'rules.teams.all-edges',
+            'rules.teams.definitions',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'inherit',
@@ -2910,8 +3629,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Both military branches inherit all earlier actions.',
           plannedTests: ['rules.T03.inherit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.teams.illegal-edges',
+            'rules.activity.acceptance-ready',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2929,8 +3653,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Patrons are tier 1, size 6, Loyalty DC10.',
           plannedTests: ['rules.T04.recruit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.A14.checks.patrons',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'upgrade',
@@ -2938,8 +3666,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Merchants cost 50 gp; Black Marketeers and Fixers each cost 200 gp.',
           plannedTests: ['rules.T04.upgrade'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.all-edges',
+            'rules.teams.definitions',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'inherit',
@@ -2947,8 +3679,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Both treasury branches inherit all earlier actions.',
           plannedTests: ['rules.T04.inherit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.definitions',
+            'rules.teams.illegal-edges',
+            'rules.activity.acceptance-ready',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -2966,8 +3703,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful new tier-1 recruits can act immediately when slots remain.',
           plannedTests: ['rules.T05.recruit-act'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.recruit-then-act',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failed-recruit',
@@ -2975,8 +3715,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed recruitment creates no team to act.',
           plannedTests: ['rules.T05.failed-recruit'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.recruit-then-act',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'upgrade-act',
@@ -2984,8 +3727,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: An upgraded team cannot act that Activity; ordered prior actions remain accounted for.',
           plannedTests: ['rules.T05.upgrade-act'],
-          tests: ['rules.T05.upgrade-act'],
-          gap: 'Pure foundation projection covered in #66; phase integration and Confirmation parity remain required.',
+          tests: [
+            'rules.T05.upgrade-act',
+            'rules.teams.action-upgrade-order',
+            'rules.teams.all-edges',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'repeat-upgrade',
@@ -2993,8 +3741,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each team upgrades at most once per week; different teams can upgrade independently.',
           plannedTests: ['rules.T05.repeat-upgrade'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.independent-upgrades',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3031,8 +3782,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One team normally takes one Activity action; two teams can select the same repeatable action.',
           plannedTests: ['rules.T06.team-use'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.use-eligibility',
+            'rules.P82.cards',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'capability',
@@ -3040,8 +3795,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Team capability, condition and slot allowance produce specific eligibility warnings.',
           plannedTests: ['rules.T06.capability'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.use-eligibility',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'lie-low',
@@ -3049,8 +3808,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Lie Low excludes other Activity actions.',
           plannedTests: ['rules.T06.lie-low'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A12.exclusivity', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'drill',
@@ -3058,8 +3817,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Drill appears at most once per Activity.',
           plannedTests: ['rules.T06.drill'],
-          tests: ['rules.T06.drill-once'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.T06.drill-once', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'exception',
@@ -3067,8 +3826,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: A shared reasoned Rules Exception permits an unusual choice without changing arithmetic.',
           plannedTests: ['rules.T06.exception'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.use-eligibility',
+            'rules.A12.exclusivity',
+            'rules.P82.workspace',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3095,8 +3859,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Disabled teams cannot act until recovery.',
           plannedTests: ['rules.T07.disabled'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.T07.individual-cost',
+            'rules.teams.use-eligibility',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'payment',
@@ -3104,8 +3872,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each selected disabled team recovers at start-Upkeep for current minimum treasury.',
           plannedTests: ['rules.T07.payment'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.T07.individual-cost',
+            'rules.T07.same-week',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'narrative',
@@ -3113,8 +3885,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Narrative recovery records adjudication and enables same-week action.',
           plannedTests: ['rules.T07.narrative'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.T07.same-week',
+            'rules.P81.recovery-adjustment',
+            'rules.P81.recovery-arbitration',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'funds',
@@ -3122,8 +3899,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Insufficient recovery funds produce an advisory warning and exception path.',
           plannedTests: ['rules.T07.funds'],
-          tests: ['rules.T07.funds'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: ['rules.T07.funds', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3141,8 +3918,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Security DC15 returns a missing team at end-week, unavailable during Activity.',
           plannedTests: ['rules.T08.return', 'rules.T08.manager-scope'],
-          tests: ['rules.T08.return', 'rules.T08.manager-scope'],
-          gap: 'Upkeep projection covered in #67; Workspace and whole-week Confirmation integration remain required.',
+          tests: [
+            'rules.T08.return',
+            'rules.T08.manager-scope',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3150,8 +3931,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Total 14 fails recovery; natural 1 permanently loses the team even with a high modifier.',
           plannedTests: ['rules.T08.failure'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.T08.return',
+            'rules.T08.natural-one',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'capacity',
@@ -3159,8 +3944,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing teams still count toward capacity.',
           plannedTests: ['rules.T08.capacity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A06.capacity',
+            'rules.F05.rewards',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'ordering',
@@ -3168,8 +3957,18 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Scheduled return, Sickness and Turn Around use explicit ordered condition outcomes.',
           plannedTests: ['rules.T08.ordering'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV18.ordering',
+            'rules.E03.outcome-replacement',
+            'rules.E03.replacement-sabotage',
+            'rules.E03.replacement-duplicates',
+            'rules.E75.projection-parity',
+            'rules.T08.condition-order',
+            'rules.EV13.no-early-return',
+            'rules.EV13.new-absence',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3233,8 +4032,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Conspirators, Scholars or Spellcasters make Hostile or Unfriendly refuge reputation one step better.',
           plannedTests: ['rules.A02.reputation'],
-          tests: ['rules.A02.reputation', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A02.reputation',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'duration',
@@ -3242,8 +4045,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Refuge activation or renewal lasts one week.',
           plannedTests: ['rules.A02.duration'],
-          tests: ['rules.A02.duration', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A15.duration',
+            'rules.A06.projection-parity',
+            'rules.A02.duration',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'interactions',
@@ -3251,8 +4059,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Active refuge is available to same-week rescue and scoped Raid outcomes.',
           plannedTests: ['rules.A02.interactions'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A02.rescue-order',
+            'rules.A17.ordered',
+            'rules.EV15.base',
+            'rules.settlements.prices',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3297,7 +4111,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Market duration and delivered item availability follow the source without duplicate receipt.',
           plannedTests: ['rules.A03.expiry'],
-          tests: ['rules.A03.expiry', 'rules.A06.projection-parity'],
+          tests: [
+            'rules.EV24.twice',
+            'rules.E76.projection-parity',
+            'rules.A03.expiry',
+            'rules.A06.projection-parity',
+          ],
           gap: null,
         },
       ],
@@ -3316,8 +4135,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One no-team action changes one PC role; ally or cohort departure needs Rules Exception.',
           plannedTests: ['rules.A04.pc'],
-          tests: ['rules.A04.pc'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A04.pc', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'move',
@@ -3325,8 +4144,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Move or unassign preserves character records.',
           plannedTests: ['rules.A04.move'],
-          tests: ['rules.A04.pc', 'rules.A04.order'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A04.pc',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'order',
@@ -3334,8 +4157,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Role changes affect later checks and consume their own actions.',
           plannedTests: ['rules.A04.order'],
-          tests: ['rules.A04.order'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.EV20.order',
+            'rules.E74.projection-parity',
+            'rules.A04.order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3353,7 +4181,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Spies give manager Charisma to all d20 rolls of the immediately following action only.',
           plannedTests: ['rules.A05.next'],
-          tests: ['rules.A05.next', 'rules.A72.projection-parity'],
+          tests: [
+            'rules.E88.covert-cap',
+            'rules.A05.next',
+            'rules.A72.projection-parity',
+          ],
           gap: null,
         },
         {
@@ -3362,7 +4194,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful target action produces no action Notoriety, including natural-1 success.',
           plannedTests: ['rules.A05.success'],
-          tests: ['rules.A05.success', 'rules.A72.projection-parity'],
+          tests: [
+            'rules.E88.covert-cap',
+            'rules.A05.success',
+            'rules.A72.projection-parity',
+          ],
           gap: null,
         },
         {
@@ -3371,7 +4207,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed target action keeps its Notoriety; unrelated same-type actions gain no benefit.',
           plannedTests: ['rules.A05.failure'],
-          tests: ['rules.A05.failure', 'rules.A72.projection-parity'],
+          tests: [
+            'rules.E88.covert-cap',
+            'rules.A05.failure',
+            'rules.A72.projection-parity',
+          ],
           gap: null,
         },
         {
@@ -3408,8 +4248,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty DC10 removes the chosen team.',
           plannedTests: ['rules.A06.success'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A06.success-repeat', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3417,8 +4257,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A06.failure'],
-          tests: ['rules.A06.failure', 'rules.A06.projection-parity'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A06.failure',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'capacity',
@@ -3426,8 +4270,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice.',
           plannedTests: ['rules.A06.capacity'],
-          tests: ['rules.A06.capacity'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A06.capacity',
+            'rules.A06.success-repeat',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3445,8 +4293,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: One no-team Drill costs rank times 10 gp even on failure.',
           plannedTests: ['rules.A07.cost'],
-          tests: ['rules.A07.cost'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A07.cost', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'success',
@@ -3454,8 +4302,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice.',
           plannedTests: ['rules.A07.success'],
-          tests: ['rules.A07.success', 'rules.activity.persistent.low_morale'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A07.success',
+            'rules.activity.persistent.low_morale',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'natural-one',
@@ -3463,8 +4315,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 can succeed but also adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A07.natural-one'],
-          tests: ['rules.A07.natural-one'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A14.natural-one',
+            'rules.A07.natural-one',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'maximum',
@@ -3472,8 +4328,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: At maximum rank Drill is unavailable by baseline with a reasoned exception path.',
           plannedTests: ['rules.A07.maximum'],
-          tests: ['rules.T06.drill-once'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.T06.drill-once', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'removed',
@@ -3481,8 +4337,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Removing or failing Drill removes its gain; no staged Drill means no Drill training.',
           plannedTests: ['rules.A07.removed'],
-          tests: ['rules.A07.natural-one', 'rules.A07.cost'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A08.removed',
+            'rules.A06.projection-parity',
+            'rules.A07.natural-one',
+            'rules.A07.cost',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3509,7 +4371,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 still earns gold and adds rolled 1d6 Notoriety.',
           plannedTests: ['rules.A08.natural-one'],
-          tests: ['rules.A08.natural-one', 'rules.A06.projection-parity'],
+          tests: [
+            'rules.A09.information',
+            'rules.A08.natural-one',
+            'rules.A06.projection-parity',
+          ],
           gap: null,
         },
         {
@@ -3518,7 +4384,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Queued and manager bonuses affect earned gold exactly once per team.',
           plannedTests: ['rules.A08.composition'],
-          tests: ['rules.A08.composition', 'rules.A06.projection-parity'],
+          tests: [
+            'rules.A18.composition',
+            'rules.A72.projection-parity',
+            'rules.A08.composition',
+            'rules.A06.projection-parity',
+          ],
           gap: null,
         },
         {
@@ -3546,8 +4417,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Intelligence teams add twice their tier to Secrecy against DC15.',
           plannedTests: ['rules.A09.tiers'],
-          tests: ['rules.A09.information'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A09.information',
+            'rules.A09.boundaries',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'natural-one',
@@ -3555,8 +4430,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 is not automatic failure and adds 1d6 Notoriety.',
           plannedTests: ['rules.A09.natural-one'],
-          tests: ['rules.A09.information'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A09.information',
+            'rules.A09.boundaries',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'acknowledgement',
@@ -3564,8 +4443,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful intelligence requires recorded GM outcome acknowledgement.',
           plannedTests: ['rules.A09.acknowledgement'],
-          tests: ['rules.A17.stale'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A17.stale', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'repeat',
@@ -3573,8 +4452,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Separate teams retain independent checks and outcomes.',
           plannedTests: ['rules.A09.repeat'],
-          tests: ['rules.A09.repeat'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A09.repeat', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3638,8 +4517,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Scholars add rank to modified Secrecy total to determine achieved Knowledge DC.',
           plannedTests: ['rules.A11.dc'],
-          tests: ['rules.A11.knowledge'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A11.knowledge', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'record',
@@ -3647,8 +4526,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Identification or evaluation outcome and acknowledgement remain in confirmed source.',
           plannedTests: ['rules.A11.record'],
-          tests: ['rules.A11.knowledge', 'rules.A17.stale'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A11.knowledge',
+            'rules.A17.stale',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3666,8 +4549,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Lie Low is normally the only Activity action.',
           plannedTests: ['rules.A12.exclusive'],
-          tests: ['rules.A12.exclusivity'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A12.exclusivity', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'count',
@@ -3675,8 +4558,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Notoriety reduction counts active, disabled, missing and bonus teams.',
           plannedTests: ['rules.A12.count'],
-          tests: ['rules.A12.exclusivity'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A12.exclusivity',
+            'rules.A12.count-floor',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'floor',
@@ -3684,8 +4571,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Zero teams reduces nothing; reduction below zero stops at baseline zero.',
           plannedTests: ['rules.A12.floor'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.A12.count-floor', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'exception',
@@ -3693,8 +4580,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Additional actions require a reasoned Rules Exception without rewriting the reduction.',
           plannedTests: ['rules.A12.exception'],
-          tests: ['rules.A12.exclusivity'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A12.exclusivity', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -3755,8 +4642,9 @@ export const coverageCatalog = {
             'rules.A14.checks.informants',
             'rules.A14.checks.moles',
             'rules.A14.checks.defenders',
+            'rules.GATE.projection-parity',
           ],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          gap: null,
         },
         {
           id: 'capacity',
@@ -3764,8 +4652,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure.',
           plannedTests: ['rules.A14.capacity'],
-          tests: ['rules.A06.capacity'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A06.capacity', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'natural-one',
@@ -3773,8 +4661,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Natural 1 can succeed but adds 1d6 Notoriety.',
           plannedTests: ['rules.A14.natural-one'],
-          tests: ['rules.A14.natural-one'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A14.natural-one', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'identity',
@@ -3782,8 +4670,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful repeated types create independent teams that may act immediately.',
           plannedTests: ['rules.A14.identity'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.A06.capacity',
+            'rules.teams.recruit-then-act',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3801,8 +4693,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Military team Security DC15 gives temporary +1 settlement reputation and open movement reminder.',
           plannedTests: ['rules.A15.success'],
-          tests: ['rules.A15.success', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A15.success',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3810,8 +4706,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Total 14 adds 1d4 Notoriety without a reputation gain.',
           plannedTests: ['rules.A15.failure'],
-          tests: ['rules.A15.failure', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A15.failure',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'duration',
@@ -3819,8 +4719,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Temporary shift expires after one week and respects secured-town context.',
           plannedTests: ['rules.A15.duration'],
-          tests: ['rules.A15.duration', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A15.duration',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'theft',
@@ -3828,8 +4732,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Successful Reduce Danger permanently ends applicable persistent Theft.',
           plannedTests: ['rules.A15.theft'],
-          tests: ['rules.A15.theft', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A15.theft',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3847,8 +4755,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Upgraded military team Security DC10 plus level rescues to a valid location/refuge and adds level Notoriety.',
           plannedTests: ['rules.A16.success'],
-          tests: ['rules.A16.rescue', 'rules.A17.ordered'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A16.rescue',
+            'rules.A17.ordered',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'failure',
@@ -3856,8 +4768,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Failed rescue adds floor(level divided by 2) Notoriety.',
           plannedTests: ['rules.A16.failure'],
-          tests: ['rules.A16.rescue'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A16.rescue', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'targets',
@@ -3865,8 +4777,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Missing or invalid target and inactive destination block completion; direct rescue records GM adjudication.',
           plannedTests: ['rules.A16.targets'],
-          tests: ['rules.A16.eligibility', 'rules.A71.inputs'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A16.eligibility',
+            'rules.A71.inputs',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'modifiers',
@@ -3874,8 +4790,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Raid DC override and Covert Action suppression apply once.',
           plannedTests: ['rules.A16.modifiers'],
-          tests: ['rules.A16.rescue', 'rules.A16.raid-expiry'],
-          gap: 'Raid DC and expiry covered in #71; Covert suppression follows in #72, then full Workspace and Confirmation.',
+          tests: [
+            'rules.A16.rescue',
+            'rules.A16.raid-expiry',
+            'rules.A05.raid',
+            'rules.A05.success',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -3893,8 +4815,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Spellcasters provide the prescribed free party restoration modes.',
           plannedTests: ['rules.A17.party'],
-          tests: ['rules.A17.restore', 'rules.A17.multiple', 'rules.A17.death'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A17.restore',
+            'rules.A17.multiple',
+            'rules.A17.death',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'single',
@@ -3902,8 +4829,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Single-target restoration modes cost 1125, 6125, 1700 or 1650 gp as specified.',
           plannedTests: ['rules.A17.single'],
-          tests: ['rules.A17.restore', 'rules.A17.death'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A17.restore',
+            'rules.A17.death',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'presence',
@@ -3911,8 +4842,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Required body must be at HQ or active refuge; captured or invalid targets need correction.',
           plannedTests: ['rules.A17.presence'],
-          tests: ['rules.A17.readiness', 'rules.A17.ordered'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A17.readiness',
+            'rules.A17.ordered',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'multiple',
@@ -3920,8 +4855,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple restorations sum their distinct costs and retain custom adjudication reasons.',
           plannedTests: ['rules.A17.multiple'],
-          tests: ['rules.A17.multiple', 'rules.A17.readiness'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A17.multiple',
+            'rules.A17.readiness',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4066,8 +5005,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Special action records GM-defined description and outcome acknowledgement.',
           plannedTests: ['rules.A20.description'],
-          tests: ['rules.A20.special', 'rules.A17.stale', 'rules.A71.inputs'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A20.special',
+            'rules.A17.stale',
+            'rules.A71.inputs',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'adjustments',
@@ -4075,8 +5019,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Zero or nonzero cost/results are explicit; outcome adjustments and eligibility exceptions remain distinct.',
           plannedTests: ['rules.A20.adjustments'],
-          tests: ['rules.A20.special', 'rules.A17.readiness'],
-          gap: 'Explicit Special cost and unchanged rules baseline covered in #71; whole-week Table Adjustment application remains the Resolution checkpoint.',
+          tests: [
+            'rules.A20.special',
+            'rules.A17.readiness',
+            'rules.P06.baseline',
+            'rules.teams.use-eligibility',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4173,8 +5123,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Espionage tier-2/3 pays 100 gp and rolls Loyalty DC20 or DC25 under occupation.',
           plannedTests: ['rules.A22.check'],
-          tests: ['rules.A22.check', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A22.check',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'attempt',
@@ -4182,8 +5136,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each settlement allows one attempt per Activity even on failure; two settlements are independent.',
           plannedTests: ['rules.A22.attempt'],
-          tests: ['rules.A22.attempt', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A22.attempt',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'success',
@@ -4191,8 +5149,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Success improves permanent reputation by one step up to Helpful.',
           plannedTests: ['rules.A22.success'],
-          tests: ['rules.A22.success', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A22.success',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'adjudication',
@@ -4200,8 +5162,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: GM-disallowed or impossible targets show exception path; malformed references still block.',
           plannedTests: ['rules.A22.adjudication'],
-          tests: ['rules.A22.adjudication', 'rules.A06.projection-parity'],
-          gap: 'Canonical #70 outcomes covered; complete Resolution, supported Workspace cutover and persistent successor integration remain required.',
+          tests: [
+            'rules.A22.adjudication',
+            'rules.A06.projection-parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4219,8 +5185,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds.',
           plannedTests: ['rules.A23.combat'],
-          tests: ['rules.A23.support'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A23.support', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'rank-one',
@@ -4228,8 +5194,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Rank 1 provides zero rounds without an explicit adjustment.',
           plannedTests: ['rules.A23.rank-one'],
-          tests: ['rules.A23.support'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A23.support', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'extraction',
@@ -4237,8 +5203,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Alternative records stabilization, gentle repose CL12 and body extraction.',
           plannedTests: ['rules.A23.extraction'],
-          tests: ['rules.A23.support'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: ['rules.A23.support', 'rules.GATE.projection-parity'],
+          gap: null,
         },
         {
           id: 'duration',
@@ -4246,8 +5212,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Support lasts following week, requires location and once-use acknowledgement.',
           plannedTests: ['rules.A23.duration'],
-          tests: ['rules.A23.support', 'rules.A71.inputs', 'rules.A17.stale'],
-          gap: 'Pure ordered Activity outcome and stored-source browser/Convex parity covered in #71; full Workspace, Confirmation and successor application remain later checkpoints.',
+          tests: [
+            'rules.A23.support',
+            'rules.A71.inputs',
+            'rules.A17.stale',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4265,8 +5236,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No-team Upgrade uses the selected valid tree edge and listed cost.',
           plannedTests: ['rules.A24.edges'],
-          tests: ['rules.A24.tree'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: [
+            'rules.A24.tree',
+            'rules.teams.all-edges',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'per-team',
@@ -4274,8 +5249,11 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple distinct teams may upgrade but one team cannot upgrade twice per week.',
           plannedTests: ['rules.A24.per-team'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.independent-upgrades',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'preserve',
@@ -4283,8 +5261,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Upgrade preserves manager and inherited capabilities while preventing same-Activity action.',
           plannedTests: ['rules.A24.preserve'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.teams.all-edges',
+            'rules.teams.definitions',
+            'rules.teams.action-upgrade-order',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'warning',
@@ -4292,8 +5275,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Insufficient funds or illegal edge needs explicit exception; malformed target blocks.',
           plannedTests: ['rules.A24.warning'],
-          tests: ['rules.A24.warning'],
-          gap: 'Canonical ordered Activity projection covered in #68; live Workspace and Confirmation integration remain required.',
+          tests: ['rules.A24.warning', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -4367,8 +5350,36 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Every Table 6-3 lower and upper endpoint maps to its specified event.',
           plannedTests: ['rules.E02.intervals'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E02.interval-1-4',
+            'rules.E02.interval-5-12',
+            'rules.E02.interval-13-16',
+            'rules.E02.interval-17-20',
+            'rules.E02.interval-21-24',
+            'rules.E02.interval-25-28',
+            'rules.E02.interval-29-32',
+            'rules.E02.interval-33-36',
+            'rules.E02.interval-37-40',
+            'rules.E02.interval-41-44',
+            'rules.E02.interval-45-48',
+            'rules.E02.interval-49-52',
+            'rules.E02.interval-53-56',
+            'rules.E02.interval-57-60',
+            'rules.E02.interval-61-64',
+            'rules.E02.interval-65-68',
+            'rules.E02.interval-69-72',
+            'rules.E02.interval-73-76',
+            'rules.E02.interval-77-80',
+            'rules.E02.interval-81-84',
+            'rules.E02.interval-85-88',
+            'rules.E02.interval-89-96',
+            'rules.E02.interval-97-99',
+            'rules.E02.interval-100-100',
+            'rules.E02.integrity',
+            'rules.E02.parity',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'integrity',
@@ -4620,7 +5631,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Events with no eligible roster, cache, refuge or town require replacement rolls.',
           plannedTests: ['rules.E03.eligibility'],
-          tests: ['rules.E03.eligibility', 'rules.E03.candidates'],
+          tests: [
+            'rules.P01.eligibility',
+            'rules.P77.projection-parity',
+            'rules.E03.eligibility',
+            'rules.E03.candidates',
+          ],
           gap: null,
         },
         {
@@ -4629,8 +5645,16 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Inaccessible targets cannot silently stand in for eligible targets.',
           plannedTests: ['rules.E03.targets'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E03.eligibility',
+            'rules.E03.nested',
+            'rules.EV13.inputs',
+            'rules.EV12.operation-scope',
+            'rules.EV12.settlement-exception',
+            'rules.E03.outcome-replacement',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'nested',
@@ -4779,8 +5803,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Only due-week queued effects apply; future effects remain and consumed effects expire.',
           plannedTests: ['rules.E06.due'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E01.queued',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'automatic',
@@ -4788,8 +5816,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Multiple automatic events and normal event keep separate rolls and source order.',
           plannedTests: ['rules.E06.automatic'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E04.independent',
+            'rules.EV04.twice',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'preserve',
@@ -4797,8 +5830,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Cutover preserves source, age and due context without running effects.',
           plannedTests: ['rules.E06.preserve'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'context.events-assets',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: 'Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover.',
         },
         {
           id: 'retry',
@@ -4806,8 +5843,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Retries do not apply queued effects twice.',
           plannedTests: ['rules.E06.retry'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E88.complete',
+            'rules.P80.atomic',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4825,8 +5866,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each queued modifier applies only to its prescribed phase and check type.',
           plannedTests: ['rules.E07.phase'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E07.phase',
+            'rules.EV23.expiry',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'once',
@@ -4834,8 +5879,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Officer, manager and queue modifiers compose once with positive and negative values.',
           plannedTests: ['rules.E07.once'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.F03.composition',
+            'rules.A18.composition',
+            'rules.A18.carried',
+            'rules.E07.phase',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'one-check',
@@ -4843,8 +5894,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Team one-check bonus is consumed by one eligible check.',
           plannedTests: ['rules.E07.one-check'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV20.none',
+            'rules.P78.consumables',
+            'rules.P78.consumable-targets',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'stale',
@@ -4852,8 +5908,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Disabled or deselected secondary inputs cannot contribute hidden modifiers.',
           plannedTests: ['rules.E07.stale'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E07.stale',
+            'rules.A18.failure',
+            'rules.A18.composition',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -4880,7 +5941,29 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Twice forces the same result next week without chance roll or uneventful carry chain.',
           plannedTests: ['rules.EV01.twice'],
-          tests: ['rules.EV01.twice', 'rules.E74.projection-parity'],
+          tests: [
+            'rules.EV24.twice',
+            'rules.E76.projection-parity',
+            'rules.EV23.twice',
+            'rules.EV21.twice',
+            'rules.E75.projection-parity',
+            'rules.EV18.twice',
+            'rules.EV16.twice',
+            'rules.EV16.check',
+            'rules.EV14.twice',
+            'rules.E74.projection-parity',
+            'rules.EV13.twice',
+            'rules.EV12.twice',
+            'rules.EV11.twice',
+            'rules.EV09.twice',
+            'rules.EV08.twice',
+            'rules.EV07.twice',
+            'rules.EV06.twice',
+            'rules.EV04.twice',
+            'rules.EV03.twice',
+            'rules.EV02.twice',
+            'rules.EV01.twice',
+          ],
           gap: null,
         },
         {
@@ -4967,7 +6050,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No eligible caches requires reroll.',
           plannedTests: ['rules.EV03.empty'],
-          tests: ['rules.EV03.empty', 'rules.E75.projection-parity'],
+          tests: [
+            'rules.EV20.empty',
+            'rules.E74.projection-parity',
+            'rules.EV15.empty',
+            'rules.E75.projection-parity',
+            'rules.EV13.empty',
+            'rules.EV03.empty',
+          ],
           gap: null,
         },
         {
@@ -5026,7 +6116,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Order-sensitive outcomes use independent rolls and do not create uneventful carry.',
           plannedTests: ['rules.EV04.order'],
-          tests: ['rules.EV04.twice', 'rules.E76.projection-parity'],
+          tests: [
+            'rules.P07.order',
+            'rules.EV20.order',
+            'rules.E74.projection-parity',
+            'rules.EV19.base',
+            'rules.E76.projection-parity',
+            'rules.EV04.twice',
+          ],
           gap: null,
         },
       ],
@@ -5055,9 +6152,11 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Twice keeps the restriction and single -2 penalty across all affected weeks.',
           plannedTests: ['rules.EV05.persistent'],
           tests: [
+            'rules.EV19.twice',
+            'rules.EV19.ending',
+            'rules.E76.projection-parity',
             'rules.EV05.twice',
             'rules.EV05.single-penalty',
-            'rules.E76.projection-parity',
           ],
           gap: null,
         },
@@ -5067,8 +6166,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ending or buyoff removes future restriction and penalty.',
           plannedTests: ['rules.EV05.end'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV05.exception',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'exception',
@@ -5076,8 +6179,8 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Staged cache action remains visible with warning and reasoned exception path.',
           plannedTests: ['rules.EV05.exception'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: ['rules.EV05.exception', 'rules.GATE.projection-parity'],
+          gap: null,
         },
       ],
     },
@@ -5114,10 +6217,12 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Town selection, duration and acknowledgement are recorded.',
           plannedTests: ['rules.EV06.record'],
           tests: [
+            'rules.EV14.record',
+            'rules.E74.projection-parity',
+            'rules.EV07.record',
             'rules.EV06.record',
             'rules.EV06.operation-scope',
             'rules.EV12.settlement-exception',
-            'rules.E74.projection-parity',
           ],
           gap: null,
         },
@@ -5242,8 +6347,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Ended event modifiers are removed from dependent checks.',
           plannedTests: ['rules.EV09.recompute'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV09.recompute',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5279,7 +6388,12 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No Twice clause means two independent encounters.',
           plannedTests: ['rules.EV10.duplicate'],
-          tests: ['rules.EV10.duplicate', 'rules.E75.projection-parity'],
+          tests: [
+            'rules.EV22.duplicate',
+            'rules.E74.projection-parity',
+            'rules.EV10.duplicate',
+            'rules.E75.projection-parity',
+          ],
           gap: null,
         },
       ],
@@ -5316,8 +6430,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: First and later weeks affect relevant Loyalty checks until ending.',
           plannedTests: ['rules.EV11.duration'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV11.duration',
+            'rules.EV11.base',
+            'rules.EV11.twice',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5363,6 +6482,8 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Missing target blocks completion and discount expires at prescribed time.',
           plannedTests: ['rules.EV12.inputs'],
           tests: [
+            'rules.EV21.inputs',
+            'rules.E75.projection-parity',
             'rules.EV12.inputs',
             'rules.EV12.operation-scope',
             'rules.EV12.settlement-exception',
@@ -5558,8 +6679,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Each of the three skills fails at 19 and ends at 20.',
           plannedTests: ['rules.EV16.boundary'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P02.rivalry.bluff',
+            'rules.P02.rivalry.diplomacy',
+            'rules.P02.rivalry.intimidate',
+            'rules.EV16.check',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'empty',
@@ -5567,8 +6694,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Insufficient eligible teams requires reroll; ending releases both targets.',
           plannedTests: ['rules.EV16.empty'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E03.eligibility',
+            'rules.P02.rivalry.bluff',
+            'rules.P02.rivalry.diplomacy',
+            'rules.P02.rivalry.intimidate',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5586,8 +6719,14 @@ export const coverageCatalog = {
           expected:
             "Phase View / Resolution Preview: Roll Twice produces two valid outcomes with each event's own Twice policy.",
           plannedTests: ['rules.EV17.expansion'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E04.two',
+            'rules.E04.no-clause',
+            'rules.E04.clause',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'reroll',
@@ -5595,8 +6734,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Repeated Roll Twice outcomes are rerolled.',
           plannedTests: ['rules.EV17.reroll'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E04.reroll',
+            'rules.E03.nested',
+            'rules.EV04.replacement',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
         {
           id: 'namespace',
@@ -5604,8 +6748,14 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Normal and automatic events retain independent occurrence identities.',
           plannedTests: ['rules.EV17.namespace'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.E04.independent',
+            'rules.EV04.twice',
+            'rules.EV04.replacement',
+            'rules.E88.complete',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -5899,8 +7049,15 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Effects expire after next week and retain correct composition with Serenity.',
           plannedTests: ['rules.EV23.expiry'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.EV23.serenity-composition',
+            'rules.EV24.twice',
+            'rules.E76.projection-parity',
+            'rules.EV23.expiry',
+            'rules.EV23.twice',
+            'rules.GATE.projection-parity',
+          ],
+          gap: null,
         },
       ],
     },
@@ -6109,8 +7266,16 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Buyoff remains staged until exact Confirmation and competing player edits cannot double-spend.',
           plannedTests: ['rules.P03.stage'],
-          tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          tests: [
+            'rules.P03.first',
+            'rules.P84.decisions',
+            'rules.E88.complete',
+            'rules.P80.atomic',
+            'rules.GATE.projection-parity',
+            'rules.P79.contract',
+            'rules.P80.contract',
+          ],
+          gap: null,
         },
       ],
     },
@@ -6389,8 +7554,12 @@ export const coverageCatalog = {
             'rules.P06.full-plan',
             'rules.P06.compound-state',
             'rules.P78.projection-parity',
+            'rules.GATE.projection-parity',
+            'rules.P80.atomic',
+            'rules.P80.rollback',
           ],
-          gap: 'Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.',
+          gap: null,
+          serviceTests: ['live.confirmation'],
         },
         {
           id: 'baseline',
@@ -6407,8 +7576,15 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Confirmation applies the reviewed plan with no hidden writes or double-applied resource totals.',
           plannedTests: ['rules.P06.no-hidden'],
-          tests: ['rules.P06.no-hidden'],
-          gap: 'Pure full-state plan and stored record agree; deployed atomic campaign application is the checkpoint 6 Persistence gate.',
+          tests: [
+            'rules.P06.no-hidden',
+            'rules.P06.compound-state',
+            'rules.GATE.projection-parity',
+            'rules.P80.atomic',
+            'rules.P80.rollback',
+          ],
+          gap: null,
+          serviceTests: ['live.confirmation'],
         },
       ],
     },
@@ -6772,7 +7948,7 @@ export const coverageCatalog = {
             'initialization.unknown-end',
             'initialization.source-size',
           ],
-          gap: 'Isolated initializer evidence from #65; deployment pause, legacy-write rejection and recovery rehearsal remain for the cutover checkpoint.',
+          gap: 'Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90.',
         },
         {
           id: 'no-execution',
@@ -6790,7 +7966,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Server rejects legacy writes; pre-reopen recovery restores compatible state without losing newly accepted work.',
           plannedTests: ['rules.P11.legacy'],
           tests: [],
-          gap: 'Replacement outcome test not yet mapped; see audit remainingCases for additional permutations.',
+          gap: 'Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.',
         },
       ],
     },
@@ -6816,9 +7992,10 @@ export const coverageCatalog = {
             'rules.P83.workspace',
             'rules.P84.workspace',
             'rules.P85.summary',
+            'rules.GATE.projection-parity',
           ],
           serviceTests: ['live.workspace', 'live.confirmation'],
-          gap: 'Upkeep and compound weekly browser-build/stored-source parity plus Workspace phase tests are mapped; a complete shared fixture matrix through browser Workspace and deployed Confirmation for all rules permutations is not established.',
+          gap: null,
         },
         {
           id: 'adapter-contract',

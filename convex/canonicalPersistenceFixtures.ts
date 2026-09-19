@@ -426,3 +426,29 @@ export const initializeUpkeep = internalMutation({
     return key;
   },
 });
+
+// Test-only source installation remains bound to the owned disposable campaign.
+export const installAcceptanceSource = internalMutation({
+  args: zodOutputToConvex(
+    lifecycleArgs.extend({
+      draft: weeklyDraftDataSchema,
+      snapshot: militiaSnapshotSchema,
+    }),
+  ),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { state, row } = await ownedSource(ctx, args);
+    if (row.status !== 'open' || row.revision !== 0 || state.revision !== 0)
+      throw new Error('Acceptance source requires a fresh fixture');
+    if (args.draft.draftId !== row.draftId || args.draft.revision !== 0)
+      throw new Error('Acceptance draft identity mismatch');
+    const draft = weeklyDraftDataSchema.parse(args.draft);
+    const snapshot = militiaSnapshotSchema.parse(args.snapshot);
+    await ctx.db.patch('canonicalMilitiaState', state._id, { snapshot });
+    await ctx.db.patch('canonicalWeeklyDraft', row._id, {
+      draft,
+      initialDraft: draft,
+    });
+    return null;
+  },
+});

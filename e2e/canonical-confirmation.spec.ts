@@ -1,3 +1,5 @@
+import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
+import { compoundAcceptanceFixture } from '../tests/rules/compound-acceptance-fixture';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { ConvexClient } from 'convex/browser';
@@ -111,6 +113,62 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       };
     };
     await runConfirmationContract(confirmationHarness);
+    // One authored compound week exercises every stored ledger and retained reason.
+    const compound = compoundAcceptanceFixture();
+    const compoundKey = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'resetAndInitialize', {
+        scope: ownedCase.scope,
+        now: 1_700_000_000_000,
+        draftId: compound.input.revision.draftId,
+      }),
+    );
+    await canonicalPersistenceFixtureCall(run, 'installAcceptanceSource', {
+      ...compoundKey,
+      scope: ownedCase.scope,
+      draft: weeklyDraftDataSchema.parse(compound.input.revision),
+      snapshot: compound.input.militiaSnapshot,
+    });
+    const compoundTransport = createConvexDraftTransport(first, compoundKey);
+    const compoundReview = await compoundTransport.preview();
+    expect(compoundReview.status).toBe('ready');
+    expect(compoundReview.outcome).toEqual(compound.expected);
+    const compoundReceipt = await compoundTransport.confirm({
+      operationId: randomUUID(),
+      reviewed: compoundReview.reviewed,
+    });
+    const compoundStored = confirmationInspectionSchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'inspect', {
+        ...compoundKey,
+        scope: ownedCase.scope,
+      }),
+    );
+    expect(compoundStored.snapshot).toEqual(compound.expected.militiaSnapshot);
+    expect(compoundReceipt.record.source).toEqual(compound.input.revision);
+    expect(compoundReceipt.record.sourceMilitiaSnapshot).toEqual(
+      compound.input.militiaSnapshot,
+    );
+    expect(compoundReceipt.record.finalOutcome.data).toEqual(compound.expected);
+    expect(compoundReceipt.record.finalPlan.data.before).toEqual(
+      compound.before,
+    );
+    expect(compoundReceipt.record.finalPlan.data.after).toEqual(
+      compound.expected,
+    );
+    expect(compoundReceipt.record.baselinePlan.data.after).toEqual(
+      compoundReview.baseline,
+    );
+    expect(compoundReceipt.record.adjudication.tableAdjustments).toEqual(
+      compound.input.revision.tableAdjustments,
+    );
+    expect(compoundReceipt.record.adjudication.rulesExceptions).toEqual(
+      compound.input.revision.rulesExceptions,
+    );
+    expect(compoundStored.records).toEqual([compoundReceipt.record]);
+    expect(compoundStored.openDrafts).toEqual([compoundReceipt.successor]);
+    expect(compoundReceipt.successor.context).toEqual({
+      ...compound.expected.context,
+      persistentPhaseEligible: false,
+    });
     const literal = await confirmationHarness(true);
     try {
       const initial = await literal.first.read();

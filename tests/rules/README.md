@@ -14,8 +14,9 @@ The GitHub workflow runs this gate and uploads both artifacts. No deployment,
 credentials or live campaign writes are involved.
 
 Run `pnpm -s rules:complete` for the final strict gate. It intentionally fails today:
-replacement behavior, parity/adapter/browser suites and full-corpus human review
-remain explicit gaps. Passing the extraction gate does not mean rules completeness
+human corpus review, two interpretation decisions, and the separately scoped
+cutover/recovery rehearsal remain explicit gaps. Shared fixture parity, adapter
+contracts and browser evidence are required independently. Passing the extraction gate does not mean rules completeness
 or cutover approval. This ticket does not extract or activate application behavior.
 
 ## Acceptance evidence (#88)
@@ -165,3 +166,20 @@ pure browser-build/storage parity, not an authenticated canonical Workspace
 journey. The existing five-journey browser harness remains the supported-path
 extraction gate. No canonical endpoint, live route, legacy-write replacement or
 campaign cutover is activated by this extraction.
+
+## Gap reconciliation (#88)
+
+The acceptance fixtures are shared with `convex/rulesAcceptance.integration.test.ts`.
+It builds the actual Workspace projection/Phase View modules for the browser,
+compares all five Phase Views with stored Convex sources, confirms each ready week
+through authenticated mutations with a competing attempt, and checks complete
+snapshot, record, baseline, final plan and successor context equality. The matrix
+covers all rank/focus rows, all upgrade edges, substantive officer/boon cases,
+event base/duplicate outcomes, recovery, and a compound multi-ledger week.
+The deployed Confirmation contract reuses the compound fixture and its independently
+authored expected state. Full rules permutations remain in pure tests as #57 requires.
+
+Notoriety baseline changes in this pass use canonical ruleset version 3. Explicit
+Table Adjustments still apply after the baseline; successful Covert Action suppresses
+its covered gain even at the cap. Source review and semantic interpretation gaps
+remain pending human review. Cutover gaps belong to #89 and do not authorize #90.
