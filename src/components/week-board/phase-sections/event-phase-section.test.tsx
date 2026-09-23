@@ -95,7 +95,7 @@ function buildViewModel(): ComponentProps<
       },
     ],
     marketplaces: [],
-    manipulateEventsManagerText:
+    manipulateEventsChoiceText:
       'Any player can choose which guaranteed event occurs.',
     cacheDiscoveredMitigationTotal: '',
     setCacheDiscoveredMitigationTotalAction: vi.fn(),

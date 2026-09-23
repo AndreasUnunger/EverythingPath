@@ -12,7 +12,7 @@ import {
   buildUpkeepSummaryItems,
   hasManualTotal,
 } from '~/components/week-board/phase-sections/summary-phase-shared';
-import { getManipulateEventsManagerText } from '~/components/week-board/team-manager-effects';
+import { getManipulateEventsChoiceText } from '~/components/week-board/team-manager-effects';
 import type { WeekBoardController } from '~/components/week-board/use-week-board-controller';
 import { formatEventTypeLabel } from '~/lib/militia-state-options';
 import { formatTeamIdLabel } from '~/lib/team-ids';
@@ -153,10 +153,9 @@ export function buildEventPhaseViewModel(
   controller: WeekBoardController,
 ): EventPhaseViewModel {
   const data = controller.data!;
-  const manipulateEventsManagerText = getManipulateEventsManagerText({
+  const manipulateEventsChoiceText = getManipulateEventsChoiceText({
     stagedActionIds: controller.stagedActionIds,
     slotTeams: controller.slotTeams,
-    teams: controller.teams,
   });
   return {
     eventChanceTotal: controller.eventChanceTotal,
@@ -199,7 +198,7 @@ export function buildEventPhaseViewModel(
     resolvedEventNames: controller.resolvedEventNames,
     teams: controller.teams,
     marketplaces: data.marketplaces ?? [],
-    manipulateEventsManagerText,
+    manipulateEventsChoiceText,
     cacheDiscoveredMitigationTotal: controller.cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotalAction:
       controller.setCacheDiscoveredMitigationTotal,

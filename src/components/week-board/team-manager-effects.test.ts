@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getActionTeamManagerParts,
-  getManipulateEventsManagerText,
+  getManipulateEventsChoiceText,
   getSelectedTeamManagerWarnings,
   getTeamManagerBonusForTeamId,
   getTeamManagerSummary,
@@ -133,36 +133,11 @@ describe('team manager week-board helpers', () => {
     ).toEqual(['team manager bonuses vary across staged teams']);
   });
 
-  it('shows shared event selection guidance with or without a manager', () => {
+  it('shows shared event selection guidance for a staged team', () => {
     expect(
-      getManipulateEventsManagerText({
+      getManipulateEventsChoiceText({
         stagedActionIds: ['manipulate_events', ''],
         slotTeams: ['guardians', null],
-        teams: [
-          {
-            teamId: 'guardians',
-            manager: {
-              displayName: 'Captain Ivet',
-              charismaBonus: 1,
-              maxTeams: 2,
-              managedTeamCount: 1,
-              warnings: [],
-            },
-          },
-        ],
-      }),
-    ).toBe('Any player can choose which guaranteed event occurs.');
-
-    expect(
-      getManipulateEventsManagerText({
-        stagedActionIds: ['manipulate_events'],
-        slotTeams: ['guardians'],
-        teams: [
-          {
-            teamId: 'guardians',
-            manager: null,
-          },
-        ],
       }),
     ).toBe('Any player can choose which guaranteed event occurs.');
   });

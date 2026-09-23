@@ -57,13 +57,20 @@ by setup. That was corrected in both the setup form and authoritative preparatio
 then re-reviewed. The deeper review of slot capacity, same-week roster changes,
 Overseer event support and setup found no remaining concrete defects.
 
-The Standards review found no documented violations. One nonblocking naming
-cleanup remains: `getManipulateEventsManagerText` now gives any-player guidance
-but retains its old name and an unused `teams` parameter in its input type.
+The Standards review found no documented violations. Its naming cleanup is now
+resolved: the helper is `getManipulateEventsChoiceText`, the view-model field is
+`manipulateEventsChoiceText`, and the unused `teams` parameter has been removed
+from the helper and its callers. The follow-up passes typecheck, lint, and all
+1,003 tests across 106 files; it changes no behavior.
 
 ## Verification
 
-Verified on 2026-09-23 against the same unchanged source:
+The full acceptance/browser evidence below was verified on 2026-09-23 for commit
+`1d5329b`, before the naming-only follow-up described above. Its fingerprint is a
+record of that commit, not a fresh browser/strict-gate result for the follow-up.
+The follow-up was verified separately with typecheck, lint, and the full test suite.
+
+Baseline results:
 
 - Typecheck and lint pass; all three build-boundary tests pass.
 - All 1,003 tests across 106 files pass, with no skipped or pending results.

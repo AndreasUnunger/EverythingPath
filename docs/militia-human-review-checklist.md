@@ -3776,8 +3776,10 @@ Final verification on 2026-09-23:
 
 Those three gaps are agent implementation/rehearsal work in [#89](https://github.com/AndreasUnunger/EverythingPath/issues/89), not further questions for this human review. They cover carry preservation, paused restartable cutover, and recovery before reopening. Explicit old-version request rejection and forced reload handling are out of scope. Production cutover is separate (#90); no production changes were made.
 
-The deeper Spec review found no remaining concrete defect after correcting existing-militia setup's Upkeep behavior. The Standards review found no documented violations; one nonblocking old helper name remains. The browser setup test and Hidden Agenda test identifiers were also corrected, then verified afresh.
+The deeper Spec review found no remaining concrete defect after correcting existing-militia setup's Upkeep behavior. The Standards review found no documented violations; its naming cleanup is now fixed. The helper and view-model field use event-choice names, and the unused teams parameter is removed. This naming-only follow-up passes typecheck, lint, and all 1,003 tests across 106 files. The browser setup test and Hidden Agenda test identifiers were also corrected, then verified afresh.
 
-Implementation fingerprint: `273197fe4744b457f192465225d1eb0120f16520e8de99e90f4d569294085e6d`.
+The browser and strict acceptance records below describe commit `1d5329b`, before the naming-only follow-up. They have not been rerun for that follow-up; its separate checks are recorded above.
+
+Baseline implementation fingerprint: `273197fe4744b457f192465225d1eb0120f16520e8de99e90f4d569294085e6d`.
 
 Final browser record: `e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-YbAt68/report.json`. Automated acceptance record: `coverage/acceptance.json`; the generated coverage report is also retained in `docs/weekly-draft-acceptance-review.md`.

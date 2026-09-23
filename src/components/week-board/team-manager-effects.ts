@@ -83,13 +83,12 @@ export function getActionTeamManagerParts({
   return ['team manager bonuses vary across staged teams'];
 }
 
-export function getManipulateEventsManagerText({
+export function getManipulateEventsChoiceText({
   stagedActionIds,
   slotTeams,
 }: {
   stagedActionIds: string[];
   slotTeams: Array<string | null>;
-  teams: WeekBoardTeamRow[];
 }) {
   const teamId = stagedActionIds.flatMap((actionId, index) =>
     actionId === 'manipulate_events' && slotTeams[index]

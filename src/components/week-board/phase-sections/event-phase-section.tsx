@@ -77,7 +77,7 @@ export type EventPhaseViewModel = {
     manager: WeekBoardTeamManager;
   }>;
   marketplaces: MarketplaceLedgerEntry[];
-  manipulateEventsManagerText?: string;
+  manipulateEventsChoiceText?: string;
   cacheDiscoveredMitigationTotal: string;
   setCacheDiscoveredMitigationTotalAction: (value: string) => void;
   theftMitigationTotal: string;
@@ -155,7 +155,7 @@ export function EventPhaseSection({
     resolvedEventNames,
     teams,
     marketplaces,
-    manipulateEventsManagerText,
+    manipulateEventsChoiceText,
     cacheDiscoveredMitigationTotal,
     setCacheDiscoveredMitigationTotalAction,
     theftMitigationTotal,
@@ -333,9 +333,9 @@ export function EventPhaseSection({
                   </SelectContent>
                 </Select>
               </div>
-              {manipulateEventsManagerText ? (
+              {manipulateEventsChoiceText ? (
                 <p className="text-muted-foreground font-mono text-xs">
-                  {manipulateEventsManagerText}
+                  {manipulateEventsChoiceText}
                 </p>
               ) : null}
             </>
