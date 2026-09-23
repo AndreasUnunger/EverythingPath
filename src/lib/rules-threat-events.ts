@@ -253,9 +253,7 @@ function checkThreatMitigation(
   const total = eventCheck(
     draft,
     result,
-    input
-      ? { ...event, overseerCharacterId: input.overseerCharacterId }
-      : event,
+    event,
     check,
     input?.rolls?.check ??
       (target.kind === 'cache' && !twice ? event.rolls?.check : undefined),

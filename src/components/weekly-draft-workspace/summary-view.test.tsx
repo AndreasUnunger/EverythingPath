@@ -290,3 +290,44 @@ test('[rules.P85.readiness] readiness names the required decisions and warnings 
   ).toBeInTheDocument();
   expect(document.body.textContent).not.toContain('secret');
 });
+
+test('[rules.F04.obsolete-exception] an old capacity exception remains visible for removal but cannot be edited into permission', () => {
+  const edit = vi.fn().mockResolvedValue('accepted');
+  render(
+    <SummaryView
+      view={{
+        ...view,
+        ready: false,
+        requirements: ['quiet:action-capacity'],
+        options: { subjectId: [{ value: 'quiet', label: 'Lie Low' }] },
+        exceptions: [
+          {
+            exceptionId: 'old',
+            subjectId: 'quiet',
+            ruleId: 'action-capacity',
+            name: 'Lie Low',
+            reason: 'An extra day was once allowed',
+          },
+        ],
+      }}
+      edit={edit}
+      {...controls}
+      canConfirm={false}
+    />,
+  );
+  expect(screen.getByText('An extra day was once allowed')).toBeVisible();
+  expect(
+    screen.getByText(/restore the action allowance before confirming/),
+  ).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Confirm week' })).toBeDisabled();
+  expect(
+    screen.queryByRole('textbox', { name: 'Exception Reason' }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Remove obsolete exception' }),
+  );
+  expect(edit).toHaveBeenCalledWith({
+    kind: 'clear_rules_exception',
+    exceptionId: 'old',
+  });
+});

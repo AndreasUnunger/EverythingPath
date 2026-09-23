@@ -16,9 +16,11 @@ export function SetupField({
   decimal,
   omitEmpty,
   options,
+  onChoice,
 }: {
   name: FieldPath<MilitiaSetup>;
   label: string;
+  onChoice?: (value: string | number | boolean | null | undefined) => void;
   numeric?: boolean;
   decimal?: boolean;
   omitEmpty?: boolean;
@@ -54,7 +56,10 @@ export function SetupField({
                   type="button"
                   variant={field.value === option.value ? 'default' : 'outline'}
                   aria-pressed={field.value === option.value}
-                  onClick={() => field.onChange(option.value)}
+                  onClick={() => {
+                    field.onChange(option.value);
+                    onChoice?.(option.value);
+                  }}
                   className="h-auto min-h-12 border-2 whitespace-normal transition-transform hover:-translate-y-1"
                 >
                   {option.label}

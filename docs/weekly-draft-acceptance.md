@@ -1,153 +1,108 @@
 # Weekly Draft acceptance review (#88)
 
-Status: **not ready for cutover**. The user confirmed that full-corpus human
-review has not happened and requested this review report. A passing automated
-suite does not supply that approval or resolve the catalog's remaining cases.
+Human rules review: **complete**, approved by **AndreasUnunger on 2026-09-23**.
+The reviewer checked all behavior and completeness items, including COMPLETE.CORPUS
+and REVIEW.SIGNOFF, then confirmed “done” in the review conversation. The record
+and all decisions are in the [single-document checklist](militia-human-review-checklist.md#finish-the-review).
+This does not approve production deployment or cutover.
 
-## Review materials
+## Review scope and decisions
 
-**For the human review, use the [single-document checklist](militia-human-review-checklist.md).**
-It includes the complete rules/tables and accepted policies, all 489 behavior checks,
-and stable reply IDs. You can send decisions and corrections in chat without
-opening the documents below or editing files.
+The active catalog contains 487 behavior cases in 96 groups (95 original audit
+groups plus the verification gate). The reviewer worked through the full rules,
+tables, and product/persistence expectations. Codex classified the five source
+headings against printed PDF pages 48–59 at the reviewer's request; page references
+and behavior mappings are included in the same checklist.
 
-- [Complete source and behavior review report](weekly-draft-acceptance-review.md):
-  every registered source section and fingerprint, all 489 expanded cases,
-  expected outcomes, named tests, service evidence, and remaining gaps.
-- [Rules corpus](ai/ironfang-militia/militia-rules.md) and
-  [numeric tables](ai/ironfang-militia/militia-tables.md).
-- [Accepted specification](../tests/rules/decision-57.md),
-  [rules policies](../tests/rules/decision-56.md),
-  [implementation sequence](../tests/rules/decision-55.md), and
-  [test architecture](../tests/rules/decision-53.md).
-- [Machine-readable catalog](../tests/rules/coverage-catalog.ts) and
-  [original 95-entry audit](../tests/rules/audit-inventory.json).
+The implemented review corrections are:
 
-The catalog contains 96 groups: the 95 audit entries plus the verification gate.
-It is a starting inventory, not a claim that all rules behavior has been discovered.
+- Remove Adventure Path/volume tracking and volume-based rank limits; retain rank 20 and highest-PC-level limits.
+- Preserve actions in unavailable slots but block weekly Confirmation until corrected; Rules Exceptions cannot bypass action capacity.
+- Check recruitment capacity against the resulting Activity roster, allowing recruitment and dismissal in either order.
+- Automatically use the highest applicable Ambassador/Marshal/Spymaster modifier.
+- Apply Overseer support throughout one event occurrence; show “Strategist +2” on its bonus slot.
+- Use the current manager throughout the draft and recompute all affected checks after reassignment.
+- Run Upkeep for existing militia setup; only a newly founded militia receives the first-ever-week skip.
+- Let any organization member choose a guaranteed event result without tracking chooser identity.
+- Give Strike Team support a minimum duration of one round.
+- Recompute all Activity checks/outcomes for Hidden Agenda, not just Drill and Earn Gold.
+- Retain Market Day without existing settlements, while requiring a valid choice before resolution.
+- Give organization members equal editing/correction access, including campaign setup; remove separate GM permissions.
 
-## Human review requested
+Story-reward extra actions are deferred to [#98](https://github.com/AndreasUnunger/EverythingPath/issues/98).
+Explicit old-version request rejection/reload enforcement was removed from the
+cutover requirements because the reviewer confirmed no such requests will arrive.
+Ordinary Theft remains a one-time loss; only its Twice result causes persistent
+income reductions. Canonical ruleset version is 4.
 
-Review all 24 actions, all 24 event outcomes, four team trees, officers and
-managers, weekly sequence, and product/persistence contracts. Follow each source
-section to its cases and named tests. Check that the assertions establish the
-stated behavior and relevant permutations; a test ID or passing fingerprint is
-insufficient. Add cases for omissions rather than treating the original audit as
-a ceiling. Classify introductory sections explicitly rather than silently
-dropping their review gaps.
+## Remaining operational work
 
-Record the reviewer, review date, source fingerprint, review reference and findings.
-Keep human sign-off pending until that review is complete. Separately reconcile
-or implement each remaining behavioral case and rerun verification. Approval of
-the corpus does not authorize a production cutover.
+Three catalog gaps remain, all assigned to [#89](https://github.com/AndreasUnunger/EverythingPath/issues/89):
 
-## Gap reconciliation
-
-The follow-up reviewed the old gaps against executable evidence, added missing
-permutations, and corrected three related Notoriety defects: Activity gains and
-reactive Sabotage now bound the rules baseline to 0–100, and Covert Action fully
-suppresses the covered gain even at the cap or from an explicitly unusual source.
-Typed Table Adjustments still apply afterward. Canonical ruleset version is 3.
-
-The shared browser/Convex matrix exercises 131 ready weeks: all 60 rank/focus
-combinations, two substantive officer/boon scenarios, 18 team/action/recovery
-scenarios, 50 event scenarios, and one compound week. It compares all five Phase
-Views and complete previews, races actual authenticated Confirmation mutations,
-and checks full snapshot, immutable record, baseline, final plan, retained reasons,
-and successor context. The compound expected state is independently authored and
-also runs against the deployed isolated Convex service. Full rule permutations
-remain in pure tests, as #57 requires; the matrix does not claim every possible
-combination of rules has been tested.
-
-Five case gaps remain, with specific dispositions:
-
-| Case | Remaining work |
+| Case | Required rehearsal |
 |---|---|
-| F04.context | The corpus mentions ally/event action allowances without numeric definitions. Human review must decide whether reasoned capacity exceptions suffice or specify additional modeled allowances. |
-| O06.changes | Current manager reassignment recomputes team checks, but ordered reassignment between actions is not represented. Human review must settle this timing requirement. |
-| E06.preserve | Rehearse queued-effect preservation during the paused cutover in #89. |
-| P11.cutover | Rehearse pause, initialization/restart and recovery in #89. |
-| P11.legacy | Implement/rehearse rejection of old writes and recovery before reopening in #89. |
+| E06.preserve | Preserve queued effects during the paused transition. |
+| P11.cutover | Pause, initialize/restart, and recover without unintended rule execution. |
+| P11.legacy | Prove compatible recovery before reopening; explicit old-version request rejection is out of scope. |
 
-Five introductory source-section classifications and complete human corpus review
-also remain pending. These cannot be signed off by an automated reviewer. The
-strict gate therefore remains **not ready** even when all executable checks pass.
-The operational production cutover is separately tracked by #90.
+The strict completeness gate remains **not ready** until those rehearsals pass.
+Production cutover is separately tracked by #90. No production changes were made
+as part of this review.
 
-## Reproduce
+## Code review
 
-Run the existing [isolated browser harness](../e2e/README.md) using the dedicated
-resource declaration and credentials. It recreates only its declared preview.
-Then use its newly printed safe report path:
+The Standards and Spec reviews used baseline `53ff924` and the current worktree.
+The Spec review identified the existing-militia Upkeep skip still being accepted
+by setup. That was corrected in both the setup form and authoritative preparation,
+then re-reviewed. The deeper review of slot capacity, same-week roster changes,
+Overseer event support and setup found no remaining concrete defects.
+
+The Standards review found no documented violations. One nonblocking naming
+cleanup remains: `getManipulateEventsManagerText` now gives any-player guidance
+but retains its old name and an unused `teams` parameter in its input type.
+
+## Verification
+
+Verified on 2026-09-23 against the same unchanged source:
+
+- Typecheck and lint pass; all three build-boundary tests pass.
+- All 1,003 tests across 106 files pass, with no skipped or pending results.
+- All nine isolated browser results pass on their first attempts in the final run,
+  including authenticated persistence/Confirmation and two-player Workspace journeys.
+- The catalog has 487 cases; 486 have passing mapped evidence. The three explicit
+  gaps above remain. Some partially covered cases retain a gap for their missing
+  rehearsal, so covered cases and gaps are not mutually exclusive counts.
+- No missing test identifiers, stale source fingerprints, or browser/service evidence
+  errors remain. The sole strict error is `Completeness gate: 3 remaining gaps`.
+
+Source fingerprint: `273197fe4744b457f192465225d1eb0120f16520e8de99e90f4d569294085e6d`.
+
+Final browser evidence: `e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-YbAt68/report.json`.
+
+The earlier browser run exposed a setup journey still expecting a resumed militia
+to skip Upkeep; it now enters and verifies actual Upkeep rolls. A separate CLI
+fixture failure had no matching server execution in the preview logs and did not
+recur in either subsequent passing run. The first catalog check also exposed
+quoted generated Hidden Agenda test names; those now use explicit stable IDs,
+and the final report verifies all mappings.
+
+The shared browser-build/Convex matrix covers 131 complete weeks, comparing Phase
+Views, full previews, authenticated Confirmation, immutable records and successor
+state. The isolated browser run additionally exercises the deployed service and
+multiplayer Workspace. Pure tests cover detailed rule permutations.
+
+Reproduce with the declared disposable preview resources:
 
 ```bash
-pnpm -s acceptance:check --browser-report /absolute/path/to/report.json
+E2E_TRUSTED_EXECUTION=true pnpm -s test:e2e --resources e2e/.private/resources.json --secrets e2e/.private/test-secrets.env
+VITEST_MAX_WORKERS=2 pnpm -s acceptance:check --browser-report /absolute/path/to/new/report.json
 ```
 
-This runs typecheck, lint, build-boundary checks, the full test suite and strict
-catalog verification. It writes `coverage/acceptance.json`,
-`coverage/rules-evidence.json`, `coverage/rules-tests.json` and
-`coverage/rules-report.md`. It exits nonzero until every required gate passes.
-Missing reports, stale source, failed/skipped/todo tests, and retry-only browser
-passes cannot establish readiness. The strict failure caused by unresolved
-catalog gaps is distinct from a failing behavior test.
+`coverage/acceptance.json`, `coverage/rules-evidence.json`,
+`coverage/rules-tests.json`, and `coverage/rules-report.md` record the outcome.
+The acceptance command deliberately exits 1 until the three operational gaps are
+closed; this is not a test failure or pending human review.
 
-The source fingerprint covers working source, tests, CSS/assets, configuration,
-dependency files, normative rules and decision snapshots. Explanatory documents
-under `docs/` are excluded so this report can be committed after verification.
-Ignored credentials and private browser state are excluded. No issue is closed
-by generating or committing these reports.
-
-## Verification record
-
-Verification completed on 2026-09-19. Matching source fingerprint:
-`266846091b3e7e140074e1940a09852bbed29d442b2f165531ec673d1a90c072`.
-The source remained unchanged throughout the final checks.
-
-| Check | Result |
-|---|---|
-| `pnpm -s typecheck` | Passed |
-| Convex-specific `tsc --noEmit --project convex/tsconfig.json` | Passed |
-| `pnpm -s lint` | Passed |
-| `pnpm -s test:build` | All 3 checks passed |
-| Full Vitest suite | 977 tests across 105 files passed |
-| Mandatory isolated E2E `everythingpath-e2e-IypBJD` | All 9 required results passed on their first attempts; zero report errors; runner exit 0 |
-| Strict rules completeness | **Not ready: 11 explicit gaps**, down from 274; 488 of 489 cases have passing mapped evidence |
-| Human full-corpus review | **Pending** |
-
-The only strict error is `Completeness gate: 11 remaining gaps`. No mapped test
-is missing, failed, skipped or ambiguous; source fingerprints and the mandatory
-service evidence match. Passing partial evidence can coexist with a specific gap.
-The sole case without executable evidence is P11.legacy, the future cutover gate.
-
-The successful E2E runner removed its temporary workspace and preview lock;
-both absences were verified. Safe local evidence is under
-`e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-IypBJD/`.
-Machine-readable results are `coverage/acceptance.json`, `coverage/rules-evidence.json`
-and `coverage/rules-tests.json`. The committed full report is regenerated from
-this run. Human review and the cutover work remain outstanding; **#88 is not complete**.
-
-Independent automated reviews of the follow-up since `e62de89` concluded:
-
-- **Standards:** no outstanding actionable findings, including the Convex alias fix.
-- **Spec:** found missing joint Pain/Serenity coverage; the added next-week modifier,
-  loss/gain and expiry test resolves it. No outstanding actionable findings.
-
-These agent reviews do not constitute human corpus review. No production deployment,
-operational cutover, issue closure or branch push was performed.
-
-The previous successful automated baseline was `everythingpath-e2e-QQy6Pp`
-(936 tests, 274 gaps). Its evidence is superseded by the verified follow-up above. An earlier failed run, `everythingpath-e2e-3p7KLs`, lost the outsider's
-restored authentication session and timed out; fresh sign-in restored the session,
-but the original cause was not established. That failed run left a workspace/lock
-which were removed only after confirming no owned processes remained. Assertions,
-retry rules and deadlines were not relaxed. This historical operational limitation
-is not represented as passing evidence.
-
-This follow-up's first two runs (`J1VQbb`, `rwybqe`) stopped at Convex's deployment
-typecheck after a successful web build. The new parity test imported browser Phase
-Views using the application's path aliases; Convex's separate TypeScript config
-lacked those aliases. Adding the same alias targets corrected the failure, and
-`pnpm -s exec tsc --noEmit --project convex/tsconfig.json` passed. Those incomplete
-runs do not count as browser evidence. The temporary private diagnostic capture
-was removed after diagnosis.
+The [generated coverage report](weekly-draft-acceptance-review.md) provides case,
+source and evidence details. The [checklist](militia-human-review-checklist.md)
+remains the single human review document.

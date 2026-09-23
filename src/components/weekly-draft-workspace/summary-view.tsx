@@ -88,7 +88,7 @@ export function SummaryView({
         <h2 className="text-lg font-semibold">Rules Exceptions</h2>
         <p className="text-muted-foreground text-sm">
           A reason permits an unusual choice. It does not change the rules
-          calculation.
+          calculation or allow choices beyond the action allowance.
         </p>
         {view.exceptions.length === 0 && <p>No Rules Exceptions.</p>}
         {view.exceptions.map((exception) => (
@@ -100,32 +100,55 @@ export function SummaryView({
               {exception.name} ·{' '}
               {choiceFieldLabel(exception.ruleId.replaceAll('-', '_'))}
             </h3>
-            <StructuredChoiceField
-              name="exceptionReason"
-              schema={z.string().trim().min(1, 'A reason is required.')}
-              value={exception.reason || undefined}
-              options={{}}
-              disabled={disabled}
-              onValue={(reason) => {
-                if (reason === undefined) {
-                  void edit({
-                    kind: 'clear_rules_exception',
-                    exceptionId: exception.exceptionId,
-                  });
-                  return false;
-                }
-                if (typeof reason === 'string')
-                  void edit({
-                    kind: 'rules_exception',
-                    exception: {
+            {exception.ruleId === 'action-capacity' ? (
+              <>
+                <p>{exception.reason}</p>
+                <p>
+                  This recorded exception cannot permit an extra action. Move
+                  the choice to an available slot, clear it, or restore the
+                  allowance.
+                </p>
+                <Button
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={() =>
+                    void edit({
+                      kind: 'clear_rules_exception',
                       exceptionId: exception.exceptionId,
-                      subjectId: exception.subjectId,
-                      ruleId: exception.ruleId,
-                      reason,
-                    },
-                  });
-              }}
-            />
+                    })
+                  }
+                >
+                  Remove obsolete exception
+                </Button>
+              </>
+            ) : (
+              <StructuredChoiceField
+                name="exceptionReason"
+                schema={z.string().trim().min(1, 'A reason is required.')}
+                value={exception.reason || undefined}
+                options={{}}
+                disabled={disabled}
+                onValue={(reason) => {
+                  if (reason === undefined) {
+                    void edit({
+                      kind: 'clear_rules_exception',
+                      exceptionId: exception.exceptionId,
+                    });
+                    return false;
+                  }
+                  if (typeof reason === 'string')
+                    void edit({
+                      kind: 'rules_exception',
+                      exception: {
+                        exceptionId: exception.exceptionId,
+                        subjectId: exception.subjectId,
+                        ruleId: exception.ruleId,
+                        reason,
+                      },
+                    });
+                }}
+              />
+            )}
           </section>
         ))}
       </Card>

@@ -317,11 +317,11 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         ).toHaveCount(0);
       }
       await expect(
-        players.gm.getByRole('heading', { name: 'GM history correction' }),
+        players.gm.getByRole('heading', { name: 'History correction' }),
       ).toBeVisible();
       await expect(
-        players.player.getByRole('heading', { name: 'GM history correction' }),
-      ).toHaveCount(0);
+        players.player.getByRole('heading', { name: 'History correction' }),
+      ).toBeVisible();
       await expect(
         players.outsider.getByRole('heading', { name: 'Week 1 · History' }),
       ).toHaveCount(0);

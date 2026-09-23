@@ -45,7 +45,7 @@ test('[rules.A07.success] successful staged Drill pays baseline cost and adds ro
   expect(result.ready).toBe(true);
 });
 
-test('[rules.A06.capacity] dismissal frees capacity for recruitment in slot order, preserving separate team identities', () => {
+test('[rules.A06.capacity] dismissal frees capacity for recruitment in either order, preserving separate team identities', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.rank = 1;
   snapshot.roster.officers.push({ role: 'strategist', characterId: 'pc' });
@@ -88,9 +88,9 @@ test('[rules.A06.capacity] dismissal frees capacity for recruitment in slot orde
   ]);
   expect(result.ready).toBe(true);
   draft.activity.slots.reverse();
-  expect(projectActivity(draft, snapshot).requirements).toContain(
-    'recruit:team-capacity:exception',
-  );
+  const reversed = projectActivity(draft, snapshot);
+  expect(reversed.ready).toBe(true);
+  expect(reversed.outcome.roster.teams).toEqual(result.outcome.roster.teams);
 });
 
 test('[rules.A24.tree] Upgrade preserves identity and manager, charges the listed edge cost, and prohibits a second upgrade', () => {
@@ -128,7 +128,7 @@ test('[rules.A24.tree] Upgrade preserves identity and manager, charges the liste
   expect(result.outcome.roster.teams[0]!.teamType).toBe('merchants');
 });
 
-test('[rules.A04.order] changing to Strategist grants a later bonus action; removal retains the choice with an exception requirement', () => {
+test('[rules.A04.order] changing to Strategist grants a later bonus action; removal retains the choice and blocks submission', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.rank = 1;
   draft.activity.slots[0]!.choice = {
@@ -159,7 +159,7 @@ test('[rules.A04.order] changing to Strategist grants a later bonus action; remo
     toRole: 'ambassador',
   };
   result = projectActivity(draft, snapshot);
-  expect(result.requirements).toContain('drill:action-capacity:exception');
+  expect(result.requirements).toContain('drill:action-capacity');
   expect(result.slots[1]!.choice?.choiceId).toBe('drill');
   expect(result.outcome.training).toBe(30);
 });
@@ -477,12 +477,13 @@ test('[rules.A07.cost] failed Drill costs treasury but never adds Commandant tra
   expect(result.ready).toBe(true);
 });
 
-test('Rules Exceptions permit over-allowance choices but do not supply missing rolls', () => {
+test('[rules.F04.blocked-slot] a capacity exception cannot submit an occupied unavailable slot; moving into an allowed slot restores readiness', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.rank = 1;
   draft.activity.slots[1]!.choice = {
     choiceId: 'drill',
     actionId: 'drill_militia',
+    rolls: { check: roll(20, 12), training: roll(6, 2, 3) },
   };
   draft.rulesExceptions = [
     {
@@ -492,23 +493,25 @@ test('Rules Exceptions permit over-allowance choices but do not supply missing r
       reason: 'Extra action',
     },
   ];
-  let result = projectActivity(draft, snapshot);
-  expect(result.requirements).toContain('drill:check:1d20');
-  expect(result.slots[1]!.overAllowance).toBe(true);
-  draft.activity.slots[1]!.choice.rolls = {
-    check: roll(20, 12),
-    training: roll(6, 2, 3),
-  };
-  result = projectActivity(draft, snapshot);
-  expect(result.ready).toBe(true);
-  expect(result.outcome.training).toBe(35);
-  expect(result.slots).toHaveLength(2);
+  const before = structuredClone(draft);
+  const blocked = projectActivity(draft, snapshot);
+  expect(blocked.ready).toBe(false);
+  expect(blocked.requirements).toContain('drill:action-capacity');
+  expect(blocked.slots[1]!.choice).toEqual(draft.activity.slots[1]!.choice);
+  expect(blocked.slots[1]!.overAllowance).toBe(true);
+  expect(blocked.outcome.training).toBe(snapshot.training);
+  expect(blocked.outcome.treasuryCopper).toBe(snapshot.treasuryCopper);
+  expect(draft).toEqual(before);
+  draft.activity.slots[0]!.choice = draft.activity.slots[1]!.choice;
+  draft.activity.slots[1]!.choice = null;
+  const moved = projectActivity(draft, snapshot);
+  expect(moved.ready).toBe(true);
+  expect(moved.outcome.training).toBe(35);
 });
 
-test('An adventure-volume recommendation does not replace the highest-PC Drill rank cap', () => {
+test('Drill remains available below the highest-PC rank cap', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.rank = 4;
-  snapshot.apVolume = 1;
   snapshot.treasuryCopper = 10000;
   draft.activity.slots[0]!.choice = {
     choiceId: 'drill',
@@ -581,7 +584,7 @@ test('Helpful annotations require the operating settlement and can benefit only 
   expect(result.outcome.roster.teams).toHaveLength(1);
 });
 
-test('Removing Strategist before its designated occurrence removes stale annotated bonuses even with an action exception', () => {
+test('Removing Strategist blocks its now-unavailable occurrence even with an action exception', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.rank = 1;
   snapshot.roster.officers = [{ role: 'strategist', characterId: 'pc' }];
@@ -609,8 +612,9 @@ test('Removing Strategist before its designated occurrence removes stale annotat
     },
   ];
   const result = projectActivity(draft, snapshot);
-  expect(result.ready).toBe(true);
-  expect(result.checks[0]!.total).toBe(9);
+  expect(result.ready).toBe(false);
+  expect(result.requirements).toContain('drill:action-capacity');
+  expect(result.checks).toEqual([]);
   expect(result.outcome.training).toBe(30);
 });
 
@@ -709,4 +713,178 @@ test('Carried penalties preserve unrelated queued modifiers and do not reapply e
   expect(result.checks[0]!.total).toBe(12);
   expect(result.outcome.training).toBe(30);
   expect(source).toEqual(before);
+});
+
+test('[rules.F05.final-roster] recruitment capacity uses completed dismissals rather than promised, missing-input or unavailable-slot removals', () => {
+  for (const mode of [
+    'no-dismissal',
+    'unknown-target',
+    'missing-check',
+    'missing-notoriety',
+    'extra-slot',
+    'failed-dismissal',
+    'success',
+  ] as const) {
+    const { draft, snapshot } = upkeepFixture();
+    snapshot.rank = 1;
+    snapshot.roster.officers = [{ role: 'strategist', characterId: 'pc' }];
+    snapshot.roster.teams = ['old', 'other'].map((teamId) => ({
+      teamId,
+      teamType: 'patrons',
+      name: teamId,
+      status: 'active',
+      managerCharacterId: null,
+      rewardCapExempt: false,
+      notes: '',
+    }));
+    draft.activity.slots[0]!.choice = {
+      choiceId: 'recruit',
+      actionId: 'recruit_team',
+      teamType: 'patrons',
+      rolls: { check: roll(20, 10) },
+    };
+    const dismissal = {
+      choiceId: 'dismiss',
+      actionId: 'dismiss_team' as const,
+      targetTeamId: mode === 'unknown-target' ? 'unknown' : 'old',
+      rolls:
+        mode === 'missing-check'
+          ? {}
+          : {
+              check: roll(20, mode === 'success' ? 10 : 2),
+              ...(mode === 'missing-notoriety'
+                ? {}
+                : { notoriety: roll(6, 3) }),
+            },
+    };
+    if (mode === 'extra-slot')
+      draft.activity.slots.push({ slotId: 'extra', choice: dismissal });
+    else if (mode !== 'no-dismissal')
+      draft.activity.slots[1]!.choice = dismissal;
+    const result = projectActivity(draft, snapshot);
+    const removed = mode === 'failed-dismissal' || mode === 'success';
+    expect(result.ready, mode).toBe(removed);
+    expect(
+      result.outcome.roster.teams.map((team) => team.teamId),
+      mode,
+    ).toEqual(
+      removed
+        ? ['other', 'recruit:recruit']
+        : ['old', 'other', 'recruit:recruit'],
+    );
+    if (removed)
+      expect(result.requirements).not.toContain(
+        'recruit:team-capacity:exception',
+      );
+    else
+      expect(result.requirements).toContain('recruit:team-capacity:exception');
+    if (mode === 'failed-dismissal') expect(result.outcome.notoriety).toBe(3);
+    if (mode === 'extra-slot')
+      expect(result.requirements).toContain('dismiss:action-capacity');
+  }
+});
+
+test('[rules.F05.recruitment-capacity-outcomes] failed recruitment consumes no capacity, rewarded teams stay exempt, and genuine excess still needs its exception', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.rank = 1;
+  snapshot.roster.teams = ['ordinary', 'reward'].map((teamId) => ({
+    teamId,
+    teamType: 'patrons',
+    name: teamId,
+    status: 'missing',
+    managerCharacterId: null,
+    rewardCapExempt: false,
+    notes: '',
+  }));
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'recruit',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: roll(20, 2) },
+  };
+  let result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.roster.teams).toEqual(snapshot.roster.teams);
+  draft.activity.slots[0]!.choice.rolls!.check = roll(20, 10);
+  result = projectActivity(draft, snapshot);
+  expect(result.requirements).toContain('recruit:team-capacity:exception');
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'extra-team',
+      subjectId: 'recruit',
+      ruleId: 'team-capacity',
+      reason: 'Temporary narrative reinforcement',
+    },
+  ];
+  result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.roster.teams).toHaveLength(3);
+  draft.rulesExceptions = [];
+  snapshot.roster.teams[1]!.rewardCapExempt = true;
+  result = projectActivity(draft, snapshot);
+  expect(result.ready).toBe(true);
+  expect(result.outcome.roster.teams).toHaveLength(3);
+  expect(result.warnings).not.toContain('recruit:team-capacity');
+});
+
+test('[rules.F05.capacity-attribution] dismissing a reward team frees no counted place and only excess surviving recruits need exceptions', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.teams = ['first', 'second', 'third', 'reward'].map(
+    (teamId) => ({
+      teamId,
+      teamType: 'patrons',
+      name: teamId,
+      status: 'active',
+      managerCharacterId: null,
+      rewardCapExempt: teamId === 'reward',
+      notes: '',
+    }),
+  );
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'recruit-first',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: roll(20, 10) },
+  };
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'dismiss',
+    actionId: 'dismiss_team',
+    targetTeamId: 'reward',
+    rolls: { check: roll(20, 10) },
+  };
+  let result = projectActivity(draft, snapshot);
+  expect(result.outcome.roster.teams.map((team) => team.teamId)).toEqual([
+    'first',
+    'second',
+    'third',
+    'recruit:recruit-first',
+  ]);
+  expect(result.requirements).toContain(
+    'recruit-first:team-capacity:exception',
+  );
+  snapshot.roster.teams = snapshot.roster.teams.slice(0, 2);
+  draft.activity.slots[1]!.choice = {
+    choiceId: 'recruit-second',
+    actionId: 'recruit_team',
+    teamType: 'patrons',
+    rolls: { check: roll(20, 10) },
+  };
+  result = projectActivity(draft, snapshot);
+  expect(result.requirements).not.toContain(
+    'recruit-first:team-capacity:exception',
+  );
+  expect(result.requirements).toContain(
+    'recruit-second:team-capacity:exception',
+  );
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'extra',
+      subjectId: 'recruit-first',
+      ruleId: 'team-capacity',
+      reason: 'Wrong occurrence',
+    },
+  ];
+  expect(projectActivity(draft, snapshot).ready).toBe(false);
+  draft.rulesExceptions[0]!.subjectId = 'recruit-second';
+  expect(projectActivity(draft, snapshot).ready).toBe(true);
 });

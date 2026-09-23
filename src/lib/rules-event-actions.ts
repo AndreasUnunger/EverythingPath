@@ -34,9 +34,6 @@ export type EventActionChange =
       choiceId: string;
       candidates: NonNullable<Guarantee['candidates']>;
       selectedEventId: string | null;
-      chooser:
-        | { kind: 'party' }
-        | { kind: 'manager' | 'random_pc'; characterId: string };
       acknowledgement: Receipt | null;
     };
 
@@ -124,10 +121,6 @@ export function resolveEventAction(
     }
     return true;
   }
-  let chooser: Extract<
-    EventActionChange,
-    { kind: 'event_guarantee' }
-  >['chooser'] = { kind: 'party' };
   if (choice.actionId === 'guarantee_event') {
     if (
       !helpers.spend(
@@ -140,26 +133,6 @@ export function resolveEventAction(
       return true;
     const gain = helpers.dice(result, choice, 'notoriety', 1, 6);
     if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
-  } else {
-    const id = team!.managerCharacterId ?? choice.chooserCharacterId;
-    if (
-      !id ||
-      (!team!.managerCharacterId &&
-        !result.outcome.roster.people.some(
-          (entry) => entry.characterId === id && entry.kind === 'pc',
-        ))
-    ) {
-      required('chooser');
-      return true;
-    }
-    if (choice.chooserCharacterId && choice.chooserCharacterId !== id) {
-      required('manager-chooser');
-      return true;
-    }
-    chooser = {
-      kind: team!.managerCharacterId ? 'manager' : 'random_pc',
-      characterId: id,
-    };
   }
   if (!acknowledgement) required('acknowledgement');
   // Dice and branch completeness belong to Event selection: even an unfinished
@@ -169,7 +142,6 @@ export function resolveEventAction(
     choiceId: choice.choiceId,
     candidates: structuredClone(choice.candidates ?? []),
     selectedEventId: choice.selectedEventId ?? null,
-    chooser,
     acknowledgement,
   });
   return true;

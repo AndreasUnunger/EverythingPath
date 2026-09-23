@@ -119,7 +119,16 @@ export function newMilitiaSetup(
 export function prepareMilitiaSetup(input: MilitiaSetup, draftId: string) {
   const setup = militiaSetupSchema.parse(input);
   const { militiaSnapshot: snapshot, context, week } = setup.state;
-  const draft = createWeeklyDraft({ draftId, week, context, slotIds: [] });
+  const draft = createWeeklyDraft({
+    draftId,
+    week,
+    context: {
+      ...context,
+      firstMilitiaWeek:
+        setup.mode === 'existing' ? false : context.firstMilitiaWeek,
+    },
+    slotIds: [],
+  });
   const warnings = [
     ...rosterWarnings(
       snapshot.roster,
@@ -161,10 +170,6 @@ function advancementWarnings(snapshot: SetupSnapshot) {
     .map((character) => character.level);
   if (pcLevels.length && snapshot.rank > Math.max(...pcLevels))
     warnings.push('Rank exceeds the highest active PC level.');
-  // Ironfang AP rank caps: militia-tables.md.
-  const volumeCaps = [4, 7, 10, 13, 15, 17];
-  if (snapshot.apVolume && snapshot.rank > volumeCaps[snapshot.apVolume - 1]!)
-    warnings.push('Rank exceeds the current Adventure Path volume cap.');
   return warnings;
 }
 function startingValueWarnings(snapshot: SetupSnapshot) {

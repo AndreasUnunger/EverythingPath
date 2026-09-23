@@ -1,12 +1,34 @@
 # Militia rules review — one-document checklist
 
-Prepared for issue #88 on 2026-09-19, from implementation `bd057df`. **Human review: pending.** Every checkbox starts unanswered. This is the document to read and reply to; the rule text, numeric tables, accepted policies, expected behavior, and open decisions are included here.
+Prepared for issue #88 on 2026-09-19, from implementation `bd057df`. **Human review: complete — AndreasUnunger, 2026-09-23.** Existing review marks are preserved. This is the document to read and reply to; the rule text, numeric tables, accepted policies, expected behavior, and open decisions are included here.
+
+## Recorded scope decisions
+
+2026-09-23 — You removed `F02.ap-caps` from scope: no current Adventure Path or volume is tracked, and no volume-based rank limit is calculated, displayed, or enforced. Rank 20 and the highest-PC-level limit remain. The removed item needs no further review.
+
+2026-09-23 — **F04.context is deferred** to [backlog issue #98](https://github.com/AndreasUnunger/EverythingPath/issues/98): handling extra actions granted by story rewards. It does not block this review and needs no further reply. Rank and Strategist allowance checks remain in scope.
+
+2026-09-23 — **F05.order:** You specified that recruitment and dismissal committed in the same week must work in either order when the resulting roster fits team capacity. This supersedes the earlier slot-by-slot capacity expectation.
+
+2026-09-23 — **O02.*:** You specified automatic use of the highest applicable officer bonus, with no manual ability or bonus selection. Multiple holders do not stack their bonuses.
+
+2026-09-23 — **O04:** The supplied Overseer rule permits support for organization checks throughout one event’s resolution, not only one check. The +1 bonus to both secondary checks remains.
+
+2026-09-23 — **O05.slot:** The Strategist’s +2 must be visibly labelled on its bonus action slot.
+
+2026-09-23 — **U01.first-use:** You confirmed that the first-week Upkeep skip applies only to a newly founded militia’s first-ever week. A militia set up to resume a later week must run Upkeep, even when first starting in the app.
+
+2026-09-23 — **A13.chooser:** You specified that any player can choose the guaranteed event result. The app does not need to track who chose it.
+
+2026-09-23 — **P10.gm:** All users with organization access can edit everything. No separate GM controls or correction permissions apply at this stage; this supersedes historical GM-only policy below.
+
+2026-09-23 — **P11.legacy:** No requests from the old version will arrive after the upgrade. Explicit legacy-request rejection and forced reload handling are out of scope. The paused cutover and recovery before reopening still need rehearsal; this supersedes conflicting historical cutover wording below.
 
 ## How to reply
 
 Read a group’s included rule reference, then judge each numbered expectation: does it express the right behavior, including the named edge case? You are reviewing rules and intended behavior, not certifying code or rerunning tests. For implementation gaps, approval means the requirement is correct; it does not mean the missing work has been completed.
 
-Reply here using `ID: OK`, `ID: CHANGE — correction`, or `ID: UNSURE — question`. For the two explicit choices, use `ID: CHOICE A` or `ID: CHOICE B — details`. Send one group at a time if convenient.
+Reply here using `ID: OK`, `ID: CHANGE — correction`, or `ID: UNSURE — question`. For any explicit choices, use `ID: CHOICE A` or `ID: CHOICE B — details`. Send one group at a time if convenient.
 
 ```text
 F01.fresh: OK
@@ -23,7 +45,7 @@ Two terms used throughout: a **Rules Exception** permits an unusual choice with 
 
 ## Start here: accepted interpretation policy
 
-The following previously accepted policies govern ambiguous wording and superseded behavior. They are reference material, not new approvals requested from you. Their full local snapshot is reproduced so no other document is needed. Flag any conflict you discover against the affected check.
+The following previously accepted policies govern ambiguous wording and superseded behavior. They are reference material, not new approvals requested from you. The historical snapshots are reproduced so no other document is needed. The dated scope decisions above supersede conflicting historical wording below. In particular, Rules Exceptions cannot permit actions in unavailable slots. Flag any conflict you discover against the affected check.
 
 Part of #33.
 
@@ -48,7 +70,7 @@ No demonstrated legacy calculation bug is accepted merely to preserve current be
 |---|---|---|---|
 | 1. Correct baseline defects | Follow the written rules unless an explicit accepted interpretation below applies. In particular, rank 1 grants one baseline action; failed Dismiss Team still removes the team and adds rolled Notoriety. Existing tests asserting incorrect behavior must be replaced. | Show corrected action allowances and projected roster/results. | Rank boundaries and Strategist; failed dismissal removes the target and applies Notoriety; corrected outcomes for every mismatch in the audit. |
 | 2. Computation and table adjudication | Calculate deterministic defaults from the rules. Players provide dice rolls and narrative adjudication. Narrative outcomes require explicit acknowledgement/recording; do not pretend that displaying instructions executes an outcome. Full character-builder and tactical-combat execution remain outside scope. This preserves table authority without hiding missing calculations. | Show the calculated baseline, missing rolls/acknowledgements, and explicit Table Adjustments separately. Include reward, boon, encounter, and support reminders with the prescribed quantities/conditions. | Raw-roll and modifier branches, including natural rolls; missing-input readiness; baseline versus adjusted result; narrative acknowledgement retained in the confirmed source/history; no double application of computed and entered outcomes. |
-| 3. Rules Exceptions | Any player may retain an out-of-rules choice through a shared Rules Exception with a required reason. It permits the choice; it does not rewrite the calculated result. Missing required inputs and malformed data still block Confirmation. This supports table-valid exceptions while keeping departures visible. | Explain the eligibility warning and recorded exception. Apply typed Table Adjustments after the baseline when the result itself is changed. | Over-allowance choice with/without a reason; exception visible to another player; malformed references/data and required missing inputs remain blocked; exception does not itself alter arithmetic; confirmed source retains the exception. |
+| 3. Rules Exceptions | Any player may retain an out-of-rules choice through a shared Rules Exception with a required reason, except that unavailable action slots cannot be bypassed. It permits the choice; it does not rewrite the calculated result. Missing required inputs and malformed data still block Confirmation. This supports table-valid exceptions while keeping departures visible. | Explain the eligibility warning and recorded exception. Apply typed Table Adjustments after the baseline when the result itself is changed. | Unavailable action slots block Confirmation even with a reason; other rule departures with/without a reason; exception visible to another player; malformed references/data and required missing inputs remain blocked; exception does not itself alter arithmetic; confirmed source retains the exception. |
 
 **Accepted source interpretations and timing policy**
 
@@ -61,13 +83,13 @@ These are explicit project decisions where the audit identified ambiguity or a r
 | 6. Persistent Double Agent — EV05 | Block Secure Cache every affected Activity phase until the persistent event ends; apply one −2 Secrecy penalty, not queued −2 plus persistent −2. This follows the general persistence rule that effects continue week after week. A nonpersistent occurrence blocks only the next Activity phase. | Explain ongoing eligibility and the single penalty; never silently discard a staged cache action. Rules Exception policy still applies. | Base next-week duration; first and later persistent weeks; no −4 double count; ending/buyoff removes future restriction and penalty; warning/exception path. |
 | 7. Buyoff cadence — P03 | First buyoff is available immediately. Thereafter use one four-week cooldown shared across the militia's persistent events: buyoff in week 2 allows the next in week 6. Charge twice the current minimum treasury. This treats “once every 4 weeks” as a cooldown rather than a mandatory initial wait. | Show eligibility, next eligible week, cost, and staged end in the preview. Retain the accepted whole-week Confirmation lifecycle rather than immediate authoritative writes. | First use before week 4; weeks 2/5/6; different target events share cooldown; current-rank cost; two-player competing edits and Confirmation; insufficient funds use the agreed warning/exception policy. |
 | 8. Special Order timing — A21 | Preserve actual delivery duration in days, including one-day expedited delivery, and record receipt explicitly. Do not silently round every order to a later week. Exact due-day information preserves the value of expediting. This policy does not change Broker Market's separate next-Activity timing rule. | Show due-day information and receipt status, with deterministic price/time defaults and entered dice. Receipt remains subject to the accepted draft/Confirmation lifecycle. | Ordinary 2d6 boundaries, one-day expedite and its surcharge, enchantment time, orders crossing week boundaries, explicit receipt recording and no duplicate receipt; Broker Market retains its distinct timing. |
-| 9. Fractions — F09/A16/A23/EV19 and related numeric cases | Round whole-count results down without inventing a minimum. Preserve money to copper precision. Thus rank-1 Strike Team provides zero combat-support rounds unless explicitly adjusted; odd-level rescue Notoriety and split XP round down. This establishes consistent defaults where the audit found unspecified rounding or an invented minimum. | Show the rounded baseline and any explicit adjustment; preserve monetary precision. | Odd/even half-rank and half-level values, rank-1 zero rounds, non-divisible XP awards, fractional treasury/price calculations at copper precision, and explicit adjustment paths. |
+| 9. Fractions — F09/A16/A23/EV19 and related numeric cases | Round whole-count results down, except Strike Team support has a minimum of one round (A23.rank-one review decision, 2026-09-23). Preserve money to copper precision; odd-level rescue Notoriety and split XP round down. | Show the rounded baseline and any explicit adjustment; preserve monetary precision. | Odd/even half-rank and half-level values, rank-1 minimum of one round, non-divisible XP awards, fractional treasury/price calculations at copper precision, and explicit adjustment paths. |
 
 **Handoff**
 
 The shared Rules Projection owns these baseline calculations and interpretations; Phase Views present them. The Weekly Draft retains the necessary rolls, choices, acknowledgements, Rules Exceptions, and Table Adjustments so the Resolution Preview and Confirmation use the same source. Preserve the established exact-revision Confirmation and immutable Resolution Record contracts.
 
-Use the audit inventory to expand compound entries into executable rule/case coverage under [What test architecture should protect the Weekly Draft refactor?](https://github.com/AndreasUnunger/EverythingPath/issues/53). In particular, replace legacy expectations for cumulative carry, suppressed no-clause duplicates, failed dismissal, and invented minimum rounds. Do not treat existing test success as proof of rules completeness.
+Use the audit inventory to expand compound entries into executable rule/case coverage under [What test architecture should protect the Weekly Draft refactor?](https://github.com/AndreasUnunger/EverythingPath/issues/53). In particular, replace legacy expectations for cumulative carry, suppressed no-clause duplicates, failed dismissal, and rank-one Strike Team support (now explicitly at least one round). Do not treat existing test success as proof of rules completeness.
 
 The remaining migration-sequence decision must account for day-based orders, persistent-event targets/cadence, independent occurrences and rolls, complete calculated defaults, and recorded table decisions. Detailed exception/receipt presentation stays with implementation; no new planning ticket is needed for the accepted policies.
 
@@ -148,13 +170,13 @@ Notes:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F01.fresh** — New militia shows rank 1, training 0, treasury 10 gp and chosen focus.
+- [x] **F01.fresh** — New militia shows rank 1, training 0, treasury 10 gp and chosen focus.
 
-- [ ] **F01.import** — Explicit mid-campaign state and focus survive initialization.
+- [x] **F01.import** — Explicit mid-campaign state and focus survive initialization.
 
-- [ ] **F01.rank-cap** — Rank cannot normally exceed 20 or highest PC level; departures are visible.
+- [x] **F01.rank-cap** — Rank cannot normally exceed 20 or highest PC level; departures are visible.
 
-- [ ] **COMPLETE.F01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F02 — Rank and advancement
 
@@ -166,13 +188,6 @@ Reference R005 (rules):
 
 - Intended for the Ironfang Invasion Adventure Path.
 - A militia never exceeds the highest-level PC.
-- AP volume rank caps:
-  - Trail of the Hunted: 4
-  - Fangs of War: 7
-  - Assault on Longshadow: 10
-  - Siege of Stone: 13
-  - Prisoners of the Blight: 15
-  - AP conclusion: 17
 - Bonus teams from rewards do not count against normal maximum teams.
 - Siege of Stone and Prisoners of the Blight especially encourage proxy NPC officers.
 
@@ -193,16 +208,9 @@ Reference R028 (rules):
 
 Reference T003 (numeric tables):
 
-**Ironfang AP Rank Caps**
+**Rank and Reward Teams**
 
-A militia can never exceed the level of the highest-level PC. In Ironfang Invasion, practical caps by volume are:
-
-- Trail of the Hunted: rank 4 max
-- Fangs of War: rank 7 max
-- Assault on Longshadow: rank 10 max
-- Siege of Stone: rank 13 max
-- Prisoners of the Blight: rank 15 max
-- Adventure Path conclusion: rank 17 max
+A militia can never exceed the level of the highest-level PC.
 
 Bonus teams gained as rewards do not count against max teams.
 
@@ -240,55 +248,53 @@ Notes:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F02.thresholds** — Each training threshold is evaluated below, at and above its boundary.
+- [x] **F02.thresholds** — Each training threshold is evaluated below, at and above its boundary.
 
-- [ ] **F02.retention** — Training loss never reduces existing rank.
+- [x] **F02.retention** — Training loss never reduces existing rank.
 
-- [ ] **F02.pc-cap** — Multiple rank gains stop at highest PC level; missing PC facts require input.
+- [x] **F02.pc-cap** — Multiple rank gains stop at highest PC level; missing PC facts require input.
 
-- [ ] **F02.ap-caps** — Volume caps 4/7/10/13/15/17 produce advisory warnings.
+- [x] **F02.rank-1-threshold** — Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-1-threshold** — Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-2-threshold** — Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-2-threshold** — Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-3-threshold** — Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-3-threshold** — Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-4-threshold** — Rank 4 minimum training is 20; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-4-threshold** — Rank 4 minimum training is 20; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-5-threshold** — Rank 5 minimum training is 30; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-5-threshold** — Rank 5 minimum training is 30; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-6-threshold** — Rank 6 minimum training is 40; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-6-threshold** — Rank 6 minimum training is 40; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-7-threshold** — Rank 7 minimum training is 55; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-7-threshold** — Rank 7 minimum training is 55; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-8-threshold** — Rank 8 minimum training is 75; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-8-threshold** — Rank 8 minimum training is 75; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-9-threshold** — Rank 9 minimum training is 105; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-9-threshold** — Rank 9 minimum training is 105; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-10-threshold** — Rank 10 minimum training is 160; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-10-threshold** — Rank 10 minimum training is 160; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-11-threshold** — Rank 11 minimum training is 235; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-11-threshold** — Rank 11 minimum training is 235; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-12-threshold** — Rank 12 minimum training is 330; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-12-threshold** — Rank 12 minimum training is 330; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-13-threshold** — Rank 13 minimum training is 475; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-13-threshold** — Rank 13 minimum training is 475; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-14-threshold** — Rank 14 minimum training is 665; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-14-threshold** — Rank 14 minimum training is 665; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-15-threshold** — Rank 15 minimum training is 855; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-15-threshold** — Rank 15 minimum training is 855; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-16-threshold** — Rank 16 minimum training is 1,350; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-16-threshold** — Rank 16 minimum training is 1,350; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-17-threshold** — Rank 17 minimum training is 1,900; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-17-threshold** — Rank 17 minimum training is 1,900; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-18-threshold** — Rank 18 minimum training is 2,700; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-18-threshold** — Rank 18 minimum training is 2,700; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-19-threshold** — Rank 19 minimum training is 3,850; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-19-threshold** — Rank 19 minimum training is 3,850; compare below/exact/above while retaining existing rank and applying PC cap.
+- [x] **F02.rank-20-threshold** — Rank 20 minimum training is 5,350; compare below/exact/above while retaining existing rank and applying PC cap.
 
-- [ ] **F02.rank-20-threshold** — Rank 20 minimum training is 5,350; compare below/exact/above while retaining existing rank and applying PC cap.
-
-- [ ] **COMPLETE.F02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F03 — Focus and organization checks
 
@@ -344,53 +350,53 @@ Notes:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F03.rank-focus** — All 20 ranks and three focuses use Table 6-1 focused and secondary bonuses.
+- [x] **F03.rank-focus** — All 20 ranks and three focuses use Table 6-1 focused and secondary bonuses.
 
-- [ ] **F03.missing-focus** — Missing focus requires selection; invalid focus is rejected.
+- [x] **F03.missing-focus** — Missing focus requires selection; invalid focus is rejected.
 
-- [ ] **F03.composition** — Negative, officer and contextual modifiers apply exactly once with explanations.
+- [x] **F03.composition** — Negative, officer and contextual modifiers apply exactly once with explanations.
 
-- [ ] **F03.rank-1-focus** — Rank 1: each of Loyalty/Secrecy/Security focuses gets +2; other checks get +0.
+- [x] **F03.rank-1-focus** — Rank 1: each of Loyalty/Secrecy/Security focuses gets +2; other checks get +0.
 
-- [ ] **F03.rank-2-focus** — Rank 2: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +0.
+- [x] **F03.rank-2-focus** — Rank 2: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +0.
 
-- [ ] **F03.rank-3-focus** — Rank 3: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +1.
+- [x] **F03.rank-3-focus** — Rank 3: each of Loyalty/Secrecy/Security focuses gets +3; other checks get +1.
 
-- [ ] **F03.rank-4-focus** — Rank 4: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.
+- [x] **F03.rank-4-focus** — Rank 4: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.
 
-- [ ] **F03.rank-5-focus** — Rank 5: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.
+- [x] **F03.rank-5-focus** — Rank 5: each of Loyalty/Secrecy/Security focuses gets +4; other checks get +1.
 
-- [ ] **F03.rank-6-focus** — Rank 6: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.
+- [x] **F03.rank-6-focus** — Rank 6: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.
 
-- [ ] **F03.rank-7-focus** — Rank 7: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.
+- [x] **F03.rank-7-focus** — Rank 7: each of Loyalty/Secrecy/Security focuses gets +5; other checks get +2.
 
-- [ ] **F03.rank-8-focus** — Rank 8: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +2.
+- [x] **F03.rank-8-focus** — Rank 8: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +2.
 
-- [ ] **F03.rank-9-focus** — Rank 9: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +3.
+- [x] **F03.rank-9-focus** — Rank 9: each of Loyalty/Secrecy/Security focuses gets +6; other checks get +3.
 
-- [ ] **F03.rank-10-focus** — Rank 10: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.
+- [x] **F03.rank-10-focus** — Rank 10: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.
 
-- [ ] **F03.rank-11-focus** — Rank 11: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.
+- [x] **F03.rank-11-focus** — Rank 11: each of Loyalty/Secrecy/Security focuses gets +7; other checks get +3.
 
-- [ ] **F03.rank-12-focus** — Rank 12: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.
+- [x] **F03.rank-12-focus** — Rank 12: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.
 
-- [ ] **F03.rank-13-focus** — Rank 13: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.
+- [x] **F03.rank-13-focus** — Rank 13: each of Loyalty/Secrecy/Security focuses gets +8; other checks get +4.
 
-- [ ] **F03.rank-14-focus** — Rank 14: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +4.
+- [x] **F03.rank-14-focus** — Rank 14: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +4.
 
-- [ ] **F03.rank-15-focus** — Rank 15: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +5.
+- [x] **F03.rank-15-focus** — Rank 15: each of Loyalty/Secrecy/Security focuses gets +9; other checks get +5.
 
-- [ ] **F03.rank-16-focus** — Rank 16: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.
+- [x] **F03.rank-16-focus** — Rank 16: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.
 
-- [ ] **F03.rank-17-focus** — Rank 17: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.
+- [x] **F03.rank-17-focus** — Rank 17: each of Loyalty/Secrecy/Security focuses gets +10; other checks get +5.
 
-- [ ] **F03.rank-18-focus** — Rank 18: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.
+- [x] **F03.rank-18-focus** — Rank 18: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.
 
-- [ ] **F03.rank-19-focus** — Rank 19: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.
+- [x] **F03.rank-19-focus** — Rank 19: each of Loyalty/Secrecy/Security focuses gets +11; other checks get +6.
 
-- [ ] **F03.rank-20-focus** — Rank 20: each of Loyalty/Secrecy/Security focuses gets +12; other checks get +6.
+- [x] **F03.rank-20-focus** — Rank 20: each of Loyalty/Secrecy/Security focuses gets +12; other checks get +6.
 
-- [ ] **COMPLETE.F03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F04 — Action allowance
 
@@ -437,57 +443,55 @@ Reference R076 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F04.allowance** — Rank 1 grants one action; remaining rank boundaries follow Table 6-1.
+- [x] **F04.allowance** — Rank 1 grants one action; remaining rank boundaries follow Table 6-1.
 
-- [ ] **F04.strategist** — Strategist adds one action once even with multiple holders.
+- [x] **F04.strategist** — Strategist adds one action once even with multiple holders.
 
-- [ ] **F04.shrink** — Allowance shrink preserves occupied choices and shows exception warnings.
+- [x] **F04.shrink** — Allowance shrink preserves occupied choices but blocks Confirmation until choices in unavailable slots are moved or cleared, or allowance is restored. A Rules Exception cannot bypass this.
 
-- [ ] **F04.context** — Upkeep rank changes and event or ally allowances recompute available actions.
+**F04.context — Deferred:** Extra actions from story rewards will be handled in [backlog issue #98](https://github.com/AndreasUnunger/EverythingPath/issues/98). No reply needed for this review.
 
-  **Decision needed.** Current behavior recalculates rank/Strategist capacity and permits a reasoned exception for an extra action. The corpus mentions ally/event allowances without defining their amounts. **CHOICE A:** use recorded capacity exceptions for these unspecified allowances. **CHOICE B:** calculate additional allowances automatically; provide each ally/event source, amount, start, and expiry. This is not implemented as a separate allowance model today.
+- [x] **F04.rank-1-actions** — Rank 1 baseline allowance is 1 actions.
 
-- [ ] **F04.rank-1-actions** — Rank 1 baseline allowance is 1 actions.
+- [x] **F04.rank-2-actions** — Rank 2 baseline allowance is 2 actions.
 
-- [ ] **F04.rank-2-actions** — Rank 2 baseline allowance is 2 actions.
+- [x] **F04.rank-3-actions** — Rank 3 baseline allowance is 2 actions.
 
-- [ ] **F04.rank-3-actions** — Rank 3 baseline allowance is 2 actions.
+- [x] **F04.rank-4-actions** — Rank 4 baseline allowance is 2 actions.
 
-- [ ] **F04.rank-4-actions** — Rank 4 baseline allowance is 2 actions.
+- [x] **F04.rank-5-actions** — Rank 5 baseline allowance is 2 actions.
 
-- [ ] **F04.rank-5-actions** — Rank 5 baseline allowance is 2 actions.
+- [x] **F04.rank-6-actions** — Rank 6 baseline allowance is 2 actions.
 
-- [ ] **F04.rank-6-actions** — Rank 6 baseline allowance is 2 actions.
+- [x] **F04.rank-7-actions** — Rank 7 baseline allowance is 3 actions.
 
-- [ ] **F04.rank-7-actions** — Rank 7 baseline allowance is 3 actions.
+- [x] **F04.rank-8-actions** — Rank 8 baseline allowance is 3 actions.
 
-- [ ] **F04.rank-8-actions** — Rank 8 baseline allowance is 3 actions.
+- [x] **F04.rank-9-actions** — Rank 9 baseline allowance is 3 actions.
 
-- [ ] **F04.rank-9-actions** — Rank 9 baseline allowance is 3 actions.
+- [x] **F04.rank-10-actions** — Rank 10 baseline allowance is 3 actions.
 
-- [ ] **F04.rank-10-actions** — Rank 10 baseline allowance is 3 actions.
+- [x] **F04.rank-11-actions** — Rank 11 baseline allowance is 4 actions.
 
-- [ ] **F04.rank-11-actions** — Rank 11 baseline allowance is 4 actions.
+- [x] **F04.rank-12-actions** — Rank 12 baseline allowance is 4 actions.
 
-- [ ] **F04.rank-12-actions** — Rank 12 baseline allowance is 4 actions.
+- [x] **F04.rank-13-actions** — Rank 13 baseline allowance is 4 actions.
 
-- [ ] **F04.rank-13-actions** — Rank 13 baseline allowance is 4 actions.
+- [x] **F04.rank-14-actions** — Rank 14 baseline allowance is 4 actions.
 
-- [ ] **F04.rank-14-actions** — Rank 14 baseline allowance is 4 actions.
+- [x] **F04.rank-15-actions** — Rank 15 baseline allowance is 5 actions.
 
-- [ ] **F04.rank-15-actions** — Rank 15 baseline allowance is 5 actions.
+- [x] **F04.rank-16-actions** — Rank 16 baseline allowance is 5 actions.
 
-- [ ] **F04.rank-16-actions** — Rank 16 baseline allowance is 5 actions.
+- [x] **F04.rank-17-actions** — Rank 17 baseline allowance is 5 actions.
 
-- [ ] **F04.rank-17-actions** — Rank 17 baseline allowance is 5 actions.
+- [x] **F04.rank-18-actions** — Rank 18 baseline allowance is 5 actions.
 
-- [ ] **F04.rank-18-actions** — Rank 18 baseline allowance is 5 actions.
+- [x] **F04.rank-19-actions** — Rank 19 baseline allowance is 6 actions.
 
-- [ ] **F04.rank-19-actions** — Rank 19 baseline allowance is 6 actions.
+- [x] **F04.rank-20-actions** — Rank 20 baseline allowance is 6 actions.
 
-- [ ] **F04.rank-20-actions** — Rank 20 baseline allowance is 6 actions.
-
-- [ ] **COMPLETE.F04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F05 — Team capacity
 
@@ -511,16 +515,9 @@ Reference R171 (rules):
 
 Reference T003 (numeric tables):
 
-**Ironfang AP Rank Caps**
+**Rank and Reward Teams**
 
-A militia can never exceed the level of the highest-level PC. In Ironfang Invasion, practical caps by volume are:
-
-- Trail of the Hunted: rank 4 max
-- Fangs of War: rank 7 max
-- Assault on Longshadow: rank 10 max
-- Siege of Stone: rank 13 max
-- Prisoners of the Blight: rank 15 max
-- Adventure Path conclusion: rank 17 max
+A militia can never exceed the level of the highest-level PC.
 
 Bonus teams gained as rewards do not count against max teams.
 
@@ -558,55 +555,55 @@ Notes:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F05.caps** — All Table 6-1 team caps count active, disabled and missing teams.
+- [x] **F05.caps** — All Table 6-1 team caps count active, disabled and missing teams.
 
-- [ ] **F05.rewards** — Reward teams do not consume capacity.
+- [x] **F05.rewards** — Reward teams do not consume capacity.
 
-- [ ] **F05.identity** — Repeated team types retain separate identities and consume separate capacity.
+- [x] **F05.identity** — Repeated team types retain separate identities and consume separate capacity.
 
-- [ ] **F05.order** — Dismiss then recruit frees capacity; recruit then dismiss warns at the earlier step.
+- [x] **F05.order** — Recruitment and dismissal in the same week work in either order when the resulting roster fits team capacity.
 
-- [ ] **F05.rank-1-teams** — Rank 1 cap is 2 non-reward teams.
+- [x] **F05.rank-1-teams** — Rank 1 cap is 2 non-reward teams.
 
-- [ ] **F05.rank-2-teams** — Rank 2 cap is 2 non-reward teams.
+- [x] **F05.rank-2-teams** — Rank 2 cap is 2 non-reward teams.
 
-- [ ] **F05.rank-3-teams** — Rank 3 cap is 3 non-reward teams.
+- [x] **F05.rank-3-teams** — Rank 3 cap is 3 non-reward teams.
 
-- [ ] **F05.rank-4-teams** — Rank 4 cap is 3 non-reward teams.
+- [x] **F05.rank-4-teams** — Rank 4 cap is 3 non-reward teams.
 
-- [ ] **F05.rank-5-teams** — Rank 5 cap is 4 non-reward teams.
+- [x] **F05.rank-5-teams** — Rank 5 cap is 4 non-reward teams.
 
-- [ ] **F05.rank-6-teams** — Rank 6 cap is 4 non-reward teams.
+- [x] **F05.rank-6-teams** — Rank 6 cap is 4 non-reward teams.
 
-- [ ] **F05.rank-7-teams** — Rank 7 cap is 4 non-reward teams.
+- [x] **F05.rank-7-teams** — Rank 7 cap is 4 non-reward teams.
 
-- [ ] **F05.rank-8-teams** — Rank 8 cap is 5 non-reward teams.
+- [x] **F05.rank-8-teams** — Rank 8 cap is 5 non-reward teams.
 
-- [ ] **F05.rank-9-teams** — Rank 9 cap is 5 non-reward teams.
+- [x] **F05.rank-9-teams** — Rank 9 cap is 5 non-reward teams.
 
-- [ ] **F05.rank-10-teams** — Rank 10 cap is 5 non-reward teams.
+- [x] **F05.rank-10-teams** — Rank 10 cap is 5 non-reward teams.
 
-- [ ] **F05.rank-11-teams** — Rank 11 cap is 6 non-reward teams.
+- [x] **F05.rank-11-teams** — Rank 11 cap is 6 non-reward teams.
 
-- [ ] **F05.rank-12-teams** — Rank 12 cap is 6 non-reward teams.
+- [x] **F05.rank-12-teams** — Rank 12 cap is 6 non-reward teams.
 
-- [ ] **F05.rank-13-teams** — Rank 13 cap is 6 non-reward teams.
+- [x] **F05.rank-13-teams** — Rank 13 cap is 6 non-reward teams.
 
-- [ ] **F05.rank-14-teams** — Rank 14 cap is 6 non-reward teams.
+- [x] **F05.rank-14-teams** — Rank 14 cap is 6 non-reward teams.
 
-- [ ] **F05.rank-15-teams** — Rank 15 cap is 7 non-reward teams.
+- [x] **F05.rank-15-teams** — Rank 15 cap is 7 non-reward teams.
 
-- [ ] **F05.rank-16-teams** — Rank 16 cap is 7 non-reward teams.
+- [x] **F05.rank-16-teams** — Rank 16 cap is 7 non-reward teams.
 
-- [ ] **F05.rank-17-teams** — Rank 17 cap is 7 non-reward teams.
+- [x] **F05.rank-17-teams** — Rank 17 cap is 7 non-reward teams.
 
-- [ ] **F05.rank-18-teams** — Rank 18 cap is 7 non-reward teams.
+- [x] **F05.rank-18-teams** — Rank 18 cap is 7 non-reward teams.
 
-- [ ] **F05.rank-19-teams** — Rank 19 cap is 7 non-reward teams.
+- [x] **F05.rank-19-teams** — Rank 19 cap is 7 non-reward teams.
 
-- [ ] **F05.rank-20-teams** — Rank 20 cap is 8 non-reward teams.
+- [x] **F05.rank-20-teams** — Rank 20 cap is 8 non-reward teams.
 
-- [ ] **COMPLETE.F05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F06 — Resource bounds and precision
 
@@ -647,15 +644,15 @@ Reference R069 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F06.notoriety** — Calculated Notoriety is bounded 0–100 through additive effects.
+- [x] **F06.notoriety** — Calculated Notoriety is bounded 0–100 through additive effects.
 
-- [ ] **F06.money** — Minimum treasury is rank times 10 gp; spending and gains retain copper precision.
+- [x] **F06.money** — Minimum treasury is rank times 10 gp; spending and gains retain copper precision.
 
-- [ ] **F06.override** — Explicit adjustments appear after the bounded baseline.
+- [x] **F06.override** — Explicit adjustments appear after the bounded baseline.
 
-- [ ] **F06.removed-action** — Deselected actions contribute no stale resource totals.
+- [x] **F06.removed-action** — Deselected actions contribute no stale resource totals.
 
-- [ ] **COMPLETE.F06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F07 — Settlement reputation
 
@@ -684,19 +681,19 @@ Reference T046 (numeric tables):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F07.hostile** — Hostile shows 1d4-day sightings, +5% prices and +5 social DC.
+- [x] **F07.hostile** — Hostile shows 1d4-day sightings, +5% prices and +5 social DC.
 
-- [ ] **F07.unfriendly** — Unfriendly shows +2 social DC and +5 operating-settlement event result.
+- [x] **F07.unfriendly** — Unfriendly shows +2 social DC and +5 operating-settlement event result.
 
-- [ ] **F07.indifferent** — Indifferent adds no modifier.
+- [x] **F07.indifferent** — Indifferent adds no modifier.
 
-- [ ] **F07.friendly** — Friendly shows -2 social DC and -5 operating-settlement event result.
+- [x] **F07.friendly** — Friendly shows -2 social DC and -5 operating-settlement event result.
 
-- [ ] **F07.helpful** — Helpful grants -5% prices and +2 to exactly one eligible Activity check.
+- [x] **F07.helpful** — Helpful grants -5% prices and +2 to exactly one eligible Activity check.
 
-- [ ] **F07.effective** — Refuge and Reduce Danger shifts affect the selected settlement; Market Day price effects compose.
+- [x] **F07.effective** — Refuge and Reduce Danger shifts affect the selected settlement; Market Day price effects compose.
 
-- [ ] **COMPLETE.F07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F08 — Rank rewards
 
@@ -746,17 +743,17 @@ Reference R106 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F08.skilled** — Ranks 2/7/12/17 award one skill rank to each PC.
+- [x] **F08.skilled** — Ranks 2/7/12/17 award one skill rank to each PC.
 
-- [ ] **F08.gifts** — Ranks 3/6/8/11/13/16/18 record the prescribed gift acknowledgement.
+- [x] **F08.gifts** — Ranks 3/6/8/11/13/16/18 record the prescribed gift acknowledgement.
 
-- [ ] **F08.titles** — Ranks 4/9/14/19 record a title and eligible feat choice.
+- [x] **F08.titles** — Ranks 4/9/14/19 record a title and eligible feat choice.
 
-- [ ] **F08.xp** — Ranks 5/10/15/20 split the story XP among PCs.
+- [x] **F08.xp** — Ranks 5/10/15/20 split the story XP among PCs.
 
-- [ ] **F08.recipients** — Multiple crossed milestones award once to PCs, excluding NPC officers and cohorts.
+- [x] **F08.recipients** — Multiple crossed milestones award once to PCs, excluding NPC officers and cohorts.
 
-- [ ] **COMPLETE.F08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### F09 — Boons, qualification, and rounding
 
@@ -805,17 +802,17 @@ Reference R114 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **F09.context-money** — Preparation preserves integer copper values, including zero, separately from unknown money.
+- [x] **F09.context-money** — Preparation preserves integer copper values, including zero, separately from unknown money.
 
-- [ ] **F09.packages** — Gift choices and title feats match the exact packages in the cited source.
+- [x] **F09.packages** — Gift choices and title feats match the exact packages in the cited source.
 
-- [ ] **F09.xp-rounding** — 1200/3200/6400/25600 XP split among PCs rounds down.
+- [x] **F09.xp-rounding** — 1200/3200/6400/25600 XP split among PCs rounds down.
 
-- [ ] **F09.qualification** — Champion feat requires qualification or an explicit Rules Exception.
+- [x] **F09.qualification** — Champion feat requires qualification or an explicit Rules Exception.
 
-- [ ] **F09.acknowledgement** — Chosen rewards and narrative acknowledgement persist in confirmed history.
+- [x] **F09.acknowledgement** — Chosen rewards and narrative acknowledgement persist in confirmed history.
 
-- [ ] **COMPLETE.F09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.F09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### O01 — Multiple holders per role; bonuses do not stack except Commandant.
 
@@ -829,17 +826,17 @@ Multiple officers can fill the same role, but their bonuses do not stack (except
 
 **Individual checks — reply with these IDs**
 
-- [ ] **O01.roster-holders** — Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments.
+- [x] **O01.roster-holders** — Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments.
 
-- [ ] **O01.nonstack** — Multiple holders select one applicable role bonus rather than summing.
+- [x] **O01.nonstack** — Multiple holders select one applicable role bonus rather than summing.
 
-- [ ] **O01.commandants** — Commandant Hit Dice stack.
+- [x] **O01.commandants** — Commandant Hit Dice stack.
 
-- [ ] **O01.ordered-role** — Ordered assignment and removal recompute later checks.
+- [x] **O01.ordered-role** — Ordered assignment and removal recompute later checks.
 
-- [ ] **COMPLETE.O01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.O01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
-### O02 — Ambassador Con or Cha to Loyalty; Marshal Str or Wis to Security; Spymaster Dex or Int to Secrecy.
+### O02 — Ambassador, Marshal, and Spymaster: automatic check bonuses
 
 **Included rule reference**
 
@@ -863,15 +860,15 @@ Reference R145 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **O02.ambassador** — Ambassador selects Constitution or Charisma for Loyalty.
+- [x] **O02.ambassador** — Ambassador automatically uses the higher Constitution or Charisma modifier for Loyalty, and the highest applicable bonus across assigned Ambassadors; no manual selection.
 
-- [ ] **O02.marshal** — Marshal selects Strength or Wisdom for Security.
+- [x] **O02.marshal** — Marshal automatically uses the higher Strength or Wisdom modifier for Security, and the highest applicable bonus across assigned Marshals; no manual selection.
 
-- [ ] **O02.spymaster** — Spymaster selects Dexterity or Intelligence for Secrecy.
+- [x] **O02.spymaster** — Spymaster automatically uses the higher Dexterity or Intelligence modifier for Secrecy, and the highest applicable bonus across assigned Spymasters; no manual selection.
 
-- [ ] **O02.identity** — Absent or archived characters cannot silently contribute; tied and negative modifiers remain correct.
+- [x] **O02.identity** — Missing character records require correction and archived holders are flagged. The highest applicable modifier is used automatically, including ties and all-negative modifiers (for example, −1 beats −2).
 
-- [ ] **COMPLETE.O02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.O02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### O03 — Commandant adds Hit Dice only on successful Drill; Commandants stack.
 
@@ -885,17 +882,17 @@ Reference R129 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **O03.roster-hit-dice** — Roster preparation retains explicit Commandant Hit Dice separately from level and reports unknown legacy Hit Dice for preflight resolution.
+- [x] **O03.roster-hit-dice** — Roster preparation retains explicit Commandant Hit Dice separately from level and reports unknown legacy Hit Dice for preflight resolution.
 
-- [ ] **O03.success** — Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level.
+- [x] **O03.success** — Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level.
 
-- [ ] **O03.failure** — Failed Drill adds no Commandant training.
+- [x] **O03.failure** — Failed Drill adds no Commandant training.
 
-- [ ] **O03.natural-one** — Natural 1 can still succeed and add Commandants while adding rolled Notoriety.
+- [x] **O03.natural-one** — Natural 1 can still succeed and add Commandants while adding rolled Notoriety.
 
-- [ ] **COMPLETE.O03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.O03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
-### O04 — Overseer +1 to both secondary checks; one Event check may receive the appropriate best ability modifier.
+### O04 — Overseer +1 to both secondary checks; organization checks throughout one chosen event may receive the appropriate best ability modifier.
 
 **Included rule reference**
 
@@ -904,22 +901,22 @@ Reference R137 (rules):
 **Overseer**
 
 - Grants +1 bonus to both secondary checks.
-- During one event check, can add:
+- During the resolution of one chosen event, can add the appropriate modifier to its organization checks:
   - Charisma/Constitution to Loyalty, or
   - Strength/Wisdom to Security, or
   - Dexterity/Intelligence to Secrecy.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **O04.secondary** — Overseer adds +1 to both secondary checks, not focused checks.
+- [x] **O04.secondary** — Overseer adds +1 to both secondary checks, not focused checks.
 
-- [ ] **O04.event** — One selected Event check receives the appropriate best ability modifier.
+- [x] **O04.event** — Organization checks during one selected event’s resolution receive the Overseer’s appropriate best ability modifier; support is not consumed by the first check.
 
-- [ ] **O04.one-use** — Two event occurrences cannot both consume the one-use bonus.
+- [x] **O04.one-use** — Support can apply to multiple checks within the same event occurrence, but cannot also apply to a different event occurrence that week.
 
-- [ ] **O04.absent** — No Overseer contributes no bonus; included modifiers are not added twice.
+- [x] **O04.absent** — No Overseer contributes no bonus; included modifiers are not added twice.
 
-- [ ] **COMPLETE.O04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.O04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### O05 — Strategist grants one action with +2 on that action's related checks; same-role bonuses do not stack.
 
@@ -934,13 +931,13 @@ Reference R149 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **O05.slot** — Only the designated bonus action receives +2 to all related checks.
+- [x] **O05.slot** — The designated bonus action slot visibly shows “Strategist +2”, including when empty; only its action receives +2 to all related organization checks.
 
-- [ ] **O05.holders** — Multiple Strategists grant one action and one designated bonus.
+- [x] **O05.holders** — Multiple Strategists grant one action and one designated bonus.
 
-- [ ] **O05.ordered** — Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices.
+- [x] **O05.ordered** — Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices.
 
-- [ ] **COMPLETE.O05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.O05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### O06 — Team managers
 
@@ -958,19 +955,19 @@ Reference R093 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **O06.roster-manager-warnings** — Roster preparation validates campaign-scoped manager references and warns about manager limits without rejecting structurally valid rosters.
+- [x] **O06.roster-manager-warnings** — Roster preparation validates campaign-scoped manager references and warns about manager limits without rejecting structurally valid rosters.
 
-- [ ] **O06.capacity** — PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one.
+- [x] **O06.capacity** — PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one.
 
-- [ ] **O06.checks** — Each team check uses its own manager Charisma bonus exactly once.
+- [x] **O06.checks** — Each team check uses its own manager Charisma bonus exactly once.
 
-- [ ] **O06.changes** — Ordered manager reassignment affects subsequent checks for independently identified teams.
+- [x] **O06.changes** — The current manager applies to that team throughout the draft; changing the manager recomputes all of that team’s checks in the draft.
 
-  **Decision needed.** Current behavior recomputes team checks from the current manager assignment. **CHOICE A:** the current manager applies to that team throughout the draft; changing it recomputes the whole draft. **CHOICE B:** record manager changes between actions; only subsequent actions use the new manager. Ordered within-week manager changes are not implemented today.
+  **Decision recorded — CHOICE A (2026-09-23).** The current manager applies throughout the draft, and changing that assignment recomputes the whole draft. No between-action manager-change timeline is required.
 
-- [ ] **O06.references** — Missing or archived manager identities are surfaced rather than fabricated.
+- [x] **O06.references** — Missing or archived manager identities are surfaced rather than fabricated.
 
-- [ ] **COMPLETE.O06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.O06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### U01 — Upkeep → Activity → Event; first militia week skips Upkeep.
 
@@ -989,17 +986,17 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **U01.context-first-use** — Preparation retains explicit first-use and uneventful carry facts without running Upkeep or changing live militia state.
+- [x] **U01.context-first-use** — Editing the proposed week records whether the militia is newly founded or resuming play, without executing Upkeep or changing committed state. Previous-week carryover applies only when a previous militia week exists.
 
-- [ ] **U01.sequence** — Upkeep precedes Activity, which precedes Event.
+- [x] **U01.sequence** — Upkeep precedes Activity, which precedes Event.
 
-- [ ] **U01.first-use** — First militia week skips Upkeep independent of displayed week number and entered attrition.
+- [x] **U01.first-use** — Only a newly founded militia’s first-ever week skips Upkeep. A militia set up to resume a later week runs Upkeep, even on its first week using the app.
 
-- [ ] **U01.import** — Imported first-use metadata controls skipping rather than a week-number heuristic.
+- [x] **U01.import** — Setup for an existing militia resuming a later week records that its first-ever week has already passed; using the app for the first time does not grant an Upkeep skip.
 
-- [ ] **U01.recompute** — Earlier phase edits recompute downstream eligibility and outcomes.
+- [x] **U01.recompute** — Earlier phase edits recompute downstream eligibility and outcomes.
 
-- [ ] **COMPLETE.U01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.U01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### U02 — Upkeep step 1: Loyalty DC10; success lose 1d6, nat20 gain 1d6, failure lose 2d4+rank.
 
@@ -1016,17 +1013,17 @@ Reference R219 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **U02.success** — Loyalty total 10 or higher loses rolled 1d6 training.
+- [x] **U02.success** — Loyalty total 10 or higher loses rolled 1d6 training.
 
-- [ ] **U02.failure** — Loyalty total 9 or lower loses rolled 2d4 plus rank.
+- [x] **U02.failure** — Loyalty total 9 or lower loses rolled 2d4 plus rank.
 
-- [ ] **U02.natural-twenty** — Natural 20 gains rolled 1d6 training instead of losing training.
+- [x] **U02.natural-twenty** — Natural 20 gains rolled 1d6 training instead of losing training.
 
-- [ ] **U02.modifiers** — Officer and queued modifiers compose once; Week of Pain doubles losses, not natural-20 gain.
+- [x] **U02.modifiers** — Officer and queued modifiers compose once; Week of Pain doubles losses, not natural-20 gain.
 
-- [ ] **U02.readiness** — Missing required check or loss/gain dice prevents complete readiness.
+- [x] **U02.readiness** — Missing required check or loss/gain dice prevents complete readiness.
 
-- [ ] **COMPLETE.U02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.U02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### U03 — At Notoriety100 lose 1d20+rank and fail Loyalty DC15 → nearest settlement one step down, floor Unfriendly.
 
@@ -1042,15 +1039,15 @@ If Notoriety is 100:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **U03.threshold** — Notoriety 99 has no maximum penalty; 100 loses 1d20 plus rank.
+- [x] **U03.threshold** — Notoriety 99 has no maximum penalty; 100 loses 1d20 plus rank.
 
-- [ ] **U03.reputation** — Failed Loyalty DC15 reduces nearest settlement one step with Unfriendly floor.
+- [x] **U03.reputation** — Failed Loyalty DC15 reduces nearest settlement one step with Unfriendly floor.
 
-- [ ] **U03.inputs** — Missing applicable die, check or settlement blocks Confirmation.
+- [x] **U03.inputs** — Missing applicable die, check or settlement blocks Confirmation.
 
-- [ ] **U03.recompute** — Projected Notoriety and queued Loyalty modifiers control applicability and clear stale penalties.
+- [x] **U03.recompute** — Projected Notoriety and queued Loyalty modifiers control applicability and clear stale penalties.
 
-- [ ] **COMPLETE.U03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.U03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### U04 — Step 3 below rank×10 treasury loses 2d4+rank; step 4 rank increases after losses, possibly multiple ranks, capped at highest PC; boons immediate.
 
@@ -1074,15 +1071,15 @@ Reference R237 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **U04.shortage** — Treasury below rank times 10 after recovery payments loses rolled 2d4 plus rank.
+- [x] **U04.shortage** — Treasury below rank times 10 after recovery payments loses rolled 2d4 plus rank.
 
-- [ ] **U04.boundary** — Exactly minimum treasury avoids shortage; later deposits do not erase it.
+- [x] **U04.boundary** — Exactly minimum treasury avoids shortage; later deposits do not erase it.
 
-- [ ] **U04.rank** — Rank increases use post-loss training, cross multiple thresholds and stop at PC cap.
+- [x] **U04.rank** — Rank increases use post-loss training, cross multiple thresholds and stop at PC cap.
 
-- [ ] **U04.boons** — Each newly crossed boon is calculated immediately once.
+- [x] **U04.boons** — Each newly crossed boon is calculated immediately once.
 
-- [ ] **COMPLETE.U04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.U04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### U05 — Step 5 any officer may deposit/withdraw after prior steps.
 
@@ -1096,13 +1093,13 @@ Reference R244 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **U05.order** — Deposits and withdrawals are staged after preceding Upkeep steps.
+- [x] **U05.order** — Deposits and withdrawals are staged after preceding Upkeep steps.
 
-- [ ] **U05.preview** — Preview includes all deposits and withdrawals before Event Theft.
+- [x] **U05.preview** — Preview includes all deposits and withdrawals before Event Theft.
 
-- [ ] **U05.authority** — Allowed players can stage transfers; Confirmation applies them once under races.
+- [x] **U05.authority** — Allowed players can stage transfers; Confirmation applies them once under races.
 
-- [ ] **COMPLETE.U05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.U05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### U06 — Event: Theft (Persistent-capable)
 
@@ -1137,15 +1134,15 @@ Reference R567 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **U06.cost-theft** — Activity costs precede Event Theft so theft uses remaining treasury.
+- [x] **U06.cost-theft** — Activity costs precede Event Theft so theft uses remaining treasury.
 
-- [ ] **U06.deposit-theft** — Deposits precede Event Theft and use persistent incoming-gain policy.
+- [x] **U06.deposit-theft** — Deposits precede Event Theft and use persistent incoming-gain policy.
 
-- [ ] **U06.action-order** — Reordering two dependent actions changes the later result and availability.
+- [x] **U06.action-order** — Reordering two dependent actions changes the later result and availability.
 
-- [ ] **U06.failure** — Failed preceding operations recompute later capacity and costs without stale gains.
+- [x] **U06.failure** — Failed preceding operations recompute later capacity and costs without stale gains.
 
-- [ ] **COMPLETE.U06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.U06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T01 — Espionage: Moles
 
@@ -1166,13 +1163,13 @@ Reference R180 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T01.recruit** — Moles are tier 1, size 3, Secrecy DC15.
+- [x] **T01.recruit** — Moles are tier 1, size 3, Secrecy DC15.
 
-- [ ] **T01.upgrade** — Propagandists cost 250 gp; Saboteurs and Spies each cost 1000 gp.
+- [x] **T01.upgrade** — Propagandists cost 250 gp; Saboteurs and Spies each cost 1000 gp.
 
-- [ ] **T01.inherit** — Both branches inherit all earlier actions; cross-tree and skipped-tier upgrades warn.
+- [x] **T01.inherit** — Both branches inherit all earlier actions; cross-tree and skipped-tier upgrades warn.
 
-- [ ] **COMPLETE.T01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T02 — Intelligence: Informants
 
@@ -1193,13 +1190,13 @@ Reference R187 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T02.recruit** — Informants are tier 1, size 6, Loyalty DC10.
+- [x] **T02.recruit** — Informants are tier 1, size 6, Loyalty DC10.
 
-- [ ] **T02.upgrade** — Conspirators cost 250 gp; Scholars and Spellcasters each cost 1000 gp.
+- [x] **T02.upgrade** — Conspirators cost 250 gp; Scholars and Spellcasters each cost 1000 gp.
 
-- [ ] **T02.inherit** — Both branches inherit all earlier actions; invalid edges warn.
+- [x] **T02.inherit** — Both branches inherit all earlier actions; invalid edges warn.
 
-- [ ] **COMPLETE.T02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T03 — Military: Defenders
 
@@ -1220,13 +1217,13 @@ Reference R194 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T03.recruit** — Defenders are tier 1, size 6, Security DC15.
+- [x] **T03.recruit** — Defenders are tier 1, size 6, Security DC15.
 
-- [ ] **T03.upgrade** — Infiltrators cost 250 gp; Guardians and Specialists each display and charge 1000 gp.
+- [x] **T03.upgrade** — Infiltrators cost 250 gp; Guardians and Specialists each display and charge 1000 gp.
 
-- [ ] **T03.inherit** — Both military branches inherit all earlier actions.
+- [x] **T03.inherit** — Both military branches inherit all earlier actions.
 
-- [ ] **COMPLETE.T03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T04 — Treasury: Patrons
 
@@ -1247,13 +1244,13 @@ Reference R201 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T04.recruit** — Patrons are tier 1, size 6, Loyalty DC10.
+- [x] **T04.recruit** — Patrons are tier 1, size 6, Loyalty DC10.
 
-- [ ] **T04.upgrade** — Merchants cost 50 gp; Black Marketeers and Fixers each cost 200 gp.
+- [x] **T04.upgrade** — Merchants cost 50 gp; Black Marketeers and Fixers each cost 200 gp.
 
-- [ ] **T04.inherit** — Both treasury branches inherit all earlier actions.
+- [x] **T04.inherit** — Both treasury branches inherit all earlier actions.
 
-- [ ] **COMPLETE.T04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T05 — Action: Upgrade Team
 
@@ -1281,15 +1278,15 @@ Reference R443 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T05.recruit-act** — Successful new tier-1 recruits can act immediately when slots remain.
+- [x] **T05.recruit-act** — Successful new tier-1 recruits can act immediately when slots remain.
 
-- [ ] **T05.failed-recruit** — Failed recruitment creates no team to act.
+- [x] **T05.failed-recruit** — Failed recruitment creates no team to act.
 
-- [ ] **T05.upgrade-act** — An upgraded team cannot act that Activity; ordered prior actions remain accounted for.
+- [x] **T05.upgrade-act** — An upgraded team cannot act that Activity; ordered prior actions remain accounted for.
 
-- [ ] **T05.repeat-upgrade** — Each team upgrades at most once per week; different teams can upgrade independently.
+- [x] **T05.repeat-upgrade** — Each team upgrades at most once per week; different teams can upgrade independently.
 
-- [ ] **COMPLETE.T05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T06 — Each team generally one action/Activity; cap and action capability; Lie Low exclusive; Drill once.
 
@@ -1305,19 +1302,19 @@ Reference R248 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T06.roster-identities** — Roster preparation preserves individual identities for repeated types and reward exemptions; cap warnings do not remove teams.
+- [x] **T06.roster-identities** — Roster preparation preserves individual identities for repeated types and reward exemptions; cap warnings do not remove teams.
 
-- [ ] **T06.team-use** — One team normally takes one Activity action; two teams can select the same repeatable action.
+- [x] **T06.team-use** — One team normally takes one Activity action; two teams can select the same repeatable action.
 
-- [ ] **T06.capability** — Team capability, condition and slot allowance produce specific eligibility warnings.
+- [x] **T06.capability** — Team capability, condition and slot allowance produce specific eligibility warnings.
 
-- [ ] **T06.lie-low** — Lie Low excludes other Activity actions.
+- [x] **T06.lie-low** — Lie Low excludes other Activity actions.
 
-- [ ] **T06.drill** — Drill appears at most once per Activity.
+- [x] **T06.drill** — Drill appears at most once per Activity.
 
-- [ ] **T06.exception** — A shared reasoned Rules Exception permits an unusual choice without changing arithmetic.
+- [x] **T06.exception** — A shared reasoned Rules Exception permits an unusual choice without changing arithmetic.
 
-- [ ] **COMPLETE.T06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T07 — Disabled cannot act; start-Upkeep recovery costs current minimum; narrative alternatives allowed.
 
@@ -1333,17 +1330,17 @@ Reference R165 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T07.roster-conditions** — Roster preparation retains independent disabled and missing conditions for individual teams of the same type.
+- [x] **T07.roster-conditions** — Roster preparation retains independent disabled and missing conditions for individual teams of the same type.
 
-- [ ] **T07.disabled** — Disabled teams cannot act until recovery.
+- [x] **T07.disabled** — Disabled teams cannot act until recovery.
 
-- [ ] **T07.payment** — Each selected disabled team recovers at start-Upkeep for current minimum treasury.
+- [x] **T07.payment** — Each selected disabled team recovers at start-Upkeep for current minimum treasury.
 
-- [ ] **T07.narrative** — Narrative recovery records adjudication and enables same-week action.
+- [x] **T07.narrative** — Narrative recovery records adjudication and enables same-week action.
 
-- [ ] **T07.funds** — Insufficient recovery funds produce an advisory warning and exception path.
+- [x] **T07.funds** — Insufficient recovery funds produce an advisory warning and exception path.
 
-- [ ] **COMPLETE.T07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### T08 — Missing cannot act, still counts; DC15 Security at start-Upkeep returns end-week; nat1 permanently lost.
 
@@ -1360,15 +1357,15 @@ Reference R171 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **T08.return** — Security DC15 returns a missing team at end-week, unavailable during Activity.
+- [x] **T08.return** — Security DC15 returns a missing team at end-week, unavailable during Activity.
 
-- [ ] **T08.failure** — Total 14 fails recovery; natural 1 permanently loses the team even with a high modifier.
+- [x] **T08.failure** — Total 14 fails recovery; natural 1 permanently loses the team even with a high modifier.
 
-- [ ] **T08.capacity** — Missing teams still count toward capacity.
+- [x] **T08.capacity** — Missing teams still count toward capacity.
 
-- [ ] **T08.ordering** — Scheduled return, Sickness and Turn Around use explicit ordered condition outcomes.
+- [x] **T08.ordering** — Scheduled return, Sickness and Turn Around use explicit ordered condition outcomes.
 
-- [ ] **COMPLETE.T08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.T08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A01 — Action: Activate Black Market
 
@@ -1386,15 +1383,15 @@ Reference R254 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A01.success** — Black Marketeers pay 50 gp and Secrecy DC20 opens a one-week market with 90% availability and 55% sale profile.
+- [x] **A01.success** — Black Marketeers pay 50 gp and Secrecy DC20 opens a one-week market with 90% availability and 55% sale profile.
 
-- [ ] **A01.failure** — Total 19 fails, still charges 50 gp and adds 1d6 Notoriety.
+- [x] **A01.failure** — Total 19 fails, still charges 50 gp and adds 1d6 Notoriety.
 
-- [ ] **A01.lifecycle** — Separate markets retain independent targets and expire after one week.
+- [x] **A01.lifecycle** — Separate markets retain independent targets and expire after one week.
 
-- [ ] **A01.inputs** — Missing check or failure die prevents complete readiness.
+- [x] **A01.inputs** — Missing check or failure die prevents complete readiness.
 
-- [ ] **COMPLETE.A01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A02 — Action: Activate Refuge
 
@@ -1410,13 +1407,13 @@ Reference R262 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A02.reputation** — Conspirators, Scholars or Spellcasters make Hostile or Unfriendly refuge reputation one step better.
+- [x] **A02.reputation** — Conspirators, Scholars or Spellcasters make Hostile or Unfriendly refuge reputation one step better.
 
-- [ ] **A02.duration** — Refuge activation or renewal lasts one week.
+- [x] **A02.duration** — Refuge activation or renewal lasts one week.
 
-- [ ] **A02.interactions** — Active refuge is available to same-week rescue and scoped Raid outcomes.
+- [x] **A02.interactions** — Active refuge is available to same-week rescue and scoped Raid outcomes.
 
-- [ ] **COMPLETE.A02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A03 — Action: Broker Market
 
@@ -1435,15 +1432,15 @@ Reference R268 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A03.profiles** — Merchants broker small-town markets; Black Marketeers and Fixers broker small-city markets.
+- [x] **A03.profiles** — Merchants broker small-town markets; Black Marketeers and Fixers broker small-city markets.
 
-- [ ] **A03.payment** — Activation costs 100 gp plus all purchases paid upfront.
+- [x] **A03.payment** — Activation costs 100 gp plus all purchases paid upfront.
 
-- [ ] **A03.delivery** — Each order arrives next Activity, independently of Special Order day timing.
+- [x] **A03.delivery** — Each order arrives next Activity, independently of Special Order day timing.
 
-- [ ] **A03.expiry** — Market duration and delivered item availability follow the source without duplicate receipt.
+- [x] **A03.expiry** — Market duration and delivered item availability follow the source without duplicate receipt.
 
-- [ ] **COMPLETE.A03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A04 — Action: Change Officer Role
 
@@ -1459,13 +1456,13 @@ Reference R277 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A04.pc** — One no-team action changes one PC role; ally or cohort departure needs Rules Exception.
+- [x] **A04.pc** — One no-team action changes one PC role; ally or cohort departure needs Rules Exception.
 
-- [ ] **A04.move** — Move or unassign preserves character records.
+- [x] **A04.move** — Move or unassign preserves character records.
 
-- [ ] **A04.order** — Role changes affect later checks and consume their own actions.
+- [x] **A04.order** — Role changes affect later checks and consume their own actions.
 
-- [ ] **COMPLETE.A04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A05 — Action: Covert Action
 
@@ -1483,17 +1480,17 @@ Reference R283 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A05.next** — Spies give manager Charisma to all d20 rolls of the immediately following action only.
+- [x] **A05.next** — Spies give manager Charisma to all d20 rolls of the immediately following action only.
 
-- [ ] **A05.success** — Successful target action produces no action Notoriety, including natural-1 success.
+- [x] **A05.success** — Successful target action produces no action Notoriety, including natural-1 success.
 
-- [ ] **A05.failure** — Failed target action keeps its Notoriety; unrelated same-type actions gain no benefit.
+- [x] **A05.failure** — Failed target action keeps its Notoriety; unrelated same-type actions gain no benefit.
 
-- [ ] **A05.contact** — Alternative contact or cache at a chosen site lasts one week.
+- [x] **A05.contact** — Alternative contact or cache at a chosen site lasts one week.
 
-- [ ] **A05.raid** — Contact rescue and Raid override compose identically in browser and server.
+- [x] **A05.raid** — Contact rescue and Raid override compose identically in browser and server.
 
-- [ ] **COMPLETE.A05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A06 — Action: Dismiss Team
 
@@ -1510,13 +1507,13 @@ Reference R291 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A06.success** — Loyalty DC10 removes the chosen team.
+- [x] **A06.success** — Loyalty DC10 removes the chosen team.
 
-- [ ] **A06.failure** — Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety.
+- [x] **A06.failure** — Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety.
 
-- [ ] **A06.capacity** — Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice.
+- [x] **A06.capacity** — Removal frees capacity for recruitment in the same week regardless of slot order; repeated dismissal cannot remove the same team twice.
 
-- [ ] **COMPLETE.A06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A07 — Action: Drill Militia
 
@@ -1536,17 +1533,17 @@ Reference R298 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A07.cost** — One no-team Drill costs rank times 10 gp even on failure.
+- [x] **A07.cost** — One no-team Drill costs rank times 10 gp even on failure.
 
-- [ ] **A07.success** — Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice.
+- [x] **A07.success** — Loyalty DC10 plus rank gains rolled 2d6 plus summed Commandant Hit Dice.
 
-- [ ] **A07.natural-one** — Natural 1 can succeed but also adds rolled 1d6 Notoriety.
+- [x] **A07.natural-one** — Natural 1 can succeed but also adds rolled 1d6 Notoriety.
 
-- [ ] **A07.maximum** — At maximum rank Drill is unavailable by baseline with a reasoned exception path.
+- [x] **A07.maximum** — At maximum rank Drill is unavailable by baseline with a reasoned exception path.
 
-- [ ] **A07.removed** — Removing or failing Drill removes its gain; no staged Drill means no Drill training.
+- [x] **A07.removed** — Removing or failing Drill removes its gain; no staged Drill means no Drill training.
 
-- [ ] **COMPLETE.A07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A08 — Action: Earn Gold
 
@@ -1563,15 +1560,15 @@ Reference R308 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A08.tiers** — Treasury teams earn Loyalty total times their tier for tiers 1/2/3.
+- [x] **A08.tiers** — Treasury teams earn Loyalty total times their tier for tiers 1/2/3.
 
-- [ ] **A08.natural-one** — Natural 1 still earns gold and adds rolled 1d6 Notoriety.
+- [x] **A08.natural-one** — Natural 1 still earns gold and adds rolled 1d6 Notoriety.
 
-- [ ] **A08.composition** — Queued and manager bonuses affect earned gold exactly once per team.
+- [x] **A08.composition** — Queued and manager bonuses affect earned gold exactly once per team.
 
-- [ ] **A08.removed** — Clearing an action removes its earnings; invalid or exceptional negative outcomes remain explicit.
+- [x] **A08.removed** — Clearing an action removes its earnings; invalid or exceptional negative outcomes remain explicit.
 
-- [ ] **COMPLETE.A08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A09 — Action: Gather Information
 
@@ -1588,15 +1585,15 @@ Reference R315 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A09.tiers** — Intelligence teams add twice their tier to Secrecy against DC15.
+- [x] **A09.tiers** — Intelligence teams add twice their tier to Secrecy against DC15.
 
-- [ ] **A09.natural-one** — Natural 1 is not automatic failure and adds 1d6 Notoriety.
+- [x] **A09.natural-one** — Natural 1 is not automatic failure and adds 1d6 Notoriety.
 
-- [ ] **A09.acknowledgement** — Successful intelligence requires recorded GM outcome acknowledgement.
+- [x] **A09.acknowledgement** — Successful intelligence requires recorded GM outcome acknowledgement.
 
-- [ ] **A09.repeat** — Separate teams retain independent checks and outcomes.
+- [x] **A09.repeat** — Separate teams retain independent checks and outcomes.
 
-- [ ] **COMPLETE.A09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A10 — Action: Guarantee Event
 
@@ -1613,15 +1610,15 @@ Reference R322 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A10.cost** — No-team Guarantee Event costs rank times 10 gp and adds 1d6 Notoriety per action.
+- [x] **A10.cost** — No-team Guarantee Event costs rank times 10 gp and adds 1d6 Notoriety per action.
 
-- [ ] **A10.choice** — Both event rolls and explicit chosen result are required.
+- [x] **A10.choice** — Both event rolls and explicit chosen result are required.
 
-- [ ] **A10.roll-twice** — Chosen Roll Twice expands to two valid final events.
+- [x] **A10.roll-twice** — Chosen Roll Twice expands to two valid final events.
 
-- [ ] **A10.precedence** — Forced All Is Calm and Sabotage use explicit event precedence rather than stale inputs.
+- [x] **A10.precedence** — Forced All Is Calm and Sabotage use explicit event precedence rather than stale inputs.
 
-- [ ] **COMPLETE.A10** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A10** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A11 — Action: Knowledge Check
 
@@ -1638,11 +1635,11 @@ Reference R329 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A11.dc** — Scholars add rank to modified Secrecy total to determine achieved Knowledge DC.
+- [x] **A11.dc** — Scholars add rank to modified Secrecy total to determine achieved Knowledge DC.
 
-- [ ] **A11.record** — Identification or evaluation outcome and acknowledgement remain in confirmed source.
+- [x] **A11.record** — Identification or evaluation outcome and acknowledgement remain in confirmed source.
 
-- [ ] **COMPLETE.A11** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A11** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A12 — Action: Lie Low
 
@@ -1658,15 +1655,15 @@ Reference R336 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A12.exclusive** — No-team Lie Low is normally the only Activity action.
+- [x] **A12.exclusive** — No-team Lie Low is normally the only Activity action.
 
-- [ ] **A12.count** — Notoriety reduction counts active, disabled, missing and bonus teams.
+- [x] **A12.count** — Notoriety reduction counts active, disabled, missing and bonus teams.
 
-- [ ] **A12.floor** — Zero teams reduces nothing; reduction below zero stops at baseline zero.
+- [x] **A12.floor** — Zero teams reduces nothing; reduction below zero stops at baseline zero.
 
-- [ ] **A12.exception** — Additional actions require a reasoned Rules Exception without rewriting the reduction.
+- [x] **A12.exception** — Additional actions require a reasoned Rules Exception without rewriting the reduction.
 
-- [ ] **COMPLETE.A12** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A12** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A13 — Action: Manipulate Events
 
@@ -1679,17 +1676,17 @@ Reference R342 (rules):
 - Team: Guardians.
 - Guarantees an event this week.
 - GM rolls twice on event table.
-- Guardians manager (or random PC) chooses which event occurs.
+- Any player can choose which of the two rolled events occurs.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A13.team** — Available Guardians guarantee an event with two rolls and one chosen result.
+- [x] **A13.team** — Available Guardians guarantee an event with two rolls and one chosen result.
 
-- [ ] **A13.chooser** — Manager chooses or a random PC is recorded when no manager exists.
+- [x] **A13.chooser** — Any player can choose which of the two guaranteed event results occurs; the choice needs no chooser identity.
 
-- [ ] **A13.composition** — Guarantee Event and selected Roll Twice do not accidentally duplicate or discard results.
+- [x] **A13.composition** — Guarantee Event and selected Roll Twice do not accidentally duplicate or discard results.
 
-- [ ] **COMPLETE.A13** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A13** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A14 — Action: Recruit Team
 
@@ -1717,15 +1714,15 @@ Reference R154 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A14.checks** — Tier-1 recruitment uses each of the four tree-specific checks and DCs.
+- [x] **A14.checks** — Tier-1 recruitment uses each of the four tree-specific checks and DCs.
 
-- [ ] **A14.capacity** — Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure.
+- [x] **A14.capacity** — Recruitment checks non-reward team capacity after the week’s Activity actions, accounting for dismissal in either order even on dismissal failure.
 
-- [ ] **A14.natural-one** — Natural 1 can succeed but adds 1d6 Notoriety.
+- [x] **A14.natural-one** — Natural 1 can succeed but adds 1d6 Notoriety.
 
-- [ ] **A14.identity** — Successful repeated types create independent teams that may act immediately.
+- [x] **A14.identity** — Successful repeated types create independent teams that may act immediately.
 
-- [ ] **COMPLETE.A14** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A14** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A15 — Action: Reduce Danger
 
@@ -1742,15 +1739,15 @@ Reference R356 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A15.success** — Military team Security DC15 gives temporary +1 settlement reputation and open movement reminder.
+- [x] **A15.success** — Military team Security DC15 gives temporary +1 settlement reputation and open movement reminder.
 
-- [ ] **A15.failure** — Total 14 adds 1d4 Notoriety without a reputation gain.
+- [x] **A15.failure** — Total 14 adds 1d4 Notoriety without a reputation gain.
 
-- [ ] **A15.duration** — Temporary shift expires after one week and respects secured-town context.
+- [x] **A15.duration** — Temporary shift expires after one week and respects secured-town context.
 
-- [ ] **A15.theft** — Successful Reduce Danger permanently ends applicable persistent Theft.
+- [x] **A15.theft** — Successful Reduce Danger permanently ends applicable persistent Theft.
 
-- [ ] **COMPLETE.A15** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A15** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A16 — Action: Rescue Character
 
@@ -1769,15 +1766,15 @@ Reference R363 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A16.success** — Upgraded military team Security DC10 plus level rescues to a valid location/refuge and adds level Notoriety.
+- [x] **A16.success** — Upgraded military team Security DC10 plus level rescues to a valid location/refuge and adds level Notoriety.
 
-- [ ] **A16.failure** — Failed rescue adds floor(level divided by 2) Notoriety.
+- [x] **A16.failure** — Failed rescue adds floor(level divided by 2) Notoriety.
 
-- [ ] **A16.targets** — Missing or invalid target and inactive destination block completion; direct rescue records GM adjudication.
+- [x] **A16.targets** — Missing or invalid target and inactive destination block completion; direct rescue records GM adjudication.
 
-- [ ] **A16.modifiers** — Raid DC override and Covert Action suppression apply once.
+- [x] **A16.modifiers** — Raid DC override and Covert Action suppression apply once.
 
-- [ ] **COMPLETE.A16** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A16** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A17 — Action: Restore Character
 
@@ -1801,15 +1798,15 @@ Reference R372 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A17.party** — Spellcasters provide the prescribed free party restoration modes.
+- [x] **A17.party** — Spellcasters provide the prescribed free party restoration modes.
 
-- [ ] **A17.single** — Single-target restoration modes cost 1125, 6125, 1700 or 1650 gp as specified.
+- [x] **A17.single** — Single-target restoration modes cost 1125, 6125, 1700 or 1650 gp as specified.
 
-- [ ] **A17.presence** — Required body must be at HQ or active refuge; captured or invalid targets need correction.
+- [x] **A17.presence** — Required body must be at HQ or active refuge; captured or invalid targets need correction.
 
-- [ ] **A17.multiple** — Multiple restorations sum their distinct costs and retain custom adjudication reasons.
+- [x] **A17.multiple** — Multiple restorations sum their distinct costs and retain custom adjudication reasons.
 
-- [ ] **COMPLETE.A17** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A17** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A18 — Action: Sabotage
 
@@ -1826,15 +1823,15 @@ Reference R386 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A18.availability** — Available Saboteurs can react during Event; disabled or otherwise used teams show eligibility warning.
+- [x] **A18.availability** — Available Saboteurs can react during Event; disabled or otherwise used teams show eligibility warning.
 
-- [ ] **A18.success** — Check DC15 plus rank negates only the selected event and still adds rolled 1d6 Notoriety.
+- [x] **A18.success** — Check DC15 plus rank negates only the selected event and still adds rolled 1d6 Notoriety.
 
-- [ ] **A18.failure** — Failed Sabotage still adds 1d6 Notoriety.
+- [x] **A18.failure** — Failed Sabotage still adds 1d6 Notoriety.
 
-- [ ] **A18.composition** — Manager, queue and Overseer modifiers apply exactly once; missing dice block readiness.
+- [x] **A18.composition** — Manager, queue and Overseer modifiers apply exactly once; missing dice block readiness.
 
-- [ ] **COMPLETE.A18** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A18** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A19 — Action: Secure Cache
 
@@ -1896,19 +1893,19 @@ Reference R617 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A19.minor** — Minor cache limits are 5 lb and 900 gp at DC15.
+- [x] **A19.minor** — Minor cache limits are 5 lb and 900 gp at DC15.
 
-- [ ] **A19.intermediate** — Intermediate cache limits are 10 lb and 2500 gp at DC20.
+- [x] **A19.intermediate** — Intermediate cache limits are 10 lb and 2500 gp at DC20.
 
-- [ ] **A19.major** — Major cache has 20 lb limit or extradimensional storage, no value cap, DC30.
+- [x] **A19.major** — Major cache has 20 lb limit or extradimensional storage, no value cap, DC30.
 
-- [ ] **A19.secure** — Secure location adds 5 DC and requires tier-3 Saboteurs or Spies.
+- [x] **A19.secure** — Secure location adds 5 DC and requires tier-3 Saboteurs or Spies.
 
-- [ ] **A19.failure** — Failed placement returns the cache next Activity.
+- [x] **A19.failure** — Failed placement returns the cache next Activity.
 
-- [ ] **A19.retrieve** — Placement and retrieval have distinct targets and apply modifiers once; unused retrieval has no effect.
+- [x] **A19.retrieve** — Placement and retrieval have distinct targets and apply modifiers once; unused retrieval has no effect.
 
-- [ ] **COMPLETE.A19** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A19** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A20 — Action: Special
 
@@ -1923,11 +1920,11 @@ Reference R407 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A20.description** — No-team Special action records GM-defined description and outcome acknowledgement.
+- [x] **A20.description** — No-team Special action records GM-defined description and outcome acknowledgement.
 
-- [ ] **A20.adjustments** — Zero or nonzero cost/results are explicit; outcome adjustments and eligibility exceptions remain distinct.
+- [x] **A20.adjustments** — Zero or nonzero cost/results are explicit; outcome adjustments and eligibility exceptions remain distinct.
 
-- [ ] **COMPLETE.A20** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A20** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A21 — Action: Special Order
 
@@ -1948,19 +1945,19 @@ Reference R412 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A21.context-orders** — Preparation retains copper precision, due-day, enchantment duration and explicit receipt separately from next-Activity marketplace timing.
+- [x] **A21.context-orders** — Preparation retains copper precision, due-day, enchantment duration and explicit receipt separately from next-Activity marketplace timing.
 
-- [ ] **A21.price** — Fixers order one item or enchantment with 5% discount paid upfront at Confirmation.
+- [x] **A21.price** — Fixers order one item or enchantment with 5% discount paid upfront at Confirmation.
 
-- [ ] **A21.ordinary** — Ordinary delivery uses entered 2d6 days including 2 and 12 boundaries.
+- [x] **A21.ordinary** — Ordinary delivery uses entered 2d6 days including 2 and 12 boundaries.
 
-- [ ] **A21.expedite** — Expediting adds 900 gp for one-day delivery.
+- [x] **A21.expedite** — Expediting adds 900 gp for one-day delivery.
 
-- [ ] **A21.enchantment** — Enchantment adds source-prescribed time per 1000 gp without losing due-day information.
+- [x] **A21.enchantment** — Enchantment adds source-prescribed time per 1000 gp without losing due-day information.
 
-- [ ] **A21.receipt** — Orders crossing weeks retain exact due day and explicit receipt applied once.
+- [x] **A21.receipt** — Orders crossing weeks retain exact due day and explicit receipt applied once.
 
-- [ ] **COMPLETE.A21** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A21** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A22 — Action: Spread Propaganda
 
@@ -1979,15 +1976,15 @@ Reference R423 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A22.check** — Espionage tier-2/3 pays 100 gp and rolls Loyalty DC20 or DC25 under occupation.
+- [x] **A22.check** — Espionage tier-2/3 pays 100 gp and rolls Loyalty DC20 or DC25 under occupation.
 
-- [ ] **A22.attempt** — Each settlement allows one attempt per Activity even on failure; two settlements are independent.
+- [x] **A22.attempt** — Each settlement allows one attempt per Activity even on failure; two settlements are independent.
 
-- [ ] **A22.success** — Success improves permanent reputation by one step up to Helpful.
+- [x] **A22.success** — Success improves permanent reputation by one step up to Helpful.
 
-- [ ] **A22.adjudication** — GM-disallowed or impossible targets show exception path; malformed references still block.
+- [x] **A22.adjudication** — GM-disallowed or impossible targets show exception path; malformed references still block.
 
-- [ ] **COMPLETE.A22** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A22** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A23 — Action: Strike Team
 
@@ -2000,7 +1997,7 @@ Reference R432 (rules):
 - Team: Specialists.
 - Choose target location when action is taken.
 - During following week, once at that location:
-  - each PC gains +2 competence to attack, damage, and saves for rounds equal to half militia rank.
+  - each PC gains +2 competence to attack, damage, and saves for rounds equal to half militia rank, rounded down with a minimum of one round.
 - Alternate use: emergency casualty extraction.
   - Bleeding allies stabilize.
   - Dead allies gain immediate `gentle repose` (CL 12).
@@ -2008,15 +2005,15 @@ Reference R432 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A23.combat** — Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds.
+- [x] **A23.combat** — Specialists provide +2 competence attack, damage and saves at the chosen location next week for half the militia rank rounded down, with a minimum of one round.
 
-- [ ] **A23.rank-one** — Rank 1 provides zero rounds without an explicit adjustment.
+- [x] **A23.rank-one** — Strike Team support lasts at least one round, including at rank 1. Higher durations equal half the militia rank, rounded down.
 
-- [ ] **A23.extraction** — Alternative records stabilization, gentle repose CL12 and body extraction.
+- [x] **A23.extraction** — Alternative records stabilization, gentle repose CL12 and body extraction.
 
-- [ ] **A23.duration** — Support lasts following week, requires location and once-use acknowledgement.
+- [x] **A23.duration** — Support lasts following week, requires location and once-use acknowledgement.
 
-- [ ] **COMPLETE.A23** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A23** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### A24 — Action: Upgrade Team
 
@@ -2033,15 +2030,15 @@ Reference R443 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **A24.edges** — No-team Upgrade uses the selected valid tree edge and listed cost.
+- [x] **A24.edges** — No-team Upgrade uses the selected valid tree edge and listed cost.
 
-- [ ] **A24.per-team** — Multiple distinct teams may upgrade but one team cannot upgrade twice per week.
+- [x] **A24.per-team** — Multiple distinct teams may upgrade but one team cannot upgrade twice per week.
 
-- [ ] **A24.preserve** — Upgrade preserves manager and inherited capabilities while preventing same-Activity action.
+- [x] **A24.preserve** — Upgrade preserves manager and inherited capabilities while preventing same-Activity action.
 
-- [ ] **A24.warning** — Insufficient funds or illegal edge needs explicit exception; malformed target blocks.
+- [x] **A24.warning** — Insufficient funds or illegal edge needs explicit exception; malformed target blocks.
 
-- [ ] **COMPLETE.A24** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.A24** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E01 — Percentile trigger: event if roll < chance; base Notoriety, bounds10–95; operating settlement affects event-table result.
 
@@ -2105,15 +2102,15 @@ Event chance rules:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E01.bounds** — Event chance clamps to 10–95 after current Notoriety and carry modifiers.
+- [x] **E01.bounds** — Event chance clamps to 10–95 after current Notoriety and carry modifiers.
 
-- [ ] **E01.trigger** — Roll below chance triggers; equal or above does not.
+- [x] **E01.trigger** — Roll below chance triggers; equal or above does not.
 
-- [ ] **E01.settlement** — Operating settlement modifies table result by plus or minus 5 separately from chance.
+- [x] **E01.settlement** — Operating settlement modifies table result by plus or minus 5 separately from chance.
 
-- [ ] **E01.recompute** — Activity Notoriety and guarantees recompute chance and required inputs after upstream edits.
+- [x] **E01.recompute** — Activity Notoriety and guarantees recompute chance and required inputs after upstream edits.
 
-- [ ] **COMPLETE.E01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E02 — Every Table6-3 interval: Serenity1–4, War Games5–12, Night Ops13–16, Broke Code17–20, Found Fire21–24, High Morale25–28, Turn Around29–32, Festival33–36, Market Day37–40, Hidden Agenda41–44, All Calm45–48, Roll Twice49–52, Calm Storm53–56, Turncoat57–60, Cache61–64, Rivalry65–68, Missing69–72, Theft73–76, Raid77–80, Invasion81–84, Low Morale85–88, Sickness89–96, Double Agent97–99, Pain100.
 
@@ -2158,61 +2155,61 @@ Event chance rules:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E02.intervals** — Every Table 6-3 lower and upper endpoint maps to its specified event.
+- [x] **E02.intervals** — Every Table 6-3 lower and upper endpoint maps to its specified event.
 
-- [ ] **E02.integrity** — Missing, nonfinite, fractional or out-of-range percentile input is surfaced as invalid input or explicit rules departure as appropriate.
+- [x] **E02.integrity** — Missing, nonfinite, fractional or out-of-range percentile input is surfaced as invalid input or explicit rules departure as appropriate.
 
-- [ ] **E02.parity** — Browser and Convex entry paths produce identical event mapping.
+- [x] **E02.parity** — Browser and Convex entry paths produce identical event mapping.
 
-- [ ] **E02.interval-1-4** — both endpoints of 1-4 resolve to Week of Serenity.
+- [x] **E02.interval-1-4** — both endpoints of 1-4 resolve to Week of Serenity.
 
-- [ ] **E02.interval-5-12** — both endpoints of 5-12 resolve to War Games.
+- [x] **E02.interval-5-12** — both endpoints of 5-12 resolve to War Games.
 
-- [ ] **E02.interval-13-16** — both endpoints of 13-16 resolve to Night Ops.
+- [x] **E02.interval-13-16** — both endpoints of 13-16 resolve to Night Ops.
 
-- [ ] **E02.interval-17-20** — both endpoints of 17-20 resolve to Broke the Code.
+- [x] **E02.interval-17-20** — both endpoints of 17-20 resolve to Broke the Code.
 
-- [ ] **E02.interval-21-24** — both endpoints of 21-24 resolve to Found Fire.
+- [x] **E02.interval-21-24** — both endpoints of 21-24 resolve to Found Fire.
 
-- [ ] **E02.interval-25-28** — both endpoints of 25-28 resolve to High Morale.
+- [x] **E02.interval-25-28** — both endpoints of 25-28 resolve to High Morale.
 
-- [ ] **E02.interval-29-32** — both endpoints of 29-32 resolve to Turn Around.
+- [x] **E02.interval-29-32** — both endpoints of 29-32 resolve to Turn Around.
 
-- [ ] **E02.interval-33-36** — both endpoints of 33-36 resolve to Festival.
+- [x] **E02.interval-33-36** — both endpoints of 33-36 resolve to Festival.
 
-- [ ] **E02.interval-37-40** — both endpoints of 37-40 resolve to Market Day.
+- [x] **E02.interval-37-40** — both endpoints of 37-40 resolve to Market Day.
 
-- [ ] **E02.interval-41-44** — both endpoints of 41-44 resolve to Hidden Agenda.
+- [x] **E02.interval-41-44** — both endpoints of 41-44 resolve to Hidden Agenda.
 
-- [ ] **E02.interval-45-48** — both endpoints of 45-48 resolve to All Is Calm.
+- [x] **E02.interval-45-48** — both endpoints of 45-48 resolve to All Is Calm.
 
-- [ ] **E02.interval-49-52** — both endpoints of 49-52 resolve to Roll Twice.
+- [x] **E02.interval-49-52** — both endpoints of 49-52 resolve to Roll Twice.
 
-- [ ] **E02.interval-53-56** — both endpoints of 53-56 resolve to Calm before the Storm.
+- [x] **E02.interval-53-56** — both endpoints of 53-56 resolve to Calm before the Storm.
 
-- [ ] **E02.interval-57-60** — both endpoints of 57-60 resolve to Turncoat.
+- [x] **E02.interval-57-60** — both endpoints of 57-60 resolve to Turncoat.
 
-- [ ] **E02.interval-61-64** — both endpoints of 61-64 resolve to Cache Discovered.
+- [x] **E02.interval-61-64** — both endpoints of 61-64 resolve to Cache Discovered.
 
-- [ ] **E02.interval-65-68** — both endpoints of 65-68 resolve to Rivalry.
+- [x] **E02.interval-65-68** — both endpoints of 65-68 resolve to Rivalry.
 
-- [ ] **E02.interval-69-72** — both endpoints of 69-72 resolve to Missing in Action.
+- [x] **E02.interval-69-72** — both endpoints of 69-72 resolve to Missing in Action.
 
-- [ ] **E02.interval-73-76** — both endpoints of 73-76 resolve to Theft.
+- [x] **E02.interval-73-76** — both endpoints of 73-76 resolve to Theft.
 
-- [ ] **E02.interval-77-80** — both endpoints of 77-80 resolve to Raid.
+- [x] **E02.interval-77-80** — both endpoints of 77-80 resolve to Raid.
 
-- [ ] **E02.interval-81-84** — both endpoints of 81-84 resolve to Invasion.
+- [x] **E02.interval-81-84** — both endpoints of 81-84 resolve to Invasion.
 
-- [ ] **E02.interval-85-88** — both endpoints of 85-88 resolve to Low Morale.
+- [x] **E02.interval-85-88** — both endpoints of 85-88 resolve to Low Morale.
 
-- [ ] **E02.interval-89-96** — both endpoints of 89-96 resolve to Sickness.
+- [x] **E02.interval-89-96** — both endpoints of 89-96 resolve to Sickness.
 
-- [ ] **E02.interval-97-99** — both endpoints of 97-99 resolve to Double Agent.
+- [x] **E02.interval-97-99** — both endpoints of 97-99 resolve to Double Agent.
 
-- [ ] **E02.interval-100** — both endpoints of 100 resolve to Week of Pain.
+- [x] **E02.interval-100** — both endpoints of 100 resolve to Week of Pain.
 
-- [ ] **COMPLETE.E02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E03 — If an event cannot occur, reroll.
 
@@ -2230,13 +2227,13 @@ Reference R460 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E03.eligibility** — Events with no eligible roster, cache, refuge or town require replacement rolls.
+- [x] **E03.eligibility** — Events with no eligible roster, cache, refuge or town require replacement rolls.
 
-- [ ] **E03.targets** — Inaccessible targets cannot silently stand in for eligible targets.
+- [x] **E03.targets** — Inaccessible targets cannot silently stand in for eligible targets.
 
-- [ ] **E03.nested** — Replacement rolls remain required after nested Roll Twice until valid outcomes exist.
+- [x] **E03.nested** — Replacement rolls remain required after nested Roll Twice until valid outcomes exist.
 
-- [ ] **COMPLETE.E03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E04 — Event: Roll Twice
 
@@ -2252,17 +2249,17 @@ Reference R556 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E04.two** — Roll Twice resolves two independent final occurrences.
+- [x] **E04.two** — Roll Twice resolves two independent final occurrences.
 
-- [ ] **E04.reroll** — Further Roll Twice results require replacement rolls rather than disappearing.
+- [x] **E04.reroll** — Further Roll Twice results require replacement rolls rather than disappearing.
 
-- [ ] **E04.no-clause** — Duplicate without Twice applies both base occurrences independently.
+- [x] **E04.no-clause** — Duplicate without Twice applies both base occurrences independently.
 
-- [ ] **E04.clause** — Explicit Twice replacement or enhancement controls duplicate effect; no-additional-effect suppresses the extra effect.
+- [x] **E04.clause** — Explicit Twice replacement or enhancement controls duplicate effect; no-additional-effect suppresses the extra effect.
 
-- [ ] **E04.independent** — Guarantee and automatic events retain separate target and roll identities in order.
+- [x] **E04.independent** — Guarantee and automatic events retain separate target and roll identities in order.
 
-- [ ] **COMPLETE.E04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E05 — Event: All Is Calm
 
@@ -2342,17 +2339,17 @@ Event chance rules:
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E05.context-carry** — Preparation retains uneventful carry, one-use bonuses and queued durations without executing effects.
+- [x] **E05.context-carry** — Preparation retains uneventful carry, one-use bonuses and queued durations without executing effects.
 
-- [ ] **E05.carry** — Eligible quiet week adds current rank once to next eligible week's bounded event chance, not percentile result.
+- [x] **E05.carry** — Eligible quiet week adds current rank once to next eligible week's bounded event chance, not percentile result.
 
-- [ ] **E05.consecutive** — Consecutive quiet weeks do not accumulate prior rank bonuses.
+- [x] **E05.consecutive** — Consecutive quiet weeks do not accumulate prior rank bonuses.
 
-- [ ] **E05.rank-change** — Changing rank uses current rank rather than stored old-rank sum.
+- [x] **E05.rank-change** — Changing rank uses current rank rather than stored old-rank sum.
 
-- [ ] **E05.exclusions** — First militia week, forced All Is Calm, Calm before the Storm and automatic events obey uneventful exclusions.
+- [x] **E05.exclusions** — First militia week, forced All Is Calm, Calm before the Storm and automatic events obey uneventful exclusions.
 
-- [ ] **COMPLETE.E05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E06 — Queued effects apply only due week; preserve future effects, expire used effects.
 
@@ -2371,17 +2368,17 @@ Reference R450 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E06.due** — Only due-week queued effects apply; future effects remain and consumed effects expire.
+- [x] **E06.due** — Only due-week queued effects apply; future effects remain and consumed effects expire.
 
-- [ ] **E06.automatic** — Multiple automatic events and normal event keep separate rolls and source order.
+- [x] **E06.automatic** — Multiple automatic events and normal event keep separate rolls and source order.
 
-- [ ] **E06.preserve** — Cutover preserves source, age and due context without running effects.
+- [x] **E06.preserve** — Cutover preserves source, age and due context without running effects.
 
   **Still pending:** Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover. You only need to review the intended requirement here; its implementation/rehearsal remains agent work.
 
-- [ ] **E06.retry** — Retries do not apply queued effects twice.
+- [x] **E06.retry** — Retries do not apply queued effects twice.
 
-- [ ] **COMPLETE.E06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### E07 — Organization modifiers apply to relevant checks, once and in correct phase; team one-check bonuses consumed once.
 
@@ -2392,7 +2389,7 @@ Reference R137 (rules):
 **Overseer**
 
 - Grants +1 bonus to both secondary checks.
-- During one event check, can add:
+- During the resolution of one chosen event, can add the appropriate modifier to its organization checks:
   - Charisma/Constitution to Loyalty, or
   - Strength/Wisdom to Security, or
   - Dexterity/Intelligence to Secrecy.
@@ -2406,15 +2403,15 @@ Reference R149 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **E07.phase** — Each queued modifier applies only to its prescribed phase and check type.
+- [x] **E07.phase** — Each queued modifier applies only to its prescribed phase and check type.
 
-- [ ] **E07.once** — Officer, manager and queue modifiers compose once with positive and negative values.
+- [x] **E07.once** — Officer, manager and queue modifiers compose once with positive and negative values.
 
-- [ ] **E07.one-check** — Team one-check bonus is consumed by one eligible check.
+- [x] **E07.one-check** — Team one-check bonus is consumed by one eligible check.
 
-- [ ] **E07.stale** — Disabled or deselected secondary inputs cannot contribute hidden modifiers.
+- [x] **E07.stale** — Disabled or deselected secondary inputs cannot contribute hidden modifiers.
 
-- [ ] **COMPLETE.E07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.E07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV01 — Event: All Is Calm
 
@@ -2429,13 +2426,13 @@ Reference R468 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV01.base** — All Is Calm produces no event.
+- [x] **EV01.base** — All Is Calm produces no event.
 
-- [ ] **EV01.twice** — Twice forces the same result next week without chance roll or uneventful carry chain.
+- [x] **EV01.twice** — Twice forces the same result next week without chance roll or uneventful carry chain.
 
-- [ ] **EV01.precedence** — Automatic Calm before the Storm events remain independently accounted for; stale trigger and Sabotage inputs do not execute.
+- [x] **EV01.precedence** — Automatic Calm before the Storm events remain independently accounted for; stale trigger and Sabotage inputs do not execute.
 
-- [ ] **COMPLETE.EV01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV02 — Event: Broke the Code
 
@@ -2451,13 +2448,13 @@ Reference R473 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV02.base** — Identify one item of any caster level and give +2 Knowledge local for one week.
+- [x] **EV02.base** — Identify one item of any caster level and give +2 Knowledge local for one week.
 
-- [ ] **EV02.twice** — Twice replaces bonus with +5 rather than adding duplicate notes.
+- [x] **EV02.twice** — Twice replaces bonus with +5 rather than adding duplicate notes.
 
-- [ ] **EV02.acknowledgement** — Item identification requires retained acknowledgement and expires at prescribed time.
+- [x] **EV02.acknowledgement** — Item identification requires retained acknowledgement and expires at prescribed time.
 
-- [ ] **COMPLETE.EV02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV03 — Event: Cache Discovered
 
@@ -2473,15 +2470,15 @@ Reference R479 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV03.base** — Lose one selected hidden or planned cache unless Secrecy DC10 plus rank retrieves it.
+- [x] **EV03.base** — Lose one selected hidden or planned cache unless Secrecy DC10 plus rank retrieves it.
 
-- [ ] **EV03.twice** — Twice threatens all applicable caches with explicit mitigation scope.
+- [x] **EV03.twice** — Twice threatens all applicable caches with explicit mitigation scope.
 
-- [ ] **EV03.empty** — No eligible caches requires reroll.
+- [x] **EV03.empty** — No eligible caches requires reroll.
 
-- [ ] **EV03.multiple** — Two or more caches retain distinct loss and recovery outcomes and modifier-aware checks.
+- [x] **EV03.multiple** — Two or more caches retain distinct loss and recovery outcomes and modifier-aware checks.
 
-- [ ] **COMPLETE.EV03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV04 — Event: Calm before the Storm
 
@@ -2498,15 +2495,15 @@ Reference R485 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV04.base** — No event now; next week one automatic table event precedes normal Event processing.
+- [x] **EV04.base** — No event now; next week one automatic table event precedes normal Event processing.
 
-- [ ] **EV04.twice** — Twice queues two automatic events, not three.
+- [x] **EV04.twice** — Twice queues two automatic events, not three.
 
-- [ ] **EV04.reroll** — Automatic Roll Twice results require replacement without suppressing independent normal rolls.
+- [x] **EV04.reroll** — Automatic Roll Twice results require replacement without suppressing independent normal rolls.
 
-- [ ] **EV04.order** — Order-sensitive outcomes use independent rolls and do not create uneventful carry.
+- [x] **EV04.order** — Order-sensitive outcomes use independent rolls and do not create uneventful carry.
 
-- [ ] **COMPLETE.EV04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV05 — Event: Double Agent (Persistent-capable)
 
@@ -2522,15 +2519,15 @@ Reference R492 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV05.base** — Nonpersistent Double Agent blocks only next Activity Secure Cache and applies one -2 Secrecy penalty.
+- [x] **EV05.base** — Nonpersistent Double Agent blocks only next Activity Secure Cache and applies one -2 Secrecy penalty.
 
-- [ ] **EV05.persistent** — Twice keeps the restriction and single -2 penalty across all affected weeks.
+- [x] **EV05.persistent** — Twice keeps the restriction and single -2 penalty across all affected weeks.
 
-- [ ] **EV05.end** — Ending or buyoff removes future restriction and penalty.
+- [x] **EV05.end** — Ending or buyoff removes future restriction and penalty.
 
-- [ ] **EV05.exception** — Staged cache action remains visible with warning and reasoned exception path.
+- [x] **EV05.exception** — Staged cache action remains visible with warning and reasoned exception path.
 
-- [ ] **COMPLETE.EV05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV06 — Event: Festival
 
@@ -2546,13 +2543,13 @@ Reference R498 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV06.base** — Chosen recently used town grants +2 morale Bluff, Diplomacy and Intimidate for a week.
+- [x] **EV06.base** — Chosen recently used town grants +2 morale Bluff, Diplomacy and Intimidate for a week.
 
-- [ ] **EV06.twice** — Twice replaces bonus with +5.
+- [x] **EV06.twice** — Twice replaces bonus with +5.
 
-- [ ] **EV06.record** — Town selection, duration and acknowledgement are recorded.
+- [x] **EV06.record** — Town selection, duration and acknowledgement are recorded.
 
-- [ ] **COMPLETE.EV06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV07 — Event: Found Fire
 
@@ -2568,13 +2565,13 @@ Reference R504 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV07.base** — Each PC receives one nonpoison alchemical item worth at most 100 gp and next-week Security +2.
+- [x] **EV07.base** — Each PC receives one nonpoison alchemical item worth at most 100 gp and next-week Security +2.
 
-- [ ] **EV07.twice** — Twice gives two items per PC total but Security remains +2.
+- [x] **EV07.twice** — Twice gives two items per PC total but Security remains +2.
 
-- [ ] **EV07.record** — PC eligibility, item limits and acknowledgement persist; duration expires.
+- [x] **EV07.record** — PC eligibility, item limits and acknowledgement persist; duration expires.
 
-- [ ] **COMPLETE.EV07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV08 — Event: Hidden Agenda
 
@@ -2589,13 +2586,13 @@ Reference R510 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV08.base** — All current Activity checks receive +2.
+- [x] **EV08.base** — All current Activity checks receive +2.
 
-- [ ] **EV08.twice** — Twice replaces with +5 rather than adding +7.
+- [x] **EV08.twice** — Twice replaces with +5 rather than adding +7.
 
-- [ ] **EV08.recompute** — Earn Gold and Drill recompute success/gains when event is added or removed with browser/server agreement.
+- [x] **EV08.recompute** — All Activity actions recalculate their checks and resulting outcomes when Hidden Agenda is added, changed, or removed, with browser/server agreement. Its bonus applies to every Activity check, not only Drill Militia and Earn Gold.
 
-- [ ] **COMPLETE.EV08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV09 — Event: High Morale
 
@@ -2611,15 +2608,15 @@ Reference R515 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV09.base** — End one persistent event immediately and give upcoming Loyalty +2.
+- [x] **EV09.base** — End one persistent event immediately and give upcoming Loyalty +2.
 
-- [ ] **EV09.twice** — Actual duplicate pair ends two total and gives +5, not three and +7.
+- [x] **EV09.twice** — Actual duplicate pair ends two total and gives +5, not three and +7.
 
-- [ ] **EV09.targets** — Zero to three active events, age ties and new same-week persistence retain explicit selected endings.
+- [x] **EV09.targets** — Zero to three active events, age ties and new same-week persistence retain explicit selected endings.
 
-- [ ] **EV09.recompute** — Ended event modifiers are removed from dependent checks.
+- [x] **EV09.recompute** — Ended event modifiers are removed from dependent checks.
 
-- [ ] **COMPLETE.EV09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV10 — Event: Invasion
 
@@ -2633,13 +2630,13 @@ Reference R521 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV10.encounter** — Show and record GM random encounter at APL plus 1 CR.
+- [x] **EV10.encounter** — Show and record GM random encounter at APL plus 1 CR.
 
-- [ ] **EV10.acknowledgement** — Required encounter acknowledgement is retained.
+- [x] **EV10.acknowledgement** — Required encounter acknowledgement is retained.
 
-- [ ] **EV10.duplicate** — No Twice clause means two independent encounters.
+- [x] **EV10.duplicate** — No Twice clause means two independent encounters.
 
-- [ ] **COMPLETE.EV10** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV10** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV11 — Event: Low Morale (Persistent-capable)
 
@@ -2654,13 +2651,13 @@ Reference R525 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV11.base** — Loyalty -2 applies for the prescribed week.
+- [x] **EV11.base** — Loyalty -2 applies for the prescribed week.
 
-- [ ] **EV11.twice** — Twice makes one persistent -2 effect, not doubled penalties.
+- [x] **EV11.twice** — Twice makes one persistent -2 effect, not doubled penalties.
 
-- [ ] **EV11.duration** — First and later weeks affect relevant Loyalty checks until ending.
+- [x] **EV11.duration** — First and later weeks affect relevant Loyalty checks until ending.
 
-- [ ] **COMPLETE.EV11** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV11** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV12 — Event: Market Day
 
@@ -2675,15 +2672,15 @@ Reference R530 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV12.base** — Chosen operated town gives extra 5% discount on all items and services.
+- [x] **EV12.base** — Chosen operated town gives extra 5% discount on all items and services.
 
-- [ ] **EV12.twice** — Twice covers all operated marketplaces including Broker Market.
+- [x] **EV12.twice** — Twice covers all operated marketplaces including Broker Market.
 
-- [ ] **EV12.composition** — Reputation discounts compose and town services are not limited to tracked market rows.
+- [x] **EV12.composition** — Reputation discounts compose and town services are not limited to tracked market rows.
 
-- [ ] **EV12.inputs** — Missing target blocks completion and discount expires at prescribed time.
+- [x] **EV12.inputs** — Market Day can be rolled and retained even when no town or settlement exists yet. A valid settlement must be chosen before the event can resolve; its discount expires at the prescribed time.
 
-- [ ] **COMPLETE.EV12** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV12** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV13 — Event: Missing in Action
 
@@ -2698,15 +2695,15 @@ Reference R535 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV13.base** — Random team that operated this week is unavailable next week.
+- [x] **EV13.base** — Random team that operated this week is unavailable next week.
 
-- [ ] **EV13.twice** — Twice returns it at end of following week disabled, with no early DC15 recovery.
+- [x] **EV13.twice** — Twice returns it at end of following week disabled, with no early DC15 recovery.
 
-- [ ] **EV13.empty** — No operated eligible team requires reroll.
+- [x] **EV13.empty** — No operated eligible team requires reroll.
 
-- [ ] **EV13.timeline** — Disabled recovery cost is considered next Upkeep, using fresh team condition state.
+- [x] **EV13.timeline** — Disabled recovery cost is considered next Upkeep, using fresh team condition state.
 
-- [ ] **COMPLETE.EV13** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV13** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV14 — Event: Night Ops
 
@@ -2721,13 +2718,13 @@ Reference R540 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV14.base** — One-week +2 circumstance Stealth applies after dark.
+- [x] **EV14.base** — One-week +2 circumstance Stealth applies after dark.
 
-- [ ] **EV14.twice** — Twice gives effective +5 rather than +7.
+- [x] **EV14.twice** — Twice gives effective +5 rather than +7.
 
-- [ ] **EV14.record** — Darkness condition, bonus type, expiry and acknowledgement remain explicit.
+- [x] **EV14.record** — Darkness condition, bonus type, expiry and acknowledgement remain explicit.
 
-- [ ] **COMPLETE.EV14** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV14** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV15 — Event: Raid
 
@@ -2743,15 +2740,15 @@ Reference R545 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV15.settlement** — Random selected settlement loses all its refuges; other settlements remain unaffected.
+- [x] **EV15.settlement** — Random selected settlement loses all its refuges; other settlements remain unaffected.
 
-- [ ] **EV15.capture** — Each hidden person has separate capture chance and Security DC20 halves that chance.
+- [x] **EV15.capture** — Each hidden person has separate capture chance and Security DC20 halves that chance.
 
-- [ ] **EV15.empty** — No refuge requires reroll.
+- [x] **EV15.empty** — No refuge requires reroll.
 
-- [ ] **EV15.rescue** — Captured persons retain next-week rescue DC5 plus rank and valid access context.
+- [x] **EV15.rescue** — Captured persons retain next-week rescue DC5 plus rank and valid access context.
 
-- [ ] **COMPLETE.EV15** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV15** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV16 — Event: Rivalry (Persistent-capable)
 
@@ -2766,15 +2763,15 @@ Reference R551 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV16.targets** — Two distinct randomly selected teams cannot act next Activity; selected identities persist.
+- [x] **EV16.targets** — Two distinct randomly selected teams cannot act next Activity; selected identities persist.
 
-- [ ] **EV16.twice** — Twice persists across weeks until officer Bluff, Diplomacy or Intimidate reaches DC20.
+- [x] **EV16.twice** — Twice persists across weeks until officer Bluff, Diplomacy or Intimidate reaches DC20.
 
-- [ ] **EV16.boundary** — Each of the three skills fails at 19 and ends at 20.
+- [x] **EV16.boundary** — Each of the three skills fails at 19 and ends at 20.
 
-- [ ] **EV16.empty** — Insufficient eligible teams requires reroll; ending releases both targets.
+- [x] **EV16.empty** — Insufficient eligible teams requires reroll; ending releases both targets.
 
-- [ ] **COMPLETE.EV16** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV16** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV17 — Event: Roll Twice
 
@@ -2790,13 +2787,13 @@ Reference R556 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV17.expansion** — Roll Twice produces two valid outcomes with each event's own Twice policy.
+- [x] **EV17.expansion** — Roll Twice produces two valid outcomes with each event's own Twice policy.
 
-- [ ] **EV17.reroll** — Repeated Roll Twice outcomes are rerolled.
+- [x] **EV17.reroll** — Repeated Roll Twice outcomes are rerolled.
 
-- [ ] **EV17.namespace** — Normal and automatic events retain independent occurrence identities.
+- [x] **EV17.namespace** — Normal and automatic events retain independent occurrence identities.
 
-- [ ] **COMPLETE.EV17** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV17** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV18 — Event: Sickness
 
@@ -2811,15 +2808,15 @@ Reference R562 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV18.base** — Random eligible team becomes disabled.
+- [x] **EV18.base** — Random eligible team becomes disabled.
 
-- [ ] **EV18.twice** — Twice loses it unless modified Loyalty reaches DC20.
+- [x] **EV18.twice** — Twice loses it unless modified Loyalty reaches DC20.
 
-- [ ] **EV18.readiness** — Missing mitigation input prevents an attempted mitigation from becoming an irreversible implicit failure.
+- [x] **EV18.readiness** — Missing mitigation input prevents an attempted mitigation from becoming an irreversible implicit failure.
 
-- [ ] **EV18.ordering** — Empty roster rerolls; preceding events update eligibility before selection.
+- [x] **EV18.ordering** — Empty roster rerolls; preceding events update eligibility before selection.
 
-- [ ] **COMPLETE.EV18** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV18** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV19 — Event: Theft (Persistent-capable)
 
@@ -2835,17 +2832,17 @@ Reference R567 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV19.activity-income** — Activity earnings and sales retain half their copper-rounded gain under carried Theft; expenses remain full and end IDs restore later income.
+- [x] **EV19.activity-income** — Activity earnings and sales retain half their copper-rounded gain under carried Theft; expenses remain full and end IDs restore later income.
 
-- [ ] **EV19.base** — Theft takes half of treasury after prior costs, rounded to copper precision.
+- [x] **EV19.base** — Theft takes half of treasury after prior costs, rounded to copper precision.
 
-- [ ] **EV19.mitigation** — Loyalty DC20 reduces current loss to 10%; mitigation lasts only one week.
+- [x] **EV19.mitigation** — Loyalty DC20 reduces current loss to 10%; mitigation lasts only one week.
 
-- [ ] **EV19.persistent** — Twice halves incoming gains until successful Reduce Danger ends it.
+- [x] **EV19.persistent** — Twice halves incoming gains until successful Reduce Danger ends it.
 
-- [ ] **EV19.order** — Deposits and all incoming paths follow same-week end/gain order with per-instance checks.
+- [x] **EV19.order** — Ordinary Theft causes a one-time treasury loss when the event resolves. Only persistent Theft from the Twice result reduces subsequent incoming money; gains before it ends are reduced, and gains after it ends are received in full.
 
-- [ ] **COMPLETE.EV19** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV19** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV20 — Event: Turn Around
 
@@ -2860,15 +2857,15 @@ Reference R573 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV20.disabled** — All disabled teams recover.
+- [x] **EV20.disabled** — All disabled teams recover.
 
-- [ ] **EV20.none** — If none disabled, select one team for +2 on exactly one next-Activity check.
+- [x] **EV20.none** — If none disabled, select one team for +2 on exactly one next-Activity check.
 
-- [ ] **EV20.empty** — No team follows event eligibility reroll policy.
+- [x] **EV20.empty** — No team follows event eligibility reroll policy.
 
-- [ ] **EV20.order** — Successive events and expiring returns use current projected state; unused bonus expires.
+- [x] **EV20.order** — Successive events and expiring returns use current projected state; unused bonus expires.
 
-- [ ] **COMPLETE.EV20** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV20** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV21 — Event: Turncoat
 
@@ -2883,15 +2880,15 @@ Reference R578 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV21.base** — Training loses rolled 1d6 plus current rank.
+- [x] **EV21.base** — Training loses rolled 1d6 plus current rank.
 
-- [ ] **EV21.twice** — GM-chosen team defects unless Diplomacy reaches DC10 plus rank.
+- [x] **EV21.twice** — GM-chosen team defects unless Diplomacy reaches DC10 plus rank.
 
-- [ ] **EV21.success** — Successful prevention still leaves team unavailable next Activity.
+- [x] **EV21.success** — Successful prevention still leaves team unavailable next Activity.
 
-- [ ] **EV21.inputs** — Missing die, team or attempted check prevents readiness and modifiers apply once.
+- [x] **EV21.inputs** — Missing die, team or attempted check prevents readiness and modifiers apply once.
 
-- [ ] **COMPLETE.EV21** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV21** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV22 — Event: War Games
 
@@ -2905,13 +2902,13 @@ Reference R583 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV22.base** — Training increases by current post-Upkeep rank.
+- [x] **EV22.base** — Training increases by current post-Upkeep rank.
 
-- [ ] **EV22.duplicate** — No Twice clause means duplicate grants rank twice.
+- [x] **EV22.duplicate** — No Twice clause means duplicate grants rank twice.
 
-- [ ] **EV22.timing** — Event training gain does not retroactively run Upkeep rank advancement.
+- [x] **EV22.timing** — Event training gain does not retroactively run Upkeep rank advancement.
 
-- [ ] **COMPLETE.EV22** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV22** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV23 — Event: Week of Pain
 
@@ -2927,15 +2924,15 @@ Reference R587 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV23.checks** — Next week all organization checks take -1 across all phases.
+- [x] **EV23.checks** — Next week all organization checks take -1 across all phases.
 
-- [ ] **EV23.losses** — Next Upkeep doubles all training losses but not natural-20 gains.
+- [x] **EV23.losses** — Next Upkeep doubles all training losses but not natural-20 gains.
 
-- [ ] **EV23.twice** — Duplicate adds no extra effect.
+- [x] **EV23.twice** — Duplicate adds no extra effect.
 
-- [ ] **EV23.expiry** — Effects expire after next week and retain correct composition with Serenity.
+- [x] **EV23.expiry** — Effects expire after next week and retain correct composition with Serenity.
 
-- [ ] **COMPLETE.EV23** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV23** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### EV24 — Event: Week of Serenity
 
@@ -2951,15 +2948,15 @@ Reference R593 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **EV24.checks** — Next week all organization checks receive +5.
+- [x] **EV24.checks** — Next week all organization checks receive +5.
 
-- [ ] **EV24.gains** — Next Activity training gain includes Commandants once and then doubles.
+- [x] **EV24.gains** — Next Activity training gain includes Commandants once and then doubles.
 
-- [ ] **EV24.twice** — Duplicate adds no extra effect.
+- [x] **EV24.twice** — Duplicate adds no extra effect.
 
-- [ ] **EV24.expiry** — Effects last only next week and compose with Week of Pain without hidden duplication.
+- [x] **EV24.expiry** — Effects last only next week and compose with Week of Pain without hidden duplication.
 
-- [ ] **COMPLETE.EV24** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.EV24** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P01 — Persistent events continue, oldest first; age/order preserved.
 
@@ -2992,13 +2989,13 @@ Reference R599 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P01.oldest** — Persistent instances process oldest first with stable order for age ties.
+- [x] **P01.oldest** — Persistent instances process oldest first with stable order for age ties.
 
-- [ ] **P01.identity** — Multiple instances of the same type retain separate targets and ages.
+- [x] **P01.identity** — Multiple instances of the same type retain separate targets and ages.
 
-- [ ] **P01.eligibility** — New same-week persistence does not change fixed carried-event phase eligibility.
+- [x] **P01.eligibility** — New same-week persistence does not change fixed carried-event phase eligibility.
 
-- [ ] **COMPLETE.P01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P01** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P02 — Event: Rivalry (Persistent-capable)
 
@@ -3029,13 +3026,13 @@ Reference R567 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P02.weekly** — Each persistent instance can attempt mitigation each week; last week's mitigation does not carry.
+- [x] **P02.weekly** — Each persistent instance can attempt mitigation each week; last week's mitigation does not carry.
 
-- [ ] **P02.optional** — Unattempted optional mitigation differs from attempted incomplete mitigation.
+- [x] **P02.optional** — Unattempted optional mitigation differs from attempted incomplete mitigation.
 
-- [ ] **P02.end** — Rivalry skill success and Theft Reduce Danger permanently end their target rather than temporary mitigation.
+- [x] **P02.end** — Rivalry skill success and Theft Reduce Danger permanently end their target rather than temporary mitigation.
 
-- [ ] **COMPLETE.P02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P02** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P03 — Once per4weeks pay2×current minimum to end persistent event.
 
@@ -3051,17 +3048,17 @@ Reference R599 (rules):
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P03.context-persistent** — Preparation retains same-type event instances with separate targets, age/order, mitigation, ending and militia-wide last buyoff week.
+- [x] **P03.context-persistent** — Preparation retains same-type event instances with separate targets, age/order, mitigation, ending and militia-wide last buyoff week.
 
-- [ ] **P03.first** — First buyoff is immediately available even before week 4.
+- [x] **P03.first** — First buyoff is immediately available even before week 4.
 
-- [ ] **P03.cooldown** — Buyoff in week 2 blocks week 5 and permits week 6 across all persistent event targets.
+- [x] **P03.cooldown** — Buyoff in week 2 blocks week 5 and permits week 6 across all persistent event targets.
 
-- [ ] **P03.cost** — Cost is twice current minimum treasury and insufficient funds use warning/exception policy.
+- [x] **P03.cost** — Cost is twice current minimum treasury and insufficient funds use warning/exception policy.
 
-- [ ] **P03.stage** — Buyoff remains staged until exact Confirmation and competing player edits cannot double-spend.
+- [x] **P03.stage** — Buyoff remains staged until exact Confirmation and competing player edits cannot double-spend.
 
-- [ ] **COMPLETE.P03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P03** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P04 — Persistent Phase Eligibility fixed from events carried into week; viewing/navigation local.
 
@@ -3080,31 +3077,31 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P04.summary-confirmation** — Summary exposes complete baseline and final outcomes with ordered reasoned adjudication; rejected saves and Confirmation require explicit fresh review before another attempt.
+- [x] **P04.summary-confirmation** — Summary exposes complete baseline and final outcomes with ordered reasoned adjudication; rejected saves and Confirmation require explicit fresh review before another attempt.
 
-- [ ] **P04.persistent-preparation** — Carried event instances retain fixed navigation eligibility, named targets and age/order while mitigation, officer ending, reasoned ending and buyoff remain shared staged decisions; buyoffs share the projected cooldown.
+- [x] **P04.persistent-preparation** — Carried event instances retain fixed navigation eligibility, named targets and age/order while mitigation, officer ending, reasoned ending and buyoff remain shared staged decisions; buyoffs share the projected cooldown.
 
-- [ ] **P04.event-preparation** — Event occurrences expose independent branches, typed raw inputs, explicit clears, reactive decisions and owner-bound narrative outcomes through Workspace; disjoint occurrence edits coexist and stale edits recover visibly.
+- [x] **P04.event-preparation** — Event occurrences expose independent branches, typed raw inputs, explicit clears, reactive decisions and owner-bound narrative outcomes through Workspace; disjoint occurrence edits coexist and stale edits recover visibly.
 
-- [ ] **P04.activity-cards** — Activity exposes complete shared choices, retains extra slots and supports accessible placement and nested typed details with precise copper input.
+- [x] **P04.activity-cards** — Activity exposes complete shared choices, retains extra slots and supports accessible placement and nested typed details with precise copper input.
 
-- [ ] **P04.states** — Only ready Workspace states expose semantic operations; unavailable/loading/failed recover when a valid source becomes available.
+- [x] **P04.states** — Only ready Workspace states expose semantic operations; unavailable/loading/failed recover when a valid source becomes available.
 
-- [ ] **P04.upkeep-input** — Upkeep raw input preserves zero versus clear, rejects invalid text without mutation, and displays deterministic bonuses and field-level required/format errors.
+- [x] **P04.upkeep-input** — Upkeep raw input preserves zero versus clear, rejects invalid text without mutation, and displays deterministic bonuses and field-level required/format errors.
 
-- [ ] **P04.upkeep-card-placement** — Pointer placement highlights a selection target and stages one choice; invalid or cancelled drops return the card without changing selection, and tap/keyboard activation remain available.
+- [x] **P04.upkeep-card-placement** — Pointer placement highlights a selection target and stages one choice; invalid or cancelled drops return the card without changing selection, and tap/keyboard activation remain available.
 
-- [ ] **P04.upkeep-recovery-adjustment** — Recovery cards default to the deterministic cost; a reasoned override atomically stages the team decision and an ordered treasury adjustment after the unchanged baseline, with stale target conflicts leaving both unchanged.
+- [x] **P04.upkeep-recovery-adjustment** — Recovery cards default to the deterministic cost; a reasoned override atomically stages the team decision and an ordered treasury adjustment after the unchanged baseline, with stale target conflicts leaving both unchanged.
 
-- [ ] **P04.upkeep-warning-context** — Upkeep warnings identify the affected team, officer, roll, or transfer and explain the advisory departure without rendering internal identifiers.
+- [x] **P04.upkeep-warning-context** — Upkeep warnings identify the affected team, officer, roll, or transfer and explain the advisory departure without rendering internal identifiers.
 
-- [ ] **P04.snapshot** — Persistent Phase Eligibility comes from unresolved events carried into week.
+- [x] **P04.snapshot** — Persistent Phase Eligibility comes from unresolved events carried into week.
 
-- [ ] **P04.stable** — Ending or creating persistence midweek does not alter eligibility.
+- [x] **P04.stable** — Ending or creating persistence midweek does not alter eligibility.
 
-- [ ] **P04.navigation** — Phase navigation is local and immediate while shared edits are pending.
+- [x] **P04.navigation** — Phase navigation is local and immediate while shared edits are pending.
 
-- [ ] **COMPLETE.P04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P04** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P05 — Readiness derived from all required inputs; partial preview while incomplete; Confirmation rejects incomplete source.
 
@@ -3123,17 +3120,17 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P05.matrix** — Every required roll, target, choice and acknowledgement controls readiness.
+- [x] **P05.matrix** — Every required roll, target, choice and acknowledgement controls readiness.
 
-- [ ] **P05.zero** — Explicit zero differs from missing input; malformed values block Confirmation.
+- [x] **P05.zero** — Explicit zero differs from missing input; malformed values block Confirmation.
 
-- [ ] **P05.optional** — Optional mitigation unattempted is valid; attempted incomplete mitigation is not.
+- [x] **P05.optional** — Optional mitigation unattempted is valid; attempted incomplete mitigation is not.
 
-- [ ] **P05.partial** — Incomplete source still produces a partial preview.
+- [x] **P05.partial** — Incomplete source still produces a partial preview.
 
-- [ ] **P05.upstream** — Changed upstream choices invalidate dependent input relevance consistently in browser and server.
+- [x] **P05.upstream** — Changed upstream choices invalidate dependent input relevance consistently in browser and server.
 
-- [ ] **COMPLETE.P05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P05** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P06 — Baseline preview and authoritative change plan include every committed effect; Table Adjustments applied after full baseline.
 
@@ -3152,13 +3149,13 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P06.full-plan** — Preview and committed state diff agree for every action and event, all ledgers, queues and identities.
+- [x] **P06.full-plan** — Preview and committed state diff agree for every action and event, all ledgers, queues and identities.
 
-- [ ] **P06.baseline** — Complete Rules Baseline precedes ordered typed Table Adjustments.
+- [x] **P06.baseline** — Complete Rules Baseline precedes ordered typed Table Adjustments.
 
-- [ ] **P06.no-hidden** — Confirmation applies the reviewed plan with no hidden writes or double-applied resource totals.
+- [x] **P06.no-hidden** — Confirmation applies the reviewed plan with no hidden writes or double-applied resource totals.
 
-- [ ] **COMPLETE.P06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P06** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P07 — Shared typed Table Adjustment after baseline, required reason; structural validity; intentional choice Rules Exception distinct from outcome adjustment.
 
@@ -3177,15 +3174,15 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P07.reason** — Shared Table Adjustments and Rules Exceptions require reasons retained in history.
+- [x] **P07.reason** — Shared Table Adjustments and Rules Exceptions require reasons retained in history.
 
-- [ ] **P07.distinction** — Rules Exception permits a choice without changing arithmetic; adjustment changes a result.
+- [x] **P07.distinction** — Rules Exception permits a choice without changing arithmetic; adjustment changes a result.
 
-- [ ] **P07.integrity** — Malformed references, missing entities and nonfinite numbers remain blocked.
+- [x] **P07.integrity** — Malformed references, missing entities and nonfinite numbers remain blocked.
 
-- [ ] **P07.order** — Ordered conflicting adjustments recompute after baseline changes and target specific event instances.
+- [x] **P07.order** — Ordered conflicting adjustments recompute after baseline changes and target specific event instances.
 
-- [ ] **COMPLETE.P07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P07** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P08 — Confirmation atomic for exact **reviewed** Weekly Draft Revision, reject stale; close draft and create single successor, immutable complete source/history.
 
@@ -3204,15 +3201,15 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P08.reviewed** — Confirmation requires the exact reviewed draft revision and relevant external source state.
+- [x] **P08.reviewed** — Confirmation requires the exact reviewed draft revision and relevant external source state.
 
-- [ ] **P08.barrier** — Confirmation waits for earlier local edits, pauses new edits and does not substitute a newer unreviewed revision.
+- [x] **P08.barrier** — Confirmation waits for earlier local edits, pauses new edits and does not substitute a newer unreviewed revision.
 
-- [ ] **P08.atomic** — Failure applies nothing; simultaneous Confirmations produce one record and one successor.
+- [x] **P08.atomic** — Failure applies nothing; simultaneous Confirmations produce one record and one successor.
 
-- [ ] **P08.history** — Full source and ruleset persist immutably; delayed writes to closed identity are rejected.
+- [x] **P08.history** — Full source and ruleset persist immutably; delayed writes to closed identity are rejected.
 
-- [ ] **COMPLETE.P08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P08** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P09 — Shared semantic edits preserve disjoint changes, reject same-target conflicts; immediate feedback; no claim/per-slot confirmation under accepted Action Slot decision.
 
@@ -3231,19 +3228,19 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P09.disjoint** — Disjoint stale semantic edits coexist while same-target stale edits fail visibly.
+- [x] **P09.disjoint** — Disjoint stale semantic edits coexist while same-target stale edits fail visibly.
 
-- [ ] **P09.aggregate** — Move and swap are atomic multi-slot edits; obsolete detail edits cannot update a replacement choice.
+- [x] **P09.aggregate** — Move and swap are atomic multi-slot edits; obsolete detail edits cannot update a replacement choice.
 
-- [ ] **P09.retry** — Accepted semantic edit increments revision once; retries are idempotent after dropped responses.
+- [x] **P09.retry** — Accepted semantic edit increments revision once; retries are idempotent after dropped responses.
 
-- [ ] **P09.delivery** — Acknowledgements follow submission order and responses are monotonic.
+- [x] **P09.delivery** — Acknowledgements follow submission order and responses are monotonic.
 
-- [ ] **P09.shared** — Players edit unlocked slots with immediate feedback and recovery; no per-slot confirmation.
+- [x] **P09.shared** — Players edit unlocked slots with immediate feedback and recovery; no per-slot confirmation.
 
-- [ ] **COMPLETE.P09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P09** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
-### P10 — Access scoped to campaign/org, all players may stage/confirm; GM-only correction controls hidden from others. AGENTS and accepted shared-collaboration decisions.
+### P10 — Access scoped to campaign/org, all players may stage/confirm; All organization members have the same editing controls. AGENTS and accepted shared-collaboration decisions.
 
 **Included rule reference**
 
@@ -3260,15 +3257,15 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P10.scope** — Actual unauthenticated or unauthorized campaign writes are rejected for edit, confirm, adjust, buyoff, rank and treasury.
+- [x] **P10.scope** — Actual unauthenticated or unauthorized campaign writes are rejected for edit, confirm, adjust, buyoff, rank and treasury.
 
-- [ ] **P10.references** — Cross-campaign child references are rejected.
+- [x] **P10.references** — Cross-campaign child references are rejected.
 
-- [ ] **P10.players** — All authorized players may stage and confirm.
+- [x] **P10.players** — All authorized players may stage and confirm.
 
-- [ ] **P10.gm** — GM correction controls are hidden from other players and protected at authority boundary.
+- [x] **P10.gm** — All users with access to the organization can edit all militia data and use the same controls; there are no separate GM permissions at this stage.
 
-- [ ] **COMPLETE.P10** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P10** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### P11 — Historical view reads immutable effective records; paused cutover preserves authoritative state/carry but resets unfinished choices/history.
 
@@ -3287,25 +3284,25 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **P11.context-setup** — Isolated ledger/setup accepts advisory incomplete facts, rejects malformed numbers and validates campaign-owned references.
+- [x] **P11.context-setup** — Isolated ledger/setup accepts advisory incomplete facts, rejects malformed numbers and validates campaign-owned references.
 
-- [ ] **P11.setup-lifecycle** — New and existing militia setup create one ordinary draft without resolving the week, preserve reference integrity and local navigation, and retain advisory deviations.
+- [x] **P11.setup-lifecycle** — New and existing militia setup create one ordinary draft without resolving the week, preserve reference integrity and local navigation, and retain advisory deviations.
 
-- [ ] **P11.immutable** — Historical views read complete immutable records rather than live state.
+- [x] **P11.immutable** — Historical views read complete immutable records rather than live state.
 
-- [ ] **P11.effective** — Newest nonsuperseded record is effective; older records remain an audit trail.
+- [x] **P11.effective** — Newest nonsuperseded record is effective; older records remain an audit trail.
 
-- [ ] **P11.cutover** — Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history.
+- [x] **P11.cutover** — Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history.
 
-  **Still pending:** Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90. You only need to review the intended requirement here; its implementation/rehearsal remains agent work.
+  **Still pending:** Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90. You only need to review the intended requirement here; its implementation/rehearsal remains agent work.
 
-- [ ] **P11.no-execution** — Initialization creates one empty draft without Upkeep, queue execution or advancement.
+- [x] **P11.no-execution** — Initialization creates one empty draft without Upkeep, queue execution or advancement.
 
-- [ ] **P11.legacy** — Server rejects legacy writes; pre-reopen recovery restores compatible state without losing newly accepted work.
+- [x] **P11.legacy** — No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work.
 
-  **Still pending:** Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88. You only need to review the intended requirement here; its implementation/rehearsal remains agent work.
+  **Still pending:** Recovery before reopening must be implemented and rehearsed in #89 before #90 production cutover. Explicit old-version request rejection and forced reload handling are out of scope. The supported legacy path remains enabled during #88. You only need to review the intended requirement here; its implementation/rehearsal remains agent work.
 
-- [ ] **COMPLETE.P11** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.P11** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
 ### GATE — Automated verification requirements
 
@@ -3313,51 +3310,33 @@ First week of militia use skips Upkeep.
 
 **Individual checks — reply with these IDs**
 
-- [ ] **GATE.projection-parity** — Identical canonical fixtures through browser and Convex entry paths produce the same Phase Views and Resolution Preview.
+- [x] **GATE.projection-parity** — Identical canonical fixtures through browser and Convex entry paths produce the same Phase Views and Resolution Preview.
 
-- [ ] **GATE.adapter-contract** — Shared persistence contract scenarios pass against in-memory and actual isolated Convex persistence.
+- [x] **GATE.adapter-contract** — Shared persistence contract scenarios pass against in-memory and actual isolated Convex persistence.
 
-- [ ] **GATE.two-player** — Two authenticated browser contexts agree on edits and Confirmation, retain independent navigation and show conflict recovery.
+- [x] **GATE.two-player** — Two authenticated browser contexts agree on edits and Confirmation, retain independent navigation and show conflict recovery.
 
-- [ ] **COMPLETE.GATE** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
+- [x] **COMPLETE.GATE** — The included rules and the checks in this group contain no omitted rule, important edge case, or conflicting interpretation. If something is missing, describe it in your reply.
 
-## Source sections needing explicit classification
+## Source section classifications — checked against the PDF
 
-### R001 — Ironfang Invasion Militia Rules
+Reviewed by Codex on 2026-09-23 at your request, using printed pages **48–59** (PDF pages **50–61**) of *Pathfinder Campaign Setting: Lands of Conflict*. The supplied attachment path was unavailable; the local copy has the same filename and exact size (12,813,042 bytes). Its SHA-256 is `63feb5f2ce74ce5017bda3436b4f18418f28f9e2719492fc8c334b9ed5d48b49`.
 
-**Ironfang Invasion Militia Rules**
+These five entries are organizational sections in the normalized rules document. Their classifications are complete; no further reply is needed for these SOURCE IDs. This records an agent source check, separate from your full human corpus sign-off recorded below. Your explicit product decisions elsewhere in this checklist still apply.
 
-This document reorganizes the militia subsystem into searchable sections and normalized headings.
+- [x] **SOURCE.R001 — Editorial introduction.** The title “Ironfang Invasion Militia Rules” and its sentence about searchable organization describe this repository document. The PDF instead begins “Building a Militia” on printed p. 48. This wrapper adds no separate rule. Campaign setup/scope are represented by F01/F02/F05 and the recorded scope decisions.
 
-- [ ] **SOURCE.R001** — This section adds no unrepresented behavioral requirement beyond the groups above. Reply OK if that is correct, or CHANGE with the missing requirement. Empty organizational headings may be classified as organizational only.
+- [x] **SOURCE.R019 — Terminology grouping.** The normalized heading has no body before “Rank.” The PDF’s terminology spans printed pp. 48–51. Its actual rules are covered by the individual definitions and their checks: foundations F01–F07, manager rules O06, team/action access T01–T06, weekly order U01, and event/carry handling E01/E05/E06/P01. Tracking the militia weekly is already part of the workflow. No additional behavior is hidden in the parent heading.
 
-### R019 — Militia Terminology
+- [x] **SOURCE.R163 — Team-condition grouping.** The Team Conditions box on printed p. 53 introduces disabled and missing teams. Its detailed rules are represented by T07/T08 and their child sources R165/R171; F05 covers team capacity. Those checks cover inability to act, recovery cost/timing, the return check, end-of-week return, and permanent loss on a natural 1. The parent heading adds no separate behavior.
 
-**Militia Terminology**
+- [x] **SOURCE.R178 — Team-tree grouping.** “Team Trees” groups the four branches shown on printed pp. 52–54. T01–T04 cover the individual branches; T05/T06 and the recruitment/upgrade action checks cover costs, inherited actions, and timing restrictions. This normalized parent heading adds no separate behavior.
 
-- [ ] **SOURCE.R019** — This section adds no unrepresented behavioral requirement beyond the groups above. Reply OK if that is correct, or CHANGE with the missing requirement. Empty organizational headings may be classified as organizational only.
-
-### R163 — Team Conditions
-
-**Team Conditions**
-
-- [ ] **SOURCE.R163** — This section adds no unrepresented behavioral requirement beyond the groups above. Reply OK if that is correct, or CHANGE with the missing requirement. Empty organizational headings may be classified as organizational only.
-
-### R178 — Team Trees
-
-**Team Trees**
-
-- [ ] **SOURCE.R178** — This section adds no unrepresented behavioral requirement beyond the groups above. Reply OK if that is correct, or CHANGE with the missing requirement. Empty organizational headings may be classified as organizational only.
-
-### R217 — Upkeep Phase
-
-**Upkeep Phase**
-
-- [ ] **SOURCE.R217** — This section adds no unrepresented behavioral requirement beyond the groups above. Reply OK if that is correct, or CHANGE with the missing requirement. Empty organizational headings may be classified as organizational only.
+- [x] **SOURCE.R217 — Upkeep grouping with rules represented elsewhere.** Printed p. 54’s introduction is not purely decorative: it states the first-ever-week skip and the fixed order of the five steps. U01 covers the skip/weekly sequence, U02–U04 cover attrition and penalties, U04/U05 cover advancement before transfers, and A07 covers Drill Militia. These requirements are already represented; the empty normalized parent heading needs no additional behavior case.
 
 ## Full accepted product and verification reference
 
-These snapshots are included for the product/workflow checks above. They are historical specifications: statements about implementation status at the time of the decision are not current verification results. Links are provenance only; the source text needed for this review is included here.
+These snapshots are included for the product/workflow checks above. They are historical specifications: the recorded scope decisions and corrected checks above supersede conflicting requirements here, including old-version request handling, GM-only controls, unavailable action slots, and Strike Team duration. Statements about implementation status at the time of the decision are not current verification results. Links are provenance only; the source text needed for this review is included here.
 
 ### Accepted product and workflow specification (#57)
 
@@ -3764,25 +3743,41 @@ Explicit regression examples include rank-1 one-action baseline, failed dismissa
 
 This ticket produces the migration plan only. Implementation, deployment and production changes are separate work. Detailed History Rewrite and exception/receipt presentation remain outside the map's destination; required data, semantic operations and outcome coverage are included. No new domain terms or ADR are needed. Existing local AGENTS.md and CONTEXT.md edits remain untouched.
 
-- [ ] **COMPLETE.CORPUS** — After reading the included rules, tables, and accepted product policies, I found no additional rule or important scenario missing from this checklist. List any omissions here.
+- [x] **COMPLETE.CORPUS** — After reading the included rules, tables, and accepted product policies, I found no additional rule or important scenario missing from this checklist. List any omissions here.
 
 ## Finish the review
 
 Only answer the final check after reviewing the complete document. Partial replies are welcome and do not count as full sign-off. A correction or unresolved question keeps the relevant check pending until addressed.
 
-- [ ] **REVIEW.SIGNOFF** — The complete semantic review is finished, all requested corrections/decisions are recorded, and I approve the reviewed rules coverage. Include reviewer name and review date. If unfinished or changes are needed, say that instead. This does not approve deployment or production cutover.
+- [x] **REVIEW.SIGNOFF** — The complete semantic review is finished, all requested corrections/decisions are recorded, and I approve the reviewed rules coverage. Include reviewer name and review date. If unfinished or changes are needed, say that instead. This does not approve deployment or production cutover.
 
 ```text
-Reviewer: [name]
-Review date: [YYYY-MM-DD]
-Reviewed groups: [IDs]
-Corrections / decisions: [individual IDs and replies]
-COMPLETE.CORPUS: OK / CHANGE — [details] / UNSURE — [question]
-REVIEW.SIGNOFF: APPROVED / CHANGES NEEDED / UNFINISHED
+Reviewer: AndreasUnunger
+Review date: 2026-09-23
+Reviewed groups: All checklist groups
+Corrections / decisions: Recorded in this checklist and the review conversation
+COMPLETE.CORPUS: OK
+REVIEW.SIGNOFF: APPROVED
 ```
+
+Review record: the reviewer checked every behavior/completeness item, COMPLETE.CORPUS, and REVIEW.SIGNOFF, then confirmed “done” in the review conversation on 2026-09-23. Codex performed the five SOURCE classifications at the reviewer’s request. This approval covers the reviewed semantics and recorded corrections; production deployment and cutover are not approved by this record.
 
 ## Evidence and review scope
 
-Automated baseline: 977 passing tests across 105 files, typecheck/lint/build checks passing, and all nine isolated E2E results passing on their first attempts. There are 489 catalog behavior checks; 488 have passing mapped evidence, sometimes partial. Eleven explicit gaps remain: the two interpretation questions above; three #89 cutover/recovery requirements; five source classifications; and human corpus sign-off. Passing tests do not substitute for your semantic review.
+Human review is complete: AndreasUnunger approved the full corpus and all 487 active behavior checks on 2026-09-23. The checked review above includes the recorded corrections. F02.ap-caps was removed by instruction; story-reward extra actions (F04.context) are deferred to [#98](https://github.com/AndreasUnunger/EverythingPath/issues/98).
 
-Reviewed implementation fingerprint: `266846091b3e7e140074e1940a09852bbed29d442b2f165531ec673d1a90c072`. The existing implementation and pending review status are unchanged by preparing this checklist. Your replies will be recorded against these IDs, with corrections applied and reverified as necessary.
+Final verification on 2026-09-23:
+
+- **1,003 tests across 106 files pass**, with no skipped or pending results.
+- **Typecheck, lint, and all three build-boundary tests pass.**
+- **All nine isolated browser results pass** on their first attempts in the final run, including both authenticated players, persistence races, exact Confirmation, and immutable history.
+- **486 of 487 cases have passing mapped evidence.** Three explicit operational gaps remain: E06.preserve, P11.cutover, and P11.legacy. Some cases have passing tests but still lack their deployment rehearsal.
+- All mapped test identifiers and source fingerprints are current. The strict gate's only error is **“Completeness gate: 3 remaining gaps.”**
+
+Those three gaps are agent implementation/rehearsal work in [#89](https://github.com/AndreasUnunger/EverythingPath/issues/89), not further questions for this human review. They cover carry preservation, paused restartable cutover, and recovery before reopening. Explicit old-version request rejection and forced reload handling are out of scope. Production cutover is separate (#90); no production changes were made.
+
+The deeper Spec review found no remaining concrete defect after correcting existing-militia setup's Upkeep behavior. The Standards review found no documented violations; one nonblocking old helper name remains. The browser setup test and Hidden Agenda test identifiers were also corrected, then verified afresh.
+
+Implementation fingerprint: `273197fe4744b457f192465225d1eb0120f16520e8de99e90f4d569294085e6d`.
+
+Final browser record: `e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-YbAt68/report.json`. Automated acceptance record: `coverage/acceptance.json`; the generated coverage report is also retained in `docs/weekly-draft-acceptance-review.md`.

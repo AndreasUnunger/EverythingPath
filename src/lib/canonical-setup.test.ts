@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { projectUpkeep } from './rules-upkeep';
 import { newMilitiaSetup, prepareMilitiaSetup } from './canonical-setup';
 
 test('[setup.defaults] a new militia enters an empty first week with chosen focus and ten gold', () => {
@@ -38,10 +39,9 @@ test('[setup.integrity] invalid event identities return structural errors and ca
   expect(militiaSetupSchema.safeParse(setup).success).toBe(false);
 });
 
-test('[setup.rank-cap] rank above PC and adventure caps is a visible, preserved deviation', () => {
+test('[setup.rank-cap] rank above the PC cap is a visible, preserved deviation', () => {
   const setup = newMilitiaSetup('Loyalty');
   setup.state.militiaSnapshot.rank = 6;
-  setup.state.militiaSnapshot.apVolume = 1;
   setup.state.militiaSnapshot.roster.people = [
     { characterId: 'pc', kind: 'pc', hitDice: 2 },
   ];
@@ -61,9 +61,6 @@ test('[setup.rank-cap] rank above PC and adventure caps is a visible, preserved 
   const plan = prepareMilitiaSetup(setup, 'cap');
   expect(plan.snapshot.rank).toBe(6);
   expect(plan.warnings).toContain('Rank exceeds the highest active PC level.');
-  expect(plan.warnings).toContain(
-    'Rank exceeds the current Adventure Path volume cap.',
-  );
 });
 
 test('[setup.required-facts] incomplete delivery timing cannot be stranded in a started week', async () => {
@@ -110,4 +107,20 @@ test('[setup.required-facts] incomplete delivery timing cannot be stranded in a 
   expect(militiaSetupSchema.safeParse(setup).success).toBe(false);
   setup.state.militiaSnapshot.economy!.orders[0]!.dueDay = 1;
   expect(militiaSetupSchema.safeParse(setup).success).toBe(true);
+});
+
+test('[rules.U01.setup-existing] resumed militias run Upkeep despite a stale first-week flag', () => {
+  for (const week of [1, 9, 40]) {
+    const setup = newMilitiaSetup('Loyalty');
+    setup.mode = 'existing';
+    setup.state.week = week;
+    const plan = prepareMilitiaSetup(setup, 'resumed');
+    expect(plan.draft.context.firstMilitiaWeek).toBe(false);
+    expect(projectUpkeep(plan.draft, plan.snapshot).skipped).toBe(false);
+    expect(setup.state.context.firstMilitiaWeek).toBe(true);
+  }
+  const fresh = newMilitiaSetup('Loyalty');
+  fresh.state.week = 40;
+  const plan = prepareMilitiaSetup(fresh, 'new-at-week-40');
+  expect(projectUpkeep(plan.draft, plan.snapshot).skipped).toBe(true);
 });

@@ -1,3 +1,4 @@
+import { eventOverseerSelection } from './rules-overseer-event';
 import { projectRulesFoundations } from './rules-foundations';
 import { activityCheckEffects } from './rules-activity';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
@@ -37,6 +38,8 @@ export function eventCheck(
       queuedEffects: result.queuedEffects,
     },
   };
+  const support = eventOverseerSelection(event);
+  if (support.conflicting) result.requirements.push(`${id}:overseer-conflict`);
   const die = eventDie(result, raw, id, 20);
   const facts = projectRulesFoundations({
     ...result.outcome,
@@ -45,10 +48,11 @@ export function eventCheck(
     checks: [
       {
         checkId: id,
+        eventId: event.eventId,
         phase,
         check,
         die: die ?? undefined,
-        overseerCharacterId: event.overseerCharacterId,
+        overseerCharacterId: support.characterId,
         bonusIds: raw?.modifiers.flatMap((modifier) =>
           modifier.sourceId.startsWith('bonus:')
             ? [modifier.sourceId.slice(6)]

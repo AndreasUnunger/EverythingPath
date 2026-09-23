@@ -42,7 +42,6 @@ export async function exerciseMilitiaSetup(
       await gm
         .getByRole('textbox', { name: 'Week start day', exact: true })
         .fill('77');
-      // First use is independent of the imported calendar number.
       await gm
         .getByRole('textbox', { name: 'Notoriety', exact: true })
         .fill('-1');
@@ -151,10 +150,27 @@ export async function exerciseMilitiaSetup(
         exact: true,
       }),
     ).toBeVisible();
-    if (existing)
+    if (existing) {
       await expect(players.player.getByLabel('Setup notes')).toContainText(
         'week twelve',
       );
+      // Resuming a militia requires ordinary Upkeep before confirmation.
+      await players.player
+        .getByRole('textbox', { name: 'Attrition Loyalty die', exact: true })
+        .fill('20');
+      const training = players.player.getByRole('textbox', {
+        name: 'Attrition training die',
+        exact: true,
+      });
+      await training.fill('1');
+      await training.blur();
+      await expect(players.player.getByRole('status')).toHaveText(
+        'Changes saved.',
+      );
+      await expect(players.player.getByTestId('upkeep-training')).toHaveText(
+        '1',
+      );
+    }
     await gm
       .getByRole('textbox', { name: 'Event chance roll', exact: true })
       .fill('100');

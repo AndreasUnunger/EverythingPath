@@ -1,15 +1,8 @@
 # Ironfang Militia Structured Tables
 
-## Ironfang AP Rank Caps
+## Rank and Reward Teams
 
-A militia can never exceed the level of the highest-level PC. In Ironfang Invasion, practical caps by volume are:
-
-- Trail of the Hunted: rank 4 max
-- Fangs of War: rank 7 max
-- Assault on Longshadow: rank 10 max
-- Siege of Stone: rank 13 max
-- Prisoners of the Blight: rank 15 max
-- Adventure Path conclusion: rank 17 max
+A militia can never exceed the level of the highest-level PC.
 
 Bonus teams gained as rewards do not count against max teams.
 

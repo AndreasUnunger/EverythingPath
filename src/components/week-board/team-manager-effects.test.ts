@@ -133,7 +133,7 @@ describe('team manager week-board helpers', () => {
     ).toEqual(['team manager bonuses vary across staged teams']);
   });
 
-  it('returns manipulate-events manager text only when a manager exists', () => {
+  it('shows shared event selection guidance with or without a manager', () => {
     expect(
       getManipulateEventsManagerText({
         stagedActionIds: ['manipulate_events', ''],
@@ -151,7 +151,7 @@ describe('team manager week-board helpers', () => {
           },
         ],
       }),
-    ).toBe('Captain Ivet chooses which guaranteed event result to use.');
+    ).toBe('Any player can choose which guaranteed event occurs.');
 
     expect(
       getManipulateEventsManagerText({
@@ -164,7 +164,7 @@ describe('team manager week-board helpers', () => {
           },
         ],
       }),
-    ).toBeUndefined();
+    ).toBe('Any player can choose which guaranteed event occurs.');
   });
 
   it('returns the selected team manager bonus by team id', () => {

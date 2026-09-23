@@ -10,7 +10,6 @@ const messages: Record<string, string> = {
   'upkeep:notoriety:settlement-reputation':
     'Enter the nearest settlement’s reputation.',
   'rank:boon-acknowledgement': 'Record the earned rank boon.',
-  'rank:ap-cap': 'The militia rank exceeds the adventure progression limit.',
   'rank:pc-cap': 'The militia rank exceeds the highest player-character level.',
   'return:roll': 'Enter the missing team’s return roll.',
   'recovery-decision':
@@ -36,10 +35,15 @@ const messages: Record<string, string> = {
   'from-role': 'Choose the officer role to leave.',
   'duplicate-role': 'This character already holds the selected officer role.',
   character: 'Choose an available character.',
+  'overseer-conflict':
+    'Keep the same Overseer for every check belonging to this event.',
+  'overseer-event': 'Choose the event the Overseer will support.',
   'highest-level-pc': 'Enter the highest player-character level.',
   'unresolved-action': 'Choose an available action.',
-  'action-capacity': 'This choice exceeds the action allowance.',
-  'team-capacity': 'Recruitment exceeds the team allowance.',
+  'action-capacity':
+    'Move this choice to an available slot, clear it, or restore the action allowance before confirming the week.',
+  'team-capacity':
+    'Recruitment leaves the roster above the team allowance after this week’s actions.',
   'team-action': 'This team does not normally perform this action.',
   'team-unavailable': 'This team is unavailable for this Activity.',
   'team-condition':

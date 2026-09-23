@@ -1,3 +1,4 @@
+import { recurringEventFixture } from '../../tests/rules/recurring-event-fixture';
 import { expect, test } from 'vitest';
 import { projectActivityAndEvents as project } from './rules-event-outcomes';
 import { projectUpkeep } from './rules-upkeep';
@@ -559,4 +560,90 @@ test('[rules.E03.replacement-duplicates] inserting a replacement reclassifies la
     'base',
     'twice',
   ]);
+});
+
+test('[rules.O04.event-scope] selecting Overseer on a Raid, reaction or later target helps every check of that occurrence once', () => {
+  for (const selection of ['event', 'reaction', 'later-target'] as const) {
+    const { draft, snapshot } = threatEventFixture(78);
+    snapshot.roster.officers = [{ role: 'overseer', characterId: 'pc' }];
+    snapshot.characters[0]!.intelligence = 18;
+    snapshot.roster.people.push({
+      ...snapshot.roster.people[0]!,
+      characterId: 'other',
+    });
+    snapshot.characters.push({
+      ...snapshot.characters[0]!,
+      characterId: 'other',
+    });
+    snapshot.characterActions!.people.push({
+      ...snapshot.characterActions!.people[0]!,
+      characterId: 'other',
+    });
+    const event = draft.event.occurrences[0]!;
+    if (selection === 'event') event.overseerCharacterId = 'pc';
+    event.targetChecks = ['pc', 'other'].map((characterId) => ({
+      target: { kind: 'character', characterId },
+      mitigation: 'attempted',
+      rolls: { check: roll(20, 16), loss: roll(100, 51) },
+      ...(selection === 'later-target' && characterId === 'other'
+        ? { overseerCharacterId: 'pc' }
+        : {}),
+    }));
+    event.sabotage = {
+      choiceId: 'reaction',
+      teamId: 'team',
+      check: 'secrecy',
+      rolls: { check: roll(20, 2), notoriety: roll(6, 1) },
+      ...(selection === 'reaction' ? { overseerCharacterId: 'pc' } : {}),
+      acknowledgements: [
+        {
+          acknowledgementId: 'reacted',
+          subjectId: 'sabotage:event:reaction',
+          outcome: 'Attempted disruption',
+        },
+      ],
+    };
+    event.sabotage.rolls!.check!.modifiers = [
+      {
+        sourceId: 'overseer-support',
+        value: 99,
+        reason: 'Previously entered bonus',
+      },
+    ];
+    const result = project(draft, snapshot).event;
+    expect(result.requirements, selection).toEqual([]);
+    expect(result.ready).toBe(true);
+    expect(result.checks.map((check) => check.total)).toEqual([11, 20, 20]);
+    expect(
+      result.checks.map((check) =>
+        check.modifiers
+          .filter((modifier) => modifier.source === 'overseer-support')
+          .map((modifier) => modifier.value),
+      ),
+    ).toEqual([[4], [2], [2]]);
+    expect(
+      result.outcome.characterActions!.people.map((person) => person.status),
+    ).toEqual(['hidden', 'hidden']);
+    expect(result.checkUsage.overseerEventId).toBe('event');
+  }
+});
+
+test('[rules.O04.persistent-selection] a support choice on the persistent decision also applies to the earlier check of that same occurrence', () => {
+  const { draft, snapshot } = recurringEventFixture(74);
+  snapshot.roster.officers = [{ role: 'overseer', characterId: 'pc' }];
+  const event = draft.event.occurrences[0]!;
+  event.persistent = true;
+  event.mitigation = 'attempted';
+  event.rolls = { check: roll(20, 14) };
+  event.persistentDecision = {
+    eventId: 'event',
+    kind: 'mitigate',
+    overseerCharacterId: 'pc',
+    rolls: { check: roll(20, 14) },
+  };
+  const result = project(draft, snapshot).event;
+  expect(result.requirements).toEqual([]);
+  expect(result.checks[0]!.total).toBe(20);
+  expect(result.outcome.treasuryCopper).toBe(27000);
+  expect(result.checkUsage.overseerEventId).toBe('event');
 });

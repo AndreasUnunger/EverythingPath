@@ -1,9 +1,14 @@
+import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
+import { foundationWeek } from '../../../tests/rules/foundation-acceptance-fixtures';
+import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
+import { activityView as activityFacts } from './activity-facts';
 import {
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi, type Mock } from 'vitest';
 afterEach(cleanup);
@@ -19,6 +24,7 @@ const view: Facts = {
       slotId: 'one',
       choice: { actionId: 'drill_militia', choiceId: 'drill', costCopper: 0 },
       overAllowance: false,
+      strategistBonus: false,
       calculatedCostCopper: null,
       requirements: [],
       warnings: [],
@@ -28,6 +34,7 @@ const view: Facts = {
       slotId: 'two',
       choice: null,
       overAllowance: false,
+      strategistBonus: false,
       calculatedCostCopper: null,
       requirements: [],
       warnings: [],
@@ -627,4 +634,87 @@ test('[rules.P82.provenance] recorded roll provenance stays intact without offer
       }),
     ),
   );
+});
+
+test('[rules.F04.capacity-guidance] retained extra-slot choices explain correction without suggesting an exception', () => {
+  const extra = structuredClone(view);
+  extra.slots[0]!.overAllowance = true;
+  extra.slots[0]!.warnings = ['drill:action-capacity'];
+  render(<ActivityView view={extra} edit={vi.fn()} disabled={false} />);
+  expect(
+    screen.getByText(/restore the allowance before confirming the week/),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/record an exception with a reason/),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('group', { name: 'Action Capacity exception' }),
+  ).not.toBeInTheDocument();
+});
+
+test('[rules.O05.slot-label] the automatic Strategist label follows rank and ordered assignments on empty and occupied slots', () => {
+  const input = foundationWeek(1);
+  input.militiaSnapshot.roster.officers = [
+    { role: 'strategist', characterId: 'pc' },
+  ];
+  input.revision.activity.slots.push({ slotId: 'third', choice: null });
+  const facts = () =>
+    activityFacts(
+      input.revision,
+      workspaceSourceSchema.parse({
+        key: {
+          campaignId: 'campaign',
+          militiaId: 'militia',
+          draftId: input.revision.draftId,
+        },
+        sourceRevision: 0,
+        snapshot: input.militiaSnapshot,
+        people: [{ characterId: 'pc', name: 'Officer' }],
+      }),
+      projectWeeklyDraft(input),
+    );
+  const edit = vi.fn();
+  const { rerender } = render(
+    <ActivityView view={facts()} edit={edit} disabled={false} />,
+  );
+  const slot = (index: number) => screen.getByLabelText(`Action Slot ${index}`);
+  expect(within(slot(2)).getByText('Empty slot')).toBeInTheDocument();
+  expect(within(slot(2)).getByText('Strategist +2')).toBeInTheDocument();
+  expect(
+    within(slot(2)).getByText(
+      'Adds +2 to organization checks for the action in this slot.',
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getAllByText('Strategist +2')).toHaveLength(1);
+  input.revision.activity.slots[1]!.choice = {
+    choiceId: 'work',
+    actionId: 'special',
+    instruction: 'Scout',
+    costCopper: 0,
+  };
+  rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+  expect(within(slot(2)).getByText('Strategist +2')).toBeInTheDocument();
+  input.militiaSnapshot.rank = 2;
+  input.militiaSnapshot.training = 11;
+  rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+  expect(within(slot(2)).queryByText('Strategist +2')).not.toBeInTheDocument();
+  expect(within(slot(3)).getByText('Strategist +2')).toBeInTheDocument();
+  input.revision.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'strategist',
+  };
+  rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+  expect(screen.queryByText('Strategist +2')).not.toBeInTheDocument();
+  input.militiaSnapshot.roster.officers = [];
+  input.revision.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    toRole: 'strategist',
+  };
+  rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+  expect(within(slot(3)).getByText('Strategist +2')).toBeInTheDocument();
+  expect(edit).not.toHaveBeenCalled();
 });

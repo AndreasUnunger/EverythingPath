@@ -23,9 +23,15 @@ vi.mock('~/components/ui/select', () => ({
       {children}
     </select>
   ),
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  SelectValue: ({ placeholder }: { placeholder?: string }) => <>{placeholder ?? null}</>,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  SelectValue: ({ placeholder }: { placeholder?: string }) => (
+    <>{placeholder ?? null}</>
+  ),
+  SelectContent: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   SelectItem: ({
     value,
     children,
@@ -109,7 +115,9 @@ describe('ActivitySlotCard manager rendering', () => {
     render(<ActivitySlotCard {...buildDefaultProps()} />);
 
     expect(
-      screen.getByText('Quartermaster manager CHA bonus +3 • managing 2/2 teams'),
+      screen.getByText(
+        'Quartermaster manager CHA bonus +3 • managing 2/2 teams',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -149,7 +157,9 @@ describe('ActivitySlotCard manager rendering', () => {
     render(<ActivitySlotCard {...props} />);
 
     expect(
-      screen.getByText(/This applies to the immediately following staged activity\./),
+      screen.getByText(
+        /This applies to the immediately following staged activity\./,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -180,7 +190,7 @@ describe('ActivitySlotCard manager rendering', () => {
     render(<ActivitySlotCard {...props} />);
 
     expect(
-      screen.getByText('Captain Ivet chooses which guaranteed event result to use.'),
+      screen.getByText('Any player can choose which guaranteed event occurs.'),
     ).toBeInTheDocument();
   });
 
@@ -217,7 +227,9 @@ describe('ActivitySlotCard manager rendering', () => {
     render(<ActivitySlotCard {...props} />);
 
     expect(
-      screen.getByText('Include Shade manager CHA bonus +4 in the total entered here.'),
+      screen.getByText(
+        'Include Shade manager CHA bonus +4 in the total entered here.',
+      ),
     ).toBeInTheDocument();
   });
 

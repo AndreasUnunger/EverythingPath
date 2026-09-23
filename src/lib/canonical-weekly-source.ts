@@ -21,16 +21,6 @@ export const militiaSnapshotSchema = z
     treasuryCopper: z.number().int(),
     notoriety: z.number().int(),
     focus: z.enum(['Loyalty', 'Security', 'Secrecy']).nullable(),
-    apVolume: z
-      .union([
-        z.literal(1),
-        z.literal(2),
-        z.literal(3),
-        z.literal(4),
-        z.literal(5),
-        z.literal(6),
-      ])
-      .optional(),
     roster: canonicalRosterSchema,
     characters: z.array(
       z.strictObject({

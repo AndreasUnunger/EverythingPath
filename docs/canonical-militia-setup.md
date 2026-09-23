@@ -8,7 +8,7 @@ current workflow until the approved cutover.
 Both starting points submit the same canonical setup contract and use one
 atomic initializer. New values begin at rank 1, training 0, 10 gp and zero
 Notoriety, with a selectable focus. Existing values may depart from the rules;
-rank/training, treasury, Notoriety, PC and Adventure Path caps, and roster
+rank/training, treasury, Notoriety, PC-level caps, and roster
 warnings are advisory. Structural errors and foreign references block saving.
 The form uses React Hook Form and Zod with styled field errors, including
 separate missing-value and malformed-number messages.

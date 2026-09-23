@@ -266,18 +266,23 @@ test('[storage.scope] authentication and campaign-owned draft/militia/record ref
       readResolutionRecord(ctx, { ...other, recordId: 'record-11' }),
     ),
   ).rejects.toThrow('Invalid record reference');
-  await expect(
-    player.run((ctx) =>
-      appendResolutionRecord(ctx, {
-        ...scope,
-        record: {
-          ...record('correction'),
-          provenance: 'historical_correction',
-          supersedesRecordId: 'record-11',
-        },
-      }),
-    ),
-  ).rejects.toThrow('GM access required');
+  await player.run((ctx) =>
+    appendResolutionRecord(ctx, {
+      ...scope,
+      record: {
+        ...record('correction'),
+        provenance: 'historical_correction',
+        supersedesRecordId: 'record-11',
+      },
+    }),
+  );
+  expect(
+    (
+      await player.run((ctx) =>
+        readEffectiveRecord(ctx, { ...scope, week: 11 }),
+      )
+    )?.recordId,
+  ).toBe('correction');
 });
 
 test('[storage.integrity] canonical refinements, exact revisions and immutable context survive persistence', async () => {

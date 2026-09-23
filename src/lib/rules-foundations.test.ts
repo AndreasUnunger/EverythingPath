@@ -265,7 +265,7 @@ test('[rules.O01.commandants] distinct Hit Dice stack and unknown Hit Dice stays
     'commandant:b:hit-dice',
   );
 });
-test('[rules.O04.one-use] overseer support selects a single occurrence of any Event check type', () => {
+test('[rules.O04.one-use] overseer support selects one event occurrence rather than one individual check', () => {
   const source = input({
     roster: {
       people: [{ characterId: 'a', kind: 'pc', hitDice: 3 }],
@@ -276,6 +276,7 @@ test('[rules.O04.one-use] overseer support selects a single occurrence of any Ev
     checks: [
       {
         checkId: 'raid-1',
+        eventId: 'first-raid',
         phase: 'event',
         check: 'security',
         die: 10,
@@ -283,6 +284,7 @@ test('[rules.O04.one-use] overseer support selects a single occurrence of any Ev
       },
       {
         checkId: 'raid-2',
+        eventId: 'second-raid',
         phase: 'event',
         check: 'security',
         die: 10,
@@ -535,24 +537,6 @@ test('[rules.F09.xp-rounding] crossed boons list PC recipients and floor each XP
     },
   ]);
 });
-test('[rules.F02.ap-caps] AP volume limits are advisory and do not lower retained rank', () => {
-  for (const [volume, cap] of [
-    [1, 4],
-    [2, 7],
-    [3, 10],
-    [4, 13],
-    [5, 15],
-    [6, 17],
-  ] as const) {
-    const result = projectRulesFoundations(
-      input({ rank: 20, apVolume: volume }),
-    );
-    expect(result.progression.apRankCap).toBe(cap);
-    expect(result.progression.eligibleRank).toBe(20);
-    expect(result.warnings).toContain('rank:ap-cap');
-  }
-});
-
 test('[rules.F09.packages] every crossed boon retains its prescribed package', () => {
   const result = projectRulesFoundations(
     input({
@@ -728,6 +712,7 @@ test('one-use support remains consumed across an intervening projected officer c
     checks: [
       {
         checkId: 'first',
+        eventId: 'first-event',
         phase: 'event',
         check: 'security',
         overseerCharacterId: 'a',
@@ -746,6 +731,7 @@ test('one-use support remains consumed across an intervening projected officer c
     checks: [
       {
         checkId: 'second',
+        eventId: 'second-event',
         phase: 'event',
         check: 'security',
         overseerCharacterId: 'b',
@@ -783,6 +769,7 @@ test('reactive team checks apply their manager once, including alongside Oversee
       checks: [
         {
           checkId: 'sabotage',
+          eventId: 'sabotaged-event',
           phase: 'event',
           check: 'secrecy',
           teamId: 'saboteurs',
@@ -796,4 +783,78 @@ test('reactive team checks apply their manager once, including alongside Oversee
   expect(
     result.checks[0]?.modifiers.filter((x) => x.source === 'manager:a'),
   ).toHaveLength(1);
+});
+
+test('[rules.O04.support-identity] occurrence support carries across phase checks without allowing officer swaps or another event', () => {
+  const source = input({
+    roster: {
+      people: [
+        { characterId: 'a', kind: 'pc', hitDice: 3 },
+        { characterId: 'b', kind: 'pc', hitDice: 3 },
+      ],
+      officers: [
+        { role: 'overseer', characterId: 'a' },
+        { role: 'overseer', characterId: 'b' },
+      ],
+      teams: [],
+    },
+    characters: [
+      character('a', { strength: 18, charisma: 16 }),
+      character('b', { strength: 20 }),
+    ],
+    checks: [
+      {
+        checkId: 'first',
+        eventId: 'chosen',
+        phase: 'event',
+        check: 'security',
+        die: 10,
+        overseerCharacterId: 'a',
+      },
+    ],
+  });
+  const first = projectRulesFoundations(source);
+  const later = projectRulesFoundations({
+    ...source,
+    checkUsage: first.checkUsage,
+    checks: [
+      {
+        checkId: 'mitigation',
+        eventId: 'chosen',
+        phase: 'persistent',
+        check: 'loyalty',
+        die: 10,
+      },
+      {
+        checkId: 'swap',
+        eventId: 'chosen',
+        phase: 'event',
+        check: 'security',
+        die: 10,
+        overseerCharacterId: 'b',
+      },
+      {
+        checkId: 'other',
+        eventId: 'another',
+        phase: 'event',
+        check: 'security',
+        die: 10,
+        overseerCharacterId: 'a',
+      },
+      {
+        checkId: 'unknown',
+        phase: 'event',
+        check: 'security',
+        die: 10,
+        overseerCharacterId: 'a',
+      },
+    ],
+  });
+  expect(first.checks[0]!.total).toBe(15);
+  expect(later.checks.map((check) => check.total)).toEqual([15, 11, 11, 11]);
+  expect(later.requirements).toContain('swap:overseer-conflict');
+  expect(later.requirements).toContain('other:overseer-already-used');
+  expect(later.requirements).toContain('unknown:overseer-event');
+  expect(later.checkUsage.overseerEventId).toBe('chosen');
+  expect(later.checkUsage.overseerCharacterId).toBe('a');
 });

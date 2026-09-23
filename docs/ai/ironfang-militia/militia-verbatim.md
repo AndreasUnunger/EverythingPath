@@ -10,13 +10,7 @@ can use to track the PCs’ militia during that campaign.
 Keep in mind that over the course of the Ironfang
 Invasion Adventure Path, the PCs’ militia can never rise
 to a rank higher than the most experienced PC’s level.
-This means the PCs’ militia cannot rise above rank 4
-over the course of Trail of the Hunted, rank 7 in Fangs of
-War, rank 10 in Assault on Longshadow, rank 13 in Siege
-of Stone, rank 15 in Prisoners of the Blight, and rank 17
-by the Adventure Path’s conclusion. Other specific
-conditions (such as the lack of a secure home) may impose
-additional limitations on the militia’s rank. Bonus teams
+Bonus teams
 gained as an adventure reward do not count against a
 militia’s maximum number of teams.
 Throughout the Adventure Path, the PCs are likely to

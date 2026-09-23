@@ -25,8 +25,6 @@ function actionReferences(choice: StagedActionChoice, check: ReferenceCheck) {
     check('team', choice.targetTeamId, `${id}:target-team`);
   if ('characterId' in choice)
     check('character', choice.characterId, `${id}:character`);
-  if ('chooserCharacterId' in choice)
-    check('character', choice.chooserCharacterId, `${id}:chooser`);
   if ('settlementId' in choice)
     check('settlement', choice.settlementId, `${id}:settlement`);
   if (

@@ -187,7 +187,7 @@ export function resolveCharacterChoice(
             attackBonus: 2,
             damageBonus: 2,
             saveBonus: 2,
-            rounds: Math.floor(result.outcome.rank / 2),
+            rounds: Math.max(1, Math.floor(result.outcome.rank / 2)),
           }
         : {
             ...common,

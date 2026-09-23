@@ -261,7 +261,7 @@ test('[rules.E04.independent] automatic replacements precede guarantees and do n
 });
 
 test('[rules.E03.eligibility] impossible occurrences require replacements and intentional exceptions retain a reason', () => {
-  for (const value of [30, 34, 38, 62, 66, 70, 78, 90]) {
+  for (const value of [30, 34, 62, 66, 70, 78, 90]) {
     const { draft, snapshot } = eventSelectionFixture();
     snapshot.roster.teams = [];
     snapshot.settlements = [];

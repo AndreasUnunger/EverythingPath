@@ -154,30 +154,25 @@ export async function exerciseActivityWorkspace(
   await slot(gm, 3)
     .getByText('Edit Drill Militia details', { exact: true })
     .click();
-  const capacityException = slot(gm, 3).getByRole('group', {
-    name: 'Action Capacity exception',
-    exact: true,
-  });
-  await capacityException
-    .getByRole('textbox', { name: 'Exception reason', exact: true })
-    .fill('An extra training day was granted');
-  await capacityException
-    .getByRole('button', { name: 'Save exception reason', exact: true })
-    .click();
-  await saved(gm);
-  await slot(player, 3)
+  await expect(
+    slot(gm, 3).getByRole('group', {
+      name: 'Action Capacity exception',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await gm.getByRole('button', { name: 'Summary', exact: true }).click();
+  await expect(
+    gm.getByRole('button', { name: 'Confirm week', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    gm
+      .getByRole('region', { name: 'Required decisions' })
+      .getByText(/restore the action allowance/),
+  ).toBeVisible();
+  await gm.getByRole('button', { name: 'Activity', exact: true }).click();
+  await slot(gm, 3)
     .getByText('Edit Drill Militia details', { exact: true })
     .click();
-  await expect(
-    slot(player, 3)
-      .getByRole('group', { name: 'Action Capacity exception', exact: true })
-      .getByRole('textbox', { name: 'Exception reason', exact: true }),
-  ).toHaveValue('An extra training day was granted');
-  await slot(gm, 3)
-    .getByRole('group', { name: 'Action Capacity exception', exact: true })
-    .getByRole('button', { name: 'Remove exception', exact: true })
-    .click();
-  await saved(gm);
   await slot(gm, 3)
     .getByRole('group', { name: 'Maximum Rank exception', exact: true })
     .getByRole('button', { name: 'Remove exception', exact: true })
@@ -186,11 +181,16 @@ export async function exerciseActivityWorkspace(
   await slot(gm, 3)
     .getByText('Edit Drill Militia details', { exact: true })
     .click();
-  await slot(player, 3)
-    .getByText('Edit Drill Militia details', { exact: true })
+  await card(gm, 3, 'Drill Militia').click();
+  await gm
+    .getByRole('button', { name: 'Place in Action Slot 1', exact: true })
     .click();
-  await drag(gm, card(gm, 3, 'Drill Militia'), null);
-  await expect(slot(player, 3).getByText('Empty slot')).toBeVisible();
+  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
+  await expect(
+    slot(gm, 1).getByText(/exceeds the action allowance/),
+  ).toHaveCount(0);
+  await drag(gm, card(gm, 1, 'Drill Militia'), null);
+  await expect(slot(player, 1).getByText('Empty slot')).toBeVisible();
   await drag(
     gm,
     gm.getByRole('button', { name: 'Choose Drill Militia', exact: true }),

@@ -396,12 +396,7 @@ test('[rules.E88.covert-cap] successful Covert suppression preserves the pre-act
     const guarantee = eventActionFixture().choice;
     guarantee.choiceId = 'later';
     draft.activity.slots.push({ slotId: 'third', choice: guarantee });
-    draft.rulesExceptions.push({
-      exceptionId: 'third',
-      subjectId: 'later',
-      ruleId: 'action-capacity',
-      reason: 'Additional table action',
-    });
+    snapshot.roster.officers.push({ role: 'strategist', characterId: 'pc' });
     const later = projectActivity(draft, snapshot);
     expect(later.outcome.notoriety).toBe(
       Math.max(0, Math.min(100, notoriety + 3)),

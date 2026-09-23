@@ -18,7 +18,8 @@ type CheckFacts = {
 };
 type Modifier = { source: string; value: number };
 export type CheckUsage = {
-  overseer: boolean;
+  overseerEventId: string | null;
+  overseerCharacterId: string | null;
   helpful: boolean;
   bonusIds: string[];
 };
@@ -66,20 +67,36 @@ function overseerModifier(
   facts: CheckFacts,
   result: Composition,
 ) {
-  if (!check.overseerCharacterId) return;
+  const characterId =
+    check.overseerCharacterId ??
+    (check.eventId && result.usage.overseerEventId === check.eventId
+      ? result.usage.overseerCharacterId
+      : null);
+  if (!characterId) return;
   const overseer = facts.officers.overseers.find(
-    (x) => x.characterId === check.overseerCharacterId,
+    (x) => x.characterId === characterId,
   );
   if (!overseer || (check.phase !== 'event' && check.phase !== 'persistent'))
     result.requirements.push(`${check.checkId}:overseer-ineligible`);
-  else if (result.usage.overseer)
+  else if (!check.eventId)
+    result.requirements.push(`${check.checkId}:overseer-event`);
+  else if (
+    result.usage.overseerEventId &&
+    result.usage.overseerEventId !== check.eventId
+  )
     result.requirements.push(`${check.checkId}:overseer-already-used`);
+  else if (
+    result.usage.overseerEventId === check.eventId &&
+    result.usage.overseerCharacterId !== characterId
+  )
+    result.requirements.push(`${check.checkId}:overseer-conflict`);
   else {
     result.modifiers.push({
       source: 'overseer-support',
       value: officerAbility(overseer, check.check),
     });
-    result.usage.overseer = true;
+    result.usage.overseerEventId = check.eventId;
+    result.usage.overseerCharacterId = characterId;
   }
 }
 function helpfulModifier(
@@ -172,7 +189,8 @@ export function projectChecks(input: FoundationInput, facts: CheckFacts) {
   const requirements: string[] = [];
   const warnings: string[] = [];
   const usage: CheckUsage = {
-    overseer: input.checkUsage?.overseer ?? false,
+    overseerEventId: input.checkUsage?.overseerEventId ?? null,
+    overseerCharacterId: input.checkUsage?.overseerCharacterId ?? null,
     helpful: input.checkUsage?.helpful ?? false,
     bonusIds: [...(input.checkUsage?.bonusIds ?? [])],
   };

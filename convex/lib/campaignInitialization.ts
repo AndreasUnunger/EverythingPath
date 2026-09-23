@@ -19,7 +19,7 @@ export async function preflightCampaignInitialization(
   ctx: ReadCtx,
   scope: Scope,
 ) {
-  await requireScope(ctx, scope, true);
+  await requireScope(ctx, scope);
   const source = await readInitializationSource(ctx, scope);
   const { militia, week } = source;
   const roster = await readRoster(ctx, scope);
@@ -125,7 +125,7 @@ export async function initializeCampaign(
   ctx: MutationCtx,
   input: Scope & { sourceToken: string; initializationId: string },
 ) {
-  await requireScope(ctx, input, true);
+  await requireScope(ctx, input);
   const initializationId = z
     .string()
     .trim()

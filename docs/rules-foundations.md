@@ -12,8 +12,10 @@ Warnings are advisory; this module neither saves choices nor commits outcomes.
 
 Each check has a stable occurrence identity. Activity checks reference a complete
 choice by identity. The Strategist bonus applies to the choice occupying the bonus
-slot at the current projected rank. Overseer support, Helpful and selected carried
-bonuses are reserved once in occurrence order, including while a roll is missing.
+slot at the current projected rank. Overseer support is reserved for one event
+identity and can apply to its multiple organization checks, each using the best
+applicable ability modifier. Helpful and selected carried bonuses are reserved
+once in check order, including while a roll is missing.
 Reordering phase operations must project the roster/rank at that position before
 requesting those checks, carrying the returned `checkUsage` across calls; this module does not apply officer changes or advance
 Upkeep on its own. Unknown Hit Dice remain a requirement, and archived assignments
@@ -40,7 +42,7 @@ Legacy entered totals must not be passed as raw dice to this projection.
 Table quantities are rounded down without a minimum; rank-1 Strike Team duration
 is zero and XP shares are floored. Purchase percentages compound before a single
 round to nearest copper. Market Day supplies its prescribed additional 5% discount.
-AP volume caps are advisory and never lower an already retained rank. Boon outputs
+Rank retention and the highest-PC-level cap govern progression. Boon outputs
 are reminders with PC recipients, not automatic character-sheet mutations or
 acknowledged awards.
 

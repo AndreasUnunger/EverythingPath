@@ -179,8 +179,7 @@ later whole-week Table Adjustment application.
 
 Strike Team emits a typed, once-only entitlement at the chosen location for the
 following week, with that week's expiry. Combat support records each PC's +2
-competence attack/damage/save bonuses and floor(rank/2) rounds, including zero at
-rank1. Extraction records bleeding stabilization, gentle repose CL12 for the dead
+competence attack/damage/save bonuses and half-rank duration rounded down, with a minimum of one round. Extraction records bleeding stabilization, gentle repose CL12 for the dead
 and body extraction to headquarters. This records the granted support and table
 acknowledgement, without pretending future combat or extraction already occurred.
 Special requires an instruction, an explicit copper cost (including zero) and a
@@ -211,7 +210,7 @@ Guarantee Event pays the current minimum treasury and its own d6 Notoriety per
 occurrence. Each guarantee preserves two independent percentile candidates,
 selection, raw modifiers, and an acknowledgement with subject
 `<actionId>:<choiceId>`. Guardians provide Manipulate Events without this cost;
-their manager chooses, or `chooserCharacterId` records the randomly chosen PC.
+any player chooses which candidate occurs. No chooser identity is recorded.
 Missing or foreign required references remain requirements, not exceptions.
 
 `projectEventShaping(draft, activity)` consumes these plan effects and the

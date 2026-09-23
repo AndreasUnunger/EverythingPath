@@ -289,7 +289,6 @@ test('[setup.confirmation] an ordinary player initializes, edits and confirms a 
     tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_player`,
   });
   const input = newMilitiaSetup('Loyalty');
-  input.mode = 'existing';
   input.state.week = 12;
   input.state.context.startDay = 77;
   const key = await member.mutation(api.canonicalSetup.initialize, {
@@ -432,4 +431,23 @@ test('[setup.new-campaign] a campaign without a militia enters the same lifecycl
     treasuryCopper: 1000,
     focus: 'Loyalty',
   });
+});
+
+test('[rules.U01.setup-server] an existing militia cannot retain the new-militia Upkeep skip', async () => {
+  const { gm, campaignId } = await setup();
+  const input = newMilitiaSetup('Loyalty');
+  input.mode = 'existing';
+  input.state.week = 12;
+  const key = await gm.mutation(api.canonicalSetup.initialize, {
+    campaignId,
+    initializationId: 'resumed',
+    setup: input,
+  });
+  expect(
+    await gm.query(api.canonicalDraftPersistence.observe, key),
+  ).toMatchObject({
+    draft: { week: 12, context: { firstMilitiaWeek: false } },
+  });
+  const preview = await gm.query(api.canonicalDraftPersistence.preview, key);
+  expect(preview.status).toBe('incomplete');
 });

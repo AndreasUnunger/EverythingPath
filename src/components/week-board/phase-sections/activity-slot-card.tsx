@@ -104,7 +104,10 @@ type ActivitySlotCardProps = {
     role?: OfficerRole;
     characterId?: Id<'character'> | null;
   }) => void;
-  setRefugeSettlementForSlotAction: (slotIndex: number, settlementKey: string) => void;
+  setRefugeSettlementForSlotAction: (
+    slotIndex: number,
+    settlementKey: string,
+  ) => void;
   setReduceDangerTargetForSlotAction: (
     slotIndex: number,
     settlementKey: string,
@@ -284,7 +287,8 @@ export function ActivitySlotCard({
   });
   const isActiveDropSlot = activeDropSlotId === slotId;
   const isDraggingFromThisSlot =
-    dragState?.sourceSlotIndex === slotIndex && dragState.actionId === slotActionId;
+    dragState?.sourceSlotIndex === slotIndex &&
+    dragState.actionId === slotActionId;
   const selectedRetrieveCache =
     cacheEntry?.mode === 'retrieve' && cacheEntry.cacheId
       ? caches.find((cache) => cache._id === cacheEntry.cacheId)
@@ -317,11 +321,13 @@ export function ActivitySlotCard({
   const selectedAssignedTeamWarning = assignedTeamOptions.find(
     (option) => option.value === assignedTeamId,
   )?.warning;
-  const selectedAssignedTeam = teams.find((team) => team.teamId === assignedTeamId);
-  const selectedTeamManagerSummary = getTeamManagerSummary(selectedAssignedTeam);
-  const selectedTeamManagerWarnings = getSelectedTeamManagerWarnings(
-    selectedAssignedTeam,
+  const selectedAssignedTeam = teams.find(
+    (team) => team.teamId === assignedTeamId,
   );
+  const selectedTeamManagerSummary =
+    getTeamManagerSummary(selectedAssignedTeam);
+  const selectedTeamManagerWarnings =
+    getSelectedTeamManagerWarnings(selectedAssignedTeam);
   const secureCacheClassOptions = buildSecureCacheClassOptions(
     assignedTeamId || undefined,
   );
@@ -339,7 +345,9 @@ export function ActivitySlotCard({
           cacheClass:
             cacheEntry?.mode === 'place' ? cacheEntry.cacheClass : undefined,
           isSecureLocation:
-            cacheEntry?.mode === 'place' ? cacheEntry.isSecureLocation : undefined,
+            cacheEntry?.mode === 'place'
+              ? cacheEntry.isSecureLocation
+              : undefined,
           retrieveCache: selectedRetrieveCache,
         })
       : [];
@@ -358,16 +366,15 @@ export function ActivitySlotCard({
           checkType: 'secrecy',
           officerEffects,
           isStrategistBonusAction: strategistBonusActionId === 'secure_cache',
-          additionalParts:
-            selectedAssignedTeam?.manager
-              ? [
-                  `${selectedAssignedTeam.manager.displayName} manager CHA bonus ${
-                    selectedAssignedTeam.manager.charismaBonus >= 0
-                      ? `+${selectedAssignedTeam.manager.charismaBonus}`
-                      : selectedAssignedTeam.manager.charismaBonus
-                  }`,
-                ]
-              : undefined,
+          additionalParts: selectedAssignedTeam?.manager
+            ? [
+                `${selectedAssignedTeam.manager.displayName} manager CHA bonus ${
+                  selectedAssignedTeam.manager.charismaBonus >= 0
+                    ? `+${selectedAssignedTeam.manager.charismaBonus}`
+                    : selectedAssignedTeam.manager.charismaBonus
+                }`,
+              ]
+            : undefined,
         })
       : undefined;
   const marketplaceProfile =
@@ -431,7 +438,9 @@ export function ActivitySlotCard({
         <div
           className="mt-2"
           style={
-            isDraggingFromThisSlot && dragState ? { height: dragState.height } : undefined
+            isDraggingFromThisSlot && dragState
+              ? { height: dragState.height }
+              : undefined
           }
         >
           <Card
@@ -451,7 +460,11 @@ export function ActivitySlotCard({
               );
             }}
             className={getSlotCardClassName(isDraggingFromThisSlot)}
-            style={isDraggingFromThisSlot ? getDraggingSlotCardStyle(dragState) : undefined}
+            style={
+              isDraggingFromThisSlot
+                ? getDraggingSlotCardStyle(dragState)
+                : undefined
+            }
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="font-mono text-sm font-bold">{action.title}</p>
@@ -473,7 +486,10 @@ export function ActivitySlotCard({
                     }
                   />
                   {actionTeamContextLines.map((line) => (
-                    <p key={line} className="text-muted-foreground font-mono text-xs">
+                    <p
+                      key={line}
+                      className="text-muted-foreground font-mono text-xs"
+                    >
                       {line}
                     </p>
                   ))}
@@ -483,12 +499,15 @@ export function ActivitySlotCard({
                     </p>
                   ) : null}
                   {selectedAssignedTeamWarning ? (
-                    <p className="text-amber-700 font-mono text-xs">
+                    <p className="font-mono text-xs text-amber-700">
                       Rules warning: {selectedAssignedTeamWarning}.
                     </p>
                   ) : null}
                   {selectedTeamManagerWarnings.map((warning) => (
-                    <p key={warning} className="text-amber-700 font-mono text-xs">
+                    <p
+                      key={warning}
+                      className="font-mono text-xs text-amber-700"
+                    >
                       Rules warning: {warning}.
                     </p>
                   ))}
@@ -593,7 +612,10 @@ export function ActivitySlotCard({
                     onValueChange={(value) =>
                       setOfficerChangeForSlotAction({
                         slotIndex,
-                        role: value === '__none__' ? undefined : (value as OfficerRole),
+                        role:
+                          value === '__none__'
+                            ? undefined
+                            : (value as OfficerRole),
                       })
                     }
                   />
@@ -601,7 +623,9 @@ export function ActivitySlotCard({
                     label="Assign character"
                     value={officerEntry?.characterId ?? undefined}
                     placeholder={
-                      officerEntry?.role ? 'Select character' : 'Select role first'
+                      officerEntry?.role
+                        ? 'Select character'
+                        : 'Select role first'
                     }
                     noneLabel="Unassign"
                     includeNone
@@ -614,13 +638,20 @@ export function ActivitySlotCard({
                       setOfficerChangeForSlotAction({
                         slotIndex,
                         characterId:
-                          value === '__none__' ? null : (value as Id<'character'>),
+                          value === '__none__'
+                            ? null
+                            : (value as Id<'character'>),
                       })
                     }
                   />
                   {officerEntry?.role ? (
                     <p className="text-muted-foreground font-mono text-xs md:col-span-2">
-                      Current: {getOfficerAssignmentName(officerEntry.role, officerAssignments, assignableCharacters)}
+                      Current:{' '}
+                      {getOfficerAssignmentName(
+                        officerEntry.role,
+                        officerAssignments,
+                        assignableCharacters,
+                      )}
                     </p>
                   ) : null}
                 </div>
@@ -630,7 +661,11 @@ export function ActivitySlotCard({
                 <div className="space-y-1">
                   <SelectField
                     label="Target settlement"
-                    value={refugeTargetExists ? refugeEntry?.settlementKey : undefined}
+                    value={
+                      refugeTargetExists
+                        ? refugeEntry?.settlementKey
+                        : undefined
+                    }
                     placeholder={
                       settlementOptions.length > 0
                         ? 'Select tracked settlement'
@@ -648,11 +683,11 @@ export function ActivitySlotCard({
                     }
                   />
                   <p className="text-muted-foreground font-mono text-xs">
-                    Choose an existing tracked settlement. Add new settlements in
-                    the ledger tab, not from this action.
+                    Choose an existing tracked settlement. Add new settlements
+                    in the ledger tab, not from this action.
                   </p>
                   {refugeEntry?.settlementKey && !refugeTargetExists ? (
-                    <p className="text-amber-700 font-mono text-xs">
+                    <p className="font-mono text-xs text-amber-700">
                       Rules warning: this refuge target is not in the settlement
                       ledger.
                     </p>
@@ -689,8 +724,9 @@ export function ActivitySlotCard({
                     On success, Reduce Danger applies a temporary +1 reputation
                     shift in a secured target settlement for the upcoming week.
                   </p>
-                  {reduceDangerEntry?.settlementKey && !reduceDangerTargetExists ? (
-                    <p className="text-amber-700 font-mono text-xs">
+                  {reduceDangerEntry?.settlementKey &&
+                  !reduceDangerTargetExists ? (
+                    <p className="font-mono text-xs text-amber-700">
                       Rules warning: this Reduce Danger target is not in the
                       settlement ledger.
                     </p>
@@ -729,7 +765,7 @@ export function ActivitySlotCard({
                   </p>
                   {spreadPropagandaEntry?.settlementKey &&
                   !spreadPropagandaTargetExists ? (
-                    <p className="text-amber-700 font-mono text-xs">
+                    <p className="font-mono text-xs text-amber-700">
                       Rules warning: this Spread Propaganda target is not in the
                       settlement ledger.
                     </p>
@@ -781,9 +817,9 @@ export function ActivitySlotCard({
                     }
                   />
                   <p className="text-muted-foreground font-mono text-xs">
-                    This creates a next-week reminder for either the Specialists&apos;
-                    combat-support bonus at the chosen location or the casualty
-                    extraction option.
+                    This creates a next-week reminder for either the
+                    Specialists&apos; combat-support bonus at the chosen
+                    location or the casualty extraction option.
                   </p>
                 </div>
               ) : null}
@@ -877,7 +913,9 @@ export function ActivitySlotCard({
                           setCacheOperationForSlotAction({
                             slotIndex,
                             isSecureLocation:
-                              value === '__none__' ? undefined : value === 'yes',
+                              value === '__none__'
+                                ? undefined
+                                : value === 'yes',
                           })
                         }
                       />
@@ -901,7 +939,10 @@ export function ActivitySlotCard({
                   ) : null}
 
                   {secureCacheWarnings.map((warning) => (
-                    <p key={warning} className="text-amber-700 font-mono text-xs">
+                    <p
+                      key={warning}
+                      className="font-mono text-xs text-amber-700"
+                    >
                       Rules warning: {warning}.
                     </p>
                   ))}
@@ -974,7 +1015,8 @@ export function ActivitySlotCard({
                 </div>
               ) : null}
 
-              {action.id === 'broker_market' || action.id === 'activate_black_market' ? (
+              {action.id === 'broker_market' ||
+              action.id === 'activate_black_market' ? (
                 <div className="space-y-2">
                   {marketplaceProfile ? (
                     <p className="text-muted-foreground font-mono text-xs">
@@ -983,8 +1025,9 @@ export function ActivitySlotCard({
                         : `This creates a temporary ${formatMarketplaceAvailabilityTier(marketplaceProfile.availabilityTier).toLowerCase()} marketplace. Purchased items arrive at the beginning of next Activity phase.`}
                     </p>
                   ) : (
-                    <p className="text-amber-700 font-mono text-xs">
-                      Rules warning: assign a valid team to determine this marketplace&apos;s profile.
+                    <p className="font-mono text-xs text-amber-700">
+                      Rules warning: assign a valid team to determine this
+                      marketplace&apos;s profile.
                     </p>
                   )}
                   <TextField
@@ -1032,7 +1075,10 @@ export function ActivitySlotCard({
                     includeNone
                     options={[
                       { value: 'augment_action', label: 'Augment next action' },
-                      { value: 'place_contact', label: 'Place contact in site' },
+                      {
+                        value: 'place_contact',
+                        label: 'Place contact in site',
+                      },
                     ]}
                     onValueChange={(value) =>
                       setCovertActionForSlotAction({
@@ -1048,15 +1094,15 @@ export function ActivitySlotCard({
                   {covertEntry?.mode === 'augment_action' ? (
                     <div className="space-y-1">
                       <p className="text-muted-foreground font-mono text-xs">
-                        This applies to the immediately following staged activity.
-                        Enter that action&apos;s roll totals manually with the bonus
-                        included, and omit Notoriety increase if the augmented
-                        action succeeds.
+                        This applies to the immediately following staged
+                        activity. Enter that action&apos;s roll totals manually
+                        with the bonus included, and omit Notoriety increase if
+                        the augmented action succeeds.
                       </p>
                       {selectedAssignedTeam?.manager ? (
                         <p className="text-muted-foreground font-mono text-xs">
-                          Apply {selectedAssignedTeam.manager.displayName} manager
-                          CHA bonus{' '}
+                          Apply {selectedAssignedTeam.manager.displayName}{' '}
+                          manager CHA bonus{' '}
                           {selectedAssignedTeam.manager.charismaBonus >= 0
                             ? `+${selectedAssignedTeam.manager.charismaBonus}`
                             : selectedAssignedTeam.manager.charismaBonus}{' '}
@@ -1157,7 +1203,10 @@ export function ActivitySlotCard({
                                 personKind:
                                   value === '__none__'
                                     ? null
-                                    : (value as 'pc' | 'officer_npc' | 'other_npc'),
+                                    : (value as
+                                        | 'pc'
+                                        | 'officer_npc'
+                                        | 'other_npc'),
                               })
                             }
                           />
@@ -1191,10 +1240,9 @@ export function ActivitySlotCard({
                 </div>
               ) : null}
 
-              {action.id === 'manipulate_events' && selectedAssignedTeam?.manager ? (
+              {action.id === 'manipulate_events' ? (
                 <p className="text-muted-foreground font-mono text-xs">
-                  {selectedAssignedTeam.manager.displayName} chooses which guaranteed
-                  event result to use.
+                  Any player can choose which guaranteed event occurs.
                 </p>
               ) : null}
 
@@ -1287,7 +1335,9 @@ export function ActivitySlotCard({
                           slotIndex,
                           targetSource: 'character',
                           characterId:
-                            value === '__none__' ? null : (value as Id<'character'>),
+                            value === '__none__'
+                              ? null
+                              : (value as Id<'character'>),
                         })
                       }
                     />
@@ -1368,7 +1418,9 @@ export function ActivitySlotCard({
                             ? 'Destination refuge'
                             : 'Destination settlement'
                         }
-                        value={rescueEntry.destinationSettlementKey ?? undefined}
+                        value={
+                          rescueEntry.destinationSettlementKey ?? undefined
+                        }
                         placeholder="Select settlement"
                         includeNone
                         options={
@@ -1477,7 +1529,9 @@ export function ActivitySlotCard({
                           slotIndex,
                           targetSource: 'character',
                           characterId:
-                            value === '__none__' ? null : (value as Id<'character'>),
+                            value === '__none__'
+                              ? null
+                              : (value as Id<'character'>),
                         })
                       }
                     />
@@ -1633,7 +1687,9 @@ function SelectField({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent className="border-primary bg-card border-2 font-mono">
-          {includeNone ? <SelectItem value="__none__">{noneLabel}</SelectItem> : null}
+          {includeNone ? (
+            <SelectItem value="__none__">{noneLabel}</SelectItem>
+          ) : null}
           {options.map((option) => (
             <SelectItem key={`${label}-${option.value}`} value={option.value}>
               {option.label}
@@ -1689,7 +1745,8 @@ function getTargetSource({
 }
 
 function buildTrackedPersonLabel(person: TrackedPersonLedgerEntry) {
-  const levelLabel = person.level !== undefined ? `L${person.level}` : 'No level';
+  const levelLabel =
+    person.level !== undefined ? `L${person.level}` : 'No level';
   return `${person.displayName} (${person.status}, ${levelLabel})`;
 }
 
@@ -1736,8 +1793,9 @@ function getOfficerAssignmentName(
     return 'Unassigned';
   }
   return (
-    assignableCharacters.find((character) => character._id === currentCharacterId)?.name ??
-    'Assigned'
+    assignableCharacters.find(
+      (character) => character._id === currentCharacterId,
+    )?.name ?? 'Assigned'
   );
 }
 

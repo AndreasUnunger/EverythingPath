@@ -22,9 +22,15 @@ vi.mock('~/components/ui/select', () => ({
       {children}
     </select>
   ),
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  SelectValue: ({ placeholder }: { placeholder?: string }) => <>{placeholder ?? null}</>,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  SelectValue: ({ placeholder }: { placeholder?: string }) => (
+    <>{placeholder ?? null}</>
+  ),
+  SelectContent: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   SelectItem: ({
     value,
     children,
@@ -34,7 +40,9 @@ vi.mock('~/components/ui/select', () => ({
   }) => <option value={value}>{children}</option>,
 }));
 
-function buildViewModel(): ComponentProps<typeof EventPhaseSection>['viewModel'] {
+function buildViewModel(): ComponentProps<
+  typeof EventPhaseSection
+>['viewModel'] {
   return {
     eventChanceTotal: '25',
     setEventChanceTotalAction: vi.fn(),
@@ -88,7 +96,7 @@ function buildViewModel(): ComponentProps<typeof EventPhaseSection>['viewModel']
     ],
     marketplaces: [],
     manipulateEventsManagerText:
-      'Captain Ivet chooses which guaranteed event result to use.',
+      'Any player can choose which guaranteed event occurs.',
     cacheDiscoveredMitigationTotal: '',
     setCacheDiscoveredMitigationTotalAction: vi.fn(),
     theftMitigationTotal: '',
@@ -136,7 +144,7 @@ describe('EventPhaseSection manager rendering', () => {
     render(<EventPhaseSection viewModel={buildViewModel()} />);
 
     expect(
-      screen.getByText('Captain Ivet chooses which guaranteed event result to use.'),
+      screen.getByText('Any player can choose which guaranteed event occurs.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -165,7 +173,9 @@ describe('EventPhaseSection manager rendering', () => {
 
     render(<EventPhaseSection viewModel={viewModel} />);
 
-    expect(screen.getByText('Market Day tracked marketplace')).toBeInTheDocument();
+    expect(
+      screen.getByText('Market Day tracked marketplace'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Longshadow Brokered Market')).toBeInTheDocument();
     expect(
       screen.getByText(

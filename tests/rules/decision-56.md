@@ -1,3 +1,12 @@
+## Superseding review decisions — 2026-09-23
+
+The user's review of #88 supersedes conflicting historical expectations below:
+
+- F02.ap-caps: remove current Adventure Path/volume tracking and volume-based rank limits.
+- F04.shrink: preserve choices in unavailable slots, but block Confirmation until moved, cleared, or allowance restored. Rules Exceptions cannot bypass action capacity.
+- F04.context: extra actions from story rewards are deferred to [backlog #98](https://github.com/AndreasUnunger/EverythingPath/issues/98).
+- F05.order: recruitment and dismissal in the same committed week work in either order when the resulting roster fits team capacity.
+
 Part of #33.
 
 ## Question
@@ -34,7 +43,7 @@ These are explicit project decisions where the audit identified ambiguity or a r
 | 6. Persistent Double Agent — EV05 | Block Secure Cache every affected Activity phase until the persistent event ends; apply one −2 Secrecy penalty, not queued −2 plus persistent −2. This follows the general persistence rule that effects continue week after week. A nonpersistent occurrence blocks only the next Activity phase. | Explain ongoing eligibility and the single penalty; never silently discard a staged cache action. Rules Exception policy still applies. | Base next-week duration; first and later persistent weeks; no −4 double count; ending/buyoff removes future restriction and penalty; warning/exception path. |
 | 7. Buyoff cadence — P03 | First buyoff is available immediately. Thereafter use one four-week cooldown shared across the militia's persistent events: buyoff in week 2 allows the next in week 6. Charge twice the current minimum treasury. This treats “once every 4 weeks” as a cooldown rather than a mandatory initial wait. | Show eligibility, next eligible week, cost, and staged end in the preview. Retain the accepted whole-week Confirmation lifecycle rather than immediate authoritative writes. | First use before week 4; weeks 2/5/6; different target events share cooldown; current-rank cost; two-player competing edits and Confirmation; insufficient funds use the agreed warning/exception policy. |
 | 8. Special Order timing — A21 | Preserve actual delivery duration in days, including one-day expedited delivery, and record receipt explicitly. Do not silently round every order to a later week. Exact due-day information preserves the value of expediting. This policy does not change Broker Market's separate next-Activity timing rule. | Show due-day information and receipt status, with deterministic price/time defaults and entered dice. Receipt remains subject to the accepted draft/Confirmation lifecycle. | Ordinary 2d6 boundaries, one-day expedite and its surcharge, enchantment time, orders crossing week boundaries, explicit receipt recording and no duplicate receipt; Broker Market retains its distinct timing. |
-| 9. Fractions — F09/A16/A23/EV19 and related numeric cases | Round whole-count results down without inventing a minimum. Preserve money to copper precision. Thus rank-1 Strike Team provides zero combat-support rounds unless explicitly adjusted; odd-level rescue Notoriety and split XP round down. This establishes consistent defaults where the audit found unspecified rounding or an invented minimum. | Show the rounded baseline and any explicit adjustment; preserve monetary precision. | Odd/even half-rank and half-level values, rank-1 zero rounds, non-divisible XP awards, fractional treasury/price calculations at copper precision, and explicit adjustment paths. |
+| 9. Fractions — F09/A16/A23/EV19 and related numeric cases | Round whole-count results down. Strike Team support has a minimum of one round (A23.rank-one review decision, 2026-09-23). Preserve money to copper precision; odd-level rescue Notoriety and split XP round down. This establishes consistent defaults where the audit found unspecified rounding or an invented minimum. | Show the rounded baseline and any explicit adjustment; preserve monetary precision. | Odd/even half-rank and half-level values, rank-1 minimum of one round, non-divisible XP awards, fractional treasury/price calculations at copper precision, and explicit adjustment paths. |
 
 ### Handoff
 

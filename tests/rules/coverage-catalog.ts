@@ -106,15 +106,15 @@ export const coverageCatalog = {
       heading: '# Ironfang Invasion Militia Rules',
       fingerprint:
         'defbc5620a0476f78c955c60f93f65da945653921b2110057777b350aa4bced2',
-      reviewGap:
-        'Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.',
+      // Editorial wrapper; PDF p. 48 context is covered by F01. See SOURCE.R001.
+      reviewGap: null,
     },
     {
       id: 'R005',
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Scope',
       fingerprint:
-        '6a18c492a1a25ea2defb520b7055f59f6a5b4fd107ab4679cd460d0f34f502d4',
+        '1f2449d3ebfcbddabdab4cc61002722fd1475a83bd8082aecd5979aaa46b11ca',
       reviewGap: null,
     },
     {
@@ -123,8 +123,8 @@ export const coverageCatalog = {
       heading: '## Militia Terminology',
       fingerprint:
         '31adf414cd1043e7f78c49a8ee3f1b839b5c4c5c17ae5be9d758a6d7246b990b',
-      reviewGap:
-        'Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.',
+      // Organizational terminology heading; PDF pp. 48–51 definitions are mapped below. See SOURCE.R019.
+      reviewGap: null,
     },
     {
       id: 'R021',
@@ -292,7 +292,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '### Overseer',
       fingerprint:
-        '696cc579cda908ab7be711313a2dd706324cd80fee7daadbf37090eec90015da',
+        '37dee01675fedded183321303284eacec3f7272ac5fc18dbd637ff077ccd8c49',
       reviewGap: null,
     },
     {
@@ -325,8 +325,8 @@ export const coverageCatalog = {
       heading: '### Team Conditions',
       fingerprint:
         '644769ce8572bd3249c95bf9d2e9d473a2bdd1ccbae282b3e8d27ce04eed180d',
-      reviewGap:
-        'Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.',
+      // Organizational parent; PDF p. 53 behavior is in T07/T08. See SOURCE.R163.
+      reviewGap: null,
     },
     {
       id: 'R165',
@@ -350,8 +350,8 @@ export const coverageCatalog = {
       heading: '## Team Trees',
       fingerprint:
         '3266877568782f312149f15f9f6c388ab8e6cdfe7f7caa919a73e53938316e02',
-      reviewGap:
-        'Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.',
+      // Organizational parent; PDF pp. 52–54 trees are in T01–T06. See SOURCE.R178.
+      reviewGap: null,
     },
     {
       id: 'R180',
@@ -400,8 +400,8 @@ export const coverageCatalog = {
       heading: '## Upkeep Phase',
       fingerprint:
         'd8c83eb6739a2c58a149fcff36b0d8d0b8bd425585c2fe4f9704700cb142f3f8',
-      reviewGap:
-        'Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.',
+      // Organizational parent; PDF p. 54 skip/order/steps are in U01–U05. See SOURCE.R217.
+      reviewGap: null,
     },
     {
       id: 'R219',
@@ -552,7 +552,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Action: Manipulate Events',
       fingerprint:
-        '846bb489e61c161962efa2744b8f8294ebee99e702932e4f6a01ff700822c490',
+        'fb656c11cc52127c89816922963de959c4acc74022847e6abdb57249810d5bde',
       reviewGap: null,
     },
     {
@@ -632,7 +632,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Action: Strike Team',
       fingerprint:
-        'a59129c96c80b66df58a0e8366d5d17644e1c791708fc4efdac53312bd479a87',
+        '55d3902d94de0f32c747798b886f4ee76c83df4fb53223a4e7243c0f465f68cc',
       reviewGap: null,
     },
     {
@@ -910,9 +910,9 @@ export const coverageCatalog = {
     {
       id: 'T003',
       path: 'docs/ai/ironfang-militia/militia-tables.md',
-      heading: '## Ironfang AP Rank Caps',
+      heading: '## Rank and Reward Teams',
       fingerprint:
-        '6c4ccae74870c92b5ba512d659d850e18d139946a6a2c97ef0195345f5aa335c',
+        '9847a7815977e34c8a29b03e9a614aec70d0207444706e2556f676c235b74198',
       reviewGap: null,
     },
     {
@@ -959,41 +959,43 @@ export const coverageCatalog = {
       path: 'tests/rules/decision-55.md',
       heading: null,
       fingerprint:
-        '96cd042600be3e3216190b251d975059b2bcfc4efc62636fe5a136b054d39c82',
+        'b1a8f470687787a5266b7b7b3b29fe0c6f26fc2228edea1de55d7ef7b58dcf22',
     },
     {
       id: 'D56',
       path: 'tests/rules/decision-56.md',
       heading: null,
       fingerprint:
-        '4eb08356e030428fe8df46149b40e00fffd74c49fc94b11bf8c5ddb20b7255f0',
+        'a62c543032e1d37c127dee12ee8cb6e8067a453159f7ff29a984d5b80b7cf59b',
     },
     {
       id: 'D57',
       path: 'tests/rules/decision-57.md',
       heading: null,
       fingerprint:
-        '5141180fa5bf52d37a57e2418853ed1fa9f158d10d6f7c9d9405a54e8abd2df2',
+        '99a1d9773ef53743820f78f6f1d739169b6a7d329bca6252075db213fc09dcb5',
     },
     {
       id: 'AUDIT54',
       path: 'tests/rules/audit-inventory.json',
       heading: null,
       fingerprint:
-        '499ab05403aded6aa255aeb45e8f4214d4531ab4bae443f410d6a6d68c4c7e2b',
+        'f73f872f8a7e40eb05cce18ff842873c9989700e04bf9795d5944a07d361ff0a',
     },
     {
       id: 'CASES',
       path: 'tests/rules/case-inventory.json',
       heading: null,
       fingerprint:
-        '18a6d0d9cb6709794d48f795faec2d5287a31cf5ea13e189e99a98a443d43c19',
+        '823886d8311e6a622a09ee2a7f89efc6efa5a05826509da55a4048dc47115eb6',
     },
   ],
   rules: [
     {
       id: 'F01',
       sources: [
+        'R001',
+        'R019',
         'R021',
         'R039',
         'R044',
@@ -1043,6 +1045,7 @@ export const coverageCatalog = {
     {
       id: 'F02',
       sources: [
+        'R019',
         'R005',
         'R021',
         'R028',
@@ -1115,20 +1118,6 @@ export const coverageCatalog = {
           plannedTests: ['rules.F02.pc-cap'],
           tests: [
             'rules.F02.pc-cap',
-            'rules.acceptance.foundation-ranks',
-            'rules.acceptance.foundation-thresholds',
-            'rules.GATE.projection-parity',
-          ],
-          gap: null,
-        },
-        {
-          id: 'ap-caps',
-          checkpoint: '4-foundations',
-          expected:
-            'Phase View / Resolution Preview: Volume caps 4/7/10/13/15/17 produce advisory warnings.',
-          plannedTests: ['rules.F02.ap-caps'],
-          tests: [
-            'rules.F02.ap-caps',
             'rules.acceptance.foundation-ranks',
             'rules.acceptance.foundation-thresholds',
             'rules.GATE.projection-parity',
@@ -1420,6 +1409,7 @@ export const coverageCatalog = {
     {
       id: 'F03',
       sources: [
+        'R019',
         'R032',
         'R039',
         'T016',
@@ -1757,7 +1747,17 @@ export const coverageCatalog = {
     },
     {
       id: 'F04',
-      sources: ['T016', 'R076', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R019',
+        'T016',
+        'R076',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -1793,10 +1793,14 @@ export const coverageCatalog = {
           id: 'shrink',
           checkpoint: '4-foundations',
           expected:
-            'Phase View / Resolution Preview: Allowance shrink preserves occupied choices and shows exception warnings.',
+            'Phase View / Resolution Preview: Allowance shrink preserves occupied choices but blocks Confirmation until choices in unavailable slots are moved or cleared, or allowance is restored. A Rules Exception cannot bypass this.',
           plannedTests: ['rules.F04.shrink'],
           tests: [
             'rules.F04.shrink',
+            'rules.F04.blocked-slot',
+            'rules.F04.workspace-hard-cap',
+            'rules.F04.capacity-guidance',
+            'rules.F04.obsolete-exception',
             'rules.acceptance.foundation-ranks',
             'rules.U01.recompute',
             'rules.A04.order',
@@ -1804,20 +1808,7 @@ export const coverageCatalog = {
           ],
           gap: null,
         },
-        {
-          id: 'context',
-          checkpoint: '4-foundations',
-          expected:
-            'Phase View / Resolution Preview: Upkeep rank changes and event or ally allowances recompute available actions.',
-          plannedTests: ['rules.F04.context'],
-          tests: [
-            'rules.acceptance.foundation-ranks',
-            'rules.U01.recompute',
-            'rules.A04.order',
-            'rules.GATE.projection-parity',
-          ],
-          gap: 'Upkeep rank and Strategist recomputation are covered. The corpus mentions ally/event action allowances without numeric definitions; replacement has no typed contextual allowance beyond reasoned action-capacity exceptions. Human rule classification remains pending.',
-        },
+        // F04.context: story-reward allowances deferred by the user to backlog #98.
         {
           id: 'rank-1-actions',
           checkpoint: '4-foundations',
@@ -2083,6 +2074,7 @@ export const coverageCatalog = {
     {
       id: 'F05',
       sources: [
+        'R019',
         'R101',
         'R171',
         'T003',
@@ -2143,9 +2135,12 @@ export const coverageCatalog = {
           id: 'order',
           checkpoint: '4-foundations',
           expected:
-            'Phase View / Resolution Preview: Dismiss then recruit frees capacity; recruit then dismiss warns at the earlier step.',
+            'Phase View / Resolution Preview: Recruitment and dismissal in the same week work in either order when the resulting roster fits team capacity.',
           plannedTests: ['rules.F05.order'],
           tests: [
+            'rules.F05.final-roster',
+            'rules.F05.recruitment-capacity-outcomes',
+            'rules.F05.capacity-attribution',
             'rules.acceptance.team-capacity',
             'rules.acceptance.foundation-ranks',
             'rules.A06.capacity',
@@ -2438,6 +2433,7 @@ export const coverageCatalog = {
     {
       id: 'F06',
       sources: [
+        'R019',
         'R044',
         'R058',
         'R064',
@@ -2512,7 +2508,17 @@ export const coverageCatalog = {
     },
     {
       id: 'F07',
-      sources: ['R051', 'T046', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R019',
+        'R051',
+        'T046',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -2825,7 +2831,7 @@ export const coverageCatalog = {
           id: 'ambassador',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Ambassador selects Constitution or Charisma for Loyalty.',
+            'Phase View / Resolution Preview: Ambassador automatically uses the higher Constitution or Charisma modifier for Loyalty, and the highest applicable bonus across assigned Ambassadors; no manual selection.',
           plannedTests: ['rules.O02.ambassador'],
           tests: [
             'rules.acceptance.officer-abilities',
@@ -2837,7 +2843,7 @@ export const coverageCatalog = {
           id: 'marshal',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Marshal selects Strength or Wisdom for Security.',
+            'Phase View / Resolution Preview: Marshal automatically uses the higher Strength or Wisdom modifier for Security, and the highest applicable bonus across assigned Marshals; no manual selection.',
           plannedTests: ['rules.O02.marshal'],
           tests: [
             'rules.acceptance.officer-abilities',
@@ -2849,7 +2855,7 @@ export const coverageCatalog = {
           id: 'spymaster',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Spymaster selects Dexterity or Intelligence for Secrecy.',
+            'Phase View / Resolution Preview: Spymaster automatically uses the higher Dexterity or Intelligence modifier for Secrecy, and the highest applicable bonus across assigned Spymasters; no manual selection.',
           plannedTests: ['rules.O02.spymaster'],
           tests: [
             'rules.acceptance.officer-abilities',
@@ -2861,7 +2867,7 @@ export const coverageCatalog = {
           id: 'identity',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Absent or archived characters cannot silently contribute; tied and negative modifiers remain correct.',
+            'Phase View / Resolution Preview: Missing character records require correction and archived holders are flagged. The highest applicable modifier is used automatically, including ties and all-negative modifiers (for example, −1 beats −2).',
           plannedTests: ['rules.O02.identity'],
           tests: [
             'rules.acceptance.officer-abilities',
@@ -2957,9 +2963,11 @@ export const coverageCatalog = {
           id: 'event',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: One selected Event check receives the appropriate best ability modifier.',
+            'Phase View / Resolution Preview: Organization checks during one selected event’s resolution receive the Overseer’s appropriate best ability modifier; support is not consumed by the first check.',
           plannedTests: ['rules.O04.event'],
           tests: [
+            'rules.O04.event-scope',
+            'rules.O04.persistent-selection',
             'rules.acceptance.overseer',
             'rules.EV03.modifiers',
             'rules.GATE.projection-parity',
@@ -2970,10 +2978,11 @@ export const coverageCatalog = {
           id: 'one-use',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Two event occurrences cannot both consume the one-use bonus.',
+            'Phase View / Resolution Preview: Support can apply to multiple checks within the same event occurrence, but cannot also apply to a different event occurrence that week.',
           plannedTests: ['rules.O04.one-use'],
           tests: [
             'rules.O04.one-use',
+            'rules.O04.support-identity',
             'rules.acceptance.overseer',
             'rules.GATE.projection-parity',
           ],
@@ -3006,9 +3015,10 @@ export const coverageCatalog = {
           id: 'slot',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Only the designated bonus action receives +2 to all related checks.',
+            'Phase View / Resolution Preview: The designated bonus action slot visibly shows “Strategist +2”, including when empty; only its action receives +2 to all related organization checks.',
           plannedTests: ['rules.O05.slot'],
           tests: [
+            'rules.O05.slot-label',
             'rules.acceptance.strategist',
             'rules.GATE.projection-parity',
           ],
@@ -3044,7 +3054,7 @@ export const coverageCatalog = {
     },
     {
       id: 'O06',
-      sources: ['R093', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R019', 'R093', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3094,13 +3104,13 @@ export const coverageCatalog = {
           id: 'changes',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Ordered manager reassignment affects subsequent checks for independently identified teams.',
+            'Phase View / Resolution Preview: The current manager applies to that team throughout the draft; changing the manager recomputes all of that team’s checks in the draft.',
           plannedTests: ['rules.O06.changes'],
           tests: [
             'rules.acceptance.manager-checks',
             'rules.GATE.projection-parity',
           ],
-          gap: 'Changing the current manager recomputes separately identified team checks; ordered within-week manager reassignment is not represented by a Weekly Draft choice and requires a product/rules timing decision.',
+          gap: null, // User selected current-manager semantics (choice A), 2026-09-23.
         },
         {
           id: 'references',
@@ -3118,7 +3128,17 @@ export const coverageCatalog = {
     },
     {
       id: 'U01',
-      sources: ['R208', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R019',
+        'R217',
+        'R208',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3128,7 +3148,7 @@ export const coverageCatalog = {
           id: 'context-first-use',
           checkpoint: '3-context',
           expected:
-            'Preparation retains explicit first-use and uneventful carry facts without running Upkeep or changing live militia state.',
+            'Editing the proposed week records whether the militia is newly founded or resuming play, without executing Upkeep or changing committed state. Previous-week carryover applies only when a previous militia week exists.',
           plannedTests: ['context.absence', 'context.shared'],
           tests: ['context.absence', 'context.shared'],
           gap: null,
@@ -3150,7 +3170,7 @@ export const coverageCatalog = {
           id: 'first-use',
           checkpoint: '4-upkeep',
           expected:
-            'Phase View / Resolution Preview: First militia week skips Upkeep independent of displayed week number and entered attrition.',
+            'Phase View / Resolution Preview: Only a newly founded militia’s first-ever week skips Upkeep. A militia set up to resume a later week runs Upkeep, even on its first week using the app.',
           plannedTests: ['rules.U01.first-use'],
           tests: ['rules.U01.first-use', 'rules.GATE.projection-parity'],
           gap: null,
@@ -3159,9 +3179,15 @@ export const coverageCatalog = {
           id: 'import',
           checkpoint: '4-upkeep',
           expected:
-            'Phase View / Resolution Preview: Imported first-use metadata controls skipping rather than a week-number heuristic.',
+            'Phase View / Resolution Preview: Setup for an existing militia resuming a later week records that its first-ever week has already passed; using the app for the first time does not grant an Upkeep skip.',
           plannedTests: ['rules.U01.import'],
-          tests: ['rules.U01.import', 'rules.GATE.projection-parity'],
+          tests: [
+            'rules.U01.import',
+            'rules.U01.setup-existing',
+            'rules.U01.setup-form',
+            'rules.U01.setup-server',
+            'rules.GATE.projection-parity',
+          ],
           gap: null,
         },
         {
@@ -3177,7 +3203,7 @@ export const coverageCatalog = {
     },
     {
       id: 'U02',
-      sources: ['R219', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R217', 'R219', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3259,7 +3285,7 @@ export const coverageCatalog = {
     },
     {
       id: 'U03',
-      sources: ['R226', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R217', 'R226', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3316,7 +3342,17 @@ export const coverageCatalog = {
     },
     {
       id: 'U04',
-      sources: ['R232', 'R237', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R217',
+        'R232',
+        'R237',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3366,7 +3402,7 @@ export const coverageCatalog = {
     },
     {
       id: 'U05',
-      sources: ['R244', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R217', 'R244', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3489,7 +3525,17 @@ export const coverageCatalog = {
     },
     {
       id: 'T01',
-      sources: ['T001', 'R180', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R178',
+        'T001',
+        'R180',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3540,7 +3586,17 @@ export const coverageCatalog = {
     },
     {
       id: 'T02',
-      sources: ['T001', 'R187', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R178',
+        'T001',
+        'R187',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3590,7 +3646,17 @@ export const coverageCatalog = {
     },
     {
       id: 'T03',
-      sources: ['T001', 'R194', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R178',
+        'T001',
+        'R194',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3641,7 +3707,17 @@ export const coverageCatalog = {
     },
     {
       id: 'T04',
-      sources: ['T001', 'R201', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R178',
+        'T001',
+        'R201',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3691,7 +3767,17 @@ export const coverageCatalog = {
     },
     {
       id: 'T05',
-      sources: ['R154', 'R443', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R178',
+        'R154',
+        'R443',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3751,7 +3837,7 @@ export const coverageCatalog = {
     },
     {
       id: 'T06',
-      sources: ['R248', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R178', 'R248', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3838,7 +3924,7 @@ export const coverageCatalog = {
     },
     {
       id: 'T07',
-      sources: ['R165', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R163', 'R165', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -3906,7 +3992,7 @@ export const coverageCatalog = {
     },
     {
       id: 'T08',
-      sources: ['R171', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: ['R163', 'R171', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -4268,7 +4354,7 @@ export const coverageCatalog = {
           id: 'capacity',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice.',
+            'Phase View / Resolution Preview: Removal frees capacity for recruitment in the same week regardless of slot order; repeated dismissal cannot remove the same team twice.',
           plannedTests: ['rules.A06.capacity'],
           tests: [
             'rules.A06.capacity',
@@ -4606,7 +4692,7 @@ export const coverageCatalog = {
           id: 'chooser',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: Manager chooses or a random PC is recorded when no manager exists.',
+            'Phase View / Resolution Preview: Any player can choose which of the two guaranteed event results occurs; the choice needs no chooser identity.',
           plannedTests: ['rules.A13.chooser'],
           tests: ['rules.A13.chooser', 'rules.A72.projection-parity'],
           gap: null,
@@ -4650,7 +4736,7 @@ export const coverageCatalog = {
           id: 'capacity',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure.',
+            'Phase View / Resolution Preview: Recruitment checks non-reward team capacity after the week’s Activity actions, accounting for dismissal in either order even on dismissal failure.',
           plannedTests: ['rules.A14.capacity'],
           tests: ['rules.A06.capacity', 'rules.GATE.projection-parity'],
           gap: null,
@@ -5183,7 +5269,7 @@ export const coverageCatalog = {
           id: 'combat',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds.',
+            'Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for half the militia rank rounded down, with a minimum of one round.',
           plannedTests: ['rules.A23.combat'],
           tests: ['rules.A23.support', 'rules.GATE.projection-parity'],
           gap: null,
@@ -5192,7 +5278,7 @@ export const coverageCatalog = {
           id: 'rank-one',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: Rank 1 provides zero rounds without an explicit adjustment.',
+            'Phase View / Resolution Preview: Strike Team support has a minimum duration of one round, including at rank 1.',
           plannedTests: ['rules.A23.rank-one'],
           tests: ['rules.A23.support', 'rules.GATE.projection-parity'],
           gap: null,
@@ -5283,6 +5369,7 @@ export const coverageCatalog = {
     {
       id: 'E01',
       sources: [
+        'R019',
         'R081',
         'R452',
         'T056',
@@ -5725,6 +5812,7 @@ export const coverageCatalog = {
     {
       id: 'E05',
       sources: [
+        'R019',
         'R081',
         'R452',
         'R468',
@@ -5791,7 +5879,17 @@ export const coverageCatalog = {
     },
     {
       id: 'E06',
-      sources: ['R088', 'R450', 'D53', 'D55', 'D56', 'D57', 'AUDIT54', 'CASES'],
+      sources: [
+        'R019',
+        'R088',
+        'R450',
+        'D53',
+        'D55',
+        'D56',
+        'D57',
+        'AUDIT54',
+        'CASES',
+      ],
       decisions: [
         'https://github.com/AndreasUnunger/EverythingPath/issues/57',
         'https://github.com/AndreasUnunger/EverythingPath/issues/56',
@@ -6295,9 +6393,21 @@ export const coverageCatalog = {
           id: 'recompute',
           checkpoint: '4-events',
           expected:
-            'Phase View / Resolution Preview: Earn Gold and Drill recompute success/gains when event is added or removed with browser/server agreement.',
+            'Phase View / Resolution Preview: All Activity actions recalculate their checks and resulting outcomes when Hidden Agenda is added, changed, or removed, with browser/server agreement. Its bonus applies to every Activity check, not only Drill Militia and Earn Gold.',
           plannedTests: ['rules.EV08.recompute'],
           tests: [
+            'rules.EV08.actions.dismiss_team',
+            'rules.EV08.actions.drill_militia',
+            'rules.EV08.actions.recruit_team',
+            'rules.EV08.actions.earn_gold',
+            'rules.EV08.actions.gather_information',
+            'rules.EV08.actions.knowledge_check',
+            'rules.EV08.actions.rescue_character',
+            'rules.EV08.actions.reduce_danger',
+            'rules.EV08.actions.spread_propaganda',
+            'rules.EV08.actions.activate_black_market',
+            'rules.EV08.actions.secure_cache',
+            'rules.EV08.no-check',
             'rules.EV08.twice',
             'rules.EV08.readiness',
             'rules.E76.projection-parity',
@@ -6479,9 +6589,10 @@ export const coverageCatalog = {
           id: 'inputs',
           checkpoint: '4-events',
           expected:
-            'Phase View / Resolution Preview: Missing target blocks completion and discount expires at prescribed time.',
+            'Phase View / Resolution Preview: Market Day can be rolled and retained even when no town or settlement exists yet. A valid settlement must be chosen before the event can resolve; its discount expires at the prescribed time.',
           plannedTests: ['rules.EV12.inputs'],
           tests: [
+            'rules.EV12.unselected-town',
             'rules.EV21.inputs',
             'rules.E75.projection-parity',
             'rules.EV12.inputs',
@@ -6872,7 +6983,7 @@ export const coverageCatalog = {
           id: 'order',
           checkpoint: '4-events',
           expected:
-            'Phase View / Resolution Preview: Deposits and all incoming paths follow same-week end/gain order with per-instance checks.',
+            'Phase View / Resolution Preview: Ordinary Theft causes a one-time treasury loss when the event resolves. Only persistent Theft from the Twice result reduces subsequent incoming money; gains before it ends are reduced, and gains after it ends are received in full.',
           plannedTests: ['rules.EV19.order'],
           tests: ['rules.EV19.base', 'rules.E76.projection-parity'],
           gap: null,
@@ -7110,6 +7221,7 @@ export const coverageCatalog = {
     {
       id: 'P01',
       sources: [
+        'R019',
         'R088',
         'R460',
         'R599',
@@ -7841,9 +7953,13 @@ export const coverageCatalog = {
           id: 'gm',
           checkpoint: '6-adapters',
           expected:
-            'Phase View / Resolution Preview: GM correction controls are hidden from other players and protected at authority boundary.',
+            'Phase View / Resolution Preview: All users with access to the organization can edit all militia data and use the same controls; there are no separate GM permissions at this stage.',
           plannedTests: ['rules.P10.gm'],
-          tests: ['rules.P86.authority', 'rules.P86.controls'],
+          tests: [
+            'rules.P86.authority',
+            'rules.P86.controls',
+            'initialization.member',
+          ],
           serviceTests: ['live.confirmation'],
           gap: null,
         },
@@ -7948,7 +8064,7 @@ export const coverageCatalog = {
             'initialization.unknown-end',
             'initialization.source-size',
           ],
-          gap: 'Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90.',
+          gap: 'Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90.',
         },
         {
           id: 'no-execution',
@@ -7963,10 +8079,10 @@ export const coverageCatalog = {
           id: 'legacy',
           checkpoint: '8-cutover-rehearsal',
           expected:
-            'Phase View / Resolution Preview: Server rejects legacy writes; pre-reopen recovery restores compatible state without losing newly accepted work.',
+            'Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work.',
           plannedTests: ['rules.P11.legacy'],
           tests: [],
-          gap: 'Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.',
+          gap: 'Pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.',
         },
       ],
     },
@@ -8026,6 +8142,9 @@ export const coverageCatalog = {
     },
   ],
   corpusReview: {
-    gap: 'Human review has not occurred (confirmed by the user for #88). Review all rules/tables and accepted product/persistence decisions; record reviewer and review reference before clearing this gap.',
+    gap: null,
+    reviewedBy: 'AndreasUnunger (2026-09-23)',
+    reviewReference:
+      'docs/militia-human-review-checklist.md#finish-the-review — every check and full sign-off marked complete; reviewer confirmed “done” in the review conversation.',
   },
 } satisfies CoverageCatalog;

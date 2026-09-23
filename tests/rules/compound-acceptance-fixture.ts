@@ -5,7 +5,21 @@ import { roll } from './upkeep-fixture';
 export function compoundAcceptanceFixture() {
   const { draft, snapshot: initialSnapshot } =
     persistentEventFixture('low_morale');
-  initialSnapshot.training = 15;
+  initialSnapshot.rank = 7;
+  initialSnapshot.training = 55;
+  initialSnapshot.roster.people.push({
+    characterId: 'strategist',
+    kind: 'officer_npc',
+    hitDice: 7,
+  });
+  initialSnapshot.characters.push({
+    ...initialSnapshot.characters[0]!,
+    characterId: 'strategist',
+  });
+  initialSnapshot.roster.officers.push({
+    role: 'strategist',
+    characterId: 'strategist',
+  });
   const input = { revision: draft, militiaSnapshot: initialSnapshot };
   const snapshot = input.militiaSnapshot;
   snapshot.roster.teams = [
@@ -13,7 +27,7 @@ export function compoundAcceptanceFixture() {
       teamId: 'rescuers',
       teamType: 'specialists',
       name: 'Rescuers',
-      status: 'active',
+      status: 'disabled',
       rewardCapExempt: false,
       managerCharacterId: null,
       notes: '',
@@ -131,12 +145,16 @@ export function compoundAcceptanceFixture() {
       },
     },
   ];
-  draft.rulesExceptions = ['cache', 'market'].map((subjectId) => ({
-    exceptionId: `extra-${subjectId}`,
-    subjectId,
-    ruleId: 'action-capacity',
-    reason: 'Table grants extra actions',
-  }));
+  draft.upkeep.teamDecisions = [{ teamId: 'rescuers', decision: 'leave' }];
+  draft.rulesExceptions = [
+    {
+      exceptionId: 'rescuers-permission',
+      subjectId: 'rescue',
+      ruleId: 'team-condition',
+      reason:
+        'The disabled rescuers can undertake this limited rescue mission.',
+    },
+  ];
   draft.acknowledgements = [
     {
       acknowledgementId: 'rescue-done',
@@ -165,7 +183,7 @@ export function compoundAcceptanceFixture() {
 
   // Authored from the scenario and rules, never from a projection or write plan:
   // attrition -1 training; rescue +10 Notoriety; market 100 gp + wand 20 gp;
-  // rank-3 buyoff 60 gp; new order due next Activity; old queue expires.
+  // rank-7 buyoff 140 gp; new order due next Activity; old queue expires.
   const before: CanonicalWeekState = {
     week: 2,
     militiaSnapshot: structuredClone(snapshot),
@@ -204,12 +222,15 @@ export function compoundAcceptanceFixture() {
     week: 3,
     militiaSnapshot: {
       ...structuredClone(snapshot),
-      training: 14,
-      treasuryCopper: 12000,
+      training: 54,
+      treasuryCopper: 4000,
       notoriety: 20,
       roster: {
         ...structuredClone(snapshot.roster),
-        officers: [{ role: 'ambassador', characterId: 'pc' }],
+        officers: [
+          { role: 'strategist', characterId: 'strategist' },
+          { role: 'ambassador', characterId: 'pc' },
+        ],
       },
       settlements: [{ ...snapshot.settlements[0]!, reputation: 'Friendly' }],
       characterActions: {

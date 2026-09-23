@@ -1,8 +1,4 @@
-import {
-  projectProgression,
-  roundWholeCount,
-  type AdventureVolume,
-} from './rules-progression';
+import { projectProgression, roundWholeCount } from './rules-progression';
 import {
   projectSettlements,
   projectPurchases,
@@ -32,13 +28,13 @@ export type FoundationCheck = {
   die?: number;
   choiceId?: string;
   teamId?: string;
+  eventId?: string;
   overseerCharacterId?: string;
   helpful?: boolean;
   bonusIds?: string[];
 };
 export type FoundationInput = {
   rank: number;
-  apVolume?: AdventureVolume;
   training: number;
   focus: MilitiaFocusCheck | null;
   week: number;
@@ -67,7 +63,6 @@ export function projectRulesFoundations(input: FoundationInput) {
     input.training,
     input.roster,
     input.characters,
-    input.apVolume,
   );
   requirements.push(...progression.requirements);
   const teamProjection = projectTeams(

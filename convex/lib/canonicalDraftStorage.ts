@@ -24,7 +24,7 @@ type CanonicalDraft = z.infer<typeof weeklyDraftSchema>;
 type ReadCtx = QueryCtx | MutationCtx;
 
 // Deliberately unregistered: no live endpoint or application caller until cutover.
-export async function requireScope(ctx: ReadCtx, input: Scope, gmOnly = false) {
+export async function requireScope(ctx: ReadCtx, input: Scope) {
   const scope = scopeSchema.parse({
     campaignId: input.campaignId,
     militiaId: input.militiaId,
@@ -44,13 +44,6 @@ export async function requireScope(ctx: ReadCtx, input: Scope, gmOnly = false) {
       .unique());
   if (!user?.orgIds.some((org) => org.orgId === campaign.organizationId))
     throw new ConvexError('Campaign access required');
-  if (
-    gmOnly &&
-    !user.orgIds.some(
-      (org) => org.orgId === campaign.organizationId && org.role === 'admin',
-    )
-  )
-    throw new ConvexError('GM access required');
   return scope;
 }
 
@@ -272,7 +265,7 @@ export async function appendResolutionRecord(
   input: z.infer<typeof appendRecordArgsSchema>,
 ) {
   const { record, ...scope } = appendRecordArgsSchema.parse(input);
-  await requireScope(ctx, scope, record.provenance !== 'confirmation');
+  await requireScope(ctx, scope);
   const duplicate = await ctx.db
     .query('canonicalResolutionRecord')
     .withIndex('by_recordId', (q) => q.eq('recordId', record.recordId))

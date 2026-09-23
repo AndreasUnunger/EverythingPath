@@ -22,7 +22,6 @@ export type UpkeepSnapshot = Pick<
   | 'characters'
   | 'settlements'
   | 'bonuses'
-  | 'apVolume'
 > & {
   treasuryCopper: number;
   notoriety: number;
@@ -468,7 +467,6 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
     state.training,
     state.roster,
     state.characters,
-    state.apVolume,
   );
   result.requirements.push(...progression.requirements);
   result.warnings.push(...progression.warnings);
@@ -597,7 +595,12 @@ export function projectUpkeep(
     requirements: [],
     warnings: [],
     checks: [],
-    checkUsage: { bonusIds: [], helpful: false, overseer: false },
+    checkUsage: {
+      bonusIds: [],
+      helpful: false,
+      overseerEventId: null,
+      overseerCharacterId: null,
+    },
   };
   if (!result.skipped) {
     recoverTeams(draft, snapshot, result);

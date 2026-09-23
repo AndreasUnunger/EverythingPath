@@ -123,8 +123,9 @@ function canEventOccur({ draft, activity }: SelectionContext, event: Event) {
           town.refugeActivatedWeek <= draft.week &&
           town.refugeActiveUntilWeek >= draft.week,
       );
-    case 'festival':
     case 'market_day':
+      return true;
+    case 'festival':
       return (
         operatedSettlementIds(draft, activity).length > 0 ||
         draft.rulesExceptions.some(

@@ -96,9 +96,9 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 
 ### Moderation and Authority
 
-- Collaboration is open to players, but GM moderation controls must exist.
-- GM controls are hidden from non-GM players.
-- GM controls should allow conflict resolution and correction of staged/confirmed state when table adjudication requires it.
+- All users with access to the organization have the same editing and correction permissions for its militia data.
+- At this stage there are no separate GM controls or GM-only permissions.
+- Enforce organization membership and campaign-scoped references for every read and write.
 
 ### Character Ledger and Officer Assignments
 

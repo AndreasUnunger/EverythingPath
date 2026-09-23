@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { GripVertical } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import { Badge } from '~/components/ui/badge';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ActivityView as Facts } from './types';
 import { activityWarning } from './activity-warnings';
@@ -141,10 +142,19 @@ export function ActivityView({
             className="data-[drop-active=true]:border-primary data-[drop-active=true]:bg-primary/5 min-w-0 space-y-3 border-2 p-4 transition-colors"
           >
             <h2 className="font-semibold">Action Slot {index + 1}</h2>
+            {slot.strategistBonus && (
+              <div className="space-y-1">
+                <Badge variant="secondary">Strategist +2</Badge>
+                <p className="text-muted-foreground text-sm">
+                  Adds +2 to organization checks for the action in this slot.
+                </p>
+              </div>
+            )}
             {slot.overAllowance && (
               <p className="text-amber-700 dark:text-amber-300">
-                This choice exceeds the action allowance. Move it, clear it, or
-                record an exception with a reason.
+                This choice exceeds the action allowance. Move it to an
+                available slot, clear it, or restore the allowance before
+                confirming the week.
               </p>
             )}
             {slot.choice &&

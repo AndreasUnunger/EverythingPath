@@ -83,7 +83,7 @@ test('[rules.P86.history] history selects complete effective records, retains pa
   const args = { campaignId: key.campaignId };
   const first = await player.query(api.canonicalHistory.read, args);
   expect(first?.record).toEqual(record);
-  expect(first?.canRewriteHistory).toBe(false);
+  expect(first).not.toHaveProperty('canRewriteHistory');
   await t.run(async (ctx) => {
     const state = await ctx.db.query('canonicalMilitiaState').first();
     if (!state) throw Error('Missing state');
@@ -127,12 +127,12 @@ test('[rules.P86.history] history selects complete effective records, retains pa
   });
   expect(original?.record).toEqual(record);
   expect(original?.effectiveRecordId).toBe('correction-7');
-  expect(
-    (await gm.query(api.canonicalHistory.read, args))?.canRewriteHistory,
-  ).toBe(true);
+  expect(await gm.query(api.canonicalHistory.read, args)).toEqual(
+    await player.query(api.canonicalHistory.read, args),
+  );
 });
 
-test('[rules.P86.authority] campaign history requires membership and corrections require GM authority without reopening a draft', async () => {
+test('[rules.P86.authority] campaign members can append corrections while outsiders cannot and closed drafts stay immutable', async () => {
   const { t, player, gm, key, record } = await setup();
   const args = { campaignId: key.campaignId };
   const before = await player.query(api.canonicalHistory.read, args);
@@ -151,22 +151,36 @@ test('[rules.P86.authority] campaign history requires membership and corrections
     supersedesRecordId: record.recordId,
   };
   await expect(
-    player.run((ctx) =>
+    t.withIdentity({ tokenIdentifier: 'outsider' }).run((ctx) =>
       appendResolutionRecord(ctx, {
         campaignId: key.campaignId,
         militiaId: key.militiaId,
         record: correction,
       }),
     ),
-  ).rejects.toThrow('GM access');
+  ).rejects.toThrow('Campaign access');
   expect(await player.query(api.canonicalHistory.read, args)).toEqual(before);
-  await gm.run((ctx) =>
+  await player.run((ctx) =>
     appendResolutionRecord(ctx, {
       campaignId: key.campaignId,
       militiaId: key.militiaId,
       record: correction,
     }),
   );
+  expect((await player.query(api.canonicalHistory.read, args))?.record).toEqual(
+    correction,
+  );
+  expect(await gm.query(api.canonicalHistory.read, args)).toEqual(
+    await player.query(api.canonicalHistory.read, args),
+  );
+  expect(
+    (
+      await player.query(api.canonicalHistory.read, {
+        ...args,
+        recordId: record.recordId,
+      })
+    )?.record,
+  ).toEqual(record);
   await expect(
     player.mutation(api.canonicalDraftPersistence.edit, {
       campaignId: key.campaignId,

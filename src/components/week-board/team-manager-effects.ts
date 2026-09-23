@@ -21,7 +21,9 @@ export function getTeamManagerSummary(team: WeekBoardTeamRow | undefined) {
   return `${team.manager.displayName} manager CHA bonus ${formatSigned(team.manager.charismaBonus)} • managing ${team.manager.managedTeamCount}/${team.manager.maxTeams} teams`;
 }
 
-export function getSelectedTeamManagerWarnings(team: WeekBoardTeamRow | undefined) {
+export function getSelectedTeamManagerWarnings(
+  team: WeekBoardTeamRow | undefined,
+) {
   return team?.manager?.warnings ?? [];
 }
 
@@ -39,7 +41,9 @@ export function getActionTeamManagerParts({
   const relevantTeams = Array.from(
     new Set(
       stagedActionIds.flatMap((stagedActionId, index) =>
-        stagedActionId === actionId && slotTeams[index] ? [slotTeams[index]] : [],
+        stagedActionId === actionId && slotTeams[index]
+          ? [slotTeams[index]]
+          : [],
       ),
     ),
   )
@@ -48,7 +52,9 @@ export function getActionTeamManagerParts({
 
   const managers = relevantTeams
     .map((team) => team.manager)
-    .filter((manager): manager is Exclude<WeekBoardTeamManager, null> => Boolean(manager));
+    .filter((manager): manager is Exclude<WeekBoardTeamManager, null> =>
+      Boolean(manager),
+    );
 
   if (!managers.length) {
     return undefined;
@@ -65,7 +71,9 @@ export function getActionTeamManagerParts({
     ];
   }
 
-  const uniqueBonuses = new Set(managers.map((manager) => manager.charismaBonus));
+  const uniqueBonuses = new Set(
+    managers.map((manager) => manager.charismaBonus),
+  );
   if (uniqueBonuses.size === 1) {
     return [
       `team manager CHA bonus ${formatSigned(primaryManager.charismaBonus)} across staged teams`,
@@ -78,21 +86,19 @@ export function getActionTeamManagerParts({
 export function getManipulateEventsManagerText({
   stagedActionIds,
   slotTeams,
-  teams,
 }: {
   stagedActionIds: string[];
   slotTeams: Array<string | null>;
   teams: WeekBoardTeamRow[];
 }) {
   const teamId = stagedActionIds.flatMap((actionId, index) =>
-    actionId === 'manipulate_events' && slotTeams[index] ? [slotTeams[index]] : [],
+    actionId === 'manipulate_events' && slotTeams[index]
+      ? [slotTeams[index]]
+      : [],
   )[0];
-  const team = teams.find((row) => row.teamId === teamId);
-  if (!team?.manager) {
-    return undefined;
-  }
-
-  return `${team.manager.displayName} chooses which guaranteed event result to use.`;
+  return teamId
+    ? 'Any player can choose which guaranteed event occurs.'
+    : undefined;
 }
 
 export function getTeamManagerBonusForTeamId(

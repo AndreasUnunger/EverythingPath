@@ -862,3 +862,71 @@ test('[setup.navigation] setup opens the requested local phase without moving an
     }),
   );
 });
+
+test('[rules.F04.workspace-hard-cap] an extra-slot choice stays shared but blocks confirmation despite an old exception until moved within the allowance', async () => {
+  const { gateway } = fixture();
+  const first = renderWorkspace(gateway);
+  const second = renderWorkspace(gateway);
+  function current() {
+    const state = first.result.current;
+    if (state.status !== 'ready') throw new Error('Expected ready Workspace');
+    return state;
+  }
+  await waitFor(() => expect(first.result.current.status).toBe('ready'));
+  await act(async () => {
+    await current().edit(roll('check', 10));
+    await current().edit(roll('training', 1));
+    await current().edit({ kind: 'add_slot', slotId: 'middle' });
+    await current().edit({ kind: 'add_slot', slotId: 'extra' });
+    await current().edit({
+      kind: 'stage',
+      slotId: 'extra',
+      choice: { choiceId: 'quiet', actionId: 'lie_low' },
+    });
+    await current().edit({
+      kind: 'rules_exception',
+      exception: {
+        exceptionId: 'old-capacity',
+        subjectId: 'quiet',
+        ruleId: 'action-capacity',
+        reason: 'Previously permitted extra day',
+      },
+    });
+    current().viewPhase('activity');
+  });
+  await waitFor(() => {
+    const state = current();
+    expect(state.forecastPending).toBe(false);
+    expect(state.canConfirm).toBe(false);
+    if (state.phaseView.phase !== 'activity')
+      throw new Error('Expected Activity');
+    expect(state.phaseView.ready).toBe(false);
+    expect(state.phaseView.slots[2]?.choice?.choiceId).toBe('quiet');
+    expect(state.phaseView.slots[2]?.overAllowance).toBe(true);
+    expect(state.phaseView.slots[2]?.exceptions).toEqual([]);
+    expect(state.phaseView.requirements).toContain('quiet:action-capacity');
+  });
+  await act(async () => {
+    const state = second.result.current;
+    if (state.status !== 'ready') throw new Error('Expected second Workspace');
+    state.viewPhase('activity');
+  });
+  await waitFor(() => {
+    const state = second.result.current;
+    if (state.status !== 'ready' || state.phaseView.phase !== 'activity')
+      throw new Error('Expected Activity');
+    expect(state.phaseView.slots[2]?.choice?.choiceId).toBe('quiet');
+    expect(state.canConfirm).toBe(false);
+  });
+  await act(async () => {
+    await current().edit({
+      kind: 'move',
+      fromSlotId: 'extra',
+      toSlotId: 'left',
+      choiceId: 'quiet',
+    });
+  });
+  await waitFor(() => expect(current().forecastPending).toBe(false));
+  await act(async () => current().viewPhase('summary'));
+  await waitFor(() => expect(current().canConfirm).toBe(true));
+});

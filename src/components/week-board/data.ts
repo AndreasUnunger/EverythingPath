@@ -143,7 +143,7 @@ export const ACTION_CARDS: ActionCard[] = [
     fullText: [
       'Guarantees an event this week.',
       'GM rolls twice on event table.',
-      'Guardians manager (or random PC) chooses which event occurs.',
+      'Any player can choose which event occurs.',
     ],
   },
   {
@@ -225,7 +225,7 @@ export const ACTION_CARDS: ActionCard[] = [
     cost: '1 action',
     fullText: [
       'Choose target location when action is taken.',
-      'At that location next week: +2 competence to attack, damage, and saves for rounds equal to half militia rank.',
+      'At that location next week: +2 competence to attack, damage, and saves for rounds equal to half militia rank, rounded down with a minimum of one round.',
       'Alternate use supports casualty extraction and gentle repose handling.',
     ],
   },

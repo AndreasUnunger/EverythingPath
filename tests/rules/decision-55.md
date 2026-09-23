@@ -1,3 +1,14 @@
+## Superseding review decisions — 2026-09-23
+
+The user's review of #88 supersedes conflicting historical expectations below:
+
+- P10.gm: all organization members have equal editing and correction access; there are no separate GM permissions at this stage.
+
+- F02.ap-caps: remove current Adventure Path/volume tracking and volume-based rank limits.
+- F04.shrink: preserve choices in unavailable slots, but block Confirmation until moved, cleared, or allowance restored. Rules Exceptions cannot bypass action capacity.
+- F04.context: extra actions from story rewards are deferred to [backlog #98](https://github.com/AndreasUnunger/EverythingPath/issues/98).
+- F05.order: recruitment and dismissal in the same committed week work in either order when the resulting roster fits team capacity.
+
 Part of #33.
 
 ## Question

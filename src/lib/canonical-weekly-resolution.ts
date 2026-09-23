@@ -20,7 +20,7 @@ import {
 } from './canonical-resolution-record';
 import type { UpkeepSnapshot } from './rules-upkeep';
 
-export const CANONICAL_WEEKLY_RULESET_VERSION = 3;
+export const CANONICAL_WEEKLY_RULESET_VERSION = 4;
 type Phases = ReturnType<typeof projectPersistentWeek>;
 export type CanonicalResolutionEffects = {
   upkeep: Phases['upkeep']['plan'];

@@ -171,17 +171,23 @@ test('[rules.A11.knowledge] knowledge records achieved DC with rank exactly once
   );
 });
 
-test('[rules.A23.support] support preserves zero and floored rounds, following week, once and extraction quantities', () => {
+test('[rules.A23.support] support lasts at least one round, rounds down higher ranks, and preserves following week, once and extraction quantities', () => {
   const { draft, snapshot, choice } = characterFixture('strike_team');
   if (choice.actionId !== 'strike_team') throw Error('fixture');
-  for (const rank of [1, 2, 3, 4]) {
+  for (const [rank, rounds] of [
+    [1, 1],
+    [2, 1],
+    [3, 1],
+    [4, 2],
+    [5, 2],
+  ] as const) {
     snapshot.rank = rank;
     const result = projectActivity(draft, snapshot);
     expect(result.ready).toBe(true);
     expect(result.plan).toContainEqual(
       expect.objectContaining({
         kind: 'strike_support',
-        rounds: Math.floor(rank / 2),
+        rounds,
         availableWeek: draft.week + 1,
         expiresWeek: draft.week + 1,
         uses: 1,
@@ -305,13 +311,7 @@ test('[rules.A17.ordered] rescue to a refuge makes subsequent restoration eligib
       outcome: 'Restoration applied',
     },
   ];
-  draft.activity.slots.push({ slotId: 'heal', choice: heal });
-  draft.rulesExceptions.push({
-    exceptionId: 'capacity',
-    subjectId: 'heal',
-    ruleId: 'action-capacity',
-    reason: 'Table permits extra aid',
-  });
+  draft.activity.slots[1]!.choice = heal;
   expect(projectActivity(draft, snapshot).ready).toBe(true);
   expect(
     projectActivity(draft, snapshot).outcome.characterActions?.people[0],
@@ -350,13 +350,7 @@ test('[rules.A09.repeat] independent information choices keep their own DC bound
       outcome: 'Learned the route',
     },
   ];
-  draft.activity.slots.push({ slotId: 'second', choice: second });
-  draft.rulesExceptions.push({
-    exceptionId: 'extra',
-    subjectId: 'second',
-    ruleId: 'action-capacity',
-    reason: 'Extra action',
-  });
+  draft.activity.slots[1]!.choice = second;
   const result = projectActivity(draft, snapshot);
   expect(result.ready).toBe(true);
   expect(result.plan).toEqual(
@@ -423,13 +417,7 @@ test('[rules.A17.multiple] distinct spellcasters restore a mixed party and aggre
       outcome: 'Raise dead applied with its spell conditions',
     },
   ];
-  draft.activity.slots.push({ slotId: 'second', choice: second });
-  draft.rulesExceptions.push({
-    exceptionId: 'extra',
-    subjectId: 'second',
-    ruleId: 'action-capacity',
-    reason: 'Extra action',
-  });
+  draft.activity.slots[1]!.choice = second;
   result = projectActivity(draft, snapshot);
   expect(result.ready).toBe(true);
   expect(result.outcome.treasuryCopper).toBe(217500);

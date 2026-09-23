@@ -156,3 +156,33 @@ test('[setup.carry-form] character conditions and scoped expiring benefits can b
     },
   });
 }, 15000);
+
+test('[rules.U01.setup-form] switching to an existing militia clears the initial Upkeep skip', async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(<MilitiaSetupForm characters={[]} onSave={save} />);
+  expect(
+    within(screen.getByRole('group', { name: 'First militia week' })).getByRole(
+      'button',
+      { name: 'Yes' },
+    ),
+  ).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: 'Existing militia' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Current week' }), {
+    target: { value: '9' },
+  });
+  expect(
+    screen.queryByRole('group', { name: 'First militia week' }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  await waitFor(() =>
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'existing',
+        state: expect.objectContaining({
+          week: 9,
+          context: expect.objectContaining({ firstMilitiaWeek: false }),
+        }),
+      }),
+    ),
+  );
+});

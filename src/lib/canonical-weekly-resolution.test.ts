@@ -300,6 +300,18 @@ test('[rules.P06.full-plan] ready action and event plans round-trip their full s
 test('[rules.P06.compound-state] the complete committed state matches independently specified officer, rescue, cache, market, queue and buyoff effects', () => {
   const { input, before, expected } = compoundAcceptanceFixture();
   const result = resolveCanonicalWeeklyDraft(input);
+  expect(
+    result.phases!.activity.slots.map((slot) => slot.overAllowance),
+  ).toEqual([false, false, false, false]);
+  expect(result.finalPlan.effects.adjudication.rulesExceptions).toEqual([
+    {
+      exceptionId: 'rescuers-permission',
+      subjectId: 'rescue',
+      ruleId: 'team-condition',
+      reason:
+        'The disabled rescuers can undertake this limited rescue mission.',
+    },
+  ]);
   expect(result.finalPlan.before).toEqual(before);
   expect(result.outcome).toEqual(expected);
   expect(applyCanonicalResolutionPlan(before, result.finalPlan)).toEqual(
@@ -410,20 +422,27 @@ test('[rules.P07.reason] blank reasons block and full source preserves embedded 
   );
 });
 
-test('[rules.P07.distinction] a Rules Exception permits an extra action without changing its cost or outcome arithmetic', () => {
+test('[rules.P07.distinction] a Rules Exception permits a disabled team without changing its cost or outcome arithmetic', () => {
   const input = fixture();
-  input.revision.activity.slots = Array.from({ length: 4 }, (_, i) => ({
-    slotId: `slot-${i}`,
-    choice:
-      i === 3
-        ? {
-            choiceId: 'work',
-            actionId: 'special' as const,
-            instruction: 'Scout',
-            costCopper: 7,
-          }
-        : null,
-  }));
+  input.militiaSnapshot.roster.teams[0]!.status = 'disabled';
+  input.revision.upkeep.teamDecisions = [
+    {
+      teamId: input.militiaSnapshot.roster.teams[0]!.teamId,
+      decision: 'leave',
+    },
+  ];
+  input.revision.activity.slots = [
+    {
+      slotId: 'work-slot',
+      choice: {
+        choiceId: 'work',
+        actionId: 'special',
+        teamId: input.militiaSnapshot.roster.teams[0]!.teamId,
+        instruction: 'Scout',
+        costCopper: 7,
+      },
+    },
+  ];
   input.revision.acknowledgements.push({
     acknowledgementId: 'work-receipt',
     subjectId: 'special:work',
@@ -434,8 +453,8 @@ test('[rules.P07.distinction] a Rules Exception permits an extra action without 
     {
       exceptionId: 'extra',
       subjectId: 'work',
-      ruleId: 'action-capacity',
-      reason: 'Extra action granted by GM',
+      ruleId: 'team-condition',
+      reason: 'Limited scouting approved while recovering',
     },
   ];
   const result = resolveCanonicalWeeklyDraft(input);
@@ -445,7 +464,7 @@ test('[rules.P07.distinction] a Rules Exception permits an extra action without 
   expect(result.finalPlan.effects.adjudication.rulesExceptions).toEqual(
     input.revision.rulesExceptions,
   );
-  input.revision.activity.slots[3]!.choice!.costCopper = undefined;
+  input.revision.activity.slots[0]!.choice!.costCopper = undefined;
   expect(projectWeeklyDraft(input).status).toBe('incomplete');
 });
 

@@ -195,6 +195,74 @@ export async function runConfirmationContract(
   });
   await scenario(async (h, edit) => {
     await edit(chance);
+    await edit({
+      kind: 'stage',
+      slotId: 'right',
+      choice: {
+        choiceId: 'extra-work',
+        actionId: 'special',
+        instruction: 'Scout road',
+        costCopper: 0,
+      },
+    });
+    await edit({
+      kind: 'acknowledge',
+      acknowledgement: {
+        acknowledgementId: 'scouted',
+        subjectId: 'special:extra-work',
+        outcome: 'Road scouted',
+      },
+    });
+    await edit({
+      kind: 'rules_exception',
+      exception: {
+        exceptionId: 'extra',
+        subjectId: 'extra-work',
+        ruleId: 'action-capacity',
+        reason: 'Extra action requested',
+      },
+    });
+    const blocked = await h.first.preview();
+    check(
+      blocked.status === 'incomplete' &&
+        blocked.requirements.includes('extra-work:action-capacity'),
+      'An occupied unavailable slot blocks Confirmation even with a reasoned exception',
+    );
+    const before = await h.inspect();
+    await rejected(
+      h.first.confirm({
+        operationId: 'blocked-extra',
+        reviewed: blocked.reviewed,
+      }),
+      'Server refuses unavailable-slot Confirmation',
+    );
+    equal(
+      await h.inspect(),
+      before,
+      'Refused Confirmation preserves the entire staged week',
+    );
+    await edit({
+      kind: 'move',
+      fromSlotId: 'right',
+      toSlotId: 'left',
+      choiceId: 'extra-work',
+    });
+    const ready = await h.first.preview();
+    check(
+      ready.status === 'ready',
+      'Moving into an allowed empty slot restores readiness',
+    );
+    await h.first.confirm({
+      operationId: 'moved-extra',
+      reviewed: ready.reviewed,
+    });
+    check(
+      (await h.inspect()).records.length === 1,
+      'The corrected week commits once',
+    );
+  });
+  await scenario(async (h, edit) => {
+    await edit(chance);
     const review = await h.first.preview();
     const results = await Promise.allSettled([
       h.first.confirm({ operationId: 'race-a', reviewed: review.reviewed }),

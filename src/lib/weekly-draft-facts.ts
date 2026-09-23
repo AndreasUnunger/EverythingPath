@@ -331,7 +331,6 @@ export const stagedActionChoiceSchema = z
     action('knowledge_check', { subject: reason.optional() }),
     action('lie_low', {}),
     action('manipulate_events', {
-      chooserCharacterId: id.optional(),
       candidates: eventTreeSchema.optional(),
       selectedEventId: id.optional(),
     }),

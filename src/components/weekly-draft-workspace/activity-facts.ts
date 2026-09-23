@@ -47,6 +47,9 @@ export function activityView(
               : cost,
           null,
         ),
+        strategistBonus:
+          projection?.slots.find((entry) => entry.slotId === slot.slotId)
+            ?.strategistBonus ?? false,
         overAllowance:
           projection?.slots.find((entry) => entry.slotId === slot.slotId)
             ?.overAllowance ?? false,
@@ -59,15 +62,17 @@ export function activityView(
                 requirement.startsWith(`${slot.choice.orderId}:`)),
           ) ?? [],
         warnings,
-        exceptions: [...ruleIds].map((ruleId) => ({
-          exceptionId:
-            existing.find((exception) => exception.ruleId === ruleId)
-              ?.exceptionId ?? `activity:${choiceId}:${ruleId}`,
-          ruleId,
-          reason:
-            existing.find((exception) => exception.ruleId === ruleId)?.reason ??
-            '',
-        })),
+        exceptions: [...ruleIds]
+          .filter((ruleId) => ruleId !== 'action-capacity')
+          .map((ruleId) => ({
+            exceptionId:
+              existing.find((exception) => exception.ruleId === ruleId)
+                ?.exceptionId ?? `activity:${choiceId}:${ruleId}`,
+            ruleId,
+            reason:
+              existing.find((exception) => exception.ruleId === ruleId)
+                ?.reason ?? '',
+          })),
       };
     }),
     actions: MILITIA_ACTIVITY_ACTION_IDS.map((actionId) => ({

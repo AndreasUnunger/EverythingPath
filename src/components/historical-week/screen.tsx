@@ -115,15 +115,13 @@ export function HistoricalWeekNavigation({
           )}
         </div>
       </Card>
-      {history.canRewriteHistory && (
-        <Card className="p-4 text-sm" aria-label="GM history correction">
-          <h2 className="font-semibold">GM history correction</h2>
-          <p>
-            Corrections will be reviewed separately as a History Rewrite.
-            Correction editing is not available yet.
-          </p>
-        </Card>
-      )}
+      <Card className="p-4 text-sm" aria-label="History correction">
+        <h2 className="font-semibold">History correction</h2>
+        <p>
+          Corrections will be reviewed separately as a History Rewrite.
+          Correction editing is not available yet.
+        </p>
+      </Card>
     </>
   );
 }

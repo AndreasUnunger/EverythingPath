@@ -2,8 +2,6 @@ import { MILITIA_ADVANCEMENT } from './militia-progression-rules';
 import type { CanonicalRoster } from './canonical-roster';
 import type { FoundationCharacter } from './rules-officers';
 
-export type AdventureVolume = 1 | 2 | 3 | 4 | 5 | 6;
-const apCaps = { 1: 4, 2: 7, 3: 10, 4: 13, 5: 15, 6: 17 };
 // Full gift conditions are in the verbatim PC Boons paragraph, not just Table 6-1 labels.
 const gifts: Record<
   number,
@@ -69,7 +67,6 @@ export function projectProgression(
   training: number,
   roster: CanonicalRoster,
   characters: FoundationCharacter[],
-  apVolume?: AdventureVolume,
 ) {
   const pcIds = new Set(
     roster.people.filter((x) => x.kind === 'pc').map((x) => x.characterId),
@@ -83,11 +80,9 @@ export function projectProgression(
       (x) => x.training <= training && x.rank <= (highestPcLevel ?? rank),
     ).slice(-1)[0]?.rank ?? rank;
   const eligibleRank = Math.max(rank, earnedRank);
-  const apRankCap = apVolume ? apCaps[apVolume] : null;
   return {
     eligibleRank,
     highestPcLevel,
-    apRankCap,
     boons: MILITIA_ADVANCEMENT.filter(
       (x) => x.rank > rank && x.rank <= eligibleRank,
     ).flatMap((x) => {
@@ -99,9 +94,6 @@ export function projectProgression(
     }),
     requirements: highestPcLevel === null ? ['highest-level-pc'] : [],
     warnings: [
-      ...(apRankCap !== null && eligibleRank > apRankCap
-        ? ['rank:ap-cap']
-        : []),
       ...(highestPcLevel !== null && rank > highestPcLevel
         ? ['rank:pc-cap']
         : []),

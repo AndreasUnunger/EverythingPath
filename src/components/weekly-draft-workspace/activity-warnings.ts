@@ -5,8 +5,10 @@ export function activityWarning(warning: string, choiceId: string): string {
   if (code === 'calculated-cost')
     return 'The entered cost differs from the rules calculation. The preview uses the calculated cost; changing this field does not adjust the treasury outcome.';
   const reasons: Record<string, string> = {
-    'action-capacity': 'This choice exceeds the action allowance.',
-    'team-capacity': 'Recruitment exceeds the team allowance.',
+    'action-capacity':
+      'Move this choice to an available slot, clear it, or restore the action allowance before confirming the week.',
+    'team-capacity':
+      'Recruitment leaves the roster above the team allowance after this week’s actions.',
     'team-action': 'This team does not normally perform this action.',
     'team-unavailable': 'This team is unavailable for this Activity.',
     'team-used': 'This team has already acted this Activity.',

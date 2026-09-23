@@ -6,13 +6,6 @@ This document reorganizes the militia subsystem into searchable sections and nor
 
 - Intended for the Ironfang Invasion Adventure Path.
 - A militia never exceeds the highest-level PC.
-- AP volume rank caps:
-  - Trail of the Hunted: 4
-  - Fangs of War: 7
-  - Assault on Longshadow: 10
-  - Siege of Stone: 13
-  - Prisoners of the Blight: 15
-  - AP conclusion: 17
 - Bonus teams from rewards do not count against normal maximum teams.
 - Siege of Stone and Prisoners of the Blight especially encourage proxy NPC officers.
 
@@ -137,7 +130,7 @@ Multiple officers can fill the same role, but their bonuses do not stack (except
 ### Overseer
 
 - Grants +1 bonus to both secondary checks.
-- During one event check, can add:
+- During the resolution of one chosen event, can add the appropriate modifier to its organization checks:
   - Charisma/Constitution to Loyalty, or
   - Strength/Wisdom to Security, or
   - Dexterity/Intelligence to Secrecy.
@@ -344,7 +337,7 @@ If treasury is below minimum:
 - Team: Guardians.
 - Guarantees an event this week.
 - GM rolls twice on event table.
-- Guardians manager (or random PC) chooses which event occurs.
+- Any player chooses which of the two rolled events occurs (review decision A13.chooser).
 
 ## Action: Recruit Team
 
@@ -434,7 +427,7 @@ If treasury is below minimum:
 - Team: Specialists.
 - Choose target location when action is taken.
 - During following week, once at that location:
-  - each PC gains +2 competence to attack, damage, and saves for rounds equal to half militia rank.
+  - each PC gains +2 competence to attack, damage, and saves for rounds equal to half militia rank, rounded down with a minimum of one round.
 - Alternate use: emergency casualty extraction.
   - Bleeding allies stabilize.
   - Dead allies gain immediate `gentle repose` (CL 12).

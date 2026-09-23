@@ -1,24 +1,24 @@
 # Weekly Draft rules coverage
 
-95 audit entries; 489 expanded cases; 488 cases with passing mapped evidence; 11 explicit gaps; 1 errors.
+95 audit entries; 487 expanded cases; 486 cases with passing mapped evidence; 3 explicit gaps; 1 errors.
 
 Passing evidence is traceability, not proof of semantic completeness. Full-corpus human review and the strict gate remain required before cutover.
 
 ## Errors
 
-- Completeness gate: 11 remaining gaps
+- Completeness gate: 3 remaining gaps
 
 ## Human corpus review
 
-Human review has not occurred (confirmed by the user for #88). Review all rules/tables and accepted product/persistence decisions; record reviewer and review reference before clearing this gap.
+Reviewed by AndreasUnunger (2026-09-23); docs/militia-human-review-checklist.md#finish-the-review — every check and full sign-off marked complete; reviewer confirmed “done” in the review conversation.
 
 Review every source section against its mapped behavior and tests, including all actions, event outcomes, team trees, officers/managers, sequence, and product/persistence decisions. Classify introductory text explicitly; a fingerprint alone does not establish semantic review. Record reviewer, date, reference, and unresolved findings before clearing review gaps.
 
 | Source section | SHA-256 | Mapped rules / review gap |
 |---|---|---|
-| [R001: # Ironfang Invasion Militia Rules](../docs/ai/ironfang-militia/militia-rules.md) | defbc5620a0476f78c955c60f93f65da945653921b2110057777b350aa4bced2 | No rule mapping; Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text. |
-| [R005: ## Scope](../docs/ai/ironfang-militia/militia-rules.md) | 6a18c492a1a25ea2defb520b7055f59f6a5b4fd107ab4679cd460d0f34f502d4 | F02 |
-| [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md) | 31adf414cd1043e7f78c49a8ee3f1b839b5c4c5c17ae5be9d758a6d7246b990b | No rule mapping; Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text. |
+| [R001: # Ironfang Invasion Militia Rules](../docs/ai/ironfang-militia/militia-rules.md) | defbc5620a0476f78c955c60f93f65da945653921b2110057777b350aa4bced2 | F01 |
+| [R005: ## Scope](../docs/ai/ironfang-militia/militia-rules.md) | 1f2449d3ebfcbddabdab4cc61002722fd1475a83bd8082aecd5979aaa46b11ca | F02 |
+| [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md) | 31adf414cd1043e7f78c49a8ee3f1b839b5c4c5c17ae5be9d758a6d7246b990b | F01, F02, F03, F04, F05, F06, F07, O06, U01, E01, E05, E06, P01 |
 | [R021: ### Rank](../docs/ai/ironfang-militia/militia-rules.md) | 787be90a17cee5550617389f0b4bfdc00393c6690adcc02303b6352ce849c6e0 | F01, F02 |
 | [R028: ### Maximum Rank](../docs/ai/ironfang-militia/militia-rules.md) | e591095e8edf92f7dcfb542980fb86546a5fd132b9136dc23e733e92e9d7b736 | F02 |
 | [R032: ### Organization Checks](../docs/ai/ironfang-militia/militia-rules.md) | c64aaed64747ee5b93ba6d62a44fd2ece5e9dd45bb7cee3b58b0e7429f9a1883 | F03 |
@@ -39,20 +39,20 @@ Review every source section against its mapped behavior and tests, including all
 | [R125: ### Ambassador](../docs/ai/ironfang-militia/militia-rules.md) | 18f26c7cbbd5d39356dce2dd3537bf6e6d617cd718cf452c38957ff67067d58d | O02 |
 | [R129: ### Commandant](../docs/ai/ironfang-militia/militia-rules.md) | 87feb1730dc25bca93659119c1014b7e8c659e251807e7a486e2239e68e62ca7 | O03 |
 | [R133: ### Marshal](../docs/ai/ironfang-militia/militia-rules.md) | d82994af6986ff2d3573edc604c14a2ab81b5674e7a1b4d97f18aa01df800a33 | O02 |
-| [R137: ### Overseer](../docs/ai/ironfang-militia/militia-rules.md) | 696cc579cda908ab7be711313a2dd706324cd80fee7daadbf37090eec90015da | O04, E07 |
+| [R137: ### Overseer](../docs/ai/ironfang-militia/militia-rules.md) | 37dee01675fedded183321303284eacec3f7272ac5fc18dbd637ff077ccd8c49 | O04, E07 |
 | [R145: ### Spymaster](../docs/ai/ironfang-militia/militia-rules.md) | 6ac84872425a514560edc37e27e0416b230ca4a0e84e067d37cad4a9bc43deef | O02 |
 | [R149: ### Strategist](../docs/ai/ironfang-militia/militia-rules.md) | d072040974fb6c6830e0282b933f7cb74820e445d98855a7ea7f7007e14951e1 | O05, E07 |
 | [R154: ## Teams](../docs/ai/ironfang-militia/militia-rules.md) | de230cf9e7386ee07025a1e33edd1a404ced867ad014f0426363b20417f46933 | T05, A14 |
-| [R163: ### Team Conditions](../docs/ai/ironfang-militia/militia-rules.md) | 644769ce8572bd3249c95bf9d2e9d473a2bdd1ccbae282b3e8d27ce04eed180d | No rule mapping; Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text. |
+| [R163: ### Team Conditions](../docs/ai/ironfang-militia/militia-rules.md) | 644769ce8572bd3249c95bf9d2e9d473a2bdd1ccbae282b3e8d27ce04eed180d | T07, T08 |
 | [R165: #### Disabled](../docs/ai/ironfang-militia/militia-rules.md) | 21e3f1381c8de1406e89b8ba31d334b4467a7b1afccb5d5c393fb28745c08d1c | T07 |
 | [R171: #### Missing](../docs/ai/ironfang-militia/militia-rules.md) | bc4a2d765d941c78ee4b91b23a7e72bc030e420c8f3e8a91d63522db9c194856 | F05, T08 |
-| [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md) | 3266877568782f312149f15f9f6c388ab8e6cdfe7f7caa919a73e53938316e02 | No rule mapping; Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text. |
+| [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md) | 3266877568782f312149f15f9f6c388ab8e6cdfe7f7caa919a73e53938316e02 | T01, T02, T03, T04, T05, T06 |
 | [R180: ### Espionage](../docs/ai/ironfang-militia/militia-rules.md) | 9c1cb1df9ba4d14c5a81dc12def8e36f2eacf038fdec59383509f8dfeaf68117 | T01 |
 | [R187: ### Intelligence](../docs/ai/ironfang-militia/militia-rules.md) | 254a15d1c888d677a3c7d5b3236640f905391c4aed7a98bbd424dacfe45fc5dd | T02 |
 | [R194: ### Military](../docs/ai/ironfang-militia/militia-rules.md) | c5777cd17298f33bdb28514470db0027df7086a02164d3f1e5e63a6cf041982f | T03 |
 | [R201: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md) | 2fc309afe73d973cd9dd4bb6e51c6e943014a8587b51eb8da776c902706b8154 | T04 |
 | [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-militia/militia-rules.md) | 04d74ee385fa326ca668e52d4bb40b90789e0428ea26f0f84652531527e68cbd | U01, U06, P04, P05, P06, P07, P08, P09, P10, P11 |
-| [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md) | d8c83eb6739a2c58a149fcff36b0d8d0b8bd425585c2fe4f9704700cb142f3f8 | No rule mapping; Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text. |
+| [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md) | d8c83eb6739a2c58a149fcff36b0d8d0b8bd425585c2fe4f9704700cb142f3f8 | U01, U02, U03, U04, U05 |
 | [R219: ### Step 1: Training Attrition](../docs/ai/ironfang-militia/militia-rules.md) | a487755905a80cb9aa280e080dedc1c4f571116772811d0138bb88186f10e991 | U02 |
 | [R226: ### Step 2: Maximum-Notoriety Penalties](../docs/ai/ironfang-militia/militia-rules.md) | e78483f54b7bf6965c1d73729a34c01df60b8790323933df1aba4f3a59eb94bc | U03 |
 | [R232: ### Step 3: Treasury-Shortage Penalties](../docs/ai/ironfang-militia/militia-rules.md) | fc83820e86ec816786b8f417642509187e32cc58b28184ff4026d87b820d5329 | U04 |
@@ -71,7 +71,7 @@ Review every source section against its mapped behavior and tests, including all
 | [R322: ## Action: Guarantee Event](../docs/ai/ironfang-militia/militia-rules.md) | 95dbe0ff065c58802d10cd2edae81435c9dc775f8ef7236ea809031bba301acd | A10 |
 | [R329: ## Action: Knowledge Check](../docs/ai/ironfang-militia/militia-rules.md) | 0720256c4001407f7249f6ad90c0055dacb38b2db4008fb362649d944848606d | A11 |
 | [R336: ## Action: Lie Low](../docs/ai/ironfang-militia/militia-rules.md) | 0546836ea7e0dd8922c0ac9256106e798b8468d69e0aa656ebdcba0f3379db7f | A12 |
-| [R342: ## Action: Manipulate Events](../docs/ai/ironfang-militia/militia-rules.md) | 846bb489e61c161962efa2744b8f8294ebee99e702932e4f6a01ff700822c490 | A13 |
+| [R342: ## Action: Manipulate Events](../docs/ai/ironfang-militia/militia-rules.md) | fb656c11cc52127c89816922963de959c4acc74022847e6abdb57249810d5bde | A13 |
 | [R349: ## Action: Recruit Team](../docs/ai/ironfang-militia/militia-rules.md) | 5c4a6a604647d38db54cab593d50e6159b354c86df31e6db044dbcd1a6db17e9 | A14 |
 | [R356: ## Action: Reduce Danger](../docs/ai/ironfang-militia/militia-rules.md) | 16722688e688dbd87c0ab0e90ac6d7ad16a86a3666e337a896a019efda72f1b8 | A15 |
 | [R363: ## Action: Rescue Character](../docs/ai/ironfang-militia/militia-rules.md) | ee50283bb897eb075a59288cdd34151854c3d0efaac8199136a1c86a79ff2ce7 | A16 |
@@ -81,7 +81,7 @@ Review every source section against its mapped behavior and tests, including all
 | [R407: ## Action: Special](../docs/ai/ironfang-militia/militia-rules.md) | 3ab797c5de8d7bd3fe1128041288121f0f292dd8372905dcb80eced14ab26457 | A20 |
 | [R412: ## Action: Special Order](../docs/ai/ironfang-militia/militia-rules.md) | af39323a5fc3a039307a5c01707b33bf84ed3b4ef549f0571001d2a615a888e5 | A21 |
 | [R423: ## Action: Spread Propaganda](../docs/ai/ironfang-militia/militia-rules.md) | 9a01df19bc940aa8e4ce5fd66a21c226f959b5b93281417615fd2a99b6227963 | A22 |
-| [R432: ## Action: Strike Team](../docs/ai/ironfang-militia/militia-rules.md) | a59129c96c80b66df58a0e8366d5d17644e1c791708fc4efdac53312bd479a87 | A23 |
+| [R432: ## Action: Strike Team](../docs/ai/ironfang-militia/militia-rules.md) | 55d3902d94de0f32c747798b886f4ee76c83df4fb53223a4e7243c0f465f68cc | A23 |
 | [R443: ## Action: Upgrade Team](../docs/ai/ironfang-militia/militia-rules.md) | da61e6b738884ea83dac920972063ac3d9d65a32d2a5f20a550e3ee91ce5ee8c | T05, A24 |
 | [R450: ## Event Phase](../docs/ai/ironfang-militia/militia-rules.md) | be258b712e6bf259593c66988757ead15ea2318a78825e3906a1360d54ef0aec | E06 |
 | [R452: ### Event Trigger](../docs/ai/ironfang-militia/militia-rules.md) | 3c48ced949ac1159277e5bb4f48fb20ea2ddc32966975d6c1432cf15aea67fc2 | E01, E05 |
@@ -116,21 +116,21 @@ Review every source section against its mapped behavior and tests, including all
 | [R612: ### Intermediate Cache](../docs/ai/ironfang-militia/militia-rules.md) | c6af5443793254ec5767c6020d77c39a8aca0e307e8d16fb13466d2062ab6e9b | A19 |
 | [R617: ### Major Cache](../docs/ai/ironfang-militia/militia-rules.md) | 73aa02e7f9f3a29334628ab9b518a3495d8ea516890cf50751f50a6c3263d9d0 | A19 |
 | [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md) | 71ee6cedc08fc3c696bcb28b11ba37639b7992b36247721234745cb2c4184699 | T01, T02, T03, T04 |
-| [T003: ## Ironfang AP Rank Caps](../docs/ai/ironfang-militia/militia-tables.md) | 6c4ccae74870c92b5ba512d659d850e18d139946a6a2c97ef0195345f5aa335c | F02, F05 |
+| [T003: ## Rank and Reward Teams](../docs/ai/ironfang-militia/militia-tables.md) | 9847a7815977e34c8a29b03e9a614aec70d0207444706e2556f676c235b74198 | F02, F05 |
 | [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md) | 52583d0dcf37aab20eba848cff60690b43bf6b1b602fe41521636dff9a7655dd | F01, F02, F03, F04, F05, F08, F09 |
 | [T046: ## Table 6-2: Reputation](../docs/ai/ironfang-militia/militia-tables.md) | 6c295036f45c72354d707db37180acf3c413ada6b9ed6a174d554d03f54b0f91 | F07 |
 | [T056: ## Table 6-3: Militia Events (d%)](../docs/ai/ironfang-militia/militia-tables.md) | 8d8709bb5c7e3be7814ce1affd9f66fd6cc5e07ed9c80b00cced9e2935846a7e | E01, E02, E05 |
 | [T091: ## Cache Thresholds](../docs/ai/ironfang-militia/militia-tables.md) | df23046b62c7d0813a072cc9df12f4b452d7c2074809b0149e19670927dd66c3 | A19 |
 | [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md) | 5d1dd6a021a4d7049b11f8ab3913136e932cc83d7c808f369dd2481962b88540 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
-| [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md) | 96cd042600be3e3216190b251d975059b2bcfc4efc62636fe5a136b054d39c82 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
-| [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md) | 4eb08356e030428fe8df46149b40e00fffd74c49fc94b11bf8c5ddb20b7255f0 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11 |
-| [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md) | 5141180fa5bf52d37a57e2418853ed1fa9f158d10d6f7c9d9405a54e8abd2df2 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
-| [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json) | 499ab05403aded6aa255aeb45e8f4214d4531ab4bae443f410d6a6d68c4c7e2b | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11 |
-| [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json) | 18a6d0d9cb6709794d48f795faec2d5287a31cf5ea13e189e99a98a443d43c19 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
+| [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md) | b1a8f470687787a5266b7b7b3b29fe0c6f26fc2228edea1de55d7ef7b58dcf22 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
+| [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md) | a62c543032e1d37c127dee12ee8cb6e8067a453159f7ff29a984d5b80b7cf59b | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11 |
+| [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md) | 99a1d9773ef53743820f78f6f1d739169b6a7d329bca6252075db213fc09dcb5 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
+| [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json) | f73f872f8a7e40eb05cce18ff842873c9989700e04bf9795d5944a07d361ff0a | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11 |
+| [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json) | 823886d8311e6a622a09ee2a7f89efc6efa5a05826509da55a4048dc47115eb6 | F01, F02, F03, F04, F05, F06, F07, F08, F09, O01, O02, O03, O04, O05, O06, U01, U02, U03, U04, U05, U06, T01, T02, T03, T04, T05, T06, T07, T08, A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, E01, E02, E03, E04, E05, E06, E07, EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08, EV09, EV10, EV11, EV12, EV13, EV14, EV15, EV16, EV17, EV18, EV19, EV20, EV21, EV22, EV23, EV24, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, GATE |
 
 ## F01
 
-Sources: [R021: ### Rank](../docs/ai/ironfang-militia/militia-rules.md); [R039: ### Focus](../docs/ai/ironfang-militia/militia-rules.md); [R044: ### Training](../docs/ai/ironfang-militia/militia-rules.md); [R058: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R001: # Ironfang Invasion Militia Rules](../docs/ai/ironfang-militia/militia-rules.md); [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R021: ### Rank](../docs/ai/ironfang-militia/militia-rules.md); [R039: ### Focus](../docs/ai/ironfang-militia/militia-rules.md); [R044: ### Training](../docs/ai/ironfang-militia/militia-rules.md); [R058: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -140,14 +140,13 @@ Sources: [R021: ### Rank](../docs/ai/ironfang-militia/militia-rules.md); [R039: 
 
 ## F02
 
-Sources: [R005: ## Scope](../docs/ai/ironfang-militia/militia-rules.md); [R021: ### Rank](../docs/ai/ironfang-militia/militia-rules.md); [R028: ### Maximum Rank](../docs/ai/ironfang-militia/militia-rules.md); [T003: ## Ironfang AP Rank Caps](../docs/ai/ironfang-militia/militia-tables.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R005: ## Scope](../docs/ai/ironfang-militia/militia-rules.md); [R021: ### Rank](../docs/ai/ironfang-militia/militia-rules.md); [R028: ### Maximum Rank](../docs/ai/ironfang-militia/militia-rules.md); [T003: ## Rank and Reward Teams](../docs/ai/ironfang-militia/militia-tables.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | F02.thresholds / 4-foundations | Phase View / Resolution Preview: Each training threshold is evaluated below, at and above its boundary. | PASS; planned: rules.F02.thresholds; mapped: rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.F02.rank-1-threshold, rules.F02.rank-2-threshold, rules.F02.rank-3-threshold, rules.F02.rank-4-threshold, rules.F02.rank-5-threshold, rules.F02.rank-6-threshold, rules.F02.rank-7-threshold, rules.F02.rank-8-threshold, rules.F02.rank-9-threshold, rules.F02.rank-10-threshold, rules.F02.rank-11-threshold, rules.F02.rank-12-threshold, rules.F02.rank-13-threshold, rules.F02.rank-14-threshold, rules.F02.rank-15-threshold, rules.F02.rank-16-threshold, rules.F02.rank-17-threshold, rules.F02.rank-18-threshold, rules.F02.rank-19-threshold, rules.F02.rank-20-threshold, rules.GATE.projection-parity; service: none |
 | F02.retention / 4-foundations | Phase View / Resolution Preview: Training loss never reduces existing rank. | PASS; planned: rules.F02.retention; mapped: rules.F02.retention, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
 | F02.pc-cap / 4-foundations | Phase View / Resolution Preview: Multiple rank gains stop at highest PC level; missing PC facts require input. | PASS; planned: rules.F02.pc-cap; mapped: rules.F02.pc-cap, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
-| F02.ap-caps / 4-foundations | Phase View / Resolution Preview: Volume caps 4/7/10/13/15/17 produce advisory warnings. | PASS; planned: rules.F02.ap-caps; mapped: rules.F02.ap-caps, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
 | F02.rank-1-threshold / 4-foundations | Phase View / Resolution Preview: Rank 1 minimum training is —; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-1-threshold; mapped: rules.F02.rank-1-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
 | F02.rank-2-threshold / 4-foundations | Phase View / Resolution Preview: Rank 2 minimum training is 10; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-2-threshold; mapped: rules.F02.rank-2-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
 | F02.rank-3-threshold / 4-foundations | Phase View / Resolution Preview: Rank 3 minimum training is 15; compare below/exact/above while retaining existing rank and applying PC cap. | PASS; planned: rules.F02.rank-3-threshold; mapped: rules.F02.rank-3-threshold, rules.acceptance.foundation-ranks, rules.acceptance.foundation-thresholds, rules.GATE.projection-parity; service: none |
@@ -171,7 +170,7 @@ Sources: [R005: ## Scope](../docs/ai/ironfang-militia/militia-rules.md); [R021: 
 
 ## F03
 
-Sources: [R032: ### Organization Checks](../docs/ai/ironfang-militia/militia-rules.md); [R039: ### Focus](../docs/ai/ironfang-militia/militia-rules.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R032: ### Organization Checks](../docs/ai/ironfang-militia/militia-rules.md); [R039: ### Focus](../docs/ai/ironfang-militia/militia-rules.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -201,14 +200,13 @@ Sources: [R032: ### Organization Checks](../docs/ai/ironfang-militia/militia-rul
 
 ## F04
 
-Sources: [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [R076: ### Militia Actions](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [R076: ### Militia Actions](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | F04.allowance / 4-foundations | Phase View / Resolution Preview: Rank 1 grants one action; remaining rank boundaries follow Table 6-1. | PASS; planned: rules.F04.allowance; mapped: rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F04.strategist / 4-foundations | Phase View / Resolution Preview: Strategist adds one action once even with multiple holders. | PASS; planned: rules.F04.strategist; mapped: rules.acceptance.foundation-ranks, rules.acceptance.strategist, rules.A04.order, rules.GATE.projection-parity; service: none |
-| F04.shrink / 4-foundations | Phase View / Resolution Preview: Allowance shrink preserves occupied choices and shows exception warnings. | PASS; planned: rules.F04.shrink; mapped: rules.F04.shrink, rules.acceptance.foundation-ranks, rules.U01.recompute, rules.A04.order, rules.GATE.projection-parity; service: none |
-| F04.context / 4-foundations | Phase View / Resolution Preview: Upkeep rank changes and event or ally allowances recompute available actions. | PASS; planned: rules.F04.context; mapped: rules.acceptance.foundation-ranks, rules.U01.recompute, rules.A04.order, rules.GATE.projection-parity; service: none; Upkeep rank and Strategist recomputation are covered. The corpus mentions ally/event action allowances without numeric definitions; replacement has no typed contextual allowance beyond reasoned action-capacity exceptions. Human rule classification remains pending. |
+| F04.shrink / 4-foundations | Phase View / Resolution Preview: Allowance shrink preserves occupied choices but blocks Confirmation until choices in unavailable slots are moved or cleared, or allowance is restored. A Rules Exception cannot bypass this. | PASS; planned: rules.F04.shrink; mapped: rules.F04.shrink, rules.F04.blocked-slot, rules.F04.workspace-hard-cap, rules.F04.capacity-guidance, rules.F04.obsolete-exception, rules.acceptance.foundation-ranks, rules.U01.recompute, rules.A04.order, rules.GATE.projection-parity; service: none |
 | F04.rank-1-actions / 4-foundations | Phase View / Resolution Preview: Rank 1 baseline allowance is 1 actions. | PASS; planned: rules.F04.rank-1-actions; mapped: rules.F04.rank-1-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F04.rank-2-actions / 4-foundations | Phase View / Resolution Preview: Rank 2 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-2-actions; mapped: rules.F04.rank-2-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F04.rank-3-actions / 4-foundations | Phase View / Resolution Preview: Rank 3 baseline allowance is 2 actions. | PASS; planned: rules.F04.rank-3-actions; mapped: rules.F04.rank-3-actions, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
@@ -232,14 +230,14 @@ Sources: [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/m
 
 ## F05
 
-Sources: [R101: ### Maximum Teams](../docs/ai/ironfang-militia/militia-rules.md); [R171: #### Missing](../docs/ai/ironfang-militia/militia-rules.md); [T003: ## Ironfang AP Rank Caps](../docs/ai/ironfang-militia/militia-tables.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R101: ### Maximum Teams](../docs/ai/ironfang-militia/militia-rules.md); [R171: #### Missing](../docs/ai/ironfang-militia/militia-rules.md); [T003: ## Rank and Reward Teams](../docs/ai/ironfang-militia/militia-tables.md); [T016: ## Table 6-1: Militia Advancement](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | F05.caps / 4-foundations | Phase View / Resolution Preview: All Table 6-1 team caps count active, disabled and missing teams. | PASS; planned: rules.F05.caps; mapped: rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F05.rewards / 4-foundations | Phase View / Resolution Preview: Reward teams do not consume capacity. | PASS; planned: rules.F05.rewards; mapped: rules.F05.rewards, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F05.identity / 4-foundations | Phase View / Resolution Preview: Repeated team types retain separate identities and consume separate capacity. | PASS; planned: rules.F05.identity; mapped: rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
-| F05.order / 4-foundations | Phase View / Resolution Preview: Dismiss then recruit frees capacity; recruit then dismiss warns at the earlier step. | PASS; planned: rules.F05.order; mapped: rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.A06.capacity, rules.GATE.projection-parity; service: none |
+| F05.order / 4-foundations | Phase View / Resolution Preview: Recruitment and dismissal in the same week work in either order when the resulting roster fits team capacity. | PASS; planned: rules.F05.order; mapped: rules.F05.final-roster, rules.F05.recruitment-capacity-outcomes, rules.F05.capacity-attribution, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.A06.capacity, rules.GATE.projection-parity; service: none |
 | F05.rank-1-teams / 4-foundations | Phase View / Resolution Preview: Rank 1 cap is 2 non-reward teams. | PASS; planned: rules.F05.rank-1-teams; mapped: rules.F05.rank-1-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F05.rank-2-teams / 4-foundations | Phase View / Resolution Preview: Rank 2 cap is 2 non-reward teams. | PASS; planned: rules.F05.rank-2-teams; mapped: rules.F05.rank-2-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
 | F05.rank-3-teams / 4-foundations | Phase View / Resolution Preview: Rank 3 cap is 3 non-reward teams. | PASS; planned: rules.F05.rank-3-teams; mapped: rules.F05.rank-3-teams, rules.acceptance.team-capacity, rules.acceptance.foundation-ranks, rules.GATE.projection-parity; service: none |
@@ -263,7 +261,7 @@ Sources: [R101: ### Maximum Teams](../docs/ai/ironfang-militia/militia-rules.md)
 
 ## F06
 
-Sources: [R044: ### Training](../docs/ai/ironfang-militia/militia-rules.md); [R058: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md); [R064: ### Minimum Treasury](../docs/ai/ironfang-militia/militia-rules.md); [R069: ### Notoriety](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R044: ### Training](../docs/ai/ironfang-militia/militia-rules.md); [R058: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md); [R064: ### Minimum Treasury](../docs/ai/ironfang-militia/militia-rules.md); [R069: ### Notoriety](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -274,7 +272,7 @@ Sources: [R044: ### Training](../docs/ai/ironfang-militia/militia-rules.md); [R0
 
 ## F07
 
-Sources: [R051: ### Reputation](../docs/ai/ironfang-militia/militia-rules.md); [T046: ## Table 6-2: Reputation](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R051: ### Reputation](../docs/ai/ironfang-militia/militia-rules.md); [T046: ## Table 6-2: Reputation](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -326,10 +324,10 @@ Sources: [R125: ### Ambassador](../docs/ai/ironfang-militia/militia-rules.md); [
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| O02.ambassador / 4-officers | Phase View / Resolution Preview: Ambassador selects Constitution or Charisma for Loyalty. | PASS; planned: rules.O02.ambassador; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
-| O02.marshal / 4-officers | Phase View / Resolution Preview: Marshal selects Strength or Wisdom for Security. | PASS; planned: rules.O02.marshal; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
-| O02.spymaster / 4-officers | Phase View / Resolution Preview: Spymaster selects Dexterity or Intelligence for Secrecy. | PASS; planned: rules.O02.spymaster; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
-| O02.identity / 4-officers | Phase View / Resolution Preview: Absent or archived characters cannot silently contribute; tied and negative modifiers remain correct. | PASS; planned: rules.O02.identity; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.ambassador / 4-officers | Phase View / Resolution Preview: Ambassador automatically uses the higher Constitution or Charisma modifier for Loyalty, and the highest applicable bonus across assigned Ambassadors; no manual selection. | PASS; planned: rules.O02.ambassador; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.marshal / 4-officers | Phase View / Resolution Preview: Marshal automatically uses the higher Strength or Wisdom modifier for Security, and the highest applicable bonus across assigned Marshals; no manual selection. | PASS; planned: rules.O02.marshal; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.spymaster / 4-officers | Phase View / Resolution Preview: Spymaster automatically uses the higher Dexterity or Intelligence modifier for Secrecy, and the highest applicable bonus across assigned Spymasters; no manual selection. | PASS; planned: rules.O02.spymaster; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
+| O02.identity / 4-officers | Phase View / Resolution Preview: Missing character records require correction and archived holders are flagged. The highest applicable modifier is used automatically, including ties and all-negative modifiers (for example, −1 beats −2). | PASS; planned: rules.O02.identity; mapped: rules.acceptance.officer-abilities, rules.GATE.projection-parity; service: none |
 
 ## O03
 
@@ -349,8 +347,8 @@ Sources: [R137: ### Overseer](../docs/ai/ironfang-militia/militia-rules.md); [D5
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | O04.secondary / 4-officers | Phase View / Resolution Preview: Overseer adds +1 to both secondary checks, not focused checks. | PASS; planned: rules.O04.secondary; mapped: rules.acceptance.overseer, rules.GATE.projection-parity; service: none |
-| O04.event / 4-officers | Phase View / Resolution Preview: One selected Event check receives the appropriate best ability modifier. | PASS; planned: rules.O04.event; mapped: rules.acceptance.overseer, rules.EV03.modifiers, rules.GATE.projection-parity; service: none |
-| O04.one-use / 4-officers | Phase View / Resolution Preview: Two event occurrences cannot both consume the one-use bonus. | PASS; planned: rules.O04.one-use; mapped: rules.O04.one-use, rules.acceptance.overseer, rules.GATE.projection-parity; service: none |
+| O04.event / 4-officers | Phase View / Resolution Preview: Organization checks during one selected event’s resolution receive the Overseer’s appropriate best ability modifier; support is not consumed by the first check. | PASS; planned: rules.O04.event; mapped: rules.O04.event-scope, rules.O04.persistent-selection, rules.acceptance.overseer, rules.EV03.modifiers, rules.GATE.projection-parity; service: none |
+| O04.one-use / 4-officers | Phase View / Resolution Preview: Support can apply to multiple checks within the same event occurrence, but cannot also apply to a different event occurrence that week. | PASS; planned: rules.O04.one-use; mapped: rules.O04.one-use, rules.O04.support-identity, rules.acceptance.overseer, rules.GATE.projection-parity; service: none |
 | O04.absent / 4-officers | Phase View / Resolution Preview: No Overseer contributes no bonus; included modifiers are not added twice. | PASS; planned: rules.O04.absent; mapped: rules.acceptance.overseer, rules.EV03.modifiers, rules.GATE.projection-parity; service: none |
 
 ## O05
@@ -359,37 +357,37 @@ Sources: [R149: ### Strategist](../docs/ai/ironfang-militia/militia-rules.md); [
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| O05.slot / 4-officers | Phase View / Resolution Preview: Only the designated bonus action receives +2 to all related checks. | PASS; planned: rules.O05.slot; mapped: rules.acceptance.strategist, rules.GATE.projection-parity; service: none |
+| O05.slot / 4-officers | Phase View / Resolution Preview: The designated bonus action slot visibly shows “Strategist +2”, including when empty; only its action receives +2 to all related organization checks. | PASS; planned: rules.O05.slot; mapped: rules.O05.slot-label, rules.acceptance.strategist, rules.GATE.projection-parity; service: none |
 | O05.holders / 4-officers | Phase View / Resolution Preview: Multiple Strategists grant one action and one designated bonus. | PASS; planned: rules.O05.holders; mapped: rules.acceptance.strategist, rules.GATE.projection-parity; service: none |
 | O05.ordered / 4-officers | Phase View / Resolution Preview: Assigning, removing and reassigning Strategist recomputes later allowance without deleting choices. | PASS; planned: rules.O05.ordered; mapped: rules.O05.ordered, rules.acceptance.strategist, rules.A04.order, rules.GATE.projection-parity; service: none |
 
 ## O06
 
-Sources: [R093: ### Officers and Teams Management](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R093: ### Officers and Teams Management](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | O06.roster-manager-warnings / 3-roster | Roster preparation validates campaign-scoped manager references and warns about manager limits without rejecting structurally valid rosters. | PASS; planned: roster.identities, roster.limits, roster.references; mapped: roster.identities, roster.limits, roster.references; service: none |
 | O06.capacity / 4-officers | Phase View / Resolution Preview: PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one. | PASS; planned: rules.O06.capacity; mapped: rules.A06.capacity, rules.O06.capacity, rules.acceptance.manager-checks, rules.F05.rewards, rules.GATE.projection-parity; service: none |
 | O06.checks / 4-officers | Phase View / Resolution Preview: Each team check uses its own manager Charisma bonus exactly once. | PASS; planned: rules.O06.checks; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none |
-| O06.changes / 4-officers | Phase View / Resolution Preview: Ordered manager reassignment affects subsequent checks for independently identified teams. | PASS; planned: rules.O06.changes; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none; Changing the current manager recomputes separately identified team checks; ordered within-week manager reassignment is not represented by a Weekly Draft choice and requires a product/rules timing decision. |
+| O06.changes / 4-officers | Phase View / Resolution Preview: The current manager applies to that team throughout the draft; changing the manager recomputes all of that team’s checks in the draft. | PASS; planned: rules.O06.changes; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none |
 | O06.references / 4-officers | Phase View / Resolution Preview: Missing or archived manager identities are surfaced rather than fabricated. | PASS; planned: rules.O06.references; mapped: rules.acceptance.manager-checks, rules.GATE.projection-parity; service: none |
 
 ## U01
 
-Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md); [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| U01.context-first-use / 3-context | Preparation retains explicit first-use and uneventful carry facts without running Upkeep or changing live militia state. | PASS; planned: context.absence, context.shared; mapped: context.absence, context.shared; service: none |
+| U01.context-first-use / 3-context | Editing the proposed week records whether the militia is newly founded or resuming play, without executing Upkeep or changing committed state. Previous-week carryover applies only when a previous militia week exists. | PASS; planned: context.absence, context.shared; mapped: context.absence, context.shared; service: none |
 | U01.sequence / 4-upkeep | Phase View / Resolution Preview: Upkeep precedes Activity, which precedes Event. | PASS; planned: rules.U01.sequence; mapped: rules.P06.baseline, rules.T07.same-week, rules.GATE.projection-parity; service: none |
-| U01.first-use / 4-upkeep | Phase View / Resolution Preview: First militia week skips Upkeep independent of displayed week number and entered attrition. | PASS; planned: rules.U01.first-use; mapped: rules.U01.first-use, rules.GATE.projection-parity; service: none |
-| U01.import / 4-upkeep | Phase View / Resolution Preview: Imported first-use metadata controls skipping rather than a week-number heuristic. | PASS; planned: rules.U01.import; mapped: rules.U01.import, rules.GATE.projection-parity; service: none |
+| U01.first-use / 4-upkeep | Phase View / Resolution Preview: Only a newly founded militia’s first-ever week skips Upkeep. A militia set up to resume a later week runs Upkeep, even on its first week using the app. | PASS; planned: rules.U01.first-use; mapped: rules.U01.first-use, rules.GATE.projection-parity; service: none |
+| U01.import / 4-upkeep | Phase View / Resolution Preview: Setup for an existing militia resuming a later week records that its first-ever week has already passed; using the app for the first time does not grant an Upkeep skip. | PASS; planned: rules.U01.import; mapped: rules.U01.import, rules.U01.setup-existing, rules.U01.setup-form, rules.U01.setup-server, rules.GATE.projection-parity; service: none |
 | U01.recompute / 4-upkeep | Phase View / Resolution Preview: Earlier phase edits recompute downstream eligibility and outcomes. | PASS; planned: rules.U01.recompute; mapped: rules.U01.recompute, rules.GATE.projection-parity; service: none |
 
 ## U02
 
-Sources: [R219: ### Step 1: Training Attrition](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md); [R219: ### Step 1: Training Attrition](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -401,7 +399,7 @@ Sources: [R219: ### Step 1: Training Attrition](../docs/ai/ironfang-militia/mili
 
 ## U03
 
-Sources: [R226: ### Step 2: Maximum-Notoriety Penalties](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md); [R226: ### Step 2: Maximum-Notoriety Penalties](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -412,7 +410,7 @@ Sources: [R226: ### Step 2: Maximum-Notoriety Penalties](../docs/ai/ironfang-mil
 
 ## U04
 
-Sources: [R232: ### Step 3: Treasury-Shortage Penalties](../docs/ai/ironfang-militia/militia-rules.md); [R237: ### Step 4: Increase Rank](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md); [R232: ### Step 3: Treasury-Shortage Penalties](../docs/ai/ironfang-militia/militia-rules.md); [R237: ### Step 4: Increase Rank](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -423,7 +421,7 @@ Sources: [R232: ### Step 3: Treasury-Shortage Penalties](../docs/ai/ironfang-mil
 
 ## U05
 
-Sources: [R244: ### Step 5: Deposits and Withdrawals](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R217: ## Upkeep Phase](../docs/ai/ironfang-militia/militia-rules.md); [R244: ### Step 5: Deposits and Withdrawals](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -444,7 +442,7 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 
 ## T01
 
-Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R180: ### Espionage](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md); [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R180: ### Espionage](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -454,7 +452,7 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 ## T02
 
-Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R187: ### Intelligence](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md); [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R187: ### Intelligence](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -464,7 +462,7 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 ## T03
 
-Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R194: ### Military](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md); [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R194: ### Military](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -474,7 +472,7 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 ## T04
 
-Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R201: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md); [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militia/militia-tables.md); [R201: ### Treasury](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -484,7 +482,7 @@ Sources: [T001: # Ironfang Militia Structured Tables](../docs/ai/ironfang-militi
 
 ## T05
 
-Sources: [R154: ## Teams](../docs/ai/ironfang-militia/militia-rules.md); [R443: ## Action: Upgrade Team](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md); [R154: ## Teams](../docs/ai/ironfang-militia/militia-rules.md); [R443: ## Action: Upgrade Team](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -495,7 +493,7 @@ Sources: [R154: ## Teams](../docs/ai/ironfang-militia/militia-rules.md); [R443: 
 
 ## T06
 
-Sources: [R248: ## Activity Phase](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R178: ## Team Trees](../docs/ai/ironfang-militia/militia-rules.md); [R248: ## Activity Phase](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -508,7 +506,7 @@ Sources: [R248: ## Activity Phase](../docs/ai/ironfang-militia/militia-rules.md)
 
 ## T07
 
-Sources: [R165: #### Disabled](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R163: ### Team Conditions](../docs/ai/ironfang-militia/militia-rules.md); [R165: #### Disabled](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -520,7 +518,7 @@ Sources: [R165: #### Disabled](../docs/ai/ironfang-militia/militia-rules.md); [D
 
 ## T08
 
-Sources: [R171: #### Missing](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R163: ### Team Conditions](../docs/ai/ironfang-militia/militia-rules.md); [R171: #### Missing](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -591,7 +589,7 @@ Sources: [R291: ## Action: Dismiss Team](../docs/ai/ironfang-militia/militia-rul
 |---|---|---|
 | A06.success / 4-activity | Phase View / Resolution Preview: Loyalty DC10 removes the chosen team. | PASS; planned: rules.A06.success; mapped: rules.A06.success-repeat, rules.GATE.projection-parity; service: none |
 | A06.failure / 4-activity | Phase View / Resolution Preview: Loyalty total 9 still removes the team and adds rolled 1d6 Notoriety. | PASS; planned: rules.A06.failure; mapped: rules.A06.failure, rules.A06.projection-parity, rules.GATE.projection-parity; service: none |
-| A06.capacity / 4-activity | Phase View / Resolution Preview: Removal frees capacity before a later recruit; repeated dismissal cannot remove the same team twice. | PASS; planned: rules.A06.capacity; mapped: rules.A06.capacity, rules.A06.success-repeat, rules.GATE.projection-parity; service: none |
+| A06.capacity / 4-activity | Phase View / Resolution Preview: Removal frees capacity for recruitment in the same week regardless of slot order; repeated dismissal cannot remove the same team twice. | PASS; planned: rules.A06.capacity; mapped: rules.A06.capacity, rules.A06.success-repeat, rules.GATE.projection-parity; service: none |
 
 ## A07
 
@@ -665,7 +663,7 @@ Sources: [R342: ## Action: Manipulate Events](../docs/ai/ironfang-militia/militi
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | A13.team / 4-activity | Phase View / Resolution Preview: Available Guardians guarantee an event with two rolls and one chosen result. | PASS; planned: rules.A13.team; mapped: rules.A13.team, rules.A72.projection-parity; service: none |
-| A13.chooser / 4-activity | Phase View / Resolution Preview: Manager chooses or a random PC is recorded when no manager exists. | PASS; planned: rules.A13.chooser; mapped: rules.A13.chooser, rules.A72.projection-parity; service: none |
+| A13.chooser / 4-activity | Phase View / Resolution Preview: Any player can choose which of the two guaranteed event results occurs; the choice needs no chooser identity. | PASS; planned: rules.A13.chooser; mapped: rules.A13.chooser, rules.A72.projection-parity; service: none |
 | A13.composition / 4-activity | Phase View / Resolution Preview: Guarantee Event and selected Roll Twice do not accidentally duplicate or discard results. | PASS; planned: rules.A13.composition; mapped: rules.A13.composition, rules.A72.projection-parity; service: none |
 
 ## A14
@@ -675,7 +673,7 @@ Sources: [R349: ## Action: Recruit Team](../docs/ai/ironfang-militia/militia-rul
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
 | A14.checks / 4-activity | Phase View / Resolution Preview: Tier-1 recruitment uses each of the four tree-specific checks and DCs. | PASS; planned: rules.A14.checks; mapped: rules.activity.persistent.double_agent, rules.A14.checks.patrons, rules.A14.checks.informants, rules.A14.checks.moles, rules.A14.checks.defenders, rules.GATE.projection-parity; service: none |
-| A14.capacity / 4-activity | Phase View / Resolution Preview: Recruitment requires a free non-bonus slot, accounting for earlier dismissal even on dismissal failure. | PASS; planned: rules.A14.capacity; mapped: rules.A06.capacity, rules.GATE.projection-parity; service: none |
+| A14.capacity / 4-activity | Phase View / Resolution Preview: Recruitment checks non-reward team capacity after the week’s Activity actions, accounting for dismissal in either order even on dismissal failure. | PASS; planned: rules.A14.capacity; mapped: rules.A06.capacity, rules.GATE.projection-parity; service: none |
 | A14.natural-one / 4-activity | Phase View / Resolution Preview: Natural 1 can succeed but adds 1d6 Notoriety. | PASS; planned: rules.A14.natural-one; mapped: rules.A14.natural-one, rules.GATE.projection-parity; service: none |
 | A14.identity / 4-activity | Phase View / Resolution Preview: Successful repeated types create independent teams that may act immediately. | PASS; planned: rules.A14.identity; mapped: rules.A06.capacity, rules.teams.recruit-then-act, rules.GATE.projection-parity; service: none |
 
@@ -775,8 +773,8 @@ Sources: [R432: ## Action: Strike Team](../docs/ai/ironfang-militia/militia-rule
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
-| A23.combat / 4-activity | Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for floor(rank divided by 2) rounds. | PASS; planned: rules.A23.combat; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
-| A23.rank-one / 4-activity | Phase View / Resolution Preview: Rank 1 provides zero rounds without an explicit adjustment. | PASS; planned: rules.A23.rank-one; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
+| A23.combat / 4-activity | Phase View / Resolution Preview: Specialists provide +2 competence attack, damage and saves at chosen location next week for half the militia rank rounded down, with a minimum of one round. | PASS; planned: rules.A23.combat; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
+| A23.rank-one / 4-activity | Phase View / Resolution Preview: Strike Team support has a minimum duration of one round, including at rank 1. | PASS; planned: rules.A23.rank-one; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
 | A23.extraction / 4-activity | Phase View / Resolution Preview: Alternative records stabilization, gentle repose CL12 and body extraction. | PASS; planned: rules.A23.extraction; mapped: rules.A23.support, rules.GATE.projection-parity; service: none |
 | A23.duration / 4-activity | Phase View / Resolution Preview: Support lasts following week, requires location and once-use acknowledgement. | PASS; planned: rules.A23.duration; mapped: rules.A23.support, rules.A71.inputs, rules.A17.stale, rules.GATE.projection-parity; service: none |
 
@@ -793,7 +791,7 @@ Sources: [R443: ## Action: Upgrade Team](../docs/ai/ironfang-militia/militia-rul
 
 ## E01
 
-Sources: [R081: ### Event Chance](../docs/ai/ironfang-militia/militia-rules.md); [R452: ### Event Trigger](../docs/ai/ironfang-militia/militia-rules.md); [T056: ## Table 6-3: Militia Events (d%)](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R081: ### Event Chance](../docs/ai/ironfang-militia/militia-rules.md); [R452: ### Event Trigger](../docs/ai/ironfang-militia/militia-rules.md); [T056: ## Table 6-3: Militia Events (d%)](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -860,7 +858,7 @@ Sources: [R556: ## Event: Roll Twice](../docs/ai/ironfang-militia/militia-rules.
 
 ## E05
 
-Sources: [R081: ### Event Chance](../docs/ai/ironfang-militia/militia-rules.md); [R452: ### Event Trigger](../docs/ai/ironfang-militia/militia-rules.md); [R468: ## Event: All Is Calm](../docs/ai/ironfang-militia/militia-rules.md); [R485: ## Event: Calm before the Storm](../docs/ai/ironfang-militia/militia-rules.md); [T056: ## Table 6-3: Militia Events (d%)](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R081: ### Event Chance](../docs/ai/ironfang-militia/militia-rules.md); [R452: ### Event Trigger](../docs/ai/ironfang-militia/militia-rules.md); [R468: ## Event: All Is Calm](../docs/ai/ironfang-militia/militia-rules.md); [R485: ## Event: Calm before the Storm](../docs/ai/ironfang-militia/militia-rules.md); [T056: ## Table 6-3: Militia Events (d%)](../docs/ai/ironfang-militia/militia-tables.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -872,7 +870,7 @@ Sources: [R081: ### Event Chance](../docs/ai/ironfang-militia/militia-rules.md);
 
 ## E06
 
-Sources: [R088: ### Active and Persistent Events](../docs/ai/ironfang-militia/militia-rules.md); [R450: ## Event Phase](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R088: ### Active and Persistent Events](../docs/ai/ironfang-militia/militia-rules.md); [R450: ## Event Phase](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -973,7 +971,7 @@ Sources: [R510: ## Event: Hidden Agenda](../docs/ai/ironfang-militia/militia-rul
 |---|---|---|
 | EV08.base / 4-events | Phase View / Resolution Preview: All current Activity checks receive +2. | PASS; planned: rules.EV08.base; mapped: rules.EV08.base, rules.E76.projection-parity; service: none |
 | EV08.twice / 4-events | Phase View / Resolution Preview: Twice replaces with +5 rather than adding +7. | PASS; planned: rules.EV08.twice; mapped: rules.EV08.twice, rules.E76.projection-parity; service: none |
-| EV08.recompute / 4-events | Phase View / Resolution Preview: Earn Gold and Drill recompute success/gains when event is added or removed with browser/server agreement. | PASS; planned: rules.EV08.recompute; mapped: rules.EV08.twice, rules.EV08.readiness, rules.E76.projection-parity; service: none |
+| EV08.recompute / 4-events | Phase View / Resolution Preview: All Activity actions recalculate their checks and resulting outcomes when Hidden Agenda is added, changed, or removed, with browser/server agreement. Its bonus applies to every Activity check, not only Drill Militia and Earn Gold. | PASS; planned: rules.EV08.recompute; mapped: rules.EV08.actions.dismiss_team, rules.EV08.actions.drill_militia, rules.EV08.actions.recruit_team, rules.EV08.actions.earn_gold, rules.EV08.actions.gather_information, rules.EV08.actions.knowledge_check, rules.EV08.actions.rescue_character, rules.EV08.actions.reduce_danger, rules.EV08.actions.spread_propaganda, rules.EV08.actions.activate_black_market, rules.EV08.actions.secure_cache, rules.EV08.no-check, rules.EV08.twice, rules.EV08.readiness, rules.E76.projection-parity; service: none |
 
 ## EV09
 
@@ -1015,7 +1013,7 @@ Sources: [R530: ## Event: Market Day](../docs/ai/ironfang-militia/militia-rules.
 | EV12.base / 4-events | Phase View / Resolution Preview: Chosen operated town gives extra 5% discount on all items and services. | PASS; planned: rules.EV12.base; mapped: rules.EV12.base, rules.E74.projection-parity; service: none |
 | EV12.twice / 4-events | Phase View / Resolution Preview: Twice covers all operated marketplaces including Broker Market. | PASS; planned: rules.EV12.twice; mapped: rules.EV12.twice, rules.E74.projection-parity; service: none |
 | EV12.composition / 4-events | Phase View / Resolution Preview: Reputation discounts compose and town services are not limited to tracked market rows. | PASS; planned: rules.EV12.composition; mapped: rules.EV12.composition, rules.E74.projection-parity; service: none |
-| EV12.inputs / 4-events | Phase View / Resolution Preview: Missing target blocks completion and discount expires at prescribed time. | PASS; planned: rules.EV12.inputs; mapped: rules.EV21.inputs, rules.E75.projection-parity, rules.EV12.inputs, rules.EV12.operation-scope, rules.EV12.settlement-exception, rules.E74.projection-parity; service: none |
+| EV12.inputs / 4-events | Phase View / Resolution Preview: Market Day can be rolled and retained even when no town or settlement exists yet. A valid settlement must be chosen before the event can resolve; its discount expires at the prescribed time. | PASS; planned: rules.EV12.inputs; mapped: rules.EV12.unselected-town, rules.EV21.inputs, rules.E75.projection-parity, rules.EV12.inputs, rules.EV12.operation-scope, rules.EV12.settlement-exception, rules.E74.projection-parity; service: none |
 
 ## EV13
 
@@ -1091,7 +1089,7 @@ Sources: [R567: ## Event: Theft (Persistent-capable)](../docs/ai/ironfang-militi
 | EV19.base / 4-events | Phase View / Resolution Preview: Theft takes half of treasury after prior costs, rounded to copper precision. | PASS; planned: rules.EV19.base; mapped: rules.EV19.base, rules.E76.projection-parity; service: none |
 | EV19.mitigation / 4-events | Phase View / Resolution Preview: Loyalty DC20 reduces current loss to 10%; mitigation lasts only one week. | PASS; planned: rules.EV19.mitigation; mapped: rules.EV19.mitigate, rules.E76.projection-parity; service: none |
 | EV19.persistent / 4-events | Phase View / Resolution Preview: Twice halves incoming gains until successful Reduce Danger ends it. | PASS; planned: rules.EV19.persistent; mapped: rules.EV19.twice, rules.EV19.ending, rules.E76.projection-parity; service: none |
-| EV19.order / 4-events | Phase View / Resolution Preview: Deposits and all incoming paths follow same-week end/gain order with per-instance checks. | PASS; planned: rules.EV19.order; mapped: rules.EV19.base, rules.E76.projection-parity; service: none |
+| EV19.order / 4-events | Phase View / Resolution Preview: Ordinary Theft causes a one-time treasury loss when the event resolves. Only persistent Theft from the Twice result reduces subsequent incoming money; gains before it ends are reduced, and gains after it ends are received in full. | PASS; planned: rules.EV19.order; mapped: rules.EV19.base, rules.E76.projection-parity; service: none |
 
 ## EV20
 
@@ -1149,7 +1147,7 @@ Sources: [R593: ## Event: Week of Serenity](../docs/ai/ironfang-militia/militia-
 
 ## P01
 
-Sources: [R088: ### Active and Persistent Events](../docs/ai/ironfang-militia/militia-rules.md); [R460: ### Event Resolution Notes](../docs/ai/ironfang-militia/militia-rules.md); [R599: ## Persistent Events Rules](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
+Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rules.md); [R088: ### Active and Persistent Events](../docs/ai/ironfang-militia/militia-rules.md); [R460: ### Event Resolution Notes](../docs/ai/ironfang-militia/militia-rules.md); [R599: ## Persistent Events Rules](../docs/ai/ironfang-militia/militia-rules.md); [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55: tests/rules/decision-55.md](../tests/rules/decision-55.md); [D56: tests/rules/decision-56.md](../tests/rules/decision-56.md); [D57: tests/rules/decision-57.md](../tests/rules/decision-57.md); [AUDIT54: tests/rules/audit-inventory.json](../tests/rules/audit-inventory.json); [CASES: tests/rules/case-inventory.json](../tests/rules/case-inventory.json)
 
 | Case / checkpoint | Expected Phase View or Resolution Preview | Evidence / gap |
 |---|---|---|
@@ -1263,7 +1261,7 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 | P10.scope / 6-adapters | Phase View / Resolution Preview: Actual unauthenticated or unauthorized campaign writes are rejected for edit, confirm, adjust, buyoff, rank and treasury. | PASS; planned: rules.P10.scope; mapped: storage.scope, storage.reconstruction, rules.P79.authority, rules.P80.authority, rules.P81.gateway; service: live.persistence, live.confirmation |
 | P10.references / 6-adapters | Phase View / Resolution Preview: Cross-campaign child references are rejected. | PASS; planned: rules.P10.references; mapped: storage.scope, storage.reconstruction, rules.P79.authority, rules.P80.authority; service: live.persistence, live.confirmation |
 | P10.players / 6-adapters | Phase View / Resolution Preview: All authorized players may stage and confirm. | PASS; planned: rules.P10.players; mapped: rules.P79.contract, rules.P80.contract, setup.confirmation; service: live.workspace, live.confirmation |
-| P10.gm / 6-adapters | Phase View / Resolution Preview: GM correction controls are hidden from other players and protected at authority boundary. | PASS; planned: rules.P10.gm; mapped: rules.P86.authority, rules.P86.controls; service: live.confirmation |
+| P10.gm / 6-adapters | Phase View / Resolution Preview: All users with access to the organization can edit all militia data and use the same controls; there are no separate GM permissions at this stage. | PASS; planned: rules.P10.gm; mapped: rules.P86.authority, rules.P86.controls, initialization.member; service: live.confirmation |
 
 ## P11
 
@@ -1275,9 +1273,9 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 | P11.setup-lifecycle / 7-workspace | New and existing militia setup create one ordinary draft without resolving the week, preserve reference integrity and local navigation, and retain advisory deviations. | PASS; planned: setup.lifecycle; mapped: setup.lifecycle, setup.import, setup.authority, setup.references, setup.confirmation, setup.integrity, setup.navigation, setup.form, setup.carry-form, setup.required-facts; service: none |
 | P11.immutable / 8-cutover-rehearsal | Phase View / Resolution Preview: Historical views read complete immutable records rather than live state. | PASS; planned: rules.P11.immutable; mapped: storage.history, rules.P86.history, rules.P86.display, rules.P86.labels; service: live.confirmation |
 | P11.effective / 8-cutover-rehearsal | Phase View / Resolution Preview: Newest nonsuperseded record is effective; older records remain an audit trail. | PASS; planned: rules.P11.effective; mapped: storage.history, rules.P86.history, rules.P86.navigation, rules.P86.controls; service: none |
-| P11.cutover / 8-cutover-rehearsal | Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history. | PASS; planned: rules.P11.cutover; mapped: initialization.preserve, initialization.preflight, initialization.stale, initialization.retry, initialization.first-use, initialization.queues, initialization.expiry, initialization.unsupported-queue, initialization.delivery, initialization.new-event, initialization.ended-event, initialization.prior-ended-event, initialization.unknown-end, initialization.source-size; service: none; Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90. |
+| P11.cutover / 8-cutover-rehearsal | Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history. | PASS; planned: rules.P11.cutover; mapped: initialization.preserve, initialization.preflight, initialization.stale, initialization.retry, initialization.first-use, initialization.queues, initialization.expiry, initialization.unsupported-queue, initialization.delivery, initialization.new-event, initialization.ended-event, initialization.prior-ended-event, initialization.unknown-end, initialization.source-size; service: none; Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90. |
 | P11.no-execution / 8-cutover-rehearsal | Phase View / Resolution Preview: Initialization creates one empty draft without Upkeep, queue execution or advancement. | PASS; planned: rules.P11.no-execution; mapped: initialization.preserve; service: none |
-| P11.legacy / 8-cutover-rehearsal | Phase View / Resolution Preview: Server rejects legacy writes; pre-reopen recovery restores compatible state without losing newly accepted work. | GAP; planned: rules.P11.legacy; mapped: none; service: none; Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88. |
+| P11.legacy / 8-cutover-rehearsal | Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work. | GAP; planned: rules.P11.legacy; mapped: none; service: none; Pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88. |
 
 ## GATE
 
@@ -1291,20 +1289,12 @@ Sources: [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55:
 
 ## Remaining gaps
 
-- R001: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
-- R019: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
-- R163: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
-- R178: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
-- R217: Section not yet assigned an executable rule case; review against full corpus, including any non-testable introductory text.
-- F04.context: Upkeep rank and Strategist recomputation are covered. The corpus mentions ally/event action allowances without numeric definitions; replacement has no typed contextual allowance beyond reasoned action-capacity exceptions. Human rule classification remains pending.
-- O06.changes: Changing the current manager recomputes separately identified team checks; ordered within-week manager reassignment is not represented by a Weekly Draft choice and requires a product/rules timing decision.
 - E06.preserve: Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover.
-- P11.cutover: Initialization preservation and restart tests pass. Paused deployment, legacy-write rejection and recovery rehearsal remain pending in #89; production cutover is #90.
-- P11.legacy: Legacy-write rejection and pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.
-- Corpus review: Human review has not occurred (confirmed by the user for #88). Review all rules/tables and accepted product/persistence decisions; record reviewer and review reference before clearing this gap.
+- P11.cutover: Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90.
+- P11.legacy: Pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.
 
 ## Run evidence
 
-Source fingerprint: `266846091b3e7e140074e1940a09852bbed29d442b2f165531ec673d1a90c072`.
+Source fingerprint: `273197fe4744b457f192465225d1eb0120f16520e8de99e90f4d569294085e6d`.
 
 Service evidence: complete mandatory first-attempt suite for this source.

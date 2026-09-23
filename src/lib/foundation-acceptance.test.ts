@@ -255,59 +255,69 @@ test('[rules.acceptance.officer-abilities] each allowed ability, negative/tied s
   }
 });
 
-test('[rules.acceptance.overseer] secondary bonuses and one-use Event support cover every focus and check', () => {
+test('[rules.acceptance.overseer] secondary bonuses and Overseer support apply to every check within one selected event occurrence', () => {
   for (const focus of ['Loyalty', 'Secrecy', 'Security'] as const) {
-    for (const check of ['loyalty', 'secrecy', 'security'] as const) {
-      const input = foundationWeek(3, focus);
-      input.militiaSnapshot.roster.officers = [
-        { role: 'overseer', characterId: 'pc' },
-      ];
-      Object.assign(input.militiaSnapshot.characters[0]!, {
-        charisma: 18,
-        constitution: 12,
-        strength: 14,
-        wisdom: 20,
-        dexterity: 16,
-        intelligence: 12,
+    const input = foundationWeek(3, focus);
+    input.militiaSnapshot.roster.officers = [
+      { role: 'overseer', characterId: 'pc' },
+    ];
+    Object.assign(input.militiaSnapshot.characters[0]!, {
+      charisma: 18,
+      constitution: 12,
+      strength: 14,
+      wisdom: 20,
+      dexterity: 16,
+      intelligence: 12,
+    });
+    const checks = ['loyalty', 'secrecy', 'security', 'loyalty'] as const;
+    const project = () =>
+      projectRulesFoundations({
+        ...input.militiaSnapshot,
+        week: 40,
+        slots: [],
+        operatingSettlementId: null,
+        queuedEffects: [],
+        checks: ['selected', 'other'].flatMap((eventId) =>
+          checks.map((check, index) => ({
+            checkId: `${eventId}:${index}`,
+            eventId,
+            phase: 'event' as const,
+            check,
+            die: 10,
+            overseerCharacterId: 'pc',
+          })),
+        ),
       });
-      const project = () =>
-        projectRulesFoundations({
-          ...input.militiaSnapshot,
-          week: 40,
-          slots: [],
-          operatingSettlementId: null,
-          queuedEffects: [],
-          checks: [
-            {
-              checkId: 'first',
-              phase: 'event',
-              check,
-              die: 10,
-              overseerCharacterId: 'pc',
-            },
-            {
-              checkId: 'second',
-              phase: 'event',
-              check,
-              die: 10,
-              overseerCharacterId: 'pc',
-            },
-          ],
-        });
-      const result = project();
-      const base = focus.toLowerCase() === check ? 3 : 2;
-      const support = { loyalty: 4, secrecy: 3, security: 5 }[check];
-      expect(result.checks.map((x) => x.total)).toEqual([
-        10 + base + support,
-        10 + base,
-      ]);
-      expect(result.requirements).toContain('second:overseer-already-used');
-      input.militiaSnapshot.roster.officers = [];
-      expect(project().requirements).toContain('first:overseer-ineligible');
-      expect(project().checks[0]!.total).toBe(
-        10 + (focus.toLowerCase() === check ? 3 : 1),
-      );
-    }
+    const result = project();
+    expect(result.checks.map((check) => check.total)).toEqual(
+      ['selected', 'other'].flatMap((eventId) =>
+        checks.map(
+          (check) =>
+            10 +
+            (focus.toLowerCase() === check ? 3 : 2) +
+            (eventId === 'selected'
+              ? { loyalty: 4, secrecy: 3, security: 5 }[check]
+              : 0),
+        ),
+      ),
+    );
+    expect(result.checkUsage.overseerEventId).toBe('selected');
+    expect(result.requirements).toEqual(
+      checks.map((_, index) => `other:${index}:overseer-already-used`),
+    );
+    input.militiaSnapshot.roster.officers = [];
+    const absent = project();
+    expect(absent.checkUsage.overseerEventId).toBeNull();
+    expect(absent.requirements).toEqual(
+      ['selected', 'other'].flatMap((eventId) =>
+        checks.map((_, index) => `${eventId}:${index}:overseer-ineligible`),
+      ),
+    );
+    expect(absent.checks.map((check) => check.total)).toEqual(
+      ['selected', 'other'].flatMap(() =>
+        checks.map((check) => 10 + (focus.toLowerCase() === check ? 3 : 1)),
+      ),
+    );
   }
 });
 

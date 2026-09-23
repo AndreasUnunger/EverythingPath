@@ -418,12 +418,16 @@ test('[initialization.stale] source changes and unauthorized callers cannot init
   await expect(gm.run((ctx) => initializeCampaign(ctx, args))).rejects.toThrow(
     'source changed',
   );
-  for (const identity of ['test|player', 'test|outsider'])
-    await expect(
-      t
-        .withIdentity({ tokenIdentifier: identity })
-        .run((ctx) => initializeCampaign(ctx, args)),
-    ).rejects.toThrow('access required');
+  await expect(
+    t
+      .withIdentity({ tokenIdentifier: 'test|player' })
+      .run((ctx) => initializeCampaign(ctx, args)),
+  ).rejects.toThrow('source changed');
+  await expect(
+    t
+      .withIdentity({ tokenIdentifier: 'test|outsider' })
+      .run((ctx) => initializeCampaign(ctx, args)),
+  ).rejects.toThrow('access required');
   expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
 });
 
@@ -947,4 +951,27 @@ test('[initialization.theft-mitigation] current-week legacy Theft mitigation bec
     week: 9,
     retainedIncomePercent: 90,
   });
+});
+
+test('[initialization.member] an organization member can prepare and initialize the same canonical source as an administrator', async () => {
+  const { t, gm, scope } = await fixture();
+  const member = t.withIdentity({ tokenIdentifier: 'test|player' });
+  const plan = await member.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan).toEqual(
+    await gm.run((ctx) => preflightCampaignInitialization(ctx, scope)),
+  );
+  expect(plan.ready).toBe(true);
+  await member.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: plan.sourceToken,
+      initializationId: 'member-initialization',
+    }),
+  );
+  expect(await member.run((ctx) => readOpenDraft(ctx, scope))).not.toBeNull();
+  expect(await member.run((ctx) => readOpenDraft(ctx, scope))).toEqual(
+    await gm.run((ctx) => readOpenDraft(ctx, scope)),
+  );
 });

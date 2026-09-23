@@ -37,7 +37,6 @@ export const read = query({
         }),
       ),
       earlierSequence: v.union(v.number(), v.null()),
-      canRewriteHistory: v.boolean(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -107,13 +106,6 @@ export const read = query({
         .order('desc')
         .take(6),
     ]);
-    let canRewriteHistory = false;
-    try {
-      await requireScope(ctx, scope, true);
-      canRewriteHistory = true;
-    } catch {
-      // Read access was already checked; GM correction authority is independent.
-    }
     return {
       week: effective.week,
       effectiveRecordId: effective.recordId,
@@ -126,7 +118,6 @@ export const read = query({
         provenance: record.provenance,
       })),
       earlierSequence: audit.length > 5 ? (audit[4]?.sequence ?? null) : null,
-      canRewriteHistory,
     };
   },
 });

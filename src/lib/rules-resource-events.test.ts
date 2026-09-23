@@ -518,3 +518,42 @@ test('[rules.EV12.settlement-exception] known unoperated targets allow recorded 
     );
   }
 });
+
+test('[rules.EV12.unselected-town] Market Day remains the rolled event without settlements and waits for a valid chosen town', () => {
+  for (const twice of [false, true]) {
+    const { draft, snapshot } = resourceEventFixture(38, twice);
+    const town = snapshot.settlements[0]!;
+    snapshot.settlements = [];
+    delete draft.activity.operatingSettlementId;
+    for (const event of draft.event.occurrences) event.targets = [];
+    const before = structuredClone(draft);
+    let result = project(draft, snapshot).event;
+    const eventIds = twice ? ['first', 'second'] : ['event'];
+    expect(result.selected.map((event) => event.eventId)).toEqual(eventIds);
+    expect(result.requirements).toEqual(
+      eventIds.map((id) => `${id}:settlement`),
+    );
+    expect(result.ready).toBe(false);
+    expect(draft).toEqual(before);
+    snapshot.settlements = [town];
+    draft.activity.operatingSettlementId = town.settlementId;
+    result = project(draft, snapshot).event;
+    // Creating a town does not choose the base occurrence's target implicitly.
+    expect(result.ready).toBe(false);
+    expect(result.requirements).toContain(`${eventIds[0]}:settlement`);
+    for (const event of draft.event.occurrences)
+      event.targets = [{ kind: 'settlement', settlementId: town.settlementId }];
+    result = project(draft, snapshot).event;
+    expect(result.requirements).toEqual([]);
+    expect(result.ready).toBe(true);
+    expect(result.selected.map((event) => event.eventId)).toEqual(eventIds);
+    expect(
+      projectEventPurchaseCost(
+        result.outcome,
+        draft.week,
+        town.settlementId,
+        10000,
+      ),
+    ).toBe(9500);
+  }
+});

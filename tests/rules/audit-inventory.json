@@ -11,9 +11,9 @@
     },
     {
       "id": "F02",
-      "baseline": "F02 \u2014 All 20 training thresholds; rank never decreases; highest-PC cap; AP volume caps 4/7/10/13/15/17. [R5], [R21], [R28]; [T3], [T16].",
-      "evidence": "[G1] matches every training threshold. [W407]/[W5255] allow a **manual one-rank increase** based on live training/highest active PC, with no automatic decrease. No AP-volume context in the Weekly Draft. **Partial:** automatic multi-rank advancement and its ordering are missing (U04).",
-      "remainingCases": "[Progression tests](https://github.com/AndreasUnunger/EverythingPath/blob/4fc7002c5caba9a38da008c1583d9b0e077ac29c/src/lib/militia-progression-rules.test.ts#L1) test treasury snapshots, not threshold coverage. Missing all threshold-minus-one/exact/above cases, multiple ranks, PC cap, no active PC, rank 20, rank retention after loss, and explicit AP-cap warning policy.",
+      "baseline": "F02 \u2014 All 20 training thresholds; rank never decreases; highest-PC cap. [R5], [R21], [R28]; [T3], [T16].",
+      "evidence": "[G1] matches every training threshold. [W407]/[W5255] allow a **manual one-rank increase** based on live training/highest active PC, with no automatic decrease. **Partial:** automatic multi-rank advancement and its ordering are missing (U04).",
+      "remainingCases": "[Progression tests](https://github.com/AndreasUnunger/EverythingPath/blob/4fc7002c5caba9a38da008c1583d9b0e077ac29c/src/lib/militia-progression-rules.test.ts#L1) test treasury snapshots, not threshold coverage. Missing all threshold-minus-one/exact/above cases, multiple ranks, PC cap, no active PC, rank 20, rank retention after loss.",
       "url": "https://github.com/AndreasUnunger/EverythingPath/issues/54#issuecomment-5574293220"
     },
     {

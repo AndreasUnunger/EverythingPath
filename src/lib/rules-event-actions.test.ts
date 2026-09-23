@@ -9,15 +9,10 @@ import { weeklyDraftSchema } from './weekly-draft-contract';
 test('[rules.A05.next] augmentation follows the next actual choice and recomputes on moving and clearing', () => {
   const { draft, snapshot } = eventActionFixture('covert_action');
   draft.activity.slots.splice(1, 0, { slotId: 'empty', choice: null });
-  draft.rulesExceptions.push({
-    exceptionId: 'capacity',
-    subjectId: 'drill',
-    ruleId: 'action-capacity',
-    reason: 'Extra slot',
-  });
+  snapshot.roster.officers.push({ role: 'strategist', characterId: 'pc' });
   const result = projectActivity(draft, snapshot);
   expect(result.ready).toBe(true);
-  expect(result.checks[0]?.total).toBe(16);
+  expect(result.checks[0]?.total).toBe(18);
   expect(
     result.checks[0]?.modifiers.filter((entry) =>
       entry.source.startsWith('covert:'),
@@ -70,17 +65,17 @@ test('[rules.A05.failure] failed targets retain natural-one notoriety and duplic
       rolls: { check: roll(20, 1), notoriety: roll(6, 2) },
     },
   });
-  for (const ruleId of ['action-capacity', 'drill-limit'])
-    draft.rulesExceptions.push({
-      exceptionId: ruleId,
-      subjectId: 'again',
-      ruleId,
-      reason: 'Table exception',
-    });
+  snapshot.roster.officers.push({ role: 'strategist', characterId: 'pc' });
+  draft.rulesExceptions.push({
+    exceptionId: 'drill-limit',
+    subjectId: 'again',
+    ruleId: 'drill-limit',
+    reason: 'Table permits another Drill action',
+  });
   result = projectActivity(draft, snapshot);
   expect(result.ready).toBe(true);
   expect(result.outcome.notoriety).toBe(16);
-  expect(result.checks[1]?.total).toBe(4);
+  expect(result.checks[1]?.total).toBe(6);
 });
 test('[rules.A05.contact] contacts and caches require a site and receipt and last only this week', () => {
   for (const mode of ['contact', 'cache'] as const) {
@@ -247,22 +242,25 @@ test('[rules.A13.team] Guardians must be assigned and eligible', () => {
   delete choice.teamId;
   expect(project(draft, snapshot).event.requirements).toContain('shape:team');
 });
-test('[rules.A13.chooser] manager selects or a randomly chosen PC is explicitly recorded', () => {
-  const { draft, snapshot, choice } = eventActionFixture('manipulate_events');
-  if (choice.actionId !== 'manipulate_events') throw Error('fixture');
-  expect(project(draft, snapshot).event.guarantees[0]?.chooser).toEqual({
-    kind: 'manager',
-    characterId: 'pc',
-  });
-  snapshot.roster.teams[0]!.managerCharacterId = null;
-  expect(project(draft, snapshot).event.requirements).toContain(
-    'shape:chooser',
-  );
-  choice.chooserCharacterId = 'pc';
-  expect(project(draft, snapshot).event.guarantees[0]?.chooser).toEqual({
-    kind: 'random_pc',
-    characterId: 'pc',
-  });
+test('[rules.A13.chooser] either event result can be selected without identifying a manager or player', () => {
+  for (const managerCharacterId of ['pc', null]) {
+    const { draft, snapshot, choice } = eventActionFixture('manipulate_events');
+    if (choice.actionId !== 'manipulate_events') throw Error('fixture');
+    snapshot.roster.teams[0]!.managerCharacterId = managerCharacterId;
+    for (const candidate of choice.candidates ?? []) {
+      choice.selectedEventId = candidate.eventId;
+      const result = project(draft, snapshot);
+      expect(result.event.ready).toBe(true);
+      expect(result.event.requirements).toEqual([]);
+      expect(result.event.guarantees[0]?.selectedEventId).toBe(
+        candidate.eventId,
+      );
+      expect(result.event.guarantees[0]).not.toHaveProperty('chooser');
+      expect(
+        weeklyDraftSchema.parse(draft).activity.slots[0]!.choice,
+      ).not.toHaveProperty('chooserCharacterId');
+    }
+  }
 });
 test('[rules.A13.composition] Manipulate and Guarantee retain independent selections in action order', () => {
   const { draft, snapshot } = eventActionFixture('manipulate_events');

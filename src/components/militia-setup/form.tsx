@@ -56,6 +56,15 @@ export function MilitiaSetupForm({
             <Field
               name="mode"
               label="Campaign progress"
+              onChoice={(mode) =>
+                form.setValue(
+                  'state.context.firstMilitiaWeek',
+                  mode === 'new',
+                  {
+                    shouldDirty: true,
+                  },
+                )
+              }
               options={[
                 { value: 'new', label: 'New militia' },
                 { value: 'existing', label: 'Existing militia' },
@@ -71,17 +80,6 @@ export function MilitiaSetupForm({
                 name="state.militiaSnapshot.focus"
                 label="Focus"
                 options={choices(['Loyalty', 'Security', 'Secrecy'])}
-              />
-              <Field
-                name="state.militiaSnapshot.apVolume"
-                label="Adventure Path volume (optional)"
-                options={[
-                  { value: undefined, label: 'Not recorded' },
-                  ...[1, 2, 3, 4, 5, 6].map((value) => ({
-                    value,
-                    label: String(value),
-                  })),
-                ]}
               />
               <Field name="state.militiaSnapshot.rank" label="Rank" numeric />
               <Field
@@ -109,11 +107,13 @@ export function MilitiaSetupForm({
                 label="Week start day"
                 numeric
               />
-              <Field
-                name="state.context.firstMilitiaWeek"
-                label="First militia week"
-                options={yesNo}
-              />
+              {values.mode === 'new' && (
+                <Field
+                  name="state.context.firstMilitiaWeek"
+                  label="First militia week"
+                  options={yesNo}
+                />
+              )}
               <Field
                 name="state.context.uneventfulCarry"
                 label="Previous week was uneventful"
@@ -137,8 +137,9 @@ export function MilitiaSetupForm({
               />
             </div>
             <p className="text-muted-foreground text-sm">
-              Setup records your week without resolving it. First militia week
-              controls the initial Upkeep skip independently of the week number.
+              Setup records your week without resolving it. Existing militias
+              run Upkeep. A newly founded militia skips its first-ever Upkeep,
+              independently of the displayed week number.
             </p>
           </SetupSection>
           <SetupRoster characters={characters} />

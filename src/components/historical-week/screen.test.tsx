@@ -55,16 +55,13 @@ const history: ComponentProps<typeof HistoricalWeekNavigation>['history'] = {
     { recordId: 'original', sequence: 0, provenance: 'confirmation' },
   ],
   earlierSequence: 3,
-  canRewriteHistory: false,
 };
-test('[rules.P86.controls] history navigation selects whole records independently and exposes the correction seam only to GMs', () => {
+test('[rules.P86.controls] history navigation selects whole records independently and shows correction information to all members', () => {
   const select = vi.fn();
-  const { rerender } = render(
-    <HistoricalWeekNavigation history={history} select={select} />,
-  );
+  render(<HistoricalWeekNavigation history={history} select={select} />);
   expect(
-    screen.queryByRole('heading', { name: 'GM history correction' }),
-  ).not.toBeInTheDocument();
+    screen.getByRole('heading', { name: 'History correction' }),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Previous week' }));
   expect(select).toHaveBeenLastCalledWith({ week: 2 });
   fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
@@ -83,15 +80,6 @@ test('[rules.P86.controls] history navigation selects whole records independentl
     recordId: 'original',
     beforeSequence: 3,
   });
-  rerender(
-    <HistoricalWeekNavigation
-      history={{ ...history, canRewriteHistory: true }}
-      select={select}
-    />,
-  );
-  expect(
-    screen.getByRole('heading', { name: 'GM history correction' }),
-  ).toBeInTheDocument();
   expect(
     screen.queryByRole('button', { name: /restore|reopen|confirm week/i }),
   ).not.toBeInTheDocument();

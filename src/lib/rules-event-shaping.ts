@@ -1,3 +1,4 @@
+import { eventOverseerSelection } from './rules-overseer-event';
 import {
   projectActivity,
   activityCheckEffects,
@@ -118,22 +119,27 @@ function validateSabotageTeam(
 }
 function projectSabotageCheck(
   context: ShapingContext,
+  event: Event,
   choice: Sabotage,
   team: Team,
   checkId: string,
   raw: number | null,
 ) {
+  const support = eventOverseerSelection(event);
+  if (support.conflicting)
+    context.result.requirements.push(`${checkId}:overseer-conflict`);
   return choice.check
     ? projectRulesFoundations({
         ...createFoundationInput(context),
         checks: [
           {
             checkId,
+            eventId: event.eventId,
             phase: 'event',
             check: choice.check,
             teamId: team.teamId,
             die: raw ?? undefined,
-            overseerCharacterId: choice.overseerCharacterId,
+            overseerCharacterId: support.characterId,
             bonusIds: choice.rolls?.check?.modifiers.flatMap((modifier) =>
               modifier.sourceId.startsWith('bonus:')
                 ? [modifier.sourceId.slice(6)]
@@ -273,7 +279,14 @@ function resolveSabotage(context: ShapingContext, event: Event) {
     6,
   );
   const checkId = `${event.eventId}:sabotage:${choice.choiceId}`;
-  const facts = projectSabotageCheck(context, choice, team, checkId, raw);
+  const facts = projectSabotageCheck(
+    context,
+    event,
+    choice,
+    team,
+    checkId,
+    raw,
+  );
   if (facts) recordSabotageCheck(context, choice, checkId, facts);
   recordSabotageOutcome(
     context,

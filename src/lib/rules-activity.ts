@@ -70,6 +70,7 @@ export type ActivityProjection = {
   actionResults: { choiceId: string; succeeded: boolean | null }[];
   slots: (WeeklyDraft['activity']['slots'][number] & {
     overAllowance: boolean;
+    strategistBonus: boolean;
   })[];
   outcome: UpkeepSnapshot;
   endedEventIds: string[];
@@ -265,6 +266,13 @@ function dismiss(
     result.requirements.push(`${choice.choiceId}:target-team`);
     return;
   }
+  const total = check(draft, result, choice, 'loyalty', 10);
+  if (total === null) return;
+  if (total < 10) {
+    const gain = dice(result, choice, 'notoriety', 1, 6);
+    if (gain === null) return;
+    value(result, choice, 'notoriety', gain);
+  }
   result.outcome.roster.teams = result.outcome.roster.teams.filter(
     (entry) => entry.teamId !== team.teamId,
   );
@@ -273,11 +281,6 @@ function dismiss(
     choiceId: choice.choiceId,
     teamId: team.teamId,
   });
-  const total = check(draft, result, choice, 'loyalty', 10);
-  if (total !== null && total < 10) {
-    const gain = dice(result, choice, 'notoriety', 1, 6);
-    if (gain !== null) value(result, choice, 'notoriety', gain);
-  }
 }
 function exception(
   draft: WeeklyDraft,
@@ -394,12 +397,6 @@ function recruit(
     result.requirements.push(`${choice.choiceId}:recruitment-check`);
     return;
   }
-  const facts = foundations(draft, result);
-  if (
-    facts.capacity.countedTeams >= facts.capacity.teams &&
-    !exception(draft, result, choice, 'team-capacity')
-  )
-    return;
   const total = check(draft, result, choice, recruitment.check, recruitment.dc);
   naturalOne(result, choice);
   if (total === null || total < recruitment.dc) return;
@@ -425,6 +422,33 @@ function recruit(
     team: { ...team },
   });
 }
+// Recruitment may precede dismissal: only teams left after executable Activity
+// choices consume the final allowance. Incomplete or skipped removals cannot help.
+function validateRecruitmentCapacity(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+) {
+  const countedIds = new Set(
+    result.outcome.roster.teams
+      .filter((team) => !team.rewardCapExempt)
+      .map((team) => team.teamId),
+  );
+  const recruits = result.plan.filter(
+    (change): change is Extract<ActivityChange, { kind: 'recruit_team' }> =>
+      change.kind === 'recruit_team' && countedIds.has(change.team.teamId),
+  );
+  const capacity = foundations(draft, result).capacity.teams;
+  let count = countedIds.size - recruits.length;
+  for (const recruitment of recruits) {
+    count++;
+    if (count <= capacity) continue;
+    const choice = draft.activity.slots.find(
+      (slot) => slot.choice?.choiceId === recruitment.choiceId,
+    )?.choice;
+    if (choice) exception(draft, result, choice, 'team-capacity');
+  }
+}
+
 function upgradeEligible(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -783,7 +807,12 @@ export function projectActivity(
     requirements: [],
     warnings: [],
     checks: [],
-    checkUsage: { bonusIds: [], helpful: false, overseer: false },
+    checkUsage: {
+      bonusIds: [],
+      helpful: false,
+      overseerEventId: null,
+      overseerCharacterId: null,
+    },
     teamUse: { usedTeamIds: [], upgradedTeamIds: [] },
   };
   prepareEconomy(draft, result);
@@ -792,12 +821,20 @@ export function projectActivity(
     const choice = slot.choice;
     const facts = foundations(draft, result);
     const overAllowance = index >= facts.capacity.actions && choice !== null;
-    result.slots.push({ ...structuredClone(slot), overAllowance });
+    result.slots.push({
+      ...structuredClone(slot),
+      overAllowance,
+      strategistBonus:
+        facts.officers.strategistAssigned &&
+        index === facts.capacity.actions - 1,
+    });
     if (!choice) continue;
     let eligible = true;
-    if (overAllowance)
-      eligible =
-        exception(draft, result, choice, 'action-capacity') && eligible;
+    if (overAllowance) {
+      result.requirements.push(`${choice.choiceId}:action-capacity`);
+      result.warnings.push(`${choice.choiceId}:action-capacity`);
+      continue;
+    }
     if (choice.actionId === 'drill_militia')
       eligible = drillEligible(draft, result, choice, drills++) && eligible;
     for (const rule of actionRestrictions(draft, choice))
@@ -810,6 +847,7 @@ export function projectActivity(
     resolveChoice(draft, result, choice);
     finishCovertAction(result, choice, planStart, requirementStart);
   }
+  validateRecruitmentCapacity(draft, result);
   receiveEconomyOrders(draft, result);
   consumeBonuses(draft, result);
   requireConsumableTargets(draft, result);

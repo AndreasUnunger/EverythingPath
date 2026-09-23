@@ -41,8 +41,6 @@ export function upkeepWarningMessages(view: UpkeepView) {
         );
         if (officer)
           return `${officer.name ?? 'An assigned officer'} is archived. Review the assignment and its check bonus.`;
-        if (code === 'rank:ap-cap')
-          return 'Training qualifies the militia for a rank above the adventure progression limit. Review the rank with the table.';
         if (code === 'rank:pc-cap')
           return 'The militia rank exceeds the highest player-character level. Review the rank with the table.';
         const roll = Object.entries(rollNames).find(
