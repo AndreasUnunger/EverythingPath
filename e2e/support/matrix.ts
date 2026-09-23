@@ -30,6 +30,11 @@ const confirmationContract = [
   'shared Confirmation contract commits reviewed weeks in isolated Convex',
 ] as const;
 
+const cutoverJourney = [
+  'canonical-cutover.spec.ts',
+  'paused cutover preserves source and restores verified backup before reopening',
+] as const;
+
 const workspaceJourney = [
   'canonical-workspace.spec.ts',
   'players prepare shared Upkeep with independent navigation and save recovery',
@@ -48,6 +53,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   };
   return [
     { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
+    { ...tablet, name: 'canonical-cutover', testMatch: cutoverJourney[0] },
     { ...tablet, name: 'canonical-workspace', testMatch: workspaceJourney[0] },
     tablet,
     {
@@ -106,6 +112,7 @@ export function requiredTests(mode: SuiteMode) {
           persistenceContract,
           confirmationContract,
           workspaceJourney,
+          cutoverJourney,
         ]
           .filter(([file]) => [project.testMatch].flat().includes(file))
           .map(([file, title]) => [file, project.name!, title]),

@@ -1,3 +1,4 @@
+import { prepareInitializationSnapshot } from './initializationSnapshot';
 import type { CampaignContext } from '../../src/lib/canonical-campaign-context';
 import { z } from 'zod';
 import { ConvexError } from 'convex/values';
@@ -89,6 +90,15 @@ export async function preflightCampaignInitialization(
         ),
       );
   }
+  const snapshot =
+    roster && prepared
+      ? prepareInitializationSnapshot(
+          source,
+          roster.roster,
+          prepared.context,
+          issues,
+        )
+      : null;
   // Exact reviewed source token: includes authoritative facts and preparation
   // revisions, excludes discarded choices/history. Not a security credential.
   const sourceToken = JSON.stringify({
@@ -104,6 +114,7 @@ export async function preflightCampaignInitialization(
       'Initialization source exceeds receipt size limit; prepare a paginated cutover',
     );
   return {
+    snapshot,
     recovered: {
       week: week?.weekNumber ?? null,
       firstMilitiaWeek: week?.isFirstWeek ?? null,
@@ -157,7 +168,7 @@ export async function initializeCampaign(
   const plan = await preflightCampaignInitialization(ctx, input);
   if (plan.sourceToken !== input.sourceToken)
     throw new ConvexError('Initialization source changed; repeat preflight');
-  if (!plan.ready || !plan.facts || !plan.source.week)
+  if (!plan.ready || !plan.facts || !plan.source.week || !plan.snapshot)
     throw new ConvexError(plan.issues.join('\n'));
   const existingDraft = await ctx.db
     .query('canonicalWeeklyDraft')
@@ -167,6 +178,12 @@ export async function initializeCampaign(
     .first();
   if (existingDraft)
     throw new ConvexError('Campaign already has canonical drafts');
+  const existingState = await ctx.db
+    .query('canonicalMilitiaState')
+    .withIndex('by_militiaId', (q) => q.eq('militiaId', input.militiaId))
+    .unique();
+  if (existingState)
+    throw new ConvexError('Campaign already has canonical state');
   const draftId = `initialization:${initializationId}`;
   const priorOperation = await ctx.db
     .query('canonicalDraftOperation')
@@ -185,6 +202,12 @@ export async function initializeCampaign(
       context: plan.facts,
       slotIds: [],
     }),
+  });
+  await ctx.db.insert('canonicalMilitiaState', {
+    campaignId: input.campaignId,
+    militiaId: input.militiaId,
+    revision: 0,
+    snapshot: plan.snapshot,
   });
   await ctx.db.insert('canonicalCampaignInitialization', {
     campaignId: input.campaignId,
@@ -270,7 +293,7 @@ async function readInitializationSource(ctx: ReadCtx, scope: Scope) {
   return source;
 }
 
-type InitializationSource = Awaited<
+export type InitializationSource = Awaited<
   ReturnType<typeof readInitializationSource>
 >;
 type PreparedRoster = NonNullable<Awaited<ReturnType<typeof readRoster>>>;

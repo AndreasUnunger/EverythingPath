@@ -2,9 +2,10 @@
 
 `convex/lib/campaignInitialization.ts` exposes unregistered preflight and
 initializer functions for isolated transaction tests and the later paused-cutover
-runner. There is no application endpoint, live migration, or activation switch.
+runner. The only registered caller is the capability-guarded, disposable preview rehearsal
+in `canonicalPersistenceFixtures`. There is no live migration or activation switch.
 
-1. Read `preflightCampaignInitialization` as the campaign GM. It returns the
+1. Read `preflightCampaignInitialization` as an organization member. It returns the
    authoritative source, recoverable week-start values, preparation records,
    missing/preservation issues, and an exact reviewed-source token.
 2. Complete the existing isolated roster and campaign-context preparation seams
@@ -26,7 +27,9 @@ runner. There is no application endpoint, live migration, or activation switch.
    `initializeCampaign` inside a single isolated mutation transaction. It opens
    an empty revision-zero draft at the existing week with fixed context and
    writes a receipt atomically. The initializer never saves prepared facts,
-   changes balances, consumes queues, advances weeks, or invokes rules.
+   changes balances, consumes queues, advances weeks, or invokes rules. It also
+   writes the preserved canonical source snapshot in the same transaction so
+   ordinary Workspace reads, edits, and Confirmation can use the initialized draft.
 5. Retry with the same ID and token after a lost response. The receipt returns
    the original draft ID, including after subsequent edits, without resetting
    anything. Different source/identity attempts fail. Existing canonical drafts
@@ -38,12 +41,22 @@ canonical history is initially empty; legacy history is not copied into it.
 All legacy asset metadata, including marketplaces and tracked-person status,
 remains authoritative in its original tables and is included in source review.
 
+Preparation now also requires explicit `resolutionAssets`: complete economy,
+character-action and event-benefit collections, including empty ones. This resolves
+facts such as item weights/locations and cache inventory without guessing.
+Preflight validates known prepared values against that snapshot and checks all
+canonical references. Legacy marketplaces/tracked people, enchantment orders,
+and current-week event transitions still need faithful mappings; preflight rejects
+them rather than dropping their current state. Recovered week-start event facts
+remain visible for review even when activation is blocked.
+
 Preparation is bounded to 256 documents per source collection and a 750 KB
 receipt. Oversized sources report a preflight issue and cannot initialize;
 prepare a paginated cutover plan for those campaigns.
 Missing/closed current-week records and cancelled orders also fail preflight
-rather than guessing an open week or a receipt. Deployment pause, old-tab
-rejection, backup/recovery and application cutover belong to later tickets.
+rather than guessing an open week or a receipt. See the [paused rehearsal runbook](paused-cutover-runbook.md) for #89 evidence
+and recovery. Production activation remains #90; explicit old-tab rejection is
+out of scope under the accepted P11.legacy review decision.
 
 Evidence: `convex/campaignInitialization.integration.test.ts` exercises real
 isolated Convex transactions through the preparation/initialization/storage

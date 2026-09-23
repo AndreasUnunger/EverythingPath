@@ -28,6 +28,8 @@ import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js
 import type * as lib_canonicalIsolation from "../lib/canonicalIsolation.js";
 import type * as lib_canonicalRoster from "../lib/canonicalRoster.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
+import type * as lib_initializationFixture from "../lib/initializationFixture.js";
+import type * as lib_initializationSnapshot from "../lib/initializationSnapshot.js";
 import type * as migrations from "../migrations.js";
 import type * as militia from "../militia.js";
 import type * as spell from "../spell.js";
@@ -64,6 +66,8 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalIsolation": typeof lib_canonicalIsolation;
   "lib/canonicalRoster": typeof lib_canonicalRoster;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
+  "lib/initializationFixture": typeof lib_initializationFixture;
+  "lib/initializationSnapshot": typeof lib_initializationSnapshot;
   migrations: typeof migrations;
   militia: typeof militia;
   spell: typeof spell;

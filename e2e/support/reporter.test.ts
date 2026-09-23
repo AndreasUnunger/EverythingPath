@@ -23,6 +23,8 @@ it.each([
   'retry-confirmation',
   'missing-workspace',
   'retry-workspace',
+  'missing-cutover',
+  'retry-cutover',
 ] as const)(
   'the reporter and Playwright agree on a %s required journey',
   async (mode) => {
@@ -82,6 +84,11 @@ it.each([
           join(directory, 'canonical-workspace.spec.ts'),
           `import { test } from ${playwright}; test('players prepare shared Upkeep with independent navigation and save recovery', async ({}, info) => { ${mode === 'retry-workspace' ? "if(info.retry===0) throw new Error('Synthetic Workspace failure');" : ''} });`,
         );
+      if (mode !== 'missing-cutover')
+        await writeFile(
+          join(directory, 'canonical-cutover.spec.ts'),
+          `import { test } from ${playwright}; test('paused cutover preserves source and restores verified backup before reopening', async ({}, info) => { ${mode === 'retry-cutover' ? "if(info.retry===0) throw new Error('Synthetic cutover failure');" : ''} });`,
+        );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(
         config,
@@ -90,10 +97,11 @@ it.each([
         retries: 1, reporter: [[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],
         projects: [
           { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
-          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: ['canonical-persistence.spec.ts','canonical-confirmation.spec.ts','canonical-workspace.spec.ts'], dependencies: ['authentication'] },
+          { name: 'chromium-tablet', testMatch: '*.spec.ts', testIgnore: ['canonical-persistence.spec.ts','canonical-confirmation.spec.ts','canonical-workspace.spec.ts','canonical-cutover.spec.ts'], dependencies: ['authentication'] },
           { name: 'canonical-persistence', testMatch: 'canonical-persistence.spec.ts', dependencies: ['authentication'] },
           { name: 'canonical-confirmation', testMatch: 'canonical-confirmation.spec.ts', dependencies: ['authentication'] },
           { name: 'canonical-workspace', testMatch: 'canonical-workspace.spec.ts', dependencies: ['authentication'] },
+          { name: 'canonical-cutover', testMatch: 'canonical-cutover.spec.ts', dependencies: ['authentication'] },
         ],
       };`,
       );
@@ -121,7 +129,8 @@ it.each([
         mode === 'retry-multiplayer' ||
         mode === 'retry-persistence' ||
         mode === 'retry-confirmation' ||
-        mode === 'retry-workspace'
+        mode === 'retry-workspace' ||
+        mode === 'retry-cutover'
       )
         expect(report).toMatchObject({
           tests: expect.arrayContaining([
@@ -135,7 +144,9 @@ it.each([
                       ? 'canonical-persistence.spec.ts'
                       : mode === 'retry-confirmation'
                         ? 'canonical-confirmation.spec.ts'
-                        : 'canonical-workspace.spec.ts',
+                        : mode === 'retry-workspace'
+                          ? 'canonical-workspace.spec.ts'
+                          : 'canonical-cutover.spec.ts',
               results: [
                 { status: 'failed', retry: 0 },
                 { status: 'passed', retry: 1 },

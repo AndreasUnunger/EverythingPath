@@ -1,3 +1,6 @@
+import { economyStateSchema } from './rules-economy-state';
+import { characterActionStateSchema } from './rules-character-state';
+import { eventBenefitsSchema } from './rules-event-benefits';
 import { z } from 'zod';
 import {
   REPUTATION_LEVELS,
@@ -88,6 +91,13 @@ export const contextCacheSchema = z.strictObject({
 // Additive preparation document. Unknown legacy facts remain null until preflight
 // resolves them. Bounds protect Convex's document size, not militia rule limits.
 export const campaignContextDataSchema = z.strictObject({
+  resolutionAssets: z
+    .strictObject({
+      economy: economyStateSchema,
+      characterActions: characterActionStateSchema,
+      eventBenefits: eventBenefitsSchema,
+    })
+    .optional(),
   operatingSettlementId: id.nullable(),
   treasuryCopper: z.number().int().nullable(),
   firstMilitiaWeek: z.boolean().nullable(),

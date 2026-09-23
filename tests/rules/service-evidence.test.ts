@@ -27,7 +27,12 @@ test('only the complete first-attempt deployed suite for this source provides se
     evidence.testResults.flatMap((file) =>
       file.assertionResults.map((test) => test.fullName),
     ),
-  ).toEqual(['[live.workspace]', '[live.persistence]', '[live.confirmation]']);
+  ).toEqual([
+    '[live.workspace]',
+    '[live.persistence]',
+    '[live.confirmation]',
+    '[live.cutover]',
+  ]);
   expect(() => collectServiceEvidence(report(), 'b'.repeat(64))).toThrow(
     'source',
   );

@@ -20,10 +20,12 @@ export function collectServiceEvidence(
     throw new Error('Service evidence is incomplete or unsuccessful');
   return {
     success: true,
-    testResults: ['workspace', 'persistence', 'confirmation'].map((name) => ({
-      name: `e2e/canonical-${name}.spec.ts`,
-      status: 'passed',
-      assertionResults: [{ fullName: `[live.${name}]`, status: 'passed' }],
-    })),
+    testResults: ['workspace', 'persistence', 'confirmation', 'cutover'].map(
+      (name) => ({
+        name: `e2e/canonical-${name}.spec.ts`,
+        status: 'passed',
+        assertionResults: [{ fullName: `[live.${name}]`, status: 'passed' }],
+      }),
+    ),
   };
 }

@@ -1,6 +1,11 @@
+import { persistDraftOperation } from './lib/canonicalDraftPersistenceAuthority';
+import { initializationEdits } from '../tests/rules/initialization-edits';
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import { z } from 'zod';
+import { api, internal } from './_generated/api';
+import { deploymentFixture } from '../e2e/support/test-data';
 import schema from './schema';
 import {
   preflightCampaignInitialization,
@@ -14,266 +19,16 @@ import {
   readEffectiveRecord,
   saveDraftRevision,
 } from './lib/canonicalDraftStorage';
-import { emptyCampaignContext } from '../src/lib/canonical-campaign-context';
+import { seedInitializationCampaign } from './lib/initializationFixture';
+import { previewDraft } from './lib/canonicalConfirmation';
 import { editWeeklyDraft } from '../src/lib/weekly-draft';
 const modules = import.meta.glob('./**/*.ts');
 
 async function fixture() {
   const t = convexTest(schema, modules);
-  const ids = await t.run(async (ctx) => {
-    await ctx.db.insert('user', {
-      tokenIdentifier: 'test|gm',
-      orgIds: [{ orgId: 'org', role: 'admin' }],
-    });
-    await ctx.db.insert('user', {
-      tokenIdentifier: 'test|player',
-      orgIds: [{ orgId: 'org', role: 'member' }],
-    });
-    const campaignId = await ctx.db.insert('campaign', {
-      name: 'Campaign',
-      ownerId: 'gm',
-      organizationId: 'org',
-      description: '',
-    });
-    const characterId = await ctx.db.insert('character', {
-      campaignId,
-      name: 'Officer',
-      ownerId: 'gm',
-      level: 12,
-      description: 'Retain notes',
-      strength: 10,
-      dexterity: 11,
-      constitution: 12,
-      intelligence: 13,
-      wisdom: 14,
-      charisma: 15,
-    });
-    const militiaId = await ctx.db.insert('militia', {
-      campaignId,
-      name: 'Mid-campaign',
-      rank: 4,
-      highestBoonReached: 5,
-      HQLocation: 'HQ',
-      treasury: 123.45,
-      training: 42,
-      focus: 'Security',
-      notoriety: 17,
-      commandant: characterId,
-    });
-    const weekId = await ctx.db.insert('militiaWeekState', {
-      militiaId,
-      weekNumber: 9,
-      phase: 'event',
-      isFirstWeek: false,
-      skippedUpkeepThisWeek: false,
-      upkeepTreasurySnapshot: 200,
-      uneventfulBonusCarry: 3,
-      lastPersistentBuyoffWeek: 6,
-      queuedEffects: [
-        {
-          kind: 'organization_check_modifier',
-          checkType: 'security',
-          modifierTotal: -2,
-          appliesWeek: 10,
-        },
-      ],
-      stagedActivityActionIds: ['drill_militia'],
-      lockVersion: 7,
-      rollbackHistory: [{ discarded: true }],
-    });
-    const historyId = await ctx.db.insert('militiaResolutionRecord', {
-      campaignId,
-      militiaId,
-      weekNumber: 8,
-      source: 'confirmation',
-      rulesetVersion: 1,
-      baselinePlan: [],
-      finalPlan: [],
-      warnings: [],
-      tableAdjustments: [],
-      finalOutcome: {
-        militia: { training: 42, treasury: 123.45, notoriety: 17 },
-        nextUneventfulBonusCarry: 3,
-        resolvedEvents: [],
-      },
-      createdAt: 1,
-    });
-    const teamId = await ctx.db.insert('militiaTeam', {
-      militiaId,
-      teamId: 'defenders',
-      managerSource: 'character',
-      managerCharacterId: characterId,
-    });
-    await ctx.db.insert('militiaTeamState', {
-      militiaId,
-      teamId: 'defenders',
-      status: 'missing',
-      notes: 'Lost patrol',
-    });
-    await ctx.db.insert('militiaSettlementState', {
-      militiaId,
-      settlementKey: 'town',
-      reputation: 'Friendly',
-      isSecured: true,
-      temporaryShift: -1,
-      refugeActivatedWeek: 7,
-      refugeActiveUntilWeek: 10,
-    });
-    const eventId = await ctx.db.insert('militiaEventState', {
-      militiaId,
-      weekNumber: 8,
-      eventType: 'sickness',
-      isPersistent: true,
-      startedWeek: 7,
-      resolved: false,
-      mitigationUntilWeek: 8,
-    });
-    const orderId = await ctx.db.insert('militiaOrder', {
-      militiaId,
-      description: 'Sword',
-      costPaid: 12.34,
-      orderedWeek: 8,
-      dueWeek: 9,
-      deliveryDays: 1,
-      status: 'pending',
-      sourceAction: 'special_order',
-    });
-    const cacheId = await ctx.db.insert('militiaCache', {
-      militiaId,
-      label: 'Cache',
-      cacheClass: 'minor',
-      location: 'Forest',
-      contentsSummary: 'Supplies',
-      status: 'hidden',
-      isSecureLocation: true,
-      createdWeek: 4,
-      updatedWeek: 5,
-    });
-    return {
-      scope: { campaignId, militiaId },
-      characterId,
-      historyId,
-      weekId,
-      teamId,
-      eventId,
-      orderId,
-      cacheId,
-    };
-  });
   const gm = t.withIdentity({ tokenIdentifier: 'test|gm' });
-  const roster = {
-    people: [{ characterId: ids.characterId, kind: 'pc' as const, hitDice: 8 }],
-    officers: [{ role: 'commandant' as const, characterId: ids.characterId }],
-    teams: [
-      {
-        teamId: `legacy-team:${ids.teamId}`,
-        teamType: 'defenders' as const,
-        name: 'Patrol',
-        status: 'missing' as const,
-        managerCharacterId: ids.characterId,
-        rewardCapExempt: false,
-        notes: 'Lost patrol',
-      },
-    ],
-  };
-  const context = {
-    ...emptyCampaignContext(),
-    treasuryCopper: 12345,
-    firstMilitiaWeek: false,
-    startDay: 56,
-    uneventfulCarry: true,
-    lastBuyoffWeek: 6,
-    operatingSettlementId: 'town',
-    settlements: [
-      {
-        settlementId: 'town',
-        name: 'Town',
-        reputation: 'Friendly' as const,
-        secured: true,
-        occupied: false,
-        temporaryReputationShift: -1,
-        refugeActivatedWeek: 7,
-        refugeActiveUntilWeek: 10,
-      },
-    ],
-    events: [
-      {
-        eventId: ids.eventId,
-        eventType: 'sickness' as const,
-        startedWeek: 7,
-        order: 0,
-        targets: [
-          { kind: 'team' as const, teamId: `legacy-team:${ids.teamId}` },
-        ],
-        persistent: true,
-        resolved: false,
-        mitigationUntilWeek: 8,
-        endedWeek: null,
-        notes: '',
-      },
-    ],
-    items: [{ itemId: 'sword', name: 'Sword', valueCopper: 1234 }],
-    orders: [
-      {
-        orderId: ids.orderId,
-        itemId: 'sword',
-        settlementId: 'town',
-        orderedDay: 55,
-        dueDay: 56,
-        priceCopper: 1234,
-        receipt: null,
-        receiptStatus: 'unreceived' as const,
-        source: 'special_order' as const,
-        orderedWeek: 8,
-        dueActivityWeek: null,
-        deliveryDays: 1,
-        expedited: true,
-        enchantment: null,
-        notes: '',
-      },
-    ],
-    caches: [
-      {
-        cacheId: ids.cacheId,
-        label: 'Cache',
-        cacheClass: 'minor' as const,
-        location: 'Forest',
-        contents: 'Supplies',
-        status: 'hidden' as const,
-        secure: true,
-      },
-    ],
-    queuedEffects: [
-      {
-        effectId: 'q',
-        sourceId: `legacy-queue:${ids.weekId}:0`,
-        startsWeek: 10,
-        endsWeek: 10,
-        effect: {
-          kind: 'check_modifier' as const,
-          check: 'security' as const,
-          value: -2,
-        },
-      },
-    ],
-    bonuses: [
-      {
-        bonusId: 'reward',
-        source: 'Reward',
-        check: 'loyalty' as const,
-        value: 2,
-        availableWeek: 9,
-        consumedWeek: null,
-      },
-    ],
-  };
-  await gm.run((ctx) =>
-    saveRoster(ctx, { ...ids.scope, expectedRevision: null, roster }),
-  );
-  await gm.run((ctx) =>
-    saveCampaignContext(ctx, { ...ids.scope, expectedRevision: null, context }),
-  );
-  return { t, gm, ...ids, roster, context };
+  const data = await gm.run((ctx) => seedInitializationCampaign(ctx));
+  return { t, gm, ...data };
 }
 
 test('[initialization.preserve] preflight and restart preserve authoritative facts and create one empty week without executing rules', async () => {
@@ -685,6 +440,17 @@ test('[initialization.delivery] preserve pending receipts and recover Broker Mar
       expectedRevision: 1,
       context: {
         ...changed,
+        resolutionAssets: {
+          ...context.resolutionAssets,
+          economy: {
+            ...context.resolutionAssets.economy,
+            orders: context.resolutionAssets.economy.orders.map((o) => ({
+              ...o,
+              source: 'broker_market' as const,
+              dueActivityWeek: 9,
+            })),
+          },
+        },
         orders: changed.orders.map((o) => ({
           ...o,
           receiptStatus: 'unreceived',
@@ -732,17 +498,18 @@ test('[initialization.new-event] current-week events do not change week-start el
   const plan = await gm.run((ctx) =>
     preflightCampaignInitialization(ctx, scope),
   );
-  expect(plan.ready).toBe(true);
-  await gm.run((ctx) =>
-    initializeCampaign(ctx, {
-      ...scope,
-      sourceToken: plan.sourceToken,
-      initializationId: 'current-event',
-    }),
-  );
-  const draft = await gm.run((ctx) => readOpenDraft(ctx, scope));
-  expect(draft?.context.carriedEvents).toEqual([]);
-  expect(draft?.context.persistentPhaseEligible).toBe(false);
+  expect(plan.ready).toBe(false);
+  expect(plan.facts?.carriedEvents).toEqual([]);
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        sourceToken: plan.sourceToken,
+        initializationId: 'current-event',
+      }),
+    ),
+  ).rejects.toThrow('current event state');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
 });
 
 test('[initialization.source-size] preflight reports oversized sources before initialization', async () => {
@@ -794,21 +561,23 @@ test('[initialization.ended-event] ending a carried event midweek preserves week
   const plan = await gm.run((ctx) =>
     preflightCampaignInitialization(ctx, scope),
   );
-  expect(plan.issues).toEqual([]);
-  await gm.run((ctx) =>
-    initializeCampaign(ctx, {
-      ...scope,
-      sourceToken: plan.sourceToken,
-      initializationId: 'ended',
-    }),
-  );
-  const draft = await gm.run((ctx) => readOpenDraft(ctx, scope));
-  expect(draft?.context.carriedEvents.map((e) => e.eventId)).toEqual([eventId]);
-  expect(draft?.context.persistentPhaseEligible).toBe(true);
-  expect(
-    (await gm.run((ctx) => preflightCampaignInitialization(ctx, scope)))
-      .prepared?.context.events[0],
-  ).toMatchObject({ resolved: true, endedWeek: 9 });
+  expect(plan.facts?.carriedEvents.map((event) => event.eventId)).toEqual([
+    eventId,
+  ]);
+  expect(plan.prepared?.context.events[0]).toMatchObject({
+    resolved: true,
+    endedWeek: 9,
+  });
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        sourceToken: plan.sourceToken,
+        initializationId: 'ended',
+      }),
+    ),
+  ).rejects.toThrow('current event state');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
 });
 
 test('[initialization.prior-ended-event] events ended before this week are not carried into it', async () => {
@@ -889,7 +658,7 @@ test('[initialization.unknown-end] missing historical timing blocks preflight un
       expectedRevision: 1,
       context: {
         ...unresolved,
-        events: unresolved.events.map((e) => ({ ...e, endedWeek: 9 })),
+        events: unresolved.events.map((e) => ({ ...e, endedWeek: 8 })),
       },
     }),
   );
@@ -907,7 +676,7 @@ test('[initialization.unknown-end] missing historical timing blocks preflight un
   expect(
     (await gm.run((ctx) => readOpenDraft(ctx, scope)))?.context
       .persistentPhaseEligible,
-  ).toBe(true);
+  ).toBe(false);
   expect(
     await t.run((ctx) => ctx.db.get('militiaEventState', eventId)),
   ).not.toHaveProperty('endedWeek');
@@ -974,4 +743,181 @@ test('[initialization.member] an organization member can prepare and initialize 
   expect(await member.run((ctx) => readOpenDraft(ctx, scope))).toEqual(
     await gm.run((ctx) => readOpenDraft(ctx, scope)),
   );
+});
+
+test('[cutover.usable] initialized campaign supplies the preserved source to canonical preview', async () => {
+  const { gm, scope, teamId, characterId } = await fixture();
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  const result = await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: plan.sourceToken,
+      initializationId: 'usable',
+    }),
+  );
+  const key = { ...scope, draftId: result.draftId };
+  const edits = initializationEdits(`legacy-team:${teamId}`, characterId);
+  for (const [baseRevision, edit] of edits.entries())
+    await gm.run((ctx) =>
+      persistDraftOperation(ctx, key, {
+        draftId: key.draftId,
+        operationId: `edit:${baseRevision}`,
+        baseRevision,
+        edit,
+      }),
+    );
+  const preview = await gm.run((ctx) => previewDraft(ctx, key));
+  expect(preview.requirements).toEqual([]);
+  expect(preview.reviewed.sourceRevision).toBe(0);
+});
+
+test('[cutover.assets] unresolved or changed asset facts block initialization without partial state', async () => {
+  const { gm, scope, context } = await fixture();
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: { ...context, resolutionAssets: undefined },
+    }),
+  );
+  const missing = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(missing.issues).toContain(
+    'Prepare complete resolution assets, including explicit empty collections.',
+  );
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        initializationId: 'missing-assets',
+        sourceToken: missing.sourceToken,
+      }),
+    ),
+  ).rejects.toThrow('resolution assets');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 1,
+      context: {
+        ...context,
+        resolutionAssets: {
+          ...context.resolutionAssets,
+          economy: {
+            ...context.resolutionAssets.economy,
+            orders: [],
+          },
+        },
+      },
+    }),
+  );
+  const changed = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(changed.issues.join('\n')).toContain('Preserve order');
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        initializationId: 'changed-assets',
+        sourceToken: changed.sourceToken,
+      }),
+    ),
+  ).rejects.toThrow('Preserve order');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+});
+
+test('[cutover.enchantment] unresolved enhancement facts cannot become an ordinary purchase', async () => {
+  const { gm, scope, context } = await fixture();
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: {
+        ...context,
+        orders: context.orders.map((order) => ({
+          ...order,
+          enchantment: { costCopper: 1234, days: 1 },
+        })),
+      },
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan.issues.join('\n')).toContain(
+    'Resolve enchantment value and duration mapping',
+  );
+  await expect(
+    gm.run((ctx) =>
+      initializeCampaign(ctx, {
+        ...scope,
+        sourceToken: plan.sourceToken,
+        initializationId: 'enchantment',
+      }),
+    ),
+  ).rejects.toThrow('enchantment');
+  expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+});
+
+test('[cutover.access] rehearsal requires the bound preview capability and campaign membership', async () => {
+  vi.stubEnv('E2E_ENABLED', 'true');
+  vi.stubEnv('E2E_FIXTURE_CONFIG', JSON.stringify(deploymentFixture));
+  vi.stubEnv('CONVEX_CLOUD_URL', deploymentFixture.convexUrl);
+  const scope = {
+    namespace: deploymentFixture.namespace,
+    version: 1,
+    workerKey: 'worker-0',
+    caseKey: 'canonicalPersistence' as const,
+    token: 'c'.repeat(64),
+  };
+  try {
+    const t = convexTest(schema, modules);
+    await t.mutation(internal.e2eFixtures.seedIdentityProjection, scope);
+    await t.mutation(internal.e2eFixtures.resetCase, { ...scope, now: 1 });
+    const before = await t.query(internal.e2eFixtures.inspectCase, scope);
+    await expect(
+      t.mutation(api.canonicalPersistenceFixtures.rehearseCutover, {
+        scope,
+        step: 'seed',
+      }),
+    ).rejects.toThrow('Campaign access required');
+    expect(await t.query(internal.e2eFixtures.inspectCase, scope)).toEqual(
+      before,
+    );
+    const gm = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    await expect(
+      gm.mutation(api.canonicalPersistenceFixtures.rehearseCutover, {
+        scope: { ...scope, token: 'x'.repeat(64) },
+        step: 'seed',
+      }),
+    ).rejects.toThrow('fixture access refused');
+    expect(await t.query(internal.e2eFixtures.inspectCase, scope)).toEqual(
+      before,
+    );
+    await gm.mutation(api.canonicalPersistenceFixtures.rehearseCutover, {
+      scope,
+      step: 'seed',
+    });
+    const inspection = z
+      .object({
+        plan: z.object({ ready: z.boolean(), issues: z.array(z.string()) }),
+      })
+      .parse(
+        JSON.parse(
+          await gm.mutation(api.canonicalPersistenceFixtures.rehearseCutover, {
+            scope,
+            step: 'inspect',
+          }),
+        ),
+      );
+    expect(inspection.plan).toEqual({ ready: true, issues: [] });
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

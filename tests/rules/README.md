@@ -29,7 +29,7 @@ strict rules check. It records every command result in `coverage/acceptance.json
 including failures, and returns nonzero until all gates pass.
 
 The catalog's `serviceTests` references require the complete mandatory suite:
-`live.workspace`, `live.persistence` and `live.confirmation`. Local memory and
+`live.workspace`, `live.persistence`, `live.confirmation`, and `live.cutover`. Local memory and
 Convex-test results cannot substitute for this evidence. Missing service evidence
 is an explicit gap in the extraction report; failed, skipped, retry-only, incomplete,
 or stale supplied reports are errors. The safe E2E report fingerprints working

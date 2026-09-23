@@ -5933,7 +5933,8 @@ export const coverageCatalog = {
             'rules.E88.complete',
             'rules.GATE.projection-parity',
           ],
-          gap: 'Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover.',
+          serviceTests: ['live.cutover'],
+          gap: null,
         },
         {
           id: 'retry',
@@ -8064,7 +8065,8 @@ export const coverageCatalog = {
             'initialization.unknown-end',
             'initialization.source-size',
           ],
-          gap: 'Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90.',
+          serviceTests: ['live.cutover'],
+          gap: null,
         },
         {
           id: 'no-execution',
@@ -8081,8 +8083,9 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work.',
           plannedTests: ['rules.P11.legacy'],
-          tests: [],
-          gap: 'Pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.',
+          tests: ['cutover.usable', 'cutover.assets', 'cutover.enchantment'],
+          serviceTests: ['live.cutover'],
+          gap: null,
         },
       ],
     },

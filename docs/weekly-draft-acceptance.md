@@ -1,4 +1,44 @@
-# Weekly Draft acceptance review (#88)
+# Weekly Draft acceptance review (#88 / #89)
+
+## Current acceptance (#89, 2026-09-24)
+
+The complete strict acceptance gate **passes** for source fingerprint
+`98115c728189f6f0936cda43ce35361402855a61f763d98b14ece37930f650b8`:
+
+- Typecheck, lint, and all three build-boundary checks pass.
+- All 1,009 tests across 106 files pass, with no skipped or pending results.
+- All ten mandatory authenticated browser results pass on their first attempts.
+- All 487 catalog cases are covered, with zero explicit gaps and zero errors.
+- The new mandatory cutover journey exports a real paused preview backup,
+  initializes/retries without advancing the week, confirms through ordinary
+  authenticated canonical persistence, restores the ZIP, and compares the
+  recovered authoritative source and compatible legacy reader.
+
+Final browser evidence:
+`e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-tyOJQg/report.json`.
+The adjacent `cutover-evidence.json` records the verified backup hash and checks.
+`coverage/acceptance.json` and `coverage/rules-evidence.json` record the complete
+passing gate. The [runbook](paused-cutover-runbook.md) documents the operational
+procedure, evidence, preflight blockers, and the end of automatic rollback at
+reopening. Production was neither migrated nor reopened.
+
+The three #88 gaps (E06.preserve, P11.cutover, P11.legacy) now require passing
+`live.cutover` evidence. Missing, skipped, retried, or stale-source runs fail the
+gate. Reporter and discovery tests include this tenth mandatory journey.
+
+Rehearsal exposed and fixed missing canonical source initialization: the preserved
+snapshot now joins the fresh draft and receipt in one transaction. Explicit asset
+preparation supplies missing facts. Unrepresentable enchantments, legacy
+marketplaces/tracked people, and midweek event transitions block preflight rather
+than silently losing state. Passing this fixture does not authorize bypassing
+those blockers for an affected production campaign.
+
+Standards and Spec reviews used baseline `9ad1c8d` and the implementation diff.
+The enhancement/event preservation findings were addressed with failing-preflight
+regressions; the mapping helpers were split for reviewability. No review findings
+remain open.
+
+## Previous #88 review
 
 Human rules review: **complete**, approved by **AndreasUnunger on 2026-09-23**.
 The reviewer checked all behavior and completeness items, including COMPLETE.CORPUS
@@ -35,9 +75,9 @@ cutover requirements because the reviewer confirmed no such requests will arrive
 Ordinary Theft remains a one-time loss; only its Twice result causes persistent
 income reductions. Canonical ruleset version is 4.
 
-## Remaining operational work
+## Operational gaps recorded at #88
 
-Three catalog gaps remain, all assigned to [#89](https://github.com/AndreasUnunger/EverythingPath/issues/89):
+At the end of #88, three catalog gaps remained, all assigned to [#89](https://github.com/AndreasUnunger/EverythingPath/issues/89):
 
 | Case | Required rehearsal |
 |---|---|
@@ -45,7 +85,8 @@ Three catalog gaps remain, all assigned to [#89](https://github.com/AndreasUnung
 | P11.cutover | Pause, initialize/restart, and recover without unintended rule execution. |
 | P11.legacy | Prove compatible recovery before reopening; explicit old-version request rejection is out of scope. |
 
-The strict completeness gate remains **not ready** until those rehearsals pass.
+The strict completeness gate was **not ready** at #88. The #89 evidence above
+now closes these three rehearsal gaps.
 Production cutover is separately tracked by #90. No production changes were made
 as part of this review.
 
@@ -63,7 +104,7 @@ resolved: the helper is `getManipulateEventsChoiceText`, the view-model field is
 from the helper and its callers. The follow-up passes typecheck, lint, and all
 1,003 tests across 106 files; it changes no behavior.
 
-## Verification
+## Previous #88 verification
 
 The full acceptance/browser evidence below was verified on 2026-09-23 for commit
 `1d5329b`, before the naming-only follow-up described above. Its fingerprint is a
@@ -107,8 +148,8 @@ VITEST_MAX_WORKERS=2 pnpm -s acceptance:check --browser-report /absolute/path/to
 
 `coverage/acceptance.json`, `coverage/rules-evidence.json`,
 `coverage/rules-tests.json`, and `coverage/rules-report.md` record the outcome.
-The acceptance command deliberately exits 1 until the three operational gaps are
-closed; this is not a test failure or pending human review.
+At #88 the acceptance command exited 1 for those operational gaps. With the
+current source and fresh #89 browser evidence, it passes.
 
 The [generated coverage report](weekly-draft-acceptance-review.md) provides case,
 source and evidence details. The [checklist](militia-human-review-checklist.md)

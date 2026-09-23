@@ -1,12 +1,12 @@
 # Weekly Draft rules coverage
 
-95 audit entries; 487 expanded cases; 486 cases with passing mapped evidence; 3 explicit gaps; 1 errors.
+95 audit entries; 487 expanded cases; 487 cases with passing mapped evidence; 0 explicit gaps; 0 errors.
 
 Passing evidence is traceability, not proof of semantic completeness. Full-corpus human review and the strict gate remain required before cutover.
 
 ## Errors
 
-- Completeness gate: 3 remaining gaps
+None.
 
 ## Human corpus review
 
@@ -876,7 +876,7 @@ Sources: [R019: ## Militia Terminology](../docs/ai/ironfang-militia/militia-rule
 |---|---|---|
 | E06.due / 4-events | Phase View / Resolution Preview: Only due-week queued effects apply; future effects remain and consumed effects expire. | PASS; planned: rules.E06.due; mapped: rules.E01.queued, rules.E88.complete, rules.GATE.projection-parity; service: none |
 | E06.automatic / 4-events | Phase View / Resolution Preview: Multiple automatic events and normal event keep separate rolls and source order. | PASS; planned: rules.E06.automatic; mapped: rules.E04.independent, rules.EV04.twice, rules.E88.complete, rules.GATE.projection-parity; service: none |
-| E06.preserve / 4-events | Phase View / Resolution Preview: Cutover preserves source, age and due context without running effects. | PASS; planned: rules.E06.preserve; mapped: context.events-assets, rules.E88.complete, rules.GATE.projection-parity; service: none; Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover. |
+| E06.preserve / 4-events | Phase View / Resolution Preview: Cutover preserves source, age and due context without running effects. | PASS; planned: rules.E06.preserve; mapped: context.events-assets, rules.E88.complete, rules.GATE.projection-parity; service: live.cutover |
 | E06.retry / 4-events | Phase View / Resolution Preview: Retries do not apply queued effects twice. | PASS; planned: rules.E06.retry; mapped: rules.E88.complete, rules.P80.atomic, rules.GATE.projection-parity; service: none |
 
 ## E07
@@ -1273,9 +1273,9 @@ Sources: [R208: ## Weekly Sequence (Militias in Play)](../docs/ai/ironfang-milit
 | P11.setup-lifecycle / 7-workspace | New and existing militia setup create one ordinary draft without resolving the week, preserve reference integrity and local navigation, and retain advisory deviations. | PASS; planned: setup.lifecycle; mapped: setup.lifecycle, setup.import, setup.authority, setup.references, setup.confirmation, setup.integrity, setup.navigation, setup.form, setup.carry-form, setup.required-facts; service: none |
 | P11.immutable / 8-cutover-rehearsal | Phase View / Resolution Preview: Historical views read complete immutable records rather than live state. | PASS; planned: rules.P11.immutable; mapped: storage.history, rules.P86.history, rules.P86.display, rules.P86.labels; service: live.confirmation |
 | P11.effective / 8-cutover-rehearsal | Phase View / Resolution Preview: Newest nonsuperseded record is effective; older records remain an audit trail. | PASS; planned: rules.P11.effective; mapped: storage.history, rules.P86.history, rules.P86.navigation, rules.P86.controls; service: none |
-| P11.cutover / 8-cutover-rehearsal | Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history. | PASS; planned: rules.P11.cutover; mapped: initialization.preserve, initialization.preflight, initialization.stale, initialization.retry, initialization.first-use, initialization.queues, initialization.expiry, initialization.unsupported-queue, initialization.delivery, initialization.new-event, initialization.ended-event, initialization.prior-ended-event, initialization.unknown-end, initialization.source-size; service: none; Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90. |
+| P11.cutover / 8-cutover-rehearsal | Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history. | PASS; planned: rules.P11.cutover; mapped: initialization.preserve, initialization.preflight, initialization.stale, initialization.retry, initialization.first-use, initialization.queues, initialization.expiry, initialization.unsupported-queue, initialization.delivery, initialization.new-event, initialization.ended-event, initialization.prior-ended-event, initialization.unknown-end, initialization.source-size; service: live.cutover |
 | P11.no-execution / 8-cutover-rehearsal | Phase View / Resolution Preview: Initialization creates one empty draft without Upkeep, queue execution or advancement. | PASS; planned: rules.P11.no-execution; mapped: initialization.preserve; service: none |
-| P11.legacy / 8-cutover-rehearsal | Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work. | GAP; planned: rules.P11.legacy; mapped: none; service: none; Pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88. |
+| P11.legacy / 8-cutover-rehearsal | Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work. | PASS; planned: rules.P11.legacy; mapped: cutover.usable, cutover.assets, cutover.enchantment; service: live.cutover |
 
 ## GATE
 
@@ -1289,12 +1289,9 @@ Sources: [D53: tests/rules/decision-53.md](../tests/rules/decision-53.md); [D55:
 
 ## Remaining gaps
 
-- E06.preserve: Actual deployment cutover preservation/recovery rehearsal remains pending; context preparation tests do not execute a cutover.
-- P11.cutover: Initialization preservation and restart tests pass. Paused deployment and recovery rehearsal remain pending in #89; production cutover is #90.
-- P11.legacy: Pre-reopen recovery must be implemented and rehearsed in #89 before #90 production cutover. The supported legacy path remains enabled during #88.
 
 ## Run evidence
 
-Source fingerprint: `273197fe4744b457f192465225d1eb0120f16520e8de99e90f4d569294085e6d`.
+Source fingerprint: `98115c728189f6f0936cda43ce35361402855a61f763d98b14ece37930f650b8`.
 
 Service evidence: complete mandatory first-attempt suite for this source.

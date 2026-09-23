@@ -650,3 +650,21 @@ for teardown and evidence retention. Individual test deadlines, one-worker
 fixture isolation, all required results, and first-attempt acceptance are
 unchanged. This explicitly supersedes the earlier 720-second budget; it does
 not classify incomplete or retry-only results as passing.
+
+## Paused cutover rehearsal (#89)
+
+The current matrix requires ten first-attempt results for the mandatory run and
+nineteen for nightly. Missing or retried cutover results fail the aggregate.
+
+The mandatory `canonical-cutover` journey exports and restores a real preview
+backup, checks restartable initialization and source preservation, and exercises
+ordinary authenticated editing and Confirmation before recovery. It moves all
+players to the landing page first: `/campaigns` mounts a board that can autosave
+defaults and is not a paused location. The runner's exclusive preview lock and
+single worker keep the rehearsal isolated.
+
+`cutover-evidence.json` records the backup hash, source fingerprint and completed
+restore comparisons. The archive stays in the private runner directory and is
+removed after verification. See the [runbook](../docs/paused-cutover-runbook.md)
+for commands, preflight blockers and the rule that reopening ends automatic
+rollback. This journey does not migrate or reopen production campaigns.

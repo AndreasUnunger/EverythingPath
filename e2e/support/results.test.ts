@@ -7,6 +7,16 @@ const passing = () => ({
   errors: 0,
   tests: [
     {
+      file: 'canonical-cutover.spec.ts',
+      project: 'canonical-cutover',
+      title:
+        'paused cutover preserves source and restores verified backup before reopening',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
+    {
       file: 'auth.setup.ts',
       project: 'authentication',
       title: 'prepare fresh role sessions',
@@ -195,7 +205,9 @@ it('rejects a run that omits the deployed persistence contract', () => {
 
 function nightlyPassing() {
   const report = passing();
-  const critical = report.tests.slice(1, 6);
+  const critical = report.tests.filter(
+    (test) => test.project === 'chromium-tablet',
+  );
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
     ...[critical[0]!, critical[1]!, critical[3]!].map((test) => ({
