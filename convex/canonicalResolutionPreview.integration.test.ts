@@ -94,12 +94,6 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
       const militiaId = await ctx.db.insert('militia', {
         campaignId,
         name: 'Militia',
-        HQLocation: 'HQ',
-        highestBoonReached: 3,
-        rank: 3,
-        training: 15,
-        treasury: 300,
-        focus: 'Loyalty',
       });
       return { campaignId, militiaId };
     });

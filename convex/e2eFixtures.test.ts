@@ -287,13 +287,14 @@ describe('internal fixture boundary', () => {
         .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
         .unique();
       for (let index = 0; index < 101; index++)
-        await ctx.db.insert('militiaEventState', {
+        await ctx.db.insert('canonicalSourceCorrection', {
+          campaignId,
           militiaId: militia!._id,
-          weekNumber: 1,
-          eventType: 'theft',
-          isPersistent: true,
-          startedWeek: 1,
-          resolved: false,
+          expectedRevision: index,
+          revision: index + 1,
+          reason: 'Fixture',
+          actor: 'fixture',
+          createdAt: 0,
         });
     });
     await expect(

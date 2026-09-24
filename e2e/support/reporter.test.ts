@@ -87,7 +87,7 @@ it.each([
       if (mode !== 'missing-cutover')
         await writeFile(
           join(directory, 'canonical-cutover.spec.ts'),
-          `import { test } from ${playwright}; test('paused cutover preserves source and restores verified backup before reopening', async ({}, info) => { ${mode === 'retry-cutover' ? "if(info.retry===0) throw new Error('Synthetic cutover failure');" : ''} });`,
+          `import { test } from ${playwright}; test('accepted campaign preserves canonical history and rejects retired paths', async ({}, info) => { ${mode === 'retry-cutover' ? "if(info.retry===0) throw new Error('Synthetic cutover failure');" : ''} });`,
         );
       const config = join(directory, 'playwright.config.ts');
       await writeFile(

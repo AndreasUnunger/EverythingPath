@@ -61,12 +61,6 @@ test('[rules.E75.projection-parity] targeted threats, losses, returns and typed 
         const militiaId = await ctx.db.insert('militia', {
           campaignId,
           name: 'Militia',
-          HQLocation: 'HQ',
-          highestBoonReached: 3,
-          rank: 3,
-          training: 30,
-          treasury: 300,
-          focus: 'Loyalty',
         });
         return { campaignId, militiaId };
       });

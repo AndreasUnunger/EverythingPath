@@ -91,7 +91,6 @@ test('[rules.P86.history] history selects complete effective records, retains pa
       snapshot: { ...state.snapshot, treasuryCopper: 99999 },
     });
     await ctx.db.patch('militia', key.militiaId, {
-      treasury: 98765,
       name: 'Changed today',
     });
   });
@@ -246,12 +245,6 @@ test('[rules.P86.navigation] week navigation skips gaps and rejects records from
     const militiaId = await ctx.db.insert('militia', {
       campaignId,
       name: 'Foreign',
-      rank: 1,
-      highestBoonReached: 1,
-      HQLocation: '',
-      treasury: 0,
-      training: 0,
-      focus: null,
     });
     return { campaignId, militiaId };
   });

@@ -10,7 +10,7 @@ const passing = () => ({
       file: 'canonical-cutover.spec.ts',
       project: 'canonical-cutover',
       title:
-        'paused cutover preserves source and restores verified backup before reopening',
+        'accepted campaign preserves canonical history and rejects retired paths',
       expectedStatus: 'passed',
       tags: [],
       annotations: [],

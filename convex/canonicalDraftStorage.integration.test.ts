@@ -48,12 +48,6 @@ async function fixture() {
     const militiaId = await ctx.db.insert('militia', {
       campaignId,
       name: 'Militia',
-      rank: 2,
-      highestBoonReached: 2,
-      HQLocation: 'HQ',
-      treasury: 100,
-      training: 10,
-      focus: null,
     });
     return { campaignId, militiaId };
   });
@@ -238,12 +232,6 @@ test('[storage.scope] authentication and campaign-owned draft/militia/record ref
     const militiaId = await ctx.db.insert('militia', {
       campaignId,
       name: 'Other',
-      rank: 1,
-      highestBoonReached: 1,
-      HQLocation: '',
-      treasury: 0,
-      training: 0,
-      focus: null,
     });
     return { campaignId, militiaId };
   });
@@ -424,12 +412,6 @@ test('[storage.reconstruction] historical source cannot reuse allocated identiti
     const militiaId = await ctx.db.insert('militia', {
       campaignId,
       name: 'Other',
-      rank: 1,
-      highestBoonReached: 1,
-      HQLocation: '',
-      treasury: 0,
-      training: 0,
-      focus: null,
     });
     return { campaignId, militiaId };
   });
@@ -575,7 +557,7 @@ test('[storage.source] confirmed history round-trips raw facts, copper precision
     appendResolutionRecord(ctx, { ...scope, record: complete }),
   );
   await t.run((ctx) =>
-    ctx.db.patch('militia', scope.militiaId, { treasury: 999 }),
+    ctx.db.patch('militia', scope.militiaId, { name: 'Changed today' }),
   );
   expect(
     await player.run((ctx) =>

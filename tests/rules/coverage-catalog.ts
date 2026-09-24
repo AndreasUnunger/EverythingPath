@@ -2694,8 +2694,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation preserves integer copper values, including zero, separately from unknown money.',
-          plannedTests: ['context.absence', 'context.events-assets'],
-          tests: ['context.absence', 'context.events-assets'],
+          plannedTests: ['context.absence', 'setup.import'],
+          tests: ['context.absence', 'setup.import'],
           gap: null,
         },
         {
@@ -2764,8 +2764,8 @@ export const coverageCatalog = {
           checkpoint: '3-roster',
           expected:
             'Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments.',
-          plannedTests: ['roster.shared', 'roster.ui', 'roster.mapping'],
-          tests: ['roster.shared', 'roster.ui', 'roster.mapping'],
+          plannedTests: ['setup.import', 'setup.carry-form', 'setup.import'],
+          tests: ['setup.import', 'setup.carry-form', 'setup.import'],
           gap: null,
         },
         {
@@ -2890,8 +2890,8 @@ export const coverageCatalog = {
           checkpoint: '3-roster',
           expected:
             'Roster preparation retains explicit Commandant Hit Dice separately from level and reports unknown legacy Hit Dice for preflight resolution.',
-          plannedTests: ['roster.shared', 'roster.mapping', 'roster.ui'],
-          tests: ['roster.shared', 'roster.mapping', 'roster.ui'],
+          plannedTests: ['setup.import', 'setup.import', 'setup.carry-form'],
+          tests: ['setup.import', 'setup.import', 'setup.carry-form'],
           gap: null,
         },
         {
@@ -3068,9 +3068,9 @@ export const coverageCatalog = {
           plannedTests: [
             'roster.identities',
             'roster.limits',
-            'roster.references',
+            'setup.references',
           ],
-          tests: ['roster.identities', 'roster.limits', 'roster.references'],
+          tests: ['roster.identities', 'roster.limits', 'setup.references'],
           gap: null,
         },
         {
@@ -3149,8 +3149,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Editing the proposed week records whether the militia is newly founded or resuming play, without executing Upkeep or changing committed state. Previous-week carryover applies only when a previous militia week exists.',
-          plannedTests: ['context.absence', 'context.shared'],
-          tests: ['context.absence', 'context.shared'],
+          plannedTests: ['context.absence', 'ledger.shared'],
+          tests: ['context.absence', 'ledger.shared'],
           gap: null,
         },
         {
@@ -3852,13 +3852,13 @@ export const coverageCatalog = {
             'roster.identities',
             'roster.limits',
             'roster.validation',
-            'roster.ui-teams',
+            'setup.import',
           ],
           tests: [
             'roster.identities',
             'roster.limits',
             'roster.validation',
-            'roster.ui-teams',
+            'setup.import',
           ],
           gap: null,
         },
@@ -3935,8 +3935,8 @@ export const coverageCatalog = {
           checkpoint: '3-roster',
           expected:
             'Roster preparation retains independent disabled and missing conditions for individual teams of the same type.',
-          plannedTests: ['roster.shared', 'roster.ui-teams'],
-          tests: ['roster.shared', 'roster.ui-teams'],
+          plannedTests: ['setup.import', 'setup.import'],
+          tests: ['setup.import', 'setup.import'],
           gap: null,
         },
         {
@@ -5130,17 +5130,11 @@ export const coverageCatalog = {
           expected:
             'Preparation retains copper precision, due-day, enchantment duration and explicit receipt separately from next-Activity marketplace timing.',
           plannedTests: [
-            'context.events-assets',
+            'setup.import',
             'context.delivery',
-            'context.ui-receipt',
-            'context.ui-decimal',
+            'setup.receipt-decimal',
           ],
-          tests: [
-            'context.events-assets',
-            'context.delivery',
-            'context.ui-receipt',
-            'context.ui-decimal',
-          ],
+          tests: ['setup.import', 'context.delivery', 'setup.receipt-decimal'],
           gap: null,
         },
         {
@@ -5835,8 +5829,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation retains uneventful carry, one-use bonuses and queued durations without executing effects.',
-          plannedTests: ['context.events-assets', 'context.shared'],
-          tests: ['context.events-assets', 'context.shared'],
+          plannedTests: ['setup.import', 'ledger.shared'],
+          tests: ['setup.import', 'ledger.shared'],
           gap: null,
         },
         {
@@ -5929,7 +5923,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Cutover preserves source, age and due context without running effects.',
           plannedTests: ['rules.E06.preserve'],
           tests: [
-            'context.events-assets',
+            'setup.import',
             'rules.E88.complete',
             'rules.GATE.projection-parity',
           ],
@@ -7338,8 +7332,16 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation retains same-type event instances with separate targets, age/order, mitigation, ending and militia-wide last buyoff week.',
-          plannedTests: ['context.events-assets', 'context.references'],
-          tests: ['context.events-assets', 'context.references'],
+          plannedTests: [
+            'setup.event-instances',
+            'rules.P02.rivalry.bluff',
+            'ledger.shared',
+          ],
+          tests: [
+            'setup.event-instances',
+            'rules.P02.rivalry.bluff',
+            'ledger.shared',
+          ],
           gap: null,
         },
         {
@@ -7959,7 +7961,7 @@ export const coverageCatalog = {
           tests: [
             'rules.P86.authority',
             'rules.P86.controls',
-            'initialization.member',
+            'setup.authority',
           ],
           serviceTests: ['live.confirmation'],
           gap: null,
@@ -7980,16 +7982,16 @@ export const coverageCatalog = {
           expected:
             'Isolated ledger/setup accepts advisory incomplete facts, rejects malformed numbers and validates campaign-owned references.',
           plannedTests: [
-            'context.form',
-            'context.references',
-            'context.ui-targets',
-            'context.roster-reference',
+            'setup.form',
+            'setup.references',
+            'setup.event-references',
+            'ledger.shared',
           ],
           tests: [
-            'context.form',
-            'context.references',
-            'context.ui-targets',
-            'context.roster-reference',
+            'setup.form',
+            'setup.references',
+            'setup.event-references',
+            'ledger.shared',
           ],
           gap: null,
         },
@@ -8047,23 +8049,14 @@ export const coverageCatalog = {
           id: 'cutover',
           checkpoint: '8-cutover-rehearsal',
           expected:
-            'Phase View / Resolution Preview: Paused restartable initialization preserves campaign state, week and carry but resets unfinished choices and history.',
+            'Post-cutover retirement: accepted campaign state, week and carry enter the supported canonical workflow; ordinary setup remains retryable without replacing accepted work. Historical paused migration and recovery evidence is retained under #91.',
           plannedTests: ['rules.P11.cutover'],
           tests: [
-            'initialization.preserve',
-            'initialization.preflight',
-            'initialization.stale',
-            'initialization.retry',
-            'initialization.first-use',
-            'initialization.queues',
-            'initialization.expiry',
-            'initialization.unsupported-queue',
-            'initialization.delivery',
-            'initialization.new-event',
-            'initialization.ended-event',
-            'initialization.prior-ended-event',
-            'initialization.unknown-end',
-            'initialization.source-size',
+            'setup.import',
+            'setup.lifecycle',
+            'setup.authority',
+            'setup.references',
+            'retirement.preserve',
           ],
           serviceTests: ['live.cutover'],
           gap: null,
@@ -8074,19 +8067,19 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: Initialization creates one empty draft without Upkeep, queue execution or advancement.',
           plannedTests: ['rules.P11.no-execution'],
-          tests: ['initialization.preserve'],
+          tests: ['setup.import'],
           gap: null,
         },
         {
           id: 'legacy',
           checkpoint: '8-cutover-rehearsal',
           expected:
-            'Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work.',
+            'Post-cutover retirement: old browser and operational endpoints reject requests without changing accepted canonical state or immutable history. Verified cutover backups remain retained for recovery with the compatible release.',
           plannedTests: ['rules.P11.legacy'],
           tests: [
-            'cutover.usable',
-            'cutover.assets',
-            'cutover.enchantment',
+            'retirement.preserve',
+            'setup.required-facts',
+            'setup.required-facts',
             'retirement.reject',
             'retirement.preserve',
           ],

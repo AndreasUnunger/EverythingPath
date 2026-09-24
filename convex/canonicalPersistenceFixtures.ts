@@ -1,18 +1,11 @@
-import { seedInitializationCampaign } from './lib/initializationFixture';
-import {
-  initializeCampaign,
-  preflightCampaignInitialization,
-} from './lib/campaignInitialization';
+import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
+import { mutation } from './_generated/server';
 import { internal } from './_generated/api';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
 import { v } from 'convex/values';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
-import {
-  internalMutation,
-  mutation,
-  type MutationCtx,
-} from './_generated/server';
+import { internalMutation, type MutationCtx } from './_generated/server';
 import {
   scopeSchema as fixtureScopeSchema,
   guardFixtureScope,
@@ -462,120 +455,23 @@ export const installAcceptanceSource = internalMutation({
   },
 });
 
-// Paused rehearsal only: the capability is bound to the disposable preview.
-// Normal application consumers remain unchanged until the separate #90 cutover.
-export const rehearseCutover = mutation({
-  args: {
-    scope: zodOutputToConvex(fixtureScopeSchema),
-    step: v.union(
-      v.literal('seed'),
-      v.literal('inspect'),
-      v.literal('initialize'),
-    ),
-    sourceToken: v.optional(v.string()),
-  },
-  returns: v.string(),
+// A guarded canonical-only fixture replaces the completed migration rehearsal.
+export const acceptedCampaign = mutation({
+  args: { scope: zodOutputToConvex(fixtureScopeSchema) },
+  returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args) => {
     const campaign = await ownedCampaign(ctx, args.scope);
-    if (args.step === 'seed') {
-      const canonical = await ctx.db
-        .query('canonicalWeeklyDraft')
-        .withIndex('by_campaignId_and_status', (q) =>
-          q.eq('campaignId', campaign._id),
-        )
-        .first();
-      if (canonical) throw new Error('Reset the rehearsal fixture first');
-      const militias = await ctx.db
-        .query('militia')
-        .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
-        .take(2);
-      if (militias.length !== 1) throw new Error('Expected the fresh fixture');
-      const [militia] = militias;
-      if (!militia) throw new Error('Expected the fresh fixture');
-      const weeks = await ctx.db
-        .query('militiaWeekState')
-        .withIndex('by_militiaId_week', (q) => q.eq('militiaId', militia._id))
-        .take(2);
-      if (weeks.length !== 1 || weeks[0]?.weekNumber !== 1)
-        throw new Error('Expected the fresh fixture week');
-      for (const week of weeks)
-        await ctx.db.delete('militiaWeekState', week._id);
-      await ctx.db.delete('militia', militia._id);
-      const characters = await ctx.db
-        .query('character')
-        .withIndex('by_campaignId', (q) => q.eq('campaignId', campaign._id))
-        .take(2);
-      if (characters.length !== 1)
-        throw new Error('Expected the fresh fixture character');
-      for (const character of characters)
-        await ctx.db.delete('character', character._id);
-      const seeded = await seedInitializationCampaign(ctx, campaign._id);
-      return JSON.stringify(seeded.scope);
-    }
     const militia = await ctx.db
       .query('militia')
       .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
       .unique();
-    if (!militia) throw new Error('Missing rehearsal militia');
-    const scope = { campaignId: campaign._id, militiaId: militia._id };
-    if (args.step === 'initialize') {
-      if (!args.sourceToken) throw new Error('Review preflight first');
-      return JSON.stringify(
-        await initializeCampaign(ctx, {
-          ...scope,
-          sourceToken: args.sourceToken,
-          initializationId: `rehearsal:${campaign._id}`,
-        }),
-      );
-    }
-    const plan = await preflightCampaignInitialization(ctx, scope);
-    const drafts = await ctx.db
-      .query('canonicalWeeklyDraft')
-      .withIndex('by_campaignId_and_status', (q) =>
-        q.eq('campaignId', campaign._id),
-      )
-      .take(10);
-    const records = await ctx.db
-      .query('canonicalResolutionRecord')
-      .withIndex('by_campaignId_and_week_and_sequence', (q) =>
-        q.eq('campaignId', campaign._id),
-      )
-      .take(10);
-    const legacyWeek = await ctx.db
-      .query('militiaWeekState')
-      .withIndex('by_militiaId_week', (q) => q.eq('militiaId', militia._id))
-      .unique();
-    const legacyHistory = await ctx.db
-      .query('militiaResolutionRecord')
-      .withIndex('by_militiaId_and_weekNumber', (q) =>
-        q.eq('militiaId', militia._id),
-      )
-      .take(10);
+    if (!militia) throw new Error('Missing fresh fixture militia');
     const state = await ctx.db
       .query('canonicalMilitiaState')
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
-      .unique();
-    const hasOperations = Boolean(
-      await ctx.db
-        .query('canonicalDraftOperation')
-        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
-        .first(),
-    );
-    const hasTargets = Boolean(
-      await ctx.db
-        .query('canonicalDraftTarget')
-        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
-        .first(),
-    );
-    return JSON.stringify({
-      hasOperations,
-      hasTargets,
-      plan,
-      drafts,
-      records,
-      legacyWeek,
-      legacyHistory,
-      state,
-    });
+      .first();
+    if (state) throw new Error('Reset the accepted campaign fixture first');
+    await ctx.db.delete('militia', militia._id);
+    return (await seedAcceptedCampaign(ctx, campaign._id)).key;
   },
 });

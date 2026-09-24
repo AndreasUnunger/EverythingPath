@@ -201,3 +201,234 @@ test('[rules.U01.setup-form] switching to an existing militia clears the initial
     ),
   );
 });
+
+test('[setup.receipt-decimal] enchantment delivery preserves decimal input and explicit receipt days', async () => {
+  const { newMilitiaSetup } = await import('~/lib/canonical-setup');
+  const initial = newMilitiaSetup('Loyalty');
+  initial.state.militiaSnapshot.settlements = [
+    {
+      settlementId: 'town',
+      name: 'Town',
+      reputation: 'Friendly',
+      secured: true,
+      occupied: false,
+      temporaryReputationShift: 0,
+      refugeActivatedWeek: null,
+      refugeActiveUntilWeek: null,
+    },
+  ];
+  initial.state.militiaSnapshot.economy = {
+    items: [
+      {
+        itemId: 'sword',
+        name: 'Sword',
+        valueCopper: 1234,
+        weight: 2,
+        location: 'order',
+      },
+    ],
+    caches: [],
+    markets: [],
+    orders: [
+      {
+        orderId: 'order',
+        itemId: 'sword',
+        settlementId: 'town',
+        source: 'special_order',
+        mode: 'enchantment',
+        orderedWeek: 1,
+        orderedDay: 0,
+        dueDay: 1,
+        dueActivityWeek: null,
+        priceCopper: 1234,
+        deliveryDays: 1,
+        enchantmentValueCopper: 50000,
+        receipt: null,
+      },
+    ],
+  };
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(
+    <MilitiaSetupForm initialValues={initial} characters={[]} onSave={save} />,
+  );
+  const duration = screen.getByRole('textbox', {
+    name: 'Delivery duration (days)',
+  });
+  fireEvent.change(duration, { target: { value: '0.' } });
+  expect(duration).toHaveValue('0.');
+  fireEvent.change(duration, { target: { value: '0.5' } });
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Due day (day delivery)' }),
+    { target: { value: '0.5' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Record receipt' }));
+  const received = screen.getByRole('textbox', { name: 'Received day' });
+  fireEvent.change(received, { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  expect(await screen.findByText('Received day is required.')).toBeVisible();
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.change(received, { target: { value: 'abc' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  expect(
+    await screen.findByText('Enter a valid whole number for Received day.'),
+  ).toBeVisible();
+  fireEvent.change(received, { target: { value: '2' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  await waitFor(() =>
+    expect(
+      save,
+      screen
+        .queryAllByRole('alert')
+        .map((node) => node.textContent)
+        .join('; '),
+    ).toHaveBeenCalledOnce(),
+  );
+  expect(save.mock.calls[0]?.[0]).toMatchObject({
+    state: {
+      militiaSnapshot: {
+        economy: {
+          orders: [
+            {
+              priceCopper: 1234,
+              dueDay: 0.5,
+              deliveryDays: 0.5,
+              enchantmentValueCopper: 50000,
+              receipt: { receivedDay: 2 },
+            },
+          ],
+        },
+      },
+    },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Mark unreceived' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  expect(save.mock.calls[1]?.[0]).toMatchObject({
+    state: {
+      militiaSnapshot: {
+        economy: { orders: [{ receipt: null, dueDay: 0.5 }] },
+      },
+    },
+  });
+});
+
+test('[setup.event-instances] repeated carried events retain separate targets, age, order and mitigation when another is removed', async () => {
+  const { newMilitiaSetup } = await import('~/lib/canonical-setup');
+  const initial = newMilitiaSetup('Loyalty');
+  initial.mode = 'existing';
+  initial.state.week = 9;
+  initial.state.context.firstMilitiaWeek = false;
+  initial.state.context.lastBuyoffWeek = 6;
+  initial.state.militiaSnapshot.roster.teams = ['north', 'south'].map(
+    (teamId) => ({
+      teamId,
+      name: teamId,
+      teamType: 'defenders',
+      status: 'active',
+      rewardCapExempt: false,
+      managerCharacterId: null,
+      notes: '',
+    }),
+  );
+  initial.state.context.carriedEvents = [
+    {
+      eventId: 'older',
+      eventType: 'theft',
+      startedWeek: 5,
+      order: 1,
+      targets: [{ kind: 'team', teamId: 'north' }],
+    },
+    {
+      eventId: 'younger',
+      eventType: 'theft',
+      startedWeek: 7,
+      order: 2,
+      targets: [{ kind: 'team', teamId: 'south' }],
+    },
+  ];
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(
+    <MilitiaSetupForm initialValues={initial} characters={[]} onSave={save} />,
+  );
+  fireEvent.click(
+    within(screen.getByRole('group', { name: 'Event 1' })).getByRole('button', {
+      name: 'Record Theft mitigation',
+    }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0]?.[0]).toMatchObject({
+    state: {
+      context: {
+        lastBuyoffWeek: 6,
+        carriedEvents: [
+          {
+            eventId: 'older',
+            startedWeek: 5,
+            order: 1,
+            targets: [{ kind: 'team', teamId: 'north' }],
+            mitigation: { week: 9, retainedIncomePercent: 90 },
+          },
+          {
+            eventId: 'younger',
+            startedWeek: 7,
+            order: 2,
+            targets: [{ kind: 'team', teamId: 'south' }],
+          },
+        ],
+      },
+    },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Event 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  expect(save.mock.calls[1]?.[0].state.context.carriedEvents).toEqual([
+    initial.state.context.carriedEvents[1],
+  ]);
+});
+
+test('[setup.event-references] removing a targeted team blocks save until the carried event is removed', async () => {
+  const { newMilitiaSetup } = await import('~/lib/canonical-setup');
+  const initial = newMilitiaSetup('Loyalty');
+  initial.state.militiaSnapshot.roster.teams = [
+    {
+      teamId: 'patrol',
+      name: 'Patrol',
+      teamType: 'defenders',
+      status: 'active',
+      rewardCapExempt: false,
+      managerCharacterId: null,
+      notes: '',
+    },
+  ];
+  initial.state.context.carriedEvents = [
+    {
+      eventId: 'sickness',
+      eventType: 'sickness',
+      startedWeek: 0,
+      order: 0,
+      targets: [{ kind: 'team', teamId: 'patrol' }],
+    },
+  ];
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(
+    <MilitiaSetupForm initialValues={initial} characters={[]} onSave={save} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Team 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  expect(
+    await screen.findByText(
+      'A carried event, order or queued effect refers to an entity missing from this setup. Restore it or choose another target.',
+    ),
+  ).toBeVisible();
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Event 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0]?.[0]).toMatchObject({
+    state: {
+      context: { carriedEvents: [] },
+      militiaSnapshot: { roster: { teams: [] } },
+    },
+  });
+});

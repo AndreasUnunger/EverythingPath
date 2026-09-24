@@ -651,34 +651,21 @@ fixture isolation, all required results, and first-attempt acceptance are
 unchanged. This explicitly supersedes the earlier 720-second budget; it does
 not classify incomplete or retry-only results as passing.
 
-## Paused cutover rehearsal (#89)
+## Accepted campaign regression (#91)
 
-The current matrix requires ten first-attempt results for the mandatory run and
-nineteen for nightly. Missing or retried cutover results fail the aggregate.
+The mandatory matrix still contains ten journeys (nineteen for nightly).
+The `canonical-cutover` project now verifies the supported post-cutover path:
+an explicit accepted mid-campaign source enters ordinary setup, edits and
+Confirmation, then retains its successor and immutable history after rejected
+legacy calls and a browser reload. Missing or retried results fail the aggregate.
 
-The mandatory `canonical-cutover` journey exports and restores a real preview
-backup, checks restartable initialization and source preservation, and exercises
-ordinary authenticated editing and Confirmation before recovery. It moves all
-players to the landing page first: `/campaigns` mounts a board that can autosave
-defaults and is not a paused location. The runner's exclusive preview lock and
-single worker keep the rehearsal isolated.
+The completed paused migration, backup restore and bounded-cleanup rehearsals
+remain in the private evidence referenced by [legacy retirement](../docs/legacy-retirement.md).
+The compatible cleanup release is `b249911`; restore an old backup only with its
+compatible release. The narrowed schema deliberately cannot run migration or
+resume legacy gameplay. No operational campaign is advanced by these tests.
 
-`cutover-evidence.json` records the backup hash, source fingerprint and completed
-restore comparisons. The archive stays in the private runner directory and is
-removed after verification. See the [runbook](../docs/paused-cutover-runbook.md)
-for commands, preflight blockers and the rule that reopening ends automatic
-rollback. This journey does not migrate or reopen production campaigns.
-
-## Legacy retirement (#91)
-
-The five ordinary campaign journeys now use the canonical dashboard and militia
-ledger. Ordinary fixture cases create canonical state only; legacy records are
-seeded exclusively by the cutover contract. Membership, setup/reload, shared
-character/officer changes, Confirmation/history, and Action Slot staging remain
-required. Nightly layout coverage uses the same canonical route.
-
-The cutover journey additionally runs bounded legacy retirement after a real
-synthetic Confirmation, verifies its successor and immutable history are
-unchanged, and checks stale endpoints reject requests. Restored old data is
-verified as recovery evidence, rather than reopened through retired gameplay.
-Use the retained compatible release for an actual pre-cutover recovery.
+Ordinary `/campaigns` journeys use canonical-only fixtures and cover membership,
+setup/reload, shared characters, persisted officer assignments, Confirmation,
+history and shared action choices. The broader Workspace journey continues to
+cover independent navigation, conflict recovery, input clearing and phase behavior.

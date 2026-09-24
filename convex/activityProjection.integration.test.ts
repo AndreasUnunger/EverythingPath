@@ -188,12 +188,6 @@ test('[rules.A06.projection-parity] the browser build and persisted Convex sourc
       const militiaId = await ctx.db.insert('militia', {
         campaignId,
         name: 'Militia',
-        HQLocation: 'HQ',
-        highestBoonReached: 3,
-        rank: 3,
-        training: 45,
-        treasury: 30,
-        focus: 'Loyalty',
       });
       return { campaignId, militiaId };
     });
@@ -274,12 +268,6 @@ test('[rules.A72.projection-parity] event shaping and reactive rolls agree in th
       const militiaId = await ctx.db.insert('militia', {
         campaignId,
         name: 'Militia',
-        HQLocation: 'HQ',
-        highestBoonReached: 3,
-        rank: 3,
-        training: 30,
-        treasury: 300,
-        focus: 'Loyalty',
       });
       return { campaignId, militiaId };
     });
@@ -380,12 +368,6 @@ test('[rules.E02.parity] selection trees, duplicate dispatch, carry and incomple
       const militiaId = await ctx.db.insert('militia', {
         campaignId,
         name: 'Militia',
-        HQLocation: 'HQ',
-        highestBoonReached: 3,
-        rank: 3,
-        training: 30,
-        treasury: 300,
-        focus: 'Loyalty',
       });
       return { campaignId, militiaId };
     });

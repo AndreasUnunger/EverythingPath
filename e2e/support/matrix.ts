@@ -32,7 +32,7 @@ const confirmationContract = [
 
 const cutoverJourney = [
   'canonical-cutover.spec.ts',
-  'paused cutover preserves source and restores verified backup before reopening',
+  'accepted campaign preserves canonical history and rejects retired paths',
 ] as const;
 
 const workspaceJourney = [

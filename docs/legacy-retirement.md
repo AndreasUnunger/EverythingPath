@@ -28,44 +28,63 @@ card movement and full phase behavior. The recovery journey additionally retires
 legacy storage after Confirmation and checks the accepted successor and immutable
 history are unchanged.
 
-## Bounded storage cleanup
+## Completed storage cleanup
 
-`legacyRetirement:batch` is internal and requires the exact accepted cutover
-operation, its retained backup hash, a militia in its recorded campaign inventory,
-a canonical source and exactly one open draft. Each call removes at most four
-legacy documents from one allowlisted table. The batch also bounds document bytes for legacy rows containing rollback history. Repeat until `done: true`; repeating
-a completed cleanup is safe. The final call retains the militia ID and name but
-removes its obsolete gameplay fields.
+The operator authorized live dev and production cleanup and schema narrowing on
+2026-09-24. The tested compatible release `b249911` was deployed first. Its internal
+`legacyRetirement:batch` required the accepted cutover operation, matching retained
+backup hash, an inventoried militia, canonical source and one open draft. Each
+transaction removed at most four documents from one allowlisted table. Final
+calls replaced only obsolete militia facts, preserving militia ID and name.
 
-The allowlist comprises legacy teams, week state, resolution records, settlements,
-caches, markets, orders, character conditions, team conditions, events, override
-notes, and the two migration preparation tables. It never deletes characters,
-canonical state, drafts, conflict/deduplication records, source corrections,
-initialization receipts, canonical history, or the cutover/backup record.
+| Deployment | Militias | Legacy rows removed | Verification |
+| --- | ---: | ---: | --- |
+| Dev `acoustic-trout-328` | 2 | 79 | Every other table unchanged; militia identities preserved |
+| Production `peaceful-zebra-497` | 1 | 18 | Every other table unchanged; militia identities preserved |
 
-The current schema intentionally accepts both the old militia shape and the
-identity-only shape so the cleanup can be deployed to populated databases.
-Legacy table declarations and migration preparation readers remain only for
-cleanup and backup rehearsal. They are not an active gameplay authority.
-After authorized cleanup reports completion for every operational militia,
-remove those compatibility declarations and preparation/rehearsal modules in the
-narrowing release. Removing them before the data operation would make it
-impossible to deploy and execute this typed cleanup safely. Live cleanup and that
-final schema narrowing are outstanding operational steps, not claimed complete
-by this implementation commit.
+Fresh before/after snapshots and exact table comparisons are retained privately
+in `e2e/.private/legacy-retirement-2026-09-24/`. All thirteen legacy/preparation
+tables were verified empty. Canonical state, drafts, operations, targets,
+corrections, initialization receipts, history, characters and backup evidence
+were compared unchanged. Ordinary authenticated Workspace and history reads
+passed on both deployments. No operational campaign was confirmed or advanced.
 
-Invoke on an explicitly selected deployment after preserving the private evidence:
+The narrowing release removes legacy team, week, resolution, settlement, cache,
+market, order, character-condition, team-condition, event and override tables,
+plus migration roster/context tables and obsolete militia fields. It removes
+migration readers and preparation editors. Militia rows now contain only
+`campaignId` and `name` besides database identity. Cutover and initialization
+receipts remain as audit evidence. Old cutover, cleanup and gameplay endpoint
+names reject calls without reads or writes. Recovery of an old backup requires
+the retained compatible release; it is not supported by the narrowed schema.
 
-```bash
-pnpm exec convex run --deployment <target> legacyRetirement:batch \
-  '{"operationId":"<accepted-operation>","backupSha256":"<verified-hash>","militiaId":"<id>"}'
-```
+The narrowing release is deployed to both dev and production. Post-deployment
+snapshots match every table from the post-cleanup snapshots, and authenticated
+Workspace/history responses match their pre-deployment reads. Evidence is in
+`dev-narrow-verification.json` and `prod-narrow-verification.json` within the private
+retirement directory. No operational steps remain for this retirement.
 
-Use the recorded inventory, inspect each returned `deleted`/`done`, and verify
-ordinary canonical Workspace and history reads before and after. Do not confirm
-or advance an operational campaign as a test. Record results privately alongside
-the backup. Production deployment/cleanup requires explicit authorization; the
-implementation session has not performed either.
+## Retained behavior coverage
+
+The retired migration implementation and its coupled tests remain recoverable
+from Git history at `b249911`. Current regression tests use the ordinary setup,
+ledger and weekly workflow: accepted campaign facts/carry, retry safety,
+membership, cross-campaign references, stale correction rejection, character
+updates, Confirmation, successor state and immutable history. A synthetic
+accepted source retains the worked mid-campaign scenario without recreating
+obsolete database storage.
+
+Supported setup form tests retain decimal enchantment delivery, explicit receipt
+validation/removal, independent same-type event targets/age/order/mitigation,
+and repair of dangling event references. Existing persistent-event tests retain
+ending behavior. The rules catalog maps those specific tests. Its two historical
+cutover expectations now describe the completed retirement under #91; the rules
+corpus and numeric cases are unchanged.
+
+The mandatory browser matrix retains ten journeys. Its cutover project now
+checks accepted canonical play, Confirmation, rejection of retired paths, reload,
+and unchanged successor/history. The previous migration, backup restore and
+bounded cleanup browser reports remain retained as operational evidence.
 
 ## Retained backup disposition
 
@@ -82,15 +101,14 @@ intentionally cannot resume legacy gameplay.
 
 ## Standards review
 
-No outstanding documented-standard violations or blocking findings. Review
-follow-up removed obsolete deletion interfaces and empty layout/exception blocks,
-separated cleanup validation, and bounded the cleanup to four documents per call.
+No outstanding documented-standard violations or blocking findings. The narrowing
+follow-up also passed review; obsolete fixture comments were removed.
 
 ## Spec review
 
-No identified unsafe cleanup or canonical history regression. One partial
-requirement remains: execute authorized live cleanup, then remove compatibility
-schema and preparation modules. Do not close #91 before those steps finish.
+No outstanding substantive findings. Review identified gaps in replacement form
+test mappings; focused receipt, decimal, event-instance and reference-repair tests
+resolved them. Live cleanup and final schema deployments are complete and verified.
 
 ## Validation evidence
 
@@ -107,3 +125,17 @@ The character journey checks live character delivery and persisted officer
 assignment across players. The cutover journey verifies bounded cleanup leaves
 the accepted successor and immutable history unchanged. None of these tests
 performed live dev or production cleanup.
+
+
+The narrowed release passed the strict acceptance gate at 2026-09-24 21:24 UTC:
+775 tests across 74 files, all 487 rules cases with zero gaps/errors, three build
+checks, typecheck and lint. All ten mandatory browser journeys passed without
+retries against the narrowed preview schema.
+
+- Browser report: `e2e-artifacts/e2e-local-andreasununger-slot-0/everythingpath-e2e-2ZKaEr/report.json`
+- Source fingerprint: `e8b5ddf0e7b1a81d9bf9f1f610756cdf1425678ba61cbd4a996dba9fb6b4b87c`
+- Final acceptance report: `coverage/acceptance.json`
+
+The test-count reduction removes obsolete migration, preparation-editor and
+validator-mirror tests. Replacement tests retain the supported observable
+behaviors described above; no required browser journey or rules case was dropped.

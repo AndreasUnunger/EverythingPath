@@ -129,12 +129,6 @@ test('[rules.U01.projection-parity] the browser build and persisted Convex sourc
       const militiaId = await ctx.db.insert('militia', {
         campaignId,
         name: 'Militia',
-        HQLocation: 'HQ',
-        highestBoonReached: 3,
-        rank: 3,
-        training: 45,
-        treasury: 30,
-        focus: 'Loyalty',
       });
       return { campaignId, militiaId };
     });

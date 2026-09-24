@@ -80,18 +80,6 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         'canonicalMilitiaState',
         'canonicalSourceCorrection',
         'canonicalCampaignInitialization',
-        'canonicalCampaignContext',
-        'canonicalRoster',
-        'militiaTeam',
-        'militiaWeekState',
-        'militiaSettlementState',
-        'militiaCache',
-        'militiaMarketplace',
-        'militiaOrder',
-        'militiaCharacterStatus',
-        'militiaTeamState',
-        'militiaEventState',
-        'militiaOverrideNote',
       ] as const;
       for (const table of tables) {
         const rows = bounded(
@@ -104,16 +92,6 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
       }
       await ctx.db.delete('militia', militia._id);
     }
-    const records = bounded(
-      await ctx.db
-        .query('militiaResolutionRecord')
-        .withIndex('by_campaignId_and_weekNumber', (q) =>
-          q.eq('campaignId', campaign._id),
-        )
-        .take(101),
-    );
-    for (const record of records)
-      await ctx.db.delete('militiaResolutionRecord', record._id);
     const characters = bounded(
       await ctx.db
         .query('character')
@@ -232,37 +210,10 @@ export const resetCase = internalMutation({
             wisdom: 10,
             charisma: 10,
           });
-    const militiaId = await ctx.db.insert(
-      'militia',
-      args.caseKey === 'canonicalPersistence'
-        ? {
-            name: `E2E ${domain.militia}`,
-            campaignId,
-            rank: 1,
-            highestBoonReached: 0,
-            HQLocation: 'Phaendar',
-            treasury: 100,
-            notoriety: 0,
-            focus: 'Loyalty',
-            training: 0,
-            ...(characterId ? { marshal: characterId } : {}),
-          }
-        : { name: `E2E ${domain.militia}`, campaignId },
-    );
-    // The cutover contract alone needs old storage as a recovery fixture.
-    if (args.caseKey === 'canonicalPersistence')
-      await ctx.db.insert('militiaWeekState', {
-        militiaId,
-        weekNumber: 1,
-        phase: 'activity',
-        isFirstWeek: true,
-        skippedUpkeepThisWeek: true,
-        uneventfulBonusCarry: 0,
-        queuedEffects: [],
-        stagedActivityActionIds: [null],
-        stagedActivityTeamIds: [null],
-        lockVersion: 0,
-      });
+    const militiaId = await ctx.db.insert('militia', {
+      name: `E2E ${domain.militia}`,
+      campaignId,
+    });
     if (args.caseKey !== 'canonicalPersistence') {
       const character = characterId
         ? await ctx.db.get('character', characterId)

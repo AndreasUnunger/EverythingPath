@@ -49,12 +49,6 @@ test('[rules.E76.projection-parity] recurring events, ordered endings and typed 
         const militiaId = await ctx.db.insert('militia', {
           campaignId,
           name: 'Militia',
-          HQLocation: 'HQ',
-          highestBoonReached: 3,
-          rank: 3,
-          training: 30,
-          treasury: 300,
-          focus: 'Loyalty',
         });
         return { campaignId, militiaId };
       });

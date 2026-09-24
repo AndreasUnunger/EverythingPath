@@ -98,12 +98,6 @@ test('[rules.P77.projection-parity] persistent decisions, temporary mitigation a
         const militiaId = await ctx.db.insert('militia', {
           campaignId,
           name: 'Militia',
-          HQLocation: 'HQ',
-          highestBoonReached: 3,
-          rank: 3,
-          training: 30,
-          treasury: 300,
-          focus: 'Loyalty',
         });
         return { campaignId, militiaId };
       });
@@ -148,12 +142,6 @@ test('[rules.P77.rivalry-mutation] persisted week-two through four keeps targets
     const militiaId = await ctx.db.insert('militia', {
       campaignId,
       name: 'Militia',
-      HQLocation: 'HQ',
-      highestBoonReached: 3,
-      rank: 3,
-      training: 10,
-      treasury: 300,
-      focus: 'Loyalty',
     });
     return { campaignId, militiaId };
   });
