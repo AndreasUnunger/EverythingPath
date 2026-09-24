@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../convex/_generated/server', () => ({
   mutation: (config: unknown) => config,
+  internalMutation: (config: unknown) => config,
   query: (config: unknown) => config,
 }));
 

@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../convex/_generated/server', () => ({
   mutation: (config: unknown) => config,
+  internalMutation: (config: unknown) => config,
   query: (config: unknown) => config,
 }));
 
@@ -56,6 +57,10 @@ class FakeDb {
             return rows.map((row: Row) => ({ ...row }));
           },
           async first() {
+            return rows[0] ? { ...rows[0] } : null;
+          },
+          async unique() {
+            if (rows.length > 1) throw new Error('Query returned more than one row.');
             return rows[0] ? { ...rows[0] } : null;
           },
         };

@@ -10,7 +10,7 @@ import { createConvexDraftTransport } from '../src/lib/convex-draft-persistence'
 import { initializationEdits } from '../tests/rules/initialization-edits';
 import { test, expect } from './support/fixtures';
 import { prepareContract } from './support/canonical-contract';
-import { command, savePrivate } from './support/process';
+import { command, savePrivate, fixtureCall } from './support/process';
 
 const inspectionSchema = z.object({
   hasOperations: z.boolean(),
@@ -63,6 +63,33 @@ test('paused cutover preserves source and restores verified backup before reopen
     '--env-file',
     run.envFile,
   ];
+  const operationId = randomUUID();
+  const operate = async (
+    name: string,
+    args: Record<string, unknown>,
+    authenticated = false,
+  ) => {
+    const output = await command(
+      `cutover ${name}`,
+      [
+        'exec',
+        'convex',
+        'run',
+        `cutover:${name}`,
+        JSON.stringify({
+          ...args,
+          ...(authenticated
+            ? {
+                operatorTokenIdentifier: `https://${run.fixture!.clerkHost}|${run.resources.workers[0]!.gm.userId}`,
+              }
+            : {}),
+        }),
+        ...selection,
+      ],
+      { cwd: run.workspace },
+    );
+    return JSON.parse(output.trim() || 'null') as unknown;
+  };
   const step = async (
     step: 'seed' | 'inspect' | 'initialize',
     sourceToken?: string,
@@ -81,6 +108,11 @@ test('paused cutover preserves source and restores verified backup before reopen
     const scope = draftKeySchema
       .omit({ draftId: true })
       .parse(await step('seed'));
+    await fixtureCall(run, 'cleanupCase', comparisonCase!.scope);
+    const campaignIds = z
+      .array(draftKeySchema.shape.campaignId)
+      .parse(await operate('inventory', {}));
+    expect(campaignIds).toEqual([scope.campaignId]);
     const before = await inspect();
     expect(before.plan.issues).toEqual([]);
     expect(before.plan.ready).toBe(true);
@@ -92,6 +124,18 @@ test('paused cutover preserves source and restores verified backup before reopen
       organizationId: run.resources.workers[0]!.organizationId,
     });
     expect(legacyBefore).not.toBeNull();
+    await operate('pause', {
+      operationId,
+      oldRelease: 'compatible-legacy',
+      newRelease: run.sourceFingerprint,
+      campaignIds,
+    });
+    await players.gm.goto('/campaigns');
+    await expect(
+      players.gm.getByText(
+        'Campaign editing is paused for maintenance. Please try again shortly.',
+      ),
+    ).toBeVisible();
     const backup = join(run.privateDirectory, 'cutover-backup.zip');
     await command(
       'paused preview backup',
@@ -111,11 +155,55 @@ test('paused cutover preserves source and restores verified backup before reopen
       .digest('hex');
     expect(await inspect()).toEqual(before);
 
+    await command(
+      'verify paused preview backup restore',
+      [
+        'exec',
+        'convex',
+        'import',
+        backup,
+        '--replace-all',
+        '--yes',
+        ...selection,
+      ],
+      { cwd: run.workspace },
+    );
+    expect(await inspect()).toEqual(before);
+    await operate('recordBackup', {
+      operationId,
+      sha256: backupHash,
+      location: backup,
+      verifiedRestoreDeployment: run.resources.previewName,
+      retainUntil: Date.now() + 86400000,
+    });
+
     const initialized = z
       .object({ draftId: z.string(), initialized: z.boolean() })
-      .parse(await step('initialize', before.plan.sourceToken));
+      .parse(
+        await operate(
+          'initialize',
+          {
+            ...scope,
+            operationId,
+            sourceToken: before.plan.sourceToken,
+            initializationId: operationId,
+          },
+          true,
+        ),
+      );
     expect(initialized.initialized).toBe(true);
-    expect(await step('initialize', before.plan.sourceToken)).toEqual({
+    expect(
+      await operate(
+        'initialize',
+        {
+          ...scope,
+          operationId,
+          sourceToken: before.plan.sourceToken,
+          initializationId: operationId,
+        },
+        true,
+      ),
+    ).toEqual({
       ...initialized,
       initialized: false,
     });
@@ -156,6 +244,20 @@ test('paused cutover preserves source and restores verified backup before reopen
         },
       ],
     });
+    await operate('verify', { operationId }, true);
+    await operate('activate', { operationId }, true);
+    await expect(
+      players.gm.getByRole('heading', { name: 'Week 9 · Upkeep' }),
+    ).toBeVisible();
+    await players.gm.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await players.gm
+      .getByRole('button', { name: 'Edit militia ledger' })
+      .click();
+    await expect(
+      players.gm.getByRole('button', { name: 'Save correction' }),
+    ).toBeVisible();
+    await players.gm.getByRole('button', { name: 'Close correction' }).click();
+    await players.gm.goto('/');
     // Switch the reader and writer as one client: ordinary canonical Workspace,
     // edits, preview and Confirmation must all use the initialized source.
     const workspace = await client.query(
@@ -205,6 +307,7 @@ test('paused cutover preserves source and restores verified backup before reopen
       { cwd: run.workspace },
     );
     expect(await inspect()).toEqual(before);
+    await operate('resumeLegacy', { operationId });
     expect(
       await client.query(api.weekBoard.getWeekBoardState, {
         campaignId: scope.campaignId,
@@ -227,6 +330,7 @@ test('paused cutover preserves source and restores verified backup before reopen
           legacyReaderCompatible: true,
           restartVerified: true,
           confirmationVerified: true,
+          activationVerified: true,
           reopening: false,
           automaticRollbackEndsAtReopening: true,
         },

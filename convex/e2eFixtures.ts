@@ -75,6 +75,7 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         'canonicalDraftOperation',
         'canonicalResolutionRecord',
         'canonicalMilitiaState',
+        'canonicalSourceCorrection',
         'canonicalCampaignInitialization',
         'canonicalCampaignContext',
         'canonicalRoster',

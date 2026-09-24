@@ -1,5 +1,6 @@
 import { ConvexError, v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { query } from './_generated/server';
+import { legacyCampaignMutation as mutation } from './lib/campaignRuntime';
 import {
   cacheClassValidator,
   cacheStatusValidator,

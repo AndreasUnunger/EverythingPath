@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { workspaceSourceSchema } from '../src/lib/weekly-workspace-source';
 import { requireScope } from './lib/canonicalDraftStorage';
 import { internal } from './_generated/api';
-import { internalMutation } from './_generated/server';
+import { campaignInternalMutation as internalMutation, campaignMutation as mutation } from './lib/campaignRuntime';
 import {
   acceptedWeeklyPreviewSchema,
   confirmationOperationSchema,
@@ -11,7 +11,7 @@ import {
 import { previewDraft, confirmDraft } from './lib/canonicalConfirmation';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { paginationOptsValidator } from 'convex/server';
-import { mutation, query } from './_generated/server';
+import { query } from './_generated/server';
 import {
   draftKeySchema,
   canonicalRecordValidator,

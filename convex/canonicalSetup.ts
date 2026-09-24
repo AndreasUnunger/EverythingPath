@@ -1,8 +1,8 @@
 import { z } from 'zod';
+import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { ConvexError, v } from 'convex/values';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import {
-  mutation,
   query,
   type MutationCtx,
   type QueryCtx,

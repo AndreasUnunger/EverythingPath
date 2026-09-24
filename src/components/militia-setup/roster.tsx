@@ -14,7 +14,13 @@ export type SetupCharacter =
   MilitiaSetup['state']['militiaSnapshot']['characters'][number] & {
     name: string;
   };
-export function SetupRoster({ characters }: { characters: SetupCharacter[] }) {
+export function SetupRoster({
+  characters,
+  preserveCharacters = false,
+}: {
+  characters: SetupCharacter[];
+  preserveCharacters?: boolean;
+}) {
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const people = useFieldArray({
     control,
@@ -53,10 +59,11 @@ export function SetupRoster({ characters }: { characters: SetupCharacter[] }) {
                     hitDice: null,
                   });
                   const { name: _name, ...facts } = character;
-                  setValue('state.militiaSnapshot.characters', [
-                    ...watch('state.militiaSnapshot.characters'),
-                    facts,
-                  ]);
+                  if (!preserveCharacters)
+                    setValue('state.militiaSnapshot.characters', [
+                      ...watch('state.militiaSnapshot.characters'),
+                      facts,
+                    ]);
                 }}
               >
                 Add {character.name}
@@ -73,12 +80,13 @@ export function SetupRoster({ characters }: { characters: SetupCharacter[] }) {
             }
             onRemove={() => {
               people.remove(index);
-              setValue(
-                'state.militiaSnapshot.characters',
-                watch('state.militiaSnapshot.characters').filter(
-                  (character) => character.characterId !== person.characterId,
-                ),
-              );
+              if (!preserveCharacters)
+                setValue(
+                  'state.militiaSnapshot.characters',
+                  watch('state.militiaSnapshot.characters').filter(
+                    (character) => character.characterId !== person.characterId,
+                  ),
+                );
               setValue(
                 'state.militiaSnapshot.roster.officers',
                 roster.officers.filter(

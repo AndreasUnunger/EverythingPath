@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type * as ConvexReact from 'convex/react';
 import { CampaignDashboard } from './campaign-dashboard';
 
 const mockUseOrganization = vi.fn();
@@ -11,6 +12,12 @@ const mockMilitiaStateSetupQuery = vi.fn();
 const campaignInfoSpy = vi.fn();
 const ledgerSpy = vi.fn();
 const militiaSystemSpy = vi.fn();
+const runtimeQuery = vi.fn(() => 'legacy');
+
+vi.mock('convex/react', async (original) => ({
+  ...(await original<typeof ConvexReact>()),
+  useQuery: () => runtimeQuery(),
+}));
 
 vi.mock('@clerk/nextjs', () => ({
   useOrganization: () => mockUseOrganization(),
@@ -18,16 +25,20 @@ vi.mock('@clerk/nextjs', () => ({
 
 vi.mock('~/lib/sharedQueries', () => ({
   campaignQuery: (...args: unknown[]) => mockCampaignQuery(...args),
-  characterLedgerQuery: (...args: unknown[]) => mockCharacterLedgerQuery(...args),
+  characterLedgerQuery: (...args: unknown[]) =>
+    mockCharacterLedgerQuery(...args),
   marketplaceLedgerQuery: (...args: unknown[]) =>
     mockMarketplaceLedgerQuery(...args),
   militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
-  militiaStateSetupQuery: (...args: unknown[]) => mockMilitiaStateSetupQuery(...args),
+  militiaStateSetupQuery: (...args: unknown[]) =>
+    mockMilitiaStateSetupQuery(...args),
 }));
 
 vi.mock('~/components/ui/tabs', () => ({
   Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TabsList: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   TabsTrigger: ({ children }: { children: React.ReactNode }) => (
     <button type="button">{children}</button>
   ),
@@ -78,6 +89,7 @@ vi.mock('~/components/militia-system', () => ({
 describe('CampaignDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    runtimeQuery.mockReturnValue('legacy');
     mockMilitiaQuery.mockReturnValue({ data: undefined });
     mockMilitiaStateSetupQuery.mockReturnValue({ data: undefined });
     mockCharacterLedgerQuery.mockReturnValue({ data: [] });
@@ -99,7 +111,9 @@ describe('CampaignDashboard', () => {
 
     render(<CampaignDashboard />);
 
-    expect(screen.getByText('Loading organization context...')).toBeInTheDocument();
+    expect(
+      screen.getByText('Loading organization context...'),
+    ).toBeInTheDocument();
   });
 
   it('shows no-organization message from campaign context', () => {
@@ -115,7 +129,9 @@ describe('CampaignDashboard', () => {
 
     render(<CampaignDashboard />);
 
-    expect(screen.getByText('No active organization selected')).toBeInTheDocument();
+    expect(
+      screen.getByText('No active organization selected'),
+    ).toBeInTheDocument();
   });
 
   it('shows no-access message from campaign context', () => {

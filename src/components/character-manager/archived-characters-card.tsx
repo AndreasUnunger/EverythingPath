@@ -10,7 +10,7 @@ export function ArchivedCharactersCard({
 }: {
   archivedCharacters: CharacterRecord[];
   onUnarchive: (characterId: CharacterId) => void;
-  onRequestDelete: (character: CharacterRecord) => void;
+  onRequestDelete?: (character: CharacterRecord) => void;
   archivingCharacterId?: CharacterId;
   deletingCharacterId?: CharacterId;
 }) {
@@ -44,16 +44,18 @@ export function ArchivedCharactersCard({
                   ? 'Un-archiving...'
                   : 'Un-archive'}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={deletingCharacterId === character._id}
-                onClick={() => onRequestDelete(character)}
-              >
-                {deletingCharacterId === character._id
-                  ? 'Deleting...'
-                  : 'Delete'}
-              </Button>
+              {onRequestDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={deletingCharacterId === character._id}
+                  onClick={() => onRequestDelete(character)}
+                >
+                  {deletingCharacterId === character._id
+                    ? 'Deleting...'
+                    : 'Delete'}
+                </Button>
+              )}
             </div>
           </div>
         ))}

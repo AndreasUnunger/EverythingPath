@@ -9,6 +9,21 @@ import {
 import { afterEach, expect, test, vi } from 'vitest';
 import { MilitiaSetupForm } from './form';
 afterEach(cleanup);
+test('a ledger correction requires a field-level reason before saving', async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(<MilitiaSetupForm characters={[]} onSave={save} correction />);
+  fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+  expect(
+    await screen.findByText('Reason for correction is required.'),
+  ).toBeVisible();
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Reason for correction' }),
+    { target: { value: 'Recorded table reward' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+});
 test('[setup.form] setup distinguishes missing and malformed numbers and accepts advisory deviations', async () => {
   const save = vi.fn().mockResolvedValue(undefined);
   render(<MilitiaSetupForm characters={[]} onSave={save} />);

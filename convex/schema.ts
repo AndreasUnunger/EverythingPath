@@ -781,6 +781,24 @@ export const dataMigrationValidator = v.object({
 export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
+  canonicalSourceCorrection: defineTable({
+    campaignId: v.id('campaign'), militiaId: v.id('militia'), expectedRevision: v.number(),
+    revision: v.number(), reason: v.string(), actor: v.string(), createdAt: v.number(),
+  }).index('by_militiaId', ['militiaId']),
+  campaignCutover: defineTable({
+    key: v.literal('weekly-draft'),
+    status: v.union(v.literal('paused'), v.literal('canonical')),
+    operationId: v.string(),
+    oldRelease: v.string(),
+    newRelease: v.string(),
+    campaignIds: v.array(v.id('campaign')),
+    pausedAt: v.number(),
+    reopenedAt: v.optional(v.number()),
+    backup: v.optional(v.object({
+      sha256: v.string(), location: v.string(), verifiedRestoreDeployment: v.string(),
+      retainUntil: v.number(),
+    })),
+  }).index('by_key', ['key']),
   canonicalMilitiaState: defineTable({
     campaignId: v.id('campaign'),
     militiaId: v.id('militia'),

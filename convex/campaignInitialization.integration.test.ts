@@ -366,7 +366,10 @@ test('[initialization.expiry] initialization refuses extended queue duration', a
 
 test('[initialization.unsupported-queue] automatic effects cannot be replaced with narrative notes', async () => {
   const { t, gm, scope, context, weekId } = await fixture();
-  const effect = { kind: 'double_upkeep_attrition' as const, appliesWeek: 10 };
+  const effect = {
+    kind: 'double_next_activity_training_gain' as const,
+    appliesWeek: 10,
+  };
   await t.run((ctx) =>
     ctx.db.patch('militiaWeekState', weekId, { queuedEffects: [effect] }),
   );
@@ -397,6 +400,119 @@ test('[initialization.unsupported-queue] automatic effects cannot be replaced wi
     ),
   ).rejects.toThrow('unsupported queued effect');
   expect(await gm.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+});
+
+test('cutover preserves Week of Pain penalties and double losses without executing them', async () => {
+  const { t, gm, scope, context, weekId } = await fixture();
+  await t.run((ctx) =>
+    ctx.db.patch('militiaWeekState', weekId, {
+      queuedEffects: [
+        { kind: 'week_of_pain_checks_penalty', appliesWeek: 9 },
+        { kind: 'double_upkeep_attrition', appliesWeek: 9 },
+      ],
+    }),
+  );
+  const queuedEffects = [
+    ...(['loyalty', 'security', 'secrecy'] as const).map((check) => ({
+      effectId: `pain-${check}`,
+      sourceId: `legacy-queue:${weekId}:0`,
+      startsWeek: 9,
+      endsWeek: 9,
+      effect: { kind: 'check_modifier' as const, check, value: -1 },
+    })),
+    {
+      effectId: 'double-loss',
+      sourceId: `legacy-queue:${weekId}:1`,
+      startsWeek: 9,
+      endsWeek: 9,
+      effect: { kind: 'upkeep_loss_multiplier' as const, value: 2 },
+    },
+  ];
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: { ...context, queuedEffects },
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan.issues).toEqual([]);
+  await gm.run((ctx) =>
+    initializeCampaign(ctx, {
+      ...scope,
+      sourceToken: plan.sourceToken,
+      initializationId: 'pain',
+    }),
+  );
+  expect(
+    (await gm.run((ctx) => readOpenDraft(ctx, scope)))?.context.queuedEffects,
+  ).toEqual(queuedEffects);
+  expect(
+    (await gm.run((ctx) => preflightCampaignInitialization(ctx, scope))).source
+      .militia.treasury,
+  ).toBe(123.45);
+});
+
+test('cutover requires a faithful marketplace mapping and preserves its expiry and prices', async () => {
+  const { t, gm, scope, context } = await fixture();
+  const marketId = await t.run((ctx) =>
+    ctx.db.insert('militiaMarketplace', {
+      militiaId: scope.militiaId,
+      label: 'Market',
+      sourceAction: 'broker_market',
+      teamId: 'merchants',
+      availabilityTier: 'small_town',
+      availabilityThreshold: 75,
+      saleValuePercent: 50,
+      contrabandAllowed: false,
+      createdWeek: 8,
+      activeUntilWeek: 9,
+    }),
+  );
+  expect(
+    (await gm.run((ctx) => preflightCampaignInitialization(ctx, scope))).ready,
+  ).toBe(false);
+  const assets = context.resolutionAssets;
+  await gm.run((ctx) =>
+    saveCampaignContext(ctx, {
+      ...scope,
+      expectedRevision: 0,
+      context: {
+        ...context,
+        resolutionAssets: {
+          ...assets,
+          economy: {
+            ...assets.economy,
+            markets: [
+              {
+                marketId,
+                source: 'broker_market',
+                settlementId: 'town',
+                availableWeek: 8,
+                expiresWeek: 9,
+                availability: 'small_town',
+                availabilityPercent: 75,
+                salePercent: 50,
+                contraband: false,
+              },
+            ],
+          },
+        },
+      },
+    }),
+  );
+  const plan = await gm.run((ctx) =>
+    preflightCampaignInitialization(ctx, scope),
+  );
+  expect(plan.issues).toEqual([]);
+  expect(plan.snapshot?.economy?.markets[0]).toMatchObject({
+    marketId,
+    expiresWeek: 9,
+    availabilityPercent: 75,
+    salePercent: 50,
+  });
 });
 
 test('[initialization.delivery] preserve pending receipts and recover Broker Market Activity timing', async () => {

@@ -60,10 +60,41 @@ export function prepareInitializationSnapshot(
   preserveOrders(context, assets, preserve, issues);
   // These legacy models have facts without canonical equivalents. Keep the
   // source intact and require a reviewed mapping before permitting cutover.
-  if (source.marketplaces.length || source.people.length)
-    issues.push(
-      'Resolve legacy marketplace and tracked-person mapping before cutover.',
+  for (const market of source.marketplaces) {
+    const mapped = assets.economy.markets.find(
+      (x) => x.marketId === market._id,
     );
+    preserve(
+      mapped && {
+        source: mapped.source,
+        availableWeek: mapped.availableWeek,
+        expiresWeek: mapped.expiresWeek,
+        availability: mapped.availability,
+        availabilityPercent: mapped.availabilityPercent,
+        salePercent: mapped.salePercent,
+        contraband: mapped.contraband,
+      },
+      {
+        source: market.sourceAction,
+        availableWeek: market.createdWeek,
+        expiresWeek: market.activeUntilWeek,
+        availability: market.availabilityTier,
+        availabilityPercent: market.availabilityThreshold,
+        salePercent: market.saleValuePercent,
+        contraband: market.contrabandAllowed,
+      },
+      `marketplace ${market._id}`,
+    );
+    if (
+      market.marketDayDiscountPercent !== undefined ||
+      market.marketDayAppliedWeek !== undefined
+    )
+      issues.push(
+        `Resolve Market Day benefit mapping for marketplace ${market._id}.`,
+      );
+  }
+  if (source.people.length)
+    issues.push('Resolve legacy tracked-person mapping before cutover.');
   validateCurrentEvents(context, source.week?.weekNumber, issues);
   const parsed = militiaSnapshotSchema.safeParse({
     rank: source.militia.rank,

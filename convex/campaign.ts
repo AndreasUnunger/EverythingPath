@@ -1,5 +1,6 @@
 import { ConvexError, v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { query } from './_generated/server';
+import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { campaignValidator } from './schema';
 import { hasAccessToOrg } from './user';
 

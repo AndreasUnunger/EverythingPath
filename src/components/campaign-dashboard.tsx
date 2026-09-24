@@ -1,6 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '@convex/_generated/api';
+import { CanonicalCampaignDashboard } from './canonical-campaign-dashboard';
+import { Card } from './ui/card';
 import type { Id } from '@convex/_generated/dataModel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { MilitiaSystem } from '~/components/militia-system';
@@ -19,6 +23,28 @@ import {
 } from '~/lib/sharedQueries';
 
 export function CampaignDashboard() {
+  const mode = useQuery(api.cutover.status, {});
+  const previousMode = useRef(mode);
+  useEffect(() => {
+    if (
+      mode === 'canonical' &&
+      (previousMode.current === 'legacy' || previousMode.current === 'paused')
+    )
+      window.location.reload();
+    previousMode.current = mode;
+  }, [mode]);
+  if (mode === undefined) return <p role="status">Loading campaigns…</p>;
+  if (mode === 'paused')
+    return (
+      <Card role="status" className="p-6">
+        Campaign editing is paused for maintenance. Please try again shortly.
+      </Card>
+    );
+  if (mode === 'canonical') return <CanonicalCampaignDashboard />;
+  return <LegacyCampaignDashboard />;
+}
+
+function LegacyCampaignDashboard() {
   const [activeTab, setActiveTab] = useState('militia');
   const [selectedCampaignId, setSelectedCampaignId] = useState<
     Id<'campaign'> | undefined

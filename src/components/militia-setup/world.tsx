@@ -10,7 +10,13 @@ import {
   yesNo,
 } from './fields';
 import type { SetupCharacter } from './roster';
-export function SetupWorld({ characters }: { characters: SetupCharacter[] }) {
+export function SetupWorld({
+  characters,
+  includeEvents = true,
+}: {
+  characters: SetupCharacter[];
+  includeEvents?: boolean;
+}) {
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const settlements = useFieldArray({
     control,
@@ -152,110 +158,113 @@ export function SetupWorld({ characters }: { characters: SetupCharacter[] }) {
           </SetupEntry>
         ))}
       </SetupSection>
-      <SetupSection
-        title="Carried persistent events"
-        add="Add carried event"
-        onAdd={() =>
-          events.append({
-            eventId: crypto.randomUUID(),
-            eventType: 'rivalry',
-            startedWeek: values.state.week,
-            order: events.fields.length,
-            targets: [],
-          })
-        }
-      >
-        <p className="text-muted-foreground text-sm">
-          List events carried into this week in their original order. These
-          determine whether the Persistent phase is available.
-        </p>
-        {events.fields.map((row, i) => (
-          <SetupEntry
-            key={row.id}
-            label={`Event ${i + 1}`}
-            onRemove={() => events.remove(i)}
-          >
-            <Field
-              name={`state.context.carriedEvents.${i}.eventType`}
-              label="Event type"
-              options={choices(EVENT_TYPES)}
-            />
-            <Field
-              name={`state.context.carriedEvents.${i}.startedWeek`}
-              label="Started week"
-              numeric
-            />
-            <Field
-              name={`state.context.carriedEvents.${i}.order`}
-              label="Processing order"
-              numeric
-            />
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Event targets</p>
-              <div className="flex flex-wrap gap-2">
-                {targets.map(({ label, target }) => {
-                  const current =
-                    values.state.context.carriedEvents[i]?.targets ?? [];
-                  const selected = current.some(
-                    (x) => JSON.stringify(x) === JSON.stringify(target),
-                  );
-                  return (
-                    <Button
-                      key={JSON.stringify(target)}
-                      type="button"
-                      variant={selected ? 'default' : 'outline'}
-                      aria-pressed={selected}
-                      onClick={() =>
-                        setValue(
-                          `state.context.carriedEvents.${i}.targets`,
-                          selected
-                            ? current.filter(
-                                (x) =>
-                                  JSON.stringify(x) !== JSON.stringify(target),
-                              )
-                            : [...current, target],
-                        )
-                      }
-                    >
-                      {label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-            {values.state.context.carriedEvents[i]?.eventType === 'theft' && (
+      {includeEvents && (
+        <SetupSection
+          title="Carried persistent events"
+          add="Add carried event"
+          onAdd={() =>
+            events.append({
+              eventId: crypto.randomUUID(),
+              eventType: 'rivalry',
+              startedWeek: values.state.week,
+              order: events.fields.length,
+              targets: [],
+            })
+          }
+        >
+          <p className="text-muted-foreground text-sm">
+            List events carried into this week in their original order. These
+            determine whether the Persistent phase is available.
+          </p>
+          {events.fields.map((row, i) => (
+            <SetupEntry
+              key={row.id}
+              label={`Event ${i + 1}`}
+              onRemove={() => events.remove(i)}
+            >
+              <Field
+                name={`state.context.carriedEvents.${i}.eventType`}
+                label="Event type"
+                options={choices(EVENT_TYPES)}
+              />
+              <Field
+                name={`state.context.carriedEvents.${i}.startedWeek`}
+                label="Started week"
+                numeric
+              />
+              <Field
+                name={`state.context.carriedEvents.${i}.order`}
+                label="Processing order"
+                numeric
+              />
               <div className="space-y-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setValue(
-                      `state.context.carriedEvents.${i}.mitigation`,
-                      values.state.context.carriedEvents[i]?.mitigation
-                        ? undefined
-                        : {
-                            week: values.state.week,
-                            retainedIncomePercent: 90,
-                          },
-                    )
-                  }
-                >
-                  {values.state.context.carriedEvents[i]?.mitigation
-                    ? 'Remove recorded mitigation'
-                    : 'Record Theft mitigation'}
-                </Button>
-                {values.state.context.carriedEvents[i]?.mitigation && (
-                  <Field
-                    name={`state.context.carriedEvents.${i}.mitigation.week`}
-                    label="Mitigation week"
-                    numeric
-                  />
-                )}
+                <p className="text-sm font-medium">Event targets</p>
+                <div className="flex flex-wrap gap-2">
+                  {targets.map(({ label, target }) => {
+                    const current =
+                      values.state.context.carriedEvents[i]?.targets ?? [];
+                    const selected = current.some(
+                      (x) => JSON.stringify(x) === JSON.stringify(target),
+                    );
+                    return (
+                      <Button
+                        key={JSON.stringify(target)}
+                        type="button"
+                        variant={selected ? 'default' : 'outline'}
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setValue(
+                            `state.context.carriedEvents.${i}.targets`,
+                            selected
+                              ? current.filter(
+                                  (x) =>
+                                    JSON.stringify(x) !==
+                                    JSON.stringify(target),
+                                )
+                              : [...current, target],
+                          )
+                        }
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </SetupEntry>
-        ))}
-      </SetupSection>
+              {values.state.context.carriedEvents[i]?.eventType === 'theft' && (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setValue(
+                        `state.context.carriedEvents.${i}.mitigation`,
+                        values.state.context.carriedEvents[i]?.mitigation
+                          ? undefined
+                          : {
+                              week: values.state.week,
+                              retainedIncomePercent: 90,
+                            },
+                      )
+                    }
+                  >
+                    {values.state.context.carriedEvents[i]?.mitigation
+                      ? 'Remove recorded mitigation'
+                      : 'Record Theft mitigation'}
+                  </Button>
+                  {values.state.context.carriedEvents[i]?.mitigation && (
+                    <Field
+                      name={`state.context.carriedEvents.${i}.mitigation.week`}
+                      label="Mitigation week"
+                      numeric
+                    />
+                  )}
+                </div>
+              )}
+            </SetupEntry>
+          ))}
+        </SetupSection>
+      )}
     </>
   );
 }

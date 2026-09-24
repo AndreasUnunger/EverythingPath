@@ -1,5 +1,8 @@
 import { ConvexError, v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { query } from './_generated/server';
+import { campaignMutation as mutation } from './lib/campaignRuntime';
+import { readCutover } from './lib/campaignRuntime';
+import { updateCanonicalCharacter } from './lib/canonicalCharacters';
 import { campaignValidator, characterValidator } from './schema';
 import { hasAccessToOrg } from './user';
 import type { MutationCtx, QueryCtx } from './_generated/server';
@@ -85,11 +88,13 @@ export const createCharacter = mutation({
       args.organizationId,
     );
 
-    return await ctx.db.insert('character', {
+    const characterId = await ctx.db.insert('character', {
       ...args.character,
       ownerId: access.user.tokenIdentifier,
       isActive: true,
     });
+    await updateCanonicalCharacter(ctx, characterId);
+    return characterId;
   },
 });
 
@@ -128,6 +133,7 @@ export const updateCharacter = mutation({
     );
 
     await ctx.db.patch('character', args.characterId, args.patch);
+    await updateCanonicalCharacter(ctx, args.characterId);
   },
 });
 
@@ -150,6 +156,7 @@ export const archiveCharacter = mutation({
     );
 
     await ctx.db.patch('character', args.characterId, { isActive: args.isActive });
+    await updateCanonicalCharacter(ctx, args.characterId);
   },
 });
 
@@ -169,6 +176,9 @@ export const deleteCharacter = mutation({
     }
 
     await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
+
+    if ((await readCutover(ctx))?.status === 'canonical')
+      throw new ConvexError('Keep archived characters to preserve militia history.');
 
     await ctx.db.delete('character', args.characterId);
   },

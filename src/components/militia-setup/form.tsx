@@ -19,13 +19,24 @@ import { SetupCarry } from './carry';
 export function MilitiaSetupForm({
   characters,
   onSave,
+  initialValues,
+  correction = false,
 }: {
   characters: SetupCharacter[];
   onSave: (setup: MilitiaSetup) => Promise<void>;
+  initialValues?: MilitiaSetup;
+  correction?: boolean;
 }) {
   const form = useForm<MilitiaSetup>({
-    resolver: zodResolver(militiaSetupSchema),
-    defaultValues: newMilitiaSetup('Loyalty'),
+    resolver: zodResolver(
+      correction
+        ? militiaSetupSchema.refine((setup) => setup.notes.trim().length > 0, {
+            path: ['notes'],
+            message: 'A reason is required for this correction.',
+          })
+        : militiaSetupSchema,
+    ),
+    defaultValues: initialValues ?? newMilitiaSetup('Loyalty'),
   });
   const [error, setError] = useState<string>();
   const values = form.watch();
@@ -46,35 +57,43 @@ export function MilitiaSetupForm({
             setError(
               error instanceof ConvexError && typeof error.data === 'string'
                 ? error.data
-                : 'Militia setup could not be saved. Your entries are retained. Try again, or open the current week if another player completed setup.',
+                : correction
+                  ? 'The correction could not be saved. Your entries are retained. Review the latest ledger and try again.'
+                  : 'Militia setup could not be saved. Your entries are retained. Try again, or open the current week if another player completed setup.',
             );
           }
         })}
       >
         <fieldset disabled={form.formState.isSubmitting} className="space-y-6">
-          <SetupSection title="Starting point">
-            <Field
-              name="mode"
-              label="Campaign progress"
-              onChoice={(mode) =>
-                form.setValue(
-                  'state.context.firstMilitiaWeek',
-                  mode === 'new',
-                  {
-                    shouldDirty: true,
-                  },
-                )
-              }
-              options={[
-                { value: 'new', label: 'New militia' },
-                { value: 'existing', label: 'Existing militia' },
-              ]}
-            />
-            <p className="text-muted-foreground text-sm">
-              New militia defaults are rank 1, training 0 and 10 gp. For an
-              existing militia, enter the current table state below. Changing
-              the starting point keeps your entries.
-            </p>
+          <SetupSection
+            title={correction ? 'Militia values' : 'Starting point'}
+          >
+            {!correction && (
+              <>
+                <Field
+                  name="mode"
+                  label="Campaign progress"
+                  onChoice={(mode) =>
+                    form.setValue(
+                      'state.context.firstMilitiaWeek',
+                      mode === 'new',
+                      {
+                        shouldDirty: true,
+                      },
+                    )
+                  }
+                  options={[
+                    { value: 'new', label: 'New militia' },
+                    { value: 'existing', label: 'Existing militia' },
+                  ]}
+                />
+                <p className="text-muted-foreground text-sm">
+                  New militia defaults are rank 1, training 0 and 10 gp. For an
+                  existing militia, enter the current table state below.
+                  Changing the starting point keeps your entries.
+                </p>
+              </>
+            )}
             <div className="grid items-start gap-3 md:grid-cols-2">
               <Field
                 name="state.militiaSnapshot.focus"
@@ -99,58 +118,67 @@ export function MilitiaSetupForm({
               />
             </div>
           </SetupSection>
-          <SetupSection title="Week context">
-            <div className="grid items-start gap-3 md:grid-cols-2">
-              <Field name="state.week" label="Current week" numeric />
-              <Field
-                name="state.context.startDay"
-                label="Week start day"
-                numeric
-              />
-              {values.mode === 'new' && (
+          {!correction && (
+            <SetupSection title="Week context">
+              <div className="grid items-start gap-3 md:grid-cols-2">
+                <Field name="state.week" label="Current week" numeric />
                 <Field
-                  name="state.context.firstMilitiaWeek"
-                  label="First militia week"
+                  name="state.context.startDay"
+                  label="Week start day"
+                  numeric
+                />
+                {values.mode === 'new' && (
+                  <Field
+                    name="state.context.firstMilitiaWeek"
+                    label="First militia week"
+                    options={yesNo}
+                  />
+                )}
+                <Field
+                  name="state.context.uneventfulCarry"
+                  label="Previous week was uneventful"
                   options={yesNo}
                 />
-              )}
-              <Field
-                name="state.context.uneventfulCarry"
-                label="Previous week was uneventful"
-                options={yesNo}
-              />
-              <Field
-                name="state.context.lastBuyoffWeek"
-                label="Last persistent buyoff week (optional)"
-                numeric
-              />
-              <Field
-                name="phase"
-                label="Open phase"
-                options={choices([
-                  'upkeep',
-                  'activity',
-                  'event',
-                  'persistent',
-                  'summary',
-                ])}
-              />
-            </div>
-            <p className="text-muted-foreground text-sm">
-              Setup records your week without resolving it. Existing militias
-              run Upkeep. A newly founded militia skips its first-ever Upkeep,
-              independently of the displayed week number.
-            </p>
-          </SetupSection>
-          <SetupRoster characters={characters} />
+                <Field
+                  name="state.context.lastBuyoffWeek"
+                  label="Last persistent buyoff week (optional)"
+                  numeric
+                />
+                <Field
+                  name="phase"
+                  label="Open phase"
+                  options={choices([
+                    'upkeep',
+                    'activity',
+                    'event',
+                    'persistent',
+                    'summary',
+                  ])}
+                />
+              </div>
+              <p className="text-muted-foreground text-sm">
+                Setup records your week without resolving it. Existing militias
+                run Upkeep. A newly founded militia skips its first-ever Upkeep,
+                independently of the displayed week number.
+              </p>
+            </SetupSection>
+          )}
+          <SetupRoster
+            characters={characters}
+            preserveCharacters={correction}
+          />
           <SetupCharacterConditions characters={characters} />
-          <SetupWorld characters={characters} />
+          <SetupWorld characters={characters} includeEvents={!correction} />
           <SetupAssets characters={characters} />
-          <SetupCarry />
+          {!correction && <SetupCarry />}
           <SetupEventBenefits characters={characters} />
           <Field
             name="notes"
-            label="Setup notes / intentional rules deviations (optional)"
+            label={
+              correction
+                ? 'Reason for correction'
+                : 'Setup notes / intentional rules deviations (optional)'
+            }
           />
         </fieldset>
         {warnings.length > 0 && (
@@ -172,7 +200,7 @@ export function MilitiaSetupForm({
         )}
         {Object.keys(form.formState.errors).length > 0 && (
           <div role="alert" className="text-destructive space-y-1 border p-3">
-            <p>Review the highlighted fields before starting.</p>
+            <p>Review the highlighted fields before saving.</p>
             {parsed.success
               ? null
               : parsed.error.issues
@@ -190,9 +218,13 @@ export function MilitiaSetupForm({
           </p>
         )}
         <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting
-            ? 'Starting militia…'
-            : 'Start militia week'}
+          {correction
+            ? form.formState.isSubmitting
+              ? 'Saving correction…'
+              : 'Save correction'
+            : form.formState.isSubmitting
+              ? 'Starting militia…'
+              : 'Start militia week'}
         </Button>
       </form>
     </FormProvider>

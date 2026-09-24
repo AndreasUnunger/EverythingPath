@@ -1,5 +1,6 @@
 import { internal } from './_generated/api';
-import { internalMutation, mutation, query } from './_generated/server';
+import { query } from './_generated/server';
+import { legacyCampaignMutation as mutation, legacyCampaignInternalMutation as internalMutation } from './lib/campaignRuntime';
 import { ConvexError, v } from 'convex/values';
 
 const LEGACY_SCHEMA_MIGRATION = 'legacy_ownerId_and_notoriety_backfill';

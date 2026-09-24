@@ -584,6 +584,22 @@ function validateQueues(
         [{ kind: 'block_action', actionId: effect.blockedActionId }],
         `queued action block ${key}`,
       );
+    } else if (effect.kind === 'week_of_pain_checks_penalty') {
+      preserve(
+        matches.map((q) => q.effect),
+        ['loyalty', 'security', 'secrecy'].map((check) => ({
+          kind: 'check_modifier',
+          check,
+          value: -1,
+        })),
+        `Week of Pain checks ${key}`,
+      );
+    } else if (effect.kind === 'double_upkeep_attrition') {
+      preserve(
+        matches.map((q) => q.effect),
+        [{ kind: 'upkeep_loss_multiplier', value: 2 }],
+        `double Upkeep loss ${key}`,
+      );
     } else {
       issues.push(
         `Resolve unsupported queued effect ${key} (${effect.kind}): extend the canonical effect model before initialization.`,

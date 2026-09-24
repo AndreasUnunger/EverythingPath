@@ -23,11 +23,13 @@ export function CharacterFormCard({
   onSubmit,
   onCancel,
   submitError,
+  showOfficerRole = true,
 }: {
   form: UseFormReturn<CharacterFormValues>;
   onSubmit: (values: CharacterFormValues) => Promise<void>;
   onCancel: () => void;
   submitError?: string;
+  showOfficerRole?: boolean;
 }) {
   const isSubmitting = form.formState.isSubmitting;
   const statFields = [
@@ -144,36 +146,41 @@ export function CharacterFormCard({
 
           <div className="md:col-span-2">
             <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="officerRole"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-mono text-sm">
-                      Officer role
-                    </FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="border-primary bg-card border-2 font-mono">
-                        <SelectItem value="none">No role</SelectItem>
-                        {officerRoleLabels.map((officerRole) => (
-                          <SelectItem
-                            key={officerRole.role}
-                            value={officerRole.role}
-                          >
-                            {officerRole.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {showOfficerRole && (
+                <FormField
+                  control={form.control}
+                  name="officerRole"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-sm">
+                        Officer role
+                      </FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="border-primary bg-card w-full border-2 font-mono">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="border-primary bg-card border-2 font-mono">
+                          <SelectItem value="none">No role</SelectItem>
+                          {officerRoleLabels.map((officerRole) => (
+                            <SelectItem
+                              key={officerRole.role}
+                              value={officerRole.role}
+                            >
+                              {officerRole.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           </div>
 

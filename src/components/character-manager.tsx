@@ -38,10 +38,12 @@ export function CharacterManager({
   selectedCampaignId,
   organizationId,
   canQuery,
+  canonical = false,
 }: {
   selectedCampaignId: Id<'campaign'> | undefined;
   organizationId: string;
   canQuery: boolean;
+  canonical?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<Id<'character'> | undefined>();
@@ -78,11 +80,12 @@ export function CharacterManager({
     canQuery,
     true,
   );
-  const { data: militia } = militiaQuery(
+  const { data: legacyMilitia } = militiaQuery(
     selectedCampaignId,
     organizationId,
-    canQuery,
+    canQuery && !canonical,
   );
+  const militia = canonical ? undefined : legacyMilitia;
 
   const createCharacter = useMutation(db.character.createCharacter);
   const updateCharacter = useMutation(db.character.updateCharacter);
@@ -177,10 +180,11 @@ export function CharacterManager({
             isActive: true,
           },
         });
-        await setCharacterOfficerRole(
-          editingId,
-          values.officerRole === 'none' ? undefined : values.officerRole,
-        );
+        if (!canonical)
+          await setCharacterOfficerRole(
+            editingId,
+            values.officerRole === 'none' ? undefined : values.officerRole,
+          );
       } else {
         const characterId = await createCharacter({
           organizationId,
@@ -189,7 +193,7 @@ export function CharacterManager({
             ...payload,
           },
         });
-        if (values.officerRole !== 'none') {
+        if (!canonical && values.officerRole !== 'none') {
           await setCharacterOfficerRole(characterId, values.officerRole);
         }
       }
@@ -383,11 +387,14 @@ export function CharacterManager({
                 {editingId ? 'Edit Character' : 'New Character'}
               </DialogTitle>
               <DialogDescription className="font-mono text-sm">
-                Update the character record and officer role in one place.
+                {canonical
+                  ? 'Update the character record. Officer assignments are in the militia ledger.'
+                  : 'Update the character record and officer role in one place.'}
               </DialogDescription>
             </DialogHeader>
             <CharacterFormCard
               form={form}
+              showOfficerRole={!canonical}
               onSubmit={submitForm}
               submitError={formError}
               onCancel={closeCharacterForm}
@@ -401,20 +408,22 @@ export function CharacterManager({
           </div>
         ) : null}
 
-        <OfficerAssignmentsCard
-          militia={militia}
-          activeCharacters={activeCharacters}
-          assignmentWarnings={assignmentWarnings}
-          assignmentError={assignmentError}
-          pendingRole={pendingOfficerRole}
-          dragState={dragState}
-          activeDropRoleId={activeDropRoleId}
-          roleRefs={roleRefs}
-          onDismissWarnings={() => setAssignmentWarnings([])}
-          onClearRole={(role) => {
-            void clearOfficerRole(role);
-          }}
-        />
+        {!canonical && (
+          <OfficerAssignmentsCard
+            militia={militia}
+            activeCharacters={activeCharacters}
+            assignmentWarnings={assignmentWarnings}
+            assignmentError={assignmentError}
+            pendingRole={pendingOfficerRole}
+            dragState={dragState}
+            activeDropRoleId={activeDropRoleId}
+            roleRefs={roleRefs}
+            onDismissWarnings={() => setAssignmentWarnings([])}
+            onClearRole={(role) => {
+              void clearOfficerRole(role);
+            }}
+          />
+        )}
 
         <CharacterListCard
           activeCharacters={activeCharacters}
@@ -446,8 +455,9 @@ export function CharacterManager({
                 Archived Characters
               </DialogTitle>
               <DialogDescription className="font-mono text-sm">
-                Review archived entries, restore them to the ledger, or delete
-                them permanently.
+                {canonical
+                  ? 'Review archived entries or restore them to the ledger.'
+                  : 'Review archived entries, restore them to the ledger, or delete them permanently.'}
               </DialogDescription>
             </DialogHeader>
             <ArchivedCharactersCard
@@ -457,9 +467,13 @@ export function CharacterManager({
               onUnarchive={(characterId) => {
                 void archive(characterId, true);
               }}
-              onRequestDelete={(character) => {
-                setDeleteCandidate(character);
-              }}
+              onRequestDelete={
+                canonical
+                  ? undefined
+                  : (character) => {
+                      setDeleteCandidate(character);
+                    }
+              }
             />
           </DialogContent>
         </Dialog>
