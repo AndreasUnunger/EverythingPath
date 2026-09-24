@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { query } from './_generated/server';
 import { campaignMutation } from './lib/campaignRuntime';
-import { requireIsolated } from './lib/canonicalIsolation';
 import { requireScope, readOpenDraft } from './lib/canonicalDraftStorage';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weekStartFactsSchema } from '../src/lib/weekly-draft-contract';
@@ -22,7 +21,6 @@ export const read = query({
     state: zodOutputToConvex(canonicalWeekStateSchema),
   }),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     await requireScope(ctx, args);
     const source = await ctx.db
       .query('canonicalMilitiaState')
@@ -51,7 +49,6 @@ export const save = campaignMutation({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     await requireScope(ctx, args);
     const reason = z
       .string()

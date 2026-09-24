@@ -194,8 +194,8 @@ test('[rules.P86.authority] campaign members can append corrections while outsid
     }),
   ).rejects.toThrow('Draft is closed');
   vi.stubEnv('E2E_ENABLED', 'false');
-  await expect(gm.query(api.canonicalHistory.read, args)).rejects.toThrow(
-    'not enabled',
+  expect((await gm.query(api.canonicalHistory.read, args))?.record).toEqual(
+    correction,
   );
 });
 

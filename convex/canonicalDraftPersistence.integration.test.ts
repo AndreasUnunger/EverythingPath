@@ -182,7 +182,7 @@ test('[rules.P79.authority] refused references, outsider access, and mismatched 
   ).toBe(1);
 });
 
-test('preview gate refuses canonical writes after fixture binding is disabled and cleanup removes all snapshots', async () => {
+test('ordinary canonical writes do not depend on fixture binding and guarded cleanup removes all snapshots', async () => {
   const { t, key, member, operation, send } = await setup();
   await send(
     operation(0, 'one', {
@@ -192,10 +192,10 @@ test('preview gate refuses canonical writes after fixture binding is disabled an
     }),
   );
   vi.stubEnv('E2E_ENABLED', 'false');
-  await expect(member.query(observe, key)).rejects.toThrow('not enabled');
+  expect(await member.query(observe, key)).not.toBeNull();
   await expect(
     send(operation(1, 'two', { kind: 'clear', slotId: 'left', choiceId: 'a' })),
-  ).rejects.toThrow('not enabled');
+  ).resolves.toMatchObject({ acceptedRevision: 2 });
   vi.stubEnv('E2E_ENABLED', 'true');
   await t.mutation(internal.e2eFixtures.cleanupCase, fixtureScope);
   await t.run(async (ctx) => {
@@ -657,7 +657,7 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
     await member.query(api.canonicalDraftPersistence.workspace, {
       campaignId: key.campaignId,
     }),
-  ).toBeNull();
+  ).toMatchObject({ key: { draftId: 'next:workspace-next' } });
 });
 
 test('[rules.P81.recovery-transaction] recovery and its reasoned adjustment commit together and reject stale direct adjustments without partial writes', async () => {

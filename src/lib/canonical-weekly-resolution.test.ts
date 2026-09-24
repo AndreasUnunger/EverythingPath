@@ -6,7 +6,7 @@ import {
   resolveReviewedWeeklyDraft,
   applyCanonicalResolutionPlan,
   prepareCanonicalResolutionRecord,
-} from './weekly-resolution';
+} from './canonical-weekly-resolution';
 import { weeklySourceKey } from './canonical-weekly-source';
 import { persistentEventFixture } from '../../tests/rules/persistent-event-fixture';
 import { resourceEventFixture } from '../../tests/rules/resource-event-fixture';

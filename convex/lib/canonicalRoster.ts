@@ -8,7 +8,7 @@ import {
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { requireScope } from './canonicalDraftStorage';
 import { type scopeSchema } from './canonicalStorageValidators';
-import { getMaxTeamsForRank } from '../weekBoardRules';
+import { getMaxTeamsForRank } from '../../src/lib/militia-progression-rules';
 
 type Scope = z.infer<typeof scopeSchema>;
 type ReadCtx = QueryCtx | MutationCtx;
@@ -40,7 +40,8 @@ async function rosterContext(
     });
   }
   const militia = await ctx.db.get('militia', scope.militiaId);
-  if (!militia) throw new ConvexError('Militia not found');
+  if (!militia || !('rank' in militia))
+    throw new ConvexError('Militia not found');
   const maxTeams = getMaxTeamsForRank(militia.rank);
   return {
     characters,

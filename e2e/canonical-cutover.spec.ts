@@ -75,7 +75,7 @@ test('paused cutover preserves source and restores verified backup before reopen
         'exec',
         'convex',
         'run',
-        `cutover:${name}`,
+        name.includes(':') ? name : `cutover:${name}`,
         JSON.stringify({
           ...args,
           ...(authenticated
@@ -119,11 +119,6 @@ test('paused cutover preserves source and restores verified backup before reopen
     expect(before.drafts).toEqual([]);
     expect(before.records).toEqual([]);
     expect(before.state).toBeNull();
-    const legacyBefore = await client.query(api.weekBoard.getWeekBoardState, {
-      campaignId: scope.campaignId,
-      organizationId: run.resources.workers[0]!.organizationId,
-    });
-    expect(legacyBefore).not.toBeNull();
     await operate('pause', {
       operationId,
       oldRelease: 'compatible-legacy',
@@ -292,6 +287,41 @@ test('paused cutover preserves source and restores verified backup before reopen
     ).toHaveLength(1);
     expect(confirmed.state?.snapshot).toEqual(preview.outcome?.militiaSnapshot);
 
+    const currentWorkspace = await client.query(
+      api.canonicalDraftPersistence.workspace,
+      { campaignId: scope.campaignId },
+    );
+    const history = await client.query(api.canonicalHistory.read, {
+      campaignId: scope.campaignId,
+      week: 9,
+    });
+    let retired = false;
+    for (let batch = 0; batch < 100 && !retired; batch++) {
+      const result = z.object({ deleted: z.number(), done: z.boolean() }).parse(
+        await operate('legacyRetirement:batch', {
+          operationId,
+          backupSha256: backupHash,
+          militiaId: scope.militiaId,
+        }),
+      );
+      retired = result.done;
+    }
+    expect(retired).toBe(true);
+    expect(
+      await client.query(api.canonicalDraftPersistence.workspace, {
+        campaignId: scope.campaignId,
+      }),
+    ).toEqual(currentWorkspace);
+    expect(
+      await client.query(api.canonicalHistory.read, {
+        campaignId: scope.campaignId,
+        week: 9,
+      }),
+    ).toEqual(history);
+    await expect(
+      client.mutation(api.weekBoard.saveWeekBoardState, {}),
+    ).rejects.toThrow('Open the current militia week');
+
     // Deliberately discard only synthetic acceptance work, while still paused.
     await command(
       'pre-reopen preview restore',
@@ -308,12 +338,9 @@ test('paused cutover preserves source and restores verified backup before reopen
     );
     expect(await inspect()).toEqual(before);
     await operate('resumeLegacy', { operationId });
-    expect(
-      await client.query(api.weekBoard.getWeekBoardState, {
-        campaignId: scope.campaignId,
-        organizationId: run.resources.workers[0]!.organizationId,
-      }),
-    ).toEqual(legacyBefore);
+    await expect(
+      client.query(api.weekBoard.getWeekBoardState, {}),
+    ).rejects.toThrow('Open the current militia week');
     expect(
       await client.query(api.canonicalDraftPersistence.workspace, {
         campaignId: scope.campaignId,
@@ -327,10 +354,11 @@ test('paused cutover preserves source and restores verified backup before reopen
           preview: run.resources.previewName,
           backupSha256: backupHash,
           backupRestoredAndCompared: true,
-          legacyReaderCompatible: true,
+          retiredReaderRejected: true,
           restartVerified: true,
           confirmationVerified: true,
           activationVerified: true,
+          retirementPreservedAcceptedWeek: true,
           reopening: false,
           automaticRollbackEndsAtReopening: true,
         },

@@ -2,13 +2,8 @@ import { z } from 'zod';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { ConvexError, v } from 'convex/values';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
-import {
-  query,
-  type MutationCtx,
-  type QueryCtx,
-} from './_generated/server';
+import { query, type MutationCtx, type QueryCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
-import { requireIsolated } from './lib/canonicalIsolation';
 import { openDraft } from './lib/canonicalDraftStorage';
 import { draftKeySchema } from './lib/canonicalStorageValidators';
 import {
@@ -24,7 +19,6 @@ async function requireSetupAccess(
   ctx: MutationCtx | QueryCtx,
   campaignId: Id<'campaign'>,
 ) {
-  await requireIsolated(ctx, campaignId);
   const campaign = await ctx.db.get('campaign', campaignId);
   const identity = await ctx.auth.getUserIdentity();
   const user =
@@ -157,13 +151,6 @@ export const initialize = mutation({
       (await ctx.db.insert('militia', {
         campaignId: args.campaignId,
         name: campaign.name,
-        HQLocation: '',
-        highestBoonReached: plan.snapshot.rank,
-        rank: plan.snapshot.rank,
-        training: plan.snapshot.training,
-        treasury: plan.snapshot.treasuryCopper / 100,
-        notoriety: plan.snapshot.notoriety,
-        focus: plan.snapshot.focus,
       }));
     const key = { campaignId: args.campaignId, militiaId, draftId };
     await openDraft(ctx, {

@@ -255,7 +255,7 @@ test('[setup.import] current values, identities, carry and orders remain intact 
   });
 });
 
-test('[setup.authority] outsiders and live campaigns cannot initialize', async () => {
+test('[setup.authority] outsiders cannot initialize; ordinary campaign members can', async () => {
   const { gm, t, campaignId } = await setup();
   const args = {
     campaignId,
@@ -279,7 +279,7 @@ test('[setup.authority] outsiders and live campaigns cannot initialize', async (
   vi.stubEnv('E2E_ENABLED', 'false');
   await expect(
     gm.mutation(api.canonicalSetup.initialize, args),
-  ).rejects.toThrow('not enabled');
+  ).resolves.toMatchObject({ campaignId });
 });
 
 test('[setup.confirmation] an ordinary player initializes, edits and confirms a first-use mid-campaign week once', async () => {

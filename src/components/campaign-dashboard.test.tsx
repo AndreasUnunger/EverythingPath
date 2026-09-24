@@ -1,269 +1,89 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type * as ConvexReact from 'convex/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { getFunctionName } from 'convex/server';
 import { CampaignDashboard } from './campaign-dashboard';
 
-const mockUseOrganization = vi.fn();
-const mockCampaignQuery = vi.fn();
-const mockCharacterLedgerQuery = vi.fn();
-const mockMarketplaceLedgerQuery = vi.fn();
-const mockMilitiaQuery = vi.fn();
-const mockMilitiaStateSetupQuery = vi.fn();
-const campaignInfoSpy = vi.fn();
-const ledgerSpy = vi.fn();
-const militiaSystemSpy = vi.fn();
-const runtimeQuery = vi.fn(() => 'legacy');
-
-vi.mock('convex/react', async (original) => ({
-  ...(await original<typeof ConvexReact>()),
-  useQuery: () => runtimeQuery(),
+const organization = vi.fn();
+const campaigns = vi.fn();
+const source = vi.fn();
+const runtime = vi.fn<() => 'canonical' | 'paused' | undefined>();
+vi.mock('convex/react', () => ({
+  useQuery: (ref: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(ref) === 'cutover:status' ? runtime() : source(),
+  useMutation: () => vi.fn(),
 }));
-
-vi.mock('@clerk/nextjs', () => ({
-  useOrganization: () => mockUseOrganization(),
-}));
-
-vi.mock('~/lib/sharedQueries', () => ({
-  campaignQuery: (...args: unknown[]) => mockCampaignQuery(...args),
-  characterLedgerQuery: (...args: unknown[]) =>
-    mockCharacterLedgerQuery(...args),
-  marketplaceLedgerQuery: (...args: unknown[]) =>
-    mockMarketplaceLedgerQuery(...args),
-  militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
-  militiaStateSetupQuery: (...args: unknown[]) =>
-    mockMilitiaStateSetupQuery(...args),
-}));
-
-vi.mock('~/components/ui/tabs', () => ({
-  Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TabsTrigger: ({ children }: { children: React.ReactNode }) => (
-    <button type="button">{children}</button>
-  ),
-  TabsContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-
-vi.mock('./campaign-selector', () => ({
-  default: () => <div data-testid="campaign-selector">CampaignSelector</div>,
-}));
-
+vi.mock('@clerk/nextjs', () => ({ useOrganization: () => organization() }));
+vi.mock('~/lib/sharedQueries', () => ({ campaignQuery: () => campaigns() }));
 vi.mock('~/app/campaigns/createCampaignDialog', () => ({
-  default: () => <div data-testid="create-campaign-dialog">CreateCampaign</div>,
+  default: () => <button>Create campaign</button>,
+}));
+vi.mock('./weekly-draft-workspace/board', () => ({
+  CanonicalWorkspaceScreen: ({ campaign }: { campaign: string }) => (
+    <p>Militia week: {campaign}</p>
+  ),
 }));
 
-vi.mock('./campaignInfo', () => ({
-  CampaignInfo: (props: {
-    campaign?: { name?: string };
-    militia?: unknown;
-    militiaStateSetup?: unknown;
-    marketplaceLedger?: unknown;
-    characters?: unknown;
-  }) => {
-    campaignInfoSpy(props);
-    return (
-      <div data-testid="campaign-info">
-        CampaignInfo: {props.campaign?.name ?? 'none'}
-      </div>
-    );
-  },
-}));
+afterEach(cleanup);
 
-vi.mock('./ledger', () => ({
-  Ledger: (props: unknown) => {
-    ledgerSpy(props);
-    return <div data-testid="ledger">Ledger</div>;
-  },
-}));
-
-vi.mock('~/components/militia-system', () => ({
-  MilitiaSystem: (props: unknown) => {
-    militiaSystemSpy(props);
-    return <div data-testid="militia-system">MilitiaSystem</div>;
-  },
-}));
-
-describe('CampaignDashboard', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    runtimeQuery.mockReturnValue('legacy');
-    mockMilitiaQuery.mockReturnValue({ data: undefined });
-    mockMilitiaStateSetupQuery.mockReturnValue({ data: undefined });
-    mockCharacterLedgerQuery.mockReturnValue({ data: [] });
-    mockMarketplaceLedgerQuery.mockReturnValue({
-      data: { currentWeek: undefined, marketplaces: [] },
-    });
-    mockCampaignQuery.mockReturnValue({
-      data: { state: 'ready', campaigns: [] },
-      isLoading: false,
-      error: undefined,
-    });
+beforeEach(() => {
+  runtime.mockReturnValue('canonical');
+  source.mockReturnValue(null);
+  organization.mockReturnValue({ organization: { id: 'org' }, isLoaded: true });
+  campaigns.mockReturnValue({ data: { state: 'ready', campaigns: [] } });
+});
+test('waits for runtime and organization context', () => {
+  runtime.mockReturnValue(undefined);
+  const view = render(<CampaignDashboard />);
+  expect(screen.getByRole('status')).toHaveTextContent('Loading campaigns');
+  runtime.mockReturnValue('canonical');
+  organization.mockReturnValue({ isLoaded: false });
+  view.rerender(<CampaignDashboard />);
+  expect(screen.getByRole('status')).toHaveTextContent('Loading campaigns');
+});
+test('maintenance hides the board until canonical editing resumes', () => {
+  runtime.mockReturnValue('paused');
+  const view = render(<CampaignDashboard />);
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'paused for maintenance',
+  );
+  runtime.mockReturnValue('canonical');
+  view.rerender(<CampaignDashboard />);
+  expect(screen.getByText('Create a campaign to get started.')).toBeVisible();
+});
+test('shows organization selection and failed campaign loading', () => {
+  organization.mockReturnValue({ isLoaded: true });
+  const view = render(<CampaignDashboard />);
+  expect(
+    screen.getByText('Select an organization with campaign access.'),
+  ).toBeVisible();
+  campaigns.mockReturnValue({ error: new Error('Unavailable') });
+  view.rerender(<CampaignDashboard />);
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Campaigns could not be loaded',
+  );
+});
+test('opens the first campaign through the canonical Workspace', () => {
+  campaigns.mockReturnValue({
+    data: { state: 'ready', campaigns: [{ _id: 'alpha', name: 'Alpha' }] },
   });
+  render(<CampaignDashboard />);
+  expect(screen.getByText('Militia week: alpha')).toBeVisible();
+});
 
-  it('shows loading while organization context is not loaded', () => {
-    mockUseOrganization.mockReturnValue({
-      organization: undefined,
-      isLoaded: false,
-    });
-
-    render(<CampaignDashboard />);
-
-    expect(
-      screen.getByText('Loading organization context...'),
-    ).toBeInTheDocument();
+test('ledger waits for campaign source before exposing character controls', () => {
+  campaigns.mockReturnValue({
+    data: { state: 'ready', campaigns: [{ _id: 'alpha', name: 'Alpha' }] },
   });
-
-  it('shows no-organization message from campaign context', () => {
-    mockUseOrganization.mockReturnValue({
-      organization: undefined,
-      isLoaded: true,
-    });
-    mockCampaignQuery.mockReturnValue({
-      data: { state: 'no_org_selected' },
-      isLoading: false,
-      error: undefined,
-    });
-
-    render(<CampaignDashboard />);
-
-    expect(
-      screen.getByText('No active organization selected'),
-    ).toBeInTheDocument();
+  source.mockReturnValue(undefined);
+  render(<CampaignDashboard />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Ledger' }), {
+    button: 0,
+    ctrlKey: false,
   });
-
-  it('shows no-access message from campaign context', () => {
-    mockUseOrganization.mockReturnValue({
-      organization: { id: 'org_1' },
-      isLoaded: true,
-    });
-    mockCampaignQuery.mockReturnValue({
-      data: { state: 'no_access' },
-      isLoading: false,
-      error: undefined,
-    });
-
-    render(<CampaignDashboard />);
-
-    expect(
-      screen.getByText('Organization access is not ready'),
-    ).toBeInTheDocument();
-  });
-
-  it('renders ready state and wires selected campaign to child queries', async () => {
-    mockUseOrganization.mockReturnValue({
-      organization: { id: 'org_1' },
-      isLoaded: true,
-    });
-    mockCampaignQuery.mockReturnValue({
-      data: {
-        state: 'ready',
-        campaigns: [
-          {
-            _id: 'camp_1',
-            _creationTime: 1,
-            name: 'Alpha',
-            ownerId: 'owner',
-            description: 'desc',
-            organizationId: 'org_1',
-          },
-        ],
-      },
-      isLoading: false,
-      error: undefined,
-    });
-    mockMilitiaQuery.mockReturnValue({
-      data: {
-        _id: 'militia_1',
-        name: 'Ironfang Resistance',
-        campaignId: 'camp_1',
-        rank: 8,
-        highestBoonReached: 8,
-        HQLocation: 'Southern Fangwood',
-        treasury: 1220,
-        notoriety: 4,
-        focus: 'Secrecy',
-        training: 82,
-        teams: [],
-      },
-    });
-    mockMilitiaStateSetupQuery.mockReturnValue({
-      data: {
-        currentWeekState: {
-          weekNumber: 14,
-          phase: 'activity',
-          isFirstWeek: false,
-          skippedUpkeepThisWeek: false,
-          uneventfulBonusCarry: 0,
-          queuedEffects: [],
-        },
-        teamStates: [],
-        caches: [],
-        orders: [],
-        trackedPeople: [],
-        eventStates: [],
-      },
-    });
-    mockMarketplaceLedgerQuery.mockReturnValue({
-      data: {
-        currentWeek: 14,
-        marketplaces: [],
-      },
-    });
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [],
-    });
-
-    render(<CampaignDashboard />);
-
-    await waitFor(() => {
-      expect(screen.getByText('CampaignInfo: Alpha')).toBeInTheDocument();
-    });
-
-    expect(mockCampaignQuery).toHaveBeenCalledWith('org_1', true);
-    expect(mockMilitiaQuery).toHaveBeenCalledWith('camp_1', 'org_1', true);
-    expect(mockMarketplaceLedgerQuery).toHaveBeenCalledWith(
-      'camp_1',
-      'org_1',
-      true,
-    );
-    expect(mockMilitiaStateSetupQuery).toHaveBeenCalledWith(
-      'camp_1',
-      'org_1',
-      true,
-    );
-    expect(mockCharacterLedgerQuery).toHaveBeenCalledWith(
-      'camp_1',
-      'org_1',
-      true,
-    );
-    expect(campaignInfoSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        campaign: expect.objectContaining({ name: 'Alpha' }),
-        militia: expect.objectContaining({
-          HQLocation: 'Southern Fangwood',
-          focus: 'Secrecy',
-          training: 82,
-        }),
-        militiaStateSetup: expect.objectContaining({
-          currentWeekState: expect.objectContaining({
-            weekNumber: 14,
-            phase: 'activity',
-          }),
-        }),
-        marketplaceLedger: expect.objectContaining({
-          currentWeek: 14,
-        }),
-        characters: [],
-      }),
-    );
-    expect(ledgerSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organizationId: 'org_1',
-        canQuery: true,
-      }),
-    );
-  });
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Loading militia ledger',
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Add Character' }),
+  ).not.toBeInTheDocument();
 });

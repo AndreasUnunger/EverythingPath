@@ -19,6 +19,8 @@ export function sourceFingerprint(root: string) {
       (file) =>
         file &&
         !file.startsWith('.agents/') &&
+        !file.startsWith('.claude/') &&
+        file !== 'CLAUDE.md' &&
         !file.startsWith('agent/') &&
         (!file.startsWith('docs/') ||
           file.startsWith('docs/ai/ironfang-militia/')),

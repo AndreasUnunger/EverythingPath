@@ -5,70 +5,46 @@ import type { Id } from '@convex/_generated/dataModel';
 import { api as db } from '@convex/_generated/api';
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
-import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
 import { LedgerShell } from '~/components/ledger-shell';
-import { useActivityCardDrag } from '~/hooks/use-activity-card-drag';
-import type { PointerCardDragState } from '~/lib/pointer-card-drag';
-import { characterLedgerQuery, militiaQuery } from '~/lib/sharedQueries';
+import { characterLedgerQuery } from '~/lib/sharedQueries';
 import { ArchivedCharactersCard } from './character-manager/archived-characters-card';
 import { CharacterFormCard } from './character-manager/character-form-card';
 import { CharacterListCard } from './character-manager/character-list-card';
-import { OfficerAssignmentsCard } from './character-manager/officer-assignments-card';
 import {
   characterFormSchema,
   defaultCharacterFormValues,
   type CharacterFormValues,
   type CharacterId,
   type CharacterRecord,
-  officerRoleLabels,
-  type OfficerRole,
 } from './character-manager/types';
 
 export function CharacterManager({
   selectedCampaignId,
   organizationId,
   canQuery,
-  canonical = false,
 }: {
   selectedCampaignId: Id<'campaign'> | undefined;
   organizationId: string;
   canQuery: boolean;
-  canonical?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<Id<'character'> | undefined>();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [assignmentWarnings, setAssignmentWarnings] = useState<string[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [formError, setFormError] = useState<string>();
-  const [assignmentError, setAssignmentError] = useState<string>();
   const [archiveError, setArchiveError] = useState<string>();
-  const [pendingOfficerRole, setPendingOfficerRole] = useState<
-    OfficerRole | undefined
-  >();
-  const [dragState, setDragState] =
-    useState<PointerCardDragState<CharacterId> | null>(null);
-  const [activeDropRoleId, setActiveDropRoleId] = useState<string | null>(null);
   const [pendingArchiveId, setPendingArchiveId] = useState<
     Id<'character'> | undefined
   >();
-  const [pendingDeleteId, setPendingDeleteId] = useState<
-    Id<'character'> | undefined
-  >();
-  const [deleteCandidate, setDeleteCandidate] = useState<
-    CharacterRecord | undefined
-  >();
-
   const form = useForm<CharacterFormValues>({
     resolver: zodResolver(characterFormSchema),
     defaultValues: defaultCharacterFormValues,
@@ -80,20 +56,9 @@ export function CharacterManager({
     canQuery,
     true,
   );
-  const { data: legacyMilitia } = militiaQuery(
-    selectedCampaignId,
-    organizationId,
-    canQuery && !canonical,
-  );
-  const militia = canonical ? undefined : legacyMilitia;
-
   const createCharacter = useMutation(db.character.createCharacter);
   const updateCharacter = useMutation(db.character.updateCharacter);
   const archiveCharacter = useMutation(db.character.archiveCharacter);
-  const deleteCharacter = useMutation(db.character.deleteCharacter);
-  const assignOfficerRole = useMutation(db.militia.assignOfficerRole);
-  const roleRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
   if (!selectedCampaignId) {
     return (
       <p className="text-muted-foreground font-mono text-sm">
@@ -126,9 +91,6 @@ export function CharacterManager({
   function closeCharacterLedger() {
     closeCharacterForm();
     setShowArchived(false);
-    setDeleteCandidate(undefined);
-    setDragState(null);
-    setActiveDropRoleId(null);
   }
 
   function startEdit(character: CharacterRecord) {
@@ -138,10 +100,6 @@ export function CharacterManager({
       name: character.name,
       description: character.description,
       kind: character.kind ?? 'pc',
-      officerRole:
-        officerRoleLabels.find(
-          (officerRole) => militia?.[officerRole.role] === character._id,
-        )?.role ?? 'none',
       level: String(character.level),
       strength: String(character.strength),
       dexterity: String(character.dexterity),
@@ -180,22 +138,14 @@ export function CharacterManager({
             isActive: true,
           },
         });
-        if (!canonical)
-          await setCharacterOfficerRole(
-            editingId,
-            values.officerRole === 'none' ? undefined : values.officerRole,
-          );
       } else {
-        const characterId = await createCharacter({
+        await createCharacter({
           organizationId,
           character: {
             campaignId: selectedCampaignId,
             ...payload,
           },
         });
-        if (!canonical && values.officerRole !== 'none') {
-          await setCharacterOfficerRole(characterId, values.officerRole);
-        }
       }
 
       setIsFormOpen(false);
@@ -203,73 +153,6 @@ export function CharacterManager({
       form.reset(defaultCharacterFormValues);
     } catch (error) {
       setFormError(getErrorMessage(error, 'Failed to save character.'));
-    }
-  }
-
-  async function setCharacterOfficerRole(
-    characterId: CharacterId,
-    nextRole?: OfficerRole,
-  ) {
-    if (!militia) return;
-    setAssignmentError(undefined);
-    try {
-      const currentRole = officerRoleLabels.find(
-        (officerRole) => militia[officerRole.role] === characterId,
-      )?.role;
-
-      if (currentRole && currentRole !== nextRole) {
-        await assignOfficerRole({
-          organizationId,
-          militiaId: militia._id,
-          role: currentRole,
-          characterId: undefined,
-          source: 'direct',
-        });
-      }
-
-      if (!nextRole) {
-        setAssignmentWarnings([]);
-        return;
-      }
-
-      const result = await assignOfficerRole({
-        organizationId,
-        militiaId: militia._id,
-        role: nextRole,
-        characterId,
-        source: 'direct',
-      });
-
-      setAssignmentWarnings(result.warnings.map((warning) => warning.message));
-    } catch (error) {
-      setAssignmentError(
-        getErrorMessage(error, 'Failed to update officer assignment.'),
-      );
-    } finally {
-      setDragState(null);
-      setActiveDropRoleId(null);
-    }
-  }
-
-  async function clearOfficerRole(role: OfficerRole) {
-    if (!militia) return;
-    setAssignmentError(undefined);
-    setPendingOfficerRole(role);
-    try {
-      await assignOfficerRole({
-        organizationId,
-        militiaId: militia._id,
-        role,
-        characterId: undefined,
-        source: 'direct',
-      });
-      setAssignmentWarnings([]);
-    } catch (error) {
-      setAssignmentError(
-        getErrorMessage(error, 'Failed to update officer assignment.'),
-      );
-    } finally {
-      setPendingOfficerRole(undefined);
     }
   }
 
@@ -297,51 +180,12 @@ export function CharacterManager({
     }
   }
 
-  async function deleteArchived(characterId: CharacterId) {
-    setArchiveError(undefined);
-    setPendingDeleteId(characterId);
-    try {
-      await deleteCharacter({
-        organizationId,
-        characterId,
-      });
-      setDeleteCandidate(undefined);
-    } catch (error) {
-      setArchiveError(
-        getErrorMessage(error, 'Failed to delete archived character.'),
-      );
-    } finally {
-      setPendingDeleteId(undefined);
-    }
-  }
-
   function toggleLedger() {
     if (isOpen) {
       closeCharacterLedger();
     }
     setIsOpen((prev) => !prev);
   }
-
-  useActivityCardDrag<CharacterId>({
-    dragState,
-    setDragState,
-    slotRows: officerRoleLabels.map(({ role }, index) => ({
-      slotId: role,
-      slotNumber: index + 1,
-    })),
-    slotRefs: roleRefs,
-    setActiveDropSlotId: setActiveDropRoleId,
-    onDrop: ({ dropSlotIndex, actionId }) => {
-      if (dropSlotIndex === null) {
-        return;
-      }
-      const dropRole = officerRoleLabels[dropSlotIndex]?.role;
-      if (!dropRole) {
-        return;
-      }
-      void setCharacterOfficerRole(actionId, dropRole);
-    },
-  });
 
   return (
     <LedgerShell
@@ -387,14 +231,12 @@ export function CharacterManager({
                 {editingId ? 'Edit Character' : 'New Character'}
               </DialogTitle>
               <DialogDescription className="font-mono text-sm">
-                {canonical
-                  ? 'Update the character record. Officer assignments are in the militia ledger.'
-                  : 'Update the character record and officer role in one place.'}
+                Update the character record. Officer assignments are in the
+                militia ledger.
               </DialogDescription>
             </DialogHeader>
             <CharacterFormCard
               form={form}
-              showOfficerRole={!canonical}
               onSubmit={submitForm}
               submitError={formError}
               onCancel={closeCharacterForm}
@@ -408,39 +250,19 @@ export function CharacterManager({
           </div>
         ) : null}
 
-        {!canonical && (
-          <OfficerAssignmentsCard
-            militia={militia}
-            activeCharacters={activeCharacters}
-            assignmentWarnings={assignmentWarnings}
-            assignmentError={assignmentError}
-            pendingRole={pendingOfficerRole}
-            dragState={dragState}
-            activeDropRoleId={activeDropRoleId}
-            roleRefs={roleRefs}
-            onDismissWarnings={() => setAssignmentWarnings([])}
-            onClearRole={(role) => {
-              void clearOfficerRole(role);
-            }}
-          />
-        )}
-
         <CharacterListCard
           activeCharacters={activeCharacters}
-          militia={militia}
           archivingCharacterId={pendingArchiveId}
-          dragState={dragState}
           onEdit={startEdit}
           onArchive={(characterId) => {
             void archive(characterId, false);
           }}
-          onStartDrag={setDragState}
         />
 
         <Dialog
           open={showArchived}
           onOpenChange={(open) => {
-            if (!open && !pendingArchiveId && !pendingDeleteId) {
+            if (!open && !pendingArchiveId) {
               setShowArchived(false);
               return;
             }
@@ -455,66 +277,16 @@ export function CharacterManager({
                 Archived Characters
               </DialogTitle>
               <DialogDescription className="font-mono text-sm">
-                {canonical
-                  ? 'Review archived entries or restore them to the ledger.'
-                  : 'Review archived entries, restore them to the ledger, or delete them permanently.'}
+                Review archived entries or restore them to the ledger.
               </DialogDescription>
             </DialogHeader>
             <ArchivedCharactersCard
               archivedCharacters={archivedCharacters}
               archivingCharacterId={pendingArchiveId}
-              deletingCharacterId={pendingDeleteId}
               onUnarchive={(characterId) => {
                 void archive(characterId, true);
               }}
-              onRequestDelete={
-                canonical
-                  ? undefined
-                  : (character) => {
-                      setDeleteCandidate(character);
-                    }
-              }
             />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog
-          open={Boolean(deleteCandidate)}
-          onOpenChange={(open) => {
-            if (!open && !pendingDeleteId) {
-              setDeleteCandidate(undefined);
-            }
-          }}
-        >
-          <DialogContent className="border-primary bg-card border-2 font-mono">
-            <DialogHeader>
-              <DialogTitle className="font-sans text-xl">
-                Delete Character
-              </DialogTitle>
-              <DialogDescription className="font-mono text-sm">
-                {deleteCandidate
-                  ? `Delete archived character "${deleteCandidate.name}" permanently? This cannot be undone.`
-                  : 'Delete this archived character permanently?'}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteCandidate(undefined)}
-                disabled={Boolean(pendingDeleteId)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  if (!deleteCandidate) return;
-                  void deleteArchived(deleteCandidate._id);
-                }}
-                disabled={Boolean(pendingDeleteId)}
-              >
-                {pendingDeleteId ? 'Deleting...' : 'Delete Permanently'}
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </>

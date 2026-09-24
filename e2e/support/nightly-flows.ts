@@ -21,13 +21,13 @@ export async function navigationAndPersistence(
   campaignName: string,
 ) {
   await test.step('player: navigation, form layout, reload persistence and cross-layout edits', async () => {
-    await page.getByRole('tab', { name: 'LEDGER', exact: true }).click();
+    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
     const ledger = page.getByRole('region', {
       name: 'Character Ledger',
       exact: true,
     });
     const open = ledger.getByRole('button', { name: 'Open', exact: true });
-    if (await open.count()) await open.click();
+    await open.click();
     await ledger
       .getByRole('button', { name: 'Add Character', exact: true })
       .click();
@@ -50,8 +50,8 @@ export async function navigationAndPersistence(
     ).toContainText('4');
     await page.reload();
     await selectCampaign(page, campaignName);
-    await page.getByRole('tab', { name: 'LEDGER', exact: true }).click();
-    if (await open.count()) await open.click();
+    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await open.click();
     await expect(
       row,
       'player: Nightly Scout level 4 survives reload',
@@ -74,17 +74,15 @@ export async function navigationAndPersistence(
     await page.setViewportSize(original);
     await page.reload();
     await selectCampaign(page, campaignName);
-    await page.getByRole('tab', { name: 'LEDGER', exact: true }).click();
-    if (await open.count()) await open.click();
+    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await open.click();
     await expect(
       row,
       'player: cross-layout edit persists as level 5',
     ).toContainText('5');
-    await page
-      .getByRole('tab', { name: 'ADVANCE MILITIA', exact: true })
-      .click();
+    await page.getByRole('tab', { name: 'Militia week', exact: true }).click();
     await expect(
-      page.getByRole('heading', { name: 'Week 1', exact: true }),
+      page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
     ).toBeVisible();
   });
 }

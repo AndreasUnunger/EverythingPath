@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { workspaceSourceSchema } from '../src/lib/weekly-workspace-source';
 import { requireScope } from './lib/canonicalDraftStorage';
 import { internal } from './_generated/api';
-import { campaignInternalMutation as internalMutation, campaignMutation as mutation } from './lib/campaignRuntime';
+import {
+  campaignInternalMutation as internalMutation,
+  campaignMutation as mutation,
+} from './lib/campaignRuntime';
 import {
   acceptedWeeklyPreviewSchema,
   confirmationOperationSchema,
@@ -26,14 +29,12 @@ import {
   observeDraft,
   persistDraftOperation,
 } from './lib/canonicalDraftPersistenceAuthority';
-import { requireIsolated } from './lib/canonicalIsolation';
 import { ConvexError, v } from 'convex/values';
 
 export const observe = query({
   args: zodOutputToConvex(draftKeySchema),
   returns: zodOutputToConvex(draftObservationSchema),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     return await observeDraft(ctx, args);
   },
 });
@@ -44,7 +45,6 @@ export const edit = mutation({
   args: zodOutputToConvex(editArgs),
   returns: zodOutputToConvex(draftReceiptSchema),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     return await persistDraftOperation(
       ctx,
       {
@@ -74,7 +74,6 @@ export const targets = query({
     pagination: v.union(v.null(), draftTargetPaginationValidator),
   }),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     const observation = await observeDraft(ctx, args);
     if (observation.revision < args.observedRevision)
       throw new ConvexError('Unknown observed revision');
@@ -111,7 +110,6 @@ export const preview = query({
   args: zodOutputToConvex(draftKeySchema),
   returns: zodOutputToConvex(acceptedWeeklyPreviewSchema),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     return await previewDraft(ctx, args);
   },
 });
@@ -125,7 +123,6 @@ export const confirm = mutation({
     record: canonicalRecordValidator,
   }),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     const receipt = await confirmDraft(ctx, args, args.operation);
     await ctx.scheduler.runAfter(
       0,
@@ -184,11 +181,6 @@ export const workspace = query({
   args: { campaignId: v.id('campaign') },
   returns: v.union(v.null(), zodOutputToConvex(workspaceSourceSchema)),
   handler: async (ctx, args) => {
-    try {
-      await requireIsolated(ctx, args.campaignId);
-    } catch {
-      return null;
-    }
     const militia = await ctx.db
       .query('militia')
       .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))

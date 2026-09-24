@@ -36,7 +36,6 @@ function MilitiaLedger({
         selectedCampaignId={campaignId}
         organizationId={organizationId}
         canQuery
-        canonical
       />
       <p className="text-muted-foreground text-sm">
         Correct militia values, assign officers and managers, or update teams
@@ -82,7 +81,9 @@ function CampaignWorkspace({
         <CanonicalWorkspaceScreen campaign={campaignId} />
       </TabsContent>
       <TabsContent value="ledger">
-        {source ? (
+        {source === undefined ? (
+          <p role="status">Loading militia ledger…</p>
+        ) : source ? (
           <MilitiaLedger
             campaignId={campaignId}
             militiaId={source.key.militiaId}
@@ -93,7 +94,6 @@ function CampaignWorkspace({
             selectedCampaignId={campaignId}
             organizationId={organizationId}
             canQuery
-            canonical
           />
         )}
       </TabsContent>

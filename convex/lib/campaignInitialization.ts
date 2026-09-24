@@ -221,7 +221,8 @@ export async function initializeCampaign(
 
 async function readInitializationSource(ctx: ReadCtx, scope: Scope) {
   const militia = await ctx.db.get('militia', scope.militiaId);
-  if (!militia) throw new ConvexError('Militia not found');
+  if (!militia || !('rank' in militia))
+    throw new ConvexError('Militia not found');
   const weeks = await ctx.db
     .query('militiaWeekState')
     .withIndex('by_militiaId_week', (q) => q.eq('militiaId', scope.militiaId))

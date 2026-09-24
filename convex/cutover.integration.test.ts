@@ -7,7 +7,7 @@ import { seedInitializationCampaign } from './lib/initializationFixture';
 
 const modules = import.meta.glob('./**/*.ts');
 
-test('activation requires a verified backup and preserved initialized campaigns, and reopening ends rollback', async () => {
+test('[retirement.preserve] activation requires a verified backup and preserved initialized campaigns, and reopening ends rollback', async () => {
   const t = convexTest(schema, modules);
   const member = t.withIdentity({ tokenIdentifier: 'test|gm' });
   const { scope, characterId } = await member.run((ctx) =>
@@ -118,13 +118,54 @@ test('activation requires a verified backup and preserved initialized campaigns,
         campaignId: scope.campaignId,
       }),
   ).rejects.toThrow('Campaign access required');
+  const retained = await member.query(api.canonicalDraftPersistence.workspace, {
+    campaignId: scope.campaignId,
+  });
+  await expect(
+    t.mutation(internal.legacyRetirement.batch, {
+      operationId,
+      militiaId: scope.militiaId,
+      backupSha256: 'b'.repeat(64),
+    }),
+  ).rejects.toThrow('retained verified backup');
+  let done = false;
+  let deleted = 0;
+  for (let attempt = 0; attempt < 100 && !done; attempt++) {
+    const result = await t.mutation(internal.legacyRetirement.batch, {
+      operationId,
+      militiaId: scope.militiaId,
+      backupSha256: 'a'.repeat(64),
+    });
+    expect(result.deleted).toBeLessThanOrEqual(4);
+    deleted += result.deleted;
+    done = result.done;
+  }
+  expect(done).toBe(true);
+  expect(deleted).toBeGreaterThan(0);
+  expect(
+    await member.query(api.canonicalDraftPersistence.workspace, {
+      campaignId: scope.campaignId,
+    }),
+  ).toEqual(retained);
+  expect(
+    await t.mutation(internal.legacyRetirement.batch, {
+      operationId,
+      militiaId: scope.militiaId,
+      backupSha256: 'a'.repeat(64),
+    }),
+  ).toEqual({ deleted: 0, done: true });
+  const identity = await t.run((ctx) => ctx.db.get('militia', scope.militiaId));
+  expect(identity).not.toHaveProperty('treasury');
+  expect(
+    await t.run((ctx) => ctx.db.query('militiaWeekState').collect()),
+  ).toEqual([]);
 });
 
 test('a cutover pause refuses campaign writes while preserving readable campaign state', async () => {
   const t = convexTest(schema, modules);
   const member = t.withIdentity({ tokenIdentifier: 'test|gm' });
   const { scope } = await member.run((ctx) => seedInitializationCampaign(ctx));
-  expect(await member.query(api.cutover.status, {})).toBe('legacy');
+  expect(await member.query(api.cutover.status, {})).toBe('canonical');
   await t.mutation(internal.cutover.pause, {
     operationId: 'dev-cutover',
     oldRelease: 'old-release',
@@ -145,7 +186,7 @@ test('a cutover pause refuses campaign writes while preserving readable campaign
       organizationId: 'org',
       depositTotal: '50',
     }),
-  ).rejects.toThrow('Campaign editing is paused');
+  ).rejects.toThrow('Open the current militia week');
   await expect(
     member.mutation(api.canonicalDraftPersistence.edit, {
       ...scope,

@@ -18,9 +18,9 @@ import type * as character from "../character.js";
 import type * as clerk from "../clerk.js";
 import type * as cutover from "../cutover.js";
 import type * as data_spells from "../data/spells.js";
-import type * as data_teams from "../data/teams.js";
 import type * as e2eFixtures from "../e2eFixtures.js";
 import type * as http from "../http.js";
+import type * as legacyRetirement from "../legacyRetirement.js";
 import type * as lib_campaignInitialization from "../lib/campaignInitialization.js";
 import type * as lib_campaignRuntime from "../lib/campaignRuntime.js";
 import type * as lib_canonicalCampaignContext from "../lib/canonicalCampaignContext.js";
@@ -29,20 +29,18 @@ import type * as lib_canonicalConfirmation from "../lib/canonicalConfirmation.js
 import type * as lib_canonicalDraftPersistenceAuthority from "../lib/canonicalDraftPersistenceAuthority.js";
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
-import type * as lib_canonicalIsolation from "../lib/canonicalIsolation.js";
 import type * as lib_canonicalRoster from "../lib/canonicalRoster.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as lib_cutoverVerification from "../lib/cutoverVerification.js";
 import type * as lib_initializationFixture from "../lib/initializationFixture.js";
 import type * as lib_initializationSnapshot from "../lib/initializationSnapshot.js";
+import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
 import type * as migrations from "../migrations.js";
 import type * as militia from "../militia.js";
 import type * as spell from "../spell.js";
 import type * as types from "../types.js";
 import type * as user from "../user.js";
 import type * as weekBoard from "../weekBoard.js";
-import type * as weekBoardRules from "../weekBoardRules.js";
-import type * as weekResolution from "../weekResolution.js";
 
 import type {
   ApiFromModules,
@@ -61,9 +59,9 @@ declare const fullApi: ApiFromModules<{
   clerk: typeof clerk;
   cutover: typeof cutover;
   "data/spells": typeof data_spells;
-  "data/teams": typeof data_teams;
   e2eFixtures: typeof e2eFixtures;
   http: typeof http;
+  legacyRetirement: typeof legacyRetirement;
   "lib/campaignInitialization": typeof lib_campaignInitialization;
   "lib/campaignRuntime": typeof lib_campaignRuntime;
   "lib/canonicalCampaignContext": typeof lib_canonicalCampaignContext;
@@ -72,20 +70,18 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalDraftPersistenceAuthority": typeof lib_canonicalDraftPersistenceAuthority;
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
-  "lib/canonicalIsolation": typeof lib_canonicalIsolation;
   "lib/canonicalRoster": typeof lib_canonicalRoster;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   "lib/cutoverVerification": typeof lib_cutoverVerification;
   "lib/initializationFixture": typeof lib_initializationFixture;
   "lib/initializationSnapshot": typeof lib_initializationSnapshot;
+  "lib/retiredWorkflow": typeof lib_retiredWorkflow;
   migrations: typeof migrations;
   militia: typeof militia;
   spell: typeof spell;
   types: typeof types;
   user: typeof user;
   weekBoard: typeof weekBoard;
-  weekBoardRules: typeof weekBoardRules;
-  weekResolution: typeof weekResolution;
 }>;
 
 /**

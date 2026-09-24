@@ -46,7 +46,13 @@ describe('internal fixture boundary', () => {
         .query('militia')
         .withIndex('by_campaign', (q) => q.eq('campaignId', first.campaignId))
         .unique();
-      await ctx.db.patch('militia', militia!._id, { treasury: 999 });
+      const source = await ctx.db
+        .query('canonicalMilitiaState')
+        .withIndex('by_militiaId', (q) => q.eq('militiaId', militia!._id))
+        .unique();
+      await ctx.db.patch('canonicalMilitiaState', source!._id, {
+        snapshot: { ...source!.snapshot, treasuryCopper: 99900 },
+      });
     });
     await t.mutation(internal.e2eFixtures.resetCase, {
       ...scope,
@@ -61,8 +67,8 @@ describe('internal fixture boundary', () => {
         treasury: 100,
         training: 0,
         week: 1,
-        phase: 'activity',
-        stagedActions: [null],
+        phase: 'upkeep',
+        stagedActions: [null, null, null],
       },
     });
   });
@@ -78,7 +84,7 @@ describe('internal fixture boundary', () => {
       campaignKey: 'character-ledger-campaign',
       campaignCount: 1,
       characters: [],
-      militia: { week: 1, phase: 'activity' },
+      militia: { week: 1, phase: 'upkeep' },
     });
   });
   it('resets an isolated realtime Action Slot board', async () => {
@@ -103,10 +109,10 @@ describe('internal fixture boundary', () => {
       campaignCount: 1,
       militia: {
         week: 1,
-        phase: 'activity',
+        phase: 'upkeep',
         training: 0,
         treasury: 100,
-        stagedActions: [null],
+        stagedActions: [null, null, null],
       },
     });
     await t.mutation(internal.e2eFixtures.cleanupCase, realtime);

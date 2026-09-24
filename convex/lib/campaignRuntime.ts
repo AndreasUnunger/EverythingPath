@@ -38,19 +38,3 @@ export const campaignInternalMutation = customMutation(
   internalMutation,
   writable,
 );
-
-const legacyWritable = customCtx(
-  async (ctx: Parameters<typeof requireCampaignWrites>[0]) => {
-    await requireCampaignWrites(ctx);
-    if ((await readCutover(ctx))?.status === 'canonical')
-      throw new ConvexError(
-        'Open the current militia week to make this change.',
-      );
-    return {};
-  },
-);
-export const legacyCampaignMutation = customMutation(mutation, legacyWritable);
-export const legacyCampaignInternalMutation = customMutation(
-  internalMutation,
-  legacyWritable,
-);

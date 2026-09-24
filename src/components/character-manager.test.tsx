@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CharacterManager } from './character-manager';
 
@@ -15,7 +21,8 @@ const mutationFns = {
 };
 
 vi.mock('~/lib/sharedQueries', () => ({
-  characterLedgerQuery: (...args: unknown[]) => mockCharacterLedgerQuery(...args),
+  characterLedgerQuery: (...args: unknown[]) =>
+    mockCharacterLedgerQuery(...args),
   militiaQuery: (...args: unknown[]) => mockMilitiaQuery(...args),
 }));
 
@@ -55,9 +62,13 @@ vi.mock('~/components/ui/select', () => ({
       {children}
     </select>
   ),
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   SelectValue: () => null,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectContent: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   SelectItem: ({
     value,
     children,
@@ -96,11 +107,16 @@ describe('CharacterManager', () => {
     });
 
     mockUseMutation.mockImplementation((ref: unknown) => {
-      if (ref === 'character.createCharacter') return mutationFns.createCharacter;
-      if (ref === 'character.updateCharacter') return mutationFns.updateCharacter;
-      if (ref === 'character.archiveCharacter') return mutationFns.archiveCharacter;
-      if (ref === 'character.deleteCharacter') return mutationFns.deleteCharacter;
-      if (ref === 'militia.assignOfficerRole') return mutationFns.assignOfficerRole;
+      if (ref === 'character.createCharacter')
+        return mutationFns.createCharacter;
+      if (ref === 'character.updateCharacter')
+        return mutationFns.updateCharacter;
+      if (ref === 'character.archiveCharacter')
+        return mutationFns.archiveCharacter;
+      if (ref === 'character.deleteCharacter')
+        return mutationFns.deleteCharacter;
+      if (ref === 'militia.assignOfficerRole')
+        return mutationFns.assignOfficerRole;
       return vi.fn();
     });
 
@@ -124,7 +140,9 @@ describe('CharacterManager', () => {
     fireEvent.click(screen.getByText('Add Character'));
     fireEvent.click(screen.getByText('Save'));
 
-    expect(await screen.findByText('Character name is required')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Character name is required'),
+    ).toBeInTheDocument();
     expect(mutationFns.createCharacter).not.toHaveBeenCalled();
   });
 
@@ -141,8 +159,12 @@ describe('CharacterManager', () => {
     fireEvent.click(screen.getByText('Add Character'));
 
     const inputs = screen.getAllByRole('textbox');
-    const nameInput = inputs.find((input) => input.getAttribute('name') === 'name');
-    const dexInput = inputs.find((input) => input.getAttribute('name') === 'dexterity');
+    const nameInput = inputs.find(
+      (input) => input.getAttribute('name') === 'name',
+    );
+    const dexInput = inputs.find(
+      (input) => input.getAttribute('name') === 'dexterity',
+    );
 
     fireEvent.change(nameInput!, { target: { value: 'Valeria' } });
     fireEvent.change(dexInput!, { target: { value: '' } });
@@ -151,7 +173,9 @@ describe('CharacterManager', () => {
 
     fireEvent.change(dexInput!, { target: { value: 'abc' } });
     fireEvent.click(screen.getByText('Save'));
-    expect(await screen.findByText('DEX must be a whole number')).toBeInTheDocument();
+    expect(
+      await screen.findByText('DEX must be a whole number'),
+    ).toBeInTheDocument();
   });
 
   it('accepts valid numeric stat fields on submit', async () => {
@@ -167,9 +191,15 @@ describe('CharacterManager', () => {
     fireEvent.click(screen.getByText('Add Character'));
 
     const inputs = screen.getAllByRole('textbox');
-    const nameInput = inputs.find((input) => input.getAttribute('name') === 'name');
-    const levelInput = inputs.find((input) => input.getAttribute('name') === 'level');
-    const dexInput = inputs.find((input) => input.getAttribute('name') === 'dexterity');
+    const nameInput = inputs.find(
+      (input) => input.getAttribute('name') === 'name',
+    );
+    const levelInput = inputs.find(
+      (input) => input.getAttribute('name') === 'level',
+    );
+    const dexInput = inputs.find(
+      (input) => input.getAttribute('name') === 'dexterity',
+    );
 
     fireEvent.change(nameInput!, { target: { value: 'Valeria' } });
     fireEvent.change(levelInput!, { target: { value: '4' } });
@@ -179,61 +209,11 @@ describe('CharacterManager', () => {
     await waitFor(() => {
       expect(mutationFns.createCharacter).toHaveBeenCalled();
     });
-    expect(screen.queryByText('DEX must be a whole number')).not.toBeInTheDocument();
-  });
-
-  it('shows and dismisses officer assignment warnings', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'char_1',
-          name: 'Aubrin',
-          description: '',
-          kind: 'officer_npc',
-          level: 3,
-          strength: 10,
-          dexterity: 10,
-          constitution: 10,
-          intelligence: 10,
-          wisdom: 10,
-          charisma: 14,
-          isActive: true,
-        },
-      ],
-      isLoading: false,
-    });
-    mutationFns.assignOfficerRole.mockResolvedValue({
-      warnings: [{ message: 'Apply Change Officer Role action if table requires it.' }],
-    });
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByText('Edit'));
-    const selects = screen.getAllByTestId('mock-select');
-    const roleSelect = selects[1];
-    fireEvent.change(roleSelect!, { target: { value: 'ambassador' } });
-    fireEvent.click(screen.getByText('Save'));
-
     expect(
-      await screen.findByText('Apply Change Officer Role action if table requires it.'),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Dismiss'));
-    await waitFor(() => {
-      expect(
-        screen.queryByText('Apply Change Officer Role action if table requires it.'),
-      ).not.toBeInTheDocument();
-    });
+      screen.queryByText('DEX must be a whole number'),
+    ).not.toBeInTheDocument();
   });
-
-  it('supports viewing archived characters, un-archiving, and hard delete', async () => {
+  it('restores archived characters without offering destructive deletion', async () => {
     mockCharacterLedgerQuery.mockReturnValue({
       data: [
         {
@@ -273,368 +253,8 @@ describe('CharacterManager', () => {
       isActive: true,
     });
 
-    fireEvent.click(screen.getByText('Delete'));
-    expect(await screen.findByText('Delete Character')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Delete Permanently'));
-    expect(mutationFns.deleteCharacter).toHaveBeenCalledWith({
-      organizationId: 'org_1',
-      characterId: 'arch_1',
-    });
-  });
-
-  it('does not hard delete when delete dialog is canceled', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'arch_1',
-          name: 'Old Scout',
-          description: '',
-          kind: 'officer_npc',
-          level: 2,
-          strength: 10,
-          dexterity: 12,
-          constitution: 10,
-          intelligence: 9,
-          wisdom: 11,
-          charisma: 8,
-          isActive: false,
-        },
-      ],
-      isLoading: false,
-    });
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByText('Show Archived'));
-    fireEvent.click(screen.getByText('Delete'));
-    expect(await screen.findByText('Delete Character')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Cancel'));
-    await waitFor(() => {
-      expect(screen.queryByText('Delete Character')).not.toBeInTheDocument();
-    });
-    expect(mutationFns.deleteCharacter).not.toHaveBeenCalled();
-  });
-
-  it('shows inline error when hard delete fails', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'arch_1',
-          name: 'Old Scout',
-          description: '',
-          kind: 'officer_npc',
-          level: 2,
-          strength: 10,
-          dexterity: 12,
-          constitution: 10,
-          intelligence: 9,
-          wisdom: 11,
-          charisma: 8,
-          isActive: false,
-        },
-      ],
-      isLoading: false,
-    });
-    mutationFns.deleteCharacter.mockRejectedValueOnce(
-      new Error('Only archived characters can be hard deleted'),
-    );
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByText('Show Archived'));
-    fireEvent.click(screen.getByText('Delete'));
-    fireEvent.click(await screen.findByText('Delete Permanently'));
-
     expect(
-      await screen.findByText('Only archived characters can be hard deleted'),
-    ).toBeInTheDocument();
-  });
-
-  it('closes delete dialog after successful hard delete', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'arch_1',
-          name: 'Old Scout',
-          description: '',
-          kind: 'officer_npc',
-          level: 2,
-          strength: 10,
-          dexterity: 12,
-          constitution: 10,
-          intelligence: 9,
-          wisdom: 11,
-          charisma: 8,
-          isActive: false,
-        },
-      ],
-      isLoading: false,
-    });
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByText('Show Archived'));
-    fireEvent.click(screen.getByText('Delete'));
-    fireEvent.click(await screen.findByText('Delete Permanently'));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Delete Character')).not.toBeInTheDocument();
-    });
-  });
-
-  it('shows officer assignment error when mutation fails', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'char_1',
-          name: 'Aubrin',
-          description: '',
-          kind: 'officer_npc',
-          level: 3,
-          strength: 10,
-          dexterity: 10,
-          constitution: 10,
-          intelligence: 10,
-          wisdom: 10,
-          charisma: 14,
-          isActive: true,
-        },
-      ],
-      isLoading: false,
-    });
-    mutationFns.assignOfficerRole.mockRejectedValueOnce(
-      new Error('Cannot assign an archived character to an officer role'),
-    );
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByText('Edit'));
-    const selects = screen.getAllByTestId('mock-select');
-    const roleSelect = selects[1];
-    fireEvent.change(roleSelect!, { target: { value: 'ambassador' } });
-    fireEvent.click(screen.getByText('Save'));
-
-    expect(
-      await screen.findByText('Cannot assign an archived character to an officer role'),
-    ).toBeInTheDocument();
-  });
-
-  it('clears the old officer role before assigning a new one from a character card', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'char_1',
-          name: 'Aubrin',
-          description: '',
-          kind: 'officer_npc',
-          level: 3,
-          strength: 10,
-          dexterity: 10,
-          constitution: 10,
-          intelligence: 10,
-          wisdom: 10,
-          charisma: 14,
-          isActive: true,
-        },
-      ],
-      isLoading: false,
-    });
-    mockMilitiaQuery.mockReturnValue({
-      data: {
-        _id: 'militia_1',
-        ambassador: 'char_1',
-        commandant: undefined,
-        marshal: undefined,
-        overseer: undefined,
-        spymaster: undefined,
-        strategist: undefined,
-      },
-    });
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByText('Edit'));
-    const selects = screen.getAllByTestId('mock-select');
-    const roleSelect = selects[1];
-    fireEvent.change(roleSelect!, { target: { value: 'marshal' } });
-    fireEvent.click(screen.getByText('Save'));
-
-    await waitFor(() => {
-      expect(mutationFns.assignOfficerRole).toHaveBeenNthCalledWith(1, {
-        organizationId: 'org_1',
-        militiaId: 'militia_1',
-        role: 'ambassador',
-        characterId: undefined,
-        source: 'direct',
-      });
-      expect(mutationFns.assignOfficerRole).toHaveBeenNthCalledWith(2, {
-        organizationId: 'org_1',
-        militiaId: 'militia_1',
-        role: 'marshal',
-        characterId: 'char_1',
-        source: 'direct',
-      });
-    });
-  });
-
-  it('can unassign a role directly from the role strip', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'char_1',
-          name: 'Aubrin',
-          description: '',
-          kind: 'officer_npc',
-          level: 3,
-          strength: 10,
-          dexterity: 10,
-          constitution: 10,
-          intelligence: 10,
-          wisdom: 10,
-          charisma: 14,
-          isActive: true,
-        },
-      ],
-      isLoading: false,
-    });
-    mockMilitiaQuery.mockReturnValue({
-      data: {
-        _id: 'militia_1',
-        ambassador: 'char_1',
-        commandant: undefined,
-        marshal: undefined,
-        overseer: undefined,
-        spymaster: undefined,
-        strategist: undefined,
-      },
-    });
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
-
-    await waitFor(() => {
-      expect(mutationFns.assignOfficerRole).toHaveBeenCalledWith({
-        organizationId: 'org_1',
-        militiaId: 'militia_1',
-        role: 'ambassador',
-        characterId: undefined,
-        source: 'direct',
-      });
-    });
-  });
-
-  it('assigns a character to a role by dragging the card onto the role strip', async () => {
-    mockCharacterLedgerQuery.mockReturnValue({
-      data: [
-        {
-          _id: 'char_1',
-          name: 'Aubrin',
-          description: '',
-          kind: 'officer_npc',
-          level: 3,
-          strength: 10,
-          dexterity: 10,
-          constitution: 10,
-          intelligence: 10,
-          wisdom: 10,
-          charisma: 14,
-          isActive: true,
-        },
-      ],
-      isLoading: false,
-    });
-
-    render(
-      <CharacterManager
-        selectedCampaignId={'camp_1' as never}
-        organizationId="org_1"
-        canQuery
-      />,
-    );
-
-    openLedger();
-    const card = screen.getByText('Aubrin').closest('[data-slot="card"]');
-    const [dropZone] = screen.getAllByText('Ambassador');
-    const dropTarget = dropZone?.closest('.border-2');
-    card!.getBoundingClientRect = vi.fn(() => ({
-      left: 10,
-      top: 20,
-      right: 210,
-      bottom: 220,
-      width: 200,
-      height: 200,
-      x: 10,
-      y: 20,
-      toJSON: () => ({}),
-    }));
-    dropTarget!.getBoundingClientRect = vi.fn(() => ({
-      left: 300,
-      top: 100,
-      right: 520,
-      bottom: 220,
-      width: 220,
-      height: 120,
-      x: 300,
-      y: 100,
-      toJSON: () => ({}),
-    }));
-
-    fireEvent.pointerDown(card!, { button: 0, clientX: 40, clientY: 60 });
-    fireEvent.pointerMove(window, { clientX: 340, clientY: 140 });
-    fireEvent.pointerUp(window, { clientX: 340, clientY: 140 });
-
-    await waitFor(() => {
-      expect(mutationFns.assignOfficerRole).toHaveBeenCalledWith({
-        organizationId: 'org_1',
-        militiaId: 'militia_1',
-        role: 'ambassador',
-        characterId: 'char_1',
-        source: 'direct',
-      });
-    });
+      screen.queryByRole('button', { name: 'Delete' }),
+    ).not.toBeInTheDocument();
   });
 });

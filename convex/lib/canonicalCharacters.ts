@@ -1,13 +1,11 @@
 import { ConvexError } from 'convex/values';
 import type { MutationCtx } from '../_generated/server';
 import type { Id } from '../_generated/dataModel';
-import { readCutover } from './campaignRuntime';
 
 export async function updateCanonicalCharacter(
   ctx: MutationCtx,
   characterId: Id<'character'>,
 ) {
-  if ((await readCutover(ctx))?.status !== 'canonical') return;
   const character = await ctx.db.get('character', characterId);
   if (!character) throw new ConvexError('Character not found');
   const militia = await ctx.db

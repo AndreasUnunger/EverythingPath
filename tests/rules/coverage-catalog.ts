@@ -8083,7 +8083,13 @@ export const coverageCatalog = {
           expected:
             'Phase View / Resolution Preview: No old-version requests are expected after upgrade, so explicit rejection is not required. Recovery before reopening restores compatible state without losing newly accepted work.',
           plannedTests: ['rules.P11.legacy'],
-          tests: ['cutover.usable', 'cutover.assets', 'cutover.enchantment'],
+          tests: [
+            'cutover.usable',
+            'cutover.assets',
+            'cutover.enchantment',
+            'retirement.reject',
+            'retirement.preserve',
+          ],
           serviceTests: ['live.cutover'],
           gap: null,
         },

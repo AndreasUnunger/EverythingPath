@@ -3,7 +3,11 @@ import { campaignContextDataSchema } from '../src/lib/canonical-campaign-context
 import { canonicalRosterDataSchema } from '../src/lib/canonical-roster';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { defineSchema, defineTable } from 'convex/server';
-import { draftStorageValidator, operationStorageValidator, recordStorageValidator } from './lib/canonicalStorageValidators';
+import {
+  draftStorageValidator,
+  operationStorageValidator,
+  recordStorageValidator,
+} from './lib/canonicalStorageValidators';
 import { v } from 'convex/values';
 import {
   activityActionIdValidator,
@@ -187,7 +191,7 @@ export const queueEffectValidator = v.object({
   sourceEventType: v.optional(v.string()),
 });
 
-export const militiaValidator = v.object({
+const legacyMilitiaValidator = v.object({
   name: v.string(),
   campaignId: v.id('campaign'),
   rank: v.number(),
@@ -207,6 +211,13 @@ export const militiaValidator = v.object({
   spymaster: v.optional(v.id('character')),
   strategist: v.optional(v.id('character')),
 });
+
+// Transitional read shape for the bounded retirement operation. New militias
+// store only identity here; all gameplay facts live in canonicalMilitiaState.
+export const militiaValidator = v.union(
+  v.object({ name: v.string(), campaignId: v.id('campaign') }),
+  legacyMilitiaValidator,
+);
 
 export const officerRoleValidator = v.union(
   v.literal('ambassador'),
@@ -337,8 +348,12 @@ export const militiaWeekStateValidator = v.object({
   uneventfulBonusCarry: v.number(),
   queuedEffects: v.array(queueEffectValidator),
   lastPersistentBuyoffWeek: v.optional(v.number()),
-  stagedActivityActionIds: v.array(v.union(v.null(), activityActionIdValidator)),
-  stagedActivityTeamIds: v.optional(v.array(v.union(v.null(), teamIdValidator))),
+  stagedActivityActionIds: v.array(
+    v.union(v.null(), activityActionIdValidator),
+  ),
+  stagedActivityTeamIds: v.optional(
+    v.array(v.union(v.null(), teamIdValidator)),
+  ),
   activityTeamOperations: v.optional(
     v.object({
       recruits: v.array(
@@ -440,38 +455,38 @@ export const militiaWeekStateValidator = v.object({
         ),
       ),
       covertActions: v.optional(
-          v.array(
-            v.object({
-              slotIndex: v.number(),
-              mode: v.optional(covertActionModeValidator),
-              targetSource: v.optional(
-                v.union(v.literal('character'), v.literal('freeform')),
-              ),
-              followupSlotIndex: v.optional(v.number()),
-              characterId: v.optional(v.id('character')),
-              displayName: v.optional(v.string()),
-              personKind: v.optional(trackedPersonKindValidator),
-              siteName: v.optional(v.string()),
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            mode: v.optional(covertActionModeValidator),
+            targetSource: v.optional(
+              v.union(v.literal('character'), v.literal('freeform')),
+            ),
+            followupSlotIndex: v.optional(v.number()),
+            characterId: v.optional(v.id('character')),
+            displayName: v.optional(v.string()),
+            personKind: v.optional(trackedPersonKindValidator),
+            siteName: v.optional(v.string()),
             notes: v.optional(v.string()),
           }),
         ),
       ),
       rescues: v.optional(
-          v.array(
-            v.object({
-              slotIndex: v.number(),
-              targetSource: v.optional(
-                v.union(
-                  v.literal('tracked'),
-                  v.literal('character'),
-                  v.literal('freeform'),
-                ),
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            targetSource: v.optional(
+              v.union(
+                v.literal('tracked'),
+                v.literal('character'),
+                v.literal('freeform'),
               ),
-              targetStatusId: v.optional(v.string()),
-              characterId: v.optional(v.id('character')),
-              displayName: v.optional(v.string()),
-              personKind: v.optional(trackedPersonKindValidator),
-              targetLevel: v.optional(v.number()),
+            ),
+            targetStatusId: v.optional(v.string()),
+            characterId: v.optional(v.id('character')),
+            displayName: v.optional(v.string()),
+            personKind: v.optional(trackedPersonKindValidator),
+            targetLevel: v.optional(v.number()),
             destinationType: v.optional(
               v.union(
                 v.literal('hq'),
@@ -484,20 +499,20 @@ export const militiaWeekStateValidator = v.object({
         ),
       ),
       restorations: v.optional(
-          v.array(
-            v.object({
-              slotIndex: v.number(),
-              targetSource: v.optional(
-                v.union(
-                  v.literal('tracked'),
-                  v.literal('character'),
-                  v.literal('freeform'),
-                ),
+        v.array(
+          v.object({
+            slotIndex: v.number(),
+            targetSource: v.optional(
+              v.union(
+                v.literal('tracked'),
+                v.literal('character'),
+                v.literal('freeform'),
               ),
-              targetStatusId: v.optional(v.string()),
-              characterId: v.optional(v.id('character')),
-              displayName: v.optional(v.string()),
-              personKind: v.optional(trackedPersonKindValidator),
+            ),
+            targetStatusId: v.optional(v.string()),
+            characterId: v.optional(v.id('character')),
+            displayName: v.optional(v.string()),
+            personKind: v.optional(trackedPersonKindValidator),
             mode: v.optional(restoreCharacterModeValidator),
             customCostTotal: v.optional(v.number()),
           }),
@@ -782,8 +797,13 @@ export const roles = v.union(v.literal('admin'), v.literal('member'));
 
 export default defineSchema({
   canonicalSourceCorrection: defineTable({
-    campaignId: v.id('campaign'), militiaId: v.id('militia'), expectedRevision: v.number(),
-    revision: v.number(), reason: v.string(), actor: v.string(), createdAt: v.number(),
+    campaignId: v.id('campaign'),
+    militiaId: v.id('militia'),
+    expectedRevision: v.number(),
+    revision: v.number(),
+    reason: v.string(),
+    actor: v.string(),
+    createdAt: v.number(),
   }).index('by_militiaId', ['militiaId']),
   campaignCutover: defineTable({
     key: v.literal('weekly-draft'),
@@ -794,10 +814,14 @@ export default defineSchema({
     campaignIds: v.array(v.id('campaign')),
     pausedAt: v.number(),
     reopenedAt: v.optional(v.number()),
-    backup: v.optional(v.object({
-      sha256: v.string(), location: v.string(), verifiedRestoreDeployment: v.string(),
-      retainUntil: v.number(),
-    })),
+    backup: v.optional(
+      v.object({
+        sha256: v.string(),
+        location: v.string(),
+        verifiedRestoreDeployment: v.string(),
+        retainUntil: v.number(),
+      }),
+    ),
   }).index('by_key', ['key']),
   canonicalMilitiaState: defineTable({
     campaignId: v.id('campaign'),
@@ -835,9 +859,14 @@ export default defineSchema({
     ])
     .index('by_militiaId', ['militiaId']),
   canonicalDraftTarget: defineTable({
-    campaignId: v.id('campaign'), militiaId: v.id('militia'), draftId: v.string(),
-    target: v.string(), revision: v.number(), subtreeRevision: v.number(),
-  }).index('by_draftId_and_target', ['draftId', 'target'])
+    campaignId: v.id('campaign'),
+    militiaId: v.id('militia'),
+    draftId: v.string(),
+    target: v.string(),
+    revision: v.number(),
+    subtreeRevision: v.number(),
+  })
+    .index('by_draftId_and_target', ['draftId', 'target'])
     .index('by_draftId_and_revision', ['draftId', 'revision'])
     .index('by_militiaId', ['militiaId']),
   canonicalDraftOperation: defineTable(operationStorageValidator)
@@ -849,8 +878,11 @@ export default defineSchema({
     .index('by_campaignId_and_status', ['campaignId', 'status'])
     .index('by_militiaId', ['militiaId']),
   e2eFixtureIdentity: defineTable({
-    namespace: v.string(), workerKey: v.string(), userId: v.id('user'),
-  }).index('by_namespace_and_workerKey', ['namespace', 'workerKey'])
+    namespace: v.string(),
+    workerKey: v.string(),
+    userId: v.id('user'),
+  })
+    .index('by_namespace_and_workerKey', ['namespace', 'workerKey'])
     .index('by_userId', ['userId']),
   character: defineTable(characterValidator).index('by_campaignId', [
     'campaignId',
@@ -870,6 +902,7 @@ export default defineSchema({
     .index('by_militiaId', ['militiaId'])
     .index('by_militiaId_week', ['militiaId', 'weekNumber']),
   militiaResolutionRecord: defineTable(militiaResolutionRecordValidator)
+    .index('by_militiaId', ['militiaId'])
     .index('by_campaignId_and_weekNumber', ['campaignId', 'weekNumber'])
     .index('by_militiaId_and_weekNumber', ['militiaId', 'weekNumber']),
   militiaSettlementState: defineTable(militiaSettlementStateValidator)

@@ -1,3 +1,6 @@
+import { createWeeklyDraft } from '../src/lib/weekly-draft';
+import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
+import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 import { v } from 'convex/values';
 import {
   internalMutation,
@@ -229,30 +232,104 @@ export const resetCase = internalMutation({
             wisdom: 10,
             charisma: 10,
           });
-    const militiaId = await ctx.db.insert('militia', {
-      name: `E2E ${domain.militia}`,
-      campaignId,
-      rank: 1,
-      highestBoonReached: 0,
-      HQLocation: 'Phaendar',
-      treasury: 100,
-      notoriety: 0,
-      focus: 'Loyalty',
-      training: args.caseKey === 'completeWeek' ? 10 : 0,
-      ...(characterId ? { marshal: characterId } : {}),
-    });
-    await ctx.db.insert('militiaWeekState', {
-      militiaId,
-      weekNumber: args.caseKey === 'completeWeek' ? 2 : 1,
-      phase: args.caseKey === 'completeWeek' ? 'upkeep' : 'activity',
-      isFirstWeek: args.caseKey !== 'completeWeek',
-      skippedUpkeepThisWeek: args.caseKey !== 'completeWeek',
-      uneventfulBonusCarry: 0,
-      queuedEffects: [],
-      stagedActivityActionIds: [null],
-      stagedActivityTeamIds: [null],
-      lockVersion: 0,
-    });
+    const militiaId = await ctx.db.insert(
+      'militia',
+      args.caseKey === 'canonicalPersistence'
+        ? {
+            name: `E2E ${domain.militia}`,
+            campaignId,
+            rank: 1,
+            highestBoonReached: 0,
+            HQLocation: 'Phaendar',
+            treasury: 100,
+            notoriety: 0,
+            focus: 'Loyalty',
+            training: 0,
+            ...(characterId ? { marshal: characterId } : {}),
+          }
+        : { name: `E2E ${domain.militia}`, campaignId },
+    );
+    // The cutover contract alone needs old storage as a recovery fixture.
+    if (args.caseKey === 'canonicalPersistence')
+      await ctx.db.insert('militiaWeekState', {
+        militiaId,
+        weekNumber: 1,
+        phase: 'activity',
+        isFirstWeek: true,
+        skippedUpkeepThisWeek: true,
+        uneventfulBonusCarry: 0,
+        queuedEffects: [],
+        stagedActivityActionIds: [null],
+        stagedActivityTeamIds: [null],
+        lockVersion: 0,
+      });
+    if (args.caseKey !== 'canonicalPersistence') {
+      const character = characterId
+        ? await ctx.db.get('character', characterId)
+        : null;
+      const snapshot = militiaSnapshotSchema.parse({
+        rank: 1,
+        training: 0,
+        treasuryCopper: 10000,
+        notoriety: 0,
+        focus: 'Loyalty',
+        characters: character
+          ? [
+              {
+                characterId: character._id,
+                isActive: true,
+                level: character.level,
+                strength: character.strength,
+                dexterity: character.dexterity,
+                constitution: character.constitution,
+                intelligence: character.intelligence,
+                wisdom: character.wisdom,
+                charisma: character.charisma,
+              },
+            ]
+          : [],
+        roster: {
+          people: character
+            ? [{ characterId: character._id, kind: 'officer_npc', hitDice: 1 }]
+            : [],
+          teams: [],
+          officers: [],
+        },
+        settlements: [],
+        bonuses: [],
+      });
+      const draft = weeklyDraftDataSchema.parse(
+        createWeeklyDraft({
+          draftId: `fixture:${campaignId}`,
+          week: 1,
+          slotIds: ['left', 'right', 'extra'],
+          context: {
+            firstMilitiaWeek: true,
+            startDay: 0,
+            uneventfulCarry: false,
+            carriedEvents: [],
+            queuedEffects: [],
+            orders: [],
+            lastBuyoffWeek: null,
+          },
+        }),
+      );
+      await ctx.db.insert('canonicalMilitiaState', {
+        campaignId,
+        militiaId,
+        revision: 0,
+        snapshot,
+      });
+      await ctx.db.insert('canonicalWeeklyDraft', {
+        campaignId,
+        militiaId,
+        draftId: draft.draftId,
+        draft,
+        initialDraft: draft,
+        status: 'open',
+        revision: 0,
+      });
+    }
     return { campaignId, campaignKey: domain.campaign };
   },
 });
@@ -293,17 +370,25 @@ export const inspectCase = internalQuery({
         .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
         .unique();
       if (current) {
-        const week = await ctx.db
-          .query('militiaWeekState')
+        const state = await ctx.db
+          .query('canonicalMilitiaState')
           .withIndex('by_militiaId', (q) => q.eq('militiaId', current._id))
           .unique();
-        if (week)
+        const week = await ctx.db
+          .query('canonicalWeeklyDraft')
+          .withIndex('by_campaignId_and_status', (q) =>
+            q.eq('campaignId', campaign._id).eq('status', 'open'),
+          )
+          .unique();
+        if (state && week?.draft)
           militia = {
-            treasury: current.treasury,
-            training: current.training,
-            week: week.weekNumber,
-            phase: week.phase,
-            stagedActions: week.stagedActivityActionIds,
+            treasury: state.snapshot.treasuryCopper / 100,
+            training: state.snapshot.training,
+            week: week.draft.week,
+            phase: 'upkeep',
+            stagedActions: week.draft.activity.slots.map(
+              (slot) => slot.choice?.actionId ?? null,
+            ),
           };
       }
       characters = bounded(

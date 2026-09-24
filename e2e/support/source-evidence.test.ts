@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
@@ -19,6 +25,10 @@ test('evidence follows working source, new tests, rules and configuration while 
     const initial = sourceFingerprint(root);
     writeFileSync(join(root, '.private/credentials.json'), '{"private":true}');
     writeFileSync(join(root, 'docs/review.md'), 'Human report');
+    expect(sourceFingerprint(root)).toBe(initial);
+    mkdirSync(join(root, '.claude'));
+    symlinkSync('../.private', join(root, '.claude/skills'));
+    writeFileSync(join(root, 'CLAUDE.md'), 'Agent-only guidance');
     expect(sourceFingerprint(root)).toBe(initial);
     for (const [file, content] of [
       ['app.ts', 'export const value = 2;'],

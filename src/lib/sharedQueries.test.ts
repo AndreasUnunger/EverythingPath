@@ -1,15 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  campaignQuery,
-  characterLedgerQuery,
-  marketplaceLedgerQuery,
-  militiaQuery,
-  militiaStateSetupQuery,
-  settlementLedgerQuery,
-  weekBoardLiveStateQuery,
-  weekBoardReferenceQuery,
-  weekBoardTrackedStateQuery,
-} from './sharedQueries';
+import { campaignQuery, characterLedgerQuery } from './sharedQueries';
 
 const mockUseQuery = vi.fn((options) => options);
 const mockConvexQuery = vi.fn((_fnRef, args) => ({
@@ -50,26 +40,6 @@ describe('sharedQueries', () => {
     vi.clearAllMocks();
   });
 
-  it('disables militia query when campaignId is missing', () => {
-    militiaQuery(undefined, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('getMilitia', {
-      campaignId: undefined,
-      organizationId: 'org_1',
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: false }),
-    );
-  });
-
-  it('disables militia query when enabled is false', () => {
-    militiaQuery('camp_1' as never, 'org_1', false);
-
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: false }),
-    );
-  });
-
   it('keeps campaign query enabled even when organization is undefined', () => {
     campaignQuery(undefined, true);
 
@@ -96,78 +66,6 @@ describe('sharedQueries', () => {
       campaignId: 'camp_1',
       organizationId: 'org_1',
       includeInactive: true,
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('wires settlement ledger query with enabled guard', () => {
-    settlementLedgerQuery('camp_1' as never, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('listSettlements', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('wires marketplace ledger query with enabled guard', () => {
-    marketplaceLedgerQuery('camp_1' as never, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('listMarketplaces', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('wires militia state setup query with enabled guard', () => {
-    militiaStateSetupQuery('camp_1' as never, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('getMilitiaStateSetup', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('wires week board reference query with enabled guard', () => {
-    weekBoardReferenceQuery('camp_1' as never, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('getWeekBoardReferenceData', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('wires week board tracked state query with enabled guard', () => {
-    weekBoardTrackedStateQuery('camp_1' as never, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('getWeekBoardTrackedState', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
-    });
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: true }),
-    );
-  });
-
-  it('wires week board live state query with enabled guard', () => {
-    weekBoardLiveStateQuery('camp_1' as never, 'org_1', true);
-
-    expect(mockConvexQuery).toHaveBeenCalledWith('getWeekBoardLiveState', {
-      campaignId: 'camp_1',
-      organizationId: 'org_1',
     });
     expect(mockUseQuery).toHaveBeenCalledWith(
       expect.objectContaining({ enabled: true }),

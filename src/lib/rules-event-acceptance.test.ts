@@ -7,7 +7,7 @@ import { roll, upkeepFixture } from '../../tests/rules/upkeep-fixture';
 import {
   projectWeeklyDraft,
   resolveCanonicalWeeklyDraft,
-} from './weekly-resolution';
+} from './canonical-weekly-resolution';
 import { projectActivityAndEvents } from './rules-event-outcomes';
 import { projectActivity } from './rules-activity';
 import { projectUpkeep } from './rules-upkeep';

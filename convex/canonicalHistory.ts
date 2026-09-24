@@ -1,6 +1,5 @@
 import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
-import { requireIsolated } from './lib/canonicalIsolation';
 import {
   requireScope,
   readResolutionRecord,
@@ -40,7 +39,6 @@ export const read = query({
     }),
   ),
   handler: async (ctx, args) => {
-    await requireIsolated(ctx, args.campaignId);
     const militia = await ctx.db
       .query('militia')
       .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))

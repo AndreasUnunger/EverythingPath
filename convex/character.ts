@@ -1,7 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
-import { readCutover } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
 import { campaignValidator, characterValidator } from './schema';
 import { hasAccessToOrg } from './user';
@@ -126,11 +125,7 @@ export const updateCharacter = mutation({
       throw new ConvexError('Character not found');
     }
 
-    await assertCampaignAccess(
-      ctx,
-      character.campaignId,
-      args.organizationId,
-    );
+    await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
 
     await ctx.db.patch('character', args.characterId, args.patch);
     await updateCanonicalCharacter(ctx, args.characterId);
@@ -149,13 +144,11 @@ export const archiveCharacter = mutation({
       throw new ConvexError('Character not found');
     }
 
-    await assertCampaignAccess(
-      ctx,
-      character.campaignId,
-      args.organizationId,
-    );
+    await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
 
-    await ctx.db.patch('character', args.characterId, { isActive: args.isActive });
+    await ctx.db.patch('character', args.characterId, {
+      isActive: args.isActive,
+    });
     await updateCanonicalCharacter(ctx, args.characterId);
   },
 });
@@ -177,9 +170,8 @@ export const deleteCharacter = mutation({
 
     await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
 
-    if ((await readCutover(ctx))?.status === 'canonical')
-      throw new ConvexError('Keep archived characters to preserve militia history.');
-
-    await ctx.db.delete('character', args.characterId);
+    throw new ConvexError(
+      'Keep archived characters to preserve militia history.',
+    );
   },
 });

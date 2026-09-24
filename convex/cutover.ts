@@ -18,12 +18,8 @@ import {
 
 export const status = query({
   args: {},
-  returns: v.union(
-    v.literal('legacy'),
-    v.literal('paused'),
-    v.literal('canonical'),
-  ),
-  handler: async (ctx) => (await readCutover(ctx))?.status ?? 'legacy',
+  returns: v.union(v.literal('paused'), v.literal('canonical')),
+  handler: async (ctx) => (await readCutover(ctx))?.status ?? 'canonical',
 });
 
 const operator = { operatorTokenIdentifier: v.optional(v.string()) };

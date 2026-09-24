@@ -668,3 +668,17 @@ restore comparisons. The archive stays in the private runner directory and is
 removed after verification. See the [runbook](../docs/paused-cutover-runbook.md)
 for commands, preflight blockers and the rule that reopening ends automatic
 rollback. This journey does not migrate or reopen production campaigns.
+
+## Legacy retirement (#91)
+
+The five ordinary campaign journeys now use the canonical dashboard and militia
+ledger. Ordinary fixture cases create canonical state only; legacy records are
+seeded exclusively by the cutover contract. Membership, setup/reload, shared
+character/officer changes, Confirmation/history, and Action Slot staging remain
+required. Nightly layout coverage uses the same canonical route.
+
+The cutover journey additionally runs bounded legacy retirement after a real
+synthetic Confirmation, verifies its successor and immutable history are
+unchanged, and checks stale endpoints reject requests. Restored old data is
+verified as recovery evidence, rather than reopened through retired gameplay.
+Use the retained compatible release for an actual pre-cutover recovery.
