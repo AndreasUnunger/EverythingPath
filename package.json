@@ -10,7 +10,7 @@
     "check:convex-generated": "bash scripts/check-convex-generated.sh",
     "dev": "bash scripts/dev.sh",
     "dev:web": "next dev --turbopack",
-    "prototype": "echo \"PROTOTYPE: open http://localhost:3001/prototype/week-layout?variant=A\" && next dev --turbopack -p 3001",
+    "prototype": "echo \"PROTOTYPE: open http://localhost:3001/prototype/activity-slots?variant=A\" && next dev --turbopack -p 3001",
     "dev:convex": "CONVEX_DEPLOY_KEY= CONVEX_DEPLOYMENT_TOKEN= convex dev",
     "deploy:convex": "bash scripts/deploy-convex.sh",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
