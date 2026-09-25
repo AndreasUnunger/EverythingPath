@@ -657,7 +657,7 @@ export function buyoffSummary(view: Projection) {
       ? 'First buyoff available now'
       : 'Buyoff available';
   const next = view.buyoffsStaged
-    ? `after this week’s ${view.buyoffsStaged > 1 ? `${view.buyoffsStaged} buyoffs` : 'buyoff'}: week ${view.nextBuyoffWeek}`
+    ? `week ${view.nextBuyoffWeek}`
     : cooldown
       ? `week ${view.nextBuyoffWeek}`
       : `week ${week + 4} once one is used`;
