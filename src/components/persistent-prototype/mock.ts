@@ -14,7 +14,7 @@ export const signed = (n: number) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
 export const people = [
   { id: 'p-amara', name: 'Amara Voss', role: 'Ambassador', pc: true },
   { id: 'p-doran', name: 'Doran Kest', role: 'Strategist', pc: true },
-  { id: 'p-ilse', name: 'Ilse Marrow', role: 'Marshal', pc: false },
+  { id: 'p-ilse', name: 'Ilse Marrow', role: 'Overseer', pc: false },
   { id: 'p-pell', name: 'Pell', role: null, pc: false },
 ];
 export const skills = [
@@ -89,6 +89,7 @@ export type Decision = {
   kind: DecisionKind;
   /** d20 for the Loyalty check (Theft) or the officer's check (Rivalry). */
   die?: number | null;
+  /** The Overseer's character id when their support is used on this check. */
   overseerId?: string | null;
   officerId?: string | null;
   skill?: Skill;
@@ -107,6 +108,8 @@ export type State = {
     lowTreasury: boolean;
     /** A Reduce Danger action in Activity slot 2 already ends the second Theft. */
     endedInActivity: boolean;
+    /** The Overseer role is not filled. */
+    noOverseer: boolean;
     /** Upkeep and Event still have open decisions. */
     earlierPhasesOpen: boolean;
   };
@@ -123,6 +126,7 @@ export function initialState(): State {
       cooldown: false,
       lowTreasury: false,
       endedInActivity: false,
+      noOverseer: false,
       earlierPhasesOpen: true,
     },
     decisions: {
@@ -155,6 +159,10 @@ export function reduce(state: State, edit: Edit): State {
       const decisions = { ...state.decisions };
       if (edit.decision) decisions[edit.eventId] = edit.decision;
       else delete decisions[edit.eventId];
+      if (edit.decision?.overseerId)
+        for (const [id, d] of Object.entries(decisions))
+          if (id !== edit.eventId && d.overseerId)
+            decisions[id] = { ...d, overseerId: null };
       return { ...saved, decisions };
     }
     case 'exception': {
@@ -219,6 +227,8 @@ export type EventView = Carried & {
   staged: string;
   stagedTone: 'ends' | 'stays' | 'open';
   check: Check | null;
+  /** The Overseer's support for this check, if the role is filled. */
+  overseer: { name: string; bonus: number; usedOn: string | null } | null;
   requirements: Issue[];
   warnings: Issue[];
   exceptions: Exception[];
@@ -259,6 +269,16 @@ export function project(state: State): Projection {
   const warnings: Issue[] = [];
   const exceptions: Exception[] = [];
 
+  const overseerRole = scenario.noOverseer
+    ? null
+    : { id: 'p-ilse', name: 'Ilse Marrow', bonus: 3 };
+  const overseerUsedOn =
+    Object.entries(state.decisions).find(
+      ([, d]) =>
+        d.kind === 'mitigate' &&
+        overseerRole &&
+        d.overseerId === overseerRole.id,
+    )?.[0] ?? null;
   const ordered = [...carried].sort(
     (a, b) => a.startedWeek - b.startedWeek || a.order - b.order,
   );
@@ -342,11 +362,10 @@ export function project(state: State): Projection {
         { label: 'Rank and focus', value: 6 },
         { label: 'Officers (Amara, Ambassador)', value: 2 },
       ];
-      const overseer = people.find((p) => p.id === decision.overseerId);
-      if (overseer)
+      if (overseerRole && decision.overseerId === overseerRole.id)
         modifiers.push({
-          label: `Overseer support (${overseer.name.split(' ')[0]})`,
-          value: 2,
+          label: `Overseer support (${overseerRole.name.split(' ')[0]}, Constitution)`,
+          value: overseerRole.bonus,
         });
       const bonus = modifiers.reduce((a, m) => a + m.value, 0);
       const die = decision.die ?? null;
@@ -441,6 +460,16 @@ export function project(state: State): Projection {
       staged,
       stagedTone,
       check,
+      overseer: overseerRole
+        ? {
+            name: overseerRole.name.split(' ')[0]!,
+            bonus: overseerRole.bonus,
+            usedOn:
+              overseerUsedOn && overseerUsedOn !== event.id
+                ? `${eventInfo[carried.find((c) => c.id === overseerUsedOn)!.type].name} (week ${carried.find((c) => c.id === overseerUsedOn)!.startedWeek})`
+                : null,
+          }
+        : null,
       requirements: own,
       warnings: ownWarnings,
       exceptions: ownExceptions,

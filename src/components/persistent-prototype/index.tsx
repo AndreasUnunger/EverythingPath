@@ -28,6 +28,7 @@ const scenarios: { key: keyof State['scenario']; label: string }[] = [
   { key: 'lowTreasury', label: 'treasury 120 gp (one buyoff affordable)' },
   { key: 'endedInActivity', label: 'Reduce Danger in Activity ends Theft 2' },
   { key: 'earlierPhasesOpen', label: 'Upkeep and Event still open' },
+  { key: 'noOverseer', label: 'no Overseer assigned' },
 ];
 
 export function PersistentPrototype() {

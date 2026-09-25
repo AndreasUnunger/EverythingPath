@@ -445,30 +445,7 @@ export function DecisionInputs({
           </span>
           <BonusLine check={event.check} />
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Overseer</span>
-          <Select
-            value={d.overseerId ?? 'none'}
-            disabled={disabled}
-            onValueChange={(v) =>
-              update(event, { overseerId: v === 'none' ? null : v }, edit)
-            }
-          >
-            <SelectTrigger className="h-9 w-56" aria-label="Overseer">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No overseer</SelectItem>
-              {people
-                .filter((p) => p.role)
-                .map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} · {p.role} (+2)
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </label>
+        <OverseerToggle event={event} edit={edit} disabled={disabled} />
       </div>
     );
   if (d.kind === 'mitigate' && event.type === 'rivalry' && event.check)
@@ -564,6 +541,64 @@ export function DecisionInputs({
       />
     );
   return null;
+}
+
+/** The Overseer is a militia officer role. Their support goes to one chosen event a week. */
+function OverseerToggle({
+  event,
+  edit,
+  disabled,
+}: {
+  event: EventView;
+  edit: PersistentProps['edit'];
+  disabled: boolean;
+}) {
+  const role = event.overseer;
+  if (!role)
+    return (
+      <p className="text-muted-foreground text-xs">
+        No Overseer assigned. An Overseer could add their Constitution or
+        Charisma modifier here.
+      </p>
+    );
+  const on = event.decision.overseerId === 'p-ilse';
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        disabled={disabled}
+        onClick={() =>
+          update(event, { overseerId: on ? null : 'p-ilse' }, edit)
+        }
+        className="inline-flex items-center gap-2"
+      >
+        <span
+          className={cn(
+            'relative h-5 w-9 rounded-full border transition-colors',
+            on ? 'bg-primary border-primary' : 'border-foreground/40',
+          )}
+        >
+          <span
+            className={cn(
+              'bg-background absolute top-0.5 size-3.5 rounded-full transition-transform',
+              on ? 'translate-x-4' : 'translate-x-0.5',
+            )}
+          />
+        </span>
+        Use Overseer support
+        <span className="text-muted-foreground">
+          · {role.name}, Constitution {signed(role.bonus)} · one event a week
+        </span>
+      </button>
+      {role.usedOn && !on && (
+        <span className="text-muted-foreground text-xs">
+          Now on {role.usedOn}. Tapping moves it here.
+        </span>
+      )}
+    </div>
+  );
 }
 
 function EndingField({
