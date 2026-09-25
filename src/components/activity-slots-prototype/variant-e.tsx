@@ -1,8 +1,8 @@
 'use client';
 // PROTOTYPE — Variant E: the chosen combination (B's slot board + A's picker
-// sheet), without B's team strip. One row of slot cards on top; any slot past
-// the action allowance carries a remove button (approved: new `remove_slot`
-// edit, rule-based, no schema change). Tapping an empty slot
+// sheet), without B's team strip. One row of slot cards on top; an empty slot
+// past the action allowance carries a remove button (approved: new
+// `remove_slot` edit, rule-based, no schema change). Tapping an empty slot
 // opens the grouped picker sheet; tapping a staged slot selects it and shows
 // its details under the board, with Change action and a Move to menu. No deck
 // on screen, no drag.
@@ -87,18 +87,14 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
                 ) : (
                   <span className="text-muted-foreground mt-auto text-sm">Tap to choose an action</span>
                 )}
-                {f.index >= allowance && <span className="text-muted-foreground mt-auto text-xs">Past the allowance</span>}
+                
               </button>
-              {f.index >= allowance && (
+              {f.index >= allowance && !f.slot.choice && (
                 <button
                   type="button"
-                  aria-label={`Remove Action Slot ${f.number}${f.action ? ` and ${f.action.name}` : ''}`}
+                  aria-label={`Remove Action Slot ${f.number}`}
                   disabled={disabled}
-                  onClick={() => {
-                    if (f.slot.choice && !window.confirm(`Remove Action Slot ${f.number} and ${f.action!.name}?`)) return;
-                    edit({ kind: 'remove_slot', slotId: f.slot.slotId });
-                    if (selectedId === f.slot.slotId) setSelectedId(null);
-                  }}
+                  onClick={() => edit({ kind: 'remove_slot', slotId: f.slot.slotId })}
                   className="bg-background absolute -top-3 -right-3 flex size-10 touch-manipulation items-center justify-center rounded-full border-2 shadow"
                 >
                   <X className="size-4" />
