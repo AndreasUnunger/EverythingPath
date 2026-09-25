@@ -8,7 +8,7 @@ import { Check, Minus } from 'lucide-react';
 import type React from 'react';
 import { cn } from '~/lib/utils';
 import { type EventFact, rank, signed } from './mock';
-import { ChoiceCard, DieField, EventBody, type EventProps, ExtraModifier, NeededChildren, OriginText, RemoveEvent, StatusChip, TableRoll } from './parts';
+import { ChoiceCard, DieField, EventBody, type EventProps, ExtraModifier, OriginText, StatusChip, TableRoll } from './parts';
 
 export const name = 'Rules order';
 
@@ -46,14 +46,8 @@ function EventBlock({ fact, p, candidate }: { fact: EventFact; p: EventProps; ca
       {candidate && fact.entry && (
         <ChoiceCard className="w-full" selected={Boolean(chosen)} disabled={disabled} title={chosen ? 'This one happens' : 'Choose this event'} note={`${fact.name}: ${fact.entry.text}`} onClick={() => edit({ kind: 'select_candidate', id: fact.id })} />
       )}
-      <EventBody fact={fact} edit={edit} disabled={disabled}>
-        <NeededChildren fact={fact} edit={edit} disabled={disabled} list={view.list} />
-      </EventBody>
-      <div className="flex flex-wrap items-center gap-2">
-        <ExtraModifier fact={fact} edit={edit} disabled={disabled} />
-        <span className="ml-auto" />
-        <RemoveEvent fact={fact} edit={edit} disabled={disabled} />
-      </div>
+      <EventBody fact={fact} edit={edit} disabled={disabled} />
+      <ExtraModifier fact={fact} edit={edit} disabled={disabled} />
       {fact.children.length > 0 && (
         <div className="border-foreground/20 ml-3 space-y-3 border-l-2 pl-3">
           {fact.children.map((c) => (
@@ -88,19 +82,29 @@ export function VariantA(p: EventProps) {
             <span className="text-muted-foreground block text-xs">below {view.chance}% means an event</span>
           </span>
           <DieField label="Event chance roll" value={state.chanceRoll} disabled={disabled} sides={100} onValue={(v) => edit({ kind: 'chance', roll: v })} />
+          {view.chanceModifier && (
+            <span className="text-sm">
+              <span className="font-mono">{signed(view.chanceModifier.value)}</span> <span className="text-muted-foreground">{view.chanceModifier.label}</span>
+              {view.chanceResult !== null && (
+                <>
+                  {' '}= <strong className="font-mono">{view.chanceResult}</strong>
+                </>
+              )}
+            </span>
+          )}
           <span className="text-sm">
             vs <strong className="font-mono">{view.chance}%</strong>
             <span className="text-muted-foreground block text-xs">{view.chanceModifiers.map((m) => `${m.label} ${m.value}`).join(' + ')}</span>
           </span>
           {view.chanceOutcome !== 'pending' && (
             <span className={cn('ml-auto text-sm', view.chanceOutcome === 'event' ? 'text-amber-200' : 'text-emerald-300')}>
-              {view.chanceOutcome === 'event' ? `${state.chanceRoll} is below ${view.chance}: an event happens` : `${state.chanceRoll} is not below ${view.chance}: a quiet week`}
+              {view.chanceOutcome === 'event' ? `${view.chanceResult} is below ${view.chance}: an event happens` : `${view.chanceResult} is not below ${view.chance}: a quiet week`}
             </span>
           )}
         </div>
         {view.operating && (
           <p className="text-muted-foreground text-xs">
-            Table rolls take {view.operating.modifier ? `${signed(view.operating.modifier)} from operating in ${view.operating.name} (${view.operating.reputation})` : `no modifier: ${view.operating.name} is ${view.operating.reputation}`}. Change the settlement in Activity.
+            {view.operating.modifier ? `Operating from ${view.operating.name} (${view.operating.reputation}) adds ${signed(view.operating.modifier)} to the chance roll.` : `Operating from ${view.operating.name} (${view.operating.reputation}): no modifier on the chance roll.`} Change the settlement in Activity.
           </p>
         )}
       </Step>
@@ -111,12 +115,6 @@ export function VariantA(p: EventProps) {
           {view.automatic.events.map((f) => (
             <EventBlock key={f.id} fact={f} p={p} />
           ))}
-          {view.automatic.events.length < view.automatic.source.count && (
-            <div className="flex items-center gap-3 text-sm">
-              Roll the automatic event
-              <DieField label="Automatic event table roll" sides={100} value={null} disabled={disabled} onValue={(v) => v !== null && edit({ kind: 'add', origin: { kind: 'automatic', sourceId: view.automatic!.source.id }, tableRoll: v })} />
-            </div>
-          )}
         </Step>
       )}
 
@@ -127,12 +125,6 @@ export function VariantA(p: EventProps) {
             {view.guarantee.candidates.map((c) => (
               <EventBlock key={c.id} fact={c} p={p} candidate />
             ))}
-            {view.guarantee.candidates.length < 2 && (
-              <div className="border-foreground/20 flex items-center gap-3 border border-dashed p-3 text-sm">
-                Roll candidate {view.guarantee.candidates.length + 1}
-                <DieField label={`Candidate ${view.guarantee.candidates.length + 1} table roll`} sides={100} value={null} disabled={disabled} onValue={(v) => v !== null && edit({ kind: 'add', origin: { kind: 'rolled' }, candidateOf: view.guarantee!.choice.id, tableRoll: v })} />
-              </div>
-            )}
           </div>
         </Step>
       ) : (
@@ -146,12 +138,6 @@ export function VariantA(p: EventProps) {
           {rolledRoots.map((f) => (
             <EventBlock key={f.id} fact={f} p={p} />
           ))}
-          {rolledRoots.length === 0 && (
-            <div className="flex items-center gap-3 text-sm">
-              Roll on the event table
-              <DieField label="Event table roll" sides={100} value={null} disabled={disabled} onValue={(v) => v !== null && edit({ kind: 'add', origin: { kind: 'rolled' }, tableRoll: v })} />
-            </div>
-          )}
         </Step>
       )}
 

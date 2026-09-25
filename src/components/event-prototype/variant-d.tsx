@@ -75,7 +75,7 @@ function EventPara({ fact, p, intro }: { fact: EventFact; p: EventProps; intro: 
 
 export function VariantD(p: EventProps) {
   const { view, state, edit, disabled } = p;
-  const mods = view.operating?.modifier ? ` Operating from ${view.operating.name} (${view.operating.reputation}) ${view.operating.modifier > 0 ? 'adds' : 'subtracts'} ${Math.abs(view.operating.modifier)} on the table.` : '';
+  const mods = view.operating?.modifier ? ` Operating from ${view.operating.name} (${view.operating.reputation}) ${view.operating.modifier > 0 ? 'adds' : 'subtracts'} ${Math.abs(view.operating.modifier)} on the chance roll.` : '';
   const happened = view.selected.filter((f) => f.status !== 'negated');
   return (
     <article className="max-w-3xl space-y-5 pr-2">

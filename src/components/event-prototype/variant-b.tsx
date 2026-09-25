@@ -65,7 +65,7 @@ export function VariantB(p: EventProps) {
         )}
         {view.operating && (
           <span className="text-muted-foreground ml-auto text-xs">
-            Table rolls {view.operating.modifier ? `${signed(view.operating.modifier)} · ${view.operating.name} (${view.operating.reputation})` : `±0 · ${view.operating.name}`}
+            Chance roll {view.operating.modifier ? `${signed(view.operating.modifier)} · ${view.operating.name} (${view.operating.reputation})` : `±0 · ${view.operating.name}`}
           </span>
         )}
       </div>

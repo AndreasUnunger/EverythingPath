@@ -10,7 +10,7 @@ import { useReducer, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { PrototypeSwitcher } from '~/components/prototype-switcher';
 import { WeekFrame } from './frame';
-import { initialState, project, reduce, type Scenario } from './mock';
+import { initialTree, project, reduce, type Scenario } from './mock';
 import { bindState } from './parts';
 import * as A from './variant-a';
 import * as B from './variant-b';
@@ -35,7 +35,7 @@ const scenarios: { key: keyof Scenario; label: string }[] = [
 export function EventPrototype() {
   const params = useSearchParams();
   const variant = variants.find((v) => v.key === params.get('variant')) ?? variants[0]!;
-  const [state, edit] = useReducer(reduce, undefined, initialState);
+  const [state, edit] = useReducer(reduce, undefined, initialTree);
   const [confirming, setConfirming] = useState(false);
   const [open, setOpen] = useState(false);
   const mounted = useSyncExternalStore(

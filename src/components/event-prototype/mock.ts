@@ -121,10 +121,9 @@ export function initialState(): State {
     scenario: { guaranteed: false, automatic: false, unfriendly: false, uneventful: true, forcedCalm: false },
     chanceRoll: 41,
     occurrences: [
-      // Operating from Ekkerd (Friendly) takes 5 off each table roll.
-      occurrence('ev-1', { kind: 'rolled' }, 55), // 50: Roll Twice
-      occurrence('ev-2', { kind: 'roll_twice', parentId: 'ev-1' }, 94), // 89: Sickness
-      occurrence('ev-3', { kind: 'roll_twice', parentId: 'ev-1' }, 87, { apl: 8 }), // 82: Invasion
+      occurrence('ev-1', { kind: 'rolled' }, 50), // Roll Twice
+      occurrence('ev-2', { kind: 'roll_twice', parentId: 'ev-1' }, 89), // Sickness
+      occurrence('ev-3', { kind: 'roll_twice', parentId: 'ev-1' }, 82, { apl: 8 }), // Invasion
     ],
     selectedCandidateId: null,
     acknowledgements: {},
@@ -149,7 +148,30 @@ export type Edit =
   | { kind: 'reset' };
 
 let counter = 0;
+const blank = (origin: Origin, candidateOf?: string) => occurrence(`ev-new-${++counter}`, origin, null, candidateOf ? { candidateOf } : {});
+/** Add the occurrences the rules currently ask for (root, automatic roots, candidates, Roll Twice children, a replacement) with empty dice. */
+function normalize(state: State): State {
+  let s = state;
+  for (let pass = 0; pass < 4; pass++) {
+    const view = project(s);
+    const adds: Occurrence[] = [];
+    if (view.chanceOutcome === 'event' && !s.occurrences.some((o) => o.origin.kind === 'rolled' && !o.candidateOf)) adds.push(blank({ kind: 'rolled' }));
+    if (view.automatic) for (let n = view.automatic.events.length; n < view.automatic.source.count; n++) adds.push(blank({ kind: 'automatic', sourceId: view.automatic.source.id }));
+    if (view.guarantee) for (let n = view.guarantee.candidates.length; n < 2; n++) adds.push(blank({ kind: 'rolled' }, view.guarantee.choice.id));
+    for (const f of view.list)
+      if (f.needsChildren) {
+        const have = s.occurrences.filter((o) => 'parentId' in o.origin && o.origin.parentId === f.id && o.origin.kind === f.needsChildren!.kind).length;
+        for (let n = have; n < f.needsChildren.count; n++) adds.push(blank({ kind: f.needsChildren.kind, parentId: f.id }, f.candidateOf ?? undefined));
+      }
+    if (!adds.length) return s;
+    s = { ...s, occurrences: [...s.occurrences, ...adds] };
+  }
+  return s;
+}
 export function reduce(state: State, edit: Edit): State {
+  return normalize(reduceEdit(state, edit));
+}
+function reduceEdit(state: State, edit: Edit): State {
   const saved = { ...state, feedback: 'All changes saved.', remote: false };
   const patchOcc = (id: string, patch: Partial<Occurrence>) => ({
     ...saved,
@@ -202,7 +224,7 @@ export function reduce(state: State, edit: Edit): State {
           chanceRoll: 41,
           selectedCandidateId: null,
           occurrences: edit.on
-            ? [occurrence('cand-1', { kind: 'rolled' }, 30, { candidateOf: guaranteeChoice.id }), occurrence('cand-2', { kind: 'rolled' }, 73, { candidateOf: guaranteeChoice.id })]
+            ? [occurrence('cand-1', { kind: 'rolled' }, 25, { candidateOf: guaranteeChoice.id }), occurrence('cand-2', { kind: 'rolled' }, 68, { candidateOf: guaranteeChoice.id })]
             : initialState().occurrences,
         };
       if (edit.key === 'automatic')
@@ -210,7 +232,7 @@ export function reduce(state: State, edit: Edit): State {
           ...state,
           scenario,
           occurrences: edit.on
-            ? [occurrence('auto-1', { kind: 'automatic', sourceId: automaticSource.id }, 58), ...state.occurrences.filter((o) => o.origin.kind !== 'automatic')]
+            ? [occurrence('auto-1', { kind: 'automatic', sourceId: automaticSource.id }, 63), ...state.occurrences.filter((o) => o.origin.kind !== 'automatic')]
             : state.occurrences.filter((o) => o.origin.kind !== 'automatic'),
         };
       return { ...state, scenario };
@@ -221,6 +243,7 @@ export function reduce(state: State, edit: Edit): State {
       return initialState();
   }
 }
+export const initialTree = () => normalize(initialState());
 
 // ---------------------------------------------------------------------------
 // Projection
@@ -285,6 +308,9 @@ export type Projection = {
   chance: number;
   chanceModifiers: Modifier[];
   chanceRoll: number | null;
+  /** The settlement's reputation modifier on the chance roll, and the modified result. */
+  chanceModifier: Modifier | null;
+  chanceResult: number | null;
   /** What the chance roll decides. */
   chanceOutcome: 'pending' | 'event' | 'quiet' | 'skipped';
   chanceSkippedReason: string | null;
@@ -582,8 +608,9 @@ export function project(state: State): Projection {
   }
 
   function build(o: Occurrence, depth: number, candidate: boolean): EventFact {
-    const settlementModifier = operating.modifier ? { label: `${operating.name} (${operating.reputation})`, value: operating.modifier } : null;
-    const total = o.tableRoll === null ? null : Math.max(1, Math.min(100, o.tableRoll + operating.modifier + (o.extra?.value ?? 0)));
+    // The settlement's reputation modifies the chance roll, not the table roll.
+    const settlementModifier = null;
+    const total = o.tableRoll === null ? null : Math.max(1, Math.min(100, o.tableRoll + (o.extra?.value ?? 0)));
     const entry = total === null ? null : entryFor(total);
     const fact: EventFact = {
       id: o.id,
@@ -637,27 +664,27 @@ export function project(state: State): Projection {
         const reps = children('replacement');
         fact.status = 'impossible';
         fact.statusText = 'Cannot occur: roll a replacement or keep it with a Rules Exception';
-        if (reps.length !== 1) {
-          fact.needsChildren = { kind: 'replacement', count: 1 };
-          fact.requirements.push({ subject: fact.id, text: `Event ${fact.number} (${entry.name}) cannot occur: roll a replacement or record a Rules Exception` });
-        } else if (!candidate) fact.children = reps.map((c) => build(c, depth + 1, candidate));
-        else fact.children = reps.map((c) => build(c, depth + 1, candidate));
+        if (reps.length < 1) fact.needsChildren = { kind: 'replacement', count: 1 };
+        fact.children = reps.slice(0, 1).map((c) => build(c, depth + 1, candidate));
         return fact;
       }
     }
     if (entry.type === 'roll_twice') {
       const expands = o.origin.kind !== 'automatic' && !expanded && !candidate;
-      if (expands) expanded = true;
-      const kind = expands ? 'roll_twice' : 'replacement';
-      const count = expands ? 2 : 1;
-      const kids = children(kind);
-      fact.status = expands ? 'expands' : 'rerolled';
-      fact.statusText = expands ? 'Roll two more and resolve both' : 'Roll Twice already used this phase: reroll';
-      if (kids.length !== count) {
-        fact.needsChildren = { kind, count };
-        fact.requirements.push({ subject: fact.id, text: expands ? `Event ${fact.number} (Roll Twice): roll two more events` : `Event ${fact.number} (Roll Twice again): roll a replacement` });
+      if (!expands) {
+        // Roll Twice only takes effect once per phase (and never for an automatic
+        // event or a candidate): the table rerolls and enters the new die here.
+        fact.status = 'rerolled';
+        fact.statusText = o.origin.kind === 'automatic' ? 'An automatic event cannot be Roll Twice: reroll and enter the new die' : candidate ? 'A candidate cannot be Roll Twice: reroll and enter the new die' : 'Roll Twice already took effect this phase: reroll and enter the new die';
+        fact.requirements.push({ subject: fact.id, text: `Event ${fact.number}: Roll Twice again — reroll and enter the new die` });
+        return fact;
       }
-      if (!candidate) fact.children = kids.slice(0, count).map((c) => build(c, depth + 1, candidate));
+      expanded = true;
+      const kids = children('roll_twice');
+      fact.status = 'expands';
+      fact.statusText = 'Roll two more and resolve both';
+      if (kids.length < 2) fact.needsChildren = { kind: 'roll_twice', count: 2 };
+      fact.children = kids.slice(0, 2).map((c) => build(c, depth + 1, candidate));
       return fact;
     }
     if (candidate) {
@@ -702,7 +729,7 @@ export function project(state: State): Projection {
     if (state.chanceRoll === null) requirements.push({ subject: 'chance', text: 'Enter the event chance roll (d100)' });
     else if (state.chanceRoll < 1 || state.chanceRoll > 100) warnings.push({ subject: 'chance', text: 'The chance die is outside 1–100. The value is kept.' });
     if (state.chanceRoll !== null) {
-      chanceOutcome = state.chanceRoll < chance ? 'event' : 'quiet';
+      chanceOutcome = state.chanceRoll + operating.modifier < chance ? 'event' : 'quiet';
       if (chanceOutcome === 'event') {
         const rolled = state.occurrences.filter((o) => o.origin.kind === 'rolled' && !o.candidateOf);
         if (rolled.length === 0) requirements.push({ subject: 'chance', text: 'Roll on the event table (d100)' });
@@ -729,6 +756,8 @@ export function project(state: State): Projection {
     chance,
     chanceModifiers,
     chanceRoll: state.chanceRoll,
+    chanceModifier: operating.modifier ? { label: `${operating.name} (${operating.reputation})`, value: operating.modifier } : null,
+    chanceResult: state.chanceRoll === null ? null : state.chanceRoll + operating.modifier,
     chanceOutcome,
     chanceSkippedReason,
     operating,
