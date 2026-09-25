@@ -69,18 +69,15 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 ### Real-Time Collaboration Contract (Convex Sync)
 
 - Militia state updates must sync to all connected players in real time through Convex.
-- Collaboration is fully shared: any player can stage and confirm allowed changes.
-- When two players target the same action slot, `first claim locks` the slot.
-- Slot lifecycle must be explicit in UI and state: `available -> claimed -> confirmed` and `claimed -> released/cancelled/timeout`.
-- Clients should show immediate visual acknowledgement for claims, staged changes, confirms, and lock release events.
+- Collaboration is fully shared: any player can make allowed changes.
+- Action slots are shared: any player may edit any slot until the week is confirmed, and the latest change wins.
+- Clients should show immediate visual acknowledgement when changes are saved, fail to save, or arrive from other players.
 
 ### Card Selection Interaction Model
 
 - Any player choice between options (such as teams or actions) should be presented as playing-card style choices.
 - Cards should support hover lift, subtle animation, drag affordance, and slot highlighting.
-- Dropping a card into a slot stages the choice but does not commit it.
-- A separate explicit confirm action commits the staged choice.
-- Staged and confirmed choices are visible to all players in real time.
+- Choices placed in slots are visible to all players in real time.
 - Invalid drops must return cards to origin with clear feedback.
 
 ### Militia Flow Alignment
