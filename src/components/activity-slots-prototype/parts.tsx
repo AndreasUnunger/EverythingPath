@@ -3,7 +3,7 @@
 // chips, the allowance meter and the rough choice details. The variants
 // disagree about where these live, not about what they show.
 
-import { AlertTriangle, Check, CircleDot, Sparkles, Users } from 'lucide-react';
+import { AlertTriangle, Check, CircleDot, Minus, Plus, Sparkles, Users, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
@@ -343,15 +343,21 @@ function CheckExtras({
   disabled: boolean;
 }) {
   const [adding, setAdding] = useState(false);
-  const [source, setSource] = useState('custom');
-  const [value, setValue] = useState('');
+  const [source, setSource] = useState(availableBonuses[0]?.id ?? 'custom');
+  const [value, setValue] = useState(1);
   const [reason, setReason] = useState('');
   const choice = facts.slot.choice!;
   const operating = operatingSettlement(state);
   const helpfulHere = operating?.reputation === 'Helpful';
   const usedOn = state.slots.findIndex((s) => s.choice?.helpful && s.slotId !== facts.slot.slotId);
   const bonus = availableBonuses.find((b) => b.id === source);
-  const canSave = bonus ? true : value.trim() !== '' && reason.trim() !== '';
+  const canSave = bonus ? true : value !== 0 && reason.trim() !== '';
+  const reset = () => {
+    setAdding(false);
+    setSource(availableBonuses[0]?.id ?? 'custom');
+    setValue(1);
+    setReason('');
+  };
   return (
     <div className="space-y-2">
       {helpfulHere && (
@@ -376,86 +382,101 @@ function CheckExtras({
           </span>
         </button>
       )}
-      {(choice.modifiers ?? []).map((m) => (
-        <p key={m.id} className="flex items-center gap-2 text-sm">
-          <span>
-            {m.label} {m.value >= 0 ? '+' : ''}
-            {m.value}
-            {m.reason && <span className="text-muted-foreground"> · “{m.reason}”</span>}
-          </span>
-          <button
-            type="button"
-            className="text-muted-foreground underline"
-            onClick={() => edit({ kind: 'modifier_remove', slotId: facts.slot.slotId, modifierId: m.id })}
-          >
-            Remove
-          </button>
-        </p>
-      ))}
+      {(choice.modifiers ?? []).length > 0 && (
+        <ul className="max-w-xl divide-y rounded-md border text-sm">
+          {(choice.modifiers ?? []).map((m) => (
+            <li key={m.id} className="flex min-h-11 items-center gap-3 px-3">
+              <span className="w-8 font-mono">
+                {m.value >= 0 ? '+' : ''}
+                {m.value}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {m.label}
+                {m.reason && <span className="text-muted-foreground"> · {m.reason}</span>}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove ${m.label}`}
+                onClick={() => edit({ kind: 'modifier_remove', slotId: facts.slot.slotId, modifierId: m.id })}
+              >
+                <X className="size-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
       {!adding ? (
-        <button type="button" className="text-muted-foreground text-sm underline" onClick={() => setAdding(true)}>
-          + Modifier
-        </button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground -ml-2" disabled={disabled} onClick={() => setAdding(true)}>
+          <Plus /> Modifier
+        </Button>
       ) : (
-        <div className="space-y-2 rounded-md border p-2">
-          <div className="flex flex-wrap gap-2">
-            {[...availableBonuses.map((b) => ({ id: b.id, label: `${b.label} +${b.value}` })), { id: 'custom', label: 'Custom table modifier' }].map(
-              (o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  aria-pressed={source === o.id}
-                  onClick={() => setSource(o.id)}
-                  className={cn(
-                    'min-h-10 touch-manipulation rounded-md border-2 px-2 text-sm',
-                    source === o.id ? 'border-primary bg-primary/10' : 'border-foreground/20',
-                  )}
-                >
-                  {o.label}
-                </button>
-              ),
-            )}
-          </div>
+        <div className="bg-muted/40 max-w-xl space-y-3 rounded-md p-3">
+          <label className="block space-y-1">
+            <span className="text-sm font-semibold">Modifier</span>
+            <Select value={source} onValueChange={setSource}>
+              <SelectTrigger className="h-11 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[70]">
+                {availableBonuses.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>Available bonuses</SelectLabel>
+                    {availableBonuses.map((b) => (
+                      <SelectItem key={b.id} value={b.id} className="min-h-11">
+                        +{b.value} · {b.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                <SelectSeparator />
+                <SelectItem value="custom" className="min-h-11">
+                  Custom table modifier
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
           {!bonus && (
-            <div className="flex flex-wrap gap-2">
-              <Input
-                aria-label="Modifier value"
-                inputMode="numeric"
-                placeholder="±2"
-                className="h-10 w-20"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
-              <Input
-                aria-label="Reason"
-                placeholder="Reason (required)"
-                className="h-10 min-w-48 flex-1"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
+            <div className="flex items-end gap-3">
+              <div className="space-y-1">
+                <span className="block text-sm font-semibold">Value</span>
+                <div className="flex h-11 items-center rounded-md border">
+                  <Button variant="ghost" size="icon" aria-label="Decrease" className="h-full rounded-r-none" onClick={() => setValue(value - 1)}>
+                    <Minus className="size-4" />
+                  </Button>
+                  <span className="w-10 text-center font-mono text-lg" aria-live="polite">
+                    {value > 0 ? '+' : ''}
+                    {value}
+                  </span>
+                  <Button variant="ghost" size="icon" aria-label="Increase" className="h-full rounded-l-none" onClick={() => setValue(value + 1)}>
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <label className="min-w-0 flex-1 space-y-1">
+                <span className="block text-sm font-semibold">Reason</span>
+                <Input className="h-11" placeholder="Why the table allows it" value={reason} onChange={(e) => setReason(e.target.value)} />
+              </label>
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={reset}>
+              Cancel
+            </Button>
             <Button
-              size="sm"
-              disabled={!canSave}
+              disabled={!canSave || disabled}
               onClick={() => {
                 edit({
                   kind: 'modifier_add',
                   slotId: facts.slot.slotId,
                   modifier: bonus
                     ? { id: '', label: bonus.label, value: bonus.value }
-                    : { id: '', label: 'Table modifier', value: Number.parseInt(value, 10) || 0, reason: reason.trim() },
+                    : { id: '', label: 'Table modifier', value, reason: reason.trim() },
                 });
-                setAdding(false);
-                setValue('');
-                setReason('');
+                reset();
               }}
             >
-              Add
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
-              Cancel
+              Add modifier
             </Button>
           </div>
         </div>
