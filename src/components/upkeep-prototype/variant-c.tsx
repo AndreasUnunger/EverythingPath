@@ -95,7 +95,7 @@ export function VariantC(p: UpkeepProps) {
                 </span>
               </p>
               <TeamDecision team={team} edit={edit} disabled={disabled} />
-              {team.status === 'missing' && team.decision !== 'remove' && <ReturnCheck team={team} edit={edit} disabled={disabled} />}
+              {team.status === 'missing' && <ReturnCheck team={team} edit={edit} disabled={disabled} />}
               {team.status === 'disabled' && team.decision === 'recover' && (
                 <p className="text-muted-foreground text-sm">Cost in the treasury ledger →</p>
               )}

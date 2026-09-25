@@ -44,7 +44,7 @@ function Block({ title, aside, children, className }: { title: string; aside?: R
 export function VariantB(p: UpkeepProps) {
   const { view, edit, disabled } = p;
   if (view.skipped) return <SkippedNotice />;
-  const missing = view.teams.filter((t) => t.status === 'missing' && t.decision !== 'remove');
+  const missing = view.teams.filter((t) => t.status === 'missing');
   const warnIcon = (subject: string) =>
     view.warnings.some((w) => w.subject === subject) && <AlertTriangle aria-label="Has a warning" className="size-4 text-amber-300" />;
 
@@ -118,7 +118,7 @@ export function VariantB(p: UpkeepProps) {
           <Block key={team.id} title={`${team.name} · ${team.status}`} aside={`${team.type} · tier ${team.tier}`}>
             <TeamDecision team={team} edit={edit} disabled={disabled} />
             {team.status === 'disabled' && team.decision === 'recover' && <RecoveryCost team={team} edit={edit} disabled={disabled} />}
-            {team.status === 'missing' && team.decision !== 'remove' && (
+            {team.status === 'missing' && (
               <p className="text-muted-foreground text-sm">Return check: {team.rollOutcome ?? 'enter it in the roll sheet'}.</p>
             )}
             <IssuesFor view={view} subject={team.id} />

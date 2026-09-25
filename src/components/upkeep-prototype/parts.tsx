@@ -15,8 +15,6 @@ import {
   captainFeats,
   type Edit,
   minimumGp,
-  people,
-  personName,
   type Projection,
   type RollFact,
   settlements,
@@ -62,27 +60,19 @@ export function DieField({
   );
 }
 
-/** One field per die. Clearing an earlier die clears the rest, as today. */
+/** One field for the roll's total, e.g. "7" for 2d4. */
 export function DiceFields({ fact, edit, disabled, className }: { fact: RollFact; edit: UpkeepProps['edit']; disabled: boolean; className?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      {fact.dice.map((v, i) => (
-        <DieField
-          key={['first-die', 'second-die'][i]}
-          value={v}
-          className={className}
-          label={`${fact.label}${fact.dice.length > 1 ? ` die ${i + 1}` : ''}`}
-          disabled={disabled || (i > 0 && fact.dice[i - 1] === null)}
-          onValue={(value) => {
-            const dice = fact.dice.slice(0, i);
-            dice.push(value);
-            if (value !== null) dice.push(...fact.dice.slice(i + 1));
-            edit({ kind: 'roll', id: fact.id, dice });
-          }}
-        />
-      ))}
+      <DieField
+        value={fact.dice[0]}
+        className={className}
+        label={fact.label}
+        disabled={disabled}
+        onValue={(value) => edit({ kind: 'roll', id: fact.id, dice: [value] })}
+      />
       <span className="text-muted-foreground font-mono text-xs">
-        {fact.dice.length}d{fact.sides}
+        {fact.count}d{fact.sides}
       </span>
     </span>
   );
@@ -246,29 +236,21 @@ export function ChoiceCard({
   );
 }
 
+/** Only a disabled team has a choice here; removing a team is a Militia Correction. */
 export function TeamDecision({ team, edit, disabled, className }: { team: Team; edit: UpkeepProps['edit']; disabled: boolean; className?: string }) {
   const options = [
-    ...(team.status === 'disabled'
-      ? [{ value: 'recover' as const, title: 'Recover', note: `Pay ${team.costGp} gp now` }]
-      : []),
-    {
-      value: 'leave' as const,
-      title: team.status === 'disabled' ? 'Leave disabled' : 'Wait for return',
-      note: team.status === 'disabled' ? 'Can’t act this week' : 'Roll the return check',
-    },
-    { value: 'remove' as const, title: 'Remove', note: 'Needs a Rules Exception', tone: 'warn' as const },
+    { value: 'recover' as const, title: 'Recover', note: `Pay ${team.costGp} gp now` },
+    { value: 'leave' as const, title: 'Leave disabled', note: 'Can’t act this week' },
   ];
-  const current = team.decision ?? (team.status === 'missing' ? 'leave' : undefined);
   return (
     <div className={cn('grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-2', className)}>
       {options.map((o) => (
         <ChoiceCard
           key={o.value}
-          selected={current === o.value}
+          selected={team.decision === o.value}
           disabled={disabled}
           title={o.title}
           note={o.note}
-          tone={o.tone}
           onClick={() => edit({ kind: 'team', teamId: team.id, decision: o.value })}
         />
       ))}
@@ -395,7 +377,6 @@ export function BoonChoice({ boon, edit, disabled }: { boon: Projection['boons']
 }
 
 export function TransferForm({ edit, disabled, className }: { edit: UpkeepProps['edit']; disabled: boolean; className?: string }) {
-  const [personId, setPersonId] = useState('p-amara');
   const [direction, setDirection] = useState<'deposit' | 'withdraw'>('deposit');
   const [gp, setGp] = useState('');
   return (
@@ -404,23 +385,10 @@ export function TransferForm({ edit, disabled, className }: { edit: UpkeepProps[
       onSubmit={(e) => {
         e.preventDefault();
         if (!gp) return;
-        edit({ kind: 'transfer_add', transfer: { personId, direction, gp: Number(gp) } });
+        edit({ kind: 'transfer_add', transfer: { direction, gp: Number(gp) } });
         setGp('');
       }}
     >
-      <Select value={personId} disabled={disabled} onValueChange={setPersonId}>
-        <SelectTrigger className="h-10 w-44">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent className="z-[70]">
-          {people.map((p) => (
-            <SelectItem key={p.id} value={p.id} className="min-h-11">
-              {p.name}
-              <span className="text-muted-foreground ml-1 text-xs">{p.roles.join(', ') || 'not an officer'}</span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
       <span className="border-foreground/20 inline-flex rounded-md border p-0.5">
         {(['deposit', 'withdraw'] as const).map((d) => (
           <button
@@ -442,10 +410,10 @@ export function TransferForm({ edit, disabled, className }: { edit: UpkeepProps[
         disabled={disabled}
         value={gp}
         onChange={(e) => /^[0-9]*$/.test(e.target.value) && setGp(e.target.value)}
-        className="h-10 w-20 text-center font-mono"
+        className="h-10 w-24 text-center font-mono"
       />
       <Button type="submit" size="sm" variant="outline" disabled={disabled || !gp}>
-        <Plus /> Add transfer
+        <Plus /> Add
       </Button>
     </form>
   );
@@ -458,8 +426,7 @@ export function TransferList({ state, view, edit, disabled, inlineExceptions = t
       {state.transfers.map((t) => (
         <li key={t.id} className="space-y-1.5 py-2">
           <div className="flex items-center gap-3 text-sm">
-            <span className="w-24">{t.direction === 'deposit' ? 'Deposit' : 'Withdrawal'}</span>
-            <span className="flex-1">{personName(t.personId)}</span>
+            <span className="flex-1">{t.direction === 'deposit' ? 'Deposit' : 'Withdrawal'}</span>
             <span className="font-mono">{signed(t.direction === 'deposit' ? t.gp : -t.gp)} gp</span>
             <Button size="icon" variant="ghost" className="size-8" aria-label="Remove transfer" disabled={disabled} onClick={() => edit({ kind: 'transfer_remove', id: t.id })}>
               <X className="size-4" />

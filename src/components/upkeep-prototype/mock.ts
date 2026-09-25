@@ -31,8 +31,8 @@ export const settlements = [
 export const captainFeats = ['Great Fortitude', 'Iron Will', 'Lightning Reflexes'];
 
 export type RollId = 'check' | 'training' | 'notoriety' | 'notorietyCheck' | 'loss';
-export type TeamDecision = 'recover' | 'leave' | 'remove';
-export type Transfer = { id: string; personId: string; direction: 'deposit' | 'withdraw'; gp: number };
+export type TeamDecision = 'recover' | 'leave';
+export type Transfer = { id: string; direction: 'deposit' | 'withdraw'; gp: number };
 
 export type State = {
   scenario: {
@@ -62,7 +62,7 @@ export function initialState(): State {
     teams: {},
     exceptions: {},
     boons: {},
-    transfers: [{ id: 'tr-1', personId: 'p-doran', direction: 'deposit', gp: 25 }],
+    transfers: [{ id: 'tr-1', direction: 'deposit', gp: 25 }],
     feedback: 'All changes saved.',
     remote: false,
   };
@@ -135,8 +135,13 @@ export type RollFact = {
   short: string;
   /** What the roll is for, e.g. "Loyalty DC 10" or "Training loss 2d4 + 8". */
   kind: string;
+  /** One field per roll: the total of its dice, as rolled at the table. */
   dice: (number | null)[];
   sides: number;
+  count: number;
+  /** Usual range of the total, e.g. 2–8 for 2d4. */
+  min: number;
+  max: number;
   dc: number | null;
   modifiers: Modifier[];
   bonus: number;
@@ -279,11 +284,6 @@ export function project(state: State): Projection {
       rollTotal,
       rollOutcome,
     };
-    if (team.decision === 'remove') {
-      warnings.push({ subject: t.id, text: `Removing ${t.name} departs from normal Upkeep.` });
-      needException(`upkeep-team-removal:${t.id}`, t.id, `remove ${t.name}`, 'Removing a team departs from normal Upkeep.');
-      return team;
-    }
     if (t.status === 'disabled') {
       if (!team.decision) requirements.push({ subject: t.id, text: `Decide whether to recover ${t.name}` });
       if (team.decision === 'recover') {
@@ -313,20 +313,20 @@ export function project(state: State): Projection {
 
   const rolls: RollFact[] = [];
   const rollFact = (
-    f: Omit<RollFact, 'dice' | 'total' | 'outOfRange' | 'bonus' | 'outcome' | 'training'> & { count: number },
+    f: Omit<RollFact, 'dice' | 'total' | 'outOfRange' | 'bonus' | 'outcome' | 'training' | 'min' | 'max'>,
     effect: (dice: number[], total: number) => { outcome: string; training: number | null },
   ) => {
-    const dice = entered(state.rolls[f.id], f.count);
+    const dice = entered(state.rolls[f.id], 1);
     const sumDice = total(dice);
     const bonus = sum(f.modifiers);
     const t = sumDice === null ? null : sumDice + bonus;
-    const outOfRange = dice.some((x) => x !== null && (x < 1 || x > f.sides));
-    const e = sumDice === null ? null : effect(dice as number[], t!);
-    const { count: _, ...rest } = f;
-    const fact: RollFact = { ...rest, dice, bonus, total: t, outOfRange, outcome: e?.outcome ?? null, training: e?.training ?? null };
+    const [min, max] = [f.count, f.count * f.sides];
+    const outOfRange = sumDice !== null && (sumDice < min || sumDice > max);
+    const e = sumDice === null ? null : effect([sumDice], t!);
+    const fact: RollFact = { ...f, dice, min, max, bonus, total: t, outOfRange, outcome: e?.outcome ?? null, training: e?.training ?? null };
     rolls.push(fact);
     if (sumDice === null) requirements.push({ subject: f.id, text: `Enter the ${f.label.toLowerCase()}` });
-    if (outOfRange) warnings.push({ subject: f.id, text: `${f.label} has a value outside 1–${f.sides}. The value is kept.` });
+    if (outOfRange) warnings.push({ subject: f.id, text: `${f.label} is outside ${min}–${max}. The value is kept.` });
     return fact;
   };
 
@@ -463,18 +463,13 @@ export function project(state: State): Projection {
   // Step 5: transfers
   const treasuryAfterRulesGp = treasury;
   for (const t of state.transfers) {
-    const person = people.find((p) => p.id === t.personId)!;
-    if (person.roles.length === 0) {
-      warnings.push({ subject: t.id, text: `${person.name} is not an officer.` });
-      needException(`upkeep-transfer-officer:${t.id}`, t.id, `${t.direction} by ${person.name}, not an officer`, 'Only officers may deposit or withdraw.');
-    }
     if (t.direction === 'withdraw' && t.gp > treasury) {
-      warnings.push({ subject: t.id, text: `${person.name}'s withdrawal exceeds the treasury.` });
+      warnings.push({ subject: t.id, text: `Withdrawing ${t.gp} gp exceeds the treasury.` });
       needException(`upkeep-transfer-funds:${t.id}`, t.id, `withdraw ${t.gp} gp beyond funds`, 'This withdrawal exceeds the available treasury.');
     }
     const v = t.direction === 'deposit' ? t.gp : -t.gp;
     treasury += v;
-    treasuryLines.push({ label: `${t.direction === 'deposit' ? 'Deposit' : 'Withdrawal'} · ${person.name}`, value: v, subject: t.id });
+    treasuryLines.push({ label: t.direction === 'deposit' ? 'Deposit' : 'Withdrawal', value: v, subject: t.id });
   }
   const treasuryAfterGp = treasury + adjustments.reduce((a, b) => a + b.value, 0);
 
@@ -502,4 +497,3 @@ export function project(state: State): Projection {
 }
 
 export const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(n)}`;
-export const personName = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone';

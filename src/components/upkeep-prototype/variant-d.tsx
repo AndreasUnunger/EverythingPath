@@ -96,7 +96,7 @@ export function VariantD(p: UpkeepProps) {
     items.push({
       key: `team:${t.id}`,
       title: `${t.name} · ${t.status}`,
-      note: t.decision === 'remove' ? 'Remove' : t.status === 'missing' ? (t.rollOutcome ?? 'Return check') : t.decision === 'recover' ? `Recover ${signed(-t.costGp)} gp` : t.decision === 'leave' ? 'Leave disabled' : 'Recover, leave or remove',
+      note: t.status === 'missing' ? (t.rollOutcome ?? 'Return check') : t.decision === 'recover' ? `Recover ${signed(-t.costGp)} gp` : t.decision === 'leave' ? 'Leave disabled' : 'Recover, leave or remove',
       done: !open,
     });
   }
@@ -185,7 +185,7 @@ export function VariantD(p: UpkeepProps) {
           <div className="space-y-4">
             <TeamDecision team={team} edit={edit} disabled={disabled} />
             {team.status === 'disabled' && team.decision === 'recover' && <RecoveryCost team={team} edit={edit} disabled={disabled} />}
-            {team.status === 'missing' && team.decision !== 'remove' && (
+            {team.status === 'missing' && (
               <div className="space-y-2">
                 <p className="text-sm">
                   Return check · Security DC 15 <BonusLine modifiers={team.rollModifiers} bonus={team.rollBonus} total={team.rollTotal} dc={null} /> <Outcome text={team.rollOutcome} />

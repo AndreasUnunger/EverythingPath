@@ -67,6 +67,18 @@ function Step({
   );
 }
 
+function TeamHeading({ team }: { team: UpkeepProps['view']['teams'][number] }) {
+  return (
+    <span className="flex items-baseline gap-2">
+      <span className="font-semibold">{team.name}</span>
+      <span className="text-muted-foreground text-sm">
+        {team.type} · tier {team.tier}
+      </span>
+      <span className={cn('rounded px-1.5 text-xs uppercase', team.status === 'missing' ? 'bg-sky-500/20' : 'bg-amber-500/20')}>{team.status}</span>
+    </span>
+  );
+}
+
 function RollRow({ fact, ...p }: UpkeepProps & { fact: UpkeepProps['view']['rolls'][number] }) {
   return (
     <div className="space-y-1.5">
@@ -103,31 +115,33 @@ export function VariantA(p: UpkeepProps) {
         skipped={view.teams.length === 0 ? 'No disabled or missing teams' : undefined}
         effect={recovery.length ? `Treasury ${signed(recovery.reduce((a, b) => a + b.value, 0))} gp` : 'No cost'}
       >
-        {view.teams.map((team) => (
-          <div key={team.id} className="bg-card border-foreground/15 space-y-3 border p-3">
-            <div className="flex items-baseline gap-2">
-              <span className="font-semibold">{team.name}</span>
-              <span className="text-muted-foreground text-sm">
-                {team.type} · tier {team.tier}
-              </span>
-              <span className={cn('ml-auto rounded px-1.5 text-xs uppercase', team.status === 'missing' ? 'bg-sky-500/20' : 'bg-amber-500/20')}>
-                {team.status}
-              </span>
+        {view.teams.map((team) =>
+          team.status === 'disabled' ? (
+            <div key={team.id} className="bg-card border-foreground/15 space-y-3 border p-3">
+              <TeamHeading team={team} />
+              <TeamDecision team={team} edit={p.edit} disabled={p.disabled} />
+              {team.decision === 'recover' && <RecoveryCost team={team} edit={p.edit} disabled={p.disabled} />}
+              <IssuesFor view={view} subject={team.id} />
+              <ExceptionsFor view={view} subject={team.id} edit={p.edit} disabled={p.disabled} />
             </div>
-            <TeamDecision team={team} edit={p.edit} disabled={p.disabled} />
-            {team.status === 'disabled' && team.decision === 'recover' && <RecoveryCost team={team} edit={p.edit} disabled={p.disabled} />}
-            {team.status === 'missing' && team.decision !== 'remove' && <ReturnCheck team={team} edit={p.edit} disabled={p.disabled} />}
-            <IssuesFor view={view} subject={team.id} />
-            <ExceptionsFor view={view} subject={team.id} edit={p.edit} disabled={p.disabled} />
-          </div>
-        ))}
+          ) : (
+            // Nothing to choose for a missing team: just its return check.
+            <div key={team.id} className="border-foreground/15 space-y-1.5 border px-3 py-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <TeamHeading team={team} />
+                <ReturnCheck team={team} edit={p.edit} disabled={p.disabled} />
+              </div>
+              <IssuesFor view={view} subject={team.id} />
+            </div>
+          ),
+        )}
       </Step>
 
       <Step n={1} title="Training attrition" open={openFor(['check', 'training'])} effect={effectText(trainingDelta('Attrition'))}>
         {rolls(1).map((f) => (
           <RollRow key={f.id} fact={f} {...p} />
         ))}
-        {rolls(1).length === 1 && <p className="text-muted-foreground text-sm">The training roll appears once the check is in: 1d6 on a success, 2d4 + {rank} on a failure.</p>}
+        {rolls(1).length === 1 && <p className="text-muted-foreground text-sm">The training roll appears once the check is in: 1d6 on a success, 2d4 + {rank} on a failure. Enter the total of the dice.</p>}
       </Step>
 
       <Step
