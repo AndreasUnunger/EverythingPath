@@ -14,6 +14,7 @@ const view: Facts = {
   ready: false,
   chance: 10,
   chanceRoll: null,
+  chanceModifier: 0,
   guaranteed: false,
   occurrences: [
     {

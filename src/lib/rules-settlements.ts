@@ -11,31 +11,31 @@ const reputationEffects = {
   Hostile: {
     socialDcModifier: 5,
     pricePercent: 5,
-    eventTableModifier: 0,
+    eventChanceModifier: 0,
     sightingDays: [1, 4],
   },
   Unfriendly: {
     socialDcModifier: 2,
     pricePercent: 0,
-    eventTableModifier: 5,
+    eventChanceModifier: 5,
     sightingDays: null,
   },
   Indifferent: {
     socialDcModifier: 0,
     pricePercent: 0,
-    eventTableModifier: 0,
+    eventChanceModifier: 0,
     sightingDays: null,
   },
   Friendly: {
     socialDcModifier: -2,
     pricePercent: 0,
-    eventTableModifier: -5,
+    eventChanceModifier: -5,
     sightingDays: null,
   },
   Helpful: {
     socialDcModifier: 0,
     pricePercent: -5,
-    eventTableModifier: 0,
+    eventChanceModifier: 0,
     sightingDays: null,
   },
 };
@@ -57,7 +57,7 @@ export function projectSettlements(
         reputation: null,
         socialDcModifier: null,
         pricePercent: null,
-        eventTableModifier: null,
+        eventChanceModifier: null,
         sightingDays: null,
       };
     }

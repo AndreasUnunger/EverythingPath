@@ -125,10 +125,10 @@ export function projectRulesFoundations(input: FoundationInput) {
     requirements,
     officers,
     settlements: settlementProjection.settlements,
-    eventTableModifier:
+    eventChanceModifier:
       input.operatingSettlementId === null
         ? 0
-        : (operating?.eventTableModifier ?? null),
+        : (operating?.eventChanceModifier ?? null),
     purchases,
     minimumTreasuryCopper: getMinimumTreasuryForRank(input.rank) * 100,
     strikeTeamRounds: roundWholeCount(input.rank / 2),

@@ -674,9 +674,9 @@ Reference T046 (numeric tables):
 | Reputation | Effects |
 |---|---|
 | Hostile | Public sightings are reported in `1d4` days; items cost `+5%`; Bluff/Diplomacy/Intimidate DCs `+5`. |
-| Unfriendly | Bluff/Diplomacy/Intimidate DCs `+2`; if operating from settlement, add `+5` to event percentile result. |
+| Unfriendly | Bluff/Diplomacy/Intimidate DCs `+2`; if operating from settlement, add `+5` to the event chance roll (the percentile roll against event chance). |
 | Indifferent | No modifier. |
-| Friendly | Bluff/Diplomacy/Intimidate DCs `-2`; if operating from settlement, subtract `5` from event percentile result. |
+| Friendly | Bluff/Diplomacy/Intimidate DCs `-2`; if operating from settlement, subtract `5` from the event chance roll (the percentile roll against event chance). |
 | Helpful | Items cost `-5%`; during Activity while operating here, add `+2` to one Loyalty/Secrecy/Security check. |
 
 **Individual checks — reply with these IDs**
