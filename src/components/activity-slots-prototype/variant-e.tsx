@@ -4,7 +4,8 @@
 // past the action allowance carries a remove button (approved: new
 // `remove_slot` edit, rule-based, no schema change). Tapping an empty slot
 // opens the grouped picker sheet; tapping a staged slot selects it and shows
-// its details under the board, with Change action and a Move to menu. No deck
+// its details under the board, with Change action and a Move to menu. Team
+// choice is a dropdown (eligible teams, divider, other teams). No deck
 // on screen, no drag.
 
 import { Plus, X } from 'lucide-react';
@@ -95,9 +96,9 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
                   aria-label={`Remove Action Slot ${f.number}`}
                   disabled={disabled}
                   onClick={() => edit({ kind: 'remove_slot', slotId: f.slot.slotId })}
-                  className="bg-background absolute -top-3 -right-3 flex size-10 touch-manipulation items-center justify-center rounded-full border-2 shadow"
+                  className="bg-background absolute -top-1.5 -right-1.5 flex size-5 touch-manipulation items-center justify-center rounded-full border shadow"
                 >
-                  <X className="size-4" />
+                  <X className="size-3" />
                 </button>
               )}
               </div>
@@ -145,7 +146,7 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
               The Strategist’s bonus action. Adds +2 to organization checks for the action in this slot.
             </p>
           )}
-          <ChoiceDetails facts={selected} state={state} edit={edit} disabled={disabled} />
+          <ChoiceDetails facts={selected} state={state} edit={edit} disabled={disabled} teamControl="select" />
         </div>
       ) : (
         <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">

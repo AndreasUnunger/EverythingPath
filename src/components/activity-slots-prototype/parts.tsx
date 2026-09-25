@@ -7,6 +7,16 @@ import { AlertTriangle, Check, CircleDot, Sparkles, Users } from 'lucide-react';
 import type React from 'react';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
 import { cn } from '~/lib/utils';
 import {
   type Action,
@@ -267,6 +277,70 @@ export function TeamPicker({
   );
 }
 
+/** Team choice as a plain dropdown: eligible teams first, then the rest below a divider (still selectable). */
+export function TeamSelect({
+  facts,
+  edit,
+  disabled,
+  state,
+}: {
+  facts: SlotFacts;
+  edit: ActivityProps['edit'];
+  disabled: boolean;
+  state: State;
+}) {
+  const action = facts.action!;
+  if (!action.teamTypes) return null;
+  const eligible = teamsFor(action);
+  const others = teams.filter((t) => !eligible.includes(t));
+  const note = (team: Team) => {
+    if (team.status !== 'ready') return teamStatusText[team.status].split(' · ')[0];
+    const i = state.slots.findIndex((s) => s.choice?.teamId === team.id && s.slotId !== facts.slot.slotId);
+    return i === -1 ? 'Free' : `Acts in Action Slot ${i + 1}`;
+  };
+  const item = (team: Team) => (
+    <SelectItem key={team.id} value={team.id} className="min-h-11">
+      {team.name}
+      <span className="text-muted-foreground">
+        {' '}
+        · {team.type} {team.tier} · {note(team)}
+      </span>
+    </SelectItem>
+  );
+  return (
+    <label className="block space-y-1">
+      <span className="text-sm font-semibold">Team</span>
+      <Select
+        value={facts.slot.choice?.teamId ?? ''}
+        disabled={disabled}
+        onValueChange={(teamId) =>
+          edit({ kind: 'team', slotId: facts.slot.slotId, teamId: teamId === '__none' ? undefined : teamId })
+        }
+      >
+        <SelectTrigger className="h-12 w-full max-w-md">
+          <SelectValue placeholder="Choose a team" />
+        </SelectTrigger>
+        <SelectContent className="z-[70]">
+          <SelectGroup>
+            <SelectLabel>Can take {action.name}</SelectLabel>
+            {eligible.map(item)}
+            {eligible.length === 0 && <SelectLabel className="font-normal">None of your teams</SelectLabel>}
+          </SelectGroup>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel>Other teams</SelectLabel>
+            {others.map(item)}
+          </SelectGroup>
+          <SelectSeparator />
+          <SelectItem value="__none" className="min-h-11">
+            No team
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </label>
+  );
+}
+
 /** Everything a staged choice needs, rough. Real fields come from the choice schema. */
 export function ChoiceDetails({
   facts,
@@ -275,6 +349,7 @@ export function ChoiceDetails({
   disabled,
   hideTeam,
   hideClear,
+  teamControl = 'cards',
 }: {
   facts: SlotFacts;
   state: State;
@@ -282,6 +357,7 @@ export function ChoiceDetails({
   disabled: boolean;
   hideTeam?: boolean;
   hideClear?: boolean;
+  teamControl?: 'cards' | 'select';
 }) {
   const { action, slot } = facts;
   if (!action || !slot.choice) return null;
@@ -294,7 +370,12 @@ export function ChoiceDetails({
       {facts.warnings.map((w) => (
         <WarningLine key={w}>{w}</WarningLine>
       ))}
-      {!hideTeam && <TeamPicker facts={facts} state={state} edit={edit} disabled={disabled} />}
+      {!hideTeam &&
+        (teamControl === 'select' ? (
+          <TeamSelect facts={facts} state={state} edit={edit} disabled={disabled} />
+        ) : (
+          <TeamPicker facts={facts} state={state} edit={edit} disabled={disabled} />
+        ))}
       {action.check && (
         <fieldset className="space-y-2">
           <legend className="text-sm font-semibold">Check · {action.check} · 1d20</legend>
