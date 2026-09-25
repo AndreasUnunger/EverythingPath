@@ -514,7 +514,7 @@ export function DecisionInputs({
         className={cn('flex flex-wrap items-center gap-3 text-sm', className)}
       >
         <span>
-          Rules cost <strong className="font-mono">{buyoffGp} gp</strong>
+          Buyoff cost <strong className="font-mono">{buyoffGp} gp</strong>
           <span className="text-muted-foreground"> (2 × minimum treasury)</span>
         </span>
         <span className="text-muted-foreground">
