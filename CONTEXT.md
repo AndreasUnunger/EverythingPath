@@ -4,6 +4,12 @@ Shared language for running an Ironfang militia through its weekly sequence at t
 
 ## Language
 
+**Militia Setup**:
+The one-time entry of a campaign's militia state, for a newly founded militia or one already in progress, which opens its first Weekly Draft.
+
+**Militia Correction**:
+An explicit, shared change to the current militia state, made outside Weekly Resolution with a required reason. Unlike a Table Adjustment it is not part of a week, and unlike a Historical Correction it does not rewrite any Resolution Record.
+
 **Weekly Draft**:
 The shared, in-progress collection of selections and entered rolls for the current militia week. Every player can see its contents before confirmation.
 A campaign has exactly one open Weekly Draft, created when its current week begins. Confirmation closes that identity and atomically creates the next week's empty Weekly Draft; delayed edits tied to the closed identity cannot affect its successor.
@@ -64,3 +70,7 @@ A shared position in the weekly Activity phase that contains zero or one Staged 
 
 **Staged Action Choice**:
 The uncommitted militia action occupying an Action Slot, including its assigned team and action-specific details. It is visible and editable by all players until Weekly Confirmation.
+
+**Officer**:
+A PC or NPC on the militia roster who holds one or more officer roles. Being an officer is a role assignment, not a kind of character: an NPC is an officer exactly while they hold a role.
+_Avoid_: Officer NPC, other NPC
