@@ -171,22 +171,8 @@ export function SlotStatus({ facts }: { facts: SlotFacts }) {
 /** Actions used against the allowance, with the Strategist bonus called out. */
 export function AllowanceMeter({ state, compact }: { state: State; compact?: boolean }) {
   const n = used(state);
-  const boxes = Math.max(allowance, state.slots.length);
   return (
     <div className="flex items-center gap-3">
-      <div className="flex gap-1" aria-hidden>
-        {Array.from({ length: boxes }, (_, i) => (
-          <span
-            key={i}
-            className={cn(
-              'h-5 w-4 border',
-              i >= allowance ? 'border-dashed border-amber-600' : 'border-foreground/40',
-              state.slots[i]?.choice && (i >= allowance ? 'bg-amber-500/60' : 'bg-primary/70'),
-              i === allowance - 1 && 'ring-primary/50 ring-1 ring-offset-1',
-            )}
-          />
-        ))}
-      </div>
       <p className="text-sm">
         <span className="font-mono text-lg">
           {n} of {allowance}
@@ -397,12 +383,6 @@ export function ChoiceDetails({
           <p className="text-muted-foreground text-xs">
             Rank and focus +5 · Officers +2{facts.strategist && ' · Strategist +2'}
           </p>
-          <details>
-            <summary className="text-muted-foreground cursor-pointer text-xs">Sources and modifiers</summary>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Settlement support, available bonuses, custom table modifier with reason. (Unchanged from today.)
-            </p>
-          </details>
         </fieldset>
       )}
       {action.cost && <p className="text-sm">Calculated cost: {action.cost}</p>}
