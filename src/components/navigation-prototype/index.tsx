@@ -1,6 +1,6 @@
 'use client';
 // PROTOTYPE — Four navigation structures for the live militia flow, switchable
-// via `?variant=A|B|C|D` on /prototype/navigation (Wayfinder #102, map #99).
+// via `?variant=A|B|C|D|E` on /prototype/navigation (Wayfinder #102, map #99).
 // Mock data only; nothing reads or writes Convex. Review at tablet landscape
 // (about 1180×820). The yellow panel shows the proposed address and which
 // capability-inventory ids the current screen hosts.
@@ -13,12 +13,14 @@ import * as A from './variant-a';
 import * as B from './variant-b';
 import * as C from './variant-c';
 import * as D from './variant-d';
+import * as E from './variant-e';
 
 const variants = [
   { key: 'A', ...A, Component: A.VariantA },
   { key: 'B', ...B, Component: B.VariantB },
   { key: 'C', ...C, Component: C.VariantC },
   { key: 'D', ...D, Component: D.VariantD },
+  { key: 'E', ...E, Component: E.VariantE },
 ];
 
 export function NavigationPrototype() {
