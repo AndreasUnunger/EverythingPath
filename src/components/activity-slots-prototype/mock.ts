@@ -70,7 +70,8 @@ export type Choice = {
   roll?: number;
   exceptionReason?: string;
 };
-export type Slot = { slotId: string; choice: Choice | null };
+/** `added`: created with Add action slot (not part of the week's starting slots). */
+export type Slot = { slotId: string; choice: Choice | null; added?: boolean };
 export type State = {
   slots: Slot[];
   settlementId: string;
@@ -80,7 +81,7 @@ export type State = {
 };
 
 let counter = 0;
-const id = (prefix: string) => `${prefix}-${++counter}`;
+const id = (prefix: string) => `${prefix}-new-${++counter}`;
 
 export function initialState(): State {
   return {
@@ -89,7 +90,7 @@ export function initialState(): State {
       { slotId: 'slot-2', choice: { choiceId: 'c-2', actionId: 'earn' } },
       { slotId: 'slot-3', choice: { choiceId: 'c-3', actionId: 'gather', teamId: 't-whisper' } },
       { slotId: 'slot-4', choice: null },
-      { slotId: 'slot-5', choice: { choiceId: 'c-5', actionId: 'recruit' } },
+      { slotId: 'slot-5', choice: { choiceId: 'c-5', actionId: 'recruit' }, added: true },
     ],
     settlementId: 's-phaendar',
     feedback: 'Prepare actions together.',
@@ -105,6 +106,7 @@ export type Edit =
   | { kind: 'roll'; slotId: string; roll: number | undefined }
   | { kind: 'exception'; slotId: string; reason: string | undefined }
   | { kind: 'add_slot' }
+  | { kind: 'remove_slot'; slotId: string }
   | { kind: 'settlement'; settlementId: string }
   | { kind: 'assign'; actionId: string; teamId?: string }
   | { kind: 'unassign_team'; teamId: string }
@@ -164,7 +166,16 @@ export function reduce(state: State, edit: Edit): State {
       return { ...state, slots, feedback: 'Changes saved.' };
     }
     case 'add_slot':
-      return { ...state, slots: [...slots, { slotId: id('slot'), choice: null }], feedback: 'Action slot added.' };
+      return { ...state, slots: [...slots, { slotId: id('slot'), choice: null, added: true }], feedback: 'Action slot added.' };
+    case 'remove_slot': {
+      const removed = find(edit.slotId);
+      return {
+        ...state,
+        slots: slots.filter((s) => s.slotId !== edit.slotId),
+        remoteSlotId: state.remoteSlotId === edit.slotId ? null : state.remoteSlotId,
+        feedback: `${label(slots, edit.slotId)}${removed.choice ? ` and ${actionById(removed.choice.actionId).name}` : ''} removed.`,
+      };
+    }
     case 'settlement':
       return { ...state, settlementId: edit.settlementId, feedback: 'Changes saved.' };
     case 'assign': {

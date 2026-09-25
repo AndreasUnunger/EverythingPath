@@ -1,17 +1,18 @@
 'use client';
 // PROTOTYPE — Variant E: the chosen combination (B's slot board + A's picker
-// sheet). Team strip and one row of slot cards on top. Tapping an empty slot
+// sheet), without B's team strip. One row of slot cards on top; slots made
+// with Add action slot carry a remove button. Tapping an empty slot
 // opens the grouped picker sheet; tapping a staged slot selects it and shows
 // its details under the board, with Change action and a Move to menu. No deck
 // on screen, no drag.
 
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '~/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '~/components/ui/sheet';
 import { cn } from '~/lib/utils';
-import { actions, allowance, availability, slotFacts, slotOfTeam, teams, teamStatusText } from './mock';
+import { actions, allowance, availability, slotFacts } from './mock';
 import {
   ActionCard,
   type ActivityProps,
@@ -40,20 +41,6 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
 
   return (
     <section aria-label="Activity choices" className="space-y-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-muted-foreground text-xs tracking-widest uppercase">Teams</h2>
-        {teams.map((t) => {
-          const i = slotOfTeam(state, t.id);
-          return (
-            <TeamChip
-              key={t.id}
-              team={t}
-              note={t.status !== 'ready' ? teamStatusText[t.status].split(' · ')[0] : i >= 0 ? `Slot ${i + 1}` : 'Free'}
-            />
-          );
-        })}
-      </div>
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <AllowanceMeter state={state} />
         <Button variant="outline" disabled={disabled} onClick={() => edit({ kind: 'add_slot' })}>
@@ -67,6 +54,7 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
           return (
             <li key={f.slot.slotId} className="flex min-w-0 flex-1 gap-2">
               {f.index === allowance && <span className="w-0.5 shrink-0 bg-amber-600" title="Over the action allowance" />}
+              <div className="relative flex min-w-0 flex-1">
               <button
                 type="button"
                 aria-label={`Action Slot ${f.number}`}
@@ -74,7 +62,7 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
                 disabled={disabled}
                 onClick={() => (f.slot.choice ? setSelectedId(f.slot.slotId) : setPickerFor(f.slot.slotId))}
                 className={cn(
-                  'flex min-h-36 min-w-0 flex-1 touch-manipulation flex-col gap-1.5 rounded-lg border-2 p-2 text-left transition-transform',
+                  'flex min-h-36 w-full min-w-0 touch-manipulation flex-col gap-1.5 rounded-lg border-2 p-2 text-left transition-transform',
                   f.slot.choice ? 'bg-card' : 'border-dashed',
                   f.overAllowance && 'border-amber-600',
                   isSelected && 'border-primary ring-primary/40 -translate-y-1 ring-2',
@@ -98,7 +86,24 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
                 ) : (
                   <span className="text-muted-foreground mt-auto text-sm">Tap to choose an action</span>
                 )}
+                {f.slot.added && <span className="text-muted-foreground mt-auto text-xs">Added slot</span>}
               </button>
+              {f.slot.added && (
+                <button
+                  type="button"
+                  aria-label={`Remove Action Slot ${f.number}${f.action ? ` and ${f.action.name}` : ''}`}
+                  disabled={disabled}
+                  onClick={() => {
+                    if (f.slot.choice && !window.confirm(`Remove Action Slot ${f.number} and ${f.action!.name}?`)) return;
+                    edit({ kind: 'remove_slot', slotId: f.slot.slotId });
+                    if (selectedId === f.slot.slotId) setSelectedId(null);
+                  }}
+                  className="bg-background absolute -top-3 -right-3 flex size-10 touch-manipulation items-center justify-center rounded-full border-2 shadow"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+              </div>
             </li>
           );
         })}
