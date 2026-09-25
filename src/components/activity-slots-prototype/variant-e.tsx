@@ -42,32 +42,30 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
 
   return (
     <section aria-label="Activity choices" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-4">
-          <AllowanceMeter state={state} />
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Operating from</span>
-            <Select
-              value={state.settlementId || '__none'}
-              disabled={disabled}
-              onValueChange={(v) => edit({ kind: 'settlement', settlementId: v === '__none' ? '' : v })}
-            >
-              <SelectTrigger className="h-10 w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="z-[70]">
-                {settlements.map((o) => (
-                  <SelectItem key={o.id || '__none'} value={o.id || '__none'} className="min-h-11">
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-        <Button variant="outline" disabled={disabled} onClick={() => edit({ kind: 'add_slot' })}>
-          <Plus /> Add action slot
+      <div className="flex flex-wrap items-center gap-3">
+        <AllowanceMeter state={state} />
+        <Button size="sm" variant="outline" disabled={disabled} onClick={() => edit({ kind: 'add_slot' })}>
+          <Plus /> Add slot
         </Button>
+        <label className="ml-auto flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Operating from</span>
+          <Select
+            value={state.settlementId || '__none'}
+            disabled={disabled}
+            onValueChange={(v) => edit({ kind: 'settlement', settlementId: v === '__none' ? '' : v })}
+          >
+            <SelectTrigger className="h-10 w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-[70]">
+              {settlements.map((o) => (
+                <SelectItem key={o.id || '__none'} value={o.id || '__none'} className="min-h-11">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
       </div>
 
       <ol aria-label="Action Slots" className="flex gap-2">
