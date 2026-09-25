@@ -354,11 +354,11 @@ export function project(state: State): Projection {
     } else if (decision.kind === 'mitigate' && event.type === 'theft') {
       const modifiers: Modifier[] = [
         { label: 'Rank and focus', value: 6 },
-        { label: 'Officers (Amara, Ambassador)', value: 2 },
+        { label: 'Officers', value: 2 },
       ];
       if (overseerRole && decision.overseerId === overseerRole.id)
         modifiers.push({
-          label: `Overseer support (${overseerRole.name.split(' ')[0]}, Constitution)`,
+          label: 'Overseer',
           value: overseerRole.bonus,
         });
       const bonus = modifiers.reduce((a, m) => a + m.value, 0);

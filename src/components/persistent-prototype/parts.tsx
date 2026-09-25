@@ -580,7 +580,7 @@ function OverseerToggle({
         </span>
         Use Overseer support
         <span className="text-muted-foreground">
-          · {role.name}, Constitution {signed(role.bonus)} · one event a week
+          · {signed(role.bonus)} · one event a week
         </span>
       </button>
       {role.usedOn && !on && (
