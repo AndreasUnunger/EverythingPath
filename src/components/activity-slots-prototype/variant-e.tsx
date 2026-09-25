@@ -11,17 +11,16 @@
 import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '~/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '~/components/ui/sheet';
 import { cn } from '~/lib/utils';
-import { actions, allowance, availability, slotFacts } from './mock';
+import { actions, allowance, availability, settlements, slotFacts } from './mock';
 import {
   ActionCard,
   type ActivityProps,
   AllowanceMeter,
   ChoiceDetails,
   RemoteMark,
-  SettlementPicker,
   SlotStatus,
   StrategistBadge,
   TeamChip,
@@ -44,7 +43,28 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
   return (
     <section aria-label="Activity choices" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <AllowanceMeter state={state} />
+        <div className="flex flex-wrap items-center gap-4">
+          <AllowanceMeter state={state} />
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Operating from</span>
+            <Select
+              value={state.settlementId || '__none'}
+              disabled={disabled}
+              onValueChange={(v) => edit({ kind: 'settlement', settlementId: v === '__none' ? '' : v })}
+            >
+              <SelectTrigger className="h-10 w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[70]">
+                {settlements.map((o) => (
+                  <SelectItem key={o.id || '__none'} value={o.id || '__none'} className="min-h-11">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+        </div>
         <Button variant="outline" disabled={disabled} onClick={() => edit({ kind: 'add_slot' })}>
           <Plus /> Add action slot
         </Button>
@@ -154,7 +174,6 @@ export function VariantE({ state, edit, disabled }: ActivityProps) {
         </p>
       )}
 
-      <SettlementPicker state={state} edit={edit} disabled={disabled} />
 
       <Sheet open={pickerFor !== null} onOpenChange={(open) => !open && setPickerFor(null)}>
         <SheetContent side="bottom" className="z-[60] max-h-[80svh] overflow-y-auto">
