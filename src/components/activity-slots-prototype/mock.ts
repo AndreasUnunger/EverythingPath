@@ -58,10 +58,15 @@ export const actions: Action[] = [
 ];
 
 export const settlements = [
-  { id: '', label: 'No settlement' },
-  { id: 's-phaendar', label: 'Phaendar' },
-  { id: 's-ekkerd', label: 'Ekkerd' },
+  { id: '', label: 'No settlement', reputation: null },
+  { id: 's-phaendar', label: 'Phaendar', reputation: 'Helpful' },
+  { id: 's-ekkerd', label: 'Ekkerd', reputation: 'Friendly' },
 ];
+
+/** Bonuses the week has available (from earlier outcomes), usable once. */
+export const availableBonuses = [{ id: 'b-rumor', label: 'Rumor from week 13 (Gather Information)', value: 2 }];
+
+export type Modifier = { id: string; label: string; value: number; reason?: string };
 
 export type Choice = {
   choiceId: string;
@@ -69,6 +74,8 @@ export type Choice = {
   teamId?: string;
   roll?: number;
   exceptionReason?: string;
+  helpful?: boolean;
+  modifiers?: Modifier[];
 };
 export type Slot = { slotId: string; choice: Choice | null };
 export type State = {
@@ -106,6 +113,9 @@ export type Edit =
   | { kind: 'exception'; slotId: string; reason: string | undefined }
   | { kind: 'add_slot' }
   | { kind: 'remove_slot'; slotId: string }
+  | { kind: 'helpful'; slotId: string; on: boolean }
+  | { kind: 'modifier_add'; slotId: string; modifier: Modifier }
+  | { kind: 'modifier_remove'; slotId: string; modifierId: string }
   | { kind: 'settlement'; settlementId: string }
   | { kind: 'assign'; actionId: string; teamId?: string }
   | { kind: 'unassign_team'; teamId: string }
@@ -161,6 +171,26 @@ export function reduce(state: State, edit: Edit): State {
         ...(edit.kind === 'team' && { teamId: edit.teamId }),
         ...(edit.kind === 'roll' && { roll: edit.roll }),
         ...(edit.kind === 'exception' && { exceptionReason: edit.reason }),
+      };
+      return { ...state, slots, feedback: 'Changes saved.' };
+    }
+    case 'helpful': {
+      // Helpful support is one +2 per Activity: turning it on here moves it off any other slot.
+      for (const slot of slots)
+        if (slot.choice) slot.choice = { ...slot.choice, helpful: slot.slotId === edit.slotId ? edit.on : false };
+      return { ...state, slots, feedback: edit.on ? `Helpful +2 applied to ${label(slots, edit.slotId)}.` : 'Helpful +2 removed.' };
+    }
+    case 'modifier_add':
+    case 'modifier_remove': {
+      const slot = find(edit.slotId);
+      if (!slot.choice) return state;
+      const current = slot.choice.modifiers ?? [];
+      slot.choice = {
+        ...slot.choice,
+        modifiers:
+          edit.kind === 'modifier_add'
+            ? [...current, { ...edit.modifier, id: id('m') }]
+            : current.filter((m) => m.id !== edit.modifierId),
       };
       return { ...state, slots, feedback: 'Changes saved.' };
     }
@@ -284,13 +314,23 @@ export function slotFacts(state: State): SlotFacts[] {
       warnings,
       checkTotal:
         choice?.roll !== undefined && action?.check
-          ? choice.roll + bonus + (strategist ? 2 : 0)
+          ? choice.roll +
+            bonus +
+            (strategist ? 2 : 0) +
+            (choice.helpful ? 2 : 0) +
+            (choice.modifiers ?? []).reduce((sum, m) => sum + m.value, 0)
           : null,
     };
   });
 }
 
-export const checkBonus = (facts: SlotFacts) => bonus + (facts.strategist ? 2 : 0);
+export const checkBonus = (facts: SlotFacts) =>
+  bonus +
+  (facts.strategist ? 2 : 0) +
+  (facts.slot.choice?.helpful ? 2 : 0) +
+  (facts.slot.choice?.modifiers ?? []).reduce((sum, m) => sum + m.value, 0);
+
+export const operatingSettlement = (state: State) => settlements.find((s) => s.id === state.settlementId);
 
 export function phaseLists(state: State) {
   const facts = slotFacts(state);

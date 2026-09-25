@@ -5,6 +5,7 @@
 
 import { AlertTriangle, Check, CircleDot, Sparkles, Users } from 'lucide-react';
 import type React from 'react';
+import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import {
@@ -28,6 +29,8 @@ import {
   rank,
   readyTeamsFor,
   settlements,
+  availableBonuses,
+  operatingSettlement,
   type SlotFacts,
   type State,
   type Team,
@@ -327,6 +330,140 @@ export function TeamSelect({
   );
 }
 
+/** Helpful +2 inline when the operating settlement allows it; other modifiers behind a small link. */
+function CheckExtras({
+  facts,
+  state,
+  edit,
+  disabled,
+}: {
+  facts: SlotFacts;
+  state: State;
+  edit: ActivityProps['edit'];
+  disabled: boolean;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [source, setSource] = useState('custom');
+  const [value, setValue] = useState('');
+  const [reason, setReason] = useState('');
+  const choice = facts.slot.choice!;
+  const operating = operatingSettlement(state);
+  const helpfulHere = operating?.reputation === 'Helpful';
+  const usedOn = state.slots.findIndex((s) => s.choice?.helpful && s.slotId !== facts.slot.slotId);
+  const bonus = availableBonuses.find((b) => b.id === source);
+  const canSave = bonus ? true : value.trim() !== '' && reason.trim() !== '';
+  return (
+    <div className="space-y-2">
+      {helpfulHere && (
+        <button
+          type="button"
+          disabled={disabled}
+          aria-pressed={Boolean(choice.helpful)}
+          onClick={() => edit({ kind: 'helpful', slotId: facts.slot.slotId, on: !choice.helpful })}
+          className={cn(
+            'flex min-h-11 touch-manipulation items-center gap-2 rounded-md border-2 px-3 text-left text-sm',
+            choice.helpful ? 'border-primary bg-primary/10' : 'border-foreground/20',
+          )}
+        >
+          <Check className={cn('size-4', !choice.helpful && 'opacity-0')} />
+          <span>
+            Use Helpful +2 <span className="text-muted-foreground">({operating.label}, once per Activity)</span>
+            {!choice.helpful && usedOn >= 0 && (
+              <span className="block text-xs text-amber-700 dark:text-amber-300">
+                Now on Action Slot {usedOn + 1}. Tapping moves it here.
+              </span>
+            )}
+          </span>
+        </button>
+      )}
+      {(choice.modifiers ?? []).map((m) => (
+        <p key={m.id} className="flex items-center gap-2 text-sm">
+          <span>
+            {m.label} {m.value >= 0 ? '+' : ''}
+            {m.value}
+            {m.reason && <span className="text-muted-foreground"> · “{m.reason}”</span>}
+          </span>
+          <button
+            type="button"
+            className="text-muted-foreground underline"
+            onClick={() => edit({ kind: 'modifier_remove', slotId: facts.slot.slotId, modifierId: m.id })}
+          >
+            Remove
+          </button>
+        </p>
+      ))}
+      {!adding ? (
+        <button type="button" className="text-muted-foreground text-sm underline" onClick={() => setAdding(true)}>
+          + Modifier
+        </button>
+      ) : (
+        <div className="space-y-2 rounded-md border p-2">
+          <div className="flex flex-wrap gap-2">
+            {[...availableBonuses.map((b) => ({ id: b.id, label: `${b.label} +${b.value}` })), { id: 'custom', label: 'Custom table modifier' }].map(
+              (o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  aria-pressed={source === o.id}
+                  onClick={() => setSource(o.id)}
+                  className={cn(
+                    'min-h-10 touch-manipulation rounded-md border-2 px-2 text-sm',
+                    source === o.id ? 'border-primary bg-primary/10' : 'border-foreground/20',
+                  )}
+                >
+                  {o.label}
+                </button>
+              ),
+            )}
+          </div>
+          {!bonus && (
+            <div className="flex flex-wrap gap-2">
+              <Input
+                aria-label="Modifier value"
+                inputMode="numeric"
+                placeholder="±2"
+                className="h-10 w-20"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+              <Input
+                aria-label="Reason"
+                placeholder="Reason (required)"
+                className="h-10 min-w-48 flex-1"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={!canSave}
+              onClick={() => {
+                edit({
+                  kind: 'modifier_add',
+                  slotId: facts.slot.slotId,
+                  modifier: bonus
+                    ? { id: '', label: bonus.label, value: bonus.value }
+                    : { id: '', label: 'Table modifier', value: Number.parseInt(value, 10) || 0, reason: reason.trim() },
+                });
+                setAdding(false);
+                setValue('');
+                setReason('');
+              }}
+            >
+              Add
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Everything a staged choice needs, rough. Real fields come from the choice schema. */
 export function ChoiceDetails({
   facts,
@@ -382,7 +519,10 @@ export function ChoiceDetails({
           </div>
           <p className="text-muted-foreground text-xs">
             Rank and focus +5 · Officers +2{facts.strategist && ' · Strategist +2'}
+            {choice.helpful && ' · Helpful +2'}
+            {(choice.modifiers ?? []).map((m) => ` · ${m.label} ${m.value >= 0 ? '+' : ''}${m.value}`).join('')}
           </p>
+          <CheckExtras key={slot.slotId} facts={facts} state={state} edit={edit} disabled={disabled} />
         </fieldset>
       )}
       {action.cost && <p className="text-sm">Calculated cost: {action.cost}</p>}
