@@ -19,7 +19,6 @@ import { buyoffGp, type DecisionKind, eventInfo, week } from './mock';
 import {
   buyoffSummary,
   choose,
-  ClearDecision,
   decisionChoices,
   DecisionInputs,
   EndedElsewhere,
@@ -218,12 +217,6 @@ export function VariantB({ view, edit, disabled }: PersistentProps) {
           <p className="text-muted-foreground text-sm">
             {eventInfo[selected.type].effect}
           </p>
-          <ClearDecision
-            event={selected}
-            edit={edit}
-            disabled={disabled}
-            className="ml-auto"
-          />
         </header>
         {selected.endedElsewhere ? (
           <EndedElsewhere event={selected} />

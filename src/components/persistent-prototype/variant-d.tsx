@@ -14,7 +14,6 @@ import {
   buyoffSummary,
   ChoiceCard,
   choose,
-  ClearDecision,
   decisionChoices,
   DecisionInputs,
   EndedElsewhere,
@@ -135,7 +134,6 @@ export function VariantD({ view, edit, disabled }: PersistentProps) {
           >
             <ArrowLeft /> Previous
           </Button>
-          <ClearDecision event={event} edit={edit} disabled={disabled} />
           <Button
             variant="outline"
             className="ml-auto"

@@ -10,7 +10,6 @@ import { cn } from '~/lib/utils';
 import { eventInfo } from './mock';
 import {
   buyoffSummary,
-  ClearDecision,
   DecisionCards,
   DecisionInputs,
   EndedElsewhere,
@@ -107,12 +106,6 @@ export function VariantA({ view, edit, disabled }: PersistentProps) {
                         {eventInfo[event.type].effect}
                       </p>
                     )}
-                  <ClearDecision
-                    event={event}
-                    edit={edit}
-                    disabled={disabled}
-                    className="-ml-2"
-                  />
                 </div>
               </section>
             </li>

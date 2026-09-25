@@ -364,7 +364,6 @@ export function choose(
 ) {
   const keep = event.decision.kind === kind ? event.decision : {};
   const decision: Decision = { ...keep, kind };
-  if (kind === 'buyoff' && decision.costGp == null) decision.costGp = buyoffGp;
   edit({ kind: 'decide', eventId: event.id, decision });
 }
 
@@ -518,17 +517,9 @@ export function DecisionInputs({
           Rules cost <strong className="font-mono">{buyoffGp} gp</strong>
           <span className="text-muted-foreground"> (2 × minimum treasury)</span>
         </span>
-        <label className="inline-flex items-center gap-1.5">
-          <span className="text-muted-foreground">Recorded</span>
-          <DieField
-            value={d.costGp}
-            label="Recorded buyoff cost"
-            className="w-20 text-base"
-            disabled={disabled}
-            onValue={(costGp) => update(event, { costGp }, edit)}
-          />
-          <span className="text-muted-foreground">gp</span>
-        </label>
+        <span className="text-muted-foreground">
+          · taken from the treasury at Confirmation
+        </span>
       </div>
     );
   if (d.kind === 'end')
@@ -576,14 +567,14 @@ function OverseerToggle({
       >
         <span
           className={cn(
-            'relative h-5 w-9 rounded-full border transition-colors',
+            'relative inline-block h-5 w-9 shrink-0 rounded-full border transition-colors',
             on ? 'bg-primary border-primary' : 'border-foreground/40',
           )}
         >
           <span
             className={cn(
-              'bg-background absolute top-0.5 size-3.5 rounded-full transition-transform',
-              on ? 'translate-x-4' : 'translate-x-0.5',
+              'bg-background absolute top-0.5 left-0.5 size-3.5 rounded-full transition-transform',
+              on ? 'translate-x-4' : 'translate-x-0',
             )}
           />
         </span>
@@ -640,34 +631,6 @@ function EndingField({
         Save
       </Button>
     </form>
-  );
-}
-
-export function ClearDecision({
-  event,
-  edit,
-  disabled,
-  className,
-}: {
-  event: EventView;
-  edit: PersistentProps['edit'];
-  disabled: boolean;
-  className?: string;
-}) {
-  if (event.decision.kind === 'unattempted' || event.endedElsewhere)
-    return null;
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className={cn('text-muted-foreground', className)}
-      disabled={disabled}
-      onClick={() =>
-        edit({ kind: 'decide', eventId: event.id, decision: null })
-      }
-    >
-      <X className="size-3.5" /> Clear decision
-    </Button>
   );
 }
 

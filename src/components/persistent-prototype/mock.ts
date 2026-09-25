@@ -94,8 +94,6 @@ export type Decision = {
   officerId?: string | null;
   skill?: Skill;
   skillBonus?: number | null;
-  /** Recorded buyoff amount. The rules cost is what Confirmation applies. */
-  costGp?: number | null;
   /** The table-adjudicated ending. */
   outcome?: string;
 };
@@ -130,7 +128,7 @@ export function initialState(): State {
       earlierPhasesOpen: true,
     },
     decisions: {
-      'e-theft-9': { kind: 'buyoff', costGp: buyoffGp },
+      'e-theft-9': { kind: 'buyoff' },
       'e-rivalry-12': {
         kind: 'mitigate',
         officerId: 'p-amara',
@@ -329,10 +327,6 @@ export function project(state: State): Projection {
       if (lastBuyoff !== null && week < lastBuyoff + 4)
         permitted = except('buyoff-cooldown') && permitted;
       if (treasury < buyoffGp) permitted = except('treasury') && permitted;
-      if (decision.costGp != null && decision.costGp !== buyoffGp)
-        warn(
-          `The recorded amount (${decision.costGp} gp) differs from the rules cost. ${buyoffGp} gp is used.`,
-        );
       if (permitted) {
         treasury -= buyoffGp;
         lastBuyoff = week;

@@ -11,7 +11,6 @@ import { cn } from '~/lib/utils';
 import { buyoffGp, type DecisionKind, eventInfo, week } from './mock';
 import {
   choose,
-  ClearDecision,
   decisionChoices,
   DecisionInputs,
   EndedElsewhere,
@@ -177,12 +176,6 @@ export function VariantC({ view, edit, disabled }: PersistentProps) {
               />
               <footer className="border-foreground/10 mt-3 flex items-center border-t pt-2">
                 <StagedLine event={event} />
-                <ClearDecision
-                  event={event}
-                  edit={edit}
-                  disabled={disabled}
-                  className="ml-auto"
-                />
               </footer>
             </article>
           );
