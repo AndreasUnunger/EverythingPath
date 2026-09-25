@@ -1,6 +1,6 @@
 'use client';
 // PROTOTYPE — Four ways to lay out the Activity main column, switchable via
-// `?variant=A|B|C|D` on /prototype/activity-slots (Wayfinder #106, map #99).
+// `?variant=A|B|C|D|E` on /prototype/activity-slots (Wayfinder #106, map #99).
 // The frame around it is settled (#101 variant A in the #102 shell). Mock data
 // and an in-memory reducer only. Review at tablet landscape (about 1180×820),
 // ideally on a real touch tablet. The yellow panel simulates other players.
@@ -15,12 +15,14 @@ import * as A from './variant-a';
 import * as B from './variant-b';
 import * as C from './variant-c';
 import * as D from './variant-d';
+import * as E from './variant-e';
 
 const variants = [
   { key: 'A', name: A.name, Component: A.VariantA },
   { key: 'B', name: B.name, Component: B.VariantB },
   { key: 'C', name: C.name, Component: C.VariantC },
   { key: 'D', name: D.name, Component: D.VariantD },
+  { key: 'E', name: E.name, Component: E.VariantE },
 ];
 
 export function ActivitySlotsPrototype() {
