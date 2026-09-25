@@ -39,6 +39,7 @@ export function eventView(
     ready: projection?.ready ?? false,
     chance: projection?.chance ?? 10,
     chanceRoll: draft.event.chanceRoll ?? null,
+    chanceModifier: projection?.chanceModifier ?? null,
     guaranteed: projection?.guaranteed ?? false,
     occurrences: occurrences.map(({ occurrence, owner }) => {
       const resolved = projection?.tree.find(

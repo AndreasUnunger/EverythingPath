@@ -397,11 +397,11 @@ test('five reputation rows apply operating context and copper prices', () => {
     expect([
       result.settlements[0]?.socialDcModifier,
       result.settlements[0]?.pricePercent,
-      result.eventTableModifier,
+      result.eventChanceModifier,
       result.purchases[0]?.costCopper,
     ]).toEqual(expected[i]);
     source.operatingSettlementId = null;
-    expect(projectRulesFoundations(source).eventTableModifier).toBe(0);
+    expect(projectRulesFoundations(source).eventChanceModifier).toBe(0);
   }
 });
 function settlement(
@@ -480,7 +480,7 @@ test('[rules.F07.effective] temporary shifts and active refuge determine effecti
     'Indifferent',
   );
   source.week = 5;
-  expect(projectRulesFoundations(source).eventTableModifier).toBe(5);
+  expect(projectRulesFoundations(source).eventChanceModifier).toBe(5);
   source.settlements[0]!.reputation = null;
   expect(projectRulesFoundations(source).requirements).toContain(
     'settlement:home:reputation',

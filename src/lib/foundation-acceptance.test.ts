@@ -428,7 +428,7 @@ test('[rules.acceptance.reputation-rows] every row exposes social, sighting, ope
     reputation,
     socialDcModifier,
     pricePercent,
-    eventTableModifier,
+    eventChanceModifier,
     costCopper,
     sightingDays,
   ] of rows) {
@@ -458,10 +458,10 @@ test('[rules.acceptance.reputation-rows] every row exposes social, sighting, ope
     expect(result.settlements[0]).toMatchObject({
       socialDcModifier,
       pricePercent,
-      eventTableModifier,
+      eventChanceModifier,
       sightingDays,
     });
-    expect(result.eventTableModifier).toBe(eventTableModifier);
+    expect(result.eventChanceModifier).toBe(eventChanceModifier);
     expect(result.purchases[0]!.costCopper).toBe(costCopper);
   }
 });

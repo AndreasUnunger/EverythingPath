@@ -95,6 +95,12 @@ export function EventView({ view, edit, disabled }: Props) {
             })
           }
         />
+        {view.chanceModifier ? (
+          <p className="text-sm">
+            Operating settlement reputation: {view.chanceModifier > 0 ? '+' : ''}
+            {view.chanceModifier} to the event chance roll.
+          </p>
+        ) : null}
         <p className="text-muted-foreground text-sm">
           Enter raw percentile dice. Event types and outcomes recalculate as the
           week changes. Optional mitigation may remain unattempted.

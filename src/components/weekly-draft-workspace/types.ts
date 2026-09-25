@@ -105,6 +105,7 @@ export type EventView = {
   ready: boolean;
   chance: number;
   chanceRoll: WeeklyDraft['event']['chanceRoll'] | null;
+  chanceModifier: number | null;
   guaranteed: boolean;
   occurrences: {
     occurrence: WeeklyDraft['event']['occurrences'][number];

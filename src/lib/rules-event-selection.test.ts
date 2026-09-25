@@ -45,24 +45,31 @@ test('[rules.E01.trigger] below chance triggers while equal and above do not; ch
     requirements: ['event:chance:1d100'],
   });
 });
-test('[rules.E01.settlement] operating reputation modifies the table separately from chance and recomputes stale event labels', () => {
+test('[rules.E01.settlement] operating reputation modifies the chance roll, not the chance or the table roll', () => {
   const { draft, snapshot } = eventSelectionFixture();
   snapshot.settlements = economyFixture('earn_gold').snapshot.settlements;
   draft.activity.operatingSettlementId = 'town';
-  draft.event.occurrences = [
-    { ...occurrence('event', 10), eventType: 'war_games' },
-  ];
+  draft.event.chanceRoll = roll(100, 12);
+  draft.event.occurrences = [occurrence('event', 15)];
   const town = snapshot.settlements[0]!;
-  for (const [reputation, eventType] of [
-    ['Friendly', 'war_games'],
-    ['Unfriendly', 'night_ops'],
+  for (const [reputation, chanceModifier, selected] of [
+    ['Indifferent', 0, false],
+    ['Friendly', -5, true],
+    ['Unfriendly', 5, false],
   ] as const) {
     town.reputation = reputation;
     const result = project(draft, snapshot).event;
     expect(result.ready).toBe(true);
     expect(result.chance).toBe(10);
-    expect(result.selected[0]?.eventType).toBe(eventType);
+    expect(result.chanceModifier).toBe(chanceModifier);
+    expect(result.selected.map((event) => event.eventType)).toEqual(
+      selected ? ['night_ops'] : [],
+    );
   }
+  town.reputation = null;
+  expect(project(draft, snapshot).event.requirements).toContain(
+    'event:operating-settlement',
+  );
 });
 test('[rules.E01.recompute] removing an upstream guarantee changes cost, notoriety and required event rolls', () => {
   const { draft, snapshot } = eventActionFixture();

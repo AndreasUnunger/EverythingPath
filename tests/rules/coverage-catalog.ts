@@ -656,7 +656,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '### Event Trigger',
       fingerprint:
-        '3c48ced949ac1159277e5bb4f48fb20ea2ddc32966975d6c1432cf15aea67fc2',
+        '334dedc6e9b11f687dd589f43330d52e9c63ea2a12774c362006faccdbd26407',
       reviewGap: null,
     },
     {
@@ -664,7 +664,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '### Event Resolution Notes',
       fingerprint:
-        '9f70d702d84870e4197d5728040c277946295cb96e7d43d0d88fe9c97624c1f4',
+        'e2602c8618b7ede696d2aaa99dc2f3d1dc6babf65485ca0aa6866668c1cf2627',
       reviewGap: null,
     },
     {
@@ -928,7 +928,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-tables.md',
       heading: '## Table 6-2: Reputation',
       fingerprint:
-        '6c295036f45c72354d707db37180acf3c413ada6b9ed6a174d554d03f54b0f91',
+        'fa2337d27b446c30cf490c00bd00e2f7e12c74b112af91fb85b6cd999109987b',
       reviewGap: null,
     },
     {
@@ -980,7 +980,7 @@ export const coverageCatalog = {
       path: 'tests/rules/audit-inventory.json',
       heading: null,
       fingerprint:
-        'f73f872f8a7e40eb05cce18ff842873c9989700e04bf9795d5944a07d361ff0a',
+        'f1763c9668c2e38990c450f8f0637588414f377395069b46f20d67691e4c0cae',
     },
     {
       id: 'CASES',

@@ -445,6 +445,7 @@ If treasury is below minimum:
 ### Event Trigger
 
 - Roll percentile against event chance.
+- Operating settlement reputation modifies that percentile roll: Friendly `-5`, Unfriendly `+5` (Table 6-2). It never modifies the event table roll.
 - Event chance = Notoriety plus modifiers.
 - Minimum 10%, maximum 95%.
 - After an uneventful week, add rank to event chance for next week.
@@ -452,7 +453,6 @@ If treasury is below minimum:
 
 ### Event Resolution Notes
 
-- Settlement modifiers from where militia operates apply.
 - If event cannot occur, reroll.
 - `Roll Twice` can cause dual event resolution.
 - If duplicate event appears in double roll and has `Twice` clause, second application uses that clause.

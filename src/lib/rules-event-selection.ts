@@ -46,6 +46,8 @@ export type EventSelectionProjection = {
   tree: Event[];
   selected: Event[];
   dispatch: EventDispatch[];
+  /** The operating settlement's reputation modifier on the chance roll; null while that settlement's reputation is unknown. */
+  chanceModifier: number | null;
 };
 
 type SelectionContext = {
@@ -55,7 +57,6 @@ type SelectionContext = {
     'requirements' | 'warnings' | 'plan' | 'outcome' | 'teamUse'
   >;
   result: EventSelectionProjection;
-  tableModifier: number | null;
   expanded: boolean;
 };
 function readEventDie(
@@ -72,17 +73,17 @@ function readEventDie(
   if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
   return value;
 }
+// The operating settlement's reputation never touches the table roll; it
+// modifies the chance roll (see selectChanceEvent).
 function resolveTableRoll(context: SelectionContext, event: Event) {
-  const { result, tableModifier } = context;
+  const { result } = context;
   const value = readEventDie(
     context,
     event.tableRoll,
     `${event.eventId}:table`,
     100,
   );
-  if (tableModifier === null)
-    result.requirements.push('event:operating-settlement');
-  if (value === null || tableModifier === null) return null;
+  if (value === null) return null;
   const extra = new Map<string, number>();
   for (const modifier of event.tableRoll?.modifiers ?? [])
     if (
@@ -94,9 +95,7 @@ function resolveTableRoll(context: SelectionContext, event: Event) {
     1,
     Math.min(
       100,
-      value +
-        tableModifier +
-        [...extra.values()].reduce((sum, value) => sum + value, 0),
+      value + [...extra.values()].reduce((sum, value) => sum + value, 0),
     ),
   );
   const eventType = eventTypeForPercentile(total);
@@ -305,8 +304,16 @@ function selectChanceEvent(context: SelectionContext) {
     'event:chance',
     100,
   );
+  // Friendly subtracts 5 from, and Unfriendly adds 5 to, the percentile roll
+  // that decides whether an event occurs (Table 6-2).
+  if (result.chanceModifier === null)
+    result.requirements.push('event:operating-settlement');
   // The accepted E01 audit baseline explicitly uses a strict comparison.
-  if (chanceRoll !== null && chanceRoll < result.chance) {
+  if (
+    chanceRoll !== null &&
+    result.chanceModifier !== null &&
+    chanceRoll + result.chanceModifier < result.chance
+  ) {
     const roots = draft.event.occurrences.filter(
       (event) => event.origin.kind === 'rolled',
     );
@@ -360,6 +367,7 @@ function createSelectionContext(
     tree: [],
     selected: [],
     dispatch: [],
+    chanceModifier: 0,
   };
   result.guaranteed = result.guarantees.length > 0;
   result.chance = calculateEventChance(
@@ -368,19 +376,18 @@ function createSelectionContext(
     result.carryModifier,
   );
 
-  const tableModifier = draft.activity.operatingSettlementId
+  result.chanceModifier = draft.activity.operatingSettlementId
     ? (projectSettlements(
         activity.outcome.settlements,
         draft.week,
       ).settlements.find(
         (town) => town.settlementId === draft.activity.operatingSettlementId,
-      )?.eventTableModifier ?? null)
+      )?.eventChanceModifier ?? null)
     : 0;
   return {
     draft,
     activity,
     result,
-    tableModifier,
     expanded,
   };
 }

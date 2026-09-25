@@ -375,7 +375,7 @@
     },
     {
       "id": "E01",
-      "baseline": "E01 \u2014 Percentile trigger: event if roll < chance; base Notoriety, bounds10\u201395; operating settlement affects event-table result. [R81], [R452]; [T56].",
+      "baseline": "E01 \u2014 Percentile trigger: event if roll < chance; base Notoriety, bounds10\u201395; operating settlement reputation modifies the chance roll (Friendly -5, Unfriendly +5), never the table roll. [R81], [R452]; [T56].",
       "evidence": "[C195]/[C791] default chance = clamp(live Notoriety+carry,10,95), not projected post-Activity Notoriety. [Browser trigger](https://github.com/AndreasUnunger/EverythingPath/blob/4fc7002c5caba9a38da008c1583d9b0e077ac29c/src/components/week-board/event-utils.tsx#L36) permits1\u2013100 with advisory warning. [P718] clamps both to1\u2013100, accepts supplied chance rather than calculating baseline. **Partial/mismatch:** strict `<` matches; normal chance baseline and explicit override are conflated.",
       "remainingCases": "[V53]/[V150] cover trigger slices. Missing chance9/10/95/96, roll equal/below/above, Activity Notoriety altering chance, \u00b15 operating-settlement result and override reason. Reproduced chance100/roll96 triggers an event although bounded baseline95 would not.",
       "url": "https://github.com/AndreasUnunger/EverythingPath/issues/54#issuecomment-5574295825"
