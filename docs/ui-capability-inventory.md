@@ -823,3 +823,65 @@ Final shared copy approval: [Persistent final approval](https://github.com/Andre
 Coverage handoff: rewrite persistent-workspace/persistent-qa locators to dedicated totals, Leave it and gp results while retaining all behavior (shared buyoffs/exceptions/endings/checks, held/rejected save, observer reload, independent phase navigation and responsive geometry). Preserve full canonical-workspace, complete-week, canonical-confirmation and direct canonical-persistence scenarios. Add source-ending undo, fixed eligibility/same-week Event inputs, strict ending form/partial failure, cross-phase Overseer concurrency/partial-failure repair, legacy amount/roll/history, and membership/campaign isolation cases. Retain canonical rules.P02.rivalry.* weeks 2–4 regression; separate legacy request [Fix persistent Rivalry lifecycle across weeks](https://github.com/AndreasUnunger/EverythingPath/issues/31) imports no dependency/schema work and is not closed here.
 
 Parent coordination: add native implementation edge Event143 → Persistent144; subsequent Review & confirm implementation depends on144. Parent links this inventory change in128's resolution, updates map99 and closes128 only after integration. The spec introduces no new payload, rules version, migrations, or deployed behavior.
+
+## Planned implementation: Review & confirm
+
+Implementation spec: [Implement Review & confirm with ordered consequences and exact reviewed Confirmation](https://github.com/AndreasUnunger/EverythingPath/issues/145). Shipping position 7, after [Persistent](https://github.com/AndreasUnunger/EverythingPath/issues/144) and before [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/138). The following is **planned**, not shipped. Keep baseline current-location and current-E2E rows factual until implementation.
+
+Owner: Review & confirm owns SUM-01–11, including Confirmation controls, and defines the six-section presentation boundary for Finished weeks. [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) owns shared save/transition behavior and already removes the Summary caption/footer readiness copy. [Shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) owns shared access/maintenance; [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140) owns roll compatibility; [Finished weeks authoring](https://github.com/AndreasUnunger/EverythingPath/issues/133) owns historical integration over immutable selected-record facts. No new capability IDs or payload/rules changes are introduced.
+
+Retain stable inventory IDs. The following locations and coverage are **planned**, not shipped; implementation updates actual locations/tests after delivery.
+
+| ID | Required acceptance and coverage |
+| --- | --- |
+| SUM-01 | Required decisions and contextual disabled reason replace ready/needs-attention sentences; retain unsaved-changes reason. Test ready, incomplete, pending, invalid local form and stale review with no redundant ready sentence. |
+| SUM-02 | Whole-week Required decisions, readable subjects and Go links, including missing reasons; test all four source phases and local adjustment repair. |
+| SUM-03 | Confirm only the complete, saved, accepted and reviewed source, with no unfinished local form; pending label and exactly reviewed outcome. Preserve week/workspace and backend contract coverage. |
+| SUM-04 | Preserve existing single-winner concurrent Confirmation, stale source/revision rejection and edit/confirm race. Shared persistence/store behavior is unchanged, even though the design prototype omitted it. |
+| SUM-05 | Stale alert and explicit Review updated week, disabled during pending work; failed save/Confirmation cannot silently refresh authorization. Preserve workspace recovery tests. |
+| SUM-06 | Result Now/Rules Baseline/Final, changed-only/show-all, all militia and next-week facts, named references, complete/incomplete state. Rewrite existing outcome-disclosure browser assertions without losing facts. |
+| SUM-07 | Inline Rules Exceptions, edit reason, one-tap clear, orphaned-subject display and remove obsolete action allowance; identity and underlying rule semantics preserved. Add browser coverage. |
+| SUM-08 | All four adjustment kinds and every existing field; add/edit/reason/remove/cancel/earlier/later, exact gp input, full ordered-list replacement and failure recovery. Preserve all `summary-qa` variants. |
+| SUM-09 | Review-block Warnings plus item placement and phase fallback, correct identities/counts, readable labels and live-only approved warning filtering. Add browser coverage. |
+| SUM-10 | Four expanded consequence sections, phase net chips, actual execution order, Event/Sabotage integration and all existing effects. Add focused and browser assertions. |
+| SUM-11 | Every acknowledgement remains visible under its actual source, including orphan/unmapped fallback; preserve distinct quoted outcomes and stable identity. Add browser assertions. |
+
+Shared IDs are individually accounted for:
+
+| ID | Obligation here; primary owner |
+| --- | --- |
+| NAV-15 | Consume campaign/`phase=summary` deep link and redirects; shell owns routing, frame owns Phase View. |
+| WEEK-01 | Keep accessible week/phase context; frame owns heading/chrome. |
+| WEEK-02 | Supply Summary requirements/warnings, local Go navigation and no Summary caption; frame owns stepper/readiness. |
+| WEEK-03 | Review, Show all and local forms/focus do not navigate other devices; frame owns independent Phase View. |
+| WEEK-04 | Accepted exception/adjustment edits sync to every member; frame owns shared feedback/store. |
+| WEEK-05 | Existing optimistic Resolution Preview drives consequences/comparison; frame/store owns forecast. |
+| WEEK-06 | Use one saving/saved/failed/confirming status; frame owns status placement. |
+| WEEK-07 | Failed edit restores latest accepted values and requires fresh review; frame/store owns recovery, this issue owns visible review control. |
+| WEEK-08 | Preserve departure protection while writes/Confirmation are pending; frame/shell own guard. Local form state cannot masquerade as saved data. |
+| WEEK-10 | Disable all adjustment/exception forms and destructive controls during Confirmation; frame owns global barrier. |
+| WEEK-11 | Keep confirmed week displayed until successor arrives, then adopt successor Upkeep; frame owns transition. |
+| WEEK-12 | Summary-shaped content skeleton within frame week states; shell owns campaign unavailable. |
+| WEEK-13 | Four adjustment kind cards and choice controls support tap/keyboard/selected semantics; this area owns its approved replacement, no global drag deletion. |
+| WEEK-14 | Required versus malformed numeric input, clear/zero and signed adjustment semantics retained; this area owns form validation, Upkeep owns shared roll input work. |
+| WEEK-15 | Render Upkeep-owned new dice totals and legacy dice arrays correctly without rewriting them; no roll migration here. |
+| WEEK-16 | Preserve advisory range warnings and honest check details; phase owners/Upkeep own inputs. |
+| WEEK-17 | Own Summary cards/result/errors at tablet, phone and desktop; frame/shell own surrounding responsive layout. |
+| WEEK-18 | Preserve full discriminated adjustment fields, selection, Save/Clear/remove/reorder operations; source phases own their nested editors. |
+| WEEK-19 | Consume one Week N confirmed notice and its correct historical-week link on every observing device; frame owns it. |
+| HIST-05 | Share the six-section presentation contract and record-only boundary; Finished weeks owns historical adapter/page and its compatibility tests. |
+| STATE-01 | Readable maintenance banner and normal recoverable write failures; shell owns banner, frame feedback. |
+| STATE-02 | Summary-shaped loading placeholders under frame/shell scaffold. |
+| STATE-03 | Consume shared failed-load card and frame Try again. |
+| STATE-05 | Keep week loading/failure/no militia distinct from unavailable campaign; frame/shell own gates. |
+| STATE-06 | Exception/adjustment/Confirmation results survive reload and appear on another member's device; shared regression responsibility. |
+| STATE-07 | Consume neutral membership/organization/sign-in gate; shell owns it. |
+
+No new ID is required. **Signed-off replacements/removals**, all retained in inventory history:
+
+- [Summary approval](https://github.com/AndreasUnunger/EverythingPath/issues/110#issuecomment-5844063536): SUM-01 ready/needs-attention sentence and the review block's applies-the-entire-prepared-week explanatory note disappear. Remove the current equivalent wording as well as the prototype literal. Frame already owns the stepper caption/footer removal; disabled reasons remain.
+- Same approval: SUM-06's side-by-side outcome cards and individual disclosures become one changed-only Result with Show all; SUM-07's detached exception list becomes item-inline; SUM-10's collapsible consequences become expanded phases; SUM-11's detached outcomes list becomes item-inline. These are presentation replacements, not fact deletion. SUM-08's Clear adjustment is preserved as Remove, and reorder is still available when meaningful.
+- [Persistent specification](https://github.com/AndreasUnunger/EverythingPath/issues/144), implementing its cited [amount/control removal amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317), owns removal of the differing recorded-buyoff-cost warning from **live** Summary and its live counts. Honor its exact filter; do not suppress other buyoff/treasury warnings, historical warning facts or legacy source amounts.
+
+
+Planned validation: retain `e2e/support/summary-qa.ts`, whole-week/workspace flows, all shared Confirmation and persistence backend contracts, relevant access/reload/cutover checks and summary component cases. Extend real multi-device adjustment/reason conflicts, source corrections, invalid local forms, exact gp conversions, complete Show all facts, legacy/frozen-record fixtures and phone/tablet/desktop accessibility. Change current inventory coverage only when these checks are implemented and run.
