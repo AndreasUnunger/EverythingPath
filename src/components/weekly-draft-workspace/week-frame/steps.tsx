@@ -71,15 +71,16 @@ function StepButton({
       aria-describedby={caption ? id : undefined}
       onClick={() => choose(step.phase)}
       className={cn(
-        'h-auto w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal shadow-none',
+        'short:min-h-9 short:py-0.5 h-auto w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal shadow-none',
         layout === 'row' ? 'min-h-12 flex-1' : 'min-h-11',
         current
           ? 'border-primary border'
           : 'border-foreground/25 hover:bg-foreground/10 dark:hover:bg-foreground/10 bg-transparent dark:bg-transparent',
       )}
     >
-      <StepGlyph step={step} />
-      <span className="min-w-0 leading-tight">
+      <StepGlyph step={step} className="short:size-5 short:text-sm" />
+      {/* Short viewports put the caption beside the label instead of under it. */}
+      <span className="short:flex short:flex-wrap short:items-baseline short:gap-x-2 min-w-0 leading-tight">
         <span className="block text-sm">{phaseLabels[step.phase]}</span>
         {caption && (
           <span
@@ -162,12 +163,12 @@ export function PhoneSteps({
   const index = phases.indexOf(current);
   const caption = stepCaption(current);
   return (
-    <div className="px-3 pt-2 pb-1 md:hidden">
+    <div className="short:pt-1 short:pb-0.5 px-3 pt-2 pb-1 md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button
             type="button"
-            className="h-auto min-h-11 w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal"
+            className="short:min-h-9 short:py-0.5 h-auto min-h-11 w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal"
           >
             <StepGlyph
               step={current}

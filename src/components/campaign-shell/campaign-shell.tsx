@@ -235,7 +235,7 @@ function SectionLinks({ sections }: { sections: SectionLink[] }) {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'focus-visible:ring-ring/50 rounded-md px-3 py-1.5 whitespace-nowrap outline-none focus-visible:ring-[3px]',
+              'focus-visible:ring-ring/50 short:py-0.5 rounded-md px-3 py-1.5 whitespace-nowrap outline-none focus-visible:ring-[3px]',
               active
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground hover:bg-foreground/10',

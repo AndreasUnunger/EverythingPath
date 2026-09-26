@@ -149,15 +149,9 @@ export async function exercisePhoneSteps(page: Page) {
     await expect(buttons.nth(index)).toHaveAccessibleName(name);
   const current = sheet.locator('button[aria-current="step"]');
   await expect(current).toHaveCount(1);
-  // The current phase comes from the sheet's semantic state; the trigger's
-  // accessible name (decorative glyph excluded) must agree with it.
+  // Capture the current phase from the sheet's semantic state while open.
   const origin = (await current.getAttribute('aria-label'))!;
   expect(positions).toContain(origin);
-  await expect(trigger).toHaveAccessibleName(
-    new RegExp(
-      `^Step ${positions.indexOf(origin as never) + 1} of 5 · ${origin}`,
-    ),
-  );
   await expect(
     sheet.getByRole('button', { name: 'Review & confirm', exact: true }),
   ).not.toHaveAttribute('aria-describedby', /.+/);
@@ -168,6 +162,14 @@ export async function exercisePhoneSteps(page: Page) {
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
   await expect(trigger).toBeFocused();
+  // The modal hides background controls from accessibility while open.
+  // Once closed, the trigger's name (decorative glyph excluded) must agree
+  // with the sheet's current phase and its numeric position.
+  await expect(trigger).toHaveAccessibleName(
+    new RegExp(
+      `^Step ${positions.indexOf(origin as never) + 1} of 5 · ${origin}`,
+    ),
+  );
   // Choose a different available step, then return.
   await trigger.click();
   await expect(sheet).toBeVisible();

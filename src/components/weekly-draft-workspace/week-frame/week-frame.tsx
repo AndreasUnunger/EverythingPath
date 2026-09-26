@@ -58,7 +58,7 @@ function DirectionButton({
       aria-label={label ? `${word}: ${label}` : word}
       disabled={!target}
       onClick={() => target && choose(target)}
-      className={cn(!compact && 'max-w-[40%] shrink')}
+      className={cn(!compact && 'short:h-8 short:px-3 max-w-[40%] shrink')}
     >
       {direction === 'next' ? content.reverse() : content}
     </Button>
@@ -77,7 +77,7 @@ function Footer(frame: Frame) {
   return (
     <footer
       data-week-footer
-      className="bg-background/95 border-foreground/15 hidden shrink-0 items-center gap-3 border-t px-4 py-2.5 md:flex"
+      className="bg-background/95 border-foreground/15 short:py-1 hidden shrink-0 items-center gap-3 border-t px-4 py-2.5 md:flex"
     >
       <DirectionButton
         direction="previous"
@@ -149,7 +149,7 @@ export function WeekFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <h1 className="sr-only">{weekHeading(frame.week, frame.phase)}</h1>
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 pt-2 md:px-4">
+      <div className="short:pt-1 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 pt-2 md:px-4">
         {status}
       </div>
       {notes}
@@ -165,12 +165,12 @@ export function WeekFrame({
           phases={frame.phases}
           phase={frame.phase}
           choose={frame.choose}
-          className="xl:border-foreground/15 shrink-0 px-3 pt-2 md:px-4 xl:min-h-0 xl:overflow-y-auto xl:border-r xl:p-3"
+          className="xl:border-foreground/15 short:pt-1 shrink-0 px-3 pt-2 md:px-4 xl:min-h-0 xl:overflow-y-auto xl:border-r xl:p-3"
         />
         <div className="flex min-h-0 flex-1 flex-col">
           <main
             data-week-editor
-            className="min-h-32 flex-1 overflow-y-auto px-3 py-3 md:px-5"
+            className="short:py-2 min-h-0 flex-1 overflow-y-auto px-3 py-3 md:px-5"
           >
             <div className="mx-auto w-full max-w-6xl">{children}</div>
           </main>

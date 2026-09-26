@@ -140,6 +140,16 @@ export async function exerciseShellNavigation(
     page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
   ).toBeVisible();
   // The week host is bounded after a non-week visit at every width, with
-  // its editor scrolling inside and the frame chrome pinned.
+  // its editor scrolling inside and the frame chrome pinned, including on
+  // a short tablet-width viewport where the top bar wraps.
   await expectBoundedWeekHost(page);
+  try {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(
+      page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
+    ).toBeVisible();
+    await expectBoundedWeekHost(page);
+  } finally {
+    await page.setViewportSize(original);
+  }
 }
