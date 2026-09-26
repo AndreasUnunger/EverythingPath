@@ -231,7 +231,11 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    transition: all 0.3s ease;
+    /* Not `all`: the hover glow below sets a filter, and a filter that
+       transitions back to `none` crashes WebKit's Skia compositor (#151). */
+    transition:
+      background-size 0.3s ease,
+      opacity 0.3s ease;
     background:
       /* top-left corner */
       linear-gradient(to right, white 8px, transparent 8px) top left no-repeat,

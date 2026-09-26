@@ -4,14 +4,14 @@ import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test } from 'vitest';
 
-// The compiled stylesheet, scanning the shared UI primitives that use the
-// enter/exit animations (dialog, sheet, select, tooltip). This is the seam
-// the browser actually receives.
+// The compiled stylesheet, scanning every component (the shared primitives
+// that use the enter/exit animations and every screen's transitions). This
+// is the seam the browser actually receives.
 async function compiledStyles() {
   const root = join(__dirname, '..', '..');
   const source = readFileSync(join(__dirname, 'globals.css'), 'utf8').replace(
     "@import 'tailwindcss';",
-    `@import 'tailwindcss' source(none);\n@source "${join(root, 'src/components/ui')}";`,
+    `@import 'tailwindcss' source(none);\n@source "${join(root, 'src/components')}";`,
   );
   const result = await postcss([tailwind({ base: root })]).process(source, {
     from: join(__dirname, 'globals.css'),
@@ -53,4 +53,30 @@ test('[styles.animation] no emitted keyframes animate filter, and enter/exit ani
   expect(css).not.toMatch(/animation:\s*exit\s/);
   expect(blocks.some((block) => block.name === 'enter')).toBe(false);
   expect(blocks.some((block) => block.name === 'exit')).toBe(false);
+});
+
+// The same fault applies to CSS transitions: a state whose filter list is
+// non-empty transitioning to `filter: none` (the ledger shell's former
+// closed-state blur/brightness). No emitted rule may transition `filter`
+// explicitly, and the shorthand transitions the app declares itself must
+// name their properties instead of `all` wherever a filter is involved.
+test('[styles.transition] no emitted rule transitions filter', async () => {
+  const css = await compiledStyles();
+  const explicit = [
+    ...css.matchAll(/transition(?:-property)?\s*:\s*([^;]*filter[^;]*);/g),
+  ]
+    .map((match) => match[1]!.replace(/\s+/g, ' '))
+    // Tailwind's stock `.transition` list names filter; it is inert as long
+    // as no emitted utility ever sets a filter (asserted below).
+    .filter((list) => !list.startsWith('color, background-color'));
+  expect(explicit).toEqual([]);
+  const filterSetters = [
+    ...css.matchAll(
+      /\.(blur|brightness|contrast|grayscale|hue-rotate|invert|saturate|sepia|drop-shadow)(-[^\s{]*)?\s*\{/g,
+    ),
+  ].map((match) => match[0]);
+  expect(filterSetters).toEqual([]);
+  expect(css).toMatch(
+    /\.corner-brackets::before[\s\S]*?transition:\s*background-size/,
+  );
 });

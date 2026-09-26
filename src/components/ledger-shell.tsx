@@ -38,10 +38,14 @@ export function LedgerShell({
         <div>
           <h2 className="text-primary font-sans text-2xl font-bold">{title}</h2>
           {meta ? (
-            <p className="text-muted-foreground mt-1 font-mono text-sm">{meta}</p>
+            <p className="text-muted-foreground mt-1 font-mono text-sm">
+              {meta}
+            </p>
           ) : null}
           {subtitle ? (
-            <p className="text-muted-foreground mt-1 font-mono text-xs">{subtitle}</p>
+            <p className="text-muted-foreground mt-1 font-mono text-xs">
+              {subtitle}
+            </p>
           ) : null}
         </div>
         <div
@@ -60,16 +64,20 @@ export function LedgerShell({
         inert={!isOpen}
         className={cn(
           'grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-          isOpen ? 'mt-4 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0',
+          isOpen
+            ? 'mt-4 grid-rows-[1fr] opacity-100'
+            : 'mt-0 grid-rows-[0fr] opacity-0',
         )}
       >
         <div className="overflow-hidden">
+          {/* Fade and scale only: a closed-state blur/brightness would make
+              WebKit interpolate `filter` into the open state's `filter: none`,
+              which crashes its Skia compositor (#151). The closed content is
+              invisible (opacity 0, collapsed row) either way. */}
           <div
             className={cn(
-              'origin-top transition-[transform,opacity,filter] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-              isOpen
-                ? 'opacity-100'
-                : 'scale-y-[0.03] opacity-0 blur-[1px] brightness-125',
+              'origin-top transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+              isOpen ? 'opacity-100' : 'scale-y-[0.03] opacity-0',
             )}
           >
             <div className="space-y-4">{children}</div>
