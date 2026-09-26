@@ -709,3 +709,45 @@ Signed-off replacements: [Activity approval](https://github.com/AndreasUnunger/E
 Field completeness: the output spec enumerates every action variant and current schema field, including candidate trees, purchases/sales, receipts, modes, nested target/officer/consumable fields and legacy/partial dice. Keep clear/replacement, missing-reference display and repair; whole-draft validation means one orphan repair cannot save while another orphan remains. Militia corrections owns final same-identity source restoration.
 
 Coverage plan: rewrite Activity drag/deck selectors to approved card/menu/clear interactions in `realtime-action-slot.spec.ts` and workspace Activity helpers, retaining all scenario outcomes; keep other phase, access, correction, persistence, Confirmation, complete-week, existing-militia and cutover scenarios. Add all-action field/legacy coverage, two-device Helpful and slot races, authoritative remove-slot guard tests, receipts, modifiers/reasons, produced/missing references, touch scrolling and keyboard/focus, and phone/tablet/desktop states. Upkeep owns dual-roll format compatibility; Activity verifies its readers/writers and preserves all downstream consumers.
+
+### Event — planned ownership and coverage
+
+Owner: [Implement rules-ordered Event preparation and occurrence resolution](https://github.com/AndreasUnunger/EverythingPath/issues/143), authored by [Write the Event implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/127). This is planned work, not a claim that the new locations or coverage have shipped. Preserve the current inventory rows and stable IDs until implementation records their actual replacements/tests.
+
+| ID | Planned replacement / coverage |
+| --- | --- |
+| EVT-01 | Chance breakdown/clamp and d100 arithmetic with settlement reputation on chance only; boundary/carry/forced-calm tests. |
+| EVT-02 | Collapsed chance step identifies guaranteeing Activity choice/slot or forced calm and provides the source handoff. |
+| EVT-03 | Required rolled/automatic blank occurrences allocated through existing edits, visible source/count, stable identity and concurrent initialization tests; manual Add controls replaced. |
+| EVT-04 | Stable event block with table arithmetic/name, awaiting/status, origin/parent/candidate context, complete old/new roll support. |
+| EVT-05 | Arithmetic and + Table modifier with signed value, required reason, edit/remove/clear, source/provenance preserved. |
+| EVT-06 | Choose this event card with complete candidate ownership, both required rolls and retained unchosen data; independent source sets. |
+| EVT-07 | Event-specific inputs preserve every nested target/roll/officer/reward/persistent/Sabotage operation and legacy repair; generic editor shell replaced only. |
+| EVT-08 | Attempt it / Let it happen including independent target checks; optional unattempted versus incomplete attempted coverage. |
+| EVT-09 | What happened save/edit/clear with exact occurrence subject and existing requiredness; independent nested reaction/ending outcomes retained. |
+| EVT-10 | Per-event/target check rows with dice total, calculated bonus, total versus DC, readable source breakdown and result. |
+| EVT-11 | Scoped warnings/Rules Exceptions with reason edit/remove, reward/reaction subjects and frame aggregation. |
+| EVT-12 | Complete ordered resource/team/reputation/economy, queued/persistent and narrative/custom outcomes for every event mode. |
+| EVT-13 | One normal Roll Twice expansion, automatic blank children, in-place child/automatic/candidate rerolls, ineligible replacements, retained hidden branches and clearing; explicit legacy compatibility and Ruleset Version regression. |
+| EVT-14 | Block-specific missing-input list plus frame/footer/This phase aggregation; no hidden inactive or optional-check blocker. |
+
+| Shared ID | Event obligation and named owner |
+| --- | --- |
+| WEEK-02, WEEK-03 | Event supplies accurate phase facts and independent local Phase View; [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) owns navigation/readiness. |
+| WEEK-04, WEEK-05, WEEK-06, WEEK-07, WEEK-08, WEEK-10, WEEK-11, WEEK-19 | Consume frame's shared persistence/preview/save/recovery/departure/Confirmation/transition; test event and topology edits across devices without weakening conflict rejection. |
+| WEEK-12 | Event-shaped body placeholders; frame owns week loading/failed/no-militia states. |
+| WEEK-13 | Event target/mitigation/candidate card touch/keyboard selection and retained shared choice behavior; no global drag removal. |
+| WEEK-14, WEEK-15, WEEK-16 | [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140) owns shared dual roll contract; Event consumes it for every nested roll with styled validation, clear/zero and advisory ranges. |
+| WEEK-17 | Event owns responsive blocks/candidates/headers/nesting inside shell/frame. |
+| WEEK-18 | Event-specific editors retain structured list/discriminated/nested/modifier add/remove/Save/Clear; Upkeep owns roll adapter, other phases their own replacements. |
+| ACT-10, ACT-11, ACT-12, ACT-13, ACT-14, ACT-16, ACT-17, ACT-18 | [Activity](https://github.com/AndreasUnunger/EverythingPath/issues/142) owns source fields/cost/modifiers/checks/acknowledgements/exceptions/warnings/Operating from; Event preserves source choice while editing candidates and owns reactive Sabotage. |
+| PER-02, PER-03, PER-04, PER-06, PER-07, PER-08, PER-10 | [Persistent authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/128) owns carried identity/age/decisions/checks/table ending/warnings/preparation; Event preserves same-week nested fields and shares support allocation/endings. |
+| SUM-02, SUM-06, SUM-07, SUM-08, SUM-09, SUM-10, SUM-11 | [Review & confirm authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/129) owns required-input review/comparison/exceptions/adjustments/warnings/consequences/outcomes; Event supplies correct facts and keeps existing Summary usable. |
+| HIST-05 | [Finished weeks authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/133) owns final frozen-record presentation; Event preserves old/new trees/rolls/versions and recorded outcomes without historical rewrites. |
+| STATE-01, STATE-02, STATE-03, STATE-05, STATE-06, STATE-07 | [Shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) owns access/maintenance/shared failure, frame owns week states, Event owns its body loading shape and cross-device/reload regression coverage. |
+
+**Approved replacements, not lost capabilities:** [final Event decision](https://github.com/AndreasUnunger/EverythingPath/issues/108#issuecomment-5837858373) signs off EVT-03 manual Add rolled/Add automatic buttons, EVT-13 Add Roll Twice child/Add replacement/Remove Event-and-branches buttons, and EVT-07 generic editor shell. Required blank fields, clearing and complete event-specific controls replace them. EVT-05's accordion relocates to arithmetic/+ Table modifier; EVT-08/EVT-09 become named mitigation/What happened controls. [Upkeep approval](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035) and [rollout ownership](https://github.com/AndreasUnunger/EverythingPath/issues/122#issuecomment-5846600504) own WEEK-15's total-entry replacement. No target, raw fact, custom outcome, provenance/modifier, reaction, acknowledgement or Rules Exception is removed. No new ID: these changes implement the existing EVT capabilities.
+
+Planned coverage retains and rewrites `ws:event` (automatic fields/clear in place of add/remove), `week`, `ws:setup`, Activity/Persistent/Summary interactions, access and cutover scenarios. Extend event view/selection/action/resource/threat/recurring/acceptance and draft/persistence/Confirmation tests for every event mode, concurrent blank preparation, old/new trees and totals, reroll source precedence, precise acknowledgements and support moves. Keep direct backend `e2e/canonical-persistence.spec.ts` and `canonical-confirmation.spec.ts` even though they have no browser inventory mapping. Current no-coverage cells are not claimed as tested yet.
+
+No additional payload change. Event consumes Upkeep's roll format; existing tree/occurrence/choice edits suffice with stable fill-only initialization and conflict refresh/recompute. The literal approved candidate Roll Twice reroll restriction changes current selected-candidate expansion, so its implementation uses the next unused Ruleset Version and matching client/server logic; presentation/equivalent representation alone does not bump versions. The reputation fix already shipped in PR #115 at Version 5. Frozen records preserve their source/version/outcomes.
