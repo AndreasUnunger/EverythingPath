@@ -401,6 +401,47 @@ test('[shell.successor-address] a stale address phase is not re-applied to the s
   ).toBeVisible();
 });
 
+// The shell normalizes an absent phase query to Upkeep before the board
+// sees it. A continuously observing device that was already on Upkeep must
+// still get its `phase=upkeep` written once per observed successor, and
+// never again for saves, rerenders, dismissal or a fresh load.
+test('[shell.successor-implicit] an observer already on Upkeep publishes phase=upkeep exactly once per successor', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => gateway);
+  const onPhaseChange = vi.fn();
+  const view = render(host({ phase: 'upkeep', onPhaseChange }));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(onPhaseChange).not.toHaveBeenCalled();
+  let release!: () => void;
+  act(() => {
+    release = gateway.advance();
+  });
+  expect(onPhaseChange).not.toHaveBeenCalled();
+  await act(async () => release());
+  await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+  expect(onPhaseChange).toHaveBeenCalledTimes(1);
+  expect(onPhaseChange).toHaveBeenLastCalledWith('upkeep');
+  // The host writes the same address back; an ordinary save, a rerender and
+  // dismissing the notice publish nothing more.
+  view.rerender(host({ phase: 'upkeep', onPhaseChange }));
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty die' });
+  await act(async () => {
+    fireEvent.change(die, { target: { value: '7' } });
+    fireEvent.blur(die);
+  });
+  await waitFor(() => expect(status()).toHaveTextContent('Changes saved.'));
+  fireEvent.click(within(notice()).getByRole('button', { name: 'Dismiss' }));
+  expect(notice()).toBeEmptyDOMElement();
+  view.rerender(host({ phase: 'upkeep', onPhaseChange }));
+  expect(onPhaseChange).toHaveBeenCalledTimes(1);
+  // A fresh owner (reload) on the new week publishes nothing.
+  view.unmount();
+  const fresh = vi.fn();
+  render(host({ phase: 'upkeep', onPhaseChange: fresh }));
+  await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+  expect(fresh).not.toHaveBeenCalled();
+});
+
 // The campaign shell mounts the owner without an opening phase (it cannot
 // read the page's address during render), so the board must apply the
 // requested phase itself once the store is ready.

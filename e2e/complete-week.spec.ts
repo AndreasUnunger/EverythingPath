@@ -66,6 +66,15 @@ test('a player confirms a complete week, every device moves to the next week onc
     await expect(remoteChangeNote(page)).toBeEmpty();
     await expect(confirmedWeekNotice(page)).toBeEmpty();
   }
+  // A third continuously mounted observer enters the Week directly without
+  // a phase query; it stays on Upkeep (address unchanged) until the
+  // successor arrives, and must then get an explicit `phase=upkeep`.
+  const campaignId = /\/campaigns\/([^/?#]+)/.exec(gm.url())![1]!;
+  const watcher = await gm.context().newPage();
+  await watcher.goto(`/campaigns/${campaignId}/week`);
+  await expect(heading(watcher, 'Week 1 · Upkeep')).toBeVisible();
+  expect(new URL(watcher.url()).searchParams.get('phase')).toBeNull();
+  await expect(confirmedWeekNotice(watcher)).toBeEmpty();
   await step(gm, 'Event');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
@@ -136,6 +145,12 @@ test('a player confirms a complete week, every device moves to the next week onc
     await expect(saveStatus(player)).not.toHaveText('Confirming the week…');
     for (const page of [gm, player])
       await expect(page.locator('[data-week-skeleton]')).toHaveCount(0);
+    // The unheld watcher simply observes the successor: Week 2 on Upkeep,
+    // its address now explicit, one notice with the exact link.
+    await expectConfirmedWeek(watcher, 1);
+    expect(new URL(watcher.url()).searchParams.get('phase')).toBe('upkeep');
+    await expect(heading(gm, 'Week 1 · Event')).toBeVisible();
+    await expect(heading(player, 'Week 1 · Review & confirm')).toBeVisible();
     // Release the observer first: it moves alone. The caller is still held.
     playerHold.release();
     await expectConfirmedWeek(player, 1);
@@ -151,6 +166,12 @@ test('a player confirms a complete week, every device moves to the next week onc
     gmHold.release();
     playerHold.release();
   }
+  // The watcher's address stays as written: exactly one phase value.
+  expect([...new URL(watcher.url()).searchParams.getAll('phase')]).toEqual([
+    'upkeep',
+  ]);
+  await expect(confirmedWeekNotice(watcher)).toHaveCount(1);
+  await watcher.close();
   expect(await gmSkeletons(), 'no skeleton on the caller').toBe(0);
   expect(await playerSkeletons(), 'no skeleton on the observer').toBe(0);
   await expect(saveStatus(gm)).not.toHaveText('Confirming the week…');

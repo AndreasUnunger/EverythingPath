@@ -83,15 +83,26 @@ function usePhaseAddress(
     unapplied.current = undefined;
   }, [ready, store]);
   const shown = ready ? workspace.phaseView.phase : null;
+  // Each observed same-campaign successor (the store's transition identity,
+  // published with the notice) writes `phase=upkeep` exactly once, even when
+  // the address already read Upkeep. Saves, rerenders, dismissing the notice
+  // and a fresh owner carry no new identity, so they publish nothing.
+  const transition = ready
+    ? (workspace.confirmedWeek?.transitionId ?? null)
+    : null;
+  const published = useRef<string | null>(null);
   useEffect(() => {
-    if (shown === null || !onPhaseChange || shown === requested.current) return;
+    if (shown === null || !onPhaseChange) return;
+    const observed = transition !== null && transition !== published.current;
+    if (observed) published.current = transition;
+    if (!observed && shown === requested.current) return;
     // A render already superseded by a store-side change publishes nothing;
     // the next render compares the live phase.
     const live = store?.getSnapshot();
     if (live?.status === 'ready' && live.phaseView.phase !== shown) return;
     requested.current = shown;
     onPhaseChange(shown);
-  }, [shown, onPhaseChange, store]);
+  }, [shown, transition, onPhaseChange, store]);
   return (next: Phase) => {
     requested.current = next;
     if (workspace.status === 'ready') {
