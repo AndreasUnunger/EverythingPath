@@ -927,3 +927,52 @@ Signed-off replacements/removals: [Finished weeks approval](https://github.com/A
 Contract: one `canonicalHistory.list({ campaignId, beforeWeek?, limit?, selectedWeek? })`, default 25/max 50; descending distinct-week rows plus older boundary and optional selected-row metadata. Each row has effective ID/sequence, entry count, provenance, Ruleset Version, creation time and at most two compact stored before/final comparison pairs. Campaign home calls the same query with `limit: 3`; no second listing query or full-record fanout. Existing `read` gains only selected/audit `createdAt`; visible audit Ruleset Versions use bounded existing record reads. No schema/date backfill, correction-note field, historical rewrite or resolver invocation. Selected detail consumes only its immutable record and the shared frozen presentation contract.
 
 Planned checks retain `complete-week`, the full `canonical-confirmation`/`canonical-persistence` contracts, `canonical-cutover`, access and existing-militia scenarios; update history UI selectors while keeping stable post-correction outcomes and exact copper-to-gp assertions. Extend history integration/record-view/control tests for >10 audit entries, >50 sparse weeks, latest-three projection, selected dates/versions, legacy/missing-source facts, membership/record scope, two-device selection, late-response isolation, retries and phone/tablet/desktop accessibility. Run typecheck/lint and relevant tests during implementation; this accounting does not claim those future checks passed.
+
+### Campaign list and home — planned coverage
+
+Implementation spec: [Implement the Campaign list and home with scoped creation and editing](https://github.com/AndreasUnunger/EverythingPath/issues/147), authored by [Write the Campaign list and home implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/134). This is **planned coverage**, not implemented UI or test evidence. Checked against main at `eef41f7bad19e63ecce858e7a4490c937a4ece89`. Preserve the current-location/E2E snapshot above until delivery. This is rollout position 12, after [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/146).
+
+
+Keep all original inventory IDs. The inventory change records **planned** ownership/coverage; current-location and E2E evidence change only after implementation. Each row maps to acceptance above and meaningful coverage below.
+
+| ID | Acceptance/coverage | Owner |
+| --- | --- | --- |
+| CAMP-01 | Active-organization rows, original first default, single/empty/many campaign states. | Home final list; shell previously preserves scaffold. |
+| CAMP-02 | In-pane campaign switching recorded in URL; reload/Back/Forward; independent device selection. | Home selection, shell routes/access. |
+| CAMP-03 | Explicit Name/Description pane form, 2–50 validation, returned-ID selection, pending/error/cancel. | Home and create result change. |
+| CAMP-04 | No campaigns yet plus Create a campaign to get started form. | Home. |
+| CAMP-05 | No-organization/no-access list states; no foreign campaign/week/metadata disclosure. | Home list, shell boundary, backend authorization. |
+| CAMP-06 | Previously stored/unshown description now displayed fully and in desktop preview; editing maps to CAMP-12. | Home. |
+| CAMP-07 — new | Display/edit optional Golarion in-game date using existing picker and mutation. | Home. |
+| CAMP-08 — new | Continue week N at first unready eligible phase; ready→review; no militia→Setup. | Home CTA, Week frame readiness, Setup destination. |
+| CAMP-09 — new | One-line militia summary and Open militia with occupied-role/team/attitude semantics. | Home; Militia/Characters owners provide existing facts/helpers. |
+| CAMP-10 — new | Latest-three distinct finished-week preview, headlines, provenance and links. | Home consumer; Finished weeks owns sole list API. |
+| CAMP-11 — new | Characters & officers/Characters entry with or without militia. | Home entry; Characters & officers destination. |
+| CAMP-12 — new | Edit description through authorized mutation, clearing, save/cancel/error and partial-save recovery. | Home. |
+| NAV-02 | Keep returns to campaign list. | Shell; home destination. |
+| NAV-03 | `/` redirects to list. | Shell; home destination. |
+| NAV-04 | All campaigns/list navigation reaches same screen. | Shell. |
+| NAV-05 | Sign in reachable in list/direct campaign state. | Shell. |
+| NAV-06 | Organization switcher in breadcrumb here, right top bar on campaign pages, phone More; switching returns to list. | Shell; home scoped state resets. |
+| NAV-07 | Account/sign out reachable. | Shell. |
+| NAV-08 | Auth skeleton until known. | Shell. |
+| NAV-09 | Phone bottom navigation/More integration and unobstructed form. | Shell. |
+| NAV-10 | Recent/All finished weeks links retain campaign/week. | Home entries; shell/frame/history retain theirs. |
+| NAV-11 | No-militia Setup entry. | Home entry; Setup destination. |
+| NAV-15 | Continue target uses five supported phase URLs and eligibility. | Week frame and shell; home consumes. |
+| NAV-17 | Scoped URL selection and legacy redirect preservation. | Shell; home consumes. |
+| WEEK-02 | Reuse all-phase readiness; no independent stored phase state. | Week frame; home navigation consumer. |
+| HIST-08 | Consume compact bounded finished-weeks list, never duplicate endpoint. | Finished weeks. |
+| STATE-01 | Readable maintenance banner and truthful failed writes. | Shell banner; home mutation feedback. |
+| STATE-02 | Campaign list/home-shaped skeleton and readable status. | Home; shell outer scaffold. |
+| STATE-03 | Failed list/page/local history retry preserves shell navigation. | Home retry; shell shared presentation. |
+| STATE-04 | No selected organization versus unavailable campaign recovery. | Home list; shell campaign boundary. |
+| STATE-06 | Created/edited values, setup/week/summary/history updates survive reload and reach other devices. | Shared regression obligation. |
+| STATE-07 | Signed-out/neutral unavailable direct campaign state; no stale content disclosure. | Shell. |
+
+**Signed-off replacements/removals:** [campaign-home approval](https://github.com/AndreasUnunger/EverythingPath/issues/118#issuecomment-5846080538) replaces the Active campaign picker on this list with rows (the campaign-page switcher remains), replaces the NEW CAMPAIGN dialog/pixel button with pane form/plus, removes the decorative `KEEPNET ◈ CAMPAIGN MANAGEMENT SYSTEM v0.0.1 ◈` banner, and omits next up. This does not remove Keep branding or rename the product. [Navigation approval](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561) moves the embedded Week/Ledger into scoped sections; all controls remain reachable. [Shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces old loading/error/org copy with skeleton/Try again/explicit states and maintenance-covering content with a readable banner. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/121#issuecomment-5846528685) rearranges the pane into an expanded phone row without losing actions. No other capability is removed.
+
+
+Planned verification: rewrite `access`/`access-nightly` picker assertions to rows and explicitly follow Continue week, retaining both-member/outsider checks and all persistence/Confirmation scenarios. Add create validation/returned-ID selection, description/date/clear and partial-save recovery, scope changes while loading/saving, first-unready eligible-phase routing, exact latest-three listing, two-device updates and phone/tablet/desktop coverage. Header date and description remain separate mutations; no atomic-save promise or second listing endpoint.
+
+The overlapping [Add new campaign flow instead of defaulting values](https://github.com/AndreasUnunger/EverythingPath/issues/94) remains an open implementation request dependent on this spec; its empty body adds no design requirements and specification publication is not feature completion.
