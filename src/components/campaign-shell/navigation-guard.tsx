@@ -158,7 +158,9 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
               onClick={() => {
                 const departure = failed;
                 setFailed(null);
-                if (departure) run(departure, true);
+                // A fresh request: work started while the first attempt was
+                // in flight gets its Stay/Leave decision before any retry.
+                if (departure) requestDeparture(departure);
               }}
             >
               Try again

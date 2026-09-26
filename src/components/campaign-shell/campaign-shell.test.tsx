@@ -530,6 +530,60 @@ test('a refused sign-out is reported after More has closed, and Try again repeat
   );
 });
 
+test('Try again re-checks pending work: an edit held since the first sign-out attempt gets Stay/Leave before any retry', async () => {
+  let reject: (error: Error) => void = () => undefined;
+  signOut
+    .mockImplementationOnce(
+      () =>
+        new Promise<void>((_, fail) => {
+          reject = fail;
+        }),
+    )
+    .mockResolvedValue(undefined);
+  const fixture = onWeekWithFixture();
+  render(shell('alpha', <Editor />));
+  await screen.findByRole('button', { name: 'Edit week 4' });
+  // No pending work: sign-out starts at once and More closes.
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Sign out' }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(signOut).toHaveBeenCalledTimes(1);
+  // The page is still editable; a save is held while sign-out is in flight.
+  const release = fixture.hold();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit week 4' }));
+  reject(new Error('network'));
+  const failure = await screen.findByRole('dialog', {
+    name: "That didn't finish",
+  });
+  fireEvent.click(within(failure).getByRole('button', { name: 'Try again' }));
+  expect(
+    screen.getByRole('dialog', { name: 'Changes are still saving' }),
+  ).toBeVisible();
+  expect(signOut).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+  expect(signOut).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByText('Feedback: pending')).toBeVisible();
+  // Retrying again while still pending offers the same decision; Leave runs once.
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  fireEvent.click(
+    within(await screen.findByRole('dialog', { name: 'More' })).getByRole(
+      'button',
+      { name: 'Sign out' },
+    ),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Leave anyway' }));
+  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(2));
+  release();
+  await screen.findByText('Feedback: saved');
+  expect(signOut).toHaveBeenCalledTimes(2);
+});
+
 test('a refused sign-out after Leave anyway is reported and can be dismissed', async () => {
   signOut.mockRejectedValue(new Error('network'));
   const fixture = onWeekWithFixture();
