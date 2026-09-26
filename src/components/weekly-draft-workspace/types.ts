@@ -1,3 +1,5 @@
+import type { CanonicalRoster } from '~/lib/canonical-roster';
+import type { ReferenceFacts } from './reference-facts';
 import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
@@ -43,7 +45,11 @@ export type UpkeepView = {
     selected: string | null;
     choices: { settlementId: string; name: string }[];
   };
-  officers: { characterId: string; name: string | null; roles: string[] }[];
+  officers: {
+    characterId: string;
+    name: string | null;
+    roles: CanonicalRoster['officers'][number]['role'][];
+  }[];
   transfers: {
     transferId: string;
     characterId: string;
@@ -188,6 +194,7 @@ export type WeeklyDraftWorkspace =
       week: number;
       phaseView: PhaseView;
       phases: PhaseReadiness[];
+      referenceFacts: ReferenceFacts;
       navigation: { previous: Phase | null; next: Phase | null };
       confirmationDisabledReason: string | null;
       feedback: 'idle' | 'pending' | 'saved' | 'failed' | 'confirming';

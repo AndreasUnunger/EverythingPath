@@ -1,5 +1,6 @@
 import { openCampaignSection } from './support/interactions';
 import { test, expect } from './support/fixtures';
+import { saveStatus } from './support/week-frame';
 
 test.use({ caseKey: 'completeWeek' });
 test('a player confirms a complete week and reloads its outcome', async ({
@@ -17,7 +18,7 @@ test('a player confirms a complete week and reloads its outcome', async ({
   });
   await roll.fill('100');
   await roll.blur();
-  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  await expect(saveStatus(page)).toHaveText('Changes saved.');
   await page
     .getByRole('button', { name: 'Review & confirm', exact: true })
     .click();

@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
 import { WeeklyWorkspaceBoard } from '~/components/weekly-draft-workspace/board';
 import {
-  campaignPath,
   normalizePhase,
   weekPath,
   type PhaseView,
@@ -26,10 +25,9 @@ function WeekHost() {
   );
   return (
     <WeeklyWorkspaceBoard
+      campaignId={campaignId}
       phase={phase}
       onPhaseChange={onPhaseChange}
-      setupHref={campaignPath(campaignId, 'setup')}
-      historyHref={campaignPath(campaignId, 'history')}
     />
   );
 }

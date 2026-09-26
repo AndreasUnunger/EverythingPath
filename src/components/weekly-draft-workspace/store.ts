@@ -1,3 +1,4 @@
+import { referenceFacts } from './reference-facts';
 import { createDraftPersistence } from '~/lib/weekly-draft-persistence';
 import { editWeeklyDraft } from '~/lib/weekly-draft';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
@@ -80,6 +81,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       week: accepted.week,
       phaseView: views.find((view) => view.phase === phase)!,
       phases,
+      referenceFacts: referenceFacts(source, forecast, preview, views),
       navigation: phaseNavigation(phase, phases),
       confirmationDisabledReason: confirmationDisabledReason({
         canConfirm,

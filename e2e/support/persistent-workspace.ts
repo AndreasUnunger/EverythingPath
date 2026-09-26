@@ -25,12 +25,16 @@ export async function exercisePersistentWorkspace(
   await expect(rivalry(player)).toContainText('Scouts');
   await expect(rivalry(player)).toContainText('Rangers');
   await expect(
-    gm.getByText('First buyoff is available immediately.', { exact: true }),
+    gm
+      .locator('[data-week-editor]')
+      .getByText('First buyoff is available immediately.', { exact: true }),
   ).toBeVisible();
   await button(old(gm), 'Buy off event').click();
   await expect(old(player)).toContainText('Buyoff staged: 4000 cp.');
   await expect(
-    gm.getByText('Next buyoff: week 8.', { exact: true }),
+    gm
+      .locator('[data-week-editor]')
+      .getByText('Next buyoff: week 8.', { exact: true }),
   ).toBeVisible();
   await expect(
     recent(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),

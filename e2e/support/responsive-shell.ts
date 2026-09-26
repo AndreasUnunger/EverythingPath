@@ -8,14 +8,15 @@ import { expect, type Locator, type Page } from '@playwright/test';
 // The Week route is bounded to the viewport at every width and scrolls its
 // editor column; every other page scrolls as a document.
 
-// The document, and on the bounded Week route also the frame that clips it
-// and the editor column that scrolls, all fit the viewport width.
+// The document, and on the bounded Week route also the frame that clips it,
+// the editor column that scrolls, the docked reference panel and any open
+// dialog or sheet, all fit their own width.
 export async function expectNoHorizontalOverflow(page: Page) {
   const overflowing = await page.evaluate(() => {
     const boxes = [
       document.documentElement,
       ...document.querySelectorAll(
-        '[data-shell-frame="bounded"], [data-week-host], [data-week-editor]',
+        '[data-shell-frame="bounded"], [data-week-host], [data-week-editor], [data-week-reference], [role="dialog"]',
       ),
     ];
     return boxes
@@ -66,15 +67,23 @@ export async function expectReachable(page: Page, control: Locator) {
       'page content sits above the bottom bar and its status strip',
     ).toBeLessThanOrEqual(bar.y + 1);
   }
+  // The footer is pinned under the editor column only; the reference panel
+  // beside it legitimately occupies the same vertical band.
   const footer = page.locator('[data-week-footer]:visible');
-  if ((await footer.count()) > 0 && (await isPageContent(control))) {
+  if ((await footer.count()) > 0 && (await isEditorContent(control))) {
     const pinned = (await footer.first().boundingBox())!;
     expect(
       bounds!.y + bounds!.height,
-      'page content sits above the pinned week footer',
+      'editor content sits above the pinned week footer',
     ).toBeLessThanOrEqual(pinned.y + 1);
   }
   await control.click({ trial: true });
+}
+
+function isEditorContent(control: Locator) {
+  return control.evaluate(
+    (element) => element.closest('[data-week-editor]') !== null,
+  );
 }
 
 // Page content is anything outside a dialog, outside the sticky bar that

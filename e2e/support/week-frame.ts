@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 // The Week frame (#151): five positions in rules order, readiness as each
 // step's accessible description, a locked Persistent that stays visible,
@@ -25,10 +25,11 @@ async function currentStep(page: Page) {
 }
 
 // The readiness line lives in the visible frame chrome: the pinned footer
-// from 768px, the strip above the bottom tabs below it. An empty line (the
-// correct Review & confirm state when confirmable) has no height, so the
-// visible container is asserted and the line itself is read without a
-// visibility requirement.
+// from 768px (the full sentence), the strip above the bottom tabs below it
+// (the short "N to decide" / "N warning(s)" form inside the reference
+// trigger). An empty line (the correct Review & confirm state when
+// confirmable) has no height, so the visible container is asserted and the
+// line itself is read without a visibility requirement.
 async function readinessLine(page: Page) {
   const chrome = page.locator(
     '[data-week-footer]:visible, [data-week-strip]:visible',
@@ -190,4 +191,261 @@ export async function exercisePhoneSteps(page: Page) {
   await expect(trigger).toHaveAccessibleName(
     new RegExp(`^Step \\d of 5 · ${origin}`),
   );
+}
+
+// The reference surfaces (#152): from 768px a closable docked panel with
+// This phase above Militia / Officers / History tabs and same-campaign
+// links; below 768px the strip's middle opens a bottom sheet with the same
+// body. Values are rules-driven, so these checks assert structure: Now and
+// After columns, an honest After, link targets and local visibility.
+
+/**
+ * The one save/confirmation status of the Week. Other polite statuses can
+ * legitimately exist beside it (the History tab's loading line), so save
+ * feedback is always read from this element rather than any status.
+ */
+export function saveStatus(page: Page) {
+  return page.getByRole('status').and(page.locator('[data-week-status]'));
+}
+
+export function referencePanel(page: Page) {
+  return page.getByRole('complementary', { name: 'Reference panel' });
+}
+
+function campaignIdFromUrl(page: Page) {
+  const match = /\/campaigns\/([^/?#]+)/.exec(page.url());
+  expect(match, 'on a campaign page').not.toBeNull();
+  return match![1]!;
+}
+
+// The History tab in health: the reader settles to at most three distinct
+// recent effective weeks, or the empty state, never a failure card.
+async function expectHealthyHistory(root: Locator, campaignId: string) {
+  await expect(root.getByRole('status')).toBeHidden();
+  await expect(root.getByRole('alert')).toHaveCount(0);
+  const list = root.getByRole('list', { name: 'Recent weeks' });
+  const empty = root.getByText('No finished weeks yet.', { exact: true });
+  await expect(list.or(empty)).toHaveCount(1);
+  if ((await list.count()) === 1) {
+    const links = list.getByRole('link');
+    const count = await links.count();
+    expect(count, 'between one and three recent weeks').toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(3);
+    const hrefs: string[] = [];
+    for (const link of await links.all()) {
+      const href = (await link.getAttribute('href'))!;
+      expect(href).toMatch(
+        new RegExp(`^/campaigns/${campaignId}/history\\?week=\\d+$`),
+      );
+      await expect(link).toHaveText(/^Week \d+$/);
+      hrefs.push(href);
+    }
+    expect(new Set(hrefs).size, 'distinct weeks').toBe(hrefs.length);
+  }
+  await expect(
+    root.getByRole('link', { name: 'All finished weeks', exact: true }),
+  ).toHaveAttribute('href', `/campaigns/${campaignId}/history`);
+}
+
+async function expectReferenceBody(page: Page, root: Locator) {
+  const campaignId = campaignIdFromUrl(page);
+  await expect(root.getByRole('region', { name: 'This phase' })).toHaveCount(1);
+  await expect(root.getByRole('tab', { name: 'Militia' })).toBeVisible();
+  const values = root.getByRole('table', { name: 'Militia values' });
+  await expect(values).toBeVisible();
+  await expect(values.getByRole('columnheader', { name: 'Now' })).toBeVisible();
+  await expect(
+    values.getByRole('columnheader', { name: 'After the week' }),
+  ).toBeVisible();
+  for (const name of ['Rank', 'Training', 'Treasury', 'Notoriety', 'Focus'])
+    await expect(
+      values.getByRole('rowheader', { name, exact: true }),
+    ).toBeVisible();
+  // After the week is either a value or the explicit awaiting state; a
+  // zero-looking fallback is never shown for an incomplete forecast.
+  const training = values.getByRole('row', { name: /^Training/ });
+  await expect(training.getByRole('cell').nth(0)).toHaveText(/^\d+$/);
+  await expect(training.getByRole('cell').nth(1)).toHaveText(
+    /^(\d+|Awaiting decisions)$/,
+  );
+  await expect(root.getByRole('region', { name: 'This week' })).toContainText(
+    /used/,
+  );
+  await expect(
+    root.getByRole('link', { name: 'Open militia', exact: true }),
+  ).toHaveAttribute('href', `/campaigns/${campaignId}/militia`);
+  await root.getByRole('tab', { name: 'Officers' }).click();
+  await expect(
+    root.getByRole('link', { name: 'Characters & officers', exact: true }),
+  ).toHaveAttribute('href', `/campaigns/${campaignId}/characters`);
+  await root.getByRole('tab', { name: 'History' }).click();
+  await expectHealthyHistory(root, campaignId);
+  await root.getByRole('tab', { name: 'Militia' }).click();
+  // Long team, officer and event names wrap inside the fixed-width surface
+  // rather than widening it or scrolling sideways.
+  expect(
+    await root.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    ),
+    'the reference surface does not overflow sideways',
+  ).toBe(true);
+}
+
+// The panel scrolls its own long contents while the document, the editor
+// column and the pinned chrome stay exactly where they were.
+async function expectPanelScrolls(page: Page, panel: Locator) {
+  const editor = page.locator('[data-week-editor]');
+  const before = await page.evaluate(() => ({
+    document: window.scrollY,
+    editor: document.querySelector('[data-week-editor]')!.scrollTop,
+    footer: document
+      .querySelector('[data-week-footer]')!
+      .getBoundingClientRect()
+      .toJSON() as { y: number },
+  }));
+  const last = panel
+    .locator('*:visible:not(:has(*))')
+    .filter({ hasText: /\S/ });
+  await expect(last.last()).toBeAttached();
+  await last.last().scrollIntoViewIfNeeded();
+  await expect(last.last()).toBeVisible();
+  const tall = await panel.evaluate(
+    (element) => element.scrollHeight > element.clientHeight + 1,
+  );
+  if (tall)
+    expect(
+      await panel.evaluate((element) => element.scrollTop),
+      'the panel scrolled to reach its last content',
+    ).toBeGreaterThan(0);
+  const after = await page.evaluate(() => ({
+    document: window.scrollY,
+    editor: document.querySelector('[data-week-editor]')!.scrollTop,
+    footer: document
+      .querySelector('[data-week-footer]')!
+      .getBoundingClientRect()
+      .toJSON() as { y: number },
+  }));
+  expect(after.document, 'the document did not scroll').toBe(before.document);
+  expect(after.editor, 'the editor did not scroll').toBe(before.editor);
+  expect(after.footer.y, 'the footer stayed pinned').toBe(before.footer.y);
+  await expect(editor).toBeVisible();
+  await panel.evaluate((element) => element.scrollTo(0, 0));
+}
+
+/**
+ * From 768px: the docked panel's body and links, its own scrolling, the
+ * toggle, and the remembered (browser-local) visibility across a reload.
+ */
+export async function exerciseReferencePanel(page: Page) {
+  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(768);
+  const { height } = page.viewportSize()!;
+  const panel = referencePanel(page);
+  const show = page.getByRole('button', { name: 'Show reference panel' });
+  const hide = page.getByRole('button', { name: 'Hide reference panel' });
+  if (await show.isVisible()) await show.click();
+  await expect(panel).toHaveCount(1);
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  expect(
+    box.y + box.height,
+    'panel ends within the viewport',
+  ).toBeLessThanOrEqual(height + 1);
+  await expectReferenceBody(page, panel);
+  await expectPanelScrolls(page, panel);
+  await expect(hide).toHaveAttribute('aria-expanded', 'true');
+  await hide.focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeHidden();
+  await expect(show).toHaveAttribute('aria-expanded', 'false');
+  await expect(show).toBeFocused();
+  // The editor takes the panel's space; readiness stays in the stepper.
+  await expect(
+    stepper(page).locator('button[aria-current="step"]'),
+  ).toHaveCount(1);
+  await page.reload();
+  await expect(show).toBeVisible();
+  await expect(panel).toBeHidden();
+  await show.click();
+  await expect(panel).toBeVisible();
+  await page.reload();
+  await expect(panel).toBeVisible();
+}
+
+/**
+ * A history read that fails stays inside the History tab (failure card and
+ * Try again) while the editor keeps saving; a retry after the fault clears
+ * restores the healthy list. `network` is the page's websocket control.
+ */
+export async function exerciseReferenceHistoryFailure(
+  page: Page,
+  network: { failHistory: (failing: boolean) => void },
+  editInput: Locator,
+  values: [string, string],
+) {
+  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(768);
+  const campaignId = campaignIdFromUrl(page);
+  const panel = referencePanel(page);
+  await expect(panel).toBeVisible();
+  // Leave History so the next visit subscribes afresh under the fault.
+  await panel.getByRole('tab', { name: 'Militia' }).click();
+  network.failHistory(true);
+  await panel.getByRole('tab', { name: 'History' }).click();
+  const failure = panel.getByRole('alert');
+  await expect(failure).toHaveCount(1);
+  await expect(failure).toHaveText(/Recent weeks could not be loaded\./);
+  await expect(
+    panel.getByRole('link', { name: 'All finished weeks', exact: true }),
+  ).toHaveAttribute('href', `/campaigns/${campaignId}/history`);
+  // Editing is unaffected: the input accepts a value and the Week's own
+  // status reports the save.
+  await editInput.fill(values[0]);
+  await expect(editInput).toHaveValue(values[0]);
+  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await expect(failure).toHaveCount(1);
+  network.failHistory(false);
+  await failure.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expectHealthyHistory(panel, campaignId);
+  await editInput.fill(values[1]);
+  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await panel.getByRole('tab', { name: 'Militia' }).click();
+}
+
+/**
+ * Below 768px: the strip's middle button carries Training and Treasury and
+ * opens the reference sheet; Escape and Close each close it and return
+ * focus.
+ */
+export async function exercisePhoneReference(page: Page) {
+  expect(page.viewportSize()!.width).toBeLessThan(768);
+  await expect(referencePanel(page)).toBeHidden();
+  const trigger = page.locator('[data-week-strip-trigger]');
+  await expect(trigger).toHaveCount(1);
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toHaveAccessibleName(/^Reference:.*Training.*Treasury/);
+  await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  const sheet = page.getByRole('dialog', { name: 'Reference', exact: true });
+  await expect(sheet).toBeVisible();
+  expect(
+    await sheet.evaluate((dialog) => dialog.contains(document.activeElement)),
+    'focus moves into the reference sheet',
+  ).toBe(true);
+  await expectReferenceBody(page, sheet);
+  // Tab never leaves the sheet while it is open.
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press('Tab');
+    expect(
+      await sheet.evaluate((dialog) => dialog.contains(document.activeElement)),
+      'focus stays inside the reference sheet',
+    ).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await expect(trigger).toBeFocused();
 }

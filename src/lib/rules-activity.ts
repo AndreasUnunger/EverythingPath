@@ -437,7 +437,7 @@ function validateRecruitmentCapacity(
     (change): change is Extract<ActivityChange, { kind: 'recruit_team' }> =>
       change.kind === 'recruit_team' && countedIds.has(change.team.teamId),
   );
-  const capacity = foundations(draft, result).capacity.teams;
+  const capacity = activityFoundations(draft, result).capacity.teams;
   let count = countedIds.size - recruits.length;
   for (const recruitment of recruits) {
     count++;
@@ -618,7 +618,10 @@ function foundationInput(
     checkUsage: result.checkUsage,
   };
 }
-function foundations(draft: WeeklyDraft, result: ActivityProjection) {
+export function activityFoundations(
+  draft: WeeklyDraft,
+  result: ActivityProjection,
+) {
   return projectRulesFoundations(foundationInput(draft, result));
 }
 function lieLow(
@@ -752,7 +755,7 @@ function drillEligible(
   let eligible = true;
   if (earlierDrills > 0)
     eligible = exception(draft, result, choice, 'drill-limit');
-  const cap = foundations(draft, result).progression.highestPcLevel;
+  const cap = activityFoundations(draft, result).progression.highestPcLevel;
   if (cap === null) {
     result.requirements.push(`${choice.choiceId}:highest-level-pc`);
     return false;
@@ -819,7 +822,7 @@ export function projectActivity(
   let drills = 0;
   for (const [index, slot] of draft.activity.slots.entries()) {
     const choice = slot.choice;
-    const facts = foundations(draft, result);
+    const facts = activityFoundations(draft, result);
     const overAllowance = index >= facts.capacity.actions && choice !== null;
     result.slots.push({
       ...structuredClone(slot),

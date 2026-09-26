@@ -1,59 +1,19 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useConvex, useConvexAuth } from 'convex/react';
+import { useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { zid } from 'convex-helpers/server/zod4';
-import type { FunctionReturnType } from 'convex/server';
 import type { Id } from '../../../convex/_generated/dataModel';
-import { api } from '../../../convex/_generated/api';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { campaignPath, type HistorySelection } from '~/lib/campaign-routes';
 import { HistoricalRecordView, provenanceLabels } from './record-view';
-type History = NonNullable<
-  FunctionReturnType<typeof api.canonicalHistory.read>
->;
+import {
+  useCanonicalHistory,
+  type CanonicalHistory as History,
+} from './use-canonical-history';
 type Selection = HistorySelection;
-function useHistory(
-  campaignId: Id<'campaign'>,
-  selection: Selection,
-  attempt: number,
-) {
-  const convex = useConvex();
-  const { week, recordId, beforeSequence } = selection;
-  const key = JSON.stringify([
-    campaignId,
-    week,
-    recordId,
-    beforeSequence,
-    attempt,
-  ]);
-  const [result, setResult] = useState<{
-    key: string;
-    data?: History | null;
-    failed?: boolean;
-  }>();
-  useEffect(() => {
-    const watch = convex.watchQuery(api.canonicalHistory.read, {
-      campaignId,
-      week,
-      recordId,
-      beforeSequence,
-    });
-    const update = () => {
-      try {
-        setResult({ key, data: watch.localQueryResult() });
-      } catch {
-        setResult({ key, failed: true });
-      }
-    };
-    const stop = watch.onUpdate(update);
-    update();
-    return stop;
-  }, [convex, campaignId, week, recordId, beforeSequence, key]);
-  return result?.key === key ? result : undefined;
-}
 export function HistoricalWeekNavigation({
   history,
   select,
@@ -151,7 +111,7 @@ function HistoryBrowser({
   select: (selection: Selection) => void;
 }) {
   const [attempt, setAttempt] = useState(0);
-  const result = useHistory(campaignId, selection, attempt);
+  const result = useCanonicalHistory(campaignId, selection, attempt);
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
       <Button asChild variant="outline">

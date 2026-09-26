@@ -4,7 +4,15 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './support/responsive-shell';
-import { exercisePhoneSteps, exerciseWeekFrame } from './support/week-frame';
+import {
+  exercisePhoneReference,
+  exercisePhoneSteps,
+  exerciseReferenceHistoryFailure,
+  exerciseReferencePanel,
+  exerciseWeekFrame,
+  referencePanel,
+  saveStatus,
+} from './support/week-frame';
 import {
   prepareWeekHistory,
   stayOnPendingWeek,
@@ -97,8 +105,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     page.getByRole('textbox', { name: 'Attrition Loyalty die', exact: true });
   const training = (page: typeof gm) =>
     page.getByRole('textbox', { name: 'Attrition training die', exact: true });
-  const saved = () =>
-    expect(gm.getByRole('status')).toHaveText('Changes saved.');
+  const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
   try {
     await Promise.all([
       gm.goto(route),
@@ -121,8 +128,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
         exact: true,
       }),
     ).toHaveCount(0);
-    await expect(gm.getByText('Calculated bonus')).toContainText('+3');
-    await expect(gm.getByText('1d20 · DC 10')).toBeVisible();
+    const editor = gm.locator('[data-week-editor]');
+    await expect(editor.getByText('Calculated bonus')).toContainText('+3');
+    await expect(editor.getByText('1d20 · DC 10')).toBeVisible();
     await die(gm).fill('10');
     await expect(die(player)).toHaveValue('10');
     await training(gm).fill('3');
@@ -142,7 +150,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await die(gm).fill('0');
     await expect(die(player)).toHaveValue('0');
     await expect(
-      gm.getByText('Your entered value is retained for the table.', {
+      editor.getByText('Your entered value is retained for the table.', {
         exact: false,
       }),
     ).toBeVisible();
@@ -212,7 +220,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const captured = network.hold();
     await die(gm).fill('12');
     await captured;
-    await expect(gm.getByRole('status')).toHaveText('Saving changes…');
+    await expect(saveStatus(gm)).toHaveText('Saving changes…');
     await gm.getByRole('button', { name: 'Activity', exact: true }).tap();
     await expect(
       gm.getByRole('heading', { name: 'Week 4 · Activity', exact: true }),
@@ -233,9 +241,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await warning.dismiss();
     await reload;
     await die(player).fill('14');
-    await expect(player.getByRole('status')).toHaveText('Changes saved.');
+    await expect(saveStatus(player)).toHaveText('Changes saved.');
     network.release();
-    await expect(gm.getByRole('status')).toHaveText(
+    await expect(saveStatus(gm)).toHaveText(
       'Changes could not be saved. The latest saved values are shown.',
     );
     await expect(
@@ -263,8 +271,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
     ).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await exerciseWeekFrame(gm);
+    await exerciseReferencePanel(gm);
+    await exerciseReferenceHistoryFailure(gm, network, die(gm), ['15', '16']);
+    await expect(die(player)).toHaveValue('16');
     for (const [name, width, height] of [
       ['tablet', 1194, 834],
+      ['tablet-narrow', 1180, 820],
       ['phone', 390, 844],
       ['desktop', 1440, 900],
     ] as const) {
@@ -272,7 +284,21 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect(
         gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
       ).toBeVisible();
-      if (name === 'phone') await exercisePhoneSteps(gm);
+      if (name === 'phone') {
+        await exercisePhoneSteps(gm);
+        await exercisePhoneReference(gm);
+      } else {
+        // The panel is open at every wide size; the editor stays bounded
+        // and reachable with it open and with it closed.
+        await expect(referencePanel(gm)).toBeVisible();
+        await expectNoHorizontalOverflow(gm);
+        await expectBoundedWeekHost(gm);
+        await gm.getByRole('button', { name: 'Hide reference panel' }).click();
+        await expect(referencePanel(gm)).toBeHidden();
+        await expectBoundedWeekHost(gm);
+        await gm.getByRole('button', { name: 'Show reference panel' }).click();
+        await expect(referencePanel(gm)).toBeVisible();
+      }
       await expectNoHorizontalOverflow(gm);
       const officer = gm
         .getByRole('group', { name: 'Officer', exact: true })
@@ -462,7 +488,11 @@ test('players prepare shared Upkeep with independent navigation and save recover
           .getByRole('region', { name: 'Rules Baseline', exact: true })
           .getByText('3000 cp', { exact: true }),
       ).toBeVisible();
-      await expect(page.getByText('3500 cp', { exact: true })).toBeVisible();
+      await expect(
+        page
+          .getByRole('region', { name: 'Final preview', exact: true })
+          .getByText('3500 cp', { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'Confirm week', exact: true }),
       ).toBeEnabled();
@@ -669,9 +699,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
       releases.push(stale.release);
       await confirm(first).click();
       await expect.poll(stale.observed).toBe(true);
-      await expect(first.getByRole('status')).toHaveText(
-        'Confirming the week…',
-      );
+      await expect(saveStatus(first)).toHaveText('Confirming the week…');
       await stayOnPendingWeek(first, 'back', 'Confirming the week…');
       await expect(confirm(first)).toBeDisabled();
       await expect(

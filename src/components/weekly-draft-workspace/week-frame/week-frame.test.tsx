@@ -12,7 +12,23 @@ import {
   ShellSlotProvider,
 } from '~/components/campaign-shell/shell-slots';
 import type { Phase, PhaseReadiness } from '../types';
+import {
+  referenceFactsFixture,
+  referencePanelFixture,
+} from './reference-test-fixture';
 import { WeekFrame, WeekSkeleton } from './week-frame';
+
+vi.mock('next/link', () => ({
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.ComponentProps<'a'> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
 
 afterEach(cleanup);
 
@@ -69,6 +85,7 @@ function frame(
     eligible?: boolean;
     reason?: string | null;
     choose?: (phase: Phase) => void;
+    open?: boolean;
   } = {},
 ) {
   const eligible = options.eligible ?? false;
@@ -80,6 +97,10 @@ function frame(
       navigation={navigationFor(phase, eligible)}
       confirmationDisabledReason={options.reason ?? null}
       choose={options.choose ?? (() => undefined)}
+      reference={{
+        facts: referenceFactsFixture(),
+        panel: referencePanelFixture({ open: options.open ?? true }),
+      }}
       status={<p role="status">Prepare the week together.</p>}
     >
       <button type="button">Editor control</button>
@@ -119,8 +140,10 @@ test('five positions stay in rules order with exact names, readiness description
   expect(review).toBeEnabled();
   expect(review).not.toHaveAttribute('aria-describedby');
   expect(review).toHaveTextContent(/^Review & confirm$/);
-  // The old visible duplicate heading is gone; only the accessible one remains.
-  expect(screen.getAllByRole('heading')).toHaveLength(1);
+  // The old visible duplicate heading is gone; only the accessible one
+  // names the page. The reference panel's section headings are level 2.
+  expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole('heading', { level: 1 })).toHaveClass('sr-only');
 });
 
 test('the footer skips a locked Persistent, never wraps and shows the current readiness line', () => {
@@ -225,7 +248,7 @@ test('Review & confirm on the phone button has no readiness caption', () => {
   expect(trigger).toHaveTextContent(/^Step 5 of 5 · Review & confirm$/);
 });
 
-test('the phone strip fills the shell host with previous/next and the readiness line', () => {
+test('the phone strip fills the shell host with previous/next around the reference values and short readiness', () => {
   const choose = vi.fn();
   render(
     <ShellSlotProvider>
@@ -241,10 +264,45 @@ test('the phone strip fills the shell host with previous/next and the readiness 
   fireEvent.click(strip.getByRole('button', { name: 'Next: Event' }));
   expect(choose).toHaveBeenLastCalledWith('event');
   expect(
-    strip.getByText(
+    strip.getByRole('button', { name: /^Reference:/ }),
+  ).toHaveAccessibleName(
+    /^Reference:\s*Training\s*14 → …\s*Treasury\s*50 gp → …\s*2 to decide$/,
+  );
+  // The footer keeps the full sentence; the strip carries the short form.
+  expect(
+    screen.getByText(
       'Complete the required rolls and decisions to finish Activity. 1 warning.',
     ),
   ).toBeInTheDocument();
+});
+
+test('the docked reference panel shows This phase for the current step and closes on preference', () => {
+  const view = render(frame('activity'));
+  const panel = screen.getByRole('complementary', { name: 'Reference panel' });
+  expect(
+    within(panel).getByRole('region', { name: 'This phase' }),
+  ).toHaveTextContent('To decide: aTo decide: bWarning: w');
+  expect(
+    screen.getByRole('button', { name: 'Hide reference panel' }),
+  ).toBeInTheDocument();
+  view.rerender(frame('summary', { reason: '3 decisions left' }));
+  // Review & confirm uses its aggregate facts; no readiness caption anywhere.
+  expect(
+    within(
+      screen.getByRole('complementary', { name: 'Reference panel' }),
+    ).getByRole('region', { name: 'This phase' }),
+  ).toHaveTextContent(
+    'To decide: aTo decide: bTo decide: pWarning: wWarning: x',
+  );
+  view.rerender(frame('activity', { open: false }));
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Show reference panel' }),
+  ).toBeInTheDocument();
+  // Readiness for the editor stays in the stepper and footer.
+  expect(
+    stepper().getByRole('button', { name: 'Activity' }),
+  ).toHaveAccessibleDescription('2 to decide · 1 warning');
 });
 
 test('the loading skeleton keeps a readable status without a heading', () => {

@@ -260,8 +260,11 @@ test('all phase decisions follow optimistic edits and rollback while navigation 
   try {
     await expect.poll(() => ready(workspace).canConfirm).toBe(true);
     expect(ready(workspace).confirmationDisabledReason).toBeNull();
+    expect(ready(workspace).referenceFacts.after?.treasuryCopper).toBe(3000);
     const saving = ready(workspace).edit({ kind: 'event_chance', roll: null });
     const optimistic = ready(workspace);
+    expect(optimistic.referenceFacts.after).toBeNull();
+    expect(optimistic.referenceFacts.now.treasuryCopper).toBe(3000);
     expect(optimistic.phaseView.phase).toBe('upkeep');
     expect(
       optimistic.phases.find((item) => item.phase === 'event')!.requirements,
@@ -284,6 +287,7 @@ test('all phase decisions follow optimistic edits and rollback while navigation 
     expect(await saving).toBe('failed');
     await expect.poll(() => ready(workspace).forecastPending).toBe(false);
     const restored = ready(workspace);
+    expect(restored.referenceFacts.after?.treasuryCopper).toBe(3000);
     expect(restored.phaseView.phase).toBe('summary');
     expect(
       restored.phases.find((item) => item.phase === 'event')!.requirements,
@@ -319,6 +323,7 @@ test('accepted remote edits refresh every phase without changing either playerâ€
     await ready(editor).edit({ kind: 'event_chance', roll: null });
     await expect.poll(() => ready(observer).forecastPending).toBe(false);
     const state = ready(observer);
+    expect(state.referenceFacts.after).toBeNull();
     expect(state.phaseView.phase).toBe('activity');
     expect(ready(editor).phaseView.phase).toBe('event');
     expect(
@@ -335,6 +340,7 @@ test('accepted remote edits refresh every phase without changing either playerâ€
     await ready(editor).edit({ kind: 'event_chance', roll: roll(100, 101) });
     await expect.poll(() => ready(observer).canConfirm).toBe(true);
     const warned = ready(observer);
+    expect(warned.referenceFacts.after?.treasuryCopper).toBe(3000);
     expect(warned.phaseView.phase).toBe('activity');
     expect(warned.phases.find((item) => item.phase === 'event')).toMatchObject({
       ready: true,

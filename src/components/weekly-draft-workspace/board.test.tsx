@@ -159,11 +159,7 @@ function host(props: {
       openingPhase={props.phase}
     >
       <WeekProbe />
-      <WeeklyWorkspaceBoard
-        {...props}
-        setupHref="/campaigns/campaign/setup"
-        historyHref="/campaigns/campaign/history"
-      />
+      <WeeklyWorkspaceBoard {...props} campaignId="campaign" />
     </CampaignWorkspaceProvider>
   );
 }
@@ -196,10 +192,10 @@ test('[shell.phase] address phase changes move this player without rebuilding th
     screen.getByRole('heading', { name: 'Week 4 · Review & confirm' }),
   ).toBeVisible();
   expect(factory).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('link', { name: 'Finished weeks' })).toHaveAttribute(
-    'href',
-    '/campaigns/campaign/history',
-  );
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'History' }));
+  expect(
+    screen.getByRole('link', { name: 'All finished weeks' }),
+  ).toHaveAttribute('href', '/campaigns/campaign/history');
   view.unmount();
   expect(factory).toHaveBeenCalledTimes(1);
 });
@@ -210,10 +206,22 @@ test('[shell.standalone] the standalone screen hosts one owner with the same lin
   render(<CanonicalWorkspaceScreen campaign="campaign" phase="upkeep" />);
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
   expect(factory).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('link', { name: 'Finished weeks' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Open militia' })).toHaveAttribute(
     'href',
-    '/campaigns/campaign/history',
+    '/campaigns/campaign/militia',
   );
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Officers' }));
+  expect(
+    screen.getByRole('link', { name: 'Characters & officers' }),
+  ).toHaveAttribute('href', '/campaigns/campaign/characters');
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'History' }));
+  expect(
+    screen.getByRole('link', { name: 'All finished weeks' }),
+  ).toHaveAttribute('href', '/campaigns/campaign/history');
+  // No setup notes were recorded, so there is no notes button.
+  expect(
+    screen.queryByRole('button', { name: 'Setup notes' }),
+  ).not.toBeInTheDocument();
 });
 
 test('[shell.failed] a failed week offers a page-local retry that rebuilds the Workspace', async () => {

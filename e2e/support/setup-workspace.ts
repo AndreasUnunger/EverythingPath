@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { expect, type Page } from '@playwright/test';
 import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
+import { saveStatus } from './week-frame';
 
 // Uses the same owned campaign, auth contexts, reset and cleanup as #26/#27.
 export async function exerciseMilitiaSetup(
@@ -157,10 +158,43 @@ export async function exerciseMilitiaSetup(
         exact: true,
       }),
     ).toBeVisible();
+    if (!existing)
+      // A fresh setup recorded no notes, so there is no notes button.
+      await expect(
+        players.player.getByRole('button', {
+          name: 'Setup notes',
+          exact: true,
+        }),
+      ).toHaveCount(0);
     if (existing) {
-      await expect(players.player.getByLabel('Setup notes')).toContainText(
-        'week twelve',
-      );
+      // Setup notes open from their button beside the status (#152); the
+      // dialog traps focus and returns it on Escape and on Close.
+      const notesButton = players.player.getByRole('button', {
+        name: 'Setup notes',
+        exact: true,
+      });
+      await notesButton.focus();
+      await players.player.keyboard.press('Enter');
+      const notes = players.player.getByRole('dialog', {
+        name: 'Setup notes',
+        exact: true,
+      });
+      await expect(notes).toContainText('week twelve');
+      // The notes wrap inside the dialog; nothing is clipped sideways.
+      expect(
+        await notes.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+        'notes wrap within the dialog',
+      ).toBe(true);
+      await players.player.keyboard.press('Escape');
+      await expect(notes).toBeHidden();
+      await expect(notesButton).toBeFocused();
+      await notesButton.click();
+      await expect(notes).toBeVisible();
+      await notes.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(notes).toBeHidden();
+      await expect(notesButton).toBeFocused();
       // Resuming a militia requires ordinary Upkeep before confirmation.
       await players.player
         .getByRole('textbox', { name: 'Attrition Loyalty die', exact: true })
@@ -171,9 +205,7 @@ export async function exerciseMilitiaSetup(
       });
       await training.fill('1');
       await training.blur();
-      await expect(players.player.getByRole('status')).toHaveText(
-        'Changes saved.',
-      );
+      await expect(saveStatus(players.player)).toHaveText('Changes saved.');
       await expect(players.player.getByTestId('upkeep-training')).toHaveText(
         '1',
       );

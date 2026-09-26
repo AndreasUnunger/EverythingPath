@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
+import { saveStatus } from './week-frame';
 
 const region = (page: Page) =>
   page.getByRole('region', { name: 'Table Adjustments', exact: true });
@@ -31,7 +32,7 @@ async function save(page: Page, peer: Page, form: Locator, reason: string) {
       .filter({ visible: true })
       .last(),
   ).toHaveValue(reason);
-  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  await expect(saveStatus(page)).toHaveText('Changes saved.');
 }
 async function choose(form: Locator, field: string, value: string) {
   await form
@@ -187,7 +188,7 @@ export async function reviewSummaryWorkspace(
     ).click();
     await expect(region(peer).locator('article')).toHaveCount(count - 1);
   }
-  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  await expect(saveStatus(page)).toHaveText('Changes saved.');
   // Compare the displayed pre-adjustment outcome with the restored one, with disclosures closed again.
   for (const disclosure of await final.locator('details').all())
     if (await disclosure.evaluate((element) => element.hasAttribute('open')))

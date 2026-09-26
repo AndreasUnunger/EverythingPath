@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { openCampaignSection } from './interactions';
+import { saveStatus } from './week-frame';
 
 // Build real same-document history through the shell, so a native
 // beforeunload warning cannot accidentally satisfy the departure contract.
@@ -29,7 +30,7 @@ export async function stayOnPendingWeek(
   await warning.getByRole('button', { name: 'Stay', exact: true }).click();
   await expect(warning).toBeHidden();
   await expect(page).toHaveURL(weekUrl);
-  await expect(page.getByRole('status')).toHaveText(feedback);
+  await expect(saveStatus(page)).toHaveText(feedback);
   await expect(page.getByRole('heading', { name: /^Week \d+ · / })).toHaveCount(
     1,
   );

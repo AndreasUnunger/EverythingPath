@@ -22,9 +22,19 @@ export async function openCampaignSection(
   page: Page,
   section: 'week' | 'history' | 'militia' | 'characters' | 'setup',
 ) {
-  const link = page
-    .locator(`a[href$="/${section}"]:visible, a[href*="/${section}?"]:visible`)
-    .first();
+  // Shell sections are the one visible "Campaign sections" navigation (top
+  // bar or phone bottom bar). Setup is not a section item; its link sits in
+  // the page content of the campaign home and empty states. Reference links
+  // to the same destinations live in the Week reference panel and are
+  // exercised there, never chosen here.
+  const link =
+    section === 'setup'
+      ? page.locator('main').locator('a[href$="/setup"]:visible')
+      : page
+          .getByRole('navigation', { name: 'Campaign sections', exact: true })
+          .locator('visible=true')
+          .locator(`a[href$="/${section}"], a[href*="/${section}?"]`);
+  await expect(link).toHaveCount(1);
   await expect(link).toBeVisible();
   await link.click();
   await expect(page).toHaveURL(

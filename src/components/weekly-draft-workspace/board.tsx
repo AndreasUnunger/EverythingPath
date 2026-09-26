@@ -17,6 +17,8 @@ import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
+import { SetupNotesButton } from './week-frame/setup-notes';
+import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
 import type { Phase, WeeklyDraftWorkspace } from './types';
 // Real document departures (reload, close, typed address) get the browser's
@@ -94,7 +96,12 @@ function WorkspaceStatus({
   feedback: Extract<WeeklyDraftWorkspace, { status: 'ready' }>['feedback'];
 }) {
   return (
-    <p role="status" aria-live="polite" className="min-w-0 text-sm">
+    <p
+      role="status"
+      aria-live="polite"
+      data-week-status
+      className="min-w-0 text-sm"
+    >
       {feedback === 'pending'
         ? 'Saving changes…'
         : feedback === 'confirming'
@@ -107,14 +114,14 @@ function WorkspaceStatus({
     </p>
   );
 }
+// `campaignId` scopes every reference link (Militia, Characters & officers,
+// Finished weeks, Setup) to this campaign; without it the links stay off.
 export function WeeklyWorkspaceBoard({
-  historyHref,
-  setupHref,
+  campaignId = null,
   phase,
   onPhaseChange,
 }: {
-  historyHref?: string;
-  setupHref?: string;
+  campaignId?: string | null;
   phase?: Phase;
   onPhaseChange?: (phase: Phase) => void;
 }) {
@@ -128,6 +135,8 @@ export function WeeklyWorkspaceBoard({
     phase,
     onPhaseChange,
   );
+  const panel = useReferencePanel(campaignId);
+  const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
   if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
   if (workspace.status !== 'ready')
     return (
@@ -159,27 +168,9 @@ export function WeeklyWorkspaceBoard({
       navigation={workspace.navigation}
       confirmationDisabledReason={workspace.confirmationDisabledReason}
       choose={choosePhase}
-      status={
-        <>
-          <WorkspaceStatus feedback={workspace.feedback} />
-          {historyHref && (
-            <Button asChild variant="outline" size="sm">
-              <GuardedLink href={historyHref}>Finished weeks</GuardedLink>
-            </Button>
-          )}
-        </>
-      }
-      notes={
-        workspace.setupNotes && (
-          <aside
-            aria-label="Setup notes"
-            className="border-primary/40 bg-primary/10 short:max-h-14 short:p-2 mx-3 mt-2 max-h-[max(3.5rem,20dvh)] shrink-0 overflow-y-auto border p-3 text-sm md:mx-4"
-          >
-            <h2 className="font-semibold">Setup notes</h2>
-            <p>{workspace.setupNotes}</p>
-          </aside>
-        )
-      }
+      reference={{ facts: workspace.referenceFacts, panel }}
+      status={<WorkspaceStatus feedback={workspace.feedback} />}
+      notes={<SetupNotesButton notes={workspace.setupNotes} />}
     >
       {view.phase === 'upkeep' ? (
         <UpkeepView view={view} edit={workspace.edit} disabled={disabled} />
@@ -224,10 +215,9 @@ export function CanonicalWorkspaceScreen({
       openingPhase={phase}
     >
       <WeeklyWorkspaceBoard
+        campaignId={campaign}
         phase={phase}
         onPhaseChange={onPhaseChange}
-        setupHref={campaign ? campaignPath(campaign, 'setup') : undefined}
-        historyHref={campaign ? campaignPath(campaign, 'history') : undefined}
       />
     </CampaignWorkspaceProvider>
   );
