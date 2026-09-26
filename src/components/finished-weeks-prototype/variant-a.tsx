@@ -17,7 +17,6 @@ import {
 import {
   AdjustmentsSection,
   Chip,
-  ContextChips,
   isEffective,
   PhaseSection,
   ProvenanceLine,
@@ -31,7 +30,6 @@ export const name = 'Ledger: week list left, Summary order right';
 
 export function VariantA({ weeks, record, entry, select }: RecordProps) {
   const [showEntries, setShowEntries] = useState(false);
-  const newest = [...weeks].reverse();
   const i = weeks.findIndex((w) => w.week === record.week);
   const prev = weeks[i - 1];
   const next = weeks[i + 1];
@@ -45,7 +43,7 @@ export function VariantA({ weeks, record, entry, select }: RecordProps) {
           Finished weeks
         </h2>
         <ol className="space-y-0.5">
-          {newest.map((w) => {
+          {weeks.map((w) => {
             const active = w.week === record.week;
             const eff = effectiveEntry(w);
             return (
@@ -109,7 +107,6 @@ export function VariantA({ weeks, record, entry, select }: RecordProps) {
             <div className="min-w-0 flex-1 space-y-1">
               <h1 className="text-2xl font-semibold">Week {record.week}</h1>
               <ProvenanceLine record={record} entry={entry} />
-              <ContextChips record={record} />
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {record.entries.length > 1 && (
