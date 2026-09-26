@@ -8,7 +8,7 @@
 import { ChevronDown, ChevronRight, Flag, Lock, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '~/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/sheet';
 import { cn } from '~/lib/utils';
 import { carriedBlocks, ROLES, rolesOf, type Row, sections, type Snapshot, summarize } from './mock';
 import { assignRole, correctable, correctionLocked, removeRole, sectionWarnings, setupModel, startMilitia, type VariantProps } from './model';
@@ -165,7 +165,7 @@ function Militia({ state, dispatch }: VariantProps) {
   );
 }
 
-function Characters({ state, dispatch }: VariantProps) {
+export function Characters({ state, dispatch }: VariantProps) {
   const snap = state.latest;
   return (
     <div className="space-y-5 px-5 py-5">
@@ -221,7 +221,7 @@ function Characters({ state, dispatch }: VariantProps) {
   );
 }
 
-function CorrectionSheet({ state, dispatch }: VariantProps) {
+export function CorrectionSheet({ state, dispatch }: VariantProps) {
   const c = state.correction;
   const people = c?.section === 'people';
   const label = !c ? '' : people ? 'Officers & roster' : sections.find((s) => s.key === c.section)!.label;
@@ -230,7 +230,6 @@ function CorrectionSheet({ state, dispatch }: VariantProps) {
       <SheetContent className="w-[42rem] overflow-y-auto sm:max-w-[42rem]">
         <SheetHeader>
           <SheetTitle>Correct {label.toLowerCase()}</SheetTitle>
-          <SheetDescription>Only this section is saved. Everything else stays as the militia has it now.</SheetDescription>
         </SheetHeader>
         {c && (
           <div className="space-y-4 px-4 pb-6">

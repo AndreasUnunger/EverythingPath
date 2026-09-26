@@ -262,18 +262,17 @@ export function ReasonField({ value, onChange, missing, autoFocus }: { value: st
         Reason for this correction
       </label>
       <Input id="reason" autoFocus={autoFocus} value={value} onChange={(e) => onChange(e.target.value)} placeholder="What happened at the table?" className={cn(missing && 'border-destructive')} />
-      {missing ? <ErrorLine className="text-xs">A reason is required.</ErrorLine> : <p className="text-muted-foreground text-xs">Saved with the change so later sessions know why it differs.</p>}
+      {missing && <ErrorLine className="text-xs">A reason is required.</ErrorLine>}
     </div>
   );
 }
 
-export function ConflictBlock({ correction, latest, by, onRedo }: { correction: Correction; latest: Snapshot; by: string; onRedo: () => void }) {
+export function ConflictBlock({ correction, latest, onRedo }: { correction: Correction; latest: Snapshot; onRedo: () => void }) {
   return (
     <div className="border-destructive/60 bg-destructive/10 space-y-2 border p-3" role="alert">
       <p className="flex items-center gap-1.5 text-sm font-medium">
         <Users className="size-4" /> Another player changed this section
       </p>
-      <p className="text-muted-foreground text-sm">{by} saved a correction while you were editing. Their values are what the militia has now; yours were not saved.</p>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <Eyebrow className="mb-1">Theirs (current)</Eyebrow>
@@ -307,7 +306,6 @@ export function ImpactBlock({ lines }: { lines: string[] }) {
       {lines.map((l) => (
         <WarningLine key={l}>{l}</WarningLine>
       ))}
-      <p className="text-muted-foreground text-xs">You can still save. The week screen will flag the affected slots until someone changes them.</p>
     </div>
   );
 }
@@ -319,7 +317,6 @@ export function SectionWarnings({ warnings }: { warnings: Warning[] }) {
       {warnings.map((w) => (
         <WarningLine key={w.text}>{w.text}</WarningLine>
       ))}
-      <p className="text-muted-foreground text-xs">Warnings never block. Keep the value and explain it in the reason if it’s intentional.</p>
     </div>
   );
 }
@@ -554,8 +551,7 @@ export function SetupStepBody({ stepKey, blocks, draft, mode, patch, errors, war
   if (stepKey === 'people')
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-sm">Tick who belongs to the militia. People come from the campaign’s character records.</p>
+        <div className="flex justify-end">
           <AddCharacterButton onAdd={(row) => patch((s) => ({ ...s, people: [...s.people, row] }))} />
         </div>
         <PeopleEditor snapshot={draft} patch={patch} />
@@ -582,12 +578,11 @@ export function CorrectionBody({ state, dispatch, columns = 3, autoFocusReason }
   const c = state.correction!;
   const st = correctionStatus(c, state.latest, state.scenario, warningsFor);
   const patch = (fn: (s: Snapshot) => Snapshot) => dispatch({ kind: 'correct:patch', fn });
-  const by = [...state.changedSince].reverse().find((ch) => ch.section === c.section)?.by ?? 'Another player';
   const removals = c.section === 'people' ? rosterRemovalNotes(state.latest, c.draft) : [];
   return (
     <div className="space-y-4">
       {c.conflict ? (
-        <ConflictBlock correction={c} latest={state.latest} by={by} onRedo={() => dispatch({ kind: 'correct:redo' })} />
+        <ConflictBlock correction={c} latest={state.latest} onRedo={() => dispatch({ kind: 'correct:redo' })} />
       ) : c.section === 'people' ? (
         <PeopleEditor snapshot={c.draft} patch={patch} roles={false} />
       ) : (

@@ -3,21 +3,29 @@
 // with their status and shows one step on the right. The Militia page lists
 // sections down the left (carried state in its own read-only group) and shows
 // the chosen one on the right; Correct turns that pane into the editor with a
-// save bar. Characters & officers puts the roster beside compact role cards.
+// save bar. Characters & officers is variant C's: the role strip over one
+// table, with corrections in a side sheet (picked for Wayfinder #113).
 
 import { AlertTriangle, ArrowRight, Check, CircleAlert, Flag, Lock, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
-import { carriedBlocks, countOf, orElse, rolesOf, sections, type SectionKey, type Snapshot } from './mock';
-import { assignRole, correctable, correctionLocked, removeRole, sectionWarnings, setupModel, startMilitia, stepForProblem, type VariantProps } from './model';
-import { BlockRead, CarriedRead, CorrectionBody, ErrorSummary, Eyebrow, managedLabel, ReadOnlyNote, RoleCards, SavedLocallyNote, SectionWarnings, SetupStepBody, WarningLine } from './parts';
+import { carriedBlocks, countOf, sections, type SectionKey, type Snapshot } from './mock';
+import { correctable, correctionLocked, sectionWarnings, setupModel, startMilitia, stepForProblem, type VariantProps } from './model';
+import * as C from './variant-c';
+import { BlockRead, CarriedRead, CorrectionBody, ErrorSummary, Eyebrow, SectionWarnings, SetupStepBody, WarningLine } from './parts';
 
 export const name = 'Index and detail';
 
 export function VariantB(props: VariantProps) {
   if (props.screen === 'setup') return <Setup {...props} />;
-  if (props.screen === 'characters') return <Characters {...props} />;
+  if (props.screen === 'characters')
+    return (
+      <>
+        <C.Characters {...props} />
+        <C.CorrectionSheet {...props} />
+      </>
+    );
   return <Militia {...props} />;
 }
 
@@ -54,9 +62,6 @@ function Setup(props: VariantProps) {
             );
           })}
         </ol>
-        <div className="mt-auto pt-4">
-          <SavedLocallyNote savedAt={state.setup.savedAt} />
-        </div>
       </aside>
       <div className="flex min-w-0 flex-col">
         <div className="flex-1 space-y-4 p-5">
@@ -79,7 +84,6 @@ function Setup(props: VariantProps) {
                     </div>
                   ))}
                 {m.warnings.length === 0 && <p className="text-muted-foreground text-sm">None.</p>}
-                <p className="text-muted-foreground text-xs">Warnings never block. Keep a value if it’s intentional and say why in the setup notes.</p>
               </div>
               <label className="block space-y-1">
                 <span className="text-sm font-medium">Setup notes</span>
@@ -149,7 +153,6 @@ function Militia({ state, dispatch }: VariantProps) {
               <Pencil /> Correct {section.label.toLowerCase()}
             </Button>
           )}
-          {!section && <ReadOnlyNote />}
         </div>
         <div className="flex-1 space-y-4 p-5">
           {!section ? (
@@ -169,52 +172,6 @@ function Militia({ state, dispatch }: VariantProps) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Characters({ state, dispatch }: VariantProps) {
-  const editing = state.correction?.section === 'people';
-  const snap = editing ? state.correction!.draft : state.latest;
-  const [picked, setPicked] = useState(snap.people[0]!.id);
-  const person = snap.people.find((p) => p.id === picked) ?? snap.people[0]!;
-  return (
-    <div className="grid flex-1 grid-cols-[1fr_26rem]">
-      <div className="min-w-0 space-y-3 p-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl">Characters & officers</h1>
-          {!editing && (
-            <Button variant="outline" disabled={correctionLocked(state, 'people')} onClick={() => dispatch({ kind: 'correct:open', section: 'people' })}>
-              <Pencil /> Correct officers & roster
-            </Button>
-          )}
-        </div>
-        {editing ? (
-          <CorrectionBody state={state} dispatch={dispatch} />
-        ) : (
-          <ul className="divide-foreground/10 border-foreground/20 divide-y border">
-            {snap.people.map((p) => (
-              <li key={p.id}>
-                <button onClick={() => setPicked(p.id)} className={cn('flex w-full items-center gap-3 px-3 py-2 text-left', p.id === person.id && 'bg-foreground/5', p.onRoster === false && 'text-muted-foreground')}>
-                  <span className="flex-1">
-                    {p.name}
-                    <span className="text-muted-foreground block text-xs">{p.onRoster === false ? 'Not in the militia' : `${String(p.kind).toUpperCase()} · ${String(orElse(p.hitDice, p.level ?? ''))} HD${managedLabel(snap, p) ? ` · ${managedLabel(snap, p)}` : ''}`}</span>
-                  </span>
-                  {rolesOf(p).map((r) => (
-                    <span key={r} className="rounded-full border px-2 text-xs capitalize">
-                      {r}
-                    </span>
-                  ))}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <aside className="bg-sidebar/40 space-y-3 border-l p-4">
-        <Eyebrow>Officer roles</Eyebrow>
-        <RoleCards snapshot={snap} editing={editing} compact onAssign={(r, id) => dispatch({ kind: 'correct:patch', fn: assignRole(r, id) })} onRemove={(r, id) => dispatch({ kind: 'correct:patch', fn: removeRole(r, id) })} />
-      </aside>
     </div>
   );
 }
