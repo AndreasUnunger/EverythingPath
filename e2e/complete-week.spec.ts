@@ -18,7 +18,9 @@ test('a player confirms a complete week and reloads its outcome', async ({
   await roll.fill('100');
   await roll.blur();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
-  await page.getByRole('button', { name: 'Summary', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Review & confirm', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Confirm week', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Week 2 · Upkeep' }),

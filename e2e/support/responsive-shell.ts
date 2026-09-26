@@ -48,20 +48,32 @@ export async function expectReachable(page: Page, control: Locator) {
   ).toBeLessThanOrEqual(height + 1);
   const nav = bottomNavigation(page);
   if ((await nav.count()) > 0 && (await isPageContent(control))) {
-    const bar = (await nav.first().boundingBox())!;
+    // The whole sticky bar, including the Week frame's status strip above
+    // the tabs, must not cover page content.
+    const bar = (await nav.first().locator('..').boundingBox())!;
     expect(
       bounds!.y + bounds!.height,
-      'page content sits above the bottom navigation',
+      'page content sits above the bottom bar and its status strip',
     ).toBeLessThanOrEqual(bar.y + 1);
+  }
+  const footer = page.locator('[data-week-footer]:visible');
+  if ((await footer.count()) > 0 && (await isPageContent(control))) {
+    const pinned = (await footer.first().boundingBox())!;
+    expect(
+      bounds!.y + bounds!.height,
+      'page content sits above the pinned week footer',
+    ).toBeLessThanOrEqual(pinned.y + 1);
   }
   await control.click({ trial: true });
 }
 
-// Page content is anything outside a dialog and outside the sticky bar that
-// holds the bottom navigation (the bar's own controls sit in it by design).
+// Page content is anything outside a dialog, outside the sticky bar that
+// holds the bottom navigation and outside the week footer (their own
+// controls sit in them by design).
 function isPageContent(control: Locator) {
   return control.evaluate((element) => {
     if (element.closest('[role="dialog"]')) return false;
+    if (element.closest('[data-week-footer]')) return false;
     const bar = Array.from(
       document.querySelectorAll('nav[aria-label="Campaign sections"]'),
     ).find((nav) => nav.querySelector('button'))?.parentElement;
@@ -206,8 +218,35 @@ export async function expectBoundedWeekHost(page: Page) {
     box.y + box.height,
     'week host ends within the viewport',
   ).toBeLessThanOrEqual(height + 1);
-  const last = host.locator('button:visible').last();
+  // The page itself never scrolls; the editor column does. Its last enabled
+  // control is reached by scrolling that column, with the pinned footer and
+  // the stepper rail staying inside the viewport.
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollHeight <= window.innerHeight + 1 &&
+        window.scrollY === 0,
+    ),
+    'the document does not scroll on the desktop week',
+  ).toBe(true);
+  const last = host.locator('main button:visible:enabled').last();
   await expectReachable(page, last);
+  const footer = host.locator('[data-week-footer]:visible');
+  if ((await footer.count()) > 0) {
+    const pinned = (await footer.first().boundingBox())!;
+    expect(
+      pinned.y + pinned.height,
+      'week footer ends within the viewport',
+    ).toBeLessThanOrEqual(height + 1);
+  }
+  const rail = host.getByRole('navigation', { name: 'Week phases' });
+  if ((await rail.count()) > 0) {
+    const bounds = (await rail.boundingBox())!;
+    expect(
+      bounds.y + bounds.height,
+      'stepper rail ends within the viewport',
+    ).toBeLessThanOrEqual(height + 1);
+  }
 }
 
 /**

@@ -171,6 +171,13 @@ export type PhaseView =
       requirements: string[];
       warnings: string[];
     };
+export type PhaseReadiness = {
+  phase: Phase;
+  available: boolean;
+  ready: boolean;
+  requirements: { id: string; message: string }[];
+  warnings: { id: string; message: string }[];
+};
 export type WeeklyDraftWorkspace =
   | { status: 'unavailable' }
   | { status: 'loading' }
@@ -180,7 +187,9 @@ export type WeeklyDraftWorkspace =
       setupNotes?: string;
       week: number;
       phaseView: PhaseView;
-      phases: { phase: Phase; available: boolean }[];
+      phases: PhaseReadiness[];
+      navigation: { previous: Phase | null; next: Phase | null };
+      confirmationDisabledReason: string | null;
       feedback: 'idle' | 'pending' | 'saved' | 'failed' | 'confirming';
       canConfirm: boolean;
       reviewRequired: boolean;

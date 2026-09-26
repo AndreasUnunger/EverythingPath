@@ -17,14 +17,8 @@ import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
+import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
 import type { Phase, WeeklyDraftWorkspace } from './types';
-const phaseLabels: Record<Phase, string> = {
-  upkeep: 'Upkeep',
-  activity: 'Activity',
-  event: 'Event',
-  persistent: 'Persistent',
-  summary: 'Summary',
-};
 // Real document departures (reload, close, typed address) get the browser's
 // own warning, read from the store at event time. Same-document navigation
 // consults the departure guard, which reads the same store.
@@ -92,6 +86,27 @@ function usePhaseAddress(
     onPhaseChange?.(next);
   };
 }
+// The one save/confirmation status. It stays with the frame until the
+// feedback delivery moves it into the shell's top-bar position.
+function WorkspaceStatus({
+  feedback,
+}: {
+  feedback: Extract<WeeklyDraftWorkspace, { status: 'ready' }>['feedback'];
+}) {
+  return (
+    <p role="status" aria-live="polite" className="min-w-0 text-sm">
+      {feedback === 'pending'
+        ? 'Saving changes…'
+        : feedback === 'confirming'
+          ? 'Confirming the week…'
+          : feedback === 'failed'
+            ? 'Changes could not be saved. The latest saved values are shown.'
+            : feedback === 'saved'
+              ? 'Changes saved.'
+              : 'Prepare the week together.'}
+    </p>
+  );
+}
 export function WeeklyWorkspaceBoard({
   historyHref,
   setupHref,
@@ -113,16 +128,10 @@ export function WeeklyWorkspaceBoard({
     phase,
     onPhaseChange,
   );
-  if (auth.isLoading)
-    return (
-      <p role="status" className="p-6">
-        Loading the week…
-      </p>
-    );
+  if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
   if (workspace.status !== 'ready')
     return (
       <main className="mx-auto w-full max-w-6xl p-4">
-        <h1 className="mb-4 text-2xl">Weekly militia</h1>
         {workspace.status === 'failed' ? (
           <FailedLoadCard
             noun="The week"
@@ -130,9 +139,7 @@ export function WeeklyWorkspaceBoard({
           />
         ) : (
           <Card className="p-6" role="status">
-            {workspace.status === 'loading'
-              ? 'Loading the week…'
-              : 'No militia yet.'}
+            No militia yet.
           </Card>
         )}
         {workspace.status === 'unavailable' && setupHref && (
@@ -143,85 +150,50 @@ export function WeeklyWorkspaceBoard({
       </main>
     );
   const view = workspace.phaseView;
+  const disabled = workspace.feedback === 'confirming';
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-muted-foreground text-xs tracking-widest uppercase">
-            Weekly militia
-          </p>
-          <h1 className="text-2xl">
-            Week {workspace.week} · {phaseLabels[view.phase]}
-          </h1>
-        </div>
-        <p role="status" aria-live="polite" className="text-sm">
-          {workspace.feedback === 'pending'
-            ? 'Saving changes…'
-            : workspace.feedback === 'confirming'
-              ? 'Confirming the week…'
-              : workspace.feedback === 'failed'
-                ? 'Changes could not be saved. The latest saved values are shown.'
-                : workspace.feedback === 'saved'
-                  ? 'Changes saved.'
-                  : 'Prepare the week together.'}
-        </p>
-      </header>
-      {workspace.setupNotes && (
-        <aside
-          aria-label="Setup notes"
-          className="border-primary/40 bg-primary/10 border p-3 text-sm"
-        >
-          <h2 className="font-semibold">Setup notes</h2>
-          <p>{workspace.setupNotes}</p>
-        </aside>
-      )}
-      {historyHref && (
-        <Button asChild variant="outline">
-          <GuardedLink href={historyHref}>Finished weeks</GuardedLink>
-        </Button>
-      )}
-      <nav aria-label="Week phases" className="flex flex-wrap gap-2">
-        {workspace.phases.map((item) => (
-          <Button
-            key={item.phase}
-            variant={view.phase === item.phase ? 'default' : 'outline'}
-            aria-current={view.phase === item.phase ? 'page' : undefined}
-            disabled={!item.available}
-            onClick={() => choosePhase(item.phase)}
+    <WeekFrame
+      week={workspace.week}
+      phase={view.phase}
+      phases={workspace.phases}
+      navigation={workspace.navigation}
+      confirmationDisabledReason={workspace.confirmationDisabledReason}
+      choose={choosePhase}
+      status={
+        <>
+          <WorkspaceStatus feedback={workspace.feedback} />
+          {historyHref && (
+            <Button asChild variant="outline" size="sm">
+              <GuardedLink href={historyHref}>Finished weeks</GuardedLink>
+            </Button>
+          )}
+        </>
+      }
+      notes={
+        workspace.setupNotes && (
+          <aside
+            aria-label="Setup notes"
+            className="border-primary/40 bg-primary/10 mx-3 mt-2 border p-3 text-sm md:mx-4"
           >
-            {phaseLabels[item.phase]}
-          </Button>
-        ))}
-      </nav>
+            <h2 className="font-semibold">Setup notes</h2>
+            <p>{workspace.setupNotes}</p>
+          </aside>
+        )
+      }
+    >
       {view.phase === 'upkeep' ? (
-        <UpkeepView
-          view={view}
-          edit={workspace.edit}
-          disabled={workspace.feedback === 'confirming'}
-        />
+        <UpkeepView view={view} edit={workspace.edit} disabled={disabled} />
       ) : view.phase === 'activity' ? (
-        <ActivityView
-          view={view}
-          edit={workspace.edit}
-          disabled={workspace.feedback === 'confirming'}
-        />
+        <ActivityView view={view} edit={workspace.edit} disabled={disabled} />
       ) : view.phase === 'event' ? (
-        <EventView
-          view={view}
-          edit={workspace.edit}
-          disabled={workspace.feedback === 'confirming'}
-        />
+        <EventView view={view} edit={workspace.edit} disabled={disabled} />
       ) : view.phase === 'persistent' ? (
-        <PersistentView
-          view={view}
-          edit={workspace.edit}
-          disabled={workspace.feedback === 'confirming'}
-        />
+        <PersistentView view={view} edit={workspace.edit} disabled={disabled} />
       ) : view.phase === 'summary' ? (
         <SummaryView
           view={view}
           edit={workspace.edit}
-          disabled={workspace.feedback === 'confirming'}
+          disabled={disabled}
           canConfirm={workspace.canConfirm}
           forecastPending={workspace.forecastPending}
           reviewRequired={workspace.reviewRequired}
@@ -231,7 +203,7 @@ export function WeeklyWorkspaceBoard({
           review={() => choosePhase('summary')}
         />
       ) : null}
-    </main>
+    </WeekFrame>
   );
 }
 // Standalone host: the environment owner plus the board. The campaign shell

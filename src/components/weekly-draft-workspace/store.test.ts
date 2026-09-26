@@ -242,3 +242,144 @@ test('Confirmation that is not ready does not create unobservable pending work',
     stop();
   }
 });
+
+test('all phase decisions follow optimistic edits and rollback while navigation preserves pending work', async () => {
+  const { gateway, authority } = fixture();
+  const response = deferred();
+  const workspace = createWorkspace({
+    ...gateway,
+    transport: () => ({
+      ...authority.transport,
+      async send() {
+        await response.promise;
+        throw new Error('The edit was rejected.');
+      },
+    }),
+  });
+  const stop = workspace.start();
+  try {
+    await expect.poll(() => ready(workspace).canConfirm).toBe(true);
+    expect(ready(workspace).confirmationDisabledReason).toBeNull();
+    const saving = ready(workspace).edit({ kind: 'event_chance', roll: null });
+    const optimistic = ready(workspace);
+    expect(optimistic.phaseView.phase).toBe('upkeep');
+    expect(
+      optimistic.phases.find((item) => item.phase === 'event')!.requirements,
+    ).toHaveLength(1);
+    expect(
+      optimistic.phases.find((item) => item.phase === 'summary')!.requirements,
+    ).toHaveLength(1);
+    expect(optimistic.confirmationDisabledReason).toBe(
+      'Review will be ready when your changes are saved.',
+    );
+    optimistic.viewPhase('event');
+    expect(ready(workspace).navigation).toEqual({
+      previous: 'activity',
+      next: 'summary',
+    });
+    ready(workspace).viewPhase('summary');
+    expect(ready(workspace).pendingWork).toBe(true);
+    expect(ready(workspace).canConfirm).toBe(false);
+    response.resolve();
+    expect(await saving).toBe('failed');
+    await expect.poll(() => ready(workspace).forecastPending).toBe(false);
+    const restored = ready(workspace);
+    expect(restored.phaseView.phase).toBe('summary');
+    expect(
+      restored.phases.find((item) => item.phase === 'event')!.requirements,
+    ).toEqual([]);
+    expect(
+      restored.phases.find((item) => item.phase === 'summary')!.requirements,
+    ).toEqual([]);
+    expect(restored.reviewRequired).toBe(true);
+    expect(restored.canConfirm).toBe(false);
+    expect(restored.confirmationDisabledReason).toBe(
+      'Review the updated week before confirming.',
+    );
+    restored.viewPhase('summary');
+    expect(ready(workspace).canConfirm).toBe(true);
+    expect(ready(workspace).confirmationDisabledReason).toBeNull();
+  } finally {
+    response.resolve();
+    stop();
+  }
+});
+
+test('accepted remote edits refresh every phase without changing either player’s Phase View', async () => {
+  const { gateway } = fixture();
+  const observer = createWorkspace(gateway);
+  const editor = createWorkspace(gateway);
+  const stopObserver = observer.start();
+  const stopEditor = editor.start();
+  try {
+    await expect.poll(() => ready(observer).canConfirm).toBe(true);
+    await expect.poll(() => ready(editor).canConfirm).toBe(true);
+    ready(observer).viewPhase('activity');
+    ready(editor).viewPhase('event');
+    await ready(editor).edit({ kind: 'event_chance', roll: null });
+    await expect.poll(() => ready(observer).forecastPending).toBe(false);
+    const state = ready(observer);
+    expect(state.phaseView.phase).toBe('activity');
+    expect(ready(editor).phaseView.phase).toBe('event');
+    expect(
+      state.phases.map((item) => [item.phase, item.requirements.length]),
+    ).toEqual([
+      ['upkeep', 0],
+      ['activity', 0],
+      ['event', 1],
+      ['persistent', 1],
+      ['summary', 1],
+    ]);
+    expect(state.canConfirm).toBe(false);
+    expect(state.confirmationDisabledReason).toBe('1 decision left');
+    await ready(editor).edit({ kind: 'event_chance', roll: roll(100, 101) });
+    await expect.poll(() => ready(observer).canConfirm).toBe(true);
+    const warned = ready(observer);
+    expect(warned.phaseView.phase).toBe('activity');
+    expect(warned.phases.find((item) => item.phase === 'event')).toMatchObject({
+      ready: true,
+      requirements: [],
+      warnings: [
+        { id: 'event:chance:roll-range', message: expect.any(String) },
+      ],
+    });
+    expect(
+      warned.phases.find((item) => item.phase === 'summary')!.warnings,
+    ).toHaveLength(1);
+    expect(warned.confirmationDisabledReason).toBeNull();
+  } finally {
+    stopObserver();
+    stopEditor();
+  }
+});
+
+test('an ineligible Persistent deep link normalizes to Upkeep without navigation writes', async () => {
+  const { gateway, authority } = fixture();
+  const sent: unknown[] = [];
+  const workspace = createWorkspace({
+    ...gateway,
+    initialPhase: 'persistent',
+    transport: () => ({
+      ...authority.transport,
+      send(operation) {
+        sent.push(operation);
+        return authority.transport.send(operation);
+      },
+    }),
+  });
+  const stop = workspace.start();
+  try {
+    await expect.poll(() => ready(workspace).canConfirm).toBe(true);
+    expect(ready(workspace).phaseView.phase).toBe('upkeep');
+    expect(ready(workspace).navigation.previous).toBeNull();
+    ready(workspace).viewPhase('persistent');
+    expect(ready(workspace).phaseView.phase).toBe('upkeep');
+    ready(workspace).viewPhase('summary');
+    expect(ready(workspace).navigation.next).toBeNull();
+    ready(workspace).viewPhase('event');
+    expect(ready(workspace).navigation.next).toBe('summary');
+    expect(sent).toEqual([]);
+  } finally {
+    stop();
+  }
+});

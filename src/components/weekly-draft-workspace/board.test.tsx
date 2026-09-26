@@ -4,6 +4,8 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
@@ -184,14 +186,14 @@ test('[shell.phase] address phase changes move this player without rebuilding th
   ).toBeVisible();
   expect(factory).toHaveBeenCalledTimes(1);
   expect(onPhaseChange).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Summary' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review & confirm' }));
   expect(onPhaseChange).toHaveBeenLastCalledWith('summary');
   expect(
-    screen.getByRole('heading', { name: 'Week 4 · Summary' }),
+    screen.getByRole('heading', { name: 'Week 4 · Review & confirm' }),
   ).toBeVisible();
   view.rerender(host({ phase: 'persistent', onPhaseChange }));
   expect(
-    screen.getByRole('heading', { name: 'Week 4 · Summary' }),
+    screen.getByRole('heading', { name: 'Week 4 · Review & confirm' }),
   ).toBeVisible();
   expect(factory).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('link', { name: 'Finished weeks' })).toHaveAttribute(
@@ -265,7 +267,7 @@ test.each(['event', 'summary'] as const)(
     const onPhaseChange = vi.fn();
     render(host({ phase: opening, onPhaseChange }));
     await screen.findByRole('heading', {
-      name: `Week 4 · ${opening === 'event' ? 'Event' : 'Summary'}`,
+      name: `Week 4 · ${opening === 'event' ? 'Event' : 'Review & confirm'}`,
     });
     let release!: () => void;
     act(() => {
@@ -368,7 +370,102 @@ test('[shell.opening-change] an address phase change while loading wins over the
   view.rerender(shellHost({ phase: 'summary', onPhaseChange }));
   expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
   await act(async () => release());
-  await screen.findByRole('heading', { name: 'Week 4 · Summary' });
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
   expect(onPhaseChange).not.toHaveBeenCalled();
   expect(factory).toHaveBeenCalledTimes(1);
+});
+
+// An edit made from another phase's editor reaches every step at once: the
+// frame reads the same optimistic snapshot the editors do.
+function EditProbe() {
+  const workspace = useWeeklyDraftWorkspace();
+  if (workspace.status !== 'ready') return null;
+  const upkeep = workspace.phases.find((step) => step.phase === 'upkeep')!;
+  return (
+    <>
+      <p data-testid="upkeep-ids">
+        {upkeep.requirements.map((item) => item.id).join(',')}
+      </p>
+      <p data-testid="upkeep-caption">
+        {upkeep.ready ? 'Ready' : `${upkeep.requirements.length} to decide`}
+      </p>
+      <button
+        type="button"
+        onClick={() =>
+          void workspace.edit({
+            kind: 'upkeep_roll',
+            field: 'check',
+            roll: {
+              dice: [10],
+              sides: 20,
+              provenance: { kind: 'table' },
+              modifiers: [],
+            },
+          })
+        }
+      >
+        Probe roll
+      </button>
+    </>
+  );
+}
+
+test('[frame.readiness] every position shows readiness from one optimistic snapshot, keeps a locked Persistent visible and skips it', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => gateway);
+  render(
+    <CampaignWorkspaceProvider campaignId="campaign" active>
+      <EditProbe />
+      <WeeklyWorkspaceBoard phase="event" />
+    </CampaignWorkspaceProvider>,
+  );
+  await screen.findByRole('heading', { name: 'Week 4 · Event' });
+  const stepper = within(
+    screen.getByRole('navigation', { name: 'Week phases' }),
+  );
+  const upkeep = stepper.getByRole('button', { name: 'Upkeep' });
+  const ids = () => screen.getByTestId('upkeep-ids').textContent;
+  const before = ids();
+  expect(before).not.toBe('');
+  expect(upkeep).toHaveAccessibleDescription(
+    screen.getByTestId('upkeep-caption').textContent,
+  );
+  expect(upkeep).toHaveAccessibleDescription(/to decide$/);
+  const persistent = stepper.getByRole('button', { name: 'Persistent' });
+  expect(persistent).toBeDisabled();
+  expect(persistent).toHaveAccessibleDescription('No carried events');
+  expect(stepper.getByRole('button', { name: 'Event' })).toHaveAttribute(
+    'aria-current',
+    'step',
+  );
+  expect(
+    screen.getByRole('button', { name: 'Next: Review & confirm' }),
+  ).toBeEnabled();
+  expect(
+    screen.getByRole('button', { name: 'Previous: Activity' }),
+  ).toBeEnabled();
+  expect(
+    stepper.getByRole('button', { name: 'Review & confirm' }),
+  ).not.toHaveAttribute('aria-describedby');
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Probe roll' }));
+  });
+  await waitFor(() => expect(ids()).not.toBe(before));
+  expect(upkeep).toHaveAccessibleDescription(
+    screen.getByTestId('upkeep-caption').textContent,
+  );
+  // Still on Event: readiness refreshed without moving this player.
+  expect(
+    screen.getByRole('heading', { name: 'Week 4 · Event' }),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Next: Review & confirm' }),
+  );
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Previous: Event' })).toBeEnabled();
+  const lines = document.querySelectorAll('[data-week-readiness]');
+  for (const line of lines)
+    expect(line).toHaveTextContent(/^(\d+ decisions? left|Review .*)$/);
+  expect(screen.getByRole('button', { name: 'Confirm week' })).toBeDisabled();
 });

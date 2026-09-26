@@ -4,6 +4,7 @@ import {
   expectDocumentScrolledPage,
   expectReachable,
 } from './support/responsive-shell';
+import { exercisePhoneSteps, exerciseWeekFrame } from './support/week-frame';
 import {
   prepareWeekHistory,
   stayOnPendingWeek,
@@ -219,7 +220,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(
       player.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
     ).toBeVisible();
-    await gm.getByRole('button', { name: 'Summary', exact: true }).click();
+    await gm
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
     await expect(
       gm.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeDisabled();
@@ -252,11 +255,14 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await die(gm).fill('16');
     await expect(die(player)).toHaveValue('16');
     await saved();
-    await gm.getByRole('button', { name: 'Summary', exact: true }).click();
+    await gm
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
     await expect(
       gm.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    await exerciseWeekFrame(gm);
     for (const [name, width, height] of [
       ['tablet', 1194, 834],
       ['phone', 390, 844],
@@ -266,6 +272,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect(
         gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
       ).toBeVisible();
+      if (name === 'phone') await exercisePhoneSteps(gm);
       expect(
         await gm.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -297,7 +304,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
       );
     }
     await gm.setViewportSize({ width: 1194, height: 834 });
-    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    await player
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
@@ -446,8 +455,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
         exact: true,
       }),
     ).toHaveValue('Local healer donated supplies');
-    await gm.getByRole('button', { name: 'Summary', exact: true }).click();
-    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    await gm
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
+    await player
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
     for (const page of [gm, player]) {
       await expect(
         page
@@ -519,7 +532,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
     await exerciseEventWorkspace(gm, player, network, run.artifactDirectory);
     await reviewSummarySettlement(gm, player);
-    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    await player
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
@@ -582,7 +597,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     );
     expect(beforePersistentConfirmation.snapshot.treasuryCopper).toBe(50000);
     expect(beforePersistentConfirmation.records).toHaveLength(0);
-    await player.getByRole('button', { name: 'Summary', exact: true }).click();
+    await player
+      .getByRole('button', { name: 'Review & confirm', exact: true })
+      .click();
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
@@ -638,7 +655,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const lateRejected = observeEditRejection(late);
     const releases: (() => void)[] = [];
     const summary = (page: Page) =>
-      page.getByRole('button', { name: 'Summary', exact: true }).click();
+      page
+        .getByRole('button', { name: 'Review & confirm', exact: true })
+        .click();
     const confirm = (page: Page) =>
       page.getByRole('button', { name: 'Confirm week', exact: true });
     try {
@@ -665,7 +684,10 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await stayOnPendingWeek(first, 'back', 'Confirming the week…');
       await expect(confirm(first)).toBeDisabled();
       await expect(
-        second.getByRole('heading', { name: 'Week 4 · Summary', exact: true }),
+        second.getByRole('heading', {
+          name: 'Week 4 · Review & confirm',
+          exact: true,
+        }),
       ).toBeVisible();
       await canonicalPersistenceFixtureCall(run, 'changeSource', {
         ...summaryScope,

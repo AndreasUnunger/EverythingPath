@@ -194,7 +194,7 @@ export async function exerciseMilitiaSetup(
       }),
     ).toHaveValue('100');
     await players.player
-      .getByRole('button', { name: 'Summary', exact: true })
+      .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
     await expect(
       players.player.getByRole('button', { name: 'Confirm week', exact: true }),

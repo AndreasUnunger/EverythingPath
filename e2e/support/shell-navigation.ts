@@ -119,7 +119,9 @@ export async function exerciseShellNavigation(
     const title =
       phase === 'invalid'
         ? 'Upkeep'
-        : `${phase[0]!.toUpperCase()}${phase.slice(1)}`;
+        : phase === 'summary'
+          ? 'Review & confirm'
+          : `${phase[0]!.toUpperCase()}${phase.slice(1)}`;
     await expect(
       page.getByRole('heading', { name: `Week 1 · ${title}`, exact: true }),
     ).toBeVisible();

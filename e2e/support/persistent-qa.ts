@@ -99,8 +99,12 @@ export async function reviewPersistentWorkspace(
     .getByRole('button', { name: 'Buy off event', exact: true })
     .click();
   await expect(theft).toContainText('Buyoff staged: 4000 cp.');
-  await page.getByRole('button', { name: 'Summary', exact: true }).click();
-  await expect(page.getByRole('heading', { name: /· Summary$/ })).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Review & confirm', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: /· Review & confirm$/ }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Persistent', exact: true }).click();
   await expect(theft).toContainText('Buyoff staged: 4000 cp.');
   await expect(rivalry).toContainText('ends the event.');

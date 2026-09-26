@@ -7,7 +7,9 @@ const region = (page: Page) =>
 const button = (scope: Locator, name: string) =>
   scope.getByRole('button', { name, exact: true });
 async function openSummary(page: Page) {
-  await page.getByRole('button', { name: 'Summary', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Review & confirm', exact: true })
+    .click();
   await expect(
     page.getByRole('heading', { name: 'Review the week', exact: true }),
   ).toBeVisible();

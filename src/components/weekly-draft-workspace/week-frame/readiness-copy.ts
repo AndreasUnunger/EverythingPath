@@ -1,0 +1,52 @@
+import type { PhaseReadiness } from '../types';
+import { phaseLabels } from './labels';
+
+function count(value: number, noun: string) {
+  return `${value} ${noun}${value === 1 ? '' : 's'}`;
+}
+
+export const lockedCaption = 'No carried events';
+
+/**
+ * The short caption under a step. Review & confirm has none (the Summary
+ * amendment); a locked Persistent says why; otherwise the open decisions or
+ * a check-equivalent "Ready", each with a separate warning count.
+ */
+export function stepCaption(step: PhaseReadiness): string | null {
+  if (!step.available) return lockedCaption;
+  if (step.phase === 'summary') return null;
+  const warnings = step.warnings.length
+    ? ` · ${count(step.warnings.length, 'warning')}`
+    : '';
+  const decisions = step.requirements.length;
+  return `${step.ready ? 'Ready' : `${decisions} to decide`}${warnings}`;
+}
+
+/**
+ * The footer/strip line for the current phase. Review & confirm shows only
+ * the authoritative disabled-Confirmation reason (nothing when ready).
+ */
+export function readinessLine(
+  step: PhaseReadiness,
+  confirmationDisabledReason: string | null,
+): string {
+  if (step.phase === 'summary') return confirmationDisabledReason ?? '';
+  const label = phaseLabels[step.phase];
+  const line = step.ready
+    ? `${label} is ready.`
+    : `Complete the required rolls and decisions to finish ${label}.`;
+  return step.warnings.length
+    ? `${line} ${count(step.warnings.length, 'warning')}.`
+    : line;
+}
+
+/** Progress segment state for the phone indicator. */
+export function stepState(
+  step: PhaseReadiness,
+  current: PhaseReadiness['phase'],
+): 'current' | 'locked' | 'done' | 'open' {
+  if (step.phase === current) return 'current';
+  if (!step.available) return 'locked';
+  if (step.phase === 'summary') return 'open';
+  return step.ready ? 'done' : 'open';
+}

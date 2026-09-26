@@ -97,7 +97,7 @@ export async function exerciseEventWorkspace(
     await expect(
       gm.getByRole('status').filter({ hasText: 'Saving changes…' }),
     ).toBeVisible();
-    await phase(gm, 'Summary');
+    await phase(gm, 'Review & confirm');
     await table(player, 2).fill('47');
     // A third read-only tab proves the competing mutation was accepted before releasing the stale edit.
     await expect(table(observer, 2)).toHaveValue('47');
@@ -105,7 +105,9 @@ export async function exerciseEventWorkspace(
     await expect(
       gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
     ).toBeVisible();
-    await expect(gm.getByRole('heading', { name: /· Summary$/ })).toBeVisible();
+    await expect(
+      gm.getByRole('heading', { name: /· Review & confirm$/ }),
+    ).toBeVisible();
   } finally {
     network.release();
     await observer.close();

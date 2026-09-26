@@ -6,7 +6,11 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { AcceptedWeeklyPreview } from '~/lib/weekly-confirmation-contract';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { WorkspaceGateway } from './gateway';
-import { phaseView } from './phase-view';
+import {
+  derivePhaseReadiness,
+  phaseNavigation,
+  confirmationDisabledReason,
+} from './phase-readiness';
 import type { Phase, WeeklyDraftWorkspace } from './types';
 
 export function createWorkspace(gateway: WorkspaceGateway | null) {
@@ -62,37 +66,38 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       reviewed?.reviewed.sourceKey === preview.sourceKey &&
       reviewed.reviewed.sourceRevision === source.sourceRevision &&
       reviewed.reviewed.revision === accepted.revision;
+    const { views, phases } = derivePhaseReadiness(forecast, source, preview);
+    const canConfirm = Boolean(
+      !reviewRequired &&
+      matching &&
+      reviewed?.status === 'ready' &&
+      !getPendingWork(),
+    );
+    const forecastPending = pending.length > 0 || !matching;
     publish({
       status: 'ready',
       setupNotes: source.setupNotes,
       week: accepted.week,
-      phaseView: phaseView(phase, forecast, source, preview),
-      phases: (
-        [
-          'upkeep',
-          'activity',
-          'event',
-          'persistent',
-          'summary',
-        ] satisfies Phase[]
-      ).map((value) => ({
-        phase: value,
-        available:
-          value !== 'persistent' || accepted.context.persistentPhaseEligible,
-      })),
+      phaseView: views.find((view) => view.phase === phase)!,
+      phases,
+      navigation: phaseNavigation(phase, phases),
+      confirmationDisabledReason: confirmationDisabledReason({
+        canConfirm,
+        confirming: observed.confirming,
+        reviewRequired,
+        forecastPending,
+        pendingWork: getPendingWork(),
+        decisions: phases.find((item) => item.phase === 'summary')!.requirements
+          .length,
+      }),
       feedback: observed.confirming
         ? 'confirming'
         : pending.length || observed.pending
           ? 'pending'
           : feedback,
-      canConfirm: Boolean(
-        !reviewRequired &&
-        matching &&
-        reviewed?.status === 'ready' &&
-        !getPendingWork(),
-      ),
+      canConfirm,
       reviewRequired,
-      forecastPending: pending.length > 0 || !matching,
+      forecastPending,
       pendingWork: getPendingWork(),
       edit,
       viewPhase,

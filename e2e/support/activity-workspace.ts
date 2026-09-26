@@ -160,7 +160,9 @@ export async function exerciseActivityWorkspace(
       exact: true,
     }),
   ).toHaveCount(0);
-  await gm.getByRole('button', { name: 'Summary', exact: true }).click();
+  await gm
+    .getByRole('button', { name: 'Review & confirm', exact: true })
+    .click();
   await expect(
     gm.getByRole('button', { name: 'Confirm week', exact: true }),
   ).toBeDisabled();
