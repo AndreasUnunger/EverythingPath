@@ -395,10 +395,13 @@ export function PhoneReferenceSheet({
   return (
     <Sheet open={panel.sheetOpen} onOpenChange={panel.setSheetOpen}>
       <SheetTrigger asChild>
-        <button
+        {/* The shared Button, laid out as two stacked lines that fill the
+            strip's middle; the ghost variant keeps the strip's background. */}
+        <Button
           type="button"
+          variant="ghost"
           data-week-strip-trigger
-          className="focus-visible:ring-ring/50 short:min-h-9 flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-sm px-1 text-center outline-none focus-visible:ring-[3px]"
+          className="short:min-h-9 h-auto min-h-11 min-w-0 flex-1 flex-col gap-0 rounded-sm px-1 py-0.5 text-center font-normal whitespace-normal"
         >
           <span className="sr-only">Reference: </span>
           <span className="flex max-w-full min-w-0 items-center gap-x-2 text-xs">
@@ -420,7 +423,7 @@ export function PhoneReferenceSheet({
           >
             {readiness}
           </span>
-        </button>
+        </Button>
       </SheetTrigger>
       <SheetContent
         side="bottom"
