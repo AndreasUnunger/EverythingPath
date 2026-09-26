@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
+import { expectNoHorizontalOverflow } from './responsive-shell';
 
 const region = (page: Page) =>
   page.getByRole('region', { name: 'Table Adjustments', exact: true });
@@ -116,12 +117,7 @@ export async function reviewSummaryWorkspace(
     ['desktop', 1440, 900],
   ] as const) {
     await page.setViewportSize({ width, height });
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-      `${name}: document fits`,
-    ).toBe(true);
+    await expectNoHorizontalOverflow(page);
     for (const control of await page.locator('main button, main input').all()) {
       if (!(await control.isVisible())) continue;
       const bounds = await control.boundingBox();

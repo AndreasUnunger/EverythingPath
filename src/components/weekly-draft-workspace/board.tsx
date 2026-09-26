@@ -173,7 +173,7 @@ export function WeeklyWorkspaceBoard({
         workspace.setupNotes && (
           <aside
             aria-label="Setup notes"
-            className="border-primary/40 bg-primary/10 mx-3 mt-2 border p-3 text-sm md:mx-4"
+            className="border-primary/40 bg-primary/10 mx-3 mt-2 max-h-[max(3.5rem,20dvh)] shrink-0 overflow-y-auto border p-3 text-sm md:mx-4"
           >
             <h2 className="font-semibold">Setup notes</h2>
             <p>{workspace.setupNotes}</p>

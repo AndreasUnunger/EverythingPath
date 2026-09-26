@@ -1,6 +1,7 @@
 'use client';
 import { useId, useState } from 'react';
 import { Check, ChevronDown, Flag, Lock } from 'lucide-react';
+import { Button } from '~/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -61,19 +62,20 @@ function StepButton({
   const id = useId();
   const caption = stepCaption(step);
   return (
-    <button
+    <Button
       type="button"
+      variant={current ? 'default' : 'outline'}
       disabled={!step.available}
       aria-current={current ? 'step' : undefined}
       aria-label={phaseLabels[step.phase]}
       aria-describedby={caption ? id : undefined}
       onClick={() => choose(step.phase)}
       className={cn(
-        'focus-visible:ring-ring/50 flex min-h-12 w-full items-center gap-2 border px-3 text-left outline-none focus-visible:ring-[3px] disabled:opacity-40',
-        layout === 'row' ? 'flex-1' : 'min-h-11',
+        'h-auto w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal shadow-none',
+        layout === 'row' ? 'min-h-12 flex-1' : 'min-h-11',
         current
-          ? 'bg-primary text-primary-foreground border-primary'
-          : 'border-foreground/25 hover:bg-foreground/10',
+          ? 'border-primary border'
+          : 'border-foreground/25 hover:bg-foreground/10 dark:hover:bg-foreground/10 bg-transparent dark:bg-transparent',
       )}
     >
       <StepGlyph step={step} />
@@ -91,7 +93,7 @@ function StepButton({
           </span>
         )}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -162,19 +164,27 @@ export function PhoneSteps({
   return (
     <div className="px-3 pt-2 pb-1 md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger className="bg-primary text-primary-foreground focus-visible:ring-ring/50 flex min-h-11 w-full items-center gap-2 px-3 text-left outline-none focus-visible:ring-[3px]">
-          <StepGlyph step={current} className="border-primary-foreground/60" />
-          <span className="min-w-0 flex-1 leading-tight">
-            <span className="block text-sm">
-              Step {index + 1} of {phases.length} · {phaseLabels[phase]}
-            </span>
-            {caption && (
-              <span className="block truncate text-xs opacity-80">
-                {caption}
+        <SheetTrigger asChild>
+          <Button
+            type="button"
+            className="h-auto min-h-11 w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal"
+          >
+            <StepGlyph
+              step={current}
+              className="border-primary-foreground/60"
+            />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block text-sm">
+                Step {index + 1} of {phases.length} · {phaseLabels[phase]}
               </span>
-            )}
-          </span>
-          <ChevronDown aria-hidden className="size-4 shrink-0" />
+              {caption && (
+                <span className="block truncate text-xs opacity-80">
+                  {caption}
+                </span>
+              )}
+            </span>
+            <ChevronDown aria-hidden className="size-4 shrink-0" />
+          </Button>
         </SheetTrigger>
         <SheetContent
           side="bottom"

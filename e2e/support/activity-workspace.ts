@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
+import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
 export async function exerciseActivityWorkspace(
   gm: Page,
@@ -220,11 +221,7 @@ export async function exerciseActivityWorkspace(
     ['desktop', 1440, 900],
   ] as const) {
     await gm.setViewportSize({ width, height });
-    expect(
-      await gm.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBe(true);
+    await expectNoHorizontalOverflow(gm);
     await savePrivate(
       join(artifactDirectory, `canonical-activity-${name}.png`),
       await gm.screenshot({ fullPage: true }),

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
+import { expectNoHorizontalOverflow } from './responsive-shell';
 
 /** Independent review of the carried-event controls on the authenticated page. */
 export async function reviewPersistentWorkspace(
@@ -62,12 +63,7 @@ export async function reviewPersistentWorkspace(
       name: 'Persistent preparation',
     });
     await expect(section).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-      `${name}: document must fit the viewport`,
-    ).toBe(true);
+    await expectNoHorizontalOverflow(page);
     await savePrivate(
       join(artifactDirectory, `reviewer-persistent-${name}.png`),
       await page.screenshot({ fullPage: true }),

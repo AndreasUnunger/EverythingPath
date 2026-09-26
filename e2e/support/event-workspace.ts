@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
+import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
 export async function exerciseEventWorkspace(
   gm: Page,
@@ -122,11 +123,7 @@ export async function exerciseEventWorkspace(
     ['desktop', 1440, 900],
   ] as const) {
     await gm.setViewportSize({ width, height });
-    expect(
-      await gm.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBe(true);
+    await expectNoHorizontalOverflow(gm);
     for (const button of await gm
       .locator('section[aria-label="Event preparation"]')
       .getByRole('button')

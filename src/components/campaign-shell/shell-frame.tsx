@@ -14,26 +14,29 @@ export { OrganizationControl } from './organization-control';
 
 // The page column fills the dynamic viewport so a phone bottom bar sticks to
 // its real end while browser chrome collapses, and safe areas pad the edges.
-// `boundedOnDesktop` (the Week route from 1280px) caps the frame at the
-// viewport so the week host scrolls inside the remaining space; every other
-// page keeps document scrolling. The maintenance banner sits above the top
-// bar on phone and below it from tablet width.
+// `bounded` (the Week route at every width) caps the frame at the viewport:
+// the top bar, banner and bottom bar keep their natural heights and the
+// Week frame scrolls its editor inside the remaining space, so its stepper,
+// footer and phone strip stay pinned. Every other page keeps document
+// scrolling for its current forms. The maintenance banner sits above the
+// top bar on phone and below it from tablet width.
 export function ShellFrame({
   header,
   children,
   footer,
-  boundedOnDesktop = false,
+  bounded = false,
 }: {
   header: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
-  boundedOnDesktop?: boolean;
+  bounded?: boolean;
 }) {
   return (
     <div
+      data-shell-frame={bounded ? 'bounded' : 'document'}
       className={cn(
         'flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]',
-        boundedOnDesktop && 'xl:h-dvh xl:overflow-hidden',
+        bounded && 'h-dvh overflow-hidden',
       )}
     >
       <header className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]">

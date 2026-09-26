@@ -139,8 +139,7 @@ export async function exerciseShellNavigation(
   await expect(
     page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
   ).toBeVisible();
-  // Desktop: the week host is bounded after a non-week visit; phone and
-  // tablet keep document scrolling with the editor reachable.
-  if (original.width >= 1280) await expectBoundedWeekHost(page);
-  else await expectDocumentScrolledPage(page);
+  // The week host is bounded after a non-week visit at every width, with
+  // its editor scrolling inside and the frame chrome pinned.
+  await expectBoundedWeekHost(page);
 }

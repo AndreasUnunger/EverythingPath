@@ -1,18 +1,28 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-// Geometry and reachability checks for the campaign shell (#150). Viewport
-// resizing here is layout evidence only: headless browsers open no OS
-// keyboard and report zero safe-area insets, so keyboard and notch behavior
-// need a real device. The phone layout applies below 768px; from 768px the
-// top bar carries the section links, and from 1280px the Week host is bounded.
+// Geometry and reachability checks for the campaign shell (#150) and the
+// Week frame (#151). Viewport resizing here is layout evidence only:
+// headless browsers open no OS keyboard and report zero safe-area insets,
+// so keyboard and notch behavior need a real device. The phone layout
+// applies below 768px; from 768px the top bar carries the section links.
+// The Week route is bounded to the viewport at every width and scrolls its
+// editor column; every other page scrolls as a document.
 
+// The document, and on the bounded Week route also the frame that clips it
+// and the editor column that scrolls, all fit the viewport width.
 export async function expectNoHorizontalOverflow(page: Page) {
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
-    ),
-    'no horizontal page overflow',
-  ).toBe(true);
+  const overflowing = await page.evaluate(() => {
+    const boxes = [
+      document.documentElement,
+      ...document.querySelectorAll(
+        '[data-shell-frame="bounded"], [data-week-host], [data-week-editor]',
+      ),
+    ];
+    return boxes
+      .filter((box) => box.scrollWidth > box.clientWidth + 1)
+      .map((box) => box.tagName.toLowerCase());
+  });
+  expect(overflowing, 'no horizontal overflow').toEqual([]);
 }
 
 // The phone bar is the visible sections navigation that carries More.
@@ -200,12 +210,34 @@ export async function exerciseTopBarShell(page: Page) {
   );
 }
 
+// The pinned Week chrome at the current width: the stepper (tablet row or
+// desktop rail), the footer from 768px, and the phone bottom bar with its
+// status strip below 768px. Each must end within the viewport.
+async function pinnedWeekChrome(page: Page) {
+  const chrome = [
+    page
+      .getByRole('navigation', { name: 'Week phases' })
+      .locator('visible=true'),
+    page.locator('[data-week-footer]:visible'),
+    bottomNavigation(page).locator('..'),
+  ];
+  const boxes: { name: string; box: { y: number; height: number } }[] = [];
+  for (const [index, locator] of chrome.entries()) {
+    if ((await locator.count()) === 0) continue;
+    const box = (await locator.first().boundingBox())!;
+    boxes.push({ name: ['stepper', 'footer', 'bottom bar'][index]!, box });
+  }
+  return boxes;
+}
+
 /**
- * Desktop (from 1280px): the Week route's host ends within the viewport and
- * its last control is reachable by scrolling the host, not clipped.
+ * The Week route at every width: the host starts after the top bar and
+ * ends within the viewport, the document never scrolls, and the editor
+ * column is the scroller. With content taller than that column, its first
+ * and last enabled controls are reached by scrolling the column while the
+ * stepper, footer and phone bar stay exactly where they were.
  */
 export async function expectBoundedWeekHost(page: Page) {
-  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(1280);
   const host = page.locator('[data-week-host]');
   await expect(host).toHaveCount(1);
   const { height } = page.viewportSize()!;
@@ -218,52 +250,53 @@ export async function expectBoundedWeekHost(page: Page) {
     box.y + box.height,
     'week host ends within the viewport',
   ).toBeLessThanOrEqual(height + 1);
-  // The page itself never scrolls; the editor column does. Its last enabled
-  // control is reached by scrolling that column, with the pinned footer and
-  // the stepper rail staying inside the viewport.
   expect(
     await page.evaluate(
       () =>
         document.documentElement.scrollHeight <= window.innerHeight + 1 &&
         window.scrollY === 0,
     ),
-    'the document does not scroll on the desktop week',
+    'the document does not scroll on the week',
   ).toBe(true);
-  const last = host.locator('main button:visible:enabled').last();
-  await expectReachable(page, last);
-  const footer = host.locator('[data-week-footer]:visible');
-  if ((await footer.count()) > 0) {
-    const pinned = (await footer.first().boundingBox())!;
+  const chrome = await pinnedWeekChrome(page);
+  expect(chrome.length, 'some week chrome is pinned').toBeGreaterThan(0);
+  for (const { name, box: pinned } of chrome)
     expect(
       pinned.y + pinned.height,
-      'week footer ends within the viewport',
+      `${name} ends within the viewport`,
     ).toBeLessThanOrEqual(height + 1);
-  }
-  const rail = host.getByRole('navigation', { name: 'Week phases' });
-  if ((await rail.count()) > 0) {
-    const bounds = (await rail.boundingBox())!;
+  const editor = host.locator('[data-week-editor]');
+  await expect(editor).toHaveCount(1);
+  const controls = editor.locator('button:visible:enabled');
+  const tall = await editor.evaluate(
+    (element) => element.scrollHeight > element.clientHeight + 1,
+  );
+  await expectReachable(page, controls.last());
+  if (tall) {
     expect(
-      bounds.y + bounds.height,
-      'stepper rail ends within the viewport',
-    ).toBeLessThanOrEqual(height + 1);
+      await editor.evaluate((element) => element.scrollTop),
+      'the editor column scrolled to reach its last control',
+    ).toBeGreaterThan(0);
+    expect(
+      await page.evaluate(() => window.scrollY),
+      'the document still did not scroll',
+    ).toBe(0);
+    expect(await pinnedWeekChrome(page), 'chrome unmoved after scroll').toEqual(
+      chrome,
+    );
   }
+  await expectReachable(page, controls.first());
+  expect(await pinnedWeekChrome(page), 'chrome unmoved at the top').toEqual(
+    chrome,
+  );
 }
 
 /**
- * Below 1280px, and on every non-week page: the page scrolls as a document
- * and its last control is reachable that way. The week wrapper, when
- * present, must not own the scrolling.
+ * Every non-week page: the page scrolls as a document and its last control
+ * is reachable that way. The bounded Week host never appears here.
  */
 export async function expectDocumentScrolledPage(page: Page) {
-  const host = page.locator('[data-week-host]');
-  if ((await host.count()) > 0) {
-    expect(
-      await host.evaluate(
-        (element) => element.scrollHeight <= element.clientHeight + 1,
-      ),
-      'week wrapper does not scroll internally',
-    ).toBe(true);
-  }
+  await expect(page.locator('[data-week-host]')).toHaveCount(0);
   // A page taller than the viewport scrolls as a document; a shorter one
   // has nothing to scroll and its controls are simply in view.
   const scrolled = await page.evaluate(() => {

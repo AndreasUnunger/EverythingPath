@@ -1,7 +1,7 @@
 import { openCampaignSection } from './support/interactions';
 import {
   expectBoundedWeekHost,
-  expectDocumentScrolledPage,
+  expectNoHorizontalOverflow,
   expectReachable,
 } from './support/responsive-shell';
 import { exercisePhoneSteps, exerciseWeekFrame } from './support/week-frame';
@@ -273,11 +273,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
         gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
       ).toBeVisible();
       if (name === 'phone') await exercisePhoneSteps(gm);
-      expect(
-        await gm.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      ).toBe(true);
+      await expectNoHorizontalOverflow(gm);
       const officer = gm
         .getByRole('group', { name: 'Officer', exact: true })
         .getByRole('button')
@@ -296,8 +292,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
         // The tapped control itself stays reachable above the bottom bar.
         await expectReachable(gm, officer);
       }
-      if (name === 'desktop') await expectBoundedWeekHost(gm);
-      else await expectDocumentScrolledPage(gm);
+      await expectBoundedWeekHost(gm);
       await savePrivate(
         join(run.artifactDirectory, `canonical-upkeep-${name}.png`),
         await gm.screenshot({ fullPage: true }),
@@ -519,11 +514,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
       ['phone', 390, 844],
     ] as const) {
       await gm.setViewportSize({ width, height });
-      expect(
-        await gm.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      ).toBe(true);
+      await expectNoHorizontalOverflow(gm);
       await savePrivate(
         join(run.artifactDirectory, `canonical-recovery-${name}.png`),
         await gm.screenshot({ fullPage: true }),

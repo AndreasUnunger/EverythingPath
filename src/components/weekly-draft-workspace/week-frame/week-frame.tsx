@@ -23,41 +23,44 @@ type Frame = {
 
 // Previous/next never wrap: an endpoint keeps a disabled control so the
 // footer keeps its shape. Names carry the direction so they never collide
-// with the stepper's own phase buttons.
+// with the stepper's own phase buttons. The footer shows the target's label
+// beside an arrow; the phone strip shows only a chevron.
+const directions = {
+  previous: { word: 'Previous', arrow: ArrowLeft, chevron: ChevronLeft },
+  next: { word: 'Next', arrow: ArrowRight, chevron: ChevronRight },
+};
 function DirectionButton({
   direction,
   target,
   choose,
   compact,
 }: {
-  direction: 'previous' | 'next';
+  direction: keyof typeof directions;
   target: Phase | null;
   choose: (phase: Phase) => void;
   compact?: boolean;
 }) {
-  const word = direction === 'previous' ? 'Previous' : 'Next';
-  const label = target ? `${word}: ${phaseLabels[target]}` : word;
-  const Icon = compact
-    ? direction === 'previous'
-      ? ChevronLeft
-      : ChevronRight
-    : direction === 'previous'
-      ? ArrowLeft
-      : ArrowRight;
+  const { word, arrow, chevron } = directions[direction];
+  const Icon = compact ? chevron : arrow;
+  const label = target ? phaseLabels[target] : null;
+  const content = [
+    <Icon key="icon" aria-hidden />,
+    !compact && label && (
+      <span key="label" className="truncate">
+        {label}
+      </span>
+    ),
+  ];
   return (
     <Button
       variant={direction === 'next' && target ? 'default' : 'outline'}
       size={compact ? 'icon-lg' : 'lg'}
-      aria-label={label}
+      aria-label={label ? `${word}: ${label}` : word}
       disabled={!target}
       onClick={() => target && choose(target)}
       className={cn(!compact && 'max-w-[40%] shrink')}
     >
-      {direction === 'previous' && <Icon aria-hidden />}
-      {!compact && target && (
-        <span className="truncate">{phaseLabels[target]}</span>
-      )}
-      {direction === 'next' && <Icon aria-hidden />}
+      {direction === 'next' ? content.reverse() : content}
     </Button>
   );
 }
@@ -74,7 +77,7 @@ function Footer(frame: Frame) {
   return (
     <footer
       data-week-footer
-      className="bg-background/95 border-foreground/15 sticky bottom-0 z-30 hidden shrink-0 items-center gap-3 border-t px-4 py-2.5 backdrop-blur md:flex xl:static"
+      className="bg-background/95 border-foreground/15 hidden shrink-0 items-center gap-3 border-t px-4 py-2.5 md:flex"
     >
       <DirectionButton
         direction="previous"
@@ -103,7 +106,7 @@ function Strip(frame: Frame) {
   const step = currentStep(frame);
   return (
     <PhoneStatusStrip>
-      <div className="flex items-center gap-1 px-1 py-1">
+      <div data-week-strip className="flex items-center gap-1 px-1 py-1">
         <DirectionButton
           direction="previous"
           target={frame.navigation.previous}
@@ -165,7 +168,10 @@ export function WeekFrame({
           className="xl:border-foreground/15 shrink-0 px-3 pt-2 md:px-4 xl:min-h-0 xl:overflow-y-auto xl:border-r xl:p-3"
         />
         <div className="flex min-h-0 flex-1 flex-col">
-          <main className="min-h-0 flex-1 px-3 py-3 md:px-5 xl:overflow-y-auto">
+          <main
+            data-week-editor
+            className="min-h-32 flex-1 overflow-y-auto px-3 py-3 md:px-5"
+          >
             <div className="mx-auto w-full max-w-6xl">{children}</div>
           </main>
           <Footer {...frame} />

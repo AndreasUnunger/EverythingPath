@@ -24,6 +24,21 @@ async function currentStep(page: Page) {
   return stepper(page).locator('button[aria-current="step"]');
 }
 
+// The readiness line lives in the visible frame chrome: the pinned footer
+// from 768px, the strip above the bottom tabs below it. An empty line (the
+// correct Review & confirm state when confirmable) has no height, so the
+// visible container is asserted and the line itself is read without a
+// visibility requirement.
+async function readinessLine(page: Page) {
+  const chrome = page.locator(
+    '[data-week-footer]:visible, [data-week-strip]:visible',
+  );
+  await expect(chrome).toHaveCount(1);
+  const line = chrome.locator('[data-week-readiness]');
+  await expect(line).toHaveCount(1);
+  return line;
+}
+
 /**
  * Tablet and desktop (from 768px): stepper positions, descriptions, the
  * locked Persistent, and footer previous/next skipping and endpoints. Ends
@@ -85,19 +100,26 @@ export async function exerciseWeekFrame(page: Page) {
   await expect(
     page.getByRole('button', { name: 'Next', exact: true }),
   ).toBeDisabled();
-  const line = page.locator('[data-week-readiness]:visible');
-  await expect(line).toHaveCount(1);
-  await expect(line).toHaveText(
-    /^(|\d+ decisions? left|Review .*|Confirming the week…)$/,
-  );
-  await expect(line).not.toContainText(/ready for confirmation|attention/i);
+  const line = await readinessLine(page);
+  const reason = (await line.textContent())!.trim();
+  const confirmable = await page
+    .getByRole('button', { name: 'Confirm week', exact: true })
+    .isEnabled();
+  // Confirmable: nothing at all. Otherwise exactly one disabled reason;
+  // never the removed ready/needs-attention sentence.
+  if (confirmable) expect(reason, 'no caption when confirmable').toBe('');
+  else
+    expect(reason, 'only the disabled-Confirmation reason').toMatch(
+      /^(\d+ decisions? left|Review .*|Confirming the week…)$/,
+    );
+  expect(reason).not.toMatch(/ready for confirmation|attention/i);
   await previous(locked ? 'Event' : 'Persistent').click();
   await nav.getByRole('button', { name: 'Upkeep', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Previous', exact: true }),
   ).toBeDisabled();
   await expect(next('Activity')).toBeEnabled();
-  await expect(page.locator('[data-week-readiness]:visible')).toHaveText(
+  await expect(await readinessLine(page)).toHaveText(
     /^(Upkeep is ready\.|Complete the required rolls and decisions to finish Upkeep\.)/,
   );
   await nav.getByRole('button', { name: origin, exact: true }).click();
@@ -115,10 +137,6 @@ export async function exercisePhoneSteps(page: Page) {
   const trigger = page.getByRole('button', { name: /^Step \d of 5 · / });
   await expect(trigger).toBeVisible();
   await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
-  const origin = /^Step \d of 5 · (.+)$/.exec(
-    (await trigger.innerText()).split('\n')[0]!.trim(),
-  )?.[1];
-  expect(origin, 'the step button names the current phase').toBeTruthy();
   await trigger.focus();
   await page.keyboard.press('Enter');
   const sheet = page.getByRole('dialog', { name: /^Week \d+$/ });
@@ -129,7 +147,17 @@ export async function exercisePhoneSteps(page: Page) {
   await expect(buttons).toHaveCount(5);
   for (const [index, name] of positions.entries())
     await expect(buttons.nth(index)).toHaveAccessibleName(name);
-  await expect(sheet.locator('button[aria-current="step"]')).toHaveCount(1);
+  const current = sheet.locator('button[aria-current="step"]');
+  await expect(current).toHaveCount(1);
+  // The current phase comes from the sheet's semantic state; the trigger's
+  // accessible name (decorative glyph excluded) must agree with it.
+  const origin = (await current.getAttribute('aria-label'))!;
+  expect(positions).toContain(origin);
+  await expect(trigger).toHaveAccessibleName(
+    new RegExp(
+      `^Step ${positions.indexOf(origin as never) + 1} of 5 · ${origin}`,
+    ),
+  );
   await expect(
     sheet.getByRole('button', { name: 'Review & confirm', exact: true }),
   ).not.toHaveAttribute('aria-describedby', /.+/);
@@ -147,14 +175,17 @@ export async function exercisePhoneSteps(page: Page) {
   await sheet.getByRole('button', { name: target, exact: true }).click();
   await expect(sheet).toBeHidden();
   await expect(page).toHaveURL(new RegExp(`phase=${target.toLowerCase()}`));
-  await expect(trigger).toContainText(target);
-  const strip = page.locator('[data-week-readiness]:visible');
-  await expect(strip).toHaveCount(1);
+  await expect(trigger).toHaveAccessibleName(
+    new RegExp(`^Step \\d of 5 · ${target}`),
+  );
+  await readinessLine(page);
   await expect(
     page.getByRole('button', { name: /^Previous: /, exact: false }),
   ).toBeVisible();
   await trigger.click();
-  await sheet.getByRole('button', { name: origin!, exact: true }).click();
+  await sheet.getByRole('button', { name: origin, exact: true }).click();
   await expect(sheet).toBeHidden();
-  await expect(trigger).toContainText(origin!);
+  await expect(trigger).toHaveAccessibleName(
+    new RegExp(`^Step \\d of 5 · ${origin}`),
+  );
 }

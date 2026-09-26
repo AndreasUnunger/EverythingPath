@@ -173,6 +173,10 @@ test('the phone step button opens a sheet listing every position, chooses one an
   });
   expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
   expect(trigger).toHaveTextContent('2 to decide · 1 warning');
+  // The decorative glyph shows the open count but never leads the name.
+  expect(trigger).toHaveAccessibleName(
+    /^Step 2 of 5 · Activity\s?2 to decide · 1 warning$/,
+  );
   trigger.focus();
   fireEvent.click(trigger);
   const sheet = await screen.findByRole('dialog', { name: 'Week 4' });

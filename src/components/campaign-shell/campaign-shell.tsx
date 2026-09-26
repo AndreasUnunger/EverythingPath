@@ -473,15 +473,16 @@ function CampaignShellContent({
   const pathname = usePathname();
   const ready = access.kind === 'ready';
   const sections = useSections(ready ? access.campaign._id : '');
-  // Desktop only: the Week route gets the remaining viewport as a bounded,
-  // internally scrolling host for the later Week frame. Every other section
-  // keeps ordinary document scrolling for its current forms.
+  // The Week route gets the remaining viewport as a bounded host at every
+  // width so the Week frame can pin its stepper, footer and phone strip
+  // while its editor scrolls. Every other section keeps ordinary document
+  // scrolling for its current forms.
   const week = ready && pathname === campaignPath(access.campaign._id, 'week');
   return (
     <ShellFrame
       header={<CampaignTopBar access={access} sections={sections} />}
       footer={ready ? <BottomBar sections={sections} /> : null}
-      boundedOnDesktop={week}
+      bounded={week}
     >
       {access.kind === 'ready' ? (
         <CampaignProvider
@@ -494,7 +495,7 @@ function CampaignShellContent({
           {week ? (
             <div
               data-week-host
-              className="flex min-h-0 flex-1 flex-col xl:overflow-y-auto"
+              className="flex min-h-0 flex-1 flex-col overflow-y-auto"
             >
               {children}
             </div>
