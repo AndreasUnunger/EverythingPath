@@ -87,7 +87,7 @@ type ShellProps = {
   go: (place: Place) => void;
   setOrg: (org: Organization) => void;
   // A and C: org switcher in the right cluster everywhere. B: in the
-  // breadcrumb on the list page only.
+  // breadcrumb on the list page, in the right cluster on campaign pages.
   orgPlacement: 'right' | 'breadcrumb';
   // Where picking a campaign in the switcher lands.
   openCampaign: (c: Campaign) => Place;
@@ -185,7 +185,7 @@ export function Shell({
           </nav>
         )}
         <div className="ml-auto flex items-center gap-3">
-          {orgPlacement === 'right' && !scenario.signedOut && (
+          {(orgPlacement === 'right' || !onList) && !scenario.signedOut && (
             <OrgSwitcher scenario={scenario} setOrg={setOrg} />
           )}
           <UserSlot scenario={scenario} />

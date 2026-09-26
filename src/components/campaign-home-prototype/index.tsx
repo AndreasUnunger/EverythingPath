@@ -81,6 +81,18 @@ export function CampaignHomePrototype() {
     return c;
   }
 
+  function update(
+    id: string,
+    patch: { description?: string; inGameDate?: string },
+  ) {
+    setByOrg((prev) => ({
+      ...prev,
+      [scenario.org]: prev[scenario.org].map((c) =>
+        c.id === id ? { ...c, ...patch } : c,
+      ),
+    }));
+  }
+
   function setOrg(org: Organization) {
     setScenario((s) => ({ ...s, org, orgState: 'ready' }));
     setPlace({ page: 'list' });
@@ -119,6 +131,7 @@ export function CampaignHomePrototype() {
               place={place}
               go={go}
               create={create}
+              update={update}
               highlight={highlight}
               setHighlight={setHighlight}
             />

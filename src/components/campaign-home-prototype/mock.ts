@@ -3,6 +3,8 @@
 // workspace + draft observe (week, snapshot, client-derived readiness),
 // canonicalHistory.read (finished weeks and provenance). Nothing is persisted.
 
+import { getFantasyDateParts } from '~/helpers/ARDateConverter';
+
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
 
 export const phaseLabels: Record<Phase, string> = {
@@ -59,7 +61,7 @@ export function initialCampaigns(): Record<Organization, Campaign[]> {
         name: 'Ironfang Invasion',
         description:
           'Book 2, Thursday group. The Lastwall refugees regroup under Phaendar after the Molthuni push through the Fangwood.',
-        inGameDate: '12 Pharast 4717',
+        inGameDate: '2017-03-12',
         createdAt: 1,
         militia: {
           week: 14,
@@ -141,12 +143,15 @@ export function nextUp(m: Militia): Phase | null {
   );
 }
 
+// Week number only (#118 sign-off: no "next up" phase on the campaign list).
 export function statusLine(c: Campaign) {
-  if (!c.militia) return 'Not set up';
-  const next = nextUp(c.militia);
-  return next
-    ? `Week ${c.militia.week} · next up ${phaseLabels[next]}`
-    : `Week ${c.militia.week} · ready to confirm`;
+  return c.militia ? `Week ${c.militia.week}` : 'Not set up';
+}
+
+// `inGameDate` is stored as an ISO date; the calendar shows it as Golarion.
+export function formatInGameDate(value: string) {
+  const parts = getFantasyDateParts(new Date(`${value}T00:00:00.000Z`));
+  return `${parts.day} ${parts.month.name} ${parts.year}`;
 }
 
 export function continuePhase(m: Militia): Phase {
@@ -224,6 +229,12 @@ export type ProtoProps = {
   place: Place;
   go: (place: Place) => void;
   create: (name: string, description: string) => Campaign;
+  // Description: new update mutation (approved). In-game date: the existing
+  // updateCampaignInGameDate.
+  update: (
+    id: string,
+    patch: { description?: string; inGameDate?: string },
+  ) => void;
   highlight: string | null;
   setHighlight: (id: string | null) => void;
 };

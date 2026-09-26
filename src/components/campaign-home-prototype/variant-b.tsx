@@ -1,21 +1,23 @@
 'use client';
 // PROTOTYPE — Variant B: list with a detail pane. The list is the campaign
 // home: `/campaigns/<id>` is the same screen with that campaign selected.
-// The org switcher sits in the breadcrumb on this page only. Create turns the
-// pane into the form.
+// The org switcher sits in the breadcrumb here and in the top bar's right
+// cluster on campaign pages. Create turns the pane into the form; Edit changes
+// the description and in-game date in place.
 
-import { ChevronRight, History, Plus, Users } from 'lucide-react';
+import { ChevronRight, History, Pencil, Plus, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import { FantasyDatePicker } from '~/components/ui/fantasy-date-picker';
+import { Label } from '~/components/ui/label';
 import { cn } from '~/lib/utils';
 import { CreateFields } from './frame';
 import {
   continuePhase,
+  formatInGameDate,
   militiaLine,
-  nextUp,
-  phaseLabels,
   provenanceBadge,
   statusLine,
   type Campaign,
@@ -37,7 +39,7 @@ export const shell = {
   }),
 };
 
-export function VariantB({ campaigns, place, go, create }: ProtoProps) {
+export function VariantB({ campaigns, place, go, create, update }: ProtoProps) {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -51,8 +53,7 @@ export function VariantB({ campaigns, place, go, create }: ProtoProps) {
   async function onCreate(name: string, description: string) {
     const c = create(name, description);
     setCreating(false);
-    // With or without a returned id this selects the new campaign; without
-    // one the client picks the newest `_creationTime` once the list updates.
+    // createCampaign returns the new id (approved), so select it.
     go({ page: 'list', selected: c.id });
   }
 
@@ -117,7 +118,7 @@ export function VariantB({ campaigns, place, go, create }: ProtoProps) {
             />
           </div>
         ) : (
-          <Pane campaign={selected} go={go} />
+          <Pane key={selected.id} campaign={selected} go={go} update={update} />
         )}
       </section>
     </div>
@@ -127,21 +128,46 @@ export function VariantB({ campaigns, place, go, create }: ProtoProps) {
 function Pane({
   campaign: c,
   go,
+  update,
 }: {
   campaign: Campaign;
   go: ProtoProps['go'];
+  update: ProtoProps['update'];
 }) {
   const m = c.militia;
-  const next = m && nextUp(m);
+  const [editing, setEditing] = useState(false);
   return (
     <div className="max-w-3xl space-y-6">
       <header className="space-y-2">
         <div className="flex items-center gap-3">
           <h2 className="text-3xl">{c.name}</h2>
-          {c.inGameDate && <Badge variant="outline">{c.inGameDate}</Badge>}
+          {c.inGameDate && (
+            <Badge variant="outline">{formatInGameDate(c.inGameDate)}</Badge>
+          )}
+          {!editing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil /> Edit
+            </Button>
+          )}
         </div>
-        {c.description && (
-          <p className="text-muted-foreground max-w-prose">{c.description}</p>
+        {editing ? (
+          <EditDetails
+            campaign={c}
+            onSave={(patch) => {
+              update(c.id, patch);
+              setEditing(false);
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          c.description && (
+            <p className="text-muted-foreground max-w-prose">{c.description}</p>
+          )
         )}
       </header>
 
@@ -157,9 +183,6 @@ function Pane({
             >
               Continue week {m.week} <ChevronRight />
             </Button>
-            <span className="text-muted-foreground">
-              {next ? `Next up ${phaseLabels[next]}` : 'Ready to confirm'}
-            </span>
           </>
         ) : (
           <Button
@@ -237,5 +260,61 @@ function Pane({
         <Users /> {m ? 'Characters & officers' : 'Characters'}
       </Button>
     </div>
+  );
+}
+
+function EditDetails({
+  campaign: c,
+  onSave,
+  onCancel,
+}: {
+  campaign: Campaign;
+  onSave: (patch: { description: string; inGameDate?: string }) => void;
+  onCancel: () => void;
+}) {
+  const [description, setDescription] = useState(c.description);
+  const [date, setDate] = useState(c.inGameDate ?? '');
+  const [saving, setSaving] = useState(false);
+  return (
+    <form
+      className="max-w-xl space-y-4"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        await new Promise((r) => setTimeout(r, 400));
+        onSave({
+          description: description.trim(),
+          inGameDate: date || undefined,
+        });
+      }}
+    >
+      <div className="grid gap-2">
+        <Label htmlFor="edit-description">Description</Label>
+        <textarea
+          id="edit-description"
+          autoFocus
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:ring-[3px] md:text-sm"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label>In-game date</Label>
+        <FantasyDatePicker
+          value={date}
+          onChange={setDate}
+          ariaLabel="In-game date"
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={saving}>
+          Save
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
