@@ -235,7 +235,8 @@ async function pinnedWeekChrome(page: Page) {
  * ends within the viewport, the document never scrolls, and the editor
  * column is the scroller. With content taller than that column, its first
  * and last enabled controls are reached by scrolling the column while the
- * stepper, footer and phone bar stay exactly where they were.
+ * stepper, footer and phone bar stay exactly where they were. Editors with
+ * no enabled controls must still expose their first and last text content.
  */
 export async function expectBoundedWeekHost(page: Page) {
   const host = page.locator('[data-week-host]');
@@ -267,15 +268,24 @@ export async function expectBoundedWeekHost(page: Page) {
     ).toBeLessThanOrEqual(height + 1);
   const editor = host.locator('[data-week-editor]');
   await expect(editor).toHaveCount(1);
-  const controls = editor.locator('button:visible:enabled');
+  const controls = editor.locator(
+    ':is(button, input, select, textarea, a[href], summary, [role="button"], [role="combobox"], [contenteditable="true"]):visible:not(:disabled):not([aria-disabled="true"])',
+  );
+  const targets = (await controls.count())
+    ? controls
+    : editor.locator('*:visible:not(:has(*))').filter({ hasText: /\S/ });
+  expect(
+    await targets.count(),
+    'the editor has reachable controls or nonempty text content',
+  ).toBeGreaterThan(0);
   const tall = await editor.evaluate(
     (element) => element.scrollHeight > element.clientHeight + 1,
   );
-  await expectReachable(page, controls.last());
+  await expectReachable(page, targets.last());
   if (tall) {
     expect(
       await editor.evaluate((element) => element.scrollTop),
-      'the editor column scrolled to reach its last control',
+      'the editor column scrolled to reach its last target',
     ).toBeGreaterThan(0);
     expect(
       await page.evaluate(() => window.scrollY),
@@ -285,7 +295,15 @@ export async function expectBoundedWeekHost(page: Page) {
       chrome,
     );
   }
-  await expectReachable(page, controls.first());
+  await expectReachable(page, targets.first());
+  expect(
+    await editor.evaluate(
+      (element) =>
+        element.scrollTop >= 0 &&
+        element.scrollTop <= element.scrollHeight - element.clientHeight + 1,
+    ),
+    'the editor stays within its scroll bounds',
+  ).toBe(true);
   expect(await pinnedWeekChrome(page), 'chrome unmoved at the top').toEqual(
     chrome,
   );

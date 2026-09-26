@@ -708,9 +708,11 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await summary(late);
       await expect(confirm(late)).toBeDisabled();
       await expect(
-        late.getByText('Review will be ready when your changes are saved.', {
-          exact: true,
-        }),
+        late
+          .getByRole('main')
+          .getByText('Review will be ready when your changes are saved.', {
+            exact: true,
+          }),
       ).toBeVisible();
       const raceFirst = firstTransport.next('delay-request');
       const raceSecond = secondTransport.next('delay-request');
