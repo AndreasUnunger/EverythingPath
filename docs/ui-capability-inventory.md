@@ -751,3 +751,75 @@ Owner: [Implement rules-ordered Event preparation and occurrence resolution](htt
 Planned coverage retains and rewrites `ws:event` (automatic fields/clear in place of add/remove), `week`, `ws:setup`, Activity/Persistent/Summary interactions, access and cutover scenarios. Extend event view/selection/action/resource/threat/recurring/acceptance and draft/persistence/Confirmation tests for every event mode, concurrent blank preparation, old/new trees and totals, reroll source precedence, precise acknowledgements and support moves. Keep direct backend `e2e/canonical-persistence.spec.ts` and `canonical-confirmation.spec.ts` even though they have no browser inventory mapping. Current no-coverage cells are not claimed as tested yet.
 
 No additional payload change. Event consumes Upkeep's roll format; existing tree/occurrence/choice edits suffice with stable fill-only initialization and conflict refresh/recompute. The literal approved candidate Roll Twice reroll restriction changes current selected-candidate expansion, so its implementation uses the next unused Ruleset Version and matching client/server logic; presentation/equivalent representation alone does not bump versions. The reputation fix already shipped in PR #115 at Version 5. Frozen records preserve their source/version/outcomes.
+
+## Persistent — planned implementation ownership
+
+Implementation spec: [Implement carried Persistent events and shared support decisions](https://github.com/AndreasUnunger/EverythingPath/issues/144). Authored by [Write the Persistent implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/128). This section records planned coverage; original current-location/E2E columns remain unchanged until implementation ships. No new capability IDs are introduced.
+
+| ID | Planned ownership and acceptance |
+| --- | --- |
+| PER-01 | Persistent owns the wrapping buyoff overview, first availability, projected rules cost, next buyoff week/four-week cadence including staged buyoffs, and stable oldest-first instance ordering. |
+| PER-02 | Persistent owns numbered section identity, start/age/recorded order/targets and actual projected ending; Activity/Event own source edits, linked from a carried event already ended elsewhere. Keep ended sections visible and restore retained decisions if the source ending is undone. |
+| PER-03 | Persistent owns tap/keyboard Leave it, applicable Theft/Rivalry check and Buy off cards. Leave it explicitly replaces the event decision with unattempted; no unsupported check card for Low Morale/Double Agent. |
+| PER-04 | Persistent owns dedicated Theft roll/Overseer and Rivalry officer/skill/skill-bonus/roll controls; preserve modifiers and all accepted targets/rolls/strategist/nested fields. Share recoverable one-event Overseer moves with Event. |
+| PER-05 | **Signed-off removal, planned:** recorded buyoff amount and differing-amount warning. New buyoff writes omit costCopper; projected rules cost remains visible; legacy stored amounts/parser and immutable history remain readable. Source: [second-review amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317). |
+| PER-06 | Persistent owns Ended at the table card, How it ended acknowledgement with stable subject/identity, required reasoned Rules Exception and recovery for invalid/partial writes. |
+| PER-07 | Persistent owns correct check arithmetic/source breakdowns and projected buyoff/officer/temporary-mitigation outcomes; no duplicate bonuses or false ending from selection alone. |
+| PER-08 | Persistent owns event warnings and Rules Exception record/edit/remove; frame owns aggregate display. Only the approved differing-amount warning is removed from live presentation/counts; historical warnings remain unchanged. |
+| PER-09 | **Signed-off removal, planned:** standalone Clear decision. Leave it replaces the reset path; existing clear edit/parser remains for compatibility and valid consumers. Source: [second-review amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317). |
+| PER-10 | Persistent owns per-event/earlier-phase requirements; frame owns This phase/stepper/footer rendering and fixed week-start eligibility. Same-week persistent inputs stay accessible under Event. |
+
+Shared obligations and owner handoffs:
+
+| ID | Persistent obligation and named owner |
+| --- | --- |
+| WEEK-01 | Consume Week frame's accessible week/phase heading. |
+| WEEK-02 | Week frame owns five-step/readiness/eligibility navigation; Persistent supplies its facts and keeps ended carried sections accessible. |
+| WEEK-03 | Phase links/navigation stay local under Week frame; other players do not move. |
+| WEEK-04 | Every Persistent write uses shared store/gateway; frame owns feedback. |
+| WEEK-05 | Reuse frame's optimistic projection and accepted-state reconciliation. |
+| WEEK-06 | Reuse frame saving/saved/failed/remote-change status for every field/card/reason/support move. |
+| WEEK-07 | Rejected/partial edits restore accepted state, remain repairable and require fresh review under frame/Review & confirm contracts. |
+| WEEK-08 | Frame owns pending-departure warning; include unfinished local strict-ending form state truthfully. |
+| WEEK-09 | Keep frame's Setup notes access reachable. |
+| WEEK-10 | Disable every Persistent write while Confirmation is in flight; frame owns lock. |
+| WEEK-11 | Consume frame successor transition and reject delayed old-draft writes. |
+| WEEK-12 | Consume frame week loading/retry/no-militia states; own matching Persistent body skeleton. |
+| WEEK-13 | Persistent owns accessible tap/keyboard choice cards and scroll-safe touch interaction; no global drag removal. |
+| WEEK-14 | Consume Upkeep's invalid/blank/zero whole-number behavior; signed skill/modifier fields retain their own valid signs. |
+| WEEK-15 | Consume Upkeep's strict dice-array versus diceTotal/diceCount compatibility; no new roll format or eager rewriting. |
+| WEEK-16 | Retain advisory range warnings consistently in event/detail/frame counts. |
+| WEEK-17 | Persistent owns wrapping/stacking fields and 2×2 phone choices; shell/frame own responsive chrome. |
+| WEEK-18 | Persistent preserves nested/list/modifier save/clear/add/edit/remove operations; Event owns same-week occurrence decisions and legacy values. |
+| ACT-10 | Activity owns Reduce Danger source details; link to actual source instead of duplicating editing. |
+| ACT-13 | Activity owns check outcome; only its resolved successful ending suppresses redundant Persistent decision. |
+| ACT-17 | Activity owns its warnings/requirements; source failures remain visible and never imply an ending. |
+| EVT-07 | Event owns same-week occurrence persistent fields/decisions and target/reaction inputs; shared support moves preserve sibling fields. |
+| EVT-10 | Event owns occurrence checks; both phases share one-event Overseer support with existing conflict/recovery semantics. |
+| EVT-11 | Event owns its warning/exception editing; Persistent must not clear it during support moves. |
+| EVT-12 | Event owns High Morale and other occurrence outcomes; Persistent shows their carried-event ending provenance and change links. |
+| EVT-14 | Event owns readiness for nested same-week decisions even when Persistent is locked. |
+| SUM-01 | Review & confirm owns readiness/review presentation; Persistent supplies requirements. |
+| SUM-02 | Review & confirm owns required-decision list; Persistent supplies exact event/phase subjects. |
+| SUM-03 | Preserve saved/reviewed/ready Confirmation contract; no second confirm control. |
+| SUM-04 | Preserve single-winner concurrent Confirmation; include Persistent revision changes. |
+| SUM-05 | Preserve stale-review recovery after failed/remote/partial Persistent edits. |
+| SUM-06 | Review & confirm owns Rules Baseline/Final; Persistent supplies canonical consequences, not patched client totals. |
+| SUM-07 | Review & confirm owns aggregate Rules Exception editing; event-local reasons stay compatible. |
+| SUM-08 | Review & confirm owns Table Adjustments; table ending text and buyoff display introduce no numeric adjustment API. |
+| SUM-09 | Review & confirm owns live warning display; omit approved recorded-buyoff-difference warning consistently without rewriting records. |
+| SUM-10 | Review & confirm owns consequence presentation; retain all Persistent results. |
+| SUM-11 | Review & confirm owns recorded outcomes; retain exact ending acknowledgement and reason facts. |
+| NAV-15 | Shell/frame own scoped phase routing/redirects; consume phase=persistent and local source links preserving campaign context. |
+| STATE-01 | Shell maintenance stays readable; normal failed-write feedback/repair applies. |
+| STATE-02 | Shell/frame own outer skeleton; Persistent owns overview/section shape. |
+| STATE-03 | Use frame/shared failed-load card and Try again with usable shell tabs. |
+| STATE-05 | Consume frame week loading/failure/no-militia and shell unavailable access boundary. |
+| STATE-06 | Cover accepted values/reasons/legacy fields/support allocation across observer reload and multiple members. |
+| STATE-07 | Consume shell neutral unavailable/sign-in gate with no protected-data flash. |
+
+Final shared copy approval: [Persistent final approval](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837957108) uses **Use Overseer support · +N · one event a week**, no name/ability, with **Officers +N · Overseer +N** source names. This supersedes initial Event/Persistent prototype wording; Event implementation has been coordinated to match.
+
+Coverage handoff: rewrite persistent-workspace/persistent-qa locators to dedicated totals, Leave it and gp results while retaining all behavior (shared buyoffs/exceptions/endings/checks, held/rejected save, observer reload, independent phase navigation and responsive geometry). Preserve full canonical-workspace, complete-week, canonical-confirmation and direct canonical-persistence scenarios. Add source-ending undo, fixed eligibility/same-week Event inputs, strict ending form/partial failure, cross-phase Overseer concurrency/partial-failure repair, legacy amount/roll/history, and membership/campaign isolation cases. Retain canonical rules.P02.rivalry.* weeks 2–4 regression; separate legacy request [Fix persistent Rivalry lifecycle across weeks](https://github.com/AndreasUnunger/EverythingPath/issues/31) imports no dependency/schema work and is not closed here.
+
+Parent coordination: add native implementation edge Event143 → Persistent144; subsequent Review & confirm implementation depends on144. Parent links this inventory change in128's resolution, updates map99 and closes128 only after integration. The spec introduces no new payload, rules version, migrations, or deployed behavior.
