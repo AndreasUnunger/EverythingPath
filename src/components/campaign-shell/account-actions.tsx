@@ -46,6 +46,8 @@ export function AccountActions() {
   const signOut = () =>
     guard.requestDeparture({
       commit: () => clerk.signOut({ redirectUrl: '/campaigns' }),
+      failureMessage:
+        'Sign-out could not be completed. You are still signed in.',
     });
   return (
     <div className="flex flex-col gap-2">

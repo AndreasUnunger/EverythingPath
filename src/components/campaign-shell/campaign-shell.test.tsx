@@ -501,6 +501,69 @@ test('pending work turns phone sign-out into the departure decision: Stay keeps 
   release();
 });
 
+test('a refused sign-out is reported after More has closed, and Try again repeats it once', async () => {
+  signOut
+    .mockRejectedValueOnce(new Error('network'))
+    .mockResolvedValue(undefined);
+  render(shell('alpha'));
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Sign out' }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+  const failure = await screen.findByRole('dialog', {
+    name: "That didn't finish",
+  });
+  expect(within(failure).getByRole('alert')).toHaveTextContent(
+    'Sign-out could not be completed. You are still signed in.',
+  );
+  expect(screen.getByText('Page for Alpha')).toBeVisible();
+  fireEvent.click(within(failure).getByRole('button', { name: 'Try again' }));
+  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(2));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: "That didn't finish" }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
+test('a refused sign-out after Leave anyway is reported and can be dismissed', async () => {
+  signOut.mockRejectedValue(new Error('network'));
+  const fixture = onWeekWithFixture();
+  render(shell('alpha', <Editor />));
+  const release = fixture.hold();
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit week 4' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Sign out' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Leave anyway' }));
+  const failure = await screen.findByRole('dialog', {
+    name: "That didn't finish",
+  });
+  expect(signOut).toHaveBeenCalledTimes(1);
+  fireEvent.click(within(failure).getByRole('button', { name: 'Dismiss' }));
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+  // The guard is usable again after a failed Leave.
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  fireEvent.click(
+    within(await screen.findByRole('dialog', { name: 'More' })).getByRole(
+      'button',
+      { name: 'Sign out' },
+    ),
+  );
+  expect(
+    screen.getByRole('dialog', { name: 'Changes are still saving' }),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+  expect(signOut).toHaveBeenCalledTimes(1);
+  release();
+});
+
 test('More stays open while the departure decision is pending and closes on Leave', async () => {
   const fixture = onWeekWithFixture();
   render(shell('alpha', <Editor />));

@@ -30,7 +30,15 @@ import { registerTraversalGuard } from './browser-history';
 // Workspace store at the moment of the request, never from a copied flag. A
 // blocked operation runs once on Leave and never on Stay; a delayed save
 // stays bound to the editor's own campaign and draft either way.
-export type Departure = { commit: () => void | Promise<void> };
+// A commit that throws or rejects (for example a sign-out the identity
+// service refused) is reported by this provider, which stays mounted after
+// the requesting control (the phone More sheet) has closed, with Try again.
+export type Departure = {
+  commit: () => void | Promise<void>;
+  /** Shown if the commit fails; keep it about the user-visible outcome. */
+  failureMessage?: string;
+};
+const DEFAULT_FAILURE = 'That could not be completed. Please try again.';
 type Guard = {
   requestDeparture: (departure: Departure) => void;
   navigate: (href: string) => void;
@@ -43,18 +51,40 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const controller = useWorkspaceController();
   const store = controller?.store;
   const [blocked, setBlocked] = useState<Departure | null>(null);
+  const [failed, setFailed] = useState<Departure | null>(null);
   const committing = useRef(false);
   const hasPendingWork = useCallback(
     () => store?.getPendingWork() ?? false,
     [store],
   );
+  // Runs a commit synchronously (links and modal openers stay synchronous)
+  // and reports a throw or a later rejection. `latch` holds off further
+  // departures until an asynchronous Leave has settled.
+  const run = useCallback((departure: Departure, latch: boolean) => {
+    if (latch) committing.current = true;
+    const release = () => {
+      if (latch) committing.current = false;
+    };
+    let result: void | Promise<void>;
+    try {
+      result = departure.commit();
+    } catch {
+      release();
+      setFailed(departure);
+      return;
+    }
+    Promise.resolve(result).then(release, () => {
+      release();
+      setFailed(departure);
+    });
+  }, []);
   const requestDeparture = useCallback(
     (departure: Departure) => {
       if (committing.current) return;
       if (hasPendingWork()) setBlocked((open) => open ?? departure);
-      else void departure.commit();
+      else run(departure, false);
     },
-    [hasPendingWork],
+    [hasPendingWork, run],
   );
   const navigate = useCallback(
     (href: string) => requestDeparture({ commit: () => router.push(href) }),
@@ -99,14 +129,39 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
               onClick={() => {
                 const departure = blocked;
                 setBlocked(null);
-                if (!departure) return;
-                committing.current = true;
-                void Promise.resolve(departure.commit()).finally(() => {
-                  committing.current = false;
-                });
+                if (departure) run(departure, true);
               }}
             >
               Leave anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={failed !== null}
+        onOpenChange={(open) => {
+          if (!open) setFailed(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>That didn't finish</DialogTitle>
+            <DialogDescription role="alert">
+              {failed?.failureMessage ?? DEFAULT_FAILURE}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFailed(null)}>
+              Dismiss
+            </Button>
+            <Button
+              onClick={() => {
+                const departure = failed;
+                setFailed(null);
+                if (departure) run(departure, true);
+              }}
+            >
+              Try again
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -140,6 +195,7 @@ export function BeforeDeparture({
   const wrapped = useMemo<Guard>(() => {
     const requestDeparture = (departure: Departure) =>
       guard.requestDeparture({
+        ...departure,
         commit: () => {
           onCommit();
           return departure.commit();
