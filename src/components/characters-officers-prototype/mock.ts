@@ -459,6 +459,18 @@ export type Projection = {
   characterById: (id: string) => Character;
 };
 
+// NPCs have Hit Dice only; PCs have a level and Hit Dice that fall back to it.
+export const levelLabel = (kind: Kind | null) =>
+  kind === 'npc' ? 'Hit Dice' : 'Lvl / Hit Dice';
+export const hitDiceText = (
+  c: Character,
+  kind: Kind | null,
+  hitDice: number | null | undefined,
+) =>
+  kind === 'npc'
+    ? `${hitDice ?? c.level} HD`
+    : `Lvl ${c.level} / ${hitDice ?? c.level} HD`;
+
 export const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
 export function project(state: State): Projection {
@@ -503,10 +515,11 @@ export function project(state: State): Projection {
       character,
       person,
       kind: kindOf(person.characterId) ?? person.kind,
-      hitDiceShown:
-        person.hitDice === null
-          ? `${character.level} (level)`
-          : `${person.hitDice}`,
+      hitDiceShown: hitDiceText(
+        character,
+        kindOf(person.characterId) ?? person.kind,
+        person.hitDice,
+      ),
       roles: rs,
       manages: { count: teams.length, limit, names: teams.map((t) => t.name) },
       warnings,

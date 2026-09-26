@@ -8,7 +8,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
-import type { Character, Kind, Role } from './mock';
+import { hitDiceText, type Character, type Kind, type Role } from './mock';
 import {
   AssignSheet,
   CharacterDialog,
@@ -125,7 +125,7 @@ export function VariantB({ view, edit }: VariantProps) {
               <th className="py-1 pr-2">On roster</th>
               <th className="py-1 pr-2">Character</th>
               <th className="py-1 pr-2">Kind</th>
-              <th className="py-1 pr-2">Hit Dice</th>
+              <th className="py-1 pr-2">Level / Hit Dice</th>
               <th className="py-1 pr-2">Officer roles</th>
               <th className="py-1 pr-2">Teams</th>
               <th />
@@ -163,10 +163,7 @@ export function VariantB({ view, edit }: VariantProps) {
                     </label>
                   </td>
                   <td className="py-2 pr-2">
-                    <span className="font-semibold">{ch.name}</span>{' '}
-                    <span className="text-muted-foreground font-mono text-xs">
-                      L{ch.level}
-                    </span>
+                    <span className="font-semibold">{ch.name}</span>
                     {ch.archived && (
                       <Chip tone="warn" className="ml-1">
                         archived
@@ -199,28 +196,32 @@ export function VariantB({ view, edit }: VariantProps) {
                   <td className="py-2 pr-2 font-mono text-xs">
                     {r ? (
                       rosterEditing ? (
-                        <input
-                          type="number"
-                          min={0}
-                          placeholder={`${ch.level} (level)`}
-                          value={r.person.hitDice ?? ''}
-                          onChange={(e) =>
-                            edit({
-                              kind: 'setHitDice',
-                              characterId: ch.id,
-                              hitDice:
-                                e.target.value === ''
-                                  ? null
-                                  : Number(e.target.value),
-                            })
-                          }
-                          className="border-input bg-background h-7 w-24 border px-1"
-                        />
+                        <>
+                          {r.kind === 'pc' && `Lvl ${ch.level} / `}
+                          <input
+                            type="number"
+                            min={0}
+                            placeholder={`${ch.level}`}
+                            value={r.person.hitDice ?? ''}
+                            onChange={(e) =>
+                              edit({
+                                kind: 'setHitDice',
+                                characterId: ch.id,
+                                hitDice:
+                                  e.target.value === ''
+                                    ? null
+                                    : Number(e.target.value),
+                              })
+                            }
+                            className="border-input bg-background h-7 w-16 border px-1"
+                          />{' '}
+                          HD
+                        </>
                       ) : (
                         r.hitDiceShown
                       )
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      hitDiceText(ch, view.kindOf(ch.id), null)
                     )}
                   </td>
                   <td className="py-2 pr-2">

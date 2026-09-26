@@ -36,6 +36,7 @@ import { cn } from '~/lib/utils';
 import {
   abilities,
   abilityShort,
+  levelLabel,
   roleLabel,
   roles,
   type Action,
@@ -401,6 +402,12 @@ export function CharacterDialog({
   onClose: () => void;
 }) {
   const kindOnRecord = view.state.scenario.kindHome === 'record';
+  const knownKind =
+    character && character !== 'new' ? view.kindOf(character.id) : null;
+  const [kindChoice, setKindChoice] = useState<Kind | null>(null);
+  const shownKind = kindOnRecord
+    ? (kindChoice ?? (character && character !== 'new' ? character.kind : 'pc'))
+    : knownKind;
   const base: Character =
     character && character !== 'new'
       ? character
@@ -456,8 +463,8 @@ export function CharacterDialog({
             </DialogTitle>
             <DialogDescription>
               {kindOnRecord
-                ? 'The record: name, level, kind, ability scores and notes.'
-                : 'The record: name, level, ability scores and notes. PC or NPC is set on the militia roster.'}
+                ? 'The record: name, kind, level or Hit Dice, ability scores and notes.'
+                : 'The record: name, level or Hit Dice, ability scores and notes. PC or NPC is set on the militia roster.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-[1fr_5rem_7rem] gap-2">
@@ -466,7 +473,7 @@ export function CharacterDialog({
               <Input name="name" defaultValue={base.name} required />
             </label>
             <label className="text-sm">
-              Level
+              {levelLabel(shownKind)}
               <Input
                 name="level"
                 type="number"
@@ -480,6 +487,7 @@ export function CharacterDialog({
                 <select
                   name="kind"
                   defaultValue={base.kind}
+                  onChange={(e) => setKindChoice(e.target.value as Kind)}
                   className="border-input bg-background h-9 w-full border px-2 text-sm"
                 >
                   <option value="pc">PC</option>

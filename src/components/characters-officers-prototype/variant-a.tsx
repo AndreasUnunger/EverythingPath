@@ -7,7 +7,13 @@ import { Plus, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
-import type { Character, Kind, Role } from './mock';
+import {
+  hitDiceText,
+  levelLabel,
+  type Character,
+  type Kind,
+  type Role,
+} from './mock';
 import {
   AssignSheet,
   CharacterDialog,
@@ -76,9 +82,6 @@ export function VariantA({ view, edit }: VariantProps) {
                 <span className="text-base font-semibold">
                   {r.character.name}
                 </span>
-                <span className="text-muted-foreground font-mono text-xs">
-                  L{r.character.level}
-                </span>
                 {kindOnRoster && view.editing ? (
                   <select
                     value={r.kind}
@@ -116,25 +119,29 @@ export function VariantA({ view, edit }: VariantProps) {
               </div>
               <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 text-xs">
                 <span>
-                  Hit Dice:{' '}
+                  {levelLabel(r.kind)}:{' '}
                   {view.editing ? (
-                    <input
-                      type="number"
-                      min={0}
-                      placeholder={`${r.character.level} (level)`}
-                      value={r.person.hitDice ?? ''}
-                      onChange={(e) =>
-                        edit({
-                          kind: 'setHitDice',
-                          characterId: r.character.id,
-                          hitDice:
-                            e.target.value === ''
-                              ? null
-                              : Number(e.target.value),
-                        })
-                      }
-                      className="border-input bg-background h-6 w-24 border px-1 font-mono text-xs"
-                    />
+                    <>
+                      {r.kind === 'pc' && `Lvl ${r.character.level} / `}
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder={`${r.character.level}`}
+                        value={r.person.hitDice ?? ''}
+                        onChange={(e) =>
+                          edit({
+                            kind: 'setHitDice',
+                            characterId: r.character.id,
+                            hitDice:
+                              e.target.value === ''
+                                ? null
+                                : Number(e.target.value),
+                          })
+                        }
+                        className="border-input bg-background h-6 w-16 border px-1 font-mono text-xs"
+                      />{' '}
+                      HD
+                    </>
                   ) : (
                     <span className="font-mono">{r.hitDiceShown}</span>
                   )}
@@ -165,7 +172,7 @@ export function VariantA({ view, edit }: VariantProps) {
               <li key={ch.id} className="flex items-center gap-2 px-3 py-1.5">
                 <span className="font-semibold">{ch.name}</span>
                 <span className="text-muted-foreground font-mono text-xs">
-                  L{ch.level}
+                  {hitDiceText(ch, view.kindOf(ch.id), null)}
                 </span>
                 {!kindOnRoster && <KindChip kind={ch.kind} />}
                 <span className="ml-auto flex items-center gap-1">
