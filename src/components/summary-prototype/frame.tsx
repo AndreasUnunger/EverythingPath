@@ -46,7 +46,7 @@ function ConfirmBlock({
   view: Projection;
   disabled: boolean;
 }) {
-  const { requirements, warnings, blocker, forecastPending } = view;
+  const { requirements, warnings, blocker } = view;
   const stale =
     view.state.scenario.stale && !blocker?.startsWith('Review will');
   return (
@@ -54,16 +54,7 @@ function ConfirmBlock({
       aria-label="Review the week"
       className="bg-card border-foreground/20 space-y-3 border p-4"
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold">Review the week</h2>
-        <p className="text-muted-foreground text-sm">
-          {forecastPending
-            ? 'Review will be ready when your changes are saved.'
-            : requirements.length
-              ? 'Some rolls or decisions still need attention.'
-              : 'The week is ready for confirmation.'}
-        </p>
-      </div>
+      <h2 className="text-lg font-semibold">Review the week</h2>
       {requirements.length > 0 && (
         <div>
           <h3 className="text-muted-foreground text-xs tracking-widest uppercase">
@@ -116,16 +107,9 @@ function ConfirmBlock({
         <Button size="lg" disabled={disabled || blocker !== null}>
           <Flag /> Confirm week
         </Button>
-        <span className="text-sm">
-          {blocker ? (
-            <span className="text-muted-foreground">{blocker}</span>
-          ) : (
-            <span>
-              Applies the entire prepared week. Everything below stays a preview
-              until then.
-            </span>
-          )}
-        </span>
+        {blocker && (
+          <span className="text-muted-foreground text-sm">{blocker}</span>
+        )}
       </div>
     </section>
   );
@@ -156,11 +140,7 @@ export function WeekFrame({
     { key: 'activity', label: 'Activity', caption: caption('activity') },
     { key: 'event', label: 'Event', caption: caption('event') },
     { key: 'persistent', label: 'Persistent', caption: caption('persistent') },
-    {
-      key: 'summary',
-      label: 'Review & confirm',
-      caption: blocker ?? 'Ready to confirm',
-    },
+    { key: 'summary', label: 'Review & confirm', caption: '' },
   ];
   const teams = (s: typeof final) =>
     ['active', 'disabled', 'missing']
@@ -240,14 +220,16 @@ export function WeekFrame({
                   </span>
                   <span className="leading-tight">
                     <span className="block text-sm">{s.label}</span>
-                    <span
-                      className={cn(
-                        'block text-xs',
-                        active ? 'opacity-80' : 'text-muted-foreground',
-                      )}
-                    >
-                      {s.caption}
-                    </span>
+                    {s.caption && (
+                      <span
+                        className={cn(
+                          'block text-xs',
+                          active ? 'opacity-80' : 'text-muted-foreground',
+                        )}
+                      >
+                        {s.caption}
+                      </span>
+                    )}
                   </span>
                 </span>
                 {i < steps.length - 1 && (
@@ -308,8 +290,12 @@ export function WeekFrame({
           <ArrowLeft /> Persistent
         </Button>
         <p className="text-muted-foreground flex flex-1 items-center justify-center gap-1.5 text-sm">
-          <CircleDot className="size-4" />
-          {blocker ?? 'The week is ready for confirmation.'}
+          {blocker && (
+            <>
+              <CircleDot className="size-4" />
+              {blocker}
+            </>
+          )}
         </p>
         <span className="inline-flex w-32 items-center justify-end gap-1 text-sm opacity-0">
           <ArrowRight />
