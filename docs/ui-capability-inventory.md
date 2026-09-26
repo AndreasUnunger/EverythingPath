@@ -607,3 +607,48 @@ No new IDs required: total entry, check breakdown and changed transfer interacti
 
 
 The complete shared roll contract and compatibility/coverage acceptance are in the implementation issue. Existing draft arrays (including partial arrays), operation records, actor-bearing transfers and immutable history remain readable; Upkeep owns all current phase/nested-roll/summary/history adapters before new total writers ship. The transfer character/officer rule removal uses the next unused Ruleset Version; format-only conversion does not re-version or rewrite existing records. Team removal remains available in the current Militia correction form until its redesigned Teams section ships.
+
+## Planned coverage: Characters & officers
+
+Implementation spec: [Implement Characters & officers with role corrections and compatible kind migration](https://github.com/AndreasUnunger/EverythingPath/issues/141). Authored from [Write the Characters & officers implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/132), rollout position 10 of 12, after [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/139). These changes are planned; current shipped locations and test mappings above remain until implementation.
+
+Own six role cards over the character table, record CRUD/archive, separate reasoned roster/officer corrections, pending Activity roles and read-only manager links. Own PC/NPC migration in character records and retained roster mirrors, all affected Setup/browser-envelope/Activity/correction consumers, role-based manager limits and commandant Hit Dice fallback. Allocate the next unused Ruleset Version after earlier rule changes; preserve all historical records/readers. New IDs CHAR-10–13 are reserved here.
+
+| ID | Acceptance/coverage owned here |
+| --- | --- |
+| CHAR-01 | Character access/counts move from the embedded collapsible ledger to the dedicated page/table; no lost CRUD access before or after Setup. |
+| CHAR-02 | Name-sorted active records, kind and effective Hit Dice; all six stats remain readable/editable in the full dialog. |
+| CHAR-03 | Add dialog preserves every existing field/default/validation, with approved PC/NPC and Hit Dice labels; reusable by Setup. |
+| CHAR-04 | Edit same dialog, immediate shared record update and retained input on failure. |
+| CHAR-05 | Archive in record dialog, assignments preserved and warned. |
+| CHAR-06 | Show archived on table and Un-archive in dialog; empty archived state. |
+| CHAR-07 | Inline create/update/archive errors, pending acknowledgement, retry and retained values. |
+| CHAR-08 | Reactive records, kinds, roles, roster, effects and managed counts on all members' devices; reload persistence. |
+| CHAR-09 | Page skeleton, failed/Try again, active/archived empty states and pre-setup records; consume shell access gate. |
+| LEDG-03 | Own roster membership/Hit Dice and six-role assign/move/remove, atomic role/manager cleanup on roster removal; Militia corrections retains manager editing. |
+| CHAR-10 — new | Role board with current/non-stacking/commandant effects, vacancy, source attribution, candidate contributions and strategist allowance preview. |
+| CHAR-11 — new | Pending Change Officer Role display and same-campaign Activity links, derived from open draft without staging anything. |
+| CHAR-12 — new | Separate Correct officers/Correct roster modes, quick-pick required reasons, roster conflict handling and named cascade warnings. |
+| CHAR-13 — new | Per-character role navigation chips and read-only managed-team count/limit links to Militia Teams. |
+
+Shared IDs, with their owners:
+
+| IDs | Obligation here / owner |
+| --- | --- |
+| LEDG-01, LEDG-05, LEDG-06, LEDG-07 | Consume Militia corrections' one-open/reason/save/conflict/validation primitives for these two corrections; preserve these capabilities when removing its temporary fallback. |
+| LEDG-09 | Pre-setup character CRUD remains here; Militia corrections owns its no-militia page. |
+| LEDG-12, LEDG-13 | Consume Militia corrections' affected-choice warnings and valid reference-repair paths; own roster/officer restoration and integrity behavior here. |
+| SETUP-05, SETUP-06, SETUP-19, SETUP-20, SETUP-24, SETUP-26 | Update Setup roster/officer/manager editors, warnings, validation, browser envelopes and inline record dialog for kind and Hit Dice migration. Setup remains flow owner. |
+| ACT-09, ACT-10, ACT-13, ACT-16, ACT-17 | Activity owns slots/details/check displays/exceptions/warnings; this delivery updates their officer, manager-limit and commandant rules consumers and revalidates staged choices. |
+| WEEK-02, WEEK-03, WEEK-04, WEEK-05 | Week frame owns phase navigation/readiness, independent Phase Views, shared updates and optimistic previews; changed officer facts/effects propagate without moving another player. |
+| SUM-05 | Review & confirm owns stale-review recovery; character/source revision changes invalidate stale Confirmation normally. |
+| HIST-04, HIST-05 | Finished weeks owns historical presentation; preserve old version/provenance and recorded outcomes through compatibility readers. |
+| NAV-16, NAV-17 | Consume shell section navigation/scoped routes; retire fallback links only after replacement access exists. |
+| STATE-01, STATE-02, STATE-03, STATE-04, STATE-05, STATE-06, STATE-07 | Shell owns pause/access/shared failure pattern; own this page's skeleton/error/empty states, write feedback and cross-device persistence. |
+
+Signed-off replacements/removals: [character-page approval](https://github.com/AndreasUnunger/EverythingPath/issues/114#issuecomment-5844673552) replaces CHAR-01's embedded collapse, CHAR-02's table arrangement, CHAR-05/06's archive placement and the superseded combined correction screen; all underlying data/actions remain reachable. [Officer approval](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106) replaces officer_npc/other_npc choices with NPC and removes required commandant override in favor of level fallback. [Caption approval](https://github.com/AndreasUnunger/EverythingPath/issues/113#issuecomment-5844235691) removes explanatory subtext, reason/conflict helper paragraphs and keep-and-explain hints; preserve concise warnings/labels and the separately approved PC-to-Activity hint. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) removes only CHAR-09's Select a campaign… and replaces access-loading text with a skeleton. **No approval to drop roster.kind, archive records automatically, delete stats/notes, remove manager editing or rewrite old records.**
+
+
+Migration/rollout handoff: existing authorized `character.listByCampaign` provides Setup's authoritative kind without extending `canonicalSetup.options`. Compatible readers precede new writers; retain legacy enum readers for immutable records, migrate live mirrors atomically and saved Setup envelopes without losing raw input, and keep the temporary People & officers editor until every replacement operation is available. Team managers remain on Militia Teams. The spec carries the Officer glossary addition and migration/race/history/reference-repair tests.
+
+Coverage gate: retain all existing E2E scenarios, specifically character-ledger/access, Setup/workspace, realtime Action Slots, completed weeks/cutover and direct persistence/Confirmation contracts. Add role/roster/archive/concurrency cases, legacy/new kind and browser-envelope migration, role-aware manager and commandant arithmetic, old-record immutability and three-breakpoint/shared-state/access tests. Implementation must run typecheck, lint and relevant unit/component/Convex/E2E checks; authoring does not claim runtime coverage has shipped.
