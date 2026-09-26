@@ -26,7 +26,11 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   let reviewRequired = false;
   let previewRequest = '';
   let previewGeneration = 0;
+  const operations = new Set<{ draftId: string }>();
   const listeners = new Set<() => void>();
+  function getPendingWork() {
+    return operations.size > 0;
+  }
   function publish(next: WeeklyDraftWorkspace) {
     state = next;
     for (const listener of listeners) listener();
@@ -34,7 +38,11 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   function rebuild() {
     const observed = persistence?.getSnapshot();
     const accepted = observed?.observation?.draft;
-    if (!active || !source || !persistence) return;
+    if (!active) return;
+    if (!source || !persistence) {
+      publish({ ...state });
+      return;
+    }
     if (!accepted || observed.observation?.status !== 'open') {
       publish({ status: 'loading' });
       return;
@@ -81,19 +89,16 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
         !reviewRequired &&
         matching &&
         reviewed?.status === 'ready' &&
-        pending.length === 0 &&
-        !observed.pending &&
-        !observed.confirming,
+        !getPendingWork(),
       ),
       reviewRequired,
       forecastPending: pending.length > 0 || !matching,
-      pendingWork:
-        pending.length > 0 || observed.pending > 0 || observed.confirming,
+      pendingWork: getPendingWork(),
       edit,
       viewPhase,
       confirm,
     });
-    if (pending.length || observed.pending || observed.confirming) return;
+    if (getPendingWork()) return;
     const request = weeklySourceKey({
       draft: accepted,
       sourceRevision: source.sourceRevision,
@@ -126,18 +131,21 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     const owner = persistence;
     if (state.status !== 'ready' || !owner || owner.getSnapshot().confirming)
       return 'failed';
+    const operation = { draftId: source!.key.draftId };
+    operations.add(operation);
     const item = { id: ++sequence, edit: structuredClone(edit) };
     pending.push(item);
     const saving = owner.edit(item.edit);
     rebuild();
     const result = await saving;
+    const completed = operations.delete(operation);
+    pending = pending.filter((entry) => entry.id !== item.id);
     if (owner === persistence && active) {
-      pending = pending.filter((entry) => entry.id !== item.id);
       feedback = result === 'accepted' ? 'saved' : 'failed';
       if (result === 'failed') reviewRequired = true;
       previewRequest = '';
       rebuild();
-    }
+    } else if (completed) rebuild();
     return result;
   }
   function viewPhase(next: Phase) {
@@ -154,16 +162,19 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   async function confirm(): Promise<'accepted' | 'failed'> {
     const owner = persistence;
     const review = reviewed;
-    if (state.status !== 'ready' || !owner || !review || reviewRequired)
+    if (state.status !== 'ready' || !owner || !review || !state.canConfirm)
       return 'failed';
+    const operation = { draftId: source!.key.draftId };
+    operations.add(operation);
     const result = await owner.confirm(review);
+    const completed = operations.delete(operation);
     if (active && owner === persistence) {
       feedback = result === 'accepted' ? 'saved' : 'failed';
       reviewRequired = result === 'failed';
       reviewed = null;
       previewRequest = '';
       rebuild();
-    }
+    } else if (completed) rebuild();
     return result;
   }
   function receive(next: WorkspaceSource | null) {
@@ -177,6 +188,10 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       return;
     }
     if (source?.key.draftId !== next.key.draftId) {
+      // A successor is authoritative even if the old response is still in flight.
+      for (const operation of operations)
+        if (operation.draftId !== next.key.draftId)
+          operations.delete(operation);
       stopPersistence();
       persistence?.dispose();
       phase = source ? 'upkeep' : (gateway?.initialPhase ?? 'upkeep');
@@ -201,6 +216,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   }
   return {
     getSnapshot: () => state,
+    getPendingWork,
     subscribe(this: void, listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);

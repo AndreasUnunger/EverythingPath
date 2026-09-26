@@ -3,7 +3,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ComponentProps,
   type MouseEvent,
@@ -20,35 +22,56 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import { useWorkspaceController } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
+import { registerTraversalGuard } from './browser-history';
 
-// Client-side links bypass the week editor's page-exit warning. Editors
-// register pending work here so shell navigation asks before leaving; a
-// delayed save stays bound to the editor's own campaign and draft either way.
+// One departure decision for links, the campaign switcher, organization
+// changes and browser Back/Forward. Pending work is read from the shared
+// Workspace store at the moment of the request, never from a copied flag. A
+// blocked operation runs once on Leave and never on Stay; a delayed save
+// stays bound to the editor's own campaign and draft either way.
+export type Departure = { commit: () => void | Promise<void> };
 type Guard = {
-  pending: boolean;
-  setPending: (pending: boolean) => void;
+  requestDeparture: (departure: Departure) => void;
   navigate: (href: string) => void;
+  hasPendingWork: () => boolean;
 };
-const GuardContext = createContext<Guard>({
-  pending: false,
-  setPending: () => undefined,
-  navigate: () => undefined,
-});
+const GuardContext = createContext<Guard | null>(null);
 
 export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
-  const [blocked, setBlocked] = useState<string | null>(null);
-  const navigate = useCallback(
-    (href: string) => {
-      if (pending) setBlocked(href);
-      else router.push(href);
+  const controller = useWorkspaceController();
+  const store = controller?.store;
+  const [blocked, setBlocked] = useState<Departure | null>(null);
+  const committing = useRef(false);
+  const hasPendingWork = useCallback(
+    () => store?.getPendingWork() ?? false,
+    [store],
+  );
+  const requestDeparture = useCallback(
+    (departure: Departure) => {
+      if (committing.current) return;
+      if (hasPendingWork()) setBlocked((open) => open ?? departure);
+      else void departure.commit();
     },
-    [pending, router],
+    [hasPendingWork],
+  );
+  const navigate = useCallback(
+    (href: string) => requestDeparture({ commit: () => router.push(href) }),
+    [requestDeparture, router],
+  );
+  useEffect(
+    () =>
+      registerTraversalGuard({
+        shouldBlock: () => committing.current || hasPendingWork(),
+        onBlocked: (intent) =>
+          setBlocked((open) => open ?? { commit: intent.commit }),
+      }),
+    [hasPendingWork],
   );
   const guard = useMemo(
-    () => ({ pending, setPending, navigate }),
-    [pending, navigate],
+    () => ({ requestDeparture, navigate, hasPendingWork }),
+    [requestDeparture, navigate, hasPendingWork],
   );
   return (
     <GuardContext.Provider value={guard}>
@@ -74,9 +97,13 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
             <Button
               variant="destructive"
               onClick={() => {
-                const href = blocked;
+                const departure = blocked;
                 setBlocked(null);
-                if (href) router.push(href);
+                if (!departure) return;
+                committing.current = true;
+                void Promise.resolve(departure.commit()).finally(() => {
+                  committing.current = false;
+                });
               }}
             >
               Leave anyway
@@ -88,8 +115,14 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useNavigationGuard() {
-  return useContext(GuardContext);
+const passthrough: Guard = {
+  requestDeparture: (departure) => void departure.commit(),
+  navigate: () => undefined,
+  hasPendingWork: () => false,
+};
+
+export function useNavigationGuard(): Guard {
+  return useContext(GuardContext) ?? passthrough;
 }
 
 function plainClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -115,7 +148,7 @@ export function GuardedLink({
       onClick={(event) => {
         onClick?.(event);
         if (event.defaultPrevented || !plainClick(event)) return;
-        if (guard.pending) {
+        if (guard.hasPendingWork()) {
           event.preventDefault();
           guard.navigate(href);
         }

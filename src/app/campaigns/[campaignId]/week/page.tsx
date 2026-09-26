@@ -2,15 +2,17 @@
 import { Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
-import { CanonicalWorkspaceScreen } from '~/components/weekly-draft-workspace/board';
+import { WeeklyWorkspaceBoard } from '~/components/weekly-draft-workspace/board';
 import {
+  campaignPath,
   normalizePhase,
   weekPath,
   type PhaseView,
 } from '~/lib/campaign-routes';
 
-// The phase lives in the address and stays local to this player: the address
-// is replaced in place so Back leaves the week instead of replaying phases.
+// Thin address adapter over the shell-owned Workspace: the phase lives in the
+// address and stays local to this player. The address is replaced in place so
+// Back leaves the week instead of replaying phases.
 function WeekHost() {
   const { campaign } = useCampaign();
   const params = useSearchParams();
@@ -23,10 +25,11 @@ function WeekHost() {
     [campaignId],
   );
   return (
-    <CanonicalWorkspaceScreen
-      campaign={campaignId}
+    <WeeklyWorkspaceBoard
       phase={phase}
       onPhaseChange={onPhaseChange}
+      setupHref={campaignPath(campaignId, 'setup')}
+      historyHref={campaignPath(campaignId, 'history')}
     />
   );
 }

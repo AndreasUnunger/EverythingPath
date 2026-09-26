@@ -1,3 +1,9 @@
+import { openCampaignSection } from './support/interactions';
+import {
+  prepareWeekHistory,
+  stayOnPendingWeek,
+  leavePendingWeek,
+} from './support/pending-navigation';
 import { exerciseMilitiaSetup } from './support/setup-workspace';
 import {
   reviewSummaryWorkspace,
@@ -163,6 +169,40 @@ test('players prepare shared Upkeep with independent navigation and save recover
       .click();
     await expect(player.getByTestId('upkeep-treasury')).toHaveText('5007 cp');
     await saved();
+    const charactersUrl = await prepareWeekHistory(gm);
+    await expect(die(gm)).toHaveValue('10');
+    const heldBack = network.hold();
+    await die(gm).fill('11');
+    await heldBack;
+    await stayOnPendingWeek(gm, 'back', 'Saving changes…');
+    await expect(die(gm)).toHaveValue('11');
+    await expect(die(player)).toHaveValue('10');
+    await leavePendingWeek(gm, 'back', charactersUrl);
+    network.release();
+    await expect(die(player)).toHaveValue('11');
+    await gm.goForward();
+    await expect(die(gm)).toHaveValue('11');
+    await expect(
+      gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
+    ).toHaveCount(1);
+
+    // Forward traversal has the same protection and must keep its direction
+    // after Stay; Leave must consume that entry rather than push a duplicate.
+    await openCampaignSection(gm, 'characters');
+    await gm.goBack();
+    await expect(die(gm)).toHaveValue('11');
+    const heldForward = network.hold();
+    await die(gm).fill('13');
+    await heldForward;
+    await stayOnPendingWeek(gm, 'forward', 'Saving changes…');
+    await expect(die(gm)).toHaveValue('13');
+    await expect(die(player)).toHaveValue('11');
+    await leavePendingWeek(gm, 'forward', charactersUrl);
+    network.release();
+    await expect(die(player)).toHaveValue('13');
+    await gm.goBack();
+    await expect(die(gm)).toHaveValue('13');
+
     const captured = network.hold();
     await die(gm).fill('12');
     await captured;
@@ -598,6 +638,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
         second.goto(summaryRoute),
         late.goto(summaryRoute),
       ]);
+      const confirmationCharactersUrl = await prepareWeekHistory(first);
       await die(first).fill('20');
       await expect(die(second)).toHaveValue('20');
       await training(first).fill('1');
@@ -612,6 +653,11 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect(first.getByRole('status')).toHaveText(
         'Confirming the week…',
       );
+      await stayOnPendingWeek(first, 'back', 'Confirming the week…');
+      await expect(confirm(first)).toBeDisabled();
+      await expect(
+        second.getByRole('heading', { name: 'Week 4 · Summary', exact: true }),
+      ).toBeVisible();
       await canonicalPersistenceFixtureCall(run, 'changeSource', {
         ...summaryScope,
         scope: ownedCase.scope,
@@ -650,8 +696,14 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await Promise.all([confirm(first).click(), confirm(second).click()]);
       await expect.poll(raceFirst.observed).toBe(true);
       await expect.poll(raceSecond.observed).toBe(true);
+      await leavePendingWeek(first, 'back', confirmationCharactersUrl);
       raceFirst.release();
       raceSecond.release();
+      await expect(
+        second.getByRole('heading', { name: /Week 5/ }),
+      ).toBeVisible();
+      await first.goForward();
+
       for (const page of [first, second, late])
         await expect(
           page.getByRole('heading', { name: /Week 5/ }),

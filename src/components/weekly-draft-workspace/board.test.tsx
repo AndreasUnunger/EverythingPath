@@ -1,15 +1,19 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-import type { ReactNode } from 'react';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { createMemoryDraftAuthority } from '~/lib/memory-draft-persistence';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
-import {
-  WeekLabelProvider,
-  useWeekLabel,
-} from '~/components/campaign-shell/campaign-context';
 import type { WorkspaceGateway } from './gateway';
-import { CanonicalWorkspaceScreen } from './board';
+import type { Phase } from './types';
+import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
+import { useWeeklyDraftWorkspace } from './use-weekly-draft-workspace';
+import { CanonicalWorkspaceScreen, WeeklyWorkspaceBoard } from './board';
 
 const factory = vi.fn<(...args: unknown[]) => WorkspaceGateway | null>();
 vi.mock('./gateway', () => ({
@@ -33,7 +37,7 @@ vi.mock('next/link', () => ({
 }));
 afterEach(cleanup);
 
-function fixture(): WorkspaceGateway {
+function fixture(): WorkspaceGateway & { advance: () => () => void } {
   const draft = createWeeklyDraft({
     draftId: 'workspace',
     week: 4,
@@ -48,7 +52,7 @@ function fixture(): WorkspaceGateway {
       lastBuyoffWeek: null,
     },
   });
-  const source = workspaceSourceSchema.parse({
+  let source = workspaceSourceSchema.parse({
     key: {
       campaignId: 'campaign',
       militiaId: 'militia',
@@ -68,26 +72,97 @@ function fixture(): WorkspaceGateway {
     },
     people: [],
   });
-  const authority = createMemoryDraftAuthority(draft, source.snapshot);
+  let authority = createMemoryDraftAuthority(draft, source.snapshot);
+  let successorDelivery: Promise<void> | undefined;
+  const listeners = new Set<Parameters<WorkspaceGateway['subscribe']>[0]>();
   return {
     subscribe(next) {
+      listeners.add(next);
       next(source);
-      return () => undefined;
+      return () => listeners.delete(next);
     },
-    transport: () => authority.transport,
+    transport() {
+      const transport = authority.transport;
+      const delivery = successorDelivery;
+      if (!delivery) return transport;
+      return {
+        ...transport,
+        async read() {
+          await delivery;
+          return transport.read();
+        },
+        subscribe(next, failed) {
+          let active = true;
+          const stop = transport.subscribe((observation) => {
+            void delivery.then(() => {
+              if (active) next(observation);
+            });
+          }, failed);
+          return () => {
+            active = false;
+            stop();
+          };
+        },
+      };
+    },
+    advance() {
+      let release!: () => void;
+      successorDelivery = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const successor = createWeeklyDraft({
+        draftId: 'successor',
+        week: 5,
+        slotIds: ['left'],
+        context: {
+          firstMilitiaWeek: false,
+          startDay: 28,
+          uneventfulCarry: false,
+          carriedEvents: [],
+          queuedEffects: [],
+          orders: [],
+          lastBuyoffWeek: null,
+        },
+      });
+      authority = createMemoryDraftAuthority(successor, source.snapshot);
+      source = {
+        ...source,
+        key: { ...source.key, draftId: successor.draftId },
+      };
+      for (const next of listeners) next(source);
+      return release;
+    },
   };
 }
 
+// The shell reads the same snapshot the board renders; there is no copy.
 function WeekProbe() {
-  const { week } = useWeekLabel();
-  return <p>Shell week: {week ?? 'unknown'}</p>;
-}
-function wrap(children: ReactNode) {
+  const workspace = useWeeklyDraftWorkspace();
   return (
-    <WeekLabelProvider>
+    <p>
+      Shell week: {workspace.status === 'ready' ? workspace.week : 'unknown'}
+    </p>
+  );
+}
+// Same composition as the campaign shell: one owner above shell chrome and
+// the Week route's board.
+function host(props: {
+  phase?: Phase;
+  onPhaseChange?: (phase: Phase) => void;
+}) {
+  return (
+    <CampaignWorkspaceProvider
+      campaignId="campaign"
+      active
+      openingPhase={props.phase}
+    >
       <WeekProbe />
-      {children}
-    </WeekLabelProvider>
+      <WeeklyWorkspaceBoard
+        {...props}
+        setupHref="/campaigns/campaign/setup"
+        historyHref="/campaigns/campaign/history"
+      />
+    </CampaignWorkspaceProvider>
   );
 }
 
@@ -98,28 +173,12 @@ test('[shell.phase] address phase changes move this player without rebuilding th
     initialPhase: initialPhase as WorkspaceGateway['initialPhase'],
   }));
   const onPhaseChange = vi.fn();
-  const view = render(
-    wrap(
-      <CanonicalWorkspaceScreen
-        campaign="campaign"
-        phase="event"
-        onPhaseChange={onPhaseChange}
-      />,
-    ),
-  );
+  const view = render(host({ phase: 'event', onPhaseChange }));
   await screen.findByRole('heading', { name: 'Week 4 · Event' });
   expect(factory).toHaveBeenCalledTimes(1);
   expect(factory.mock.calls[0]?.[2]).toBe('event');
   expect(screen.getByText('Shell week: 4')).toBeInTheDocument();
-  view.rerender(
-    wrap(
-      <CanonicalWorkspaceScreen
-        campaign="campaign"
-        phase="activity"
-        onPhaseChange={onPhaseChange}
-      />,
-    ),
-  );
+  view.rerender(host({ phase: 'activity', onPhaseChange }));
   expect(
     screen.getByRole('heading', { name: 'Week 4 · Activity' }),
   ).toBeVisible();
@@ -130,15 +189,7 @@ test('[shell.phase] address phase changes move this player without rebuilding th
   expect(
     screen.getByRole('heading', { name: 'Week 4 · Summary' }),
   ).toBeVisible();
-  view.rerender(
-    wrap(
-      <CanonicalWorkspaceScreen
-        campaign="campaign"
-        phase="persistent"
-        onPhaseChange={onPhaseChange}
-      />,
-    ),
-  );
+  view.rerender(host({ phase: 'persistent', onPhaseChange }));
   expect(
     screen.getByRole('heading', { name: 'Week 4 · Summary' }),
   ).toBeVisible();
@@ -149,6 +200,18 @@ test('[shell.phase] address phase changes move this player without rebuilding th
   );
   view.unmount();
   expect(factory).toHaveBeenCalledTimes(1);
+});
+
+test('[shell.standalone] the standalone screen hosts one owner with the same links', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => gateway);
+  render(<CanonicalWorkspaceScreen campaign="campaign" phase="upkeep" />);
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(factory).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('link', { name: 'Finished weeks' })).toHaveAttribute(
+    'href',
+    '/campaigns/campaign/history',
+  );
 });
 
 test('[shell.failed] a failed week offers a page-local retry that rebuilds the Workspace', async () => {
@@ -162,7 +225,7 @@ test('[shell.failed] a failed week offers a page-local retry that rebuilds the W
       },
     }))
     .mockImplementation(() => gateway);
-  render(wrap(<CanonicalWorkspaceScreen campaign="campaign" phase="upkeep" />));
+  render(host({ phase: 'upkeep' }));
   expect(screen.getByRole('alert')).toHaveTextContent(
     'The week could not be loaded.',
   );
@@ -182,11 +245,52 @@ test('[shell.no-militia] a campaign without a militia keeps setup reachable with
       throw new Error('unused');
     },
   }));
-  render(wrap(<CanonicalWorkspaceScreen campaign="campaign" phase="upkeep" />));
+  render(host({ phase: 'upkeep' }));
   expect(screen.getByRole('status')).toHaveTextContent('No militia yet.');
   expect(screen.getByRole('link', { name: 'Set up militia' })).toHaveAttribute(
     'href',
     '/campaigns/campaign/setup',
   );
   expect(screen.getByText('Shell week: unknown')).toBeInTheDocument();
+});
+
+test.each(['event', 'summary'] as const)(
+  '[shell.successor] a player viewing %s opens an arriving successor on Upkeep and updates the address',
+  async (opening) => {
+    const gateway = fixture();
+    factory.mockImplementation((_client, _campaign, initialPhase) => ({
+      ...gateway,
+      initialPhase: initialPhase as WorkspaceGateway['initialPhase'],
+    }));
+    const onPhaseChange = vi.fn();
+    render(host({ phase: opening, onPhaseChange }));
+    await screen.findByRole('heading', {
+      name: `Week 4 · ${opening === 'event' ? 'Event' : 'Summary'}`,
+    });
+    let release!: () => void;
+    act(() => {
+      release = gateway.advance();
+    });
+    await screen.findByText('Loading the week…');
+    await act(async () => release());
+    await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+    expect(onPhaseChange).toHaveBeenLastCalledWith('upkeep');
+    expect(screen.getByText('Shell week: 5')).toBeInTheDocument();
+    expect(factory).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('[shell.successor-control] the gateway opening phase does not override successor Upkeep without an address phase', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => ({ ...gateway, initialPhase: 'event' }));
+  render(host({}));
+  await screen.findByRole('heading', { name: 'Week 4 · Event' });
+  let release!: () => void;
+  act(() => {
+    release = gateway.advance();
+  });
+  await screen.findByText('Loading the week…');
+  await act(async () => release());
+  await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+  expect(factory).toHaveBeenCalledTimes(1);
 });

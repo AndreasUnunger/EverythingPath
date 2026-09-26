@@ -1,11 +1,5 @@
 'use client';
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { Doc } from '@convex/_generated/dataModel';
 
 export type CampaignAccess = {
@@ -37,29 +31,4 @@ export function useCampaign(): CampaignAccess {
       'useCampaign requires the campaign shell to resolve access',
     );
   return value;
-}
-
-// The week editor announces its week number so the shell's Week link can show
-// it without mounting a second Workspace subscription.
-type WeekLabel = {
-  week: number | null;
-  setWeek: (week: number | null) => void;
-};
-const WeekLabelContext = createContext<WeekLabel>({
-  week: null,
-  setWeek: () => undefined,
-});
-
-export function WeekLabelProvider({ children }: { children: ReactNode }) {
-  const [week, setWeek] = useState<number | null>(null);
-  const value = useMemo(() => ({ week, setWeek }), [week]);
-  return (
-    <WeekLabelContext.Provider value={value}>
-      {children}
-    </WeekLabelContext.Provider>
-  );
-}
-
-export function useWeekLabel() {
-  return useContext(WeekLabelContext);
 }

@@ -1,5 +1,5 @@
 'use client';
-import { OrganizationSwitcher, SignInButton, UserButton } from '@clerk/nextjs';
+import { SignInButton, UserButton } from '@clerk/nextjs';
 import { Authenticated, AuthLoading, Unauthenticated } from 'convex/react';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -8,6 +8,8 @@ import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { GuardedLink } from './navigation-guard';
 import { MaintenanceBanner } from './maintenance-banner';
+
+export { OrganizationControl } from './organization-control';
 
 // The page column fills the viewport so a phone bottom bar can stick to its
 // end and a desktop week host can be given bounded remaining space later.
@@ -32,9 +34,11 @@ export function ShellFrame({
   );
 }
 
+// Items may wrap onto a second row on narrow tablets instead of overlapping;
+// every control keeps its own bounded width so nothing covers a section link.
 export function TopBarRow({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 px-3 py-1.5 md:gap-4 md:px-4 md:py-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 md:gap-x-4 md:px-4 md:py-2">
       {children}
     </div>
   );
@@ -49,17 +53,6 @@ export function KeepLink() {
     >
       <KeepIcon className="size-8" />
     </GuardedLink>
-  );
-}
-
-export function OrganizationControl() {
-  return (
-    <Authenticated>
-      <OrganizationSwitcher
-        afterSelectOrganizationUrl="/campaigns"
-        afterSelectPersonalUrl="/campaigns"
-      />
-    </Authenticated>
   );
 }
 

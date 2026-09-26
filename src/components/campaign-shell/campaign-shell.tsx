@@ -29,14 +29,13 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from '~/components/ui/sheet';
 import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utils';
-import {
-  CampaignProvider,
-  WeekLabelProvider,
-  useWeekLabel,
-} from './campaign-context';
+import { CampaignWorkspaceProvider } from '~/components/weekly-draft-workspace/campaign-workspace-provider';
+import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
+import { CampaignProvider } from './campaign-context';
 import { FailedLoadCard } from './failed-load';
 import {
   GuardedLink,
@@ -55,10 +54,14 @@ import {
 type Campaign = Doc<'campaign'>;
 const ALL_CAMPAIGNS = '__all';
 
-type Access =
+type Organization = { id: string; name: string };
+type Session =
   | { kind: 'resolving' }
   | { kind: 'signed_out' }
   | { kind: 'no_organization' }
+  | { kind: 'member'; organization: Organization };
+type Access =
+  | Exclude<Session, { kind: 'member' }>
   | { kind: 'failed'; retry: () => void }
   | { kind: 'unavailable'; organizationName: string }
   | {
@@ -67,45 +70,64 @@ type Access =
       campaigns: Campaign[];
       organizationId: string;
     };
+type CampaignListQuery = Pick<
+  ReturnType<typeof campaignQuery>,
+  'data' | 'error' | 'refetch'
+>;
 
-// Access is decided from the active organization's own campaign list, so an
-// explicit id that is not in it never falls back to another campaign and a
-// campaign from a previous organization never flashes while switching.
-function useCampaignAccess(campaignId: string): Access {
+// Who is asking: sign-in and active organization must both be settled before
+// any campaign list is read, so nothing from a previous organization shows.
+function useSession(): Session {
   const auth = useAuth();
   const { organization, isLoaded: organizationLoaded } = useOrganization();
   const convexAuth = useConvexAuth();
-  const signedIn = auth.isLoaded && auth.isSignedIn === true;
-  const enabled =
-    signedIn &&
-    organizationLoaded &&
-    convexAuth.isAuthenticated &&
-    !!organization;
-  const { data, error, refetch } = campaignQuery(organization?.id, enabled);
   if (!auth.isLoaded || !organizationLoaded || convexAuth.isLoading)
     return { kind: 'resolving' };
-  if (!signedIn || !convexAuth.isAuthenticated) return { kind: 'signed_out' };
+  if (auth.isSignedIn !== true || !convexAuth.isAuthenticated)
+    return { kind: 'signed_out' };
   if (!organization) return { kind: 'no_organization' };
-  if (error)
+  return {
+    kind: 'member',
+    organization: { id: organization.id, name: organization.name },
+  };
+}
+
+// The active organization's own campaign list decides access. An explicit id
+// that is not in it is unavailable and never falls back to another campaign;
+// not found and no access read the same so nothing is disclosed.
+export function classifyCampaign(
+  campaignId: string,
+  organization: Organization,
+  query: CampaignListQuery,
+): Access {
+  if (query.error)
     return {
       kind: 'failed',
       retry: () => {
-        void refetch();
+        void query.refetch();
       },
     };
-  if (!data) return { kind: 'resolving' };
-  const campaign =
-    data.state === 'ready'
-      ? data.campaigns.find((item) => item._id === campaignId)
-      : undefined;
-  if (data.state !== 'ready' || !campaign)
+  if (!query.data) return { kind: 'resolving' };
+  const campaigns = query.data.state === 'ready' ? query.data.campaigns : [];
+  const campaign = campaigns.find((item) => item._id === campaignId);
+  if (!campaign)
     return { kind: 'unavailable', organizationName: organization.name };
   return {
     kind: 'ready',
     campaign,
-    campaigns: data.campaigns,
+    campaigns,
     organizationId: organization.id,
   };
+}
+
+function useCampaignAccess(campaignId: string): Access {
+  const session = useSession();
+  const organization =
+    session.kind === 'member' ? session.organization : undefined;
+  const query = campaignQuery(organization?.id, organization !== undefined);
+  return organization
+    ? classifyCampaign(campaignId, organization, query)
+    : (session as Exclude<Session, { kind: 'member' }>);
 }
 
 function CampaignSwitcher({
@@ -127,7 +149,7 @@ function CampaignSwitcher({
     >
       <SelectTrigger
         aria-label="Active campaign"
-        className="min-h-9 max-w-[11rem] border-0 bg-transparent px-1 text-sm shadow-none md:max-w-[16rem] md:text-base dark:bg-transparent"
+        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none md:text-base xl:max-w-[16rem] dark:bg-transparent [&>span]:truncate"
       >
         <SelectValue />
       </SelectTrigger>
@@ -154,8 +176,11 @@ type SectionLink = {
   icon: typeof LayoutGrid;
 };
 
+// The Week label reads the shared Workspace snapshot; the number is known
+// only while the week editor's owner is active on the Week route.
 function useSections(campaignId: string): SectionLink[] {
-  const { week } = useWeekLabel();
+  const workspace = useWeeklyDraftWorkspace();
+  const week = workspace.status === 'ready' ? workspace.week : null;
   return [
     {
       section: 'week',
@@ -197,7 +222,7 @@ function SectionLinks({ sections }: { sections: SectionLink[] }) {
   return (
     <nav
       aria-label="Campaign sections"
-      className="hidden min-w-0 items-center gap-1 text-sm md:flex"
+      className="hidden shrink-0 items-center gap-1 text-sm md:flex"
     >
       {sections.map((item) => {
         const active = isActive(pathname, item.href);
@@ -225,16 +250,10 @@ function MoreSheet() {
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen(true)}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset"
-      >
+      <SheetTrigger className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset">
         <MoreHorizontal className="size-5" aria-hidden />
         More
-      </button>
+      </SheetTrigger>
       <SheetContent side="bottom" className="pb-[env(safe-area-inset-bottom)]">
         <SheetHeader>
           <SheetTitle>More</SheetTitle>
@@ -365,9 +384,14 @@ function CampaignState({
   }
 }
 
-function CampaignTopBar({ access }: { access: Access }) {
+function CampaignTopBar({
+  access,
+  sections,
+}: {
+  access: Access;
+  sections: SectionLink[];
+}) {
   const ready = access.kind === 'ready';
-  const sections = useSections(ready ? access.campaign._id : '');
   return (
     <TopBarRow>
       <KeepLink />
@@ -383,7 +407,7 @@ function CampaignTopBar({ access }: { access: Access }) {
         <Skeleton aria-hidden className="h-5 w-32" />
       ) : null}
       {ready && <SectionLinks sections={sections} />}
-      <div className="ml-auto flex items-center gap-2 md:gap-3">
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
         <span className={cn(ready ? 'hidden md:inline-flex' : 'inline-flex')}>
           <OrganizationControl />
         </span>
@@ -407,7 +431,7 @@ function CampaignShellContent({
   );
   return (
     <ShellFrame
-      header={<CampaignTopBar access={access} />}
+      header={<CampaignTopBar access={access} sections={sections} />}
       footer={
         access.kind === 'ready' ? <BottomBar sections={sections} /> : null
       }
@@ -429,6 +453,9 @@ function CampaignShellContent({
   );
 }
 
+// The Workspace owner sits above the shell and the page: the Week route
+// renders the editor, the top bar reads its week, and the departure guard
+// reads its pending work. It is active only on the verified campaign's Week.
 export function CampaignShell({
   campaignId,
   children,
@@ -437,11 +464,16 @@ export function CampaignShell({
   children: ReactNode;
 }) {
   const access = useCampaignAccess(campaignId);
+  const pathname = usePathname();
+  const verified = access.kind === 'ready' ? access.campaign._id : null;
   return (
-    <NavigationGuardProvider>
-      <WeekLabelProvider>
+    <CampaignWorkspaceProvider
+      campaignId={verified}
+      active={verified !== null && pathname === campaignPath(verified, 'week')}
+    >
+      <NavigationGuardProvider>
         <CampaignShellContent access={access}>{children}</CampaignShellContent>
-      </WeekLabelProvider>
-    </NavigationGuardProvider>
+      </NavigationGuardProvider>
+    </CampaignWorkspaceProvider>
   );
 }

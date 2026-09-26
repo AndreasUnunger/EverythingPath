@@ -1,27 +1,23 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useConvex, useConvexAuth } from 'convex/react';
-import { zid } from 'convex-helpers/server/zod4';
+import { useEffect, useRef } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
-import { useWeekLabel } from '~/components/campaign-shell/campaign-context';
-import {
-  GuardedLink,
-  useNavigationGuard,
-} from '~/components/campaign-shell/navigation-guard';
+import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { campaignPath } from '~/lib/campaign-routes';
+import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import {
-  WeeklyDraftWorkspaceProvider,
   useWeeklyDraftWorkspace,
+  useWorkspaceController,
+  type WorkspaceController,
 } from './use-weekly-draft-workspace';
-import { createConvexWorkspaceGateway } from './gateway';
 import { SummaryView } from './summary-view';
 import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
-import type { Phase } from './types';
+import type { Phase, WeeklyDraftWorkspace } from './types';
 const phaseLabels: Record<Phase, string> = {
   upkeep: 'Upkeep',
   activity: 'Activity',
@@ -29,48 +25,41 @@ const phaseLabels: Record<Phase, string> = {
   persistent: 'Persistent',
   summary: 'Summary',
 };
-// Real document navigation (reload, typed address) still gets the browser's
-// own warning; shell links consult the navigation guard instead.
-function usePendingExitWarning(pending: boolean) {
-  const guard = useNavigationGuard();
-  const { setPending } = guard;
+// Real document departures (reload, close, typed address) get the browser's
+// own warning, read from the store at event time. Same-document navigation
+// consults the departure guard, which reads the same store.
+function useBeforeUnloadWarning(
+  store: WorkspaceController['store'] | undefined,
+) {
   useEffect(() => {
-    setPending(pending);
-    return () => setPending(false);
-  }, [pending, setPending]);
-  useEffect(() => {
-    if (!pending) return;
+    if (!store) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (!store.getPendingWork()) return;
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [pending]);
+  }, [store]);
 }
-function useWeekAnnouncement(week: number | null) {
-  const { setWeek } = useWeekLabel();
-  useEffect(() => {
-    setWeek(week);
-    return () => setWeek(null);
-  }, [week, setWeek]);
-}
-// The address is one player's Phase View. Address changes (links, Back and
-// Forward) move this Workspace; a Workspace-side change such as the next
-// week arriving on Upkeep is reflected back into the address.
+// The address is one player's Phase View. An actual address change (link,
+// Back, Forward) moves this Workspace once; it is not replayed when the store
+// passes through loading, so an arriving successor keeps its Upkeep reset,
+// which is then published back into the address.
 function usePhaseAddress(
-  workspace: ReturnType<typeof useWeeklyDraftWorkspace>,
+  store: WorkspaceController['store'] | undefined,
+  workspace: WeeklyDraftWorkspace,
   phase: Phase | undefined,
   onPhaseChange: ((phase: Phase) => void) | undefined,
 ) {
   const requested = useRef(phase);
-  const viewPhase = workspace.status === 'ready' ? workspace.viewPhase : null;
-  const shown = workspace.status === 'ready' ? workspace.phaseView.phase : null;
   useEffect(() => {
-    if (phase === undefined) return;
+    if (phase === undefined || !store) return;
     requested.current = phase;
-    viewPhase?.(phase);
-  }, [phase, viewPhase]);
+    const current = store.getSnapshot();
+    if (current.status === 'ready') current.viewPhase(phase);
+  }, [phase, store]);
+  const shown = workspace.status === 'ready' ? workspace.phaseView.phase : null;
   useEffect(() => {
     if (shown === null || !onPhaseChange || shown === requested.current) return;
     requested.current = shown;
@@ -78,7 +67,7 @@ function usePhaseAddress(
   }, [shown, onPhaseChange]);
   return (next: Phase) => {
     requested.current = next;
-    viewPhase?.(next);
+    if (workspace.status === 'ready') workspace.viewPhase(next);
     onPhaseChange?.(next);
   };
 }
@@ -87,18 +76,28 @@ export function WeeklyWorkspaceBoard({
   setupHref,
   phase,
   onPhaseChange,
-  retry,
 }: {
   historyHref?: string;
   setupHref?: string;
   phase?: Phase;
   onPhaseChange?: (phase: Phase) => void;
-  retry?: () => void;
 }) {
+  const auth = useConvexAuth();
   const workspace = useWeeklyDraftWorkspace();
-  usePendingExitWarning(workspace.status === 'ready' && workspace.pendingWork);
-  useWeekAnnouncement(workspace.status === 'ready' ? workspace.week : null);
-  const choosePhase = usePhaseAddress(workspace, phase, onPhaseChange);
+  const controller = useWorkspaceController();
+  useBeforeUnloadWarning(controller?.store);
+  const choosePhase = usePhaseAddress(
+    controller?.store,
+    workspace,
+    phase,
+    onPhaseChange,
+  );
+  if (auth.isLoading)
+    return (
+      <p role="status" className="p-6">
+        Loading the week…
+      </p>
+    );
   if (workspace.status !== 'ready')
     return (
       <main className="mx-auto w-full max-w-6xl p-4">
@@ -106,7 +105,7 @@ export function WeeklyWorkspaceBoard({
         {workspace.status === 'failed' ? (
           <FailedLoadCard
             noun="The week"
-            retry={retry ?? (() => window.location.reload())}
+            retry={controller?.retry ?? (() => window.location.reload())}
           />
         ) : (
           <Card className="p-6" role="status">
@@ -214,8 +213,8 @@ export function WeeklyWorkspaceBoard({
     </main>
   );
 }
-// One gateway per campaign and sign-in; the opening phase is read once so a
-// later address change never rebuilds the Workspace store.
+// Standalone host: the environment owner plus the board. The campaign shell
+// mounts the owner itself so the Week route only renders the board.
 export function CanonicalWorkspaceScreen({
   campaign,
   phase,
@@ -225,32 +224,18 @@ export function CanonicalWorkspaceScreen({
   phase?: Phase;
   onPhaseChange?: (phase: Phase) => void;
 }) {
-  const convex = useConvex();
-  const auth = useConvexAuth();
-  const [attempt, setAttempt] = useState(0);
-  const opening = useRef(phase);
-  // A new attempt rebuilds the store for a page-local retry.
-  const gateway = useMemo(() => {
-    const parsed = zid('campaign').safeParse(campaign);
-    return parsed.success && auth.isAuthenticated && attempt >= 0
-      ? createConvexWorkspaceGateway(convex, parsed.data, opening.current)
-      : null;
-  }, [campaign, convex, auth.isAuthenticated, attempt]);
-  if (auth.isLoading)
-    return (
-      <p role="status" className="p-6">
-        Loading the week…
-      </p>
-    );
   return (
-    <WeeklyDraftWorkspaceProvider gateway={gateway}>
+    <CampaignWorkspaceProvider
+      campaignId={campaign}
+      active
+      openingPhase={phase}
+    >
       <WeeklyWorkspaceBoard
         phase={phase}
         onPhaseChange={onPhaseChange}
-        retry={() => setAttempt((value) => value + 1)}
         setupHref={campaign ? campaignPath(campaign, 'setup') : undefined}
         historyHref={campaign ? campaignPath(campaign, 'history') : undefined}
       />
-    </WeeklyDraftWorkspaceProvider>
+    </CampaignWorkspaceProvider>
   );
 }
