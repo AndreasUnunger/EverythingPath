@@ -122,7 +122,6 @@ export function VariantA({ view, edit }: VariantProps) {
                   {levelLabel(r.kind)}:{' '}
                   {view.editing ? (
                     <>
-                      {r.kind === 'pc' && `Lvl ${r.character.level} / `}
                       <input
                         type="number"
                         min={0}

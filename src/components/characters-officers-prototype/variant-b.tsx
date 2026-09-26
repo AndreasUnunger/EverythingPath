@@ -125,7 +125,7 @@ export function VariantB({ view, edit }: VariantProps) {
               <th className="py-1 pr-2">On roster</th>
               <th className="py-1 pr-2">Character</th>
               <th className="py-1 pr-2">Kind</th>
-              <th className="py-1 pr-2">Level / Hit Dice</th>
+              <th className="py-1 pr-2">Hit Dice</th>
               <th className="py-1 pr-2">Officer roles</th>
               <th className="py-1 pr-2">Teams</th>
               <th />
@@ -197,7 +197,6 @@ export function VariantB({ view, edit }: VariantProps) {
                     {r ? (
                       rosterEditing ? (
                         <>
-                          {r.kind === 'pc' && `Lvl ${ch.level} / `}
                           <input
                             type="number"
                             min={0}

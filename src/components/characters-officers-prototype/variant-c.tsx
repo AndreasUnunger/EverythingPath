@@ -155,7 +155,6 @@ export function VariantC({ view, edit }: VariantProps) {
                   {levelLabel(r.kind)}{' '}
                   {view.editing ? (
                     <>
-                      {r.kind === 'pc' && `${r.character.level} / `}
                       <input
                         type="number"
                         min={0}
@@ -225,7 +224,7 @@ export function VariantC({ view, edit }: VariantProps) {
           <thead className="text-muted-foreground text-left text-xs tracking-widest uppercase">
             <tr className="border-foreground/20 border-b">
               <th className="py-1 pr-2">Character</th>
-              <th className="py-1 pr-2">Level / Hit Dice</th>
+              <th className="py-1 pr-2">Hit Dice</th>
               {!kindOnRoster && <th className="py-1 pr-2">Kind</th>}
               <th className="py-1 pr-2">Ability scores</th>
               <th className="py-1 pr-2">Militia</th>
@@ -246,7 +245,9 @@ export function VariantC({ view, edit }: VariantProps) {
                       </Chip>
                     )}
                   </td>
-                  <td className="py-2 pr-2 font-mono">{hitDiceText(ch, view.kindOf(ch.id), null)}</td>
+                  <td className="py-2 pr-2 font-mono">
+                    {hitDiceText(ch, view.kindOf(ch.id), null)}
+                  </td>
                   {!kindOnRoster && (
                     <td className="py-2 pr-2">
                       <KindChip kind={ch.kind} />

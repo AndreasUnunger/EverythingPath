@@ -464,12 +464,9 @@ export const levelLabel = (kind: Kind | null) =>
   kind === 'npc' ? 'Hit Dice' : 'Lvl / Hit Dice';
 export const hitDiceText = (
   c: Character,
-  kind: Kind | null,
+  _kind: Kind | null,
   hitDice: number | null | undefined,
-) =>
-  kind === 'npc'
-    ? `${hitDice ?? c.level} HD`
-    : `Lvl ${c.level} / ${hitDice ?? c.level} HD`;
+) => `${hitDice ?? c.level} HD`;
 
 export const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
@@ -556,7 +553,7 @@ export function project(state: State): Projection {
         counts: top?.h.id === h.id,
         detail:
           top?.h.id === h.id
-            ? `${abilityShort[best.a]} ${signed(best.mod)} → ${cr.check} ${signed(best.mod)}`
+            ? `${cr.check} ${signed(best.mod)}`
             : `adds nothing (does not stack)`,
         archived: h.archived,
       }));
