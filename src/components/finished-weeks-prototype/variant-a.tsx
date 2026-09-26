@@ -174,17 +174,19 @@ export function VariantA({ weeks, record, entry, select }: RecordProps) {
                       <span className="text-muted-foreground">
                         {shortDate(e.recordedAt)} · Ruleset {e.rulesetVersion}
                       </span>
-                      {e.note && (
-                        <span className="text-muted-foreground font-serif">
-                          “{e.note}”
-                        </span>
-                      )}
                       {eff && <Chip tone="change">effective</Chip>}
                       {current && !eff && <Chip tone="warn">showing</Chip>}
                     </button>
                   </li>
                 );
               })}
+              {record.entries.length > 5 && (
+                <li>
+                  <button className="text-muted-foreground w-full px-3 py-2 text-left text-sm underline">
+                    Earlier entries
+                  </button>
+                </li>
+              )}
             </ol>
           )}
         </header>
