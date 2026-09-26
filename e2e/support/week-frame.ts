@@ -111,7 +111,7 @@ export async function exerciseWeekFrame(page: Page) {
   if (confirmable) expect(reason, 'no caption when confirmable').toBe('');
   else
     expect(reason, 'only the disabled-Confirmation reason').toMatch(
-      /^(\d+ decisions? left|Review .*|Confirming the week…)$/,
+      /^(\d+ decisions? left|Review .*|Confirming the week…|Opening the next week…)$/,
     );
   expect(reason).not.toMatch(/ready for confirmation|attention/i);
   await previous(locked ? 'Event' : 'Persistent').click();
@@ -201,11 +201,49 @@ export async function exercisePhoneSteps(page: Page) {
 
 /**
  * The one save/confirmation status of the Week. Other polite statuses can
- * legitimately exist beside it (the History tab's loading line), so save
- * feedback is always read from this element rather than any status.
+ * legitimately exist beside it (the History tab's loading line, the
+ * other-player note), so save feedback is always read from this element
+ * rather than any status. It is a polite status ordinarily and an alert
+ * while a save has failed (#153), so it is selected by its hook alone.
  */
 export function saveStatus(page: Page) {
-  return page.getByRole('status').and(page.locator('[data-week-status]'));
+  return page.locator('[data-week-status]');
+}
+
+/** "Another player changed …" beside the save status (#153). */
+export function remoteChangeNote(page: Page) {
+  return page.locator('[data-week-remote-note]');
+}
+
+/**
+ * The transient "Week N confirmed." notice with its Finished weeks link,
+ * shown once on every device after the successor week arrives (#153).
+ */
+export function confirmedWeekNotice(page: Page) {
+  return page.locator('[data-week-confirmed]');
+}
+
+/**
+ * Asserts the confirmed-week notice for `week` exactly once on this page:
+ * the text, the exact history link within this campaign, and the page on
+ * the successor's Upkeep.
+ */
+export async function expectConfirmedWeek(page: Page, week: number) {
+  const campaignId = campaignIdFromUrl(page);
+  const notice = confirmedWeekNotice(page);
+  await expect(notice).toHaveCount(1);
+  await expect(notice).toContainText(`Week ${week} confirmed.`);
+  await expect(
+    notice.getByRole('link', { name: 'Open in Finished weeks', exact: true }),
+  ).toHaveAttribute('href', `/campaigns/${campaignId}/history?week=${week}`);
+  await expect(page).toHaveURL(/phase=upkeep/);
+  await expect(
+    page.getByRole('heading', {
+      name: `Week ${week + 1} · Upkeep`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator('[data-week-skeleton]')).toHaveCount(0);
 }
 
 export function referencePanel(page: Page) {
@@ -447,5 +485,52 @@ export async function exercisePhoneReference(page: Page) {
   await expect(sheet).toBeVisible();
   await sheet.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(sheet).toBeHidden();
+  await expect(trigger).toBeFocused();
+}
+
+/** The one save status must report a failed save as an alert with the exact text. */
+export async function expectSaveFailed(page: Page) {
+  const status = saveStatus(page);
+  await expect(status).toHaveCount(1);
+  await expect(status).toHaveText(
+    /^Changes could not be saved\. The latest saved values are shown\./,
+  );
+  await expect(status).toHaveAttribute('role', 'alert');
+  await expect(status).toHaveAttribute('data-week-status-failed', '');
+}
+
+/**
+ * Below 768px the status and note are glyphs; the Status details button
+ * (reading "Not saved" while a save has failed) opens a dialog with the
+ * full status and the other-player note as plain text, closes on Escape
+ * and returns focus. `failed` selects which button name is expected.
+ */
+export async function exerciseStatusDetails(page: Page, failed: boolean) {
+  expect(page.viewportSize()!.width).toBeLessThan(768);
+  const trigger = page.getByRole('button', {
+    name: failed ? 'Not saved. Show status details' : 'Show status details',
+    exact: true,
+  });
+  await expect(trigger).toBeVisible();
+  const statusText = (await saveStatus(page).textContent())!.trim();
+  const noteText = (await remoteChangeNote(page).textContent())!.trim();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Status', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('[data-week-status-detail]')).toHaveText(
+    statusText,
+  );
+  if (noteText)
+    await expect(dialog.locator('[data-week-remote-detail]')).toHaveText(
+      noteText,
+    );
+  else await expect(dialog.locator('[data-week-remote-detail]')).toHaveCount(0);
+  // Plain text only: the dialog adds no live region of its own.
+  await expect(dialog.locator('[role="status"], [role="alert"]')).toHaveCount(
+    0,
+  );
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 }

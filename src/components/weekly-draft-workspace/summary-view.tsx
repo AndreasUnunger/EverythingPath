@@ -15,6 +15,7 @@ export function SummaryView({
   view,
   edit,
   disabled,
+  confirming = false,
   canConfirm,
   forecastPending,
   reviewRequired,
@@ -24,6 +25,8 @@ export function SummaryView({
   view: Summary;
   edit: Extract<WeeklyDraftWorkspace, { status: 'ready' }>['edit'];
   disabled: boolean;
+  /** This device's Confirmation is in flight until the next week is usable. */
+  confirming?: boolean;
   canConfirm: boolean;
   forecastPending: boolean;
   reviewRequired: boolean;
@@ -62,8 +65,12 @@ export function SummaryView({
             </Button>
           </>
         )}
-        <Button disabled={!canConfirm || disabled} onClick={confirm}>
-          Confirm week
+        <Button
+          disabled={!canConfirm || disabled}
+          aria-busy={confirming || undefined}
+          onClick={confirm}
+        >
+          {confirming ? 'Confirming…' : 'Confirm week'}
         </Button>
         <p className="text-muted-foreground text-xs">
           Confirmation applies the entire prepared week. These outcomes remain a

@@ -10,13 +10,15 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 // The document, and on the bounded Week route also the frame that clips it,
 // the editor column that scrolls, the docked reference panel and any open
-// dialog or sheet, all fit their own width.
+// dialog or sheet, all fit their own width. The top bar and its status
+// position (#153) are checked by their boxes too: a header that clips its
+// own overflow would hide controls without any document overflow.
 export async function expectNoHorizontalOverflow(page: Page) {
   const overflowing = await page.evaluate(() => {
     const boxes = [
       document.documentElement,
       ...document.querySelectorAll(
-        '[data-shell-frame="bounded"], [data-week-host], [data-week-editor], [data-week-reference], [role="dialog"]',
+        'header, [data-shell-slot="top-bar-status"], [data-shell-frame="bounded"], [data-week-host], [data-week-editor], [data-week-reference], [role="dialog"]',
       ),
     ];
     return boxes
@@ -24,6 +26,22 @@ export async function expectNoHorizontalOverflow(page: Page) {
       .map((box) => box.tagName.toLowerCase());
   });
   expect(overflowing, 'no horizontal overflow').toEqual([]);
+  const { width } = page.viewportSize()!;
+  for (const box of await page
+    .locator(
+      'header :is(a, button, [role="combobox"], [data-week-status], [data-week-remote-note]):visible',
+    )
+    .all()) {
+    const bounds = (await box.boundingBox())!;
+    expect(
+      bounds.x + bounds.width,
+      'top bar content fits the viewport',
+    ).toBeLessThanOrEqual(width + 1);
+    expect(
+      bounds.x,
+      'top bar content starts inside the viewport',
+    ).toBeGreaterThanOrEqual(-1);
+  }
 }
 
 // The phone bar is the visible sections navigation that carries More.

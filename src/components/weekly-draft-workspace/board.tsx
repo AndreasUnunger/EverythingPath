@@ -5,6 +5,10 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import {
+  TopBarStatus,
+  useShellSlotHost,
+} from '~/components/campaign-shell/shell-slots';
 import { campaignPath } from '~/lib/campaign-routes';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import {
@@ -20,6 +24,12 @@ import { UpkeepView } from './upkeep-view';
 import { SetupNotesButton } from './week-frame/setup-notes';
 import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
+import {
+  ConfirmedWeekNotice,
+  FeedbackDetails,
+  RemoteChangeNote,
+  SaveStatus,
+} from './week-frame/week-status';
 import type { Phase, WeeklyDraftWorkspace } from './types';
 // Real document departures (reload, close, typed address) get the browser's
 // own warning, read from the store at event time. Same-document navigation
@@ -40,11 +50,14 @@ function useBeforeUnloadWarning(
 }
 // The address is one player's Phase View. An actual address change (link,
 // Back, Forward, the opening address) moves this Workspace once. A request
-// made while the store is still loading is applied when it first becomes
-// ready and then forgotten, so an arriving successor (ready → loading →
-// ready) keeps its Upkeep reset, which is then published back into the
-// address. The shell's owner cannot read the page's address during render,
-// so this is what makes the opening phase authoritative.
+// made while the store is still loading (the initial week only) is applied
+// when it first becomes ready and then forgotten. A successor week never
+// passes through loading: the store keeps the old week ready and read-only,
+// then switches to the new week on Upkeep in one publication, and that
+// store-side phase is published back into the address here. The old
+// address value is never re-applied to the new week. The shell's owner
+// cannot read the page's address during render, so this is what makes the
+// opening phase authoritative.
 function usePhaseAddress(
   store: WorkspaceController['store'] | undefined,
   workspace: WeeklyDraftWorkspace,
@@ -88,31 +101,32 @@ function usePhaseAddress(
     onPhaseChange?.(next);
   };
 }
-// The one save/confirmation status. It stays with the frame until the
-// feedback delivery moves it into the shell's top-bar position.
-function WorkspaceStatus({
-  feedback,
+// The one save/confirmation status with the other-player note beside it and
+// the phone-only details button. Inside the campaign shell it fills the
+// top-bar position; the standalone screen shows the same elements in the
+// frame's status row. Never both.
+function WorkspaceFeedback({
+  workspace,
+  inShell,
 }: {
-  feedback: Extract<WeeklyDraftWorkspace, { status: 'ready' }>['feedback'];
+  workspace: Extract<WeeklyDraftWorkspace, { status: 'ready' }>;
+  inShell: boolean;
 }) {
-  return (
-    <p
-      role="status"
-      aria-live="polite"
-      data-week-status
-      className="min-w-0 text-sm"
-    >
-      {feedback === 'pending'
-        ? 'Saving changes…'
-        : feedback === 'confirming'
-          ? 'Confirming the week…'
-          : feedback === 'failed'
-            ? 'Changes could not be saved. The latest saved values are shown.'
-            : feedback === 'saved'
-              ? 'Changes saved.'
-              : 'Prepare the week together.'}
-    </p>
+  const content = (
+    <>
+      <SaveStatus
+        feedback={workspace.feedback}
+        failureReason={workspace.failureReason}
+      />
+      <RemoteChangeNote change={workspace.remoteChange} />
+      <FeedbackDetails
+        feedback={workspace.feedback}
+        failureReason={workspace.failureReason}
+        change={workspace.remoteChange}
+      />
+    </>
   );
+  return inShell ? <TopBarStatus>{content}</TopBarStatus> : content;
 }
 // `campaignId` scopes every reference link (Militia, Characters & officers,
 // Finished weeks, Setup) to this campaign; without it the links stay off.
@@ -136,6 +150,7 @@ export function WeeklyWorkspaceBoard({
     onPhaseChange,
   );
   const panel = useReferencePanel(campaignId);
+  const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
   if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
   if (workspace.status !== 'ready')
@@ -159,42 +174,63 @@ export function WeeklyWorkspaceBoard({
       </main>
     );
   const view = workspace.phaseView;
-  const disabled = workspace.feedback === 'confirming';
+  // Every weekly write control is disabled while this device's Confirmation
+  // is in flight and while a closed week is retained read-only until its
+  // successor is usable (WEEK-10); the store rejects those writes as well.
+  const disabled = workspace.editingDisabled;
+  const feedback = (
+    <WorkspaceFeedback workspace={workspace} inShell={inShell} />
+  );
   return (
-    <WeekFrame
-      week={workspace.week}
-      phase={view.phase}
-      phases={workspace.phases}
-      navigation={workspace.navigation}
-      confirmationDisabledReason={workspace.confirmationDisabledReason}
-      choose={choosePhase}
-      reference={{ facts: workspace.referenceFacts, panel }}
-      status={<WorkspaceStatus feedback={workspace.feedback} />}
-      notes={<SetupNotesButton notes={workspace.setupNotes} />}
-    >
-      {view.phase === 'upkeep' ? (
-        <UpkeepView view={view} edit={workspace.edit} disabled={disabled} />
-      ) : view.phase === 'activity' ? (
-        <ActivityView view={view} edit={workspace.edit} disabled={disabled} />
-      ) : view.phase === 'event' ? (
-        <EventView view={view} edit={workspace.edit} disabled={disabled} />
-      ) : view.phase === 'persistent' ? (
-        <PersistentView view={view} edit={workspace.edit} disabled={disabled} />
-      ) : view.phase === 'summary' ? (
-        <SummaryView
-          view={view}
-          edit={workspace.edit}
-          disabled={disabled}
-          canConfirm={workspace.canConfirm}
-          forecastPending={workspace.forecastPending}
-          reviewRequired={workspace.reviewRequired}
-          confirm={() => {
-            void workspace.confirm();
-          }}
-          review={() => choosePhase('summary')}
-        />
-      ) : null}
-    </WeekFrame>
+    <>
+      {inShell && feedback}
+      <WeekFrame
+        week={workspace.week}
+        phase={view.phase}
+        phases={workspace.phases}
+        navigation={workspace.navigation}
+        confirmationDisabledReason={workspace.confirmationDisabledReason}
+        choose={choosePhase}
+        reference={{ facts: workspace.referenceFacts, panel }}
+        status={inShell ? undefined : feedback}
+        notice={
+          <ConfirmedWeekNotice
+            notice={workspace.confirmedWeek}
+            campaignId={campaignId}
+            dismiss={workspace.dismissConfirmedWeek}
+          />
+        }
+        notes={<SetupNotesButton notes={workspace.setupNotes} />}
+      >
+        {view.phase === 'upkeep' ? (
+          <UpkeepView view={view} edit={workspace.edit} disabled={disabled} />
+        ) : view.phase === 'activity' ? (
+          <ActivityView view={view} edit={workspace.edit} disabled={disabled} />
+        ) : view.phase === 'event' ? (
+          <EventView view={view} edit={workspace.edit} disabled={disabled} />
+        ) : view.phase === 'persistent' ? (
+          <PersistentView
+            view={view}
+            edit={workspace.edit}
+            disabled={disabled}
+          />
+        ) : view.phase === 'summary' ? (
+          <SummaryView
+            view={view}
+            edit={workspace.edit}
+            disabled={disabled}
+            confirming={workspace.feedback === 'confirming'}
+            canConfirm={workspace.canConfirm}
+            forecastPending={workspace.forecastPending}
+            reviewRequired={workspace.reviewRequired}
+            confirm={() => {
+              void workspace.confirm();
+            }}
+            review={() => choosePhase('summary')}
+          />
+        ) : null}
+      </WeekFrame>
+    </>
   );
 }
 // Standalone host: the environment owner plus the board. The campaign shell

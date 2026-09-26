@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import type { controlNextDraftEdit } from './held-mutation';
+import { expectSaveFailed, saveStatus } from './week-frame';
 
 const phase = (page: Page, name: string) =>
   page.getByRole('button', { name, exact: true }).click();
@@ -110,9 +111,7 @@ export async function exercisePersistentWorkspace(
     const held = network.hold();
     await button(old(gm), 'Clear decision').click();
     await held;
-    await expect(
-      gm.getByRole('status').filter({ hasText: 'Saving changes…' }),
-    ).toBeVisible();
+    await expect(saveStatus(gm)).toHaveText('Saving changes…');
     await phase(gm, 'Event');
     await expect(
       player.getByRole('heading', { name: /· Persistent$/ }),
@@ -120,9 +119,7 @@ export async function exercisePersistentWorkspace(
     await button(old(player), 'Buy off event').click();
     await expect(old(observer)).toContainText('Buyoff staged: 4000 cp.');
     network.release();
-    await expect(
-      gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
-    ).toBeVisible();
+    await expectSaveFailed(gm);
     await expect(gm.getByRole('heading', { name: /· Event$/ })).toBeVisible();
   } finally {
     network.release();

@@ -331,3 +331,22 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
     exceptionId: 'old',
   });
 });
+
+test('[confirming] the existing Confirm control reads Confirming… while this device waits for the next week', () => {
+  render(
+    <SummaryView
+      view={view}
+      edit={vi.fn()}
+      {...controls}
+      disabled
+      confirming
+      canConfirm={false}
+    />,
+  );
+  const button = screen.getByRole('button', { name: 'Confirming…' });
+  expect(button).toBeDisabled();
+  expect(button).toHaveAttribute('aria-busy', 'true');
+  expect(
+    screen.queryByRole('button', { name: 'Confirm week' }),
+  ).not.toBeInTheDocument();
+});

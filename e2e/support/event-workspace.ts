@@ -3,6 +3,7 @@ import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
+import { expectSaveFailed, saveStatus } from './week-frame';
 export async function exerciseEventWorkspace(
   gm: Page,
   player: Page,
@@ -95,17 +96,13 @@ export async function exerciseEventWorkspace(
     const held = network.hold();
     await table(gm, 2).fill('46');
     await held;
-    await expect(
-      gm.getByRole('status').filter({ hasText: 'Saving changes…' }),
-    ).toBeVisible();
+    await expect(saveStatus(gm)).toHaveText('Saving changes…');
     await phase(gm, 'Review & confirm');
     await table(player, 2).fill('47');
     // A third read-only tab proves the competing mutation was accepted before releasing the stale edit.
     await expect(table(observer, 2)).toHaveValue('47');
     network.release();
-    await expect(
-      gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
-    ).toBeVisible();
+    await expectSaveFailed(gm);
     await expect(
       gm.getByRole('heading', { name: /· Review & confirm$/ }),
     ).toBeVisible();

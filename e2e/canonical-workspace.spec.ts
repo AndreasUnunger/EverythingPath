@@ -9,8 +9,13 @@ import {
   exercisePhoneSteps,
   exerciseReferenceHistoryFailure,
   exerciseReferencePanel,
+  exerciseStatusDetails,
   exerciseWeekFrame,
+  expectConfirmedWeek,
+  expectSaveFailed,
+  confirmedWeekNotice,
   referencePanel,
+  remoteChangeNote,
   saveStatus,
 } from './support/week-frame';
 import {
@@ -131,10 +136,45 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const editor = gm.locator('[data-week-editor]');
     await expect(editor.getByText('Calculated bonus')).toContainText('+3');
     await expect(editor.getByText('1d20 · DC 10')).toBeVisible();
+    // Initial load announces no other-player change on either device.
+    await expect(remoteChangeNote(gm)).toBeEmpty();
+    await expect(remoteChangeNote(player)).toBeEmpty();
+    // The receiving player is typing in a field the other write does not
+    // touch: the note names the phase without moving focus or phase.
+    const transferAmount = player.getByRole('textbox', {
+      name: 'Transfer amount (copper)',
+      exact: true,
+    });
+    await transferAmount.focus();
     await die(gm).fill('10');
     await expect(die(player)).toHaveValue('10');
+    await expect(remoteChangeNote(player)).toHaveText(
+      'Another player changed Upkeep.',
+    );
+    const firstBatch = await remoteChangeNote(player).getAttribute(
+      'data-week-remote-sequence',
+    );
+    await expect(transferAmount).toBeFocused();
+    await expect(remoteChangeNote(gm)).toBeEmpty();
     await training(gm).fill('3');
     await expect(training(player)).toHaveValue('3');
+    // A second accepted change in the same phase is a new batch (announced
+    // again) with the same words; focus and both phases stay put.
+    await expect(remoteChangeNote(player)).toHaveText(
+      'Another player changed Upkeep.',
+    );
+    await expect(remoteChangeNote(player)).not.toHaveAttribute(
+      'data-week-remote-sequence',
+      firstBatch!,
+    );
+    await expect(transferAmount).toBeFocused();
+    await expect(remoteChangeNote(gm)).toBeEmpty();
+    await expect(
+      player.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
+    ).toBeVisible();
+    await expect(
+      gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
+    ).toBeVisible();
     await expect(gm.getByTestId('upkeep-training')).toHaveText('11');
     await saved();
     await die(gm).pressSequentially('x');
@@ -246,6 +286,21 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(saveStatus(gm)).toHaveText(
       'Changes could not be saved. The latest saved values are shown.',
     );
+    await expectSaveFailed(gm);
+    // The failure sits in the top bar beside the campaign and section
+    // controls without widening it; on a phone it is the "Not saved"
+    // details button that opens the full text.
+    await expectNoHorizontalOverflow(gm);
+    for (const [width, height] of [
+      [390, 844],
+      [844, 390],
+    ] as const) {
+      await gm.setViewportSize({ width, height });
+      await expectNoHorizontalOverflow(gm);
+      await expectSaveFailed(gm);
+      await exerciseStatusDetails(gm, true);
+    }
+    await gm.setViewportSize({ width: 1194, height: 834 });
     await expect(
       gm.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeDisabled();
@@ -681,6 +736,8 @@ test('players prepare shared Upkeep with independent navigation and save recover
         .click();
     const confirm = (page: Page) =>
       page.getByRole('button', { name: 'Confirm week', exact: true });
+    const confirming = (page: Page) =>
+      page.getByRole('button', { name: 'Confirming…', exact: true });
     try {
       await Promise.all([
         first.goto(summaryRoute),
@@ -701,7 +758,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect.poll(stale.observed).toBe(true);
       await expect(saveStatus(first)).toHaveText('Confirming the week…');
       await stayOnPendingWeek(first, 'back', 'Confirming the week…');
-      await expect(confirm(first)).toBeDisabled();
+      // The initiating control itself reads Confirming… while held; the
+      // ready label must not exist meanwhile.
+      await expect(confirming(first)).toBeDisabled();
+      await expect(confirming(first)).toHaveAttribute('aria-busy', 'true');
+      await expect(confirm(first)).toHaveCount(0);
+      await expect(confirmedWeekNotice(first)).toBeEmpty();
       await expect(
         second.getByRole('heading', {
           name: 'Week 4 · Review & confirm',
@@ -720,7 +782,16 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect(
         first.getByRole('button', { name: 'Review updated week', exact: true }),
       ).toBeEnabled();
+      // Rejected as stale: back to the ready label, disabled, no success.
       await expect(confirm(first)).toBeDisabled();
+      await expect(confirming(first)).toHaveCount(0);
+      await expect(confirmedWeekNotice(first)).toBeEmpty();
+      await expect(
+        first.getByRole('heading', {
+          name: 'Week 4 · Review & confirm',
+          exact: true,
+        }),
+      ).toBeVisible();
       await expect(
         first.getByRole('region', { name: 'Final preview', exact: true }),
       ).toContainText('5007 cp');
@@ -754,14 +825,36 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect(
         second.getByRole('heading', { name: /Week 5/ }),
       ).toBeVisible();
+      // Every continuously observing device lands on the successor's Upkeep
+      // with exactly one Week 4 notice and its exact history link, whether
+      // it won, lost or merely watched. `first` left the Week meanwhile and
+      // returns to a fresh page, which must not invent an old-week notice.
+      await expectConfirmedWeek(second, 4);
+      await expectConfirmedWeek(late, 4);
+      await expect(saveStatus(second)).not.toHaveText('Confirming the week…');
+      await expect(confirming(second)).toHaveCount(0);
       await first.goForward();
 
       for (const page of [first, second, late])
         await expect(
           page.getByRole('heading', { name: /Week 5/ }),
         ).toBeVisible();
+      // A fresh load after returning never fabricates the transient notice.
+      await expect(first.locator('[data-week-skeleton]')).toHaveCount(0);
+      await expect(confirmedWeekNotice(first)).toBeEmpty();
+      const secondTransition = await confirmedWeekNotice(second)
+        .locator('[data-week-confirmed-transition]')
+        .getAttribute('data-week-confirmed-transition');
       lateTransport.release();
       await expect.poll(lateRejected).toBe(true);
+      // The delayed old edit was rejected without touching the new week or
+      // the notices already shown.
+      await expectConfirmedWeek(late, 4);
+      await expect(confirmedWeekNotice(second)).toHaveCount(1);
+      await expect(
+        confirmedWeekNotice(second).locator('[data-week-confirmed-transition]'),
+      ).toHaveAttribute('data-week-confirmed-transition', secondTransition!);
+      await expect(die(late)).toHaveValue('');
       const resolved = confirmationInspectionSchema.parse(
         await canonicalPersistenceFixtureCall(run, 'inspect', {
           ...summaryScope,
@@ -775,6 +868,49 @@ test('players prepare shared Upkeep with independent navigation and save recover
         20,
       ]);
       expect(resolved.openDrafts[0]?.upkeep.rolls.check).toBeUndefined();
+      // The notice survives an ordinary save on the new week, stays
+      // reachable on a phone beside the pinned chrome, and is dismissed
+      // from inside itself.
+      await die(second).fill('3');
+      await expect(saveStatus(second)).toHaveText('Changes saved.');
+      await expect(die(late)).toHaveValue('3');
+      await expect(confirmedWeekNotice(second)).toHaveCount(1);
+      await expect(
+        confirmedWeekNotice(second).locator('[data-week-confirmed-transition]'),
+      ).toHaveAttribute('data-week-confirmed-transition', secondTransition!);
+      for (const [width, height] of [
+        [390, 844],
+        [844, 390],
+        [1180, 820],
+        [1440, 900],
+      ] as const) {
+        await second.setViewportSize({ width, height });
+        await expectNoHorizontalOverflow(second);
+        await expectBoundedWeekHost(second);
+        await expectReachable(
+          second,
+          confirmedWeekNotice(second).getByRole('link', {
+            name: 'Open in Finished weeks',
+            exact: true,
+          }),
+        );
+        await expectReachable(
+          second,
+          confirmedWeekNotice(second).getByRole('button', {
+            name: 'Dismiss',
+            exact: true,
+          }),
+        );
+      }
+      await second.setViewportSize({ width: 1194, height: 834 });
+      await confirmedWeekNotice(second)
+        .getByRole('button', { name: 'Dismiss', exact: true })
+        .click();
+      await expect(confirmedWeekNotice(second)).toBeEmpty();
+      await expect(confirmedWeekNotice(late)).toHaveCount(1);
+      await die(second).fill('');
+      await expect(saveStatus(second)).toHaveText('Changes saved.');
+      await expect(confirmedWeekNotice(second)).toBeEmpty();
       for (const page of [first, second, late]) {
         await summary(page);
         await expect(

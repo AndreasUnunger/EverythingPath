@@ -8,7 +8,49 @@ type Fault = {
   requestId?: number;
   queued: (() => void)[];
 };
-type ProtocolMessage = { type?: unknown; requestId?: unknown };
+type ProtocolMessage = {
+  type?: unknown;
+  requestId?: unknown;
+  modifications?: unknown;
+};
+type DraftKey = { campaignId: string; militiaId: string; draftId: string };
+type Connection = { valid: boolean };
+type HydrationHold = {
+  key: DraftKey;
+  connection: Connection;
+  observed: boolean;
+  failure: string | null;
+  queued: (() => void)[];
+};
+
+function object(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function requestsSuccessorTargets(message: ProtocolMessage, key: DraftKey) {
+  if (
+    message.type !== 'ModifyQuerySet' ||
+    !Array.isArray(message.modifications)
+  )
+    return false;
+  return message.modifications.some((value: unknown) => {
+    const change = object(value);
+    if (
+      change?.type !== 'Add' ||
+      change.udfPath !== 'canonicalDraftPersistence:targets' ||
+      !Array.isArray(change.args)
+    )
+      return false;
+    const args = object(change.args[0]);
+    return (
+      args?.campaignId === key.campaignId &&
+      args.militiaId === key.militiaId &&
+      typeof args.draftId === 'string' &&
+      args.draftId !== key.draftId
+    );
+  });
+}
 
 function parseFrame(frame: Frame): ProtocolMessage {
   try {
@@ -64,16 +106,62 @@ function interceptFrame(
 /** Timing only: every delivered frame is unchanged and every write runs in Convex. */
 export async function controlTransport(page: Page, convexUrl: string) {
   let fault: Fault | undefined;
+  let hydration: HydrationHold | undefined;
+  const connections = new Set<Connection>();
+  function failHydration() {
+    if (!hydration) return;
+    hydration.failure =
+      'The Convex connection changed during the successor hydration hold.';
+    hydration.connection.valid = false;
+    hydration.observed = false;
+    hydration.queued = [];
+  }
+  function requireIdle() {
+    if (fault || hydration)
+      throw new Error('Finish the active transport control first');
+  }
   const host = new URL(convexUrl).host;
   await page.routeWebSocket(
     (url) => url.protocol === 'wss:' && url.host === host,
     (socket) => {
+      const connection = { valid: true };
+      if (hydration) failHydration();
+      connections.add(connection);
       const server = socket.connectToServer();
+      function closed() {
+        if (!connections.delete(connection)) return false;
+        if (hydration?.connection === connection) failHydration();
+        return true;
+      }
+      socket.onClose((code, reason) => {
+        if (closed()) return server.close({ code, reason });
+      });
+      server.onClose((code, reason) => {
+        if (closed()) return socket.close({ code, reason });
+      });
       const forward = (
         frame: Frame,
         direction: 'Mutation' | 'MutationResponse',
         send: (frame: Frame) => void,
       ) => {
+        // After a failed hold, its missing query-set versions can never be
+        // followed by later frames on the obsolete socket.
+        if (direction === 'Mutation' && !connection.valid) return;
+        const hold = hydration;
+        if (
+          direction === 'Mutation' &&
+          hold?.connection === connection &&
+          !hold.failure
+        ) {
+          if (
+            hold.observed ||
+            requestsSuccessorTargets(parseFrame(frame), hold.key)
+          ) {
+            hold.observed = true;
+            hold.queued.push(() => send(frame));
+            return;
+          }
+        }
         const active = fault;
         if (active) {
           const message = parseFrame(frame);
@@ -95,8 +183,36 @@ export async function controlTransport(page: Page, convexUrl: string) {
     },
   );
   return {
+    // Pause required successor hydration after its source arrives. Incoming
+    // commit Transitions keep flowing so mutation promises can still settle.
+    holdSuccessorHydration(key: DraftKey) {
+      requireIdle();
+      const live = [...connections].filter((connection) => connection.valid);
+      const connection = live[0];
+      if (live.length !== 1 || !connection)
+        throw new Error(
+          'Expected one connected Convex socket before holding successor hydration.',
+        );
+      const hold: HydrationHold = {
+        key: { ...key },
+        connection,
+        observed: false,
+        failure: null,
+        queued: [],
+      };
+      hydration = hold;
+      return {
+        observed: () => hold.observed,
+        failure: () => hold.failure,
+        release: () => {
+          if (hydration !== hold) return;
+          hydration = undefined;
+          for (const send of hold.queued.splice(0)) send();
+        },
+      };
+    },
     next(mode: 'delay-request' | 'delay-response' | 'drop-acknowledgement') {
-      if (fault) throw new Error('Finish the active transport control first');
+      requireIdle();
       const active: Fault = {
         type: mode === 'delay-request' ? 'Mutation' : 'MutationResponse',
         drop: mode === 'drop-acknowledgement',

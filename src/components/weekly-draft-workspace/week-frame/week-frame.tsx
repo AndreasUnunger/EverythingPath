@@ -149,14 +149,20 @@ function Strip(frame: Frame) {
  * (tablet row / desktop rail / phone step button and sheet), the scrolling
  * editor with its footer, the docked reference panel beside them from
  * tablet width (a third column on desktop), and the phone strip.
+ *
+ * `status` is the save status when the shell offers no top-bar position
+ * (the standalone screen); inside the shell it is portalled there instead
+ * and this row shows only the confirmed-week `notice`, when there is one.
  */
 export function WeekFrame({
   status,
+  notice,
   notes,
   children,
   ...frame
 }: Frame & {
-  status: ReactNode;
+  status?: ReactNode;
+  notice?: ReactNode;
   notes?: ReactNode;
   children: ReactNode;
 }) {
@@ -167,6 +173,7 @@ export function WeekFrame({
       <div className="short:pt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 md:px-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
           {status}
+          {notice}
         </div>
         {notes}
         <ReferencePanelToggle panel={frame.reference.panel} />

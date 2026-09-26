@@ -3,6 +3,7 @@ import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
+import { expectSaveFailed, saveStatus } from './week-frame';
 export async function exerciseActivityWorkspace(
   gm: Page,
   player: Page,
@@ -18,9 +19,7 @@ export async function exerciseActivityWorkspace(
       exact: true,
     });
   const saved = (page: Page) =>
-    expect(
-      page.getByRole('status').filter({ hasText: /^Changes saved\.$/ }),
-    ).toBeVisible();
+    expect(saveStatus(page)).toHaveText('Changes saved.');
   async function choose(
     page: Page,
     action: string,
@@ -209,9 +208,7 @@ export async function exerciseActivityWorkspace(
   await gm.getByRole('button', { name: 'Event', exact: true }).click();
   await choose(player, 'Gather Information', 1, true);
   network.release();
-  await expect(
-    gm.getByRole('status').filter({ hasText: 'Changes could not be saved.' }),
-  ).toBeVisible();
+  await expectSaveFailed(gm);
   await gm.getByRole('button', { name: 'Activity', exact: true }).click();
   await expect(card(gm, 1, 'Gather Information')).toBeVisible();
   await choose(gm, 'Drill Militia', 1, true);

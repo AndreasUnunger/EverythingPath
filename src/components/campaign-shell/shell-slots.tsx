@@ -67,6 +67,15 @@ function ShellSlot({
   return host ? createPortal(children, host) : null;
 }
 
+/**
+ * Whether the shell currently offers a position. A page that must show its
+ * content somewhere renders it in place when no host exists (the standalone
+ * screen), never in both places.
+ */
+export function useShellSlotHost(name: SlotName) {
+  return Boolean(useContext(HostsContext)[name]);
+}
+
 /** Phone only: rendered immediately above the bottom bar, below the page. */
 export function PhoneStatusStrip({ children }: { children: ReactNode }) {
   return <ShellSlot name="phone-status-strip">{children}</ShellSlot>;

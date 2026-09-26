@@ -16,6 +16,15 @@ import type { Phase } from './types';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { useWeeklyDraftWorkspace } from './use-weekly-draft-workspace';
 import { CanonicalWorkspaceScreen, WeeklyWorkspaceBoard } from './board';
+import { createDraftPersistence } from '~/lib/weekly-draft-persistence';
+import {
+  DraftRejected,
+  type DraftObservation,
+} from '~/lib/weekly-draft-persistence-contract';
+import {
+  ShellSlotHost,
+  ShellSlotProvider,
+} from '~/components/campaign-shell/shell-slots';
 
 const factory = vi.fn<(...args: unknown[]) => WorkspaceGateway | null>();
 vi.mock('./gateway', () => ({
@@ -39,13 +48,18 @@ vi.mock('next/link', () => ({
 }));
 afterEach(cleanup);
 
-function fixture(): WorkspaceGateway & { advance: () => () => void } {
+// `confirmable` starts from a week with nothing left to decide (a first
+// militia week whose event chance roll cannot produce an event).
+function fixture(options: { confirmable?: boolean } = {}): WorkspaceGateway & {
+  advance: () => () => void;
+  source: ReturnType<typeof workspaceSourceSchema.parse>;
+} {
   const draft = createWeeklyDraft({
     draftId: 'workspace',
     week: 4,
     slotIds: ['left'],
     context: {
-      firstMilitiaWeek: false,
+      firstMilitiaWeek: options.confirmable ?? false,
       startDay: 21,
       uneventfulCarry: false,
       carriedEvents: [],
@@ -54,6 +68,13 @@ function fixture(): WorkspaceGateway & { advance: () => () => void } {
       lastBuyoffWeek: null,
     },
   });
+  if (options.confirmable)
+    draft.event.chanceRoll = {
+      sides: 100,
+      dice: [100],
+      provenance: { kind: 'table' },
+      modifiers: [],
+    };
   let source = workspaceSourceSchema.parse({
     key: {
       campaignId: 'campaign',
@@ -78,6 +99,9 @@ function fixture(): WorkspaceGateway & { advance: () => () => void } {
   let successorDelivery: Promise<void> | undefined;
   const listeners = new Set<Parameters<WorkspaceGateway['subscribe']>[0]>();
   return {
+    get source() {
+      return source;
+    },
     subscribe(next) {
       listeners.add(next);
       next(source);
@@ -264,8 +288,21 @@ test('[shell.no-militia] a campaign without a militia keeps setup reachable with
   expect(screen.getByText('Shell week: unknown')).toBeInTheDocument();
 });
 
+// A successor never shows the loading skeleton (#153): the old week stays
+// on screen read-only with its reference facts until the next open week is
+// usable, then this player lands on Upkeep with one notice for the old week.
+function notice() {
+  return document.querySelector<HTMLElement>('[data-week-confirmed]')!;
+}
+function status() {
+  return document.querySelector<HTMLElement>('[data-week-status]')!;
+}
+function remoteNote() {
+  return document.querySelector<HTMLElement>('[data-week-remote-note]')!;
+}
+
 test.each(['event', 'summary'] as const)(
-  '[shell.successor] a player viewing %s opens an arriving successor on Upkeep and updates the address',
+  '[shell.successor] a player viewing %s keeps the old week read-only, then opens the successor on Upkeep with one notice',
   async (opening) => {
     const gateway = fixture();
     factory.mockImplementation((_client, _campaign, initialPhase) => ({
@@ -274,19 +311,57 @@ test.each(['event', 'summary'] as const)(
     }));
     const onPhaseChange = vi.fn();
     render(host({ phase: opening, onPhaseChange }));
-    await screen.findByRole('heading', {
-      name: `Week 4 · ${opening === 'event' ? 'Event' : 'Review & confirm'}`,
-    });
+    const heading = `Week 4 · ${opening === 'event' ? 'Event' : 'Review & confirm'}`;
+    await screen.findByRole('heading', { name: heading });
+    const writeControl = () =>
+      opening === 'event'
+        ? screen.getByRole('textbox', { name: 'Event chance roll' })
+        : screen.getByRole('button', { name: 'Confirm week' });
+    expect(notice()).toBeEmptyDOMElement();
     let release!: () => void;
     act(() => {
       release = gateway.advance();
     });
-    await screen.findByText('Loading the week…');
+    // Retained: same heading, facts and navigation; no skeleton; no writes.
+    expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: heading })).toBeVisible();
+    expect(writeControl()).toBeDisabled();
+    expect(screen.getByText('Shell week: 4')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Militia values' })).toBeVisible();
+    expect(status()).toHaveTextContent('Prepare the week together.');
+    expect(notice()).toBeEmptyDOMElement();
+    fireEvent.click(screen.getByRole('button', { name: 'Upkeep' }));
+    expect(
+      screen.getByRole('heading', { name: 'Week 4 · Upkeep' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Activity' }));
+    expect(
+      screen.getByRole('heading', { name: 'Week 4 · Activity' }),
+    ).toBeVisible();
+    expect(onPhaseChange).toHaveBeenLastCalledWith('activity');
+    expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
     await act(async () => release());
     await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
     expect(onPhaseChange).toHaveBeenLastCalledWith('upkeep');
     expect(screen.getByText('Shell week: 5')).toBeInTheDocument();
+    expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
+    ).toBeEnabled();
+    expect(document.querySelectorAll('[data-week-confirmed]')).toHaveLength(1);
+    expect(notice()).toHaveTextContent('Week 4 confirmed.');
+    expect(
+      within(notice()).getByRole('link', { name: 'Open in Finished weeks' }),
+    ).toHaveAttribute('href', '/campaigns/campaign/history?week=4');
     expect(factory).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(notice()).getByRole('button', { name: 'Dismiss' }));
+    expect(notice()).toBeEmptyDOMElement();
+    expect(
+      screen.getByRole('heading', { name: 'Week 5 · Upkeep' }),
+    ).toBeVisible();
   },
 );
 
@@ -299,10 +374,31 @@ test('[shell.successor-control] the gateway opening phase does not override succ
   act(() => {
     release = gateway.advance();
   });
-  await screen.findByText('Loading the week…');
+  expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Week 4 · Event' })).toBeVisible();
   await act(async () => release());
   await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+  expect(notice()).toHaveTextContent('Week 4 confirmed.');
   expect(factory).toHaveBeenCalledTimes(1);
+});
+
+test('[shell.successor-address] a stale address phase is not re-applied to the successor week', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => gateway);
+  // A host that never writes the phase back into its address (its prop stays
+  // `summary`) must still land on Upkeep: the store's reset wins.
+  const view = render(host({ phase: 'summary' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  let release!: () => void;
+  act(() => {
+    release = gateway.advance();
+  });
+  await act(async () => release());
+  await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+  view.rerender(host({ phase: 'summary' }));
+  expect(
+    screen.getByRole('heading', { name: 'Week 5 · Upkeep' }),
+  ).toBeVisible();
 });
 
 // The campaign shell mounts the owner without an opening phase (it cannot
@@ -476,4 +572,220 @@ test('[frame.readiness] every position shows readiness from one optimistic snaps
   for (const line of lines)
     expect(line).toHaveTextContent(/^(\d+ decisions? left|Review .*)$/);
   expect(screen.getByRole('button', { name: 'Confirm week' })).toBeDisabled();
+});
+
+// The status and the other-player note fill the shell's top-bar position
+// when it exists and the frame's own row otherwise; there is exactly one
+// status element either way.
+test('[feedback.placement] the status fills the shell position when offered, otherwise the frame row, never both', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => gateway);
+  const view = render(
+    <ShellSlotProvider>
+      <header>
+        <ShellSlotHost name="top-bar-status" />
+      </header>
+      {host({ phase: 'upkeep' })}
+    </ShellSlotProvider>,
+  );
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(document.querySelectorAll('[data-week-status]')).toHaveLength(1);
+  expect(status().closest('header')).not.toBeNull();
+  expect(remoteNote().closest('header')).not.toBeNull();
+  expect(status()).toHaveTextContent('Prepare the week together.');
+  view.unmount();
+  render(host({ phase: 'upkeep' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  expect(document.querySelectorAll('[data-week-status]')).toHaveLength(1);
+  expect(status().closest('header')).toBeNull();
+  expect(status().closest('[data-week-editor]')).toBeNull();
+});
+
+// Holds this device's draft observations so several remote writes arrive as
+// one observation, the way a slow connection coalesces them.
+function coalescing(gateway: WorkspaceGateway) {
+  let held: { latest: DraftObservation | null } | null = null;
+  const deliveries = new Set<(observation: DraftObservation) => void>();
+  const wrapped: WorkspaceGateway = {
+    ...gateway,
+    transport(source) {
+      const transport = gateway.transport(source);
+      return {
+        ...transport,
+        subscribe(next, failed) {
+          deliveries.add(next);
+          return transport.subscribe((observation) => {
+            if (held) held.latest = observation;
+            else next(observation);
+          }, failed);
+        },
+      };
+    },
+  };
+  return {
+    gateway: wrapped,
+    hold() {
+      held = { latest: null };
+    },
+    release() {
+      const latest = held?.latest;
+      held = null;
+      if (latest) for (const next of deliveries) next(latest);
+    },
+  };
+}
+
+// Another player's accepted edits are named by the phases they touched and
+// never move this player's phase or focus; this player's own saves never
+// produce the note.
+test('[feedback.remote] a remote change names its phases without moving phase or focus; own saves are excluded', async () => {
+  const gateway = fixture();
+  const wire = coalescing(gateway);
+  factory.mockImplementation(() => wire.gateway);
+  render(host({ phase: 'upkeep' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty die' });
+  await act(async () => {
+    fireEvent.change(die, { target: { value: '7' } });
+    fireEvent.blur(die);
+  });
+  await waitFor(() => expect(status()).toHaveTextContent('Changes saved.'));
+  expect(remoteNote()).toBeEmptyDOMElement();
+  const training = screen.getByRole('textbox', {
+    name: 'Attrition training die',
+  });
+  training.focus();
+  expect(training).toHaveFocus();
+  // A second device shares the same authority through its own client.
+  const other = createDraftPersistence(gateway.transport(gateway.source));
+  await other.ready;
+  wire.hold();
+  await act(async () => {
+    expect(
+      await other.edit({
+        kind: 'upkeep_roll',
+        field: 'check',
+        roll: {
+          dice: [12],
+          sides: 20,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      }),
+    ).toBe('accepted');
+    expect(
+      await other.edit({
+        kind: 'event_chance',
+        roll: {
+          dice: [42],
+          sides: 100,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      }),
+    ).toBe('accepted');
+  });
+  expect(remoteNote()).toBeEmptyDOMElement();
+  act(() => wire.release());
+  await waitFor(() =>
+    expect(remoteNote()).toHaveTextContent(
+      'Another player changed Upkeep and Event.',
+    ),
+  );
+  expect(die).toHaveValue('12');
+  expect(training).toHaveFocus();
+  expect(
+    screen.getByRole('heading', { name: 'Week 4 · Upkeep' }),
+  ).toBeVisible();
+  other.dispose();
+});
+
+test('[feedback.failed] a rejected save is a red alert carrying only the safe server reason', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => ({
+    ...gateway,
+    transport: (source) => ({
+      ...gateway.transport(source),
+      send: () =>
+        Promise.reject(
+          new DraftRejected('Operation rejected', { maintenance: true }),
+        ),
+    }),
+  }));
+  render(host({ phase: 'upkeep' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty die' });
+  await act(async () => {
+    fireEvent.change(die, { target: { value: '7' } });
+    fireEvent.blur(die);
+  });
+  await waitFor(() =>
+    expect(status()).toHaveAttribute('data-week-status-failed'),
+  );
+  expect(status().textContent).toBe(
+    'Changes could not be saved. The latest saved values are shown. Campaign editing is paused for maintenance. Please try again later.',
+  );
+  // Failure is an alert (field validation alerts are separate); the
+  // ordinary polite status is silent then.
+  expect(status()).toHaveAttribute('role', 'alert');
+  expect(screen.getAllByRole('alert')).toContain(status());
+  expect(screen.getAllByRole('status')).not.toContain(status());
+  expect(document.querySelectorAll('[data-week-status]')).toHaveLength(1);
+  expect(status()).toHaveClass('text-destructive');
+  expect(
+    screen.getByRole('button', { name: 'Not saved. Show status details' }),
+  ).toBeVisible();
+  expect(die).toHaveValue('');
+  expect(remoteNote()).toBeEmptyDOMElement();
+});
+
+// The initiating device: the Confirm control reads "Confirming…" and every
+// weekly write stays disabled from the click until the successor is usable,
+// including after the server has already answered.
+test('[feedback.confirming] the initiator stays on Confirming… with the old week until the successor is usable', async () => {
+  const gateway = fixture({ confirmable: true });
+  factory.mockImplementation(() => gateway);
+  render(host({ phase: 'summary' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  const confirm = await screen.findByRole('button', { name: 'Confirm week' });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  await act(async () => {
+    fireEvent.click(confirm);
+  });
+  await waitFor(() =>
+    expect(status()).toHaveTextContent('Confirming the week…'),
+  );
+  const confirming = screen.getByRole('button', { name: 'Confirming…' });
+  expect(confirming).toBeDisabled();
+  expect(
+    screen.getByRole('heading', { name: 'Week 4 · Review & confirm' }),
+  ).toBeVisible();
+  expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
+  // The authority has answered (the draft is closed) yet nothing changes
+  // until the next open week arrives.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(screen.getByRole('button', { name: 'Confirming…' })).toBeDisabled();
+  expect(status()).toHaveTextContent('Confirming the week…');
+  fireEvent.click(screen.getByRole('button', { name: 'Event' }));
+  expect(
+    screen.getByRole('textbox', { name: 'Event chance roll' }),
+  ).toBeDisabled();
+  expect(notice()).toBeEmptyDOMElement();
+  let release!: () => void;
+  act(() => {
+    release = gateway.advance();
+  });
+  expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
+  await act(async () => release());
+  await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
+  expect(status()).not.toHaveTextContent('Confirming the week…');
+  expect(
+    screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
+  ).toBeEnabled();
+  expect(notice()).toHaveTextContent('Week 4 confirmed.');
+  expect(
+    within(notice()).getByRole('link', { name: 'Open in Finished weeks' }),
+  ).toHaveAttribute('href', '/campaigns/campaign/history?week=4');
 });
