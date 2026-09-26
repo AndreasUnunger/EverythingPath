@@ -28,11 +28,25 @@ const setActive = vi.fn();
 const gateway = vi.fn();
 const openCreateOrganization = vi.fn();
 const openOrganizationProfile = vi.fn();
+const openUserProfile = vi.fn();
+const signOut = vi.fn();
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => auth(),
   useOrganization: () => organization(),
-  useClerk: () => ({ openCreateOrganization, openOrganizationProfile }),
+  useClerk: () => ({
+    openCreateOrganization,
+    openOrganizationProfile,
+    openUserProfile,
+    signOut,
+  }),
+  useUser: () => ({
+    isLoaded: true,
+    user: {
+      fullName: 'Andreas',
+      primaryEmailAddress: { emailAddress: 'andreas@example.com' },
+    },
+  }),
   useOrganizationList: () => ({
     isLoaded: true,
     setActive,
@@ -410,9 +424,17 @@ test('More opens a sheet with stacked organization and account controls and clos
     within(organization).getByRole('button', { name: 'New organization' }),
   ).toBeVisible();
   const account = within(sheet).getByRole('group', { name: 'Account' });
+  expect(within(account).getByText('Andreas')).toBeVisible();
   expect(
-    within(account).getByRole('button', { name: 'Account' }),
+    within(account).getByRole('button', { name: 'Manage account' }),
   ).toBeVisible();
+  expect(
+    within(account).getByRole('button', { name: 'Sign out' }),
+  ).toBeVisible();
+  // The stock avatar menu is not offered inside the sheet; it is in the top bar.
+  expect(
+    within(account).queryByRole('button', { name: 'Account' }),
+  ).not.toBeInTheDocument();
   fireEvent.change(
     within(organization).getByRole('combobox', { name: 'Organization' }),
     { target: { value: 'other' } },
@@ -423,6 +445,60 @@ test('More opens a sheet with stacked organization and account controls and clos
       screen.queryByRole('dialog', { name: 'More' }),
     ).not.toBeInTheDocument(),
   );
+});
+
+test('phone account actions open Clerk account management and sign out through the guard, closing More on commit', async () => {
+  signOut.mockResolvedValue(undefined);
+  render(shell('alpha'));
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  fireEvent.click(
+    within(sheet).getByRole('button', { name: 'Manage account' }),
+  );
+  expect(openUserProfile).toHaveBeenCalledTimes(1);
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const reopened = await screen.findByRole('dialog', { name: 'More' });
+  fireEvent.click(within(reopened).getByRole('button', { name: 'Sign out' }));
+  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  expect(signOut).toHaveBeenLastCalledWith({ redirectUrl: '/campaigns' });
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
+test('pending work turns phone sign-out into the departure decision: Stay keeps More and the session, Leave signs out once', async () => {
+  signOut.mockResolvedValue(undefined);
+  const fixture = onWeekWithFixture();
+  render(shell('alpha', <Editor />));
+  const release = fixture.hold();
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit week 4' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  const out = within(sheet).getByRole('button', { name: 'Sign out' });
+  fireEvent.click(out);
+  const warning = screen.getByRole('dialog', {
+    name: 'Changes are still saving',
+  });
+  fireEvent.click(within(warning).getByRole('button', { name: 'Stay' }));
+  expect(signOut).not.toHaveBeenCalled();
+  expect(openUserProfile).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog', { name: 'More' })).toBeInTheDocument();
+  fireEvent.click(out);
+  fireEvent.click(screen.getByRole('button', { name: 'Leave anyway' }));
+  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+  release();
 });
 
 test('More stays open while the departure decision is pending and closes on Leave', async () => {

@@ -43,6 +43,7 @@ import {
   NavigationGuardProvider,
   useNavigationGuard,
 } from './navigation-guard';
+import { AccountActions } from './account-actions';
 import { ShellSlotHost, ShellSlotProvider } from './shell-slots';
 import {
   AccountControl,
@@ -296,9 +297,7 @@ function MoreSheet() {
               <OrganizationControl fill />
             </MoreGroup>
             <MoreGroup label="Account">
-              <div className="flex min-h-9 items-center">
-                <AccountControl />
-              </div>
+              <AccountActions />
             </MoreGroup>
           </div>
         </BeforeDeparture>

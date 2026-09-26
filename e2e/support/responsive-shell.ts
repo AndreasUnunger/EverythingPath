@@ -135,7 +135,14 @@ export async function exercisePhoneShell(page: Page) {
     organizationGroup.getByRole('button', { name: 'New organization' }),
   );
   const account = sheet.getByRole('group', { name: 'Account', exact: true });
-  await expectReachable(page, account.getByRole('button').first());
+  await expectReachable(
+    page,
+    account.getByRole('button', { name: 'Manage account', exact: true }),
+  );
+  await expectReachable(
+    page,
+    account.getByRole('button', { name: 'Sign out', exact: true }),
+  );
   for (let step = 0; step < 6; step += 1) {
     await page.keyboard.press('Tab');
     await expectFocusInsideMore(page);
