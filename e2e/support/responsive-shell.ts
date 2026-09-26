@@ -239,6 +239,30 @@ async function pinnedWeekChrome(page: Page) {
  * no enabled controls must still expose their first and last text content.
  */
 export async function expectBoundedWeekHost(page: Page) {
+  // Resizing can start finite CSS transitions on the responsive chrome.
+  // Capture its baseline only after those settle; perpetual decoration must
+  // not prevent the geometry check from running.
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+    for (;;) {
+      const animations = document.getAnimations().filter((animation) => {
+        const timing = animation.effect?.getComputedTiming();
+        return (
+          (animation.playState === 'running' || animation.pending) &&
+          timing &&
+          Number.isFinite(timing.endTime)
+        );
+      });
+      if (animations.length === 0) return;
+      // A responsive update may replace a transition, rejecting finished.
+      // Re-read the animation list to also wait for its replacement.
+      await Promise.allSettled(
+        animations.map((animation) => animation.finished),
+      );
+    }
+  });
   const host = page.locator('[data-week-host]');
   await expect(host).toHaveCount(1);
   const { height } = page.viewportSize()!;
