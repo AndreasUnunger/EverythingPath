@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import type { DraftObservation } from './weekly-draft-persistence-contract';
+import type {
+  DraftObservation,
+  DraftTargetRevision,
+} from './weekly-draft-persistence-contract';
 
 export type RemoteDraftChange = {
   sequence: number;
@@ -53,38 +56,46 @@ export function createDraftAttribution(ownRevisions: ReadonlySet<number>) {
     deferred.clear();
     return targets;
   }
+  function classifyTarget(row: DraftTargetRevision, baselineRevision: number) {
+    if (row.revision <= (seen.get(row.target) ?? baselineRevision)) return null;
+    seen.set(row.target, row.revision);
+    if (ownRevisions.has(row.revision)) return null;
+    try {
+      const parsed = targetPath.safeParse(JSON.parse(row.target));
+      if (
+        !parsed.success ||
+        uncertain.some((path) => overlaps(path, parsed.data))
+      )
+        return null;
+      const pending =
+        dispatched !== null &&
+        row.revision > dispatched.revision &&
+        dispatched.targets.some((path) => overlaps(path, parsed.data));
+      return { path: parsed.data, pending };
+    } catch {
+      // Malformed metadata cannot justify a player-facing attribution.
+      return null;
+    }
+  }
+  function deferTarget(row: DraftTargetRevision, path: string[]) {
+    const previous = deferred.get(row.target);
+    deferred.set(row.target, {
+      path,
+      // One serially dispatched operation can own at most one revision.
+      revisions: previous
+        ? [previous.revisions[0]!, row.revision]
+        : [row.revision],
+    });
+  }
   function observe(observation: DraftObservation, targets: string[][] = []) {
     if (observation.status === 'closed') close();
     if (closed) return;
     baseline ??= observation.revision;
     for (const row of observation.targetRevisions) {
-      if (row.revision <= (seen.get(row.target) ?? baseline)) continue;
-      seen.set(row.target, row.revision);
-      if (ownRevisions.has(row.revision)) continue;
-      try {
-        const parsed = targetPath.safeParse(JSON.parse(row.target));
-        if (
-          !parsed.success ||
-          uncertain.some((path) => overlaps(path, parsed.data))
-        )
-          continue;
-        if (
-          dispatched &&
-          row.revision > dispatched.revision &&
-          dispatched.targets.some((path) => overlaps(path, parsed.data))
-        ) {
-          const previous = deferred.get(row.target);
-          deferred.set(row.target, {
-            path: parsed.data,
-            // One serially dispatched operation can own at most one revision.
-            revisions: previous
-              ? [previous.revisions[0]!, row.revision]
-              : [row.revision],
-          });
-        } else targets.push(parsed.data);
-      } catch {
-        // Malformed metadata cannot justify a player-facing attribution.
-      }
+      const evidence = classifyTarget(row, baseline);
+      if (!evidence) continue;
+      if (evidence.pending) deferTarget(row, evidence.path);
+      else targets.push(evidence.path);
     }
     publish(targets);
   }

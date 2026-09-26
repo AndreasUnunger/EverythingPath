@@ -16,10 +16,28 @@ import {
   DraftTransportFailure,
   DraftRejected,
   type DraftObservation,
+  type DraftOperation,
+  type DraftReceipt,
   type DraftTransport,
 } from './weekly-draft-persistence-contract';
 import { editWeeklyDraft } from './weekly-draft';
 import type { WeeklyDraft, WeeklyDraftEdit } from './weekly-draft-contract';
+
+function safeFailureReason(error: unknown): string | null {
+  return error instanceof DraftRejected &&
+    error.failureReason === DraftRejected.maintenanceReason
+    ? DraftRejected.maintenanceReason
+    : null;
+}
+
+function isCorrelatedReceipt(receipt: DraftReceipt, operation: DraftOperation) {
+  return (
+    receipt.operationId === operation.operationId &&
+    receipt.observation.draftId === operation.draftId &&
+    receipt.acceptedRevision > operation.baseRevision &&
+    receipt.acceptedRevision <= receipt.observation.revision
+  );
+}
 
 export function createDraftPersistence(
   transport: DraftTransport,
@@ -144,12 +162,7 @@ export function createDraftPersistence(
           accept(receipt.observation);
           return 'accepted';
         } catch (error) {
-          if (!disposed)
-            failureReason =
-              error instanceof DraftRejected &&
-              error.failureReason === DraftRejected.maintenanceReason
-                ? DraftRejected.maintenanceReason
-                : null;
+          if (!disposed) failureReason = safeFailureReason(error);
           try {
             accept(await transport.read());
           } catch {
@@ -224,25 +237,14 @@ export function createDraftPersistence(
               },
             ),
           );
-          if (
-            receipt.operationId !== operationId ||
-            receipt.observation.draftId !== operation.draftId ||
-            receipt.acceptedRevision <= operation.baseRevision ||
-            receipt.acceptedRevision > receipt.observation.revision
-          )
-            return 'failed';
+          if (!isCorrelatedReceipt(receipt, operation)) return 'failed';
           failureReason = null;
           ownRevisions.add(receipt.acceptedRevision);
           attribution.accepted(receipt.observation);
           accept(receipt.observation);
           return 'accepted';
         } catch (error) {
-          if (!disposed)
-            failureReason =
-              error instanceof DraftRejected &&
-              error.failureReason === DraftRejected.maintenanceReason
-                ? DraftRejected.maintenanceReason
-                : null;
+          if (!disposed) failureReason = safeFailureReason(error);
           try {
             accept(await transport.read());
           } catch {

@@ -1,3 +1,10 @@
+import { upkeepFixture, roll } from '../../tests/rules/upkeep-fixture';
+import { createMemoryDraftAuthority } from './memory-draft-persistence';
+import { createDraftPersistence } from './weekly-draft-persistence';
+import {
+  DraftRejected,
+  draftOperationSchema,
+} from './weekly-draft-persistence-contract';
 import { expect, test, vi } from 'vitest';
 import { ConvexError } from 'convex/values';
 import { ConvexClient } from 'convex/browser';
@@ -88,6 +95,74 @@ test.each(['edit', 'confirm'] as const)(
       }
     } finally {
       mutation.mockRestore();
+      await client.close();
+    }
+  },
+);
+
+test.each(['mutation', 'hydration'] as const)(
+  'a %s failure distinguishes mutation rejection from post-acceptance read failure',
+  async (failureAt) => {
+    const client = new ConvexClient('https://unused.convex.cloud', {
+      disabled: true,
+      logger: false,
+    });
+    const { draft, snapshot } = upkeepFixture();
+    const authority = createMemoryDraftAuthority(draft, snapshot);
+    const initial = await authority.transport.read();
+    const page = async () => {
+      const observation = await authority.transport.read();
+      return {
+        observation,
+        restart: false,
+        pagination: {
+          page: observation.targetRevisions,
+          isDone: true,
+          continueCursor: '',
+        },
+      };
+    };
+    const failure = new ConvexError(DraftRejected.maintenanceReason);
+    const query = vi.spyOn(client, 'query');
+    query.mockResolvedValueOnce(initial).mockImplementationOnce(page);
+    if (failureAt === 'hydration') query.mockRejectedValueOnce(failure);
+    query
+      .mockImplementationOnce(() => authority.transport.read())
+      .mockImplementationOnce(page);
+    const mutation = vi
+      .spyOn(client, 'mutation')
+      .mockImplementation(async (_reference, args) => {
+        if (failureAt === 'mutation') throw failure;
+        return authority.transport.send(
+          draftOperationSchema.parse(args.operation),
+        );
+      });
+    const persistence = createDraftPersistence(
+      createConvexDraftTransport(
+        client,
+        draftKeySchema.parse({
+          campaignId: 'campaign',
+          militiaId: 'militia',
+          draftId: draft.draftId,
+        }),
+      ),
+    );
+    try {
+      await persistence.ready;
+      expect(
+        await persistence.edit({ kind: 'event_chance', roll: roll(100, 30) }),
+      ).toBe('failed');
+      expect(mutation).toHaveBeenCalledTimes(1);
+      expect(persistence.getSnapshot().observation?.revision).toBe(
+        failureAt === 'hydration' ? 1 : 0,
+      );
+      expect(persistence.getSnapshot().remoteChange).toBeNull();
+      expect(persistence.getSnapshot().failureReason).toBe(
+        failureAt === 'mutation' ? DraftRejected.maintenanceReason : null,
+      );
+    } finally {
+      persistence.dispose();
+      vi.restoreAllMocks();
       await client.close();
     }
   },

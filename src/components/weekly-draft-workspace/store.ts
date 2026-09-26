@@ -15,6 +15,9 @@ import {
 } from './phase-readiness';
 import type { Phase, PhaseView, WeeklyDraftWorkspace } from './types';
 
+type Persistence = ReturnType<typeof createDraftPersistence>;
+type PersistenceSnapshot = ReturnType<Persistence['getSnapshot']>;
+
 export function createWorkspace(gateway: WorkspaceGateway | null) {
   let state: WeeklyDraftWorkspace = {
     status: gateway ? 'loading' : 'unavailable',
@@ -29,7 +32,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   let remoteChange: Ready['remoteChange'] = null;
   let remoteSequence = 0;
   let source: WorkspaceSource | null = null;
-  let persistence: ReturnType<typeof createDraftPersistence> | null = null;
+  let persistence: Persistence | null = null;
   let stopPersistence: () => void = () => undefined;
   let stopSource: () => void = () => undefined;
   let phase: Phase = 'upkeep';
@@ -69,6 +72,53 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       views,
     };
   }
+  function publishRetained(observed: PersistenceSnapshot | undefined) {
+    retainAccepted();
+    if (retained)
+      publish({
+        ...retained.state,
+        phaseView: retained.views.find((view) => view.phase === phase)!,
+        navigation: phaseNavigation(phase, retained.state.phases),
+        editingDisabled: true,
+        canConfirm: false,
+        confirmationDisabledReason: confirming
+          ? 'Confirming the week…'
+          : 'Opening the next week…',
+        feedback: confirming
+          ? 'confirming'
+          : getPendingWork()
+            ? 'pending'
+            : feedback,
+        failureReason:
+          feedback === 'failed' ? (observed?.failureReason ?? null) : null,
+        remoteChange: null,
+        pendingWork: getPendingWork(),
+        confirmedWeek,
+      });
+    else publish({ status: 'loading' });
+  }
+  function adoptSuccessor(next: WorkspaceSource) {
+    if (handoff) {
+      confirmedWeek = {
+        transitionId: `${handoff.draftId}:${next.key.draftId}`,
+        week: handoff.week,
+      };
+      handoff = null;
+      phase = 'upkeep';
+      confirming = false;
+      feedback = 'idle';
+      for (const operation of operations)
+        if (operation.draftId !== next.key.draftId)
+          operations.delete(operation);
+    }
+  }
+  function acceptRemoteChange(change: PersistenceSnapshot['remoteChange']) {
+    if (change && change.sequence > remoteSequence) {
+      remoteSequence = change.sequence;
+      const phases = changedPhases(change.targets);
+      if (phases.length) remoteChange = { sequence: change.sequence, phases };
+    }
+  }
   function rebuild() {
     const observed = persistence?.getSnapshot();
     const accepted = observed?.observation?.draft;
@@ -78,52 +128,13 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       return;
     }
     if (!accepted || observed.observation?.status !== 'open') {
-      retainAccepted();
-      if (retained)
-        publish({
-          ...retained.state,
-          phaseView: retained.views.find((view) => view.phase === phase)!,
-          navigation: phaseNavigation(phase, retained.state.phases),
-          editingDisabled: true,
-          canConfirm: false,
-          confirmationDisabledReason: confirming
-            ? 'Confirming the week…'
-            : 'Opening the next week…',
-          feedback: confirming
-            ? 'confirming'
-            : getPendingWork()
-              ? 'pending'
-              : feedback,
-          failureReason:
-            feedback === 'failed' ? (observed?.failureReason ?? null) : null,
-          remoteChange: null,
-          pendingWork: getPendingWork(),
-          confirmedWeek,
-        });
-      else publish({ status: 'loading' });
+      publishRetained(observed);
       return;
     }
-    if (handoff) {
-      confirmedWeek = {
-        transitionId: `${handoff.draftId}:${source.key.draftId}`,
-        week: handoff.week,
-      };
-      handoff = null;
-      phase = 'upkeep';
-      confirming = false;
-      feedback = 'idle';
-      for (const operation of operations)
-        if (operation.draftId !== source.key.draftId)
-          operations.delete(operation);
-    }
+    adoptSuccessor(source);
     retained = null;
     acceptedContext = { draft: accepted, source };
-    const change = observed.remoteChange;
-    if (change && change.sequence > remoteSequence) {
-      remoteSequence = change.sequence;
-      const phases = changedPhases(change.targets);
-      if (phases.length) remoteChange = { sequence: change.sequence, phases };
-    }
+    acceptRemoteChange(observed.remoteChange);
     if (phase === 'persistent' && !accepted.context.persistentPhaseEligible)
       phase = 'upkeep';
     let forecast: WeeklyDraft = accepted;
@@ -187,11 +198,18 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       confirm: () =>
         persistence === owner ? confirm() : Promise.resolve('failed'),
     });
+    schedulePreview(owner, accepted, source);
+  }
+  function schedulePreview(
+    owner: Persistence,
+    accepted: WeeklyDraft,
+    previewSource: WorkspaceSource,
+  ) {
     if (getPendingWork()) return;
     const request = weeklySourceKey({
       draft: accepted,
-      sourceRevision: source.sourceRevision,
-      snapshot: source.snapshot,
+      sourceRevision: previewSource.sourceRevision,
+      snapshot: previewSource.snapshot,
     });
     if (request === previewRequest) return;
     previewRequest = request;
@@ -304,53 +322,47 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       publish({ status: 'unavailable' });
       return;
     }
-    if (
+    const sameScope =
       source?.key.campaignId === next.key.campaignId &&
-      source.key.militiaId === next.key.militiaId &&
-      next.sourceRevision < source.sourceRevision
-    )
-      return;
-    if (
-      source?.key.draftId !== next.key.draftId ||
-      source.key.campaignId !== next.key.campaignId ||
-      source.key.militiaId !== next.key.militiaId
-    ) {
-      const sameScope =
-        source?.key.campaignId === next.key.campaignId &&
-        source.key.militiaId === next.key.militiaId;
-      if (sameScope && state.status === 'ready') {
-        retainAccepted();
-        handoff ??= { week: state.week, draftId: source!.key.draftId };
-      } else {
-        clearPresentation();
-        phase = gateway?.initialPhase ?? 'upkeep';
-        publish({ status: 'loading' });
-        for (const operation of operations)
-          if (operation.draftId !== next.key.draftId)
-            operations.delete(operation);
-      }
-      stopPersistence();
-      persistence?.dispose();
-      remoteChange = null;
-      remoteSequence = 0;
-      source = next;
-      pending = [];
-      reviewed = null;
-      reviewRequired = false;
-      previewRequest = '';
-      previewGeneration++;
-      const owner = createDraftPersistence(gateway!.transport(next));
-      persistence = owner;
-      stopPersistence = owner.subscribe(rebuild);
-      void owner.ready
-        .then(() => {
-          if (active && persistence === owner) rebuild();
-        })
-        .catch(() => {
-          if (active && persistence === owner) failSource();
-        });
+      source.key.militiaId === next.key.militiaId;
+    if (sameScope && next.sourceRevision < source!.sourceRevision) return;
+    if (!sameScope || source?.key.draftId !== next.key.draftId) {
+      replacePersistence(next, sameScope);
     } else if (next.sourceRevision >= source.sourceRevision) source = next;
     rebuild();
+  }
+  function replacePersistence(next: WorkspaceSource, sameScope: boolean) {
+    if (sameScope && state.status === 'ready') {
+      retainAccepted();
+      handoff ??= { week: state.week, draftId: source!.key.draftId };
+    } else {
+      clearPresentation();
+      phase = gateway?.initialPhase ?? 'upkeep';
+      publish({ status: 'loading' });
+      for (const operation of operations)
+        if (operation.draftId !== next.key.draftId)
+          operations.delete(operation);
+    }
+    stopPersistence();
+    persistence?.dispose();
+    remoteChange = null;
+    remoteSequence = 0;
+    source = next;
+    pending = [];
+    reviewed = null;
+    reviewRequired = false;
+    previewRequest = '';
+    previewGeneration++;
+    const owner = createDraftPersistence(gateway!.transport(next));
+    persistence = owner;
+    stopPersistence = owner.subscribe(rebuild);
+    void owner.ready
+      .then(() => {
+        if (active && persistence === owner) rebuild();
+      })
+      .catch(() => {
+        if (active && persistence === owner) failSource();
+      });
   }
   function failSource() {
     if (!active) return;
