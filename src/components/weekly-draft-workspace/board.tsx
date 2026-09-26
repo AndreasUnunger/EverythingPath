@@ -43,9 +43,12 @@ function useBeforeUnloadWarning(
   }, [store]);
 }
 // The address is one player's Phase View. An actual address change (link,
-// Back, Forward) moves this Workspace once; it is not replayed when the store
-// passes through loading, so an arriving successor keeps its Upkeep reset,
-// which is then published back into the address.
+// Back, Forward, the opening address) moves this Workspace once. A request
+// made while the store is still loading is applied when it first becomes
+// ready and then forgotten, so an arriving successor (ready → loading →
+// ready) keeps its Upkeep reset, which is then published back into the
+// address. The shell's owner cannot read the page's address during render,
+// so this is what makes the opening phase authoritative.
 function usePhaseAddress(
   store: WorkspaceController['store'] | undefined,
   workspace: WeeklyDraftWorkspace,
@@ -53,21 +56,39 @@ function usePhaseAddress(
   onPhaseChange: ((phase: Phase) => void) | undefined,
 ) {
   const requested = useRef(phase);
+  const unapplied = useRef<Phase | undefined>(phase);
+  const ready = workspace.status === 'ready';
   useEffect(() => {
     if (phase === undefined || !store) return;
     requested.current = phase;
     const current = store.getSnapshot();
-    if (current.status === 'ready') current.viewPhase(phase);
+    if (current.status === 'ready') {
+      current.viewPhase(phase);
+      unapplied.current = undefined;
+    } else unapplied.current = phase;
   }, [phase, store]);
-  const shown = workspace.status === 'ready' ? workspace.phaseView.phase : null;
+  useEffect(() => {
+    if (!ready || !store || unapplied.current === undefined) return;
+    const current = store.getSnapshot();
+    if (current.status === 'ready') current.viewPhase(unapplied.current);
+    unapplied.current = undefined;
+  }, [ready, store]);
+  const shown = ready ? workspace.phaseView.phase : null;
   useEffect(() => {
     if (shown === null || !onPhaseChange || shown === requested.current) return;
+    // A render already superseded by a store-side change publishes nothing;
+    // the next render compares the live phase.
+    const live = store?.getSnapshot();
+    if (live?.status === 'ready' && live.phaseView.phase !== shown) return;
     requested.current = shown;
     onPhaseChange(shown);
-  }, [shown, onPhaseChange]);
+  }, [shown, onPhaseChange, store]);
   return (next: Phase) => {
     requested.current = next;
-    if (workspace.status === 'ready') workspace.viewPhase(next);
+    if (workspace.status === 'ready') {
+      workspace.viewPhase(next);
+      unapplied.current = undefined;
+    } else unapplied.current = next;
     onPhaseChange?.(next);
   };
 }

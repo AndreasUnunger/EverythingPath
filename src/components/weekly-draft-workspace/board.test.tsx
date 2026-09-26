@@ -294,3 +294,81 @@ test('[shell.successor-control] the gateway opening phase does not override succ
   await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
   expect(factory).toHaveBeenCalledTimes(1);
 });
+
+// The campaign shell mounts the owner without an opening phase (it cannot
+// read the page's address during render), so the board must apply the
+// requested phase itself once the store is ready.
+function delayed(gateway: WorkspaceGateway) {
+  let release!: () => void;
+  const delivery = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const wrapped: WorkspaceGateway = {
+    ...gateway,
+    transport(source) {
+      const transport = gateway.transport(source);
+      return {
+        ...transport,
+        async read() {
+          await delivery;
+          return transport.read();
+        },
+        subscribe(next, failed) {
+          let active = true;
+          const stop = transport.subscribe((observation) => {
+            void delivery.then(() => {
+              if (active) next(observation);
+            });
+          }, failed);
+          return () => {
+            active = false;
+            stop();
+          };
+        },
+      };
+    },
+  };
+  return { gateway: wrapped, release };
+}
+function shellHost(props: {
+  phase?: Phase;
+  onPhaseChange?: (phase: Phase) => void;
+}) {
+  return (
+    <CampaignWorkspaceProvider campaignId="campaign" active>
+      <WeekProbe />
+      <WeeklyWorkspaceBoard {...props} />
+    </CampaignWorkspaceProvider>
+  );
+}
+
+test('[shell.opening] a non-Upkeep address phase opens once the delayed initial observation arrives', async () => {
+  const { gateway, release } = delayed(fixture());
+  factory.mockImplementation((_client, _campaign, initialPhase) => ({
+    ...gateway,
+    initialPhase: initialPhase as WorkspaceGateway['initialPhase'],
+  }));
+  const onPhaseChange = vi.fn();
+  render(shellHost({ phase: 'event', onPhaseChange }));
+  expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
+  await act(async () => release());
+  await screen.findByRole('heading', { name: 'Week 4 · Event' });
+  expect(onPhaseChange).not.toHaveBeenCalled();
+  expect(factory).toHaveBeenCalledTimes(1);
+});
+
+test('[shell.opening-change] an address phase change while loading wins over the opening phase', async () => {
+  const { gateway, release } = delayed(fixture());
+  factory.mockImplementation((_client, _campaign, initialPhase) => ({
+    ...gateway,
+    initialPhase: initialPhase as WorkspaceGateway['initialPhase'],
+  }));
+  const onPhaseChange = vi.fn();
+  const view = render(shellHost({ phase: 'event', onPhaseChange }));
+  view.rerender(shellHost({ phase: 'summary', onPhaseChange }));
+  expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
+  await act(async () => release());
+  await screen.findByRole('heading', { name: 'Week 4 · Summary' });
+  expect(onPhaseChange).not.toHaveBeenCalled();
+  expect(factory).toHaveBeenCalledTimes(1);
+});
