@@ -299,6 +299,25 @@ Facts about today's UI that later tickets may want to decide on. None of them is
 
 The sections below record planned ownership and acceptance coverage from the approved UI rework. They do not change the current routes, behavior, or E2E coverage recorded above. Signed-off replacements apply when their owning implementation ships; existing controls remain available until then. Each linked implementation issue carries its source decisions, prototype pins, rollout requirements, and validation gate.
 
+### Implementation order
+
+All twelve spec-writing tasks are complete. The implementation issues remain open and use native dependencies in this shipping order. The sections below account for all 160 original capability ids and name approved replacements and new planned capabilities; they do not claim the redesign has shipped.
+
+| Order | Implementation spec |
+| --- | --- |
+| 1 | [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) |
+| 2 | [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) |
+| 3 | [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140) |
+| 4 | [Activity](https://github.com/AndreasUnunger/EverythingPath/issues/142) |
+| 5 | [Event](https://github.com/AndreasUnunger/EverythingPath/issues/143) |
+| 6 | [Persistent](https://github.com/AndreasUnunger/EverythingPath/issues/144) |
+| 7 | [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/145) |
+| 8 | [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/138) |
+| 9 | [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/139) |
+| 10 | [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/141) |
+| 11 | [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/146) |
+| 12 | [Campaign list/home](https://github.com/AndreasUnunger/EverythingPath/issues/147) |
+
 ### Planned: Navigation shell (rollout 1)
 
 Implementation spec: [Implement the campaign navigation shell and scoped routes](https://github.com/AndreasUnunger/EverythingPath/issues/135), authored by [Write the Navigation shell implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/123). This is **planned coverage**, not a claim that the routes, layouts or tests have shipped. Current-location and E2E columns above retain the inventory snapshot stated at the top of this document; this spec was checked against main at `eef41f7bad19e63ecce858e7a4490c937a4ece89`. the existing NAV-01 removal entry records design approval while the sidebar still exists in that code. Implementation updates those current-behavior rows when it lands.
