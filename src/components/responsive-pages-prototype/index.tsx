@@ -7,6 +7,11 @@
 // do the variants differ. Resize the browser or use the device toolbar. The
 // yellow panel switches the page and the #119 state, and shows the width.
 // Mock data and in-memory reducers from the earlier prototypes only.
+//
+// PICKED for Wayfinder #121: variant C (stacked on phone; desktop widens the
+// index with previews and centres the page). On phone these pages sit inside
+// the #120 variant B frame, so the sticky reason bar rides above its bottom
+// tab bar. A and B stay here only as the record of what was compared.
 
 import { useSearchParams } from 'next/navigation';
 import { useReducer, useState, useSyncExternalStore } from 'react';
