@@ -1,20 +1,11 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { openCampaignSection, selectCampaign } from './interactions';
+import { expectReachable } from './responsive-shell';
 
-async function fitsViewport(page: Page, control: Locator) {
-  await control.scrollIntoViewIfNeeded();
-  await expect(control).toBeVisible();
-  const bounds = await control.boundingBox();
-  expect(bounds, 'control has visible bounds').not.toBeNull();
-  expect(bounds!.x, 'control left edge fits viewport').toBeGreaterThanOrEqual(
-    0,
-  );
-  expect(
-    bounds!.x + bounds!.width,
-    'control right edge fits viewport',
-  ).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
-}
+// Both axes plus a trial click: modal controls may overlay the phone bar,
+// non-modal ones must sit above it.
+const fitsViewport = expectReachable;
 
 export async function navigationAndPersistence(
   page: Page,
@@ -27,10 +18,15 @@ export async function navigationAndPersistence(
       exact: true,
     });
     const open = ledger.getByRole('button', { name: 'Open', exact: true });
+    await fitsViewport(page, open);
     await open.click();
-    await ledger
-      .getByRole('button', { name: 'Add Character', exact: true })
-      .click();
+    const add = ledger.getByRole('button', {
+      name: 'Add Character',
+      exact: true,
+    });
+    // Non-modal page control: reachable above the phone bottom bar.
+    await fitsViewport(page, add);
+    await add.click();
     const dialog = page.getByRole('dialog', { name: 'New Character' });
     const name = dialog.getByRole('textbox', { name: 'Name', exact: true });
     const level = dialog.getByRole('textbox', { name: 'Level', exact: true });

@@ -1,5 +1,12 @@
 import { expect, type Page } from '@playwright/test';
 import { openCampaignSection } from './interactions';
+import {
+  exercisePhoneShell,
+  expectBoundedWeekHost,
+  expectNoHorizontalOverflow,
+  expectReachable,
+  expectUnboundedPage,
+} from './responsive-shell';
 
 export async function exerciseShellNavigation(
   page: Page,
@@ -14,10 +21,30 @@ export async function exerciseShellNavigation(
   await expect(
     page.getByRole('region', { name: 'Character Ledger', exact: true }),
   ).toBeVisible();
+  // Phone portrait and landscape shell, then back to this project's size.
+  const original = page.viewportSize()!;
+  try {
+    for (const size of [
+      { width: 390, height: 844 },
+      { width: 844, height: 390 },
+    ]) {
+      await page.setViewportSize(size);
+      await exercisePhoneShell(page);
+    }
+  } finally {
+    await page.setViewportSize(original);
+  }
+  await expectNoHorizontalOverflow(page);
   await openCampaignSection(page, 'militia');
   await expect(
     page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
   ).toBeVisible();
+  // Non-week sections scroll as a normal document at every width.
+  await expectUnboundedPage(page);
+  await expectReachable(
+    page,
+    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+  );
   await page.goBack();
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/characters`);
   await page.goForward();
@@ -102,4 +129,11 @@ export async function exerciseShellNavigation(
     page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
   ).toHaveCount(0);
   await openCampaignSection(page, 'week');
+  await expect(
+    page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
+  ).toBeVisible();
+  // Desktop: the week host is bounded after a non-week visit; phone and
+  // tablet keep document scrolling with the editor reachable.
+  if (original.width >= 1280) await expectBoundedWeekHost(page);
+  else await expectUnboundedPage(page);
 }

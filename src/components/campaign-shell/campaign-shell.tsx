@@ -1,5 +1,5 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useAuth, useOrganization } from '@clerk/nextjs';
 import { useConvexAuth } from 'convex/react';
 import { usePathname } from 'next/navigation';
@@ -38,10 +38,12 @@ import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use
 import { CampaignProvider } from './campaign-context';
 import { FailedLoadCard } from './failed-load';
 import {
+  BeforeDeparture,
   GuardedLink,
   NavigationGuardProvider,
   useNavigationGuard,
 } from './navigation-guard';
+import { ShellSlotHost, ShellSlotProvider } from './shell-slots';
 import {
   AccountControl,
   KeepLink,
@@ -246,41 +248,78 @@ function SectionLinks({ sections }: { sections: SectionLink[] }) {
   );
 }
 
+function MoreGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex flex-col gap-2 border-b py-3 last:border-b-0"
+    >
+      <p className="text-muted-foreground text-xs tracking-widest uppercase">
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+// Each control gets its own full-width row, so a long organization name
+// truncates inside its control instead of colliding with the label. Focus
+// returns to the More button on dismissal (Radix). Any choice that commits a
+// departure (organization change, Clerk modals) closes the sheet first.
 function MoreSheet() {
   const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset">
         <MoreHorizontal className="size-5" aria-hidden />
         More
       </SheetTrigger>
-      <SheetContent side="bottom" className="pb-[env(safe-area-inset-bottom)]">
+      <SheetContent
+        side="bottom"
+        className="max-h-[85dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+      >
         <SheetHeader>
           <SheetTitle>More</SheetTitle>
           <SheetDescription>Organization and account.</SheetDescription>
         </SheetHeader>
-        <div className="space-y-3 px-4 pb-6">
-          <div className="flex items-center justify-between gap-3 border-b py-2">
-            <span className="text-sm">Organization</span>
-            <OrganizationControl />
+        <BeforeDeparture onCommit={close}>
+          <div className="flex flex-col px-4 pb-4">
+            <MoreGroup label="Organization">
+              <OrganizationControl fill />
+            </MoreGroup>
+            <MoreGroup label="Account">
+              <div className="flex min-h-9 items-center">
+                <AccountControl />
+              </div>
+            </MoreGroup>
           </div>
-          <div className="flex items-center justify-between gap-3 py-2">
-            <span className="text-sm">Account</span>
-            <AccountControl />
-          </div>
-        </div>
+        </BeforeDeparture>
       </SheetContent>
     </Sheet>
   );
 }
 
 // Phone: four section tabs plus More. Sticky at the column's end so content,
-// alerts and save buttons stay reachable above it. The Week frame later adds
-// its status strip immediately above this bar.
+// alerts and save buttons stay reachable above it, including above the
+// on-screen keyboard (the viewport resizes its content) and the home
+// indicator (safe-area padding). The Week frame fills the status-strip host
+// immediately above the tabs.
 function BottomBar({ sections }: { sections: SectionLink[] }) {
   const pathname = usePathname();
   return (
     <div className="bg-background/95 border-foreground/15 sticky bottom-0 z-40 shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <ShellSlotHost
+        name="phone-status-strip"
+        className="border-foreground/15 border-b"
+      />
       <nav aria-label="Campaign sections" className="grid grid-cols-5">
         {sections.map((item) => {
           const active = isActive(pathname, item.href);
@@ -407,7 +446,13 @@ function CampaignTopBar({
         <Skeleton aria-hidden className="h-5 w-32" />
       ) : null}
       {ready && <SectionLinks sections={sections} />}
-      <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 md:gap-3">
+        {ready && (
+          <ShellSlotHost
+            name="top-bar-status"
+            className="flex min-w-0 items-center gap-2"
+          />
+        )}
         <span className={cn(ready ? 'hidden md:inline-flex' : 'inline-flex')}>
           <OrganizationControl />
         </span>
@@ -426,15 +471,18 @@ function CampaignShellContent({
   access: Access;
   children: ReactNode;
 }) {
-  const sections = useSections(
-    access.kind === 'ready' ? access.campaign._id : '',
-  );
+  const pathname = usePathname();
+  const ready = access.kind === 'ready';
+  const sections = useSections(ready ? access.campaign._id : '');
+  // Desktop only: the Week route gets the remaining viewport as a bounded,
+  // internally scrolling host for the later Week frame. Every other section
+  // keeps ordinary document scrolling for its current forms.
+  const week = ready && pathname === campaignPath(access.campaign._id, 'week');
   return (
     <ShellFrame
       header={<CampaignTopBar access={access} sections={sections} />}
-      footer={
-        access.kind === 'ready' ? <BottomBar sections={sections} /> : null
-      }
+      footer={ready ? <BottomBar sections={sections} /> : null}
+      boundedOnDesktop={week}
     >
       {access.kind === 'ready' ? (
         <CampaignProvider
@@ -444,7 +492,16 @@ function CampaignShellContent({
             organizationId: access.organizationId,
           }}
         >
-          {children}
+          {week ? (
+            <div
+              data-week-host
+              className="flex min-h-0 flex-1 flex-col xl:overflow-y-auto"
+            >
+              {children}
+            </div>
+          ) : (
+            children
+          )}
         </CampaignProvider>
       ) : (
         <CampaignState access={access} />
@@ -472,7 +529,11 @@ export function CampaignShell({
       active={verified !== null && pathname === campaignPath(verified, 'week')}
     >
       <NavigationGuardProvider>
-        <CampaignShellContent access={access}>{children}</CampaignShellContent>
+        <ShellSlotProvider>
+          <CampaignShellContent access={access}>
+            {children}
+          </CampaignShellContent>
+        </ShellSlotProvider>
       </NavigationGuardProvider>
     </CampaignWorkspaceProvider>
   );

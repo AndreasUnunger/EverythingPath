@@ -6,25 +6,37 @@ import type { ReactNode } from 'react';
 import { KeepIcon } from '~/components/keepIcon';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
+import { cn } from '~/lib/utils';
 import { GuardedLink } from './navigation-guard';
 import { MaintenanceBanner } from './maintenance-banner';
 
 export { OrganizationControl } from './organization-control';
 
-// The page column fills the viewport so a phone bottom bar can stick to its
-// end and a desktop week host can be given bounded remaining space later.
+// The page column fills the dynamic viewport so a phone bottom bar sticks to
+// its real end while browser chrome collapses, and safe areas pad the edges.
+// `boundedOnDesktop` (the Week route from 1280px) caps the frame at the
+// viewport so the week host scrolls inside the remaining space; every other
+// page keeps document scrolling. The maintenance banner sits above the top
+// bar on phone and below it from tablet width.
 export function ShellFrame({
   header,
   children,
   footer,
+  boundedOnDesktop = false,
 }: {
   header: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  boundedOnDesktop?: boolean;
 }) {
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b">
+    <div
+      className={cn(
+        'flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]',
+        boundedOnDesktop && 'xl:h-dvh xl:overflow-hidden',
+      )}
+    >
+      <header className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]">
         <MaintenanceBanner className="order-first md:order-last" />
         {header}
       </header>

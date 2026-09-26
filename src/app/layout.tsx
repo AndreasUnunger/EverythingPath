@@ -1,5 +1,5 @@
 import '~/styles/globals.css';
-import { type Metadata } from 'next';
+import { type Metadata, type Viewport } from 'next';
 import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
@@ -33,6 +33,17 @@ export const metadata: Metadata = {
   title: 'Keepnet',
   description: 'Arcane communication through the mycelial network',
   icons: [{ rel: 'icon', url: '/favicon.ico' }],
+};
+
+// Phone shell: `cover` makes the safe-area insets real so the bottom bar and
+// top bar pad around the home indicator and notch; `resizes-content` shrinks
+// the layout viewport under the on-screen keyboard, so the sticky bottom bar
+// and a focused field stay above it instead of underneath.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 };
 
 // Each route renders its own top bar: the campaign list keeps the

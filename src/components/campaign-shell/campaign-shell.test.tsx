@@ -4,10 +4,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Children, isValidElement, type ReactNode } from 'react';
 import { CampaignShell } from './campaign-shell';
+import { PhoneStatusStrip, TopBarStatus } from './shell-slots';
 import { useCampaign } from './campaign-context';
 import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
 import {
@@ -390,6 +392,105 @@ test('changing organization waits for the departure decision before Clerk activa
     organization: null,
     redirectUrl: '/campaigns',
   });
+});
+
+test('More opens a sheet with stacked organization and account controls and closes once a choice commits', async () => {
+  render(shell('alpha'));
+  const more = screen.getByRole('button', { name: 'More' });
+  expect(more).toHaveAttribute('aria-haspopup', 'dialog');
+  fireEvent.click(more);
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  const organization = within(sheet).getByRole('group', {
+    name: 'Organization',
+  });
+  expect(
+    within(organization).getByRole('combobox', { name: 'Organization' }),
+  ).toBeVisible();
+  expect(
+    within(organization).getByRole('button', { name: 'New organization' }),
+  ).toBeVisible();
+  const account = within(sheet).getByRole('group', { name: 'Account' });
+  expect(
+    within(account).getByRole('button', { name: 'Account' }),
+  ).toBeVisible();
+  fireEvent.change(
+    within(organization).getByRole('combobox', { name: 'Organization' }),
+    { target: { value: 'other' } },
+  );
+  await waitFor(() => expect(setActive).toHaveBeenCalledTimes(1));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
+test('More stays open while the departure decision is pending and closes on Leave', async () => {
+  const fixture = onWeekWithFixture();
+  render(shell('alpha', <Editor />));
+  const release = fixture.hold();
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit week 4' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  const sheet = await screen.findByRole('dialog', { name: 'More' });
+  fireEvent.click(
+    within(sheet).getByRole('button', { name: 'New organization' }),
+  );
+  const warning = screen.getByRole('dialog', {
+    name: 'Changes are still saving',
+  });
+  fireEvent.click(within(warning).getByRole('button', { name: 'Stay' }));
+  expect(openCreateOrganization).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog', { name: 'More' })).toBeInTheDocument();
+  fireEvent.click(
+    within(sheet).getByRole('button', { name: 'New organization' }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Leave anyway' }));
+  await waitFor(() => expect(openCreateOrganization).toHaveBeenCalledTimes(1));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: 'More' }),
+    ).not.toBeInTheDocument(),
+  );
+  release();
+});
+
+// The Week frame later fills these positions; the shell only reserves them.
+function StripPage() {
+  return (
+    <>
+      <p>Week page</p>
+      <PhoneStatusStrip>
+        <span>Training 3 → 4</span>
+      </PhoneStatusStrip>
+      <TopBarStatus>
+        <span>Saved</span>
+      </TopBarStatus>
+    </>
+  );
+}
+
+test('the week page can fill the phone status strip above the bottom bar and the top-bar status position', () => {
+  pathname.mockReturnValue('/campaigns/alpha/week');
+  render(shell('alpha', <StripPage />));
+  const strip = screen.getByText('Training 3 → 4');
+  const bar = strip.closest('[data-shell-slot="phone-status-strip"]');
+  expect(bar).not.toBeNull();
+  // The strip host sits directly before the phone tabs, inside the sticky bar.
+  const tabs = bar!.parentElement!.querySelector('nav');
+  expect(tabs).toHaveAccessibleName('Campaign sections');
+  expect(bar!.nextElementSibling).toBe(tabs);
+  const status = screen.getByText('Saved');
+  expect(status.closest('[data-shell-slot="top-bar-status"]')).not.toBeNull();
+  expect(status.closest('header')).not.toBeNull();
+});
+
+test('only the week route gets the bounded desktop host; other sections keep document scrolling', () => {
+  pathname.mockReturnValue('/campaigns/alpha/week');
+  const view = render(shell('alpha'));
+  expect(document.querySelector('[data-week-host]')).not.toBeNull();
+  pathname.mockReturnValue('/campaigns/alpha/militia');
+  view.rerender(shell('alpha'));
+  expect(document.querySelector('[data-week-host]')).toBeNull();
 });
 
 test('organization creation and management stay reachable through Clerk, and creation is offered without an organization', () => {

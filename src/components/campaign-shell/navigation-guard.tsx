@@ -125,6 +125,37 @@ export function useNavigationGuard(): Guard {
   return useContext(GuardContext) ?? passthrough;
 }
 
+// Runs `onCommit` right before any departure requested inside commits: a
+// container (the phone More sheet) closes itself once its choice actually
+// leaves, and stays open while the player still decides Stay or Leave.
+export function BeforeDeparture({
+  onCommit,
+  children,
+}: {
+  onCommit: () => void;
+  children: ReactNode;
+}) {
+  const guard = useNavigationGuard();
+  const router = useRouter();
+  const wrapped = useMemo<Guard>(() => {
+    const requestDeparture = (departure: Departure) =>
+      guard.requestDeparture({
+        commit: () => {
+          onCommit();
+          return departure.commit();
+        },
+      });
+    return {
+      requestDeparture,
+      navigate: (href) => requestDeparture({ commit: () => router.push(href) }),
+      hasPendingWork: guard.hasPendingWork,
+    };
+  }, [guard, onCommit, router]);
+  return (
+    <GuardContext.Provider value={wrapped}>{children}</GuardContext.Provider>
+  );
+}
+
 function plainClick(event: MouseEvent<HTMLAnchorElement>) {
   return (
     event.button === 0 &&

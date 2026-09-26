@@ -29,7 +29,14 @@ const PERSONAL = '__personal';
 // managing organizations reuse Clerk's own modals (their membership roles
 // apply unchanged); opening them is guarded too, because finishing either
 // can change the active organization.
-export function OrganizationControl({ className }: { className?: string }) {
+export function OrganizationControl({
+  className,
+  fill = false,
+}: {
+  className?: string;
+  /** Take the row's full width (phone More sheet) instead of a bar-sized cap. */
+  fill?: boolean;
+}) {
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const { organization } = useOrganization();
   const clerk = useClerk();
@@ -87,12 +94,23 @@ export function OrganizationControl({ className }: { className?: string }) {
       commit: () => clerk.openOrganizationProfile(),
     });
   return (
-    <div className={cn('flex min-w-0 flex-col items-end gap-1', className)}>
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-1',
+        fill ? 'w-full items-stretch' : 'items-end',
+        className,
+      )}
+    >
       <div className="flex min-w-0 items-center gap-0.5">
         <Select value={value} onValueChange={choose} disabled={busy}>
           <SelectTrigger
             aria-label="Organization"
-            className="min-h-8 max-w-[10rem] border-0 bg-transparent px-1 text-sm shadow-none md:max-w-[11rem] xl:max-w-[14rem] dark:bg-transparent [&>span]:truncate"
+            className={cn(
+              'min-h-8 min-w-0 border-0 bg-transparent px-1 text-sm shadow-none dark:bg-transparent [&>span]:truncate',
+              fill
+                ? 'w-full flex-1'
+                : 'max-w-[10rem] md:max-w-[11rem] xl:max-w-[14rem]',
+            )}
           >
             <SelectValue placeholder="Organization" />
           </SelectTrigger>
