@@ -1,8 +1,8 @@
 import { openCampaignSection } from './support/interactions';
 import {
   expectBoundedWeekHost,
+  expectDocumentScrolledPage,
   expectReachable,
-  expectUnboundedPage,
 } from './support/responsive-shell';
 import {
   prepareWeekHistory,
@@ -286,11 +286,11 @@ test('players prepare shared Upkeep with independent navigation and save recover
       if (name === 'phone') {
         await officer.tap();
         await expect(officer).toHaveAttribute('aria-pressed', 'true');
-        // The editor's last control stays reachable above the bottom bar.
-        await expectReachable(gm, gm.locator('main button:visible').last());
+        // The tapped control itself stays reachable above the bottom bar.
+        await expectReachable(gm, officer);
       }
       if (name === 'desktop') await expectBoundedWeekHost(gm);
-      else await expectUnboundedPage(gm);
+      else await expectDocumentScrolledPage(gm);
       await savePrivate(
         join(run.artifactDirectory, `canonical-upkeep-${name}.png`),
         await gm.screenshot({ fullPage: true }),

@@ -2,10 +2,11 @@ import { expect, type Page } from '@playwright/test';
 import { openCampaignSection } from './interactions';
 import {
   exercisePhoneShell,
+  exerciseTopBarShell,
   expectBoundedWeekHost,
+  expectDocumentScrolledPage,
   expectNoHorizontalOverflow,
   expectReachable,
-  expectUnboundedPage,
 } from './responsive-shell';
 
 export async function exerciseShellNavigation(
@@ -21,16 +22,20 @@ export async function exerciseShellNavigation(
   await expect(
     page.getByRole('region', { name: 'Character Ledger', exact: true }),
   ).toBeVisible();
-  // Phone portrait and landscape shell, then back to this project's size.
+  // Phone portrait, a short phone-landscape viewport below the 768px
+  // breakpoint, and a short viewport at tablet width with the top-bar
+  // layout; then back to this project's size.
   const original = page.viewportSize()!;
   try {
     for (const size of [
       { width: 390, height: 844 },
-      { width: 844, height: 390 },
+      { width: 740, height: 360 },
     ]) {
       await page.setViewportSize(size);
       await exercisePhoneShell(page);
     }
+    await page.setViewportSize({ width: 844, height: 390 });
+    await exerciseTopBarShell(page);
   } finally {
     await page.setViewportSize(original);
   }
@@ -40,7 +45,7 @@ export async function exerciseShellNavigation(
     page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
   ).toBeVisible();
   // Non-week sections scroll as a normal document at every width.
-  await expectUnboundedPage(page);
+  await expectDocumentScrolledPage(page);
   await expectReachable(
     page,
     page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
@@ -135,5 +140,5 @@ export async function exerciseShellNavigation(
   // Desktop: the week host is bounded after a non-week visit; phone and
   // tablet keep document scrolling with the editor reachable.
   if (original.width >= 1280) await expectBoundedWeekHost(page);
-  else await expectUnboundedPage(page);
+  else await expectDocumentScrolledPage(page);
 }

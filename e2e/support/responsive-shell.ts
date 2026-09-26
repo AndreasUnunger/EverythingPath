@@ -3,7 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 // Geometry and reachability checks for the campaign shell (#150). Viewport
 // resizing here is layout evidence only: headless browsers open no OS
 // keyboard and report zero safe-area insets, so keyboard and notch behavior
-// need a real device.
+// need a real device. The phone layout applies below 768px; from 768px the
+// top bar carries the section links, and from 1280px the Week host is bounded.
 
 export async function expectNoHorizontalOverflow(page: Page) {
   expect(
@@ -22,9 +23,10 @@ function bottomNavigation(page: Page) {
 }
 
 /**
- * The control is inside the visual viewport on both axes, sits above the
- * phone bottom bar when that bar is shown, and accepts a pointer without
- * force. `toBeVisible` alone misses occlusion by fixed chrome.
+ * The control is inside the visual viewport on both axes and accepts a
+ * pointer without force. Page content (not part of the bottom bar, not in a
+ * dialog) must also sit above the phone bottom bar. `toBeVisible` alone
+ * misses occlusion by fixed chrome.
  */
 export async function expectReachable(page: Page, control: Locator) {
   await control.scrollIntoViewIfNeeded();
@@ -45,32 +47,35 @@ export async function expectReachable(page: Page, control: Locator) {
     'control bottom edge fits viewport',
   ).toBeLessThanOrEqual(height + 1);
   const nav = bottomNavigation(page);
-  if ((await nav.count()) > 0 && !(await isInDialog(control))) {
+  if ((await nav.count()) > 0 && (await isPageContent(control))) {
     const bar = (await nav.first().boundingBox())!;
     expect(
       bounds!.y + bounds!.height,
-      'control sits above the bottom navigation',
+      'page content sits above the bottom navigation',
     ).toBeLessThanOrEqual(bar.y + 1);
   }
   await control.click({ trial: true });
 }
 
-function isInDialog(control: Locator) {
-  return control.evaluate(
-    (element) => element.closest('[role="dialog"]') !== null,
-  );
+// Page content is anything outside a dialog and outside the sticky bar that
+// holds the bottom navigation (the bar's own controls sit in it by design).
+function isPageContent(control: Locator) {
+  return control.evaluate((element) => {
+    if (element.closest('[role="dialog"]')) return false;
+    const bar = Array.from(
+      document.querySelectorAll('nav[aria-label="Campaign sections"]'),
+    ).find((nav) => nav.querySelector('button'))?.parentElement;
+    return !bar?.contains(element);
+  });
 }
 
 async function expectFocusInsideMore(page: Page) {
   expect(
-    await page.evaluate(() => {
-      const active = document.activeElement;
-      if (!active || active === document.body) return 'body';
-      if (active.closest('header, nav')) return 'chrome';
-      return 'inside';
-    }),
-    'focus stays out of the page chrome behind the sheet',
-  ).toBe('inside');
+    await page
+      .getByRole('dialog', { name: 'More' })
+      .evaluate((dialog) => dialog.contains(document.activeElement)),
+    'focus stays inside the More sheet',
+  ).toBe(true);
 }
 
 async function expectMoreClosed(page: Page) {
@@ -78,18 +83,26 @@ async function expectMoreClosed(page: Page) {
   await expect(page.getByRole('button', { name: 'More' })).toBeFocused();
 }
 
-/** Phone bottom bar and More sheet: names, dismissal, focus return, layout. */
+function sectionNames(nav: Locator) {
+  return Promise.all([
+    ...['Finished weeks', 'Militia', 'Characters & officers'].map((name) =>
+      expect(nav.getByRole('link', { name, exact: true })).toBeVisible(),
+    ),
+    expect(nav.getByRole('link', { name: /^Week( \d+)?$/ })).toBeVisible(),
+    expect(nav.locator('[aria-current="page"]')).toHaveCount(1),
+  ]);
+}
+
+/** Below 768px: phone bottom bar and More sheet — names, dismissal, focus return, layout. */
 export async function exercisePhoneShell(page: Page) {
   const { width, height } = page.viewportSize()!;
+  expect(width, 'phone layout applies below 768px').toBeLessThan(768);
   const nav = page
     .getByRole('navigation', { name: 'Campaign sections', exact: true })
     .locator('visible=true');
   await expect(nav).toHaveCount(1);
-  for (const name of ['Finished weeks', 'Militia', 'Characters & officers']) {
-    await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
-  }
-  await expect(nav.getByRole('link', { name: /^Week( \d+)?$/ })).toBeVisible();
-  await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(nav.getByRole('button', { name: 'More' })).toBeVisible();
+  await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
   const heading = page.getByRole('heading').first();
   await expectReachable(page, heading);
@@ -147,11 +160,33 @@ export async function exercisePhoneShell(page: Page) {
   expect(page.viewportSize()).toEqual({ width, height });
 }
 
+/** From 768px (including a short phone-landscape viewport): top-bar links, no bottom bar. */
+export async function exerciseTopBarShell(page: Page) {
+  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(768);
+  const nav = page
+    .getByRole('navigation', { name: 'Campaign sections', exact: true })
+    .locator('visible=true');
+  await expect(nav).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'More' })).toBeHidden();
+  await sectionNames(nav);
+  await expectNoHorizontalOverflow(page);
+  await expectReachable(page, page.getByRole('heading').first());
+  await expectReachable(
+    page,
+    page.getByRole('combobox', { name: 'Active campaign' }),
+  );
+  await expectReachable(
+    page,
+    nav.getByRole('link', { name: 'Characters & officers', exact: true }),
+  );
+}
+
 /**
  * Desktop (from 1280px): the Week route's host ends within the viewport and
  * its last control is reachable by scrolling the host, not clipped.
  */
 export async function expectBoundedWeekHost(page: Page) {
+  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(1280);
   const host = page.locator('[data-week-host]');
   await expect(host).toHaveCount(1);
   const { height } = page.viewportSize()!;
@@ -168,6 +203,28 @@ export async function expectBoundedWeekHost(page: Page) {
   await expectReachable(page, last);
 }
 
-export async function expectUnboundedPage(page: Page) {
-  await expect(page.locator('[data-week-host]')).toHaveCount(0);
+/**
+ * Below 1280px, and on every non-week page: the page scrolls as a document
+ * and its last control is reachable that way. The week wrapper, when
+ * present, must not own the scrolling.
+ */
+export async function expectDocumentScrolledPage(page: Page) {
+  const host = page.locator('[data-week-host]');
+  if ((await host.count()) > 0) {
+    expect(
+      await host.evaluate(
+        (element) => element.scrollHeight <= element.clientHeight + 1,
+      ),
+      'week wrapper does not scroll internally',
+    ).toBe(true);
+  }
+  // A page taller than the viewport scrolls as a document; a shorter one
+  // has nothing to scroll and its controls are simply in view.
+  const scrolled = await page.evaluate(() => {
+    const tall = document.documentElement.scrollHeight > window.innerHeight + 1;
+    if (tall) window.scrollTo(0, document.documentElement.scrollHeight);
+    return !tall || window.scrollY > 0;
+  });
+  expect(scrolled, 'a tall page scrolls as a document').toBe(true);
+  await expectReachable(page, page.locator('main button:visible').last());
 }
