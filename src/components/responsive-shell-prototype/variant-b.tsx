@@ -1,5 +1,5 @@
 'use client';
-// PROTOTYPE — Variant B "Bottom bar and sheets": phone gets an app-style
+// PROTOTYPE — Variant B "Bottom bar and sheets" (the chosen variant, #120): phone gets an app-style
 // frame. The sections move to a bottom tab bar (with a More tab holding the
 // organization and account), the stepper collapses to one "Step 2 of 5" button
 // that opens a sheet listing every step with its readiness, and the reference

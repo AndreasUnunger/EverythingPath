@@ -1,7 +1,7 @@
 'use client';
 // PROTOTYPE — Three ways for the shell and week screen to adapt to phone and
 // desktop, switchable via `?variant=A|B|C` on /prototype/responsive-shell
-// (Wayfinder #120, map #99). Tablet landscape is the reference. This harness
+// (Wayfinder #120, map #99). Tablet landscape is the reference. Chosen: B. This harness
 // shows the screen in a frame at phone, tablet and desktop sizes (or fills the
 // window with "Full") so every width can be reviewed without dev tools.
 
