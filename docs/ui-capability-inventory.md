@@ -294,3 +294,704 @@ Facts about today's UI that later tickets may want to decide on. None of them is
 - The selected campaign is not in the URL, so reloading `/campaigns` returns to the first campaign.
 - Officer and manager assignment (LEDG-03) lives in the correction form, not with the characters (CHAR); the character dialog says so.
 - Many capabilities have no browser coverage (every `—` above), including campaign creation, archiving, history navigation, the maintenance pause and most error states.
+
+## Planned implementation ownership
+
+The sections below record planned ownership and acceptance coverage from the approved UI rework. They do not change the current routes, behavior, or E2E coverage recorded above. Signed-off replacements apply when their owning implementation ships; existing controls remain available until then. Each linked implementation issue carries its source decisions, prototype pins, rollout requirements, and validation gate.
+
+### Implementation order
+
+All twelve spec-writing tasks are complete. The implementation issues remain open and use native dependencies in this shipping order. The sections below account for all 160 original capability ids and name approved replacements and new planned capabilities; they do not claim the redesign has shipped.
+
+| Order | Implementation spec |
+| --- | --- |
+| 1 | [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) |
+| 2 | [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) |
+| 3 | [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140) |
+| 4 | [Activity](https://github.com/AndreasUnunger/EverythingPath/issues/142) |
+| 5 | [Event](https://github.com/AndreasUnunger/EverythingPath/issues/143) |
+| 6 | [Persistent](https://github.com/AndreasUnunger/EverythingPath/issues/144) |
+| 7 | [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/145) |
+| 8 | [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/138) |
+| 9 | [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/139) |
+| 10 | [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/141) |
+| 11 | [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/146) |
+| 12 | [Campaign list/home](https://github.com/AndreasUnunger/EverythingPath/issues/147) |
+
+### Planned: Navigation shell (rollout 1)
+
+Implementation spec: [Implement the campaign navigation shell and scoped routes](https://github.com/AndreasUnunger/EverythingPath/issues/135), authored by [Write the Navigation shell implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/123). This is **planned coverage**, not a claim that the routes, layouts or tests have shipped. Current-location and E2E columns above retain the inventory snapshot stated at the top of this document; this spec was checked against main at `eef41f7bad19e63ecce858e7a4490c937a4ece89`. the existing NAV-01 removal entry records design approval while the sidebar still exists in that code. Implementation updates those current-behavior rows when it lands.
+
+| Exact id | Planned ownership and acceptance | Handoff |
+| --- | --- | --- |
+| NAV-01 | Shell removes the approved sidebar; preserve destination access. | [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/124) inherits remembered open/closed visibility for the reference panel. |
+| NAV-02 | Shell Keep link opens `/campaigns`. | [Campaign list/home](https://github.com/AndreasUnunger/EverythingPath/issues/134) reuses it. |
+| NAV-03 | Shell preserves home navigation through `/` → `/campaigns` and Keep/All campaigns; the My Keep placeholder is the approved replacement. | Campaign list/home owns final destination content. |
+| NAV-04 | Shell campaign-list navigation remains reachable with active-location indication. | Campaign list/home. |
+| NAV-05 | Shell sign-in control remains reachable, including phone More and campaign sign-in state. | Campaign list/home consumes it. |
+| NAV-06 | Shell organization switcher filters campaign access and sends an organization change to its campaign list. | Campaign list/home owns final list organization states. |
+| NAV-07 | Shell account and sign out remain reachable in top bar/More. | All page owners consume it. |
+| NAV-08 | Shell renders an accessible account skeleton while auth resolves. | All page owners consume it. |
+| NAV-09 | Shell replaces floating mobile sidebar trigger with bottom section tabs and More. | Approved responsive rearrangement; no navigation destination is lost. |
+| NAV-10 | Shell Finished weeks link keeps campaign context. | Week frame owns reference-panel entry; [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/133) owns page. |
+| NAV-11 | Shell setup links target the same campaign. | Week frame and [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/131) own final no-militia pages. |
+| NAV-12 | Shell Week tab and hosted history return link preserve campaign context. | Finished weeks owns final return CTA. |
+| NAV-13 | Shell hosted completed-setup return link works. | [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/130) owns final started-militia page and Open week N/Open militia. |
+| NAV-14 | Shell routes setup success to the selected valid phase of the same campaign. | Setup owns initialization and collision behavior. |
+| NAV-15 | Shell preserves five phase URL values, invalid→Upkeep and player-local navigation. | Week frame owns phase navigation and Persistent Phase Eligibility. |
+| NAV-16 | Shell hosts all week and ledger capabilities in reachable campaign sections. | Existing page editors remain until named area replacements ship. |
+| CAMP-01 | Shell retains current list/picker/default and provides campaign-page switcher. | Campaign list/home owns final list rows. |
+| CAMP-02 | Shell campaign route selection persists through reload and isolates campaign content. | Campaign list/home owns final pane selection. |
+| CAMP-03 | Shell preserves existing campaign-create dialog access. | Campaign list/home owns form and approved result-shape change. |
+| CAMP-04 | Shell preserves current empty-organization create entry. | Campaign list/home owns final empty layout. |
+| CAMP-05 | Shell guards campaign routes with active-organization membership and neutral outsider/wrong-organization presentation. | All page owners retain backend authorization; Campaign list/home owns final list states. |
+| STATE-01 | Shell maintenance banner leaves all hosted pages/list readable and writes use normal failure feedback. | All page owners consume it. |
+| STATE-02 | Shell/name/account loading scaffold plus current readable page statuses. | Campaign list/home owns list skeleton; individual page owners own full page skeletons. |
+| STATE-03 | Shell supplies shared neutral failed-load card with page-local Try again; tabs remain usable. | Campaign list/home and other page owners supply nouns/retry actions. |
+| STATE-04 | Shell owns wrong-organization campaign state and organization chooser recovery. | Campaign list/home owns final no-organization/list-access states. |
+| STATE-05 | Shell owns campaign access boundary without losing page loading/retry/empty states. | Week frame, Setup and Finished weeks own final page states. |
+| STATE-06 | Shell routes/hosts preserve reload and cross-device persistence. | Shared regression obligation across all area owners. |
+| WEEK-03 | Shell navigation never changes another player's Phase View. | Week frame owns full behavior. |
+| WEEK-08 | Shell links/campaign/organization changes preserve existing pending-edit and Confirmation departure protection. | Week frame owns ongoing barrier/feedback. |
+| WEEK-12 | Shell separates unavailable campaign from page failure and retains no-militia setup route. | Week frame owns final skeleton/empty/failed page. |
+| SETUP-22 | Shell keeps completed setup return navigation reachable. | Setup owns later already-set-up page; bookmark redirect layer must not force week navigation. |
+| SETUP-23 | Shell supplies campaign access gate and keeps current setup state coverage. | Setup owns layout skeleton/failure details. |
+| HIST-02 | Shell history adapter preserves previous/next/latest in the same campaign. | Finished weeks owns final browsing layout. |
+| HIST-03 | Shell preserves selected audit entry and Earlier entries with existing query arguments. | Finished weeks owns final audit presentation/paging. |
+| HIST-07 | Shell preserves current history loading/failure/empty coverage under shared access boundary. | Finished weeks owns final states. |
+| LEDG-01 | Shell hosts existing correction editor until replacement. | Militia corrections owns per-section Correct. |
+| LEDG-03 | Shell retains roster/officer/manager editing in Militia with a link from Characters & officers. | Militia corrections must retain roster/officer fallback until [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/132) ships; managers remain with teams. |
+| LEDG-05 | Shell hosted correction requires the existing reason. | Militia corrections and Characters & officers own replacement correction flows. |
+| LEDG-06 | Shell hosted correction retains current revision/save/conflict behavior. | Militia corrections owns later section merge and reference/conflict handling. |
+| LEDG-09 | Shell keeps pre-setup character access on Characters & officers. | Militia corrections and Characters & officers own final empty states. |
+| LEDG-10 | Shell keeps readable current ledger-loading state. | Militia corrections owns final skeleton. |
+| CHAR-01 | Shell exposes existing CharacterManager with create/edit/archive/unarchive through Characters & officers. | Characters & officers owns the full replacement; legacy Militia embedding may remain during rollout. |
+| CHAR-08 | Shell hosting keeps character edits realtime and campaign-scoped. | Characters & officers owns full behavior. |
+| CHAR-09 | Shell campaign context makes Select a campaign… unnecessary; retain other current character states until replacement. | Characters & officers owns empty/archive/access skeleton states; removal is only the explicitly approved fragment. |
+| NAV-17 — **new, planned** | Campaign-scoped routes and legacy redirects preserve campaign, phase and supported history selection across reload/Back/Forward. | Shell owns; downstream pages use the route contract. |
+| STATE-07 — **new, planned** | Neutral campaign-level sign-in/unavailable state and organization/Back to campaigns recovery. | Shell owns; every campaign page consumes it. |
+
+Approved changes/removals: NAV-01 sidebar and NAV-03 placeholder destination replacement are authorized by [navigation resolution](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561); NAV-09 trigger is replaced by bottom navigation/More under [responsive-shell approval](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929); only CHAR-09's **Select a campaign…** fragment is removed under [shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381); the standalone correction address is replaced by `/militia` under [setup/correction approval](https://github.com/AndreasUnunger/EverythingPath/issues/103#issuecomment-5834024251). No current character, correction, history/audit or week-editing capability is removed merely because a prototype omits it.
+
+Shell and Week frame cannot depend on the future finished-weeks listing query: current Finished weeks access and existing `canonicalHistory.read` remain usable until rollout 11. All current browser scenarios (including nightly) and direct persistence/Confirmation contracts keep equivalent coverage; the implementation issue enumerates them. No schema/payload/rules change or Ruleset Version bump belongs to this shell delivery.
+
+### Setup — planned ownership
+
+Implementation spec: [Implement guided Militia Setup with browser resume](https://github.com/AndreasUnunger/EverythingPath/issues/138). Shipping position 8, after Review & confirm and before Militia corrections. All destinations and coverage below are **planned**, not shipped; preserve the baseline current-location/E2E rows above until implementation.
+
+| ID | Destination and acceptance |
+| --- | --- |
+| SETUP-01 | Starting point: New/Existing retains entered facts; New defaults rank 1, training 0, 1,000 copper (10 gp). Switching Existing clears the first-militia-week skip as today. |
+| SETUP-02 | Starting point: focus, rank, training, treasury in copper and notoriety, with current numeric semantics and defaults. |
+| SETUP-03 | Week: current week, start day, first militia week shown only for New, previous week uneventful and optional last persistent buyoff week. |
+| SETUP-04 | Week: all five open phases; Persistent without carried events warns and opens Upkeep under current eligibility rules. |
+| SETUP-05 | People & officers: campaign records, roster inclusion/removal, current kind, Hit Dice and six officer-role toggles. Removing a person clears its roles and managers; do not delete the character record. Keep all current kinds/Hit Dice validation until the named migration. |
+| SETUP-06 | Teams: add/remove, name, type, active/disabled/missing condition, reward-limit exemption, manager from roster and notes. |
+| SETUP-07 | Character conditions: add/remove, character, available/hidden/captured/recovering/dead, headquarters/refuge/elsewhere location and description, PCs must rescue, capture source/week, rescued/restored weeks. |
+| SETUP-08 | Settlements: add/remove, name, reputation, secured/occupied, temporary reputation shift, Reduce Danger shift/end week and refuge activated/end weeks. |
+| SETUP-09 | Carried effects: persistent-event instances with type, started week, processing order, all supported entity targets and Theft mitigation week. Repeated types retain separate identities and targeting. |
+| SETUP-10 | Assets: items, including add/remove, name, value, militia/character ownership, identified, weight and location. |
+| SETUP-11 | Assets: caches, including location, class, status, secure/extradimensional, return Activity week and item contents. |
+| SETUP-12 | Assets: orders, including item, delivery settlement, source/kind, ordered week/day, due day/Activity week, price, delivery days, enchantment value and receipt recorded/cleared with received day. Preserve decimal enchantment input. |
+| SETUP-13 | Assets: marketplaces, including source, settlement, available/expires week, availability, availability percentage, sale percentage and contraband. |
+| SETUP-14 | Carried effects: queued effects with source, start/end week and every existing branch: check modifier, upkeep loss multiplier, activity training multiplier, event chance, all is calm, automatic events, blocked action, team unavailable, team return and narrative. Retain each branch's fields. |
+| SETUP-15 | Carried effects: one-use bonuses with source, applies-to, team, phase, amount and available/consumed week. |
+| SETUP-16 | Carried effects: skill benefits with characters, skills, bonus type/value, settlement, after-dark and start/end week. |
+| SETUP-17 | Carried effects: Market Day benefits with settlements and start/end week. |
+| SETUP-18 | Review & start: optional setup notes, persisted unchanged and displayed after entry through Week frame's WEEK-09. |
+| SETUP-19 | Live non-blocking section warnings and collected review warnings with links; remove only the approved keep-and-explain hint. |
+| SETUP-20 | Field errors for empty versus malformed values and linked review error summary; preserve structural/reference validation. |
+| SETUP-21 | Start militia week, Starting militia… pending feedback, retry with values retained on failure; no duplicate initialization. |
+| SETUP-22 | Initially started: “This militia is already set up.” with Open week N and Open militia, inside the shell. |
+| SETUP-23 | Setup-specific responsive skeleton and screen-reader loading status, failed-load card/Try again; shell handles unavailable/signed-out campaigns. |
+| SETUP-24 (new) | Browser resume of unfinished values, including incomplete numeric input, nested entries, selected step and mode, safely scoped to the signed-in account, organization and campaign. |
+| SETUP-25 (new) | Nine freely navigable steps, live status/counts, optional grouping, Next and linked review navigation across all breakpoints. |
+| SETUP-26 (new) | Inline Add character creates through existing character dialog/mutation and appears reactively in People & officers without losing unfinished setup. |
+| SETUP-27 (new) | Another player completes setup while the form is open: detect started transition and automatically open the current week without overwriting the accepted setup. |
+
+Shared IDs and owners:
+
+| ID | Setup obligation and other owner |
+| --- | --- |
+| NAV-11 | Consume shell's same-campaign Setup entry from Week/Militia; Week frame/Militia corrections own their empty-page links. |
+| NAV-13 | Own both started-page links; Navigation shell supplies scoped destinations. |
+| NAV-14 | Own successful start navigation to the same campaign's requested eligible phase; shell routes it, Week frame enforces Phase View eligibility. |
+| NAV-15 | Preserve all phase values/fallback; shell owns parsing and Week frame owns later phase navigation. |
+| NAV-17 | Consume shell's scoped route and legacy redirect contract; preserve setup bookmarks. |
+| CHAR-03 | Reuse existing full Add character dialog: name, current kind, level, six ability scores, notes and validation; Characters & officers owns overall CRUD and its later redesign. |
+| CHAR-07 | Inline character failure keeps its form values with existing error presentation; Characters & officers owns general CRUD errors. |
+| CHAR-08 | Newly created/changed character options arrive on other members' devices; Characters & officers owns records' realtime contract. |
+| LEDG-02 | Shared Values editor/validation primitives; Militia corrections owns correction UI and save behavior. |
+| LEDG-03 | Shared roster/officer/team-manager field primitives; Militia corrections retains the legacy roster/officer editor until Characters & officers replaces it. |
+| LEDG-04 | Shared section field primitives and reference semantics; Militia corrections owns all correction entry points. |
+| LEDG-07 | Shared section-keyed warning presentation; Militia corrections owns warning aggregation at each correction save. |
+| WEEK-09 | Persist notes; Week frame owns their display during normal play. |
+| STATE-01 | Render under shell maintenance banner; inputs stay readable/editable and server pause failures use ordinary save feedback. |
+| STATE-02 | Own Setup layout skeleton; shell owns name/account loading. |
+| STATE-03 | Supply “Militia setup could not be loaded.” and page-local Try again using shell's failed-load card. |
+| STATE-04 | Respect shell's organization selection and unavailable state; never restore another organization's setup into this page. |
+| STATE-05 | Own Setup-specific loading/failure/started state while shell owns campaign access. |
+| STATE-06 | Setup accepted state/characters persist and are shared; unfinished form is deliberately browser-local. |
+| STATE-07 | Consume shell's neutral sign-in/unavailable campaign gate before rendering protected data or restoring its form. |
+
+**Signed-off removals/replacements:** [prototype approval](https://github.com/AndreasUnunger/EverythingPath/issues/113#issuecomment-5844235691) removes explanatory captions, including the browser-persistence note, People introduction and SETUP-19 keep-and-explain hint; it does not remove persistence, warnings, field labels, required validation or status captions. [Shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces SETUP-22's old completion text and initial-entry redirect with the two-link started page, and SETUP-23's visible loading paragraph with a layout skeleton plus accessible status. No data-entry capability is removed.
+
+
+Coverage plan: preserve `existing-militia.spec.ts`, `canonical-workspace.spec.ts`/`support/setup-workspace.ts`, character-ledger/access/nightly journeys, Action Slot/complete-week/cutover journeys and all direct persistence/Confirmation scenarios. Retain setup pure/component/Convex integration contracts for idempotent initialization, complete imports, authority, foreign-reference rejection, competing starts and existing first-week skip. Add focused guided navigation/status, raw browser-resume/isolation, inline reactive creation, initial-started versus live completion, own-phase race, responsive/accessibility and page-state cases as specified in the linked issue. No tests were executed for this documentation-only authoring.
+
+Handoffs: [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) supplies scoped routes/access/maintenance; Week frame supplies ongoing Phase View behavior and WEEK-09 notes; [Militia corrections authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/131) consumes section editors/validators/warning descriptors while owning save merges/conflicts and retaining roster/officer fallback. [Characters & officers authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/132) owns later `pc | npc`, roster kind mirroring, commandant fallback, manager rules and compatibility across Setup's existing form/schema, inline CRUD, character source and versioned browser envelopes. The Setup spec does not change any backend schema, argument/result shape or Ruleset Version; existing options lacks week/kind, so reuse authorized current reads rather than quietly add fields.
+
+### Week frame — planned implementation coverage
+
+Implementation spec: [Implement the shared Week frame and cross-device week transition](https://github.com/AndreasUnunger/EverythingPath/issues/137), authored by [Write the Week frame implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/124). **Planned coverage only:** the locations and E2E columns above continue to describe the inventory snapshot; no frame, notice, layout or new test is claimed shipped. Code inspected at main `eef41f7bad19e63ecce858e7a4490c937a4ece89`; authoring baseline `6836fadf2ec5430f725681df1a3fb9b066fb7dcc` adds Navigation shell planning accounting only. Week frame is rollout 2 after [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135); phase owners replace existing editors later.
+
+Shared owner links: [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/125), [Activity](https://github.com/AndreasUnunger/EverythingPath/issues/126), [Event](https://github.com/AndreasUnunger/EverythingPath/issues/127), [Persistent](https://github.com/AndreasUnunger/EverythingPath/issues/128), [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/129), [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/130), [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/133). These authoring tickets supply the later concrete implementation links; the current Week frame output is linked above.
+
+| ID | Acceptance / disposition | Ownership / handoff |
+| --- | --- | --- |
+| WEEK-01 | Week N plus selected phase replaces the duplicate heading while preserving accessible week/phase context. | Frame; shell renders Week tab. |
+| WEEK-02 | Five-step navigation, all-phase readiness, locked Persistent, footer and This phase. | Frame; phases supply facts. |
+| WEEK-03 | Player-local navigation survives saving, URL changes and Back/Forward. | Frame; shell route adapter. |
+| WEEK-04 | All edits remain shared in real time without claims/locks; remote-change notice. | Frame feedback; each editor keeps existing writes. |
+| WEEK-05 | Immediate optimistic preview refreshes values, counts and editor. | Frame/store; all phase consumers. |
+| WEEK-06 | One accessible save/error/confirming status in the shell, including phone icons. | Frame; shell placement. |
+| WEEK-07 | Rejected edit restores saved values and invalidates review. | Frame/store; Review & confirm renders recovery control. |
+| WEEK-08 | Pending departure protection covers unload and section/campaign/organization exits. | Frame plus shell guard. |
+| WEEK-09 | Existing setup notes move into a reachable button/panel. | Frame. |
+| WEEK-10 | Weekly editing disabled during Confirmation, including retained editors and open input surfaces. | Frame plus Review & confirm control. |
+| WEEK-11 | Every device transitions to next-week Upkeep without a skeleton flash. | Frame/store; same Confirmation contract. |
+| WEEK-12 | Week skeleton, neutral failed card/retry and no-militia setup path; campaign access handled outside. | Frame plus shell access boundary. |
+| WEEK-13 | All existing choice interactions remain usable in hosted editors. | Shared: Upkeep, Activity, Event, Persistent, Review & confirm own their eventual approved tap/card controls; no global drag removal in frame. |
+| WEEK-14 | Hosted whole-number inputs retain required/invalid distinction, clear/zero semantics and styled feedback. | Upkeep coordinates shared roll input work; every phase retains its own field validation; frame preserves access. |
+| WEEK-15 | Existing ordered multi-die entry remains until approved dice-total migration. | Upkeep owns shared contract/read compatibility and updates Activity/Event/Persistent/Review & confirm consumers; frame introduces no roll-format change. |
+| WEEK-16 | Out-of-range dice remain advisory and visible in editor/phase warnings. | Upkeep, Activity, Event, Persistent own inputs; frame aggregates warnings. |
+| WEEK-17 | Tablet, phone and desktop frame replacements plus usable hosted editors, no clipped controls/horizontal page scroll. | Frame; each phase owns its later internal responsive redesign. |
+| WEEK-18 | Existing structured list/nested/discriminated/modifier Save/Clear/add/remove operations stay usable. | Activity, Event, Persistent and Review & confirm own their editor replacements; frame cannot remove structured fields absent replacement coverage. |
+| WEEK-19 — new, planned | Every observing device gets Week N confirmed and a correct historical-week link once the successor arrives. | Frame; Finished weeks owns destination. |
+| NAV-01 | Remembered panel visibility replaces the retired sidebar's local preference. | Shell removes sidebar; frame preserves preference behavior. |
+| NAV-10 | History reference tab, recent-week links and All finished weeks preserve campaign. | Frame; shell section link; Finished weeks owns final listing query/page. |
+| NAV-11 | No-militia Week links to campaign Setup. | Frame; shell route; Setup destination. |
+| NAV-15 | Five phase URL values, invalid fallback, Persistent eligibility and local Back/Forward. | Frame plus shell parser. |
+| STATE-01 | Consume readable maintenance banner and existing write-failure path. | Shell owner; frame feedback. |
+| STATE-02 | Week-shaped skeleton and accessible loading status. | Frame portion; shell name/account scaffold. |
+| STATE-03 | Week failure uses shared card and page-local Try again; tabs remain usable. | Frame retry; shell component. |
+| STATE-05 | Loading/failure/no militia is distinct from campaign unavailable. | Frame week portion; shell access; Setup/Finished weeks own theirs. |
+| STATE-06 | Shared changes survive reload and cross-device navigation. | All owners; frame regression gate. |
+| UPK-11 | Aggregate Upkeep warning visibility in This phase/counts. | Frame summary; Upkeep retains item warnings/reasons. |
+| UPK-12 | Upkeep readiness in stepper/footer/This phase. | Frame; Upkeep facts/editor. |
+| ACT-17 | Aggregate Activity warning/required-preparation visibility. | Frame summary; Activity owns per-choice warnings and hints. |
+| EVT-11 | Aggregate Event warnings remain visible. | Frame summary; Event owns item warnings/Rules Exceptions. |
+| EVT-14 | Required Event preparation remains visible. | Frame summary; Event owns per-occurrence list. |
+| PER-08 | Aggregate Persistent warnings remain visible. | Frame summary; Persistent owns item warnings/Rules Exceptions. |
+| PER-10 | Persistent preparation and earlier-phase dependencies remain visible. | Frame summary; Persistent owns item inputs. |
+| SUM-01 | No Summary step caption or ready/needs-attention footer; retain disabled reason. | Frame chrome now; Review & confirm owns later block-copy removal. |
+| SUM-02 | Aggregate required decisions available in This phase; hosted required list remains. | Review & confirm owns final review list and Go links; frame navigation supplies destination. |
+| SUM-03 | Keep readiness/saved/reviewed Confirmation gate and hosted control. | Review & confirm owns final control; frame never infers confirmability from count alone. |
+| SUM-04 | Concurrent Confirmation remains single-winner and stale-safe. | Existing persistence contract; shared frame/Review & confirm tests. |
+| SUM-05 | Keep stale-review alert and Review updated week reachable after failure/remote changes. | Review & confirm owns control; frame/store carries invalidation. |
+| SUM-09 | Aggregate warnings available in panel and preserved Summary warning list. | Frame summary; Review & confirm owns final list. |
+| SUM-06 | Hosted baseline/final preview and all existing facts stay reachable. | [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/129) owns replacement presentation. |
+| SUM-07 | Hosted Rules Exception edit/clear and obsolete exception removal stay reachable. | Review & confirm. |
+| SUM-08 | Hosted Table Adjustments add/edit/clear/reorder with reasons stay reachable. | Review & confirm. |
+| SUM-10 | Hosted consequences remain readable until replaced by numbered sections. | Review & confirm. |
+| SUM-11 | Hosted recorded table outcomes remain readable. | Review & confirm. |
+| NAV-17 | Consume campaign-scoped route/deep-link and history-selection contract already planned by shell. | [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135); no new ID allocation. |
+| STATE-07 | Consume neutral campaign unavailable/sign-in boundary. | Navigation shell; no new ID allocation. |
+
+Approved removals/replacements: [Week-layout approval](https://github.com/AndreasUnunger/EverythingPath/issues/101#issuecomment-5831260876) replaces WEEK-01's duplicate heading with Week tab/current step, drops the prototype's duplicate History icon while retaining NAV-10, and moves WEEK-09 setup notes into a button. [Summary approval](https://github.com/AndreasUnunger/EverythingPath/issues/110#issuecomment-5844063536) removes the Review & confirm caption and ready/needs-attention sentences; disabled-Confirmation reasons remain. Frame applies its caption/footer portion now; Review & confirm owns the later review-block sentence/note removals. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces WEEK-12 loading/error/unavailable presentation with accessible skeleton, Try again and no-militia/shell-access states; it adds WEEK-19's cross-device notice. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929) replaces phone stepper/panel/footer with step sheet/reference sheet/status strip, preserving access. NAV-01's sidebar removal is shell-owned under [navigation approval](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561); frame inherits remembered local reference visibility.
+
+No shared choice, numeric, roll, structured-field or Confirmation capability is removed by the frame. WEEK-15 remains the old ordered-dice interaction until Upkeep delivers its approved shared dice-total compatibility change; WEEK-13's future tap/card replacements and WEEK-18's replacement forms belong to their phase owners. History references initially use the existing reader rather than assuming rollout 11's listing query exists. Implementation updates current-location and actual-test coverage only when the behavior lands.
+
+### Planned: Militia corrections
+
+Output: [Implement in-place Militia corrections and reference repair](https://github.com/AndreasUnunger/EverythingPath/issues/139), from [Write the Militia corrections implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/131). Shipping position 9 of 12, after [guided Militia Setup](https://github.com/AndreasUnunger/EverythingPath/issues/138). All locations/coverage below are **planned, not shipped**; current-location rows above stay unchanged until implementation.
+
+Militia corrections owns the nine correction sections, required reasons, latest-section merge/conflict, manager controls, read-only carried state and same-API draft-reference repair. Keep the existing roster/officer correction editor until Characters & officers replaces it; no schema/payload/rules migration or correction-history query. New IDs LEDG-11, LEDG-12 and LEDG-13 are reserved by this spec.
+
+| ID | Acceptance / coverage obligation |
+| --- | --- |
+| LEDG-01 | Replace the single Edit militia ledger toggle with per-section Correct/Cancel; retain a reachable temporary roster/officer editor. Test one local editor and Cancel without a write. |
+| LEDG-02 | Values: focus, rank, training, treasury in copper, notoriety. Defaults/validation reuse Setup, intentional numeric overrides remain possible. |
+| LEDG-03 | Teams retains manager assign/replace/clear from roster people, names and limit warnings. Temporarily preserve roster inclusion/removal, kind, Hit Dice and six officer-role assignments; final roster/officer owner is Characters & officers. Removing a roster person clears their roles and team managers with named warnings, without deleting the character record. |
+| LEDG-04 | Preserve every correctable field in the section table below, including add/remove, conditions, asset delivery/receipt facts and both carried benefit types. Test each section's isolated save and nested sibling preservation. |
+| LEDG-05 | Each correction requires entered free text, trimmed nonempty, at most the existing 2,000-character server limit. No Militia preset chips or prefilled reason; blank/whitespace fails inline and in the save summary. |
+| LEDG-06 | Merge only the edited section into latest accepted state; latest revision on save; same-section conflict shows theirs/yours and Start again from their values. Pending, failure/retry and unknown-ack behavior cannot overwrite remote changes or duplicate an acknowledged correction. |
+| LEDG-07 | Section warnings plus collected save-point warnings are advisory; fields and linked error summary distinguish invalid data. Remove only approved explanatory hints. |
+| LEDG-08 | Expose previously hidden week context, carried persistent events, queued effects and one-use bonuses read-only, in Changes through the week. No correction fields for them. |
+| LEDG-09 | No militia: show No militia yet. and Set up militia; character CRUD remains usable on Characters & officers. |
+| LEDG-10 | Responsive skeleton, accessible Loading militia ledger… status, page failure/Try again and successful recovery inside the shell. |
+| LEDG-11 — new, planned | Section index/detail with count/warning indicators, phone single-open rows and desktop previews, including accessible navigation and only one correction open. |
+| LEDG-12 — new, planned | Before save, identify all staged choices affected by candidate source changes, with human names/slot positions and reachable phase controls; after save recompute warnings on every device. |
+| LEDG-13 — new, planned | Recover from source-correction orphaned references through existing draft edits when a complete valid result is possible, or identity-preserving source restoration through the ordinary correction API; cover multiple orphans, reload and another device. No relaxed validation or new payload. |
+
+Shared IDs, each explicitly retained:
+
+| ID | Militia obligation / owner |
+| --- | --- |
+| SETUP-02 | Reuse Values editor and structural validation; Setup owns initialization. |
+| SETUP-05 | Reuse roster/officer fields for temporary fallback; Setup owns initialization, Characters & officers owns permanent replacement/migration. |
+| SETUP-06 | Reuse all team fields/manager choices; Setup owns initialization. |
+| SETUP-07 | Reuse full character-condition editor; Setup owns initialization. |
+| SETUP-08 | Reuse full settlement editor; Setup owns initialization. |
+| SETUP-10 | Reuse all item fields; Setup owns initialization. |
+| SETUP-11 | Reuse all cache fields; Setup owns initialization. |
+| SETUP-12 | Reuse complete order editor including decimals and receipts; Setup owns initialization. |
+| SETUP-13 | Reuse all marketplace fields; Setup owns initialization. |
+| SETUP-16 | Reuse carried skill-benefit editor; Setup owns initialization. |
+| SETUP-17 | Reuse carried Market Day editor; Setup owns initialization. |
+| SETUP-19 | Reuse section-keyed advisory warnings; Setup owns initialization review, this issue correction review. |
+| SETUP-20 | Reuse field and reference validation with linked errors; Setup owns initialization, this issue merged-correction validation. |
+| NAV-11 | Militia no-militia link opens same-campaign Setup; shell owns routing. |
+| NAV-16 | Every old correction operation remains reachable throughout rollout; shell temporary hosting is replaced here. |
+| NAV-17 | Consume scoped Militia/Characters/Week routes and context-preserving bookmarks; shell owner. |
+| CHAR-01 | Character list remains reachable on Characters & officers, not removed when replacing the old ledger tab; Characters & officers owns it. |
+| CHAR-08 | Current character changes update manager options/effects and are never overwritten by a stale correction; Characters & officers owns record updates. |
+| CHAR-09 | Retain pre-setup/empty/archive behavior on Characters & officers; shell owns unavailable campaign. |
+| WEEK-03 | Repair navigation changes only this player's Phase View; Week frame owns phase navigation. |
+| WEEK-08 | Preserve pending-save/Confirmation departure safeguards and recovery feedback when navigating between Militia and Week; Week frame owns weekly barrier. |
+| WEEK-12 | Militia links into existing same-campaign week states; Week frame owns those states. |
+| STATE-01 | Shell banner leaves militia readable/editable; paused writes fail normally with fields/reason retained. |
+| STATE-02 | Militia owns its section skeleton; shell owns name/account skeleton. |
+| STATE-03 | Use shell's shared card: The militia could not be loaded. with page-local Try again, tabs usable. |
+| STATE-04 | Respect shell organization selection/unavailable state; never show stale prior-organization facts. |
+| STATE-05 | Militia owns its loading/failure/no-militia distinction; campaign access remains shell-owned. |
+| STATE-06 | Saved corrections, warnings and restored references update other players and survive reload. Shared regression obligation. |
+| STATE-07 | Use shell neutral unavailable/sign-in gate before protected page reads. |
+
+**Signed-off replacements/removals:** [separate workflows](https://github.com/AndreasUnunger/EverythingPath/issues/103#issuecomment-5834024251) replaces LEDG-01's whole-page toggle and `/militia/correct` with in-place corrections and transfers roster/officer ownership; this does not authorize removing that fallback early. [Prototype approval](https://github.com/AndreasUnunger/EverythingPath/issues/113#issuecomment-5844235691) removes explanatory captions: the weekly-actions hint, keep-and-explain warning hint, reason helper, “you can still save…” line and conflict explainer. Keep concise warnings, field labels, actionable errors, read-only group label and validation. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces visible ledger-loading copy with skeleton/accessibility status and pre-setup ledger content with the no-militia page while preserving character access elsewhere. No field, manager operation or reason requirement is removed.
+
+
+Coverage plan: preserve all existing E2E scenarios, especially `character-ledger.spec.ts`, `existing-militia.spec.ts`, setup/workspace and persistence/Confirmation journeys; add section merge/conflict, required reason, carried-state, membership/scope and responsive/state coverage. Prove same-identity recovery for multiple staged orphans through existing source corrections, including reload/another device and required fact entry without an archive query. Implementation must add Militia Correction to the glossary and update actual shipped locations and tests.
+
+## Planned Upkeep implementation ownership
+
+Implementation issue: [Implement rules-ordered Upkeep and compatible shared dice totals](https://github.com/AndreasUnunger/EverythingPath/issues/140), authored by [Write the Upkeep implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/125). Rollout position 3, after the Week frame. These are planned locations and compatibility obligations, not shipped claims.
+
+All rows are **planned** until implementation ships. Preserve stable IDs and update actual locations/test mappings on delivery.
+
+| ID | Acceptance and coverage ownership |
+| --- | --- |
+| UPK-01 | Replace duplicate outcome tiles with section effects plus frame now → after values, retaining starting training/minimum treasury and rank visibility; Upkeep facts, frame presentation. |
+| UPK-02 | First-week skip notice and frame “Skipped · first week” caption; skip has no hidden requirements/effects. |
+| UPK-03 | All five existing required roll kinds, their conditional presence, notation/DC/bonus/total/modifiers and dice-total input; natural and loss branches tested. |
+| UPK-04 | Nearest settlement cards only for applicable maximum-notoriety step; required after check failure; campaign-scoped choices and existing selection/clear semantics. |
+| UPK-05 | Recover/Leave disabled and missing-team return rows; newly selecting Remove is retired here, with reachable Militia correction fallback and old-draft repair below. |
+| UPK-06 | Rules-prefilled gp recovery cost, automatic valid edits, reasoned treasury adjustment, Use rules cost and Leave cleanup; Stage recovery retired. |
+| UPK-07 | Return d20 plus Security bonus/total/result; scheduled-return suppression, end-week timing and natural 1 retained. |
+| UPK-08 | All rank-boon details, per-PC fixed-list cards or text acknowledgement and clear; old text preserved. |
+| UPK-09 | Inline recovery-funds and withdrawal-funds Rules Exceptions with reason/clear; new team-removal and non-officer-transfer exception entry retired from Upkeep, old recorded facts retained. |
+| UPK-10 | Ordered deposit/withdraw Add/remove, gp display/copper persistence and before/after; officer choice retired. |
+| UPK-11 | Applicable item warning messages and frame This phase/counts; removal/transfer-officer warnings retired for new ordinary editing, archived-officer bonus diagnostics retained. |
+| UPK-12 | Required-decision/readiness facts feed frame footer/This phase and skip caption; no duplicate phase footer or contradictory local ready flag. |
+| WEEK-04 | Shared roll/condition/transfer/exception/acknowledgement updates and latest edit wins; frame owns feedback. |
+| WEEK-05 | Existing optimistic preview immediately updates section/header/reference/readiness facts. |
+| WEEK-06 | Frame save/failed/remote-update feedback remains correct for new editors. |
+| WEEK-07 | Rejected saves restore authoritative data and invalidate review; local invalid form entries are not falsely reported as saved. |
+| WEEK-08 | Preserve frame departure protection and do not silently discard pending local invalid recovery/transfer entries on destructive form replacement; existing pending-write barrier remains authoritative. |
+| WEEK-10 | All Upkeep editing and open input surfaces disabled during Confirmation; frame owns lifecycle. |
+| WEEK-12 | Consume frame loading/failure/no-militia states and shell campaign gate; use section skeleton inside week frame while Upkeep content resolves. |
+| WEEK-13 | Upkeep condition/settlement/boon choice cards keep tap/keyboard, clear where allowed and touch-safe existing drag affordances where still provided; no global removal of other owners' choice interactions. |
+| WEEK-14 | Shared total input retains digits-only/invalid paste protection, zero, blank-clear and required-versus-format feedback; gp money fields use separate copper-exact decimal parser, not integer truncation. |
+| WEEK-15 | Approved replacement of ordered per-die entry by one dice-total field; this owner delivers compatibility for all phase consumers and legacy arrays, including incomplete arrays and record readers. |
+| WEEK-16 | Advisory total ranges based on required dice count/sides, legacy per-die diagnostics preserved; each phase's warning presentation remains reachable. |
+| WEEK-17 | Upkeep numbered sections/check rows and forms fit phone/tablet/desktop; frame owns surrounding responsive shell. |
+| WEEK-18 | Shared structured nested-roll adapter must support new totals and legacy forms without losing add/remove/Save/Clear, target, outcome or custom modifier operations; Activity/Event/Persistent/Review own their later layouts. |
+| ACT-12 | Compatibility-only update to current Activity roll fields/modifier editor, including multi-die training/delivery; Activity owns full redesign. |
+| ACT-13 | Activity check bonus/total remains unchanged for equivalent rolls; Activity owner retains final presentation. |
+| EVT-01 | Event chance d100 dual-form input/read compatibility; Event owns full editor. |
+| EVT-04 | Event occurrence table-roll dual-form input/read compatibility without changing its tree; Event owns full editor. |
+| EVT-05 | Event table modifiers survive shared schema changes; Event owns final modifier layout. |
+| EVT-07 | All nested Event detail rolls support both forms and total entry; targets/structured operations remain. Event owns full replacement. |
+| EVT-10 | Event check bonus/total/breakdown derives equivalent results; Event owns presentation. |
+| EVT-11 | Event roll-format warnings/requirements remain understandable and applicable; Event owns full warnings/exception layout. |
+| PER-04 | Nested Persistent checks support both forms and total entry without dropping officer/Overseer fields; Persistent owns redesign. |
+| PER-07 | Equivalent Persistent check results/outcomes for both roll forms; Persistent owns final presentation. |
+| PER-08 | Persistent roll requirements/range warnings remain available; Persistent owns full warnings/exception layout. |
+| SUM-02 | Current Summary still identifies genuinely missing/incompatible rolls and withdrawal-funds reasons; Review & confirm owns presentation. |
+| SUM-06 | Equivalent total rolls retain Rules Baseline/Final outcomes; only approved transfer rule changes behavior. Review & confirm owns presentation. |
+| SUM-07 | Old exception facts remain readable/editable in existing Summary; no new officer-transfer requirement. Review & confirm owns final presentation. |
+| SUM-09 | Current Summary renders applicable new range and transfer warnings; Review & confirm owns final list. |
+| SUM-10 | Current consequences read actorless new transfers and equivalent dice totals; Review & confirm owns redesign. |
+| SUM-11 | Existing text acknowledgements, including legacy boon outcomes, remain readable; Review & confirm owns presentation. |
+| HIST-04 | Recorded Ruleset Version/provenance remain unchanged and readable; Finished weeks owns header redesign. |
+| HIST-05 | Current historical record sections remain readable for old/new roll and transfer forms; Finished weeks owns replacement presentation. |
+| STATE-01 | Shell maintenance stays readable; attempted Upkeep write follows existing failure path. |
+| STATE-05 | Frame states plus shell membership/access state, with no Upkeep-specific access leakage. |
+| STATE-06 | Reload and second-member persistence across every changed roll/transfer form; shared regression obligation. |
+| LEDG-01 | Existing correction form retains team removal before redesigned Teams correction ships; Militia corrections owns final implementation. |
+
+No new IDs required: total entry, check breakdown and changed transfer interaction replace or extend these existing capabilities. This issue does not claim all of Activity, Event, Persistent, Summary or historical layout as owned merely because it adapts a shared field.
+
+**Signed-off removals/replacements:** [Upkeep approval](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035) explicitly covers UPK-05's Remove option, UPK-06's Stage recovery, UPK-09's team-removal and non-officer-transfer exception entry, UPK-10's officer choice, and corresponding UPK-11 removal/transfer-officer warnings. Team removal remains a correction capability. WEEK-15's ordered dice editing becomes one total per roll under the same approval and [shared ownership amendment](https://github.com/AndreasUnunger/EverythingPath/issues/122#issuecomment-5846600504); historical dice detail is not retired. UPK-01 tiles and UPK-12 local hint relocate into headers/frame under the Upkeep and Week layout decisions. No archived-officer bonus diagnostic, withdrawal-funds exception, boon, modifier or historical fact is signed off for removal.
+
+
+The complete shared roll contract and compatibility/coverage acceptance are in the implementation issue. Existing draft arrays (including partial arrays), operation records, actor-bearing transfers and immutable history remain readable; Upkeep owns all current phase/nested-roll/summary/history adapters before new total writers ship. The transfer character/officer rule removal uses the next unused Ruleset Version; format-only conversion does not re-version or rewrite existing records. Team removal remains available in the current Militia correction form until its redesigned Teams section ships.
+
+## Planned coverage: Characters & officers
+
+Implementation spec: [Implement Characters & officers with role corrections and compatible kind migration](https://github.com/AndreasUnunger/EverythingPath/issues/141). Authored from [Write the Characters & officers implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/132), rollout position 10 of 12, after [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/139). These changes are planned; current shipped locations and test mappings above remain until implementation.
+
+Own six role cards over the character table, record CRUD/archive, separate reasoned roster/officer corrections, pending Activity roles and read-only manager links. Own PC/NPC migration in character records and retained roster mirrors, all affected Setup/browser-envelope/Activity/correction consumers, role-based manager limits and commandant Hit Dice fallback. Allocate the next unused Ruleset Version after earlier rule changes; preserve all historical records/readers. New IDs CHAR-10–13 are reserved here.
+
+| ID | Acceptance/coverage owned here |
+| --- | --- |
+| CHAR-01 | Character access/counts move from the embedded collapsible ledger to the dedicated page/table; no lost CRUD access before or after Setup. |
+| CHAR-02 | Name-sorted active records, kind and effective Hit Dice; all six stats remain readable/editable in the full dialog. |
+| CHAR-03 | Add dialog preserves every existing field/default/validation, with approved PC/NPC and Hit Dice labels; reusable by Setup. |
+| CHAR-04 | Edit same dialog, immediate shared record update and retained input on failure. |
+| CHAR-05 | Archive in record dialog, assignments preserved and warned. |
+| CHAR-06 | Show archived on table and Un-archive in dialog; empty archived state. |
+| CHAR-07 | Inline create/update/archive errors, pending acknowledgement, retry and retained values. |
+| CHAR-08 | Reactive records, kinds, roles, roster, effects and managed counts on all members' devices; reload persistence. |
+| CHAR-09 | Page skeleton, failed/Try again, active/archived empty states and pre-setup records; consume shell access gate. |
+| LEDG-03 | Own roster membership/Hit Dice and six-role assign/move/remove, atomic role/manager cleanup on roster removal; Militia corrections retains manager editing. |
+| CHAR-10 — new | Role board with current/non-stacking/commandant effects, vacancy, source attribution, candidate contributions and strategist allowance preview. |
+| CHAR-11 — new | Pending Change Officer Role display and same-campaign Activity links, derived from open draft without staging anything. |
+| CHAR-12 — new | Separate Correct officers/Correct roster modes, quick-pick required reasons, roster conflict handling and named cascade warnings. |
+| CHAR-13 — new | Per-character role navigation chips and read-only managed-team count/limit links to Militia Teams. |
+
+Shared IDs, with their owners:
+
+| IDs | Obligation here / owner |
+| --- | --- |
+| LEDG-01, LEDG-05, LEDG-06, LEDG-07 | Consume Militia corrections' one-open/reason/save/conflict/validation primitives for these two corrections; preserve these capabilities when removing its temporary fallback. |
+| LEDG-09 | Pre-setup character CRUD remains here; Militia corrections owns its no-militia page. |
+| LEDG-12, LEDG-13 | Consume Militia corrections' affected-choice warnings and valid reference-repair paths; own roster/officer restoration and integrity behavior here. |
+| SETUP-05, SETUP-06, SETUP-19, SETUP-20, SETUP-24, SETUP-26 | Update Setup roster/officer/manager editors, warnings, validation, browser envelopes and inline record dialog for kind and Hit Dice migration. Setup remains flow owner. |
+| ACT-09, ACT-10, ACT-13, ACT-16, ACT-17 | Activity owns slots/details/check displays/exceptions/warnings; this delivery updates their officer, manager-limit and commandant rules consumers and revalidates staged choices. |
+| WEEK-02, WEEK-03, WEEK-04, WEEK-05 | Week frame owns phase navigation/readiness, independent Phase Views, shared updates and optimistic previews; changed officer facts/effects propagate without moving another player. |
+| SUM-05 | Review & confirm owns stale-review recovery; character/source revision changes invalidate stale Confirmation normally. |
+| HIST-04, HIST-05 | Finished weeks owns historical presentation; preserve old version/provenance and recorded outcomes through compatibility readers. |
+| NAV-16, NAV-17 | Consume shell section navigation/scoped routes; retire fallback links only after replacement access exists. |
+| STATE-01, STATE-02, STATE-03, STATE-04, STATE-05, STATE-06, STATE-07 | Shell owns pause/access/shared failure pattern; own this page's skeleton/error/empty states, write feedback and cross-device persistence. |
+
+Signed-off replacements/removals: [character-page approval](https://github.com/AndreasUnunger/EverythingPath/issues/114#issuecomment-5844673552) replaces CHAR-01's embedded collapse, CHAR-02's table arrangement, CHAR-05/06's archive placement and the superseded combined correction screen; all underlying data/actions remain reachable. [Officer approval](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106) replaces officer_npc/other_npc choices with NPC and removes required commandant override in favor of level fallback. [Caption approval](https://github.com/AndreasUnunger/EverythingPath/issues/113#issuecomment-5844235691) removes explanatory subtext, reason/conflict helper paragraphs and keep-and-explain hints; preserve concise warnings/labels and the separately approved PC-to-Activity hint. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) removes only CHAR-09's Select a campaign… and replaces access-loading text with a skeleton. **No approval to drop roster.kind, archive records automatically, delete stats/notes, remove manager editing or rewrite old records.**
+
+
+Migration/rollout handoff: existing authorized `character.listByCampaign` provides Setup's authoritative kind without extending `canonicalSetup.options`. Compatible readers precede new writers; retain legacy enum readers for immutable records, migrate live mirrors atomically and saved Setup envelopes without losing raw input, and keep the temporary People & officers editor until every replacement operation is available. Team managers remain on Militia Teams. The spec carries the Officer glossary addition and migration/race/history/reference-repair tests.
+
+Coverage gate: retain all existing E2E scenarios, specifically character-ledger/access, Setup/workspace, realtime Action Slots, completed weeks/cutover and direct persistence/Confirmation contracts. Add role/roster/archive/concurrency cases, legacy/new kind and browser-envelope migration, role-aware manager and commandant arithmetic, old-record immutability and three-breakpoint/shared-state/access tests. Implementation must run typecheck, lint and relevant unit/component/Convex/E2E checks; authoring does not claim runtime coverage has shipped.
+
+## Planned Activity coverage
+
+Implementation owner: [Implement shared Activity slots and action details](https://github.com/AndreasUnunger/EverythingPath/issues/142), authored by [Write the Activity implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/126). These are **planned** locations/coverage, not already shipped behavior; implementation updates actual locations and E2E mappings. Rollout position 4 follows [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140).
+
+Shared owners: [shell](https://github.com/AndreasUnunger/EverythingPath/issues/135), [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137), [Upkeep shared rolls](https://github.com/AndreasUnunger/EverythingPath/issues/140), [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/139), [Event authoring](https://github.com/AndreasUnunger/EverythingPath/issues/127), [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/141). Activity does not pre-apply the later character-kind/manager migration or absorb Event-reactive Sabotage.
+
+
+All accounting below is **planned** until implementation ships. Preserve existing inventory IDs and then update actual component locations and test mappings.
+
+| ID | Acceptance/coverage owned here |
+| --- | --- |
+| ACT-01 | All 23 actions remain selectable as cards in the grouped picker, including actions with no eligible team. |
+| ACT-02 | Empty-slot → card placement, Change action replacement and closing-sheet cancel replace deck-first placement. |
+| ACT-03 | Approved retirement of Activity deck drag; equivalent touch/keyboard placement is ACT-02. |
+| ACT-04 | Move to preserves the entire choice and identity across empty-slot moves. |
+| ACT-05 | Move to swaps occupied choices with their details. |
+| ACT-06 | Clear <action> remains; drag-out and global Clear selected choice controls are replaced by selected details. |
+| ACT-07 | Placement/stale-choice/failed-save feedback uses the frame's shared status, never falsely reports acceptance. |
+| ACT-08 | Add slot retains existing stable-ID edit and immediate shared visibility. |
+| ACT-09 | Real allowance explanation, Strategist badge, excess boundary/amber/text warning and readiness. |
+| ACT-10 | All common/action-specific fields and structured operations listed below, with eligible-first team dropdown; target/mode choices retain current card controls. |
+| ACT-11 | Rules-derived calculated cost and entered override/advisory mismatch retained without overwriting explicit values. |
+| ACT-12 | All required rolls use shared totals; Helpful inline and available/custom modifiers through + Modifier replace Sources and modifiers accordion. No modifier capability removed. |
+| ACT-13 | Equivalent bonus, total and full modifier breakdown from pure rules projection. |
+| ACT-14 | Every required outcome acknowledgement and clear operation, including retained legacy text. |
+| ACT-15 | Special Order received day/receipt notes, record/clear and order/acknowledgement identity preserved. |
+| ACT-16 | All applicable per-choice Rules Exception reasons and removal; retained old reasons remain visible. |
+| ACT-17 | All existing warnings/preparation requirements in details, slot counts, and frame This phase. |
+| ACT-18 | Nullable Operating from selection; Helpful and Event chance consequences; missing-settlement recovery. |
+| **ACT-19 (new)** | Remove an empty extra Action Slot, enforced server-side under authoritative allowance, including concurrent edits/removal. |
+| WEEK-04 | Every Activity edit is shared; two players may edit any slot; no claims/locks. |
+| WEEK-05 | Existing optimistic preview updates choice/header/reference/readiness facts immediately. |
+| WEEK-06 | Integrate frame-owned saving/saved/failure/remote-update feedback for picker, details, modifiers and slot edits. |
+| WEEK-07 | Failed/stale saves reconcile authoritative values and invalidate review; frame/store owns recovery lifecycle. |
+| WEEK-08 | Frame departure guard covers pending edits; don't silently discard invalid local detail/modifier entries when replacing their editor. |
+| WEEK-10 | All mutation controls, including already-open sheets and menus, honor frame Confirmation disabling and old-draft identity guards. |
+| WEEK-12 | Activity supplies its skeleton/empty picker/empty slots/detail states within frame loading/failure/no-militia and shell access gates. |
+| WEEK-13 | Activity picker cards use tap/keyboard with real selected/focus semantics and touch scrolling; the ACT-03 retirement does not remove other phases' choice-card drag or nested existing choice capabilities. |
+| WEEK-14 | Preserve numeric zero/clear/invalid-paste and required-versus-format behavior; use signed numeric validation for custom modifiers, not a nonnegative-only stepper. |
+| WEEK-15 | Consume Upkeep-owned complete/incomplete legacy-array and new-total adapter; no second format or migration. |
+| WEEK-16 | Advisory ranges and legacy per-die diagnostics remain visible; malformed/count/sides mismatches are not silently accepted as complete. |
+| WEEK-17 | Own Activity phone/tablet/desktop layouts; shell/frame own surrounding navigation and reference controls. |
+| WEEK-18 | Preserve nested/list/discriminated fields, source/target picks and add/remove/Save/Clear; Event/Persistent/Review retain ownership of their corresponding fields. |
+| NAV-15 | Shell owns scoped phase routing/redirects; Activity preserves `phase=activity`, reload and Back/Forward. |
+| STATE-01 | Consume shell maintenance notice and normal rejected-write feedback while keeping data readable. |
+| STATE-05 | Consume frame/shell load, failure, no-militia and access states with no protected-data flash. |
+| STATE-06 | Reload/second-device persistence of all edits and retained legacy values; shared obligation. |
+| EVT-04, EVT-06 | Shared boundary: retain Activity candidate trees/selections and Event markers without losing identity; Event owns occurrence display/selection redesign. |
+| LEDG-01 | Shared boundary: existing corrections remain reachable for team/reference repairs; Militia corrections owns final section editor and full restoration. |
+
+Signed-off replacements: [Activity approval](https://github.com/AndreasUnunger/EverythingPath/issues/106#issuecomment-5835792948) replaces ACT-01 deck, ACT-02 deck-first gestures, ACT-03 drag, ACT-04/05 drag alternatives, ACT-06 drag-out/global clear, ACT-07 standalone placement line, ACT-10 embedded detail/team-card arrangement and ACT-12 Sources and modifiers accordion with the controls above. Only ACT-03 retires as a standalone capability; the others preserve the underlying operation. The same approval adds ACT-19. WEEK-15 ordered-die replacement belongs to Upkeep's existing signed-off contract. No action, field, roll, reference, exception, receipt or acknowledgement is signed off for removal.
+
+
+Field completeness: the output spec enumerates every action variant and current schema field, including candidate trees, purchases/sales, receipts, modes, nested target/officer/consumable fields and legacy/partial dice. Keep clear/replacement, missing-reference display and repair; whole-draft validation means one orphan repair cannot save while another orphan remains. Militia corrections owns final same-identity source restoration.
+
+Coverage plan: rewrite Activity drag/deck selectors to approved card/menu/clear interactions in `realtime-action-slot.spec.ts` and workspace Activity helpers, retaining all scenario outcomes; keep other phase, access, correction, persistence, Confirmation, complete-week, existing-militia and cutover scenarios. Add all-action field/legacy coverage, two-device Helpful and slot races, authoritative remove-slot guard tests, receipts, modifiers/reasons, produced/missing references, touch scrolling and keyboard/focus, and phone/tablet/desktop states. Upkeep owns dual-roll format compatibility; Activity verifies its readers/writers and preserves all downstream consumers.
+
+### Event — planned ownership and coverage
+
+Owner: [Implement rules-ordered Event preparation and occurrence resolution](https://github.com/AndreasUnunger/EverythingPath/issues/143), authored by [Write the Event implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/127). This is planned work, not a claim that the new locations or coverage have shipped. Preserve the current inventory rows and stable IDs until implementation records their actual replacements/tests.
+
+| ID | Planned replacement / coverage |
+| --- | --- |
+| EVT-01 | Chance breakdown/clamp and d100 arithmetic with settlement reputation on chance only; boundary/carry/forced-calm tests. |
+| EVT-02 | Collapsed chance step identifies guaranteeing Activity choice/slot or forced calm and provides the source handoff. |
+| EVT-03 | Required rolled/automatic blank occurrences allocated through existing edits, visible source/count, stable identity and concurrent initialization tests; manual Add controls replaced. |
+| EVT-04 | Stable event block with table arithmetic/name, awaiting/status, origin/parent/candidate context, complete old/new roll support. |
+| EVT-05 | Arithmetic and + Table modifier with signed value, required reason, edit/remove/clear, source/provenance preserved. |
+| EVT-06 | Choose this event card with complete candidate ownership, both required rolls and retained unchosen data; independent source sets. |
+| EVT-07 | Event-specific inputs preserve every nested target/roll/officer/reward/persistent/Sabotage operation and legacy repair; generic editor shell replaced only. |
+| EVT-08 | Attempt it / Let it happen including independent target checks; optional unattempted versus incomplete attempted coverage. |
+| EVT-09 | What happened save/edit/clear with exact occurrence subject and existing requiredness; independent nested reaction/ending outcomes retained. |
+| EVT-10 | Per-event/target check rows with dice total, calculated bonus, total versus DC, readable source breakdown and result. |
+| EVT-11 | Scoped warnings/Rules Exceptions with reason edit/remove, reward/reaction subjects and frame aggregation. |
+| EVT-12 | Complete ordered resource/team/reputation/economy, queued/persistent and narrative/custom outcomes for every event mode. |
+| EVT-13 | One normal Roll Twice expansion, automatic blank children, in-place child/automatic/candidate rerolls, ineligible replacements, retained hidden branches and clearing; explicit legacy compatibility and Ruleset Version regression. |
+| EVT-14 | Block-specific missing-input list plus frame/footer/This phase aggregation; no hidden inactive or optional-check blocker. |
+
+| Shared ID | Event obligation and named owner |
+| --- | --- |
+| WEEK-02, WEEK-03 | Event supplies accurate phase facts and independent local Phase View; [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) owns navigation/readiness. |
+| WEEK-04, WEEK-05, WEEK-06, WEEK-07, WEEK-08, WEEK-10, WEEK-11, WEEK-19 | Consume frame's shared persistence/preview/save/recovery/departure/Confirmation/transition; test event and topology edits across devices without weakening conflict rejection. |
+| WEEK-12 | Event-shaped body placeholders; frame owns week loading/failed/no-militia states. |
+| WEEK-13 | Event target/mitigation/candidate card touch/keyboard selection and retained shared choice behavior; no global drag removal. |
+| WEEK-14, WEEK-15, WEEK-16 | [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140) owns shared dual roll contract; Event consumes it for every nested roll with styled validation, clear/zero and advisory ranges. |
+| WEEK-17 | Event owns responsive blocks/candidates/headers/nesting inside shell/frame. |
+| WEEK-18 | Event-specific editors retain structured list/discriminated/nested/modifier add/remove/Save/Clear; Upkeep owns roll adapter, other phases their own replacements. |
+| ACT-10, ACT-11, ACT-12, ACT-13, ACT-14, ACT-16, ACT-17, ACT-18 | [Activity](https://github.com/AndreasUnunger/EverythingPath/issues/142) owns source fields/cost/modifiers/checks/acknowledgements/exceptions/warnings/Operating from; Event preserves source choice while editing candidates and owns reactive Sabotage. |
+| PER-02, PER-03, PER-04, PER-06, PER-07, PER-08, PER-10 | [Persistent authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/128) owns carried identity/age/decisions/checks/table ending/warnings/preparation; Event preserves same-week nested fields and shares support allocation/endings. |
+| SUM-02, SUM-06, SUM-07, SUM-08, SUM-09, SUM-10, SUM-11 | [Review & confirm authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/129) owns required-input review/comparison/exceptions/adjustments/warnings/consequences/outcomes; Event supplies correct facts and keeps existing Summary usable. |
+| HIST-05 | [Finished weeks authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/133) owns final frozen-record presentation; Event preserves old/new trees/rolls/versions and recorded outcomes without historical rewrites. |
+| STATE-01, STATE-02, STATE-03, STATE-05, STATE-06, STATE-07 | [Shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) owns access/maintenance/shared failure, frame owns week states, Event owns its body loading shape and cross-device/reload regression coverage. |
+
+**Approved replacements, not lost capabilities:** [final Event decision](https://github.com/AndreasUnunger/EverythingPath/issues/108#issuecomment-5837858373) signs off EVT-03 manual Add rolled/Add automatic buttons, EVT-13 Add Roll Twice child/Add replacement/Remove Event-and-branches buttons, and EVT-07 generic editor shell. Required blank fields, clearing and complete event-specific controls replace them. EVT-05's accordion relocates to arithmetic/+ Table modifier; EVT-08/EVT-09 become named mitigation/What happened controls. [Upkeep approval](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035) and [rollout ownership](https://github.com/AndreasUnunger/EverythingPath/issues/122#issuecomment-5846600504) own WEEK-15's total-entry replacement. No target, raw fact, custom outcome, provenance/modifier, reaction, acknowledgement or Rules Exception is removed. No new ID: these changes implement the existing EVT capabilities.
+
+Planned coverage retains and rewrites `ws:event` (automatic fields/clear in place of add/remove), `week`, `ws:setup`, Activity/Persistent/Summary interactions, access and cutover scenarios. Extend event view/selection/action/resource/threat/recurring/acceptance and draft/persistence/Confirmation tests for every event mode, concurrent blank preparation, old/new trees and totals, reroll source precedence, precise acknowledgements and support moves. Keep direct backend `e2e/canonical-persistence.spec.ts` and `canonical-confirmation.spec.ts` even though they have no browser inventory mapping. Current no-coverage cells are not claimed as tested yet.
+
+No additional payload change. Event consumes Upkeep's roll format; existing tree/occurrence/choice edits suffice with stable fill-only initialization and conflict refresh/recompute. The literal approved candidate Roll Twice reroll restriction changes current selected-candidate expansion, so its implementation uses the next unused Ruleset Version and matching client/server logic; presentation/equivalent representation alone does not bump versions. The reputation fix already shipped in PR #115 at Version 5. Frozen records preserve their source/version/outcomes.
+
+## Persistent — planned implementation ownership
+
+Implementation spec: [Implement carried Persistent events and shared support decisions](https://github.com/AndreasUnunger/EverythingPath/issues/144). Authored by [Write the Persistent implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/128). This section records planned coverage; original current-location/E2E columns remain unchanged until implementation ships. No new capability IDs are introduced.
+
+| ID | Planned ownership and acceptance |
+| --- | --- |
+| PER-01 | Persistent owns the wrapping buyoff overview, first availability, projected rules cost, next buyoff week/four-week cadence including staged buyoffs, and stable oldest-first instance ordering. |
+| PER-02 | Persistent owns numbered section identity, start/age/recorded order/targets and actual projected ending; Activity/Event own source edits, linked from a carried event already ended elsewhere. Keep ended sections visible and restore retained decisions if the source ending is undone. |
+| PER-03 | Persistent owns tap/keyboard Leave it, applicable Theft/Rivalry check and Buy off cards. Leave it explicitly replaces the event decision with unattempted; no unsupported check card for Low Morale/Double Agent. |
+| PER-04 | Persistent owns dedicated Theft roll/Overseer and Rivalry officer/skill/skill-bonus/roll controls; preserve modifiers and all accepted targets/rolls/strategist/nested fields. Share recoverable one-event Overseer moves with Event. |
+| PER-05 | **Signed-off removal, planned:** recorded buyoff amount and differing-amount warning. New buyoff writes omit costCopper; projected rules cost remains visible; legacy stored amounts/parser and immutable history remain readable. Source: [second-review amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317). |
+| PER-06 | Persistent owns Ended at the table card, How it ended acknowledgement with stable subject/identity, required reasoned Rules Exception and recovery for invalid/partial writes. |
+| PER-07 | Persistent owns correct check arithmetic/source breakdowns and projected buyoff/officer/temporary-mitigation outcomes; no duplicate bonuses or false ending from selection alone. |
+| PER-08 | Persistent owns event warnings and Rules Exception record/edit/remove; frame owns aggregate display. Only the approved differing-amount warning is removed from live presentation/counts; historical warnings remain unchanged. |
+| PER-09 | **Signed-off removal, planned:** standalone Clear decision. Leave it replaces the reset path; existing clear edit/parser remains for compatibility and valid consumers. Source: [second-review amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317). |
+| PER-10 | Persistent owns per-event/earlier-phase requirements; frame owns This phase/stepper/footer rendering and fixed week-start eligibility. Same-week persistent inputs stay accessible under Event. |
+
+Shared obligations and owner handoffs:
+
+| ID | Persistent obligation and named owner |
+| --- | --- |
+| WEEK-01 | Consume Week frame's accessible week/phase heading. |
+| WEEK-02 | Week frame owns five-step/readiness/eligibility navigation; Persistent supplies its facts and keeps ended carried sections accessible. |
+| WEEK-03 | Phase links/navigation stay local under Week frame; other players do not move. |
+| WEEK-04 | Every Persistent write uses shared store/gateway; frame owns feedback. |
+| WEEK-05 | Reuse frame's optimistic projection and accepted-state reconciliation. |
+| WEEK-06 | Reuse frame saving/saved/failed/remote-change status for every field/card/reason/support move. |
+| WEEK-07 | Rejected/partial edits restore accepted state, remain repairable and require fresh review under frame/Review & confirm contracts. |
+| WEEK-08 | Frame owns pending-departure warning; include unfinished local strict-ending form state truthfully. |
+| WEEK-09 | Keep frame's Setup notes access reachable. |
+| WEEK-10 | Disable every Persistent write while Confirmation is in flight; frame owns lock. |
+| WEEK-11 | Consume frame successor transition and reject delayed old-draft writes. |
+| WEEK-12 | Consume frame week loading/retry/no-militia states; own matching Persistent body skeleton. |
+| WEEK-13 | Persistent owns accessible tap/keyboard choice cards and scroll-safe touch interaction; no global drag removal. |
+| WEEK-14 | Consume Upkeep's invalid/blank/zero whole-number behavior; signed skill/modifier fields retain their own valid signs. |
+| WEEK-15 | Consume Upkeep's strict dice-array versus diceTotal/diceCount compatibility; no new roll format or eager rewriting. |
+| WEEK-16 | Retain advisory range warnings consistently in event/detail/frame counts. |
+| WEEK-17 | Persistent owns wrapping/stacking fields and 2×2 phone choices; shell/frame own responsive chrome. |
+| WEEK-18 | Persistent preserves nested/list/modifier save/clear/add/edit/remove operations; Event owns same-week occurrence decisions and legacy values. |
+| ACT-10 | Activity owns Reduce Danger source details; link to actual source instead of duplicating editing. |
+| ACT-13 | Activity owns check outcome; only its resolved successful ending suppresses redundant Persistent decision. |
+| ACT-17 | Activity owns its warnings/requirements; source failures remain visible and never imply an ending. |
+| EVT-07 | Event owns same-week occurrence persistent fields/decisions and target/reaction inputs; shared support moves preserve sibling fields. |
+| EVT-10 | Event owns occurrence checks; both phases share one-event Overseer support with existing conflict/recovery semantics. |
+| EVT-11 | Event owns its warning/exception editing; Persistent must not clear it during support moves. |
+| EVT-12 | Event owns High Morale and other occurrence outcomes; Persistent shows their carried-event ending provenance and change links. |
+| EVT-14 | Event owns readiness for nested same-week decisions even when Persistent is locked. |
+| SUM-01 | Review & confirm owns readiness/review presentation; Persistent supplies requirements. |
+| SUM-02 | Review & confirm owns required-decision list; Persistent supplies exact event/phase subjects. |
+| SUM-03 | Preserve saved/reviewed/ready Confirmation contract; no second confirm control. |
+| SUM-04 | Preserve single-winner concurrent Confirmation; include Persistent revision changes. |
+| SUM-05 | Preserve stale-review recovery after failed/remote/partial Persistent edits. |
+| SUM-06 | Review & confirm owns Rules Baseline/Final; Persistent supplies canonical consequences, not patched client totals. |
+| SUM-07 | Review & confirm owns aggregate Rules Exception editing; event-local reasons stay compatible. |
+| SUM-08 | Review & confirm owns Table Adjustments; table ending text and buyoff display introduce no numeric adjustment API. |
+| SUM-09 | Review & confirm owns live warning display; omit approved recorded-buyoff-difference warning consistently without rewriting records. |
+| SUM-10 | Review & confirm owns consequence presentation; retain all Persistent results. |
+| SUM-11 | Review & confirm owns recorded outcomes; retain exact ending acknowledgement and reason facts. |
+| NAV-15 | Shell/frame own scoped phase routing/redirects; consume phase=persistent and local source links preserving campaign context. |
+| STATE-01 | Shell maintenance stays readable; normal failed-write feedback/repair applies. |
+| STATE-02 | Shell/frame own outer skeleton; Persistent owns overview/section shape. |
+| STATE-03 | Use frame/shared failed-load card and Try again with usable shell tabs. |
+| STATE-05 | Consume frame week loading/failure/no-militia and shell unavailable access boundary. |
+| STATE-06 | Cover accepted values/reasons/legacy fields/support allocation across observer reload and multiple members. |
+| STATE-07 | Consume shell neutral unavailable/sign-in gate with no protected-data flash. |
+
+Final shared copy approval: [Persistent final approval](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837957108) uses **Use Overseer support · +N · one event a week**, no name/ability, with **Officers +N · Overseer +N** source names. This supersedes initial Event/Persistent prototype wording; Event implementation has been coordinated to match.
+
+Coverage handoff: rewrite persistent-workspace/persistent-qa locators to dedicated totals, Leave it and gp results while retaining all behavior (shared buyoffs/exceptions/endings/checks, held/rejected save, observer reload, independent phase navigation and responsive geometry). Preserve full canonical-workspace, complete-week, canonical-confirmation and direct canonical-persistence scenarios. Add source-ending undo, fixed eligibility/same-week Event inputs, strict ending form/partial failure, cross-phase Overseer concurrency/partial-failure repair, legacy amount/roll/history, and membership/campaign isolation cases. Retain canonical rules.P02.rivalry.* weeks 2–4 regression; separate legacy request [Fix persistent Rivalry lifecycle across weeks](https://github.com/AndreasUnunger/EverythingPath/issues/31) imports no dependency/schema work and is not closed here.
+
+Parent coordination: add native implementation edge Event143 → Persistent144; subsequent Review & confirm implementation depends on144. Parent links this inventory change in128's resolution, updates map99 and closes128 only after integration. The spec introduces no new payload, rules version, migrations, or deployed behavior.
+
+## Planned implementation: Review & confirm
+
+Implementation spec: [Implement Review & confirm with ordered consequences and exact reviewed Confirmation](https://github.com/AndreasUnunger/EverythingPath/issues/145). Shipping position 7, after [Persistent](https://github.com/AndreasUnunger/EverythingPath/issues/144) and before [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/138). The following is **planned**, not shipped. Keep baseline current-location and current-E2E rows factual until implementation.
+
+Owner: Review & confirm owns SUM-01–11, including Confirmation controls, and defines the six-section presentation boundary for Finished weeks. [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) owns shared save/transition behavior and already removes the Summary caption/footer readiness copy. [Shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) owns shared access/maintenance; [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140) owns roll compatibility; [Finished weeks authoring](https://github.com/AndreasUnunger/EverythingPath/issues/133) owns historical integration over immutable selected-record facts. No new capability IDs or payload/rules changes are introduced.
+
+Retain stable inventory IDs. The following locations and coverage are **planned**, not shipped; implementation updates actual locations/tests after delivery.
+
+| ID | Required acceptance and coverage |
+| --- | --- |
+| SUM-01 | Required decisions and contextual disabled reason replace ready/needs-attention sentences; retain unsaved-changes reason. Test ready, incomplete, pending, invalid local form and stale review with no redundant ready sentence. |
+| SUM-02 | Whole-week Required decisions, readable subjects and Go links, including missing reasons; test all four source phases and local adjustment repair. |
+| SUM-03 | Confirm only the complete, saved, accepted and reviewed source, with no unfinished local form; pending label and exactly reviewed outcome. Preserve week/workspace and backend contract coverage. |
+| SUM-04 | Preserve existing single-winner concurrent Confirmation, stale source/revision rejection and edit/confirm race. Shared persistence/store behavior is unchanged, even though the design prototype omitted it. |
+| SUM-05 | Stale alert and explicit Review updated week, disabled during pending work; failed save/Confirmation cannot silently refresh authorization. Preserve workspace recovery tests. |
+| SUM-06 | Result Now/Rules Baseline/Final, changed-only/show-all, all militia and next-week facts, named references, complete/incomplete state. Rewrite existing outcome-disclosure browser assertions without losing facts. |
+| SUM-07 | Inline Rules Exceptions, edit reason, one-tap clear, orphaned-subject display and remove obsolete action allowance; identity and underlying rule semantics preserved. Add browser coverage. |
+| SUM-08 | All four adjustment kinds and every existing field; add/edit/reason/remove/cancel/earlier/later, exact gp input, full ordered-list replacement and failure recovery. Preserve all `summary-qa` variants. |
+| SUM-09 | Review-block Warnings plus item placement and phase fallback, correct identities/counts, readable labels and live-only approved warning filtering. Add browser coverage. |
+| SUM-10 | Four expanded consequence sections, phase net chips, actual execution order, Event/Sabotage integration and all existing effects. Add focused and browser assertions. |
+| SUM-11 | Every acknowledgement remains visible under its actual source, including orphan/unmapped fallback; preserve distinct quoted outcomes and stable identity. Add browser assertions. |
+
+Shared IDs are individually accounted for:
+
+| ID | Obligation here; primary owner |
+| --- | --- |
+| NAV-15 | Consume campaign/`phase=summary` deep link and redirects; shell owns routing, frame owns Phase View. |
+| WEEK-01 | Keep accessible week/phase context; frame owns heading/chrome. |
+| WEEK-02 | Supply Summary requirements/warnings, local Go navigation and no Summary caption; frame owns stepper/readiness. |
+| WEEK-03 | Review, Show all and local forms/focus do not navigate other devices; frame owns independent Phase View. |
+| WEEK-04 | Accepted exception/adjustment edits sync to every member; frame owns shared feedback/store. |
+| WEEK-05 | Existing optimistic Resolution Preview drives consequences/comparison; frame/store owns forecast. |
+| WEEK-06 | Use one saving/saved/failed/confirming status; frame owns status placement. |
+| WEEK-07 | Failed edit restores latest accepted values and requires fresh review; frame/store owns recovery, this issue owns visible review control. |
+| WEEK-08 | Preserve departure protection while writes/Confirmation are pending; frame/shell own guard. Local form state cannot masquerade as saved data. |
+| WEEK-10 | Disable all adjustment/exception forms and destructive controls during Confirmation; frame owns global barrier. |
+| WEEK-11 | Keep confirmed week displayed until successor arrives, then adopt successor Upkeep; frame owns transition. |
+| WEEK-12 | Summary-shaped content skeleton within frame week states; shell owns campaign unavailable. |
+| WEEK-13 | Four adjustment kind cards and choice controls support tap/keyboard/selected semantics; this area owns its approved replacement, no global drag deletion. |
+| WEEK-14 | Required versus malformed numeric input, clear/zero and signed adjustment semantics retained; this area owns form validation, Upkeep owns shared roll input work. |
+| WEEK-15 | Render Upkeep-owned new dice totals and legacy dice arrays correctly without rewriting them; no roll migration here. |
+| WEEK-16 | Preserve advisory range warnings and honest check details; phase owners/Upkeep own inputs. |
+| WEEK-17 | Own Summary cards/result/errors at tablet, phone and desktop; frame/shell own surrounding responsive layout. |
+| WEEK-18 | Preserve full discriminated adjustment fields, selection, Save/Clear/remove/reorder operations; source phases own their nested editors. |
+| WEEK-19 | Consume one Week N confirmed notice and its correct historical-week link on every observing device; frame owns it. |
+| HIST-05 | Share the six-section presentation contract and record-only boundary; Finished weeks owns historical adapter/page and its compatibility tests. |
+| STATE-01 | Readable maintenance banner and normal recoverable write failures; shell owns banner, frame feedback. |
+| STATE-02 | Summary-shaped loading placeholders under frame/shell scaffold. |
+| STATE-03 | Consume shared failed-load card and frame Try again. |
+| STATE-05 | Keep week loading/failure/no militia distinct from unavailable campaign; frame/shell own gates. |
+| STATE-06 | Exception/adjustment/Confirmation results survive reload and appear on another member's device; shared regression responsibility. |
+| STATE-07 | Consume neutral membership/organization/sign-in gate; shell owns it. |
+
+No new ID is required. **Signed-off replacements/removals**, all retained in inventory history:
+
+- [Summary approval](https://github.com/AndreasUnunger/EverythingPath/issues/110#issuecomment-5844063536): SUM-01 ready/needs-attention sentence and the review block's applies-the-entire-prepared-week explanatory note disappear. Remove the current equivalent wording as well as the prototype literal. Frame already owns the stepper caption/footer removal; disabled reasons remain.
+- Same approval: SUM-06's side-by-side outcome cards and individual disclosures become one changed-only Result with Show all; SUM-07's detached exception list becomes item-inline; SUM-10's collapsible consequences become expanded phases; SUM-11's detached outcomes list becomes item-inline. These are presentation replacements, not fact deletion. SUM-08's Clear adjustment is preserved as Remove, and reorder is still available when meaningful.
+- [Persistent specification](https://github.com/AndreasUnunger/EverythingPath/issues/144), implementing its cited [amount/control removal amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317), owns removal of the differing recorded-buyoff-cost warning from **live** Summary and its live counts. Honor its exact filter; do not suppress other buyoff/treasury warnings, historical warning facts or legacy source amounts.
+
+
+Planned validation: retain `e2e/support/summary-qa.ts`, whole-week/workspace flows, all shared Confirmation and persistence backend contracts, relevant access/reload/cutover checks and summary component cases. Extend real multi-device adjustment/reason conflicts, source corrections, invalid local forms, exact gp conversions, complete Show all facts, legacy/frozen-record fixtures and phone/tablet/desktop accessibility. Change current inventory coverage only when these checks are implemented and run.
+
+## Planned Finished weeks ownership (not shipped)
+
+Implementation specification: [Implement Finished weeks with immutable records and paged audit history](https://github.com/AndreasUnunger/EverythingPath/issues/146), authored by [Write the Finished weeks implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/133). Rollout 11 of 12, after [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/141), before Campaign list/home. These are planned acceptance/coverage mappings; current-location and actual-test columns change only when implementation ships.
+
+Owner: Finished weeks owns the list/query/date envelopes, historical adapter, audit selection and page states. [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/145) owns the pure six-section presentation contract; [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) owns scoped routes/access/maintenance; [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) owns incoming history/confirmed-week links. No historical mutation or Ruleset Version change is introduced.
+
+| ID | Planned acceptance and coverage |
+| --- | --- |
+| HIST-01 | Latest effective finished week defaults, selected at bottom of oldest-first index; sparse weeks, direct URLs and reload covered. |
+| HIST-02 | Gap-aware Previous/Next with disabled boundaries; latest list row replaces standalone Latest button; local and browser navigation preserve scope. |
+| HIST-03 | N entries disclosure, whole selected records, effective/earlier labels, Entry N, at most five visible entries, Earlier entries paging and recovery to newest/effective. No correction notes. |
+| HIST-04 | Selected provenance/date/Ruleset Version/effective status and merged read-only footer; each date/version comes from that selected document. |
+| HIST-05 | All ten existing fact categories survive within six expanded sections and complete Show all; legacy/missing-source artifacts, record-local names, stored warnings/reasons/outcomes and successor context stay readable. |
+| HIST-06 | History correction notice merges into the footer; every member still sees corrections are unavailable. |
+| HIST-07 | Responsive skeleton, shared Try again error, no-finished-week/Open week or Set up militia states, and neutral shell unavailable state. |
+| HIST-08 — new, planned | Approved list of distinct finished weeks with dates, effective provenance/count and compact headline comparisons; direct selection and bounded loading. Same query supplies Campaign home's latest-three preview. |
+
+| Shared ID | Owner boundary and planned coverage |
+| --- | --- |
+| NAV-10 | Shell/frame own links; Finished weeks resolves requested campaign/week, including just-confirmed links. |
+| NAV-11 | Shell/Setup own destination; history keeps Set up militia in no-militia empty state. |
+| NAV-12 | Finished weeks owns Return to current week; shell's Week tab also keeps same-campaign access. |
+| NAV-17 | Shell owns scoped/legacy routes; Finished weeks preserves week/recordId/beforeSequence across direct links, reload and Back/Forward. |
+| WEEK-19 | Frame owns cross-device notice; Finished weeks owns correct immutable destination. |
+| SUM-06 | Review & confirm owns shared comparison; history integrates At confirmation/Baseline/Final and complete Show all. |
+| SUM-07 | Review & confirm owns live exceptions; history shows recorded reasons/obsolete exceptions read-only. |
+| SUM-08 | Review & confirm owns live adjustments; history preserves every ordered adjustment kind/effect/reason without controls. |
+| SUM-10 | Review & confirm owns shared consequences; history supplies selected-record checks/effects only. |
+| SUM-11 | Review & confirm owns shared placement; history retains all recorded outcomes including orphaned subjects. |
+| STATE-01 | Shell owns maintenance banner; history stays readable. |
+| STATE-02 | Shell renders immediately; history owns layout skeleton and Loading history status. |
+| STATE-03 | Shell owns failed-card pattern; history owns list/detail/audit retry. |
+| STATE-04 | Shell owns active-organization/sign-in/no-access boundary; history cannot leak data across it. |
+| STATE-05 | History owns loading/failure/empty; shell owns campaign unavailable. |
+| STATE-06 | Reactive/reloaded records persist while week/entry selection remains device-local. |
+
+Signed-off replacements/removals: [Finished weeks approval](https://github.com/AndreasUnunger/EverythingPath/issues/117#issuecomment-5845007868) replaces HIST-02's Latest button with latest row, HIST-03's always-visible controls with disclosure, HIST-04's context chips with Show all, HIST-05's ten collapsible containers with six sections/comparison/context, and HIST-06's separate notice with one footer. [The authoritative amendment](https://github.com/AndreasUnunger/EverythingPath/issues/117#issuecomment-5845032926) explicitly retains HIST-03 Earlier entries and the five-entry cap, and omits correction notes. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces HIST-07 loading/error/empty presentation and Reload history with skeleton/Try again/empty CTAs. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/121#issuecomment-5846528685) rearranges presentation without deleting capabilities. Recorded Rules Exception/Table Adjustment reasons and historical buyoff warnings/amounts are preserved.
+
+Contract: one `canonicalHistory.list({ campaignId, beforeWeek?, limit?, selectedWeek? })`, default 25/max 50; descending distinct-week rows plus older boundary and optional selected-row metadata. Each row has effective ID/sequence, entry count, provenance, Ruleset Version, creation time and at most two compact stored before/final comparison pairs. Campaign home calls the same query with `limit: 3`; no second listing query or full-record fanout. Existing `read` gains only selected/audit `createdAt`; visible audit Ruleset Versions use bounded existing record reads. No schema/date backfill, correction-note field, historical rewrite or resolver invocation. Selected detail consumes only its immutable record and the shared frozen presentation contract.
+
+Planned checks retain `complete-week`, the full `canonical-confirmation`/`canonical-persistence` contracts, `canonical-cutover`, access and existing-militia scenarios; update history UI selectors while keeping stable post-correction outcomes and exact copper-to-gp assertions. Extend history integration/record-view/control tests for >10 audit entries, >50 sparse weeks, latest-three projection, selected dates/versions, legacy/missing-source facts, membership/record scope, two-device selection, late-response isolation, retries and phone/tablet/desktop accessibility. Run typecheck/lint and relevant tests during implementation; this accounting does not claim those future checks passed.
+
+### Campaign list and home — planned coverage
+
+Implementation spec: [Implement the Campaign list and home with scoped creation and editing](https://github.com/AndreasUnunger/EverythingPath/issues/147), authored by [Write the Campaign list and home implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/134). This is **planned coverage**, not implemented UI or test evidence. Checked against main at `eef41f7bad19e63ecce858e7a4490c937a4ece89`. Preserve the current-location/E2E snapshot above until delivery. This is rollout position 12, after [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/146).
+
+
+Keep all original inventory IDs. The inventory change records **planned** ownership/coverage; current-location and E2E evidence change only after implementation. Each row maps to acceptance above and meaningful coverage below.
+
+| ID | Acceptance/coverage | Owner |
+| --- | --- | --- |
+| CAMP-01 | Active-organization rows, original first default, single/empty/many campaign states. | Home final list; shell previously preserves scaffold. |
+| CAMP-02 | In-pane campaign switching recorded in URL; reload/Back/Forward; independent device selection. | Home selection, shell routes/access. |
+| CAMP-03 | Explicit Name/Description pane form, 2–50 validation, returned-ID selection, pending/error/cancel. | Home and create result change. |
+| CAMP-04 | No campaigns yet plus Create a campaign to get started form. | Home. |
+| CAMP-05 | No-organization/no-access list states; no foreign campaign/week/metadata disclosure. | Home list, shell boundary, backend authorization. |
+| CAMP-06 | Previously stored/unshown description now displayed fully and in desktop preview; editing maps to CAMP-12. | Home. |
+| CAMP-07 — new | Display/edit optional Golarion in-game date using existing picker and mutation. | Home. |
+| CAMP-08 — new | Continue week N at first unready eligible phase; ready→review; no militia→Setup. | Home CTA, Week frame readiness, Setup destination. |
+| CAMP-09 — new | One-line militia summary and Open militia with occupied-role/team/attitude semantics. | Home; Militia/Characters owners provide existing facts/helpers. |
+| CAMP-10 — new | Latest-three distinct finished-week preview, headlines, provenance and links. | Home consumer; Finished weeks owns sole list API. |
+| CAMP-11 — new | Characters & officers/Characters entry with or without militia. | Home entry; Characters & officers destination. |
+| CAMP-12 — new | Edit description through authorized mutation, clearing, save/cancel/error and partial-save recovery. | Home. |
+| NAV-02 | Keep returns to campaign list. | Shell; home destination. |
+| NAV-03 | `/` redirects to list. | Shell; home destination. |
+| NAV-04 | All campaigns/list navigation reaches same screen. | Shell. |
+| NAV-05 | Sign in reachable in list/direct campaign state. | Shell. |
+| NAV-06 | Organization switcher in breadcrumb here, right top bar on campaign pages, phone More; switching returns to list. | Shell; home scoped state resets. |
+| NAV-07 | Account/sign out reachable. | Shell. |
+| NAV-08 | Auth skeleton until known. | Shell. |
+| NAV-09 | Phone bottom navigation/More integration and unobstructed form. | Shell. |
+| NAV-10 | Recent/All finished weeks links retain campaign/week. | Home entries; shell/frame/history retain theirs. |
+| NAV-11 | No-militia Setup entry. | Home entry; Setup destination. |
+| NAV-15 | Continue target uses five supported phase URLs and eligibility. | Week frame and shell; home consumes. |
+| NAV-17 | Scoped URL selection and legacy redirect preservation. | Shell; home consumes. |
+| WEEK-02 | Reuse all-phase readiness; no independent stored phase state. | Week frame; home navigation consumer. |
+| HIST-08 | Consume compact bounded finished-weeks list, never duplicate endpoint. | Finished weeks. |
+| STATE-01 | Readable maintenance banner and truthful failed writes. | Shell banner; home mutation feedback. |
+| STATE-02 | Campaign list/home-shaped skeleton and readable status. | Home; shell outer scaffold. |
+| STATE-03 | Failed list/page/local history retry preserves shell navigation. | Home retry; shell shared presentation. |
+| STATE-04 | No selected organization versus unavailable campaign recovery. | Home list; shell campaign boundary. |
+| STATE-06 | Created/edited values, setup/week/summary/history updates survive reload and reach other devices. | Shared regression obligation. |
+| STATE-07 | Signed-out/neutral unavailable direct campaign state; no stale content disclosure. | Shell. |
+
+**Signed-off replacements/removals:** [campaign-home approval](https://github.com/AndreasUnunger/EverythingPath/issues/118#issuecomment-5846080538) replaces the Active campaign picker on this list with rows (the campaign-page switcher remains), replaces the NEW CAMPAIGN dialog/pixel button with pane form/plus, removes the decorative `KEEPNET ◈ CAMPAIGN MANAGEMENT SYSTEM v0.0.1 ◈` banner, and omits next up. This does not remove Keep branding or rename the product. [Navigation approval](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561) moves the embedded Week/Ledger into scoped sections; all controls remain reachable. [Shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces old loading/error/org copy with skeleton/Try again/explicit states and maintenance-covering content with a readable banner. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/121#issuecomment-5846528685) rearranges the pane into an expanded phone row without losing actions. No other capability is removed.
+
+
+Planned verification: rewrite `access`/`access-nightly` picker assertions to rows and explicitly follow Continue week, retaining both-member/outsider checks and all persistence/Confirmation scenarios. Add create validation/returned-ID selection, description/date/clear and partial-save recovery, scope changes while loading/saving, first-unready eligible-phase routing, exact latest-three listing, two-device updates and phone/tablet/desktop coverage. Header date and description remain separate mutations; no atomic-save promise or second listing endpoint.
+
+The overlapping [Add new campaign flow instead of defaulting values](https://github.com/AndreasUnunger/EverythingPath/issues/94) remains an open implementation request dependent on this spec; its empty body adds no design requirements and specification publication is not feature completion.
