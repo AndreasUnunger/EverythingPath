@@ -13,6 +13,7 @@ import {
   exerciseWeekFrame,
   expectConfirmedWeek,
   expectSaveFailed,
+  expectWideStatus,
   confirmedWeekNotice,
   referencePanel,
   remoteChangeNote,
@@ -288,17 +289,22 @@ test('players prepare shared Upkeep with independent navigation and save recover
     );
     await expectSaveFailed(gm);
     // The failure sits in the top bar beside the campaign and section
-    // controls without widening it; on a phone it is the "Not saved"
-    // details button that opens the full text.
+    // controls without widening it. Below 768px (portrait and landscape
+    // phones) it is the "Not saved" details button that opens the full
+    // text; a wide short viewport keeps the visible sentence and offers no
+    // phone trigger.
     await expectNoHorizontalOverflow(gm);
+    await expectWideStatus(gm, true);
     for (const [width, height] of [
       [390, 844],
+      [740, 360],
       [844, 390],
     ] as const) {
       await gm.setViewportSize({ width, height });
       await expectNoHorizontalOverflow(gm);
       await expectSaveFailed(gm);
-      await exerciseStatusDetails(gm, true);
+      if (width < 768) await exerciseStatusDetails(gm, true);
+      else await expectWideStatus(gm, true);
     }
     await gm.setViewportSize({ width: 1194, height: 834 });
     await expect(

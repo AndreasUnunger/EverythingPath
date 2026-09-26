@@ -139,6 +139,18 @@ export async function controlTransport(page: Page, convexUrl: string) {
       server.onClose((code, reason) => {
         if (closed()) return socket.close({ code, reason });
       });
+      function queueForHydration(frame: Frame, send: (frame: Frame) => void) {
+        const hold = hydration;
+        if (hold?.connection !== connection || hold.failure) return false;
+        if (
+          !hold.observed &&
+          !requestsSuccessorTargets(parseFrame(frame), hold.key)
+        )
+          return false;
+        hold.observed = true;
+        hold.queued.push(() => send(frame));
+        return true;
+      }
       const forward = (
         frame: Frame,
         direction: 'Mutation' | 'MutationResponse',
@@ -147,21 +159,7 @@ export async function controlTransport(page: Page, convexUrl: string) {
         // After a failed hold, its missing query-set versions can never be
         // followed by later frames on the obsolete socket.
         if (direction === 'Mutation' && !connection.valid) return;
-        const hold = hydration;
-        if (
-          direction === 'Mutation' &&
-          hold?.connection === connection &&
-          !hold.failure
-        ) {
-          if (
-            hold.observed ||
-            requestsSuccessorTargets(parseFrame(frame), hold.key)
-          ) {
-            hold.observed = true;
-            hold.queued.push(() => send(frame));
-            return;
-          }
-        }
+        if (direction === 'Mutation' && queueForHydration(frame, send)) return;
         const active = fault;
         if (active) {
           const message = parseFrame(frame);

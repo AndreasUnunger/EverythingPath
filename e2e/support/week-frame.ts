@@ -534,3 +534,32 @@ export async function exerciseStatusDetails(page: Page, failed: boolean) {
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 }
+
+/**
+ * From 768px the status sentences themselves are visible in the top bar
+ * (including a failure and any other-player note) and the phone-only
+ * Status details trigger is not offered. `failed` selects the expected
+ * status semantics.
+ */
+export async function expectWideStatus(page: Page, failed: boolean) {
+  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(768);
+  const status = saveStatus(page);
+  await expect(status).toHaveCount(1);
+  await expect(status).toBeVisible();
+  if (failed) await expectSaveFailed(page);
+  else await expect(status).toHaveAttribute('role', 'status');
+  // The sentence is rendered as visible text, not screen-reader-only.
+  const sentence = status.locator('span').last();
+  await expect(sentence).toBeVisible();
+  const box = (await sentence.boundingBox())!;
+  expect(box.width, 'status sentence has visible width').toBeGreaterThan(24);
+  expect(box.height, 'status sentence has visible height').toBeGreaterThan(8);
+  const note = remoteChangeNote(page);
+  if ((await note.textContent())!.trim()) {
+    await expect(note).toBeVisible();
+    await expect(note.locator('span').last()).toBeVisible();
+  }
+  await expect(
+    page.getByRole('button', { name: /Show status details$/ }),
+  ).toBeHidden();
+}
