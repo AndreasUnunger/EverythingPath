@@ -543,3 +543,67 @@ Shared IDs, each explicitly retained:
 
 
 Coverage plan: preserve all existing E2E scenarios, especially `character-ledger.spec.ts`, `existing-militia.spec.ts`, setup/workspace and persistence/Confirmation journeys; add section merge/conflict, required reason, carried-state, membership/scope and responsive/state coverage. Prove same-identity recovery for multiple staged orphans through existing source corrections, including reload/another device and required fact entry without an archive query. Implementation must add Militia Correction to the glossary and update actual shipped locations and tests.
+
+## Planned Upkeep implementation ownership
+
+Implementation issue: [Implement rules-ordered Upkeep and compatible shared dice totals](https://github.com/AndreasUnunger/EverythingPath/issues/140), authored by [Write the Upkeep implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/125). Rollout position 3, after the Week frame. These are planned locations and compatibility obligations, not shipped claims.
+
+All rows are **planned** until implementation ships. Preserve stable IDs and update actual locations/test mappings on delivery.
+
+| ID | Acceptance and coverage ownership |
+| --- | --- |
+| UPK-01 | Replace duplicate outcome tiles with section effects plus frame now → after values, retaining starting training/minimum treasury and rank visibility; Upkeep facts, frame presentation. |
+| UPK-02 | First-week skip notice and frame “Skipped · first week” caption; skip has no hidden requirements/effects. |
+| UPK-03 | All five existing required roll kinds, their conditional presence, notation/DC/bonus/total/modifiers and dice-total input; natural and loss branches tested. |
+| UPK-04 | Nearest settlement cards only for applicable maximum-notoriety step; required after check failure; campaign-scoped choices and existing selection/clear semantics. |
+| UPK-05 | Recover/Leave disabled and missing-team return rows; newly selecting Remove is retired here, with reachable Militia correction fallback and old-draft repair below. |
+| UPK-06 | Rules-prefilled gp recovery cost, automatic valid edits, reasoned treasury adjustment, Use rules cost and Leave cleanup; Stage recovery retired. |
+| UPK-07 | Return d20 plus Security bonus/total/result; scheduled-return suppression, end-week timing and natural 1 retained. |
+| UPK-08 | All rank-boon details, per-PC fixed-list cards or text acknowledgement and clear; old text preserved. |
+| UPK-09 | Inline recovery-funds and withdrawal-funds Rules Exceptions with reason/clear; new team-removal and non-officer-transfer exception entry retired from Upkeep, old recorded facts retained. |
+| UPK-10 | Ordered deposit/withdraw Add/remove, gp display/copper persistence and before/after; officer choice retired. |
+| UPK-11 | Applicable item warning messages and frame This phase/counts; removal/transfer-officer warnings retired for new ordinary editing, archived-officer bonus diagnostics retained. |
+| UPK-12 | Required-decision/readiness facts feed frame footer/This phase and skip caption; no duplicate phase footer or contradictory local ready flag. |
+| WEEK-04 | Shared roll/condition/transfer/exception/acknowledgement updates and latest edit wins; frame owns feedback. |
+| WEEK-05 | Existing optimistic preview immediately updates section/header/reference/readiness facts. |
+| WEEK-06 | Frame save/failed/remote-update feedback remains correct for new editors. |
+| WEEK-07 | Rejected saves restore authoritative data and invalidate review; local invalid form entries are not falsely reported as saved. |
+| WEEK-08 | Preserve frame departure protection and do not silently discard pending local invalid recovery/transfer entries on destructive form replacement; existing pending-write barrier remains authoritative. |
+| WEEK-10 | All Upkeep editing and open input surfaces disabled during Confirmation; frame owns lifecycle. |
+| WEEK-12 | Consume frame loading/failure/no-militia states and shell campaign gate; use section skeleton inside week frame while Upkeep content resolves. |
+| WEEK-13 | Upkeep condition/settlement/boon choice cards keep tap/keyboard, clear where allowed and touch-safe existing drag affordances where still provided; no global removal of other owners' choice interactions. |
+| WEEK-14 | Shared total input retains digits-only/invalid paste protection, zero, blank-clear and required-versus-format feedback; gp money fields use separate copper-exact decimal parser, not integer truncation. |
+| WEEK-15 | Approved replacement of ordered per-die entry by one dice-total field; this owner delivers compatibility for all phase consumers and legacy arrays, including incomplete arrays and record readers. |
+| WEEK-16 | Advisory total ranges based on required dice count/sides, legacy per-die diagnostics preserved; each phase's warning presentation remains reachable. |
+| WEEK-17 | Upkeep numbered sections/check rows and forms fit phone/tablet/desktop; frame owns surrounding responsive shell. |
+| WEEK-18 | Shared structured nested-roll adapter must support new totals and legacy forms without losing add/remove/Save/Clear, target, outcome or custom modifier operations; Activity/Event/Persistent/Review own their later layouts. |
+| ACT-12 | Compatibility-only update to current Activity roll fields/modifier editor, including multi-die training/delivery; Activity owns full redesign. |
+| ACT-13 | Activity check bonus/total remains unchanged for equivalent rolls; Activity owner retains final presentation. |
+| EVT-01 | Event chance d100 dual-form input/read compatibility; Event owns full editor. |
+| EVT-04 | Event occurrence table-roll dual-form input/read compatibility without changing its tree; Event owns full editor. |
+| EVT-05 | Event table modifiers survive shared schema changes; Event owns final modifier layout. |
+| EVT-07 | All nested Event detail rolls support both forms and total entry; targets/structured operations remain. Event owns full replacement. |
+| EVT-10 | Event check bonus/total/breakdown derives equivalent results; Event owns presentation. |
+| EVT-11 | Event roll-format warnings/requirements remain understandable and applicable; Event owns full warnings/exception layout. |
+| PER-04 | Nested Persistent checks support both forms and total entry without dropping officer/Overseer fields; Persistent owns redesign. |
+| PER-07 | Equivalent Persistent check results/outcomes for both roll forms; Persistent owns final presentation. |
+| PER-08 | Persistent roll requirements/range warnings remain available; Persistent owns full warnings/exception layout. |
+| SUM-02 | Current Summary still identifies genuinely missing/incompatible rolls and withdrawal-funds reasons; Review & confirm owns presentation. |
+| SUM-06 | Equivalent total rolls retain Rules Baseline/Final outcomes; only approved transfer rule changes behavior. Review & confirm owns presentation. |
+| SUM-07 | Old exception facts remain readable/editable in existing Summary; no new officer-transfer requirement. Review & confirm owns final presentation. |
+| SUM-09 | Current Summary renders applicable new range and transfer warnings; Review & confirm owns final list. |
+| SUM-10 | Current consequences read actorless new transfers and equivalent dice totals; Review & confirm owns redesign. |
+| SUM-11 | Existing text acknowledgements, including legacy boon outcomes, remain readable; Review & confirm owns presentation. |
+| HIST-04 | Recorded Ruleset Version/provenance remain unchanged and readable; Finished weeks owns header redesign. |
+| HIST-05 | Current historical record sections remain readable for old/new roll and transfer forms; Finished weeks owns replacement presentation. |
+| STATE-01 | Shell maintenance stays readable; attempted Upkeep write follows existing failure path. |
+| STATE-05 | Frame states plus shell membership/access state, with no Upkeep-specific access leakage. |
+| STATE-06 | Reload and second-member persistence across every changed roll/transfer form; shared regression obligation. |
+| LEDG-01 | Existing correction form retains team removal before redesigned Teams correction ships; Militia corrections owns final implementation. |
+
+No new IDs required: total entry, check breakdown and changed transfer interaction replace or extend these existing capabilities. This issue does not claim all of Activity, Event, Persistent, Summary or historical layout as owned merely because it adapts a shared field.
+
+**Signed-off removals/replacements:** [Upkeep approval](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035) explicitly covers UPK-05's Remove option, UPK-06's Stage recovery, UPK-09's team-removal and non-officer-transfer exception entry, UPK-10's officer choice, and corresponding UPK-11 removal/transfer-officer warnings. Team removal remains a correction capability. WEEK-15's ordered dice editing becomes one total per roll under the same approval and [shared ownership amendment](https://github.com/AndreasUnunger/EverythingPath/issues/122#issuecomment-5846600504); historical dice detail is not retired. UPK-01 tiles and UPK-12 local hint relocate into headers/frame under the Upkeep and Week layout decisions. No archived-officer bonus diagnostic, withdrawal-funds exception, boon, modifier or historical fact is signed off for removal.
+
+
+The complete shared roll contract and compatibility/coverage acceptance are in the implementation issue. Existing draft arrays (including partial arrays), operation records, actor-bearing transfers and immutable history remain readable; Upkeep owns all current phase/nested-roll/summary/history adapters before new total writers ship. The transfer character/officer rule removal uses the next unused Ruleset Version; format-only conversion does not re-version or rewrite existing records. Team removal remains available in the current Militia correction form until its redesigned Teams section ships.
