@@ -355,3 +355,69 @@ Implementation spec: [Implement the campaign navigation shell and scoped routes]
 Approved changes/removals: NAV-01 sidebar and NAV-03 placeholder destination replacement are authorized by [navigation resolution](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561); NAV-09 trigger is replaced by bottom navigation/More under [responsive-shell approval](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929); only CHAR-09's **Select a campaign…** fragment is removed under [shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381); the standalone correction address is replaced by `/militia` under [setup/correction approval](https://github.com/AndreasUnunger/EverythingPath/issues/103#issuecomment-5834024251). No current character, correction, history/audit or week-editing capability is removed merely because a prototype omits it.
 
 Shell and Week frame cannot depend on the future finished-weeks listing query: current Finished weeks access and existing `canonicalHistory.read` remain usable until rollout 11. All current browser scenarios (including nightly) and direct persistence/Confirmation contracts keep equivalent coverage; the implementation issue enumerates them. No schema/payload/rules change or Ruleset Version bump belongs to this shell delivery.
+
+### Setup — planned ownership
+
+Implementation spec: [Implement guided Militia Setup with browser resume](https://github.com/AndreasUnunger/EverythingPath/issues/138). Shipping position 8, after Review & confirm and before Militia corrections. All destinations and coverage below are **planned**, not shipped; preserve the baseline current-location/E2E rows above until implementation.
+
+| ID | Destination and acceptance |
+| --- | --- |
+| SETUP-01 | Starting point: New/Existing retains entered facts; New defaults rank 1, training 0, 1,000 copper (10 gp). Switching Existing clears the first-militia-week skip as today. |
+| SETUP-02 | Starting point: focus, rank, training, treasury in copper and notoriety, with current numeric semantics and defaults. |
+| SETUP-03 | Week: current week, start day, first militia week shown only for New, previous week uneventful and optional last persistent buyoff week. |
+| SETUP-04 | Week: all five open phases; Persistent without carried events warns and opens Upkeep under current eligibility rules. |
+| SETUP-05 | People & officers: campaign records, roster inclusion/removal, current kind, Hit Dice and six officer-role toggles. Removing a person clears its roles and managers; do not delete the character record. Keep all current kinds/Hit Dice validation until the named migration. |
+| SETUP-06 | Teams: add/remove, name, type, active/disabled/missing condition, reward-limit exemption, manager from roster and notes. |
+| SETUP-07 | Character conditions: add/remove, character, available/hidden/captured/recovering/dead, headquarters/refuge/elsewhere location and description, PCs must rescue, capture source/week, rescued/restored weeks. |
+| SETUP-08 | Settlements: add/remove, name, reputation, secured/occupied, temporary reputation shift, Reduce Danger shift/end week and refuge activated/end weeks. |
+| SETUP-09 | Carried effects: persistent-event instances with type, started week, processing order, all supported entity targets and Theft mitigation week. Repeated types retain separate identities and targeting. |
+| SETUP-10 | Assets: items, including add/remove, name, value, militia/character ownership, identified, weight and location. |
+| SETUP-11 | Assets: caches, including location, class, status, secure/extradimensional, return Activity week and item contents. |
+| SETUP-12 | Assets: orders, including item, delivery settlement, source/kind, ordered week/day, due day/Activity week, price, delivery days, enchantment value and receipt recorded/cleared with received day. Preserve decimal enchantment input. |
+| SETUP-13 | Assets: marketplaces, including source, settlement, available/expires week, availability, availability percentage, sale percentage and contraband. |
+| SETUP-14 | Carried effects: queued effects with source, start/end week and every existing branch: check modifier, upkeep loss multiplier, activity training multiplier, event chance, all is calm, automatic events, blocked action, team unavailable, team return and narrative. Retain each branch's fields. |
+| SETUP-15 | Carried effects: one-use bonuses with source, applies-to, team, phase, amount and available/consumed week. |
+| SETUP-16 | Carried effects: skill benefits with characters, skills, bonus type/value, settlement, after-dark and start/end week. |
+| SETUP-17 | Carried effects: Market Day benefits with settlements and start/end week. |
+| SETUP-18 | Review & start: optional setup notes, persisted unchanged and displayed after entry through Week frame's WEEK-09. |
+| SETUP-19 | Live non-blocking section warnings and collected review warnings with links; remove only the approved keep-and-explain hint. |
+| SETUP-20 | Field errors for empty versus malformed values and linked review error summary; preserve structural/reference validation. |
+| SETUP-21 | Start militia week, Starting militia… pending feedback, retry with values retained on failure; no duplicate initialization. |
+| SETUP-22 | Initially started: “This militia is already set up.” with Open week N and Open militia, inside the shell. |
+| SETUP-23 | Setup-specific responsive skeleton and screen-reader loading status, failed-load card/Try again; shell handles unavailable/signed-out campaigns. |
+| SETUP-24 (new) | Browser resume of unfinished values, including incomplete numeric input, nested entries, selected step and mode, safely scoped to the signed-in account, organization and campaign. |
+| SETUP-25 (new) | Nine freely navigable steps, live status/counts, optional grouping, Next and linked review navigation across all breakpoints. |
+| SETUP-26 (new) | Inline Add character creates through existing character dialog/mutation and appears reactively in People & officers without losing unfinished setup. |
+| SETUP-27 (new) | Another player completes setup while the form is open: detect started transition and automatically open the current week without overwriting the accepted setup. |
+
+Shared IDs and owners:
+
+| ID | Setup obligation and other owner |
+| --- | --- |
+| NAV-11 | Consume shell's same-campaign Setup entry from Week/Militia; Week frame/Militia corrections own their empty-page links. |
+| NAV-13 | Own both started-page links; Navigation shell supplies scoped destinations. |
+| NAV-14 | Own successful start navigation to the same campaign's requested eligible phase; shell routes it, Week frame enforces Phase View eligibility. |
+| NAV-15 | Preserve all phase values/fallback; shell owns parsing and Week frame owns later phase navigation. |
+| NAV-17 | Consume shell's scoped route and legacy redirect contract; preserve setup bookmarks. |
+| CHAR-03 | Reuse existing full Add character dialog: name, current kind, level, six ability scores, notes and validation; Characters & officers owns overall CRUD and its later redesign. |
+| CHAR-07 | Inline character failure keeps its form values with existing error presentation; Characters & officers owns general CRUD errors. |
+| CHAR-08 | Newly created/changed character options arrive on other members' devices; Characters & officers owns records' realtime contract. |
+| LEDG-02 | Shared Values editor/validation primitives; Militia corrections owns correction UI and save behavior. |
+| LEDG-03 | Shared roster/officer/team-manager field primitives; Militia corrections retains the legacy roster/officer editor until Characters & officers replaces it. |
+| LEDG-04 | Shared section field primitives and reference semantics; Militia corrections owns all correction entry points. |
+| LEDG-07 | Shared section-keyed warning presentation; Militia corrections owns warning aggregation at each correction save. |
+| WEEK-09 | Persist notes; Week frame owns their display during normal play. |
+| STATE-01 | Render under shell maintenance banner; inputs stay readable/editable and server pause failures use ordinary save feedback. |
+| STATE-02 | Own Setup layout skeleton; shell owns name/account loading. |
+| STATE-03 | Supply “Militia setup could not be loaded.” and page-local Try again using shell's failed-load card. |
+| STATE-04 | Respect shell's organization selection and unavailable state; never restore another organization's setup into this page. |
+| STATE-05 | Own Setup-specific loading/failure/started state while shell owns campaign access. |
+| STATE-06 | Setup accepted state/characters persist and are shared; unfinished form is deliberately browser-local. |
+| STATE-07 | Consume shell's neutral sign-in/unavailable campaign gate before rendering protected data or restoring its form. |
+
+**Signed-off removals/replacements:** [prototype approval](https://github.com/AndreasUnunger/EverythingPath/issues/113#issuecomment-5844235691) removes explanatory captions, including the browser-persistence note, People introduction and SETUP-19 keep-and-explain hint; it does not remove persistence, warnings, field labels, required validation or status captions. [Shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces SETUP-22's old completion text and initial-entry redirect with the two-link started page, and SETUP-23's visible loading paragraph with a layout skeleton plus accessible status. No data-entry capability is removed.
+
+
+Coverage plan: preserve `existing-militia.spec.ts`, `canonical-workspace.spec.ts`/`support/setup-workspace.ts`, character-ledger/access/nightly journeys, Action Slot/complete-week/cutover journeys and all direct persistence/Confirmation scenarios. Retain setup pure/component/Convex integration contracts for idempotent initialization, complete imports, authority, foreign-reference rejection, competing starts and existing first-week skip. Add focused guided navigation/status, raw browser-resume/isolation, inline reactive creation, initial-started versus live completion, own-phase race, responsive/accessibility and page-state cases as specified in the linked issue. No tests were executed for this documentation-only authoring.
+
+Handoffs: [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) supplies scoped routes/access/maintenance; Week frame supplies ongoing Phase View behavior and WEEK-09 notes; [Militia corrections authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/131) consumes section editors/validators/warning descriptors while owning save merges/conflicts and retaining roster/officer fallback. [Characters & officers authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/132) owns later `pc | npc`, roster kind mirroring, commandant fallback, manager rules and compatibility across Setup's existing form/schema, inline CRUD, character source and versioned browser envelopes. The Setup spec does not change any backend schema, argument/result shape or Ruleset Version; existing options lacks week/kind, so reuse authorized current reads rather than quietly add fields.
