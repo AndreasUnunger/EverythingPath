@@ -1,6 +1,57 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* tw-animate-css's default enter/exit keyframes also animate
+   `filter: blur(var(--tw-enter-blur, 0))` from/to the element's own
+   `filter: none`, even when a surface only asks for fade/zoom/slide. Nothing
+   here uses blur-in/blur-out, and WebKit's Skia compositor crashes when a
+   filter animation ends in an empty filter list. Point animate-in/out at
+   keyframes with the same opacity/transform semantics and no filter. (The
+   library's own keyframes are hoisted after this file, so they cannot be
+   overridden by name.) */
+@theme inline {
+  --animate-in: enter-unfiltered
+    var(--tw-animation-duration, var(--tw-duration, 0.15s)) var(--tw-ease, ease)
+    var(--tw-animation-delay, 0s) var(--tw-animation-iteration-count, 1)
+    var(--tw-animation-direction, normal) var(--tw-animation-fill-mode, none);
+  --animate-out: exit-unfiltered
+    var(--tw-animation-duration, var(--tw-duration, 0.15s)) var(--tw-ease, ease)
+    var(--tw-animation-delay, 0s) var(--tw-animation-iteration-count, 1)
+    var(--tw-animation-direction, normal) var(--tw-animation-fill-mode, none);
+  @keyframes enter-unfiltered {
+    from {
+      opacity: var(--tw-enter-opacity, 1);
+      transform: translate3d(
+          var(--tw-enter-translate-x, 0),
+          var(--tw-enter-translate-y, 0),
+          0
+        )
+        scale3d(
+          var(--tw-enter-scale, 1),
+          var(--tw-enter-scale, 1),
+          var(--tw-enter-scale, 1)
+        )
+        rotate(var(--tw-enter-rotate, 0));
+    }
+  }
+  @keyframes exit-unfiltered {
+    to {
+      opacity: var(--tw-exit-opacity, 1);
+      transform: translate3d(
+          var(--tw-exit-translate-x, 0),
+          var(--tw-exit-translate-y, 0),
+          0
+        )
+        scale3d(
+          var(--tw-exit-scale, 1),
+          var(--tw-exit-scale, 1),
+          var(--tw-exit-scale, 1)
+        )
+        rotate(var(--tw-exit-rotate, 0));
+    }
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 /* Short viewports (phone landscape, a short tablet window): the bounded
    Week frame tightens its chrome so the editor keeps room and its footer or
