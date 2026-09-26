@@ -482,3 +482,64 @@ Shared owner links: [Upkeep](https://github.com/AndreasUnunger/EverythingPath/is
 Approved removals/replacements: [Week-layout approval](https://github.com/AndreasUnunger/EverythingPath/issues/101#issuecomment-5831260876) replaces WEEK-01's duplicate heading with Week tab/current step, drops the prototype's duplicate History icon while retaining NAV-10, and moves WEEK-09 setup notes into a button. [Summary approval](https://github.com/AndreasUnunger/EverythingPath/issues/110#issuecomment-5844063536) removes the Review & confirm caption and ready/needs-attention sentences; disabled-Confirmation reasons remain. Frame applies its caption/footer portion now; Review & confirm owns the later review-block sentence/note removals. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces WEEK-12 loading/error/unavailable presentation with accessible skeleton, Try again and no-militia/shell-access states; it adds WEEK-19's cross-device notice. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929) replaces phone stepper/panel/footer with step sheet/reference sheet/status strip, preserving access. NAV-01's sidebar removal is shell-owned under [navigation approval](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561); frame inherits remembered local reference visibility.
 
 No shared choice, numeric, roll, structured-field or Confirmation capability is removed by the frame. WEEK-15 remains the old ordered-dice interaction until Upkeep delivers its approved shared dice-total compatibility change; WEEK-13's future tap/card replacements and WEEK-18's replacement forms belong to their phase owners. History references initially use the existing reader rather than assuming rollout 11's listing query exists. Implementation updates current-location and actual-test coverage only when the behavior lands.
+
+### Planned: Militia corrections
+
+Output: [Implement in-place Militia corrections and reference repair](https://github.com/AndreasUnunger/EverythingPath/issues/139), from [Write the Militia corrections implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/131). Shipping position 9 of 12, after [guided Militia Setup](https://github.com/AndreasUnunger/EverythingPath/issues/138). All locations/coverage below are **planned, not shipped**; current-location rows above stay unchanged until implementation.
+
+Militia corrections owns the nine correction sections, required reasons, latest-section merge/conflict, manager controls, read-only carried state and same-API draft-reference repair. Keep the existing roster/officer correction editor until Characters & officers replaces it; no schema/payload/rules migration or correction-history query. New IDs LEDG-11, LEDG-12 and LEDG-13 are reserved by this spec.
+
+| ID | Acceptance / coverage obligation |
+| --- | --- |
+| LEDG-01 | Replace the single Edit militia ledger toggle with per-section Correct/Cancel; retain a reachable temporary roster/officer editor. Test one local editor and Cancel without a write. |
+| LEDG-02 | Values: focus, rank, training, treasury in copper, notoriety. Defaults/validation reuse Setup, intentional numeric overrides remain possible. |
+| LEDG-03 | Teams retains manager assign/replace/clear from roster people, names and limit warnings. Temporarily preserve roster inclusion/removal, kind, Hit Dice and six officer-role assignments; final roster/officer owner is Characters & officers. Removing a roster person clears their roles and team managers with named warnings, without deleting the character record. |
+| LEDG-04 | Preserve every correctable field in the section table below, including add/remove, conditions, asset delivery/receipt facts and both carried benefit types. Test each section's isolated save and nested sibling preservation. |
+| LEDG-05 | Each correction requires entered free text, trimmed nonempty, at most the existing 2,000-character server limit. No Militia preset chips or prefilled reason; blank/whitespace fails inline and in the save summary. |
+| LEDG-06 | Merge only the edited section into latest accepted state; latest revision on save; same-section conflict shows theirs/yours and Start again from their values. Pending, failure/retry and unknown-ack behavior cannot overwrite remote changes or duplicate an acknowledged correction. |
+| LEDG-07 | Section warnings plus collected save-point warnings are advisory; fields and linked error summary distinguish invalid data. Remove only approved explanatory hints. |
+| LEDG-08 | Expose previously hidden week context, carried persistent events, queued effects and one-use bonuses read-only, in Changes through the week. No correction fields for them. |
+| LEDG-09 | No militia: show No militia yet. and Set up militia; character CRUD remains usable on Characters & officers. |
+| LEDG-10 | Responsive skeleton, accessible Loading militia ledger… status, page failure/Try again and successful recovery inside the shell. |
+| LEDG-11 — new, planned | Section index/detail with count/warning indicators, phone single-open rows and desktop previews, including accessible navigation and only one correction open. |
+| LEDG-12 — new, planned | Before save, identify all staged choices affected by candidate source changes, with human names/slot positions and reachable phase controls; after save recompute warnings on every device. |
+| LEDG-13 — new, planned | Recover from source-correction orphaned references through existing draft edits when a complete valid result is possible, or identity-preserving source restoration through the ordinary correction API; cover multiple orphans, reload and another device. No relaxed validation or new payload. |
+
+Shared IDs, each explicitly retained:
+
+| ID | Militia obligation / owner |
+| --- | --- |
+| SETUP-02 | Reuse Values editor and structural validation; Setup owns initialization. |
+| SETUP-05 | Reuse roster/officer fields for temporary fallback; Setup owns initialization, Characters & officers owns permanent replacement/migration. |
+| SETUP-06 | Reuse all team fields/manager choices; Setup owns initialization. |
+| SETUP-07 | Reuse full character-condition editor; Setup owns initialization. |
+| SETUP-08 | Reuse full settlement editor; Setup owns initialization. |
+| SETUP-10 | Reuse all item fields; Setup owns initialization. |
+| SETUP-11 | Reuse all cache fields; Setup owns initialization. |
+| SETUP-12 | Reuse complete order editor including decimals and receipts; Setup owns initialization. |
+| SETUP-13 | Reuse all marketplace fields; Setup owns initialization. |
+| SETUP-16 | Reuse carried skill-benefit editor; Setup owns initialization. |
+| SETUP-17 | Reuse carried Market Day editor; Setup owns initialization. |
+| SETUP-19 | Reuse section-keyed advisory warnings; Setup owns initialization review, this issue correction review. |
+| SETUP-20 | Reuse field and reference validation with linked errors; Setup owns initialization, this issue merged-correction validation. |
+| NAV-11 | Militia no-militia link opens same-campaign Setup; shell owns routing. |
+| NAV-16 | Every old correction operation remains reachable throughout rollout; shell temporary hosting is replaced here. |
+| NAV-17 | Consume scoped Militia/Characters/Week routes and context-preserving bookmarks; shell owner. |
+| CHAR-01 | Character list remains reachable on Characters & officers, not removed when replacing the old ledger tab; Characters & officers owns it. |
+| CHAR-08 | Current character changes update manager options/effects and are never overwritten by a stale correction; Characters & officers owns record updates. |
+| CHAR-09 | Retain pre-setup/empty/archive behavior on Characters & officers; shell owns unavailable campaign. |
+| WEEK-03 | Repair navigation changes only this player's Phase View; Week frame owns phase navigation. |
+| WEEK-08 | Preserve pending-save/Confirmation departure safeguards and recovery feedback when navigating between Militia and Week; Week frame owns weekly barrier. |
+| WEEK-12 | Militia links into existing same-campaign week states; Week frame owns those states. |
+| STATE-01 | Shell banner leaves militia readable/editable; paused writes fail normally with fields/reason retained. |
+| STATE-02 | Militia owns its section skeleton; shell owns name/account skeleton. |
+| STATE-03 | Use shell's shared card: The militia could not be loaded. with page-local Try again, tabs usable. |
+| STATE-04 | Respect shell organization selection/unavailable state; never show stale prior-organization facts. |
+| STATE-05 | Militia owns its loading/failure/no-militia distinction; campaign access remains shell-owned. |
+| STATE-06 | Saved corrections, warnings and restored references update other players and survive reload. Shared regression obligation. |
+| STATE-07 | Use shell neutral unavailable/sign-in gate before protected page reads. |
+
+**Signed-off replacements/removals:** [separate workflows](https://github.com/AndreasUnunger/EverythingPath/issues/103#issuecomment-5834024251) replaces LEDG-01's whole-page toggle and `/militia/correct` with in-place corrections and transfers roster/officer ownership; this does not authorize removing that fallback early. [Prototype approval](https://github.com/AndreasUnunger/EverythingPath/issues/113#issuecomment-5844235691) removes explanatory captions: the weekly-actions hint, keep-and-explain warning hint, reason helper, “you can still save…” line and conflict explainer. Keep concise warnings, field labels, actionable errors, read-only group label and validation. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces visible ledger-loading copy with skeleton/accessibility status and pre-setup ledger content with the no-militia page while preserving character access elsewhere. No field, manager operation or reason requirement is removed.
+
+
+Coverage plan: preserve all existing E2E scenarios, especially `character-ledger.spec.ts`, `existing-militia.spec.ts`, setup/workspace and persistence/Confirmation journeys; add section merge/conflict, required reason, carried-state, membership/scope and responsive/state coverage. Prove same-identity recovery for multiple staged orphans through existing source corrections, including reload/another device and required fact entry without an archive query. Implementation must add Militia Correction to the glossary and update actual shipped locations and tests.
