@@ -1,9 +1,14 @@
-import { MilitiaSetupScreen } from '~/components/militia-setup/screen';
+import { redirect } from 'next/navigation';
+import {
+  legacyRedirectTarget,
+  type RouteSearchParams,
+} from '~/components/campaign-shell/legacy-redirect';
+
+// Old bookmark: the scoped setup route still shows a started militia's state.
 export default async function CanonicalSetupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ campaign?: string }>;
+  searchParams: Promise<RouteSearchParams>;
 }) {
-  const { campaign } = await searchParams;
-  return <MilitiaSetupScreen campaign={campaign ?? null} />;
+  redirect(legacyRedirectTarget('/canonical-setup', await searchParams));
 }

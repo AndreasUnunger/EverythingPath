@@ -1,10 +1,11 @@
 import { test, expect } from './support/fixtures';
-import { pointerPlace } from './support/interactions';
+import { openCampaignSection, pointerPlace } from './support/interactions';
 
 test.use({ caseKey: 'realtimeActionSlot' });
 test('players share a Staged Action Choice', async ({ players }) => {
   for (const page of [players.gm, players.player]) {
     await page.goto('/campaigns');
+    await openCampaignSection(page, 'week');
     await page.getByRole('button', { name: 'Activity', exact: true }).click();
   }
   const card = players.player.getByRole('button', {

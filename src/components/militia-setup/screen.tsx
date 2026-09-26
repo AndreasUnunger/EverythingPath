@@ -6,6 +6,8 @@ import { zid } from 'convex-helpers/server/zod4';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { Button } from '~/components/ui/button';
+import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import { weekPath } from '~/lib/campaign-routes';
 import { MilitiaSetupForm } from './form';
 function SetupCampaign({ campaignId }: { campaignId: Id<'campaign'> }) {
   const options = useQuery(api.canonicalSetup.options, { campaignId });
@@ -20,9 +22,9 @@ function SetupCampaign({ campaignId }: { campaignId: Id<'campaign'> }) {
       <>
         <p role="status">Militia setup is complete.</p>
         <Button asChild>
-          <a href={`/canonical-workspace?campaign=${campaignId}`}>
+          <GuardedLink href={weekPath(campaignId)}>
             Open current week
-          </a>
+          </GuardedLink>
         </Button>
       </>
     );
@@ -31,9 +33,7 @@ function SetupCampaign({ campaignId }: { campaignId: Id<'campaign'> }) {
       characters={options.characters}
       onSave={async (setup) => {
         await initialize({ campaignId, initializationId, setup });
-        router.push(
-          `/canonical-workspace?campaign=${campaignId}&phase=${setup.phase}`,
-        );
+        router.push(weekPath(campaignId, setup.phase));
       }}
     />
   );
@@ -42,7 +42,7 @@ export function MilitiaSetupScreen({ campaign }: { campaign: string | null }) {
   const auth = useConvexAuth();
   const parsed = zid('campaign').safeParse(campaign);
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6">
       <h1 className="text-2xl font-bold">Set up militia</h1>
       {auth.isLoading ? (
         <p role="status">Loading militia setup…</p>

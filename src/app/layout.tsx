@@ -4,15 +4,8 @@ import { ConvexClientProvider } from 'ConvexClientProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import ConvexQueryCacheProviderClientComponent from 'ConvexQueryCacheProvider';
-import {
-  OnlyMobileSidebarTrigger,
-  SidebarInset,
-  SidebarProvider,
-} from '~/components/ui/sidebar';
-import AppSidebar from './appSidebar';
 import type React from 'react';
 import { Cinzel, VT323, MedievalSharp } from 'next/font/google';
-import { cookies } from 'next/headers';
 
 const cinzel = Cinzel({
   subsets: ['latin'],
@@ -41,12 +34,11 @@ export const metadata: Metadata = {
   icons: [{ rel: 'icon', url: '/favicon.ico' }],
 };
 
-export default async function RootLayout({
+// Each route renders its own top bar: the campaign list keeps the
+// organization switcher in the breadcrumb, campaign pages the campaign switcher.
+export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
-
   return (
     <html
       lang="en"
@@ -72,11 +64,7 @@ export default async function RootLayout({
         >
           <ConvexClientProvider>
             <ConvexQueryCacheProviderClientComponent>
-              <SidebarProvider defaultOpen={defaultOpen}>
-                <AppSidebar />
-                <SidebarInset className="px-2">{children}</SidebarInset>
-                <OnlyMobileSidebarTrigger />
-              </SidebarProvider>
+              {children}
             </ConvexQueryCacheProviderClientComponent>
           </ConvexClientProvider>
         </ClerkProvider>

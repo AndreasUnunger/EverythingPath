@@ -18,6 +18,20 @@ export async function selectCampaign(page: Page, name: string) {
   ).toContainText(name);
 }
 
+export async function openCampaignSection(
+  page: Page,
+  section: 'week' | 'history' | 'militia' | 'characters' | 'setup',
+) {
+  const link = page
+    .locator(`a[href$="/${section}"]:visible, a[href*="/${section}?"]:visible`)
+    .first();
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page).toHaveURL(
+    new RegExp(`/campaigns/[^/]+/${section}(?:\\?|$)`),
+  );
+}
+
 export function actionSlot(page: Page, number: number) {
   return page.getByRole('group', {
     name: `Activity Slot ${number}`,

@@ -1,3 +1,4 @@
+import { openCampaignSection } from './support/interactions';
 import { test, expect } from './support/fixtures';
 
 test.use({ caseKey: 'completeWeek' });
@@ -5,6 +6,7 @@ test('a player confirms a complete week and reloads its outcome', async ({
   page,
 }) => {
   await page.goto('/campaigns');
+  await openCampaignSection(page, 'week');
   await expect(
     page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
   ).toBeVisible();
@@ -25,6 +27,6 @@ test('a player confirms a complete week and reloads its outcome', async ({
   await expect(
     page.getByRole('heading', { name: 'Week 2 · Upkeep' }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Finished weeks', exact: true }).click();
+  await openCampaignSection(page, 'history');
   await expect(page.getByRole('heading', { name: /Week 1/ })).toBeVisible();
 });

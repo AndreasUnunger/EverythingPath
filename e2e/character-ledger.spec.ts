@@ -1,3 +1,4 @@
+import { openCampaignSection } from './support/interactions';
 import { test, expect } from './support/fixtures';
 
 test.use({ caseKey: 'characterLedger' });
@@ -6,10 +7,11 @@ test('players share character and officer assignment changes', async ({
 }) => {
   for (const page of [players.gm, players.player]) {
     await page.goto('/campaigns');
+    await openCampaignSection(page, 'week');
     await expect(
       page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
     ).toBeVisible();
-    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await openCampaignSection(page, 'characters');
     await page.getByRole('button', { name: /Character Ledger/ }).click();
   }
   const player = players.player;
@@ -27,6 +29,7 @@ test('players share character and officer assignment changes', async ({
   await expect(
     players.gm.getByRole('row').filter({ hasText: 'Nara' }),
   ).toContainText('CHA 16');
+  await openCampaignSection(player, 'militia');
   await player
     .getByRole('button', { name: 'Edit militia ledger', exact: true })
     .click();
@@ -44,11 +47,9 @@ test('players share character and officer assignment changes', async ({
   await expect(
     player.getByRole('button', { name: 'Save correction', exact: true }),
   ).toBeHidden();
+  await openCampaignSection(players.gm, 'militia');
   await players.gm.reload();
-  await expect(
-    players.gm.getByRole('heading', { name: 'Week 1 · Upkeep' }),
-  ).toBeVisible();
-  await players.gm.getByRole('tab', { name: 'Ledger', exact: true }).click();
+  await expect(players.gm).toHaveURL(/\/campaigns\/[^/]+\/militia$/);
   await players.gm
     .getByRole('button', { name: 'Edit militia ledger', exact: true })
     .click();

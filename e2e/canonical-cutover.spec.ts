@@ -1,3 +1,4 @@
+import { openCampaignSection } from './support/interactions';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { api } from '../convex/_generated/api';
@@ -34,6 +35,7 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
       training: 42,
     });
     await players.gm.goto('/campaigns');
+    await openCampaignSection(players.gm, 'week');
     await expect(
       players.gm.getByRole('heading', { name: 'Week 9 · Upkeep' }),
     ).toBeVisible();

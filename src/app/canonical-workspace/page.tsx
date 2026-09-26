@@ -1,18 +1,14 @@
-import { z } from 'zod';
-import { CanonicalWorkspaceScreen } from '~/components/weekly-draft-workspace/board';
+import { redirect } from 'next/navigation';
+import {
+  legacyRedirectTarget,
+  type RouteSearchParams,
+} from '~/components/campaign-shell/legacy-redirect';
+
+// Old bookmark: keep campaign and phase, normalize the phase, never render.
 export default async function CanonicalWorkspacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ campaign?: string; phase?: string }>;
+  searchParams: Promise<RouteSearchParams>;
 }) {
-  const { campaign, phase } = await searchParams;
-  const parsed = z
-    .enum(['upkeep', 'activity', 'event', 'persistent', 'summary'])
-    .safeParse(phase);
-  return (
-    <CanonicalWorkspaceScreen
-      campaign={campaign ?? null}
-      initialPhase={parsed.success ? parsed.data : undefined}
-    />
-  );
+  redirect(legacyRedirectTarget('/canonical-workspace', await searchParams));
 }

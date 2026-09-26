@@ -7,15 +7,28 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { api } from '../../../convex/_generated/api';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
+import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import { campaignPath, type HistorySelection } from '~/lib/campaign-routes';
 import { HistoricalRecordView, provenanceLabels } from './record-view';
 type History = NonNullable<
   FunctionReturnType<typeof api.canonicalHistory.read>
 >;
-type Selection = { week?: number; recordId?: string; beforeSequence?: number };
-function useHistory(campaignId: Id<'campaign'>, selection: Selection) {
+type Selection = HistorySelection;
+function useHistory(
+  campaignId: Id<'campaign'>,
+  selection: Selection,
+  attempt: number,
+) {
   const convex = useConvex();
   const { week, recordId, beforeSequence } = selection;
-  const key = JSON.stringify([campaignId, week, recordId, beforeSequence]);
+  const key = JSON.stringify([
+    campaignId,
+    week,
+    recordId,
+    beforeSequence,
+    attempt,
+  ]);
   const [result, setResult] = useState<{
     key: string;
     data?: History | null;
@@ -125,25 +138,32 @@ export function HistoricalWeekNavigation({
     </>
   );
 }
-function HistoryBrowser({ campaignId }: { campaignId: Id<'campaign'> }) {
-  const [selection, select] = useState<Selection>({});
-  const result = useHistory(campaignId, selection);
+// The selection is owned by the route so the address, reload and browser
+// history carry the chosen week, record and audit page; the query payload is
+// the existing one.
+function HistoryBrowser({
+  campaignId,
+  selection,
+  select,
+}: {
+  campaignId: Id<'campaign'>;
+  selection: Selection;
+  select: (selection: Selection) => void;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const result = useHistory(campaignId, selection, attempt);
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
       <Button asChild variant="outline">
-        <a
-          href={`/canonical-workspace?campaign=${encodeURIComponent(campaignId)}`}
-        >
+        <GuardedLink href={campaignPath(campaignId, 'week')}>
           Return to current week
-        </a>
+        </GuardedLink>
       </Button>
       {result?.failed ? (
-        <Card role="alert" className="p-4">
-          History could not be loaded. Check campaign access and try again.
-          <Button variant="link" onClick={() => window.location.reload()}>
-            Reload history
-          </Button>
-        </Card>
+        <FailedLoadCard
+          noun="Finished weeks"
+          retry={() => setAttempt((value) => value + 1)}
+        />
       ) : result?.data === undefined ? (
         <p role="status">Loading history…</p>
       ) : result.data === null ? (
@@ -164,8 +184,12 @@ function HistoryBrowser({ campaignId }: { campaignId: Id<'campaign'> }) {
 }
 export function CanonicalHistoryScreen({
   campaign,
+  selection,
+  select,
 }: {
   campaign: string | null;
+  selection: Selection;
+  select: (selection: Selection) => void;
 }) {
   const auth = useConvexAuth();
   const parsed = zid('campaign').safeParse(campaign);
@@ -181,5 +205,12 @@ export function CanonicalHistoryScreen({
         Campaign history is unavailable.
       </p>
     );
-  return <HistoryBrowser key={parsed.data} campaignId={parsed.data} />;
+  return (
+    <HistoryBrowser
+      key={parsed.data}
+      campaignId={parsed.data}
+      selection={selection}
+      select={select}
+    />
+  );
 }

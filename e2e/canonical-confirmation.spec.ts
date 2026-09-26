@@ -1,3 +1,4 @@
+import { openCampaignSection } from './support/interactions';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { compoundAcceptanceFixture } from '../tests/rules/compound-acceptance-fixture';
 import { randomUUID } from 'node:crypto';
@@ -291,13 +292,14 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       ]);
       expect(record.provenance).toBe('confirmation');
       expect(record.supersedesRecordId).toBeNull();
-      const historyRoute = `/canonical-history?campaign=${activeCampaign}`;
+      const historyRoute = `/canonical-history?campaign=${activeCampaign}&week=1`;
       await Promise.all([
         players.gm.goto(historyRoute),
         players.player.goto(historyRoute),
         players.outsider.goto(historyRoute),
       ]);
       for (const page of [players.gm, players.player]) {
+        await expect(page).toHaveURL(/\/campaigns\/[^/]+\/history\?week=1$/);
         await expect(
           page.getByRole('heading', { name: 'Week 1 · History' }),
         ).toBeVisible();
@@ -325,9 +327,9 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       await expect(
         players.outsider.getByRole('heading', { name: 'Week 1 · History' }),
       ).toHaveCount(0);
-      await expect(
-        players.outsider.getByRole('main').getByRole('alert'),
-      ).toContainText('History could not be loaded');
+      await expect(players.outsider.getByRole('main')).toContainText(
+        "This campaign isn't available",
+      );
       await players.player.screenshot({
         path: join(run.artifactDirectory, 'canonical-history-tablet.png'),
         fullPage: true,
@@ -370,6 +372,30 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       await players.gm
         .getByRole('button', { name: 'Confirmed week · Entry 1' })
         .click();
+      await expect
+        .poll(() => new URL(players.gm.url()).searchParams.get('recordId'))
+        .toBeTruthy();
+      const selectedHistory = players.gm.url();
+      await players.gm.reload();
+      await expect(players.gm).toHaveURL(selectedHistory);
+      await expect(
+        players.gm.getByRole('button', { name: 'Confirmed week · Entry 1' }),
+      ).toHaveAttribute('aria-current', 'page');
+      await players.gm
+        .getByRole('button', { name: 'Latest finished week', exact: true })
+        .click();
+      await expect
+        .poll(() => new URL(players.gm.url()).searchParams.has('recordId'))
+        .toBe(false);
+      await players.gm.goBack();
+      await expect(players.gm).toHaveURL(selectedHistory);
+      await expect(
+        players.gm.getByRole('button', { name: 'Confirmed week · Entry 1' }),
+      ).toHaveAttribute('aria-current', 'page');
+      await players.gm.goForward();
+      await expect
+        .poll(() => new URL(players.gm.url()).searchParams.has('recordId'))
+        .toBe(false);
       await expect(
         players.gm.getByRole('heading', { name: 'Week 1 · History' }),
       ).toBeVisible();
@@ -382,9 +408,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       await expect(
         players.gm.getByRole('heading', { name: 'Week 1 · History' }),
       ).toBeVisible();
-      await players.player
-        .getByRole('link', { name: 'Finished weeks' })
-        .click();
+      await openCampaignSection(players.player, 'history');
       await expect(
         players.player
           .getByRole('region', { name: 'Final outcome' })

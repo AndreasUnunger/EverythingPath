@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { selectCampaign } from './interactions';
+import { openCampaignSection, selectCampaign } from './interactions';
 
 async function fitsViewport(page: Page, control: Locator) {
   await control.scrollIntoViewIfNeeded();
@@ -21,7 +21,7 @@ export async function navigationAndPersistence(
   campaignName: string,
 ) {
   await test.step('player: navigation, form layout, reload persistence and cross-layout edits', async () => {
-    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await openCampaignSection(page, 'characters');
     const ledger = page.getByRole('region', {
       name: 'Character Ledger',
       exact: true,
@@ -50,7 +50,7 @@ export async function navigationAndPersistence(
     ).toContainText('4');
     await page.reload();
     await selectCampaign(page, campaignName);
-    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await openCampaignSection(page, 'characters');
     await open.click();
     await expect(
       row,
@@ -74,13 +74,13 @@ export async function navigationAndPersistence(
     await page.setViewportSize(original);
     await page.reload();
     await selectCampaign(page, campaignName);
-    await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+    await openCampaignSection(page, 'characters');
     await open.click();
     await expect(
       row,
       'player: cross-layout edit persists as level 5',
     ).toContainText('5');
-    await page.getByRole('tab', { name: 'Militia week', exact: true }).click();
+    await openCampaignSection(page, 'week');
     await expect(
       page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
     ).toBeVisible();

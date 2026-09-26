@@ -1,9 +1,26 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-import { HistoricalWeekNavigation } from './screen';
+import { CanonicalHistoryScreen, HistoricalWeekNavigation } from './screen';
 import type { ComponentProps } from 'react';
 import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
+const watchQuery = vi.fn();
+const convex = { watchQuery: (...args: unknown[]) => watchQuery(...args) };
+vi.mock('convex/react', () => ({
+  useConvex: () => convex,
+  useConvexAuth: () => ({ isLoading: false, isAuthenticated: true }),
+}));
+vi.mock('next/link', () => ({
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.ComponentProps<'a'> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
 afterEach(cleanup);
 const source = createWeeklyDraft({
   draftId: 'closed',
@@ -83,4 +100,54 @@ test('[rules.P86.controls] history navigation selects whole records independentl
   expect(
     screen.queryByRole('button', { name: /restore|reopen|confirm week/i }),
   ).not.toBeInTheDocument();
+});
+
+test('[shell.history] the route owns the selection, keeps the existing query arguments and retries locally', () => {
+  let attempt = 0;
+  watchQuery.mockImplementation(() => ({
+    onUpdate: () => () => undefined,
+    localQueryResult: () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('offline');
+      return history;
+    },
+  }));
+  const select = vi.fn();
+  const view = render(
+    <CanonicalHistoryScreen
+      campaign="campaign"
+      selection={{ week: 4, recordId: 'original', beforeSequence: 3 }}
+      select={select}
+    />,
+  );
+  expect(watchQuery).toHaveBeenLastCalledWith(expect.anything(), {
+    campaignId: 'campaign',
+    week: 4,
+    recordId: 'original',
+    beforeSequence: 3,
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Finished weeks could not be loaded.',
+  );
+  expect(screen.queryByText('Reload history')).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('link', { name: 'Return to current week' }),
+  ).toHaveAttribute('href', '/campaigns/campaign/week');
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(watchQuery).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
+  expect(select).toHaveBeenLastCalledWith({ week: 8 });
+  view.rerender(
+    <CanonicalHistoryScreen
+      campaign="campaign"
+      selection={{}}
+      select={select}
+    />,
+  );
+  expect(watchQuery).toHaveBeenLastCalledWith(expect.anything(), {
+    campaignId: 'campaign',
+    week: undefined,
+    recordId: undefined,
+    beforeSequence: undefined,
+  });
 });

@@ -20,10 +20,11 @@ export async function exerciseMilitiaSetup(
     const route = `/canonical-setup?campaign=${campaignId}`;
     await Promise.all([players.gm.goto(route), players.outsider.goto(route)]);
     await expect(
-      players.outsider.getByText(
-        'Militia setup is unavailable for this campaign.',
-      ),
+      players.outsider.getByText("This campaign isn't available"),
     ).toBeVisible();
+    await expect(players.gm).toHaveURL(
+      new RegExp(`/campaigns/${campaignId}/setup$`),
+    );
     const gm = players.gm;
     await expect(
       gm.getByRole('textbox', { name: 'Treasury (copper)', exact: true }),
@@ -143,7 +144,13 @@ export async function exerciseMilitiaSetup(
         exact: true,
       }),
     ).toBeVisible();
+    await expect(gm).toHaveURL(
+      new RegExp(`/campaigns/${campaignId}/week\\?phase=event$`),
+    );
     await players.player.goto(`/canonical-workspace?campaign=${campaignId}`);
+    await expect(players.player).toHaveURL(
+      new RegExp(`/campaigns/${campaignId}/week(?:\\?|$)`),
+    );
     await expect(
       players.player.getByRole('heading', {
         name: `Week ${existing ? 12 : 1} · Upkeep`,

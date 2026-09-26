@@ -1,0 +1,447 @@
+'use client';
+import { useState, type ReactNode } from 'react';
+import { useAuth, useOrganization } from '@clerk/nextjs';
+import { useConvexAuth } from 'convex/react';
+import { usePathname } from 'next/navigation';
+import {
+  History,
+  LayoutGrid,
+  MoreHorizontal,
+  Shield,
+  Users,
+} from 'lucide-react';
+import type { Doc } from '@convex/_generated/dataModel';
+import { campaignQuery } from '~/lib/sharedQueries';
+import { campaignPath, type CampaignSection } from '~/lib/campaign-routes';
+import { Button } from '~/components/ui/button';
+import { Card } from '~/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '~/components/ui/sheet';
+import { Skeleton } from '~/components/ui/skeleton';
+import { cn } from '~/lib/utils';
+import {
+  CampaignProvider,
+  WeekLabelProvider,
+  useWeekLabel,
+} from './campaign-context';
+import { FailedLoadCard } from './failed-load';
+import {
+  GuardedLink,
+  NavigationGuardProvider,
+  useNavigationGuard,
+} from './navigation-guard';
+import {
+  AccountControl,
+  KeepLink,
+  OrganizationControl,
+  ShellFrame,
+  SignIn,
+  TopBarRow,
+} from './shell-frame';
+
+type Campaign = Doc<'campaign'>;
+const ALL_CAMPAIGNS = '__all';
+
+type Access =
+  | { kind: 'resolving' }
+  | { kind: 'signed_out' }
+  | { kind: 'no_organization' }
+  | { kind: 'failed'; retry: () => void }
+  | { kind: 'unavailable'; organizationName: string }
+  | {
+      kind: 'ready';
+      campaign: Campaign;
+      campaigns: Campaign[];
+      organizationId: string;
+    };
+
+// Access is decided from the active organization's own campaign list, so an
+// explicit id that is not in it never falls back to another campaign and a
+// campaign from a previous organization never flashes while switching.
+function useCampaignAccess(campaignId: string): Access {
+  const auth = useAuth();
+  const { organization, isLoaded: organizationLoaded } = useOrganization();
+  const convexAuth = useConvexAuth();
+  const signedIn = auth.isLoaded && auth.isSignedIn === true;
+  const enabled =
+    signedIn &&
+    organizationLoaded &&
+    convexAuth.isAuthenticated &&
+    !!organization;
+  const { data, error, refetch } = campaignQuery(organization?.id, enabled);
+  if (!auth.isLoaded || !organizationLoaded || convexAuth.isLoading)
+    return { kind: 'resolving' };
+  if (!signedIn || !convexAuth.isAuthenticated) return { kind: 'signed_out' };
+  if (!organization) return { kind: 'no_organization' };
+  if (error)
+    return {
+      kind: 'failed',
+      retry: () => {
+        void refetch();
+      },
+    };
+  if (!data) return { kind: 'resolving' };
+  const campaign =
+    data.state === 'ready'
+      ? data.campaigns.find((item) => item._id === campaignId)
+      : undefined;
+  if (data.state !== 'ready' || !campaign)
+    return { kind: 'unavailable', organizationName: organization.name };
+  return {
+    kind: 'ready',
+    campaign,
+    campaigns: data.campaigns,
+    organizationId: organization.id,
+  };
+}
+
+function CampaignSwitcher({
+  campaign,
+  campaigns,
+}: {
+  campaign: Campaign;
+  campaigns: Campaign[];
+}) {
+  const guard = useNavigationGuard();
+  return (
+    <Select
+      value={campaign._id}
+      onValueChange={(value) =>
+        guard.navigate(
+          value === ALL_CAMPAIGNS ? '/campaigns' : campaignPath(value),
+        )
+      }
+    >
+      <SelectTrigger
+        aria-label="Active campaign"
+        className="min-h-9 max-w-[11rem] border-0 bg-transparent px-1 text-sm shadow-none md:max-w-[16rem] md:text-base dark:bg-transparent"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {campaigns.map((item) => (
+          <SelectItem key={item._id} value={item._id} className="min-h-11">
+            {item.name}
+          </SelectItem>
+        ))}
+        <SelectSeparator />
+        <SelectItem value={ALL_CAMPAIGNS} className="min-h-11">
+          All campaigns…
+        </SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+type SectionLink = {
+  section: CampaignSection;
+  label: string;
+  short: string;
+  href: string;
+  icon: typeof LayoutGrid;
+};
+
+function useSections(campaignId: string): SectionLink[] {
+  const { week } = useWeekLabel();
+  return [
+    {
+      section: 'week',
+      label: week === null ? 'Week' : `Week ${week}`,
+      short: 'Week',
+      href: campaignPath(campaignId, 'week'),
+      icon: LayoutGrid,
+    },
+    {
+      section: 'history',
+      label: 'Finished weeks',
+      short: 'Finished',
+      href: campaignPath(campaignId, 'history'),
+      icon: History,
+    },
+    {
+      section: 'militia',
+      label: 'Militia',
+      short: 'Militia',
+      href: campaignPath(campaignId, 'militia'),
+      icon: Shield,
+    },
+    {
+      section: 'characters',
+      label: 'Characters & officers',
+      short: 'Characters',
+      href: campaignPath(campaignId, 'characters'),
+      icon: Users,
+    },
+  ];
+}
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function SectionLinks({ sections }: { sections: SectionLink[] }) {
+  const pathname = usePathname();
+  return (
+    <nav
+      aria-label="Campaign sections"
+      className="hidden min-w-0 items-center gap-1 text-sm md:flex"
+    >
+      {sections.map((item) => {
+        const active = isActive(pathname, item.href);
+        return (
+          <GuardedLink
+            key={item.section}
+            href={item.href}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'focus-visible:ring-ring/50 rounded-md px-3 py-1.5 whitespace-nowrap outline-none focus-visible:ring-[3px]',
+              active
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-foreground/10',
+            )}
+          >
+            {item.label}
+          </GuardedLink>
+        );
+      })}
+    </nav>
+  );
+}
+
+function MoreSheet() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset"
+      >
+        <MoreHorizontal className="size-5" aria-hidden />
+        More
+      </button>
+      <SheetContent side="bottom" className="pb-[env(safe-area-inset-bottom)]">
+        <SheetHeader>
+          <SheetTitle>More</SheetTitle>
+          <SheetDescription>Organization and account.</SheetDescription>
+        </SheetHeader>
+        <div className="space-y-3 px-4 pb-6">
+          <div className="flex items-center justify-between gap-3 border-b py-2">
+            <span className="text-sm">Organization</span>
+            <OrganizationControl />
+          </div>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <span className="text-sm">Account</span>
+            <AccountControl />
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// Phone: four section tabs plus More. Sticky at the column's end so content,
+// alerts and save buttons stay reachable above it. The Week frame later adds
+// its status strip immediately above this bar.
+function BottomBar({ sections }: { sections: SectionLink[] }) {
+  const pathname = usePathname();
+  return (
+    <div className="bg-background/95 border-foreground/15 sticky bottom-0 z-40 shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <nav aria-label="Campaign sections" className="grid grid-cols-5">
+        {sections.map((item) => {
+          const active = isActive(pathname, item.href);
+          const Icon = item.icon;
+          return (
+            <GuardedLink
+              key={item.section}
+              href={item.href}
+              aria-label={item.label}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset',
+                active
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon className="size-5" aria-hidden />
+              <span aria-hidden>{item.short}</span>
+            </GuardedLink>
+          );
+        })}
+        <MoreSheet key={pathname} />
+      </nav>
+    </div>
+  );
+}
+
+function CampaignStateCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <main className="mx-auto w-full max-w-2xl p-4 md:p-6">
+      <Card className="gap-4 p-6">
+        <h1 className="text-xl">{title}</h1>
+        <div className="flex flex-wrap items-center gap-3">{children}</div>
+      </Card>
+    </main>
+  );
+}
+
+function BackToCampaigns() {
+  return (
+    <Button asChild variant="outline">
+      <GuardedLink href="/campaigns">Back to campaigns</GuardedLink>
+    </Button>
+  );
+}
+
+function CampaignState({
+  access,
+}: {
+  access: Exclude<Access, { kind: 'ready' }>;
+}) {
+  switch (access.kind) {
+    case 'resolving':
+      return (
+        <main className="mx-auto w-full max-w-6xl p-4 md:p-6">
+          <p role="status" className="sr-only">
+            Loading campaign…
+          </p>
+          <Skeleton aria-hidden className="mb-4 h-8 w-64" />
+          <Skeleton aria-hidden className="h-40 w-full" />
+        </main>
+      );
+    case 'signed_out':
+      return (
+        <CampaignStateCard title="Sign in to open this campaign.">
+          <SignIn />
+        </CampaignStateCard>
+      );
+    case 'no_organization':
+      return (
+        <CampaignStateCard title="This campaign isn't available.">
+          <p className="text-muted-foreground w-full text-sm">
+            Choose an organization to continue.
+          </p>
+          <OrganizationControl />
+          <BackToCampaigns />
+        </CampaignStateCard>
+      );
+    case 'failed':
+      return (
+        <main className="mx-auto w-full max-w-2xl p-4 md:p-6">
+          <FailedLoadCard noun="The campaign" retry={access.retry} />
+        </main>
+      );
+    case 'unavailable':
+      return (
+        <CampaignStateCard
+          title={`This campaign isn't available in ${access.organizationName}.`}
+        >
+          <OrganizationControl />
+          <BackToCampaigns />
+        </CampaignStateCard>
+      );
+  }
+}
+
+function CampaignTopBar({ access }: { access: Access }) {
+  const ready = access.kind === 'ready';
+  const sections = useSections(ready ? access.campaign._id : '');
+  return (
+    <TopBarRow>
+      <KeepLink />
+      <span className="text-muted-foreground hidden md:inline" aria-hidden>
+        /
+      </span>
+      {ready ? (
+        <CampaignSwitcher
+          campaign={access.campaign}
+          campaigns={access.campaigns}
+        />
+      ) : access.kind === 'resolving' ? (
+        <Skeleton aria-hidden className="h-5 w-32" />
+      ) : null}
+      {ready && <SectionLinks sections={sections} />}
+      <div className="ml-auto flex items-center gap-2 md:gap-3">
+        <span className={cn(ready ? 'hidden md:inline-flex' : 'inline-flex')}>
+          <OrganizationControl />
+        </span>
+        <span className={cn(ready ? 'hidden md:inline-flex' : 'inline-flex')}>
+          <AccountControl />
+        </span>
+      </div>
+    </TopBarRow>
+  );
+}
+
+function CampaignShellContent({
+  access,
+  children,
+}: {
+  access: Access;
+  children: ReactNode;
+}) {
+  const sections = useSections(
+    access.kind === 'ready' ? access.campaign._id : '',
+  );
+  return (
+    <ShellFrame
+      header={<CampaignTopBar access={access} />}
+      footer={
+        access.kind === 'ready' ? <BottomBar sections={sections} /> : null
+      }
+    >
+      {access.kind === 'ready' ? (
+        <CampaignProvider
+          key={access.campaign._id}
+          value={{
+            campaign: access.campaign,
+            organizationId: access.organizationId,
+          }}
+        >
+          {children}
+        </CampaignProvider>
+      ) : (
+        <CampaignState access={access} />
+      )}
+    </ShellFrame>
+  );
+}
+
+export function CampaignShell({
+  campaignId,
+  children,
+}: {
+  campaignId: string;
+  children: ReactNode;
+}) {
+  const access = useCampaignAccess(campaignId);
+  return (
+    <NavigationGuardProvider>
+      <WeekLabelProvider>
+        <CampaignShellContent access={access}>{children}</CampaignShellContent>
+      </WeekLabelProvider>
+    </NavigationGuardProvider>
+  );
+}

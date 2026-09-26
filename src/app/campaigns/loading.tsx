@@ -1,3 +1,7 @@
 export default function Loading() {
-  return <p>Loading...</p>;
+  return (
+    <p role="status" className="p-6">
+      Loading campaigns…
+    </p>
+  );
 }

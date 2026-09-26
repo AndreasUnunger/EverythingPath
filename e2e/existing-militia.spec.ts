@@ -1,5 +1,5 @@
 import { test, expect } from './support/fixtures';
-import { selectCampaign } from './support/interactions';
+import { openCampaignSection, selectCampaign } from './support/interactions';
 
 test.use({ caseKey: 'existingMilitia', comparisonCaseKey: 'isolation' });
 test('existing militia state survives reload within its campaign', async ({
@@ -9,6 +9,7 @@ test('existing militia state survives reload within its campaign', async ({
 }) => {
   await page.goto('/campaigns');
   await selectCampaign(page, ownedCase.campaignName);
+  await openCampaignSection(page, 'week');
   await page.getByRole('link', { name: 'Set up militia', exact: true }).click();
   await page
     .getByRole('button', { name: 'Existing militia', exact: true })
@@ -31,10 +32,11 @@ test('existing militia state survives reload within its campaign', async ({
   await page.goto('/campaigns');
   await page.reload();
   await selectCampaign(page, ownedCase.campaignName);
+  await openCampaignSection(page, 'week');
   await expect(
     page.getByRole('heading', { name: 'Week 8 · Upkeep' }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: 'Ledger', exact: true }).click();
+  await openCampaignSection(page, 'militia');
   await page
     .getByRole('button', { name: 'Edit militia ledger', exact: true })
     .click();
@@ -45,10 +47,12 @@ test('existing militia state survives reload within its campaign', async ({
     page.getByRole('textbox', { name: 'Rank', exact: true }),
   ).toHaveValue('4');
   await selectCampaign(page, comparisonCase!.campaignName);
+  await openCampaignSection(page, 'week');
   await expect(
     page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
   ).toBeVisible();
   await selectCampaign(page, ownedCase.campaignName);
+  await openCampaignSection(page, 'week');
   await expect(
     page.getByRole('heading', { name: 'Week 8 · Upkeep' }),
   ).toBeVisible();

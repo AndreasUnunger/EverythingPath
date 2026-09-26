@@ -96,13 +96,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(
       gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
     ).toBeVisible();
+    await expect(gm).toHaveURL(/\/campaigns\/[^/]+\/week(?:\?|$)/);
     await expect(
       player.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
     ).toBeVisible();
     await expect(
-      players.outsider.getByText(
-        /This week is unavailable\.|The week could not be loaded\./,
-      ),
+      players.outsider.getByText(/This campaign isn't available/),
     ).toBeVisible();
     await expect(
       players.outsider.getByRole('textbox', {
