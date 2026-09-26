@@ -652,3 +652,60 @@ Signed-off replacements/removals: [character-page approval](https://github.com/A
 Migration/rollout handoff: existing authorized `character.listByCampaign` provides Setup's authoritative kind without extending `canonicalSetup.options`. Compatible readers precede new writers; retain legacy enum readers for immutable records, migrate live mirrors atomically and saved Setup envelopes without losing raw input, and keep the temporary People & officers editor until every replacement operation is available. Team managers remain on Militia Teams. The spec carries the Officer glossary addition and migration/race/history/reference-repair tests.
 
 Coverage gate: retain all existing E2E scenarios, specifically character-ledger/access, Setup/workspace, realtime Action Slots, completed weeks/cutover and direct persistence/Confirmation contracts. Add role/roster/archive/concurrency cases, legacy/new kind and browser-envelope migration, role-aware manager and commandant arithmetic, old-record immutability and three-breakpoint/shared-state/access tests. Implementation must run typecheck, lint and relevant unit/component/Convex/E2E checks; authoring does not claim runtime coverage has shipped.
+
+## Planned Activity coverage
+
+Implementation owner: [Implement shared Activity slots and action details](https://github.com/AndreasUnunger/EverythingPath/issues/142), authored by [Write the Activity implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/126). These are **planned** locations/coverage, not already shipped behavior; implementation updates actual locations and E2E mappings. Rollout position 4 follows [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/140).
+
+Shared owners: [shell](https://github.com/AndreasUnunger/EverythingPath/issues/135), [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137), [Upkeep shared rolls](https://github.com/AndreasUnunger/EverythingPath/issues/140), [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/139), [Event authoring](https://github.com/AndreasUnunger/EverythingPath/issues/127), [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/141). Activity does not pre-apply the later character-kind/manager migration or absorb Event-reactive Sabotage.
+
+
+All accounting below is **planned** until implementation ships. Preserve existing inventory IDs and then update actual component locations and test mappings.
+
+| ID | Acceptance/coverage owned here |
+| --- | --- |
+| ACT-01 | All 23 actions remain selectable as cards in the grouped picker, including actions with no eligible team. |
+| ACT-02 | Empty-slot → card placement, Change action replacement and closing-sheet cancel replace deck-first placement. |
+| ACT-03 | Approved retirement of Activity deck drag; equivalent touch/keyboard placement is ACT-02. |
+| ACT-04 | Move to preserves the entire choice and identity across empty-slot moves. |
+| ACT-05 | Move to swaps occupied choices with their details. |
+| ACT-06 | Clear <action> remains; drag-out and global Clear selected choice controls are replaced by selected details. |
+| ACT-07 | Placement/stale-choice/failed-save feedback uses the frame's shared status, never falsely reports acceptance. |
+| ACT-08 | Add slot retains existing stable-ID edit and immediate shared visibility. |
+| ACT-09 | Real allowance explanation, Strategist badge, excess boundary/amber/text warning and readiness. |
+| ACT-10 | All common/action-specific fields and structured operations listed below, with eligible-first team dropdown; target/mode choices retain current card controls. |
+| ACT-11 | Rules-derived calculated cost and entered override/advisory mismatch retained without overwriting explicit values. |
+| ACT-12 | All required rolls use shared totals; Helpful inline and available/custom modifiers through + Modifier replace Sources and modifiers accordion. No modifier capability removed. |
+| ACT-13 | Equivalent bonus, total and full modifier breakdown from pure rules projection. |
+| ACT-14 | Every required outcome acknowledgement and clear operation, including retained legacy text. |
+| ACT-15 | Special Order received day/receipt notes, record/clear and order/acknowledgement identity preserved. |
+| ACT-16 | All applicable per-choice Rules Exception reasons and removal; retained old reasons remain visible. |
+| ACT-17 | All existing warnings/preparation requirements in details, slot counts, and frame This phase. |
+| ACT-18 | Nullable Operating from selection; Helpful and Event chance consequences; missing-settlement recovery. |
+| **ACT-19 (new)** | Remove an empty extra Action Slot, enforced server-side under authoritative allowance, including concurrent edits/removal. |
+| WEEK-04 | Every Activity edit is shared; two players may edit any slot; no claims/locks. |
+| WEEK-05 | Existing optimistic preview updates choice/header/reference/readiness facts immediately. |
+| WEEK-06 | Integrate frame-owned saving/saved/failure/remote-update feedback for picker, details, modifiers and slot edits. |
+| WEEK-07 | Failed/stale saves reconcile authoritative values and invalidate review; frame/store owns recovery lifecycle. |
+| WEEK-08 | Frame departure guard covers pending edits; don't silently discard invalid local detail/modifier entries when replacing their editor. |
+| WEEK-10 | All mutation controls, including already-open sheets and menus, honor frame Confirmation disabling and old-draft identity guards. |
+| WEEK-12 | Activity supplies its skeleton/empty picker/empty slots/detail states within frame loading/failure/no-militia and shell access gates. |
+| WEEK-13 | Activity picker cards use tap/keyboard with real selected/focus semantics and touch scrolling; the ACT-03 retirement does not remove other phases' choice-card drag or nested existing choice capabilities. |
+| WEEK-14 | Preserve numeric zero/clear/invalid-paste and required-versus-format behavior; use signed numeric validation for custom modifiers, not a nonnegative-only stepper. |
+| WEEK-15 | Consume Upkeep-owned complete/incomplete legacy-array and new-total adapter; no second format or migration. |
+| WEEK-16 | Advisory ranges and legacy per-die diagnostics remain visible; malformed/count/sides mismatches are not silently accepted as complete. |
+| WEEK-17 | Own Activity phone/tablet/desktop layouts; shell/frame own surrounding navigation and reference controls. |
+| WEEK-18 | Preserve nested/list/discriminated fields, source/target picks and add/remove/Save/Clear; Event/Persistent/Review retain ownership of their corresponding fields. |
+| NAV-15 | Shell owns scoped phase routing/redirects; Activity preserves `phase=activity`, reload and Back/Forward. |
+| STATE-01 | Consume shell maintenance notice and normal rejected-write feedback while keeping data readable. |
+| STATE-05 | Consume frame/shell load, failure, no-militia and access states with no protected-data flash. |
+| STATE-06 | Reload/second-device persistence of all edits and retained legacy values; shared obligation. |
+| EVT-04, EVT-06 | Shared boundary: retain Activity candidate trees/selections and Event markers without losing identity; Event owns occurrence display/selection redesign. |
+| LEDG-01 | Shared boundary: existing corrections remain reachable for team/reference repairs; Militia corrections owns final section editor and full restoration. |
+
+Signed-off replacements: [Activity approval](https://github.com/AndreasUnunger/EverythingPath/issues/106#issuecomment-5835792948) replaces ACT-01 deck, ACT-02 deck-first gestures, ACT-03 drag, ACT-04/05 drag alternatives, ACT-06 drag-out/global clear, ACT-07 standalone placement line, ACT-10 embedded detail/team-card arrangement and ACT-12 Sources and modifiers accordion with the controls above. Only ACT-03 retires as a standalone capability; the others preserve the underlying operation. The same approval adds ACT-19. WEEK-15 ordered-die replacement belongs to Upkeep's existing signed-off contract. No action, field, roll, reference, exception, receipt or acknowledgement is signed off for removal.
+
+
+Field completeness: the output spec enumerates every action variant and current schema field, including candidate trees, purchases/sales, receipts, modes, nested target/officer/consumable fields and legacy/partial dice. Keep clear/replacement, missing-reference display and repair; whole-draft validation means one orphan repair cannot save while another orphan remains. Militia corrections owns final same-identity source restoration.
+
+Coverage plan: rewrite Activity drag/deck selectors to approved card/menu/clear interactions in `realtime-action-slot.spec.ts` and workspace Activity helpers, retaining all scenario outcomes; keep other phase, access, correction, persistence, Confirmation, complete-week, existing-militia and cutover scenarios. Add all-action field/legacy coverage, two-device Helpful and slot races, authoritative remove-slot guard tests, receipts, modifiers/reasons, produced/missing references, touch scrolling and keyboard/focus, and phone/tablet/desktop states. Upkeep owns dual-roll format compatibility; Activity verifies its readers/writers and preserves all downstream consumers.
