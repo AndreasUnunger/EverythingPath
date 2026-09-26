@@ -885,3 +885,45 @@ No new ID is required. **Signed-off replacements/removals**, all retained in inv
 
 
 Planned validation: retain `e2e/support/summary-qa.ts`, whole-week/workspace flows, all shared Confirmation and persistence backend contracts, relevant access/reload/cutover checks and summary component cases. Extend real multi-device adjustment/reason conflicts, source corrections, invalid local forms, exact gp conversions, complete Show all facts, legacy/frozen-record fixtures and phone/tablet/desktop accessibility. Change current inventory coverage only when these checks are implemented and run.
+
+## Planned Finished weeks ownership (not shipped)
+
+Implementation specification: [Implement Finished weeks with immutable records and paged audit history](https://github.com/AndreasUnunger/EverythingPath/issues/146), authored by [Write the Finished weeks implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/133). Rollout 11 of 12, after [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/141), before Campaign list/home. These are planned acceptance/coverage mappings; current-location and actual-test columns change only when implementation ships.
+
+Owner: Finished weeks owns the list/query/date envelopes, historical adapter, audit selection and page states. [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/145) owns the pure six-section presentation contract; [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) owns scoped routes/access/maintenance; [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/137) owns incoming history/confirmed-week links. No historical mutation or Ruleset Version change is introduced.
+
+| ID | Planned acceptance and coverage |
+| --- | --- |
+| HIST-01 | Latest effective finished week defaults, selected at bottom of oldest-first index; sparse weeks, direct URLs and reload covered. |
+| HIST-02 | Gap-aware Previous/Next with disabled boundaries; latest list row replaces standalone Latest button; local and browser navigation preserve scope. |
+| HIST-03 | N entries disclosure, whole selected records, effective/earlier labels, Entry N, at most five visible entries, Earlier entries paging and recovery to newest/effective. No correction notes. |
+| HIST-04 | Selected provenance/date/Ruleset Version/effective status and merged read-only footer; each date/version comes from that selected document. |
+| HIST-05 | All ten existing fact categories survive within six expanded sections and complete Show all; legacy/missing-source artifacts, record-local names, stored warnings/reasons/outcomes and successor context stay readable. |
+| HIST-06 | History correction notice merges into the footer; every member still sees corrections are unavailable. |
+| HIST-07 | Responsive skeleton, shared Try again error, no-finished-week/Open week or Set up militia states, and neutral shell unavailable state. |
+| HIST-08 — new, planned | Approved list of distinct finished weeks with dates, effective provenance/count and compact headline comparisons; direct selection and bounded loading. Same query supplies Campaign home's latest-three preview. |
+
+| Shared ID | Owner boundary and planned coverage |
+| --- | --- |
+| NAV-10 | Shell/frame own links; Finished weeks resolves requested campaign/week, including just-confirmed links. |
+| NAV-11 | Shell/Setup own destination; history keeps Set up militia in no-militia empty state. |
+| NAV-12 | Finished weeks owns Return to current week; shell's Week tab also keeps same-campaign access. |
+| NAV-17 | Shell owns scoped/legacy routes; Finished weeks preserves week/recordId/beforeSequence across direct links, reload and Back/Forward. |
+| WEEK-19 | Frame owns cross-device notice; Finished weeks owns correct immutable destination. |
+| SUM-06 | Review & confirm owns shared comparison; history integrates At confirmation/Baseline/Final and complete Show all. |
+| SUM-07 | Review & confirm owns live exceptions; history shows recorded reasons/obsolete exceptions read-only. |
+| SUM-08 | Review & confirm owns live adjustments; history preserves every ordered adjustment kind/effect/reason without controls. |
+| SUM-10 | Review & confirm owns shared consequences; history supplies selected-record checks/effects only. |
+| SUM-11 | Review & confirm owns shared placement; history retains all recorded outcomes including orphaned subjects. |
+| STATE-01 | Shell owns maintenance banner; history stays readable. |
+| STATE-02 | Shell renders immediately; history owns layout skeleton and Loading history status. |
+| STATE-03 | Shell owns failed-card pattern; history owns list/detail/audit retry. |
+| STATE-04 | Shell owns active-organization/sign-in/no-access boundary; history cannot leak data across it. |
+| STATE-05 | History owns loading/failure/empty; shell owns campaign unavailable. |
+| STATE-06 | Reactive/reloaded records persist while week/entry selection remains device-local. |
+
+Signed-off replacements/removals: [Finished weeks approval](https://github.com/AndreasUnunger/EverythingPath/issues/117#issuecomment-5845007868) replaces HIST-02's Latest button with latest row, HIST-03's always-visible controls with disclosure, HIST-04's context chips with Show all, HIST-05's ten collapsible containers with six sections/comparison/context, and HIST-06's separate notice with one footer. [The authoritative amendment](https://github.com/AndreasUnunger/EverythingPath/issues/117#issuecomment-5845032926) explicitly retains HIST-03 Earlier entries and the five-entry cap, and omits correction notes. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces HIST-07 loading/error/empty presentation and Reload history with skeleton/Try again/empty CTAs. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/121#issuecomment-5846528685) rearranges presentation without deleting capabilities. Recorded Rules Exception/Table Adjustment reasons and historical buyoff warnings/amounts are preserved.
+
+Contract: one `canonicalHistory.list({ campaignId, beforeWeek?, limit?, selectedWeek? })`, default 25/max 50; descending distinct-week rows plus older boundary and optional selected-row metadata. Each row has effective ID/sequence, entry count, provenance, Ruleset Version, creation time and at most two compact stored before/final comparison pairs. Campaign home calls the same query with `limit: 3`; no second listing query or full-record fanout. Existing `read` gains only selected/audit `createdAt`; visible audit Ruleset Versions use bounded existing record reads. No schema/date backfill, correction-note field, historical rewrite or resolver invocation. Selected detail consumes only its immutable record and the shared frozen presentation contract.
+
+Planned checks retain `complete-week`, the full `canonical-confirmation`/`canonical-persistence` contracts, `canonical-cutover`, access and existing-militia scenarios; update history UI selectors while keeping stable post-correction outcomes and exact copper-to-gp assertions. Extend history integration/record-view/control tests for >10 audit entries, >50 sparse weeks, latest-three projection, selected dates/versions, legacy/missing-source facts, membership/record scope, two-device selection, late-response isolation, retries and phone/tablet/desktop accessibility. Run typecheck/lint and relevant tests during implementation; this accounting does not claim those future checks passed.
