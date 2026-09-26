@@ -56,7 +56,18 @@ export type DraftTransport = Partial<ConfirmationTransport> & {
   ): () => void;
 };
 export class DraftTransportFailure extends Error {}
-export class DraftRejected extends Error {}
+export class DraftRejected extends Error {
+  static readonly maintenanceReason =
+    'Campaign editing is paused for maintenance. Please try again later.';
+  readonly failureReason: string | null;
+  constructor(
+    message: string,
+    { maintenance = false }: { maintenance?: boolean } = {},
+  ) {
+    super(message);
+    this.failureReason = maintenance ? DraftRejected.maintenanceReason : null;
+  }
+}
 export type DraftTargetRevision = { target: string; revision: number };
 export function openObservation(
   draft: WeeklyDraft,

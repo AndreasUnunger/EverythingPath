@@ -109,7 +109,9 @@ export function createConvexDraftTransport(
 
 function rejectTransport(error: unknown): never {
   if (error instanceof ConvexError)
-    throw new DraftRejected('Operation rejected');
+    throw new DraftRejected('Operation rejected', {
+      maintenance: error.data === DraftRejected.maintenanceReason,
+    });
   // The SDK retries network connectivity; a closed client is the remaining
   // temporary transport boundary. Validation and authority are never retried.
   if (

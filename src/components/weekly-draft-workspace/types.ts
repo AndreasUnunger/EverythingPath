@@ -198,6 +198,11 @@ export type WeeklyDraftWorkspace =
       navigation: { previous: Phase | null; next: Phase | null };
       confirmationDisabledReason: string | null;
       feedback: 'idle' | 'pending' | 'saved' | 'failed' | 'confirming';
+      editingDisabled: boolean;
+      remoteChange: { sequence: number; phases: readonly Phase[] } | null;
+      confirmedWeek: { transitionId: string; week: number } | null;
+      dismissConfirmedWeek(this: void): void;
+      failureReason: string | null;
       canConfirm: boolean;
       reviewRequired: boolean;
       forecastPending: boolean;
