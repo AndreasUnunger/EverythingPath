@@ -357,7 +357,17 @@ export function ResultTable({
         </tbody>
       </table>
       {all && (
-        <div className="text-muted-foreground grid grid-cols-2 gap-4 pt-2 text-sm">
+        <div className="text-muted-foreground grid grid-cols-3 gap-4 pt-2 text-sm">
+          <div>
+            <p className="text-xs tracking-widest uppercase">
+              Recorded context
+            </p>
+            <ul>
+              {record.context.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
           <div>
             <p className="text-xs tracking-widest uppercase">
               Roster and officers
