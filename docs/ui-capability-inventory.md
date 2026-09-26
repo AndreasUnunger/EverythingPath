@@ -421,3 +421,64 @@ Shared IDs and owners:
 Coverage plan: preserve `existing-militia.spec.ts`, `canonical-workspace.spec.ts`/`support/setup-workspace.ts`, character-ledger/access/nightly journeys, Action Slot/complete-week/cutover journeys and all direct persistence/Confirmation scenarios. Retain setup pure/component/Convex integration contracts for idempotent initialization, complete imports, authority, foreign-reference rejection, competing starts and existing first-week skip. Add focused guided navigation/status, raw browser-resume/isolation, inline reactive creation, initial-started versus live completion, own-phase race, responsive/accessibility and page-state cases as specified in the linked issue. No tests were executed for this documentation-only authoring.
 
 Handoffs: [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135) supplies scoped routes/access/maintenance; Week frame supplies ongoing Phase View behavior and WEEK-09 notes; [Militia corrections authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/131) consumes section editors/validators/warning descriptors while owning save merges/conflicts and retaining roster/officer fallback. [Characters & officers authoring owner](https://github.com/AndreasUnunger/EverythingPath/issues/132) owns later `pc | npc`, roster kind mirroring, commandant fallback, manager rules and compatibility across Setup's existing form/schema, inline CRUD, character source and versioned browser envelopes. The Setup spec does not change any backend schema, argument/result shape or Ruleset Version; existing options lacks week/kind, so reuse authorized current reads rather than quietly add fields.
+
+### Week frame — planned implementation coverage
+
+Implementation spec: [Implement the shared Week frame and cross-device week transition](https://github.com/AndreasUnunger/EverythingPath/issues/137), authored by [Write the Week frame implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/124). **Planned coverage only:** the locations and E2E columns above continue to describe the inventory snapshot; no frame, notice, layout or new test is claimed shipped. Code inspected at main `eef41f7bad19e63ecce858e7a4490c937a4ece89`; authoring baseline `6836fadf2ec5430f725681df1a3fb9b066fb7dcc` adds Navigation shell planning accounting only. Week frame is rollout 2 after [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135); phase owners replace existing editors later.
+
+Shared owner links: [Upkeep](https://github.com/AndreasUnunger/EverythingPath/issues/125), [Activity](https://github.com/AndreasUnunger/EverythingPath/issues/126), [Event](https://github.com/AndreasUnunger/EverythingPath/issues/127), [Persistent](https://github.com/AndreasUnunger/EverythingPath/issues/128), [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/129), [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/130), [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/133). These authoring tickets supply the later concrete implementation links; the current Week frame output is linked above.
+
+| ID | Acceptance / disposition | Ownership / handoff |
+| --- | --- | --- |
+| WEEK-01 | Week N plus selected phase replaces the duplicate heading while preserving accessible week/phase context. | Frame; shell renders Week tab. |
+| WEEK-02 | Five-step navigation, all-phase readiness, locked Persistent, footer and This phase. | Frame; phases supply facts. |
+| WEEK-03 | Player-local navigation survives saving, URL changes and Back/Forward. | Frame; shell route adapter. |
+| WEEK-04 | All edits remain shared in real time without claims/locks; remote-change notice. | Frame feedback; each editor keeps existing writes. |
+| WEEK-05 | Immediate optimistic preview refreshes values, counts and editor. | Frame/store; all phase consumers. |
+| WEEK-06 | One accessible save/error/confirming status in the shell, including phone icons. | Frame; shell placement. |
+| WEEK-07 | Rejected edit restores saved values and invalidates review. | Frame/store; Review & confirm renders recovery control. |
+| WEEK-08 | Pending departure protection covers unload and section/campaign/organization exits. | Frame plus shell guard. |
+| WEEK-09 | Existing setup notes move into a reachable button/panel. | Frame. |
+| WEEK-10 | Weekly editing disabled during Confirmation, including retained editors and open input surfaces. | Frame plus Review & confirm control. |
+| WEEK-11 | Every device transitions to next-week Upkeep without a skeleton flash. | Frame/store; same Confirmation contract. |
+| WEEK-12 | Week skeleton, neutral failed card/retry and no-militia setup path; campaign access handled outside. | Frame plus shell access boundary. |
+| WEEK-13 | All existing choice interactions remain usable in hosted editors. | Shared: Upkeep, Activity, Event, Persistent, Review & confirm own their eventual approved tap/card controls; no global drag removal in frame. |
+| WEEK-14 | Hosted whole-number inputs retain required/invalid distinction, clear/zero semantics and styled feedback. | Upkeep coordinates shared roll input work; every phase retains its own field validation; frame preserves access. |
+| WEEK-15 | Existing ordered multi-die entry remains until approved dice-total migration. | Upkeep owns shared contract/read compatibility and updates Activity/Event/Persistent/Review & confirm consumers; frame introduces no roll-format change. |
+| WEEK-16 | Out-of-range dice remain advisory and visible in editor/phase warnings. | Upkeep, Activity, Event, Persistent own inputs; frame aggregates warnings. |
+| WEEK-17 | Tablet, phone and desktop frame replacements plus usable hosted editors, no clipped controls/horizontal page scroll. | Frame; each phase owns its later internal responsive redesign. |
+| WEEK-18 | Existing structured list/nested/discriminated/modifier Save/Clear/add/remove operations stay usable. | Activity, Event, Persistent and Review & confirm own their editor replacements; frame cannot remove structured fields absent replacement coverage. |
+| WEEK-19 — new, planned | Every observing device gets Week N confirmed and a correct historical-week link once the successor arrives. | Frame; Finished weeks owns destination. |
+| NAV-01 | Remembered panel visibility replaces the retired sidebar's local preference. | Shell removes sidebar; frame preserves preference behavior. |
+| NAV-10 | History reference tab, recent-week links and All finished weeks preserve campaign. | Frame; shell section link; Finished weeks owns final listing query/page. |
+| NAV-11 | No-militia Week links to campaign Setup. | Frame; shell route; Setup destination. |
+| NAV-15 | Five phase URL values, invalid fallback, Persistent eligibility and local Back/Forward. | Frame plus shell parser. |
+| STATE-01 | Consume readable maintenance banner and existing write-failure path. | Shell owner; frame feedback. |
+| STATE-02 | Week-shaped skeleton and accessible loading status. | Frame portion; shell name/account scaffold. |
+| STATE-03 | Week failure uses shared card and page-local Try again; tabs remain usable. | Frame retry; shell component. |
+| STATE-05 | Loading/failure/no militia is distinct from campaign unavailable. | Frame week portion; shell access; Setup/Finished weeks own theirs. |
+| STATE-06 | Shared changes survive reload and cross-device navigation. | All owners; frame regression gate. |
+| UPK-11 | Aggregate Upkeep warning visibility in This phase/counts. | Frame summary; Upkeep retains item warnings/reasons. |
+| UPK-12 | Upkeep readiness in stepper/footer/This phase. | Frame; Upkeep facts/editor. |
+| ACT-17 | Aggregate Activity warning/required-preparation visibility. | Frame summary; Activity owns per-choice warnings and hints. |
+| EVT-11 | Aggregate Event warnings remain visible. | Frame summary; Event owns item warnings/Rules Exceptions. |
+| EVT-14 | Required Event preparation remains visible. | Frame summary; Event owns per-occurrence list. |
+| PER-08 | Aggregate Persistent warnings remain visible. | Frame summary; Persistent owns item warnings/Rules Exceptions. |
+| PER-10 | Persistent preparation and earlier-phase dependencies remain visible. | Frame summary; Persistent owns item inputs. |
+| SUM-01 | No Summary step caption or ready/needs-attention footer; retain disabled reason. | Frame chrome now; Review & confirm owns later block-copy removal. |
+| SUM-02 | Aggregate required decisions available in This phase; hosted required list remains. | Review & confirm owns final review list and Go links; frame navigation supplies destination. |
+| SUM-03 | Keep readiness/saved/reviewed Confirmation gate and hosted control. | Review & confirm owns final control; frame never infers confirmability from count alone. |
+| SUM-04 | Concurrent Confirmation remains single-winner and stale-safe. | Existing persistence contract; shared frame/Review & confirm tests. |
+| SUM-05 | Keep stale-review alert and Review updated week reachable after failure/remote changes. | Review & confirm owns control; frame/store carries invalidation. |
+| SUM-09 | Aggregate warnings available in panel and preserved Summary warning list. | Frame summary; Review & confirm owns final list. |
+| SUM-06 | Hosted baseline/final preview and all existing facts stay reachable. | [Review & confirm](https://github.com/AndreasUnunger/EverythingPath/issues/129) owns replacement presentation. |
+| SUM-07 | Hosted Rules Exception edit/clear and obsolete exception removal stay reachable. | Review & confirm. |
+| SUM-08 | Hosted Table Adjustments add/edit/clear/reorder with reasons stay reachable. | Review & confirm. |
+| SUM-10 | Hosted consequences remain readable until replaced by numbered sections. | Review & confirm. |
+| SUM-11 | Hosted recorded table outcomes remain readable. | Review & confirm. |
+| NAV-17 | Consume campaign-scoped route/deep-link and history-selection contract already planned by shell. | [Navigation shell](https://github.com/AndreasUnunger/EverythingPath/issues/135); no new ID allocation. |
+| STATE-07 | Consume neutral campaign unavailable/sign-in boundary. | Navigation shell; no new ID allocation. |
+
+Approved removals/replacements: [Week-layout approval](https://github.com/AndreasUnunger/EverythingPath/issues/101#issuecomment-5831260876) replaces WEEK-01's duplicate heading with Week tab/current step, drops the prototype's duplicate History icon while retaining NAV-10, and moves WEEK-09 setup notes into a button. [Summary approval](https://github.com/AndreasUnunger/EverythingPath/issues/110#issuecomment-5844063536) removes the Review & confirm caption and ready/needs-attention sentences; disabled-Confirmation reasons remain. Frame applies its caption/footer portion now; Review & confirm owns the later review-block sentence/note removals. [State approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381) replaces WEEK-12 loading/error/unavailable presentation with accessible skeleton, Try again and no-militia/shell-access states; it adds WEEK-19's cross-device notice. [Responsive approval](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929) replaces phone stepper/panel/footer with step sheet/reference sheet/status strip, preserving access. NAV-01's sidebar removal is shell-owned under [navigation approval](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561); frame inherits remembered local reference visibility.
+
+No shared choice, numeric, roll, structured-field or Confirmation capability is removed by the frame. WEEK-15 remains the old ordered-dice interaction until Upkeep delivers its approved shared dice-total compatibility change; WEEK-13's future tap/card replacements and WEEK-18's replacement forms belong to their phase owners. History references initially use the existing reader rather than assuming rollout 11's listing query exists. Implementation updates current-location and actual-test coverage only when the behavior lands.
