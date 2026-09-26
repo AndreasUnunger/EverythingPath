@@ -294,3 +294,64 @@ Facts about today's UI that later tickets may want to decide on. None of them is
 - The selected campaign is not in the URL, so reloading `/campaigns` returns to the first campaign.
 - Officer and manager assignment (LEDG-03) lives in the correction form, not with the characters (CHAR); the character dialog says so.
 - Many capabilities have no browser coverage (every `—` above), including campaign creation, archiving, history navigation, the maintenance pause and most error states.
+
+## Planned implementation ownership
+
+The sections below record planned ownership and acceptance coverage from the approved UI rework. They do not change the current routes, behavior, or E2E coverage recorded above. Signed-off replacements apply when their owning implementation ships; existing controls remain available until then. Each linked implementation issue carries its source decisions, prototype pins, rollout requirements, and validation gate.
+
+### Planned: Navigation shell (rollout 1)
+
+Implementation spec: [Implement the campaign navigation shell and scoped routes](https://github.com/AndreasUnunger/EverythingPath/issues/135), authored by [Write the Navigation shell implementation spec](https://github.com/AndreasUnunger/EverythingPath/issues/123). This is **planned coverage**, not a claim that the routes, layouts or tests have shipped. Current-location and E2E columns above retain the inventory snapshot stated at the top of this document; this spec was checked against main at `eef41f7bad19e63ecce858e7a4490c937a4ece89`. the existing NAV-01 removal entry records design approval while the sidebar still exists in that code. Implementation updates those current-behavior rows when it lands.
+
+| Exact id | Planned ownership and acceptance | Handoff |
+| --- | --- | --- |
+| NAV-01 | Shell removes the approved sidebar; preserve destination access. | [Week frame](https://github.com/AndreasUnunger/EverythingPath/issues/124) inherits remembered open/closed visibility for the reference panel. |
+| NAV-02 | Shell Keep link opens `/campaigns`. | [Campaign list/home](https://github.com/AndreasUnunger/EverythingPath/issues/134) reuses it. |
+| NAV-03 | Shell preserves home navigation through `/` → `/campaigns` and Keep/All campaigns; the My Keep placeholder is the approved replacement. | Campaign list/home owns final destination content. |
+| NAV-04 | Shell campaign-list navigation remains reachable with active-location indication. | Campaign list/home. |
+| NAV-05 | Shell sign-in control remains reachable, including phone More and campaign sign-in state. | Campaign list/home consumes it. |
+| NAV-06 | Shell organization switcher filters campaign access and sends an organization change to its campaign list. | Campaign list/home owns final list organization states. |
+| NAV-07 | Shell account and sign out remain reachable in top bar/More. | All page owners consume it. |
+| NAV-08 | Shell renders an accessible account skeleton while auth resolves. | All page owners consume it. |
+| NAV-09 | Shell replaces floating mobile sidebar trigger with bottom section tabs and More. | Approved responsive rearrangement; no navigation destination is lost. |
+| NAV-10 | Shell Finished weeks link keeps campaign context. | Week frame owns reference-panel entry; [Finished weeks](https://github.com/AndreasUnunger/EverythingPath/issues/133) owns page. |
+| NAV-11 | Shell setup links target the same campaign. | Week frame and [Militia corrections](https://github.com/AndreasUnunger/EverythingPath/issues/131) own final no-militia pages. |
+| NAV-12 | Shell Week tab and hosted history return link preserve campaign context. | Finished weeks owns final return CTA. |
+| NAV-13 | Shell hosted completed-setup return link works. | [Setup](https://github.com/AndreasUnunger/EverythingPath/issues/130) owns final started-militia page and Open week N/Open militia. |
+| NAV-14 | Shell routes setup success to the selected valid phase of the same campaign. | Setup owns initialization and collision behavior. |
+| NAV-15 | Shell preserves five phase URL values, invalid→Upkeep and player-local navigation. | Week frame owns phase navigation and Persistent Phase Eligibility. |
+| NAV-16 | Shell hosts all week and ledger capabilities in reachable campaign sections. | Existing page editors remain until named area replacements ship. |
+| CAMP-01 | Shell retains current list/picker/default and provides campaign-page switcher. | Campaign list/home owns final list rows. |
+| CAMP-02 | Shell campaign route selection persists through reload and isolates campaign content. | Campaign list/home owns final pane selection. |
+| CAMP-03 | Shell preserves existing campaign-create dialog access. | Campaign list/home owns form and approved result-shape change. |
+| CAMP-04 | Shell preserves current empty-organization create entry. | Campaign list/home owns final empty layout. |
+| CAMP-05 | Shell guards campaign routes with active-organization membership and neutral outsider/wrong-organization presentation. | All page owners retain backend authorization; Campaign list/home owns final list states. |
+| STATE-01 | Shell maintenance banner leaves all hosted pages/list readable and writes use normal failure feedback. | All page owners consume it. |
+| STATE-02 | Shell/name/account loading scaffold plus current readable page statuses. | Campaign list/home owns list skeleton; individual page owners own full page skeletons. |
+| STATE-03 | Shell supplies shared neutral failed-load card with page-local Try again; tabs remain usable. | Campaign list/home and other page owners supply nouns/retry actions. |
+| STATE-04 | Shell owns wrong-organization campaign state and organization chooser recovery. | Campaign list/home owns final no-organization/list-access states. |
+| STATE-05 | Shell owns campaign access boundary without losing page loading/retry/empty states. | Week frame, Setup and Finished weeks own final page states. |
+| STATE-06 | Shell routes/hosts preserve reload and cross-device persistence. | Shared regression obligation across all area owners. |
+| WEEK-03 | Shell navigation never changes another player's Phase View. | Week frame owns full behavior. |
+| WEEK-08 | Shell links/campaign/organization changes preserve existing pending-edit and Confirmation departure protection. | Week frame owns ongoing barrier/feedback. |
+| WEEK-12 | Shell separates unavailable campaign from page failure and retains no-militia setup route. | Week frame owns final skeleton/empty/failed page. |
+| SETUP-22 | Shell keeps completed setup return navigation reachable. | Setup owns later already-set-up page; bookmark redirect layer must not force week navigation. |
+| SETUP-23 | Shell supplies campaign access gate and keeps current setup state coverage. | Setup owns layout skeleton/failure details. |
+| HIST-02 | Shell history adapter preserves previous/next/latest in the same campaign. | Finished weeks owns final browsing layout. |
+| HIST-03 | Shell preserves selected audit entry and Earlier entries with existing query arguments. | Finished weeks owns final audit presentation/paging. |
+| HIST-07 | Shell preserves current history loading/failure/empty coverage under shared access boundary. | Finished weeks owns final states. |
+| LEDG-01 | Shell hosts existing correction editor until replacement. | Militia corrections owns per-section Correct. |
+| LEDG-03 | Shell retains roster/officer/manager editing in Militia with a link from Characters & officers. | Militia corrections must retain roster/officer fallback until [Characters & officers](https://github.com/AndreasUnunger/EverythingPath/issues/132) ships; managers remain with teams. |
+| LEDG-05 | Shell hosted correction requires the existing reason. | Militia corrections and Characters & officers own replacement correction flows. |
+| LEDG-06 | Shell hosted correction retains current revision/save/conflict behavior. | Militia corrections owns later section merge and reference/conflict handling. |
+| LEDG-09 | Shell keeps pre-setup character access on Characters & officers. | Militia corrections and Characters & officers own final empty states. |
+| LEDG-10 | Shell keeps readable current ledger-loading state. | Militia corrections owns final skeleton. |
+| CHAR-01 | Shell exposes existing CharacterManager with create/edit/archive/unarchive through Characters & officers. | Characters & officers owns the full replacement; legacy Militia embedding may remain during rollout. |
+| CHAR-08 | Shell hosting keeps character edits realtime and campaign-scoped. | Characters & officers owns full behavior. |
+| CHAR-09 | Shell campaign context makes Select a campaign… unnecessary; retain other current character states until replacement. | Characters & officers owns empty/archive/access skeleton states; removal is only the explicitly approved fragment. |
+| NAV-17 — **new, planned** | Campaign-scoped routes and legacy redirects preserve campaign, phase and supported history selection across reload/Back/Forward. | Shell owns; downstream pages use the route contract. |
+| STATE-07 — **new, planned** | Neutral campaign-level sign-in/unavailable state and organization/Back to campaigns recovery. | Shell owns; every campaign page consumes it. |
+
+Approved changes/removals: NAV-01 sidebar and NAV-03 placeholder destination replacement are authorized by [navigation resolution](https://github.com/AndreasUnunger/EverythingPath/issues/102#issuecomment-5831173561); NAV-09 trigger is replaced by bottom navigation/More under [responsive-shell approval](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929); only CHAR-09's **Select a campaign…** fragment is removed under [shared-state approval](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381); the standalone correction address is replaced by `/militia` under [setup/correction approval](https://github.com/AndreasUnunger/EverythingPath/issues/103#issuecomment-5834024251). No current character, correction, history/audit or week-editing capability is removed merely because a prototype omits it.
+
+Shell and Week frame cannot depend on the future finished-weeks listing query: current Finished weeks access and existing `canonicalHistory.read` remain usable until rollout 11. All current browser scenarios (including nightly) and direct persistence/Confirmation contracts keep equivalent coverage; the implementation issue enumerates them. No schema/payload/rules change or Ruleset Version bump belongs to this shell delivery.
