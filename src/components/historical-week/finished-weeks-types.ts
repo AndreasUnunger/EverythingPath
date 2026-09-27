@@ -15,7 +15,7 @@ export type WeekRowView = {
   isLatest: boolean;
   date: RecordDate;
   headlines: string[];
-  /** "Corrected · N entries" or "From setup". */
+  /** "Corrected · N entries" or "Reconstructed". */
   marker: string | null;
   /** Call from the row link's click; the latest row restores the newest window. */
   onNavigate?: () => void;

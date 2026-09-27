@@ -140,7 +140,7 @@ export const provenanceLabels: Record<FinishedWeek['provenance'], string> = {
 
 export function rowMarker(row: FinishedWeek): string | null {
   if (row.entryCount > 1) return `Corrected · ${row.entryCount} entries`;
-  if (row.provenance === 'historical_reconstruction') return 'From setup';
+  if (row.provenance === 'historical_reconstruction') return 'Reconstructed';
   return null;
 }
 

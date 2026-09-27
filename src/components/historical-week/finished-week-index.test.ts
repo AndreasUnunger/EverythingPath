@@ -230,13 +230,13 @@ describe('headlines', () => {
 });
 
 describe('row marker and dates', () => {
-  test('corrected weeks show their entry count; reconstructions say they came from setup', () => {
+  test('corrected weeks show their entry count; reconstructed weeks say so', () => {
     expect(rowMarker(row(3))).toBeNull();
     expect(
       rowMarker(row(3, { entryCount: 3, provenance: 'historical_correction' })),
     ).toBe('Corrected · 3 entries');
     expect(rowMarker(row(3, { provenance: 'historical_reconstruction' }))).toBe(
-      'From setup',
+      'Reconstructed',
     );
   });
 
