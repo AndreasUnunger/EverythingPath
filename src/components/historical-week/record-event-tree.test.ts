@@ -143,7 +143,7 @@ describe('[rules.HIST-05.event-labels] frozen event labels', () => {
     expect(
       recordedEventTree(week(), new Set()).find(
         (entry) => entry.occurrence.eventId === 'first',
-      )?.owner?.slotIndex,
-    ).toBe(1);
+      )?.owner?.choiceId,
+    ).toBe('guarantee');
   });
 });

@@ -173,6 +173,13 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
   test('[rules.HIST-05.frozen-names] record-local names, officers at confirmation and recorded week context, with no opaque identities', () => {
     const { record } = confirmedWeek();
     const facts = recordWeekReview(record);
+    // A roll retained for a step the recorded plan never ran is not a step.
+    expect(items(facts, 0).map((entry) => entry.title)).toEqual([
+      'Rescuers',
+      'Training attrition',
+      'Rank',
+      'Treasury deposit · Character 2',
+    ]);
     // The record stores no character names: they stay distinct by number.
     expect(item(facts, 0, 'Treasury deposit · Character 2').effects).toEqual([
       expect.objectContaining({ text: 'Treasury +7 gp' }),
@@ -308,7 +315,7 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     expect(plague.details).toEqual([
       'Affects Team 1',
       'Decision: Buyoff',
-      'Recorded buyoff amount 90 gp',
+      'Recorded buyoff amount 95 gp',
       'Buyoff costs 90 gp',
       'Bought off',
     ]);
@@ -365,8 +372,8 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     // The fixture is deeply frozen: any write while reading would throw.
     const facts = recordWeekReview(record);
     expect(record).toEqual(before);
-    // Today's militia moves on: teams renamed, officers reassigned, the
-    // workspace draft edited. The record, and so its review, is unaffected.
+    // The adapter's only input is the record (see the import boundary test):
+    // edits to the week's source objects after recording change nothing.
     snapshot.roster.teams[0]!.name = 'Renamed today';
     snapshot.roster.officers = [];
     draft.tableAdjustments = [];

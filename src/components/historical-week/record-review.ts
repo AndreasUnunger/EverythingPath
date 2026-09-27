@@ -40,10 +40,11 @@ import { activityLabel } from '../weekly-draft-workspace/activity-labels';
 import { summaryMessage } from '../weekly-draft-workspace/summary-messages';
 import { readRecordedWeek, type RecordedWeek } from './record-artifacts';
 import {
+  isInForce,
   recordedEventTree,
   type RecordedOccurrence,
 } from './record-event-tree';
-import { orderCarried, recordNames } from './record-names';
+import { orderCarried, recordNames, type RecordNames } from './record-names';
 
 // Frozen adapter for the shared six-section presentation: one immutable
 // Resolution Record in, renderable facts out. It reads only that record's
@@ -51,14 +52,14 @@ import { orderCarried, recordNames } from './record-names';
 // and successor context, with record-local names. It never resolves rules,
 // reads today's militia, officers or characters, or offers an edit.
 
-type Record_ = CanonicalResolutionRecord;
-type Source = Record_['source'];
+type ResolutionRecord = CanonicalResolutionRecord;
+type Source = ResolutionRecord['source'];
 type ItemsByPhase = Record<ReviewPhase, Item[]>;
 type Review = {
-  record: Record_;
+  record: ResolutionRecord;
   week: RecordedWeek;
   tree: RecordedOccurrence[];
-  names: ReviewNames;
+  names: RecordNames;
   items: ItemsByPhase;
   unassociated: ReviewNote[];
 };
@@ -100,18 +101,23 @@ const decisionLines: Record<string, string> = {
   remove: 'Remove from the roster',
 };
 
+/**
+ * Recorded team decisions in roster order, as the rules run them. With the
+ * roster at confirmation, a decision retained for a team that was neither
+ * disabled nor missing had no part in the week and is left out.
+ */
 function upkeepTeamItems(review: Review) {
   const { upkeep } = review.record.source;
-  const roster =
-    review.week.atConfirmation.militiaSnapshot?.roster.teams.map(
-      (team) => team.teamId,
-    ) ?? [];
+  const roster = review.week.atConfirmation.militiaSnapshot?.roster.teams;
   const rank = (teamId: string) => {
-    const index = roster.indexOf(teamId);
-    return index < 0 ? roster.length : index;
+    const index = roster?.findIndex((team) => team.teamId === teamId) ?? -1;
+    return index < 0 ? Infinity : index;
   };
-  // Recovery and returns run in roster order, as the rules do.
-  return [...upkeep.teamDecisions]
+  const isUnavailableTeam = (teamId: string) =>
+    !roster ||
+    roster.some((team) => team.teamId === teamId && team.status !== 'active');
+  return upkeep.teamDecisions
+    .filter((decision) => isUnavailableTeam(decision.teamId))
     .sort((a, b) => rank(a.teamId) - rank(b.teamId))
     .map((decision) =>
       withDetails(
@@ -132,10 +138,17 @@ function upkeepTeamItems(review: Review) {
     );
 }
 
+/**
+ * The Upkeep steps with their recorded rolls. Where the Upkeep plan is
+ * recorded, a step it never ran keeps no line even if a roll was retained.
+ */
 function upkeepStepItems(review: Review) {
   const { upkeep } = review.record.source;
+  const plan = review.week.plans.upkeep;
+  const hasRun = (key: string) =>
+    !plan || plan.some((change) => 'step' in change && change.step === key);
   const step = (key: string, title: string, details: string[]) =>
-    details.length
+    details.length && hasRun(key)
       ? [
           withDetails(
             newItem(`upkeep:${key}`, title, [
@@ -178,7 +191,7 @@ function rankItem(review: Review) {
 }
 
 /** A transfer's recorded actor, from records that still name one. */
-function transferActor(
+function findTransferActor(
   transfer: Source['upkeep']['treasuryTransfers'][number],
 ) {
   return 'characterId' in transfer && typeof transfer.characterId === 'string'
@@ -188,7 +201,7 @@ function transferActor(
 
 function transferItems(review: Review) {
   return review.record.source.upkeep.treasuryTransfers.map((transfer) => {
-    const actor = transferActor(transfer);
+    const actor = findTransferActor(transfer);
     const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
     return newItem(
       transferSubject(transfer.transferId),
@@ -276,22 +289,13 @@ function activityItems(review: Review): Item[] {
 
 // ── Event ─────────────────────────────────────────────────────────────────
 
-function inForce(source: Source, kind: string) {
-  return source.context.queuedEffects.some(
-    (effect) =>
-      effect.effect.kind === kind &&
-      effect.startsWeek <= source.week &&
-      source.week <= effect.endsWeek,
-  );
-}
-
 /** The chance step exactly as recorded; no chance is recalculated. */
-function chanceItem(review: Review, guaranteed: boolean) {
+function chanceItem(review: Review, isGuaranteed: boolean) {
   const { source } = review.record;
   const entry = newItem('event:chance', 'Event chance', ['event:chance']);
-  if (inForce(source, 'all_is_calm'))
+  if (isInForce(source, 'all_is_calm'))
     entry.details.push('All Is Calm made this a calm week');
-  else if (guaranteed) entry.details.push('An event was guaranteed');
+  else if (isGuaranteed) entry.details.push('An event was guaranteed');
   entry.details.push(
     ...rollLine('Chance roll', source.event.chanceRoll),
     ...(source.activity.operatingSettlementId
@@ -313,16 +317,14 @@ function occurrenceDetails(
     'an earlier event';
   const { origin } = occurrence;
   const selected =
-    owner && 'selectedEventId' in owner.choice
-      ? owner.choice.selectedEventId
-      : undefined;
+    owner && 'selectedEventId' in owner ? owner.selectedEventId : undefined;
   return [
     ...('parentEventId' in origin
       ? [
           `${origin.kind === 'roll_twice' ? 'Rolled twice from' : 'Replaces'} ${label(origin.parentEventId)}`,
         ]
       : []),
-    ...(owner ? [`From ${activityLabel(owner.choice.actionId)}`] : []),
+    ...(owner ? [`From ${activityLabel(owner.actionId)}`] : []),
     ...(owner && origin.kind === 'rolled' && selected
       ? [selected === occurrence.eventId ? 'Chosen' : 'Not chosen']
       : []),
@@ -367,9 +369,9 @@ function sabotageItem(
   return [item];
 }
 
-function eventItems(review: Review, guaranteed: boolean): Item[] {
+function eventItems(review: Review, isGuaranteed: boolean): Item[] {
   return [
-    chanceItem(review, guaranteed),
+    chanceItem(review, isGuaranteed),
     ...review.tree.flatMap((entry) => {
       const { occurrence } = entry;
       const title = review.names.event(occurrence.eventId);
@@ -446,7 +448,7 @@ function persistentItems(review: Review): Item[] {
 
 // ── Assembly and placement ────────────────────────────────────────────────
 
-function guaranteedChoices(record: Record_, week: RecordedWeek) {
+function guaranteedChoices(record: ResolutionRecord, week: RecordedWeek) {
   const plan = week.plans.activity;
   if (plan)
     return new Set(
@@ -465,11 +467,11 @@ function guaranteedChoices(record: Record_, week: RecordedWeek) {
 }
 
 function phaseItems(review: Review, outcomes: Outcomes): ItemsByPhase {
-  const guaranteed = guaranteedChoices(review.record, review.week).size > 0;
+  const isGuaranteed = guaranteedChoices(review.record, review.week).size > 0;
   const skeletons: ItemsByPhase = {
     upkeep: upkeepItems(review),
     activity: activityItems(review),
-    event: eventItems(review, guaranteed),
+    event: eventItems(review, isGuaranteed),
     persistent: persistentItems(review),
   };
   const items = Object.fromEntries(
@@ -538,12 +540,10 @@ function allItems(review: Review) {
 }
 
 /** A readable name for a recorded subject, from this record's items. */
-function subjectName(review: Review, subjectId: string) {
+function findSubjectName(review: Review, subjectId: string) {
   return (
     findOwner(subjectId, allItems(review))?.title ??
-    (review.names.event(subjectId) !== 'Recorded event'
-      ? review.names.event(subjectId)
-      : null)
+    review.names.findEvent(subjectId)
   );
 }
 
@@ -562,7 +562,7 @@ function placeOutcomes(review: Review, outcomes: Outcomes) {
     }
     const note = outcomes.placeUnlinked(
       ack,
-      subjectName(review, ack.subjectId) ?? 'Table outcome',
+      findSubjectName(review, ack.subjectId) ?? 'Table outcome',
     );
     if (note) review.unassociated.push(note);
   }
@@ -604,7 +604,7 @@ function placeExceptions(review: Review) {
     }
     const orphan = newItem(
       `missing:${exception.exceptionId}`,
-      subjectName(review, exception.subjectId) ?? 'Table ruling',
+      findSubjectName(review, exception.subjectId) ?? 'Table ruling',
     );
     orphan.missing = true;
     orphan.notes.push(note);
@@ -616,7 +616,10 @@ function placeExceptions(review: Review) {
  * Newer records store each warning's full code as its message, led by its
  * first segment as the code; older ones kept a written message instead.
  */
-function warningCode({ code, message }: Record_['warnings'][number]) {
+function findWarningCode({
+  code,
+  message,
+}: ResolutionRecord['warnings'][number]) {
   return message === code || message.startsWith(`${code}:`) ? message : null;
 }
 
@@ -626,6 +629,7 @@ function warningText(review: Review, code: string) {
     const owner = findOwner(code, allItems(review));
     return owner ? `${owner.title}: ${known}` : known;
   }
+  const isWarning = true;
   return summaryMessage(
     code,
     {
@@ -636,7 +640,7 @@ function warningText(review: Review, code: string) {
         ),
       },
     },
-    true,
+    isWarning,
   );
 }
 
@@ -646,7 +650,7 @@ function placeWarnings(review: Review) {
   const general: Partial<Record<ReviewPhase, Item>> = {};
   const all = allItems(review);
   review.record.warnings.forEach((warning, index) => {
-    const code = warningCode(warning);
+    const code = findWarningCode(warning);
     // Older records keep a written message; it is shown exactly as recorded.
     const note: ReviewNote = {
       kind: 'warning',

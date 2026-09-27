@@ -2,6 +2,7 @@ import type { ReviewNames } from '~/components/week-review/review-text';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
 import { militiaEventTable } from '~/lib/militia-event-table';
 import { activityLabel } from '../weekly-draft-workspace/activity-labels';
+import { isFacts, type Facts } from './record-artifacts';
 import type { RecordedOccurrence } from './record-event-tree';
 
 // Names come from the selected record alone. Teams, settlements, items and
@@ -11,7 +12,7 @@ import type { RecordedOccurrence } from './record-event-tree';
 // roster, ledger and labels are never consulted.
 
 type Kind = 'team' | 'settlement' | 'item' | 'cache' | 'character';
-type Facts = Record<string, unknown>;
+type OwnName = { kind: Kind; id: string; name: string };
 const fallbacks: Record<Kind, string> = {
   team: 'Team',
   settlement: 'Settlement',
@@ -20,11 +21,7 @@ const fallbacks: Record<Kind, string> = {
   character: 'Character',
 };
 
-function isFacts(value: unknown): value is Facts {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function kindOf(field: string): Kind | null {
+function findKind(field: string): Kind | null {
   const key = field.replace(/Ids$/, 'Id');
   if (/characterId$/i.test(key)) return 'character';
   if (/teamId$/i.test(key)) return 'team';
@@ -35,28 +32,29 @@ function kindOf(field: string): Kind | null {
 }
 
 /** The name an entity records for itself, e.g. a roster team's name. */
-function ownName(value: Facts): [Kind, string, string] | null {
-  const text = (field: string) =>
-    typeof value[field] === 'string' && value[field].trim()
-      ? value[field]
-      : null;
-  const id = (field: string) =>
-    typeof value[field] === 'string' ? value[field] : null;
-  const team = id('teamId');
-  if (team && text('name') && ('teamType' in value || 'status' in value))
-    return ['team', team, text('name')!];
-  const settlement = id('settlementId');
-  if (settlement && text('name') && 'reputation' in value)
-    return ['settlement', settlement, text('name')!];
-  const item = id('itemId');
-  if (item && text('name') && !team && !settlement)
-    return ['item', item, text('name')!];
-  const cache = id('cacheId');
-  if (cache && text('location')) return ['cache', cache, text('location')!];
+function findOwnName(value: Facts): OwnName | null {
+  const text = (field: string) => {
+    const entry = value[field];
+    return typeof entry === 'string' && entry.trim() ? entry : null;
+  };
+  const name = text('name');
+  const location = text('location');
+  const team = text('teamId');
+  const settlement = text('settlementId');
+  const item = text('itemId');
+  const cache = text('cacheId');
+  if (team && name && ('teamType' in value || 'status' in value))
+    return { kind: 'team', id: team, name };
+  if (settlement && name && 'reputation' in value)
+    return { kind: 'settlement', id: settlement, name };
+  if (item && name && !team && !settlement)
+    return { kind: 'item', id: item, name };
+  if (cache && location) return { kind: 'cache', id: cache, name: location };
   return null;
 }
 
-function collect(record: CanonicalResolutionRecord) {
+/** Every referenced entity by kind, with its recorded name when it has one. */
+function collectEntities(record: CanonicalResolutionRecord) {
   const seen: Record<Kind, Map<string, string | null>> = {
     team: new Map(),
     settlement: new Map(),
@@ -65,19 +63,17 @@ function collect(record: CanonicalResolutionRecord) {
     character: new Map(),
   };
   const see = (kind: Kind, id: string, name: string | null = null) => {
-    if (name || !seen[kind].has(id))
-      seen[kind].set(id, name ?? seen[kind].get(id) ?? null);
+    if (name || !seen[kind].has(id)) seen[kind].set(id, name);
   };
   const visit = (value: unknown) => {
     if (Array.isArray(value)) return value.forEach(visit);
     if (!isFacts(value)) return;
-    const named = ownName(value);
-    if (named) see(...named);
+    const own = findOwnName(value);
+    if (own) see(own.kind, own.id, own.name);
     for (const [field, entry] of Object.entries(value)) {
-      const kind = kindOf(field);
-      if (kind && typeof entry === 'string') see(kind, entry);
-      if (kind && Array.isArray(entry))
-        for (const id of entry) if (typeof id === 'string') see(kind, id);
+      const kind = findKind(field);
+      const ids: unknown[] = Array.isArray(entry) ? entry : [entry];
+      if (kind) for (const id of ids) if (typeof id === 'string') see(kind, id);
       visit(entry);
     }
   };
@@ -90,17 +86,22 @@ function collect(record: CanonicalResolutionRecord) {
     record.finalOutcome.data,
     record.successorContext,
   ].forEach(visit);
+  return seen;
+}
+
+function entityLabels(record: CanonicalResolutionRecord) {
   const labels = new Map<string, string>();
-  for (const kind of Object.keys(seen) as Kind[]) {
+  const entities = collectEntities(record);
+  for (const kind of Object.keys(entities) as Kind[]) {
     let number = 0;
-    for (const [id, name] of seen[kind])
+    for (const [id, name] of entities[kind])
       labels.set(`${kind}:${id}`, name ?? `${fallbacks[kind]} ${++number}`);
   }
   return (kind: Kind, id: string) =>
     labels.get(`${kind}:${id}`) ?? `Recorded ${fallbacks[kind].toLowerCase()}`;
 }
 
-export function eventTypeName(type: string) {
+function eventTypeName(type: string) {
   return (
     militiaEventTable.find((entry) => entry.eventType === type)?.name ??
     activityLabel(type)
@@ -146,17 +147,17 @@ function recordedEventTypes(record: CanonicalResolutionRecord) {
 }
 
 export type RecordNames = ReviewNames & {
-  /** The recorded type of an event, if the record states one. */
-  eventType(id: string): string | null;
+  /** The recorded name of an event, or null when the record names none. */
+  findEvent(id: string): string | null;
 };
 
 export function recordNames(
   record: CanonicalResolutionRecord,
   occurrences: readonly RecordedOccurrence[],
 ): RecordNames {
-  const label = collect(record);
+  const label = entityLabels(record);
   const types = recordedEventTypes(record);
-  const typed = (id: string) => {
+  const findTypeName = (id: string) => {
     const type = types.get(id);
     return type ? eventTypeName(type) : null;
   };
@@ -164,7 +165,7 @@ export function recordNames(
   // label, carried events by type and position among this week's carried.
   const events = new Map<string, string>();
   for (const { occurrence, label: position } of occurrences) {
-    const name = typed(occurrence.eventId);
+    const name = findTypeName(occurrence.eventId);
     events.set(occurrence.eventId, name ? `${position} · ${name}` : position);
   }
   orderCarried(record.source.context.carriedEvents).forEach((event, index) => {
@@ -174,15 +175,15 @@ export function recordNames(
         `${activityLabel(event.eventType)} · Event ${index + 1}`,
       );
   });
-  const event = (id: string) => events.get(id) ?? typed(id) ?? 'Recorded event';
+  const findEvent = (id: string) => events.get(id) ?? findTypeName(id);
   return {
     team: (id) => label('team', id),
     settlement: (id) => label('settlement', id),
     character: (id) => label('character', id),
     item: (id) => label('item', id),
     cache: (id) => label('cache', id),
-    event,
-    eventType: (id) => types.get(id) ?? null,
+    event: (id) => findEvent(id) ?? 'Recorded event',
+    findEvent,
     // A recorded source is an event's name when it names one, else its text.
     source: (value) =>
       events.get(value) ??

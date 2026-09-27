@@ -14,7 +14,7 @@ import { weekStartFactsSchema } from '~/lib/weekly-draft-contract';
 // is recalculated, and a value the record does not hold stays unknown.
 
 type Artifact = CanonicalResolutionRecord['baselinePlan'];
-type Facts = Readonly<Record<string, unknown>>;
+export type Facts = Readonly<Record<string, unknown>>;
 type Snapshot = NonNullable<ComparedState['militiaSnapshot']>;
 type Context = NonNullable<ComparedState['context']>;
 
@@ -34,20 +34,20 @@ export type RecordedWeek = {
 const phases = ['upkeep', 'activity', 'event', 'persistent'] as const;
 const phaseFields = new Set<string>([...phases, 'sabotage']);
 
-function isFacts(value: unknown): value is Facts {
+export function isFacts(value: unknown): value is Facts {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-function snapshotOf(value: unknown): Snapshot | null {
+function parseSnapshot(value: unknown): Snapshot | null {
   const parsed = militiaSnapshotSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
-function contextOf(value: unknown): Context | null {
+function parseContext(value: unknown): Context | null {
   const parsed = weekStartFactsSchema.strip().safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 
 type TypedPlan = { before: Facts; after: Facts; effects: Facts };
-function typedPlan(artifact: Artifact): TypedPlan | null {
+function parseTypedPlan(artifact: Artifact): TypedPlan | null {
   const { before, after, effects } = artifact.data;
   return artifact.formatVersion === 2 &&
     isFacts(before) &&
@@ -59,8 +59,8 @@ function typedPlan(artifact: Artifact): TypedPlan | null {
 
 /** A stored week state; a part failing its structure stays readable loosely. */
 function weekState(value: Facts): ComparedState {
-  const militiaSnapshot = snapshotOf(value.militiaSnapshot);
-  const context = contextOf(value.context);
+  const militiaSnapshot = parseSnapshot(value.militiaSnapshot);
+  const context = parseContext(value.context);
   const recorded: Record<string, unknown> = {};
   if (!militiaSnapshot && isFacts(value.militiaSnapshot))
     Object.assign(recorded, value.militiaSnapshot);
@@ -87,7 +87,7 @@ function looseState(data: Facts): ComparedState {
     if (field === 'militiaSnapshot' || field === 'outcome') {
       const parsed: Snapshot | null = militiaSnapshot
         ? null
-        : snapshotOf(value);
+        : parseSnapshot(value);
       if (parsed) {
         militiaSnapshot = parsed;
         continue;
@@ -98,7 +98,7 @@ function looseState(data: Facts): ComparedState {
       }
     }
     if (field === 'context') {
-      context ??= contextOf(value);
+      context ??= parseContext(value);
       if (context) continue;
     }
     recorded[field] = value;
@@ -111,15 +111,15 @@ function planEntries(effects: Facts | undefined, field: string) {
   return Array.isArray(value) ? (value as readonly unknown[]) : null;
 }
 
-function weekOf(value: Facts | undefined) {
+function findWeek(value: Facts | undefined) {
   return typeof value?.week === 'number' ? value.week : null;
 }
 
 export function readRecordedWeek(
   record: CanonicalResolutionRecord,
 ): RecordedWeek {
-  const baselinePlan = typedPlan(record.baselinePlan);
-  const finalPlan = typedPlan(record.finalPlan);
+  const baselinePlan = parseTypedPlan(record.baselinePlan);
+  const finalPlan = parseTypedPlan(record.finalPlan);
   // Phase consequences are the same in both plans; the baseline's come first.
   const sources = [
     baselinePlan?.effects,
@@ -141,7 +141,7 @@ export function readRecordedWeek(
   const atConfirmation: ComparedState = {
     militiaSnapshot:
       record.sourceMilitiaSnapshot ??
-      snapshotOf(baselinePlan?.before.militiaSnapshot ?? null),
+      parseSnapshot(baselinePlan?.before.militiaSnapshot ?? null),
     context: record.source.context,
   };
   const baseline = baselinePlan
@@ -167,8 +167,8 @@ export function readRecordedWeek(
         !state.recorded,
     ),
     nextWeek:
-      weekOf(record.finalOutcome.data) ??
-      weekOf(finalPlan?.after) ??
+      findWeek(record.finalOutcome.data) ??
+      findWeek(finalPlan?.after) ??
       record.source.week + 1,
   };
 }

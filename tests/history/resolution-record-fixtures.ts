@@ -56,6 +56,13 @@ export function confirmedWeek({
       if (occurrence.tableRoll)
         occurrence.tableRoll = total(occurrence.tableRoll);
   }
+  // Retained below the Notoriety threshold: recorded, but never run.
+  draft.upkeep.notorietyCheck = {
+    sides: 20,
+    dice: [3],
+    provenance: { kind: 'table' },
+    modifiers: [],
+  };
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'id-transfer',
@@ -167,7 +174,8 @@ function legacySource() {
     },
   ];
   source.persistent.decisions = [
-    { eventId: 'id-plague', kind: 'buyoff', costCopper: 9000 },
+    // The recorded amount differs from the rules cost the plan applied.
+    { eventId: 'id-plague', kind: 'buyoff', costCopper: 9500 },
   ];
   source.acknowledgements = [
     {

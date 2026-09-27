@@ -9,29 +9,22 @@ import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 
 type Source = CanonicalResolutionRecord['source'];
 type Occurrence = Source['event']['occurrences'][number];
-export type RecordedEventOwner = {
-  slotIndex: number;
-  choice: StagedActionChoice;
-};
+type QueuedKind = Source['context']['queuedEffects'][number]['effect']['kind'];
 export type RecordedOccurrence = {
   occurrence: Occurrence;
   /** The Activity choice whose candidates hold this occurrence, if any. */
-  owner: RecordedEventOwner | null;
+  owner: StagedActionChoice | null;
   label: string;
 };
-type Located = {
-  occurrence: Occurrence;
-  owner: RecordedEventOwner | null;
+type Located = Omit<RecordedOccurrence, 'label'> & {
   tree: readonly Occurrence[];
 };
+type Unit = { roots: Located[]; isLettered: boolean; isActive: boolean };
 
 const candidateActions = new Set(['guarantee_event', 'manipulate_events']);
 
-function inForce(
-  source: Source,
-  kind: Source['context']['queuedEffects'][number]['effect']['kind'],
-  sourceId?: string,
-) {
+/** Whether a recorded queued effect of this kind applied in the record's week. */
+export function isInForce(source: Source, kind: QueuedKind, sourceId?: string) {
   return source.context.queuedEffects.some(
     (effect) =>
       effect.effect.kind === kind &&
@@ -45,17 +38,95 @@ function locate(source: Source): Located[] {
   const tree = source.event.occurrences;
   return [
     ...tree.map((occurrence) => ({ occurrence, owner: null, tree })),
-    ...source.activity.slots.flatMap((slot, slotIndex) => {
-      const choice = slot.choice;
+    ...source.activity.slots.flatMap(({ choice }) => {
       if (!choice || !candidateActions.has(choice.actionId)) return [];
       const events = 'candidates' in choice ? (choice.candidates ?? []) : [];
       return events.map((occurrence) => ({
         occurrence,
-        owner: { slotIndex, choice },
+        owner: choice,
         tree: events,
       }));
     }),
   ];
+}
+
+/**
+ * Top-level units in resolution order. All Is Calm replaces guaranteed and
+ * rolled events; automatic events and a guarantee's candidates are the only
+ * other ways an event takes part.
+ */
+function topLevelUnits(
+  source: Source,
+  roots: Located[],
+  guaranteedChoiceIds: ReadonlySet<string>,
+): Unit[] {
+  const isCalm = isInForce(source, 'all_is_calm');
+  const isGuaranteed = guaranteedChoiceIds.size > 0;
+  const single = (root: Located): Unit => {
+    const { origin } = root.occurrence;
+    return {
+      roots: [root],
+      isLettered: false,
+      isActive:
+        origin.kind === 'automatic'
+          ? isInForce(source, 'automatic_events', origin.sourceId)
+          : !isCalm && !isGuaranteed,
+    };
+  };
+  const candidateSets = source.activity.slots.flatMap(({ choice }) =>
+    choice && candidateActions.has(choice.actionId) ? [choice.choiceId] : [],
+  );
+  return [
+    ...roots
+      .filter(
+        (root) => !root.owner && root.occurrence.origin.kind === 'automatic',
+      )
+      .map(single),
+    ...roots
+      .filter((root) => !root.owner && root.occurrence.origin.kind === 'rolled')
+      .map(single),
+    ...candidateSets.map((choiceId) => ({
+      roots: roots.filter((root) => root.owner?.choiceId === choiceId),
+      isLettered: true,
+      isActive: !isCalm && guaranteedChoiceIds.has(choiceId),
+    })),
+  ];
+}
+
+/**
+ * Numbering matches the Event phase: active units in resolution order, then
+ * recorded ones that took no part; a candidate set shares one number and
+ * letters its candidates; nested events extend their parent's label by their
+ * position among all recorded siblings.
+ */
+function assignLabels(
+  units: Unit[],
+  order: Located[],
+  childrenOf: (entry: Located) => Located[],
+) {
+  const labels = new Map<Located, string>();
+  const assign = (entry: Located, label: string) => {
+    labels.set(entry, label);
+    childrenOf(entry).forEach((child, index) =>
+      assign(child, `${label}.${index + 1}`),
+    );
+  };
+  const numbered = [
+    ...units.filter((unit) => unit.isActive),
+    ...units.filter((unit) => !unit.isActive),
+  ].filter((unit) => unit.roots.length > 0);
+  numbered.forEach((unit, index) =>
+    unit.roots.forEach((root, position) =>
+      assign(
+        root,
+        `Event ${index + 1}${unit.isLettered ? String.fromCharCode(65 + position) : ''}`,
+      ),
+    ),
+  );
+  let next = numbered.length;
+  for (const entry of order)
+    if (!labels.has(entry)) assign(entry, `Event ${++next}`);
+  return labels;
 }
 
 /**
@@ -69,85 +140,25 @@ export function recordedEventTree(
 ): RecordedOccurrence[] {
   const located = locate(source);
   const childrenOf = (entry: Located) =>
-    entry.tree.flatMap((child) =>
-      'parentEventId' in child.origin &&
-      child.origin.parentEventId === entry.occurrence.eventId
-        ? located.filter((other) => other.occurrence === child)
-        : [],
+    located.filter(
+      (other) =>
+        other.tree === entry.tree &&
+        'parentEventId' in other.occurrence.origin &&
+        other.occurrence.origin.parentEventId === entry.occurrence.eventId,
     );
   const roots = located.filter(
     (entry) => !('parentEventId' in entry.occurrence.origin),
   );
-  const automaticRoots = roots.filter(
-    (entry) => !entry.owner && entry.occurrence.origin.kind === 'automatic',
-  );
-  const rolledRoots = roots.filter(
-    (entry) => !entry.owner && entry.occurrence.origin.kind === 'rolled',
-  );
+  const units = topLevelUnits(source, roots, guaranteedChoiceIds);
+  // Each root before its nested events: automatic, rolled, then candidates.
   const order: Located[] = [];
   const visit = (entry: Located) => {
     order.push(entry);
     childrenOf(entry).forEach(visit);
   };
-  [...automaticRoots, ...rolledRoots].forEach(visit);
-  roots.filter((entry) => entry.owner).forEach(visit);
+  units.flatMap((unit) => unit.roots).forEach(visit);
   for (const entry of located) if (!order.includes(entry)) order.push(entry);
-
-  // All Is Calm replaces guaranteed and rolled events; automatic events and
-  // a guarantee's candidates are the only other ways an event takes part.
-  const calm = inForce(source, 'all_is_calm');
-  const guaranteed = guaranteedChoiceIds.size > 0;
-  const tookPart = (entry: Located) => {
-    const { origin } = entry.occurrence;
-    if (origin.kind === 'automatic')
-      return inForce(source, 'automatic_events', origin.sourceId);
-    return !calm && !guaranteed;
-  };
-  const candidateSets = source.activity.slots.flatMap((slot) =>
-    slot.choice && candidateActions.has(slot.choice.actionId)
-      ? [slot.choice.choiceId]
-      : [],
-  );
-  const units = [
-    ...[...automaticRoots, ...rolledRoots].map((root) => ({
-      roots: [root],
-      lettered: false,
-      active: tookPart(root),
-    })),
-    ...candidateSets.map((choiceId) => ({
-      roots: roots.filter((entry) => entry.owner?.choice.choiceId === choiceId),
-      lettered: true,
-      active: !calm && guaranteedChoiceIds.has(choiceId),
-    })),
-  ];
-
-  // Numbering matches the Event phase: active top-level units in resolution
-  // order, then the recorded ones that took no part; a candidate set shares
-  // one number and letters its candidates; nested events extend their
-  // parent's label by their position among all recorded siblings.
-  const labels = new Map<Located, string>();
-  const assign = (entry: Located, label: string) => {
-    labels.set(entry, label);
-    childrenOf(entry).forEach((child, index) =>
-      assign(child, `${label}.${index + 1}`),
-    );
-  };
-  let number = 0;
-  for (const unit of [
-    ...units.filter((entry) => entry.active),
-    ...units.filter((entry) => !entry.active),
-  ]) {
-    if (unit.roots.length === 0) continue;
-    number++;
-    unit.roots.forEach((root, index) =>
-      assign(
-        root,
-        `Event ${number}${unit.lettered ? String.fromCharCode(65 + index) : ''}`,
-      ),
-    );
-  }
-  for (const entry of order)
-    if (!labels.has(entry)) assign(entry, `Event ${++number}`);
+  const labels = assignLabels(units, order, childrenOf);
   return order.map((entry) => ({
     occurrence: entry.occurrence,
     owner: entry.owner,
