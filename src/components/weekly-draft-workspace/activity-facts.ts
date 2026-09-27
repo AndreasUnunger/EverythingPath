@@ -339,6 +339,13 @@ function allowanceFacts(
   };
 }
 
+function personName(source: WorkspaceSource, characterId: string) {
+  return (
+    source.people.find((entry) => entry.characterId === characterId)?.name ??
+    'Unnamed character'
+  );
+}
+
 export function activityView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -425,15 +432,11 @@ export function activityView(
     })),
     people: source.snapshot.roster.people.map((person) => ({
       value: person.characterId,
-      label:
-        source.people.find((entry) => entry.characterId === person.characterId)
-          ?.name ?? 'Unnamed character',
+      label: personName(source, person.characterId),
     })),
     characters: source.snapshot.roster.people.map((person) => ({
       characterId: person.characterId,
-      name:
-        source.people.find((entry) => entry.characterId === person.characterId)
-          ?.name ?? 'Unnamed character',
+      name: personName(source, person.characterId),
       level:
         (upkeep?.outcome.characters ?? source.snapshot.characters).find(
           (character) => character.characterId === person.characterId,

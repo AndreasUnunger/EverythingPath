@@ -108,6 +108,31 @@ describe('people actions', () => {
     expect(edit).toHaveBeenCalledTimes(calls);
   });
 
+  test('[rules.WEEK-13.option-cards-keyboard] option cards are one Tab stop; arrows move focus without selecting and Space selects', () => {
+    const choice: StagedActionChoice = {
+      choiceId: 'officer',
+      actionId: 'change_officer_role',
+    };
+    const { edit } = open(facts(choice));
+    const cards = within(group('Character')).getAllByRole('radio');
+    expect(cards.filter((radio) => radio.tabIndex === 0)).toEqual([
+      card('Character', 'Ameiko'),
+    ]);
+    const calls = edit.mock.calls.length;
+    card('Character', 'Ameiko').focus();
+    fireEvent.keyDown(card('Character', 'Ameiko'), { key: 'ArrowRight' });
+    expect(card('Character', 'Jagrin')).toHaveFocus();
+    fireEvent.keyDown(card('Character', 'Jagrin'), { key: 'ArrowRight' });
+    expect(card('Character', 'Ameiko')).toHaveFocus();
+    fireEvent.keyDown(card('Character', 'Ameiko'), { key: 'End' });
+    expect(card('Character', 'Jagrin')).toHaveFocus();
+    expect(edit).toHaveBeenCalledTimes(calls);
+    fireEvent.keyDown(card('Character', 'Jagrin'), { key: ' ' });
+    expect(lastChoice(edit)).toEqual({ ...choice, characterId: 'jagrin' });
+    fireEvent.keyDown(card('Character', 'Ameiko'), { key: 'Enter' });
+    expect(lastChoice(edit)).toEqual({ ...choice, characterId: 'ameiko' });
+  });
+
   test('[rules.ACT-10.rescue-level] the Rescue level shows the rules level until a table value, including zero, is staged', () => {
     const choice: StagedActionChoice = {
       choiceId: 'rescue',

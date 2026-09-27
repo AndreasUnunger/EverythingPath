@@ -121,6 +121,12 @@ describe('rule facts at the slot position', () => {
       true,
     );
     expect(second.fromRoles).toHaveLength(6);
+    // Keeping Strategist, any other role would be a second one.
+    expect(second.toRoles[0]).toMatchObject({
+      value: 'ambassador',
+      eligible: false,
+      description: 'A second role',
+    });
     expect(second.toRoles.at(-1)).toMatchObject({
       value: 'strategist',
       eligible: false,
@@ -296,9 +302,10 @@ describe('option lists', () => {
     expect(detail.destinations.filter((entry) => entry.eligible)).toHaveLength(
       1,
     );
-    expect(detail.destinations.some((entry) => entry.value === 'moles')).toBe(
-      false,
-    );
+    // The team's own type stays listed, so a recorded one never disappears.
+    expect(
+      detail.destinations.find((entry) => entry.value === 'moles'),
+    ).toMatchObject({ eligible: false, missing: false });
   });
 
   test('[rules.ACT-10.missing-reference] a recorded team, character or refuge that is gone stays listed as missing, never renamed', () => {

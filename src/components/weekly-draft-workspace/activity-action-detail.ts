@@ -24,17 +24,7 @@ type Choice<Id extends StagedActionChoice['actionId']> = Extract<
   StagedActionChoice,
   { actionId: Id }
 >;
-export type PeopleTeamActionId =
-  | 'change_officer_role'
-  | 'recruit_team'
-  | 'upgrade_team'
-  | 'dismiss_team'
-  | 'rescue_character'
-  | 'restore_character'
-  | 'drill_militia'
-  | 'earn_gold'
-  | 'lie_low';
-export const PEOPLE_TEAM_ACTIONS: readonly PeopleTeamActionId[] = [
+export const PEOPLE_TEAM_ACTIONS = [
   'change_officer_role',
   'recruit_team',
   'upgrade_team',
@@ -44,7 +34,8 @@ export const PEOPLE_TEAM_ACTIONS: readonly PeopleTeamActionId[] = [
   'drill_militia',
   'earn_gold',
   'lie_low',
-];
+] as const satisfies readonly StagedActionChoice['actionId'][];
+export type PeopleTeamActionId = (typeof PEOPLE_TEAM_ACTIONS)[number];
 export function isPeopleTeamChoice(
   choice: StagedActionChoice,
 ): choice is Choice<PeopleTeamActionId> {
@@ -138,17 +129,12 @@ function withMissing(
   options: DetailOption[],
   recorded: string | undefined,
   label: string,
+  description = 'No longer on the roster',
 ): DetailOption[] {
   if (!recorded || options.some((entry) => entry.value === recorded))
     return options;
   return [
-    {
-      value: recorded,
-      label,
-      description: 'No longer on the roster',
-      eligible: false,
-      missing: true,
-    },
+    { value: recorded, label, description, eligible: false, missing: true },
     ...options,
   ];
 }
@@ -162,11 +148,8 @@ function ordered(options: DetailOption[]) {
 function typeFacts(teamType: string | null | undefined) {
   return teamTable.find((entry) => entry.id === teamType);
 }
-function roleLabel(role: string) {
-  return activityLabel(role);
-}
 function roleList(roles: string[]) {
-  return roles.length ? roles.map(roleLabel).join(', ') : 'No officer role';
+  return roles.length ? roles.map(activityLabel).join(', ') : 'No officer role';
 }
 
 function heldRoles(slot: Slot, characterId: string | undefined) {
@@ -276,7 +259,7 @@ const rollWhen: Partial<
   drill_militia: {
     notoriety: 'Rolled on a natural 1: Notoriety rises by the roll.',
     training:
-      'Rolled if the check succeeds: Training rises by the roll plus any Commandant bonus.',
+      'Rolled if the check succeeds: Training rises by the roll plus any Commandant bonus, multiplied by any queued training effect.',
   },
   earn_gold: {
     notoriety: 'Rolled on a natural 1: Notoriety rises by the roll.',
@@ -362,181 +345,200 @@ const RESTORE_MODES = [
   Choice<'restore_character'>['mode']
 >[];
 
+type Build<Id extends PeopleTeamActionId> = (
+  choice: Choice<Id>,
+  slot: Slot,
+  view: ActivityView,
+) => Extract<Specific, { actionId: Id }>;
+
+const officerRoleDetail: Build<'change_officer_role'> = (
+  choice,
+  slot,
+  view,
+) => {
+  const held = heldRoles(slot, choice.characterId);
+  // Roles kept after leaving the From role: any would make a second role.
+  const kept = held?.filter((role) => role !== choice.fromRole) ?? [];
+  const roles = (
+    eligible: (role: OfficerRole) => boolean,
+    describe: (role: OfficerRole) => string | null,
+  ) =>
+    ordered(
+      OFFICER_ROLES.map((role) =>
+        option(role, activityLabel(role), describe(role), eligible(role)),
+      ),
+    );
+  return {
+    actionId: choice.actionId,
+    characters: characterOptions(view, choice.characterId, (id) =>
+      slot.position ? roleList(heldRoles(slot, id) ?? []) : null,
+    ),
+    heldRoles: held,
+    // Without a character every role stays in one list.
+    fromRoles: roles(
+      (role) => held === null || held.includes(role),
+      (role) => (held?.includes(role) ? 'Held now' : null),
+    ),
+    toRoles: roles(
+      (role) => kept.length === 0 && !held?.includes(role),
+      (role) =>
+        kept.includes(role)
+          ? 'Already held'
+          : kept.length > 0
+            ? 'A second role'
+            : null,
+    ),
+  };
+};
+
+const recruitDetail: Build<'recruit_team'> = (choice) => ({
+  actionId: choice.actionId,
+  teamTypes: ordered(
+    teamTable.map((entry) => {
+      const rules = teamRecruitmentCheck(entry.id);
+      return option(
+        entry.id,
+        entry.name,
+        `Tier ${entry.tier} · ${
+          rules
+            ? `${activityLabel(rules.check)} DC ${rules.dc}`
+            : 'No recruitment rules'
+        }`,
+        rules !== null,
+      );
+    }),
+  ),
+  recruitment: recruitmentState(choice),
+});
+
+const upgradeDetail: Build<'upgrade_team'> = (choice, slot, view) => {
+  const from = view.teamRoster.find(
+    (team) => team.teamId === choice.targetTeamId,
+  )?.teamType;
+  return {
+    actionId: choice.actionId,
+    targets: targetOptions(
+      view,
+      slot,
+      choice.targetTeamId,
+      (team) =>
+        exists(team, slot) &&
+        team.condition === 'active' &&
+        !team.unavailable &&
+        !teamUse(view, team.teamId, slot) &&
+        Boolean(typeFacts(team.teamType)?.upgrade?.to.length),
+    ),
+    // Every type stays listed, including the target's own, so a recorded
+    // destination never disappears.
+    destinations: ordered(
+      teamTable.map((entry) =>
+        option(
+          entry.id,
+          entry.name,
+          `Tier ${entry.tier} · ${gp(getTeamCost(entry.id) * 100)}`,
+          from ? isUpgradePathAllowed(from, entry.id) : false,
+        ),
+      ),
+    ),
+  };
+};
+
+const dismissDetail: Build<'dismiss_team'> = (choice, slot, view) => ({
+  actionId: choice.actionId,
+  targets: targetOptions(view, slot, choice.targetTeamId, (team) =>
+    exists(team, slot),
+  ),
+});
+
+// A character's level and, when tracked, condition at this slot.
+function characterNote(slot: Slot) {
+  return (characterId: string, value: number | null) => {
+    const condition = status(slot, characterId);
+    return [levelText(value), condition ? activityLabel(condition) : null]
+      .filter(Boolean)
+      .join(' · ');
+  };
+}
+
+const rescueDetail: Build<'rescue_character'> = (choice, slot, view) => {
+  const refuges = slot.position?.refugeSettlementIds ?? [];
+  const recorded =
+    choice.destination?.kind === 'refuge'
+      ? `refuge:${choice.destination.settlementId}`
+      : undefined;
+  const settlements = view.settlements.map((settlement) => {
+    const active = refuges.includes(settlement.value);
+    return option(
+      `refuge:${settlement.value}`,
+      `Refuge in ${settlement.label}`,
+      active ? 'Active refuge' : 'No active refuge this week',
+      active,
+    );
+  });
+  return {
+    actionId: choice.actionId,
+    characters: characterOptions(
+      view,
+      choice.characterId,
+      characterNote(slot),
+      (id) => status(slot, id) === 'captured',
+    ),
+    destinations: withMissing(
+      [option('headquarters', 'Headquarters', null), ...ordered(settlements)],
+      recorded,
+      'Refuge in a missing settlement',
+      'No longer one of the campaign’s settlements',
+    ),
+    ruleLevel: level(view, choice.characterId),
+  };
+};
+
+const restoreDetail: Build<'restore_character'> = (choice, slot, view) => ({
+  actionId: choice.actionId,
+  modes: RESTORE_MODES.map((mode) =>
+    option(
+      mode,
+      activityLabel(mode),
+      isPartyRestoration(mode)
+        ? 'Every player character'
+        : `One character · scroll ${gp(restorationCostCopper(mode))}`,
+    ),
+  ),
+  scope: choice.mode
+    ? isPartyRestoration(choice.mode)
+      ? 'party'
+      : 'individual'
+    : null,
+  characters: characterOptions(
+    view,
+    choice.characterId,
+    characterNote(slot),
+    (id) => status(slot, id) !== 'captured',
+  ),
+  ruleLevel: level(view, choice.characterId),
+});
+
 function specific(
   choice: Choice<PeopleTeamActionId>,
   slot: Slot,
   view: ActivityView,
 ): Specific {
   switch (choice.actionId) {
-    case 'change_officer_role': {
-      const held = heldRoles(slot, choice.characterId);
-      const roles = (
-        eligible: (role: OfficerRole) => boolean,
-        describe: (role: OfficerRole) => string | null,
-      ) =>
-        ordered(
-          OFFICER_ROLES.map((role) =>
-            option(role, roleLabel(role), describe(role), eligible(role)),
-          ),
-        );
-      return {
-        actionId: choice.actionId,
-        characters: characterOptions(view, choice.characterId, (id) =>
-          slot.position ? roleList(heldRoles(slot, id) ?? []) : null,
-        ),
-        heldRoles: held,
-        // Without a character every role stays in one list.
-        fromRoles: roles(
-          (role) => held === null || held.includes(role),
-          (role) => (held?.includes(role) ? 'Held now' : null),
-        ),
-        toRoles: roles(
-          (role) => !held?.includes(role),
-          (role) => (held?.includes(role) ? 'Already held' : null),
-        ),
-      };
-    }
+    case 'change_officer_role':
+      return officerRoleDetail(choice, slot, view);
     case 'recruit_team':
-      return {
-        actionId: choice.actionId,
-        teamTypes: ordered(
-          teamTable.map((entry) => {
-            const rules = teamRecruitmentCheck(entry.id);
-            return option(
-              entry.id,
-              entry.name,
-              `Tier ${entry.tier} · ${
-                rules
-                  ? `${activityLabel(rules.check)} DC ${rules.dc}`
-                  : 'No recruitment rules'
-              }`,
-              rules !== null,
-            );
-          }),
-        ),
-        recruitment: recruitmentState(choice),
-      };
-    case 'upgrade_team': {
-      const target = view.teamRoster.find(
-        (team) => team.teamId === choice.targetTeamId,
-      );
-      return {
-        actionId: choice.actionId,
-        targets: targetOptions(
-          view,
-          slot,
-          choice.targetTeamId,
-          (team) =>
-            exists(team, slot) &&
-            team.condition === 'active' &&
-            !team.unavailable &&
-            !teamUse(view, team.teamId, slot) &&
-            Boolean(typeFacts(team.teamType)?.upgrade?.to.length),
-        ),
-        destinations: ordered(
-          teamTable
-            .filter((entry) => entry.id !== target?.teamType)
-            .map((entry) =>
-              option(
-                entry.id,
-                entry.name,
-                `Tier ${entry.tier} · ${gp(getTeamCost(entry.id) * 100)}`,
-                target?.teamType !== null &&
-                  target?.teamType !== undefined &&
-                  isUpgradePathAllowed(target.teamType, entry.id),
-              ),
-            ),
-        ),
-      };
-    }
+      return recruitDetail(choice, slot, view);
+    case 'upgrade_team':
+      return upgradeDetail(choice, slot, view);
     case 'dismiss_team':
-      return {
-        actionId: choice.actionId,
-        targets: targetOptions(view, slot, choice.targetTeamId, (team) =>
-          exists(team, slot),
-        ),
-      };
-    case 'rescue_character': {
-      const refuges = slot.position?.refugeSettlementIds ?? [];
-      const recorded = choice.destination;
-      const settlements = view.settlements.map((settlement) =>
-        option(
-          `refuge:${settlement.value}`,
-          `Refuge in ${settlement.label}`,
-          refuges.includes(settlement.value)
-            ? 'Active refuge'
-            : 'No active refuge this week',
-          refuges.includes(settlement.value),
-        ),
-      );
-      return {
-        actionId: choice.actionId,
-        characters: characterOptions(
-          view,
-          choice.characterId,
-          (id, value) =>
-            [
-              levelText(value),
-              status(slot, id) && activityLabel(status(slot, id)!),
-            ]
-              .filter(Boolean)
-              .join(' · '),
-          (id) => status(slot, id) === 'captured',
-        ),
-        destinations: [
-          ...(recorded?.kind === 'refuge' &&
-          !view.settlements.some(
-            (settlement) => settlement.value === recorded.settlementId,
-          )
-            ? [
-                {
-                  value: `refuge:${recorded.settlementId}`,
-                  label: 'Refuge in a missing settlement',
-                  description: 'No longer one of the campaign’s settlements',
-                  eligible: false,
-                  missing: true,
-                },
-              ]
-            : []),
-          option('headquarters', 'Headquarters', null),
-          ...ordered(settlements),
-        ],
-        ruleLevel: level(view, choice.characterId),
-      };
-    }
+      return dismissDetail(choice, slot, view);
+    case 'rescue_character':
+      return rescueDetail(choice, slot, view);
     case 'restore_character':
-      return {
-        actionId: choice.actionId,
-        modes: RESTORE_MODES.map((mode) => {
-          const cost = restorationCostCopper(mode);
-          return option(
-            mode,
-            activityLabel(mode),
-            isPartyRestoration(mode)
-              ? 'Every player character'
-              : `One character · scroll ${gp(cost)}`,
-          );
-        }),
-        scope: choice.mode
-          ? isPartyRestoration(choice.mode)
-            ? 'party'
-            : 'individual'
-          : null,
-        characters: characterOptions(
-          view,
-          choice.characterId,
-          (id, value) =>
-            [
-              levelText(value),
-              status(slot, id) && activityLabel(status(slot, id)!),
-            ]
-              .filter(Boolean)
-              .join(' · '),
-          (id) => status(slot, id) !== 'captured',
-        ),
-        ruleLevel: level(view, choice.characterId),
-      };
-    default:
+      return restoreDetail(choice, slot, view);
+    case 'drill_militia':
+    case 'earn_gold':
+    case 'lie_low':
       return { actionId: choice.actionId };
   }
 }

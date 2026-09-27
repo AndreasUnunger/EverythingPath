@@ -60,34 +60,46 @@ type Detail<Id extends PeopleTeamActionId> = Extract<
   { actionId: Id }
 >;
 type FieldError = { field: string; message: string } | null;
-type Ctx = {
+type FieldContext = {
   edits: ActionFieldEdits;
   disabled: boolean;
   fieldError: FieldError;
 };
-type Fields<Id extends PeopleTeamActionId> = {
-  choice: Choice<Id>;
-  detail: Detail<Id>;
-  ctx: Ctx;
+// A choice paired with the detail facts of the same action, so one
+// discriminant narrows both.
+type ActionFields<Id extends PeopleTeamActionId = PeopleTeamActionId> =
+  Id extends unknown
+    ? { actionId: Id; choice: Choice<Id>; detail: Detail<Id> }
+    : never;
+type Fields<Id extends PeopleTeamActionId> = ActionFields<Id> & {
+  context: FieldContext;
 };
+
+function isMatchedAction(fields: {
+  actionId: PeopleTeamActionId;
+  choice: Choice;
+  detail: ActionDetail;
+}): fields is ActionFields {
+  return fields.choice.actionId === fields.detail.actionId;
+}
 
 const CHECK_KINDS = ['loyalty', 'secrecy', 'security'] as const;
 
 function Field({
   name,
-  ctx,
+  context,
   children,
 }: {
   name: string;
-  ctx: Ctx;
+  context: FieldContext;
   children: ReactNode;
 }) {
   return (
     <div className="min-w-0 space-y-1">
       {children}
-      {ctx.fieldError?.field === name && (
+      {context.fieldError?.field === name && (
         <p role="alert" className="text-destructive text-sm">
-          {ctx.fieldError.message}
+          {context.fieldError.message}
         </p>
       )}
     </div>
@@ -95,7 +107,7 @@ function Field({
 }
 
 function OptionField({
-  ctx,
+  context,
   field,
   label,
   options,
@@ -105,7 +117,7 @@ function OptionField({
   onSelect,
   onClear,
 }: {
-  ctx: Ctx;
+  context: FieldContext;
   field: string;
   label: string;
   options: DetailOption[];
@@ -117,16 +129,16 @@ function OptionField({
   onClear?: () => void;
 }) {
   return (
-    <Field name={field} ctx={ctx}>
+    <Field name={field} context={context}>
       <ActivityOptionCards
         label={label}
         options={options}
         value={value}
         otherLabel={otherLabel}
         description={description}
-        disabled={ctx.disabled}
-        onSelect={onSelect ?? ((next) => ctx.edits.set(field, next))}
-        onClear={onClear ?? (() => ctx.edits.clear(field))}
+        disabled={context.disabled}
+        onSelect={onSelect ?? ((next) => context.edits.set(field, next))}
+        onClear={onClear ?? (() => context.edits.clear(field))}
       />
     </Field>
   );
@@ -144,29 +156,31 @@ function Muted({ children }: { children: ReactNode }) {
   return <p className="text-muted-foreground text-sm">{children}</p>;
 }
 
+function levelDescription(level: number | undefined, ruleLevel: number | null) {
+  if (ruleLevel === null) return 'Level not recorded for this character.';
+  if (level === undefined) return 'From the character’s record.';
+  return `Record: level ${ruleLevel}. The rules use the recorded level.`;
+}
+
 function LevelField({
-  ctx,
+  context,
   level,
   ruleLevel,
 }: {
-  ctx: Ctx;
+  context: FieldContext;
   level: number | undefined;
   ruleLevel: number | null;
 }) {
   return (
-    <Field name="characterLevel" ctx={ctx}>
+    <Field name="characterLevel" context={context}>
       <WholeNumberField
         label="Character level"
         value={level ?? ruleLevel}
-        disabled={ctx.disabled}
-        onValue={(next) => ctx.edits.set('characterLevel', next ?? undefined)}
-        description={
-          level === undefined && ruleLevel !== null
-            ? 'From the character’s record.'
-            : ruleLevel !== null
-              ? `Record: level ${ruleLevel}. The rules use the recorded level.`
-              : 'Level not recorded for this character.'
+        disabled={context.disabled}
+        onValue={(next) =>
+          context.edits.set('characterLevel', next ?? undefined)
         }
+        description={levelDescription(level, ruleLevel)}
       />
     </Field>
   );
@@ -175,12 +189,12 @@ function LevelField({
 function OfficerRoleFields({
   choice,
   detail,
-  ctx,
+  context,
 }: Fields<'change_officer_role'>) {
   return (
     <>
       <OptionField
-        ctx={ctx}
+        context={context}
         field="characterId"
         label="Character"
         options={detail.characters}
@@ -195,7 +209,7 @@ function OfficerRoleFields({
         </p>
       )}
       <OptionField
-        ctx={ctx}
+        context={context}
         field="fromRole"
         label="From role"
         options={detail.fromRoles}
@@ -203,12 +217,12 @@ function OfficerRoleFields({
         otherLabel="Not held at this slot"
       />
       <OptionField
-        ctx={ctx}
+        context={context}
         field="toRole"
         label="To role"
         options={detail.toRoles}
         value={choice.toRole ?? null}
-        otherLabel="Already held"
+        otherLabel="Already held, or a second role (needs a Rules Exception)"
       />
       <Muted>
         Leave From role empty to take a new role; leave To role empty to only
@@ -225,10 +239,10 @@ function OfficerRoleFields({
 // The table-chosen check for a team type without recruitment rules.
 function RecruitmentCheckFields({
   recorded,
-  ctx,
+  context,
 }: {
   recorded: Choice<'recruit_team'>['recruitmentCheck'];
-  ctx: Ctx;
+  context: FieldContext;
 }) {
   const form = useForm({
     // No check is chosen until the table picks one; the schema requires it.
@@ -244,7 +258,7 @@ function RecruitmentCheckFields({
         noValidate
         aria-label="Recruitment check"
         onSubmit={form.handleSubmit((values) =>
-          ctx.edits.setRecruitmentCheck(recruitmentCheckFromForm(values)),
+          context.edits.setRecruitmentCheck(recruitmentCheckFromForm(values)),
         )}
         className="space-y-2"
       >
@@ -258,7 +272,7 @@ function RecruitmentCheckFields({
                 <Select
                   value={field.value ?? ''}
                   onValueChange={field.onChange}
-                  disabled={ctx.disabled}
+                  disabled={context.disabled}
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -292,7 +306,7 @@ function RecruitmentCheckFields({
                     inputMode="numeric"
                     autoComplete="off"
                     className="font-mono"
-                    disabled={ctx.disabled}
+                    disabled={context.disabled}
                   />
                 </FormControl>
                 <div className="min-h-5">
@@ -303,30 +317,34 @@ function RecruitmentCheckFields({
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="outline" disabled={ctx.disabled}>
+          <Button type="submit" variant="outline" disabled={context.disabled}>
             Save recruitment check
           </Button>
-          {recorded && <ClearRecruitmentCheck ctx={ctx} />}
+          {recorded && <ClearRecruitmentCheck context={context} />}
         </div>
       </form>
     </Form>
   );
 }
 
-function ClearRecruitmentCheck({ ctx }: { ctx: Ctx }) {
+function ClearRecruitmentCheck({ context }: { context: FieldContext }) {
   return (
     <Button
       type="button"
       variant="outline"
-      disabled={ctx.disabled}
-      onClick={() => ctx.edits.setRecruitmentCheck(null)}
+      disabled={context.disabled}
+      onClick={() => context.edits.setRecruitmentCheck(null)}
     >
       Clear recruitment check
     </Button>
   );
 }
 
-function RecruitTeamFields({ choice, detail, ctx }: Fields<'recruit_team'>) {
+function RecruitTeamFields({
+  choice,
+  detail,
+  context,
+}: Fields<'recruit_team'>) {
   const recruitment = detail.recruitment;
   const typeName =
     detail.teamTypes.find((option) => option.value === choice.teamType)
@@ -334,7 +352,7 @@ function RecruitTeamFields({ choice, detail, ctx }: Fields<'recruit_team'>) {
   return (
     <>
       <OptionField
-        ctx={ctx}
+        context={context}
         field="teamType"
         label="Team type"
         options={detail.teamTypes}
@@ -342,7 +360,7 @@ function RecruitTeamFields({ choice, detail, ctx }: Fields<'recruit_team'>) {
         otherLabel="No recruitment rules (needs a Rules Exception)"
       />
       {recruitment.kind !== 'none' && (
-        <Field name="recruitmentCheck" ctx={ctx}>
+        <Field name="recruitmentCheck" context={context}>
           {recruitment.kind === 'rules' && (
             <p className="text-sm">
               Recruitment check: {activityLabel(recruitment.check)} DC{' '}
@@ -357,7 +375,7 @@ function RecruitTeamFields({ choice, detail, ctx }: Fields<'recruit_team'>) {
               </Muted>
               <RecruitmentCheckFields
                 recorded={choice.recruitmentCheck}
-                ctx={ctx}
+                context={context}
               />
             </div>
           )}
@@ -370,7 +388,7 @@ function RecruitTeamFields({ choice, detail, ctx }: Fields<'recruit_team'>) {
                 with {activityLabel(recruitment.rules.check)} DC{' '}
                 {recruitment.rules.dc}.
               </Note>
-              <ClearRecruitmentCheck ctx={ctx} />
+              <ClearRecruitmentCheck context={context} />
             </div>
           )}
         </Field>
@@ -379,11 +397,15 @@ function RecruitTeamFields({ choice, detail, ctx }: Fields<'recruit_team'>) {
   );
 }
 
-function UpgradeTeamFields({ choice, detail, ctx }: Fields<'upgrade_team'>) {
+function UpgradeTeamFields({
+  choice,
+  detail,
+  context,
+}: Fields<'upgrade_team'>) {
   return (
     <>
       <OptionField
-        ctx={ctx}
+        context={context}
         field="targetTeamId"
         label="Team to upgrade"
         options={detail.targets}
@@ -391,7 +413,7 @@ function UpgradeTeamFields({ choice, detail, ctx }: Fields<'upgrade_team'>) {
         otherLabel="Other teams"
       />
       <OptionField
-        ctx={ctx}
+        context={context}
         field="toTeamType"
         label="Upgrade to"
         options={detail.destinations}
@@ -407,11 +429,11 @@ function UpgradeTeamFields({ choice, detail, ctx }: Fields<'upgrade_team'>) {
   );
 }
 
-function RescueFields({ choice, detail, ctx }: Fields<'rescue_character'>) {
+function RescueFields({ choice, detail, context }: Fields<'rescue_character'>) {
   return (
     <>
       <OptionField
-        ctx={ctx}
+        context={context}
         field="characterId"
         label="Character"
         options={detail.characters}
@@ -419,19 +441,19 @@ function RescueFields({ choice, detail, ctx }: Fields<'rescue_character'>) {
         otherLabel="Not captured"
       />
       <LevelField
-        ctx={ctx}
+        context={context}
         level={choice.characterLevel}
         ruleLevel={detail.ruleLevel}
       />
       <OptionField
-        ctx={ctx}
+        context={context}
         field="destination"
         label="Destination"
         options={detail.destinations}
         value={destinationValue(choice)}
         otherLabel="No active refuge (needs a Rules Exception)"
-        onSelect={(next) => ctx.edits.setDestination(next)}
-        onClear={() => ctx.edits.setDestination(null)}
+        onSelect={(next) => context.edits.setDestination(next)}
+        onClear={() => context.edits.setDestination(null)}
       />
     </>
   );
@@ -454,82 +476,117 @@ const TARGET_PRESENT: DetailOption[] = [
   },
 ];
 
-function RestoreFields({ choice, detail, ctx }: Fields<'restore_character'>) {
-  const restorative = choice.mode === 'restorative_effect';
-  const effectRecorded =
+// The party note names whichever of the recorded character and level a party
+// mode leaves unused.
+function partyRestorationNote({
+  hasCharacter,
+  hasLevel,
+}: {
+  hasCharacter: boolean;
+  hasLevel: boolean;
+}) {
+  if (hasCharacter && hasLevel)
+    return 'Party restoration covers every player character; the recorded character and level are not used. Clear them or choose an individual mode.';
+  if (hasCharacter)
+    return 'Party restoration covers every player character; the recorded character is not used. Clear it or choose an individual mode.';
+  return 'Party restoration covers every player character; the recorded character level is not used. Clear it or choose an individual mode.';
+}
+
+function RestoreFields({
+  choice,
+  detail,
+  context,
+}: Fields<'restore_character'>) {
+  const isRestorative = choice.mode === 'restorative_effect';
+  const hasRecordedEffect =
     choice.effect !== undefined || choice.effectLevel !== undefined;
+  const isIndividual = detail.scope === 'individual';
+  const isParty = detail.scope === 'party';
+  const hasCharacter = choice.characterId !== undefined;
+  const hasLevel = choice.characterLevel !== undefined;
+  // Retained values stay visible while a party or unset mode does not use them.
+  const showsCharacter = isIndividual || hasCharacter;
+  const showsLevel = showsCharacter || hasLevel;
   return (
     <>
       <OptionField
-        ctx={ctx}
+        context={context}
         field="mode"
         label="Mode"
         options={detail.modes}
         value={choice.mode ?? null}
         otherLabel="Other modes"
       />
-      {detail.scope === 'party' && choice.characterId === undefined && (
+      {isParty && !hasCharacter && (
         <Muted>Restores every player character on the roster.</Muted>
       )}
-      {(detail.scope === 'individual' || choice.characterId !== undefined) && (
-        <>
-          {detail.scope === 'party' && (
-            <Note>
-              Party restoration covers every player character; the recorded
-              character is not used. Clear it or choose an individual mode.
-            </Note>
-          )}
-          <OptionField
-            ctx={ctx}
-            field="characterId"
-            label="Character"
-            options={detail.characters}
-            value={choice.characterId ?? null}
-            otherLabel="Captured (needs a Rules Exception)"
-          />
-          <LevelField
-            ctx={ctx}
-            level={choice.characterLevel}
-            ruleLevel={detail.ruleLevel}
-          />
-        </>
+      {isParty && (hasCharacter || hasLevel) && (
+        <Note>{partyRestorationNote({ hasCharacter, hasLevel })}</Note>
       )}
-      {(restorative || effectRecorded) && (
+      {showsCharacter && (
+        <OptionField
+          context={context}
+          field="characterId"
+          label="Character"
+          options={detail.characters}
+          value={choice.characterId ?? null}
+          otherLabel="Captured (needs a Rules Exception)"
+        />
+      )}
+      {showsLevel && (
+        <LevelField
+          context={context}
+          level={choice.characterLevel}
+          ruleLevel={detail.ruleLevel}
+        />
+      )}
+      {!isIndividual && hasLevel && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={context.disabled}
+          onClick={() => context.edits.clear('characterLevel')}
+        >
+          Clear character level
+        </Button>
+      )}
+      {(isRestorative || hasRecordedEffect) && (
         <div className="space-y-3">
-          {!restorative && (
+          {!isRestorative && (
             <Note>
               Not used by this mode; kept until you clear or replace it.
             </Note>
           )}
-          <Field name="effect" ctx={ctx}>
+          <Field name="effect" context={context}>
             <ActivityText
               name="Effect"
               value={choice.effect ?? ''}
-              disabled={ctx.disabled}
+              disabled={context.disabled}
               onValue={(text) =>
-                ctx.edits.set('effect', text.trim() || undefined)
+                context.edits.set('effect', text.trim() || undefined)
               }
             />
           </Field>
-          <Field name="effectLevel" ctx={ctx}>
+          <Field name="effectLevel" context={context}>
             <WholeNumberField
               label="Effect level"
               value={choice.effectLevel ?? null}
-              disabled={ctx.disabled}
+              disabled={context.disabled}
               onValue={(next) =>
-                ctx.edits.set('effectLevel', next ?? undefined)
+                context.edits.set('effectLevel', next ?? undefined)
               }
             />
           </Field>
-          {!restorative && (
+          {!isRestorative && (
             <div className="flex flex-wrap gap-2">
               {choice.effect !== undefined && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={ctx.disabled}
-                  onClick={() => ctx.edits.clear('effect')}
+                  disabled={context.disabled}
+                  onClick={() => context.edits.clear('effect')}
                 >
                   Clear effect
                 </Button>
@@ -539,8 +596,8 @@ function RestoreFields({ choice, detail, ctx }: Fields<'restore_character'>) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={ctx.disabled}
-                  onClick={() => ctx.edits.clear('effectLevel')}
+                  disabled={context.disabled}
+                  onClick={() => context.edits.clear('effectLevel')}
                 >
                   Clear effect level
                 </Button>
@@ -550,7 +607,7 @@ function RestoreFields({ choice, detail, ctx }: Fields<'restore_character'>) {
         </div>
       )}
       <OptionField
-        ctx={ctx}
+        context={context}
         field="targetPresent"
         label="Target present"
         options={TARGET_PRESENT}
@@ -560,8 +617,8 @@ function RestoreFields({ choice, detail, ctx }: Fields<'restore_character'>) {
             : String(choice.targetPresent)
         }
         otherLabel="Other"
-        onSelect={(next) => ctx.edits.set('targetPresent', next === 'true')}
-        onClear={() => ctx.edits.clear('targetPresent')}
+        onSelect={(next) => context.edits.set('targetPresent', next === 'true')}
+        onClear={() => context.edits.clear('targetPresent')}
       />
     </>
   );
@@ -570,44 +627,36 @@ function RestoreFields({ choice, detail, ctx }: Fields<'restore_character'>) {
 function Specific({
   choice,
   detail,
-  ctx,
+  context,
 }: {
   choice: Choice;
   detail: ActionDetail;
-  ctx: Ctx;
+  context: FieldContext;
 }) {
-  switch (detail.actionId) {
+  const fields = { actionId: detail.actionId, choice, detail };
+  if (!isMatchedAction(fields)) return null;
+  switch (fields.actionId) {
     case 'change_officer_role':
-      return choice.actionId === detail.actionId ? (
-        <OfficerRoleFields choice={choice} detail={detail} ctx={ctx} />
-      ) : null;
+      return <OfficerRoleFields {...fields} context={context} />;
     case 'recruit_team':
-      return choice.actionId === detail.actionId ? (
-        <RecruitTeamFields choice={choice} detail={detail} ctx={ctx} />
-      ) : null;
+      return <RecruitTeamFields {...fields} context={context} />;
     case 'upgrade_team':
-      return choice.actionId === detail.actionId ? (
-        <UpgradeTeamFields choice={choice} detail={detail} ctx={ctx} />
-      ) : null;
+      return <UpgradeTeamFields {...fields} context={context} />;
     case 'dismiss_team':
-      return choice.actionId === detail.actionId ? (
+      return (
         <OptionField
-          ctx={ctx}
+          context={context}
           field="targetTeamId"
           label="Team to dismiss"
-          options={detail.targets}
-          value={choice.targetTeamId ?? null}
+          options={fields.detail.targets}
+          value={fields.choice.targetTeamId ?? null}
           otherLabel="Other teams"
         />
-      ) : null;
+      );
     case 'rescue_character':
-      return choice.actionId === detail.actionId ? (
-        <RescueFields choice={choice} detail={detail} ctx={ctx} />
-      ) : null;
+      return <RescueFields {...fields} context={context} />;
     case 'restore_character':
-      return choice.actionId === detail.actionId ? (
-        <RestoreFields choice={choice} detail={detail} ctx={ctx} />
-      ) : null;
+      return <RestoreFields {...fields} context={context} />;
     case 'lie_low':
       return (
         <Muted>
@@ -623,13 +672,13 @@ function Specific({
 function RollBlock({
   roll,
   choice,
-  ctx,
+  context,
 }: {
   roll: DetailRoll;
   choice: Choice;
-  ctx: Ctx;
+  context: FieldContext;
 }) {
-  const [adding, setAdding] = useState(false);
+  const [isAdding, setAdding] = useState(false);
   const recorded = actionChoiceRolls(choice)[roll.field];
   // Each entry is removed by its recorded position, so repeated or legacy
   // modifiers clear one at a time.
@@ -651,8 +700,8 @@ function RollBlock({
         spec={roll.spec}
         recorded={recorded}
         required={roll.required}
-        disabled={ctx.disabled}
-        onRoll={(next) => ctx.edits.setRoll(roll.field, next)}
+        disabled={context.disabled}
+        onRoll={(next) => context.edits.setRoll(roll.field, next)}
       />
       {recorded && (
         <div className="space-y-2">
@@ -677,9 +726,9 @@ function RollBlock({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Remove ${name} roll modifier ${modifier.reason}`}
-                    disabled={ctx.disabled}
+                    disabled={context.disabled}
                     onClick={() =>
-                      ctx.edits.removeRollModifier(roll.field, index)
+                      context.edits.removeRollModifier(roll.field, index)
                     }
                   >
                     <X aria-hidden className="size-4" />
@@ -692,12 +741,12 @@ function RollBlock({
             The rules use the dice total; these modifiers are kept with the roll
             for the table.
           </p>
-          {adding ? (
+          {isAdding ? (
             <ActivityModifierForm
               bonusChoices={[]}
-              disabled={ctx.disabled}
+              disabled={context.disabled}
               onAdd={(modifier) => {
-                ctx.edits.addRollModifier(roll.field, modifier);
+                context.edits.addRollModifier(roll.field, modifier);
                 setAdding(false);
               }}
               onCancel={() => setAdding(false)}
@@ -708,7 +757,7 @@ function RollBlock({
               variant="ghost"
               size="sm"
               className="text-muted-foreground -ml-2"
-              disabled={ctx.disabled}
+              disabled={context.disabled}
               onClick={() => setAdding(true)}
             >
               <Plus aria-hidden />
@@ -723,15 +772,15 @@ function RollBlock({
 
 function Consumables({
   consumables,
-  ctx,
+  context,
 }: {
   consumables: DetailConsumables;
-  ctx: Ctx;
+  context: FieldContext;
 }) {
   if (consumables.selected.length === 0 && consumables.available.length === 0)
     return null;
   return (
-    <Field name="consumableIds" ctx={ctx}>
+    <Field name="consumableIds" context={context}>
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">Consumables</h3>
         <p className="text-muted-foreground text-xs">
@@ -760,8 +809,8 @@ function Consumables({
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`Remove consumable ${entry.label}`}
-                  disabled={ctx.disabled}
-                  onClick={() => ctx.edits.removeConsumable(entry.value)}
+                  disabled={context.disabled}
+                  onClick={() => context.edits.removeConsumable(entry.value)}
                 >
                   <X aria-hidden className="size-4" />
                 </Button>
@@ -772,8 +821,8 @@ function Consumables({
         {consumables.available.length > 0 && (
           <Select
             value=""
-            disabled={ctx.disabled}
-            onValueChange={(value) => ctx.edits.addConsumable(value)}
+            disabled={context.disabled}
+            onValueChange={(value) => context.edits.addConsumable(value)}
           >
             <SelectTrigger
               aria-label="Add consumable"
@@ -815,11 +864,11 @@ export function ActivityActionFields({
   // A structural save failure for one choice field, shown under its control.
   fieldError: FieldError;
 }) {
-  const ctx: Ctx = { edits, disabled, fieldError };
+  const context: FieldContext = { edits, disabled, fieldError };
   return (
     <div className="min-w-0 space-y-4">
-      <Specific choice={choice} detail={detail} ctx={ctx} />
-      <Field name="costCopper" ctx={ctx}>
+      <Specific choice={choice} detail={detail} context={context} />
+      <Field name="costCopper" context={context}>
         <WholeNumberField
           label="Cost (copper)"
           value={choice.costCopper ?? calculatedCostCopper}
@@ -833,21 +882,21 @@ export function ActivityActionFields({
         />
       </Field>
       {detail.rolls.length > 0 && (
-        <Field name="rolls" ctx={ctx}>
+        <Field name="rolls" context={context}>
           <div className="space-y-4">
             {detail.rolls.map((roll) => (
               <RollBlock
                 key={roll.field}
                 roll={roll}
                 choice={choice}
-                ctx={ctx}
+                context={context}
               />
             ))}
           </div>
         </Field>
       )}
       {detail.consumables && (
-        <Consumables consumables={detail.consumables} ctx={ctx} />
+        <Consumables consumables={detail.consumables} context={context} />
       )}
     </div>
   );

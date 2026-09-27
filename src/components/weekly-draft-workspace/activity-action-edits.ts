@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { OrganizationCheck } from '~/lib/rules-officers';
 import {
   actionChoiceRolls,
   type RawRoll,
@@ -99,10 +100,7 @@ export const recruitmentCheckFormSchema = z.object({
     }),
 });
 export type RecruitmentCheckForm = z.input<typeof recruitmentCheckFormSchema>;
-export type RecruitmentCheckInput = {
-  check: 'loyalty' | 'secrecy' | 'security';
-  dc: number;
-};
+export type RecruitmentCheckInput = { check: OrganizationCheck; dc: number };
 export function recruitmentCheckFromForm(
   form: z.output<typeof recruitmentCheckFormSchema>,
 ): RecruitmentCheckInput {
