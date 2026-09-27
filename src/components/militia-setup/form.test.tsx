@@ -66,6 +66,24 @@ test('a correction explains how it affects choices already staged for the week w
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
 });
 
+test('a correction keeps the section captions guided Setup drops', () => {
+  render(
+    <MilitiaCorrectionForm
+      characters={[]}
+      onSave={vi.fn()}
+      initialValues={existing()}
+    />,
+  );
+  for (const caption of [
+    'Choose people from the campaign ledger. Record Hit Dice separately from level.',
+    'Record the location and condition of characters the militia can hide, rescue or restore.',
+    'Record the agreed delivery date, including expedition or enchantment time. Receipt is a separate decision.',
+    'Market Day gives a 5% discount in the selected settlements for its recorded duration.',
+  ]) {
+    expect(screen.getByText(caption)).toBeVisible();
+  }
+});
+
 test('a correction keeps mixed legacy and new character kinds and Hit Dice unchanged', async () => {
   const save = vi.fn().mockResolvedValue(undefined);
   const setup = newMilitiaSetup('Loyalty');

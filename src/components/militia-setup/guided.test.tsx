@@ -566,6 +566,23 @@ test('[setup.guided.navigation] steps navigate freely with invalid input, keep e
   expect(save).not.toHaveBeenCalled();
 }, 15000);
 
+test('guided steps show no explanatory section captions', () => {
+  render(<GuidedMilitiaSetup characters={[hero]} onSave={vi.fn()} />);
+  for (const step of [
+    'People & officers',
+    'Character conditions',
+    'Assets',
+    'Carried effects',
+  ]) {
+    openStep(step);
+    expect(
+      screen.queryByText(
+        /campaign ledger|hide, rescue|agreed delivery|5% discount/,
+      ),
+    ).toBeNull();
+  }
+});
+
 test('[setup.guided.warnings] Review groups warnings by step and links each to its field', async () => {
   render(<GuidedMilitiaSetup characters={[]} onSave={vi.fn()} />);
   fill('Notoriety', '120');

@@ -10,7 +10,11 @@ import {
   setupErrorDescriptors,
   setupWarningDescriptors,
 } from '~/lib/setup-validation';
-import { SetupField as Field, SetupSection } from './fields';
+import {
+  SetupField as Field,
+  SetupSection,
+  SetupSectionCaptions,
+} from './fields';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
 import { SetupSettlements } from './world';
 import { SetupAssets } from './assets';
@@ -20,6 +24,18 @@ import {
   SetupSkillBenefits,
 } from './effects';
 import { SetupMilitiaValues } from './starting-point';
+// The correction form keeps the section captions guided Setup dropped: #139's
+// approval removes only its own listed hints.
+const correctionCaptions = {
+  'Characters and officers':
+    'Choose people from the campaign ledger. Record Hit Dice separately from level.',
+  'Character conditions':
+    'Record the location and condition of characters the militia can hide, rescue or restore.',
+  Orders:
+    'Record the agreed delivery date, including expedition or enchantment time. Receipt is a separate decision.',
+  'Carried Market Day benefits':
+    'Market Day gives a 5% discount in the selected settlements for its recorded duration.',
+};
 // The existing full correction form: every correctable section behind one
 // required reason. Guided Setup lives in `guided.tsx`; Militia corrections
 // replace this form later.
@@ -63,16 +79,18 @@ export function MilitiaCorrectionForm({
         })}
       >
         <fieldset disabled={form.formState.isSubmitting} className="space-y-6">
-          <SetupSection title="Militia values">
-            <SetupMilitiaValues />
-          </SetupSection>
-          <SetupPeople characters={characters} preserveCharacters />
-          <SetupTeams characters={characters} />
-          <SetupCharacterConditions characters={characters} />
-          <SetupSettlements />
-          <SetupAssets characters={characters} />
-          <SetupSkillBenefits characters={characters} />
-          <SetupMarketDayBenefits />
+          <SetupSectionCaptions value={correctionCaptions}>
+            <SetupSection title="Militia values">
+              <SetupMilitiaValues />
+            </SetupSection>
+            <SetupPeople characters={characters} preserveCharacters />
+            <SetupTeams characters={characters} />
+            <SetupCharacterConditions characters={characters} />
+            <SetupSettlements />
+            <SetupAssets characters={characters} />
+            <SetupSkillBenefits characters={characters} />
+            <SetupMarketDayBenefits />
+          </SetupSectionCaptions>
           <Field name="notes" label="Reason for correction" />
         </fieldset>
         {warnings.length > 0 && (
