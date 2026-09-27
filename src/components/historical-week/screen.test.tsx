@@ -328,6 +328,14 @@ const entries = (week: number) =>
 
 // ---------- Tests ----------
 
+test('a Ruleset Version 6 record shows its recorded Ruleset Version in the pane header', async () => {
+  seed('campaign', { 3: chain(3, 1), 4: chain(4, 1, [6]) });
+  show();
+  const header = within(await screen.findByRole('article', { name: 'Week 4' }));
+  expect(header.getByText('Ruleset 6')).toBeInTheDocument();
+  expect(header.queryByText('Ruleset 1')).not.toBeInTheDocument();
+});
+
 test('[shell.history] opens the latest finished week, selected at the bottom of an oldest-first index', async () => {
   seed('campaign', { 2: chain(2, 1), 5: chain(5, 1), 9: chain(9, 1) });
   show();
