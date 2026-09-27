@@ -119,6 +119,7 @@ function ChoiceFields({
   change,
   calculatedCostCopper,
   detailError,
+  hosted,
 }: {
   choice: StagedActionChoice;
   view: ActivityView;
@@ -126,6 +127,7 @@ function ChoiceFields({
   change: (field: string, value: unknown) => boolean;
   calculatedCostCopper: number | null;
   detailError: { field: string; message: string } | null;
+  hosted: boolean;
 }) {
   const shape = stagedActionChoiceSchema.options.find(
     (option) => option.shape.actionId.value === choice.actionId,
@@ -139,6 +141,8 @@ function ChoiceFields({
     'acknowledgements',
     'orderId',
     'receipt',
+    // The Activity board's own team dropdown edits the acting team.
+    ...(hosted ? ['teamId'] : []),
   ]);
   return Object.entries(shape)
     .flatMap(([field, wrapped]) => {
@@ -242,12 +246,14 @@ function ChoiceRolls({
   view,
   disabled,
   change,
+  hosted,
 }: {
   choice: StagedActionChoice;
   requirements: string[];
   view: ActivityView;
   disabled: boolean;
   change: (field: string, value: unknown) => void;
+  hosted: boolean;
 }) {
   // Supported fields for this action come from the rules; a field shows when
   // it is recorded or currently required. Known-but-inactive rolls stay
@@ -260,12 +266,16 @@ function ChoiceRolls({
     );
     if (match) required.add(match[1]!);
   }
-  const fields = [
-    ...new Set<string>([...Object.keys(rolls), ...required]),
-  ].flatMap((field) => {
-    const spec = activityRollSpec(choice.actionId, field as ActivityRollField);
-    return spec ? [{ field: field as ActivityRollField, spec }] : [];
-  });
+  const fields = [...new Set<string>([...Object.keys(rolls), ...required])]
+    // The Activity board's check row edits the check with its modifiers.
+    .filter((field) => !(hosted && field === 'check'))
+    .flatMap((field) => {
+      const spec = activityRollSpec(
+        choice.actionId,
+        field as ActivityRollField,
+      );
+      return spec ? [{ field: field as ActivityRollField, spec }] : [];
+    });
   return fields.map(({ field, spec }) => {
     const roll = rolls[field];
     return (
@@ -317,16 +327,21 @@ function ChoiceRolls({
     );
   });
 }
+// `hosted`: shown inside the Activity board's selected-slot details, which
+// render the team, the check with its bonus and modifiers, and Clear. Every
+// other field, roll, receipt, acknowledgement and exception stays here.
 export function ActivityDetails({
   slot,
   view,
   edit,
   disabled,
+  hosted = false,
 }: {
   slot: ActivityView['slots'][number];
   view: ActivityView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
+  hosted?: boolean;
 }) {
   const choice = slot.choice!;
   const [detailError, setDetailError] = useState<{
@@ -371,6 +386,7 @@ export function ActivityDetails({
         view={view}
         change={change}
         disabled={disabled}
+        hosted={hosted}
       />
       {slot.calculatedCostCopper !== null && (
         <p className="text-sm">
@@ -391,14 +407,15 @@ export function ActivityDetails({
         requirements={slot.requirements}
         change={change}
         disabled={disabled}
+        hosted={hosted}
       />
-      {check && (
+      {check && !hosted && (
         <p className="text-sm">
           Calculated bonus: {check.modifier >= 0 ? '+' : ''}
           {check.modifier} · Total: {check.total ?? 'Awaiting roll'}
         </p>
       )}
-      {check && (
+      {check && !hosted && (
         <ul className="text-muted-foreground space-y-1 text-xs">
           {check.modifiers.map((modifier) => (
             <li key={modifier.source}>
@@ -499,25 +516,27 @@ export function ActivityDetails({
           )}
         </div>
       ))}
-      {slot.requirements.length > 0 && (
+      {slot.requirements.length > 0 && !hosted && (
         <p className="text-muted-foreground text-sm">
           This choice needs more preparation. Complete its selections, rolls and
           table decisions.
         </p>
       )}
-      <Button
-        variant="outline"
-        disabled={disabled}
-        onClick={() =>
-          edit({
-            kind: 'clear',
-            slotId: slot.slotId,
-            choiceId: choice.choiceId,
-          })
-        }
-      >
-        Clear {activityLabel(choice.actionId)}
-      </Button>
+      {!hosted && (
+        <Button
+          variant="outline"
+          disabled={disabled}
+          onClick={() =>
+            edit({
+              kind: 'clear',
+              slotId: slot.slotId,
+              choiceId: choice.choiceId,
+            })
+          }
+        >
+          Clear {activityLabel(choice.actionId)}
+        </Button>
+      )}
     </div>
   );
 }

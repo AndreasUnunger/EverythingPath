@@ -251,6 +251,9 @@ export const weeklyDraftEditSchema = z.discriminatedUnion('kind', [
     otherChoiceId: id,
   }),
   z.strictObject({ kind: z.literal('add_slot'), slotId: id }),
+  // Only an empty slot beyond the authoritative allowance; the persistence
+  // authority checks the allowance, the reducer only its identity and emptiness.
+  z.strictObject({ kind: z.literal('remove_slot'), slotId: id }),
   z.strictObject({ kind: z.literal('upkeep'), inputs: upkeepSchema }),
   z.strictObject({
     kind: z.literal('upkeep_roll'),

@@ -37,6 +37,11 @@ export type EventActionChange =
       acknowledgement: Receipt | null;
     };
 
+// Guarantee Event needs no team; the others require their specialist team.
+export const eventActionTeams = {
+  covert_action: ['spies'],
+  manipulate_events: ['guardians'],
+} as const;
 export function resolveEventAction(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -61,8 +66,7 @@ export function resolveEventAction(
       return true;
     }
     if (
-      team.teamType !==
-        (choice.actionId === 'covert_action' ? 'spies' : 'guardians') &&
+      team.teamType !== eventActionTeams[choice.actionId][0] &&
       !helpers.exception(draft, result, choice, 'team-action')
     )
       return true;

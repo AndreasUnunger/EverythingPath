@@ -12,6 +12,11 @@ import {
   type DraftTargetRevision,
 } from './weekly-draft-persistence-contract';
 import type { WeeklyDraft, WeeklyDraftEdit } from './weekly-draft-contract';
+import type { UpkeepSnapshot } from './rules-upkeep';
+import {
+  slotRemovalRejection,
+  type SlotRemovalRejection,
+} from './activity-slot-removal';
 
 type Path = string[];
 type Fields = Record<string, unknown>;
@@ -108,6 +113,7 @@ function editTargets(base: WeeklyDraft, edit: WeeklyDraftEdit): Path[] {
     case 'replace':
     case 'clear':
     case 'add_slot':
+    case 'remove_slot':
       return [['slot', edit.slotId]];
     case 'move':
     case 'swap':
@@ -201,11 +207,20 @@ export function requireUnchangedTargets(
   }
   return targets;
 }
+const slotRemovalMessages: Record<SlotRemovalRejection, string> = {
+  unknown_slot: 'Unknown slot',
+  occupied_slot: 'Slot is occupied',
+  within_allowance: 'Slot is within the action allowance',
+  allowance_unknown: 'Action allowance is not final',
+};
+// `source` is the authoritative week-start militia snapshot. Removal checks
+// the latest accepted draft, never only the operation's retained base.
 export function acceptDraftOperation(
   current: WeeklyDraft,
   base: WeeklyDraft,
   targetRevisions: DraftTargetRevision[],
   operation: DraftOperation,
+  source: UpkeepSnapshot,
 ) {
   if (
     operation.draftId !== current.draftId ||
@@ -217,6 +232,14 @@ export function acceptDraftOperation(
   const requested = editWeeklyDraft(base, operation.edit);
   if (!requested.ok) throw new DraftRejected(requested.error);
   const targets = requireUnchangedTargets(base, targetRevisions, operation);
+  if (operation.edit.kind === 'remove_slot') {
+    const rejection = slotRemovalRejection(
+      current,
+      source,
+      operation.edit.slotId,
+    );
+    if (rejection) throw new DraftRejected(slotRemovalMessages[rejection]);
+  }
   const result = editWeeklyDraft(
     current,
     rebaseDraftEdit(base, current, operation.edit),

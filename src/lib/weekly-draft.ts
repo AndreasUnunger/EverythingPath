@@ -57,6 +57,14 @@ const draftEditHandlers: {
   add_slot: (next, edit) => {
     next.activity.slots.push({ slotId: edit.slotId, choice: null });
   },
+  remove_slot: (next, edit) => {
+    const index = next.activity.slots.findIndex(
+      (slot) => slot.slotId === edit.slotId,
+    );
+    if (index < 0) return 'unknown_slot';
+    if (next.activity.slots[index]!.choice) return 'occupied_slot';
+    next.activity.slots.splice(index, 1);
+  },
   upkeep_roll: (next, edit) => {
     if (edit.field === 'notorietyCheck') {
       if (edit.roll === null) delete next.upkeep.notorietyCheck;

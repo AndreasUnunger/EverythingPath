@@ -9,6 +9,7 @@ import type { projectUpkeep } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { RollReadFacts } from './roll-facts';
+import type { RollSpec } from '~/lib/raw-roll';
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
 export type UpkeepRollField = Extract<
   WeeklyDraftEdit,
@@ -197,16 +198,105 @@ export type UpkeepSections = {
   // Warnings no single item owns, such as archived officers' check bonuses.
   general: UpkeepIssue[];
 };
+// A requirement or warning code with its player-facing message.
+export type ActivityIssue = { code: string; message: string };
+// One team as Activity sees it: its post-Upkeep condition, or a team that an
+// earlier Recruit Team choice in this week stages.
+export type ActivityTeamFact = {
+  teamId: string;
+  name: string;
+  teamType: string | null;
+  typeName: string | null;
+  tier: number | null;
+  condition: CanonicalRoster['teams'][number]['status'];
+  // A queued effect or a carried Rivalry keeps it out of this Activity.
+  unavailable: boolean;
+  // Set for a team staged by the Recruit Team choice in Action Slot N.
+  recruitedInSlot: number | null;
+};
+export type ActivityCheck = {
+  spec: RollSpec;
+  organizationCheck: 'loyalty' | 'secrecy' | 'security' | null;
+  dc: number | null;
+  // Null until the rules reach this check (for example before a team is
+  // chosen); the entered dice total is never folded into the bonus.
+  modifier: number | null;
+  total: number | null;
+  breakdown: { source: string; label: string; value: number }[];
+};
+// A modifier recorded on the check roll. Helpful and bonus entries select a
+// rules source; custom entries carry their own reason; automatic sources are
+// calculated anyway, so a recorded copy is ignored; unknown ones come from
+// older data and stay visible and removable.
+export type ActivityRecordedModifier = {
+  index: number;
+  sourceId: string;
+  kind: 'helpful' | 'bonus' | 'custom' | 'automatic' | 'unknown';
+  label: string;
+  value: number;
+  reason: string;
+  warning: string | null;
+};
+export type ActivityBonusChoice = {
+  sourceId: string;
+  label: string;
+  value: number;
+};
+export type ActivitySlotStatus =
+  | { kind: 'empty' }
+  | { kind: 'ready' }
+  | { kind: 'todo'; count: number };
+export type ActivityAllowance = {
+  occupied: number;
+  // The allowance after every slot: what a newly added slot receives.
+  actions: number;
+  rank: number;
+  rankActions: number | null;
+  strategist: boolean;
+  // Positions where the ordered fold changes the allowance (an officer
+  // change adding or removing the Strategist's action).
+  changes: { slotNumber: number; allowance: number }[];
+  // Why extra empty slots cannot be removed right now, if they cannot.
+  removalBlocked: 'upkeep' | 'unknown' | null;
+};
 export type ActivityView = {
   phase: 'activity';
   ready: boolean;
   occupiedSlots: number;
+  allowance: ActivityAllowance;
   slots: (ActivityProjection['slots'][number] & {
+    number: number;
+    actionName: string | null;
+    status: ActivitySlotStatus;
+    // Every issue of the choice, requirements first.
+    issues: ActivityIssue[];
+    warningCount: number;
+    removable: boolean;
+    // The recorded team reference, its name, or null when it no longer
+    // matches any team this Activity knows.
+    team: { teamId: string; name: string | null } | null;
+    check: ActivityCheck | null;
+    modifiers: ActivityRecordedModifier[];
+    bonusChoices: ActivityBonusChoice[];
     requirements: string[];
     warnings: string[];
     calculatedCostCopper: number | null;
     exceptions: { exceptionId: string; ruleId: string; reason: string }[];
   })[];
+  teamRoster: ActivityTeamFact[];
+  // Present while the operating settlement is Helpful.
+  helpful: {
+    settlementName: string;
+    usedIn: { slotId: string; slotNumber: number }[];
+  } | null;
+  operating: {
+    selected: string | null;
+    // The recorded settlement is no longer one of the campaign's.
+    missing: boolean;
+    choices: { value: string; label: string; reputation: string | null }[];
+  };
+  // Actions an event currently blocks this Activity.
+  blockedActions: StagedActionChoice['actionId'][];
   actions: { actionId: StagedActionChoice['actionId']; name: string }[];
   teams: { value: string; label: string; description: string }[];
   settlements: { value: string; label: string }[];
