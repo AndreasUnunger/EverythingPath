@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 import {
-  characterKindLabel,
+  formatCharacterKind,
   characterRecordKindSchema,
-  currentRulesManagerKind,
-  isNpcKind,
+  toCurrentRulesManagerKind,
+  listEditableKinds,
   mirrorRosterKinds,
   normalizeCharacterKind,
   rosterKindSchema,
@@ -31,11 +31,6 @@ test('live normalization maps both legacy NPC labels to npc and an absent kind t
   expect(normalizeCharacterKind('officer_npc')).toBe('npc');
   expect(normalizeCharacterKind('other_npc')).toBe('npc');
   expect(normalizeCharacterKind('npc')).toBe('npc');
-  expect(
-    (['pc', 'officer_npc', 'other_npc', 'npc', undefined] as const).map(
-      isNpcKind,
-    ),
-  ).toEqual([false, true, true, true, false]);
 });
 
 test('the live roster mirror follows current records without touching membership, Hit Dice or assignments', () => {
@@ -77,16 +72,27 @@ test('the live roster mirror never infers kind from roles or invents a missing r
 });
 
 test('current rules give the new npc kind the officer-NPC manager limit until role-aware limits ship', () => {
-  expect(currentRulesManagerKind('pc')).toBe('pc');
-  expect(currentRulesManagerKind('officer_npc')).toBe('officer_npc');
-  expect(currentRulesManagerKind('other_npc')).toBe('other_npc');
-  expect(currentRulesManagerKind('npc')).toBe('officer_npc');
+  expect(toCurrentRulesManagerKind('pc')).toBe('pc');
+  expect(toCurrentRulesManagerKind('officer_npc')).toBe('officer_npc');
+  expect(toCurrentRulesManagerKind('other_npc')).toBe('other_npc');
+  expect(toCurrentRulesManagerKind('npc')).toBe('officer_npc');
 });
 
 test('every stored kind has a readable label', () => {
   expect(
     (['pc', 'officer_npc', 'other_npc', 'npc', undefined] as const).map(
-      characterKindLabel,
+      formatCharacterKind,
     ),
   ).toEqual(['PC', 'Officer NPC', 'Other NPC', 'NPC', 'PC']);
+});
+
+test('legacy editors keep offering a stored npc so it round-trips', () => {
+  const written = ['pc', 'officer_npc'] as const;
+  expect(listEditableKinds(written, 'npc')).toEqual([
+    'pc',
+    'officer_npc',
+    'npc',
+  ]);
+  for (const stored of ['pc', 'officer_npc', 'other_npc', undefined] as const)
+    expect(listEditableKinds(written, stored)).toEqual(['pc', 'officer_npc']);
 });

@@ -1,16 +1,10 @@
 import { z } from 'zod';
 import type { TeamManagerKind } from './team-manager-rules';
 
-// Character kinds exist in two representations while PC/NPC rolls out (#141).
-//
-// Stored kinds are what records, rosters, Weekly Drafts, operations and
-// immutable history may contain: the legacy values old clients still submit
-// and the approved `npc`. Their schemas accept every value verbatim and never
-// transform it, because source keys serialize the exact stored payload.
-//
-// Live kinds are the approved `pc | npc` view. Only the normalization adapters
-// below produce them; historical readers keep the recorded value.
-
+// Stored kinds are what records, rosters, drafts and immutable history may
+// contain: the legacy values old clients still send plus the approved `npc`.
+// They parse verbatim, because source keys serialize the stored payload. Only
+// the live adapters below produce the approved `pc | npc` view.
 export const CHARACTER_RECORD_KINDS = ['pc', 'officer_npc', 'npc'] as const;
 export const ROSTER_KINDS = ['pc', 'officer_npc', 'other_npc', 'npc'] as const;
 export type CharacterRecordKind = (typeof CHARACTER_RECORD_KINDS)[number];
@@ -20,23 +14,16 @@ export const rosterKindSchema = z.enum(ROSTER_KINDS);
 
 export type CharacterKind = 'pc' | 'npc';
 
-// Explicit legacy NPC kinds become `npc`; a missing record kind keeps the
-// existing PC default. Held roles never decide the kind.
+// A missing record kind keeps the existing PC default; held roles never decide.
 export function normalizeCharacterKind(
   kind: RosterKind | undefined,
 ): CharacterKind {
   return kind === undefined || kind === 'pc' ? 'pc' : 'npc';
 }
 
-export function isNpcKind(kind: RosterKind | undefined) {
-  return normalizeCharacterKind(kind) === 'npc';
-}
-
-// Live roster mirror: each person takes the normalized kind of their current
-// character record, which wins over a mismatched mirror. Membership, order,
-// Hit Dice (including null and zero), officers and teams are untouched. A
-// person without a record is an integrity problem for the caller to diagnose;
-// only its own mirror value is normalized, and nothing is invented.
+// The current record wins over a mismatched mirror. Membership, order, Hit
+// Dice, officers and teams are untouched; a person without a record keeps only
+// its own normalized mirror, so nothing is invented.
 export function mirrorRosterKinds<
   Roster extends { people: { characterId: string; kind: RosterKind }[] },
 >(
@@ -59,11 +46,19 @@ export function mirrorRosterKinds<
   };
 }
 
-// Current rules still distinguish the legacy kinds. Until role-aware manager
-// limits replace them (#196), the record-owned `npc` keeps the limit of the
-// record kind it replaces, so no stored value changes an outcome.
-export function currentRulesManagerKind(kind: RosterKind): TeamManagerKind {
+// Until role-aware manager limits replace the legacy distinction (#196), `npc`
+// keeps the limit of the officer NPC record kind it replaces.
+export function toCurrentRulesManagerKind(kind: RosterKind): TeamManagerKind {
   return kind === 'npc' ? 'officer_npc' : kind;
+}
+
+// Legacy editors still write only their legacy kinds, but a stored `npc`
+// stays offered and selected so it round-trips unchanged.
+export function listEditableKinds<Kind extends RosterKind>(
+  writtenKinds: readonly Kind[],
+  current: RosterKind | undefined,
+): (Kind | 'npc')[] {
+  return current === 'npc' ? [...writtenKinds, 'npc'] : [...writtenKinds];
 }
 
 const kindLabels: Record<RosterKind, string> = {
@@ -72,6 +67,6 @@ const kindLabels: Record<RosterKind, string> = {
   other_npc: 'Other NPC',
   npc: 'NPC',
 };
-export function characterKindLabel(kind: RosterKind | undefined) {
+export function formatCharacterKind(kind: RosterKind | undefined) {
   return kindLabels[kind ?? 'pc'];
 }

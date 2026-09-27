@@ -483,6 +483,15 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
     ['pc', 'officer npc', 'other npc*'],
     ['pc', 'officer npc', 'other npc', 'npc*'],
   ]);
+  const vessa = within(
+    screen.getAllByRole('group', { name: 'Character kind' })[4]!,
+  );
+  fireEvent.click(vessa.getByRole('button', { name: 'pc' }));
+  fireEvent.click(vessa.getByRole('button', { name: 'npc' }));
+  expect(vessa.getByRole('button', { name: 'npc' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   fireEvent.change(
     screen.getByRole('textbox', { name: 'Reason for correction' }),
     { target: { value: 'Recorded table reward' } },

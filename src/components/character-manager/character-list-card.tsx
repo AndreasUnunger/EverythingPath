@@ -9,7 +9,7 @@ import {
 } from '~/components/ledger-table';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
-import { characterKindLabel } from '~/lib/character-kind';
+import { formatCharacterKind } from '~/lib/character-kind';
 import type { CharacterId, CharacterRecord } from './types';
 
 export function CharacterListCard({
@@ -82,7 +82,7 @@ export function CharacterListCard({
                   {formatStats(character)}
                 </LedgerTableCell>
                 <LedgerTableCell className="font-mono text-sm whitespace-nowrap">
-                  {characterKindLabel(character.kind)}
+                  {formatCharacterKind(character.kind)}
                 </LedgerTableCell>
                 <LedgerTableActionCell>
                   <Button

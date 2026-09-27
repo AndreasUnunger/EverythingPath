@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TEAM_IDS, TEAM_STATUSES } from './militia-domain';
 import { identitySchema } from './weekly-draft-facts';
 import { getTeamManagerMaxTeams } from './team-manager-rules';
-import { currentRulesManagerKind, rosterKindSchema } from './character-kind';
+import { toCurrentRulesManagerKind, rosterKindSchema } from './character-kind';
 
 export const OFFICER_ROLES = [
   'ambassador',
@@ -117,7 +117,7 @@ export function rosterWarnings(
       (team) => team.managerCharacterId === person.characterId,
     ).length;
     const limit = getTeamManagerMaxTeams({
-      kind: currentRulesManagerKind(person.kind),
+      kind: toCurrentRulesManagerKind(person.kind),
       charisma: character.charisma,
     });
     if (managed > limit)

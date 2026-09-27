@@ -280,6 +280,10 @@ describe('CharacterManager', () => {
       edit('Vessa');
       expect(screen.getByTestId('mock-select')).toHaveValue('npc');
       expect(kindOptions()).toEqual(['pc', 'officer_npc', 'npc']);
+      const select = screen.getByTestId('mock-select');
+      fireEvent.change(select, { target: { value: 'pc' } });
+      expect(kindOptions()).toEqual(['pc', 'officer_npc', 'npc']);
+      fireEvent.change(select, { target: { value: 'npc' } });
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() =>
         expect(mutationFns.updateCharacter).toHaveBeenCalledWith({
