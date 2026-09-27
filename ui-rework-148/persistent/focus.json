@@ -1,0 +1,12 @@
+{
+  "167": {
+    "prototype": "persistent",
+    "focus": "Open `/prototype/persistent?variant=A` at tablet width: section 1 Theft is preset to *Buy off · 160 gp*, which shows the buyoff overview line, the header 'Ends · buyoff 160 gp' and the 'Buyoff cost … taken from the treasury at Confirmation' line. In the PROTOTYPE STATE panel tick *Reduce Danger in Activity ends Theft 2* to get the ended-elsewhere section. On section 4 Low Morale choose *Ended at the table*, then save a *How it ended* outcome and a Rules Exception reason. *Leave it* is the reset. Tick *last buyoff was week 12* or *treasury 120 gp* to see the cooldown and treasury exceptions. The locked Persistent step (fixed eligibility) is in `persistent-week-layout-locked-tablet.png`.",
+    "screenshot": "167-focus.png"
+  },
+  "168": {
+    "prototype": "persistent",
+    "focus": "Open `/prototype/persistent?variant=A`. On section 1 Theft choose *Loyalty check (this week only)*, enter the d20 and switch on *Use Overseer support*. Then choose the Loyalty check on section 2 Theft to see 'Now on Theft (week 9). Tapping moves it here.' Section 3 Rivalry is preset to *Officer check to end it*; enter its d20, or click *another player enters the Rivalry die* in the state panel. Pick *Pell · not an officer* to get the non-officer exception, and tick *no Overseer assigned* to see the unassigned line.",
+    "screenshot": "168-focus.png"
+  }
+}

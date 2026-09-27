@@ -1,0 +1,22 @@
+{
+  "159": {
+    "prototype": "activity-slots",
+    "focus": "Open `/prototype/activity-slots?variant=E` at 1180×820, tap *Add slot* (an empty Slot 6 appears past the amber allowance divider with its ✕ *Remove Action Slot 6* button), then tap Slot 3 (Gather Information) and *+ Modifier*: the header line, board, Strategist badge, details below the board (Change action, Move to…, Team dropdown, check bonus/breakdown, Use Helpful +2 (Phaendar, once per Activity), modifier form, Clear) are the reference. Tap empty Slot 4 to see the grouped bottom picker sheet (Escape closes without placing).",
+    "screenshot": "159-focus.png"
+  },
+  "161": {
+    "prototype": "activity-slots",
+    "focus": "Open `/prototype/activity-slots?variant=E` and tap Slot 1 (Drill Militia): the selected-slot details panel below the board is the host this ticket fills, with only a check row, Helpful, + Modifier, a calculated-cost line and Clear. The prototype mocks none of the people/team fields (officer roles, Recruit type/check kind, Upgrade/Dismiss target, Rescue destination, Restore modes, Drill's training roll) and Restore Character is not in its picker, so take only the placement of the editor from it.",
+    "screenshot": "161-focus.png"
+  },
+  "162": {
+    "prototype": "activity-slots",
+    "focus": "Open `/prototype/activity-slots?variant=E`, tap empty Slot 4 and choose *Broker Market* in the picker: the details show only the Team dropdown and 'Calculated cost: varies'. The prototype has no surface for purchases/sales, caches or Special Order fields and receipts (Activate Black Market and Special Order are not in its picker at all), so it shows only where these editors sit.",
+    "screenshot": "162-focus.png"
+  },
+  "190": {
+    "prototype": "activity-slots",
+    "focus": "Open `/prototype/activity-slots?variant=E` and tap Slot 3 (Gather Information, Whisper Net): the details panel with Team dropdown, Secrecy check row and Helpful is the host for these actions. No subject, Covert mode/location, Propaganda flags, Strike Team, instruction or Guarantee/Manipulate candidate-tree fields are mocked, and Knowledge Check, Activate Refuge and Manipulate Events are missing from the picker.",
+    "screenshot": "190-focus.png"
+  }
+}
