@@ -199,6 +199,7 @@ test('several gains in one week list each rank with its cards or outcome editor'
     name: 'Ameiko boon outcome',
   });
   expect(xpField).toHaveValue('');
+  expect(within(xp).getByText('Record the outcome for Ameiko.')).toBeVisible();
   expect(
     within(xp).queryByRole('button', { name: 'Clear outcome' }),
   ).not.toBeInTheDocument();
@@ -232,10 +233,30 @@ test('the highest PC level caps training that reaches a higher rank', () => {
   expect(section()).toHaveTextContent('Stays rank 8');
   expect(
     screen.getByText(
-      'Training 169 reaches rank 10, but the highest player-character level (8) caps the militia at rank 8.',
+      'Training 169 reaches rank 10, but the highest player-character level (8) holds the militia at rank 8.',
     ),
   ).toBeVisible();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
+});
+
+test('a rank above the highest PC level names the level, not only the training, as the limit', () => {
+  renderRank(
+    fixture((_, snapshot) => {
+      snapshot.characters[0]!.level = 7;
+      snapshot.training = 90;
+    }),
+  );
+  expect(section()).toHaveTextContent('Stays rank 8');
+  expect(
+    screen.getByText(
+      'Training 89. Rank 9 needs 105 training and a level 9 player character; the highest is level 7.',
+    ),
+  ).toBeVisible();
+  expect(
+    within(section()).getByText(
+      'The militia rank exceeds the highest player-character level. Review the rank with the table.',
+    ),
+  ).toBeVisible();
 });
 
 test('an unchanged rank names the next threshold', () => {

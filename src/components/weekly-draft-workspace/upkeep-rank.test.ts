@@ -236,7 +236,10 @@ test('several rank gains list every rank and threshold with open text boons', ()
   const gift = gains.gains[2]!.boons[0]!;
   expect(gift).toMatchObject({ feats: null, required: false });
   expect(recordBoon(gift, 'Kept the gold')).toMatchObject({
-    acknowledgement: { acknowledgementId: 'ack-gift', outcome: 'Kept the gold' },
+    acknowledgement: {
+      acknowledgementId: 'ack-gift',
+      outcome: 'Kept the gold',
+    },
   });
   expect(clearBoon(gift)).toEqual({
     kind: 'clear_acknowledgement',
@@ -269,10 +272,23 @@ test('an unchanged rank reports its next threshold and any PC-level warning', ()
     after: 8,
     training: 89,
     next: { rank: 9, minimumTraining: 105 },
-    capped: null,
+    capped: { trainingRank: 8, highestPcLevel: 7 },
     gains: [],
     issues: [{ code: 'rank:pc-cap' }],
   });
+  // Level and rank equal: training is short too, but the level also caps.
+  const { rank: atLevel } = rank((_, snapshot) => {
+    snapshot.training = 90;
+    snapshot.characters[0]!.level = 8;
+  });
+  expect(atLevel).toMatchObject({
+    capped: { trainingRank: 8, highestPcLevel: 8 },
+    issues: [],
+  });
+  const { rank: belowLevel } = rank((_, snapshot) => {
+    snapshot.training = 90;
+  });
+  expect(belowLevel.capped).toBeNull();
 });
 
 test('boon descriptions name what each PC gains', () => {

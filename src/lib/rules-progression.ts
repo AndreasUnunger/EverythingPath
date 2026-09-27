@@ -58,6 +58,8 @@ function boon(rank: number, characterIds: string[]) {
       ...common,
       kind: 'title' as const,
       title: title.title,
+      // Resolution plans have always described Champion's open feat this
+      // way; which feats are a fixed choice is `boonFeatChoices`.
       feats: title.feats ?? [anyFeat],
     };
   const xp = xpAwards[rank];
@@ -85,17 +87,17 @@ export function projectProgression(
   const highestPcLevel = pcs.length
     ? Math.max(...pcs.map((x) => x.level))
     : null;
-  const earnedRank =
-    MILITIA_ADVANCEMENT.filter(
-      (x) => x.training <= training && x.rank <= (highestPcLevel ?? rank),
-    ).slice(-1)[0]?.rank ?? rank;
-  const eligibleRank = Math.max(rank, earnedRank);
+  // Rank never decreases; training earns rank up to the cap.
+  const reached = (cap: number) =>
+    Math.max(
+      rank,
+      MILITIA_ADVANCEMENT.filter(
+        (x) => x.training <= training && x.rank <= cap,
+      ).slice(-1)[0]?.rank ?? rank,
+    );
+  const eligibleRank = reached(highestPcLevel ?? rank);
   // The rank training alone reaches, before the highest PC level caps it.
-  const trainingRank = Math.max(
-    rank,
-    MILITIA_ADVANCEMENT.filter((x) => x.training <= training).slice(-1)[0]
-      ?.rank ?? rank,
-  );
+  const trainingRank = reached(Infinity);
   return {
     eligibleRank,
     trainingRank,
@@ -118,7 +120,9 @@ export function projectProgression(
   };
 }
 
-export type ProgressionBoon = ReturnType<typeof projectProgression>['boons'][number];
+export type ProgressionBoon = ReturnType<
+  typeof projectProgression
+>['boons'][number];
 
 // The fixed feats a boon lets each PC choose from, or null when the boon's
 // outcome is open text (Skilled, Gift, XP and Champion's any feat).

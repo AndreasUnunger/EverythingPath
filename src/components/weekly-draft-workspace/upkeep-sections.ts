@@ -94,7 +94,6 @@ export function upkeepSections({
     notoriety: notorietySection(context),
     shortage: shortageSection(context, teams),
     rank: rankSection({
-      draft,
       snapshot: source.snapshot,
       people: source.people,
       projection,

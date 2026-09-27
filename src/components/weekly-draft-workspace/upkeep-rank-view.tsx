@@ -35,8 +35,10 @@ function trainingLine({
   capped,
 }: UpkeepSections['rank']) {
   if (training === null || after === null) return null;
-  if (capped)
-    return `Training ${training} reaches rank ${capped.trainingRank}, but the highest player-character level (${capped.highestPcLevel}) caps the militia at rank ${after}.`;
+  if (capped && capped.trainingRank > after)
+    return `Training ${training} reaches rank ${capped.trainingRank}, but the highest player-character level (${capped.highestPcLevel}) holds the militia at rank ${after}.`;
+  if (capped && next)
+    return `Training ${training}. Rank ${next.rank} needs ${next.minimumTraining} training and a level ${next.rank} player character; the highest is level ${capped.highestPcLevel}.`;
   if (after > before)
     return `Training ${training} reaches rank ${after}.${next ? ` Rank ${next.rank} needs ${next.minimumTraining}.` : ''}`;
   if (next)
@@ -204,18 +206,25 @@ function OutcomeEditor({
   disabled: boolean;
 }) {
   return (
-    <ReasonedDecision
-      label={label}
-      current={boon.outcome ?? ''}
-      disabled={disabled}
-      submitLabel="Record outcome"
-      clearLabel="Clear outcome"
-      requiredMessage="Enter the boon outcome."
-      onSave={(outcome) => edit(recordBoon(boon, outcome))}
-      onClear={() => {
-        const e = clearBoon(boon);
-        if (e) edit(e);
-      }}
-    />
+    <div className="space-y-1">
+      {boon.required && (
+        <p className="text-muted-foreground text-xs">
+          Record the outcome for {boon.name}.
+        </p>
+      )}
+      <ReasonedDecision
+        label={label}
+        current={boon.outcome ?? ''}
+        disabled={disabled}
+        submitLabel="Record outcome"
+        clearLabel="Clear outcome"
+        requiredMessage="Enter the boon outcome."
+        onSave={(outcome) => edit(recordBoon(boon, outcome))}
+        onClear={() => {
+          const e = clearBoon(boon);
+          if (e) edit(e);
+        }}
+      />
+    </div>
   );
 }

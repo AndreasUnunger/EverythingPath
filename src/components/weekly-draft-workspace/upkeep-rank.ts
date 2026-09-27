@@ -1,7 +1,7 @@
 import { getMinimumTrainingForRank } from '~/lib/militia-progression-rules';
 import { boonFeatChoices, type ProgressionBoon } from '~/lib/rules-progression';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
-import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
+import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type {
   UpkeepIssue,
@@ -18,14 +18,12 @@ type Projection = ReturnType<typeof projectUpkeep>;
 // each gained rank's boon for every eligible PC. Boon outcomes stay the
 // existing text acknowledgements of `upkeep:boon:<rank>:<characterId>`.
 export function rankSection({
-  draft,
   snapshot,
   people,
   projection,
   earlierOpen,
   issues: rankIssues,
 }: {
-  draft: WeeklyDraft;
   snapshot: WorkspaceSource['snapshot'];
   people: WorkspaceSource['people'];
   projection: Projection;
@@ -63,7 +61,7 @@ export function rankSection({
   const nextTraining =
     after === null ? undefined : getMinimumTrainingForRank(after + 1);
   const gains = projection.boons.map((reward) =>
-    rankGain(draft, people, projection, reward),
+    rankGain(people, projection, reward),
   );
   const open =
     noPc ||
@@ -81,8 +79,9 @@ export function rankSection({
         : null,
     capped:
       after !== null &&
+      nextTraining !== undefined &&
       progression.highestPcLevel !== null &&
-      progression.trainingRank > after
+      progression.highestPcLevel <= after
         ? {
             trainingRank: progression.trainingRank,
             highestPcLevel: progression.highestPcLevel,
@@ -94,7 +93,6 @@ export function rankSection({
 }
 
 function rankGain(
-  draft: WeeklyDraft,
   people: WorkspaceSource['people'],
   projection: Projection,
   reward: ProgressionBoon,
@@ -104,33 +102,37 @@ function rankGain(
     rank: reward.rank,
     minimumTraining: getMinimumTrainingForRank(reward.rank) ?? 0,
     reward,
-    boons: reward.characterIds.map((characterId) => {
-      const subjectId = `upkeep:boon:${reward.rank}:${characterId}`;
-      const recorded = draft.acknowledgements.find(
-        (ack) => ack.subjectId === subjectId,
-      );
-      const outcome = recorded?.outcome ?? null;
+    // The projection's boon entries own each PC's subject and recorded
+    // acknowledgement.
+    boons: projection.plan.flatMap((change) => {
+      if (change.kind !== 'boon' || change.reward.rank !== reward.rank)
+        return [];
+      const { subjectId, characterId, acknowledgement } = change;
+      const outcome = acknowledgement?.outcome ?? null;
       const selected =
         outcome !== null && options?.includes(outcome) ? outcome : null;
-      return {
-        subjectId,
-        characterId,
-        name:
-          people.find((person) => person.characterId === characterId)?.name ??
-          'Unnamed character',
-        acknowledgementId: recorded?.acknowledgementId ?? `ack:${subjectId}`,
-        outcome,
-        feats: options
-          ? {
-              options,
-              selected,
-              legacyOutcome: selected === null ? outcome : null,
-            }
-          : null,
-        required: projection.requirements.includes(
-          `${subjectId}:acknowledgement`,
-        ),
-      };
+      return [
+        {
+          subjectId,
+          characterId,
+          name:
+            people.find((person) => person.characterId === characterId)?.name ??
+            'Unnamed character',
+          acknowledgementId:
+            acknowledgement?.acknowledgementId ?? `ack:${subjectId}`,
+          outcome,
+          feats: options
+            ? {
+                options,
+                selected,
+                legacyOutcome: selected === null ? outcome : null,
+              }
+            : null,
+          required: projection.requirements.includes(
+            `${subjectId}:acknowledgement`,
+          ),
+        },
+      ];
     }),
   };
 }
@@ -154,7 +156,10 @@ export function recordBoon(
 export function clearBoon(boon: UpkeepRankBoon): WeeklyDraftEdit | null {
   return boon.outcome === null
     ? null
-    : { kind: 'clear_acknowledgement', acknowledgementId: boon.acknowledgementId };
+    : {
+        kind: 'clear_acknowledgement',
+        acknowledgementId: boon.acknowledgementId,
+      };
 }
 
 // Tapping a feat card chooses it; tapping the chosen card clears it.

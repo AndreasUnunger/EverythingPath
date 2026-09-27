@@ -192,8 +192,8 @@ export type UpkeepRank = {
   // The next rank above `after` and its minimum training; null at the top
   // rank or while `after` is unknown.
   next: { rank: number; minimumTraining: number } | null;
-  // Set when training alone reaches a higher rank than the highest active
-  // PC level allows.
+  // Set when the highest active PC level, not training, keeps the militia
+  // from its next rank; `trainingRank` is the rank training alone reaches.
   capped: { trainingRank: number; highestPcLevel: number } | null;
   // Every rank gained this week in order, each with its boons.
   gains: UpkeepRankGain[];
