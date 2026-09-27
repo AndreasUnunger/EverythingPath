@@ -51,8 +51,30 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   let preparation = createEventPreparation();
   let preparing = false;
   const listeners = new Set<() => void>();
+  // This device's open or locally invalid Summary forms, by form identity.
+  // They only ever disable this device's Confirm; they are never shared,
+  // never saved and belong to the draft that was open when they registered.
+  const localForms = new Map<string, { draftId: string; message: string }>();
   function getPendingWork() {
     return operations.size > 0;
+  }
+  function setLocalForm(id: string, form: { message: string } | null) {
+    const current = localForms.get(id);
+    const draftId = source?.key.draftId;
+    if (!form || !draftId) {
+      if (!current) return;
+      localForms.delete(id);
+    } else {
+      if (current?.draftId === draftId && current.message === form.message)
+        return;
+      localForms.set(id, { draftId, message: form.message });
+    }
+    rebuild();
+  }
+  function openLocalForms(draftId: string) {
+    return [...localForms]
+      .filter(([, form]) => form.draftId === draftId)
+      .map(([id, form]) => ({ id, message: form.message }));
   }
   function publish(next: WeeklyDraftWorkspace) {
     state = next;
@@ -98,6 +120,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
           feedback === 'failed' ? (observed?.failureReason ?? null) : null,
         remoteChange: null,
         pendingWork: getPendingWork(),
+        localForms: [],
         confirmedWeek,
       });
     else publish({ status: 'loading' });
@@ -112,6 +135,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       phase = 'upkeep';
       confirming = false;
       feedback = 'idle';
+      localForms.clear();
       for (const operation of operations)
         if (operation.draftId !== next.key.draftId)
           operations.delete(operation);
@@ -171,16 +195,36 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
         )
       : null;
     if (preparation.failed && !wasFailed) feedback = 'failed';
-    const { views, phases } = derivePhaseReadiness(forecast, source, preview, {
+    const readiness = derivePhaseReadiness(forecast, source, preview, {
       acceptedEventIds: acceptedEventIds(accepted),
       preparationFailed: preparation.failed,
     });
+    const { views } = readiness;
+    const local = openLocalForms(source.key.draftId);
+    // Each open or invalid local form is also a local Required decision of
+    // Review; the backend readiness and accepted review are unchanged.
+    const phases = readiness.phases.map((item) =>
+      item.phase === 'summary' && local.length
+        ? {
+            ...item,
+            ready: false,
+            requirements: [
+              ...item.requirements,
+              ...local.map((form) => ({
+                id: `local:${form.id}`,
+                message: form.message,
+              })),
+            ],
+          }
+        : item,
+    );
     const canConfirm = Boolean(
       !confirming &&
       !reviewRequired &&
       matching &&
       reviewed?.status === 'ready' &&
-      !getPendingWork(),
+      !getPendingWork() &&
+      local.length === 0,
     );
     const forecastPending = pending.length > 0 || !matching;
     const owner = persistence;
@@ -200,6 +244,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
         pendingWork: getPendingWork(),
         decisions: phases.find((item) => item.phase === 'summary')!.requirements
           .length,
+        localForms: local.length,
       }),
       feedback:
         confirming || observed.confirming
@@ -216,6 +261,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       reviewRequired,
       forecastPending,
       pendingWork: getPendingWork(),
+      localForms: local,
       edit: (value) =>
         persistence === owner ? edit(value) : Promise.resolve('failed'),
       viewPhase,
@@ -370,6 +416,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     remoteChange = null;
     confirming = false;
     feedback = 'idle';
+    localForms.clear();
     previewGeneration++;
   }
   function receive(next: WorkspaceSource | null) {
@@ -410,6 +457,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     remoteSequence = 0;
     source = next;
     pending = [];
+    localForms.clear();
     preparation = createEventPreparation();
     preparing = false;
     reviewed = null;
@@ -439,6 +487,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   return {
     getSnapshot: () => state,
     getPendingWork,
+    setLocalForm,
     subscribe(this: void, listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);

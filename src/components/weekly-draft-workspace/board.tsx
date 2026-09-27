@@ -121,6 +121,14 @@ function latestActivity(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView
     : null;
 }
+// The store's current Table Adjustments (accepted plus this device's pending
+// edits), read at Save time so a form never sends a list it captured earlier.
+function latestAdjustments(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' && current.phaseView.phase === 'summary'
+    ? current.phaseView.adjustments
+    : null;
+}
 // The store's current Overseer support facts (Event or Persistent), read
 // between the edits of a support move so each step plans from the newest
 // accepted and pending draft.
@@ -286,6 +294,11 @@ export function WeeklyWorkspaceBoard({
               void workspace.confirm();
             }}
             review={() => choosePhase('summary')}
+            localForms={workspace.localForms}
+            registerLocalForm={controller?.store.setLocalForm}
+            latestAdjustments={() =>
+              latestAdjustments(controller?.store) ?? view.adjustments
+            }
           />
         ) : null}
       </WeekFrame>

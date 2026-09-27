@@ -312,9 +312,10 @@ test('capabilities render at their seams and unlinked facts keep their own secti
   ).toBeVisible();
   expect(adjustments.getByText('Treasury +500 gp')).toBeVisible();
   expect(adjustments.getByText('Militia value')).toBeVisible();
+  // The adjustment editor owns the reason too.
   expect(
-    adjustments.getByText('Reward for the Longshadow rescue'),
-  ).toBeVisible();
+    adjustments.queryByText('Reward for the Longshadow rescue'),
+  ).toBeNull();
   expect(
     adjustments.getByRole('button', { name: 'Move reward 0' }),
   ).toBeVisible();

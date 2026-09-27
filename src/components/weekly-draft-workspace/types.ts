@@ -843,6 +843,11 @@ export type WeeklyDraftWorkspace =
       reviewRequired: boolean;
       forecastPending: boolean;
       pendingWork: boolean;
+      /**
+       * This device's open or locally invalid Summary forms, each also a
+       * local Required decision; while any is open, Confirm is disabled here.
+       */
+      localForms: { id: string; message: string }[];
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;
       viewPhase(this: void, phase: Phase): void;
       confirm(this: void): Promise<'accepted' | 'failed'>;

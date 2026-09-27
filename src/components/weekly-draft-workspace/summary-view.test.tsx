@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import type {
@@ -89,6 +90,29 @@ function withException(
     ],
   };
 }
+/** A Summary whose accepted list and review facts hold these adjustments. */
+function withAdjustments(
+  adjustments: typeof view.adjustments,
+  extra: Partial<typeof view> = {},
+): typeof view {
+  return {
+    ...view,
+    ...extra,
+    adjustments,
+    review: {
+      ...review,
+      adjustments: adjustments.map((adjustment, index) => ({
+        key: `adjustment:${adjustment.adjustmentId}`,
+        adjustmentId: adjustment.adjustmentId,
+        number: index + 1,
+        kind: 'Militia value',
+        effect: `Effect ${adjustment.adjustmentId}`,
+        reason: adjustment.reason,
+        notes: [],
+      })),
+    },
+  };
+}
 const controls = {
   disabled: false,
   canConfirm: true,
@@ -97,25 +121,41 @@ const controls = {
   confirm: vi.fn(),
   review: vi.fn(),
 };
-test('[rules.P85.adjustment] signed copper adjustment requires a reason and stages the complete ordered list', async () => {
+test('[rules.P85.adjustment] signed gp adjustment requires a reason and stages the complete ordered list', async () => {
   const edit = vi.fn().mockResolvedValue('accepted');
   render(<SummaryView view={view} edit={edit} {...controls} />);
   fireEvent.click(screen.getByRole('button', { name: 'Militia value' }));
-  expect(
-    screen.getByRole('button', { name: 'Treasury (copper)' }),
-  ).toBeInTheDocument();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Value' }), {
-    target: { value: '-125' },
+  const form = within(
+    screen.getByRole('form', { name: 'New Militia value adjustment' }),
+  );
+  // The new Militia value form defaults to Treasury / Add.
+  expect(form.getByRole('button', { name: 'Treasury' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(form.getByRole('button', { name: 'Add' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  fireEvent.change(form.getByRole('textbox', { name: 'Amount' }), {
+    target: { value: '-1.25' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save adjustment' }));
+  fireEvent.change(form.getByRole('textbox', { name: 'Reason' }), {
+    target: { value: '   ' },
+  });
+  fireEvent.click(form.getByRole('button', { name: 'Save adjustment' }));
   await waitFor(() =>
-    expect(screen.getByText('A value is required.')).toBeInTheDocument(),
+    expect(form.getByText('A reason is required.')).toBeInTheDocument(),
+  );
+  expect(form.getByRole('textbox', { name: 'Reason' })).toHaveAttribute(
+    'aria-invalid',
+    'true',
   );
   expect(edit).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Reason' }), {
+  fireEvent.change(form.getByRole('textbox', { name: 'Reason' }), {
     target: { value: 'Copper correction' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save adjustment' }));
+  fireEvent.click(form.getByRole('button', { name: 'Save adjustment' }));
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith({
       kind: 'table_adjustments',
@@ -130,6 +170,11 @@ test('[rules.P85.adjustment] signed copper adjustment requires a reason and stag
         },
       ],
     }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('form', { name: 'New Militia value adjustment' }),
+    ).not.toBeInTheDocument(),
   );
 });
 test('[rules.P85.review] a rejected review requires an explicit fresh review and cannot confirm pending forecasts', () => {
@@ -149,7 +194,7 @@ test('[rules.P85.review] a rejected review requires an explicit fresh review and
   ).toBeDisabled();
 });
 
-test('[rules.P85.order] moving and clearing adjudication retains complete other adjustments', async () => {
+test('[rules.P85.order] moving and removing adjudication retains complete other adjustments', async () => {
   const edit = vi.fn().mockResolvedValue('accepted');
   const adjustments: typeof view.adjustments = [
     {
@@ -169,37 +214,20 @@ test('[rules.P85.order] moving and clearing adjudication retains complete other 
       reason: 'Correction',
     },
   ];
-  const facts: WeekReviewFacts = {
-    ...review,
-    adjustments: [
-      {
-        key: 'adjustment:first',
-        adjustmentId: 'first',
-        number: 1,
-        kind: 'Militia value',
-        effect: 'Treasury +1.25 gp',
-        reason: 'Reward',
-        notes: [],
-      },
-      {
-        key: 'adjustment:second',
-        adjustmentId: 'second',
-        number: 2,
-        kind: 'Militia value',
-        effect: 'Treasury → 10 gp',
-        reason: 'Correction',
-        notes: [],
-      },
-    ],
-  };
   render(
     <SummaryView
-      view={{ ...view, adjustments, review: facts }}
+      view={withAdjustments(adjustments)}
       edit={edit}
       {...controls}
     />,
   );
   expect(screen.getAllByRole('article')).toHaveLength(2);
+  expect(
+    screen.getByRole('button', { name: 'Move adjustment 1 earlier' }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Move adjustment 2 later' }),
+  ).toBeDisabled();
   fireEvent.click(
     screen.getByRole('button', { name: 'Move adjustment 2 earlier' }),
   );
@@ -209,9 +237,7 @@ test('[rules.P85.order] moving and clearing adjudication retains complete other 
       adjustments: [adjustments[1], adjustments[0]],
     }),
   );
-  fireEvent.click(
-    screen.getAllByRole('button', { name: 'Clear adjustment' })[0]!,
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Remove adjustment 1' }));
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'table_adjustments',
@@ -254,11 +280,12 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
     />,
   );
   expect(screen.getByText('Recruitment')).toBeInTheDocument();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Exception Reason' }), {
-    target: { value: 'Narrative reinforcements' },
-  });
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Reason for Team capacity exception' }),
+    { target: { value: ' Narrative reinforcements ' } },
+  );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Save exception reason' }),
+    screen.getByRole('button', { name: 'Save Team capacity reason' }),
   );
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
@@ -272,7 +299,7 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
     }),
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Clear exception reason' }),
+    screen.getByRole('button', { name: 'Clear Team capacity exception' }),
   );
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'clear_rules_exception',
@@ -439,7 +466,7 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
   ).toBeVisible();
   expect(screen.getByRole('button', { name: 'Confirm week' })).toBeDisabled();
   expect(
-    screen.queryByRole('textbox', { name: 'Exception Reason' }),
+    screen.queryByRole('textbox', { name: /Reason for/ }),
   ).not.toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('button', { name: 'Remove obsolete exception' }),
