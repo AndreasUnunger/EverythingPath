@@ -4,6 +4,7 @@ import { Button } from '~/components/ui/button';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { cn } from '~/lib/utils';
 import { EventOccurrenceEditors } from './event-occurrence-editors';
+import { EventSabotage } from './event-sabotage';
 import {
   EventIssueNotes,
   isPreparationFailed,
@@ -63,6 +64,7 @@ export function EventBlock({
   const table = block.table;
   const applied = table.modifiers.filter((modifier) => !modifier.ignored);
   const nested = { view, edit, disabled, edits, preparation, depth: depth + 1 };
+  const sabotage = view.sabotage?.[block.eventId];
   return (
     <div
       role="group"
@@ -186,6 +188,18 @@ export function EventBlock({
           edit={edit}
           disabled={locked}
           edits={edits}
+        />
+      )}
+      {block.saved && sabotage && (
+        <EventSabotage
+          facts={sabotage}
+          eventLabel={
+            table.name ? `${block.label} · ${table.name}` : block.label
+          }
+          view={view}
+          edit={edit}
+          edits={edits}
+          disabled={locked}
         />
       )}
       <EventTableModifiers block={block} disabled={locked} edits={edits} />

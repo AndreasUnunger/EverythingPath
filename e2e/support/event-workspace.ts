@@ -117,6 +117,13 @@ export async function exerciseEventWorkspace(
   await expect(
     sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
+  // Sabotage is offered only when a Saboteurs team exists; this militia has
+  // none, so the happening Sickness offers no reaction.
+  await expect(
+    occurrence(gm, '1.1').getByRole('button', {
+      name: /^Sabotage this event · Event 1\.1/,
+    }),
+  ).toHaveCount(0);
   const happened = (page: Page) =>
     occurrence(page, '1.1').getByRole('textbox', {
       name: 'What happened',

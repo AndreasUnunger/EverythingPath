@@ -132,7 +132,7 @@ function firstOccurrence(item: Item, context: EventPanelContext) {
 
 // One recorded target of a kind is the selection; any other recorded one
 // (a second target, or one no longer known) stays until cleared.
-function targetChoice({
+export function targetChoice({
   label,
   hint,
   required,

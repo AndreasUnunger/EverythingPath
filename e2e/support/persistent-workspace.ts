@@ -85,6 +85,12 @@ export async function exercisePersistentWorkspace(
   await button(old(player), 'Leave it').click();
   await expect(old(gm)).not.toContainText('Ends · recorded at the table');
   await button(old(gm), 'Loyalty check (this week only)').click();
+  // Overseer support is the shared toggle, not a field of the form; this
+  // militia has no Overseer, so it says so instead of offering a switch.
+  await expect(old(player)).toContainText(
+    'No Overseer is assigned, so no Overseer support this week.',
+  );
+  await expect(old(gm).getByRole('switch')).toHaveCount(0);
   await button(old(gm), 'Add rolls').click();
   // The Theft Loyalty check is one 1d20 dice total: no dice list or sides.
   await expect(

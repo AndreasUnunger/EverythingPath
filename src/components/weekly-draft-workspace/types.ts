@@ -17,6 +17,8 @@ import type { RollSpec } from '~/lib/raw-roll';
 import type { OFFICER_ROLES } from '~/lib/canonical-roster';
 import type { TrackedCharacter } from '~/lib/rules-character-state';
 import type { ProgressionBoon } from '~/lib/rules-progression';
+import type { EventSabotageFacts } from './event-sabotage-facts';
+import type { OverseerSupportFacts } from './overseer-support-facts';
 export type OfficerRole = (typeof OFFICER_ROLES)[number];
 type CharacterStatus = TrackedCharacter['status'];
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
@@ -638,6 +640,10 @@ export type EventView = {
   exceptions: WeeklyDraft['rulesExceptions'];
   checks: ActivityView['checks'];
   options: Record<string, { value: string; label: string }[]>;
+  // Sabotage per occurrence, by event identity, and the week's one Overseer
+  // support shared with Persistent. Hand-built test views may omit them.
+  sabotage?: Record<string, EventSabotageFacts>;
+  overseer?: OverseerSupportFacts;
   requirements: string[];
   warnings: string[];
 };
@@ -661,6 +667,7 @@ export type PersistentView = {
   // Earlier phases whose open requirements hold Persistent back.
   earlierPhases: Phase[];
   options: EventView['options'];
+  overseer?: OverseerSupportFacts;
   events: (WeeklyDraft['context']['carriedEvents'][number] & {
     name: string;
     // The event type's display name, e.g. "Low Morale".

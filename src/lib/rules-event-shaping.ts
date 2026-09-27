@@ -212,6 +212,15 @@ function recordSabotageCheck(
   result.checks.push(projected);
   result.checkUsage = facts.checkUsage;
 }
+// Sabotage negates its event on a check against 15 + rank (militia-rules.md,
+// "Action: Sabotage").
+export function sabotageDc(rank: number) {
+  return 15 + rank;
+}
+// The engine's check identity for one event's Sabotage reaction.
+export function sabotageCheckId(eventId: string, choiceId: string) {
+  return `${eventId}:sabotage:${choiceId}`;
+}
 function recordSabotageOutcome(
   { draft, result }: ShapingContext,
   event: Event,
@@ -220,7 +229,7 @@ function recordSabotageOutcome(
   total: number | null,
   notoriety: number | null,
 ) {
-  const dc = 15 + result.outcome.rank;
+  const dc = sabotageDc(result.outcome.rank);
   const succeeded = total === null ? null : total >= dc;
   const acknowledgement =
     [...draft.acknowledgements, ...(choice.acknowledgements ?? [])].find(
@@ -281,7 +290,7 @@ function resolveSabotage(context: ShapingContext, event: Event) {
     `${choice.choiceId}:notoriety`,
     RULE_ROLL_SPECS.singleD6,
   );
-  const checkId = `${event.eventId}:sabotage:${choice.choiceId}`;
+  const checkId = sabotageCheckId(event.eventId, choice.choiceId);
   const facts = projectSabotageCheck(
     context,
     event,

@@ -15,6 +15,8 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import { activityView, checkModifierLabel } from './activity-facts';
 import { withoutDuplicateRollCodes } from './roll-requirements';
+import { eventSabotageFacts } from './event-sabotage-facts';
+import { overseerSupportFacts } from './overseer-support-facts';
 import {
   eventPanel,
   eventPanelMessage,
@@ -500,6 +502,17 @@ export function eventView(
         label: label(occurrence.eventId),
       })),
     },
+    sabotage: Object.fromEntries(
+      tree.occurrences.map((item) => [
+        item.occurrence.eventId,
+        eventSabotageFacts(item, panelContext),
+      ]),
+    ),
+    overseer: overseerSupportFacts({
+      draft,
+      outcome: activity?.outcome ?? source.snapshot,
+      eventLabel: label,
+    }),
     requirements: withoutDuplicateRollCodes(projection?.requirements ?? []),
     warnings: projection?.warnings ?? [],
   };
