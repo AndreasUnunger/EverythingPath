@@ -406,16 +406,16 @@ function transfersSection(
   const { projection } = context;
   const ids = new Set(transfers.map((item) => item.transferId));
   const owner = (issue: UpkeepIssue) => issue.code.split(':')[1] ?? '';
-  const all = context.issues('transfers');
+  const sectionIssues = context.issues('transfers');
   const items = transfers.map((transfer) =>
     transferItem(
       context,
       transfer,
       people,
-      all.filter((issue) => owner(issue) === transfer.transferId),
+      sectionIssues.filter((issue) => owner(issue) === transfer.transferId),
     ),
   );
-  const issues = all.filter((issue) => !ids.has(owner(issue)));
+  const issues = sectionIssues.filter((issue) => !ids.has(owner(issue)));
   const facts = { items, adjustments: treasuryAdjustments(context), issues };
   if (earlierOpen)
     return {
@@ -448,7 +448,7 @@ function transferItem(
   issues: UpkeepIssue[],
 ): UpkeepTransfer {
   const theft = projection.plan.find(
-    (change) =>
+    (change): change is Extract<typeof change, { kind: 'treasury' }> =>
       change.kind === 'treasury' &&
       change.sourceId.startsWith('theft:') &&
       change.sourceId.endsWith(`:${transfer.transferId}`),
@@ -470,7 +470,7 @@ function transferItem(
         ? null
         : (people.find((person) => person.characterId === transfer.characterId)
             ?.name ?? 'Unnamed character'),
-    theftCopper: theft?.kind === 'treasury' ? theft.after - theft.before : null,
+    theftCopper: theft ? theft.after - theft.before : null,
     fundsException:
       exception || required
         ? {
