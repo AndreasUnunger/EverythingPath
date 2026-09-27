@@ -362,6 +362,28 @@ test('[PER-02.source] High Morale names its Event occurrence and links to it', (
   ]);
 });
 
+test('[PER-02.source] an ending from a nested event uses the Event phase label, not its recorded position', () => {
+  const { draft, snapshot } = recurringEventFixture(26, true);
+  draft.context = {
+    ...draft.context,
+    persistentPhaseEligible: true,
+    carriedEvents: [
+      { ...theft({ eventId: 'older', startedWeek: 38 }), eventType: 'rivalry' },
+    ],
+  };
+  const { view } = facts(draft, snapshot);
+  // Recorded second, but labelled as Roll Twice's first child.
+  expect(draft.event.occurrences.map((entry) => entry.eventId)).toEqual([
+    'root',
+    'first',
+    'second',
+  ]);
+  expect(view.events[0]!.endedBy).toEqual({
+    label: 'High Morale in Event 1.1',
+    link: { phase: 'event', anchor: 'event-occurrence-first' },
+  });
+});
+
 test('[PER-03.cards] only Theft and Rivalry offer a check card', () => {
   const { draft, snapshot } = withCarried([
     theft(),

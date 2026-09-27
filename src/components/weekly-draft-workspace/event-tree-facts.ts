@@ -43,6 +43,14 @@ export function eventName(type: string | null | undefined) {
   );
 }
 
+// "Event 2A · Sickness", or "Event 2A" before its roll resolves.
+export function eventSubjectLabel(
+  event: Pick<EventOccurrenceFacts, 'label' | 'resolvedType'>,
+) {
+  const name = eventName(event.resolvedType);
+  return name ? `${event.label} · ${name}` : event.label;
+}
+
 // Table roll arithmetic exactly as selection reads it: settlement reputation
 // never applies here, and one value counts per modifier source.
 // The shared engine arithmetic for a table roll, with its event's name.

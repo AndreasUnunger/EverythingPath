@@ -1,8 +1,8 @@
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
-import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { activityLabel } from './activity-labels';
+import { eventOccurrenceLabels } from './event-tree-facts';
 import { activitySlotAnchor, eventOccurrenceAnchor } from './source-anchors';
 import { formatGold } from './week-frame/reference-copy';
 import type { Phase, PersistentView } from './types';
@@ -70,25 +70,21 @@ export function sourceEndings(draft: WeeklyDraft, phases: Phases | null) {
       },
     });
   }
-  const occurrences = [
-    ...draft.event.occurrences,
-    ...draft.activity.slots.flatMap((slot) => actionChoiceEvents(slot.choice)),
-  ];
+  // Current-week occurrences go by the Event phase's own labels ("Event 2A").
+  const labels = eventOccurrenceLabels(draft, phases.event.positions);
   for (const change of phases.event.plan) {
     if (change.kind !== 'event_end' || endings.has(change.endedEventId))
       continue;
-    const index = occurrences.findIndex(
-      (occurrence) => occurrence.eventId === change.eventId,
-    );
+    const label = labels.get(change.eventId);
     const type = phases.event.tree.find(
       (entry) => entry.eventId === change.eventId,
     )?.eventType;
     const name = type ? activityLabel(type) : 'An event';
     endings.set(change.endedEventId, {
-      label: index >= 0 ? `${name} in Event ${index + 1}` : `${name} in Event`,
+      label: label ? `${name} in ${label}` : `${name} in Event`,
       link: {
         phase: 'event',
-        anchor: index >= 0 ? eventOccurrenceAnchor(change.eventId) : null,
+        anchor: label ? eventOccurrenceAnchor(change.eventId) : null,
       },
     });
   }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { compoundAcceptanceFixture } from '../../../tests/rules/compound-acceptance-fixture';
+import { recurringEventFixture } from '../../../tests/rules/recurring-event-fixture';
 import { upkeepFixture, roll } from '../../../tests/rules/upkeep-fixture';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
@@ -297,6 +298,24 @@ describe('[SUM-10] live six-section consequences', () => {
       status: 'not-applicable',
       items: [],
     });
+  });
+
+  test('Event items use the Event phase labels and the chance line follows the resolver', () => {
+    const { draft, snapshot } = recurringEventFixture(26, true);
+    const { facts } = review(draft, snapshot);
+    // A rolled Roll Twice is not itself selected, but an event still occurs.
+    expect(item(facts, 2, 'Event chance').details).toEqual([
+      'Event chance 10% · roll 1 · an event occurs',
+    ]);
+    expect(titles(facts, 2)).toEqual([
+      'Event chance',
+      'Event 1 · Roll Twice',
+      'Event 1.1 · High Morale',
+      'Event 1.2 · High Morale',
+    ]);
+    expect(item(facts, 2, 'Event 1.2 · High Morale').details).toContain(
+      'Rolled twice from Event 1',
+    );
   });
 
   test('a first militia week shows Upkeep as not applicable', () => {

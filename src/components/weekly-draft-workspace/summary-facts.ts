@@ -1,21 +1,15 @@
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
-import type { EventView, UpkeepView, PhaseView } from './types';
+import type { UpkeepView, PhaseView } from './types';
 import { activityView } from './activity-facts';
 import { eventView, type EventPreparationContext } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
-import { eventName } from './event-tree-facts';
+import { eventSubjectLabel } from './event-tree-facts';
 import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';
 import { summaryMessage } from './summary-messages';
-
-// "Event 2A · Sickness", or "Event 2A" before its roll resolves.
-function eventSubjectLabel(event: EventView['occurrences'][number]) {
-  const name = eventName(event.resolvedType);
-  return name ? `${event.label} · ${name}` : event.label;
-}
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,

@@ -4,8 +4,6 @@ import type {
 } from '~/lib/canonical-weekly-resolution';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
-import { normalizeRawRoll } from '~/lib/raw-roll';
-import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import {
   choiceSubject,
   describeAdjustment,
@@ -35,6 +33,7 @@ import {
   type ReviewNames,
 } from '~/components/week-review/review-text';
 import { activityLabel } from './activity-labels';
+import { eventSubjectLabel } from './event-tree-facts';
 import type {
   ActivityView,
   EventView,
@@ -295,20 +294,18 @@ function activityItems(
 }
 
 /** The chance line states only what the resolver decided. */
-function chanceLine(event: EventView, phase: Phases['event'] | undefined) {
+function chanceLine(event: EventView) {
+  const step = event.chanceStep;
   const prefix = `Event chance ${event.chance}%`;
-  if (event.guaranteed) return `${prefix} · an event is guaranteed`;
-  const roll = normalizeRawRoll(event.chanceRoll, RULE_ROLL_SPECS.percentile);
-  if (roll.status !== 'complete') return `${prefix} · roll not entered`;
-  const rolled = `${prefix} · roll ${roll.diceTotal}${event.chanceModifier ? ` ${signed(event.chanceModifier)}` : ''}`;
-  if (event.chanceModifier === null)
+  if (step.applies === 'guaranteed')
+    return `${prefix} · an event is guaranteed`;
+  if (step.applies === 'forced_calm')
+    return 'Event chance · no roll: All Is Calm makes this a calm week';
+  if (step.raw === null) return `${prefix} · roll not entered`;
+  const rolled = `${prefix} · roll ${step.raw}${event.chanceModifier ? ` ${signed(event.chanceModifier)}` : ''}`;
+  if (step.result === null)
     return `${rolled} · the operating settlement’s reputation is needed`;
-  const occurs =
-    phase?.requirements.includes('event:root:1') === true ||
-    event.occurrences.some(
-      (entry) => entry.selected && entry.occurrence.origin.kind === 'rolled',
-    );
-  return `${rolled} · ${occurs ? 'an event occurs' : 'no event occurs'}`;
+  return `${rolled} · ${step.result === 'event' ? 'an event occurs' : 'no event occurs'}`;
 }
 
 function sabotageItem(
@@ -347,16 +344,14 @@ function sabotageItem(
 
 function eventItems(event: EventView, phase: Phases['event'] | undefined) {
   const chance = newItem('event:chance', 'Event chance', ['event:chance']);
-  chance.details.push(chanceLine(event, phase));
-  const numbers = new Map(
-    event.occurrences.map((entry, index) => [
-      entry.occurrence.eventId,
-      `Event ${index + 1}`,
-    ]),
+  chance.details.push(chanceLine(event));
+  // The Event phase's own hierarchical labels ("Event 2A.1").
+  const labels = new Map(
+    event.occurrences.map((entry) => [entry.occurrence.eventId, entry.label]),
   );
-  const occurrences = event.occurrences.flatMap((entry, index) => {
+  const occurrences = event.occurrences.flatMap((entry) => {
     const { occurrence } = entry;
-    const title = `${activityLabel(entry.resolvedType ?? 'event')} · Event ${index + 1}`;
+    const title = eventSubjectLabel(entry);
     const item = newItem(eventSubject(occurrence.eventId), title, [
       occurrence.eventId,
       eventSubject(occurrence.eventId),
@@ -364,7 +359,7 @@ function eventItems(event: EventView, phase: Phases['event'] | undefined) {
     ]);
     if ('parentEventId' in occurrence.origin)
       item.details.push(
-        `${occurrence.origin.kind === 'roll_twice' ? 'Rolled twice from' : 'Replaces'} ${numbers.get(occurrence.origin.parentEventId) ?? 'an earlier event'}`,
+        `${occurrence.origin.kind === 'roll_twice' ? 'Rolled twice from' : 'Replaces'} ${labels.get(occurrence.origin.parentEventId) ?? 'an earlier event'}`,
       );
     if (entry.owner)
       item.details.push(`From ${activityLabel(entry.owner.choice.actionId)}`);
