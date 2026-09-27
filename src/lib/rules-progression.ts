@@ -19,7 +19,10 @@ const gifts: Record<
   16: { gift: '8,000 gp', maxValueCopper: 800000, fullyChargedWands: false },
   18: { gift: 'magic item', maxValueCopper: 1000000, fullyChargedWands: false },
 };
-const titles: Record<number, { title: string; feats: string[] }> = {
+// Title feat packages (militia-rules.md, Title Feat Packages). Each PC picks
+// one feat from a fixed list, except Champion, whose PCs gain any feat they
+// qualify for: an open outcome with no list.
+const titles: Record<number, { title: string; feats: string[] | null }> = {
   4: {
     title: 'Director',
     feats: ['Alertness', 'Deceitful', 'Persuasive', 'Stealthy'],
@@ -32,8 +35,9 @@ const titles: Record<number, { title: string; feats: string[] }> = {
     title: 'Commander',
     feats: ['Fleet', 'Improved Initiative', 'Toughness'],
   },
-  19: { title: 'Champion', feats: ['Any feat the PC qualifies for'] },
+  19: { title: 'Champion', feats: null },
 };
+const anyFeat = 'Any feat the PC qualifies for';
 const xpAwards: Record<number, number> = {
   5: 1200,
   10: 3200,
@@ -48,8 +52,16 @@ function boon(rank: number, characterIds: string[]) {
   if ([2, 7, 12, 17].includes(rank))
     return { ...common, kind: 'skilled' as const, skillRanks: 1 };
   if (gifts[rank]) return { ...common, kind: 'gift' as const, ...gifts[rank] };
-  if (titles[rank])
-    return { ...common, kind: 'title' as const, ...titles[rank] };
+  const title = titles[rank];
+  if (title)
+    return {
+      ...common,
+      kind: 'title' as const,
+      title: title.title,
+      // Resolution plans have always described Champion's open feat this
+      // way; which feats are a fixed choice is `boonFeatChoices`.
+      feats: title.feats ?? [anyFeat],
+    };
   const xp = xpAwards[rank];
   if (xp !== undefined)
     return {
@@ -75,13 +87,20 @@ export function projectProgression(
   const highestPcLevel = pcs.length
     ? Math.max(...pcs.map((x) => x.level))
     : null;
-  const earnedRank =
-    MILITIA_ADVANCEMENT.filter(
-      (x) => x.training <= training && x.rank <= (highestPcLevel ?? rank),
-    ).slice(-1)[0]?.rank ?? rank;
-  const eligibleRank = Math.max(rank, earnedRank);
+  // Rank never decreases; training earns rank up to the cap.
+  const reached = (cap: number) =>
+    Math.max(
+      rank,
+      MILITIA_ADVANCEMENT.filter(
+        (x) => x.training <= training && x.rank <= cap,
+      ).slice(-1)[0]?.rank ?? rank,
+    );
+  const eligibleRank = reached(highestPcLevel ?? rank);
+  // The rank training alone reaches, before the highest PC level caps it.
+  const trainingRank = reached(Infinity);
   return {
     eligibleRank,
+    trainingRank,
     highestPcLevel,
     boons: MILITIA_ADVANCEMENT.filter(
       (x) => x.rank > rank && x.rank <= eligibleRank,
@@ -99,4 +118,14 @@ export function projectProgression(
         : []),
     ],
   };
+}
+
+export type ProgressionBoon = ReturnType<
+  typeof projectProgression
+>['boons'][number];
+
+// The fixed feats a boon lets each PC choose from, or null when the boon's
+// outcome is open text (Skilled, Gift, XP and Champion's any feat).
+export function boonFeatChoices(reward: ProgressionBoon): string[] | null {
+  return reward.kind === 'title' ? (titles[reward.rank]?.feats ?? null) : null;
 }

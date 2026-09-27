@@ -165,23 +165,31 @@ export function RollRow({
   );
 }
 
+// A free-text decision with its record and clear buttons. The labels default
+// to a reasoned decision; a boon outcome editor names its own.
 export function ReasonedDecision({
   label,
   current,
   disabled,
   onSave,
   onClear,
+  submitLabel = 'Record decision',
+  clearLabel = 'Clear decision',
+  requiredMessage = 'A reason is required.',
 }: {
   label: string;
   current: string;
   disabled: boolean;
   onSave: (reason: string) => void;
   onClear: () => void;
+  submitLabel?: string;
+  clearLabel?: string;
+  requiredMessage?: string;
 }) {
   const form = useForm({
     values: { reason: current },
     resolver: zodResolver(
-      z.object({ reason: z.string().trim().min(1, 'A reason is required.') }),
+      z.object({ reason: z.string().trim().min(1, requiredMessage) }),
     ),
   });
   return (
@@ -206,7 +214,7 @@ export function ReasonedDecision({
         />
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={disabled}>
-            Record decision
+            {submitLabel}
           </Button>
           {current && (
             <Button
@@ -215,7 +223,7 @@ export function ReasonedDecision({
               disabled={disabled}
               onClick={onClear}
             >
-              Clear decision
+              {clearLabel}
             </Button>
           )}
         </div>
