@@ -66,7 +66,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the six Chromium tablet journeys at 1194×834 with
+creates fresh ignored role storage and runs the nine Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
 unless `--workers N` asks for up to the declared number; a single cohort runs
 exactly serially. Local runs acquire an
@@ -124,7 +124,15 @@ reporter keeps safe assertion messages, test outcomes and timings; auth setup
 errors are replaced with a fixed diagnostic. Each completed attempt is atomically
 checkpointed in `progress.json`, so an outer deadline retains the first failure
 even if `onEnd` cannot write the final report. Its status remains `running` and
-can never satisfy the aggregate gate. `stages.log` records stage outcomes;
+can never satisfy the aggregate gate. Each attempt's `steps` time the
+journey's own `test.step` phases: the sanitized title path, `start` and
+`duration` in milliseconds, and `passed`, `failed` or `interrupted` (a timeout
+ended the attempt inside the step, so `duration` is null and `start` shows how
+long it ran). At most 100 steps are kept per attempt. Step errors, locations,
+parameters, fixtures and Playwright actions are not recorded. `access`, its
+three shell parts (see [Access split](#access-split)) and the nightly extension
+use steps; the other journeys, including campaign home, do not yet, so they
+record none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
@@ -352,14 +360,17 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 ## Nightly compatibility matrix (#30)
 
 Run the same isolated harness with `--nightly`. The default command and **E2E
-required** retain the six mandatory Chromium tablet journeys. Nightly selects:
+required** retain the nine mandatory Chromium tablet journeys. Nightly selects:
 
-| Project         | Viewport | Journeys                                                                   |
-| --------------- | -------- | -------------------------------------------------------------------------- |
-| Chromium tablet | 1194×834 | All six, plus navigation/form/persistence and reconnect steps              |
-| WebKit tablet   | 1194×834 | All six critical journeys                                                  |
-| Firefox desktop | 1440×900 | Access, campaign home, existing-militia initialization, complete week      |
-| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; campaign home |
+| Project         | Viewport | Journeys                                                                                            |
+| --------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| Chromium tablet | 1194×834 | All nine, plus navigation/form/persistence and reconnect steps                                      |
+| WebKit tablet   | 1194×834 | All nine critical journeys                                                                          |
+| Firefox desktop | 1440×900 | Access and the four journeys split from it, existing-militia initialization, complete week          |
+| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; the four split journeys |
+
+The journeys split from access are campaign home, campaign sections, legacy
+addresses and legacy week links (see [Access split](#access-split)).
 
 The access journey's nightly extension creates a character, checks that form
 controls fit the viewport, reloads the saved record, edits at the alternate
@@ -862,3 +873,49 @@ unchanged, and the GM, player and outsider are still three separate signed-in
 sessions. `access` now opens the list with a plain page load before choosing
 the week; its landing assertions belong to the new journey. No limit changed:
 both journeys keep the 60 s test limit.
+
+### Access split
+
+The access journey still took 42–62 s against its 60 s limit, and under
+machine load it timed out on WebKit and Firefox (`XxSqla`, `rUyJDK`, and
+`qnkZrD` in its legacy week-link checks). It made about 25 page loads one after another, and
+no app regression was found. The journey and its shell checks
+(`support/shell-navigation.ts`) are now four parts. Each part runs as its own
+test with its own case, on every project that runs `access`
+(`accessJourneyFiles` in `support/matrix.ts`), including the mandatory
+Chromium tablet run.
+
+| Journey                                                                                | File                        | Case               | Checks                                                                                                                                                    |
+| -------------------------------------------------------------------------------------- | --------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| organization members can open their campaign and outsiders cannot                      | `access.spec.ts`            | `smoke`            | GM and player open the week from the list; the outsider is shut out of all five sections of the member campaign; the nightly extension and forced failure |
+| members move between campaign sections at every width and through browser history      | `campaign-sections.spec.ts` | `campaignSections` | Characters at phone, phone-landscape and short top-bar widths; Militia as a document; Back, Forward and reload                                            |
+| unknown campaigns stay unavailable and legacy addresses lead members to their campaign | `legacy-addresses.spec.ts`  | `legacyAddresses`  | Unknown id; `/canonical-*`, `/` and `/militia/correct` redirects                                                                                          |
+| legacy week links open their phase in a bounded week without moving other members      | `legacy-week-links.spec.ts` | `legacyWeekLinks`  | Legacy `?phase=` links, reload, home, Continue week, the bounded week host at two sizes; the GM stays on Event                                            |
+
+Every assertion moved unchanged; each part's phases are wrapped in `test.step`
+only so the evidence times them. Each part starts where the single journey
+reached it, and its state is equivalent:
+
+- **Database.** Each case is seeded exactly like `smoke` by `resetCase`: the
+  same names, a rank-1 militia with one officer and an open first-week draft.
+  It is alone in the cohort's member organization, so the bare list still
+  selects it. The moved checks only navigate and read; the nightly extension,
+  which writes a character, stays in `access`.
+- **Browser.** Each part's members open the week from the list with Continue
+  week (`openWeekFromList`), as access always did. So each part starts on
+  Week 1 · Event at the project viewport. Each part reads the campaign's
+  address from that page, as the single journey did. The sections part
+  started on exactly that page. The address and week-link parts began with a
+  full page load, so the page they came from never mattered.
+- **Sessions.** GM, player and outsider are still separate signed-in sessions.
+  The outsider is still shut out of a real member campaign, the one the player
+  has just opened.
+- **Moved check.** "The GM stays on Event" was checked after all of the
+  player's navigation. It now closes the week-link part, after the player
+  follows the `?phase=` links, the only navigation that selects a phase. The
+  sections and address parts still open GM and outsider sessions (the
+  `players` fixture) but make no assertion with them.
+
+Lost coverage: one player session no longer survives all four parts. Each
+part repeats the list-to-week opening, which adds about two page loads. No
+limit changed: every part keeps the 60 s test limit.

@@ -3,12 +3,12 @@ import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
-import { requiredTests } from './matrix';
+import { accessJourneyFiles, requiredTests } from './matrix';
 import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(27);
+  expect(required).toHaveLength(39);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -38,6 +38,16 @@ it('requires the exact titles declared by the selected nightly journey sources',
 const workspaceTitles = requiredTests('mandatory')
   .filter(([file]) => file === 'canonical-workspace.spec.ts')
   .map(([, , title]) => title!);
+const isAccessJourney = (file: string) =>
+  (accessJourneyFiles as readonly string[]).includes(file);
+// The access parts split out after the campaign home.
+const accessParts = requiredTests('mandatory')
+  .filter(
+    ([file]) =>
+      isAccessJourney(file!) &&
+      !['access.spec.ts', 'campaign-home.spec.ts'].includes(file!),
+  )
+  .map(([file, , title]) => [file!, title!] as const);
 
 const passing = () => ({
   status: 'passed',
@@ -147,6 +157,15 @@ const passing = () => ({
       annotations: [] as string[],
       results: [{ status: 'passed', retry: 0 }],
     },
+    ...accessParts.map(([file, title]) => ({
+      file,
+      project: 'chromium-tablet',
+      title,
+      expectedStatus: 'passed',
+      tags: [] as string[],
+      annotations: [] as string[],
+      results: [{ status: 'passed', retry: 0 }],
+    })),
   ],
 });
 
@@ -257,12 +276,16 @@ function nightlyPassing() {
   );
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
-    ...[critical[0]!, critical[1]!, critical[3]!, critical[5]!].map((test) => ({
-      ...test,
-      project: 'firefox-desktop',
-    })),
-    { ...critical[0]!, project: 'chromium-phone' },
-    { ...critical[5]!, project: 'chromium-phone' },
+    ...critical
+      .filter(
+        ({ file }) =>
+          isAccessJourney(file) ||
+          ['existing-militia.spec.ts', 'complete-week.spec.ts'].includes(file),
+      )
+      .map((test) => ({ ...test, project: 'firefox-desktop' })),
+    ...critical
+      .filter(({ file }) => isAccessJourney(file))
+      .map((test) => ({ ...test, project: 'chromium-phone' })),
   );
   return report;
 }
