@@ -1,3 +1,5 @@
+import type { RawRoll } from './weekly-draft-facts';
+import type { EventType } from './militia-domain';
 import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import { normalizeRawRoll } from './raw-roll';
 import { operatedSettlementIds } from './rules-event-context';
@@ -76,18 +78,13 @@ function readEventDie(
   if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
   return normalized.diceTotal;
 }
-// The operating settlement's reputation never touches the table roll; it
-// modifies the chance roll (see selectChanceEvent).
-function resolveTableRoll(context: SelectionContext, event: Event) {
-  const { result } = context;
-  const value = readEventDie(
-    context,
-    event.tableRoll,
-    `${event.eventId}:table`,
-  );
-  if (value === null) return null;
+export function eventTypeForTableRoll(
+  roll: RawRoll | null | undefined,
+): EventType | null {
+  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
+  if (normalized.status !== 'complete') return null;
   const extra = new Map<string, number>();
-  for (const modifier of event.tableRoll?.modifiers ?? [])
+  for (const modifier of roll?.modifiers ?? [])
     if (
       modifier.sourceId !== 'settlement' &&
       modifier.sourceId !== 'reputation'
@@ -97,10 +94,20 @@ function resolveTableRoll(context: SelectionContext, event: Event) {
     1,
     Math.min(
       100,
-      value + [...extra.values()].reduce((sum, value) => sum + value, 0),
+      normalized.diceTotal +
+        [...extra.values()].reduce((sum, value) => sum + value, 0),
     ),
   );
-  const eventType = eventTypeForPercentile(total);
+  return eventTypeForPercentile(total);
+}
+
+// The operating settlement's reputation never touches the table roll; it
+// modifies the chance roll (see selectChanceEvent).
+function resolveTableRoll(context: SelectionContext, event: Event) {
+  const { result } = context;
+  readEventDie(context, event.tableRoll, `${event.eventId}:table`);
+  const eventType = eventTypeForTableRoll(event.tableRoll);
+  if (eventType === null) return null;
   if (event.eventType && event.eventType !== eventType)
     result.warnings.push(`${event.eventId}:calculated-event`);
   const resolved = { ...structuredClone(event), eventType };
