@@ -238,10 +238,6 @@ export function SetupOrders() {
         })
       }
     >
-      <p className="text-muted-foreground text-sm">
-        Record the agreed delivery date, including expedition or enchantment
-        time. Receipt is a separate decision.
-      </p>
       {orders.fields.map((row, i) => (
         <SetupEntry
           key={row.id}

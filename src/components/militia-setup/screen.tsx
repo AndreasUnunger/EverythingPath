@@ -8,7 +8,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { Button } from '~/components/ui/button';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { weekPath } from '~/lib/campaign-routes';
-import { MilitiaSetupForm } from './form';
+import { GuidedMilitiaSetup } from './guided';
 function SetupCampaign({ campaignId }: { campaignId: Id<'campaign'> }) {
   const options = useQuery(api.canonicalSetup.options, { campaignId });
   const initialize = useMutation(api.canonicalSetup.initialize);
@@ -29,7 +29,7 @@ function SetupCampaign({ campaignId }: { campaignId: Id<'campaign'> }) {
       </>
     );
   return (
-    <MilitiaSetupForm
+    <GuidedMilitiaSetup
       characters={options.characters}
       onSave={async (setup) => {
         await initialize({ campaignId, initializationId, setup });
@@ -42,7 +42,7 @@ export function MilitiaSetupScreen({ campaign }: { campaign: string | null }) {
   const auth = useConvexAuth();
   const parsed = zid('campaign').safeParse(campaign);
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6">
+    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6 xl:max-w-7xl">
       <h1 className="text-2xl font-bold">Set up militia</h1>
       {auth.isLoading ? (
         <p role="status">Loading militia setup…</p>

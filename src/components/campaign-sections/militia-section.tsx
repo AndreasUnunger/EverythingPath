@@ -4,7 +4,7 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { CharacterManager } from '~/components/character-manager';
-import { MilitiaSetupForm } from '~/components/militia-setup/form';
+import { MilitiaCorrectionForm } from '~/components/militia-setup/form';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { useCanonicalLedger } from '~/components/use-canonical-ledger';
@@ -87,8 +87,7 @@ export function MilitiaLedger({
         {editing ? 'Close correction' : 'Edit militia ledger'}
       </Button>
       {editing && (
-        <MilitiaSetupForm
-          correction
+        <MilitiaCorrectionForm
           initialValues={{
             mode: 'existing',
             phase: 'upkeep',

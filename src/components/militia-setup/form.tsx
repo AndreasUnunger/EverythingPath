@@ -4,11 +4,7 @@ import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '~/components/ui/button';
-import {
-  militiaSetupSchema,
-  newMilitiaSetup,
-  type MilitiaSetup,
-} from '~/lib/canonical-setup';
+import { militiaSetupSchema, type MilitiaSetup } from '~/lib/canonical-setup';
 import {
   militiaCorrectionSchema,
   setupErrorDescriptors,
@@ -16,38 +12,32 @@ import {
 } from '~/lib/setup-validation';
 import { SetupField as Field, SetupSection } from './fields';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
-import { SetupCarriedEvents, SetupSettlements } from './world';
+import { SetupSettlements } from './world';
 import { SetupAssets } from './assets';
 import {
   SetupCharacterConditions,
   SetupMarketDayBenefits,
   SetupSkillBenefits,
 } from './effects';
-import { SetupOneUseBonuses, SetupQueuedEffects } from './carry';
-import {
-  SetupMilitiaValues,
-  SetupStartingPoint,
-  SetupWeek,
-} from './starting-point';
-export function MilitiaSetupForm({
+import { SetupMilitiaValues } from './starting-point';
+// The existing full correction form: every correctable section behind one
+// required reason. Guided Setup lives in `guided.tsx`; Militia corrections
+// replace this form later.
+export function MilitiaCorrectionForm({
   characters,
   onSave,
   initialValues,
-  correction = false,
   stagedChoiceNotice,
 }: {
   characters: SetupCharacter[];
   onSave: (setup: MilitiaSetup) => Promise<void>;
-  initialValues?: MilitiaSetup;
-  correction?: boolean;
+  initialValues: MilitiaSetup;
   // A correction's effect on choices already staged for the open week.
   stagedChoiceNotice?: (setup: MilitiaSetup) => string | null;
 }) {
   const form = useForm<MilitiaSetup>({
-    resolver: zodResolver(
-      correction ? militiaCorrectionSchema : militiaSetupSchema,
-    ),
-    defaultValues: initialValues ?? newMilitiaSetup('Loyalty'),
+    resolver: zodResolver(militiaCorrectionSchema),
+    defaultValues: initialValues,
   });
   const [error, setError] = useState<string>();
   const values = form.watch();
@@ -67,49 +57,23 @@ export function MilitiaSetupForm({
             setError(
               error instanceof ConvexError && typeof error.data === 'string'
                 ? error.data
-                : correction
-                  ? 'The correction could not be saved. Your entries are retained. Review the latest ledger and try again.'
-                  : 'Militia setup could not be saved. Your entries are retained. Try again, or open the current week if another player completed setup.',
+                : 'The correction could not be saved. Your entries are retained. Review the latest ledger and try again.',
             );
           }
         })}
       >
         <fieldset disabled={form.formState.isSubmitting} className="space-y-6">
-          {correction ? (
-            <SetupSection title="Militia values">
-              <SetupMilitiaValues />
-            </SetupSection>
-          ) : (
-            <>
-              <SetupStartingPoint />
-              <SetupWeek />
-            </>
-          )}
-          <SetupPeople
-            characters={characters}
-            preserveCharacters={correction}
-          />
+          <SetupSection title="Militia values">
+            <SetupMilitiaValues />
+          </SetupSection>
+          <SetupPeople characters={characters} preserveCharacters />
           <SetupTeams characters={characters} />
           <SetupCharacterConditions characters={characters} />
           <SetupSettlements />
-          {correction ? null : <SetupCarriedEvents characters={characters} />}
           <SetupAssets characters={characters} />
-          {correction ? null : (
-            <>
-              <SetupQueuedEffects />
-              <SetupOneUseBonuses />
-            </>
-          )}
           <SetupSkillBenefits characters={characters} />
           <SetupMarketDayBenefits />
-          <Field
-            name="notes"
-            label={
-              correction
-                ? 'Reason for correction'
-                : 'Setup notes / intentional rules deviations (optional)'
-            }
-          />
+          <Field name="notes" label="Reason for correction" />
         </fieldset>
         {warnings.length > 0 && (
           <aside
@@ -155,13 +119,9 @@ export function MilitiaSetupForm({
           </p>
         )}
         <Button type="submit" disabled={form.formState.isSubmitting}>
-          {correction
-            ? form.formState.isSubmitting
-              ? 'Saving correction…'
-              : 'Save correction'
-            : form.formState.isSubmitting
-              ? 'Starting militia…'
-              : 'Start militia week'}
+          {form.formState.isSubmitting
+            ? 'Saving correction…'
+            : 'Save correction'}
         </Button>
       </form>
     </FormProvider>

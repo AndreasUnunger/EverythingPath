@@ -24,30 +24,25 @@ export function SetupMilitiaValues() {
   );
 }
 
-export function SetupStartingPoint() {
+// New or Existing. Switching keeps every entered fact; the only change is
+// that Existing clears the first-militia-week skip.
+export function SetupModeChoice() {
   const { setValue } = useFormContext<MilitiaSetup>();
   return (
-    <SetupSection title="Starting point">
-      <Field
-        name="mode"
-        label="Campaign progress"
-        onChoice={(mode) =>
-          setValue('state.context.firstMilitiaWeek', mode === 'new', {
+    <Field
+      name="mode"
+      label="Campaign progress"
+      onChoice={(mode) => {
+        if (mode === 'existing')
+          setValue('state.context.firstMilitiaWeek', false, {
             shouldDirty: true,
-          })
-        }
-        options={[
-          { value: 'new', label: 'New militia' },
-          { value: 'existing', label: 'Existing militia' },
-        ]}
-      />
-      <p className="text-muted-foreground text-sm">
-        New militia defaults are rank 1, training 0 and 10 gp. For an existing
-        militia, enter the current table state below. Changing the starting
-        point keeps your entries.
-      </p>
-      <SetupMilitiaValues />
-    </SetupSection>
+          });
+      }}
+      options={[
+        { value: 'new', label: 'New militia' },
+        { value: 'existing', label: 'Existing militia' },
+      ]}
+    />
   );
 }
 
@@ -87,11 +82,6 @@ export function SetupWeek() {
           ])}
         />
       </div>
-      <p className="text-muted-foreground text-sm">
-        Setup records your week without resolving it. Existing militias run
-        Upkeep. A newly founded militia skips its first-ever Upkeep,
-        independently of the displayed week number.
-      </p>
     </SetupSection>
   );
 }
