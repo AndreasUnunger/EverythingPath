@@ -32,10 +32,10 @@ function facts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     militiaSnapshot: snapshot,
   });
   const view = eventView(draft, source, preview);
-  const phase = derivePhaseReadiness(draft, source, preview).phases.find(
-    (entry) => entry.phase === 'event',
-  )!;
-  return { view, phase };
+  const { phases } = derivePhaseReadiness(draft, source, preview);
+  const phase = phases.find((entry) => entry.phase === 'event')!;
+  const summary = phases.find((entry) => entry.phase === 'summary')!;
+  return { view, phase, summary };
 }
 function item(view: EventView, eventId: string) {
   return view.occurrences.find(
@@ -140,12 +140,15 @@ test('[EVT-10.sickness-twice] the Twice Sickness save is a mandatory Loyalty che
   expect(panel(view, 'second', 'team').outcomes).toContain('Team is lost.');
 
   delete draft.event.occurrences[2]!.rolls;
-  ({ view, phase } = facts(draft, snapshot));
+  const missing = facts(draft, snapshot);
+  ({ view, phase } = missing);
   expect(panel(view, 'second', 'team').check?.required).toBe(true);
-  // One line for the missing die, not one per engine code.
-  expect(
-    messages(phase).filter((text) => text.includes('Loyalty check')),
-  ).toEqual(['Event 1.2 · Sickness: enter the Loyalty check (d20).']);
+  // One line for the missing die, not one per engine code, in the Event
+  // phase and in Review & confirm's required decisions.
+  for (const readiness of [phase, missing.summary])
+    expect(
+      messages(readiness).filter((text) => text.includes('Loyalty check')),
+    ).toEqual(['Event 1.2 · Sickness: enter the Loyalty check (d20).']);
 });
 
 test('[EVT-12.missing-in-action] Missing in Action prefers teams that acted and queues its absence and return', () => {
