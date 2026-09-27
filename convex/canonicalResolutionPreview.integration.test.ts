@@ -410,17 +410,22 @@ test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agre
         );
       }
 
-  // Successful, failed and natural-one Drill with a blank, zero or explicit
-  // override for the level-4 NPC commandant beside the PC's 3 Hit Dice.
-  for (const [die, succeeds] of [
-    [10, true],
-    [2, false],
-    [1, true],
+  // Successful, failed and natural-one (successful and failed) Drill with a
+  // blank, zero or explicit override for the level-4 NPC commandant beside
+  // the PC's 3 Hit Dice.
+  const notoriety = new Map<string, number>();
+  for (const [name, die, charisma, succeeds] of [
+    ['success', 10, 10, true],
+    ['failure', 2, 10, false],
+    ['natural-one-success', 1, 34, true],
+    ['natural-one-failure', 1, 10, false],
   ] as const) {
+    const drillWeek = (hitDice: number | null) =>
+      commandantDrillWeek(die, hitDice, charisma);
     const training = new Map<string, number>();
     // A level change moves a blank override; an archived commandant counts.
     const levelled = () => {
-      const input = commandantDrillWeek(die, null);
+      const input = drillWeek(null);
       input.militiaSnapshot.characters = input.militiaSnapshot.characters.map(
         (character) =>
           character.characterId === 'npc'
@@ -430,7 +435,7 @@ test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agre
       return input;
     };
     const archived = () => {
-      const input = commandantDrillWeek(die, null);
+      const input = drillWeek(null);
       input.militiaSnapshot.characters = input.militiaSnapshot.characters.map(
         (character) =>
           character.characterId === 'npc'
@@ -440,14 +445,15 @@ test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agre
       return input;
     };
     for (const [label, input] of [
-      ['blank', () => commandantDrillWeek(die, null)],
-      ['zero', () => commandantDrillWeek(die, 0)],
-      ['explicit', () => commandantDrillWeek(die, 5)],
+      ['blank', () => drillWeek(null)],
+      ['zero', () => drillWeek(0)],
+      ['explicit', () => drillWeek(5)],
       ['levelled', levelled],
       ['archived', archived],
     ] as const) {
-      const server = await confirm(`drill-${die}-${label}`, input());
+      const server = await confirm(`drill-${name}-${label}`, input());
       training.set(label, server.outcome!.militiaSnapshot.training);
+      notoriety.set(name, server.outcome!.militiaSnapshot.notoriety);
     }
     const zero = training.get('zero')!;
     for (const [label, gain] of [
@@ -456,8 +462,11 @@ test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agre
       ['levelled', 6],
       ['archived', 4],
     ] as const)
-      expect(training.get(label)! - zero, `die ${die} ${label}`).toBe(
+      expect(training.get(label)! - zero, `${name} ${label}`).toBe(
         succeeds ? gain : 0,
       );
   }
+  // A natural one adds its rolled Notoriety whether the Drill succeeds or not.
+  for (const name of ['natural-one-success', 'natural-one-failure'])
+    expect(notoriety.get(name)! - notoriety.get('success')!, name).toBe(5);
 });

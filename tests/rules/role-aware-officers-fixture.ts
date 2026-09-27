@@ -44,12 +44,17 @@ export function managerWeek(
 /**
  * A complete week with one Drill and two commandants: the PC with 3 Hit Dice
  * and an NPC of level 4 whose Hit Dice override is blank, zero or explicit.
- * A natural one still succeeds through the PC Ambassador's Charisma.
+ * By default a natural one still succeeds through the PC Ambassador's
+ * Charisma; Charisma 10 makes it fail.
  */
-export function commandantDrillWeek(die: number, npcHitDice: number | null) {
+export function commandantDrillWeek(
+  die: number,
+  npcHitDice: number | null,
+  ambassadorCharisma = die === 1 ? 34 : 10,
+) {
   const input = foundationWeek(3);
   const snapshot = input.militiaSnapshot;
-  snapshot.characters[0]!.charisma = die === 1 ? 34 : 10;
+  snapshot.characters[0]!.charisma = ambassadorCharisma;
   snapshot.roster.people[0]!.hitDice = 3;
   snapshot.roster.people.push({
     characterId: 'npc',
