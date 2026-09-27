@@ -79,7 +79,7 @@ async function campaigns(ctx: QueryCtx | MutationCtx, scope: FixtureScope) {
 // only that test's owned and comparison campaigns, and the outsider
 // organization holds none. Another test sharing the cohort, a failed cleanup or
 // an application-created campaign would change what the journeys see listed.
-async function inspectOrganization(
+async function assertCohortIsolated(
   ctx: MutationCtx,
   scope: FixtureScope,
   worker: WorkerCohort,
@@ -242,7 +242,7 @@ export const resetCase = internalMutation({
     });
     // A leak throws, which also rolls this reset back.
     if (args.isolatedWith)
-      await inspectOrganization(ctx, args, worker, args.isolatedWith);
+      await assertCohortIsolated(ctx, args, worker, args.isolatedWith);
     // The onboarding journey must create its militia and officers through the UI.
     if (args.caseKey === 'existingMilitia')
       return { campaignId, campaignKey: domain.campaign };

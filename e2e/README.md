@@ -372,7 +372,7 @@ locks, individual action confirmation and GM moderation remain deferred.
 Each concurrently running worker owns one reserved cohort; tests sharing a cohort
 never run at the same time (see Parallel cohorts below). Each attempt resets
 and cleans its case before the next test in that cohort uses it. Case ownership is
-checked within each project and cohort; screenshot and trace filenames include the project so
+checked within each project; screenshot and trace filenames include the project so
 cross-browser evidence cannot overwrite earlier failures. Contexts inherit actual
 project viewport, touch and mobile settings. Desktop uses keyboard staging.
 Authentication runs once with fresh sessions, then each browser gets independent
@@ -732,8 +732,10 @@ complete isolation unit: its organizations are disjoint from every other cohort'
 tests, split at its four existing reset boundaries. Each test owns a canonical
 case, and each case keeps the `canonical-persistence-*` names so that the layout
 and overflow assertions measure text of the same length. Moved steps are
-unchanged. Each test first installs its own held-edit socket control on the GM
-page, as the single journey did before navigating.
+unchanged. The first part installs the held-edit socket control on the GM page
+where the single journey did. Parts two to four install their own control
+before their first navigation, because their GM page had used that control. The
+race part uses only fresh pages with their own controls, as before.
 
 | Journey | Case | Starting state |
 | --- | --- | --- |

@@ -196,14 +196,11 @@ export function withIsolationCanary(
   operation: string,
   args: Record<string, unknown>,
 ) {
-  const scope =
-    operation === 'resetCase'
-      ? args
-      : operation === 'resetAndInitialize'
-        ? args.scope
-        : undefined;
-  if (scope === undefined) return args;
-  const { caseKey } = resetScope.parse(scope);
+  if (operation !== 'resetCase' && operation !== 'resetAndInitialize')
+    return args;
+  const { caseKey } = resetScope.parse(
+    operation === 'resetCase' ? args : args.scope,
+  );
   return { ...args, isolatedWith: [...new Set([caseKey, ...isolatedCases])] };
 }
 

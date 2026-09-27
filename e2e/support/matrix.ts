@@ -109,7 +109,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
       hasTouch: false,
     },
   };
-  const nightly = mode === 'nightly';
+  const isNightly = mode === 'nightly';
   // Workers take test groups in project order, so the longest go first and the
   // parallel critical path stays short. Nightly runs WTH1EO and IKQBdO took:
   // Confirmation 134 s, persistence 121 s, the Workspace parts 15-81 s (255 s
@@ -127,9 +127,9 @@ export function browserProjects(mode: SuiteMode): Project[] {
       testMatch: persistenceContract[0],
     },
     { ...tablet, name: 'canonical-workspace', testMatch: workspaceFile },
-    ...(nightly ? [webkit, phone] : []),
+    ...(isNightly ? [webkit, phone] : []),
     tablet,
-    ...(nightly ? [firefox] : []),
+    ...(isNightly ? [firefox] : []),
     { ...tablet, name: 'canonical-cutover', testMatch: cutoverJourney[0] },
   ];
 }

@@ -107,10 +107,11 @@ async function useOwnedCase(
     token: worker.cases[caseKey],
   };
   // This auto fixture runs for every attempt, including replacement retry
-  // workers. Context fixtures explicitly depend on it below.
+  // workers. Context fixtures explicitly depend on it below. Ownership is per
+  // project, not per cohort, so reuse is caught whichever cohorts tests run on.
   await claimCaseKey(
     run.privateDirectory,
-    `${info.project.name}-${worker.key}`,
+    info.project.name,
     caseKey,
     info.testId,
   );
