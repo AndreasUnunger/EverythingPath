@@ -26,6 +26,28 @@ export const resources: Resources = {
     },
   ],
 };
+// The shape of a local three-cohort declaration, with synthetic provider IDs.
+// Cohort N has its own member and outsider organizations and three users.
+export const threeCohortResources: Resources = {
+  ...resources,
+  workers: [0, 1, 2].map((index) => {
+    const n = index === 0 ? '' : String(index);
+    return {
+      key: `worker-${index}`,
+      organizationId: `org_members${n}`,
+      outsiderOrganizationId: `org_outsiders${n}`,
+      gm: { userId: `user_gm${n}`, email: `gm${n}+clerk_test@example.test` },
+      player: {
+        userId: `user_player${n}`,
+        email: `player${n}+clerk_test@example.test`,
+      },
+      outsider: {
+        userId: `user_outsider${n}`,
+        email: `outsider${n}+clerk_test@example.test`,
+      },
+    };
+  }),
+};
 export const safeEnvironment = {
   E2E_TRUSTED_EXECUTION: 'true',
   CLERK_PUBLISHABLE_KEY: `pk_test_${Buffer.from(`${resources.clerkHost}$`).toString('base64')}`,

@@ -10,6 +10,8 @@ import { safeDiagnostic } from './artifacts';
 
 export const runSchema = z.object({
   mode: z.enum(['mandatory', 'nightly']).default('mandatory'),
+  // Playwright workers, each bound to its own declared cohort (worker-N).
+  workers: z.number().int().min(1).default(1),
   resources: resourceSchema,
   workspace: z.string(),
   sourceRoot: z.string(),

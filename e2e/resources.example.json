@@ -25,6 +25,40 @@
         "userId": "user_REPLACEOUTSIDER",
         "email": "outsider+clerk_test@example.com"
       }
+    },
+    {
+      "key": "worker-1",
+      "organizationId": "org_REPLACE1",
+      "outsiderOrganizationId": "org_REPLACEOUTSIDER1",
+      "gm": {
+        "userId": "user_REPLACEGM1",
+        "email": "gm1+clerk_test@example.com"
+      },
+      "player": {
+        "userId": "user_REPLACEPLAYER1",
+        "email": "player1+clerk_test@example.com"
+      },
+      "outsider": {
+        "userId": "user_REPLACEOUTSIDER1",
+        "email": "outsider1+clerk_test@example.com"
+      }
+    },
+    {
+      "key": "worker-2",
+      "organizationId": "org_REPLACE2",
+      "outsiderOrganizationId": "org_REPLACEOUTSIDER2",
+      "gm": {
+        "userId": "user_REPLACEGM2",
+        "email": "gm2+clerk_test@example.com"
+      },
+      "player": {
+        "userId": "user_REPLACEPLAYER2",
+        "email": "player2+clerk_test@example.com"
+      },
+      "outsider": {
+        "userId": "user_REPLACEOUTSIDER2",
+        "email": "outsider2+clerk_test@example.com"
+      }
     }
   ]
 }

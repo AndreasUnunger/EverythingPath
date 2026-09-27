@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runSchema } from './e2e/support/process';
+import { cohortWorkers } from './e2e/support/cohorts';
 
 const runPath = process.env.E2E_RUN_FILE;
 if (!runPath)
@@ -11,11 +12,14 @@ if (!runPath)
   );
 const run = runSchema.parse(JSON.parse(readFileSync(runPath, 'utf8')));
 if (!run.fixture) throw new Error('E2E preview is not bound');
+// One worker per declared cohort; a worker never shares its cohort. Tests in a
+// file stay serial unless the file opts in (canonical-workspace.spec.ts).
+cohortWorkers(run.resources, run.workers);
 
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
-  workers: 1,
+  workers: run.workers,
   forbidOnly: true,
   timeout: 60_000,
   globalTimeout: 1_050_000,

@@ -61,7 +61,10 @@ async function closeWithEvidence(
       }
     }
     if (info.retry === 1) {
-      const raw = join(run.privateDirectory, `${role}.zip`);
+      const raw = join(
+        run.privateDirectory,
+        `${ownedCase.scope.workerKey}-${role}.zip`,
+      );
       await context.tracing.stop({ path: raw });
       await savePrivate(
         join(
@@ -83,8 +86,10 @@ async function useOwnedCase(
   info: TestInfo,
 ) {
   const run = await loadRun();
+  // Playwright never runs two workers with the same parallelIndex at once, so
+  // each running test has cohort worker-N to itself.
   const worker = run.fixture?.workers[info.parallelIndex];
-  if (!worker || info.parallelIndex !== 0)
+  if (!worker || info.parallelIndex >= run.workers)
     throw new Error('Authenticated worker cohort is unavailable');
   const scope: FixtureScope = {
     namespace: run.resources.previewName,
