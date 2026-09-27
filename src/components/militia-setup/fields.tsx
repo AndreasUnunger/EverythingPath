@@ -136,7 +136,9 @@ export function SetupSection({
       {Heading === 'none' ? null : (
         <Heading className="text-xl font-bold">{title}</Heading>
       )}
-      {caption && <p className="text-muted-foreground text-sm">{caption}</p>}
+      {caption ? (
+        <p className="text-muted-foreground text-sm">{caption}</p>
+      ) : null}
       {children}
       {onAdd && (
         <Button type="button" variant="outline" onClick={onAdd}>
