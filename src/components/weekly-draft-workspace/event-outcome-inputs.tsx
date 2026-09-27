@@ -71,6 +71,7 @@ export function EventOutcomeInputs({
               variant="outline"
               size="sm"
               disabled={disabled}
+              aria-label={`End the oldest instead for ${endings.label}`}
               onClick={() => showRefusal(edits.setTargets(id, 'event', []))}
             >
               End the oldest instead
