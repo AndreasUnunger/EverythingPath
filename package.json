@@ -6,7 +6,7 @@
   "scripts": {
     "build": "pnpm build:web",
     "build:web": "next build",
-    "check": "pnpm lint && tsc --noEmit",
+    "check": "pnpm lint && pnpm typecheck",
     "check:convex-generated": "bash scripts/check-convex-generated.sh",
     "dev": "bash scripts/dev.sh",
     "dev:web": "next dev --turbopack",
@@ -23,7 +23,7 @@
     "test:e2e": "tsx e2e/run.ts",
     "e2e:provision": "tsx e2e/provision.ts",
     "test:watch": "NODE_OPTIONS='--experimental-require-module --no-warnings' vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p convex/tsconfig.json --noEmit",
     "rules:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-rules-coverage.ts",
     "rules:complete": "pnpm -s rules:check --strict",
     "acceptance:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-acceptance.ts"

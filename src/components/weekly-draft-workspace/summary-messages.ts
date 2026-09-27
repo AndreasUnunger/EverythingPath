@@ -86,7 +86,7 @@ function adjustmentMessage(code: string, view: Summary) {
       ? `Table Adjustment “${adjustment.reason}” exceeds the supported whole-number range.`
       : code.endsWith(`:${adjustment.reason}`)
         ? `Table Adjustment: ${adjustment.reason}`
-        : `Table Adjustment “${adjustment.reason}”: choose an available ${adjustmentTargets[code.split(':').at(-1) ?? ''] ?? 'target'}.`;
+        : `Table Adjustment “${adjustment.reason}”: choose an available ${adjustmentTargets[code.split(':').pop() ?? ''] ?? 'target'}.`;
   return null;
 }
 

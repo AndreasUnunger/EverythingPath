@@ -138,7 +138,7 @@ function upkeepCheckLine(
 /** A check total from the resolver, named by the last segment of its id. */
 function checkTotalLine(
   check: { checkId: string; total: number | null; modifier: number },
-  label = words(check.checkId.split(':').at(-1) ?? 'event'),
+  label = words(check.checkId.split(':').pop() ?? 'event'),
 ) {
   return check.total === null
     ? `${label} check bonus ${signed(check.modifier)} · awaiting roll`

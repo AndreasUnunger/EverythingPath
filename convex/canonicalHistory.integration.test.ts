@@ -518,7 +518,7 @@ test('[rules.P86.listing-pages] listing pages more than fifty sparse weeks witho
       seen.push(...page.weeks.map((row) => row.week));
       if (page.earlierWeek === null) break;
       expect(page.weeks).toHaveLength(limit ?? 25);
-      expect(page.earlierWeek).toBe(page.weeks.at(-1)?.week);
+      expect(page.earlierWeek).toBe(page.weeks[page.weeks.length - 1]?.week);
       beforeWeek = page.earlierWeek;
     }
     expect(seen).toEqual(expected);

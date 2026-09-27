@@ -43,7 +43,7 @@ export function ordinal(value: number) {
 // filter it so their counts agree.
 const removedLiveWarnings = new Set(['buyoff-cost-recomputed']);
 export function liveWarnings(keys: readonly string[]) {
-  return keys.filter((key) => !removedLiveWarnings.has(key.split(':').at(-1)!));
+  return keys.filter((key) => !removedLiveWarnings.has(key.split(':').pop()!));
 }
 
 // An Activity or Event result that actually ended a carried event this
