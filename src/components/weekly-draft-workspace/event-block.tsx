@@ -11,7 +11,7 @@ import {
   type EventPreparation,
 } from './event-steps';
 import { EventTableModifiers } from './event-table-modifiers';
-import { EventRulesText } from './event-rules-text';
+import { EventRulesDisclosure } from './event-rules-disclosure';
 import { RollTotalField } from './roll-total-field';
 import type { EventBlock as EventBlockFacts, EventView } from './types';
 import { signed } from './upkeep-parts';
@@ -145,7 +145,7 @@ export function EventBlock({
             This event opens for its roll in a moment…
           </p>
         ))}
-      {block.rules && <EventRulesText rules={block.rules} />}
+      {block.rules && <EventRulesDisclosure rules={block.rules} />}
       {block.candidate && (
         <Button
           type="button"

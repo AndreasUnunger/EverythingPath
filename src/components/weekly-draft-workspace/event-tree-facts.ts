@@ -2,6 +2,7 @@ import { militiaEventTable } from '~/lib/militia-event-table';
 import { normalizeRawRoll } from '~/lib/raw-roll';
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import {
+  type EventDispatch,
   eventTableArithmetic,
   eventTypeForTableRoll,
   type EventPositionGroup,
@@ -18,6 +19,7 @@ import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { activityLabel } from './activity-labels';
 import type {
   EventBlock,
+  EventBlockRules,
   EventBlockStatus,
   EventIssue,
   EventOccurrenceFacts,
@@ -88,16 +90,16 @@ const STATUS_TEXT: Record<EventBlockStatus, string> = {
 // The corpus rules for the event a complete table roll names. Its Twice
 // clause is included only when that clause is what applies to this block (a
 // second occurrence dispatched as Twice or with no additional effect).
-export function eventRules(
+function eventRules(
   roll: Event['tableRoll'],
-  mode: string | null,
-): EventBlock['rules'] {
+  mode: EventDispatch['mode'] | null,
+): EventBlockRules | null {
   const type = eventTypeForTableRoll(roll);
   if (!type) return null;
   const rules = EVENT_RULES_TEXT[type];
   const plain = (line: string) => line.replaceAll('`', '');
   return {
-    name: eventName(type)!,
+    name: eventName(type) ?? activityLabel(type),
     text: rules.text.map(plain),
     twice:
       rules.twice && (mode === 'twice' || mode === 'no_additional_effect')

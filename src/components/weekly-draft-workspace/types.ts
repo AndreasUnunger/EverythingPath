@@ -3,7 +3,10 @@ import type { ReferenceFacts } from './reference-facts';
 import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
-import type { EventTableArithmetic } from '~/lib/rules-event-selection';
+import type {
+  EventDispatch,
+  EventTableArithmetic,
+} from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
@@ -232,7 +235,7 @@ export type EventOccurrenceFacts = {
   optionalMitigation: 'unavailable' | 'unattempted' | 'attempted';
   exceptionChoices: WeeklyDraft['rulesExceptions'];
   changes: EventOutcomeChange[];
-  mode: string | null;
+  mode: EventDispatch['mode'] | null;
   selected: boolean;
   negated: boolean;
   requirements: string[];
@@ -258,6 +261,12 @@ export type EventBlockStatus =
   | 'not_used'
   | 'needs_repair';
 export type EventIssue = { code: string; message: string };
+// An event's corpus rules for one block; `twice` only when it applies there.
+export type EventBlockRules = {
+  name: string;
+  text: string[];
+  twice: string | null;
+};
 export type EventBlock = {
   eventId: string;
   number: number;
@@ -277,7 +286,7 @@ export type EventBlock = {
   };
   // The corpus rules for the rolled event; null until the table roll is
   // complete. `twice` is set only when its Twice clause applies here.
-  rules: { name: string; text: string[]; twice: string | null } | null;
+  rules: EventBlockRules | null;
   candidate: { slotId: string; choiceId: string; chosen: boolean } | null;
   // Active nested events (Roll Twice children, a replacement) in order.
   children: EventBlock[];
