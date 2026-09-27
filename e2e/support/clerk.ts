@@ -30,7 +30,7 @@ const jwks = z.object({
 });
 
 export async function verifyClerkApplication(
-  targets: SafeTargets,
+  targets: Pick<SafeTargets, 'resources' | 'secretKey'>,
   get: ReadJson = readJson,
 ) {
   const { resources, secretKey } = targets;

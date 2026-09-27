@@ -56,9 +56,34 @@ export function validateE2ETargets(
     'NEXT_PUBLIC_CLERK_DOMAIN',
   ])
     if (environment[name]) reject(`${name} must not be inherited`);
+  const { publishableKey, secretKey } = validateClerkKeys(
+    environment,
+    resources,
+  );
+  const previewKey = environment.CONVEX_DEPLOY_KEY ?? '';
+  if (
+    !/^preview:[a-z0-9-]+:[a-z0-9-]+\|[^\s|]+$/.test(previewKey) ||
+    !previewKey.startsWith(`preview:${resources.team}:${resources.project}|`)
+  ) {
+    reject(
+      'Convex credential must be a preview creation key for the declared project',
+    );
+  }
+  return { resources, publishableKey, secretKey, previewKey };
+}
+
+// The Clerk part of the preflight: trusted execution, test keys for the
+// declared development host, and the production denylist. Test workers
+// re-check it before using the secret key; inherited selectors are the
+// runner's check, and the harness sets some for its own child processes.
+export function validateClerkKeys(
+  environment: Environment,
+  resources: Resources,
+) {
+  if (environment.E2E_TRUSTED_EXECUTION !== 'true')
+    reject('trusted execution must be explicitly enabled');
   const publishableKey = environment.CLERK_PUBLISHABLE_KEY ?? '';
   const secretKey = environment.CLERK_SECRET_KEY ?? '';
-  const previewKey = environment.CONVEX_DEPLOY_KEY ?? '';
   const encoded = /^pk_test_([A-Za-z0-9+/]+={0,2})$/.exec(publishableKey)?.[1];
   if (
     !encoded ||
@@ -78,17 +103,9 @@ export function validateE2ETargets(
   ) {
     reject('frontend Clerk key does not match the declared test key');
   }
-  if (
-    !/^preview:[a-z0-9-]+:[a-z0-9-]+\|[^\s|]+$/.test(previewKey) ||
-    !previewKey.startsWith(`preview:${resources.team}:${resources.project}|`)
-  ) {
-    reject(
-      'Convex credential must be a preview creation key for the declared project',
-    );
-  }
   if (resources.production.clerkHosts.includes(resources.clerkHost))
     reject('Clerk target is production');
-  return { resources, publishableKey, secretKey, previewKey };
+  return { publishableKey, secretKey };
 }
 
 // Called inside Convex's --cmd callback; the URL comes from preview creation,

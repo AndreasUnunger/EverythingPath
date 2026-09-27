@@ -3,7 +3,7 @@ import type { BrowserContext } from '@playwright/test';
 import type { Resources } from '../fixtures/catalog';
 import { verifyClerkApplication } from './clerk';
 import {
-  validateE2ETargets,
+  validateClerkKeys,
   type Environment,
   type SafeTargets,
 } from './preflight';
@@ -21,7 +21,8 @@ import {
 
 type Context = Pick<BrowserContext, 'cookies' | 'addCookies'>;
 type Post = (url: string, secretKey: string) => Promise<unknown>;
-type Verify = (targets: SafeTargets) => Promise<void>;
+type Targets = Pick<SafeTargets, 'resources' | 'secretKey'>;
+type Verify = (targets: Targets) => Promise<void>;
 
 const post: Post = async (url, secretKey) => {
   const response = await fetch(url, {
@@ -63,7 +64,7 @@ function claims(token: string) {
 // The application check (development instance, matching key pair) runs once
 // per worker; the key validation and denylist run on every call.
 const verified = new Map<string, Promise<void>>();
-function verifyOnce(targets: SafeTargets, verify: Verify) {
+function verifyOnce(targets: Targets, verify: Verify) {
   const key = targets.resources.clerkHost;
   let pending = verified.get(key);
   if (!pending) {
@@ -72,18 +73,6 @@ function verifyOnce(targets: SafeTargets, verify: Verify) {
     verified.set(key, pending);
   }
   return pending;
-}
-
-// Playwright runs as a harness `command()`, which pins Convex CLI
-// authentication by copying the declared preview key into
-// CONVEX_OVERRIDE_ACCESS_TOKEN; workers inherit that pin. Only that exact
-// pin is set aside before the inherited-selector checks; any other value is
-// still refused.
-function withoutHarnessPin(environment: Environment): Environment {
-  const { CONVEX_OVERRIDE_ACCESS_TOKEN: pin, ...rest } = environment;
-  if (pin && pin !== environment.CONVEX_DEPLOY_KEY)
-    refuse('CONVEX_OVERRIDE_ACCESS_TOKEN is not the harness pin');
-  return rest;
 }
 
 // Test seam: forget which applications this worker has verified.
@@ -111,7 +100,7 @@ export async function refreshSessionToken(
     now?: () => number;
   },
 ) {
-  const targets = validateE2ETargets(withoutHarnessPin(environment), resources);
+  const targets = { resources, ...validateClerkKeys(environment, resources) };
   await verifyOnce(targets, verify);
   const issuer = `https://${resources.clerkHost}`;
   const host = new URL(baseURL).hostname;

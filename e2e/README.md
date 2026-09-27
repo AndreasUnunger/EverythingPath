@@ -823,12 +823,14 @@ any page, each role context gets a session token minted through Clerk's Backend
 API (`POST /v1/sessions/<sid>/tokens`) for the session already in its storage,
 so the first page load needs no handshake. Guards:
 
-- The worker revalidates the targets on every call: trusted execution, a
-  `sk_test_` secret key, a publishable key that encodes the declared
-  development host, and the production denylist. The only inherited selector
-  it sets aside is the harness's own `CONVEX_OVERRIDE_ACCESS_TOKEN` pin, which
-  must equal the preview key. Once per worker it also
-  confirms the development instance and the matching key pair (JWKS).
+- On every call the worker re-checks the Clerk part of the preflight
+  (`validateClerkKeys`): trusted execution, an `sk_test_` secret key, a
+  publishable key that encodes the declared development host (and an equal
+  frontend key), and the production denylist. The inherited-selector check stays
+  with the runner, which runs it before starting Playwright; the harness itself
+  gives Playwright `CONVEX_OVERRIDE_ACCESS_TOKEN` and the server's
+  `NEXT_PUBLIC_CONVEX_URL`. Once per worker it also confirms the development
+  instance and the matching key pair (JWKS).
 - The stored and the issued token must both come from the declared issuer,
   role user and session, the issued one must not have expired, and the cookies
   must belong to the browser host. Any mismatch fails the test before a page

@@ -106,31 +106,18 @@ describe('fresh role session tokens', () => {
     expect(target.addCookies).not.toHaveBeenCalled();
   });
 
-  it('accepts the Convex CLI pin the harness gives its Playwright process', async () => {
+  it('runs in a Playwright worker, whose environment carries the harness selectors', async () => {
     const target = context();
     await refresh(target, {
       environment: {
         ...safeEnvironment,
         CONVEX_OVERRIDE_ACCESS_TOKEN: safeEnvironment.CONVEX_DEPLOY_KEY,
+        NEXT_PUBLIC_CONVEX_URL: 'https://quiet-otter-123.convex.cloud',
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+          safeEnvironment.CLERK_PUBLISHABLE_KEY,
       },
     });
     expect(target.addCookies).toHaveBeenCalledOnce();
-  });
-
-  it('refuses any other inherited Convex access token', async () => {
-    const request = vi.fn(async () => ({ jwt: minted }));
-    const target = context();
-    await expect(
-      refresh(target, {
-        request,
-        environment: {
-          ...safeEnvironment,
-          CONVEX_OVERRIDE_ACCESS_TOKEN: 'preview:other-team:other|secret',
-        },
-      }),
-    ).rejects.toThrow('not the harness pin');
-    expect(request).not.toHaveBeenCalled();
-    expect(target.addCookies).not.toHaveBeenCalled();
   });
 
   it.each<[string, Partial<Parameters<typeof refreshSessionToken>[1]>]>([
@@ -141,6 +128,24 @@ describe('fresh role session tokens', () => {
     [
       'untrusted execution',
       { environment: { ...safeEnvironment, E2E_TRUSTED_EXECUTION: undefined } },
+    ],
+    [
+      'a publishable key for another host',
+      {
+        environment: {
+          ...safeEnvironment,
+          CLERK_PUBLISHABLE_KEY: `pk_test_${Buffer.from('other-host-7.clerk.accounts.dev$').toString('base64')}`,
+        },
+      },
+    ],
+    [
+      'a frontend key that differs from the declared one',
+      {
+        environment: {
+          ...safeEnvironment,
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_b3RoZXI=',
+        },
+      },
     ],
     [
       'a production Clerk host',
