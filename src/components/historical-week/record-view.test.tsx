@@ -1,10 +1,31 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
 import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
+import {
+  prepareCanonicalResolutionRecord,
+  resolveCanonicalWeeklyDraft,
+} from '~/lib/canonical-weekly-resolution';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
+import { militiaSnapshotSchema } from '~/lib/canonical-weekly-source';
+import {
+  confirmedWeek,
+  deepFreeze,
+} from '../../../tests/history/resolution-record-fixtures';
+import { mixedKindSnapshot } from '../../../tests/rules/character-kind-fixture';
+import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
 import { HistoricalRecordView } from './record-view';
 afterEach(cleanup);
+
 const source = weeklyDraftDataSchema.parse(
   createWeeklyDraft({
     draftId: 'private-draft-id',
@@ -65,34 +86,85 @@ const record: CanonicalResolutionRecord = {
   successorContext: { ...source.context, startDay: 77 },
   supersedesRecordId: null,
 };
+
+const region = (name: string) =>
+  within(screen.getByRole('region', { name }));
+/** The Result's table row for one "Group · Label" fact, as its cell texts. */
+function resultRow(label: string) {
+  const row = region('Result')
+    .getAllByRole('row')
+    .find((entry) => entry.textContent?.includes(label));
+  if (!row) throw new Error(`No ${label} row`);
+  return within(row)
+    .getAllByRole('cell')
+    .map((cell) => cell.textContent);
+}
+const showAll = () =>
+  fireEvent.click(
+    region('Result').getByRole('button', { name: 'Show all values' }),
+  );
+
 test('[rules.P86.display] historical display uses recorded plans, context and table decisions with no editable controls', () => {
   const { container, rerender } = render(
     <HistoricalRecordView record={record} />,
   );
   expect(
-    within(
-      screen.getByRole('region', { name: 'Rules baseline plan' }),
-    ).getByText('80'),
-  ).toBeInTheDocument();
+    screen
+      .getAllByRole('heading', { level: 3 })
+      .map((heading) => heading.textContent),
+  ).toEqual([
+    '1Upkeep',
+    '2Activity',
+    '3Event',
+    '4Persistent',
+    'Facts not linked to a phase',
+    '5Table Adjustments',
+    '6Result · week 12 began',
+  ]);
+  // The recorded Rules Baseline and Final, copper-exact; the militia at
+  // confirmation was not part of this older record, so it is not a zero.
+  expect(resultRow('Militia · Treasury')).toEqual([
+    expect.stringContaining('Treasury'),
+    'Not recorded',
+    '0.8 gp',
+    '0.87 gp',
+  ]);
   expect(
-    within(screen.getByRole('region', { name: 'Final outcome' })).getByText(
-      '87',
-    ),
-  ).toBeInTheDocument();
-  expect(screen.getAllByText('Recovered copper').length).toBeGreaterThan(0);
-  expect(
-    screen.getAllByText('Allies joined for this week').length,
+    region('Result').getAllByText(
+      'Table Adjustments change the Rules Baseline 0.8 gp to 0.87 gp.',
+    ).length,
   ).toBeGreaterThan(0);
-  expect(screen.getAllByText('The road is clear').length).toBeGreaterThan(0);
-  expect(
-    screen.getByText('The team allowance was exceeded.'),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText('Militia facts were not included in this record.'),
-  ).toBeInTheDocument();
+  const adjustment = within(
+    region('Table Adjustments').getByRole('article', { name: 'Adjustment 1' }),
+  );
+  expect(adjustment.getByText('Treasury +0.07 gp')).toBeVisible();
+  expect(adjustment.getByText('Recovered copper')).toBeVisible();
+  // Facts whose subject this record cannot place stay readable, unlinked.
+  const unlinked = region('Unlinked facts');
+  expect(unlinked.getByText('Allies joined for this week')).toBeVisible();
+  expect(unlinked.getByText('Table outcome: The road is clear')).toBeVisible();
+  expect(unlinked.getByText('The team allowance was exceeded.')).toBeVisible();
+  // Show all reveals the recorded next-week context.
+  showAll();
+  expect(resultRow('Next week · Start day')).toEqual([
+    expect.stringContaining('Start day'),
+    '70',
+    'Not recorded',
+    '77',
+  ]);
+  expect(resultRow('Next week · Uneventful-week benefit')).toEqual([
+    expect.stringContaining('Uneventful-week benefit'),
+    'Yes',
+    'Not recorded',
+    'Yes',
+  ]);
   expect(container.textContent).not.toContain('private-');
   expect(container.textContent).not.toContain('treasuryCopper');
-  expect(container.querySelector('input, textarea, select, button')).toBeNull();
+  expect(container.querySelector('input, textarea, select')).toBeNull();
+  expect(
+    screen.getAllByRole('button').map((button) => button.textContent),
+  ).toEqual(['Show all values']);
+  // Another immutable record shows only its own facts.
   rerender(
     <HistoricalRecordView
       record={{
@@ -100,20 +172,38 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
         recordId: 'correction',
         provenance: 'historical_correction',
         supersedesRecordId: record.recordId,
+        baselinePlan: { formatVersion: 1, data: { training: 10 } },
+        finalPlan: { formatVersion: 1, data: { training: 12 } },
         finalOutcome: { formatVersion: 1, data: { training: 12 } },
+        adjudication: {
+          ...record.adjudication,
+          tableAdjustments: [
+            {
+              adjustmentId: 'private-training',
+              kind: 'militia_value',
+              field: 'training',
+              operation: 'add',
+              value: 2,
+              reason: 'Drilled after the week',
+            },
+          ],
+        },
       }}
     />,
   );
+  expect(resultRow('Militia · Training')).toEqual([
+    expect.stringContaining('Training'),
+    'Not recorded',
+    '10',
+    '12',
+  ]);
+  expect(region('Result').queryByText('0.87 gp')).toBeNull();
   expect(
-    within(screen.getByRole('region', { name: 'Final outcome' })).queryByText(
-      '87',
-    ),
-  ).not.toBeInTheDocument();
+    region('Table Adjustments').queryByText('Recovered copper'),
+  ).toBeNull();
   expect(
-    within(screen.getByRole('region', { name: 'Final outcome' })).getByText(
-      '12',
-    ),
-  ).toBeInTheDocument();
+    region('Table Adjustments').getByText('Drilled after the week'),
+  ).toBeVisible();
 });
 
 test('[rules.P86.labels] historical references remain distinguishable without exposing IDs or renaming rules and table notes', () => {
@@ -145,17 +235,78 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
     ],
   };
   const { container } = render(<HistoricalRecordView record={annotated} />);
+  showAll();
   expect(container.textContent).not.toContain('opaque-');
   expect(container.textContent).not.toContain('private-');
   expect(container.textContent).not.toContain('treasuryCopper');
-  expect(screen.getAllByText('Earn Gold').length).toBeGreaterThan(0);
-  expect(screen.getAllByText('Team capacity').length).toBeGreaterThan(0);
-  expect(screen.getByText('Consumable 1')).toBeInTheDocument();
-  expect(screen.getByText('Consumable 2')).toBeInTheDocument();
-  expect(screen.getByText('This is a recorded warning.')).toBeInTheDocument();
   expect(
-    within(screen.getByRole('region', { name: 'Final outcome' })).getByText(
-      'a',
+    region('2 Activity').getByText('Slot 1 · Earn Gold', { exact: false }),
+  ).toBeVisible();
+  expect(
+    region('Unlinked facts').getByText('This is a recorded warning.'),
+  ).toBeVisible();
+  // Loose recorded facts keep their exact words under readable labels.
+  expect(resultRow('Recorded facts · Note').at(-1)).toBe('a');
+  expect(resultRow('Recorded facts · Operated settlement').at(-1)).toBe(
+    'Settlement 1',
+  );
+});
+
+// A confirmed week whose roster holds every stored character kind and Hit
+// Dice form, recorded through the real confirmation path.
+function mixedKindRecord() {
+  const { draft, snapshot } = persistentEventFixture('low_morale');
+  snapshot.training = 15;
+  const mixed = militiaSnapshotSchema.parse(mixedKindSnapshot());
+  snapshot.characters.push(...mixed.characters);
+  snapshot.roster.people.push(...mixed.roster.people);
+  return deepFreeze(
+    prepareCanonicalResolutionRecord(
+      resolveCanonicalWeeklyDraft({
+        revision: draft,
+        militiaSnapshot: snapshot,
+      }),
+      'mixed-kinds',
     ),
-  ).toBeInTheDocument();
+  );
+}
+
+test('[rules.HIST-05.record-kinds] recorded legacy, new and absent character kinds and unknown or zero Hit Dice read as recorded', () => {
+  render(<HistoricalRecordView record={mixedKindRecord()} />);
+  showAll();
+  const people = region('Result')
+    .getAllByRole('row')
+    .filter((row) => row.textContent?.startsWith('Roster · '))
+    .map((row) => within(row).getAllByRole('cell')[1]!.textContent);
+  expect(people).toEqual(
+    expect.arrayContaining([
+      'Player character · Hit Dice not recorded',
+      'Player character · 0 Hit Dice',
+      'Officer NPC · 5 Hit Dice',
+      'Other NPC · Hit Dice not recorded',
+      'NPC · 3 Hit Dice',
+    ]),
+  );
+});
+
+test('[rules.HIST-05.view-record-only] the history view has only the selected record as input and no live, backend or rules dependency', () => {
+  const { record: confirmed } = confirmedWeek();
+  const { container } = render(<HistoricalRecordView record={confirmed} />);
+  expect(region('Result').getAllByText('Character 1').length).toBeGreaterThan(
+    0,
+  );
+  expect(container.textContent).not.toMatch(/Aubrin|Kasvarina/);
+  const file = readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), 'record-view.tsx'),
+    'utf8',
+  );
+  const specifiers = [
+    ...file.matchAll(/import\s+(?:type\s+)?[^;]*?from\s+['"]([^'"]+)['"]/g),
+  ].map((match) => match[1]);
+  expect(specifiers.sort()).toEqual([
+    './record-review',
+    'react',
+    '~/components/week-review/week-review',
+    '~/lib/canonical-resolution-record',
+  ]);
 });

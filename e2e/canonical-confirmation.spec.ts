@@ -1,5 +1,9 @@
 import { verifyIndependentAuthorization } from './support/authorization-probes';
 import { openCampaignSection } from './support/interactions';
+import {
+  showAllResultValues,
+  summaryResult as historyResult,
+} from './support/summary-result';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { compoundAcceptanceFixture } from '../tests/rules/compound-acceptance-fixture';
 import { randomUUID } from 'node:crypto';
@@ -16,6 +20,22 @@ import {
   type ConfirmationContractHarness,
 } from '../tests/persistence/confirmation-contracts';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
+import type { Page } from '@playwright/test';
+
+// The finished week's six sections, in rules order, then its Result row for
+// one "Group · Label" fact (a table row from tablet width up).
+const historySections = [
+  '1 Upkeep',
+  '2 Activity',
+  '3 Event',
+  '4 Persistent',
+  'Table Adjustments',
+  'Result',
+];
+const historyRow = (page: Page, label: string) =>
+  historyResult(page).locator('tbody tr').filter({ hasText: label });
+/** Value, At confirmation, Rules Baseline and Final of the treasury row. */
+const recordedTreasury = [/^Militia · Treasury/, '1 gp', '0.8 gp', '0.87 gp'];
 
 test.use({ caseKey: 'canonicalPersistence', comparisonCaseKey: 'isolation' });
 
@@ -312,16 +332,20 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         await expect(
           page.getByRole('heading', { level: 1, name: 'Week 1', exact: true }),
         ).toBeVisible();
+        // At confirmation, Rules Baseline and copper-exact Final, with the
+        // adjustment's difference stated in words as well as emphasis.
         await expect(
-          page
-            .getByRole('region', { name: 'Final outcome' })
-            .getByText('87', { exact: true }),
-        ).toBeVisible();
-        await expect(
-          page
-            .getByRole('region', { name: 'Table adjustments' })
-            .getByText('Found seven copper'),
-        ).toBeVisible();
+          historyRow(page, 'Militia · Treasury').locator('td'),
+        ).toHaveText(recordedTreasury);
+        await expect(historyRow(page, 'Militia · Treasury')).toContainText(
+          'Table Adjustments change the Rules Baseline 0.8 gp to 0.87 gp.',
+        );
+        const adjustments = page.getByRole('region', {
+          name: 'Table Adjustments',
+          exact: true,
+        });
+        await expect(adjustments).toContainText('Treasury +0.07 gp');
+        await expect(adjustments).toContainText('Found seven copper');
         await expect(page.getByRole('textbox')).toHaveCount(0);
         await expect(
           page.getByRole('button', { name: 'Confirm week', exact: true }),
@@ -351,27 +375,43 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         path: join(run.artifactDirectory, 'canonical-history-tablet.png'),
         fullPage: true,
       });
-      await players.player
-        .getByText('Rules baseline plan', { exact: true })
-        .click();
+      const sectionOrder = await players.player
+        .locator('section[aria-label]')
+        .evaluateAll((sections) =>
+          sections.map((section) => section.getAttribute('aria-label')),
+        );
+      expect(
+        sectionOrder.filter((label) => historySections.includes(label!)),
+      ).toEqual(historySections);
+      // Show all values adds the recorded context to the changed facts.
+      await showAllResultValues(players.player);
       await expect(
-        players.player
-          .getByRole('region', { name: 'Rules baseline plan' })
-          .getByText('Starting state', { exact: true })
-          .first(),
-      ).toBeVisible();
-      await players.player
-        .getByRole('region', { name: 'Rules baseline plan' })
-        .scrollIntoViewIfNeeded();
+        historyRow(players.player, 'Next week · Start day')
+          .locator('td')
+          .last(),
+      ).toHaveText('7');
+      await expect(historyResult(players.player)).toContainText(
+        'Skip first Upkeep',
+      );
+      await historyResult(players.player).scrollIntoViewIfNeeded();
       await players.player.screenshot({
-        path: join(run.artifactDirectory, 'canonical-history-plan-tablet.png'),
+        path: join(run.artifactDirectory, 'canonical-history-all-tablet.png'),
       });
+      // Phone: the Result stacks each value with its column label.
       await players.player.setViewportSize({ width: 390, height: 844 });
       expect(
         await players.player.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
+      await expect(
+        historyResult(players.player).getByRole('table'),
+      ).toBeHidden();
+      await expect(
+        historyResult(players.player)
+          .getByRole('listitem')
+          .filter({ hasText: 'Militia · Treasury' }),
+      ).toContainText(/Final\s*0\.87 gp/);
       await players.player.screenshot({
         path: join(run.artifactDirectory, 'canonical-history-phone.png'),
       });
@@ -390,11 +430,11 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         .poll(async () => (await literal.inspect()).snapshot.treasuryCopper)
         .toBe(94);
       await players.player.reload();
+      // Today's treasury changed; the finished week's facts did not.
       await expect(
-        players.player
-          .getByRole('region', { name: 'Final outcome' })
-          .getByText('87', { exact: true }),
-      ).toBeVisible();
+        historyRow(players.player, 'Militia · Treasury').locator('td'),
+      ).toHaveText(recordedTreasury);
+      await expect(historyResult(players.player)).not.toContainText('0.94 gp');
       // A single-entry week has no entries list; a direct record link still
       // selects that immutable record and survives reload.
       await players.gm.goto(
@@ -462,10 +502,8 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       ).toBeVisible();
       await openCampaignSection(players.player, 'history');
       await expect(
-        players.player
-          .getByRole('region', { name: 'Final outcome' })
-          .getByText('87', { exact: true }),
-      ).toBeVisible();
+        historyRow(players.player, 'Militia · Treasury'),
+      ).toContainText('0.87 gp');
     } finally {
       await literal.dispose();
     }

@@ -61,20 +61,32 @@ function context(startDay: number) {
   };
 }
 
-// Each record's Final outcome carries a distinct training value, so a test
-// can tell exactly which immutable record the detail shows.
+// Each record's Final outcome carries a distinct training value and its own
+// Table Adjustment reason, so a test can tell exactly which immutable record
+// the detail shows.
 function recordFor(week: number, entry: Entry, sequence: number) {
+  const ruling = {
+    adjustmentId: `ruling-${entry.recordId}`,
+    kind: 'militia_value',
+    field: 'training',
+    operation: 'add',
+    value: 1,
+    reason: `Ruling of week ${week}, entry ${sequence + 1}`,
+  } as const;
   return canonicalResolutionRecordSchema.parse({
     recordId: entry.recordId,
-    source: createWeeklyDraft({
-      draftId: `draft-${week}`,
-      week,
-      slotIds: [],
-      context: context(week * 7),
-    }),
+    source: {
+      ...createWeeklyDraft({
+        draftId: `draft-${week}`,
+        week,
+        slotIds: [],
+        context: context(week * 7),
+      }),
+      tableAdjustments: [ruling],
+    },
     provenance: entry.provenance,
     rulesetVersion: entry.rulesetVersion,
-    baselinePlan: { formatVersion: 1, data: {} },
+    baselinePlan: { formatVersion: 1, data: { training: 1000 } },
     finalPlan: { formatVersion: 1, data: {} },
     finalOutcome: {
       formatVersion: 1,
@@ -83,7 +95,7 @@ function recordFor(week: number, entry: Entry, sequence: number) {
     adjudication: {
       acknowledgements: [],
       rulesExceptions: [],
-      tableAdjustments: [],
+      tableAdjustments: [ruling],
     },
     warnings: [],
     successorContext: context(week * 7 + 7),
@@ -319,7 +331,7 @@ const weekRows = () =>
     .getAllByRole('link')
     .map((link) => /^Week (\d+)/.exec(link.textContent ?? '')?.[1]);
 const finalOutcome = () =>
-  screen.getByRole('region', { name: 'Final outcome' }).textContent;
+  screen.getByRole('region', { name: 'Result' }).textContent;
 const heading = () => screen.getByRole('heading', { level: 1 }).textContent;
 const entries = (week: number) =>
   within(screen.getByRole('list', { name: `Entries for week ${week}` }))
@@ -415,6 +427,49 @@ test('[rules.P86.controls] changing week resets the entries list, and the addres
   expect(screen.queryByText(/Earlier entry/)).not.toBeInTheDocument();
 });
 
+test('[rules.HIST-04.selected-entry] an earlier entry shows only its own record in all six sections, and a different week starts without Show all', async () => {
+  seed('campaign', { 3: chain(3, 1), 4: chain(4, 3) });
+  show({ initial: { week: 4, recordId: 'w4-e0' } });
+  const pane = within(await screen.findByRole('article', { name: 'Week 4' }));
+  await pane.findByText('Earlier entry 1 of 3');
+  const sections = pane
+    .getAllByRole('region')
+    .map((section) => section.getAttribute('aria-label'));
+  expect(sections).toEqual([
+    '1 Upkeep',
+    '2 Activity',
+    '3 Event',
+    '4 Persistent',
+    'Table Adjustments',
+    'Result',
+  ]);
+  const adjustments = within(
+    pane.getByRole('region', { name: 'Table Adjustments' }),
+  );
+  expect(adjustments.getByText('Ruling of week 4, entry 1')).toBeVisible();
+  expect(adjustments.queryByText('Ruling of week 4, entry 3')).toBeNull();
+  expect(finalOutcome()).toContain('1400');
+  expect(finalOutcome()).not.toContain('1402');
+  // Read-only: one merged footer line, and no control but Show all values.
+  expect(
+    pane.getByText(
+      "Read-only. Recorded when the week was confirmed. Corrections to a finished week aren't available yet.",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    pane.queryByRole('button', { name: /Confirm|Save|Remove|Add|Edit/ }),
+  ).toBeNull();
+  expect(pane.queryByRole('textbox')).toBeNull();
+  const showAll = () => screen.getByRole('button', { name: 'Show all values' });
+  fireEvent.click(showAll());
+  expect(showAll()).toHaveAttribute('aria-pressed', 'true');
+  expect(finalOutcome()).toContain('Skip first Upkeep');
+  fireEvent.click(screen.getByRole('link', { name: 'Previous week' }));
+  await screen.findByRole('heading', { level: 1, name: 'Week 3' });
+  expect(showAll()).toHaveAttribute('aria-pressed', 'false');
+  expect(finalOutcome()).not.toContain('Skip first Upkeep');
+});
+
 test('pages a chain of more than ten entries five at a time without reloading the selected record, reading Ruleset Versions only for the visible page', async () => {
   seed('campaign', {
     7: chain(
@@ -502,7 +557,7 @@ test('a linked record that does not belong to the week is unavailable, never rep
   await screen.findByText("This entry isn't available.");
   expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   expect(
-    screen.queryByRole('region', { name: 'Final outcome' }),
+    screen.queryByRole('region', { name: 'Result' }),
   ).not.toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('link', { name: 'Show the effective record' }),
