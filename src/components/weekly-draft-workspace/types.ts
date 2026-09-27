@@ -15,6 +15,10 @@ import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { RollReadFacts } from './roll-facts';
 import type { RollSpec } from '~/lib/raw-roll';
+import type { OFFICER_ROLES } from '~/lib/canonical-roster';
+import type { TrackedCharacter } from '~/lib/rules-character-state';
+export type OfficerRole = (typeof OFFICER_ROLES)[number];
+type CharacterStatus = TrackedCharacter['status'];
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
 export type UpkeepRollField = Extract<
   WeeklyDraftEdit,
@@ -249,6 +253,15 @@ export type ActivityBonusChoice = {
   label: string;
   value: number;
 };
+// What the ordered Activity fold has done before one slot: officer changes,
+// refuges activated and characters rescued or restored by earlier choices.
+export type ActivityPositionFacts = {
+  officers: { characterId: string; role: OfficerRole }[];
+  // Settlements whose refuge is active at this position.
+  refugeSettlementIds: string[];
+  // Tracked character conditions at this position; absent when untracked.
+  characterStatus: { characterId: string; status: CharacterStatus }[];
+};
 export type ActivitySlotStatus =
   | { kind: 'empty' }
   | { kind: 'ready' }
@@ -289,8 +302,12 @@ export type ActivityView = {
     warnings: string[];
     calculatedCostCopper: number | null;
     exceptions: { exceptionId: string; ruleId: string; reason: string }[];
+    // Null while the rules preview is unavailable.
+    position: ActivityPositionFacts | null;
   })[];
   teamRoster: ActivityTeamFact[];
+  // Campaign characters with the level the rules use; null when unknown.
+  characters: { characterId: string; name: string; level: number | null }[];
   // Present while the operating settlement is Helpful.
   helpful: {
     settlementName: string;

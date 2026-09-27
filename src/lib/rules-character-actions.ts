@@ -39,6 +39,39 @@ const scrollCosts = {
   restoration: 170000,
   stone_to_flesh: 165000,
 };
+type RestoreMode = NonNullable<
+  Extract<Choice, { actionId: 'restore_character' }>['mode']
+>;
+// The scroll price the militia pays for a Restore Character mode; the party
+// modes cost nothing.
+export function restorationCostCopper(mode: RestoreMode) {
+  return mode in scrollCosts
+    ? scrollCosts[mode as keyof typeof scrollCosts]
+    : 0;
+}
+// Party modes restore every PC; the others restore the chosen character.
+export function isPartyRestoration(mode: RestoreMode) {
+  return (
+    mode === 'ability_damage' ||
+    mode === 'hit_points' ||
+    mode === 'restorative_effect'
+  );
+}
+// A settlement's refuge shelters characters only during its active weeks.
+export function isRefugeActive(
+  settlement: Pick<
+    ActivityProjection['outcome']['settlements'][number],
+    'refugeActivatedWeek' | 'refugeActiveUntilWeek'
+  >,
+  week: number,
+) {
+  return (
+    settlement.refugeActivatedWeek !== null &&
+    settlement.refugeActivatedWeek <= week &&
+    settlement.refugeActiveUntilWeek !== null &&
+    settlement.refugeActiveUntilWeek >= week
+  );
+}
 function update(
   result: ActivityProjection,
   choice: Choice,
@@ -100,13 +133,7 @@ export function resolveCharacterChoice(
       required('settlement');
       return false;
     }
-    return (
-      (settlement.refugeActivatedWeek !== null &&
-        settlement.refugeActivatedWeek <= draft.week &&
-        settlement.refugeActiveUntilWeek !== null &&
-        settlement.refugeActiveUntilWeek >= draft.week) ||
-      exception('active-refuge')
-    );
+    return isRefugeActive(settlement, draft.week) || exception('active-refuge');
   };
   const personFor = (characterId: string | undefined) => {
     if (
@@ -260,10 +287,7 @@ export function resolveCharacterChoice(
     required('mode');
     return true;
   }
-  const party =
-    choice.mode === 'ability_damage' ||
-    choice.mode === 'hit_points' ||
-    choice.mode === 'restorative_effect';
+  const party = isPartyRestoration(choice.mode);
   if (choice.mode === 'restorative_effect') {
     if (!choice.effect) required('effect');
     if (choice.effectLevel === undefined) required('effect-level');
@@ -294,10 +318,7 @@ export function resolveCharacterChoice(
   } else if (!choice.targetPresent && !exception('target-present'))
     valid = false;
   if (!valid || !receipt) return true;
-  const cost =
-    choice.mode in scrollCosts
-      ? scrollCosts[choice.mode as keyof typeof scrollCosts]
-      : 0;
+  const cost = restorationCostCopper(choice.mode);
   if (!helpers.spend(draft, result, choice, cost)) return true;
   result.plan.push({
     kind: 'restoration',

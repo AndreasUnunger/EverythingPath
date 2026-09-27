@@ -1,3 +1,4 @@
+import { ruleMessage } from './summary-messages';
 export function activityWarning(warning: string, choiceId: string): string {
   const code = warning.slice(choiceId.length + 1);
   if (code.endsWith('roll-range'))
@@ -19,6 +20,7 @@ export function activityWarning(warning: string, choiceId: string): string {
   };
   return (
     reasons[code] ??
+    ruleMessage(code, true) ??
     `Review this choice with the table: ${code.split(':')[0]!.replaceAll('-', ' ').replaceAll('_', ' ')}.`
   );
 }

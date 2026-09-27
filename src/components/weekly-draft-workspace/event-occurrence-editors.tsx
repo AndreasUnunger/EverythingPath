@@ -4,7 +4,7 @@ import { eventOccurrenceSchema } from '~/lib/weekly-draft-facts';
 import { eventRollSpec } from '~/lib/rules-roll-spec';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
-import { ActivityText } from './activity-details';
+import { ActivityText } from './activity-text';
 import { EventChecks } from './event-checks';
 import { eventChange } from './event-messages';
 import { resolvedEventType } from './roll-facts';

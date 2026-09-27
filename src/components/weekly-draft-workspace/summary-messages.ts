@@ -41,6 +41,36 @@ const messages: Record<string, string> = {
   'from-role': 'Choose the officer role to leave.',
   'duplicate-role': 'This character already holds the selected officer role.',
   character: 'Choose an available character.',
+  'officer-pc': 'Officer roles normally go to player characters.',
+  'officer-role-limit': 'This character would hold more than one officer role.',
+  'recruit-tier':
+    'This team type has no recruitment rules; it is normally reached by upgrading.',
+  'team-upgrade-limit': 'This team has already been upgraded this Activity.',
+  'upgrade-tree':
+    'This team type does not normally upgrade into the chosen type.',
+  destination: 'Choose where the rescued character goes.',
+  'character-level':
+    'The character’s level is unknown. Record it in the character ledger.',
+  'character-state':
+    'This character’s condition is not tracked yet. Record it before resolving this action.',
+  capture: 'This character has no recorded capture.',
+  'character-captured':
+    'The character’s current condition does not normally permit this action.',
+  'direct-rescue': 'This character can normally only be rescued in person.',
+  'capture-week': 'This character was captured after this week.',
+  'active-refuge': 'The chosen settlement has no active refuge this week.',
+  'character-location':
+    'The character is not at headquarters or an active refuge.',
+  mode: 'Choose a mode.',
+  effect: 'Name the restorative effect.',
+  'effect-level': 'Enter the restorative effect’s spell level.',
+  'restorative-level':
+    'Restorative effects are normally limited to 3rd-level spells.',
+  party: 'There are no player characters on the roster to restore.',
+  'target-present':
+    'Record whether the character is present for the restoration.',
+  'maximum-rank':
+    'The militia is already at its maximum rank for the highest player-character level.',
   'overseer-conflict':
     'Keep the same Overseer for every check belonging to this event.',
   'overseer-event': 'Choose the event the Overseer will support.',
@@ -70,6 +100,17 @@ const messages: Record<string, string> = {
   treasury: 'The calculated cost exceeds the available treasury.',
   funds: 'This transfer exceeds the available treasury.',
 };
+
+// A rules code whose warning means something other than its requirement.
+const warningMessages: Record<string, string> = {
+  'character-level':
+    'The entered level differs from the character’s recorded level; the rules use the recorded level.',
+};
+
+// The player-facing wording for a rules code, if there is one.
+export function ruleMessage(key: string, warning = false) {
+  return (warning ? warningMessages[key] : undefined) ?? messages[key] ?? null;
+}
 
 const adjustmentTargets: Record<string, string> = {
   team: 'team',
@@ -142,7 +183,7 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
     return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
   if (code.startsWith('transfer:') && key === 'officer')
     return `${prefix}This transfer is for a character without an officer assignment.`;
-  const known = messages[key];
+  const known = ruleMessage(key, warning);
   if (known)
     return (
       prefix +

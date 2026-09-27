@@ -17,6 +17,7 @@ import { afterEach, expect, test } from 'vitest';
 afterEach(cleanup);
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 const view: Facts = activityFacts(
   [
     activitySlot({
@@ -68,32 +69,72 @@ test('[rules.P82.nested] a purchase keeps copper precision, requires its price a
   );
 });
 
-test('[rules.P82.union] optional destination can be added and saved without inventing a character reference', async () => {
+test('[rules.P82.union] the Rescue destination saves either branch of its union without inventing a character reference', async () => {
   const edit = acceptingEdit();
-  render(
+  const rescue = (
+    destination?: Extract<
+      StagedActionChoice,
+      { actionId: 'rescue_character' }
+    >['destination'],
+  ): Facts => ({
+    ...view,
+    settlements: [{ value: 'town', label: 'Town' }],
+    slots: [
+      activitySlot({
+        choiceId: 'rescue',
+        actionId: 'rescue_character',
+        ...(destination ? { destination } : {}),
+      }),
+    ],
+  });
+  const { rerender } = render(
+    <ActivityView view={rescue()} edit={edit} disabled={false} />,
+  );
+  selectSlot('Rescue Character');
+  const destination = () =>
+    screen.getByRole('radiogroup', { name: 'Destination' });
+  fireEvent.click(
+    within(destination()).getByRole('radio', { name: 'Refuge in Town' }),
+  );
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'detail',
+      slotId: 'one',
+      choiceId: 'rescue',
+      choice: {
+        choiceId: 'rescue',
+        actionId: 'rescue_character',
+        destination: { kind: 'refuge', settlementId: 'town' },
+      },
+    }),
+  );
+  rerender(
     <ActivityView
-      view={{
-        ...view,
-        slots: [
-          activitySlot({ choiceId: 'rescue', actionId: 'rescue_character' }),
-        ],
-      }}
+      view={rescue({ kind: 'refuge', settlementId: 'town' })}
       edit={edit}
       disabled={false}
     />,
   );
-  selectSlot('Rescue Character');
-  fireEvent.click(screen.getByRole('button', { name: 'Add destination' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save destination' }));
-  await waitFor(() =>
-    expect(edit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'detail',
-        choice: expect.objectContaining({
-          destination: { kind: 'headquarters' },
-        }),
-      }),
-    ),
+  expect(
+    within(destination()).getByRole('radio', { name: 'Refuge in Town' }),
+  ).toHaveAttribute('aria-checked', 'true');
+  fireEvent.click(
+    within(destination()).getByRole('radio', { name: 'Headquarters' }),
+  );
+  expect(edit).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      choice: {
+        choiceId: 'rescue',
+        actionId: 'rescue_character',
+        destination: { kind: 'headquarters' },
+      },
+    }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Clear destination' }));
+  expect(edit).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      choice: { choiceId: 'rescue', actionId: 'rescue_character' },
+    }),
   );
 });
 
