@@ -18,6 +18,7 @@ import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView, type EventPreparationContext } from './event-facts';
 import { EventView } from './event-view';
+import { eventOccurrenceAnchor } from './source-anchors';
 
 afterEach(cleanup);
 function facts(
@@ -27,6 +28,7 @@ function facts(
 ) {
   const source = workspaceSourceSchema.parse({
     key: { campaignId: 'c', militiaId: 'm', draftId: draft.draftId },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
@@ -82,6 +84,28 @@ test('[EVT-13.view] a first Roll Twice nests two blank child positions; manual t
   expect(
     within(outcome).getByText('Waiting for the steps above'),
   ).toBeVisible();
+});
+
+test('[PER-02.link] every event block, nested ones included, carries the focusable anchor a Persistent source link opens', () => {
+  const { draft, snapshot } = eventSelectionFixture();
+  draft.event.occurrences = [
+    occurrence('root', 50),
+    { eventId: 'a', origin: { kind: 'roll_twice', parentEventId: 'root' } },
+    { eventId: 'b', origin: { kind: 'roll_twice', parentEventId: 'root' } },
+  ];
+  render(
+    <EventView view={facts(draft, snapshot)} edit={vi.fn()} disabled={false} />,
+  );
+  for (const [eventId, label] of [
+    ['root', 'Event 1'],
+    ['a', 'Event 1.1'],
+    ['b', 'Event 1.2'],
+  ] as const) {
+    const block = group(label);
+    expect(block).toHaveAttribute('id', eventOccurrenceAnchor(eventId));
+    block.focus();
+    expect(block).toHaveFocus();
+  }
 });
 
 test('[EVT-03.view] a position still being saved shows its blank but accepts no roll', () => {

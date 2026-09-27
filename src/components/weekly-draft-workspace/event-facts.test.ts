@@ -23,6 +23,7 @@ function facts(
 ) {
   const source = workspaceSourceSchema.parse({
     key: { campaignId: 'c', militiaId: 'm', draftId: draft.draftId },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
@@ -484,6 +485,7 @@ test('[EVT-labels.sources] independent candidate sources get separate numbers, a
   });
   const source = workspaceSourceSchema.parse({
     key: { campaignId: 'c', militiaId: 'm', draftId: draft.draftId },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
