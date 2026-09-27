@@ -4,6 +4,7 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import { phaseView } from './phase-view';
 import { summaryMessage } from './summary-messages';
 import type { Phase, PhaseReadiness } from './types';
+import type { EventPreparationContext } from './event-facts';
 
 const phaseOrder: Phase[] = [
   'upkeep',
@@ -17,9 +18,10 @@ export function derivePhaseReadiness(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
+  event?: EventPreparationContext,
 ) {
   const views = phaseOrder.map((phase) =>
-    phaseView(phase, draft, source, preview),
+    phaseView(phase, draft, source, preview, event),
   );
   const summary = views.find((view) => view.phase === 'summary')!;
   const phases: PhaseReadiness[] = views.map((view) => ({

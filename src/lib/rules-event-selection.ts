@@ -38,6 +38,29 @@ export function dispatchEvent(
           : 'twice',
   };
 }
+/**
+ * A group of occurrence positions the rules ask for, with the saved
+ * occurrences that fill it in their saved order. Recording a group never
+ * changes selection: it is the trace that preparation and presentation read.
+ * A `reroll` replacement group belongs to a Roll Twice after the phase's one
+ * expansion; the rules reroll that event's own die instead of adding one.
+ */
+export type EventPositionGroup =
+  | { kind: 'rolled'; count: number; eventIds: string[] }
+  | { kind: 'automatic'; sourceId: string; count: number; eventIds: string[] }
+  | { kind: 'candidates'; choiceId: string; count: number; eventIds: string[] }
+  | {
+      kind: 'roll_twice' | 'replacement';
+      parentEventId: string;
+      count: number;
+      eventIds: string[];
+      reroll: boolean;
+    };
+export type EventChanceBreakdown = {
+  notoriety: number;
+  carry: number;
+  queued: { effectId: string; sourceId: string; value: number }[];
+};
 export type EventSelectionProjection = {
   ready: boolean;
   requirements: string[];
@@ -52,6 +75,12 @@ export type EventSelectionProjection = {
   dispatch: EventDispatch[];
   /** The operating settlement's reputation modifier on the chance roll; null while that settlement's reputation is unknown. */
   chanceModifier: number | null;
+  chanceBreakdown: EventChanceBreakdown;
+  /** The chance roll's comparison, once both roll and adjustment are known and a roll applies. */
+  chanceResult: 'event' | 'quiet' | null;
+  /** A queued All Is Calm suppresses the chance roll and Activity candidates this week. */
+  forcedCalm: boolean;
+  positions: EventPositionGroup[];
 };
 
 type SelectionContext = {
@@ -78,27 +107,53 @@ function readEventDie(
   if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
   return normalized.diceTotal;
 }
+export type EventTableArithmetic = {
+  /** The raw dice total, or null while the roll is missing or incomplete. */
+  raw: number | null;
+  /** Each recorded extra modifier and why the rules ignore it, if they do. */
+  modifiers: {
+    sourceId: string;
+    value: number;
+    reason: string;
+    ignored: 'settlement' | 'repeated' | null;
+  }[];
+  /** Raw plus applied modifiers, bounded to the table's 1–100. */
+  total: number | null;
+};
+// Settlement reputation modifies the chance roll only, and one value counts
+// per modifier source (the last one recorded).
+export function eventTableArithmetic(
+  roll: RawRoll | null | undefined,
+): EventTableArithmetic {
+  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
+  const recorded = roll?.modifiers ?? [];
+  const last = new Map(recorded.map((entry, index) => [entry.sourceId, index]));
+  const modifiers = recorded.map((entry, index) => ({
+    ...entry,
+    ignored:
+      entry.sourceId === 'settlement' || entry.sourceId === 'reputation'
+        ? ('settlement' as const)
+        : last.get(entry.sourceId) === index
+          ? null
+          : ('repeated' as const),
+  }));
+  if (normalized.status !== 'complete')
+    return { raw: null, modifiers, total: null };
+  const applied = modifiers.reduce(
+    (sum, entry) => sum + (entry.ignored ? 0 : entry.value),
+    0,
+  );
+  return {
+    raw: normalized.diceTotal,
+    modifiers,
+    total: Math.max(1, Math.min(100, normalized.diceTotal + applied)),
+  };
+}
 export function eventTypeForTableRoll(
   roll: RawRoll | null | undefined,
 ): EventType | null {
-  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
-  if (normalized.status !== 'complete') return null;
-  const extra = new Map<string, number>();
-  for (const modifier of roll?.modifiers ?? [])
-    if (
-      modifier.sourceId !== 'settlement' &&
-      modifier.sourceId !== 'reputation'
-    )
-      extra.set(modifier.sourceId, modifier.value);
-  const total = Math.max(
-    1,
-    Math.min(
-      100,
-      normalized.diceTotal +
-        [...extra.values()].reduce((sum, value) => sum + value, 0),
-    ),
-  );
-  return eventTypeForPercentile(total);
+  const { total } = eventTableArithmetic(roll);
+  return total === null ? null : eventTypeForPercentile(total);
 }
 
 // The operating settlement's reputation never touches the table roll; it
@@ -188,6 +243,13 @@ function selectOccurrence(
       'parentEventId' in entry.origin &&
       entry.origin.parentEventId === event.eventId,
   );
+  result.positions.push({
+    kind,
+    parentEventId: event.eventId,
+    count,
+    eventIds: children.map((child) => child.eventId),
+    reroll: kind === 'replacement' && resolved.eventType === 'roll_twice',
+  });
   if (children.length !== count) {
     result.requirements.push(`${event.eventId}:${kind}:${count}`);
     return;
@@ -206,6 +268,13 @@ function selectReplacement(
       event.origin.kind === 'replacement' &&
       event.origin.parentEventId === replacement.parentEventId,
   );
+  result.positions.push({
+    kind: 'replacement',
+    parentEventId: replacement.parentEventId,
+    count: 1,
+    eventIds: children.map((child) => child.eventId),
+    reroll: false,
+  });
   if (children.length !== 1)
     result.requirements.push(`${replacement.parentEventId}:replacement:1`);
   else
@@ -245,6 +314,13 @@ function selectAutomaticEvents(context: SelectionContext) {
         event.origin.kind === 'automatic' &&
         event.origin.sourceId === effect.sourceId,
     );
+    if (effect.effect.kind === 'automatic_events')
+      result.positions.push({
+        kind: 'automatic',
+        sourceId: effect.sourceId,
+        count: effect.effect.count,
+        eventIds: roots.map((root) => root.eventId),
+      });
     if (
       effect.effect.kind === 'automatic_events' &&
       roots.length !== effect.effect.count
@@ -281,6 +357,13 @@ function validateCandidate(
       entry.origin.kind === 'replacement' &&
       entry.origin.parentEventId === event.eventId,
   );
+  result.positions.push({
+    kind: 'replacement',
+    parentEventId: event.eventId,
+    count: 1,
+    eventIds: replacements.map((entry) => entry.eventId),
+    reroll: false,
+  });
   if (replacements.length !== 1)
     result.requirements.push(`${event.eventId}:replacement:1`);
   else validateCandidate(context, guarantee, replacements[0]!);
@@ -292,6 +375,12 @@ function selectGuaranteedEvents(context: SelectionContext) {
     const roots = guarantee.candidates.filter(
       (event) => event.origin.kind === 'rolled',
     );
+    result.positions.push({
+      kind: 'candidates',
+      choiceId: guarantee.choiceId,
+      count: 2,
+      eventIds: roots.map((root) => root.eventId),
+    });
     if (roots.length !== 2)
       result.requirements.push(`${guarantee.choiceId}:candidates:2`);
     // Both independent percentile rolls are required even for the rejected option.
@@ -317,42 +406,67 @@ function selectChanceEvent(context: SelectionContext) {
   if (result.chanceModifier === null)
     result.requirements.push('event:operating-settlement');
   // The accepted E01 audit baseline explicitly uses a strict comparison.
-  if (
-    chanceRoll !== null &&
-    result.chanceModifier !== null &&
-    chanceRoll + result.chanceModifier < result.chance
-  ) {
+  result.chanceResult =
+    chanceRoll === null || result.chanceModifier === null
+      ? null
+      : chanceRoll + result.chanceModifier < result.chance
+        ? 'event'
+        : 'quiet';
+  if (result.chanceResult === 'event') {
     const roots = draft.event.occurrences.filter(
       (event) => event.origin.kind === 'rolled',
     );
+    result.positions.push({
+      kind: 'rolled',
+      count: 1,
+      eventIds: roots.map((root) => root.eventId),
+    });
     if (roots.length !== 1) result.requirements.push('event:root:1');
     else selectOccurrence(context, roots[0]!, draft.event.occurrences);
   }
 }
-function calculateEventChance(
+function eventChanceBreakdown(
   draft: WeeklyDraft,
   outcome: ActivityProjection['outcome'],
   carryModifier: number,
-) {
-  const modifiers = draft.context.queuedEffects.filter(
-    (effect) =>
+): EventChanceBreakdown {
+  return {
+    notoriety: outcome.notoriety,
+    carry: carryModifier,
+    queued: draft.context.queuedEffects.flatMap((effect) =>
       effect.startsWeek <= draft.week &&
       draft.week <= effect.endsWeek &&
-      effect.effect.kind === 'event_chance',
-  );
+      effect.effect.kind === 'event_chance'
+        ? [
+            {
+              effectId: effect.effectId,
+              sourceId: effect.sourceId,
+              value: effect.effect.value,
+            },
+          ]
+        : [],
+    ),
+  };
+}
+function calculateEventChance({
+  notoriety,
+  carry,
+  queued,
+}: EventChanceBreakdown) {
   return Math.max(
     10,
     Math.min(
       95,
-      outcome.notoriety +
-        carryModifier +
-        modifiers.reduce(
-          (sum, effect) =>
-            sum +
-            (effect.effect.kind === 'event_chance' ? effect.effect.value : 0),
-          0,
-        ),
+      notoriety + carry + queued.reduce((sum, entry) => sum + entry.value, 0),
     ),
+  );
+}
+function isForcedCalm(draft: WeeklyDraft) {
+  return draft.context.queuedEffects.some(
+    (effect) =>
+      effect.startsWeek <= draft.week &&
+      draft.week <= effect.endsWeek &&
+      effect.effect.kind === 'all_is_calm',
   );
 }
 
@@ -361,12 +475,20 @@ function createSelectionContext(
   activity: SelectionContext['activity'],
   expanded: boolean,
 ): SelectionContext {
+  const carryModifier = draft.context.uneventfulCarry
+    ? activity.outcome.rank
+    : 0;
+  const chanceBreakdown = eventChanceBreakdown(
+    draft,
+    activity.outcome,
+    carryModifier,
+  );
   const result: EventSelectionProjection = {
     ready: false,
     requirements: [...activity.requirements],
     warnings: [...activity.warnings],
-    chance: 10,
-    carryModifier: draft.context.uneventfulCarry ? activity.outcome.rank : 0,
+    chance: calculateEventChance(chanceBreakdown),
+    carryModifier,
     nextUneventfulCarry: null,
     guaranteed: false,
     guarantees: activity.plan.filter(
@@ -376,13 +498,12 @@ function createSelectionContext(
     selected: [],
     dispatch: [],
     chanceModifier: 0,
+    chanceBreakdown,
+    chanceResult: null,
+    forcedCalm: isForcedCalm(draft),
+    positions: [],
   };
   result.guaranteed = result.guarantees.length > 0;
-  result.chance = calculateEventChance(
-    draft,
-    activity.outcome,
-    result.carryModifier,
-  );
 
   result.chanceModifier = draft.activity.operatingSettlementId
     ? (projectSettlements(
@@ -439,12 +560,7 @@ export function projectEventSelection(
     return result;
   }
   const automaticSources = selectAutomaticEvents(context);
-  const forcedCalm = draft.context.queuedEffects.some(
-    (effect) =>
-      effect.startsWeek <= draft.week &&
-      draft.week <= effect.endsWeek &&
-      effect.effect.kind === 'all_is_calm',
-  );
+  const forcedCalm = result.forcedCalm;
   if (!forcedCalm) {
     selectGuaranteedEvents(context);
     if (!result.guaranteed) selectChanceEvent(context);

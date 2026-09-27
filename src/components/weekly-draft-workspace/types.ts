@@ -4,6 +4,10 @@ import type { ReferenceFacts } from './reference-facts';
 import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
+import type {
+  EventDispatch,
+  EventTableArithmetic,
+} from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
@@ -316,6 +320,106 @@ export type ActivityView = {
   requirements: string[];
   warnings: string[];
 };
+export type EventOccurrenceFacts = {
+  occurrence: WeeklyDraft['event']['occurrences'][number];
+  // Display label such as "Event 2A.1"; never an identity.
+  label: string;
+  resolvedType: string | null;
+  optionalMitigation: 'unavailable' | 'unattempted' | 'attempted';
+  exceptionChoices: WeeklyDraft['rulesExceptions'];
+  changes: EventOutcomeChange[];
+  mode: EventDispatch['mode'] | null;
+  selected: boolean;
+  negated: boolean;
+  requirements: string[];
+  warnings: string[];
+  owner: { slotId: string; choice: StagedActionChoice } | null;
+};
+// What an event block says about its occurrence this week. Every status has
+// its own words; colour never carries the distinction alone.
+export type EventBlockStatus =
+  | 'preparing'
+  | 'awaiting_roll'
+  | 'happens'
+  | 'twice'
+  | 'no_additional_effect'
+  | 'two_more'
+  | 'reroll'
+  | 'rerolled'
+  | 'cannot_occur'
+  | 'kept'
+  | 'sabotaged'
+  | 'candidate'
+  | 'not_chosen'
+  | 'not_used'
+  | 'needs_repair';
+export type EventIssue = { code: string; message: string };
+// An event's corpus rules for one block; `twice` only when it applies there.
+export type EventBlockRules = {
+  name: string;
+  text: string[];
+  twice: string | null;
+};
+export type EventBlock = {
+  eventId: string;
+  label: string;
+  item: EventOccurrenceFacts;
+  // False until the occurrence exists in the accepted draft: its inputs wait.
+  saved: boolean;
+  status: EventBlockStatus;
+  statusLabel: string;
+  statusText: string;
+  origin: string;
+  table: {
+    raw: number | null;
+    // Recorded extra table modifiers, with why the rules ignore one if they do.
+    modifiers: EventTableArithmetic['modifiers'];
+    total: number | null;
+    name: string | null;
+  };
+  // The corpus rules for the rolled event; null until the table roll is
+  // complete. `twice` is set only when its Twice clause applies here.
+  rules: EventBlockRules | null;
+  candidate: { slotId: string; choiceId: string; chosen: boolean } | null;
+  // Active nested events (Roll Twice children, a replacement) in order.
+  children: EventBlock[];
+  // Recorded children the current roll does not use; restored if it returns.
+  hidden: EventBlock[];
+  // A position the rules do not ask for: clearing its last input removes it.
+  surplus: boolean;
+  // The existing tree/candidate edit removing this surplus position once its
+  // table roll is cleared; null when clearing must keep the position.
+  removal: WeeklyDraftEdit | null;
+  issues: EventIssue[];
+};
+export type EventChanceStep = {
+  applies: 'roll' | 'guaranteed' | 'forced_calm';
+  effect: string;
+  explanation: string | null;
+  breakdown: { label: string; value: number }[];
+  required: boolean;
+  raw: number | null;
+  total: number | null;
+  result: 'event' | 'quiet' | null;
+  operating: {
+    name: string;
+    reputation: string | null;
+    // Null while the operating settlement's reputation is unknown.
+    modifier: number | null;
+  } | null;
+  sources: { choiceId: string; label: string }[];
+  issues: EventIssue[];
+};
+export type EventCandidateSet = {
+  slotId: string;
+  choiceId: string;
+  label: string;
+  // False when the choice guarantees nothing this week (for example a calm week).
+  active: boolean;
+  selectedEventId: string | null;
+  blocks: EventBlock[];
+  issues: EventIssue[];
+};
 export type EventView = {
   phase: 'event';
   ready: boolean;
@@ -323,19 +427,27 @@ export type EventView = {
   chanceRoll: WeeklyDraft['event']['chanceRoll'] | null;
   chanceModifier: number | null;
   guaranteed: boolean;
-  occurrences: {
-    occurrence: WeeklyDraft['event']['occurrences'][number];
-    resolvedType: string | null;
-    optionalMitigation: 'unavailable' | 'unattempted' | 'attempted';
-    exceptionChoices: WeeklyDraft['rulesExceptions'];
-    changes: EventOutcomeChange[];
-    mode: string | null;
-    selected: boolean;
-    negated: boolean;
-    requirements: string[];
-    warnings: string[];
-    owner: { slotId: string; choice: StagedActionChoice } | null;
-  }[];
+  chanceStep: EventChanceStep;
+  automatic: {
+    sources: { sourceId: string; label: string; count: number }[];
+    blocks: EventBlock[];
+    issues: EventIssue[];
+  } | null;
+  rolled: {
+    applies: boolean;
+    effect: string;
+    reason: string | null;
+    blocks: EventBlock[];
+    issues: EventIssue[];
+  };
+  candidates: EventCandidateSet[];
+  // Recorded top-level events the rules do not use this week.
+  inactive: EventBlock[];
+  outcome: { complete: boolean; lines: string[] };
+  preparation: 'idle' | 'preparing' | 'failed';
+  occurrences: EventOccurrenceFacts[];
+  // Event-identified wording for every Event requirement and warning code.
+  messages: Record<string, string>;
   acknowledgements: WeeklyDraft['acknowledgements'];
   exceptions: WeeklyDraft['rulesExceptions'];
   checks: ActivityView['checks'];
@@ -404,6 +516,8 @@ export type PhaseView =
       })[];
       people: { characterId: string; name: string }[];
       options: EventView['options'];
+      // Event-identified wording for Event codes (see EventView['messages']).
+      eventMessages?: Record<string, string>;
       ready: boolean;
       baseline: CanonicalWeekState | null;
       outcome: CanonicalWeekState | null;
@@ -447,4 +561,9 @@ export type WeeklyDraftWorkspace =
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;
       viewPhase(this: void, phase: Phase): void;
       confirm(this: void): Promise<'accepted' | 'failed'>;
+      // Preparing the Event positions the rules ask for, shared by every phase.
+      eventPreparation?: {
+        status: 'idle' | 'preparing' | 'failed';
+        retry(this: void): void;
+      };
     };

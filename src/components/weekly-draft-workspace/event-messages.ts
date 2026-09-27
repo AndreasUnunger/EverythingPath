@@ -1,4 +1,102 @@
+import type { EventPositionGroup } from '~/lib/rules-event-selection';
 import type { EventView } from './types';
+
+type TopologyContext = {
+  positions: readonly EventPositionGroup[];
+  events: { eventId: string; sabotageId: string | null; label: string }[];
+  candidateLabel: (choiceId: string) => string | null;
+  sourceLabel: (sourceId: string) => string;
+  settlementName: string | null;
+  preparationFailed: boolean;
+  warning: boolean;
+};
+
+// Wording for one Event requirement or warning that names its event, source
+// or Activity choice, so This phase and each block identify what is open.
+// Returns null for codes Event does not own.
+export function eventTopologyMessage(
+  code: string,
+  context: TopologyContext,
+): string | null {
+  const preparing = context.preparationFailed
+    ? 'could not be prepared. Use Retry in Event.'
+    : 'is being prepared.';
+  const overfull = (match: (group: EventPositionGroup) => boolean) =>
+    context.positions.some(
+      (group) => match(group) && group.eventIds.length > group.count,
+    );
+  if (code === 'event:chance:1d100')
+    return 'Event chance: enter the chance roll (d100).';
+  if (code === 'event:chance:roll-range')
+    return 'Event chance: the roll is outside 1–100. The recorded value is kept for the table.';
+  if (code === 'event:operating-settlement')
+    return `Event chance: record ${context.settlementName ?? 'the operating settlement'}’s reputation, or choose another operating settlement in Activity.`;
+  if (code === 'event:root:1')
+    return overfull((group) => group.kind === 'rolled')
+      ? 'The event: more than one rolled event is recorded. Clear the extra one to remove it.'
+      : `The event: the rolled event ${preparing}`;
+  const automatic = /^(.*):automatic-events:(\d+)$/.exec(code);
+  if (automatic) {
+    const label = context.sourceLabel(automatic[1]!);
+    return overfull(
+      (group) => group.kind === 'automatic' && group.sourceId === automatic[1],
+    )
+      ? `Automatic events from ${label}: more are recorded than the rules ask for. Clear the extra one to remove it.`
+      : `Automatic events from ${label}: the ${automatic[2] === '1' ? 'event' : `${automatic[2]} events`} ${preparing}`;
+  }
+  for (const suffix of ['candidates:2', 'selected-event'] as const) {
+    if (!code.endsWith(`:${suffix}`)) continue;
+    const choiceId = code.slice(0, -suffix.length - 1);
+    const label = context.candidateLabel(choiceId);
+    if (!label) continue;
+    if (suffix === 'selected-event')
+      return `${label}: choose which event happens.`;
+    return overfull(
+      (group) => group.kind === 'candidates' && group.choiceId === choiceId,
+    )
+      ? `${label}: more than two candidates are recorded. Clear the extra one to remove it.`
+      : `${label}: both event candidates ${preparing.replace('is ', 'are ')}`;
+  }
+  // The longest matching identity owns the code: an event or its Sabotage.
+  const owner = context.events
+    .flatMap((event) =>
+      [event.eventId, event.sabotageId].flatMap((id) =>
+        id && code.startsWith(`${id}:`) ? [{ id, event }] : [],
+      ),
+    )
+    .sort((a, b) => b.id.length - a.id.length)[0];
+  if (!owner) return null;
+  const tail = code.slice(owner.id.length + 1);
+  const prefix = `${owner.event.label}: `;
+  if (tail === 'table:1d100') return `${prefix}enter the table roll (d100).`;
+  if (tail === 'roll_twice:2')
+    return overfull(
+      (group) =>
+        group.kind === 'roll_twice' && group.parentEventId === owner.id,
+    )
+      ? `${prefix}more than two Roll Twice events are recorded. Clear the extra one to remove it.`
+      : `${prefix}its two Roll Twice events ${preparing.replace('is ', 'are ')}`;
+  if (tail === 'replacement:1') {
+    const group = context.positions.find(
+      (entry) =>
+        entry.kind === 'replacement' && entry.parentEventId === owner.id,
+    );
+    if (group && 'reroll' in group && group.reroll && !group.eventIds.length)
+      return `${prefix}Roll Twice again: reroll and enter the new die.`;
+    return overfull(
+      (entry) =>
+        entry.kind === 'replacement' && entry.parentEventId === owner.id,
+    )
+      ? `${prefix}more than one replacement is recorded. Clear the extra one to remove it.`
+      : `${prefix}its replacement event ${preparing}`;
+  }
+  if (tail === 'automatic-event-source')
+    return `${prefix}no automatic event is due from its source this week. Clear it to remove it.`;
+  if (tail === 'event-eligibility')
+    return `${prefix}cannot normally occur now. Roll its replacement, or keep it with a reasoned Rules Exception.`;
+  const text = context.warning ? eventWarning(code) : eventRequirement(code);
+  return `${prefix}${text}`;
+}
 export function eventRequirement(value: string) {
   const dice = /(?:^|:)([\w-]+):(\d+)d(\d+)$/.exec(value);
   if (dice) {

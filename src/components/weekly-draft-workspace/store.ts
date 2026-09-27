@@ -8,6 +8,9 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { AcceptedWeeklyPreview } from '~/lib/weekly-confirmation-contract';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { WorkspaceGateway } from './gateway';
+import { planEventTopology } from '~/lib/event-occurrence-preparation';
+import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
+import { createEventPreparation } from './event-preparation';
 import {
   derivePhaseReadiness,
   phaseNavigation,
@@ -45,6 +48,8 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   let previewRequest = '';
   let previewGeneration = 0;
   const operations = new Set<{ draftId: string }>();
+  let preparation = createEventPreparation();
+  let preparing = false;
   const listeners = new Set<() => void>();
   function getPendingWork() {
     return operations.size > 0;
@@ -150,7 +155,33 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       reviewed?.reviewed.sourceKey === preview.sourceKey &&
       reviewed.reviewed.sourceRevision === source.sourceRevision &&
       reviewed.reviewed.revision === accepted.revision;
-    const { views, phases } = derivePhaseReadiness(forecast, source, preview);
+    // Required Event positions are prepared from the accepted draft only while
+    // nothing else is in flight, so every attempt starts from the newest
+    // accepted observation and never builds on an unaccepted edit.
+    const idle =
+      pending.length === 0 &&
+      !observed.pending &&
+      !getPendingWork() &&
+      !confirming &&
+      !observed.confirming;
+    const wasFailed = preparation.failed;
+    const preparationEdits = idle
+      ? preparation.next(
+          planEventTopology(accepted, preview.phases?.event.positions ?? []),
+        )
+      : null;
+    if (preparation.failed && !wasFailed) feedback = 'failed';
+    const { views, phases } = derivePhaseReadiness(forecast, source, preview, {
+      acceptedEventIds: new Set(
+        [
+          ...accepted.event.occurrences,
+          ...accepted.activity.slots.flatMap((slot) =>
+            actionChoiceEvents(slot.choice),
+          ),
+        ].map((event) => event.eventId),
+      ),
+      preparationFailed: preparation.failed,
+    });
     const canConfirm = Boolean(
       !confirming &&
       !reviewRequired &&
@@ -197,8 +228,45 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       viewPhase,
       confirm: () =>
         persistence === owner ? confirm() : Promise.resolve('failed'),
+      eventPreparation: {
+        status: preparation.failed
+          ? 'failed'
+          : preparing || preparationEdits
+            ? 'preparing'
+            : 'idle',
+        retry: retryPreparation,
+      },
     });
+    if (preparationEdits) void prepare(owner, preparationEdits);
     schedulePreview(owner, accepted, source);
+  }
+  // Preparation uses the ordinary queued edits. A rejected attempt is not a
+  // failure of the player's own work: the next rebuild recomputes the missing
+  // positions from the refreshed observation and tries again within bounds.
+  async function prepare(owner: Persistence, edits: WeeklyDraftEdit[]) {
+    const operation = { draftId: source!.key.draftId };
+    operations.add(operation);
+    preparing = true;
+    const items = edits.map((edit) => ({
+      id: ++sequence,
+      edit: structuredClone(edit),
+    }));
+    pending.push(...items);
+    const saving = Promise.all(items.map((item) => owner.edit(item.edit)));
+    rebuild();
+    const results = await saving;
+    const completed = operations.delete(operation);
+    pending = pending.filter((entry) => !items.includes(entry));
+    if (owner === persistence && active) {
+      preparing = false;
+      if (results.every((result) => result === 'accepted')) feedback = 'saved';
+      previewRequest = '';
+      rebuild();
+    } else if (completed) rebuild();
+  }
+  function retryPreparation() {
+    preparation.retry();
+    rebuild();
   }
   function schedulePreview(
     owner: Persistence,
@@ -349,6 +417,8 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     remoteSequence = 0;
     source = next;
     pending = [];
+    preparation = createEventPreparation();
+    preparing = false;
     reviewed = null;
     reviewRequired = false;
     previewRequest = '';

@@ -3,7 +3,7 @@ import { eventRequirement, eventWarning } from './event-messages';
 import { phaseLabels } from './week-frame/labels';
 type Summary = Pick<
   Extract<PhaseView, { phase: 'summary' }>,
-  'adjustments' | 'options'
+  'adjustments' | 'options' | 'eventMessages'
 >;
 const messages: Record<string, string> = {
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
@@ -120,6 +120,8 @@ function earlierPhasesMessage(code: string) {
 }
 
 export function summaryMessage(code: string, view: Summary, warning = false) {
+  const event = view.eventMessages?.[code];
+  if (event) return event;
   const earlier = earlierPhasesMessage(code);
   if (earlier) return earlier;
   const adjustment = adjustmentMessage(code, view);

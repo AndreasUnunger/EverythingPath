@@ -9,13 +9,25 @@ import {
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
-import { EventView } from './event-view';
+import { EventView as RulesOrderedEventView } from './event-view';
+import {
+  eventFacts as placeFacts,
+  type EventFactsInput,
+} from './event-view-test-fixture';
 import { PersistentView } from './persistent-view';
-import type {
-  EventView as EventFacts,
-  PersistentView as PersistentFacts,
-} from './types';
+import type { PersistentView as PersistentFacts } from './types';
+type EventFacts = EventFactsInput;
 afterEach(cleanup);
+// Old occurrence-level facts, placed into the rules-ordered sections.
+function EventView({
+  view,
+  ...props
+}: Omit<Parameters<typeof RulesOrderedEventView>[0], 'view'> & {
+  view: EventFactsInput;
+}) {
+  return <RulesOrderedEventView view={placeFacts(view)} {...props} />;
+}
+
 // react-hook-form runs the submit callback asynchronously; a blocked Save is
 // only proven after that callback has had its turn.
 async function flushSubmit() {
@@ -149,14 +161,18 @@ test('[rules.EVT-04.table-total] an occurrence table total is editable, keeps it
     />,
   );
   expect(textbox('Event 1 table roll')).toHaveValue('82');
-  fireEvent.click(screen.getByText('Event table modifiers'));
-  fireEvent.click(screen.getByRole('button', { name: 'Add modifiers entry' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Helpful settlement support' }),
-  );
-  fireEvent.change(textbox('Value'), { target: { value: '-3' } });
-  fireEvent.change(textbox('Reason'), { target: { value: 'Rain' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save modifiers' }));
+  // + Table modifier: a signed value with a required reason and its own source.
+  fireEvent.click(screen.getByRole('button', { name: 'Add table modifier' }));
+  fireEvent.change(textbox('Table modifier value'), {
+    target: { value: '-3' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save table modifier' }));
+  expect(await screen.findByText('A reason is required.')).toBeVisible();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(textbox('Table modifier reason'), {
+    target: { value: 'Rain' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save table modifier' }));
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'event_occurrence',
@@ -165,7 +181,13 @@ test('[rules.EVT-04.table-total] an occurrence table total is editable, keeps it
         origin: { kind: 'rolled' },
         tableRoll: {
           ...total(100, 1, 82),
-          modifiers: [{ sourceId: 'helpful', value: -3, reason: 'Rain' }],
+          modifiers: [
+            {
+              sourceId: expect.stringMatching(/^table-modifier:/),
+              value: -3,
+              reason: 'Rain',
+            },
+          ],
         },
       },
     }),

@@ -547,7 +547,8 @@ test('[rules.P82.declared-references] incomplete staged creations remain named c
     });
     expect(state.phaseView.events).toContainEqual({
       value: 'rivalry',
-      label: 'Rivalry · Event 1',
+      // A current-week candidate goes by its Event label.
+      label: 'Event 1A · Rivalry',
     });
   });
 });
@@ -561,68 +562,92 @@ test('[rules.P83.workspace] Event occurrences and required branches recompute af
     if (value.status !== 'ready') throw new Error('Expected ready');
     return value;
   };
+  const percentile = (value: number) => ({
+    dice: [value],
+    sides: 100,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  });
+  const settled = () =>
+    waitFor(() => {
+      expect(ready().pendingWork).toBe(false);
+      expect(ready().eventPreparation?.status).toBe('idle');
+    });
   await act(async () => {
     ready().viewPhase('event');
+    await ready().edit({ kind: 'event_chance', roll: percentile(1) });
+  });
+  // A triggered chance roll prepares its blank root without any other edit.
+  await settled();
+  const root = 'workspace:rolled:1';
+  await act(async () => {
     await ready().edit({
-      kind: 'event_chance',
-      roll: {
-        dice: [1],
-        sides: 100,
-        provenance: { kind: 'table' },
-        modifiers: [],
+      kind: 'event_occurrence',
+      occurrence: {
+        eventId: root,
+        origin: { kind: 'rolled' },
+        tableRoll: percentile(50),
       },
     });
-    await ready().edit({
-      kind: 'event_tree',
-      occurrences: [
-        {
-          eventId: 'root',
-          origin: { kind: 'rolled' },
-          tableRoll: {
-            dice: [50],
-            sides: 100,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          },
-        },
-      ],
-    });
   });
+  await settled();
   expect(ready().phaseView).toMatchObject({
     phase: 'event',
     chance: 10,
     options: {
       eventId: expect.arrayContaining([
-        { value: 'root', label: 'Event 1: Roll Twice' },
+        { value: root, label: 'Event 1 · Roll Twice' },
       ]),
     },
-    occurrences: [
-      { occurrence: { eventId: 'root' }, resolvedType: 'roll_twice' },
-    ],
-    requirements: expect.arrayContaining(['root:roll_twice:2']),
+    rolled: {
+      blocks: [
+        {
+          eventId: root,
+          status: 'two_more',
+          // Its children's open rolls belong to their own blocks.
+          issues: [],
+          children: [
+            { eventId: `${root}/twice/1`, status: 'awaiting_roll' },
+            { eventId: `${root}/twice/2`, status: 'awaiting_roll' },
+          ],
+        },
+      ],
+    },
+    requirements: expect.arrayContaining([
+      `${root}/twice/1:table:1d100`,
+      `${root}/twice/2:table:1d100`,
+    ]),
   });
   await act(async () => {
     await ready().edit({
-      kind: 'event_tree',
-      occurrences: [
-        {
-          eventId: 'root',
-          origin: { kind: 'rolled' },
-          tableRoll: {
-            dice: [45],
-            sides: 100,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          },
-        },
-      ],
+      kind: 'event_occurrence',
+      occurrence: {
+        eventId: root,
+        origin: { kind: 'rolled' },
+        tableRoll: percentile(45),
+      },
     });
   });
+  await settled();
   expect(ready().phaseView).toMatchObject({
     phase: 'event',
-    occurrences: [{ resolvedType: 'all_is_calm' }],
+    rolled: {
+      blocks: [
+        {
+          eventId: root,
+          item: { resolvedType: 'all_is_calm' },
+          children: [],
+          hidden: [
+            { eventId: `${root}/twice/1`, status: 'not_used' },
+            { eventId: `${root}/twice/2`, status: 'not_used' },
+          ],
+        },
+      ],
+    },
   });
-  expect(ready().phaseView.requirements).not.toContain('root:roll_twice:2');
+  expect(ready().phaseView.requirements).not.toContain(
+    `${root}/twice/1:table:1d100`,
+  );
 });
 
 test('[rules.P84.workspace] carried instances retain targets and order while buyoff stages an ending and shared cooldown', async () => {
