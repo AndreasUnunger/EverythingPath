@@ -59,17 +59,22 @@ export function RollTotalField({
         onValue={(total) =>
           onRoll(total === null ? null : totalRoll(total, spec, recorded))
         }
+        description={
+          <>
+            <span>{rollNotation(spec)} · total of the dice only</span>
+            {recorded && (
+              <>
+                {' '}
+                <span>
+                  {recorded.provenance.kind === 'generated'
+                    ? 'Recorded roll.'
+                    : 'Rolled at the table.'}
+                </span>
+              </>
+            )}
+          </>
+        }
       />
-      <p className="text-muted-foreground font-mono text-xs">
-        {rollNotation(spec)} · total of the dice only
-      </p>
-      {recorded && (
-        <p className="text-muted-foreground text-xs">
-          {recorded.provenance.kind === 'generated'
-            ? 'Recorded roll.'
-            : 'Rolled at the table.'}
-        </p>
-      )}
       {explanation && (
         <p role="note" className="text-sm text-amber-300">
           {explanation}

@@ -110,7 +110,9 @@ function NowAfterRows({ rows, label }: { rows: ValueRow[]; label: string }) {
     >
       <thead>
         <tr className="text-muted-foreground text-left text-xs">
-          <th scope="col" className="w-[30%] pb-1 font-normal">
+          {/* Wide enough for the longest value label ("Notoriety") in the
+              narrowest docked panel; long team names still wrap. */}
+          <th scope="col" className="w-[36%] pb-1 font-normal">
             <span className="sr-only">Value</span>
           </th>
           <th scope="col" className="pb-1 font-normal">

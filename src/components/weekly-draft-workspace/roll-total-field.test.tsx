@@ -138,3 +138,25 @@ test('[rules.WEEK-15.total-incomplete] partial legacy dice and another specifica
   fireEvent.click(screen.getByRole('button', { name: 'Clear training roll' }));
   expect(onRoll).toHaveBeenLastCalledWith(null);
 });
+
+test('the dice notation and provenance describe the input directly beneath it', () => {
+  render(
+    <RollTotalField
+      label="Training roll"
+      spec={spec}
+      recorded={{
+        diceTotal: 5,
+        diceCount: 2,
+        sides: 4,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      }}
+      onRoll={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByRole('textbox', { name: 'Training roll' }),
+  ).toHaveAccessibleDescription(
+    '2d4 · total of the dice only Rolled at the table.',
+  );
+});

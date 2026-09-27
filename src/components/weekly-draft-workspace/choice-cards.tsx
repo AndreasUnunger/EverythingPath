@@ -37,6 +37,8 @@ export function ChoiceCards({
       </div>
       <div className="grid grid-cols-2 items-stretch gap-3">
         {choices.map((choice) => (
+          // Hover only lifts and tints the border: it never changes the fill or
+          // text colour, so it cannot resemble or dim the selected card.
           <Button
             key={choice.value}
             type="button"
@@ -60,7 +62,7 @@ export function ChoiceCards({
                   }
                 : undefined
             }
-            className="aria-pressed:border-primary aria-pressed:bg-primary/10 h-auto min-h-24 min-w-0 cursor-grab touch-none flex-col items-start justify-start gap-2 rounded-lg border-2 p-3 text-left whitespace-normal transition-transform select-none hover:-translate-y-1 focus-visible:-translate-y-1 active:cursor-grabbing motion-reduce:transform-none"
+            className="hover:border-primary/60 aria-pressed:border-primary aria-pressed:bg-primary/15 aria-pressed:hover:border-primary aria-pressed:hover:bg-primary/15 hover:bg-background hover:text-foreground h-auto min-h-24 min-w-0 cursor-grab touch-none flex-col items-start justify-start gap-2 rounded-lg border-2 p-3 text-left whitespace-normal transition-transform select-none hover:-translate-y-1 focus-visible:-translate-y-1 active:cursor-grabbing motion-reduce:transform-none"
           >
             <GripVertical
               aria-hidden

@@ -1,5 +1,5 @@
 'use client';
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,7 @@ import {
   FormItem,
   FormLabel,
   FormControl,
+  FormDescription,
   FormMessage,
 } from '~/components/ui/form';
 const digits = z
@@ -26,6 +27,7 @@ export function WholeNumberField({
   disabled = false,
   onValue,
   onInvalid,
+  description,
 }: {
   label: string;
   value: number | null;
@@ -34,6 +36,9 @@ export function WholeNumberField({
   onValue: (value: number | null) => void;
   // Reports rejected local text so an enclosing form can refuse to save.
   onInvalid?: (message: string | null) => void;
+  // Read with the input (for example a roll's dice notation), placed directly
+  // under it and before the reserved error slot.
+  description?: ReactNode;
 }) {
   // Rejected text never enters the form value, so react-hook-form's focus-loss
   // validation would see the retained valid number and clear the error while
@@ -91,6 +96,9 @@ export function WholeNumberField({
                 }}
               />
             </FormControl>
+            {description && (
+              <FormDescription>{description}</FormDescription>
+            )}
             <div className="min-h-5">
               <FormMessage role="alert" />
             </div>

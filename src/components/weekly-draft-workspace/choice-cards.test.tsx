@@ -80,3 +80,16 @@ test('[rules.P81.card-return] outside or cancelled drags restore the card and cu
   fireEvent.click(card, { detail: 1 });
   expect(change).toHaveBeenCalledExactlyOnceWith('new');
 });
+
+test('hovering a card never swaps its fill or text colour, so it cannot dim or imitate the selection', () => {
+  fixture();
+  for (const name of ['Old town', 'New town']) {
+    const classes = screen.getByRole('button', { name }).className.split(' ');
+    expect(classes).not.toContain('hover:bg-accent');
+    expect(classes).not.toContain('hover:text-accent-foreground');
+    expect(classes).toContain('hover:text-foreground');
+  }
+  expect(screen.getByRole('button', { name: 'Old town' }).className).toContain(
+    'aria-pressed:hover:bg-primary/15',
+  );
+});
