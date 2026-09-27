@@ -1,5 +1,4 @@
 import type { MilitiaSetup } from './canonical-setup';
-import { copperToGpInput } from './gp-money';
 import {
   SETUP_SECTIONS,
   type SetupSectionKey,
@@ -133,11 +132,9 @@ const names = (labels: string[], none: string, noun: string) =>
     : labels.length <= 3
       ? labels.join(', ')
       : count(labels.length, noun);
-function treasury(copper: unknown) {
-  return typeof copper === 'number' && Number.isSafeInteger(copper)
-    ? `${copperToGpInput(copper)} gp`
-    : `${String(copper)} copper`;
-}
+// Entered input as typed; an empty field shows a dash.
+const shown = (value: string | number | null | undefined) =>
+  value === null || value === undefined || value === '' ? '—' : String(value);
 
 // A one-line summary of a step's entered values, for the wide step index.
 // Raw invalid input is shown as entered. Empty optional steps of a New militia
@@ -150,9 +147,9 @@ export function setupStepPreview(
   const snapshot = values.state.militiaSnapshot;
   switch (key) {
     case 'startingPoint':
-      return `${snapshot.focus} · rank ${String(snapshot.rank)} · training ${String(snapshot.training)} · ${treasury(snapshot.treasuryCopper)}`;
+      return `${snapshot.focus} · rank ${shown(snapshot.rank)} · training ${shown(snapshot.training)} · ${shown(snapshot.treasuryCopper)} copper`;
     case 'week':
-      return `Week ${String(values.state.week)} · day ${String(values.state.context.startDay)} · opens in ${phases[values.phase]}`;
+      return `Week ${shown(values.state.week)} · day ${shown(values.state.context.startDay)} · opens in ${phases[values.phase]}`;
     case 'people': {
       const people = names(
         snapshot.roster.people.map(
@@ -243,7 +240,7 @@ function fieldLabel(field: string) {
   const index = path.findIndex((part) => /^\d+$/.test(part));
   const entry =
     index >= 2 ? entryLabels[`${path[index - 2]}.${path[index - 1]}`] : null;
-  const leaf = [...path].reverse().find((part) => !/^\d+$/.test(part))!;
+  const leaf = [...path].reverse().find((part) => !/^\d+$/.test(part)) ?? field;
   if (!entry) return words(leaf);
   const name = `${entry} ${Number(path[index]) + 1}`;
   return index === path.length - 1 ? name : `${name}: ${words(leaf)}`;

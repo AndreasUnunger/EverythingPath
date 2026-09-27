@@ -71,7 +71,7 @@ function focusKey(element: HTMLElement): FocusKey | null {
   const group = element.closest<HTMLElement>('[data-setup-path]');
   if (group)
     return {
-      path: group.dataset.setupPath!,
+      path: group.dataset.setupPath ?? '',
       index: [...group.querySelectorAll('button')].indexOf(
         element as HTMLButtonElement,
       ),

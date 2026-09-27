@@ -230,6 +230,18 @@ test('[rules.U01.setup-form] switching to an existing militia clears the initial
   expect(
     screen.queryByRole('group', { name: 'First militia week' }),
   ).not.toBeInTheDocument();
+  // Switching back changes nothing else; the skip stays cleared until chosen.
+  click('New militia');
+  expect(
+    within(screen.getByRole('group', { name: 'First militia week' })).getByRole(
+      'button',
+      { name: 'No' },
+    ),
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('textbox', { name: 'Current week' })).toHaveValue(
+    '9',
+  );
+  click('Existing militia');
   start();
   await waitFor(() =>
     expect(save).toHaveBeenCalledWith(

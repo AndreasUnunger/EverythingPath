@@ -24,19 +24,20 @@ export function SetupMilitiaValues() {
   );
 }
 
-// New or Existing. Switching keeps every entered fact; only Existing clears
-// the first-militia-week skip, and New restores it.
+// New or Existing. Switching keeps every entered fact; the only change is
+// that Existing clears the first-militia-week skip.
 export function SetupModeChoice() {
   const { setValue } = useFormContext<MilitiaSetup>();
   return (
     <Field
       name="mode"
       label="Campaign progress"
-      onChoice={(mode) =>
-        setValue('state.context.firstMilitiaWeek', mode === 'new', {
-          shouldDirty: true,
-        })
-      }
+      onChoice={(mode) => {
+        if (mode === 'existing')
+          setValue('state.context.firstMilitiaWeek', false, {
+            shouldDirty: true,
+          });
+      }}
       options={[
         { value: 'new', label: 'New militia' },
         { value: 'existing', label: 'Existing militia' },

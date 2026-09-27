@@ -204,7 +204,7 @@ test('[setup.steps.preview] previews summarize entered values, including raw inv
   expect(
     SETUP_STEP_KEYS.map((key) => setupStepPreview(key, setup, [hero])),
   ).toEqual([
-    'Security · rank 1 · training 0 · 10 gp',
+    'Security · rank 1 · training 0 · 1000 copper',
     'Week 1 · day 0 · opens in Upkeep',
     'No people',
     'No teams',
@@ -216,6 +216,7 @@ test('[setup.steps.preview] previews summarize entered values, including raw inv
   ]);
   setup.mode = 'existing';
   (setup.state.militiaSnapshot as { rank: unknown }).rank = 'oops';
+  (setup.state.militiaSnapshot as { training: unknown }).training = null;
   setup.state.militiaSnapshot.treasuryCopper = 1234;
   setup.state.week = 12;
   setup.phase = 'event';
@@ -253,7 +254,7 @@ test('[setup.steps.preview] previews summarize entered values, including raw inv
   expect(
     SETUP_STEP_KEYS.map((key) => setupStepPreview(key, setup, [hero])),
   ).toEqual([
-    'Security · rank oops · training 0 · 12.34 gp',
+    'Security · rank oops · training — · 1234 copper',
     'Week 12 · day 0 · opens in Event',
     'Hero · 1 officer',
     'No teams',

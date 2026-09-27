@@ -13,6 +13,19 @@ warnings are advisory. Structural errors and foreign references block saving.
 The form uses React Hook Form and Zod with styled field errors, including
 separate missing-value and malformed-number messages.
 
+Setup at `/campaigns/<id>/setup` is one form presented as nine freely
+navigable steps (#172): Starting point, Week, People & officers, Teams,
+Settlements, Character conditions, Assets, Carried effects and Review & start.
+Moving between steps never validates or submits, and values stay in the form
+while a step is closed. Each step shows its status (errors, then warnings, then
+completion; Character conditions, Assets and Carried effects are optional for a
+New militia). Review lists warnings by step and, after a start attempt, a
+linked summary of blocking errors; only those errors block Start. Tablets show
+a step index beside one detail pane, phones one list of rows with one open, and
+desktops a wider index with previews. The step statuses, previews and summary
+lines are derived in `src/lib/setup-steps.ts`; the form controller is
+`src/components/militia-setup/use-guided-setup.ts`.
+
 Setup carries the roster and individual team conditions, character Hit Dice,
 officer assignments and managers, settlements, assets and orders, persistent
 event targets/order, queued effects, bonuses, buyoff bookkeeping and explicit
