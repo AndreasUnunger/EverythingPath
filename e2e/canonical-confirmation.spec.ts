@@ -310,7 +310,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       for (const page of [players.gm, players.player]) {
         await expect(page).toHaveURL(/\/campaigns\/[^/]+\/history\?week=1$/);
         await expect(
-          page.getByRole('heading', { name: 'Week 1 · History' }),
+          page.getByRole('heading', { level: 1, name: 'Week 1', exact: true }),
         ).toBeVisible();
         await expect(
           page
@@ -328,13 +328,21 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         ).toHaveCount(0);
       }
       await expect(
-        players.gm.getByRole('heading', { name: 'History correction' }),
+        players.gm.getByText(
+          "Read-only. Recorded when the week was confirmed. Corrections to a finished week aren't available yet.",
+        ),
       ).toBeVisible();
       await expect(
-        players.player.getByRole('heading', { name: 'History correction' }),
+        players.player.getByText(
+          "Read-only. Recorded when the week was confirmed. Corrections to a finished week aren't available yet.",
+        ),
       ).toBeVisible();
       await expect(
-        players.outsider.getByRole('heading', { name: 'Week 1 · History' }),
+        players.outsider.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toHaveCount(0);
       await expect(players.outsider.getByRole('main')).toContainText(
         "This campaign isn't available",
@@ -367,6 +375,15 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       await players.player.screenshot({
         path: join(run.artifactDirectory, 'canonical-history-phone.png'),
       });
+      await players.player.setViewportSize({ width: 1440, height: 900 });
+      expect(
+        await players.player.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await players.player.screenshot({
+        path: join(run.artifactDirectory, 'canonical-history-desktop.png'),
+      });
       await players.player.setViewportSize({ width: 1194, height: 834 });
       await literal.changeSource('treasury');
       await expect
@@ -378,35 +395,57 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
           .getByRole('region', { name: 'Final outcome' })
           .getByText('87', { exact: true }),
       ).toBeVisible();
-      await players.gm
-        .getByRole('button', { name: 'Confirmed week · Entry 1' })
-        .click();
+      // A single-entry week has no entries list; a direct record link still
+      // selects that immutable record and survives reload.
+      await players.gm.goto(
+        `${players.gm.url()}&recordId=${encodeURIComponent(record.recordId)}`,
+      );
       await expect
         .poll(() => new URL(players.gm.url()).searchParams.get('recordId'))
-        .toBeTruthy();
+        .toBe(record.recordId);
       const selectedHistory = players.gm.url();
       await players.gm.reload();
       await expect(players.gm).toHaveURL(selectedHistory);
       await expect(
-        players.gm.getByRole('button', { name: 'Confirmed week · Entry 1' }),
-      ).toHaveAttribute('aria-current', 'page');
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(players.gm.getByText(/Earlier entry/)).toHaveCount(0);
+      // The latest row replaces the old Latest finished week button.
       await players.gm
-        .getByRole('button', { name: 'Latest finished week', exact: true })
+        .getByRole('navigation', { name: 'Finished weeks' })
+        .getByRole('link', { name: /^Week 1\b/ })
         .click();
       await expect
         .poll(() => new URL(players.gm.url()).searchParams.has('recordId'))
         .toBe(false);
+      await expect(
+        players.gm
+          .getByRole('navigation', { name: 'Finished weeks' })
+          .getByRole('link', { name: /^Week 1\b/ }),
+      ).toHaveAttribute('aria-current', 'page');
       await players.gm.goBack();
       await expect(players.gm).toHaveURL(selectedHistory);
       await expect(
-        players.gm.getByRole('button', { name: 'Confirmed week · Entry 1' }),
-      ).toHaveAttribute('aria-current', 'page');
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
+      ).toBeVisible();
       await players.gm.goForward();
       await expect
         .poll(() => new URL(players.gm.url()).searchParams.has('recordId'))
         .toBe(false);
       await expect(
-        players.gm.getByRole('heading', { name: 'Week 1 · History' }),
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toBeVisible();
       await players.player
         .getByRole('link', { name: 'Return to current week' })
@@ -415,7 +454,11 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         players.player.getByRole('heading', { name: 'Week 2 · Upkeep' }),
       ).toBeVisible();
       await expect(
-        players.gm.getByRole('heading', { name: 'Week 1 · History' }),
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toBeVisible();
       await openCampaignSection(players.player, 'history');
       await expect(

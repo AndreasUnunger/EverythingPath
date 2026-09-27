@@ -67,12 +67,8 @@ const record: CanonicalResolutionRecord = {
 };
 test('[rules.P86.display] historical display uses recorded plans, context and table decisions with no editable controls', () => {
   const { container, rerender } = render(
-    <HistoricalRecordView record={record} effective />,
+    <HistoricalRecordView record={record} />,
   );
-  expect(
-    screen.getByRole('heading', { name: 'Week 11 · History' }),
-  ).toBeInTheDocument();
-  expect(screen.getByText('Ruleset 3')).toBeInTheDocument();
   expect(
     within(
       screen.getByRole('region', { name: 'Rules baseline plan' }),
@@ -106,12 +102,8 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
         supersedesRecordId: record.recordId,
         finalOutcome: { formatVersion: 1, data: { training: 12 } },
       }}
-      effective={false}
     />,
   );
-  expect(
-    screen.getByText('Earlier record · Audit history'),
-  ).toBeInTheDocument();
   expect(
     within(screen.getByRole('region', { name: 'Final outcome' })).queryByText(
       '87',
@@ -152,9 +144,7 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
       { code: 'recorded-warning', message: 'This is a recorded warning.' },
     ],
   };
-  const { container } = render(
-    <HistoricalRecordView record={annotated} effective />,
-  );
+  const { container } = render(<HistoricalRecordView record={annotated} />);
   expect(container.textContent).not.toContain('opaque-');
   expect(container.textContent).not.toContain('private-');
   expect(container.textContent).not.toContain('treasuryCopper');

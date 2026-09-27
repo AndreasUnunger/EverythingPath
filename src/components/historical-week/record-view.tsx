@@ -1,17 +1,12 @@
 import { Card } from '~/components/ui/card';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
 import { recordedLabels, RecordFacts } from './record-facts';
-export const provenanceLabels = {
-  confirmation: 'Confirmed week',
-  historical_reconstruction: 'Historical reconstruction',
-  historical_correction: 'Historical correction',
-};
+// The record's facts only; the Finished weeks pane owns its header (week,
+// provenance, date, Ruleset Version, earlier-entry status) and footer.
 export function HistoricalRecordView({
   record,
-  effective,
 }: {
   record: CanonicalResolutionRecord;
-  effective: boolean;
 }) {
   const names = recordedLabels(record);
   const sections = [
@@ -28,19 +23,6 @@ export function HistoricalRecordView({
   ] as const;
   return (
     <article className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-2xl">Week {record.source.week} · History</h1>
-        <p>
-          {effective ? 'Effective record' : 'Earlier record · Audit history'}
-        </p>
-        <p className="text-muted-foreground text-sm">
-          {provenanceLabels[record.provenance]} ·{' '}
-          <span>Ruleset {record.rulesetVersion}</span>
-        </p>
-        <p className="text-sm">
-          Read-only · Recorded when this week was resolved.
-        </p>
-      </header>
       <div className="grid items-start gap-4 md:grid-cols-2">
         {sections.map(([title, value]) => (
           <Card key={title} className="min-w-0 p-4">

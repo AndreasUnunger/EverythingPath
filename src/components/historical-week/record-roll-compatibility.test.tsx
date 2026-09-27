@@ -92,7 +92,7 @@ test('[rules.HIST-05.old-source] an older record shows its recorded individual d
       copper: 700,
     },
   );
-  const { container } = render(<HistoricalRecordView record={old} effective />);
+  const { container } = render(<HistoricalRecordView record={old} />);
   const source = screen.getByRole('region', {
     name: 'Recorded choices and week context',
   });
@@ -102,7 +102,6 @@ test('[rules.HIST-05.old-source] an older record shows its recorded individual d
   expect(within(source).queryByText('Dice total')).not.toBeInTheDocument();
   expect(within(source).getAllByText('Character 1').length).toBeGreaterThan(0);
   expect(within(source).getByText('700')).toBeInTheDocument();
-  expect(screen.getByText('Ruleset 5')).toBeInTheDocument();
   expect(container.querySelector('input, textarea, select, button')).toBeNull();
   expect(container.textContent).not.toContain('history-draft');
 });
@@ -117,9 +116,7 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
       copper: 250,
     },
   );
-  const { container } = render(
-    <HistoricalRecordView record={recent} effective />,
-  );
+  const { container } = render(<HistoricalRecordView record={recent} />);
   const source = screen.getByRole('region', {
     name: 'Recorded choices and week context',
   });
