@@ -16,7 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
+import { formatCharacterKind, listEditableKinds } from '~/lib/character-kind';
 import { type CharacterFormValues } from './types';
+
+const writtenKinds = ['pc', 'officer_npc'] as const;
 
 export function CharacterFormCard({
   form,
@@ -103,8 +106,14 @@ export function CharacterFormCard({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="border-primary bg-card border-2 font-mono">
-                        <SelectItem value="pc">PC</SelectItem>
-                        <SelectItem value="officer_npc">Officer NPC</SelectItem>
+                        {listEditableKinds(
+                          writtenKinds,
+                          form.formState.defaultValues?.kind,
+                        ).map((kind) => (
+                          <SelectItem key={kind} value={kind}>
+                            {formatCharacterKind(kind)}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -1,6 +1,7 @@
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
+import { listEditableKinds } from '~/lib/character-kind';
 import { TEAM_IDS, TEAM_STATUSES } from '~/lib/militia-domain';
 import type { MilitiaSetup } from '~/lib/canonical-setup';
 import {
@@ -10,6 +11,7 @@ import {
   choices,
   yesNo,
 } from './fields';
+const writtenKinds = ['pc', 'officer_npc', 'other_npc'] as const;
 export type SetupCharacter =
   MilitiaSetup['state']['militiaSnapshot']['characters'][number] & {
     name: string;
@@ -106,7 +108,7 @@ export function SetupRoster({
             <Field
               name={`state.militiaSnapshot.roster.people.${index}.kind`}
               label="Character kind"
-              options={choices(['pc', 'officer_npc', 'other_npc'])}
+              options={choices(listEditableKinds(writtenKinds, person.kind))}
             />
             <Field
               name={`state.militiaSnapshot.roster.people.${index}.hitDice`}

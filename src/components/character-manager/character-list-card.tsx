@@ -9,6 +9,7 @@ import {
 } from '~/components/ledger-table';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import { formatCharacterKind } from '~/lib/character-kind';
 import type { CharacterId, CharacterRecord } from './types';
 
 export function CharacterListCard({
@@ -81,7 +82,7 @@ export function CharacterListCard({
                   {formatStats(character)}
                 </LedgerTableCell>
                 <LedgerTableCell className="font-mono text-sm whitespace-nowrap">
-                  {character.kind === 'officer_npc' ? 'Officer NPC' : 'PC'}
+                  {formatCharacterKind(character.kind)}
                 </LedgerTableCell>
                 <LedgerTableActionCell>
                   <Button

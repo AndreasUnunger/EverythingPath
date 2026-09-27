@@ -1,5 +1,6 @@
 import teams from './militia-team-table';
 import type { CanonicalRoster } from './canonical-roster';
+import { toCurrentRulesManagerKind } from './character-kind';
 import type { FoundationCharacter } from './rules-officers';
 import {
   getTeamManagerCharismaBonus,
@@ -35,7 +36,7 @@ export function projectTeams(
       );
       if (!character) return [person.characterId, null];
       const maxTeams = getTeamManagerMaxTeams({
-        kind: person.kind,
+        kind: toCurrentRulesManagerKind(person.kind),
         charisma: character.charisma,
       });
       const managedTeams = roster.teams.filter(

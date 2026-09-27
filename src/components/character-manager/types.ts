@@ -1,5 +1,6 @@
 import type { Doc, Id } from '@convex/_generated/dataModel';
 import { z } from 'zod';
+import { characterRecordKindSchema } from '~/lib/character-kind';
 
 const integerField = (label: string) =>
   z.string().superRefine((raw, ctx) => {
@@ -22,7 +23,8 @@ const integerField = (label: string) =>
 export const characterFormSchema = z.object({
   name: z.string().trim().min(1, 'Character name is required').max(100),
   description: z.string().max(500),
-  kind: z.enum(['pc', 'officer_npc']),
+  // This form still writes PC or Officer NPC; a stored npc round-trips unchanged.
+  kind: characterRecordKindSchema,
   level: integerField('Level').refine((value) => Number(value) >= 1, {
     message: 'Level must be at least 1',
   }),
