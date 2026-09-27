@@ -199,7 +199,7 @@ export const workspace = query({
       .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
       .unique();
     if (
-      !draft ||
+      !draft?.draft ||
       !source ||
       draft.militiaId !== militia._id ||
       source.campaignId !== args.campaignId
@@ -223,6 +223,7 @@ export const workspace = query({
     return workspaceSourceSchema.parse({
       setupNotes: initialization?.setupNotes,
       key: { ...scope, draftId: draft.draftId },
+      week: draft.draft.week,
       sourceRevision: source.revision,
       snapshot: source.snapshot,
       people,

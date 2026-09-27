@@ -81,6 +81,7 @@ function fixture(options: { confirmable?: boolean } = {}): WorkspaceGateway & {
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot: {
       rank: 2,

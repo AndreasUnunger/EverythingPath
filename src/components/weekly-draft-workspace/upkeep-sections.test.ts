@@ -11,6 +11,7 @@ test('the skipped first week has no Upkeep sections to decide', () => {
   draft.context = { ...draft.context, firstMilitiaWeek: true };
   const source = workspaceSourceSchema.parse({
     key: { campaignId: 'campaign', militiaId: 'militia', draftId: 'draft' },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
@@ -51,6 +52,7 @@ function upkeep(
   arrange(draft, snapshot);
   const source = workspaceSourceSchema.parse({
     key: { campaignId: 'campaign', militiaId: 'militia', draftId: 'draft' },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [{ characterId: 'pc', name: 'Ameiko' }],

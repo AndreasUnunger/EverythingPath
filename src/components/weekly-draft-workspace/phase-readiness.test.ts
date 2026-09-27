@@ -17,6 +17,7 @@ function facts({ draft, snapshot } = upkeepFixture()) {
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
