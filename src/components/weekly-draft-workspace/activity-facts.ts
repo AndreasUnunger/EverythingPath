@@ -87,7 +87,8 @@ function teamFacts(
   ];
 }
 
-function sourceLabel(
+// Names a check modifier's source for its breakdown; Event checks share it.
+export function checkModifierLabel(
   modifier: string,
   context: {
     draft: WeeklyDraft;
@@ -494,7 +495,7 @@ function slotFacts({
     ? (actionChoiceRolls(choice).check?.modifiers ?? [])
     : [];
   const label = (modifier: string) =>
-    sourceLabel(modifier, { draft, source, helpfulName, recorded });
+    checkModifierLabel(modifier, { draft, source, helpfulName, recorded });
   return {
     ...structuredClone(slot),
     number: index + 1,

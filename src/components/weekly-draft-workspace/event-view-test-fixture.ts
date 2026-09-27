@@ -1,7 +1,10 @@
 import { eventTableFacts } from './event-tree-facts';
 import type { EventBlock, EventOccurrenceFacts, EventView } from './types';
 
-type Item = Omit<EventOccurrenceFacts, 'label'> & { label?: string };
+type Item = Omit<EventOccurrenceFacts, 'label' | 'panel'> & {
+  label?: string;
+  panel?: EventOccurrenceFacts['panel'];
+};
 export type EventFactsInput = Omit<
   EventView,
   | 'occurrences'
@@ -24,6 +27,7 @@ export function eventFacts(input: EventFactsInput): EventView {
   const occurrences = input.occurrences.map((item, index) => ({
     ...item,
     label: item.label ?? `Event ${index + 1}`,
+    panel: item.panel ?? null,
   }));
   const block = (item: EventOccurrenceFacts): EventBlock => {
     const choice = item.owner?.choice;

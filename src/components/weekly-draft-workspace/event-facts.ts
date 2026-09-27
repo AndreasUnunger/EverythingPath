@@ -13,7 +13,13 @@ import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
-import { activityView } from './activity-facts';
+import { activityView, checkModifierLabel } from './activity-facts';
+import { withoutDuplicateRollCodes } from './event-check-facts';
+import {
+  eventPanel,
+  eventPanelMessage,
+  type EventPanelContext,
+} from './event-target-facts';
 import { activityReferenceOptions } from './activity-input-options';
 import { activityLabel } from './activity-labels';
 import { eventRequirement, eventTopologyMessage } from './event-messages';
@@ -49,9 +55,10 @@ export function eventView(
   const positions = uniquePositions(projection?.positions ?? []);
   // Missing required positions show as stable blanks before they are saved.
   const plan = planEventTopology(draft, positions);
+  const activityFacts = activityView(draft, source, preview);
   const references = activityReferenceOptions(
     { choiceId: '', actionId: 'lie_low' },
-    activityView(draft, source, preview),
+    activityFacts,
   );
   const slotNumber = (slotId: string) =>
     draft.activity.slots.findIndex((slot) => slot.slotId === slotId) + 1;
@@ -127,6 +134,7 @@ export function eventView(
         projection?.selected.some((entry) => entry.eventId === event.eventId) ??
         false,
       negated: projection?.negatedEventIds.includes(event.eventId) ?? false,
+      panel: null,
       requirements:
         projection?.requirements.filter((key) =>
           prefixes.some((id) => key.startsWith(`${id}:`)),
@@ -149,6 +157,30 @@ export function eventView(
       eventTableFacts(item.occurrence.tableRoll).name;
     return name ? `${item.label} · ${name}` : item.label;
   };
+  // Event-specific controls, once every occurrence has its label.
+  const panelContext: EventPanelContext = {
+    draft,
+    projection,
+    activity,
+    teams: activityFacts.teamRoster,
+    personName: (characterId) =>
+      source.people.find((person) => person.characterId === characterId)
+        ?.name ?? null,
+    settlementName: (settlementId) =>
+      source.snapshot.settlements.find(
+        (town) => town.settlementId === settlementId,
+      )?.name ?? null,
+    eventLabel: label,
+    modifierLabel: (modifier, recorded) =>
+      checkModifierLabel(modifier, {
+        draft,
+        source,
+        helpfulName: null,
+        recorded: recorded?.modifiers ?? [],
+      }),
+  };
+  for (const item of tree.occurrences)
+    item.panel = eventPanel(item, panelContext);
   const settlement = draft.activity.operatingSettlementId
     ? projectSettlements(
         activity?.outcome.settlements ?? source.snapshot.settlements,
@@ -185,6 +217,12 @@ export function eventView(
       settlementName,
       preparationFailed: context.preparationFailed,
       warning: (projection?.warnings ?? []).includes(code),
+      detail: (eventId, tail, warning) => {
+        const panel = tree.occurrences.find(
+          (item) => item.occurrence.eventId === eventId,
+        )?.panel;
+        return panel ? eventPanelMessage(panel, tail, warning) : null;
+      },
     });
     if (message) messages[code] = message;
   }
@@ -462,7 +500,7 @@ export function eventView(
         label: label(occurrence.eventId),
       })),
     },
-    requirements: projection?.requirements ?? [],
+    requirements: withoutDuplicateRollCodes(projection?.requirements ?? []),
     warnings: projection?.warnings ?? [],
   };
 }

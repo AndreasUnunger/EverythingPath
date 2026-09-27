@@ -103,6 +103,37 @@ export async function exerciseEventWorkspace(
   await expect(table(player, '1.1')).toHaveValue('0');
   await table(gm, '1.1').fill('');
   await expect(table(player, '1.1')).toHaveValue('');
+  // Sickness (89–96) asks for its team on cards and for what happened; a
+  // choice on one device shows as chosen on the other.
+  await table(gm, '1.1').fill('90');
+  const sickTeam = (page: Page) =>
+    occurrence(page, '1.1').getByRole('group', {
+      name: /^Team that falls sick/,
+    });
+  const firstTeam = (page: Page) =>
+    sickTeam(page).getByRole('button', { pressed: false }).first();
+  const teamName = await firstTeam(player).getAttribute('aria-label');
+  await firstTeam(player).click();
+  await expect(
+    sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const happened = (page: Page) =>
+    occurrence(page, '1.1').getByRole('textbox', {
+      name: 'What happened',
+      exact: true,
+    });
+  await happened(gm).fill('The fever reached the camp.');
+  await occurrence(gm, '1.1')
+    .getByRole('button', { name: 'Save what happened', exact: true })
+    .click();
+  await expect(happened(player)).toHaveValue('The fever reached the camp.');
+  await occurrence(player, '1.1')
+    .getByRole('button', { name: 'Clear what happened', exact: true })
+    .click();
+  await sickTeam(player)
+    .getByRole('button', { name: 'Clear team that falls sick', exact: true })
+    .click();
+  await expect(happened(gm)).toHaveValue('');
   await table(gm, '1.1').fill('45');
   await expect(table(player, '1.1')).toHaveValue('45');
   const observer = await gm.context().newPage();
