@@ -9,6 +9,7 @@ import {
   eventCheck,
   eventDie,
   eventMitigationAttempted,
+  eventOfficerCheckExtras,
 } from './rules-event-checks';
 type Event = EventDispatch['event'];
 /** Sickness Twice: the team is lost unless the militia makes this Loyalty DC. */
@@ -17,6 +18,10 @@ export const SICKNESS_TWICE_LOYALTY_DC = 20;
 export const RAID_SECURITY_DC = 20;
 /** A hidden person's capture chance (percent) without and with mitigation. */
 export const RAID_CAPTURE_CHANCE = { unmitigated: 100, mitigated: 50 } as const;
+/** Turncoat Twice: the officer's Diplomacy DC that keeps the team. */
+export function turncoatDiplomacyDc(rank: number) {
+  return 10 + rank;
+}
 /** Invasion: the GM's random encounter is at CR `APL + 1`. */
 export function invasionChallengeRating(averagePartyLevel: number) {
   return averagePartyLevel + 1;
@@ -446,19 +451,14 @@ function resolveTurncoat(context: ThreatEventContext) {
   if (input.skillBonus === undefined)
     requireThreatInput(context, 'skill-bonus');
   if (raw === null || input.skillBonus === undefined) return true;
-  const modifiers = new Map(
-    (input.roll?.modifiers ?? [])
-      .filter(
-        (modifier) =>
-          !['skill', 'skill-bonus', 'charisma'].includes(modifier.sourceId),
-      )
-      .map((modifier) => [modifier.sourceId, modifier.value]),
-  );
   const total =
     raw +
     input.skillBonus +
-    [...modifiers.values()].reduce((sum, value) => sum + value, 0);
-  const dc = 10 + state.rank;
+    eventOfficerCheckExtras(input.roll).reduce(
+      (sum, extra) => sum + extra.value,
+      0,
+    );
+  const dc = turncoatDiplomacyDc(state.rank);
   const succeeded = total >= dc;
   result.plan.push({
     kind: 'event_officer_check',

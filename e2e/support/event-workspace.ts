@@ -148,6 +148,22 @@ export async function exerciseEventWorkspace(
   await expect(
     sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
   ).toHaveAttribute('aria-pressed', 'false');
+  // Theft (73–76): its optional mitigation is chosen on one device and its
+  // Loyalty check appears on the other. The GM's next roll waits for it, as
+  // it would otherwise save the occurrence without the choice.
+  await table(gm, '1.1').fill('74');
+  const attemptTheft = occurrence(player, '1.1').getByRole('button', {
+    name: 'Attempt it for Event 1.1',
+    exact: true,
+  });
+  await expect(attemptTheft).toHaveAttribute('aria-pressed', 'false');
+  await attemptTheft.click();
+  await expect(
+    occurrence(gm, '1.1').getByRole('textbox', {
+      name: 'Loyalty check',
+      exact: true,
+    }),
+  ).toBeEnabled();
   await table(gm, '1.1').fill('45');
   await expect(table(player, '1.1')).toHaveValue('45');
   const observer = await gm.context().newPage();

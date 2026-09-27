@@ -28,6 +28,10 @@ export type EventPanelContext = {
   modifierLabel: (source: string, recorded: RawRoll | undefined) => string;
 };
 
+// The militia's rank while the Event resolves.
+export const eventRank = (context: EventPanelContext) =>
+  context.activity?.outcome.rank ?? context.projection?.outcome.rank ?? 0;
+
 // The occurrence's own requirement codes, by the part after `<eventId>:`.
 export function codes(item: Item) {
   const id = item.occurrence.eventId;

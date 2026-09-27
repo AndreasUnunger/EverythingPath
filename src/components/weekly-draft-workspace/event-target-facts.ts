@@ -6,8 +6,15 @@ import {
   RAID_SECURITY_DC,
   SICKNESS_TWICE_LOYALTY_DC,
 } from '~/lib/rules-threat-events';
-import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import { eventCheckFacts } from './event-check-facts';
+import {
+  conditionWords,
+  firstOccurrence,
+  targetChoice,
+  teamChoice,
+  teamDescription,
+  teamName,
+} from './event-target-choice';
 import {
   codes,
   whatHappened,
@@ -20,11 +27,15 @@ import {
   outcomePanelMessage,
 } from './event-outcome-facts';
 import { eventChange } from './event-messages';
+import {
+  isRecurringFamily,
+  recurringPanel,
+  recurringPanelMessage,
+} from './event-recurring-facts';
 import type {
   ActivityTeamFact,
   EventPanel,
   EventRaidPerson,
-  EventRetainedTarget,
   EventTargetCard,
   EventTargetChoice,
 } from './types';
@@ -41,8 +52,9 @@ const TEAM_FAMILIES: readonly TeamFamily[] = [
 
 /**
  * The event-specific controls of one occurrence: Missing in Action,
- * Sickness, Turn Around and Raid, and the calm, morale, narrative and
- * training events (`event-outcome-facts.ts`). Other families return null and keep the
+ * Sickness, Turn Around and Raid, the calm, morale, narrative and training
+ * events (`event-outcome-facts.ts`), and the officer-check and
+ * persistent-producing events (`event-recurring-facts.ts`). Other families return null and keep the
  * general details editor until their own controls ship.
  */
 export function eventPanel(
@@ -51,132 +63,11 @@ export function eventPanel(
 ): EventPanel | null {
   const type = item.resolvedType;
   if (isOutcomeFamily(type)) return outcomePanel(item, type, context);
+  if (isRecurringFamily(type)) return recurringPanel(item, type, context);
   if (type === 'raid') return raidPanel(item, context);
   if (TEAM_FAMILIES.includes(type as TeamFamily))
     return teamPanel(item, type as TeamFamily, context);
   return null;
-}
-
-function teamName(context: EventPanelContext, teamId: string) {
-  return context.teams.find((team) => team.teamId === teamId)?.name ?? null;
-}
-
-const conditionWords: Record<string, string> = {
-  active: 'Active',
-  disabled: 'Disabled',
-  missing: 'Missing',
-};
-
-// The first occurrence of this event type when this one is its Twice.
-function firstOccurrence(item: Item, context: EventPanelContext) {
-  if (item.mode !== 'twice') return null;
-  const first = context.projection?.dispatch.find(
-    (entry) => entry.event.eventId === item.occurrence.eventId,
-  )?.firstEventId;
-  if (!first || first === item.occurrence.eventId) return null;
-  const event = [
-    ...context.draft.event.occurrences,
-    ...context.draft.activity.slots.flatMap((slot) =>
-      actionChoiceEvents(slot.choice),
-    ),
-  ].find((entry) => entry.eventId === first);
-  return {
-    eventId: first,
-    label: context.eventLabel(first),
-    teamIds:
-      event?.targets?.flatMap((target) =>
-        target.kind === 'team' ? [target.teamId] : [],
-      ) ?? [],
-  };
-}
-
-// One recorded target of a kind is the selection; any other recorded one
-// (a second target, or one no longer known) stays until cleared.
-export function targetChoice({
-  label,
-  hint,
-  required,
-  recorded,
-  choices,
-  name,
-  missing,
-}: {
-  label: string;
-  hint: string | null;
-  required: boolean;
-  recorded: string[];
-  choices: EventTargetCard[];
-  name: (value: string) => string | null;
-  // What a recorded target no longer known is called and why it stays.
-  missing: { label: string; reason: string };
-}): EventTargetChoice {
-  const [only] = recorded;
-  const known = (value: string) =>
-    choices.some((choice) => choice.value === value);
-  const selected =
-    recorded.length === 1 && only !== undefined && known(only) ? only : null;
-  const retained: EventRetainedTarget[] = recorded.flatMap((value) =>
-    value === selected
-      ? []
-      : [
-          known(value)
-            ? {
-                value,
-                label: name(value) ?? missing.label,
-                reason: `Only one is affected. Choose it, or clear this one.`,
-              }
-            : {
-                value,
-                label: name(value) ?? missing.label,
-                reason: missing.reason,
-              },
-        ],
-  );
-  return { label, hint, required, selected, choices, retained };
-}
-
-function teamChoice({
-  item,
-  context,
-  label,
-  hint,
-  required,
-  describe,
-}: {
-  item: Item;
-  context: EventPanelContext;
-  label: string;
-  hint: string | null;
-  required: boolean;
-  describe: (team: ActivityTeamFact) => (string | null | undefined)[];
-}): EventTargetChoice {
-  return targetChoice({
-    label,
-    hint,
-    required,
-    recorded:
-      item.occurrence.targets?.flatMap((target) =>
-        target.kind === 'team' ? [target.teamId] : [],
-      ) ?? [],
-    choices: context.teams.map((team) => ({
-      value: team.teamId,
-      label: team.name,
-      description: [
-        team.typeName && team.tier !== null
-          ? `${team.typeName} · tier ${team.tier}`
-          : team.typeName,
-        ...describe(team),
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    })),
-    name: (teamId) => teamName(context, teamId),
-    missing: {
-      label: 'A team no longer on the roster',
-      reason:
-        'This team is no longer on the roster. Clear it or choose another team.',
-    },
-  });
 }
 
 // Turn Around recovers every disabled team; only without one does a team
@@ -225,12 +116,7 @@ function teamPanel(
   const { has } = codes(item);
   const occurrence = item.occurrence;
   const first = firstOccurrence(item, context);
-  const used = new Set(context.activity?.teamUse.usedTeamIds ?? []);
-  const describe = (team: ActivityTeamFact) => [
-    used.has(team.teamId) ? 'Acted this week' : 'Did not act this week',
-    team.condition !== 'active' ? conditionWords[team.condition] : null,
-    first?.teamIds.includes(team.teamId) ? `Chosen in ${first.label}` : null,
-  ];
+  const describe = teamDescription(context, first);
   const sameAsFirst = first ? `The same team as ${first.label}.` : null;
   const team =
     eventType === 'turn_around'
@@ -508,6 +394,8 @@ export function eventPanelMessage(
 ): string | null {
   if (tail === 'acknowledgement') return 'record what happened.';
   if (panel.family === 'outcome') return outcomePanelMessage(panel, tail);
+  if (panel.family === 'recurring')
+    return recurringPanelMessage(panel, tail, warning);
   if (panel.family === 'team') {
     if (tail === 'team' || tail === 'same-team')
       return panel.team

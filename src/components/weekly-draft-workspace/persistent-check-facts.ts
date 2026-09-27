@@ -199,6 +199,21 @@ function personName(
   return name === '' ? fallback : name;
 }
 
+type Militia = Pick<Phases['event']['outcome'], 'characters' | 'roster'>;
+/**
+ * The militia's characters with the officer roles each holds, for an
+ * officer's own skill check in Event or Persistent.
+ */
+export function officerCandidateFacts(militia: Militia) {
+  return militia.characters.map((character) => ({
+    characterId: character.characterId,
+    roles: militia.roster.officers
+      .filter((officer) => officer.characterId === character.characterId)
+      .map((officer) => officerRoleLabels[officer.role] ?? officer.role),
+    archived: !character.isActive,
+  }));
+}
+
 // Characters who could make the officer check, as the Persistent phase
 // sees the militia, with their officer roles for context.
 function officerCandidates(
@@ -208,21 +223,16 @@ function officerCandidates(
   const outcome = context.phases?.event.outcome ?? context.source.snapshot;
   const name = (characterId: string) =>
     personName(context, characterId, 'Unnamed character');
-  const options = outcome.characters.map((character) => {
-    const roles = outcome.roster.officers
-      .filter((officer) => officer.characterId === character.characterId)
-      .map((officer) => officerRoleLabels[officer.role] ?? officer.role);
-    return {
-      value: character.characterId,
-      label: [
-        name(character.characterId),
-        roles.length ? roles.join(', ') : 'not an officer',
-        ...(character.isActive ? [] : ['archived']),
-      ].join(' · '),
-      officer: roles.length > 0,
-      available: true,
-    };
-  });
+  const options = officerCandidateFacts(outcome).map((character) => ({
+    value: character.characterId,
+    label: [
+      name(character.characterId),
+      character.roles.length ? character.roles.join(', ') : 'not an officer',
+      ...(character.archived ? ['archived'] : []),
+    ].join(' · '),
+    officer: character.roles.length > 0,
+    available: true,
+  }));
   // A recorded character no longer in the militia stays visible to repair.
   if (recordedId && !options.some((option) => option.value === recordedId))
     options.unshift({

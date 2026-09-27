@@ -4,7 +4,7 @@ import type { OrganizationCheck } from '~/lib/rules-officers';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { checkNames, eventCheckFacts } from './event-check-facts';
 import type { EventPanelContext } from './event-panel-context';
-import { targetChoice } from './event-target-facts';
+import { targetChoice } from './event-target-choice';
 import { eventName } from './event-tree-facts';
 import type {
   EventCheckFacts,

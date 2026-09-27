@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { EventEditResult, EventEdits } from './event-family-inputs';
 import { EventOutcomeInputs } from './event-outcome-inputs';
 import { EventRaidInputs } from './event-raid-inputs';
+import { EventRecurringInputs } from './event-recurring-inputs';
 import { EventTargetCards } from './event-target-cards';
 import { EventTeamInputs } from './event-team-inputs';
 import { EventWhatHappenedLine } from './event-what-happened';
@@ -28,12 +29,17 @@ export function EventFamilyPanel({
     setError(result ?? null);
   }
   const id = block.eventId;
-  function targetCards(kind: 'team' | 'settlement', choice: EventTargetChoice) {
+  function targetCards(
+    kind: 'team' | 'settlement',
+    choice: EventTargetChoice,
+    subject?: string,
+  ) {
     const set = (ids: readonly string[]) =>
       showRefusal(edits.setTargets(id, kind, ids));
     return (
       <EventTargetCards
         choice={choice}
+        subject={subject}
         disabled={disabled}
         onSelect={(value) => set([value])}
         onClear={() => set([])}
@@ -48,7 +54,9 @@ export function EventFamilyPanel({
       />
     );
   }
-  const outcome = panel.family === 'outcome' ? panel : null;
+  // Outcome and recurring panels carry rules notes and may be partial.
+  const detail =
+    panel.family === 'outcome' || panel.family === 'recurring' ? panel : null;
   return (
     <div className="min-w-0 space-y-4">
       {panel.family === 'outcome' ? (
@@ -69,6 +77,16 @@ export function EventFamilyPanel({
           showRefusal={showRefusal}
           targetCards={targetCards}
         />
+      ) : panel.family === 'recurring' ? (
+        <EventRecurringInputs
+          panel={panel}
+          id={id}
+          disabled={disabled}
+          edits={edits}
+          showRefusal={showRefusal}
+          targetCards={targetCards}
+          subject={block.label}
+        />
       ) : (
         <EventRaidInputs
           panel={panel}
@@ -84,7 +102,7 @@ export function EventFamilyPanel({
           {error}
         </p>
       )}
-      {outcome?.partial && (
+      {detail?.partial && (
         <p className="text-muted-foreground min-w-0 text-xs [overflow-wrap:anywhere]">
           So far. More follows once the inputs above are in.
         </p>
@@ -104,7 +122,7 @@ export function EventFamilyPanel({
           ))}
         </ul>
       )}
-      {outcome?.notes.map((note) => (
+      {detail?.notes.map((note) => (
         <p
           key={note}
           className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]"

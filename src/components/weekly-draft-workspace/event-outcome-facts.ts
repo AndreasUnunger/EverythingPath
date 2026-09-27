@@ -1,4 +1,7 @@
-import { highMoraleEndingCount } from '~/lib/rules-recurring-events';
+import {
+  highMoraleEndingCount,
+  RIVALRY_OFFICER_DC,
+} from '~/lib/rules-recurring-events';
 import {
   uneventfulCarryBlockers,
   type EventDispatch,
@@ -8,14 +11,16 @@ import { invasionChallengeRating } from '~/lib/rules-threat-events';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import {
   codes,
+  eventRank,
   whatHappened,
   type EventPanelContext,
   type EventPanelItem,
 } from './event-panel-context';
 import { eventChange } from './event-messages';
+import { teamName } from './event-target-choice';
 import { eventName } from './event-tree-facts';
 import { orderCarriedEvents, ordinal } from './persistent-sections';
-import { plural } from './week-frame/reference-copy';
+import { formatGold, plural } from './week-frame/reference-copy';
 import type {
   EventEndingChoice,
   EventOutcomeFamily,
@@ -89,8 +94,13 @@ export function uneventfulCarryText(
     : 'Not an uneventful week: no chance bonus next week.';
 }
 
-// "Next week (week 41)": when a queued effect or benefit applies.
-function weekPhrase(draft: WeeklyDraft, week: number) {
+// "Next week (week 41)": when a queued effect or benefit applies. An effect
+// lasting from this week to the next reads "This week and next (weeks 40–41)".
+function weekPhrase(draft: WeeklyDraft, week: number, until = week) {
+  if (until > week)
+    return week === draft.week && until === draft.week + 1
+      ? `This week and next (weeks ${week}–${until})`
+      : `Weeks ${week}–${until}`;
   if (week === draft.week + 1) return `Next week (week ${week})`;
   if (week === draft.week) return `This week (week ${week})`;
   return `Week ${week}`;
@@ -117,14 +127,25 @@ const bonusTypeNames: Record<string, string> = {
 const multiplied = (value: number) =>
   value === 2 ? 'doubled' : `multiplied by ${value}`;
 
+const actionNames: Record<string, string> = { secure_cache: 'Secure Cache' };
+
 // One queued effect other than a check modifier, as an outcome line.
 function queuedLine(
   change: Extract<Change, { kind: 'event_queue' }>,
-  draft: WeeklyDraft,
+  context: EventPanelContext,
 ) {
+  const draft = context.draft;
   const effect = change.effect.effect;
-  const when = weekPhrase(draft, change.effect.startsWeek);
+  const when = weekPhrase(
+    draft,
+    change.effect.startsWeek,
+    change.effect.endsWeek,
+  );
   switch (effect.kind) {
+    case 'block_action':
+      return `${when}: ${actionNames[effect.actionId] ?? 'This action'} cannot be used in Activity.`;
+    case 'team_unavailable':
+      return `${when}: ${teamOr(context, effect.teamId)} cannot act in Activity.`;
     case 'all_is_calm':
       return `${when} is calm: no event-chance roll and no rolled event, and it does not count as uneventful.`;
     case 'automatic_events':
@@ -138,10 +159,11 @@ function queuedLine(
   }
 }
 
-// Queued check modifiers of one week and value, read as one line.
+// Queued check modifiers of one span of weeks and value, read as one line.
 type CheckGroup = {
   kind: 'checks';
   week: number;
+  until: number;
   value: number;
   checks: Check[];
 };
@@ -150,15 +172,45 @@ function checkGroupLine(group: CheckGroup, draft: WeeklyDraft) {
   const names = ALL_CHECKS.every((check) => group.checks.includes(check))
     ? 'all organization checks'
     : `${group.checks.map((check) => checkNames[check]).join(', ')} checks`;
-  return `${weekPhrase(draft, group.week)}: ${names} ${signed(group.value)}.`;
+  return `${weekPhrase(draft, group.week, group.until)}: ${names} ${signed(group.value)}.`;
+}
+
+const teamOr = (context: EventPanelContext, teamId: string) =>
+  teamName(context, teamId) ?? 'A team no longer on the roster';
+
+// What a carried event does each week while it lasts.
+function persistentEffect(event: Carried, context: EventPanelContext) {
+  switch (event.eventType) {
+    case 'low_morale':
+      return 'Loyalty checks −2 every week while it lasts.';
+    case 'double_agent':
+      return 'Secrecy checks −2 and no Secure Cache in Activity every week while it lasts.';
+    case 'theft':
+      return 'Half of all incoming treasury gains are lost every week until a successful Reduce Danger.';
+    case 'rivalry': {
+      const teams = event.targets.flatMap((target) =>
+        target.kind === 'team' ? [teamOr(context, target.teamId)] : [],
+      );
+      return `${teams.length ? teams.join(' and ') : 'The two teams'} cannot act in Activity until an officer succeeds at DC ${RIVALRY_OFFICER_DC} Bluff, Diplomacy or Intimidate.`;
+    }
+    default:
+      return null;
+  }
+}
+
+// "Theft becomes persistent from week 14 (1st that week). Half of …"
+function persistentLine(event: Carried, context: EventPanelContext) {
+  const effect = persistentEffect(event, context);
+  return `${eventName(event.eventType) ?? 'The event'} becomes persistent from week ${event.startedWeek} (${ordinal(event.order + 1)} that week).${effect ? ` ${effect}` : ''}`;
 }
 
 // One change as an outcome line, or null when it has none of its own.
 function changeLine(
   change: Change,
-  draft: WeeklyDraft,
+  context: EventPanelContext,
   carriedName: (eventId: string) => string,
 ) {
+  const draft = context.draft;
   switch (change.kind) {
     case 'event_acknowledgement':
       return null;
@@ -177,7 +229,15 @@ function changeLine(
       return `${weekPhrase(draft, benefit.startsWeek)}: PCs gain ${signed(benefit.value)}${type ? ` ${type}` : ''} on ${skills}${benefit.afterDark ? ' after dark' : ''}.`;
     }
     case 'event_queue':
-      return queuedLine(change, draft);
+      return queuedLine(change, context);
+    case 'event_persistent':
+      return persistentLine(change.event, context);
+    case 'event_treasury':
+      return `Treasury ${change.retainedPercent === 50 ? 'halved' : `loses ${100 - change.retainedPercent}%`}: ${formatGold(change.before)} → ${formatGold(change.after)}.`;
+    case 'event_officer_check':
+      return `${context.personName(change.characterId) ?? 'The officer'}’s ${skillNames[change.skill] ?? 'skill'} check: ${change.total} against DC ${change.dc}, ${change.succeeded ? 'success' : 'failure'}.`;
+    case 'event_team_loss':
+      return `${teamOr(context, change.teamId)} defects and is lost.`;
     default:
       return eventChange(change);
   }
@@ -188,9 +248,9 @@ function changeLine(
  * them. Queued check modifiers of one week and value read as one line, and
  * all three organization checks as "all organization checks".
  */
-function outcomeLines(
+export function outcomeLines(
   changes: readonly Change[],
-  draft: WeeklyDraft,
+  context: EventPanelContext,
   carriedName: (eventId: string) => string,
 ): string[] {
   const entries: (string | CheckGroup)[] = [];
@@ -199,23 +259,25 @@ function outcomeLines(
       change.kind === 'event_queue' &&
       change.effect.effect.kind === 'check_modifier'
     ) {
-      const { startsWeek: week } = change.effect;
+      const { startsWeek: week, endsWeek: until } = change.effect;
       const { check, value } = change.effect.effect;
       const group = entries.find(
         (entry): entry is CheckGroup =>
           typeof entry !== 'string' &&
           entry.week === week &&
+          entry.until === until &&
           entry.value === value,
       );
       if (group) group.checks.push(check);
-      else entries.push({ kind: 'checks', week, value, checks: [check] });
+      else
+        entries.push({ kind: 'checks', week, until, value, checks: [check] });
       continue;
     }
-    const line = changeLine(change, draft, carriedName);
+    const line = changeLine(change, context, carriedName);
     if (line) entries.push(line);
   }
   return entries.map((entry) =>
-    typeof entry === 'string' ? entry : checkGroupLine(entry, draft),
+    typeof entry === 'string' ? entry : checkGroupLine(entry, context.draft),
   );
 }
 
@@ -357,9 +419,8 @@ export function outcomePanel(
   const carriedName = carriedNames(context);
   const isCalm =
     eventType === 'all_is_calm' || eventType === 'calm_before_the_storm';
-  const rank =
-    context.activity?.outcome.rank ?? context.projection?.outcome.rank ?? 0;
-  const lines = outcomeLines(item.changes, context.draft, carriedName);
+  const rank = eventRank(context);
+  const lines = outcomeLines(item.changes, context, carriedName);
   const level = item.occurrence.averagePartyLevel ?? null;
   return {
     family: 'outcome',
@@ -388,13 +449,22 @@ export function outcomePanel(
         ? ['No event this week.', ...lines]
         : lines,
     partial: item.requirements.some((code) => code.startsWith(`${id}:`)),
-    retained: retainedFields(item.occurrence, eventType, context, carriedName),
+    retained: retainedFields(
+      item.occurrence,
+      {
+        targets: eventType === 'high_morale' ? ['event'] : [],
+        rolls: [],
+        fields: eventType === 'invasion' ? ['averagePartyLevel'] : [],
+      },
+      context,
+      carriedName,
+    ),
   };
 }
 
 // Carried events by identity, including ones this week makes persistent:
 // "Theft (since week 9)".
-function carriedNames(context: EventPanelContext) {
+export function carriedNames(context: EventPanelContext) {
   const created = (context.projection?.plan ?? []).flatMap((change) =>
     change.kind === 'event_persistent' ? [change] : [],
   );
@@ -583,7 +653,10 @@ const personOr = (context: EventPanelContext, characterId: string) =>
 // Each field an outcome event never uses: its label and recorded value, or
 // null when nothing is recorded.
 const RETAINED: {
-  field: Exclude<EventRetainedField['field'], 'targets' | 'averagePartyLevel'>;
+  field: Exclude<
+    EventRetainedField['field'],
+    'targets' | 'averagePartyLevel' | 'rolls'
+  >;
   label: string;
   value: (occurrence: Occurrence, context: EventPanelContext) => string | null;
 }[] = [
@@ -596,16 +669,6 @@ const RETAINED: {
         : mitigation === 'attempted'
           ? 'Attempt it'
           : 'Let it happen',
-  },
-  {
-    field: 'rolls',
-    label: 'Rolls',
-    value: ({ rolls }) =>
-      rolls && Object.keys(rolls).length
-        ? Object.keys(rolls)
-            .map((name) => `${rollNames[name] ?? 'other'} roll`)
-            .join(', ')
-        : null,
   },
   {
     field: 'officerCheck',
@@ -655,15 +718,28 @@ const RETAINED: {
   },
 ];
 
+/** What an event family reads from its occurrence; the rest is retained. */
+export type EventFieldUse = {
+  // Target kinds the event reads (High Morale's ended `event` targets).
+  targets: readonly Target['kind'][];
+  // Named rolls the event reads (Theft's `check`, Turncoat's `loss`).
+  rolls: readonly string[];
+  // Other occurrence fields the event reads.
+  fields: readonly EventRetainedField['field'][];
+};
+
 // Recorded inputs the event does not use, listed so each can be cleared.
-function retainedFields(
+export function retainedFields(
   occurrence: Occurrence,
-  eventType: EventOutcomeFamily,
+  uses: EventFieldUse,
   context: EventPanelContext,
   carriedName: (eventId: string) => string,
 ): EventRetainedField[] {
   const unusedTargets = (occurrence.targets ?? []).filter(
-    (target) => !(eventType === 'high_morale' && target.kind === 'event'),
+    (target) => !uses.targets.includes(target.kind),
+  );
+  const unusedRolls = Object.keys(occurrence.rolls ?? {}).filter(
+    (name) => !uses.rolls.includes(name),
   );
   return [
     ...(unusedTargets.length
@@ -677,7 +753,8 @@ function retainedFields(
           },
         ]
       : []),
-    ...(eventType !== 'invasion' && occurrence.averagePartyLevel !== undefined
+    ...(!uses.fields.includes('averagePartyLevel') &&
+    occurrence.averagePartyLevel !== undefined
       ? [
           {
             field: 'averagePartyLevel' as const,
@@ -686,7 +763,19 @@ function retainedFields(
           },
         ]
       : []),
+    ...(unusedRolls.length
+      ? [
+          {
+            field: 'rolls' as const,
+            label: 'Rolls',
+            value: unusedRolls
+              .map((name) => `${rollNames[name] ?? 'other'} roll`)
+              .join(', '),
+          },
+        ]
+      : []),
     ...RETAINED.flatMap(({ field, label, value }) => {
+      if (uses.fields.includes(field)) return [];
       const recorded = value(occurrence, context);
       return recorded === null ? [] : [{ field, label, value: recorded }];
     }),

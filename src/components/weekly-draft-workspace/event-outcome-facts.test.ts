@@ -577,7 +577,7 @@ test('[EVT-07.outcome-edits] endings, party level and retained clears save the w
   ];
   const next = facts(draft, snapshot).view;
   const edits = renderHook(() => useEventEdits(next, edit)).result.current;
-  edits.clearRetained('event', 'targets', ['event']);
+  edits.clearRetained('event', 'targets', { targets: ['event'] });
   expect(last().occurrence.targets).toEqual([
     { kind: 'event', eventId: 'one' },
   ]);
