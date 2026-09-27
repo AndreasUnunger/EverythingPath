@@ -42,6 +42,7 @@ export default class SafeReporter implements Reporter {
     failureIdentity: string;
     project: string;
     journey: string;
+    workerKey: string | null;
     status: string;
     retry: number;
     duration: number;
@@ -64,13 +65,23 @@ export default class SafeReporter implements Reporter {
               '',
             ),
           );
+    const runFile = process.env.E2E_RUN_FILE;
+    if (!runFile) throw new Error('Missing E2E run declaration');
+    const run = runSchema.parse(JSON.parse(readFileSync(runFile, 'utf8')));
+    const project = test.parent.project()?.name ?? 'unknown';
+    // Authentication prepares every cohort; each journey uses its worker's.
+    const workerKey =
+      project === 'authentication'
+        ? null
+        : (run.fixture?.workers[result.parallelIndex]?.key ?? null);
     this.results.push({
       failureIdentity: createHash('sha256')
         .update(this.failedSteps.get(test.id) ?? 'runner-or-fixture')
         .digest('hex')
         .slice(0, 20),
-      project: test.parent.project()?.name ?? 'unknown',
+      project,
       journey,
+      workerKey,
       status: result.status,
       retry: result.retry,
       duration: result.duration,
@@ -84,9 +95,6 @@ export default class SafeReporter implements Reporter {
     // onTestEnd is synchronous in Playwright's reporter protocol. Checkpoint
     // before announcing completion so an outer deadline cannot erase the first
     // failed attempt. Only onEnd can produce an aggregate passing report.
-    const runFile = process.env.E2E_RUN_FILE;
-    if (!runFile) throw new Error('Missing E2E run declaration');
-    const run = runSchema.parse(JSON.parse(readFileSync(runFile, 'utf8')));
     mkdirSync(run.artifactDirectory, { recursive: true });
     const checkpoint = join(run.artifactDirectory, 'progress.json');
     writeFileSync(
@@ -99,7 +107,7 @@ export default class SafeReporter implements Reporter {
     );
     renameSync(`${checkpoint}.tmp`, checkpoint);
     process.stdout.write(
-      `${result.status}: ${test.parent.project()?.name}: ${journey} (attempt ${result.retry + 1})\n`,
+      `${result.status}: ${project}: ${journey} (attempt ${result.retry + 1}${workerKey ? `, ${workerKey}` : ''})\n`,
     );
   }
   async onEnd(result: FullResult) {
