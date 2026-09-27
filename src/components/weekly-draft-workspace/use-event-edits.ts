@@ -80,12 +80,6 @@ export function useEventEdits(
         const { tableRoll: _previous, ...rest } = occurrence;
         saveOccurrence(roll ? { ...rest, tableRoll: roll } : rest);
       },
-      /** Removes an empty surplus position through its existing tree edit. */
-      removeSurplus(eventId: string) {
-        const block = blocks.get(eventId);
-        if (block?.saved && block.removal && !block.item.occurrence.tableRoll)
-          edit(block.removal);
-      },
       /** Replaces the table roll's extra modifiers; provenance and dice stay. */
       setTableModifiers(eventId: string, modifiers: TableModifier[]) {
         const occurrence = current(eventId);

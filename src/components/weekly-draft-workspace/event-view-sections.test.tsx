@@ -173,6 +173,10 @@ test('[EVT-13.repair] clearing the roll of an otherwise empty surplus root remov
     <EventView view={facts(draft, snapshot)} edit={edit} disabled={false} />,
   );
   expect(within(group('Event 2')).getByText('Needs repair')).toBeVisible();
+  // Repair is by clearing; there is no separate remove control.
+  expect(
+    screen.queryByRole('button', { name: /Remove extra Event/ }),
+  ).toBeNull();
   fireEvent.change(
     screen.getByRole('textbox', { name: 'Event 2 table roll' }),
     { target: { value: '' } },

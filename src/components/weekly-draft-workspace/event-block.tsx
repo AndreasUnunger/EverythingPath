@@ -175,17 +175,6 @@ export function EventBlock({
       )}
       {/* A position still being readied asks for nothing yet. */}
       {block.saved && <EventIssueNotes issues={block.issues} />}
-      {block.removal && !block.item.occurrence.tableRoll && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={locked}
-          onClick={() => edits.removeSurplus(block.eventId)}
-        >
-          Remove extra Event {block.number}
-        </Button>
-      )}
       {block.status !== 'preparing' && (
         <EventOccurrenceEditors
           block={block}
