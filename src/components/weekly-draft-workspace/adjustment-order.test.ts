@@ -8,7 +8,7 @@ const adjustment = (adjustmentId: string) => ({
   reason: `Reason ${adjustmentId}`,
 });
 
-test('[rules.P85.order] moving swaps one neighbour and keeps every other adjustment intact', () => {
+test('[rules.P85.order-swap] moving swaps one neighbour and keeps every other adjustment intact', () => {
   const list = ['a', 'b', 'c'].map(adjustment);
   expect(moveAdjustment(list, 1, -1).map((a) => a.adjustmentId)).toEqual([
     'b',

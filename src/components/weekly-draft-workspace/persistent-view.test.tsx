@@ -159,7 +159,30 @@ test('[PER-05.buyoff] Buy off sends the amount-free decision and shows the rules
   });
 });
 
-test('[PER-05.legacy] a saved legacy amount is kept, never edited, and the removed controls are gone', () => {
+test('[rules.P84.decisions] per-instance choices preserve identity and stage the amount-free buyoff and check decisions', () => {
+  // #167 retired the prefilled buyoff amount: Buy off stages the decision
+  // alone and Confirmation deducts the rules cost.
+  const { edit } = show([theft, rivalry]);
+  expect(group('Rivalry · Event 1')).toHaveTextContent('Scouts & Rangers');
+  fireEvent.click(card('Rivalry · Event 1', 'Buy off · 40 gp'));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'persistent_decision',
+    decision: { kind: 'buyoff', eventId: 'rivalry' },
+  });
+  fireEvent.click(card('Rivalry · Event 1', 'Officer check to end it'));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'persistent_decision',
+    decision: { kind: 'mitigate', eventId: 'rivalry' },
+  });
+  fireEvent.click(card('Theft · Event 2', 'Loyalty check (this week only)'));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'persistent_decision',
+    decision: { kind: 'mitigate', eventId: 'theft' },
+  });
+  expect(edit).toHaveBeenCalledTimes(3);
+});
+
+test('[PER-05.legacy] [rules.P84.legacy-amount] a saved legacy amount is kept, never edited, and the removed controls are gone', () => {
   const { edit } = show([
     {
       ...rivalry,
@@ -190,7 +213,7 @@ test('[PER-09.leave] Leave it is the deliberate reset of this event only', () =>
   });
 });
 
-test('[PER-06.local] Ended at the table stays local until a nonempty outcome is saved', async () => {
+test('[PER-06.local] [rules.P84.ending] Ended at the table stays local until a nonempty outcome is saved', async () => {
   const edit = accepted();
   const saved = {
     ...theft,

@@ -120,7 +120,7 @@ function legacy(
 
 const known = { beforeRecorded: true, finalRecorded: true };
 
-test('[rules.P86.history] headlines take the first two known changes in family order from stored before and final facts', () => {
+test('[rules.P86.headline-order] headlines take the first two known changes in family order from stored before and final facts', () => {
   const record = formatTwo((after) => {
     after.focus = 'Security';
     after.notoriety = 4;
@@ -172,7 +172,7 @@ test('[rules.P86.history] headlines take the first two known changes in family o
   ]);
 });
 
-test('[rules.P86.history] team additions, removals and conditions use recorded names in recorded order', () => {
+test('[rules.P86.headline-teams] team additions, removals and conditions use recorded names in recorded order', () => {
   const record = formatTwo((after) => {
     after.roster.teams = [
       team('ash', 'Ash', 'disabled'),
@@ -215,7 +215,7 @@ test('[rules.P86.history] team additions, removals and conditions use recorded n
   ]);
 });
 
-test('[rules.P86.history] settlement reputation precedes persistent-event changes, which use numbered labels', () => {
+test('[rules.P86.headline-families] settlement reputation precedes persistent-event changes, which use numbered labels', () => {
   const record = formatTwo(
     (after) => {
       after.settlements = [settlement('town', 'Phaendar', 'Helpful')];
@@ -272,7 +272,7 @@ test('[rules.P86.history] settlement reputation precedes persistent-event change
   ]);
 });
 
-test('[rules.P86.history] known changes lead outcomes whose starting value was not recorded', () => {
+test('[rules.P86.headline-unknown-start] known changes lead outcomes whose starting value was not recorded', () => {
   const { sourceMilitiaSnapshot: _omitted, ...withoutSnapshot } = formatTwo(
     () => undefined,
     { before: [event('storm')] },
@@ -288,7 +288,7 @@ test('[rules.P86.history] known changes lead outcomes whose starting value was n
   ]);
 });
 
-test('[rules.P86.history] unchanged records and records without comparable facts have no headlines', () => {
+test('[rules.P86.headline-none] unchanged records and records without comparable facts have no headlines', () => {
   expect(projectHeadlineFacts(formatTwo(() => undefined))).toEqual([]);
   expect(projectHeadlineFacts(legacy({}))).toEqual([]);
   expect(projectHeadlineFacts(legacy({ note: 'Recorded by hand' }))).toEqual(
@@ -299,7 +299,7 @@ test('[rules.P86.history] unchanged records and records without comparable facts
   ).toEqual([]);
 });
 
-test('[rules.P86.history] legacy outcomes compare with a recorded source snapshot and otherwise mark the starting value unavailable', () => {
+test('[rules.P86.headline-legacy] legacy outcomes compare with a recorded source snapshot and otherwise mark the starting value unavailable', () => {
   const { snapshot } = upkeepFixture();
   expect(
     projectHeadlineFacts(legacy({ training: 12, rank: 3 }, snapshot)),
@@ -341,7 +341,7 @@ test('[rules.P86.history] legacy outcomes compare with a recorded source snapsho
   ]);
 });
 
-test('[rules.P86.history] the final outcome takes precedence over plan-after, which fills in only when the outcome holds no militia facts', () => {
+test('[rules.P86.headline-final] the final outcome takes precedence over plan-after, which fills in only when the outcome holds no militia facts', () => {
   const changed = formatTwo((after) => {
     after.training = 20;
   });

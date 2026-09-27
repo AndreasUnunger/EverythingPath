@@ -401,7 +401,7 @@ async function creationTimes(t: Harness['t']) {
   return new Map(rows.map((row) => [row.recordId, row._creationTime]));
 }
 
-test('[rules.P86.history] finished-week listing returns distinct effective weeks latest-first with dates, chain counts and compact headlines', async () => {
+test('[rules.P86.listing] finished-week listing returns distinct effective weeks latest-first with dates, chain counts and compact headlines', async () => {
   const harness = await setup();
   const { t, record } = harness;
   vi.setSystemTime(Date.UTC(2030, 0, 1));
@@ -477,7 +477,7 @@ test('[rules.P86.history] finished-week listing returns distinct effective weeks
   });
 });
 
-test('[rules.P86.navigation] selectedWeek metadata is exact and independent of the listed window', async () => {
+test('[rules.P86.listing-selected] selectedWeek metadata is exact and independent of the listed window', async () => {
   const harness = await setup();
   await reconstruct(harness, [3, 5, 9]);
   await correct(harness, 1, 2);
@@ -496,7 +496,7 @@ test('[rules.P86.navigation] selectedWeek metadata is exact and independent of t
     expect((await listFor(harness, { selectedWeek })).selected).toBeNull();
 });
 
-test('[rules.P86.history] listing pages more than fifty sparse weeks without duplicates or loss, skipping whole correction chains', async () => {
+test('[rules.P86.listing-pages] listing pages more than fifty sparse weeks without duplicates or loss, skipping whole correction chains', async () => {
   const harness = await setup();
   const recorded = Array.from({ length: 60 }, (_, index) => 3 + index * 2);
   await reconstruct(harness, recorded);
@@ -525,7 +525,7 @@ test('[rules.P86.history] listing pages more than fifty sparse weeks without dup
   }
 });
 
-test('[rules.P86.navigation] listing rejects malformed selectors', async () => {
+test('[rules.P86.listing-selectors] listing rejects malformed selectors', async () => {
   const harness = await setup();
   for (const args of [
     { limit: 0 },
@@ -549,7 +549,7 @@ test('[rules.P86.navigation] listing rejects malformed selectors', async () => {
   });
 });
 
-test('[rules.P86.authority] listing requires membership and stays within the campaign and militia', async () => {
+test('[rules.P86.listing-authority] listing requires membership and stays within the campaign and militia', async () => {
   const harness = await setup();
   const { t, gm, key, record } = harness;
   const args = { campaignId: key.campaignId, limit: 3 };
@@ -642,7 +642,7 @@ test('[rules.P86.authority] listing requires membership and stays within the cam
   );
 });
 
-test('[rules.P86.history] read adds document creation dates to the selected record and each audit entry', async () => {
+test('[rules.P86.record-dates] read adds document creation dates to the selected record and each audit entry', async () => {
   const harness = await setup();
   const { t, player, key, record } = harness;
   vi.setSystemTime(Date.UTC(2030, 0, 3));

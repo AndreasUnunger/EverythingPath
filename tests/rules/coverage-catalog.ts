@@ -7430,9 +7430,14 @@ export const coverageCatalog = {
             'rules.P85.review',
             'rules.P85.rereview',
             'rules.P85.failed-save',
+            'rules.P85.outcome-sources',
+            'rules.P85.order-swap',
           ],
           gap: null,
         },
+        // P84.copper retired by #167: the recorded buyoff amount and its input
+        // were removed; Buy off stages an amount-free decision at the rules
+        // cost, and P84.legacy-amount keeps a saved legacy amount read-only.
         {
           id: 'persistent-preparation',
           checkpoint: '7-workspace',
@@ -7443,7 +7448,7 @@ export const coverageCatalog = {
             'rules.P84.decisions',
             'rules.P84.ending',
             'rules.P84.officer',
-            'rules.P84.copper',
+            'rules.P84.legacy-amount',
             'rules.P81.eligibility',
           ],
           tests: [
@@ -7451,7 +7456,7 @@ export const coverageCatalog = {
             'rules.P84.decisions',
             'rules.P84.ending',
             'rules.P84.officer',
-            'rules.P84.copper',
+            'rules.P84.legacy-amount',
             'rules.P81.eligibility',
           ],
           gap: null,
@@ -7505,7 +7510,12 @@ export const coverageCatalog = {
             'rules.P82.declared-references',
             'rules.P82.provenance',
           ],
-          tests: ['rules.P82.workspace', 'rules.P82.cards', 'rules.P82.nested'],
+          tests: [
+            'rules.P82.workspace',
+            'rules.P82.cards',
+            'rules.P82.replace',
+            'rules.P82.nested',
+          ],
           gap: null,
         },
         {
@@ -7960,6 +7970,7 @@ export const coverageCatalog = {
           plannedTests: ['rules.P10.gm'],
           tests: [
             'rules.P86.authority',
+            'rules.P86.listing-authority',
             'rules.P86.controls',
             'setup.authority',
           ],
@@ -8039,6 +8050,8 @@ export const coverageCatalog = {
           tests: [
             'storage.history',
             'rules.P86.history',
+            'rules.P86.listing',
+            'rules.P86.listing-pages',
             'rules.P86.navigation',
             'rules.P86.controls',
           ],

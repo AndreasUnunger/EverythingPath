@@ -119,7 +119,7 @@ const lastEdit = (edit: ReturnType<typeof acceptingEdit>) =>
   edit.mock.lastCall![0];
 
 describe('slot board and picker', () => {
-  test('[rules.ACT-02.picker] an empty slot opens the grouped picker; a card stages it, Escape cancels, Change action replaces', async () => {
+  test('[rules.ACT-02.picker] [rules.P82.replace] an empty slot opens the grouped picker; a card stages it, Escape cancels, Change action replaces', async () => {
     const edit = acceptingEdit();
     render(<ActivityView view={board()} edit={edit} disabled={false} />);
     fireEvent.click(
@@ -182,7 +182,7 @@ describe('slot board and picker', () => {
     });
   });
 
-  test('[rules.ACT-04.move] Move to moves a whole choice into an empty slot or swaps occupied ones; Clear and Remove are distinct', () => {
+  test('[rules.ACT-04.move] [rules.P82.cards] Move to moves a whole choice into an empty slot or swaps occupied ones; Clear and Remove are distinct', () => {
     const edit = acceptingEdit();
     const facts = board();
     const { rerender } = render(
@@ -319,6 +319,121 @@ describe('slot board and picker', () => {
     ).not.toBeInTheDocument();
     expect(edit).not.toHaveBeenCalled();
   });
+  test('[rules.O05.slot-label] the automatic Strategist label follows rank and ordered assignments on empty and occupied slots', () => {
+    const input = foundationWeek(1);
+    input.militiaSnapshot.roster.officers = [
+      { role: 'strategist', characterId: 'pc' },
+    ];
+    input.revision.activity.slots.push({ slotId: 'third', choice: null });
+    const facts = () =>
+      projectedFacts(
+        input.revision,
+        workspaceSourceSchema.parse({
+          key: {
+            campaignId: 'campaign',
+            militiaId: 'militia',
+            draftId: input.revision.draftId,
+          },
+          week: input.revision.week,
+          sourceRevision: 0,
+          snapshot: input.militiaSnapshot,
+          people: [{ characterId: 'pc', name: 'Officer' }],
+        }),
+        projectWeeklyDraft(input),
+      );
+    const edit = acceptingEdit();
+    const { rerender } = render(
+      <ActivityView view={facts()} edit={edit} disabled={false} />,
+    );
+    const slot = (n: number) =>
+      screen.getByRole('group', { name: `Action Slot ${n}` });
+    expect(within(slot(2)).getByText('Tap to choose an action')).toBeVisible();
+    expect(within(slot(2)).getByText('Strategist +2')).toBeVisible();
+    expect(screen.getAllByText('Strategist +2')).toHaveLength(1);
+    input.revision.activity.slots[1]!.choice = {
+      choiceId: 'work',
+      actionId: 'special',
+      instruction: 'Scout',
+      costCopper: 0,
+    };
+    rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+    expect(within(slot(2)).getByText('Strategist +2')).toBeVisible();
+    input.militiaSnapshot.rank = 2;
+    input.militiaSnapshot.training = 11;
+    rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+    expect(
+      within(slot(2)).queryByText('Strategist +2'),
+    ).not.toBeInTheDocument();
+    expect(within(slot(3)).getByText('Strategist +2')).toBeVisible();
+    input.revision.activity.slots[0]!.choice = {
+      choiceId: 'role',
+      actionId: 'change_officer_role',
+      characterId: 'pc',
+      fromRole: 'strategist',
+    };
+    rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+    expect(screen.queryByText('Strategist +2')).not.toBeInTheDocument();
+    input.militiaSnapshot.roster.officers = [];
+    input.revision.activity.slots[0]!.choice = {
+      choiceId: 'role',
+      actionId: 'change_officer_role',
+      characterId: 'pc',
+      toRole: 'strategist',
+    };
+    rerender(<ActivityView view={facts()} edit={edit} disabled={false} />);
+    expect(within(slot(3)).getByText('Strategist +2')).toBeVisible();
+    expect(edit).not.toHaveBeenCalled();
+  });
+
+  test('[rules.F04.capacity-guidance] retained extra-slot choices explain correction without suggesting an exception', () => {
+    const input = foundationWeek(3);
+    input.revision.activity.slots.push({
+      slotId: 'third',
+      choice: { choiceId: 'drill', actionId: 'drill_militia' },
+    });
+    render(
+      <ActivityView
+        view={projectedFacts(
+          input.revision,
+          workspaceSourceSchema.parse({
+            key: {
+              campaignId: 'campaign',
+              militiaId: 'militia',
+              draftId: input.revision.draftId,
+            },
+            week: input.revision.week,
+            sourceRevision: 0,
+            snapshot: input.militiaSnapshot,
+            people: [],
+          }),
+          projectWeeklyDraft(input),
+        )}
+        edit={acceptingEdit()}
+        disabled={false}
+      />,
+    );
+    expect(
+      within(screen.getByRole('group', { name: 'Action Slot 3' })).getByText(
+        'Beyond the allowance',
+      ),
+    ).toBeVisible();
+    selectSlot('Drill Militia', 3);
+    expect(
+      screen.getAllByText(
+        /Move this choice to an available slot, clear it, or restore the action allowance before confirming the week\./,
+      )[0],
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/record an exception with a reason/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Action Capacity exception' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: 'Exception reason' }),
+    ).not.toBeInTheDocument();
+  });
+
   test('[PER-02.link] every slot card carries the focusable anchor a Persistent source link opens', () => {
     render(
       <ActivityView view={board()} edit={acceptingEdit()} disabled={false} />,

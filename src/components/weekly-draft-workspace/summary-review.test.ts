@@ -345,7 +345,7 @@ describe('[SUM-10] live six-section consequences', () => {
     });
   });
 
-  test('[rules.P85.outcomes] bonuses and queued effects are named from their source event without opaque identities', () => {
+  test('[rules.P85.outcome-sources] bonuses and queued effects are named from their source event without opaque identities', () => {
     const { draft, snapshot } = upkeepFixture();
     draft.context = {
       ...draft.context,
