@@ -20,7 +20,7 @@ import { persistentEventFixture } from '../tests/rules/persistent-event-fixture'
 import { roll } from '../tests/rules/upkeep-fixture';
 const modules = import.meta.glob('./**/*.ts');
 
-test('[rules.P78.projection-parity] browser and persisted Convex source yield the same complete preview and immutable source/outcome', async () => {
+async function loadBrowserRules() {
   const bundle = await build({
     configFile: false,
     logLevel: 'silent',
@@ -38,6 +38,82 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
   if (!output || !('output' in output)) throw Error('Expected bundle');
   const script = output.output.find((entry) => entry.type === 'chunk');
   if (script?.type !== 'chunk') throw Error('Expected JavaScript');
+  return script.code;
+}
+
+function prepareProjectionFixture(
+  kind: 'low_morale' | 'theft' | 'rivalry',
+  totalForm: boolean,
+) {
+  const { draft, snapshot } = persistentEventFixture(kind);
+  snapshot.training = 15;
+  if (kind === 'low_morale') {
+    snapshot.bonuses = [
+      {
+        bonusId: 'gift',
+        source: 'reward',
+        check: 'any',
+        value: 5,
+        phase: 'activity',
+        availableWeek: 2,
+        consumedWeek: null,
+      },
+    ];
+    draft.activity.consumableIds = ['gift'];
+    draft.activity.slots = [
+      {
+        slotId: 'one',
+        choice: {
+          choiceId: 'drill',
+          actionId: 'drill_militia',
+          consumableIds: ['gift'],
+          rolls: { check: roll(20, 10), training: roll(6, 3, 4) },
+        },
+      },
+    ];
+  }
+  draft.persistent.decisions = [{ kind: 'buyoff', eventId: 'carried' }];
+  draft.tableAdjustments = [
+    {
+      kind: 'militia_value',
+      adjustmentId: 'copper',
+      field: 'treasuryCopper',
+      operation: 'add',
+      value: 3,
+      reason: 'Three copper found at the table',
+    },
+  ];
+  const legacyPreview = projectWeeklyDraft({
+    revision: draft,
+    militiaSnapshot: snapshot,
+  });
+  if (totalForm) {
+    draft.upkeep.rolls.check = {
+      diceTotal: 19,
+      diceCount: 1,
+      sides: 20,
+      provenance: { kind: 'table' },
+      modifiers: [],
+    };
+    const drill = draft.activity.slots[0]?.choice;
+    if (kind === 'low_morale' && drill?.actionId === 'drill_militia') {
+      drill.rolls = {
+        ...drill.rolls,
+        training: {
+          diceTotal: 7,
+          diceCount: 2,
+          sides: 6,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      };
+    }
+  }
+  return { draft, snapshot, legacyPreview };
+}
+
+test('[rules.P78.projection-parity] browser and persisted Convex source yield the same complete preview and immutable source/outcome', async () => {
+  const browserRules = await loadBrowserRules();
   for (const [kind, totalForm] of (
     ['low_morale', 'theft', 'rivalry'] as const
   ).flatMap(
@@ -47,70 +123,10 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
         [kind, true],
       ] as const,
   )) {
-    const { draft, snapshot } = persistentEventFixture(kind);
-    snapshot.training = 15;
-    if (kind === 'low_morale') {
-      snapshot.bonuses = [
-        {
-          bonusId: 'gift',
-          source: 'reward',
-          check: 'any',
-          value: 5,
-          phase: 'activity',
-          availableWeek: 2,
-          consumedWeek: null,
-        },
-      ];
-      draft.activity.consumableIds = ['gift'];
-      draft.activity.slots = [
-        {
-          slotId: 'one',
-          choice: {
-            choiceId: 'drill',
-            actionId: 'drill_militia',
-            consumableIds: ['gift'],
-            rolls: { check: roll(20, 10), training: roll(6, 3, 4) },
-          },
-        },
-      ];
-    }
-    draft.persistent.decisions = [{ kind: 'buyoff', eventId: 'carried' }];
-    draft.tableAdjustments = [
-      {
-        kind: 'militia_value',
-        adjustmentId: 'copper',
-        field: 'treasuryCopper',
-        operation: 'add',
-        value: 3,
-        reason: 'Three copper found at the table',
-      },
-    ];
-    const legacyPreview = projectWeeklyDraft({
-      revision: draft,
-      militiaSnapshot: snapshot,
-    });
-    if (totalForm) {
-      draft.upkeep.rolls.check = {
-        diceTotal: 19,
-        diceCount: 1,
-        sides: 20,
-        provenance: { kind: 'table' },
-        modifiers: [],
-      };
-      const drill = draft.activity.slots[0]?.choice;
-      if (kind === 'low_morale' && drill?.actionId === 'drill_militia') {
-        drill.rolls = {
-          ...drill.rolls,
-          training: {
-            diceTotal: 7,
-            diceCount: 2,
-            sides: 6,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          },
-        };
-      }
-    }
+    const { draft, snapshot, legacyPreview } = prepareProjectionFixture(
+      kind,
+      totalForm,
+    );
     const t = convexTest(schema, modules);
     const scope = await t.run(async (ctx) => {
       await ctx.db.insert('user', {
@@ -139,7 +155,7 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
       return projectWeeklyDraft({ revision, militiaSnapshot: snapshot });
     });
     const browser: unknown = runInNewContext(
-      `${script.code}; WeeklyRules.projectWeeklyDraft(input)`,
+      `${browserRules}; WeeklyRules.projectWeeklyDraft(input)`,
       {
         structuredClone,
         input: JSON.parse(
