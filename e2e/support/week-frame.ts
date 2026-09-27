@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { settleAnimations } from './responsive-shell';
 
 // The Week frame (#151): five positions in rules order, readiness as each
 // step's accessible description, a locked Persistent that stays visible,
@@ -329,18 +330,31 @@ async function expectReferenceBody(page: Page, root: Locator) {
   ).toBe(true);
 }
 
+// Scroll offsets and the footer's box, for the pinned-chrome checks.
+function pinnedGeometry(page: Page) {
+  return page.evaluate(() => {
+    const scrollTop = (selector: string) =>
+      document.querySelector(selector)!.scrollTop;
+    const footer = document
+      .querySelector('[data-week-footer]')!
+      .getBoundingClientRect();
+    return {
+      document: window.scrollY,
+      host: scrollTop('[data-week-host]'),
+      editor: scrollTop('[data-week-editor]'),
+      footer: { y: footer.y, height: footer.height },
+    };
+  });
+}
+
 // The panel scrolls its own long contents while the document, the editor
 // column and the pinned chrome stay exactly where they were.
 async function expectPanelScrolls(page: Page, panel: Locator) {
   const editor = page.locator('[data-week-editor]');
-  const before = await page.evaluate(() => ({
-    document: window.scrollY,
-    editor: document.querySelector('[data-week-editor]')!.scrollTop,
-    footer: document
-      .querySelector('[data-week-footer]')!
-      .getBoundingClientRect()
-      .toJSON() as { y: number },
-  }));
+  // Opening the panel and switching steps start transitions (buttons use
+  // transition-all); the pinned chrome's baseline is its settled position.
+  await settleAnimations(page);
+  const before = await pinnedGeometry(page);
   const last = panel
     .locator('*:visible:not(:has(*))')
     .filter({ hasText: /\S/ });
@@ -355,17 +369,15 @@ async function expectPanelScrolls(page: Page, panel: Locator) {
       await panel.evaluate((element) => element.scrollTop),
       'the panel scrolled to reach its last content',
     ).toBeGreaterThan(0);
-  const after = await page.evaluate(() => ({
-    document: window.scrollY,
-    editor: document.querySelector('[data-week-editor]')!.scrollTop,
-    footer: document
-      .querySelector('[data-week-footer]')!
-      .getBoundingClientRect()
-      .toJSON() as { y: number },
-  }));
+  await settleAnimations(page);
+  const after = await pinnedGeometry(page);
   expect(after.document, 'the document did not scroll').toBe(before.document);
   expect(after.editor, 'the editor did not scroll').toBe(before.editor);
-  expect(after.footer.y, 'the footer stayed pinned').toBe(before.footer.y);
+  expect(after.host, 'the week host did not scroll').toBe(before.host);
+  expect(
+    after.footer.y,
+    `the footer stayed pinned (height ${before.footer.height} → ${after.footer.height})`,
+  ).toBe(before.footer.y);
   await expect(editor).toBeVisible();
   await panel.evaluate((element) => element.scrollTo(0, 0));
 }

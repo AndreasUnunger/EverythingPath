@@ -258,17 +258,11 @@ async function pinnedWeekChrome(page: Page) {
 }
 
 /**
- * The Week route at every width: the host starts after the top bar and
- * ends within the viewport, the document never scrolls, and the editor
- * column is the scroller. With content taller than that column, its first
- * and last enabled controls are reached by scrolling the column while the
- * stepper, footer and phone bar stay exactly where they were. Editors with
- * no enabled controls must still expose their first and last text content.
+ * Waits until no finite CSS animation or transition is running, so a
+ * geometry baseline is not captured mid-transition; perpetual decoration
+ * must not prevent the check from running.
  */
-export async function expectBoundedWeekHost(page: Page) {
-  // Resizing can start finite CSS transitions on the responsive chrome.
-  // Capture its baseline only after those settle; perpetual decoration must
-  // not prevent the geometry check from running.
+export async function settleAnimations(page: Page) {
   await page.evaluate(async () => {
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
@@ -290,6 +284,20 @@ export async function expectBoundedWeekHost(page: Page) {
       );
     }
   });
+}
+
+/**
+ * The Week route at every width: the host starts after the top bar and
+ * ends within the viewport, the document never scrolls, and the editor
+ * column is the scroller. With content taller than that column, its first
+ * and last enabled controls are reached by scrolling the column while the
+ * stepper, footer and phone bar stay exactly where they were. Editors with
+ * no enabled controls must still expose their first and last text content.
+ */
+export async function expectBoundedWeekHost(page: Page) {
+  // Resizing can start finite CSS transitions on the responsive chrome.
+  // Capture its baseline only after those settle.
+  await settleAnimations(page);
   const host = page.locator('[data-week-host]');
   await expect(host).toHaveCount(1);
   const { height } = page.viewportSize()!;
