@@ -67,7 +67,9 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
 creates fresh ignored role storage and runs the five Chromium tablet journeys at 1194×834 with
-touch enabled. It starts with one authenticated worker. Local runs acquire an
+touch enabled. It starts one Playwright worker per declared cohort, at most three
+unless `--workers N` asks for up to the declared number; a single cohort runs
+exactly serially. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
 run still owns the slot before removing its exact stale lock directory.
@@ -85,13 +87,20 @@ an in-repository preflight cannot secure secrets already given to hostile code.
 one officer and its first Activity week; `isolation` is an independent control
 graph for lower-level isolation checks. Names and rules values are deterministic.
 Each browser test must use its own catalog case (`test.use({ caseKey: ... })`);
-reusing a case across different tests fails. Retry workers reuse the same logical
-worker and case, reset before creating any browser context, and then restore the
+reusing a case across different tests of a project fails. Worker N always uses
+cohort `worker-N`, and Playwright never runs two workers with the same index at
+once, so a cohort is never shared. A retry may run on another worker and cohort;
+it resets its case before creating any browser context and restores that cohort's
 role storage. Cleanup is best effort; reset and next-run preview recreation provide
-correctness.
+correctness, and the isolation canary below turns a leftover campaign into a
+failure instead of a silently changed campaign list.
 
 `e2eFixtures` exposes only internal functions: `seedIdentityProjection`,
-`resetCase`, `inspectCase`, `cleanupCase`. Every call verifies E2E mode, the bound
+`resetCase`, `inspectCase`, `cleanupCase`. The harness sends every `resetCase`
+(including `canonicalPersistenceFixtures:resetAndInitialize`) the cases its
+running test owns (`isolatedWith`). In the same transaction, the isolation canary
+fails the reset, rolling it back, if the cohort's member organization holds any
+other campaign or its outsider organization holds any campaign. Every call verifies E2E mode, the bound
 deployment URL against `CONVEX_CLOUD_URL`, the production denylist, namespace,
 catalog version, worker and a separate capability for the case. Capabilities are
 generated for the new run and never sent to a browser. Copying E2E flags to another
@@ -360,9 +369,10 @@ the staged choice, then verifies the observer catches up **without reload** and
 the player's reload retains the choice. These exercise existing behavior; claim
 locks, individual action confirmation and GM moderation remain deferred.
 
-All projects run serially against the same reserved cohort. Each attempt resets
-and cleans its case before the next project uses it. Case ownership is checked
-within each project; screenshot and trace filenames include the project so
+Each concurrently running worker owns one reserved cohort; tests sharing a cohort
+never run at the same time (see Parallel cohorts below). Each attempt resets
+and cleans its case before the next test in that cohort uses it. Case ownership is
+checked within each project; screenshot and trace filenames include the project so
 cross-browser evidence cannot overwrite earlier failures. Contexts inherit actual
 project viewport, touch and mobile settings. Desktop uses keyboard staging.
 Authentication runs once with fresh sessions, then each browser gets independent
@@ -375,7 +385,8 @@ UTC, or accepts an owner-reviewed manual SHA. It shares the CI preview slot's
 concurrency group with the mandatory workflow. Its result is advisory: it is not
 an input to **E2E required** and never changes a previous merge result. Install
 Chromium, WebKit and Firefox with Playwright's supported OS dependencies before
-running locally. The CI workflow installs all three within the existing deadline.
+running locally. The CI job runs in `mcr.microsoft.com/playwright:v1.63.0-noble`,
+which already contains all three.
 
 Safe reports include project, journey, assertion errors with expected state,
 and observing roles' last rendered domain state on failure. Recurrence summaries
@@ -686,3 +697,92 @@ Ordinary `/campaigns` journeys use canonical-only fixtures and cover membership,
 setup/reload, shared characters, persisted officer assignments, Confirmation,
 history and shared action choices. The broader Workspace journey continues to
 cover independent navigation, conflict recovery, input clearing and phase behavior.
+
+## Parallel cohorts (2026-09-27)
+
+With the owner's approval, one worker per cohort replaces the one-worker fixture
+isolation recorded above. Tests are about 93 % of a nightly run, and each cohort
+(member organization, outsider organization, GM, player and outsider) is a
+complete isolation unit: its organizations are disjoint from every other cohort's.
+
+- **Workers.** `pnpm test:e2e` starts one Playwright worker per declared cohort,
+  capped at three. `--workers N` selects between 1 and the declared number; use
+  `--workers 1` for a serial baseline on the same declaration. The runner refuses
+  cohorts that are out of order (`worker-0`, `worker-1`, ...) or share a key,
+  organization or identity. `fullyParallel` stays off: files run whole on one
+  worker, except `canonical-workspace.spec.ts`, which opts in per test. The
+  authentication setup seeds and signs in every used cohort one after another,
+  because parallel sign-ins would exceed Clerk's per-IP limits. Its deadline is
+  the unchanged one-cohort deadline multiplied by the number of cohorts.
+- **Isolation canary.** Every reset carries its test's owned and comparison
+  cases (see Fixture contract). A second test in the cohort, a failed cleanup or
+  a campaign created outside the fixtures fails the next reset in that cohort.
+  Convex tests prove that the canary rejects each kind of foreign campaign and
+  rolls the reset back.
+- **Evidence.** Each attempt in `progress.json` and `report.json` records
+  `workerKey` (`null` for authentication, which prepares all cohorts). The
+  console line names the cohort too.
+- **Order.** Projects are listed longest first (Confirmation, persistence,
+  Workspace, then the access-heavy browser projects, and cutover last), so the
+  parallel critical path stays close to the longest single test.
+
+### Workspace journeys
+
+`canonical-workspace` was one 242–255 s journey. It is now five independent
+tests, split at its four existing reset boundaries. Each test owns a canonical
+case, and each case keeps the `canonical-persistence-*` names so that the layout
+and overflow assertions measure text of the same length. Moved steps are
+unchanged. The first part installs the held-edit socket control on the GM page
+where the single journey did. Parts two to four install their own control
+before their first navigation, because their GM page had used that control. The
+race part uses only fresh pages with their own controls, as before.
+
+| Journey | Case | Starting state |
+| --- | --- | --- |
+| players prepare shared Upkeep with independent navigation and save recovery | `workspaceUpkeep` | New and mid-campaign setup through the UI, then `initializeUpkeep` (week 4) |
+| players choose the nearest settlement at maximum notoriety and resolve team conditions | `workspaceNotoriety` | `resetCase`, then `initializeUpkeep` with choices, maximum notoriety and a missing team |
+| players recover a team at an adjusted cost and confirm a week through Activity and Event | `workspaceRecovery` | `resetCase`, then `initializeUpkeep` with choices |
+| players review and buy off carried persistent events before confirming the week | `workspacePersistent` | `resetCase`, then `initializeUpkeep` with persistent events |
+| racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
+
+Each later step started with the same reset and seed, so the database state is
+unchanged. The only browser state that crossed a boundary was also checked:
+
+- Every part left both pages at 1194×834, the project viewport.
+- The reference panel preference was open, the same as a fresh context.
+- The clipboard permission is used only in the first part.
+- Back/forward history is exercised only within a part.
+
+The only lost coverage is one GM and player session surviving all five parts. The
+first part keeps setup, both campaign states and the full Upkeep journey in one
+session. The 420 s test deadline is split in proportion to the measured parts
+(130, 30, 125, 80 and 55 s), and no part gets more than its share.
+
+### Provision and declare the cohorts
+
+`worker-1` and `worker-2` exist in the dedicated development instance.
+`e2e/resources.ci.json` declares all three cohorts; CI and local runs
+deliberately share them. After this change merges, the owner renames the
+provisioned local `e2e/.private/resources-3-cohorts.json` over
+`e2e/.private/resources.json`. To recreate the cohorts, declare each one with
+distinct `+clerk_test` emails and placeholder IDs, as in
+`resources.example.json`. Then run `pnpm e2e:provision ... --bootstrap` from one
+machine and copy any rewritten IDs into both declarations.
+
+A local run and a CI run at the same time still share these Clerk users and
+organizations, as before: they sign in the same identities concurrently and
+share Clerk's rate limits. Their previews are separate. The CI concurrency group
+serializes only CI runs.
+
+### Not yet changed: fixture-call overhead
+
+Every fixture operation (`fixtureCall` and `canonicalPersistenceFixtureCall` in
+`support/process.ts`) spawns one Convex CLI process through `command()`. Each
+spawn takes about 1.0–1.4 s, which is roughly 150 calls and 18 % of nightly
+browser time. The canary adds no call because it runs inside the reset. A
+persistent guarded client could save an estimated 100–130 s. Measure that before
+replacing the spawns.
+
+Still to verify with live services: a serial and a three-worker nightly on the same
+fingerprint, a deliberate two-tests-on-one-cohort drill that turns the canary red,
+and five consecutive parallel nightlies with no flakes.

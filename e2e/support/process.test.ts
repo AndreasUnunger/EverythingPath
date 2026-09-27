@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
-import { command, parseFixtureResponse } from './process';
+import {
+  command,
+  isolateCases,
+  parseFixtureResponse,
+  withIsolationCanary,
+} from './process';
 import { resources } from './test-data';
 
 it('runs the workspace-installed Convex fixture CLI without a package-manager subprocess', async () => {
@@ -184,4 +189,31 @@ it('binds child CLI authentication to the declared preview key instead of a pers
     },
   );
   expect(output).toBe('preview:test-team:test-project|synthetic-preview-key');
+});
+
+it('sends the running test cases with every reset for the isolation canary', () => {
+  const scope = { namespace: 'n', workerKey: 'worker-1', token: 't' };
+  isolateCases(['existingMilitia', 'isolation']);
+  try {
+    expect(
+      withIsolationCanary('resetCase', { ...scope, caseKey: 'isolation' }),
+    ).toMatchObject({ isolatedWith: ['isolation', 'existingMilitia'] });
+    expect(
+      withIsolationCanary('resetAndInitialize', {
+        scope: { ...scope, caseKey: 'existingMilitia' },
+        draftId: 'draft',
+      }),
+    ).toMatchObject({ isolatedWith: ['existingMilitia', 'isolation'] });
+    const inspect = { ...scope, caseKey: 'isolation' };
+    expect(withIsolationCanary('inspectCase', inspect)).toBe(inspect);
+    isolateCases([]);
+    expect(
+      withIsolationCanary('resetCase', { ...scope, caseKey: 'smoke' }),
+    ).toMatchObject({ isolatedWith: ['smoke'] });
+    expect(() =>
+      withIsolationCanary('resetCase', { ...scope, caseKey: 'unknown' }),
+    ).toThrow();
+  } finally {
+    isolateCases([]);
+  }
 });

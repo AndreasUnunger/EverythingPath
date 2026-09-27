@@ -4,8 +4,13 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
-import { resources } from './test-data';
+import { deploymentFixture, resources } from './test-data';
 import { evaluateResults } from './results';
+import { requiredTests } from './matrix';
+
+const workspaceTitles = requiredTests('mandatory')
+  .filter(([file]) => file === 'canonical-workspace.spec.ts')
+  .map(([, , title]) => title!);
 
 // Exercise the actual reporter/Playwright protocol without browser or service
 // dependencies. These synthetic bodies test result handling, not authentication.
@@ -39,6 +44,7 @@ it.each([
         runFile,
         JSON.stringify({
           resources,
+          fixture: deploymentFixture,
           workspace: directory,
           sourceRoot: process.cwd(),
           privateDirectory: directory,
@@ -82,7 +88,12 @@ it.each([
       if (mode !== 'missing-workspace')
         await writeFile(
           join(directory, 'canonical-workspace.spec.ts'),
-          `import { test } from ${playwright}; test('players prepare shared Upkeep with independent navigation and save recovery', async ({}, info) => { ${mode === 'retry-workspace' ? "if(info.retry===0) throw new Error('Synthetic Workspace failure');" : ''} });`,
+          `import { test } from ${playwright}; test.describe.configure({ mode: 'parallel' }); ${workspaceTitles
+            .map(
+              (title, index) =>
+                `test(${JSON.stringify(title)}, async ({}, info) => { ${mode === 'retry-workspace' && index === 2 ? "if(info.retry===0) throw new Error('Synthetic Workspace failure');" : ''} });`,
+            )
+            .join(' ')}`,
         );
       if (mode !== 'missing-cutover')
         await writeFile(
@@ -121,6 +132,20 @@ it.each([
         mode === 'passed' ? 0 : 1,
       );
       expect(evaluateResults(report)).toBe(mode === 'passed');
+      // Every attempt records the cohort that ran it; authentication prepares all.
+      if (mode === 'passed')
+        expect(report).toMatchObject({
+          evidence: expect.arrayContaining([
+            expect.objectContaining({
+              project: 'authentication',
+              workerKey: null,
+            }),
+            expect.objectContaining({
+              project: 'chromium-tablet',
+              workerKey: 'worker-0',
+            }),
+          ]),
+        });
       expect(
         await readFile(join(artifactDirectory, 'report.html'), 'utf8'),
       ).toContain(`E2E ${mode === 'passed' ? 'passed' : 'failed'}`);

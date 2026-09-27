@@ -14,7 +14,13 @@ import {
   type RoleKey,
   type FixtureScope,
 } from '../fixtures/catalog';
-import { fixtureCall, loadRun, savePrivate, type Run } from './process';
+import {
+  fixtureCall,
+  isolateCases,
+  loadRun,
+  savePrivate,
+  type Run,
+} from './process';
 import { sanitizeLog, sanitizeTrace } from './artifacts';
 import { caseAttempt, claimCaseKey } from './case-attempt';
 
@@ -61,7 +67,10 @@ async function closeWithEvidence(
       }
     }
     if (info.retry === 1) {
-      const raw = join(run.privateDirectory, `${role}.zip`);
+      const raw = join(
+        run.privateDirectory,
+        `${ownedCase.scope.workerKey}-${role}.zip`,
+      );
       await context.tracing.stop({ path: raw });
       await savePrivate(
         join(
@@ -79,13 +88,17 @@ async function closeWithEvidence(
 
 async function useOwnedCase(
   caseKey: CaseKey,
+  testCases: (CaseKey | undefined)[],
   use: (fixture: Fixture) => Promise<void>,
   info: TestInfo,
 ) {
   const run = await loadRun();
+  // Playwright never runs two workers with the same parallelIndex at once, so
+  // each running test has cohort worker-N to itself.
   const worker = run.fixture?.workers[info.parallelIndex];
-  if (!worker || info.parallelIndex !== 0)
+  if (!worker || info.parallelIndex >= run.workers)
     throw new Error('Authenticated worker cohort is unavailable');
+  isolateCases(testCases.filter((key) => key !== undefined));
   const scope: FixtureScope = {
     namespace: run.resources.previewName,
     version: FIXTURE_VERSION,
@@ -94,10 +107,11 @@ async function useOwnedCase(
     token: worker.cases[caseKey],
   };
   // This auto fixture runs for every attempt, including replacement retry
-  // workers. Context fixtures explicitly depend on it below.
+  // workers. Context fixtures explicitly depend on it below. Ownership is per
+  // project, not per cohort, so reuse is caught whichever cohorts tests run on.
   await claimCaseKey(
     run.privateDirectory,
-    `${info.project.name}-${worker.key}`,
+    info.project.name,
     caseKey,
     info.testId,
   );
@@ -114,7 +128,7 @@ async function useOwnedCase(
     },
     () => {
       process.stderr.write(
-        'E2E case cleanup failed; the next attempt will reset it.\n',
+        'E2E case cleanup failed; other tests in its cohort fail the isolation check until the case is reset.\n',
       );
     },
   );
@@ -130,8 +144,8 @@ export const test = base.extend<{
   caseKey: ['smoke', { option: true }],
   comparisonCaseKey: [undefined, { option: true }],
   ownedCase: [
-    async ({ caseKey }, use, info) => {
-      await useOwnedCase(caseKey, use, info);
+    async ({ caseKey, comparisonCaseKey }, use, info) => {
+      await useOwnedCase(caseKey, [caseKey, comparisonCaseKey], use, info);
     },
     { auto: true },
   ],
@@ -143,7 +157,12 @@ export const test = base.extend<{
         throw new Error(
           'Comparison campaign must differ from the journey campaign',
         );
-      await useOwnedCase(comparisonCaseKey, use, info);
+      await useOwnedCase(
+        comparisonCaseKey,
+        [caseKey, comparisonCaseKey],
+        use,
+        info,
+      );
     },
     { auto: true },
   ],

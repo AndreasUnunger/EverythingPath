@@ -7,6 +7,7 @@ import { evaluateResults } from './support/results';
 import { sourceFingerprint } from './support/source-evidence';
 import { loadTargets } from './support/configuration';
 import { verifyClerkCohorts } from './support/clerk';
+import { cohortWorkers } from './support/cohorts';
 import { command, loadRun, savePrivate, type Run } from './support/process';
 import {
   copyBuildWorkspace,
@@ -42,19 +43,19 @@ async function main() {
       secrets: { type: 'string' },
       preflight: { type: 'boolean' },
       nightly: { type: 'boolean' },
+      workers: { type: 'string' },
     },
     strict: true,
   });
   if (!values.resources)
     throw new Error(
-      'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight] [--nightly]',
+      'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight] [--nightly] [--workers N]',
     );
   const targets = await loadTargets(values.resources, values.secrets);
-  if (
-    targets.resources.workers.length !== 1 ||
-    targets.resources.workers[0]?.key !== 'worker-0'
-  )
-    throw new Error('This harness enables only the worker-0 cohort');
+  const workers = cohortWorkers(
+    targets.resources,
+    values.workers === undefined ? undefined : Number(values.workers),
+  );
   await verifyClerkCohorts(targets);
   if (values.preflight) {
     process.stdout.write(
@@ -88,6 +89,7 @@ async function main() {
     await savePrivate(envFile, `CONVEX_DEPLOY_KEY=${targets.previewKey}\n`);
     const run: Run = {
       mode: values.nightly ? 'nightly' : 'mandatory',
+      workers,
       resources: targets.resources,
       sourceRoot,
       sourceFingerprint: testedSource,
@@ -125,7 +127,7 @@ async function main() {
       CONVEX_DEPLOY_KEY: targets.previewKey,
     });
     process.stdout.write(
-      `E2E target: preview ${targets.resources.previewName}; recreate, deploy and build.\n`,
+      `E2E target: preview ${targets.resources.previewName}; recreate, deploy and build. Workers: ${workers}, one cohort each.\n`,
     );
     await command(
       'preview deployment and web build',

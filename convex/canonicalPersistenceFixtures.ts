@@ -1,6 +1,7 @@
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { mutation } from './_generated/server';
 import { internal } from './_generated/api';
+import { isolationArgs } from './e2eFixtures';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
 import { v } from 'convex/values';
@@ -9,6 +10,7 @@ import { internalMutation, type MutationCtx } from './_generated/server';
 import {
   scopeSchema as fixtureScopeSchema,
   guardFixtureScope,
+  isCanonicalCase,
 } from '../e2e/fixtures/catalog';
 import {
   draftKeySchema,
@@ -21,8 +23,7 @@ import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 type Scope = z.infer<typeof fixtureScopeSchema>;
 async function ownedCampaign(ctx: MutationCtx, scope: Scope) {
   guardFixtureScope(process.env, scope);
-  if (scope.caseKey !== 'canonicalPersistence')
-    throw new Error('Wrong fixture case');
+  if (!isCanonicalCase(scope.caseKey)) throw new Error('Wrong fixture case');
   const campaign = await ctx.db
     .query('campaign')
     .withIndex('by_e2eFixture_namespace_and_workerKey_and_caseKey', (q) =>
@@ -105,12 +106,14 @@ export const resetAndInitialize = internalMutation({
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
     now: v.number(),
+    ...isolationArgs,
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
     await ctx.runMutation(internal.e2eFixtures.resetCase, {
       ...args.scope,
       now: args.now,
+      isolatedWith: args.isolatedWith,
     });
     return await ctx.runMutation(
       internal.canonicalPersistenceFixtures.initialize,

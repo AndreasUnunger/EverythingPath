@@ -13,16 +13,42 @@ export const caseKeys = [
   'completeWeek',
   'realtimeActionSlot',
   'canonicalPersistence',
+  'workspaceUpkeep',
+  'workspaceNotoriety',
+  'workspaceRecovery',
+  'workspacePersistent',
+  'workspaceConfirmation',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
+// These cases start with a bare militia; canonical fixtures install the source.
+export const canonicalCaseKeys = [
+  'canonicalPersistence',
+  'workspaceUpkeep',
+  'workspaceNotoriety',
+  'workspaceRecovery',
+  'workspacePersistent',
+  'workspaceConfirmation',
+] as const satisfies readonly CaseKey[];
+export function isCanonicalCase(caseKey: CaseKey) {
+  return (canonicalCaseKeys as readonly CaseKey[]).includes(caseKey);
+}
+
+const canonicalDomain = {
+  campaign: 'canonical-persistence-campaign',
+  militia: 'canonical-persistence-militia',
+  character: 'canonical-persistence-officer',
+};
 
 // Provider IDs belong in the external resource declaration, never in this catalog.
 export const fixtureCatalog = {
-  canonicalPersistence: {
-    campaign: 'canonical-persistence-campaign',
-    militia: 'canonical-persistence-militia',
-    character: 'canonical-persistence-officer',
-  },
+  canonicalPersistence: canonicalDomain,
+  // The Workspace parts keep the names they had as one journey, so layout and
+  // overflow assertions still measure text of the same length.
+  workspaceUpkeep: canonicalDomain,
+  workspaceNotoriety: canonicalDomain,
+  workspaceRecovery: canonicalDomain,
+  workspacePersistent: canonicalDomain,
+  workspaceConfirmation: canonicalDomain,
   smoke: {
     campaign: 'harness-campaign',
     militia: 'harness-militia',
@@ -142,6 +168,11 @@ export const deploymentFixtureSchema = z
                 completeWeek: z.string().length(64),
                 canonicalPersistence: z.string().length(64),
                 realtimeActionSlot: z.string().length(64),
+                workspaceUpkeep: z.string().length(64),
+                workspaceNotoriety: z.string().length(64),
+                workspaceRecovery: z.string().length(64),
+                workspacePersistent: z.string().length(64),
+                workspaceConfirmation: z.string().length(64),
               })
               .strict(),
           })
