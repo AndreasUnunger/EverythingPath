@@ -13,8 +13,9 @@ import { SETUP_STEP_KEYS, type SetupStepKey } from './setup-steps';
 //
 // The shape is versioned so a later change can migrate stored envelopes.
 // Version 1 stores the values of this shipping stage: character-record kinds
-// `pc | officer_npc`, roster kinds `pc | officer_npc | other_npc` and required
-// commandant Hit Dice. The Characters & officers kind migration (#180) owns
+// `pc | officer_npc`, roster kinds `pc | officer_npc | other_npc` and nullable
+// Hit Dice overrides; since #196 a blank commandant override uses level, which
+// needs no new shape. The Characters & officers kind migration (#180) owns
 // the next version: it must read version 1 in `parseSetupEnvelope` and map
 // roster kinds, Hit Dice and character facts to its shape rather than
 // discarding players' unfinished setups.

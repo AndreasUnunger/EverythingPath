@@ -18,11 +18,14 @@ applicable ability modifier. Helpful and selected carried bonuses are reserved
 once in check order, including while a roll is missing.
 Reordering phase operations must project the roster/rank at that position before
 requesting those checks, carrying the returned `checkUsage` across calls; this module does not apply officer changes or advance
-Upkeep on its own. Unknown Hit Dice remain a requirement, and archived assignments
+Upkeep on its own. Since #196 a commandant without a Hit Dice override counts
+their level (an override of zero stays zero), and archived assignments
 retain their effects with a warning until explicitly removed. Commandant training
 is a bonus fact for the successful Drill branch; it is never awarded here.
 
-Manager effects are computed from individual roster identities. All team conditions
+Manager effects are computed from individual roster identities. Since #196 a PC,
+or an NPC holding an officer role in the evaluated roster, manages up to their
+Charisma modifier (minimum 1) and an NPC holding none manages one. All team conditions
 count toward manager limits, and only reward-exempt teams are omitted from the
 rank-based team cap. The phase caller supplies used and newly upgraded team IDs;
 newly recruited active teams have no automatic delay. Requirements, warnings and

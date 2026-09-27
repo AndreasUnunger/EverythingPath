@@ -43,6 +43,8 @@ const messages: Record<string, string> = {
   character: 'Choose an available character.',
   'officer-pc': 'Officer roles normally go to player characters.',
   'officer-role-limit': 'This character would hold more than one officer role.',
+  'manager-limit':
+    'Leaving this role would leave the character managing more teams than their normal limit.',
   'recruit-tier':
     'This team type has no recruitment rules; it is normally reached by upgrading.',
   'team-upgrade-limit': 'This team has already been upgraded this Activity.',

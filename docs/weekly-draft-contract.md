@@ -129,8 +129,9 @@ blockers after the reconstructed-source identity fix.
 `canonical-roster.ts` defines individual teams, roster people and officer
 assignments. Team identity is separate from team type; repeated types retain
 independent names, conditions, reward-cap exemptions, notes and manager references.
-People reference existing character records, retaining an explicit kind for manager
-limits and nullable Hit Dice. Unknown Hit Dice remain unknown, regardless of level.
+People reference existing character records, retaining a mirror of the record's
+kind and a nullable Hit Dice override. Since #196 a blank override means the rules
+use the record's level, and manager limits follow held officer roles, not the kind.
 Officer assignments are a collection of role/character pairs; removing or moving
 an assignment never deletes its character. Multiple holders are retained for later
 Rules Projection, which still owns non-stacking and Commandant training arithmetic.

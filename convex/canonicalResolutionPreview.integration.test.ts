@@ -2,7 +2,7 @@
 import { expect, test } from 'vitest';
 import { convexTest } from 'convex-test';
 import { build } from 'vite';
-import { runInNewContext } from 'node:vm';
+import { createContext, runInContext, runInNewContext } from 'node:vm';
 import { resolve } from 'node:path';
 import schema from './schema';
 import {
@@ -24,6 +24,12 @@ import {
 } from '../tests/rules/candidate-reroll-fixture';
 import { occurrence } from '../tests/rules/event-selection-fixture';
 import { roll } from '../tests/rules/upkeep-fixture';
+import {
+  commandantDrillWeek,
+  managerWeek,
+} from '../tests/rules/role-aware-officers-fixture';
+import type { WeeklyDraft } from '../src/lib/weekly-draft-contract';
+import type { UpkeepSnapshot } from '../src/lib/rules-upkeep';
 const modules = import.meta.glob('./**/*.ts');
 
 async function loadBrowserRules() {
@@ -315,4 +321,152 @@ test('[rules.A10.reroll-parity] browser preview and Convex Confirmation agree th
     );
     expect(record.source).toEqual(draft);
   }
+});
+
+test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agree on role-aware manager limits and commandant Hit Dice, under the current Ruleset Version', async () => {
+  const browser = createContext({ structuredClone });
+  runInContext(await loadBrowserRules(), browser);
+  const t = convexTest(schema, modules);
+  await t.run((ctx) =>
+    ctx.db.insert('user', {
+      tokenIdentifier: 'test|player',
+      name: 'Player',
+      image: '',
+      orgIds: [{ orgId: 'test', role: 'member' }],
+    }),
+  );
+  const player = t.withIdentity({ tokenIdentifier: 'test|player' });
+  // Each scenario is its own campaign: Confirmation closes its open draft.
+  async function confirm(
+    name: string,
+    input: { revision: WeeklyDraft; militiaSnapshot: UpkeepSnapshot },
+  ) {
+    const scope = await t.run(async (ctx) => {
+      const campaignId = await ctx.db.insert('campaign', {
+        name,
+        ownerId: 'gm',
+        organizationId: 'test',
+        description: '',
+      });
+      const militiaId = await ctx.db.insert('militia', {
+        campaignId,
+        name: 'Militia',
+      });
+      return { campaignId, militiaId };
+    });
+    // Draft identities are unique across campaigns.
+    input.revision.draftId = name;
+    const { revision: draft, militiaSnapshot: snapshot } = input;
+    await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
+    browser.input = JSON.parse(JSON.stringify(input)) as unknown;
+    const preview: unknown = runInContext(
+      'WeeklyRules.projectWeeklyDraft(input)',
+      browser,
+    );
+    const server = await player.run(async (ctx) => {
+      const revision = await readOpenDraft(ctx, scope);
+      if (!revision) throw Error('Missing source');
+      return projectWeeklyDraft({ revision, militiaSnapshot: snapshot });
+    });
+    expect(preview, name).toEqual(server);
+    expect(server.status, name).toBe('ready');
+    const record = await player.run(async (ctx) => {
+      const revision = await readOpenDraft(ctx, scope);
+      if (!revision) throw Error('Missing source');
+      const record = prepareCanonicalResolutionRecord(
+        resolveReviewedWeeklyDraft(
+          { revision, militiaSnapshot: snapshot },
+          server.sourceKey,
+        ),
+        `record-${name}`,
+      );
+      await appendResolutionRecord(ctx, { ...scope, record });
+      return record;
+    });
+    expect(record.rulesetVersion, name).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
+    expect(record.finalOutcome.data, name).toEqual(
+      JSON.parse(JSON.stringify(server.outcome)),
+    );
+    expect(
+      record.warnings.map((warning) => warning.message),
+      name,
+    ).toEqual(server.warnings);
+    return server;
+  }
+
+  // Charisma 16, 11 and 6: positive, zero and negative modifiers.
+  for (const kind of ['pc', 'officer_npc', 'other_npc', 'npc'] as const)
+    for (const holdsRole of [false, true])
+      for (const charisma of [16, 11, 6]) {
+        const name = `${kind}-${holdsRole ? 'officer' : 'no-role'}-${charisma}`;
+        const server = await confirm(
+          name,
+          managerWeek(kind, holdsRole, charisma),
+        );
+        const officer = kind === 'pc' || holdsRole;
+        const limit = officer && charisma === 16 ? 3 : 1;
+        expect(server.warnings.includes('manager:ally:capacity'), name).toBe(
+          limit < 2,
+        );
+      }
+
+  // Successful, failed and natural-one (successful and failed) Drill with a
+  // blank, zero or explicit override for the level-4 NPC commandant beside
+  // the PC's 3 Hit Dice.
+  const notoriety = new Map<string, number>();
+  for (const [name, die, charisma, succeeds] of [
+    ['success', 10, 10, true],
+    ['failure', 2, 10, false],
+    ['natural-one-success', 1, 34, true],
+    ['natural-one-failure', 1, 10, false],
+  ] as const) {
+    const drillWeek = (hitDice: number | null) =>
+      commandantDrillWeek(die, hitDice, charisma);
+    const training = new Map<string, number>();
+    // A level change moves a blank override; an archived commandant counts.
+    const levelled = () => {
+      const input = drillWeek(null);
+      input.militiaSnapshot.characters = input.militiaSnapshot.characters.map(
+        (character) =>
+          character.characterId === 'npc'
+            ? { ...character, level: 6 }
+            : character,
+      );
+      return input;
+    };
+    const archived = () => {
+      const input = drillWeek(null);
+      input.militiaSnapshot.characters = input.militiaSnapshot.characters.map(
+        (character) =>
+          character.characterId === 'npc'
+            ? { ...character, isActive: false }
+            : character,
+      );
+      return input;
+    };
+    for (const [label, input] of [
+      ['blank', () => drillWeek(null)],
+      ['zero', () => drillWeek(0)],
+      ['explicit', () => drillWeek(5)],
+      ['levelled', levelled],
+      ['archived', archived],
+    ] as const) {
+      const server = await confirm(`drill-${name}-${label}`, input());
+      training.set(label, server.outcome!.militiaSnapshot.training);
+      notoriety.set(name, server.outcome!.militiaSnapshot.notoriety);
+    }
+    const zero = training.get('zero')!;
+    for (const [label, gain] of [
+      ['blank', 4],
+      ['explicit', 5],
+      ['levelled', 6],
+      ['archived', 4],
+    ] as const)
+      expect(training.get(label)! - zero, `${name} ${label}`).toBe(
+        succeeds ? gain : 0,
+      );
+  }
+  // A natural one adds its rolled Notoriety whether the Drill succeeds or not.
+  for (const name of ['natural-one-success', 'natural-one-failure'])
+    expect(notoriety.get(name)! - notoriety.get('success')!, name).toBe(5);
 });

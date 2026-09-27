@@ -90,6 +90,7 @@ This document reorganizes the militia subsystem into searchable sections and nor
   - PC or officer NPC: up to Charisma modifier teams (minimum 1).
   - Non-officer: one team.
 - Team actions add manager Charisma bonus to required organization checks.
+- Application note (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): an NPC counts as an officer exactly while holding at least one officer role in the roster the rules evaluate, including earlier officer changes that week; a stored character kind never decides it. Going over a lowered limit during the week needs a reasoned Rules Exception. Weeks confirmed under earlier Ruleset Versions keep their recorded limits and warnings.
 
 ### Maximum Teams
 
@@ -122,6 +123,7 @@ Multiple officers can fill the same role, but their bonuses do not stack (except
 ### Commandant
 
 - On successful Drill Militia Loyalty check, training gained increases by commandant Hit Dice.
+- Application departure (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): a commandant's Hit Dice are the roster's explicit Hit Dice override, zero included, or else the character's level; Hit Dice are no longer required before the week. Weeks confirmed under earlier Ruleset Versions keep their recorded training.
 
 ### Marshal
 

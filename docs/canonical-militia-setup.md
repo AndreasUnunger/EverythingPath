@@ -61,10 +61,12 @@ joins the roster only when chosen.
 
 Envelope version 1 stores this stage's character-record kinds
 (`pc | officer_npc`), roster kinds (`pc | officer_npc | other_npc`) and
-required commandant Hit Dice. The Characters & officers kind migration (#180)
-must bump `SETUP_ENVELOPE_VERSION` and migrate version-1 envelopes in
+nullable Hit Dice overrides. Since #196 a commandant's blank override uses
+their level and manager warnings follow held roles; neither needs a new
+envelope shape. The Characters & officers kind migration (#180) must bump
+`SETUP_ENVELOPE_VERSION` and migrate version-1 envelopes in
 `parseSetupEnvelope`, alongside the Setup schema, roster kinds, character
-options, the inline dialog, manager warnings and Hit Dice fallback.
+options and the inline dialog.
 
 Setup carries the roster and individual team conditions, character Hit Dice,
 officer assignments and managers, settlements, assets and orders, persistent

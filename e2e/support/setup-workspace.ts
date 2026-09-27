@@ -98,6 +98,12 @@ export async function exerciseMilitiaSetup(
         .getByRole('button', { name: /^Add (?!character$)/ })
         .first()
         .click();
+      // A commandant's blank Hit Dice follow the character's level (#196):
+      // nothing below enters them, and the week still starts.
+      await gm
+        .getByRole('main')
+        .getByRole('button', { name: 'commandant', exact: true })
+        .click();
       await openSetupStep(gm, 'Character conditions');
       await gm
         .getByRole('button', { name: 'Add character condition', exact: true })

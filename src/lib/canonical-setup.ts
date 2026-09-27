@@ -75,22 +75,6 @@ export function militiaSetupReferenceIssues(
         target: path,
       });
   });
-  snapshot.roster.people.forEach((person, index) => {
-    const path = ['state', 'militiaSnapshot', 'roster', 'people', index];
-    if (
-      person.hitDice === null &&
-      snapshot.roster.officers.some(
-        (officer) =>
-          officer.characterId === person.characterId &&
-          officer.role === 'commandant',
-      )
-    )
-      issues.push({
-        path: [...path, 'hitDice'],
-        message: 'Commandant Hit Dice are required before starting the week.',
-        target: [...path, 'hitDice'],
-      });
-  });
   const [missing] = draftReferenceRequirements(draft, snapshot, snapshot);
   if (missing !== undefined)
     issues.push({

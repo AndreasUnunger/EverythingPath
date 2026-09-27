@@ -169,7 +169,7 @@ describe('[SUM-06] Result comparison', () => {
     );
   });
 
-  test('unknown Hit Dice read "not set" in a live review and "not recorded" in a frozen record', () => {
+  test('a blank Hit Dice override reads as the level in a live review, "not set" without a character, and "not recorded" in a frozen record', () => {
     const live = JSON.stringify(
       compareWeekStates({
         now: state(),
@@ -178,8 +178,22 @@ describe('[SUM-06] Result comparison', () => {
         names,
       }),
     );
-    expect(live).toContain('Player character · Hit Dice not set');
-    expect(live).not.toContain('Hit Dice not recorded');
+    expect(live).toContain('Player character · 5 Hit Dice');
+    expect(live).not.toContain('Hit Dice not');
+    const orphan = state();
+    orphan.militiaSnapshot.characters =
+      orphan.militiaSnapshot.characters.filter(
+        (character) => character.characterId !== 'ilsa',
+      );
+    const unknown = JSON.stringify(
+      compareWeekStates({
+        now: orphan,
+        baseline: orphan,
+        final: orphan,
+        names,
+      }),
+    );
+    expect(unknown).toContain('Player character · Hit Dice not set');
     const frozen = JSON.stringify(
       compareWeekStates({
         now: state(),

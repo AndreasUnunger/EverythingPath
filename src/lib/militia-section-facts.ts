@@ -1,4 +1,5 @@
 import type { CanonicalWeekState } from './canonical-weekly-source';
+import { getEffectiveHitDice } from './canonical-roster';
 import { formatCharacterKind } from './character-kind';
 import type { MilitiaEntryKey } from './militia-correction-sections';
 
@@ -559,19 +560,25 @@ function people(snapshot: Snapshot, names: Names): EntryFacts {
     snapshot.roster.officers
       .filter((officer) => officer.characterId === id)
       .map((officer) => words(officer.role));
-  const entries = snapshot.roster.people.map((person) => ({
-    key: person.characterId,
-    title: names.character(person.characterId),
-    rows: [
-      { label: 'Kind', value: formatCharacterKind(person.kind) },
-      {
-        label: 'Hit Dice',
-        value:
-          person.hitDice === null ? 'Not recorded' : String(person.hitDice),
-      },
-      { label: 'Officer roles', value: list(roles(person.characterId)) },
-    ],
-  }));
+  const entries = snapshot.roster.people.map((person) => {
+    const character = snapshot.characters.find(
+      (entry) => entry.characterId === person.characterId,
+    );
+    return {
+      key: person.characterId,
+      title: names.character(person.characterId),
+      rows: [
+        { label: 'Kind', value: formatCharacterKind(person.kind) },
+        {
+          label: 'Hit Dice',
+          value: character
+            ? String(getEffectiveHitDice(person, character))
+            : 'Not recorded',
+        },
+        { label: 'Officer roles', value: list(roles(person.characterId)) },
+      ],
+    };
+  });
   return listFacts('people', 'No people on the roster', entries);
 }
 

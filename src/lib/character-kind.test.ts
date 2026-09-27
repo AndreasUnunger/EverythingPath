@@ -2,7 +2,6 @@ import { expect, test } from 'vitest';
 import {
   formatCharacterKind,
   characterRecordKindSchema,
-  toCurrentRulesManagerKind,
   listEditableKinds,
   mirrorRosterKinds,
   normalizeCharacterKind,
@@ -69,13 +68,6 @@ test('the live roster mirror never infers kind from roles or invents a missing r
     { characterId: 'lost', kind: 'npc', hitDice: 0 },
     { characterId: 'officer', kind: 'pc', hitDice: null },
   ]);
-});
-
-test('current rules give the new npc kind the officer-NPC manager limit until role-aware limits ship', () => {
-  expect(toCurrentRulesManagerKind('pc')).toBe('pc');
-  expect(toCurrentRulesManagerKind('officer_npc')).toBe('officer_npc');
-  expect(toCurrentRulesManagerKind('other_npc')).toBe('other_npc');
-  expect(toCurrentRulesManagerKind('npc')).toBe('officer_npc');
 });
 
 test('every stored kind has a readable label', () => {
