@@ -59,13 +59,13 @@ export function WholeNumberField({
   // the enclosing form still refuses to save. Remember the rejection so leaving
   // the field keeps that error until valid input replaces it.
   const rejected = useRef<string | null>(null);
-  const text = signed ? signedDigits : digits;
+  const schema = signed ? signedDigits : digits;
   const form = useForm({
     values: { value: value === null ? '' : String(value) },
     mode: 'onBlur',
     resolver: zodResolver(
       z.object({
-        value: text
+        value: schema
           .refine((value) => value !== '-', SIGNED)
           .refine((value) => !required || value !== '', 'A value is required.'),
       }),
@@ -94,7 +94,7 @@ export function WholeNumberField({
                 }}
                 onChange={(event) => {
                   const entered = event.target.value;
-                  const parsed = text.safeParse(entered);
+                  const parsed = schema.safeParse(entered);
                   if (!parsed.success) {
                     const message = parsed.error.issues[0]!.message;
                     rejected.current = message;

@@ -278,7 +278,7 @@ test('[PER-07.repeated] with two Thefts, one successful check keeps its event bu
     'Stays · check succeeded · another Theft still halves gains',
   );
   expect(theftAt(view, 'first').theftCheck!.row.resultText).toBe(
-    'This Theft keeps 90%, but Theft (week 1) still takes half of this week’s gains.',
+    'This Theft keeps 90%, but Theft · Event 2 still takes half of this week’s gains.',
   );
   expect(preview.phases!.event.outcome.treasuryCopper).toBe(none);
   draft.persistent.decisions.push({

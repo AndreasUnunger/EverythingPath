@@ -5,7 +5,6 @@ import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import { checkModifierLabel } from './activity-facts';
-import { activityLabel } from './activity-labels';
 import { eventCheckFacts } from './event-check-facts';
 import type {
   PersistentBonusChoice,
@@ -14,6 +13,7 @@ import type {
   PersistentRivalryCheck,
   PersistentTheftCheck,
   PersistentView,
+  RivalrySkill,
 } from './types';
 import { officerRoleLabels } from './week-frame/reference-copy';
 
@@ -37,6 +37,20 @@ export type PersistentCheckContext = {
 // Sources the rules calculate themselves; a recorded copy adds nothing.
 const calculated =
   /^(rank-focus|officers|overseer-support|strategist|helpful)$|^(queued|officer|manager):/;
+
+// Why an entered modifier adds nothing, or null when it counts.
+function uncountedNote(entry: {
+  counted: boolean;
+  twice: boolean;
+  bonus: boolean;
+  repeated: string;
+}) {
+  if (entry.counted) return null;
+  if (entry.twice) return entry.repeated;
+  if (entry.bonus)
+    return 'This bonus is not available for this check, so it adds nothing.';
+  return 'The rules already count this source, so this copy adds nothing.';
+}
 
 /**
  * The modifiers recorded on one check roll, by list position. `counts` says
@@ -68,13 +82,12 @@ function recordedModifiers(
       reason: modifier.reason,
       label: bonus ? bonusLabel(modifier.sourceId) : modifier.reason,
       kind,
-      note: counts(modifier.sourceId, index)
-        ? null
-        : twice
-          ? repeated
-          : bonus
-            ? 'This bonus is not available for this check, so it adds nothing.'
-            : 'The rules already count this source, so this copy adds nothing.',
+      note: uncountedNote({
+        counted: counts(modifier.sourceId, index),
+        twice,
+        bonus,
+        repeated,
+      }),
     };
   });
 }
@@ -296,7 +309,7 @@ export function rivalryCheckFacts(
   };
 }
 
-const skillNames: Record<string, string> = {
+export const rivalrySkillLabels: Record<RivalrySkill, string> = {
   diplomacy: 'Diplomacy',
   bluff: 'Bluff',
   intimidate: 'Intimidate',
@@ -330,7 +343,10 @@ export function retainedFields(
       field: 'targets',
       label: 'Targets',
       value: '',
-      targets: decision.targets.map(targetName),
+      targets: decision.targets.map((target) => ({
+        name: targetName(target),
+        target,
+      })),
     });
   if (decision.strategistCharacterId)
     fields.push({
@@ -346,7 +362,7 @@ export function retainedFields(
       label: 'Officer check',
       value: [
         name(input.characterId),
-        skillNames[input.skill] ?? input.skill,
+        rivalrySkillLabels[input.skill],
         ...(input.skillBonus === undefined
           ? []
           : [
@@ -374,10 +390,11 @@ export function retainedFields(
   return fields;
 }
 
-// Other Theft events whose loss still applies to this week's gains: not
-// ended before Persistent and without a successful check of their own.
+// Other Theft events, by section name, whose loss still halves some of
+// this week's gains: every one without a successful check of its own. One
+// ended by Activity or Event still took its half of the gains before then.
 export function unmitigatedThefts(
-  draft: WeeklyDraft,
+  events: readonly { eventId: string; eventType: string; name: string }[],
   phases: Phases | null,
   eventId: string,
 ) {
@@ -388,16 +405,12 @@ export function unmitigatedThefts(
         : [],
     ),
   );
-  return draft.context.carriedEvents
+  return events
     .filter(
       (event) =>
         event.eventType === 'theft' &&
         event.eventId !== eventId &&
-        !mitigated.has(event.eventId) &&
-        !phases?.event.endedEventIds.includes(event.eventId),
+        !mitigated.has(event.eventId),
     )
-    .map(
-      (event) =>
-        `${activityLabel(event.eventType)} (week ${event.startedWeek})`,
-    );
+    .map((event) => event.name);
 }

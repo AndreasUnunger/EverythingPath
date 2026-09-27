@@ -17,8 +17,6 @@ import {
   sourceEndings,
 } from './persistent-sections';
 import type { PersistentView } from './types';
-
-type Carried = WeeklyDraft['context']['carriedEvents'][number];
 import { withoutDuplicateRollCodes } from './roll-requirements';
 import {
   retainedFields,
@@ -26,6 +24,8 @@ import {
   theftCheckFacts,
   unmitigatedThefts,
 } from './persistent-check-facts';
+
+type Carried = WeeklyDraft['context']['carriedEvents'][number];
 
 export function persistentView(
   draft: WeeklyDraft,
@@ -36,6 +36,11 @@ export function persistentView(
   const projection = phases?.persistent;
   const { options, overseer } = eventView(draft, source, preview);
   const events = orderCarriedEvents(draft.context.carriedEvents);
+  const named = events.map((event, index) => ({
+    eventId: event.eventId,
+    eventType: event.eventType,
+    name: `${activityLabel(event.eventType)} · Event ${index + 1}`,
+  }));
   const targetName = (target: Carried['targets'][number]) => {
     const [field, id] = Object.entries(target).find(([key]) => key !== 'kind')!;
     return (
@@ -94,12 +99,12 @@ export function persistentView(
       const mitigation = decision?.kind === 'mitigate' ? decision : null;
       const otherThefts =
         event.eventType === 'theft'
-          ? unmitigatedThefts(draft, phases, event.eventId)
+          ? unmitigatedThefts(named, phases, event.eventId)
           : [];
       const context = { draft, source, phases };
       return {
         ...structuredClone(event),
-        name: `${activityLabel(event.eventType)} · Event ${index + 1}`,
+        name: named[index]!.name,
         typeLabel: activityLabel(event.eventType),
         ageWeeks: draft.week - event.startedWeek,
         orderLabel: `${ordinal(event.order + 1)} that week`,

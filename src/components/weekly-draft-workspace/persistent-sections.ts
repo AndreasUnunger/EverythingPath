@@ -224,15 +224,15 @@ function checkResult(
   otherThefts: readonly string[],
 ): Result {
   const mitigation = findChange(changes, 'persistent_mitigation');
-  if (mitigation)
+  if (mitigation && !mitigation.succeeded)
+    return { tone: 'stays', text: 'Stays · Loyalty check failed' };
+  if (mitigation && otherThefts.length)
     return {
       tone: 'stays',
-      text: !mitigation.succeeded
-        ? 'Stays · Loyalty check failed'
-        : otherThefts.length
-          ? 'Stays · check succeeded · another Theft still halves gains'
-          : 'Stays · keeps 90% of this week’s gains',
+      text: 'Stays · check succeeded · another Theft still halves gains',
     };
+  if (mitigation)
+    return { tone: 'stays', text: 'Stays · keeps 90% of this week’s gains' };
   if (findChange(changes, 'persistent_officer_check'))
     return { tone: 'stays', text: 'Stays · officer check failed' };
   return {

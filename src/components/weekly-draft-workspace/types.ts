@@ -726,7 +726,12 @@ export type PersistentTheftCheck = {
   modifiers: PersistentRecordedModifier[];
   bonusChoices: PersistentBonusChoice[];
 };
-export type RivalrySkill = 'diplomacy' | 'bluff' | 'intimidate';
+export type RivalrySkill = NonNullable<
+  Extract<
+    WeeklyDraft['persistent']['decisions'][number],
+    { kind: 'mitigate' }
+  >['officerCheck']
+>['skill'];
 // Rivalry's officer check: one character's skill check against DC 20.
 export type PersistentRivalryCheck = {
   characterId: string | null;
@@ -771,7 +776,15 @@ export type PersistentRetained = {
   label: string;
   // The recorded value in words; targets list each target instead.
   value: string;
-  targets: string[];
+  targets: {
+    name: string;
+    target: NonNullable<
+      Extract<
+        WeeklyDraft['persistent']['decisions'][number],
+        { kind: 'mitigate' }
+      >['targets']
+    >[number];
+  }[];
 };
 export type PhaseView =
   | UpkeepView

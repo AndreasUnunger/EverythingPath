@@ -115,7 +115,7 @@ test('[PER-04.officer-pending] a new officer check waits for both its character 
   });
 });
 
-test('[PER-04.modifiers] modifiers are added, edited in place with their source identity, and removed by position', () => {
+test('[PER-04.modifiers] modifiers are added, edited in place with their source identity, and removed', () => {
   const added = modifierList(full, 'theft', {
     kind: 'add',
     modifier: { sourceId: 'custom:c', value: -1, reason: 'Rain' },
@@ -124,9 +124,10 @@ test('[PER-04.modifiers] modifiers are added, edited in place with their source 
     'custom:a',
     'custom:c',
   ]);
+  const flattery = { ...full.officerCheck!.roll!.modifiers[0]!, index: 0 };
   const edited = modifierList(full, 'rivalry', {
     kind: 'edit',
-    index: 0,
+    shown: flattery,
     value: 4,
     reason: 'Better flattery',
   })!;
@@ -140,8 +141,10 @@ test('[PER-04.modifiers] modifiers are added, edited in place with their source 
       roll: { ...full.officerCheck!.roll!, modifiers: edited },
     },
   });
-  expect(modifierList(full, 'theft', { kind: 'remove', index: 0 })).toEqual([]);
-  expect(modifierList(full, 'theft', { kind: 'remove', index: 5 })).toBeNull();
+  const speech = { ...full.rolls!.check!.modifiers[0]!, index: 0 };
+  expect(
+    modifierList(full, 'theft', { kind: 'remove', shown: speech }),
+  ).toEqual([]);
   // A modifier belongs to its roll: nothing to change before the roll.
   const bare: Mitigation = { kind: 'mitigate', eventId: 'carried' };
   expect(
@@ -153,21 +156,63 @@ test('[PER-04.modifiers] modifiers are added, edited in place with their source 
   expect(checkModifiersEdit(bare, 'theft', [])).toBeNull();
 });
 
+test('[PER-04.modifier-identity] a peer’s earlier change never redirects an edit or removal to another modifier', () => {
+  const rain = { sourceId: 'custom:rain', value: -1, reason: 'Rain' };
+  const speech = { sourceId: 'custom:a', value: 2, reason: 'Speech' };
+  // The player saw Speech first and Rain second; a peer removed Speech.
+  const moved: Mitigation = {
+    ...full,
+    rolls: { check: total(12, [rain]) },
+  };
+  expect(
+    modifierList(moved, 'theft', {
+      kind: 'remove',
+      shown: { ...rain, index: 1 },
+    }),
+  ).toEqual([]);
+  expect(
+    modifierList(moved, 'theft', {
+      kind: 'edit',
+      shown: { ...speech, index: 0 },
+      value: 3,
+      reason: 'Speech',
+    }),
+  ).toBeNull();
+  // A peer changed the entry the player is editing: nothing is overwritten.
+  expect(
+    modifierList(
+      { ...full, rolls: { check: total(12, [{ ...speech, value: 5 }]) } },
+      'theft',
+      { kind: 'remove', shown: { ...speech, index: 0 } },
+    ),
+  ).toBeNull();
+});
+
 test('[PER-04.retained-clear] a retained field or one target is removed deliberately; everything else stays', () => {
   const { strategistCharacterId: _strategist, ...rest } = full;
   expect(decision(clearRetainedEdit(full, 'strategistCharacterId'))).toEqual(
     rest,
   );
-  expect(decision(removeRetainedTargetEdit(full, 0))).toEqual({
-    ...full,
-    targets: [{ kind: 'settlement', settlementId: 'town' }],
-  });
-  const { targets: _targets, ...untargeted } = full;
+  const team = full.targets![0]!;
+  const town = full.targets![1]!;
+  expect(
+    decision(removeRetainedTargetEdit(full, { index: 0, target: team })),
+  ).toEqual({ ...full, targets: [town] });
+  // Found by identity when a peer's removal moved it.
   expect(
     decision(
-      removeRetainedTargetEdit({ ...full, targets: [full.targets![0]!] }, 0),
+      removeRetainedTargetEdit(
+        { ...full, targets: [town] },
+        { index: 1, target: town },
+      ),
     ),
-  ).toEqual(untargeted);
+  ).toEqual((({ targets: _targets, ...untargeted }) => untargeted)(full));
+  expect(
+    removeRetainedTargetEdit(
+      { ...full, targets: [town] },
+      { index: 0, target: team },
+    ),
+  ).toBeNull();
 });
 
 test('[PER-04.valid] every field edit is a valid persistent_decision for the draft', () => {

@@ -466,6 +466,68 @@ test('[PER-04.modifiers-view] a custom modifier is validated, added, edited in p
   );
 });
 
+test('[PER-04.retype] retyping a roll through a blank keeps the modifiers recorded on it', async () => {
+  const { draft, snapshot } = week();
+  const luck = { sourceId: 'custom:a', value: 1, reason: 'Luck' };
+  draft.persistent.decisions = [
+    { kind: 'mitigate', eventId: 'old', rolls: { check: total(15, [luck]) } },
+  ];
+  const store = workspace(draft, snapshot);
+  render(<store.Persistent />);
+  const roll = () =>
+    within(section('Theft · Event 1')).getByRole('textbox', {
+      name: 'Loyalty check',
+    });
+  fireEvent.change(roll(), { target: { value: '' } });
+  await waitFor(() => expect(store.sent).toHaveLength(1));
+  expect(decisionOf(store.draft(), 'old')).toEqual({
+    kind: 'mitigate',
+    eventId: 'old',
+  });
+  fireEvent.change(roll(), { target: { value: '12' } });
+  await waitFor(() => expect(store.sent).toHaveLength(2));
+  expect(decisionOf(store.draft(), 'old')).toEqual({
+    kind: 'mitigate',
+    eventId: 'old',
+    rolls: { check: total(12, [luck]) },
+  });
+});
+
+test('[PER-04.field-failure] a refused Rivalry field says so and keeps the local choice for a retry', async () => {
+  const { draft, snapshot } = week();
+  draft.persistent.decisions = [{ kind: 'mitigate', eventId: 'rivalry' }];
+  let refuse = true;
+  const store = workspace(draft, snapshot, () => refuse);
+  render(<store.Persistent />);
+  const rivalry = () => section('Rivalry · Event 3');
+  const character = within(rivalry()).getByRole('combobox', {
+    name: 'Character',
+  });
+  fireEvent.change(character, { target: { value: 'pc' } });
+  fireEvent.change(within(rivalry()).getByRole('combobox', { name: 'Skill' }), {
+    target: { value: 'bluff' },
+  });
+  expect(
+    await within(rivalry()).findByText('This change wasn’t saved. Try again.'),
+  ).toHaveAttribute('role', 'alert');
+  // The character and skill stay chosen; choosing the skill again saves.
+  expect(character).toHaveValue('pc');
+  refuse = false;
+  fireEvent.change(within(rivalry()).getByRole('combobox', { name: 'Skill' }), {
+    target: { value: 'diplomacy' },
+  });
+  await waitFor(() =>
+    expect(decisionOf(store.draft(), 'rivalry')).toEqual({
+      kind: 'mitigate',
+      eventId: 'rivalry',
+      officerCheck: { characterId: 'pc', skill: 'diplomacy' },
+    }),
+  );
+  expect(
+    within(rivalry()).queryByText('This change wasn’t saved. Try again.'),
+  ).toBeNull();
+});
+
 test('[WEEK-10.check-locked] Confirmation disables every check field, modifier and support control', () => {
   const { draft, snapshot } = week();
   draft.persistent.decisions = [

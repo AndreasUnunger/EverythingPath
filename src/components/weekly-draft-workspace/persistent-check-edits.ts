@@ -76,35 +76,62 @@ export function checkModifiersEdit(
   check: CheckRoll,
   modifiers: RollModifier[],
 ): WeeklyDraftEdit | null {
-  const roll = checkRoll(decision, check);
-  if (!roll) return null;
   const next = structuredClone(decision);
-  const updated = { ...structuredClone(roll), modifiers };
-  if (check === 'theft') next.rolls = { ...next.rolls, check: updated };
-  else next.officerCheck = { ...next.officerCheck!, roll: updated };
+  if (check === 'theft') {
+    const roll = next.rolls?.check;
+    if (!roll) return null;
+    next.rolls = { ...next.rolls, check: { ...roll, modifiers } };
+  } else {
+    const officer = next.officerCheck;
+    if (!officer?.roll) return null;
+    next.officerCheck = { ...officer, roll: { ...officer.roll, modifiers } };
+  }
   return send(next);
 }
 
 export const newModifierSource = () => `custom:${crypto.randomUUID()}`;
 
-/** One check's modifier list after adding, editing or removing an entry. */
+// A recorded modifier as the player saw it: its position then, and its
+// source, amount and reason.
+export type ShownModifier = RollModifier & { index: number };
+const sameModifier = (entry: RollModifier, shown: ShownModifier) =>
+  entry.sourceId === shown.sourceId &&
+  entry.value === shown.value &&
+  entry.reason === shown.reason;
+
+// Where the shown modifier is now: its old position if it is still there,
+// else wherever that same entry moved; -1 once it is gone or changed.
+function locate(current: RollModifier[], shown: ShownModifier) {
+  const there = current[shown.index];
+  if (there && sameModifier(there, shown)) return shown.index;
+  return current.findIndex((entry) => sameModifier(entry, shown));
+}
+
+export type ModifierChange =
+  | { kind: 'add'; modifier: RollModifier }
+  | { kind: 'edit'; shown: ShownModifier; value: number; reason: string }
+  | { kind: 'remove'; shown: ShownModifier };
+
+/**
+ * One check's modifier list after adding, editing or removing an entry. An
+ * edit or removal finds the entry the player saw in the newest list, so a
+ * peer's earlier change never redirects it; null when it no longer exists.
+ */
 export function modifierList(
   decision: Mitigation,
   check: CheckRoll,
-  change:
-    | { kind: 'add'; modifier: RollModifier }
-    | { kind: 'edit'; index: number; value: number; reason: string }
-    | { kind: 'remove'; index: number },
+  change: ModifierChange,
 ): RollModifier[] | null {
   const current = checkRoll(decision, check)?.modifiers;
   if (!current) return null;
   if (change.kind === 'add') return [...current, change.modifier];
-  if (!current[change.index]) return null;
+  const at = locate(current, change.shown);
+  if (at < 0) return null;
   if (change.kind === 'remove')
-    return current.filter((_, index) => index !== change.index);
+    return current.filter((_, index) => index !== at);
   // The entry keeps its source identity; only the amount and reason change.
   return current.map((entry, index) =>
-    index === change.index
+    index === at
       ? { ...entry, value: change.value, reason: change.reason }
       : entry,
   );
@@ -120,13 +147,27 @@ export function clearRetainedEdit(
   return send(next);
 }
 
-/** Removes one retained target, by its position in the recorded list. */
+type Target = NonNullable<Mitigation['targets']>[number];
+const sameTarget = (a: Target, b: Target) =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Removes one retained target, found by its identity at the position the
+ * player saw it (or wherever it moved); null once it is gone.
+ */
 export function removeRetainedTargetEdit(
   decision: Mitigation,
-  index: number,
-): WeeklyDraftEdit {
+  shown: { index: number; target: Target },
+): WeeklyDraftEdit | null {
   const next = structuredClone(decision);
-  const targets = (next.targets ?? []).filter((_, other) => other !== index);
+  const current = next.targets ?? [];
+  const there = current[shown.index];
+  const at =
+    there && sameTarget(there, shown.target)
+      ? shown.index
+      : current.findIndex((entry) => sameTarget(entry, shown.target));
+  if (at < 0) return null;
+  const targets = current.filter((_, index) => index !== at);
   if (targets.length) next.targets = targets;
   else delete next.targets;
   return send(next);
