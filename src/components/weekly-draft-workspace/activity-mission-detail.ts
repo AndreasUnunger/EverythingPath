@@ -110,19 +110,15 @@ const acknowledgementDescription: Record<MissionActionId, string | null> = {
   reduce_danger: null,
 };
 
-/** The acknowledgement subject this action's rules ask for, if any. */
-export function missionAcknowledgementSubject(choice: MissionChoice) {
+// The subject of the action's What happened note, or null for an action
+// whose rules ask for none.
+function noteSubject(choice: MissionChoice) {
   switch (choice.actionId) {
     case 'activate_refuge':
     case 'reduce_danger':
       return null;
     case 'spread_propaganda':
       return `propaganda:${choice.choiceId}`;
-    case 'covert_action':
-      // Only a placed contact or cache is acknowledged.
-      return choice.mode === 'augment'
-        ? null
-        : `covert_action:${choice.choiceId}`;
     default:
       return `${choice.actionId}:${choice.choiceId}`;
   }
@@ -132,18 +128,17 @@ function acknowledgement(
   choice: MissionChoice,
   slot: Slot,
 ): MissionAcknowledgement | null {
+  const subjectId = noteSubject(choice);
   const description = acknowledgementDescription[choice.actionId];
-  const subjectId =
-    missionAcknowledgementSubject(choice) ??
-    // A recorded contact or cache note stays visible after a mode change.
-    (choice.actionId === 'covert_action'
-      ? `covert_action:${choice.choiceId}`
-      : null);
   if (!subjectId || !description) return null;
   const recorded =
     choice.acknowledgements?.find((entry) => entry.subjectId === subjectId) ??
     null;
-  if (!missionAcknowledgementSubject(choice) && !recorded) return null;
+  // Covert Action notes only a placed contact or cache; a recorded note stays
+  // visible after a change to augment until it is cleared.
+  const isUsed =
+    choice.actionId !== 'covert_action' || choice.mode !== 'augment';
+  if (!isUsed && !recorded) return null;
   const prefix = `${choice.choiceId}:acknowledgement`;
   return {
     subjectId,
@@ -198,11 +193,12 @@ function settlementOptions(
   );
 }
 
+function slotName(slot: Slot) {
+  return `Action Slot ${slot.number} · ${slot.actionName ?? 'Action'}`;
+}
 function slotLabel(view: ActivityView, choiceId: string) {
   const slot = view.slots.find((entry) => entry.choice?.choiceId === choiceId);
-  return slot
-    ? `Action Slot ${slot.number} · ${slot.actionName ?? 'Action'}`
-    : null;
+  return slot ? slotName(slot) : null;
 }
 
 function refugeSettlements(
@@ -225,6 +221,12 @@ function refugeSettlements(
   );
 }
 
+function securityText(settlement: PositionSettlement | null) {
+  if (settlement?.secured === true) return 'Secured';
+  if (settlement?.secured === false) return 'Not secured';
+  return 'Security not recorded';
+}
+
 function dangerSettlements(
   view: ActivityView,
   slot: Slot,
@@ -234,14 +236,7 @@ function dangerSettlements(
     view,
     slot,
     choice.settlementId,
-    (settlement) => [
-      reputationText(settlement),
-      settlement?.secured === true
-        ? 'Secured'
-        : settlement?.secured === false
-          ? 'Not secured'
-          : 'Security not recorded',
-    ],
+    (settlement) => [reputationText(settlement), securityText(settlement)],
     (settlement) => settlement?.secured === true,
   );
 }
@@ -344,7 +339,7 @@ function covertDetail(
             ? [
                 option(
                   entry.choice.choiceId,
-                  `Action Slot ${entry.number} · ${entry.actionName ?? 'Action'}`,
+                  slotName(entry),
                   entry.choice.choiceId === next
                     ? 'The next choice'
                     : 'Not the next choice',

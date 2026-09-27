@@ -1,7 +1,6 @@
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { Button } from '~/components/ui/button';
 import {
   Form,
@@ -34,6 +33,7 @@ import type {
   MissionActionId,
   MissionChoice,
 } from './activity-mission-actions';
+import { CorrectionsLink } from './activity-economy-parts';
 import { ActivityText } from './activity-text';
 
 // The detail editor for the information, mission and event-influence
@@ -84,21 +84,6 @@ function isMissingSelection(
   return (
     value !== undefined &&
     options.some((option) => option.value === value && option.missing)
-  );
-}
-
-function CorrectionsLink({ correctionsHref }: { correctionsHref?: string }) {
-  if (!correctionsHref) return null;
-  return (
-    <>
-      {' '}
-      <GuardedLink
-        href={correctionsHref}
-        className="text-primary underline-offset-4 hover:underline"
-      >
-        Open Militia corrections
-      </GuardedLink>
-    </>
   );
 }
 
@@ -414,17 +399,19 @@ function EventCandidates({
     <section aria-label="Event candidates" className="space-y-2">
       <h3 className="text-sm font-semibold">Event candidates</h3>
       <Muted>
-        The GM rolls two candidate events and the players choose which one
-        happens. Both are rolled and chosen in the Event phase.
+        The GM rolls the candidate events and the players choose which one
+        happens, in the Event phase.
       </Muted>
-      {set && !set.active && (
+      {set && !set.active ? (
         <Note>
-          This choice guarantees no event this week; its candidates stay on
-          record.
+          This choice guarantees no event this week; any recorded candidates
+          stay on record.
         </Note>
-      )}
+      ) : null}
       {!set || set.candidates.length === 0 ? (
-        <Muted>Event prepares the candidates when it opens.</Muted>
+        set?.active === false ? null : (
+          <Muted>Event is preparing the candidates.</Muted>
+        )
       ) : (
         <ul
           aria-label="Event candidates for this choice"
@@ -440,7 +427,9 @@ function EventCandidates({
                 {candidate.name ?? 'Not rolled yet'}
               </span>
               <span className="text-muted-foreground text-xs">
-                {candidate.chosen ? 'Chosen' : candidate.status}
+                {candidate.chosen
+                  ? `Chosen · ${candidate.status}`
+                  : candidate.status}
               </span>
               {candidate.nested > 0 && (
                 <span className="text-muted-foreground text-xs">
@@ -503,6 +492,9 @@ function MissionNote({
               <FormItem className="min-w-0">
                 <FormLabel>What happened</FormLabel>
                 <Muted>{acknowledgement.description}</Muted>
+                {acknowledgement.required && !recorded ? (
+                  <Muted>Required: the rules wait for this note.</Muted>
+                ) : null}
                 <FormControl>
                   <Input {...field} disabled={disabled} />
                 </FormControl>
@@ -590,8 +582,6 @@ function Specific({
     case 'guarantee_event':
     case 'manipulate_events':
       return <EventCandidates detail={fields.detail} openEvent={openEvent} />;
-    default:
-      return null;
   }
 }
 

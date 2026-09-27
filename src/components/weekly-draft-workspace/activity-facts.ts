@@ -515,16 +515,12 @@ export function positionFacts(
     refugeSettlementIds: [...settlements.values()].flatMap((settlement) =>
       isRefugeActive(settlement, draft.week) ? [settlement.settlementId] : [],
     ),
-    settlements: projectSettlements(
-      [...settlements.values()],
-      draft.week,
-    ).settlements.map((settlement) => ({
+    settlements: [...settlements.values()].map((settlement) => ({
       settlementId: settlement.settlementId,
-      reputation: settlement.reputation,
-      refugeAllowed: refugeReputationAllows(
-        settlements.get(settlement.settlementId)!,
-        draft.week,
-      ),
+      reputation:
+        projectSettlements([settlement], draft.week).settlements[0]
+          ?.reputation ?? null,
+      refugeAllowed: refugeReputationAllows(settlement, draft.week),
       occupied: settlement.occupied,
       secured: settlement.secured,
     })),

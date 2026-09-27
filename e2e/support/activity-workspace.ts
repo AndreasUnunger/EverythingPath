@@ -325,7 +325,8 @@ export async function exerciseActivityWorkspace(
 // Guarantee Event's candidates: Event prepares both on every device, a
 // candidate's Roll Twice is rerolled in its own die with no nested events,
 // and the choice's details show the chosen candidate. Clearing the choice
-// takes its candidates with it, leaving the later phases unchanged.
+// takes its candidates with it, so the later Event steps and the exact
+// Confirmation totals start from the same week as before.
 async function exerciseGuaranteeEvent(
   gm: Page,
   player: Page,

@@ -166,6 +166,9 @@ describe('information and Special', () => {
     });
     const { edit, rerender } = open(view);
     expect(screen.getByText('Knowledge DC achieved: 17')).toBeVisible();
+    expect(
+      screen.getByText('Required: the rules wait for this note.'),
+    ).toBeVisible();
     const note = screen.getByRole('form', { name: 'What happened' });
     fireEvent.click(
       within(note).getByRole('button', { name: 'Save what happened' }),
@@ -391,7 +394,7 @@ describe('event candidates', () => {
     const [first, second] = within(list).getAllByRole('listitem');
     expect(first).toHaveTextContent('Event 1AWindfallNot chosen');
     expect(second).toHaveTextContent(
-      'Event 1BNot rolled yetChosen· 2 nested events on record',
+      'Event 1BNot rolled yetChosen · Awaiting roll· 2 nested events on record',
     );
     expect(screen.getByText('Enter Event 1B’s table roll.')).toBeVisible();
     fireEvent.click(button('Roll and choose in Event'));
@@ -416,7 +419,7 @@ describe('event candidates', () => {
     );
     expect(
       screen.getByText(
-        'This choice guarantees no event this week; its candidates stay on record.',
+        'This choice guarantees no event this week; any recorded candidates stay on record.',
       ),
     ).toBeVisible();
     expect(

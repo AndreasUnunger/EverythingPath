@@ -153,7 +153,12 @@ export function anyMissing(
   );
 }
 
-function CorrectionsLink({ correctionsHref }: { correctionsHref?: string }) {
+// A link to Militia corrections, where missing references are restored.
+export function CorrectionsLink({
+  correctionsHref,
+}: {
+  correctionsHref?: string;
+}) {
   if (!correctionsHref) return null;
   return (
     <>
