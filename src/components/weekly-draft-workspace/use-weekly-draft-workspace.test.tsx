@@ -545,7 +545,8 @@ test('[rules.P82.declared-references] incomplete staged creations remain named c
     });
     expect(state.phaseView.events).toContainEqual({
       value: 'rivalry',
-      label: 'Rivalry · Event 1',
+      // A current-week candidate goes by its Event label.
+      label: 'Event 1A · Rivalry',
     });
   });
 });

@@ -1,5 +1,6 @@
 import { activityLabel } from './activity-labels';
 import { activityOptionFacts } from './activity-option-facts';
+import { eventOccurrenceLabels } from './event-tree-facts';
 import { MILITIA_ACTIVITY_ACTION_IDS } from '~/lib/militia-domain';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
@@ -79,7 +80,12 @@ export function activityView(
       actionId,
       name: activityLabel(actionId),
     })),
-    ...activityOptionFacts(draft, source, projection),
+    ...activityOptionFacts(
+      draft,
+      source,
+      projection,
+      eventOccurrenceLabels(draft, preview.phases?.event.positions ?? []),
+    ),
     settlements: source.snapshot.settlements.map((settlement) => ({
       value: settlement.settlementId,
       label: settlement.name,

@@ -15,14 +15,15 @@ export async function exerciseEventWorkspace(
   const chance = (page: Page) =>
     page.getByRole('textbox', { name: 'Event chance roll', exact: true });
   // Blocks are labelled hierarchically: Roll Twice children of Event 1 are
-  // Event 1.1 and Event 1.2, whatever else is added later.
-  const table = (page: Page, label: string) =>
+  // Event 1.1 and Event 1.2, whatever else is added later. `path` is the part
+  // after "Event ".
+  const table = (page: Page, path: string) =>
     page.getByRole('textbox', {
-      name: `Event ${label} table roll`,
+      name: `Event ${path} table roll`,
       exact: true,
     });
-  const occurrence = (page: Page, label: string) =>
-    page.getByRole('group', { name: `Event ${label}`, exact: true });
+  const occurrence = (page: Page, path: string) =>
+    page.getByRole('group', { name: `Event ${path}`, exact: true });
   await Promise.all([phase(gm, 'Event'), phase(player, 'Event')]);
   const previousChance = await chance(gm).inputValue();
   // A triggered chance roll prepares the rolled event's blank position on

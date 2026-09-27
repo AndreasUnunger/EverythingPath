@@ -26,7 +26,7 @@ export function EventRulesDisclosure({ rules }: { rules: EventBlockRules }) {
               {rules.twice}
             </p>
             <p className="text-xs">
-              For this second roll only the Twice clause is resolved.
+              For this second roll only the Twice subsection is resolved.
             </p>
             <p className="text-xs">
               {rules.name}, as it applied the first time:

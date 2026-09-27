@@ -10,6 +10,7 @@ import {
 import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView, type EventPreparationContext } from './event-facts';
+import { activityView } from './activity-facts';
 import { planEventTopology } from '~/lib/event-occurrence-preparation';
 import { editWeeklyDraft } from '~/lib/weekly-draft';
 import type { EventBlock } from './types';
@@ -450,4 +451,52 @@ test('[EVT-labels.inactive] events not taking part this week are numbered after 
     'old-a': 'Event 2.1',
   });
   expect(view.inactive.map((block) => block.label)).toEqual(['Event 2']);
+});
+
+test('[EVT-labels.sources] independent candidate sources get separate numbers, and Activity options use the same labels', () => {
+  const { draft, snapshot } = eventActionFixture();
+  const choice = draft.activity.slots.find(
+    (slot) => slot.choice?.choiceId === 'shape',
+  )!.choice!;
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  delete choice.selectedEventId;
+  draft.activity.slots.push({
+    slotId: 'another',
+    choice: {
+      choiceId: 'again',
+      actionId: 'guarantee_event',
+      candidates: [
+        {
+          eventId: 'storm-a',
+          origin: { kind: 'rolled' },
+          tableRoll: roll(100, 30),
+        },
+        { eventId: 'storm-b', origin: { kind: 'rolled' } },
+      ],
+    },
+  });
+  const { view } = facts(draft, snapshot);
+  expect(labels(view)).toEqual({
+    raid: 'Event 1A',
+    theft: 'Event 1B',
+    'storm-a': 'Event 2A',
+    'storm-b': 'Event 2B',
+  });
+  const source = workspaceSourceSchema.parse({
+    key: { campaignId: 'c', militiaId: 'm', draftId: draft.draftId },
+    sourceRevision: 0,
+    snapshot,
+    people: [],
+  });
+  const activity = activityView(
+    draft,
+    source,
+    projectWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }),
+  );
+  expect(activity.events).toEqual(
+    expect.arrayContaining([
+      { value: 'storm-b', label: 'Event 2B' },
+      { value: 'raid', label: expect.stringMatching(/^Event 1A/) },
+    ]),
+  );
 });

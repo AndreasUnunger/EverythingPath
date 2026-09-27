@@ -10,6 +10,7 @@ import {
 import type { EventOutcomeProjection } from '~/lib/rules-event-outcomes';
 import {
   isCandidateChoice,
+  planEventTopology,
   uniquePositions,
   type EventTopologyPlan,
 } from '~/lib/event-occurrence-preparation';
@@ -161,25 +162,13 @@ function childKind(group: EventPositionGroup) {
  * group decides whether an occurrence takes part this week; everything else
  * stays visible as recorded input rather than being dropped or rewritten.
  */
-export function eventTreeBlocks({
-  draft,
-  projection,
-  plan,
-  accepted,
-  facts,
-  issues,
-}: {
-  draft: WeeklyDraft;
-  projection: EventOutcomeProjection | undefined;
-  plan: EventTopologyPlan;
-  accepted: ReadonlySet<string> | null;
-  facts: (
-    located: LocatedEvent,
-    label: string,
-  ) => Omit<EventOccurrenceFacts, 'label'> & { label?: string };
-  issues: (codes: string[]) => EventIssue[];
-}) {
-  const positions = uniquePositions(projection?.positions ?? []);
+// Which recorded (and planned) occurrences take part this week, their
+// resolution order and their display labels, from the engine's trace.
+function eventTreeLayout(
+  draft: WeeklyDraft,
+  positions: readonly EventPositionGroup[],
+  plan: EventTopologyPlan,
+) {
   const located: LocatedEvent[] = [
     ...plan.trees.event.map((event) => ({
       event,
@@ -288,9 +277,71 @@ export function eventTreeBlocks({
     ],
     order,
     childrenOf: (entry) =>
-      childrenOf(entry).map((child) => byId.get(child.eventId)!),
+      childrenOf(entry).flatMap((child) => byId.get(child.eventId) ?? []),
   });
   const labelOf = (eventId: string) => labels.get(eventId) ?? 'Event';
+
+  return {
+    located,
+    byId,
+    childrenOf,
+    active,
+    overfull,
+    groupOfParent,
+    activeCandidateSets,
+    order,
+    roots,
+    labelOf,
+  };
+}
+
+/** Display labels for the draft's current-week occurrences, by identity. */
+export function eventOccurrenceLabels(
+  draft: WeeklyDraft,
+  trace: readonly EventPositionGroup[],
+) {
+  const positions = uniquePositions(trace);
+  const { order, labelOf } = eventTreeLayout(
+    draft,
+    positions,
+    planEventTopology(draft, positions),
+  );
+  return new Map(
+    order.map((entry) => [entry.event.eventId, labelOf(entry.event.eventId)]),
+  );
+}
+
+export function eventTreeBlocks({
+  draft,
+  projection,
+  plan,
+  accepted,
+  facts,
+  issues,
+}: {
+  draft: WeeklyDraft;
+  projection: EventOutcomeProjection | undefined;
+  plan: EventTopologyPlan;
+  accepted: ReadonlySet<string> | null;
+  facts: (
+    located: LocatedEvent,
+    label: string,
+  ) => Omit<EventOccurrenceFacts, 'label'> & { label?: string };
+  issues: (codes: string[]) => EventIssue[];
+}) {
+  const positions = uniquePositions(projection?.positions ?? []);
+  const {
+    located,
+    byId,
+    childrenOf,
+    active,
+    overfull,
+    groupOfParent,
+    activeCandidateSets,
+    order,
+    roots,
+    labelOf,
+  } = eventTreeLayout(draft, positions, plan);
 
   const occurrences = order.map((entry) => ({
     ...facts(entry, labelOf(entry.event.eventId)),
