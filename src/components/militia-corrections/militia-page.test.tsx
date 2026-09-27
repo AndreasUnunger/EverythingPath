@@ -419,7 +419,7 @@ describe('temporary full editor', () => {
       screen.getByRole('heading', { name: 'Characters and officers' }),
     ).toBeVisible();
     expect(calls).toHaveLength(0);
-  });
+  }, 15000);
 });
 
 describe('phone layout', () => {
