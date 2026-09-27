@@ -8,6 +8,7 @@ import {
   closedCorrection,
   correctionReducer,
   correctionView,
+  planPeopleSave,
   planSectionSave,
   type AcceptedMilitia,
 } from '../src/components/militia-corrections/correction-lifecycle';
@@ -254,4 +255,148 @@ test('a corrected section is still refused when it removes what carried effects 
   expect((await player.query(api.canonicalLedger.read, scope)).revision).toBe(
     values.opened.revision,
   );
+});
+
+test('character conditions and carried benefits corrected on two devices keep each other and the character records; the People & officers fallback never overwrites them', async () => {
+  const { t, player, gm, scope, key, characterId } = await fixture();
+  const conditions = await openCorrection(
+    player,
+    scope,
+    key.draftId,
+    'characterConditions',
+  );
+  const benefits = await openCorrection(
+    gm,
+    scope,
+    key.draftId,
+    'carriedBenefits',
+  );
+  const people = correctionReducer(closedCorrection, {
+    type: 'open',
+    target: { kind: 'people' },
+    accepted: conditions.opened,
+  });
+
+  const carried = {
+    skills: [
+      {
+        benefitId: 'festival-benefit',
+        sourceEventIds: ['festival'],
+        characterIds: [characterId],
+        skills: ['diplomacy' as const],
+        bonusType: 'morale' as const,
+        value: 2,
+        settlementId: 'town',
+        afterDark: true,
+        startsWeek: 9,
+        endsWeek: 10,
+      },
+    ],
+    markets: [
+      {
+        benefitId: 'market-benefit',
+        sourceEventIds: ['market'],
+        settlementIds: ['town'],
+        discountPercent: 5 as const,
+        startsWeek: 9,
+        endsWeek: 9,
+      },
+    ],
+  };
+  await saveSection(
+    gm,
+    scope,
+    benefits,
+    benefits.opened,
+    'carriedBenefits',
+    carried,
+    'Festival rewards',
+  );
+  await player.mutation(api.character.updateCharacter, {
+    organizationId: 'org',
+    characterId,
+    patch: { charisma: 20 },
+  });
+
+  const hidden = [
+    {
+      characterId,
+      status: 'hidden' as const,
+      location: { kind: 'refuge' as const, settlementId: 'town' },
+      directRescueRequired: true,
+      capture: { source: 'raid' as const, week: 8 },
+      rescuedWeek: 9,
+    },
+  ];
+  // Sent against the revision this device opened from: refused.
+  await expect(
+    saveSection(
+      player,
+      scope,
+      conditions,
+      conditions.opened,
+      'characterConditions',
+      hidden,
+      'Hid in town',
+    ),
+  ).rejects.toThrow('Militia changed');
+  // Refreshed, Character conditions merge onto the newest militia.
+  const refreshed = await conditions.read();
+  expect(
+    (
+      await saveSection(
+        player,
+        scope,
+        conditions,
+        refreshed,
+        'characterConditions',
+        hidden,
+        'Hid in town',
+      )
+    ).kind,
+  ).toBe('send');
+
+  const final = await player.query(api.canonicalLedger.read, scope);
+  const snapshot = final.state.militiaSnapshot;
+  expect(snapshot.characterActions).toEqual({ people: hidden });
+  expect(snapshot.eventBenefits).toEqual(carried);
+  expect(snapshot.characters[0]?.charisma).toBe(20);
+  expect(snapshot.roster).toEqual(
+    conditions.opened.state.militiaSnapshot.roster,
+  );
+  expect(snapshot.economy).toEqual(
+    conditions.opened.state.militiaSnapshot.economy,
+  );
+  expect(final.state.context).toEqual(conditions.opened.state.context);
+
+  // The fallback opened before both corrections sends its whole snapshot at
+  // that revision, so the server refuses it rather than undoing them.
+  const opened = conditions.opened.state.militiaSnapshot;
+  const plan = planPeopleSave(people, {
+    ...opened,
+    roster: {
+      ...opened.roster,
+      officers: [...opened.roster.officers, { role: 'marshal', characterId }],
+    },
+  });
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  expect(plan.attempt.expectedRevision).toBe(conditions.opened.revision);
+  await expect(
+    player.mutation(api.canonicalLedger.save, {
+      ...scope,
+      expectedRevision: plan.attempt.expectedRevision,
+      snapshot: plan.snapshot,
+      reason: 'Ada leads the drills',
+    }),
+  ).rejects.toThrow('Militia changed');
+  expect((await player.query(api.canonicalLedger.read, scope)).revision).toBe(
+    final.revision,
+  );
+  const reasons = await t.run((ctx) =>
+    ctx.db
+      .query('canonicalSourceCorrection')
+      .collect()
+      .then((rows) => rows.map((row) => row.reason)),
+  );
+  expect(reasons).toEqual(['Festival rewards', 'Hid in town']);
 });

@@ -35,6 +35,15 @@ export const MILITIA_ENTRY_LABELS: Record<MilitiaEntryKey, string> = {
   people: 'People & officers',
 };
 
+/** The page entry an address names (`?section=people`), if any. */
+export function parseMilitiaEntry(
+  value: string | null | undefined,
+): MilitiaEntryKey | undefined {
+  return value && Object.hasOwn(MILITIA_ENTRY_LABELS, value)
+    ? (value as MilitiaEntryKey)
+    : undefined;
+}
+
 export type SectionValues = {
   values: Pick<
     Snapshot,

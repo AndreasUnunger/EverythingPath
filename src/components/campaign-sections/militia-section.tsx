@@ -9,12 +9,14 @@ import { useMilitiaCorrections } from '~/components/militia-corrections/use-mili
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { campaignPath } from '~/lib/campaign-routes';
+import type { MilitiaEntryKey } from '~/lib/militia-correction-sections';
 
 function MilitiaCorrections(props: {
   campaignId: Id<'campaign'>;
   militiaId: Id<'militia'>;
   draftId: string;
   organizationId: string;
+  initialEntry?: MilitiaEntryKey;
 }) {
   const page = useMilitiaCorrections(props);
   if (page.status === 'loading') return <MilitiaSkeleton />;
@@ -26,9 +28,12 @@ function MilitiaCorrections(props: {
 export function MilitiaSection({
   campaignId,
   organizationId,
+  initialEntry,
 }: {
   campaignId: Id<'campaign'>;
   organizationId: string;
+  /** The entry the address selects, e.g. People & officers. */
+  initialEntry?: MilitiaEntryKey;
 }) {
   const source = useQuery(api.canonicalDraftPersistence.workspace, {
     campaignId,
@@ -44,6 +49,7 @@ export function MilitiaSection({
         militiaId={source.key.militiaId}
         draftId={source.key.draftId}
         organizationId={organizationId}
+        initialEntry={initialEntry}
       />
     );
   return (

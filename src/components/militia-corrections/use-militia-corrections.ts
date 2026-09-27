@@ -8,7 +8,6 @@ import type { Id } from '@convex/_generated/dataModel';
 import { useCanonicalLedger } from '~/components/use-canonical-ledger';
 import type { SetupCharacter } from '~/components/militia-setup/roster';
 import { findSetupField } from '~/components/militia-setup/use-guided-setup';
-import { phaseLabels } from '~/components/weekly-draft-workspace/week-frame/labels';
 import {
   CARRIED_REFERENCE_MESSAGE,
   newMilitiaSetup,
@@ -17,7 +16,6 @@ import {
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import {
   correctionImpact,
-  correctionStagedChoices,
   stagedReferences,
   type StagedReference,
 } from '~/lib/correction-staged-choices';
@@ -51,10 +49,7 @@ import {
   setupWarningDescriptors,
   type SetupErrorDescriptor,
 } from '~/lib/setup-validation';
-import {
-  weeklyDraftSchema,
-  type WeeklyDraft,
-} from '~/lib/weekly-draft-contract';
+import { weeklyDraftSchema } from '~/lib/weekly-draft-contract';
 import { classifyWriteFailure } from '~/lib/write-outcome';
 import {
   carriedDependencyError,
@@ -62,6 +57,7 @@ import {
   identityNames,
   missingTitle,
   namedItemReferences,
+  namedSourceReferences,
   neededByNote,
   restorationNeed,
   restoreFirstNote,
@@ -74,6 +70,7 @@ import {
   closedCorrection,
   correctionReducer,
   correctionView,
+  planPeopleSave,
   planSectionSave,
   type AcceptedMilitia,
   type CorrectionAction,
@@ -91,9 +88,9 @@ import {
   type ErrorSummaryItem,
 } from './correction-copy';
 import {
-  hasSectionEditor,
   sectionFieldLabels,
   sectionRowsPath,
+  type CorrectableEntry,
 } from './section-fields';
 
 export type MilitiaEntryView = {
@@ -134,9 +131,12 @@ export type MissingEntry = {
   restore: () => void;
 };
 
+/**
+ * The one open correction: a section's, or the People & officers fallback
+ * (which has no conflict, restoration or open-week impact of its own).
+ */
 export type SectionCorrection = {
-  kind: 'section';
-  entry: MilitiaSectionKey;
+  entry: CorrectableEntry;
   heading: string;
   form: UseFormReturn<MilitiaSetup>;
   /** Campaign characters, for manager choices. */
@@ -164,17 +164,6 @@ export type SectionCorrection = {
   restart: () => void;
 };
 
-export type FullCorrection = {
-  kind: 'full';
-  entry: MilitiaEntryKey;
-  heading: string;
-  initialValues: MilitiaSetup;
-  characters: SetupCharacter[];
-  stagedChoiceNotice?: (setup: MilitiaSetup) => string | null;
-  onSave: (setup: MilitiaSetup) => Promise<void>;
-  cancel: () => void;
-};
-
 export type MilitiaCorrections =
   | { status: 'loading' }
   | {
@@ -185,7 +174,7 @@ export type MilitiaCorrections =
       /** A correction is open: every other entry and Correct is disabled. */
       locked: boolean;
       open: (entry: MilitiaEntryKey) => void;
-      correction: SectionCorrection | FullCorrection | null;
+      correction: SectionCorrection | null;
       /** Accessible result of the last correction on this device. */
       feedback: string | null;
     };
@@ -226,30 +215,10 @@ function groupedWarnings(
   return grouped;
 }
 
-type Snapshot = CanonicalWeekState['militiaSnapshot'];
-
-// The full editor's existing notice: which phases hold staged choices the
-// correction would leave without their subject.
-function stagedChoiceSentence(
-  draft: WeeklyDraft,
-  latest: Snapshot,
-  candidate: Snapshot,
-) {
-  const affected = correctionStagedChoices(draft, latest, candidate);
-  if (affected.length === 0) return null;
-  const phases = affected
-    .map(
-      ({ phase, count }) =>
-        `${phaseLabels[phase]} (${count} ${count === 1 ? 'choice' : 'choices'})`,
-    )
-    .join(', ');
-  return `This correction removes something that choices already staged for the current week use: ${phases}. After saving, review those choices in the week; Upkeep lets you clear a staged decision for a removed team.`;
-}
-
-// Sends one planned section correction and reports its outcome to the
-// lifecycle. Only a ConvexError is a definite refusal; anything else may or
-// may not have been applied and is reconciled from the observed militia.
-function sendSectionCorrection(
+// Sends one planned correction and reports its outcome to the lifecycle.
+// Only a ConvexError is a definite refusal; anything else may or may not
+// have been applied and is reconciled from the observed militia.
+function sendCorrection(
   plan: Extract<SavePlan, { kind: 'send' }>,
   reason: string,
   save: ReturnType<typeof useCanonicalLedger>['save'],
@@ -306,12 +275,15 @@ export function useMilitiaCorrections({
   militiaId,
   draftId,
   organizationId,
+  initialEntry = 'values',
 }: {
   campaignId: Id<'campaign'>;
   militiaId: Id<'militia'>;
   /** The open week's draft, as currently observed. */
   draftId: string;
   organizationId: string;
+  /** The entry selected first, e.g. People & officers from its link. */
+  initialEntry?: MilitiaEntryKey;
 }): MilitiaCorrections {
   const { ledger, characters, save } = useCanonicalLedger({
     campaignId,
@@ -327,8 +299,7 @@ export function useMilitiaCorrections({
     correctionReducer,
     closedCorrection,
   );
-  const [selected, setSelected] = useState<MilitiaEntryKey>('values');
-  const [fullBase, setFullBase] = useState<AcceptedMilitia | null>(null);
+  const [selected, setSelected] = useState<MilitiaEntryKey>(initialEntry);
   const [candidateErrors, setCandidateErrors] = useState<
     SetupErrorDescriptor[]
   >([]);
@@ -442,21 +413,25 @@ export function useMilitiaCorrections({
         : missingOf(key).map((identity) => missingEntry(key, identity)),
   }));
 
+  // A section edits its own facts from the newest militia; the People &
+  // officers fallback sends the whole snapshot it opened from, so an absent
+  // economy stays absent.
+  const startingValuesFor = (entry: CorrectableEntry) =>
+    entry === 'people' ? setupFrom(accepted.state) : editorFrom(accepted.state);
+
   function open(entry: MilitiaEntryKey) {
     if (locked || entry === 'weekCarried') return;
     setSelected(entry);
     setCandidateErrors([]);
-    if (entry !== 'people' && hasSectionEditor(entry)) {
-      form.reset(editorFrom(accepted.state));
-      dispatch({
-        type: 'open',
-        target: { kind: 'section', section: entry },
-        accepted,
-      });
-      return;
-    }
-    setFullBase(accepted);
-    dispatch({ type: 'open', target: { kind: 'full', entry }, accepted });
+    form.reset(startingValuesFor(entry));
+    dispatch({
+      type: 'open',
+      target:
+        entry === 'people'
+          ? { kind: 'people' }
+          : { kind: 'section', section: entry },
+      accepted,
+    });
   }
 
   // Adds a missing identity back to the section's rows, under the same
@@ -475,42 +450,14 @@ export function useMilitiaCorrections({
     });
   }
 
-  function fullCorrection(
-    entry: MilitiaEntryKey,
-    base: AcceptedMilitia,
-  ): FullCorrection {
-    return {
-      kind: 'full',
-      entry,
-      heading: correctLabel(entry),
-      initialValues: setupFrom(base.state),
-      characters,
-      stagedChoiceNotice: draft
-        ? (setup) =>
-            stagedChoiceSentence(
-              draft,
-              base.state.militiaSnapshot,
-              setup.state.militiaSnapshot,
-            )
-        : undefined,
-      // The existing editor's revision-bound save: a stale full snapshot
-      // is refused, never merged.
-      onSave: async (setup) => {
-        await save({
-          expectedRevision: base.revision,
-          snapshot: setup.state.militiaSnapshot,
-          reason: setup.notes,
-        });
-        dispatch({ type: 'fullSaved' });
-      },
-      cancel: () => dispatch({ type: 'cancel' }),
-    };
-  }
-
-  // Validates the form, plans against the newest militia, validates the
-  // merged result and sends it. `sending` is set before validation settles,
-  // so a second press can never send the same correction twice.
-  function saveSection(section: MilitiaSectionKey) {
+  // Validates the form, plans the Save and sends it. `sending` is set before
+  // validation settles, so a second press can never send the same
+  // correction twice. `prepare` returns null when there is nothing to send.
+  function submit(
+    prepare: (
+      setup: MilitiaSetup,
+    ) => Extract<SavePlan, { kind: 'send' }> | null,
+  ) {
     if (sending.current) return;
     sending.current = 'validating';
     const release = () => {
@@ -518,37 +465,124 @@ export function useMilitiaCorrections({
     };
     void form
       .handleSubmit((setup) => {
-        const plan = planSectionSave(
-          correction,
-          accepted,
-          section,
-          sectionValue(section, setup.state.militiaSnapshot),
-        );
-        if (plan.kind !== 'send') {
-          release();
-          if (plan.kind !== 'busy') dispatch({ type: plan.kind });
-          return;
-        }
-        const invalid = setupErrorDescriptors(
-          setupFrom(
-            { ...accepted.state, militiaSnapshot: plan.snapshot },
-            setup.notes,
-          ),
-          militiaCorrectionSchema,
-        );
-        setCandidateErrors(invalid);
-        if (invalid.length) {
+        const plan = prepare(setup);
+        if (!plan) {
           release();
           return;
         }
         sending.current = plan.attempt;
-        void sendSectionCorrection(plan, setup.notes, save, dispatch).finally(
-          () => {
-            if (sending.current === plan.attempt) release();
-          },
-        );
+        void sendCorrection(plan, setup.notes, save, dispatch).finally(() => {
+          if (sending.current === plan.attempt) release();
+        });
       }, release)()
       .catch(release);
+  }
+
+  // A plan that sends nothing reports why (unchanged, conflict).
+  function reportUnlessSendable(plan: SavePlan) {
+    if (plan.kind === 'send') return plan;
+    if (plan.kind !== 'busy') dispatch({ type: plan.kind });
+    return null;
+  }
+
+  // Merges the section onto the newest militia and validates the merged
+  // result before sending it.
+  const saveSection = (section: MilitiaSectionKey) =>
+    submit((setup) => {
+      const plan = reportUnlessSendable(
+        planSectionSave(
+          correction,
+          accepted,
+          section,
+          sectionValue(section, setup.state.militiaSnapshot),
+        ),
+      );
+      if (!plan) return null;
+      const invalid = setupErrorDescriptors(
+        setupFrom(
+          { ...accepted.state, militiaSnapshot: plan.snapshot },
+          setup.notes,
+        ),
+        militiaCorrectionSchema,
+      );
+      setCandidateErrors(invalid);
+      return invalid.length ? null : plan;
+    });
+
+  // The fallback's whole snapshot, validated as a whole by the form, at the
+  // revision it opened from.
+  const savePeople = () =>
+    submit((setup) =>
+      reportUnlessSendable(
+        planPeopleSave(correction, setup.state.militiaSnapshot),
+      ),
+    );
+
+  // A choice field (Focus) has no input for the form to focus: find its
+  // first choice the way guided Setup does.
+  function focusField(field: string) {
+    const control = findSetupField(document.body, field);
+    if (control) control.focus();
+    else form.setFocus(field as never);
+  }
+
+  const describeReason = () => ({
+    label: REASON_LABEL,
+    error: reasonError(values.notes, form.formState.errors.notes?.message),
+  });
+
+  function cancel() {
+    setCandidateErrors([]);
+    dispatch({ type: 'cancel' });
+  }
+
+  // A new correction from the newest facts: fields and the reason are
+  // cleared, so it must be reviewed again.
+  function restart(entry: CorrectableEntry) {
+    form.reset(startingValuesFor(entry));
+    setCandidateErrors([]);
+    dispatch({ type: 'restart', accepted });
+  }
+
+  // The People & officers fallback: the roster and officer roles, with the
+  // rules warnings of the roster and the teams whose managers it clears.
+  function peopleCorrection(
+    view: Exclude<CorrectionView, { kind: 'closed' }>,
+  ): SectionCorrection {
+    const hasFormErrors = Object.keys(form.formState.errors).length > 0;
+    return {
+      entry: 'people',
+      heading: correctLabel('people'),
+      form,
+      characters,
+      view,
+      notice: view.kind === 'editing' ? editingNotice(view) : null,
+      warnings: setupWarningDescriptors(values, names)
+        .filter((warning) => {
+          const entry = militiaEntryForLocation(warning);
+          return entry === 'people' || entry === 'teams';
+        })
+        .map((warning) => warning.message),
+      affectsWeek: [],
+      restorable: [],
+      rowNotes: new Map(),
+      errors: errorSummary(
+        hasFormErrors
+          ? setupErrorDescriptors(values, militiaCorrectionSchema)
+          : [],
+        values,
+        {
+          ...sectionFieldLabels('people', values.state.militiaSnapshot, names),
+          notes: { label: REASON_LABEL },
+        },
+      ),
+      reason: describeReason(),
+      comparison: null,
+      focusField,
+      save: savePeople,
+      cancel,
+      restart: () => restart('people'),
+    };
   }
 
   function sectionCorrection(
@@ -572,12 +606,14 @@ export function useMilitiaCorrections({
       ? setupErrorDescriptors(values, militiaCorrectionSchema)
       : candidateErrors;
     // Items a cache or order refers to that this correction removes, or
-    // that another player removed meanwhile, are named with what holds them.
+    // that another player removed meanwhile, are named with what holds them;
+    // so are settlements and characters a condition or benefit names.
+    const rowsSnapshot = hasFormErrors
+      ? values.state.militiaSnapshot
+      : candidate;
     const errors = namedErrors(
-      namedItemReferences(
-        descriptors,
-        hasFormErrors ? values.state.militiaSnapshot : candidate,
-        {
+      namedSourceReferences(
+        namedItemReferences(descriptors, rowsSnapshot, {
           removing: section === 'items',
           carriedOrders: new Set(
             impact.carried.flatMap(({ location }) =>
@@ -585,7 +621,9 @@ export function useMilitiaCorrections({
             ),
           ),
           names: identities,
-        },
+        }),
+        rowsSnapshot,
+        identities,
       ),
       impact.carried,
       identities,
@@ -593,7 +631,6 @@ export function useMilitiaCorrections({
     const sectionMissing = missingOf(section);
     const rows = Array.isArray(yours) ? (yours as RestorableRow[]) : [];
     return {
-      kind: 'section',
       entry: section,
       heading: correctLabel(section),
       form,
@@ -619,10 +656,7 @@ export function useMilitiaCorrections({
         ...sectionFieldLabels(section, values.state.militiaSnapshot),
         notes: { label: REASON_LABEL },
       }),
-      reason: {
-        label: REASON_LABEL,
-        error: reasonError(values.notes, form.formState.errors.notes?.message),
-      },
+      reason: describeReason(),
       comparison:
         view.kind === 'conflict'
           ? {
@@ -634,34 +668,19 @@ export function useMilitiaCorrections({
               ),
             }
           : null,
-      // A choice field (Focus) has no input for the form to focus: find its
-      // first choice the way guided Setup does.
-      focusField: (field) => {
-        const control = findSetupField(document.body, field);
-        if (control) control.focus();
-        else form.setFocus(field as never);
-      },
+      focusField,
       save: () => saveSection(section),
-      cancel: () => {
-        setCandidateErrors([]);
-        dispatch({ type: 'cancel' });
-      },
-      // A new correction from the newest facts: fields and the reason are
-      // cleared, so it must be reviewed again.
-      restart: () => {
-        form.reset(editorFrom(accepted.state));
-        setCandidateErrors([]);
-        dispatch({ type: 'restart', accepted });
-      },
+      cancel,
+      restart: () => restart(section),
     };
   }
 
   function currentCorrection() {
     if (correction.kind !== 'open' || view.kind === 'closed') return null;
     const { target } = correction;
-    if (target.kind === 'section')
-      return sectionCorrection(target.section, view);
-    return fullBase ? fullCorrection(target.entry, fullBase) : null;
+    return target.kind === 'section'
+      ? sectionCorrection(target.section, view)
+      : peopleCorrection(view);
   }
 
   const feedback =

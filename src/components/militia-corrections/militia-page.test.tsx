@@ -15,6 +15,7 @@ import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import { MilitiaSection } from '~/components/campaign-sections/militia-section';
 import { stableControl } from '../../../tests/stable-control';
+import { REASON_LABEL } from './correction-copy';
 
 type Call = {
   args: Record<string, unknown>;
@@ -444,45 +445,35 @@ describe('concurrent changes', () => {
   });
 });
 
-describe('temporary full editor', () => {
-  test('an unsplit section opens the full editor, exclusive with section editing, and Cancel writes nothing', () => {
+describe('in-place corrections', () => {
+  // The retired full editor's fields are all reachable here: each section
+  // opens its own editor, and the People & officers fallback the roster and
+  // officers (people-fallback.test.tsx).
+  test.each([
+    ['Values', 'Treasury (copper)'],
+    ['Teams', 'Team name'],
+    ['Settlements', 'Settlement name'],
+    ['Character conditions', 'Add character condition'],
+    ['Items', 'Add item'],
+    ['Caches', 'Add cache'],
+    ['Orders', 'Add order'],
+    ['Marketplaces', 'Add marketplace'],
+    ['Carried benefits', 'Add Market Day benefit'],
+    ['People & officers', 'Hit Dice'],
+  ])('%s opens its own correction with its fields', (label, control) => {
     mount();
-    fireEvent.click(entry(/^Character conditions/));
+    fireEvent.click(entry(new RegExp(`^${label}`)));
     fireEvent.click(
-      screen.getByRole('button', { name: 'Correct character conditions' }),
+      screen.getByRole('button', { name: `Correct ${label.toLowerCase()}` }),
     );
-    expect(
-      screen.getByRole('heading', { name: 'Correct character conditions' }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: 'Characters and officers' }),
-    ).toBeVisible();
-    // The full editor keeps the section captions until #178 retires it.
-    expect(
-      screen.getByText(
-        'Choose people from the campaign ledger. Leave Hit Dice blank to use the character’s level.',
-      ),
-    ).toBeVisible();
-    for (const button of within(index()).getAllByRole('button'))
-      if (!(button.textContent ?? '').startsWith('Character conditions'))
-        expect(button).toBeDisabled();
-    fireEvent.click(screen.getByText('Cancel correction'));
-    expect(entry(/^Values/)).toBeEnabled();
-    expect(calls).toHaveLength(0);
-  });
-
-  test('People & officers opens the full editor with the roster and officers', () => {
-    mount();
-    fireEvent.click(entry(/^People & officers/));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Correct people & officers' }),
+    const editor = within(
+      screen
+        .getByRole('heading', { name: `Correct ${label.toLowerCase()}` })
+        .closest<HTMLElement>('section')!,
     );
-    expect(
-      screen.getByRole('heading', { name: 'Correct people & officers' }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: 'Characters and officers' }),
-    ).toBeVisible();
+    expect(editor.getAllByText(control).length).toBeGreaterThan(0);
+    expect(editor.getByRole('textbox', { name: REASON_LABEL })).toBeVisible();
+    fireEvent.click(editor.getByRole('button', { name: 'Cancel' }));
     expect(calls).toHaveLength(0);
   });
 });
