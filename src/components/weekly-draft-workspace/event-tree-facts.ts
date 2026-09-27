@@ -2,6 +2,7 @@ import { militiaEventTable } from '~/lib/militia-event-table';
 import { normalizeRawRoll } from '~/lib/raw-roll';
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import {
+  eventTableArithmetic,
   eventTypeForTableRoll,
   type EventPositionGroup,
 } from '~/lib/rules-event-selection';
@@ -40,36 +41,10 @@ export function eventName(type: string | null | undefined) {
 
 // Table roll arithmetic exactly as selection reads it: settlement reputation
 // never applies here, and one value counts per modifier source.
+// The shared engine arithmetic for a table roll, with its event's name.
 export function eventTableFacts(roll: Event['tableRoll']): EventBlock['table'] {
-  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
-  const raw = normalized.status === 'complete' ? normalized.diceTotal : null;
-  const recorded = roll?.modifiers ?? [];
-  const last = new Map(recorded.map((entry, index) => [entry.sourceId, index]));
-  const modifiers = recorded.map((entry, index) => ({
-    ...entry,
-    applied:
-      entry.sourceId !== 'settlement' &&
-      entry.sourceId !== 'reputation' &&
-      last.get(entry.sourceId) === index,
-  }));
-  const total =
-    raw === null
-      ? null
-      : Math.max(
-          1,
-          Math.min(
-            100,
-            raw +
-              modifiers.reduce(
-                (sum, entry) => sum + (entry.applied ? entry.value : 0),
-                0,
-              ),
-          ),
-        );
   return {
-    raw,
-    modifiers,
-    total,
+    ...eventTableArithmetic(roll),
     name: eventName(eventTypeForTableRoll(roll)),
   };
 }
@@ -187,7 +162,8 @@ export function eventTreeBlocks({
           plan.trees.candidates.find((tree) => tree.choiceId === group.choiceId)
             ?.events ?? []
         ).filter((event) => event.origin.kind === 'rolled');
-      default: {
+      case 'roll_twice':
+      case 'replacement': {
         const parent = byId.get(group.parentEventId);
         return parent
           ? childrenOf(parent).filter(
@@ -288,8 +264,8 @@ export function eventTreeBlocks({
     if ('parentEventId' in origin) {
       const parent = `Event ${numbers.get(origin.parentEventId) ?? '?'}`;
       if (origin.kind === 'roll_twice') return `From ${parent} (Roll Twice)`;
-      return groupOfParent.get(origin.parentEventId)?.kind === 'replacement' &&
-        (groupOfParent.get(origin.parentEventId) as { reroll: boolean }).reroll
+      const group = groupOfParent.get(origin.parentEventId);
+      return group?.kind === 'replacement' && group.reroll
         ? `Recorded reroll of ${parent}`
         : `Replaces ${parent}`;
     }

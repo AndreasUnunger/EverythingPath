@@ -76,6 +76,8 @@ export type EventSelectionProjection = {
   /** The operating settlement's reputation modifier on the chance roll; null while that settlement's reputation is unknown. */
   chanceModifier: number | null;
   chanceBreakdown: EventChanceBreakdown;
+  /** The chance roll's comparison, once both roll and adjustment are known and a roll applies. */
+  chanceResult: 'event' | 'quiet' | null;
   /** A queued All Is Calm suppresses the chance roll and Activity candidates this week. */
   forcedCalm: boolean;
   positions: EventPositionGroup[];
@@ -105,27 +107,53 @@ function readEventDie(
   if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
   return normalized.diceTotal;
 }
+export type EventTableArithmetic = {
+  /** The raw dice total, or null while the roll is missing or incomplete. */
+  raw: number | null;
+  /** Each recorded extra modifier and why the rules ignore it, if they do. */
+  modifiers: {
+    sourceId: string;
+    value: number;
+    reason: string;
+    ignored: 'settlement' | 'repeated' | null;
+  }[];
+  /** Raw plus applied modifiers, bounded to the table's 1–100. */
+  total: number | null;
+};
+// Settlement reputation modifies the chance roll only, and one value counts
+// per modifier source (the last one recorded).
+export function eventTableArithmetic(
+  roll: RawRoll | null | undefined,
+): EventTableArithmetic {
+  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
+  const recorded = roll?.modifiers ?? [];
+  const last = new Map(recorded.map((entry, index) => [entry.sourceId, index]));
+  const modifiers = recorded.map((entry, index) => ({
+    ...entry,
+    ignored:
+      entry.sourceId === 'settlement' || entry.sourceId === 'reputation'
+        ? ('settlement' as const)
+        : last.get(entry.sourceId) === index
+          ? null
+          : ('repeated' as const),
+  }));
+  if (normalized.status !== 'complete')
+    return { raw: null, modifiers, total: null };
+  const applied = modifiers.reduce(
+    (sum, entry) => sum + (entry.ignored ? 0 : entry.value),
+    0,
+  );
+  return {
+    raw: normalized.diceTotal,
+    modifiers,
+    total: Math.max(1, Math.min(100, normalized.diceTotal + applied)),
+  };
+}
 export function eventTypeForTableRoll(
   roll: RawRoll | null | undefined,
 ): EventType | null {
-  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
-  if (normalized.status !== 'complete') return null;
-  const extra = new Map<string, number>();
-  for (const modifier of roll?.modifiers ?? [])
-    if (
-      modifier.sourceId !== 'settlement' &&
-      modifier.sourceId !== 'reputation'
-    )
-      extra.set(modifier.sourceId, modifier.value);
-  const total = Math.max(
-    1,
-    Math.min(
-      100,
-      normalized.diceTotal +
-        [...extra.values()].reduce((sum, value) => sum + value, 0),
-    ),
-  );
-  return eventTypeForPercentile(total);
+  const { total } = eventTableArithmetic(roll);
+  return total === null ? null : eventTypeForPercentile(total);
 }
 
 // The operating settlement's reputation never touches the table roll; it
@@ -378,11 +406,13 @@ function selectChanceEvent(context: SelectionContext) {
   if (result.chanceModifier === null)
     result.requirements.push('event:operating-settlement');
   // The accepted E01 audit baseline explicitly uses a strict comparison.
-  if (
-    chanceRoll !== null &&
-    result.chanceModifier !== null &&
-    chanceRoll + result.chanceModifier < result.chance
-  ) {
+  result.chanceResult =
+    chanceRoll === null || result.chanceModifier === null
+      ? null
+      : chanceRoll + result.chanceModifier < result.chance
+        ? 'event'
+        : 'quiet';
+  if (result.chanceResult === 'event') {
     const roots = draft.event.occurrences.filter(
       (event) => event.origin.kind === 'rolled',
     );
@@ -469,6 +499,7 @@ function createSelectionContext(
     dispatch: [],
     chanceModifier: 0,
     chanceBreakdown,
+    chanceResult: null,
     forcedCalm: isForcedCalm(draft),
     positions: [],
   };

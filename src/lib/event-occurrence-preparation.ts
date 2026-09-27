@@ -62,7 +62,8 @@ export function eventPositionKey(group: EventPositionGroup) {
       return `automatic:${group.sourceId}`;
     case 'candidates':
       return `candidates:${group.choiceId}`;
-    default:
+    case 'roll_twice':
+    case 'replacement':
       return `${group.kind}:${group.parentEventId}`;
   }
 }
@@ -117,7 +118,8 @@ function originFor(group: EventPositionGroup): Event['origin'] {
       return { kind: 'rolled' };
     case 'automatic':
       return { kind: 'automatic', sourceId: group.sourceId };
-    default:
+    case 'roll_twice':
+    case 'replacement':
       return { kind: group.kind, parentEventId: group.parentEventId };
   }
 }

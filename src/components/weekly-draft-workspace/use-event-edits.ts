@@ -48,7 +48,7 @@ export function useEventEdits(
     }
     function saveOccurrence(occurrence: Occurrence): string | null {
       const block = blocks.get(occurrence.eventId);
-      if (!block?.saved) return 'This event is still being prepared.';
+      if (!block?.saved) return 'This event is not ready for its roll yet.';
       const parsed = eventOccurrenceSchema.safeParse(occurrence);
       const checked = eventTreeSchema.safeParse(
         tree(occurrence.eventId).map((entry) =>

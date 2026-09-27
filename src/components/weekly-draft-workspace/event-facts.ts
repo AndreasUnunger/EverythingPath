@@ -64,15 +64,19 @@ export function eventView(
     const team = teamName(choice?.teamId);
     return `${activityLabel(choice?.actionId ?? 'event')} · Action Slot ${slotNumber(slotId)}${team ? ` · ${team}` : ''}`;
   };
-  const automaticSources = draft.context.queuedEffects.flatMap((effect) =>
-    effect.effect.kind === 'automatic_events' &&
-    effect.startsWeek <= draft.week &&
-    draft.week <= effect.endsWeek
+  // Due automatic sources and their counts come from the engine's trace.
+  const automaticSources = positions.flatMap((group) =>
+    group.kind === 'automatic'
       ? [
           {
-            sourceId: effect.sourceId,
-            label: eventName(effect.eventType) ?? 'An earlier event',
-            count: effect.effect.count,
+            sourceId: group.sourceId,
+            label:
+              eventName(
+                draft.context.queuedEffects.find(
+                  (effect) => effect.sourceId === group.sourceId,
+                )?.eventType,
+              ) ?? 'An earlier event',
+            count: group.count,
           },
         ]
       : [],
@@ -230,7 +234,6 @@ export function eventView(
     const raw = normalized.status === 'complete' ? normalized.diceTotal : null;
     const modifier = projection?.chanceModifier ?? null;
     const total = raw !== null && modifier !== null ? raw + modifier : null;
-    const chance = projection?.chance ?? 10;
     const breakdown = projection
       ? [
           { label: 'Notoriety', value: projection.chanceBreakdown.notoriety },
@@ -267,11 +270,7 @@ export function eventView(
         ? 'guaranteed'
         : 'roll';
     const result =
-      applies === 'roll' && total !== null
-        ? total < chance
-          ? 'event'
-          : 'quiet'
-        : null;
+      applies === 'roll' ? (projection?.chanceResult ?? null) : null;
     return {
       applies,
       effect:

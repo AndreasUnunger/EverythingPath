@@ -167,8 +167,8 @@ test('[EVT-04.blocks] blocks number in resolution order and name status, origin 
         total: 34,
         name: 'Festival',
         modifiers: [
-          { sourceId: 'settlement', applied: false },
-          { sourceId: 'omen', applied: true },
+          { sourceId: 'settlement', ignored: 'settlement' },
+          { sourceId: 'omen', ignored: null },
         ],
       },
     },

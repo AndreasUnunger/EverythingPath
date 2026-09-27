@@ -6,6 +6,7 @@ import { cn } from '~/lib/utils';
 import { EventOccurrenceEditors } from './event-occurrence-editors';
 import {
   EventIssueNotes,
+  isPreparationFailed,
   PERCENTILE,
   type EventPreparation,
 } from './event-steps';
@@ -55,10 +56,9 @@ export function EventBlock({
   depth?: number;
 }) {
   const locked = disabled || !block.saved;
-  const failed =
-    preparation?.status === 'failed' || view.preparation === 'failed';
+  const failed = isPreparationFailed(view, preparation);
   const table = block.table;
-  const applied = table.modifiers.filter((modifier) => modifier.applied);
+  const applied = table.modifiers.filter((modifier) => !modifier.ignored);
   const nested = { view, edit, disabled, edits, preparation, depth: depth + 1 };
   return (
     <div
@@ -141,7 +141,7 @@ export function EventBlock({
           </div>
         ) : (
           <p role="status" className="text-muted-foreground text-sm">
-            Saving this event’s position before its inputs open…
+            This event opens for its roll in a moment…
           </p>
         ))}
       {block.rulesNote && (
@@ -176,7 +176,8 @@ export function EventBlock({
           </span>
         </Button>
       )}
-      <EventIssueNotes issues={block.issues} />
+      {/* A position still being readied asks for nothing yet. */}
+      {block.saved && <EventIssueNotes issues={block.issues} />}
       {block.removal && !block.item.occurrence.tableRoll && (
         <Button
           type="button"

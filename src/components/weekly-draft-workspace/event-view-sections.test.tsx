@@ -191,7 +191,7 @@ test('[EVT-01.view] the chance line shows the settlement adjustment on the chanc
     <EventView view={facts(draft, snapshot)} edit={vi.fn()} disabled={false} />,
   );
   const chance = screen.getByRole('region', { name: 'Event chance' });
-  expect(chance).toHaveTextContent('+5 Town (Unfriendly) = 46');
+  expect(chance).toHaveTextContent('41 +5 Town (Unfriendly) = 46');
   expect(chance).toHaveTextContent('46 is not below 40: a quiet week');
   expect(chance).toHaveTextContent(
     'Operating from Town (Unfriendly) adds +5 to the chance roll.',

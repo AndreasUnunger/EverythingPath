@@ -3,6 +3,7 @@ import type { ReferenceFacts } from './reference-facts';
 import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { EventOutcomeChange } from '~/lib/rules-event-outcomes';
+import type { EventTableArithmetic } from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
@@ -269,14 +270,8 @@ export type EventBlock = {
   origin: string;
   table: {
     raw: number | null;
-    // Recorded extra table modifiers; `applied` is false for entries the
-    // rules ignore (settlement reputation, a repeated source).
-    modifiers: {
-      sourceId: string;
-      value: number;
-      reason: string;
-      applied: boolean;
-    }[];
+    // Recorded extra table modifiers, with why the rules ignore one if they do.
+    modifiers: EventTableArithmetic['modifiers'];
     total: number | null;
     name: string | null;
   };

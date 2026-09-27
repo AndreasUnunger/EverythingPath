@@ -122,6 +122,14 @@ export function InlineAction({
   );
 }
 
+// The store's status, or the view's when rendered without a store.
+export function isPreparationFailed(
+  view: EventView,
+  preparation: EventPreparation | undefined,
+) {
+  return preparation?.status === 'failed' || view.preparation === 'failed';
+}
+
 export function PreparationNotice({
   view,
   preparation,
@@ -129,9 +137,7 @@ export function PreparationNotice({
   view: EventView;
   preparation?: EventPreparation;
 }) {
-  const failed =
-    preparation?.status === 'failed' || view.preparation === 'failed';
-  if (failed)
+  if (isPreparationFailed(view, preparation))
     return (
       <div
         role="alert"
@@ -201,11 +207,8 @@ export function ChanceStep({
       />
     );
   const operating = step.operating;
-  const arithmetic =
-    operating &&
-    typeof operating.modifier === 'number' &&
-    operating.modifier !== 0 &&
-    step.raw !== null;
+  // The raw die, the settlement adjustment and their total, e.g. 41 +5 Teilwood (Unfriendly) = 46.
+  const adjustment = operating?.modifier ?? null;
   return (
     <EventStep
       number={number}
@@ -226,13 +229,19 @@ export function ChanceStep({
           <p className="text-muted-foreground text-xs">
             Below {view.chance}% means an event.
           </p>
-          {arithmetic && (
+          {step.raw !== null && (
             <p className="min-w-0 text-sm [overflow-wrap:anywhere]">
-              <span className="font-mono">{signed(operating.modifier!)}</span>{' '}
-              <span className="text-muted-foreground">
-                {operating.name} ({operating.reputation})
-              </span>
-              {step.total !== null && (
+              <span className="font-mono">{step.raw}</span>
+              {operating && adjustment !== null && adjustment !== 0 && (
+                <>
+                  {' '}
+                  <span className="font-mono">{signed(adjustment)}</span>{' '}
+                  <span className="text-muted-foreground">
+                    {operating.name} ({operating.reputation})
+                  </span>
+                </>
+              )}
+              {step.total !== null && adjustment !== 0 && (
                 <>
                   {' '}
                   = <strong className="font-mono">{step.total}</strong>

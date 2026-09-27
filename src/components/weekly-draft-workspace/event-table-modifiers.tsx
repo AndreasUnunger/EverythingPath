@@ -85,10 +85,9 @@ export function EventTableModifiers({
               <span className="min-w-0 [overflow-wrap:anywhere]">
                 {modifier.reason}
               </span>
-              {!modifier.applied && (
+              {modifier.ignored && (
                 <span className="text-muted-foreground min-w-0 text-xs [overflow-wrap:anywhere]">
-                  {modifier.sourceId === 'settlement' ||
-                  modifier.sourceId === 'reputation'
+                  {modifier.ignored === 'settlement'
                     ? '(not applied: settlement reputation changes only the chance roll)'
                     : '(not applied: a later entry from the same source counts instead)'}
                 </span>
@@ -148,7 +147,7 @@ export function EventTableModifiers({
                       sourceId: newTableModifierSource(),
                       value,
                       reason,
-                      applied: true,
+                      ignored: null,
                     },
                   ],
             )
