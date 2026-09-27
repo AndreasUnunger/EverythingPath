@@ -3,6 +3,7 @@ import { Controller, useFormContext, type FieldPath } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { CampaignContextInput } from '../campaign-context/campaign-context-input';
 import type { MilitiaSetup } from '~/lib/canonical-setup';
+import { setupFieldErrorMessage } from '~/lib/setup-validation';
 export const choices = (values: readonly string[]) =>
   values.map((value) => ({ value, label: value.replaceAll('_', ' ') }));
 export const yesNo = [
@@ -86,13 +87,13 @@ export function SetupField({
               role="alert"
               className="text-destructive text-sm"
             >
-              {field.value === null ||
-              field.value === undefined ||
-              field.value === ''
-                ? `${label} is required.`
-                : numeric
-                  ? `Enter a valid ${decimal ? 'number' : 'whole number'} for ${label}.`
-                  : fieldState.error.message}
+              {setupFieldErrorMessage({
+                label,
+                value: field.value,
+                numeric,
+                decimal,
+                error: fieldState.error.message,
+              })}
             </p>
           )}
         </div>

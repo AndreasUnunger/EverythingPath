@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import {
   canonicalRosterSchema,
   rosterWarnings,
+  rosterWarningDescriptors,
   mapLegacyOfficers,
 } from './canonical-roster';
 
@@ -111,4 +112,48 @@ test('[roster.limits] reward exemptions and manager kinds affect warnings withou
   roster.teams[0]!.rewardCapExempt = true;
   expect(rosterWarnings(roster, characters, 2)).toEqual([]);
   expect(roster.teams).toHaveLength(3);
+});
+
+test('[roster.warning-targets] structured warnings name their roster list and the control that repairs them', () => {
+  const roster = canonicalRosterSchema.parse({
+    people: [
+      { characterId: 'a', kind: 'pc', hitDice: 3 },
+      { characterId: 'b', kind: 'pc', hitDice: null },
+    ],
+    officers: [
+      { role: 'commandant', characterId: 'b' },
+      { role: 'marshal', characterId: 'b' },
+    ],
+    teams: ['one', 'two', 'three'].map((teamId) => ({
+      teamId,
+      teamType: 'defenders',
+      name: teamId,
+      status: 'active',
+      rewardCapExempt: false,
+      managerCharacterId: teamId === 'one' ? null : 'a',
+      notes: '',
+    })),
+  });
+  const characters = [
+    { characterId: 'a', name: 'A', charisma: 10, isActive: true },
+    { characterId: 'b', name: 'B', charisma: 10, isActive: false },
+  ];
+  const warnings = rosterWarningDescriptors(roster, characters, 3);
+  expect(warnings).toEqual([
+    {
+      list: 'teams',
+      message: 'A manages 2 teams; the normal limit is 1.',
+      path: ['teams', 2, 'managerCharacterId'],
+    },
+    { list: 'people', message: 'B holds more than one officer role.' },
+    {
+      list: 'people',
+      message: "Enter B's Hit Dice before resolving Commandant training.",
+      path: ['people', 1, 'hitDice'],
+    },
+    { list: 'people', message: 'B is archived but still assigned.' },
+  ]);
+  expect(rosterWarnings(roster, characters, 3)).toEqual(
+    warnings.map((warning) => warning.message),
+  );
 });
