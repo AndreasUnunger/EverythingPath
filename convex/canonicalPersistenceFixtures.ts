@@ -9,6 +9,7 @@ import { internalMutation, type MutationCtx } from './_generated/server';
 import {
   scopeSchema as fixtureScopeSchema,
   guardFixtureScope,
+  isCanonicalCase,
 } from '../e2e/fixtures/catalog';
 import {
   draftKeySchema,
@@ -21,8 +22,7 @@ import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 type Scope = z.infer<typeof fixtureScopeSchema>;
 async function ownedCampaign(ctx: MutationCtx, scope: Scope) {
   guardFixtureScope(process.env, scope);
-  if (scope.caseKey !== 'canonicalPersistence')
-    throw new Error('Wrong fixture case');
+  if (!isCanonicalCase(scope.caseKey)) throw new Error('Wrong fixture case');
   const campaign = await ctx.db
     .query('campaign')
     .withIndex('by_e2eFixture_namespace_and_workerKey_and_caseKey', (q) =>

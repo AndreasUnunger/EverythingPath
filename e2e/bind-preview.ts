@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { command, loadRun, savePrivate } from './support/process';
 import { validatePreviewBinding } from './support/preflight';
-import { FIXTURE_VERSION } from './fixtures/catalog';
+import { caseKeys, FIXTURE_VERSION, type CaseKey } from './fixtures/catalog';
 
 const run = await loadRun();
 const convexUrl = validatePreviewBinding(
@@ -17,15 +17,10 @@ run.fixture = {
   productionConvexUrls: run.resources.production.convexUrls,
   workers: run.resources.workers.map((worker) => ({
     ...worker,
-    cases: {
-      smoke: randomBytes(32).toString('hex'),
-      isolation: randomBytes(32).toString('hex'),
-      existingMilitia: randomBytes(32).toString('hex'),
-      characterLedger: randomBytes(32).toString('hex'),
-      completeWeek: randomBytes(32).toString('hex'),
-      canonicalPersistence: randomBytes(32).toString('hex'),
-      realtimeActionSlot: randomBytes(32).toString('hex'),
-    },
+    // One fresh capability per worker and catalog case.
+    cases: Object.fromEntries(
+      caseKeys.map((caseKey) => [caseKey, randomBytes(32).toString('hex')]),
+    ) as Record<CaseKey, string>,
   })),
 };
 const settingsFile = join(run.privateDirectory, 'fixture-settings.env');

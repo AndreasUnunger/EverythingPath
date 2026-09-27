@@ -43,6 +43,7 @@ import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import { test, expect } from './support/fixtures';
+import { workspaceCaseKey } from './support/matrix';
 import {
   canonicalPersistenceFixtureCall,
   loadRun,
@@ -89,12 +90,23 @@ function observeEditRejection(page: Page) {
   return () => rejected;
 }
 
-test.use({ caseKey: 'canonicalPersistence' });
+// Each journey resets and seeds its own catalog case, so the five journeys are
+// independent and may run on different worker cohorts at the same time.
+test.describe.configure({ mode: 'parallel' });
+test.use({
+  caseKey: async ({}, use, info) => await use(workspaceCaseKey(info.title)),
+});
+
+const die = (page: Page) =>
+  page.getByRole('textbox', { name: 'Attrition Loyalty roll', exact: true });
+const training = (page: Page) =>
+  page.getByRole('textbox', { name: 'Attrition training roll', exact: true });
+
 test('players prepare shared Upkeep with independent navigation and save recovery', async ({
   players,
   ownedCase,
 }) => {
-  test.setTimeout(420_000);
+  test.setTimeout(130_000);
   const run = await loadRun();
   await exerciseMilitiaSetup(run, ownedCase.scope, players);
   const scope = draftKeySchema.parse(
@@ -110,10 +122,6 @@ test('players prepare shared Upkeep with independent navigation and save recover
   );
   const gm = players.gm,
     player = players.player;
-  const die = (page: typeof gm) =>
-    page.getByRole('textbox', { name: 'Attrition Loyalty roll', exact: true });
-  const training = (page: typeof gm) =>
-    page.getByRole('textbox', { name: 'Attrition training roll', exact: true });
   const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
   try {
     await Promise.all([
@@ -413,6 +421,26 @@ test('players prepare shared Upkeep with independent navigation and save recover
       .click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+  } finally {
+    network.release();
+  }
+});
+
+test('players choose the nearest settlement at maximum notoriety and resolve team conditions', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(30_000);
+  const run = await loadRun();
+  // Before the split these steps shared the first journey's socket control;
+  // keep the same routed transport even where no edit is held.
+  const network = await controlNextDraftEdit(
+    players.gm,
+    run.fixture!.convexUrl,
+  );
+  const gm = players.gm,
+    player = players.player;
+  try {
     await fixtureCall(run, 'resetCase', {
       ...ownedCase.scope,
       now: 1_700_000_000_000,
@@ -515,6 +543,25 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
     await exerciseTeamConditionRows(gm, player, run, notorietyScope);
+  } finally {
+    network.release();
+  }
+});
+
+test('players recover a team at an adjusted cost and confirm a week through Activity and Event', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(125_000);
+  const run = await loadRun();
+  const network = await controlNextDraftEdit(
+    players.gm,
+    run.fixture!.convexUrl,
+  );
+  const gm = players.gm,
+    player = players.player;
+  const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
+  try {
     await fixtureCall(run, 'resetCase', {
       ...ownedCase.scope,
       now: 1_700_000_000_000,
@@ -717,6 +764,24 @@ test('players prepare shared Upkeep with independent navigation and save recover
         }),
       ]),
     );
+  } finally {
+    network.release();
+  }
+});
+
+test('players review and buy off carried persistent events before confirming the week', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(80_000);
+  const run = await loadRun();
+  const network = await controlNextDraftEdit(
+    players.gm,
+    run.fixture!.convexUrl,
+  );
+  const gm = players.gm,
+    player = players.player;
+  try {
     await fixtureCall(run, 'resetCase', {
       ...ownedCase.scope,
       now: 1_700_000_000_000,
@@ -775,240 +840,241 @@ test('players prepare shared Upkeep with independent navigation and save recover
       lastBuyoffWeek: 4,
       persistentPhaseEligible: false,
     });
-    await fixtureCall(run, 'resetCase', {
-      ...ownedCase.scope,
-      now: 1_700_000_000_000,
-    });
-    const summaryScope = draftKeySchema.parse(
-      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-        scope: ownedCase.scope,
-        draftId: randomUUID(),
-      }),
-    );
-    const summaryRoute = `/canonical-workspace?campaign=${summaryScope.campaignId}`;
-    const first = await gm.context().newPage();
-    const second = await player.context().newPage();
-    const late = await gm.context().newPage();
-    const firstTransport = await controlTransport(
-      first,
-      run.fixture!.convexUrl,
-    );
-    const secondTransport = await controlTransport(
-      second,
-      run.fixture!.convexUrl,
-    );
-    const lateTransport = await controlNextDraftEdit(
-      late,
-      run.fixture!.convexUrl,
-    );
-    const lateRejected = observeEditRejection(late);
-    const releases: (() => void)[] = [];
-    const summary = (page: Page) =>
-      page
-        .getByRole('button', { name: 'Review & confirm', exact: true })
-        .click();
-    const confirm = (page: Page) =>
-      page.getByRole('button', { name: 'Confirm week', exact: true });
-    const confirming = (page: Page) =>
-      page.getByRole('button', { name: 'Confirming…', exact: true });
-    try {
-      await Promise.all([
-        first.goto(summaryRoute),
-        second.goto(summaryRoute),
-        late.goto(summaryRoute),
-      ]);
-      // Incoming dice totals are read, cleared and re-entered on this fresh
-      // week before its original inputs are restored for the Confirmation race.
-      await exerciseRollCompatibility(first, second, run, summaryScope, [late]);
-      const confirmationCharactersUrl = await prepareWeekHistory(first);
-      await die(first).fill('20');
-      await expect(die(second)).toHaveValue('20');
-      await training(first).fill('1');
-      await expect(training(second)).toHaveValue('1');
-      await Promise.all([summary(first), summary(second)]);
-      await expect(confirm(first)).toBeEnabled();
-      await expect(confirm(second)).toBeEnabled();
-      const stale = firstTransport.next('delay-request');
-      releases.push(stale.release);
-      await confirm(first).click();
-      await expect.poll(stale.observed).toBe(true);
-      await expect(saveStatus(first)).toHaveText('Confirming the week…');
-      await stayOnPendingWeek(first, 'back', 'Confirming the week…');
-      // The initiating control itself reads Confirming… while held; the
-      // ready label must not exist meanwhile.
-      await expect(confirming(first)).toBeDisabled();
-      await expect(confirming(first)).toHaveAttribute('aria-busy', 'true');
-      await expect(confirm(first)).toHaveCount(0);
-      await expect(confirmedWeekNotice(first)).toBeEmpty();
-      await expect(
-        second.getByRole('heading', {
-          name: 'Week 4 · Review & confirm',
-          exact: true,
-        }),
-      ).toBeVisible();
-      await canonicalPersistenceFixtureCall(run, 'changeSource', {
-        ...summaryScope,
-        scope: ownedCase.scope,
-        change: 'treasury',
-      });
-      await expect(await resultCell(second, 'Treasury', 'Final')).toHaveText(
-        '50.07 gp',
-      );
-      stale.release();
-      await expect(
-        first.getByRole('button', { name: 'Review updated week', exact: true }),
-      ).toBeEnabled();
-      // Rejected as stale: back to the ready label, disabled, no success.
-      await expect(confirm(first)).toBeDisabled();
-      await expect(confirming(first)).toHaveCount(0);
-      await expect(confirmedWeekNotice(first)).toBeEmpty();
-      await expect(
-        first.getByRole('heading', {
-          name: 'Week 4 · Review & confirm',
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(await resultCell(first, 'Treasury', 'Final')).toHaveText(
-        '50.07 gp',
-      );
-      await first
-        .getByRole('button', { name: 'Review updated week', exact: true })
-        .click();
-      await expect(confirm(first)).toBeEnabled();
-      await expect(confirm(second)).toBeEnabled();
-      const delayed = lateTransport.hold();
-      releases.push(() => lateTransport.release());
-      await die(late).fill('7');
-      await delayed;
-      await summary(late);
-      await expect(confirm(late)).toBeDisabled();
-      await expect(
-        late
-          .getByRole('main')
-          .getByText('Review will be ready when your changes are saved.', {
-            exact: true,
-          }),
-      ).toBeVisible();
-      const raceFirst = firstTransport.next('delay-request');
-      const raceSecond = secondTransport.next('delay-request');
-      releases.push(raceFirst.release, raceSecond.release);
-      await Promise.all([confirm(first).click(), confirm(second).click()]);
-      await expect.poll(raceFirst.observed).toBe(true);
-      await expect.poll(raceSecond.observed).toBe(true);
-      await leavePendingWeek(first, 'back', confirmationCharactersUrl);
-      raceFirst.release();
-      raceSecond.release();
-      await expect(
-        second.getByRole('heading', { name: /Week 5/ }),
-      ).toBeVisible();
-      // Every continuously observing device lands on the successor's Upkeep
-      // with exactly one Week 4 notice and its exact history link, whether
-      // it won, lost or merely watched. `first` left the Week meanwhile and
-      // returns to a fresh page, which must not invent an old-week notice.
-      await expectConfirmedWeek(second, 4);
-      await expectConfirmedWeek(late, 4);
-      await expect(saveStatus(second)).not.toHaveText('Confirming the week…');
-      await expect(confirming(second)).toHaveCount(0);
-      await first.goForward();
-
-      for (const page of [first, second, late])
-        await expect(
-          page.getByRole('heading', { name: /Week 5/ }),
-        ).toBeVisible();
-      // A fresh load after returning never fabricates the transient notice.
-      await expect(first.locator('[data-week-skeleton]')).toHaveCount(0);
-      await expect(confirmedWeekNotice(first)).toBeEmpty();
-      const secondTransition = await confirmedWeekNotice(second)
-        .locator('[data-week-confirmed-transition]')
-        .getAttribute('data-week-confirmed-transition');
-      lateTransport.release();
-      await expect.poll(lateRejected).toBe(true);
-      // The delayed old edit was rejected without touching the new week or
-      // the notices already shown.
-      await expectConfirmedWeek(late, 4);
-      await expect(confirmedWeekNotice(second)).toHaveCount(1);
-      await expect(
-        confirmedWeekNotice(second).locator('[data-week-confirmed-transition]'),
-      ).toHaveAttribute('data-week-confirmed-transition', secondTransition!);
-      await expect(die(late)).toHaveValue('');
-      const resolved = confirmationInspectionSchema.parse(
-        await canonicalPersistenceFixtureCall(run, 'inspect', {
-          ...summaryScope,
-          scope: ownedCase.scope,
-        }),
-      );
-      expect(resolved.records).toHaveLength(1);
-      expect(resolved.openDrafts).toHaveLength(1);
-      expect(resolved.snapshot.treasuryCopper).toBe(5007);
-      // The total writer confirmed one dice total against the 1d20 rule
-      // specification; the record keeps exactly that form, with no dice key.
-      expect(resolved.records[0]?.source.upkeep.rolls.check).toEqual({
-        diceTotal: 20,
-        diceCount: 1,
-        sides: 20,
-        provenance: { kind: 'table' },
-        modifiers: [],
-      });
-      expect(resolved.openDrafts[0]?.upkeep.rolls.check).toBeUndefined();
-      // The notice survives an ordinary save on the new week, stays
-      // reachable on a phone beside the pinned chrome, and is dismissed
-      // from inside itself.
-      await die(second).fill('3');
-      await expect(saveStatus(second)).toHaveText('Changes saved.');
-      await expect(die(late)).toHaveValue('3');
-      await expect(confirmedWeekNotice(second)).toHaveCount(1);
-      await expect(
-        confirmedWeekNotice(second).locator('[data-week-confirmed-transition]'),
-      ).toHaveAttribute('data-week-confirmed-transition', secondTransition!);
-      for (const [width, height] of [
-        [390, 844],
-        [844, 390],
-        [1180, 820],
-        [1440, 900],
-      ] as const) {
-        await second.setViewportSize({ width, height });
-        await expectNoHorizontalOverflow(second);
-        await expectBoundedWeekHost(second);
-        await expectReachable(
-          second,
-          confirmedWeekNotice(second).getByRole('link', {
-            name: 'Open in Finished weeks',
-            exact: true,
-          }),
-        );
-        await expectReachable(
-          second,
-          confirmedWeekNotice(second).getByRole('button', {
-            name: 'Dismiss',
-            exact: true,
-          }),
-        );
-      }
-      await second.setViewportSize({ width: 1194, height: 834 });
-      await confirmedWeekNotice(second)
-        .getByRole('button', { name: 'Dismiss', exact: true })
-        .click();
-      await expect(confirmedWeekNotice(second)).toBeEmpty();
-      await expect(confirmedWeekNotice(late)).toHaveCount(1);
-      await die(second).fill('');
-      await expect(saveStatus(second)).toHaveText('Changes saved.');
-      await expect(confirmedWeekNotice(second)).toBeEmpty();
-      for (const page of [first, second, late]) {
-        await summary(page);
-        // The successor week starts from the externally corrected treasury.
-        await expect(await resultCell(page, 'Treasury', 'Now')).toHaveText(
-          '50.07 gp',
-        );
-      }
-      await savePrivate(
-        join(run.artifactDirectory, 'canonical-confirmation-successor.png'),
-        await first.screenshot({ fullPage: true }),
-      );
-    } finally {
-      for (const release of releases) release();
-      await Promise.all([first.close(), second.close(), late.close()]);
-    }
   } finally {
     network.release();
+  }
+});
+
+test('racing Confirmations commit one reviewed week and reject stale and delayed changes', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(55_000);
+  const run = await loadRun();
+  const gm = players.gm,
+    player = players.player;
+  await fixtureCall(run, 'resetCase', {
+    ...ownedCase.scope,
+    now: 1_700_000_000_000,
+  });
+  const summaryScope = draftKeySchema.parse(
+    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+      scope: ownedCase.scope,
+      draftId: randomUUID(),
+    }),
+  );
+  const summaryRoute = `/canonical-workspace?campaign=${summaryScope.campaignId}`;
+  const first = await gm.context().newPage();
+  const second = await player.context().newPage();
+  const late = await gm.context().newPage();
+  const firstTransport = await controlTransport(first, run.fixture!.convexUrl);
+  const secondTransport = await controlTransport(
+    second,
+    run.fixture!.convexUrl,
+  );
+  const lateTransport = await controlNextDraftEdit(
+    late,
+    run.fixture!.convexUrl,
+  );
+  const lateRejected = observeEditRejection(late);
+  const releases: (() => void)[] = [];
+  const summary = (page: Page) =>
+    page.getByRole('button', { name: 'Review & confirm', exact: true }).click();
+  const confirm = (page: Page) =>
+    page.getByRole('button', { name: 'Confirm week', exact: true });
+  const confirming = (page: Page) =>
+    page.getByRole('button', { name: 'Confirming…', exact: true });
+  try {
+    await Promise.all([
+      first.goto(summaryRoute),
+      second.goto(summaryRoute),
+      late.goto(summaryRoute),
+    ]);
+    // Incoming dice totals are read, cleared and re-entered on this fresh
+    // week before its original inputs are restored for the Confirmation race.
+    await exerciseRollCompatibility(first, second, run, summaryScope, [late]);
+    const confirmationCharactersUrl = await prepareWeekHistory(first);
+    await die(first).fill('20');
+    await expect(die(second)).toHaveValue('20');
+    await training(first).fill('1');
+    await expect(training(second)).toHaveValue('1');
+    await Promise.all([summary(first), summary(second)]);
+    await expect(confirm(first)).toBeEnabled();
+    await expect(confirm(second)).toBeEnabled();
+    const stale = firstTransport.next('delay-request');
+    releases.push(stale.release);
+    await confirm(first).click();
+    await expect.poll(stale.observed).toBe(true);
+    await expect(saveStatus(first)).toHaveText('Confirming the week…');
+    await stayOnPendingWeek(first, 'back', 'Confirming the week…');
+    // The initiating control itself reads Confirming… while held; the
+    // ready label must not exist meanwhile.
+    await expect(confirming(first)).toBeDisabled();
+    await expect(confirming(first)).toHaveAttribute('aria-busy', 'true');
+    await expect(confirm(first)).toHaveCount(0);
+    await expect(confirmedWeekNotice(first)).toBeEmpty();
+    await expect(
+      second.getByRole('heading', {
+        name: 'Week 4 · Review & confirm',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await canonicalPersistenceFixtureCall(run, 'changeSource', {
+      ...summaryScope,
+      scope: ownedCase.scope,
+      change: 'treasury',
+    });
+    await expect(await resultCell(second, 'Treasury', 'Final')).toHaveText(
+      '50.07 gp',
+    );
+    stale.release();
+    await expect(
+      first.getByRole('button', { name: 'Review updated week', exact: true }),
+    ).toBeEnabled();
+    // Rejected as stale: back to the ready label, disabled, no success.
+    await expect(confirm(first)).toBeDisabled();
+    await expect(confirming(first)).toHaveCount(0);
+    await expect(confirmedWeekNotice(first)).toBeEmpty();
+    await expect(
+      first.getByRole('heading', {
+        name: 'Week 4 · Review & confirm',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(await resultCell(first, 'Treasury', 'Final')).toHaveText(
+      '50.07 gp',
+    );
+    await first
+      .getByRole('button', { name: 'Review updated week', exact: true })
+      .click();
+    await expect(confirm(first)).toBeEnabled();
+    await expect(confirm(second)).toBeEnabled();
+    const delayed = lateTransport.hold();
+    releases.push(() => lateTransport.release());
+    await die(late).fill('7');
+    await delayed;
+    await summary(late);
+    await expect(confirm(late)).toBeDisabled();
+    await expect(
+      late
+        .getByRole('main')
+        .getByText('Review will be ready when your changes are saved.', {
+          exact: true,
+        }),
+    ).toBeVisible();
+    const raceFirst = firstTransport.next('delay-request');
+    const raceSecond = secondTransport.next('delay-request');
+    releases.push(raceFirst.release, raceSecond.release);
+    await Promise.all([confirm(first).click(), confirm(second).click()]);
+    await expect.poll(raceFirst.observed).toBe(true);
+    await expect.poll(raceSecond.observed).toBe(true);
+    await leavePendingWeek(first, 'back', confirmationCharactersUrl);
+    raceFirst.release();
+    raceSecond.release();
+    await expect(second.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+    // Every continuously observing device lands on the successor's Upkeep
+    // with exactly one Week 4 notice and its exact history link, whether
+    // it won, lost or merely watched. `first` left the Week meanwhile and
+    // returns to a fresh page, which must not invent an old-week notice.
+    await expectConfirmedWeek(second, 4);
+    await expectConfirmedWeek(late, 4);
+    await expect(saveStatus(second)).not.toHaveText('Confirming the week…');
+    await expect(confirming(second)).toHaveCount(0);
+    await first.goForward();
+
+    for (const page of [first, second, late])
+      await expect(page.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+    // A fresh load after returning never fabricates the transient notice.
+    await expect(first.locator('[data-week-skeleton]')).toHaveCount(0);
+    await expect(confirmedWeekNotice(first)).toBeEmpty();
+    const secondTransition = await confirmedWeekNotice(second)
+      .locator('[data-week-confirmed-transition]')
+      .getAttribute('data-week-confirmed-transition');
+    lateTransport.release();
+    await expect.poll(lateRejected).toBe(true);
+    // The delayed old edit was rejected without touching the new week or
+    // the notices already shown.
+    await expectConfirmedWeek(late, 4);
+    await expect(confirmedWeekNotice(second)).toHaveCount(1);
+    await expect(
+      confirmedWeekNotice(second).locator('[data-week-confirmed-transition]'),
+    ).toHaveAttribute('data-week-confirmed-transition', secondTransition!);
+    await expect(die(late)).toHaveValue('');
+    const resolved = confirmationInspectionSchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'inspect', {
+        ...summaryScope,
+        scope: ownedCase.scope,
+      }),
+    );
+    expect(resolved.records).toHaveLength(1);
+    expect(resolved.openDrafts).toHaveLength(1);
+    expect(resolved.snapshot.treasuryCopper).toBe(5007);
+    // The total writer confirmed one dice total against the 1d20 rule
+    // specification; the record keeps exactly that form, with no dice key.
+    expect(resolved.records[0]?.source.upkeep.rolls.check).toEqual({
+      diceTotal: 20,
+      diceCount: 1,
+      sides: 20,
+      provenance: { kind: 'table' },
+      modifiers: [],
+    });
+    expect(resolved.openDrafts[0]?.upkeep.rolls.check).toBeUndefined();
+    // The notice survives an ordinary save on the new week, stays
+    // reachable on a phone beside the pinned chrome, and is dismissed
+    // from inside itself.
+    await die(second).fill('3');
+    await expect(saveStatus(second)).toHaveText('Changes saved.');
+    await expect(die(late)).toHaveValue('3');
+    await expect(confirmedWeekNotice(second)).toHaveCount(1);
+    await expect(
+      confirmedWeekNotice(second).locator('[data-week-confirmed-transition]'),
+    ).toHaveAttribute('data-week-confirmed-transition', secondTransition!);
+    for (const [width, height] of [
+      [390, 844],
+      [844, 390],
+      [1180, 820],
+      [1440, 900],
+    ] as const) {
+      await second.setViewportSize({ width, height });
+      await expectNoHorizontalOverflow(second);
+      await expectBoundedWeekHost(second);
+      await expectReachable(
+        second,
+        confirmedWeekNotice(second).getByRole('link', {
+          name: 'Open in Finished weeks',
+          exact: true,
+        }),
+      );
+      await expectReachable(
+        second,
+        confirmedWeekNotice(second).getByRole('button', {
+          name: 'Dismiss',
+          exact: true,
+        }),
+      );
+    }
+    await second.setViewportSize({ width: 1194, height: 834 });
+    await confirmedWeekNotice(second)
+      .getByRole('button', { name: 'Dismiss', exact: true })
+      .click();
+    await expect(confirmedWeekNotice(second)).toBeEmpty();
+    await expect(confirmedWeekNotice(late)).toHaveCount(1);
+    await die(second).fill('');
+    await expect(saveStatus(second)).toHaveText('Changes saved.');
+    await expect(confirmedWeekNotice(second)).toBeEmpty();
+    for (const page of [first, second, late]) {
+      await summary(page);
+      // The successor week starts from the externally corrected treasury.
+      await expect(await resultCell(page, 'Treasury', 'Now')).toHaveText(
+        '50.07 gp',
+      );
+    }
+    await savePrivate(
+      join(run.artifactDirectory, 'canonical-confirmation-successor.png'),
+      await first.screenshot({ fullPage: true }),
+    );
+  } finally {
+    for (const release of releases) release();
+    await Promise.all([first.close(), second.close(), late.close()]);
   }
 });

@@ -1,4 +1,5 @@
 import type { Project } from '@playwright/test';
+import type { CaseKey } from '../fixtures/catalog';
 
 export type SuiteMode = 'mandatory' | 'nightly';
 export const criticalJourneys = [
@@ -35,10 +36,37 @@ const cutoverJourney = [
   'accepted campaign preserves canonical history and rejects retired paths',
 ] as const;
 
-const workspaceJourney = [
-  'canonical-workspace.spec.ts',
-  'players prepare shared Upkeep with independent navigation and save recovery',
-] as const;
+const workspaceFile = 'canonical-workspace.spec.ts';
+// Formerly one journey; each part now owns a catalog case so the parts can run
+// on separate cohorts. The first part keeps the original identity.
+const workspaceJourneys = [
+  [
+    'players prepare shared Upkeep with independent navigation and save recovery',
+    'workspaceUpkeep',
+  ],
+  [
+    'players choose the nearest settlement at maximum notoriety and resolve team conditions',
+    'workspaceNotoriety',
+  ],
+  [
+    'players recover a team at an adjusted cost and confirm a week through Activity and Event',
+    'workspaceRecovery',
+  ],
+  [
+    'players review and buy off carried persistent events before confirming the week',
+    'workspacePersistent',
+  ],
+  [
+    'racing Confirmations commit one reviewed week and reject stale and delayed changes',
+    'workspaceConfirmation',
+  ],
+] as const satisfies readonly (readonly [string, CaseKey])[];
+
+export function workspaceCaseKey(title: string): CaseKey {
+  const journey = workspaceJourneys.find(([candidate]) => candidate === title);
+  if (!journey) throw new Error('Workspace journey has no catalog case');
+  return journey[1];
+}
 
 export function browserProjects(mode: SuiteMode): Project[] {
   const tablet: Project = {
@@ -54,7 +82,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   return [
     { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
     { ...tablet, name: 'canonical-cutover', testMatch: cutoverJourney[0] },
-    { ...tablet, name: 'canonical-workspace', testMatch: workspaceJourney[0] },
+    { ...tablet, name: 'canonical-workspace', testMatch: workspaceFile },
     tablet,
     {
       ...tablet,
@@ -111,7 +139,9 @@ export function requiredTests(mode: SuiteMode) {
           ...criticalJourneys,
           persistenceContract,
           confirmationContract,
-          workspaceJourney,
+          ...workspaceJourneys.map(
+            ([title]) => [workspaceFile, title] as const,
+          ),
           cutoverJourney,
         ]
           .filter(([file]) => [project.testMatch].flat().includes(file))

@@ -48,6 +48,11 @@ export const deploymentFixture: DeploymentFixture = {
       completeWeek: 'e'.repeat(64),
       canonicalPersistence: 'c'.repeat(64),
       realtimeActionSlot: 'f'.repeat(64),
+      workspaceUpkeep: '1'.repeat(64),
+      workspaceNotoriety: '2'.repeat(64),
+      workspaceRecovery: '3'.repeat(64),
+      workspacePersistent: '4'.repeat(64),
+      workspaceConfirmation: '5'.repeat(64),
     },
   })),
 };

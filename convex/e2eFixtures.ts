@@ -10,23 +10,30 @@ import {
 } from './_generated/server';
 import {
   guardFixtureScope,
+  isCanonicalCase,
   roleKeys,
   type FixtureScope,
 } from '../e2e/fixtures/catalog';
 
+const caseKey = v.union(
+  v.literal('smoke'),
+  v.literal('isolation'),
+  v.literal('existingMilitia'),
+  v.literal('characterLedger'),
+  v.literal('completeWeek'),
+  v.literal('realtimeActionSlot'),
+  v.literal('canonicalPersistence'),
+  v.literal('workspaceUpkeep'),
+  v.literal('workspaceNotoriety'),
+  v.literal('workspaceRecovery'),
+  v.literal('workspacePersistent'),
+  v.literal('workspaceConfirmation'),
+);
 const scopeArgs = {
   namespace: v.string(),
   version: v.number(),
   workerKey: v.string(),
-  caseKey: v.union(
-    v.literal('smoke'),
-    v.literal('isolation'),
-    v.literal('existingMilitia'),
-    v.literal('characterLedger'),
-    v.literal('completeWeek'),
-    v.literal('realtimeActionSlot'),
-    v.literal('canonicalPersistence'),
-  ),
+  caseKey,
   token: v.string(),
 };
 
@@ -214,7 +221,7 @@ export const resetCase = internalMutation({
       name: `E2E ${domain.militia}`,
       campaignId,
     });
-    if (args.caseKey !== 'canonicalPersistence') {
+    if (!isCanonicalCase(args.caseKey)) {
       const character = characterId
         ? await ctx.db.get('character', characterId)
         : null;

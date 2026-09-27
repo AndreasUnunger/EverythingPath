@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { internal } from './_generated/api';
 import schema from './schema';
 import { deploymentFixture } from '../e2e/support/test-data';
-import type { FixtureScope } from '../e2e/fixtures/catalog';
+import { canonicalCaseKeys, type FixtureScope } from '../e2e/fixtures/catalog';
 
 const modules = import.meta.glob('./**/*.ts');
 const scope: FixtureScope = {
@@ -237,6 +237,11 @@ describe('internal fixture boundary', () => {
         completeWeek: 'g'.repeat(64),
         canonicalPersistence: 'c'.repeat(64),
         realtimeActionSlot: 'h'.repeat(64),
+        workspaceUpkeep: 'i'.repeat(64),
+        workspaceNotoriety: 'j'.repeat(64),
+        workspaceRecovery: 'k'.repeat(64),
+        workspacePersistent: 'l'.repeat(64),
+        workspaceConfirmation: 'm'.repeat(64),
       },
     };
     vi.stubEnv(
@@ -304,4 +309,35 @@ describe('internal fixture boundary', () => {
       await t.query(internal.e2eFixtures.inspectCase, scope),
     ).toMatchObject({ campaignCount: 1, militia: { treasury: 100 } });
   });
+
+  const [cohort] = deploymentFixture.workers;
+  it.each(canonicalCaseKeys)(
+    'starts canonical case %s with a bare militia for its canonical fixture',
+    async (caseKey) => {
+      const t = convexTest({ schema, modules });
+      const owned: FixtureScope = {
+        ...scope,
+        caseKey,
+        token: cohort?.cases[caseKey] ?? '',
+      };
+      await t.mutation(internal.e2eFixtures.resetCase, {
+        ...owned,
+        now: 0,
+      });
+      expect(
+        await t.query(internal.e2eFixtures.inspectCase, owned),
+      ).toMatchObject({
+        campaignKey: 'canonical-persistence-campaign',
+        campaignCount: 1,
+        militia: null,
+      });
+      await t.mutation(internal.canonicalPersistenceFixtures.initializeUpkeep, {
+        scope: owned,
+        draftId: `draft-${caseKey}`,
+      });
+      expect(
+        await t.query(internal.e2eFixtures.inspectCase, owned),
+      ).toMatchObject({ militia: { week: 4, treasury: 50 } });
+    },
+  );
 });

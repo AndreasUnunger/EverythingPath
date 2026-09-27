@@ -54,7 +54,7 @@ it.each(['mandatory', 'nightly'] as const)(
       expect(result.stdout).toContain('[canonical-cutover]');
       expect(result.stdout).toContain('canonical-cutover.spec.ts');
       expect(result.stdout).toContain(
-        mode === 'nightly' ? 'Total: 19 tests' : 'Total: 10 tests',
+        mode === 'nightly' ? 'Total: 23 tests' : 'Total: 14 tests',
       );
       if (mode === 'nightly') {
         expect(result.stdout).toContain('[webkit-tablet]');

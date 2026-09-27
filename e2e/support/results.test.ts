@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(19);
+  expect(required).toHaveLength(23);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -34,6 +34,10 @@ it('requires the exact titles declared by the selected nightly journey sources',
     ]);
   }
 });
+
+const workspaceTitles = requiredTests('mandatory')
+  .filter(([file]) => file === 'canonical-workspace.spec.ts')
+  .map(([, , title]) => title!);
 
 const passing = () => ({
   status: 'passed',
@@ -124,16 +128,15 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
-    {
+    ...workspaceTitles.map((title) => ({
       file: 'canonical-workspace.spec.ts',
       project: 'canonical-workspace',
-      title:
-        'players prepare shared Upkeep with independent navigation and save recovery',
+      title,
       expectedStatus: 'passed',
-      tags: [],
-      annotations: [],
+      tags: [] as string[],
+      annotations: [] as string[],
       results: [{ status: 'passed', retry: 0 }],
-    },
+    })),
   ],
 });
 
@@ -279,6 +282,15 @@ it('rejects a missing canonical Workspace UI journey', () => {
   const report = passing();
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);
+});
+
+it('requires each of the five independent Workspace journeys', () => {
+  expect(workspaceTitles).toHaveLength(5);
+  for (const title of workspaceTitles) {
+    const report = passing();
+    report.tests = report.tests.filter((test) => test.title !== title);
+    expect(evaluateResults(report)).toBe(false);
+  }
 });
 
 it('requires the independent Confirmation contract even when editing passed', () => {
