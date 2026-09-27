@@ -43,6 +43,8 @@ function facts(choice: StagedActionChoice, slot: Partial<Slot> = {}): Facts {
         position: {
           officers: [],
           refugeSettlementIds: [],
+          settlements: [],
+          propaganda: [],
           characterStatus: [],
           economy: {
             items: economy,

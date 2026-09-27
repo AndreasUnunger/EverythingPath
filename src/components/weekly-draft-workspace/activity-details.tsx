@@ -32,6 +32,14 @@ import {
 } from './activity-economy-detail';
 import { economyFieldEdits } from './activity-economy-edits';
 import { ActivityEconomyFields } from './activity-economy-fields';
+import {
+  missionAcknowledgementSubjects,
+  missionDetail,
+} from './activity-mission-detail';
+import { isMissionChoice } from './activity-mission-actions';
+import { isCandidateChoice } from '~/lib/event-occurrence-preparation';
+import { missionFieldEdits } from './activity-mission-edits';
+import { ActivityMissionFields } from './activity-mission-fields';
 import { ChoiceCards } from './choice-cards';
 import {
   choiceFieldLabel as label,
@@ -61,6 +69,7 @@ const candidateRollSpec: RollSpecResolver = (path, root) => {
     rest,
   );
 };
+const CANDIDATE_FIELDS = ['candidates', 'selectedEventId'] as const;
 function ChoiceFields({
   choice,
   view,
@@ -69,6 +78,7 @@ function ChoiceFields({
   calculatedCostCopper,
   detailError,
   hosted,
+  only,
 }: {
   choice: StagedActionChoice;
   view: ActivityView;
@@ -77,6 +87,8 @@ function ChoiceFields({
   calculatedCostCopper: number | null;
   detailError: { field: string; message: string } | null;
   hosted: boolean;
+  // Only these fields, when an action's own editor shows the rest.
+  only?: readonly string[];
 }) {
   const shape = stagedActionChoiceSchema.options.find(
     (option) => option.shape.actionId.value === choice.actionId,
@@ -95,7 +107,7 @@ function ChoiceFields({
   ]);
   return Object.entries(shape)
     .flatMap(([field, wrapped]) => {
-      if (hidden.has(field)) return [];
+      if (hidden.has(field) || (only && !only.includes(field))) return [];
       const schema =
         wrapped instanceof z.ZodOptional
           ? (wrapped.unwrap() as z.ZodType)
@@ -286,6 +298,7 @@ export function ActivityDetails({
   disabled,
   hosted = false,
   correctionsHref,
+  openEvent,
 }: {
   slot: ActivityView['slots'][number];
   view: ActivityView;
@@ -294,6 +307,8 @@ export function ActivityDetails({
   hosted?: boolean;
   // Where missing items, caches and settlements are repaired.
   correctionsHref?: string;
+  // Shows the Event phase, where a choice's event candidates are rolled.
+  openEvent?: () => void;
 }) {
   const choice = slot.choice!;
   const [detailError, setDetailError] = useState<{
@@ -333,16 +348,19 @@ export function ActivityDetails({
     return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
-  // People and team, market, cache and Special Order actions have their own
-  // detail editors in the board.
+  // People and team, market, cache and Special Order, and information,
+  // mission and event-influence actions have their own detail editors in
+  // the board.
   const people = hosted ? actionDetail(view, slot) : null;
   const economy = hosted ? economyDetail(view, slot) : null;
-  const detail = people ?? economy;
-  // Acknowledgements the economy editor shows beside their purchase or order.
+  const mission = hosted ? missionDetail(view, slot) : null;
+  const detail = people ?? economy ?? mission;
+  // Acknowledgements the economy editor shows beside their purchase or
+  // order, and the one a mission editor shows as its What happened.
   const shown =
     economy && isEconomyChoice(choice)
       ? economyAcknowledgementSubjects(choice)
-      : new Set<string>();
+      : missionAcknowledgementSubjects(mission);
   return (
     <div className="space-y-3">
       {people && isPeopleTeamChoice(choice) ? (
@@ -364,6 +382,17 @@ export function ActivityDetails({
           fieldError={detailError}
           correctionsHref={correctionsHref}
         />
+      ) : mission && isMissionChoice(choice) ? (
+        <ActivityMissionFields
+          choice={choice}
+          detail={mission}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={missionFieldEdits(choice, change)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+          openEvent={openEvent}
+        />
       ) : (
         <ChoiceFields
           choice={choice}
@@ -374,6 +403,31 @@ export function ActivityDetails({
           disabled={disabled}
           hosted={hosted}
         />
+      )}
+      {mission && isCandidateChoice(choice) && (
+        // The recorded candidate trees and selection keep their structured
+        // editor, collapsed, until Event's per-family controls replace it;
+        // Event prepares, rolls and chooses the candidates.
+        <details className="space-y-3 border-t pt-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">
+            Recorded candidate details
+          </summary>
+          <section
+            aria-label="Recorded candidate details"
+            className="space-y-3"
+          >
+            <ChoiceFields
+              choice={choice}
+              calculatedCostCopper={slot.calculatedCostCopper}
+              detailError={detailError}
+              view={view}
+              change={change}
+              disabled={disabled}
+              hosted={hosted}
+              only={CANDIDATE_FIELDS}
+            />
+          </section>
+        </details>
       )}
       {!detail && slot.calculatedCostCopper !== null && (
         <p className="text-sm">

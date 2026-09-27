@@ -16,6 +16,7 @@ export function ActivityView({
   disabled,
   latest,
   correctionsHref,
+  openEvent,
 }: {
   view: ActivityViewFacts;
   edit: (edit: WeeklyDraftEdit) => Promise<'accepted' | 'failed'>;
@@ -25,6 +26,8 @@ export function ActivityView({
   // Scoped link to the Militia corrections editor, for repairing missing
   // team or settlement references.
   correctionsHref?: string;
+  // Shows the Event phase, where event candidates are rolled and chosen.
+  openEvent?: () => void;
 }) {
   const board = useActivityBoard({ view, edit, disabled, latest });
   const selected = board.selectedSlot;
@@ -54,6 +57,7 @@ export function ActivityView({
           edit={edit}
           disabled={disabled}
           correctionsHref={correctionsHref}
+          openEvent={openEvent}
         />
       ) : (
         <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">

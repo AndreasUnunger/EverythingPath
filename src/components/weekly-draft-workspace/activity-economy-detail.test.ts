@@ -251,6 +251,8 @@ type Slot = ActivityView['slots'][number];
 const position = (items: Item[]): Slot['position'] => ({
   officers: [],
   refugeSettlementIds: [],
+  settlements: [],
+  propaganda: [],
   characterStatus: [],
   economy: { items, caches: [] },
 });

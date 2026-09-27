@@ -37,6 +37,20 @@ export type EventActionChange =
       acknowledgement: Receipt | null;
     };
 
+/**
+ * The choice Covert Action's augment mode must name: the next staged choice
+ * in slot order after `choiceId`, skipping empty slots, or null when none
+ * follows.
+ */
+export function immediatelyFollowingChoiceId(
+  slots: readonly { choice: Pick<Choice, 'choiceId'> | null }[],
+  choiceId: string,
+) {
+  const choices = slots.flatMap((slot) => (slot.choice ? [slot.choice] : []));
+  const index = choices.findIndex((entry) => entry.choiceId === choiceId);
+  return index < 0 ? null : (choices[index + 1]?.choiceId ?? null);
+}
+
 // Guarantee Event needs no team; the others require their specialist team.
 export const eventActionTeams = {
   covert_action: ['spies'],
@@ -87,24 +101,18 @@ export function resolveEventAction(
       return true;
     }
     if (choice.mode === 'augment') {
-      const choices = draft.activity.slots.flatMap((slot) =>
-        slot.choice ? [slot.choice] : [],
+      const next = immediatelyFollowingChoiceId(
+        draft.activity.slots,
+        choice.choiceId,
       );
-      const next =
-        choices[
-          choices.findIndex((entry) => entry.choiceId === choice.choiceId) + 1
-        ];
-      if (
-        !choice.followingChoiceId ||
-        choice.followingChoiceId !== next?.choiceId
-      ) {
+      if (!choice.followingChoiceId || choice.followingChoiceId !== next) {
         required('immediately-following-choice');
         return true;
       }
       result.plan.push({
         kind: 'covert_augmentation',
         choiceId: choice.choiceId,
-        targetChoiceId: next.choiceId,
+        targetChoiceId: next,
         teamId: team!.teamId,
         bonus: team!.manager?.bonus ?? 0,
       });

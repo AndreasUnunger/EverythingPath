@@ -10,6 +10,7 @@ import { actionRestrictions } from '~/lib/rules-action-eligibility';
 import { isTeamUnavailableThisActivity } from '~/lib/rules-action-teams';
 import { activityRollSpec } from '~/lib/rules-roll-spec';
 import { isRefugeActive, projectSettlements } from '~/lib/rules-settlements';
+import { refugeReputationAllows } from '~/lib/rules-settlement-actions';
 import { withoutDuplicateRollCodes } from './roll-requirements';
 import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
 
@@ -307,7 +308,10 @@ function slotIssues(
           !requirements.includes(code) &&
           !requirements.includes(`${code}:exception`),
       )
-      .map((code) => ({ code, message: activityWarning(code, choiceId) })),
+      .map((code) => ({
+        code,
+        message: activityWarning(code, choiceId, choice.actionId),
+      })),
   ];
 }
 
@@ -393,6 +397,9 @@ export function activityView(
       position: slot.choice ? positionFacts(draft, preview, index) : null,
     })),
     teamRoster: roster,
+    // Read from the Event facts, which build on this view; the phase view
+    // fills them in.
+    candidateSets: [],
     helpful: helpfulName
       ? {
           settlementName: helpfulName,
@@ -489,8 +496,14 @@ export function positionFacts(
       person,
     ]),
   );
+  const propaganda: ActivityPositionFacts['propaganda'] = [];
   for (const change of projection.plan) {
     if (!('choiceId' in change) || !earlier.has(change.choiceId)) continue;
+    if (change.kind === 'propaganda_attempt')
+      propaganda.push({
+        settlementId: change.settlementId,
+        choiceId: change.choiceId,
+      });
     if (change.kind === 'officers') officers = change.after;
     else if (change.kind === 'settlement')
       settlements.set(change.after.settlementId, change.after);
@@ -502,6 +515,20 @@ export function positionFacts(
     refugeSettlementIds: [...settlements.values()].flatMap((settlement) =>
       isRefugeActive(settlement, draft.week) ? [settlement.settlementId] : [],
     ),
+    settlements: projectSettlements(
+      [...settlements.values()],
+      draft.week,
+    ).settlements.map((settlement) => ({
+      settlementId: settlement.settlementId,
+      reputation: settlement.reputation,
+      refugeAllowed: refugeReputationAllows(
+        settlements.get(settlement.settlementId)!,
+        draft.week,
+      ),
+      occupied: settlement.occupied,
+      secured: settlement.secured,
+    })),
+    propaganda,
     characterStatus: [...people.values()].map(({ characterId, status }) => ({
       characterId,
       status,
