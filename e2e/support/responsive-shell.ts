@@ -342,6 +342,16 @@ export async function expectBoundedWeekHost(page: Page) {
   );
   await expectReachable(page, targets.last());
   if (tall) {
+    // The last control in page order can sit near the top of a tall column,
+    // so reach the lowest visible content to prove the column scrolls.
+    const leaves = editor.locator('*:visible:not(:has(*))');
+    const bottoms = await leaves.evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().bottom),
+    );
+    await expectReachable(
+      page,
+      leaves.nth(bottoms.indexOf(Math.max(...bottoms))),
+    );
     expect(
       await editor.evaluate((element) => element.scrollTop),
       'the editor column scrolled to reach its last target',
