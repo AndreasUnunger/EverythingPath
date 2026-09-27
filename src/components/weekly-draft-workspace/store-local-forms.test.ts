@@ -79,7 +79,10 @@ test('an open local Summary form disables only this device’s Confirm with its 
     expect(await blocked.confirm()).toBe('failed');
     expect(ready(other).canConfirm).toBe(true);
     expect(ready(other).localForms).toEqual([]);
+    device.keepLocalValues('adjustment:first', { reason: '' });
     device.setLocalForm('adjustment:first', null);
+    // Withdrawing a form drops its kept input with it.
+    expect(device.readLocalValues('adjustment:first')).toBeUndefined();
     expect(ready(device).canConfirm).toBe(true);
     expect(ready(device).confirmationDisabledReason).toBeNull();
     expect(ready(device).localForms).toEqual([]);
@@ -112,6 +115,10 @@ test('another player’s Confirmation resets this device’s local forms with th
     editor.setLocalForm('new-adjustment', {
       message: 'New Table Adjustment: save or cancel it.',
     });
+    editor.keepLocalValues('new-adjustment', { reason: 'Half typed' });
+    expect(editor.readLocalValues('new-adjustment')).toEqual({
+      reason: 'Half typed',
+    });
     expect(ready(editor).canConfirm).toBe(false);
     // This device's unfinished form never blocks the other device.
     expect(await ready(confirmer).confirm()).toBe('accepted');
@@ -119,6 +126,8 @@ test('another player’s Confirmation resets this device’s local forms with th
     await expect.poll(() => ready(editor).week).toBe(41);
     await expect.poll(() => ready(editor).canConfirm).toBe(true);
     expect(ready(editor).localForms).toEqual([]);
+    // No input typed against the closed week reaches the successor.
+    expect(editor.readLocalValues('new-adjustment')).toBeUndefined();
     expect(
       ready(editor).phases.find((item) => item.phase === 'summary')!
         .requirements,

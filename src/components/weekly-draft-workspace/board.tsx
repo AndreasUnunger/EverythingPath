@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -129,6 +129,18 @@ function latestAdjustments(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView.adjustments
     : null;
 }
+// This device's Confirm guard for Review's local forms, from the one store.
+function useLocalFormGuard(store: WorkspaceController['store'] | undefined) {
+  return useMemo(
+    () =>
+      store && {
+        set: store.setLocalForm,
+        keep: store.keepLocalValues,
+        read: store.readLocalValues,
+      },
+    [store],
+  );
+}
 // The store's current Overseer support facts (Event or Persistent), read
 // between the edits of a support move so each step plans from the newest
 // accepted and pending draft.
@@ -193,6 +205,7 @@ export function WeeklyWorkspaceBoard({
     choosePhase,
   );
   const panel = useReferencePanel(campaignId);
+  const localFormGuard = useLocalFormGuard(controller?.store);
   const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
   if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
@@ -295,7 +308,7 @@ export function WeeklyWorkspaceBoard({
             }}
             review={() => choosePhase('summary')}
             localForms={workspace.localForms}
-            registerLocalForm={controller?.store.setLocalForm}
+            localFormGuard={localFormGuard}
             latestAdjustments={() =>
               latestAdjustments(controller?.store) ?? view.adjustments
             }

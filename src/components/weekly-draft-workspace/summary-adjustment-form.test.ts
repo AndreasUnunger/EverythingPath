@@ -7,7 +7,6 @@ import {
   appendAdjustment,
   removeAdjustment,
   replaceAdjustment,
-  savedAdjustment,
   type AdjustmentFormValues,
   type AdjustmentTargets,
   type TableAdjustment,
@@ -27,9 +26,15 @@ function parse(values: Partial<AdjustmentFormValues>) {
     ...adjustmentFormValues({ kind: values.kind ?? 'militia_value' }),
     ...values,
   };
-  return adjustmentFormSchema(adjustmentChoices(targets, initial)).safeParse(
-    initial,
-  );
+  const result = adjustmentFormSchema(
+    adjustmentChoices(targets, initial),
+    'new',
+  ).safeParse(initial);
+  // The identity is the caller's; compare the rest.
+  if (!result.success) return { ...result, data: undefined };
+  expect(result.data.adjustmentId).toBe('new');
+  const { adjustmentId: _identity, ...data } = result.data;
+  return { ...result, data };
 }
 function errors(values: Partial<AdjustmentFormValues>) {
   const result = parse(values);
@@ -198,10 +203,12 @@ test('saved adjustments round-trip through the raw form values unchanged', () =>
   for (const adjustment of saved) {
     const values = adjustmentFormValues(adjustment);
     expect(values.value).not.toBe('NaN');
-    const body = adjustmentFormSchema(adjustmentChoices(targets, values)).parse(
-      values,
-    );
-    expect(savedAdjustment(body, adjustment.adjustmentId)).toEqual(adjustment);
+    expect(
+      adjustmentFormSchema(
+        adjustmentChoices(targets, values),
+        adjustment.adjustmentId,
+      ).parse(values),
+    ).toEqual(adjustment);
   }
   expect(adjustmentFormValues(saved[0]!).value).toBe('-12.05');
 });

@@ -317,6 +317,10 @@ export async function reviewSummaryExceptionReason(
   await reason.fill('Both buyoffs stand by table ruling.');
   await persistent.getByRole('button', { name: /^Save .+ reason$/ }).click();
   await expect(peerReason).toHaveValue('Both buyoffs stand by table ruling.');
-  await expect(requiredDecisions(page).getByText(/exception/)).toHaveCount(0);
+  await expect(
+    requiredDecisions(page).getByText(
+      /exception needs a reason|save or cancel the new reason/,
+    ),
+  ).toHaveCount(0);
   await page.getByRole('button', { name: 'Persistent', exact: true }).click();
 }

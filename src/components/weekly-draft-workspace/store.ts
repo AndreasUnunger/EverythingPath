@@ -54,13 +54,34 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   // This device's open or locally invalid Summary forms, by form identity.
   // They only ever disable this device's Confirm; they are never shared,
   // never saved and belong to the draft that was open when they registered.
+  // Their raw input is kept beside them (without publishing) so it survives
+  // leaving Review & confirm and coming back.
   const localForms = new Map<string, { draftId: string; message: string }>();
+  const localValues = new Map<string, { draftId: string; values: unknown }>();
   function getPendingWork() {
     return operations.size > 0;
+  }
+  function keepLocalValues(id: string, values: unknown) {
+    const draftId = source?.key.draftId;
+    if (draftId) localValues.set(id, { draftId, values });
+  }
+  // Only a registered form's input is read back: a form that became clean
+  // again has nothing to restore.
+  function readLocalValues(id: string) {
+    const kept = localValues.get(id);
+    const draftId = source?.key.draftId;
+    return kept?.draftId === draftId && localForms.get(id)?.draftId === draftId
+      ? kept?.values
+      : undefined;
+  }
+  function clearLocalForms() {
+    localForms.clear();
+    localValues.clear();
   }
   function setLocalForm(id: string, form: { message: string } | null) {
     const current = localForms.get(id);
     const draftId = source?.key.draftId;
+    if (!form) localValues.delete(id);
     if (!form || !draftId) {
       if (!current) return;
       localForms.delete(id);
@@ -71,7 +92,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     }
     rebuild();
   }
-  function openLocalForms(draftId: string) {
+  function listLocalForms(draftId: string) {
     return [...localForms]
       .filter(([, form]) => form.draftId === draftId)
       .map(([id, form]) => ({ id, message: form.message }));
@@ -135,7 +156,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       phase = 'upkeep';
       confirming = false;
       feedback = 'idle';
-      localForms.clear();
+      clearLocalForms();
       for (const operation of operations)
         if (operation.draftId !== next.key.draftId)
           operations.delete(operation);
@@ -200,7 +221,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       preparationFailed: preparation.failed,
     });
     const { views } = readiness;
-    const local = openLocalForms(source.key.draftId);
+    const local = listLocalForms(source.key.draftId);
     // Each open or invalid local form is also a local Required decision of
     // Review; the backend readiness and accepted review are unchanged.
     const phases = readiness.phases.map((item) =>
@@ -416,7 +437,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     remoteChange = null;
     confirming = false;
     feedback = 'idle';
-    localForms.clear();
+    clearLocalForms();
     previewGeneration++;
   }
   function receive(next: WorkspaceSource | null) {
@@ -457,7 +478,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     remoteSequence = 0;
     source = next;
     pending = [];
-    localForms.clear();
+    clearLocalForms();
     preparation = createEventPreparation();
     preparing = false;
     reviewed = null;
@@ -488,6 +509,8 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     getSnapshot: () => state,
     getPendingWork,
     setLocalForm,
+    keepLocalValues,
+    readLocalValues,
     subscribe(this: void, listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);

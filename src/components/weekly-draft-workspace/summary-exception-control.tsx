@@ -6,24 +6,21 @@ import { FormNotes, ReasonField } from './summary-adjustment-fields';
 import {
   useExceptionReasonForm,
   type Edit,
-  type RegisterLocalForm,
+  type LocalFormGuard,
 } from './use-summary-forms';
 
-/** The live Summary's controls under a Rules Exception: reason editor or removal. */
-export function ExceptionControl({
-  note,
-  subject,
-  edit,
-  register,
-  disabled,
-}: {
+type Props = {
   note: ReviewException;
   /** Readable subject of the exception, e.g. "Activity 2: Earn Gold". */
   subject: string;
   edit: Edit;
-  register?: RegisterLocalForm;
+  guard?: LocalFormGuard;
   disabled: boolean;
-}) {
+};
+
+/** The live Summary's controls under a Rules Exception: reason editor or removal. */
+export function ExceptionControl(props: Props) {
+  const { note, edit, disabled } = props;
   if (note.obsolete)
     return (
       <Button
@@ -39,49 +36,37 @@ export function ExceptionControl({
         Remove obsolete exception
       </Button>
     );
-  return (
-    <ExceptionReasonForm
-      note={note}
-      subject={subject}
-      edit={edit}
-      register={register}
-      disabled={disabled}
-    />
-  );
+  return <ExceptionReasonForm {...props} />;
 }
 
-function ExceptionReasonForm({
-  note,
-  subject,
-  edit,
-  register,
-  disabled,
-}: {
-  note: ReviewException;
-  subject: string;
-  edit: Edit;
-  register?: RegisterLocalForm;
-  disabled: boolean;
-}) {
-  const f = useExceptionReasonForm({ note, subject, edit, register });
-  const reason = f.form.watch('reason');
+function ExceptionReasonForm({ note, subject, edit, guard, disabled }: Props) {
+  const reasonForm = useExceptionReasonForm({
+    note,
+    subject,
+    edit,
+    guard,
+    // Save disappears once saved; keep focus in the reason.
+    onSaved: () => setTimeout(() => reasonForm.form.setFocus('reason'), 0),
+  });
+  const reason = reasonForm.form.watch('reason');
   return (
     <form
       noValidate
-      id={f.elementId}
+      id={reasonForm.elementId}
       aria-label={`${note.rule} exception`}
-      onSubmit={f.submit}
+      onSubmit={reasonForm.submit}
       className="min-w-0 space-y-2"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <ReasonField
           label={`Reason for ${note.rule} exception`}
-          registration={f.form.register('reason')}
-          blank={reason.trim() === ''}
-          error={f.form.formState.errors.reason}
+          registration={reasonForm.form.register('reason')}
+          value={reason}
+          error={reasonForm.form.formState.errors.reason}
           disabled={disabled}
           onEnter={() => {
-            if (f.dirty && !f.saving) void f.submit();
+            if (reasonForm.isDirty && !reasonForm.isSaving)
+              void reasonForm.submit();
           }}
         />
         <Button
@@ -90,33 +75,33 @@ function ExceptionReasonForm({
           size="icon"
           aria-label={`Clear ${note.rule} exception`}
           disabled={disabled}
-          onClick={() => void f.clear()}
+          onClick={() => void reasonForm.clear()}
         >
           <X aria-hidden />
         </Button>
       </div>
       <FormNotes
-        failure={f.failure}
-        remoteChanged={f.remoteChanged}
+        failure={reasonForm.failure}
+        hasRemoteChange={reasonForm.hasRemoteChange}
         remoteMessage="Another player changed this reason. Your unsaved text is kept: Save replaces theirs, Cancel shows theirs."
       />
-      {f.dirty && (
+      {reasonForm.isDirty && (
         <div className="flex flex-wrap gap-2">
           <Button
             type="submit"
             size="sm"
-            disabled={disabled || f.saving}
-            aria-busy={f.saving || undefined}
+            disabled={disabled || reasonForm.isSaving}
+            aria-busy={reasonForm.isSaving || undefined}
           >
             <Check aria-hidden />
-            {f.saving ? 'Saving…' : `Save ${note.rule} reason`}
+            {reasonForm.isSaving ? 'Saving…' : `Save ${note.rule} reason`}
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             disabled={disabled}
-            onClick={f.cancel}
+            onClick={reasonForm.cancel}
           >
             Cancel {note.rule} reason
           </Button>

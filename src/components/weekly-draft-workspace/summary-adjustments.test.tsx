@@ -13,7 +13,7 @@ import type {
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
 import type { PhaseView } from './types';
-import type { RegisterLocalForm } from './use-summary-forms';
+import type { LocalFormGuard } from './use-summary-forms';
 afterEach(cleanup);
 
 // The live Summary's Table Adjustment and Rules Exception reason forms: raw
@@ -104,8 +104,28 @@ function summary(adjustments: Adjustment[], extra: Partial<Summary> = {}) {
     },
   };
 }
+/** The store's guard in memory: registrations, and input kept beside them. */
+function memoryGuard() {
+  const forms = new Map<string, string>();
+  const values = new Map<string, unknown>();
+  const set = vi.fn<LocalFormGuard['set']>((id, form) => {
+    if (form) forms.set(id, form.message);
+    else {
+      forms.delete(id);
+      values.delete(id);
+    }
+  });
+  return {
+    set,
+    keep: (id: string, kept: unknown) => void values.set(id, kept),
+    read: (id: string) => (forms.has(id) ? values.get(id) : undefined),
+    /** What the store would publish as `localForms`. */
+    published: () => [...forms].map(([id, message]) => ({ id, message })),
+  };
+}
 function setup(view: Summary, edit = vi.fn().mockResolvedValue('accepted')) {
-  const register = vi.fn<RegisterLocalForm>();
+  const guard = memoryGuard();
+  const register = guard.set;
   const props = {
     edit,
     disabled: false,
@@ -114,18 +134,33 @@ function setup(view: Summary, edit = vi.fn().mockResolvedValue('accepted')) {
     reviewRequired: false,
     confirm: vi.fn(),
     review: vi.fn(),
-    registerLocalForm: register,
+    localFormGuard: guard,
   };
   const result = render(<SummaryView view={view} {...props} />);
   return {
     edit,
+    guard,
     register,
     rerender: (next: Summary, extra: Partial<typeof props> = {}) =>
-      result.rerender(<SummaryView view={next} {...props} {...extra} />),
+      result.rerender(
+        <SummaryView
+          view={next}
+          {...props}
+          localForms={guard.published()}
+          {...extra}
+        />,
+      ),
+    /** Leaves Review & confirm and comes back to it. */
+    remount: (next: Summary) => {
+      result.unmount();
+      render(
+        <SummaryView view={next} {...props} localForms={guard.published()} />,
+      );
+    },
   };
 }
 /** The current registration of each local form id (null once withdrawn). */
-function registrations(register: Mock<RegisterLocalForm>) {
+function registrations(register: Mock<LocalFormGuard['set']>) {
   return Object.fromEntries(
     register.mock.calls.map(([id, form]) => [id, form?.message ?? null]),
   );
@@ -167,7 +202,8 @@ test('[rules.P85.adjustment-edit] editing keeps identity and saves against the l
     reason: 'Added elsewhere',
   };
   const edit = vi.fn().mockResolvedValue('accepted');
-  const register = vi.fn<RegisterLocalForm>();
+  const guard = memoryGuard();
+  const register = guard.set;
   render(
     <SummaryView
       view={summary([first, second])}
@@ -178,7 +214,7 @@ test('[rules.P85.adjustment-edit] editing keeps identity and saves against the l
       reviewRequired={false}
       confirm={vi.fn()}
       review={vi.fn()}
-      registerLocalForm={register}
+      localFormGuard={guard}
       // Accepted since this form opened; not yet rendered here.
       latestAdjustments={() => [first, second, remote]}
     />,
@@ -374,18 +410,21 @@ test('[rules.P85.adjustment-failure] a failed save keeps the local input, its re
 test('[rules.P85.adjustment-removed] unsaved changes to an adjustment another player removed are kept to add again or discard', async () => {
   const { register, rerender, edit } = setup(summary([first, second]));
   fireEvent.change(reasonOf(1), { target: { value: 'Keep my words' } });
+  await waitFor(() =>
+    expect(registrations(register)['adjustment:first']).not.toBeNull(),
+  );
   rerender(summary([second]));
   await waitFor(() =>
     expect(
       screen.getByText(
-        'Table Adjustment 1 “Effect first” was removed by another player. Your unsaved changes are kept.',
+        'Another player removed the Militia value adjustment “Keep my words” while you were changing it. Your unsaved changes are kept.',
       ),
     ).toBeVisible(),
   );
-  expect(registrations(register)['removed-adjustment:first']).toBe(
-    'Table Adjustment 1 “Effect first” was removed by another player. Add your version again or discard it.',
+  // Still this device's local decision, now naming what happened.
+  expect(registrations(register)['adjustment:first']).toBe(
+    'Militia value adjustment “Keep my words” was removed by another player. Add your version again or discard it.',
   );
-  expect(registrations(register)['adjustment:first']).toBeNull();
   fireEvent.click(
     screen.getByRole('button', { name: 'Add again as a new adjustment' }),
   );
@@ -396,7 +435,7 @@ test('[rules.P85.adjustment-removed] unsaved changes to an adjustment another pl
     'Keep my words',
   );
   expect(form.getByRole('textbox', { name: 'Amount' })).toHaveValue('5');
-  expect(registrations(register)['removed-adjustment:first']).toBeNull();
+  expect(registrations(register)['adjustment:first']).toBeNull();
   fireEvent.click(form.getByRole('button', { name: 'Save adjustment' }));
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith({
@@ -411,6 +450,54 @@ test('[rules.P85.adjustment-removed] unsaved changes to an adjustment another pl
       ],
     }),
   );
+});
+
+test('[rules.P85.adjustment-return] local input and its Confirm guard survive leaving Review & confirm and coming back', async () => {
+  const { register, remount, edit } = setup(summary([first, second]));
+  fireEvent.change(reasonOf(2), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Team condition' }));
+  fireEvent.click(
+    within(screen.getByRole('group', { name: 'Team' })).getByRole('button', {
+      name: 'Scouts',
+    }),
+  );
+  await waitFor(() =>
+    expect(registrations(register)['adjustment:second']).toBe(
+      'Table Adjustment 2 “Effect second” needs a reason.',
+    ),
+  );
+  remount(summary([first, second]));
+  await waitFor(() => expect(reasonOf(2)).toHaveValue(''));
+  expect(reasonOf(2)).toHaveAttribute('aria-invalid', 'true');
+  expect(
+    screen.getByRole('button', { name: 'Cancel changes to adjustment 2' }),
+  ).toBeVisible();
+  const form = within(
+    screen.getByRole('form', { name: 'New Team condition adjustment' }),
+  );
+  expect(
+    within(form.getByRole('group', { name: 'Team' })).getByRole('button', {
+      name: 'Scouts',
+    }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await waitFor(() =>
+    expect(registrations(register)['adjustment:second']).toBe(
+      'Table Adjustment 2 “Effect second” needs a reason.',
+    ),
+  );
+  expect(edit).not.toHaveBeenCalled();
+});
+
+test('[rules.P85.adjustment-gone-target] an untouched adjustment whose team left the week shows the field error at once', async () => {
+  setup(summary([{ ...second, teamId: 'gone' }]));
+  expect(
+    await screen.findByText(
+      'This team is no longer part of the week. Choose another team.',
+    ),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Edit adjustment 1' }),
+  ).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('[rules.P85.adjustment-own-remove] removing an adjustment with unsaved changes on this device keeps no draft', async () => {
@@ -515,7 +602,7 @@ test('[rules.P85.exception-local] a blank exception reason is never saved; it is
 });
 
 test('[rules.P85.local-decisions] local decisions are listed with Go to form, which focuses the invalid field', async () => {
-  const register = vi.fn<RegisterLocalForm>();
+  const guard = memoryGuard();
   render(
     <SummaryView
       view={summary([first])}
@@ -526,7 +613,7 @@ test('[rules.P85.local-decisions] local decisions are listed with Go to form, wh
       reviewRequired={false}
       confirm={vi.fn()}
       review={vi.fn()}
-      registerLocalForm={register}
+      localFormGuard={guard}
       localForms={[
         {
           id: 'adjustment:first',

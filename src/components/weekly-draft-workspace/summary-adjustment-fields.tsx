@@ -1,6 +1,12 @@
 'use client';
 import { TriangleAlert } from 'lucide-react';
-import { useId, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import type { FieldError, UseFormRegisterReturn } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -43,11 +49,11 @@ export function FieldMessage({
 /** The failure and remote-change notes of a local form. */
 export function FormNotes({
   failure,
-  remoteChanged,
+  hasRemoteChange,
   remoteMessage,
 }: {
   failure: string | null;
-  remoteChanged: boolean;
+  hasRemoteChange: boolean;
   remoteMessage: string;
 }) {
   return (
@@ -57,7 +63,7 @@ export function FormNotes({
           {failure}
         </p>
       )}
-      {remoteChanged && (
+      {hasRemoteChange && remoteMessage && (
         <p role="status" className={cn('text-sm', warningText, wrap)}>
           {remoteMessage}
         </p>
@@ -67,13 +73,24 @@ export function FormNotes({
 }
 
 /**
+ * Grows a reason field to show all of its text where the browser cannot
+ * size it to its content (`field-sizing` is not supported everywhere).
+ */
+function fitToContent(field: HTMLTextAreaElement) {
+  if (typeof CSS?.supports !== 'function') return;
+  if (CSS.supports('field-sizing', 'content')) return;
+  field.style.height = 'auto';
+  field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+}
+
+/**
  * A single-paragraph reason that wraps and grows instead of clipping. Enter
  * submits the form; a blank reason reads as a warning until it is filled.
  */
 export function ReasonField({
   label,
   registration,
-  blank,
+  value,
   error,
   disabled,
   onEnter,
@@ -81,8 +98,8 @@ export function ReasonField({
 }: {
   label: string;
   registration: UseFormRegisterReturn;
-  /** The current text is blank: warn before the schema has run. */
-  blank: boolean;
+  /** The current text; blank warns before the schema has run. */
+  value: string;
   error?: FieldError;
   disabled: boolean;
   onEnter: () => void;
@@ -90,7 +107,13 @@ export function ReasonField({
 }) {
   const id = useId();
   const messageId = `${id}-message`;
-  const message = error?.message ?? (blank ? 'A reason is required.' : null);
+  const message =
+    error?.message ?? (value.trim() === '' ? 'A reason is required.' : null);
+  const fieldRef = useRef<HTMLTextAreaElement | null>(null);
+  // Text set from outside (accepted refresh, Cancel) is fitted as well.
+  useLayoutEffect(() => {
+    if (fieldRef.current) fitToContent(fieldRef.current);
+  }, [value]);
   return (
     <div className={cn('min-w-0 space-y-1', className)}>
       <label htmlFor={id} className="sr-only">
@@ -115,6 +138,10 @@ export function ReasonField({
           if (!event.shiftKey) onEnter();
         }}
         {...registration}
+        ref={(node) => {
+          registration.ref(node);
+          fieldRef.current = node;
+        }}
       />
       {message && (
         <FieldMessage id={messageId} tone="warning">

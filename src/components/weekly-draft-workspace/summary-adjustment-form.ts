@@ -41,6 +41,10 @@ export const adjustmentKinds: (Choice & { value: AdjustmentKind })[] = [
     description: 'Stops a carried event',
   },
 ];
+/** The readable name of an adjustment kind, e.g. "Team condition". */
+export function kindLabel(kind: AdjustmentKind) {
+  return adjustmentKinds.find((item) => item.value === kind)?.label ?? kind;
+}
 export const militiaFields: (Choice & { value: MilitiaField })[] = [
   { value: 'training', label: 'Training' },
   { value: 'treasuryCopper', label: 'Treasury' },
@@ -76,13 +80,6 @@ export type AdjustmentFormValues = {
   eventId: string;
   reason: string;
 };
-/** The saved shape without its identity, which the caller supplies. */
-export type AdjustmentBody = TableAdjustment extends infer Item
-  ? Item extends TableAdjustment
-    ? Omit<Item, 'adjustmentId'>
-    : never
-  : never;
-
 /** The teams, settlements and carried events this week's form may target. */
 export type AdjustmentTargets = {
   teams: Choice[];
@@ -93,7 +90,9 @@ export type AdjustmentTargets = {
 export function adjustmentTargets(view: Summary): AdjustmentTargets {
   // Ending an event removes it from the week's carried events after the
   // Rules Baseline, so both states name the events an adjustment may end.
-  const states = [view.baseline, view.outcome].filter((state) => !!state);
+  const states = [view.baseline, view.outcome].filter(
+    (state) => state !== null,
+  );
   const carried = new Set(
     states.flatMap((state) =>
       state.context.carriedEvents.map((event) => event.eventId),
@@ -191,133 +190,150 @@ function signedWhole(text: string) {
   return { kind: 'valid', value: value === 0 ? 0 : value } as const;
 }
 
+/** The raw form values: every field of every kind as text. */
+export const adjustmentFormValuesSchema = z.object({
+  kind: z.enum([
+    'militia_value',
+    'team_status',
+    'settlement_reputation',
+    'event_end',
+  ]),
+  field: z.enum(['training', 'treasuryCopper', 'notoriety', 'rank']),
+  operation: z.enum(['add', 'set']),
+  value: z.string(),
+  teamId: z.string(),
+  status: z.string(),
+  settlementId: z.string(),
+  reputation: z.string(),
+  eventId: z.string(),
+  reason: z.string(),
+});
+
+type Issue = (path: keyof AdjustmentFormValues, message: string) => void;
+
+function militiaValue(values: AdjustmentFormValues, issue: Issue) {
+  const isMoney = values.field === 'treasuryCopper';
+  const parsed = isMoney
+    ? parseSignedGpInput(values.value)
+    : signedWhole(values.value);
+  if (parsed.kind === 'empty')
+    issue(
+      'value',
+      isMoney ? 'An amount in gp is required.' : 'A value is required.',
+    );
+  if (parsed.kind === 'invalid') issue('value', parsed.message);
+  const value =
+    parsed.kind !== 'valid'
+      ? undefined
+      : 'copper' in parsed
+        ? parsed.copper
+        : parsed.value;
+  return { field: values.field, operation: values.operation, value };
+}
+
+/** A chosen value the week still offers; missing and vanished differ. */
+function target(
+  values: AdjustmentFormValues,
+  issue: Issue,
+  path: keyof AdjustmentFormValues,
+  choices: Choice[],
+  missing: string,
+  gone = missing,
+) {
+  const value = values[path];
+  if (!value) issue(path, missing);
+  else if (!choices.some((choice) => choice.value === value)) issue(path, gone);
+  return value;
+}
+
+// The kind-specific fields of each discriminant, from raw values.
+const kindFields: Record<
+  AdjustmentKind,
+  (
+    values: AdjustmentFormValues,
+    choices: AdjustmentChoices,
+    issue: Issue,
+  ) => Record<string, unknown>
+> = {
+  militia_value: (values, _choices, issue) => militiaValue(values, issue),
+  team_status: (values, choices, issue) => ({
+    teamId: target(
+      values,
+      issue,
+      'teamId',
+      choices.teams,
+      'Choose a team.',
+      'This team is no longer part of the week. Choose another team.',
+    ),
+    status: target(
+      values,
+      issue,
+      'status',
+      choices.conditions,
+      'Choose a condition.',
+    ),
+  }),
+  settlement_reputation: (values, choices, issue) => ({
+    settlementId: target(
+      values,
+      issue,
+      'settlementId',
+      choices.settlements,
+      'Choose a settlement.',
+      'This settlement is no longer part of the week. Choose another settlement.',
+    ),
+    reputation: target(
+      values,
+      issue,
+      'reputation',
+      choices.reputations,
+      'Choose a reputation.',
+    ),
+  }),
+  event_end: (values, choices, issue) => ({
+    eventId: target(
+      values,
+      issue,
+      'eventId',
+      choices.events,
+      'Choose an event.',
+      'This event no longer carries into next week. Choose another event or remove this adjustment.',
+    ),
+  }),
+};
+
 /**
- * Raw values → the strict saved body, with an error on each field that is
- * missing (its own message) or malformed. A target must be one this week
- * still offers; a vanished team, settlement or event is an error, not a
- * payload the server would reject.
+ * Raw values → the strict saved adjustment with this identity, with an
+ * error on each field that is missing (its own message) or malformed. A
+ * target must be one this week still offers; a vanished team, settlement or
+ * event is an error, not a payload the server would reject.
  */
-export function adjustmentFormSchema(choices: AdjustmentChoices) {
-  return z
-    .object({
-      kind: z.enum([
-        'militia_value',
-        'team_status',
-        'settlement_reputation',
-        'event_end',
-      ]),
-      field: z.enum(['training', 'treasuryCopper', 'notoriety', 'rank']),
-      operation: z.enum(['add', 'set']),
-      value: z.string(),
-      teamId: z.string(),
-      status: z.string(),
-      settlementId: z.string(),
-      reputation: z.string(),
-      eventId: z.string(),
-      reason: z.string(),
-    })
-    .transform((values, context): AdjustmentBody => {
-      const issue = (path: keyof AdjustmentFormValues, message: string) =>
+export function adjustmentFormSchema(
+  choices: AdjustmentChoices,
+  adjustmentId: string,
+) {
+  return adjustmentFormValuesSchema.transform(
+    (values, context): TableAdjustment => {
+      let hasIssue = false;
+      const issue: Issue = (path, message) => {
+        hasIssue = true;
         context.addIssue({ code: 'custom', path: [path], message });
-      const pick = (
-        path: keyof AdjustmentFormValues,
-        options: Choice[],
-        missing: string,
-        gone: string,
-      ) => {
-        const value = values[path];
-        if (!value) issue(path, missing);
-        else if (!options.some((option) => option.value === value))
-          issue(path, gone);
-        return value;
       };
       const reason = values.reason.trim();
       if (!reason) issue('reason', 'A reason is required.');
-      let body: AdjustmentBody | null = null;
-      if (values.kind === 'militia_value') {
-        const money = values.field === 'treasuryCopper';
-        const parsed = money
-          ? parseSignedGpInput(values.value)
-          : signedWhole(values.value);
-        if (parsed.kind === 'empty')
-          issue(
-            'value',
-            money ? 'An amount in gp is required.' : 'A value is required.',
-          );
-        else if (parsed.kind === 'invalid') issue('value', parsed.message);
-        else
-          body = {
-            kind: 'militia_value',
-            field: values.field,
-            operation: values.operation,
-            value: 'copper' in parsed ? parsed.copper : parsed.value,
-            reason,
-          };
-      } else if (values.kind === 'team_status') {
-        const teamId = pick(
-          'teamId',
-          choices.teams,
-          'Choose a team.',
-          'This team is no longer part of the week. Choose another team.',
-        );
-        const status = pick(
-          'status',
-          choices.conditions,
-          'Choose a condition.',
-          'Choose a condition.',
-        );
-        body = {
-          kind: 'team_status',
-          teamId,
-          status: status as Extract<
-            AdjustmentBody,
-            { kind: 'team_status' }
-          >['status'],
-          reason,
-        };
-      } else if (values.kind === 'settlement_reputation') {
-        const settlementId = pick(
-          'settlementId',
-          choices.settlements,
-          'Choose a settlement.',
-          'This settlement is no longer part of the week. Choose another settlement.',
-        );
-        const reputation = pick(
-          'reputation',
-          choices.reputations,
-          'Choose a reputation.',
-          'Choose a reputation.',
-        );
-        body = {
-          kind: 'settlement_reputation',
-          settlementId,
-          reputation: reputation as Extract<
-            AdjustmentBody,
-            { kind: 'settlement_reputation' }
-          >['reputation'],
-          reason,
-        };
-      } else {
-        const eventId = pick(
-          'eventId',
-          choices.events,
-          'Choose an event.',
-          'This event no longer carries into next week. Choose another event or remove this adjustment.',
-        );
-        body = { kind: 'event_end', eventId, reason };
-      }
-      if (!body) return z.NEVER;
-      return body;
-    });
-}
-
-/** The strict saved adjustment, or null when the body is not structurally valid. */
-export function savedAdjustment(
-  body: AdjustmentBody,
-  adjustmentId: string,
-): TableAdjustment | null {
-  const parsed = tableAdjustmentSchema.safeParse({ ...body, adjustmentId });
-  return parsed.success ? parsed.data : null;
+      const fields = kindFields[values.kind](values, choices, issue);
+      if (hasIssue) return z.NEVER;
+      const parsed = tableAdjustmentSchema.safeParse({
+        kind: values.kind,
+        adjustmentId,
+        ...fields,
+        reason,
+      });
+      if (parsed.success) return parsed.data;
+      issue('kind', 'This adjustment cannot be saved as entered.');
+      return z.NEVER;
+    },
+  );
 }
 
 // The full ordered list a Save sends is always built from the latest list

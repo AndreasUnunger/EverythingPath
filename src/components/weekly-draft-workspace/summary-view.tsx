@@ -7,14 +7,16 @@ import {
   adjustmentTargets,
   type TableAdjustment,
 } from './summary-adjustment-form';
-import { AddAdjustment, AdjustmentRow } from './summary-adjustments';
+import { AdjustmentRow } from './summary-adjustment-row';
+import { AddAdjustment } from './summary-adjustments';
 import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
 import type { PhaseView, WeeklyDraftWorkspace } from './types';
 import {
   focusLocalForm,
-  useRemovedAdjustmentDrafts,
-  type RegisterLocalForm,
+  removedAdjustmentDrafts,
+  useForgetGoneExceptions,
+  type LocalFormGuard,
 } from './use-summary-forms';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
 export function SummaryView({
@@ -28,7 +30,7 @@ export function SummaryView({
   confirm,
   review,
   localForms = [],
-  registerLocalForm,
+  localFormGuard,
   latestAdjustments,
 }: {
   view: Summary;
@@ -43,13 +45,23 @@ export function SummaryView({
   review: () => void;
   /** This device's open or invalid local forms, each a Required decision. */
   localForms?: { id: string; message: string }[];
-  registerLocalForm?: RegisterLocalForm;
+  /** The Workspace's Confirm guard for this device's local forms. */
+  localFormGuard?: LocalFormGuard;
   /** The latest ordered Table Adjustments this device knows, read at Save time. */
   latestAdjustments?: () => readonly TableAdjustment[];
 }) {
   const targets = useMemo(() => adjustmentTargets(view), [view]);
   const latest = latestAdjustments ?? (() => view.adjustments);
-  const drafts = useRemovedAdjustmentDrafts();
+  const guard = localFormGuard;
+  const removedDrafts = removedAdjustmentDrafts(
+    guard,
+    localForms,
+    view.adjustments,
+  );
+  useForgetGoneExceptions(guard, localForms, view.exceptions);
+  const subjectOf = (exceptionId: string) =>
+    view.exceptions.find((exception) => exception.exceptionId === exceptionId)
+      ?.name ?? 'Rules Exception';
   const localFormId = useId();
   const count = view.review.adjustments.length;
   return (
@@ -135,13 +147,9 @@ export function SummaryView({
           exception: (note) => (
             <ExceptionControl
               note={note}
-              subject={
-                view.exceptions.find(
-                  (exception) => exception.exceptionId === note.exceptionId,
-                )?.name ?? 'Rules Exception'
-              }
+              subject={subjectOf(note.exceptionId)}
               edit={edit}
-              register={registerLocalForm}
+              guard={guard}
               disabled={disabled}
             />
           ),
@@ -159,9 +167,8 @@ export function SummaryView({
                 targets={targets}
                 latest={latest}
                 edit={edit}
-                register={registerLocalForm}
+                guard={guard}
                 disabled={disabled}
-                onRemovedElsewhere={drafts.keep}
               />
             );
           },
@@ -170,9 +177,10 @@ export function SummaryView({
               targets={targets}
               latest={latest}
               edit={edit}
-              register={registerLocalForm}
+              guard={guard}
               disabled={disabled}
-              drafts={drafts}
+              localForms={localForms}
+              removedDrafts={removedDrafts}
             />
           ),
         }}
