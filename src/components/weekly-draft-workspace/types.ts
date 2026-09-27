@@ -9,9 +9,9 @@ import type {
   EventTableArithmetic,
 } from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
-import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
+import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { RollReadFacts } from './roll-facts';
 import type { RollSpec } from '~/lib/raw-roll';
@@ -55,12 +55,7 @@ export type UpkeepView = {
     name: string | null;
     roles: CanonicalRoster['officers'][number]['role'][];
   }[];
-  transfers: {
-    transferId: string;
-    characterId: string;
-    direction: 'deposit' | 'withdraw';
-    copper: number;
-  }[];
+  transfers: WeeklyDraft['upkeep']['treasuryTransfers'];
   boons: Extract<
     ReturnType<typeof projectUpkeep>['plan'][number],
     { kind: 'boon' }
@@ -142,6 +137,25 @@ export type UpkeepMissingTeam = {
     | null;
   issues: UpkeepIssue[];
 };
+// One staged deposit or withdrawal, in staged order.
+export type UpkeepTransfer = {
+  transferId: string;
+  direction: 'deposit' | 'withdraw';
+  copper: number;
+  // The character recorded on a transfer staged before transfers became
+  // characterless; null for every new transfer.
+  legacyCharacterName: string | null;
+  // The treasury change Theft makes to this deposit (negative); null if none.
+  theftCopper: number | null;
+  // Present while a withdrawal beyond the treasury needs, or already has, its
+  // reasoned exception.
+  fundsException: {
+    exceptionId: string;
+    reason: string;
+    required: boolean;
+  } | null;
+  issues: UpkeepIssue[];
+};
 export type UpkeepSections = {
   teams: {
     status: UpkeepSectionStatus;
@@ -198,8 +212,21 @@ export type UpkeepSections = {
   };
   transfers: {
     status: UpkeepSectionStatus;
+    // Treasury before and after the ordered transfers (and any Theft on
+    // them); null while an earlier step is still open.
     beforeCopper: number | null;
     afterCopper: number | null;
+    items: UpkeepTransfer[];
+    // Treasury Table Adjustments, which apply after the whole week and are
+    // never part of before/after; named under the list only.
+    // A recovery price names its team; any other adjustment its reason.
+    adjustments: {
+      adjustmentId: string;
+      label: string;
+      operation: 'add' | 'set';
+      copper: number;
+    }[];
+    // Transfer warnings no listed transfer owns.
     issues: UpkeepIssue[];
   };
   // Warnings no single item owns, such as archived officers' check bonuses.
@@ -334,7 +361,106 @@ export type EventOccurrenceFacts = {
   requirements: string[];
   warnings: string[];
   owner: { slotId: string; choice: StagedActionChoice } | null;
+  // The event-specific controls for this occurrence's family, or null while
+  // the family still uses the general details editor.
+  panel: EventPanel | null;
 };
+// One Event check row: the dice total field, the calculated bonus beside it
+// and the result against the DC. Shared by every event check (target checks,
+// mandatory saves, officer and Sabotage checks).
+export type EventCheckFacts = {
+  checkId: string;
+  // Names the check and its target, e.g. "Security check for Wren Ashby".
+  label: string;
+  // "Security DC 20 · 1d20"
+  legend: string;
+  spec: RollSpec;
+  dc: number;
+  mandatory: boolean;
+  // Null until the rules can calculate the bonus.
+  modifier: number | null;
+  total: number | null;
+  breakdown: { source: string; label: string; value: number }[];
+  succeeded: boolean | null;
+  // What the result means for this event, once the roll is in.
+  resultText: string | null;
+  required: boolean;
+  // A check-level Overseer selection recorded by an older editor. Support
+  // applies once to every check of the occurrence, wherever it is recorded.
+  overseerRecorded: boolean;
+};
+// A card for a team, settlement or person target.
+export type EventTargetCard = {
+  value: string;
+  label: string;
+  description: string;
+};
+// A recorded target the current choices do not include, kept until cleared.
+export type EventRetainedTarget = {
+  value: string;
+  label: string;
+  reason: string;
+};
+export type EventTargetChoice = {
+  // "Team that falls sick"
+  label: string;
+  hint: string | null;
+  required: boolean;
+  selected: string | null;
+  choices: EventTargetCard[];
+  retained: EventRetainedTarget[];
+};
+export type EventWhatHappened = {
+  subjectId: string;
+  required: boolean;
+  hint: string;
+  acknowledgement: { acknowledgementId: string; outcome: string } | null;
+};
+export type EventRaidPerson = {
+  characterId: string;
+  name: string;
+  // Attempt it / Let it happen for this person; `explicit` when the choice
+  // is recorded on the person rather than read from the event or a roll.
+  mitigation: 'attempted' | 'unattempted';
+  explicit: boolean;
+  check: EventCheckFacts;
+  checkRoll: RawRoll | undefined;
+  capture: {
+    // The percentile roll decides only after a successful Security check.
+    applies: boolean;
+    chance: number | null;
+    recorded: RawRoll | undefined;
+    required: boolean;
+  };
+};
+export type EventPanel =
+  | {
+      family: 'team';
+      eventType: 'missing_in_action' | 'sickness' | 'turn_around';
+      // Null when the rules need no team (Turn Around recovering teams).
+      team: EventTargetChoice | null;
+      // Sickness Twice's mandatory Loyalty save; null otherwise.
+      check: EventCheckFacts | null;
+      checkRoll: RawRoll | undefined;
+      // A recorded check roll the current event does not use.
+      retainedCheck: boolean;
+      whatHappened: EventWhatHappened;
+      outcomes: string[];
+    }
+  | {
+      family: 'raid';
+      settlement: EventTargetChoice;
+      people: EventRaidPerson[];
+      // Recorded per-person entries for people not hidden in that refuge.
+      retainedPeople: (EventRetainedTarget & { index: number })[];
+      // An event-level mitigation or check roll from an older editor: it
+      // stands in for each person until their own choice is recorded.
+      legacyMitigation: 'attempted' | 'unattempted' | null;
+      legacyCheckRoll: boolean;
+      noPeople: string | null;
+      whatHappened: EventWhatHappened;
+      outcomes: string[];
+    };
 // What an event block says about its occurrence this week. Every status has
 // its own words; colour never carries the distinction alone.
 export type EventBlockStatus =

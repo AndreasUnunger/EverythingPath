@@ -33,7 +33,7 @@ function referencePhase(
   requirement: string,
 ): StagedChoicePhase | null {
   const [owner = ''] = requirement.split(':');
-  if (['team', 'upkeep', 'transfer'].includes(owner)) return 'upkeep';
+  if (['team', 'upkeep'].includes(owner)) return 'upkeep';
   if (owner === 'activity') return 'activity';
   if (owner === 'adjustment') return 'summary';
   if (draft.activity.slots.some((slot) => slot.choice?.choiceId === owner))

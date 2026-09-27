@@ -47,16 +47,8 @@ export function upkeepWarningMessage(code: string, facts: UpkeepWarningFacts) {
   const transfer = facts.transfers.find((transfer) =>
     code.startsWith(`transfer:${transfer.transferId}:`),
   );
-  if (transfer) {
-    const name =
-      facts.officers.find(
-        (person) => person.characterId === transfer.characterId,
-      )?.name ?? 'This character';
-    if (code.endsWith(':officer'))
-      return `${name} is not an assigned officer. This ${transfer.direction} needs a table ruling.`;
-    if (code.endsWith(':funds'))
-      return `${name}'s withdrawal of ${transfer.copper} copper exceeds the available treasury. Record a table ruling to proceed.`;
-  }
+  if (transfer && code.endsWith(':funds'))
+    return `This withdrawal of ${formatGold(transfer.copper)} exceeds the available treasury. Record a table ruling to proceed.`;
   const officer = facts.officers.find(
     (person) => code === `officer:${person.characterId}:archived`,
   );

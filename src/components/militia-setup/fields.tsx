@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { createContext, useContext, useId, type ReactNode } from 'react';
 import { Controller, useFormContext, type FieldPath } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { CampaignContextInput } from '../campaign-context/campaign-context-input';
@@ -57,6 +57,7 @@ export function SetupField({
             <div
               role="group"
               aria-labelledby={`${id}-label`}
+              data-setup-path={name}
               className="flex flex-wrap gap-2"
             >
               {options.map((option) => (
@@ -109,6 +110,14 @@ export function SetupField({
     />
   );
 }
+// How section titles render: a guided Setup step names its single section in
+// its own heading, and nests the titles of several sections below it.
+export const SetupSectionHeading = createContext<'h2' | 'h3' | 'none'>('h2');
+// Explanatory captions under section titles, keyed by title. Guided Setup's
+// approved design drops them; the correction form supplies its own.
+export const SetupSectionCaptions = createContext<
+  Readonly<Record<string, string>>
+>({});
 export function SetupSection({
   title,
   children,
@@ -120,9 +129,16 @@ export function SetupSection({
   add?: string;
   onAdd?: () => void;
 }) {
+  const Heading = useContext(SetupSectionHeading);
+  const caption = useContext(SetupSectionCaptions)[title];
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-bold">{title}</h2>
+      {Heading === 'none' ? null : (
+        <Heading className="text-xl font-bold">{title}</Heading>
+      )}
+      {caption ? (
+        <p className="text-muted-foreground text-sm">{caption}</p>
+      ) : null}
       {children}
       {onAdd && (
         <Button type="button" variant="outline" onClick={onAdd}>
@@ -178,6 +194,7 @@ export function SetupSelection({
             <div
               role="group"
               aria-label={label}
+              data-setup-path={name}
               className="flex flex-wrap gap-2"
             >
               {options.map((option) => (

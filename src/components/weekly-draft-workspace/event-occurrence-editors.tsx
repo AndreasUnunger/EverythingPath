@@ -6,10 +6,12 @@ import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { ActivityText } from './activity-details';
 import { EventChecks } from './event-checks';
+import { EventFamilyPanel } from './event-family-panel';
 import { eventChange } from './event-messages';
 import { resolvedEventType } from './roll-facts';
 import { StructuredChoiceField } from './structured-choice-field';
 import type { EventBlock, EventView } from './types';
+import type { useEventEdits } from './use-event-edits';
 
 type Occurrence = EventView['occurrences'][number]['occurrence'];
 const detailsSchema = eventOccurrenceSchema.omit({
@@ -29,17 +31,27 @@ export function EventOccurrenceEditors({
   view,
   edit,
   disabled,
-  saveOccurrence,
+  edits,
 }: {
   block: EventBlock;
   view: EventView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
-  saveOccurrence: (occurrence: Occurrence) => string | null;
+  edits: ReturnType<typeof useEventEdits>;
 }) {
+  const saveOccurrence = edits.saveOccurrence;
   const [error, setError] = useState('');
   const item = block.item;
   const occurrence = item.occurrence;
+  const panel = item.panel;
+  // Checks the family controls show in their own rows.
+  const covered = !panel
+    ? []
+    : panel.family === 'team'
+      ? panel.check
+        ? [panel.check.checkId]
+        : []
+      : panel.people.map((person) => person.check.checkId);
   const acknowledgement = view.acknowledgements.find(
     (entry) => entry.subjectId === `event:${occurrence.eventId}`,
   );
@@ -56,7 +68,15 @@ export function EventOccurrenceEditors({
   }
   return (
     <div className="space-y-3">
-      {item.optionalMitigation !== 'unavailable' && (
+      {panel && (
+        <EventFamilyPanel
+          block={block}
+          panel={panel}
+          disabled={disabled}
+          edits={edits}
+        />
+      )}
+      {!panel && item.optionalMitigation !== 'unavailable' && (
         <p className="text-sm">
           Optional mitigation:{' '}
           {item.optionalMitigation === 'attempted'
@@ -113,46 +133,47 @@ export function EventOccurrenceEditors({
           {error}
         </p>
       )}
-      {(Boolean(acknowledgement) ||
-        item.requirements.includes(
-          `${occurrence.eventId}:acknowledgement`,
-        )) && (
-        <div className="space-y-2">
-          <ActivityText
-            name="Event outcome acknowledgement"
-            value={acknowledgement?.outcome ?? ''}
-            required
-            disabled={disabled}
-            onValue={(outcome) =>
-              edit({
-                kind: 'acknowledge',
-                acknowledgement: {
-                  acknowledgementId:
-                    acknowledgement?.acknowledgementId ??
-                    `event:${occurrence.eventId}`,
-                  subjectId: `event:${occurrence.eventId}`,
-                  outcome,
-                },
-              })
-            }
-          />
-          {acknowledgement && (
-            <Button
-              variant="outline"
+      {!panel &&
+        (Boolean(acknowledgement) ||
+          item.requirements.includes(
+            `${occurrence.eventId}:acknowledgement`,
+          )) && (
+          <div className="space-y-2">
+            <ActivityText
+              name="Event outcome acknowledgement"
+              value={acknowledgement?.outcome ?? ''}
+              required
               disabled={disabled}
-              onClick={() =>
+              onValue={(outcome) =>
                 edit({
-                  kind: 'clear_acknowledgement',
-                  acknowledgementId: acknowledgement.acknowledgementId,
+                  kind: 'acknowledge',
+                  acknowledgement: {
+                    acknowledgementId:
+                      acknowledgement?.acknowledgementId ??
+                      `event:${occurrence.eventId}`,
+                    subjectId: `event:${occurrence.eventId}`,
+                    outcome,
+                  },
                 })
               }
-            >
-              Clear event acknowledgement
-            </Button>
-          )}
-        </div>
-      )}
-      <EventChecks item={item} view={view} />
+            />
+            {acknowledgement && (
+              <Button
+                variant="outline"
+                disabled={disabled}
+                onClick={() =>
+                  edit({
+                    kind: 'clear_acknowledgement',
+                    acknowledgementId: acknowledgement.acknowledgementId,
+                  })
+                }
+              >
+                Clear event acknowledgement
+              </Button>
+            )}
+          </div>
+        )}
+      <EventChecks item={item} view={view} exclude={covered} />
       {item.exceptionChoices.map((exception) => (
         <div
           key={exception.exceptionId}
@@ -189,7 +210,7 @@ export function EventOccurrenceEditors({
           )}
         </div>
       ))}
-      {item.changes.length > 0 && (
+      {!panel && item.changes.length > 0 && (
         <ul aria-label="Event outcomes" className="space-y-1 text-sm">
           {item.changes.map((change) => (
             <li key={JSON.stringify(change)}>{eventChange(change)}</li>

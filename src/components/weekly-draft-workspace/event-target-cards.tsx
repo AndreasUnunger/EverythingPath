@@ -1,0 +1,80 @@
+'use client';
+import { Button } from '~/components/ui/button';
+import { EventChoiceCard } from './event-choice-card';
+import { EventNote } from './event-note';
+import type { EventTargetChoice } from './types';
+
+// The team, settlement or person an event targets, chosen from cards. A
+// recorded target the current choices no longer include stays as a note
+// until it is cleared on purpose.
+export function EventTargetCards({
+  choice,
+  disabled,
+  onSelect,
+  onClear,
+  onClearRetained,
+}: {
+  choice: EventTargetChoice;
+  disabled: boolean;
+  onSelect: (value: string) => void;
+  onClear: () => void;
+  onClearRetained: (value: string) => void;
+}) {
+  return (
+    <fieldset className="min-w-0 space-y-2">
+      <legend className="text-sm font-semibold [overflow-wrap:anywhere]">
+        {choice.label}
+        {choice.required && (
+          <span className="text-muted-foreground text-xs font-normal">
+            {' '}
+            required
+          </span>
+        )}
+      </legend>
+      {choice.hint && (
+        <p className="text-muted-foreground min-w-0 text-xs [overflow-wrap:anywhere]">
+          {choice.hint}
+        </p>
+      )}
+      {choice.choices.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {choice.choices.map((card) => (
+            <EventChoiceCard
+              key={card.value}
+              label={card.label}
+              ariaLabel={card.label}
+              description={card.description}
+              pressed={card.value === choice.selected}
+              disabled={disabled}
+              onPress={() => {
+                if (card.value !== choice.selected) onSelect(card.value);
+              }}
+            />
+          ))}
+        </div>
+      )}
+      {choice.selected !== null && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={onClear}
+        >
+          Clear {choice.label.toLowerCase()}
+        </Button>
+      )}
+      {choice.retained.map((entry) => (
+        <EventNote
+          key={entry.value}
+          action="Clear"
+          actionLabel={`Clear ${entry.label} from ${choice.label}`}
+          disabled={disabled}
+          onAction={() => onClearRetained(entry.value)}
+        >
+          {entry.label}: {entry.reason}
+        </EventNote>
+      ))}
+    </fieldset>
+  );
+}

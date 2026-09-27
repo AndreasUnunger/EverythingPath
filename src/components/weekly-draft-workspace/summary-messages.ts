@@ -140,8 +140,6 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
   const key = tail.replace(/:exception$/, '');
   if (/reference|Unknown|revision/.test(code))
     return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
-  if (code.startsWith('transfer:') && key === 'officer')
-    return `${prefix}This transfer is for a character without an officer assignment.`;
   const known = messages[key];
   if (known)
     return (

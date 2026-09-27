@@ -11,9 +11,10 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
 import { SetupAssets } from './assets';
 import { SetupCarriedEffects } from './carry';
-import { MilitiaSetupForm } from './form';
+import { MilitiaCorrectionForm } from './form';
+import { GuidedMilitiaSetup } from './guided';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
-import { SetupStartingPoint } from './starting-point';
+import { SetupMilitiaValues, SetupModeChoice } from './starting-point';
 afterEach(cleanup);
 
 const hero: SetupCharacter = {
@@ -87,27 +88,42 @@ test('[setup.editors.subsections] Assets and Carried effects show only the selec
   ]);
 });
 
-test('[setup.editors.rehost] Setup and the full correction form keep their sections and order', () => {
-  render(<MilitiaSetupForm characters={[hero]} onSave={vi.fn()} />);
-  expect(headings()).toEqual([
-    'Starting point',
-    'Week context',
-    'Characters and officers',
-    'Teams',
-    'Character conditions',
-    'Settlements',
-    'Carried persistent events',
-    'Items',
-    'Caches',
-    'Orders',
-    'Marketplaces',
-    'Queued effects',
-    'One-use bonuses',
-    'Carried skill benefits',
-    'Carried Market Day benefits',
+test('[setup.editors.rehost] Setup steps and the full correction form keep their sections and order', () => {
+  render(<GuidedMilitiaSetup characters={[hero]} onSave={vi.fn()} />);
+  const steps = within(
+    screen.getByRole('navigation', { name: 'Setup steps' }),
+  ).getAllByRole('button');
+  expect(
+    steps.map((step) => {
+      fireEvent.click(step);
+      return headings();
+    }),
+  ).toEqual([
+    ['Starting point'],
+    ['Week'],
+    ['People & officers'],
+    ['Teams'],
+    ['Settlements'],
+    ['Character conditions'],
+    ['Assets', 'Items', 'Caches', 'Orders', 'Marketplaces'],
+    [
+      'Carried effects',
+      'Carried persistent events',
+      'Queued effects',
+      'One-use bonuses',
+      'Carried skill benefits',
+      'Carried Market Day benefits',
+    ],
+    ['Review & start', 'Warnings by step'],
   ]);
   cleanup();
-  render(<MilitiaSetupForm characters={[hero]} onSave={vi.fn()} correction />);
+  render(
+    <MilitiaCorrectionForm
+      characters={[hero]}
+      onSave={vi.fn()}
+      initialValues={{ ...newMilitiaSetup('Loyalty'), mode: 'existing' }}
+    />,
+  );
   expect(headings()).toEqual([
     'Militia values',
     'Characters and officers',
@@ -142,7 +158,12 @@ function Steps() {
       <button type="button" onClick={() => setStep('teams')}>
         Go to Teams
       </button>
-      {step === 'start' && <SetupStartingPoint />}
+      {step === 'start' && (
+        <>
+          <SetupModeChoice />
+          <SetupMilitiaValues />
+        </>
+      )}
       {step === 'people' && <SetupPeople characters={[hero]} />}
       {step === 'teams' && <SetupTeams characters={[hero]} />}
     </>

@@ -11,6 +11,9 @@ A campaign has exactly one open Weekly Draft, created when its current week begi
 **Weekly Draft Revision**:
 A specific version of the Weekly Draft. Any synchronized change creates a newer revision.
 
+**Militia Setup**:
+The one-time recording of a militia's current table state, including a mid-campaign starting point, that opens its first Weekly Draft without resolving that week.
+
 **Phase View**:
 The phase of the current week that one player is viewing. It is local to that player and does not change which phase other players are viewing.
 

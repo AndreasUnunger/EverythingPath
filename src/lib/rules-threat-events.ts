@@ -10,6 +10,27 @@ import {
   eventMitigationAttempted,
 } from './rules-event-checks';
 type Event = EventDispatch['event'];
+/** Sickness Twice: the team is lost unless the militia makes this Loyalty DC. */
+export const SICKNESS_TWICE_LOYALTY_DC = 20;
+/** Raid mitigation: the Security DC each hidden person's check must reach. */
+export const RAID_SECURITY_DC = 20;
+/** A hidden person's capture chance (percent) without and with mitigation. */
+export const RAID_CAPTURE_CHANCE = { unmitigated: 100, mitigated: 50 } as const;
+/** Whether a settlement's refuge is active in the given week. */
+export function isRefugeActive(
+  town: Pick<
+    UpkeepSnapshot['settlements'][number],
+    'refugeActivatedWeek' | 'refugeActiveUntilWeek'
+  >,
+  week: number,
+) {
+  return (
+    town.refugeActivatedWeek !== null &&
+    town.refugeActiveUntilWeek !== null &&
+    town.refugeActivatedWeek <= week &&
+    town.refugeActiveUntilWeek >= week
+  );
+}
 type Cache = NonNullable<UpkeepSnapshot['economy']>['caches'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type ThreatEventChange =
@@ -389,7 +410,8 @@ function resolveSickness(context: ThreatEventContext) {
     event.rolls?.check,
     `${event.eventId}:sickness`,
   );
-  if (total !== null && total < 20) loseThreatTeam(context, team.teamId);
+  if (total !== null && total < SICKNESS_TWICE_LOYALTY_DC)
+    loseThreatTeam(context, team.teamId);
   return true;
 }
 
@@ -482,11 +504,7 @@ function resolveRaid(context: ThreatEventContext) {
     requireThreatInput(context, 'settlement');
     return true;
   }
-  const active =
-    town.refugeActivatedWeek !== null &&
-    town.refugeActiveUntilWeek !== null &&
-    town.refugeActivatedWeek <= draft.week &&
-    town.refugeActiveUntilWeek >= draft.week;
+  const active = isRefugeActive(town, draft.week);
   if (!active && !acceptThreatException(context, 'event-eligibility'))
     return true;
   if (!recordThreatAcknowledgement(context)) return true;
@@ -617,9 +635,16 @@ function resolveRaidCapture(
     kind: 'character' as const,
     characterId: person.characterId,
   };
-  const mitigated = checkThreatMitigation(context, target, 'security', 20);
+  const mitigated = checkThreatMitigation(
+    context,
+    target,
+    'security',
+    RAID_SECURITY_DC,
+  );
   if (mitigated === null) return;
-  const chance = mitigated ? 50 : 100;
+  const chance = mitigated
+    ? RAID_CAPTURE_CHANCE.mitigated
+    : RAID_CAPTURE_CHANCE.unmitigated;
   const input = event.targetChecks?.find(
     (input) =>
       input.target.kind === 'character' &&
@@ -634,7 +659,8 @@ function resolveRaidCapture(
       )
     : null;
   if (mitigated && captureRoll === null) return;
-  const captured = chance === 100 || captureRoll! <= chance;
+  const captured =
+    chance === RAID_CAPTURE_CHANCE.unmitigated || captureRoll! <= chance;
   result.plan.push({
     kind: 'event_capture',
     eventId: event.eventId,

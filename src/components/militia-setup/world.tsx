@@ -175,10 +175,6 @@ export function SetupCarriedEvents({
         })
       }
     >
-      <p className="text-muted-foreground text-sm">
-        List events carried into this week in their original order. These
-        determine whether the Persistent phase is available.
-      </p>
       {events.fields.map((row, i) => (
         <SetupEntry
           key={row.id}

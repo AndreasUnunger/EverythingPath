@@ -184,7 +184,7 @@ export function EventBlock({
           view={view}
           edit={edit}
           disabled={locked}
-          saveOccurrence={edits.saveOccurrence}
+          edits={edits}
         />
       )}
       <EventTableModifiers block={block} disabled={locked} edits={edits} />

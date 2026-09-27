@@ -6,6 +6,7 @@ import { activityView } from './activity-facts';
 import { eventView, type EventPreparationContext } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
+import { withoutDuplicateRollCodes } from './event-check-facts';
 import { eventSubjectLabel } from './event-tree-facts';
 import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';
@@ -161,7 +162,8 @@ export function summaryView(
           persistent: preview.phases.persistent.plan,
         }
       : null,
-    requirements: preview.requirements,
+    // One line per missing die, as the Event phase shows it (#164).
+    requirements: withoutDuplicateRollCodes(preview.requirements),
     warnings: liveWarnings(preview.warnings),
   };
   return {
