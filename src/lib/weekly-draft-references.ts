@@ -145,14 +145,10 @@ function preparationReferences(draft: WeeklyDraft, check: ReferenceCheck) {
   );
   for (const bonusId of draft.activity.consumableIds)
     check('bonus', bonusId, `activity:consumable:${bonusId}`);
-  for (const transfer of draft.upkeep.treasuryTransfers)
-    check(
-      'character',
-      transfer.characterId,
-      `transfer:${transfer.transferId}:character`,
-    );
   for (const decision of draft.upkeep.teamDecisions)
     check('team', decision.teamId, `team:${decision.teamId}`);
+  // A character on an older staged transfer is historical metadata, not a
+  // reference: an archived or removed character never blocks the week.
 }
 
 export function draftReferenceRequirements(

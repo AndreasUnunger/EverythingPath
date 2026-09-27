@@ -158,7 +158,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     // The receiving player is typing in a field the other write does not
     // touch: the note names the phase without moving focus or phase.
     const transferAmount = player.getByRole('textbox', {
-      name: 'Transfer amount (copper)',
+      name: 'Transfer amount (gp)',
       exact: true,
     });
     await transferAmount.focus();
@@ -225,22 +225,30 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await training(gm).fill('3');
     await expect(training(player)).toHaveValue('3');
     await saved();
-    await gm
-      .getByRole('button', { name: 'Stage transfer', exact: true })
-      .click();
+    // Transfers are entered in gp with no character to choose; copper finer
+    // than 0.01 gp is refused in the field.
+    const addTransfer = gm.getByRole('button', { name: 'Add', exact: true });
+    const gmAmount = gm.getByRole('textbox', {
+      name: 'Transfer amount (gp)',
+      exact: true,
+    });
+    await addTransfer.click();
     await expect(
       gm.getByRole('alert').filter({ hasText: 'An amount is required.' }),
+    ).toBeVisible();
+    await gmAmount.fill('0.001');
+    await addTransfer.click();
+    await expect(
+      gm.getByRole('alert').filter({
+        hasText: 'Use at most two decimal places (1 cp = 0.01 gp).',
+      }),
     ).toBeVisible();
     await savePrivate(
       join(run.artifactDirectory, 'canonical-upkeep-errors-tablet.png'),
       await gm.screenshot({ fullPage: true }),
     );
-    await gm
-      .getByRole('textbox', { name: 'Transfer amount (copper)', exact: true })
-      .fill('7');
-    await gm
-      .getByRole('button', { name: 'Stage transfer', exact: true })
-      .click();
+    await gmAmount.fill('0.07');
+    await addTransfer.click();
     await expect(
       player.getByRole('region', {
         name: 'Deposits and withdrawals',
@@ -385,23 +393,22 @@ test('players prepare shared Upkeep with independent navigation and save recover
         await expect(referencePanel(gm)).toBeVisible();
       }
       await expectNoHorizontalOverflow(gm);
-      const officer = gm
-        .getByRole('group', { name: 'Officer', exact: true })
-        .getByRole('button')
-        .first();
-      const bounds = await officer.boundingBox();
+      const withdraw = gm
+        .getByRole('group', { name: 'Transfer direction', exact: true })
+        .getByRole('button', { name: 'Withdraw', exact: true });
+      const bounds = await withdraw.boundingBox();
       expect(bounds).not.toBeNull();
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
       expect(
-        await officer.evaluate(
+        await withdraw.evaluate(
           (element) => element.scrollWidth <= element.clientWidth,
         ),
       ).toBe(true);
       if (name === 'phone') {
-        await officer.tap();
-        await expect(officer).toHaveAttribute('aria-pressed', 'true');
+        await withdraw.tap();
+        await expect(withdraw).toHaveAttribute('aria-pressed', 'true');
         // The tapped control itself stays reachable above the bottom bar.
-        await expectReachable(gm, officer);
+        await expectReachable(gm, withdraw);
       }
       await expectBoundedWeekHost(gm);
       await savePrivate(

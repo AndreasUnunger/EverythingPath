@@ -22,6 +22,7 @@ import type {
   UpkeepMissingTeam,
   UpkeepSections,
   UpkeepSectionStatus,
+  UpkeepTransfer,
   UpkeepView,
 } from './types';
 import { upkeepWarningMessage } from './upkeep-warnings';
@@ -92,7 +93,7 @@ export function upkeepSections({
     notoriety: notorietySection(context),
     shortage: shortageSection(context, teams),
     rank: rankSection(context, earlierOpen),
-    transfers: transfersSection(context, earlierOpen, transfers),
+    transfers: transfersSection(context, earlierOpen, transfers, source.people),
     general,
   };
 }
@@ -394,17 +395,37 @@ function rankSection(
   };
 }
 
+// Step 5 in staged order. The header spans the transfers and any Theft on
+// them; Table Adjustments apply after the whole week, so they are only named.
 function transfersSection(
   context: Context,
   earlierOpen: boolean,
   transfers: UpkeepView['transfers'],
+  people: WorkspaceSource['people'],
 ): UpkeepSections['transfers'] {
-  const issues = context.issues('transfers');
-  if (earlierOpen)
-    return { status: 'waiting', beforeCopper: null, afterCopper: null, issues };
+  const { projection } = context;
   const ids = new Set(transfers.map((item) => item.transferId));
-  const outcome = context.projection.outcome.treasuryCopper;
-  const transferred = context.projection.plan.reduce(
+  const owner = (issue: UpkeepIssue) => issue.code.split(':')[1] ?? '';
+  const sectionIssues = context.issues('transfers');
+  const items = transfers.map((transfer) =>
+    transferItem(
+      context,
+      transfer,
+      people,
+      sectionIssues.filter((issue) => owner(issue) === transfer.transferId),
+    ),
+  );
+  const issues = sectionIssues.filter((issue) => !ids.has(owner(issue)));
+  const facts = { items, adjustments: treasuryAdjustments(context), issues };
+  if (earlierOpen)
+    return {
+      status: 'waiting',
+      beforeCopper: null,
+      afterCopper: null,
+      ...facts,
+    };
+  const outcome = projection.outcome.treasuryCopper;
+  const transferred = projection.plan.reduce(
     (sum, change) =>
       change.kind === 'treasury' &&
       (ids.has(change.sourceId) || change.sourceId.startsWith('theft:'))
@@ -416,8 +437,80 @@ function transfersSection(
     status: requires(context, 'transfer:') ? 'open' : 'resolved',
     beforeCopper: outcome - transferred,
     afterCopper: outcome,
+    ...facts,
+  };
+}
+
+function transferItem(
+  { draft, projection }: Context,
+  transfer: UpkeepView['transfers'][number],
+  people: WorkspaceSource['people'],
+  issues: UpkeepIssue[],
+): UpkeepTransfer {
+  const theft = projection.plan.find(
+    (change): change is Extract<typeof change, { kind: 'treasury' }> =>
+      change.kind === 'treasury' &&
+      change.sourceId.startsWith('theft:') &&
+      change.sourceId.endsWith(`:${transfer.transferId}`),
+  );
+  const exception = draft.rulesExceptions.find(
+    (item) =>
+      item.subjectId === transfer.transferId &&
+      item.ruleId === 'upkeep-transfer-funds',
+  );
+  const required = projection.requirements.includes(
+    `transfer:${transfer.transferId}:funds-exception`,
+  );
+  return {
+    transferId: transfer.transferId,
+    direction: transfer.direction,
+    copper: transfer.copper,
+    legacyCharacterName:
+      transfer.characterId === undefined
+        ? null
+        : (people.find((person) => person.characterId === transfer.characterId)
+            ?.name ?? 'Unnamed character'),
+    theftCopper: theft ? theft.after - theft.before : null,
+    fundsException:
+      exception || required
+        ? {
+            exceptionId:
+              exception?.exceptionId ??
+              transferFundsExceptionId(transfer.transferId),
+            reason: exception?.reason ?? '',
+            required,
+          }
+        : null,
     issues,
   };
+}
+
+// The existing funds-exception identity for a withdrawal.
+export function transferFundsExceptionId(transferId: string) {
+  return `upkeep:upkeep-transfer-funds:${transferId}`;
+}
+
+function treasuryAdjustments({
+  draft,
+  snapshot,
+}: Context): UpkeepSections['transfers']['adjustments'] {
+  return draft.tableAdjustments.flatMap((adjustment) => {
+    if (
+      adjustment.kind !== 'militia_value' ||
+      adjustment.field !== 'treasuryCopper'
+    )
+      return [];
+    const teamId = /^upkeep-recovery:(.+)$/.exec(adjustment.adjustmentId)?.[1];
+    const team = snapshot.roster.teams.find((item) => item.teamId === teamId);
+    return [
+      {
+        adjustmentId: adjustment.adjustmentId,
+        label: team ? `${team.name} recovery price` : adjustment.reason,
+        operation: adjustment.operation,
+        copper: adjustment.value,
+      },
+    ];
+  });
 }
 
 function teamDecision(draft: WeeklyDraft, teamId: string) {

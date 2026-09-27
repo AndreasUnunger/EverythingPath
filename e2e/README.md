@@ -575,7 +575,7 @@ same dedicated resource declaration and secrets as the other journeys.
 The required `canonical-workspace` Chromium project opens the isolated Workspace
 with two authenticated players. Its owned fixture starts in week four so the
 journey enters real Upkeep rolls, checks calculated defaults and shared outcomes,
-and stages an officer transfer. Keyboard and clipboard interactions verify that
+and stages a deposit in gp, which needs no character or officer (#158). Keyboard and clipboard interactions verify that
 invalid text preserves the current digits, zero remains distinct from clearing,
 and field errors appear in the application.
 

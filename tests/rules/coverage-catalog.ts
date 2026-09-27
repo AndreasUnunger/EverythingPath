@@ -440,7 +440,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '### Step 5: Deposits and Withdrawals',
       fingerprint:
-        '1d8c164c6627dfe03605c6c02243f4a839a84b8d7f3b3d8cfa8baa313ada7307',
+        '8444e3594bee8b739791d839569b1c2ee6dc88b73fd161649400adee9d79196b',
       reviewGap: null,
     },
     {
@@ -3411,8 +3411,10 @@ export const coverageCatalog = {
         {
           id: 'order',
           checkpoint: '4-upkeep',
+          // Transfers need no character or officer since Ruleset Version 6
+          // (#158, approved in #107); see the Step 5 note in the corpus.
           expected:
-            'Phase View / Resolution Preview: Deposits and withdrawals are staged after preceding Upkeep steps.',
+            'Phase View / Resolution Preview: Deposits and withdrawals are staged after preceding Upkeep steps, without a character or officer requirement.',
           plannedTests: [
             'rules.U05.order',
             'rules.U05.overdraft',
@@ -3422,6 +3424,12 @@ export const coverageCatalog = {
             'rules.U05.order',
             'rules.U05.overdraft',
             'rules.U05.officer-exception',
+            'rules.U05.characterless',
+            'rules.U05.legacy-actor',
+            'rules.U05.transfer-schema',
+            'rules.U05.ruleset-version',
+            'rules.U05.old-record',
+            'rules.U05.actor-scope',
             'rules.GATE.projection-parity',
           ],
           gap: null,
@@ -3442,6 +3450,7 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: Allowed players can stage transfers; Confirmation applies them once under races.',
           plannedTests: ['rules.U05.authority'],
           tests: [
+            'rules.U05.persistence',
             'rules.P81.workspace',
             'rules.P81.gateway',
             'rules.P80.authority',

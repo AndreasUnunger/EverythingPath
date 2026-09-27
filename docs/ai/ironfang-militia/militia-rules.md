@@ -237,6 +237,7 @@ If treasury is below minimum:
 ### Step 5: Deposits and Withdrawals
 
 - Any officer may deposit/withdraw gold from militia treasury.
+- Application departure (approved in [#107](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035), Ruleset Version 6): the application does not enforce the officer-only sentence above. Deposits and withdrawals are staged without choosing a character or officer. The source text is unchanged; weeks confirmed under earlier Ruleset Versions keep their recorded actors and officer rulings. A withdrawal beyond the available treasury still needs a reasoned Rules Exception.
 
 ## Activity Phase
 

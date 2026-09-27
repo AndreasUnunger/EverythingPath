@@ -873,55 +873,91 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   expect(snapshot.treasuryCopper).toBe(3000);
 });
 
-test('[rules.U05.officer-exception] non-officer transfers require an exception for that transfer and rule', () => {
+test('[rules.U05.officer-exception] transfers need no officer: a characterless or former non-officer transfer resolves without a ruling, and an old officer ruling stays recorded but inert', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.training = 15;
   snapshot.roster.officers = [];
   draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  const oldRuling = {
+    exceptionId: 'approved',
+    subjectId: 'transfer',
+    ruleId: 'upkeep-transfer-officer',
+    reason: 'The officers delegate this transfer',
+  };
   for (const direction of ['deposit', 'withdraw'] as const) {
-    draft.upkeep.treasuryTransfers = [
+    for (const transfer of [
+      { transferId: 'transfer', direction, copper: 100 },
       { transferId: 'transfer', characterId: 'pc', direction, copper: 100 },
-    ];
-    for (const exceptions of [
-      [],
-      [
-        {
-          exceptionId: 'other',
-          subjectId: 'other',
-          ruleId: 'upkeep-transfer-officer',
-          reason: 'Approved',
-        },
-      ],
-      [
-        {
-          exceptionId: 'other',
-          subjectId: 'transfer',
-          ruleId: 'upkeep-transfer-funds',
-          reason: 'Approved',
-        },
-      ],
     ]) {
-      draft.rulesExceptions = exceptions;
-      const result = projectUpkeep(draft, snapshot);
-      expect(result.ready).toBe(false);
-      expect(result.warnings).toContain('transfer:transfer:officer');
-      expect(result.requirements).toContain(
-        'transfer:transfer:officer-exception',
-      );
+      for (const exceptions of [[], [oldRuling]]) {
+        draft.upkeep.treasuryTransfers = [transfer];
+        draft.rulesExceptions = exceptions;
+        const result = projectUpkeep(draft, snapshot);
+        expect(result.ready).toBe(true);
+        expect(result.requirements).toEqual([]);
+        expect(result.warnings).toEqual([]);
+        expect(result.outcome.treasuryCopper).toBe(
+          direction === 'deposit' ? 3100 : 2900,
+        );
+        expect(draft.rulesExceptions).toEqual(exceptions);
+      }
     }
-    draft.rulesExceptions = [
-      {
-        exceptionId: 'approved',
-        subjectId: 'transfer',
-        ruleId: 'upkeep-transfer-officer',
-        reason: 'The officers delegate this transfer',
-      },
-    ];
-    const result = projectUpkeep(draft, snapshot);
-    expect(result.ready).toBe(true);
-    expect(result.warnings).toContain('transfer:transfer:officer');
-    expect(result.outcome.treasuryCopper).toBe(
-      direction === 'deposit' ? 3100 : 2900,
-    );
   }
+});
+
+test('[rules.U05.characterless] deposits and withdrawals resolve in staged order with no roster, officers or character, and their plan entries name no one', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.training = 15;
+  snapshot.roster = { people: [], officers: [], teams: [] };
+  snapshot.characters = [];
+  draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  draft.upkeep.treasuryTransfers = [
+    { transferId: 'zero', direction: 'deposit', copper: 0 },
+    { transferId: 'deposit', direction: 'deposit', copper: 7 },
+    { transferId: 'withdraw', direction: 'withdraw', copper: 3007 },
+    { transferId: 'overdraft', direction: 'withdraw', copper: 1 },
+  ];
+  const result = projectUpkeep(draft, snapshot);
+  expect(result.outcome.treasuryCopper).toBe(-1);
+  expect(
+    result.plan.flatMap((change) =>
+      change.kind === 'treasury' ? [change] : [],
+    ),
+  ).toEqual([
+    {
+      kind: 'treasury',
+      sourceId: 'zero',
+      characterId: null,
+      before: 3000,
+      after: 3000,
+    },
+    {
+      kind: 'treasury',
+      sourceId: 'deposit',
+      characterId: null,
+      before: 3000,
+      after: 3007,
+    },
+    {
+      kind: 'treasury',
+      sourceId: 'withdraw',
+      characterId: null,
+      before: 3007,
+      after: 0,
+    },
+    {
+      kind: 'treasury',
+      sourceId: 'overdraft',
+      characterId: null,
+      before: 0,
+      after: -1,
+    },
+  ]);
+  // Only the withdrawal beyond the running treasury needs its ruling; with no
+  // player character the rank cap still asks for one, as before.
+  expect(result.warnings).toEqual(['transfer:overdraft:funds']);
+  expect(result.requirements).toEqual([
+    'highest-level-pc',
+    'transfer:overdraft:funds-exception',
+  ]);
 });

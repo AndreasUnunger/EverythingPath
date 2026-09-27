@@ -132,3 +132,24 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
   expect(container.querySelector('input, textarea, select, button')).toBeNull();
   expect(container.textContent).not.toContain('diceTotal');
 });
+
+test('[rules.HIST-05.characterless-transfer] a Ruleset Version 6 record shows its characterless transfer without inventing a character', () => {
+  const recent = {
+    ...record(
+      { check: total(20, 1, 12) },
+      { transferId: 'transfer', direction: 'deposit', copper: 7 },
+    ),
+    rulesetVersion: 6,
+  };
+  const { container } = render(
+    <HistoricalRecordView record={recent} effective />,
+  );
+  const source = screen.getByRole('region', {
+    name: 'Recorded choices and week context',
+  });
+  expect(within(source).getByText('7')).toBeInTheDocument();
+  expect(within(source).queryByText('Character')).not.toBeInTheDocument();
+  expect(within(source).queryByText('Character 1')).not.toBeInTheDocument();
+  expect(screen.getByText('Ruleset 6')).toBeInTheDocument();
+  expect(container.querySelector('input, textarea, select, button')).toBeNull();
+});

@@ -88,7 +88,7 @@ export function phaseView(
         },
       ]),
       ...draft.upkeep.treasuryTransfers.flatMap((transfer) =>
-        (['officer', 'funds'] as const).map((kind) => ({
+        (['funds'] as const).map((kind) => ({
           subjectId: transfer.transferId,
           ruleId: `upkeep-transfer-${kind}`,
           requirement: `transfer:${transfer.transferId}:${kind}-exception`,
