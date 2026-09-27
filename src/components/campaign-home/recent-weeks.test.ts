@@ -1,11 +1,7 @@
 import { expect, test } from 'vitest';
 import type { FinishedWeekHeadlineFact } from '~/lib/finished-week-headlines';
-import {
-  headlineText,
-  recentWeeks,
-  recordedOutcomeAvailable,
-  type FinishedWeekList,
-} from './recent-weeks';
+import { recordedOutcomeAvailable } from '~/components/historical-week/finished-week-headline-text';
+import { recentWeeks, type FinishedWeekList } from './recent-weeks';
 
 type Row = FinishedWeekList['weeks'][number];
 const row = (week: number, patch: Partial<Row> = {}): Row => ({
@@ -73,106 +69,6 @@ test('a week without comparable facts reads Recorded outcome available', () => {
   expect(recentWeeks('c', list([row(2)]))[0]!.headlines).toEqual([
     recordedOutcomeAvailable,
   ]);
-});
-
-test('headlines show signed gp and number changes from recorded pairs', () => {
-  expect(headlineText(fact({}))).toBe('Treasury +145 gp');
-  expect(headlineText(fact({ before: 58500, final: 44000 }))).toBe(
-    'Treasury −145 gp',
-  );
-  expect(
-    headlineText(
-      fact({
-        key: 'training',
-        label: 'Training',
-        unit: 'number',
-        before: 30,
-        final: 27,
-      }),
-    ),
-  ).toBe('Training −3');
-  expect(
-    headlineText(
-      fact({ key: 'rank', label: 'Rank', unit: 'number', before: 3, final: 4 }),
-    ),
-  ).toBe('Rank +1');
-});
-
-test('an unknown starting value shows only the recorded result, never a change from zero', () => {
-  expect(
-    headlineText(fact({ before: null, beforeRecorded: false, final: 58500 })),
-  ).toBe('Treasury 585 gp');
-  expect(
-    headlineText(
-      fact({
-        key: 'focus',
-        label: 'Focus',
-        unit: 'text',
-        before: null,
-        beforeRecorded: false,
-        final: 'Loyalty',
-      }),
-    ),
-  ).toBe('Focus: Loyalty');
-});
-
-test('text headlines show changes and added or removed subjects with record-local names', () => {
-  const text = { unit: 'text' as const };
-  expect(
-    headlineText(
-      fact({
-        ...text,
-        key: 'focus',
-        label: 'Focus',
-        before: null,
-        final: 'Security',
-      }),
-    ),
-  ).toBe('Focus: Not set → Security');
-  expect(
-    headlineText(
-      fact({
-        ...text,
-        key: 'team:t1',
-        label: 'Hawks',
-        before: 'active',
-        final: 'disabled',
-      }),
-    ),
-  ).toBe('Hawks: Active → Disabled');
-  expect(
-    headlineText(
-      fact({
-        ...text,
-        key: 'team:t2',
-        label: 'Team 2',
-        before: null,
-        final: 'active',
-      }),
-    ),
-  ).toBe('Team 2 added: Active');
-  expect(
-    headlineText(
-      fact({
-        ...text,
-        key: 'settlement:s',
-        label: 'Phaendar',
-        before: 'Friendly',
-        final: null,
-      }),
-    ),
-  ).toBe('Phaendar removed');
-  expect(
-    headlineText(
-      fact({
-        ...text,
-        key: 'event:e',
-        label: 'Persistent event 1',
-        before: null,
-        final: 'sickness',
-      }),
-    ),
-  ).toBe('Persistent event 1 added: Sickness');
 });
 
 test('only recorded outcomes become headlines, at most three weeks are shown', () => {
