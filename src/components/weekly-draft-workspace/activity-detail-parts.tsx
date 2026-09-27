@@ -294,11 +294,15 @@ export function CommonFields({
   detail,
   calculatedCostCopper,
   context,
+  costDescription,
 }: {
   choice: StagedActionChoice;
   detail: DetailCommon;
   calculatedCostCopper: number | null;
   context: FieldContext;
+  // Replaces the note used when the rules calculate no cost (Special's cost
+  // is the table's to set).
+  costDescription?: string;
 }) {
   return (
     <>
@@ -311,7 +315,8 @@ export function CommonFields({
           description={
             calculatedCostCopper !== null
               ? `Calculated: ${calculatedCostCopper} cp`
-              : 'The rules calculate no cost for this action.'
+              : (costDescription ??
+                'The rules calculate no cost for this action.')
           }
         />
       </Field>

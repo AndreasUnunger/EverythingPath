@@ -328,11 +328,46 @@ export type ActivityPositionFacts = {
   officers: { characterId: string; role: OfficerRole }[];
   // Settlements whose refuge is active at this position.
   refugeSettlementIds: string[];
+  // Each settlement as the ordered fold sees it at this position: its
+  // reputation with every current shift (null while unknown), whether a
+  // refuge may be activated there, and its recorded occupation and security.
+  settlements: {
+    settlementId: string;
+    reputation: string | null;
+    refugeAllowed: boolean;
+    occupied: boolean | null;
+    secured: boolean | null;
+  }[];
+  // Settlements an earlier choice already tried to sway with propaganda,
+  // with that choice's identity.
+  propaganda: { settlementId: string; choiceId: string }[];
   // Tracked character conditions at this position; absent when untracked.
   characterStatus: { characterId: string; status: CharacterStatus }[];
   // The militia's items and caches at this position; null while the militia
   // records no economy.
   economy: Pick<EconomyState, 'items' | 'caches'> | null;
+};
+// One Guarantee Event or Manipulate Events choice's event candidates, read
+// from the Event phase's own facts. Event rolls and chooses them; Activity
+// only shows where they stand.
+export type ActivityCandidateSet = {
+  choiceId: string;
+  // False when the choice guarantees nothing this week (a calm week).
+  active: boolean;
+  candidates: {
+    eventId: string;
+    // "Event 2A"; never an identity.
+    label: string;
+    // The rolled event's name, or null before its table roll resolves.
+    name: string | null;
+    // Event's status wording, such as "Awaiting roll" or "Not chosen".
+    status: string;
+    chosen: boolean;
+    // Recorded nested events under this candidate, used or not.
+    nested: number;
+  }[];
+  // Event's wording for what the set still needs.
+  issues: { code: string; message: string }[];
 };
 export type ActivitySlotStatus =
   | { kind: 'empty' }
@@ -378,6 +413,8 @@ export type ActivityView = {
     position: ActivityPositionFacts | null;
   })[];
   teamRoster: ActivityTeamFact[];
+  // Every candidate-owning choice's event candidates, by choice.
+  candidateSets: ActivityCandidateSet[];
   // Campaign characters with the level the rules use; null when unknown.
   characters: { characterId: string; name: string; level: number | null }[];
   // Present while the operating settlement is Helpful.

@@ -5,6 +5,7 @@ import {
   economyCodeMessage,
   economyMessages,
 } from './activity-economy-messages';
+import { missionCodeMessage } from './activity-mission-messages';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 type Summary = Pick<
   Extract<PhaseView, { phase: 'summary' }>,
@@ -192,6 +193,8 @@ export function summaryMessage(
   const tail = owner
     ? code.slice(code.indexOf(owner.value) + owner.value.length + 1)
     : code;
+  const mission = missionCodeMessage(tail, actionId, warning);
+  if (mission) return prefix + mission;
   const key = tail.replace(/:exception$/, '');
   // A rank boon names its rank; the owner prefix names the PC.
   const boonRank = /^upkeep:boon:(\d+):.+:acknowledgement$/.exec(code)?.[1];

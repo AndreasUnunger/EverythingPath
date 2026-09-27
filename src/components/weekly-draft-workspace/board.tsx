@@ -277,6 +277,7 @@ export function WeeklyWorkspaceBoard({
             correctionsHref={
               campaignId ? campaignPath(campaignId, 'militia') : undefined
             }
+            openEvent={() => choosePhase('event')}
           />
         ) : view.phase === 'event' ? (
           <EventView

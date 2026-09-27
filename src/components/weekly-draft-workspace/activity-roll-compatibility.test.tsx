@@ -16,6 +16,7 @@ import {
   activityFacts,
   activitySlot,
   acceptingEdit,
+  openRecordedCandidates,
   selectSlot,
 } from './activity-view-fixture';
 afterEach(cleanup);
@@ -56,6 +57,7 @@ const drill = (
 });
 function open(action = 'Drill Militia') {
   selectSlot(action);
+  if (action === 'Guarantee Event') openRecordedCandidates();
 }
 const textbox = (name: string) => screen.getByRole('textbox', { name });
 function lastChoice(edit: ReturnType<typeof acceptingEdit>) {

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
@@ -315,8 +315,78 @@ export async function exerciseActivityWorkspace(
       .click();
     await expect(empty(player, position)).toBeVisible();
   }
+  await exerciseGuaranteeEvent(gm, player, { choose, open, empty, saved });
   await Promise.all([
     gm.getByRole('button', { name: 'Upkeep', exact: true }).click(),
     player.getByRole('button', { name: 'Upkeep', exact: true }).click(),
   ]);
+}
+
+// Guarantee Event's candidates: Event prepares both on every device, a
+// candidate's Roll Twice is rerolled in its own die with no nested events,
+// and the choice's details show the chosen candidate. Clearing the choice
+// takes its candidates with it, so the later Event steps and the exact
+// Confirmation totals start from the same week as before.
+async function exerciseGuaranteeEvent(
+  gm: Page,
+  player: Page,
+  {
+    choose,
+    open,
+    empty,
+    saved,
+  }: {
+    choose: (page: Page, action: string, position: number) => Promise<void>;
+    open: (page: Page, position: number, action: string) => Promise<Locator>;
+    empty: (page: Page, position: number) => Locator;
+    saved: (page: Page) => Promise<void>;
+  },
+) {
+  const action = 'Guarantee Event';
+  await choose(gm, action, 1);
+  const details = await open(gm, 1, action);
+  await details
+    .getByRole('textbox', { name: 'Notoriety roll', exact: true })
+    .fill('3');
+  await saved(gm);
+  await details
+    .getByRole('button', { name: 'Roll and choose in Event', exact: true })
+    .click();
+  await player.getByRole('button', { name: 'Event', exact: true }).click();
+  const table = (page: Page, label: string) =>
+    page.getByRole('textbox', { name: `${label} table roll`, exact: true });
+  const block = (page: Page, label: string) =>
+    page.getByRole('group', { name: label, exact: true });
+  await expect(table(player, 'Event 1A')).toBeEnabled();
+  await expect(table(player, 'Event 1B')).toBeEnabled();
+  await table(gm, 'Event 1A').fill('50');
+  await expect(
+    block(player, 'Event 1A').getByText('Reroll', { exact: true }),
+  ).toBeVisible();
+  await expect(table(player, 'Event 1A.1')).toHaveCount(0);
+  await table(gm, 'Event 1A').fill('45');
+  await table(player, 'Event 1B').fill('82');
+  await expect(table(gm, 'Event 1B')).toHaveValue('82');
+  await block(player, 'Event 1B')
+    .getByRole('button', { name: 'Choose this event', exact: true })
+    .click();
+  await expect(
+    block(gm, 'Event 1B').getByRole('button', {
+      name: 'This one happens',
+      exact: true,
+    }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await gm.getByRole('button', { name: 'Activity', exact: true }).click();
+  const candidates = (await open(gm, 1, action)).getByRole('list', {
+    name: 'Event candidates for this choice',
+    exact: true,
+  });
+  await expect(candidates.getByRole('listitem')).toHaveText([
+    /^Event 1A.*All Is Calm/,
+    /^Event 1B.*Invasion.*Chosen/,
+  ]);
+  await (await open(gm, 1, action))
+    .getByRole('button', { name: `Clear ${action}`, exact: true })
+    .click();
+  await expect(empty(player, 1)).toBeVisible();
 }
