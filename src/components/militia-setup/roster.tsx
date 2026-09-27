@@ -10,6 +10,7 @@ import {
   choices,
   yesNo,
 } from './fields';
+const legacyRosterKinds = ['pc', 'officer_npc', 'other_npc'] as const;
 export type SetupCharacter =
   MilitiaSetup['state']['militiaSnapshot']['characters'][number] & {
     name: string;
@@ -106,7 +107,13 @@ export function SetupRoster({
             <Field
               name={`state.militiaSnapshot.roster.people.${index}.kind`}
               label="Character kind"
-              options={choices(['pc', 'officer_npc', 'other_npc'])}
+              options={choices(
+                // This editor still writes the legacy kinds; a stored npc
+                // stays shown and selected so it round-trips unchanged.
+                roster.people[index]?.kind === 'npc'
+                  ? [...legacyRosterKinds, 'npc']
+                  : legacyRosterKinds,
+              )}
             />
             <Field
               name={`state.militiaSnapshot.roster.people.${index}.hitDice`}

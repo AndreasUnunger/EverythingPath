@@ -102,13 +102,21 @@ export const spellValidator = v.object({
   summonerUnchained: v.nullable(v.number()),
 });
 
+// Stored record kinds (see src/lib/character-kind.ts): old clients still send
+// officer_npc during the PC/NPC rollout, and an absent kind means PC.
+export const characterKindValidator = v.union(
+  v.literal('pc'),
+  v.literal('officer_npc'),
+  v.literal('npc'),
+);
+
 export const characterValidator = v.object({
   name: v.string(),
   // Widened during ownerId migration. Narrow back to v.string() after backfill.
   ownerId: v.union(v.string(), v.number()),
   campaignId: v.id('campaign'),
   description: v.string(),
-  kind: v.optional(v.union(v.literal('pc'), v.literal('officer_npc'))),
+  kind: v.optional(characterKindValidator),
   isActive: v.optional(v.boolean()),
   level: v.number(),
   strength: v.number(),

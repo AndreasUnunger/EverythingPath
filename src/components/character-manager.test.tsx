@@ -213,6 +213,105 @@ describe('CharacterManager', () => {
       screen.queryByText('DEX must be a whole number'),
     ).not.toBeInTheDocument();
   });
+  describe('mixed-format character kinds', () => {
+    function record(id: string, name: string, kind?: string) {
+      return {
+        _id: id,
+        name,
+        description: 'Keep notes',
+        ...(kind ? { kind } : {}),
+        level: 3,
+        strength: 10,
+        dexterity: 10,
+        constitution: 10,
+        intelligence: 10,
+        wisdom: 10,
+        charisma: 12,
+        isActive: true,
+      };
+    }
+    beforeEach(() => {
+      mockCharacterLedgerQuery.mockReturnValue({
+        data: [
+          record('absent', 'Aubrin'),
+          record('pc', 'Mara', 'pc'),
+          record('officer', 'Ostler', 'officer_npc'),
+          record('npc', 'Vessa', 'npc'),
+        ],
+        isLoading: false,
+      });
+    });
+    function renderLedger() {
+      render(
+        <CharacterManager
+          selectedCampaignId={'camp_1' as never}
+          organizationId="org_1"
+          canQuery
+        />,
+      );
+      openLedger();
+    }
+    function row(name: string) {
+      return screen.getByText(name).closest('tr')!;
+    }
+    function edit(name: string) {
+      const button = [...row(name).querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === 'Edit',
+      )!;
+      fireEvent.click(button);
+    }
+    function kindOptions() {
+      return [
+        ...screen.getByTestId('mock-select').querySelectorAll('option'),
+      ].map((option) => option.value);
+    }
+
+    it('labels legacy, absent and new kinds', () => {
+      renderLedger();
+      expect(row('Aubrin')).toHaveTextContent('PC');
+      expect(row('Mara')).toHaveTextContent('PC');
+      expect(row('Ostler')).toHaveTextContent('Officer NPC');
+      expect(row('Vessa')).toHaveTextContent('NPC');
+      expect(row('Vessa')).not.toHaveTextContent('Officer NPC');
+    });
+
+    it('keeps a stored npc kind when an unrelated field is edited', async () => {
+      renderLedger();
+      edit('Vessa');
+      expect(screen.getByTestId('mock-select')).toHaveValue('npc');
+      expect(kindOptions()).toEqual(['pc', 'officer_npc', 'npc']);
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() =>
+        expect(mutationFns.updateCharacter).toHaveBeenCalledWith({
+          organizationId: 'org_1',
+          characterId: 'npc',
+          patch: expect.objectContaining({
+            kind: 'npc',
+            description: 'Keep notes',
+          }),
+        }),
+      );
+    });
+
+    it('still writes only legacy kinds from new and legacy records', async () => {
+      renderLedger();
+      edit('Ostler');
+      expect(screen.getByTestId('mock-select')).toHaveValue('officer_npc');
+      expect(kindOptions()).toEqual(['pc', 'officer_npc']);
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() =>
+        expect(mutationFns.updateCharacter).toHaveBeenCalledWith(
+          expect.objectContaining({
+            patch: expect.objectContaining({ kind: 'officer_npc' }),
+          }),
+        ),
+      );
+      fireEvent.click(screen.getByText('Add Character'));
+      expect(screen.getByTestId('mock-select')).toHaveValue('pc');
+      expect(kindOptions()).toEqual(['pc', 'officer_npc']);
+    });
+  });
+
   it('restores archived characters without offering destructive deletion', async () => {
     mockCharacterLedgerQuery.mockReturnValue({
       data: [

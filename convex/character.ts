@@ -2,7 +2,11 @@ import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
-import { campaignValidator, characterValidator } from './schema';
+import {
+  campaignValidator,
+  characterKindValidator,
+  characterValidator,
+} from './schema';
 import { hasAccessToOrg } from './user';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
@@ -66,7 +70,7 @@ export const createCharacter = mutation({
       campaignId: v.id('campaign'),
       name: characterValidator.fields.name,
       description: characterValidator.fields.description,
-      kind: v.union(v.literal('pc'), v.literal('officer_npc')),
+      kind: characterKindValidator,
       level: characterValidator.fields.level,
       strength: characterValidator.fields.strength,
       dexterity: characterValidator.fields.dexterity,
@@ -104,7 +108,7 @@ export const updateCharacter = mutation({
     patch: v.object({
       name: v.optional(characterValidator.fields.name),
       description: v.optional(characterValidator.fields.description),
-      kind: v.optional(v.union(v.literal('pc'), v.literal('officer_npc'))),
+      kind: v.optional(characterKindValidator),
       level: v.optional(characterValidator.fields.level),
       strength: v.optional(characterValidator.fields.strength),
       dexterity: v.optional(characterValidator.fields.dexterity),

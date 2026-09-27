@@ -105,6 +105,9 @@ export function CharacterFormCard({
                       <SelectContent className="border-primary bg-card border-2 font-mono">
                         <SelectItem value="pc">PC</SelectItem>
                         <SelectItem value="officer_npc">Officer NPC</SelectItem>
+                        {field.value === 'npc' && (
+                          <SelectItem value="npc">NPC</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />

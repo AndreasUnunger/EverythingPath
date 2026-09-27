@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { TEAM_IDS, TEAM_STATUSES } from './militia-domain';
 import { identitySchema } from './weekly-draft-facts';
 import { getTeamManagerMaxTeams } from './team-manager-rules';
+import { currentRulesManagerKind, rosterKindSchema } from './character-kind';
 
 export const OFFICER_ROLES = [
   'ambassador',
@@ -13,7 +14,8 @@ export const OFFICER_ROLES = [
 ] as const;
 export const rosterPersonSchema = z.strictObject({
   characterId: identitySchema,
-  kind: z.enum(['pc', 'officer_npc', 'other_npc']),
+  // Stored mirror of the record kind: legacy and approved values stay verbatim.
+  kind: rosterKindSchema,
   // Unknown legacy Hit Dice stay unknown. Level is not a substitute.
   hitDice: z.number().int().nonnegative().nullable(),
 });
@@ -115,7 +117,7 @@ export function rosterWarnings(
       (team) => team.managerCharacterId === person.characterId,
     ).length;
     const limit = getTeamManagerMaxTeams({
-      kind: person.kind,
+      kind: currentRulesManagerKind(person.kind),
       charisma: character.charisma,
     });
     if (managed > limit)
