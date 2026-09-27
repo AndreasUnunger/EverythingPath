@@ -2,6 +2,7 @@
 import { Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
+import { useCampaignWeek } from '~/components/campaign-home/use-campaign-week';
 import { CanonicalHistoryScreen } from '~/components/historical-week/screen';
 import {
   historyPath,
@@ -17,6 +18,8 @@ function HistoryHost() {
   const router = useRouter();
   const selection = useMemo(() => parseHistorySelection(params), [params]);
   const campaignId = campaign._id;
+  // The open week drives only the in-progress line and empty-state links.
+  const campaignWeek = useCampaignWeek(campaignId);
   const select = useCallback(
     (next: HistorySelection) => router.push(historyPath(campaignId, next)),
     [campaignId, router],
@@ -26,6 +29,7 @@ function HistoryHost() {
       campaign={campaignId}
       selection={selection}
       select={select}
+      campaignWeek={campaignWeek}
     />
   );
 }
