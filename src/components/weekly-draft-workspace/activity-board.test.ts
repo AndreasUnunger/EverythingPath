@@ -57,6 +57,7 @@ function week(rank = 3) {
           militiaId: 'militia',
           draftId: input.revision.draftId,
         },
+        week: input.revision.week,
         sourceRevision: 0,
         snapshot: input.militiaSnapshot,
         people: [{ characterId: 'pc', name: 'Ameiko' }],

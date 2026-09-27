@@ -89,6 +89,7 @@ function week() {
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [{ characterId: 'pc', name: 'Ameiko' }],

@@ -261,6 +261,7 @@ describe('slot board and picker', () => {
             militiaId: 'militia',
             draftId: input.revision.draftId,
           },
+          week: input.revision.week,
           sourceRevision: 0,
           snapshot: input.militiaSnapshot,
           people: [{ characterId: 'pc', name: 'Officer' }],
