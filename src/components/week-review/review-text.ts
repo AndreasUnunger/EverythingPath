@@ -96,13 +96,23 @@ export function fieldLabel(field: string) {
   );
 }
 
+const freeTextFields = new Set([
+  'note',
+  'notes',
+  'outcome',
+  'message',
+  'instruction',
+  'description',
+]);
+
 function referenceName(field: string, id: string, names: ReviewNames) {
   const key = field.replace(/Ids$/, 'Id');
   if (/characterId$/i.test(key)) return names.character(id);
-  if (key === 'teamId') return names.team(id);
-  if (key === 'settlementId') return names.settlement(id);
-  if (key === 'itemId') return names.item(id);
-  if (key === 'cacheId') return names.cache(id);
+  // Qualified references, e.g. operatedSettlementIds, name the same kinds.
+  if (/teamId$/i.test(key)) return names.team(id);
+  if (/settlementId$/i.test(key)) return names.settlement(id);
+  if (/itemId$/i.test(key)) return names.item(id);
+  if (/cacheId$/i.test(key)) return names.cache(id);
   if (/eventId$/i.test(key) || key === 'sourceEventId' || key === 'sourceId')
     return names.event(id);
   return null;
@@ -128,6 +138,8 @@ export function describeValue(
     if (/Ids?$/.test(field) || field === 'sourceId') {
       return referenceName(field, value, names) ?? 'Recorded reference';
     }
+    // Free-form words are shown as written; stored codes are worded.
+    if (freeTextFields.has(field)) return value;
     return /^[a-z]+(_[a-z]+)+$/.test(value) || /^[a-z]+$/.test(value)
       ? words(value)
       : value;

@@ -59,6 +59,7 @@ const personKinds: Record<string, string> = {
   pc: 'Player character',
   officer_npc: 'Officer NPC',
   other_npc: 'Other NPC',
+  npc: 'NPC',
 };
 
 function omit<T extends object>(value: T, ...keys: string[]) {
@@ -238,7 +239,8 @@ function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      `${personKinds[person.kind] ?? words(person.kind)}${person.hitDice === null ? '' : ` · ${person.hitDice} Hit Dice`}`,
+      // Unknown legacy Hit Dice stay unknown, never zero.
+      `${personKinds[person.kind] ?? words(person.kind)} · ${person.hitDice === null ? 'Hit Dice not recorded' : `${person.hitDice} Hit Dice`}`,
       'Not on roster',
     ),
   );

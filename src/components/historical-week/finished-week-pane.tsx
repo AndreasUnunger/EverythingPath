@@ -17,6 +17,16 @@ import type {
 } from './finished-weeks-types';
 import { RecordTime } from './record-time';
 
+// The six stacked record sections, each keyed by its section.
+const skeletonSections = [
+  ['upkeep', 'h-28'],
+  ['activity', 'h-44'],
+  ['event', 'h-24'],
+  ['persistent', 'h-24'],
+  ['adjustments', 'h-20'],
+  ['result', 'h-56'],
+] as const;
+
 // `announce` is off when the page already carries its own loading status.
 export function PaneSkeleton({ announce = true }: { announce?: boolean }) {
   return (
@@ -30,9 +40,10 @@ export function PaneSkeleton({ announce = true }: { announce?: boolean }) {
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-4 w-64 max-w-full" />
       </div>
-      <div aria-hidden className="grid gap-4 md:grid-cols-2">
-        <Skeleton className="h-40" />
-        <Skeleton className="h-40" />
+      <div aria-hidden className="space-y-4">
+        {skeletonSections.map(([section, height]) => (
+          <Skeleton key={section} className={height} />
+        ))}
       </div>
     </div>
   );
