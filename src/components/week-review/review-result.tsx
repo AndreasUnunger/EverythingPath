@@ -213,8 +213,9 @@ export function Result({
     >
       {!result.complete && (
         <p className="text-muted-foreground text-sm">
-          The Rules Baseline and Final are not available until every required
-          decision is made.
+          {mode === 'live'
+            ? 'The Rules Baseline and Final are not available until every required decision is made.'
+            : 'Some values were not included in this record.'}
         </p>
       )}
       {rows.length === 0 ? (

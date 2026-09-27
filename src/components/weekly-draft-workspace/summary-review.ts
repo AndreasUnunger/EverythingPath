@@ -5,9 +5,17 @@ import type {
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import {
+  appendNote,
+  applyPlan,
+  createOutcomes,
+  newItem,
+  reviewItem,
+  type AssemblyItem as Item,
+  type Outcomes,
+} from '~/components/week-review/review-assembly';
+import {
   choiceSubject,
   describeAdjustment,
-  describeChange,
   describeSabotage,
   eventSubject,
   phaseChips,
@@ -19,7 +27,6 @@ import {
 } from '~/components/week-review/review-changes';
 import { compareWeekStates } from '~/components/week-review/review-comparison';
 import type {
-  ReviewItem,
   ReviewNote,
   ReviewPhase,
   ReviewSection,
@@ -51,9 +58,6 @@ import type {
 
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
 type Phases = NonNullable<CanonicalResolutionPreview['phases']>;
-// Internal bookkeeping stripped before the facts leave the adapter: the
-// subjects that own codes, and bare check totals a resolved check replaces.
-type Item = ReviewItem & { subjects: string[]; checkTotals: string[] };
 type ItemsByPhase = Record<ReviewPhase, Item[]>;
 
 const phaseOrder = ['upkeep', 'activity', 'event', 'persistent'] as const;
@@ -70,18 +74,6 @@ const emptyText: Record<ReviewPhase, string> = {
   persistent: 'No persistent event consequences this week.',
 };
 
-function newItem(key: string, title: string, subjects: string[] = []): Item {
-  return {
-    key,
-    title,
-    details: [],
-    effects: [],
-    notes: [],
-    missing: false,
-    subjects,
-    checkTotals: [],
-  };
-}
 function addCheckTotal(entry: Item, line: string) {
   entry.checkTotals.push(line);
   entry.details.push(line);
@@ -395,81 +387,6 @@ function persistentItems(persistent: PersistentView): Item[] {
   });
 }
 
-/** Outcome notes: each acknowledgement is placed at most once in the review. */
-function createOutcomes() {
-  const placed = new Set<string>();
-  const note = (ack: PlanAcknowledgement, text: string): ReviewNote => {
-    placed.add(ack.acknowledgementId);
-    return { kind: 'outcome', key: `outcome:${ack.acknowledgementId}`, text };
-  };
-  return {
-    isPlaced: (ack: PlanAcknowledgement) => placed.has(ack.acknowledgementId),
-    place(target: Item, ack: PlanAcknowledgement) {
-      if (placed.has(ack.acknowledgementId) || !ack.outcome.trim()) return;
-      target.notes.push(note(ack, ack.outcome));
-    },
-    /** Places an outcome no consequence owns, kept with its subject's name. */
-    placeUnlinked(ack: Summary['acknowledgements'][number]) {
-      return ack.outcome.trim()
-        ? note(ack, `${ack.name}: ${ack.outcome}`)
-        : null;
-    },
-  };
-}
-type Outcomes = ReturnType<typeof createOutcomes>;
-
-function addPlanLine(
-  target: Item,
-  described: ReturnType<typeof describeChange>,
-  index: number,
-  outcomes: Outcomes,
-) {
-  if (described.effect)
-    target.effects.push({
-      key: `${described.subject}:effect:${index}`,
-      text: described.effect,
-    });
-  if (described.resolvesCheck)
-    target.details = target.details.filter(
-      (line) => !target.checkTotals.includes(line),
-    );
-  if (described.detail) target.details.push(described.detail);
-  if (described.acknowledgement)
-    outcomes.place(target, described.acknowledgement);
-}
-
-/** Order plan lines into the skeleton; unknown subjects keep plan order. */
-function applyPlan(
-  phase: ReviewPhase,
-  skeleton: Item[],
-  plan: readonly PlanChange[],
-  names: ReviewNames,
-  outcomes: Outcomes,
-) {
-  const leading: Item[] = [];
-  const trailing: Item[] = [];
-  const byKey = new Map(skeleton.map((entry) => [entry.key, entry]));
-  let reachedSkeleton = false;
-  plan.forEach((change, index) => {
-    const described = describeChange(phase, change, names);
-    const known = byKey.get(described.subject);
-    reachedSkeleton ||= known !== undefined;
-    const target =
-      known ??
-      newItem(described.subject, described.title, [
-        described.subject,
-        described.subject.replace(/^[a-z]+:/, ''),
-      ]);
-    if (!known) {
-      byKey.set(described.subject, target);
-      const before = !reachedSkeleton && skeleton.length > 0;
-      (before ? leading : trailing).push(target);
-    }
-    addPlanLine(target, described, index, outcomes);
-  });
-  return [...leading, ...skeleton, ...trailing];
-}
-
 function phaseItems(
   source: WorkspaceSource,
   views: Views,
@@ -572,7 +489,7 @@ function placeOutcomes(
       outcomes.place(owner, ack);
       continue;
     }
-    const note = outcomes.placeUnlinked(ack);
+    const note = outcomes.placeUnlinked(ack, ack.name);
     if (note) review.unassociated.push(note);
   }
 }
@@ -709,14 +626,6 @@ function addAdjustmentRequirements(
   }
 }
 
-function appendNote(
-  map: Map<string, ReviewNote[]>,
-  key: string,
-  note: ReviewNote,
-) {
-  map.set(key, [...(map.get(key) ?? []), note]);
-}
-
 function sectionChips(phase: ReviewPhase, phases: Phases) {
   const plan = phases[phase].plan as readonly PlanChange[];
   if (phase !== 'event') return phaseChips(phase, plan);
@@ -768,9 +677,7 @@ function sectionFacts(
   number: ReviewSection['number'],
   review: ReviewState,
 ): ReviewSection {
-  const items = review.items[phase].map(
-    ({ subjects: _subjects, checkTotals: _checkTotals, ...rest }) => rest,
-  );
+  const items = review.items[phase].map(reviewItem);
   return {
     phase,
     number,

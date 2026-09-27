@@ -3,6 +3,7 @@ import { cn } from '~/lib/utils';
 import { Adjustments } from './review-adjustments';
 import type {
   ReviewItem,
+  ReviewMode,
   ReviewSection,
   WeekReviewFacts,
 } from './review-facts';
@@ -24,9 +25,11 @@ export type { WeekReviewCapabilities };
 
 function Item({
   item,
+  mode,
   capabilities,
 }: {
   item: ReviewItem;
+  mode: ReviewMode;
   capabilities?: WeekReviewCapabilities;
 }) {
   return (
@@ -53,7 +56,9 @@ function Item({
       </div>
       {item.missing && (
         <p className="text-muted-foreground text-xs">
-          No longer part of this week.
+          {mode === 'live'
+            ? 'No longer part of this week.'
+            : 'Its subject is not part of this recorded week.'}
         </p>
       )}
       <Notes notes={item.notes} capabilities={capabilities} />
@@ -63,9 +68,11 @@ function Item({
 
 function PhaseSection({
   section,
+  mode,
   capabilities,
 }: {
   section: ReviewSection;
+  mode: ReviewMode;
   capabilities?: WeekReviewCapabilities;
 }) {
   return (
@@ -97,7 +104,12 @@ function PhaseSection({
       {section.items.length > 0 && (
         <ul className="divide-border min-w-0 divide-y">
           {section.items.map((item) => (
-            <Item key={item.key} item={item} capabilities={capabilities} />
+            <Item
+              key={item.key}
+              item={item}
+              mode={mode}
+              capabilities={capabilities}
+            />
           ))}
         </ul>
       )}
@@ -118,6 +130,7 @@ export function WeekReviewSections({
         <PhaseSection
           key={section.phase}
           section={section}
+          mode={facts.mode}
           capabilities={capabilities}
         />
       ))}

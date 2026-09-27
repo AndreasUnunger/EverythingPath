@@ -1,3 +1,5 @@
+import type { RawRoll } from '~/lib/weekly-draft-facts';
+
 // Plain-language text for review facts. Pure and mode-agnostic: every name
 // comes from the caller's resolver, so a frozen record never borrows today's
 // labels and no opaque identity is ever returned as text.
@@ -36,6 +38,24 @@ export function words(value: string) {
 }
 export function count(value: number, singular: string, plural: string) {
   return `${value} ${value === 1 ? singular : plural}`;
+}
+
+/**
+ * A recorded roll exactly as stored: an older record's individual dice, or a
+ * newer record's dice total and count, then its recorded modifiers. It is
+ * never converted between the two forms or re-evaluated.
+ */
+export function rollText(roll: RawRoll) {
+  const dice =
+    'dice' in roll
+      ? `dice ${roll.dice.join(', ')} (${roll.dice.length}d${roll.sides})`
+      : `dice total ${roll.diceTotal} (${roll.diceCount}d${roll.sides})`;
+  return [
+    dice,
+    ...roll.modifiers.map(
+      (modifier) => `${signed(modifier.value)} ${modifier.reason}`,
+    ),
+  ].join(' · ');
 }
 
 // Identity-only fields carry no player-facing meaning.
