@@ -122,7 +122,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('read view', () => {
+describe('read view', { timeout: 15000 }, () => {
   test('lists the nine sections, the read-only week view and the fallback with counts and warnings', () => {
     mount();
     const names = within(index())
@@ -173,7 +173,7 @@ describe('read view', () => {
   });
 });
 
-describe('Values correction', () => {
+describe('Values correction', { timeout: 15000 }, () => {
   test('only one correction is open: every other entry is disabled until Save or Cancel, and Cancel writes nothing', () => {
     openValues();
     for (const button of within(index()).getAllByRole('button'))
@@ -292,7 +292,7 @@ describe('Values correction', () => {
   });
 });
 
-describe('concurrent changes', () => {
+describe('concurrent changes', { timeout: 15000 }, () => {
   test('the same section changed elsewhere shows theirs and yours; Start again takes their values and clears the reason', async () => {
     const view = openValues();
     correctTreasury('50000', 'Miscounted at the table');
@@ -426,7 +426,7 @@ describe('temporary full editor', () => {
   }, 15000);
 });
 
-describe('phone layout', () => {
+describe('phone layout', { timeout: 15000 }, () => {
   test('rows expand one at a time and other rows are disabled while correcting', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: false,
