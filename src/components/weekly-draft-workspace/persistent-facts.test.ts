@@ -23,6 +23,7 @@ type Carried = WeeklyDraft['context']['carriedEvents'][number];
 function facts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
   const source = workspaceSourceSchema.parse({
     key: { campaignId: 'campaign', militiaId: 'militia', draftId: 'draft' },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],

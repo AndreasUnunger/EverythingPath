@@ -21,6 +21,7 @@ import {
   activitySlot,
   selectSlot,
 } from './activity-view-fixture';
+import { activitySlotAnchor } from './source-anchors';
 import type { ActivityView as Facts } from './types';
 
 // Radix Select needs pointer geometry jsdom lacks; a native select keeps the
@@ -317,6 +318,21 @@ describe('slot board and picker', () => {
       screen.queryByRole('button', { name: /Remove Action Slot/ }),
     ).not.toBeInTheDocument();
     expect(edit).not.toHaveBeenCalled();
+  });
+  test('[PER-02.link] every slot card carries the focusable anchor a Persistent source link opens', () => {
+    render(
+      <ActivityView view={board()} edit={acceptingEdit()} disabled={false} />,
+    );
+    for (const [slotId, number] of [
+      ['one', 1],
+      ['two', 2],
+      ['three', 3],
+    ] as const) {
+      const card = screen.getByRole('group', { name: `Action Slot ${number}` });
+      expect(card).toHaveAttribute('id', activitySlotAnchor(slotId));
+      card.focus();
+      expect(card).toHaveFocus();
+    }
   });
 });
 
