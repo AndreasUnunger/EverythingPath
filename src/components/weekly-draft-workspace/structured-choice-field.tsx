@@ -17,11 +17,13 @@ import { activityLabel } from './activity-labels';
 import { RecordedRollTotal } from './recorded-roll';
 import {
   isTotalRoll,
+  rollNotation,
   rollPathSegments,
   type RollSpecResolver,
 } from './roll-facts';
 import { RollTotalField } from './roll-total-field';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import type { RollSpec } from '~/lib/raw-roll';
 type Options = Record<string, { value: string; label: string }[]>;
 export function choiceFieldLabel(field: string) {
   if (/^\d+$/.test(field)) return `Entry ${Number(field) + 1}`;
@@ -237,6 +239,25 @@ function Fields(props: FieldProps) {
     return <AddStructured {...props} base={base} />;
   return <StructuredFields {...props} structured={structured} />;
 }
+// The editable total subtree owns its malformed-text registration: it
+// registers only while a rule specification exists for this path and is keyed
+// by that specification, so losing the specification (or changing count/sides)
+// unmounts it, discards only its own inapplicable local text and releases its
+// block. Other still-editable malformed fields keep blocking the Save.
+function EditableRollTotal({
+  path,
+  ...field
+}: {
+  path: string;
+  label: string;
+  spec: RollSpec;
+  recorded: RawRoll | null;
+  disabled: boolean;
+  onRoll: (roll: RawRoll | null) => void;
+}) {
+  const reportInvalid = useInvalidInput(path);
+  return <RollTotalField {...field} onInvalid={reportInvalid} />;
+}
 // Every supported nested roll is one dice-only total against the rule
 // specification resolved from its path. Recorded data in either form reads
 // through the shared editor; modifiers stay editable beside it; a blank total
@@ -253,7 +274,6 @@ function RollFields(
   props: FieldProps & { roll: NonNullable<ReturnType<typeof rollUnion>> },
 ) {
   const { value, change, name, path = '', issues, disabled, roll } = props;
-  const reportInvalid = useInvalidInput(path);
   const object = record(value);
   const recorded = isRawRollValue(object) ? object : null;
   const spec =
@@ -275,12 +295,13 @@ function RollFields(
     <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
       <legend className="text-sm font-semibold">{title}</legend>
       {spec ? (
-        <RollTotalField
+        <EditableRollTotal
+          key={rollNotation(spec)}
+          path={path}
           label={label}
           spec={spec}
           recorded={recorded}
           disabled={disabled}
-          onInvalid={reportInvalid}
           onRoll={(next) => change(next ?? undefined)}
         />
       ) : (

@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -15,6 +16,13 @@ import type {
   PersistentView as PersistentFacts,
 } from './types';
 afterEach(cleanup);
+// react-hook-form runs the submit callback asynchronously; a blocked Save is
+// only proven after that callback has had its turn.
+async function flushSubmit() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
@@ -547,6 +555,7 @@ test('[rules.EVT-11.invalid-removed] malformed text in a removed target no longe
     },
   );
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getByRole('button', { name: 'Remove target checks 1' }),
@@ -586,6 +595,7 @@ test('[rules.EVT-11.invalid-shift] removing an earlier entry keeps a later entry
       .map((alert) => alert.textContent),
   ).toContain('Use digits only.');
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.change(survivor(), { target: { value: '11' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
@@ -628,6 +638,7 @@ test('[rules.EVT-11.invalid-branch] switching a nested Persistent decision away 
     { target: { value: '-3' } },
   );
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getAllByRole('button', { name: 'Unattempted' }).at(-1)!,
@@ -664,6 +675,7 @@ test('[rules.EVT-11.invalid-clear] clearing the enclosing details after malforme
     target: { value: '1.5' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Clear occurrence' }));
   expect(edit).toHaveBeenLastCalledWith({
@@ -723,6 +735,7 @@ test('[rules.EVT-11.invalid-explicit-clear] a partial legacy roll’s explicit C
     target: { value: 'ab' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Clear check roll' }));
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));

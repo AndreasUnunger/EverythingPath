@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -12,6 +13,13 @@ import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
 afterEach(cleanup);
+// react-hook-form runs the submit callback asynchronously; a blocked Save is
+// only proven after that callback has had its turn.
+async function flushSubmit() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
@@ -453,4 +461,128 @@ test('[rules.EVT-07.candidate-removal] removing the first candidate keeps the su
   expect(
     within(survivor!).queryByRole('group', { name: 'Loss' }),
   ).not.toBeInTheDocument();
+});
+
+test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no longer blocks Save once the table roll changes to an event without that check, while another still-editable malformed field keeps blocking', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(
+        candidateChoice([
+          {
+            eventId: 'first',
+            origin: { kind: 'rolled' },
+            tableRoll: total(100, 1, 76),
+          },
+          {
+            eventId: 'second',
+            origin: { kind: 'rolled' },
+            tableRoll: total(100, 1, 76),
+          },
+        ]),
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open('Guarantee Event');
+  const [first, second] = candidateEntries();
+  fireEvent.click(within(first!).getByRole('button', { name: 'Add rolls' }));
+  fireEvent.change(
+    within(first!).getByRole('textbox', { name: 'Check roll' }),
+    {
+      target: { value: 'x' },
+    },
+  );
+  fireEvent.click(within(second!).getByRole('button', { name: 'Add rolls' }));
+  fireEvent.change(
+    within(second!).getByRole('textbox', { name: 'Check roll' }),
+    {
+      target: { value: '7z' },
+    },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await flushSubmit();
+  expect(edit).not.toHaveBeenCalled();
+  // The first candidate becomes Turncoat: its check control disappears and so
+  // must its malformed-text block. The second candidate still blocks.
+  fireEvent.change(
+    within(first!).getByRole('textbox', { name: 'Table Roll' }),
+    {
+      target: { value: '60' },
+    },
+  );
+  expect(
+    within(first!).queryByRole('textbox', { name: 'Check roll' }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await flushSubmit();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(
+    within(second!).getByRole('textbox', { name: 'Check roll' }),
+    {
+      target: { value: '7' },
+    },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
+  const choice = lastChoice(edit);
+  if (choice.actionId !== 'guarantee_event')
+    throw new Error('Expected guarantee');
+  expect(choice.candidates?.[0]).toEqual({
+    eventId: 'first',
+    origin: { kind: 'rolled' },
+    tableRoll: total(100, 1, 60),
+    rolls: {},
+  });
+  expect(choice.candidates?.[1]?.rolls).toEqual({ check: total(20, 1, 7) });
+});
+
+test('[rules.EVT-11.invalid-spec-cleared] clearing the table roll of a candidate with a malformed check leaves the check unresolved and releases its block', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(
+        candidateChoice([
+          {
+            eventId: 'only',
+            origin: { kind: 'rolled' },
+            tableRoll: total(100, 1, 76),
+          },
+        ]),
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open('Guarantee Event');
+  const [entry] = candidateEntries();
+  fireEvent.click(within(entry!).getByRole('button', { name: 'Add rolls' }));
+  fireEvent.change(
+    within(entry!).getByRole('textbox', { name: 'Check roll' }),
+    {
+      target: { value: '-' },
+    },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await flushSubmit();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(
+    within(entry!).getByRole('textbox', { name: 'Table Roll' }),
+    {
+      target: { value: '' },
+    },
+  );
+  // Structural Save succeeds; the missing table roll is a readiness matter
+  // for the rules, not a structural blocker.
+  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
+  const choice = lastChoice(edit);
+  if (choice.actionId !== 'guarantee_event')
+    throw new Error('Expected guarantee');
+  expect(choice.candidates?.[0]).toEqual({
+    eventId: 'only',
+    origin: { kind: 'rolled' },
+    rolls: {},
+  });
 });
