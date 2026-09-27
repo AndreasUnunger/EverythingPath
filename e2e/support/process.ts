@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { createInterface } from 'node:readline';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -32,6 +33,22 @@ export async function loadRun() {
 export async function savePrivate(path: string, content: string | Uint8Array) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await writeFile(path, content, { mode: 0o600 });
+}
+
+async function fixtureExecutable(args: string[], cwd: string) {
+  if (args[0] !== 'exec' || args[1] !== 'convex' || args[2] !== 'run')
+    return { file: 'pnpm', args };
+  const packagePath = createRequire(join(cwd, 'package.json')).resolve(
+    'convex/package.json',
+  );
+  const { bin } = z
+    .object({ bin: z.union([z.string(), z.object({ convex: z.string() })]) })
+    .parse(JSON.parse(await readFile(packagePath, 'utf8')));
+  const entry = join(
+    dirname(packagePath),
+    typeof bin === 'string' ? bin : bin.convex,
+  );
+  return { file: process.execPath, args: [entry, ...args.slice(2)] };
 }
 
 // Never forward CLI output: deployment/auth failures can contain credentials,
@@ -76,8 +93,11 @@ export async function command(
   };
   await log('started');
   try {
+    // Repeated fixture calls need the installed CLI, not pnpm's exec wrapper.
+    // Deployment keeps pnpm's PATH setup for its nested --cmd build command.
+    const executable = await fixtureExecutable(args, options.cwd);
     const output = await new Promise<string>((resolve, reject) => {
-      const child = spawn('pnpm', args, {
+      const child = spawn(executable.file, executable.args, {
         cwd: options.cwd,
         env: environment,
         stdio: ['ignore', 'pipe', 'pipe'],
