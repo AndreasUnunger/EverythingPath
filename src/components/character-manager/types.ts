@@ -51,5 +51,27 @@ export const defaultCharacterFormValues: CharacterFormValues = {
   charisma: '10',
 };
 
+// The record fields a valid form submits.
+export function toCharacterPayload(values: CharacterFormValues) {
+  return {
+    name: values.name.trim(),
+    description: values.description.trim(),
+    kind: values.kind,
+    level: Number(values.level),
+    strength: Number(values.strength),
+    dexterity: Number(values.dexterity),
+    constitution: Number(values.constitution),
+    wisdom: Number(values.wisdom),
+    charisma: Number(values.charisma),
+    intelligence: Number(values.intelligence),
+  };
+}
+
+export function getCharacterErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return fallback;
+}
+
 export type CharacterRecord = Doc<'character'>;
 export type CharacterId = Id<'character'>;

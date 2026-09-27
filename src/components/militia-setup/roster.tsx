@@ -1,3 +1,5 @@
+import { createContext, useContext } from 'react';
+import { UserPlus } from 'lucide-react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
@@ -24,6 +26,10 @@ function useRosterCharacters(characters: SetupCharacter[]) {
     people.some((person) => person.characterId === character.characterId),
   );
 }
+// Opens character creation. Guided Setup supplies it; the dialog lives above
+// the step layouts so a breakpoint or step change never closes it. Roster
+// inclusion stays a separate choice.
+export const SetupAddCharacter = createContext<(() => void) | null>(null);
 export function SetupPeople({
   characters,
   preserveCharacters = false,
@@ -31,6 +37,7 @@ export function SetupPeople({
   characters: SetupCharacter[];
   preserveCharacters?: boolean;
 }) {
+  const addCharacter = useContext(SetupAddCharacter);
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const people = useFieldArray({
     control,
@@ -40,6 +47,19 @@ export function SetupPeople({
   const selected = useRosterCharacters(characters);
   return (
     <SetupSection title="Characters and officers">
+      {addCharacter ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addCharacter}
+          >
+            <UserPlus aria-hidden />
+            Add character
+          </Button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {characters
           .filter((character) => !selected.includes(character))

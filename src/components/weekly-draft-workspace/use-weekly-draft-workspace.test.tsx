@@ -9,7 +9,9 @@ import {
   WeeklyDraftWorkspaceProvider,
   useWeeklyDraftWorkspace,
 } from './use-weekly-draft-workspace';
-function fixture() {
+import { useEventEdits } from './use-event-edits';
+type Team = { teamId: string; teamType: 'patrons'; name: string };
+function fixture(teams: Team[] = []) {
   const draft = createWeeklyDraft({
     draftId: 'workspace',
     week: 4,
@@ -46,7 +48,13 @@ function fixture() {
       focus: 'Loyalty',
       roster: {
         people: [{ characterId: 'pc', kind: 'pc', hitDice: 2 }],
-        teams: [],
+        teams: teams.map((team) => ({
+          ...team,
+          status: 'active' as const,
+          managerCharacterId: null,
+          rewardCapExempt: false,
+          notes: '',
+        })),
         officers: [],
       },
       characters: [
@@ -958,4 +966,111 @@ test('[rules.F04.workspace-hard-cap] an extra-slot choice stays shared but block
   await waitFor(() => expect(current().forecastPending).toBe(false));
   await act(async () => current().viewPhase('summary'));
   await waitFor(() => expect(current().canConfirm).toBe(true));
+});
+
+// #164's two-device Sickness step, through the Event view's own edit builder:
+// each device saves the whole occurrence it sees, changing a different field.
+// Whichever save lands second was built on a revision its occurrence has since
+// moved past, so it fails visibly instead of writing its stale field back.
+test('a stale whole-occurrence save fails on its device and never reverts the other device’s field', async () => {
+  const { gateway } = fixture([
+    { teamId: 'scouts', teamType: 'patrons', name: 'Scouts' },
+  ]);
+  const player = renderWorkspace(gateway);
+  const gm = renderWorkspace(gateway);
+  type Device = typeof player;
+  const ready = (device: Device) => {
+    const value = device.result.current;
+    if (value.status !== 'ready') throw new Error('Expected ready');
+    return value;
+  };
+  const view = (device: Device) => {
+    const value = ready(device).phaseView;
+    if (value.phase !== 'event') throw new Error('Expected Event');
+    return value;
+  };
+  // The edits a click on this device would use right now.
+  const builders: { unmount: () => void }[] = [];
+  const edits = (device: Device) => {
+    const builder = renderHook(() =>
+      useEventEdits(view(device), ready(device).edit),
+    );
+    builders.push(builder);
+    return builder.result.current;
+  };
+  const percentile = (value: number) => ({
+    dice: [value],
+    sides: 100,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  });
+  const root = 'workspace:rolled:1';
+  const occurrence = (device: Device) =>
+    view(device).rolled.blocks[0]!.item.occurrence;
+  const settled = () =>
+    waitFor(() => {
+      for (const device of [player, gm]) {
+        expect(ready(device).pendingWork).toBe(false);
+        expect(ready(device).eventPreparation?.status).toBe('idle');
+      }
+    });
+  await waitFor(() => expect(gm.result.current.status).toBe('ready'));
+  await waitFor(() => expect(player.result.current.status).toBe('ready'));
+  act(() => {
+    ready(player).viewPhase('event');
+    ready(gm).viewPhase('event');
+  });
+  await act(() =>
+    ready(player).edit({ kind: 'event_chance', roll: percentile(1) }),
+  );
+  await settled();
+  let gmEdits = edits(gm);
+  act(() => void gmEdits.setTableRoll(root, percentile(90)));
+  await settled();
+  let playerEdits = edits(player);
+  act(() => void playerEdits.setTargets(root, 'team', ['scouts']));
+  await settled();
+  expect(occurrence(gm)).toMatchObject({
+    tableRoll: { dice: [90] },
+    targets: [{ kind: 'team', teamId: 'scouts' }],
+  });
+
+  // The incident's order: both edits start from the same view; the player's
+  // clear lands first, then the GM's table roll.
+  playerEdits = edits(player);
+  gmEdits = edits(gm);
+  act(() => {
+    playerEdits.setTargets(root, 'team', []);
+    gmEdits.setTableRoll(root, percentile(45));
+  });
+  await settled();
+  for (const device of [player, gm])
+    expect(occurrence(device)).toEqual({
+      eventId: root,
+      origin: { kind: 'rolled' },
+      tableRoll: percentile(90),
+    });
+  expect(ready(player).feedback).toBe('saved');
+  expect(ready(gm).feedback).toBe('failed');
+
+  // The reverse order: the table roll lands first, and the player's team
+  // choice, built before seeing it, cannot bring 90 back.
+  playerEdits = edits(player);
+  gmEdits = edits(gm);
+  act(() => {
+    gmEdits.setTableRoll(root, percentile(45));
+    playerEdits.setTargets(root, 'team', ['scouts']);
+  });
+  await settled();
+  for (const device of [player, gm])
+    expect(occurrence(device)).toEqual({
+      eventId: root,
+      origin: { kind: 'rolled' },
+      tableRoll: percentile(45),
+    });
+  expect(ready(gm).feedback).toBe('saved');
+  expect(ready(player).feedback).toBe('failed');
+  for (const builder of builders) builder.unmount();
+  player.unmount();
+  gm.unmount();
 });

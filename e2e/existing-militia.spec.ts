@@ -10,8 +10,10 @@ test('existing militia state survives reload within its campaign', async ({
 }) => {
   await page.goto('/campaigns');
   await selectCampaign(page, ownedCase.campaignName);
-  await openCampaignSection(page, 'week');
-  await page.getByRole('link', { name: 'Set up militia', exact: true }).click();
+  // Without a militia the home offers Set up militia instead of Continue.
+  await openCampaignSection(page, 'setup');
+  await expect(page).toHaveURL(/\/campaigns\/[^/]+\/setup$/);
+  const setupUrl = page.url();
   await page
     .getByRole('button', { name: 'Existing militia', exact: true })
     .click();
@@ -19,7 +21,7 @@ test('existing militia state survives reload within its campaign', async ({
     [
       'Starting point',
       [
-        ['Rank', '4'],
+        ['Rank', 'four'],
         ['Training', '24'],
         ['Treasury (copper)', '72500'],
         ['Notoriety', '17'],
@@ -37,10 +39,63 @@ test('existing militia state survives reload within its campaign', async ({
     for (const [name, value] of fields)
       await page.getByRole('textbox', { name, exact: true }).fill(value);
   }
+  // A character created inline is shared at once but joins the roster only
+  // when chosen.
+  await openSetupStep(page, 'People & officers');
+  await page
+    .getByRole('button', { name: 'Add character', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', {
+    name: 'New Character',
+    exact: true,
+  });
+  await dialog
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Setup Recruit');
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: 'Add Setup Recruit', exact: true }),
+  ).toBeVisible();
+  // Reloading resumes the unfinished setup, invalid input included.
+  await page.reload();
+  await expect(
+    page.getByRole('heading', {
+      level: 2,
+      name: 'People & officers',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await openSetupStep(page, 'Starting point');
+  await expect(
+    page.getByRole('button', { name: 'Existing militia', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const rank = page.getByRole('textbox', { name: 'Rank', exact: true });
+  await expect(rank).toHaveValue('four');
+  await expect(
+    page.getByText('Enter a valid whole number for Rank.'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Treasury (copper)', exact: true }),
+  ).toHaveValue('72500');
+  await rank.fill('4');
   await openSetupStep(page, 'Review & start');
   await page
     .getByRole('button', { name: 'Start militia week', exact: true })
     .click();
+  await expect(
+    page.getByRole('heading', { name: 'Week 8 · Upkeep' }),
+  ).toBeVisible();
+  // A later visit to Setup stays on the started page until a link is chosen.
+  await page.goto(setupUrl);
+  await expect(page.getByText('This militia is already set up.')).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Rank', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Open militia', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Open week 8', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Week 8 · Upkeep' }),
   ).toBeVisible();
@@ -88,9 +143,10 @@ test('existing militia state survives reload within its campaign', async ({
     ).toHaveValue(value!);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await selectCampaign(page, comparisonCase!.campaignName);
+  // Continue week: the comparison's first week skips Upkeep (#189).
   await openCampaignSection(page, 'week');
   await expect(
-    page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+    page.getByRole('heading', { name: 'Week 1 · Event' }),
   ).toBeVisible();
   await selectCampaign(page, ownedCase.campaignName);
   await openCampaignSection(page, 'week');

@@ -4,14 +4,25 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import {
   confirmedWeek,
+  deepFreeze,
   legacyRecord,
 } from '../../../tests/history/resolution-record-fixtures';
+import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
+import { occurrence } from '../../../tests/rules/event-selection-fixture';
+import { roll } from '../../../tests/rules/upkeep-fixture';
+import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import type {
   ResultCell,
   ReviewItem,
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
-import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
+import {
+  CANDIDATE_REROLL_RULESET_VERSION,
+  CHARACTERLESS_TRANSFERS_RULESET_VERSION,
+  prepareCanonicalResolutionRecord,
+  projectWeeklyDraft,
+  resolveCanonicalWeeklyDraft,
+} from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
@@ -379,6 +390,85 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     draft.tableAdjustments = [];
     expect(recordWeekReview(structuredClone(record))).toEqual(facts);
     expect(recordWeekReview.length).toBe(1);
+  });
+});
+
+// A week confirmed before the candidate reroll Ruleset Version: its chosen
+// candidate's Roll Twice expanded into War Games and All Is Calm. Resolved
+// through today's engine as the equivalent chance-rolled expansion, then
+// recorded with the candidate tree and version that week actually had.
+function candidateExpansionRecord() {
+  const { draft, snapshot } = persistentEventFixture('low_morale');
+  snapshot.training = 15;
+  const expansion = [
+    occurrence('pick', 50),
+    occurrence('pick/twice/1', 10, {
+      kind: 'roll_twice',
+      parentEventId: 'pick',
+    }),
+    occurrence('pick/twice/2', 46, {
+      kind: 'roll_twice',
+      parentEventId: 'pick',
+    }),
+  ];
+  draft.event.occurrences = expansion;
+  const record = prepareCanonicalResolutionRecord(
+    resolveCanonicalWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }),
+    'earlier-record',
+  );
+  const source = structuredClone(record.source);
+  source.event.occurrences = [];
+  source.activity.slots = [
+    {
+      slotId: 'one',
+      choice: {
+        choiceId: 'guarantee',
+        actionId: 'guarantee_event',
+        rolls: { notoriety: roll(6, 3) },
+        candidates: [
+          expansion[0]!,
+          occurrence('other', 74),
+          ...expansion.slice(1),
+        ],
+        selectedEventId: 'pick',
+      },
+    },
+  ];
+  return deepFreeze(
+    canonicalResolutionRecordSchema.parse({
+      ...record,
+      source,
+      rulesetVersion: CHARACTERLESS_TRANSFERS_RULESET_VERSION,
+    }),
+  );
+}
+
+test('[rules.HIST-05.candidate-expansion] a record whose chosen candidate expanded keeps its version, its two events and their outcomes', () => {
+  const record = candidateExpansionRecord();
+  expect(record.rulesetVersion).toBeLessThan(CANDIDATE_REROLL_RULESET_VERSION);
+  const before = structuredClone(record);
+  const facts = recordWeekReview(record);
+  expect(record).toEqual(before);
+  const titles = items(facts, 2).map((entry) => entry.title);
+  expect(titles).toEqual(
+    expect.arrayContaining([
+      'Event 1A',
+      'Event 1B',
+      'Event 1A.1',
+      'Event 1A.2',
+    ]),
+  );
+  for (const title of ['Event 1A.1', 'Event 1A.2'])
+    expect(item(facts, 2, title).details).toContain(
+      'Rolled twice from Event 1A',
+    );
+  // The recorded War Games training gain stays with its recorded event.
+  expect(
+    item(facts, 2, 'Event 1A.1').effects.map((effect) => effect.text),
+  ).toEqual(['Training +3']);
+  expect(row(facts, 'Militia', 'Training')).toMatchObject({
+    now: { text: '15' },
+    final: { text: '17' },
   });
 });
 

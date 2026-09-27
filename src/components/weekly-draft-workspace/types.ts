@@ -495,7 +495,9 @@ export type EventBlockStatus =
   | 'candidate'
   | 'not_chosen'
   | 'not_used'
-  | 'needs_repair';
+  | 'needs_repair'
+  // Part of a candidate's Roll Twice expansion, which the rules no longer make.
+  | 'legacy';
 export type EventIssue = { code: string; message: string };
 // An event's corpus rules for one block; `twice` only when it applies there.
 export type EventBlockRules = {
@@ -528,6 +530,9 @@ export type EventBlock = {
   children: EventBlock[];
   // Recorded children the current roll does not use; restored if it returns.
   hidden: EventBlock[];
+  // A candidate's recorded Roll Twice children, which the rules never use
+  // again now that its Roll Twice is rerolled in place; kept until cleared.
+  legacy: EventBlock[];
   // A position the rules do not ask for: clearing its last input removes it.
   surplus: boolean;
   // The existing tree/candidate edit removing this surplus position once its

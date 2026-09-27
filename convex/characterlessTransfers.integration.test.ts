@@ -157,7 +157,7 @@ test('[rules.U05.persistence] actorless and legacy transfers persist, replay and
     ...key,
     operation: { operationId: 'confirm', reviewed: preview.reviewed },
   });
-  expect(receipt.record.rulesetVersion).toBe(6);
+  expect(receipt.record.rulesetVersion).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
   expect(receipt.record.source.upkeep.treasuryTransfers).toEqual([
     deposit,
     legacy,

@@ -26,6 +26,46 @@ desktops a wider index with previews. The step statuses, previews and summary
 lines are derived in `src/lib/setup-steps.ts`; the form controller is
 `src/components/militia-setup/use-guided-setup.ts`.
 
+Unfinished setup resumes in the same browser (#173). A versioned envelope in
+`localStorage` (`src/lib/setup-envelope.ts`) holds the raw form values,
+including empty and malformed numbers, the open step, the visited steps and
+the start attempt's `initializationId`. It is keyed and checked by the signed-
+in account, the organization and the campaign, and it is read only after
+`canonicalSetup.options` resolves. A stored envelope is restored only when its
+lists and choices still fit the form; anything else is discarded with a short
+notice. Restored roster characters take the ledger's current facts, so a
+reload recovers from a stale-character rejection. When storage is refused,
+Setup still works and says entries won't be kept. Nothing is saved to Convex
+and there is no shared or mirrored setup draft.
+
+`src/components/militia-setup/use-setup-session.ts` decides the page from the
+first `options` result. A militia that had already started shows "This
+militia is already set up." with **Open week N** (from
+`canonicalDraftPersistence.workspace`) and **Open militia**, and retires any
+stale envelope. If another member starts the militia while the form is open,
+the envelope is retired and the page opens the current week. This player's own
+start disables Start while pending, ignores the racing `started` observation
+and opens the requested phase exactly once, then retires the envelope. Every
+attempt, including one after a reload, reuses the envelope's
+`initializationId`, so the server's same-ID/same-source idempotence and its
+rejection of any other source keep an accepted setup from being replaced. The
+envelope also keeps the source of a start whose result never arrived (a
+reload while starting). If the militia then starts while the form is open,
+that source is resent under the same identity: acceptance opens its requested
+phase, refusal means another player won and the page follows their week. A
+failed start keeps all entries; if `options` then reports the militia started,
+the page follows it. Leaving the page during a start never navigates the next
+page. **Add character** in People & officers opens the shared character dialog
+(`character.createCharacter`); the new record arrives through `options` and
+joins the roster only when chosen.
+
+Envelope version 1 stores this stage's character-record kinds
+(`pc | officer_npc`), roster kinds (`pc | officer_npc | other_npc`) and
+required commandant Hit Dice. The Characters & officers kind migration (#180)
+must bump `SETUP_ENVELOPE_VERSION` and migrate version-1 envelopes in
+`parseSetupEnvelope`, alongside the Setup schema, roster kinds, character
+options, the inline dialog, manager warnings and Hit Dice fallback.
+
 Setup carries the roster and individual team conditions, character Hit Dice,
 officer assignments and managers, settlements, assets and orders, persistent
 event targets/order, queued effects, bonuses, buyoff bookkeeping and explicit

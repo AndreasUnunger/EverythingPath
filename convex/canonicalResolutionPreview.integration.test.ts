@@ -12,11 +12,17 @@ import {
   readEffectiveRecord,
 } from './lib/canonicalDraftStorage';
 import {
+  CANONICAL_WEEKLY_RULESET_VERSION,
   projectWeeklyDraft,
   resolveReviewedWeeklyDraft,
   prepareCanonicalResolutionRecord,
 } from '../src/lib/canonical-weekly-resolution';
 import { persistentEventFixture } from '../tests/rules/persistent-event-fixture';
+import {
+  childEvent,
+  guaranteedWeek,
+} from '../tests/rules/candidate-reroll-fixture';
+import { occurrence } from '../tests/rules/event-selection-fixture';
 import { roll } from '../tests/rules/upkeep-fixture';
 const modules = import.meta.glob('./**/*.ts');
 
@@ -205,5 +211,108 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
       'Three copper found at the table',
     );
     expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+  }
+});
+
+test('[rules.A10.reroll-parity] browser preview and Convex Confirmation agree that a candidate Roll Twice is rerolled in place, under the current Ruleset Version', async () => {
+  const browserRules = await loadBrowserRules();
+  const scenarios = {
+    // A chosen candidate's Roll Twice, with children an earlier version added.
+    expanded: guaranteedWeek(
+      [
+        occurrence('pick', 50),
+        occurrence('other', 46),
+        childEvent('pick/twice/1', 10, 'roll_twice', 'pick'),
+        childEvent('pick/twice/2', 46, 'roll_twice', 'pick'),
+      ],
+      'pick',
+    ),
+    // The candidate not chosen rolls Roll Twice.
+    unchosen: guaranteedWeek(
+      [occurrence('pick', 10), occurrence('other', 51)],
+      'pick',
+    ),
+    // Rerolled in its own die; the earlier children stay unused.
+    rerolled: guaranteedWeek(
+      [
+        occurrence('pick', 10),
+        occurrence('other', 46),
+        childEvent('pick/twice/1', 10, 'roll_twice', 'pick'),
+        childEvent('pick/twice/2', 46, 'roll_twice', 'pick'),
+      ],
+      'pick',
+    ),
+  };
+  for (const [name, input] of Object.entries(scenarios)) {
+    const { revision: draft, militiaSnapshot: snapshot } = input;
+    const t = convexTest(schema, modules);
+    const scope = await t.run(async (ctx) => {
+      await ctx.db.insert('user', {
+        tokenIdentifier: 'test|player',
+        name: 'Player',
+        image: '',
+        orgIds: [{ orgId: 'test', role: 'member' }],
+      });
+      const campaignId = await ctx.db.insert('campaign', {
+        name: 'Preview',
+        ownerId: 'gm',
+        organizationId: 'test',
+        description: '',
+      });
+      const militiaId = await ctx.db.insert('militia', {
+        campaignId,
+        name: 'Militia',
+      });
+      return { campaignId, militiaId };
+    });
+    const player = t.withIdentity({ tokenIdentifier: 'test|player' });
+    await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
+    const server = await player.run(async (ctx) => {
+      const revision = await readOpenDraft(ctx, scope);
+      if (!revision) throw Error('Missing source');
+      return projectWeeklyDraft({ revision, militiaSnapshot: snapshot });
+    });
+    const browser: unknown = runInNewContext(
+      `${browserRules}; WeeklyRules.projectWeeklyDraft(input)`,
+      {
+        structuredClone,
+        input: JSON.parse(
+          JSON.stringify({ revision: draft, militiaSnapshot: snapshot }),
+        ) as unknown,
+      },
+    );
+    expect(browser, name).toEqual(server);
+    expect(server.rulesetVersion, name).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
+    if (name !== 'rerolled') {
+      expect(server.status, name).toBe('incomplete');
+      expect(server.requirements, name).toContain(
+        `${name === 'expanded' ? 'pick' : 'other'}:replacement:1`,
+      );
+      continue;
+    }
+    expect(server.status).toBe('ready');
+    expect(server.phases?.event.selected.map((event) => event.eventId)).toEqual(
+      ['pick'],
+    );
+    // Confirmation records the same outcome under the current version and
+    // keeps the unused earlier children in its source.
+    const record = await player.run(async (ctx) => {
+      const revision = await readOpenDraft(ctx, scope);
+      if (!revision) throw Error('Missing source');
+      const record = prepareCanonicalResolutionRecord(
+        resolveReviewedWeeklyDraft(
+          { revision, militiaSnapshot: snapshot },
+          server.sourceKey,
+        ),
+        'record-rerolled',
+      );
+      await appendResolutionRecord(ctx, { ...scope, record });
+      return record;
+    });
+    expect(record.rulesetVersion).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
+    expect(record.finalOutcome.data).toEqual(
+      JSON.parse(JSON.stringify(server.outcome)),
+    );
+    expect(record.source).toEqual(draft);
   }
 });

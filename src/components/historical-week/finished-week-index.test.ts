@@ -2,10 +2,8 @@ import { describe, expect, test } from 'vitest';
 import {
   buildWeekIndex,
   earlierEntryLabel,
-  headlineText,
   isWeekCovered,
   recordDate,
-  rowHeadlines,
   rowMarker,
   type FinishedWeek,
   type ListWindow,
@@ -119,113 +117,6 @@ describe('isWeekCovered', () => {
 
   test('a window that reached the oldest week covers down to zero', () => {
     expect(isWeekCovered([window(null, [4, 2], false)], 0)).toBe(true);
-  });
-});
-
-describe('headlines', () => {
-  const fact = {
-    key: 'treasury',
-    label: 'Treasury',
-    before: 44_000,
-    final: 58_507,
-    beforeRecorded: true,
-    finalRecorded: true,
-    unit: 'gp' as const,
-  };
-
-  test('treasury changes are signed and copper-exact in gp', () => {
-    expect(headlineText(fact)).toBe('Treasury +145.07 gp');
-    expect(headlineText({ ...fact, before: 600, final: 545 })).toBe(
-      'Treasury −0.55 gp',
-    );
-  });
-
-  test('numeric changes are signed deltas', () => {
-    expect(
-      headlineText({
-        ...fact,
-        key: 'training',
-        label: 'Training',
-        unit: 'number',
-        before: 12,
-        final: 9,
-      }),
-    ).toBe('Training −3');
-  });
-
-  test('an unrecorded starting value shows only the recorded outcome, never a delta from zero', () => {
-    expect(headlineText({ ...fact, before: null, beforeRecorded: false })).toBe(
-      'Treasury now 585.07 gp',
-    );
-    expect(
-      headlineText({
-        ...fact,
-        key: 'rank',
-        label: 'Rank',
-        unit: 'number',
-        before: null,
-        final: 8,
-        beforeRecorded: false,
-      }),
-    ).toBe('Rank now 8');
-  });
-
-  test('subjects are added, removed or changed by their record-local label', () => {
-    const team = {
-      ...fact,
-      key: 'team:t1',
-      label: 'Scouts',
-      unit: 'text' as const,
-    };
-    expect(headlineText({ ...team, before: null, final: 'active' })).toBe(
-      'Scouts added',
-    );
-    expect(headlineText({ ...team, before: 'active', final: null })).toBe(
-      'Scouts removed',
-    );
-    expect(headlineText({ ...team, before: 'active', final: 'disabled' })).toBe(
-      'Scouts Active → Disabled',
-    );
-  });
-
-  test('a militia text value without a starting value reads as none, not added', () => {
-    expect(
-      headlineText({
-        ...fact,
-        key: 'focus',
-        label: 'Focus',
-        unit: 'text',
-        before: null,
-        final: 'arcane',
-      }),
-    ).toBe('Focus None → Arcane');
-  });
-
-  test('a fact without a recorded outcome is not shown', () => {
-    expect(
-      headlineText({ ...fact, finalRecorded: false, final: null }),
-    ).toBeNull();
-  });
-
-  test('rows show at most two headlines, or say a recorded outcome is available', () => {
-    expect(rowHeadlines(row(3))).toEqual(['Recorded outcome available']);
-    expect(
-      rowHeadlines(
-        row(3, {
-          headlineFacts: [
-            fact,
-            {
-              ...fact,
-              key: 'training',
-              label: 'Training',
-              unit: 'number',
-              before: 1,
-              final: 2,
-            },
-          ],
-        }),
-      ),
-    ).toEqual(['Treasury +145.07 gp', 'Training +1']);
   });
 });
 

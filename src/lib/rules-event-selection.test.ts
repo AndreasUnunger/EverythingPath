@@ -255,16 +255,22 @@ test('[rules.E04.independent] automatic replacements precede guarantees and do n
       parentEventId: 'auto',
     }),
   ];
-  choice.candidates = [...pair(10), occurrence('rejected', 74)];
+  choice.candidates = [occurrence('root', 10), occurrence('rejected', 74)];
   choice.selectedEventId = 'root';
   const result = project(draft, snapshot).event;
   expect(result.ready).toBe(true);
   expect(result.selected.map((event) => event.eventId)).toEqual([
     'auto-replacement',
-    'first',
-    'second',
+    'root',
   ]);
   expect(result.nextUneventfulCarry).toBe(false);
+  // Without the guarantee the chance-rolled event keeps the one expansion.
+  draft.activity.slots[0]!.choice = null;
+  draft.event.chanceRoll = roll(100, 1);
+  draft.event.occurrences.push(...pair(10));
+  expect(
+    project(draft, snapshot).event.selected.map((event) => event.eventId),
+  ).toEqual(['auto-replacement', 'first', 'second']);
 });
 
 test('[rules.E03.eligibility] impossible occurrences require replacements and intentional exceptions retain a reason', () => {

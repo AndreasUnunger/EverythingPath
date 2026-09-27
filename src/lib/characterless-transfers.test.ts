@@ -3,6 +3,7 @@ import { persistentEventFixture } from '../../tests/rules/persistent-event-fixtu
 import { upkeepFixture } from '../../tests/rules/upkeep-fixture';
 import {
   CANONICAL_WEEKLY_RULESET_VERSION,
+  CHARACTERLESS_TRANSFERS_RULESET_VERSION,
   prepareCanonicalResolutionRecord,
   projectWeeklyDraft,
   resolveCanonicalWeeklyDraft,
@@ -87,8 +88,11 @@ test('[rules.U05.legacy-actor] a transfer actor missing from the roster is no re
   expect(preview.status).toBe('ready');
 });
 
-test('[rules.U05.ruleset-version] a week with actorless and legacy transfers confirms under Ruleset Version 6, keeping the recorded actor and naming no one in the plan', () => {
-  expect(CANONICAL_WEEKLY_RULESET_VERSION).toBe(6);
+test('[rules.U05.ruleset-version] a week with actorless and legacy transfers confirms under Ruleset Version 6 or later, keeping the recorded actor and naming no one in the plan', () => {
+  expect(CHARACTERLESS_TRANSFERS_RULESET_VERSION).toBe(6);
+  expect(CANONICAL_WEEKLY_RULESET_VERSION).toBeGreaterThanOrEqual(
+    CHARACTERLESS_TRANSFERS_RULESET_VERSION,
+  );
   const input = persistentEventFixture('low_morale');
   input.snapshot.training = 15;
   input.snapshot.roster.officers = [];
@@ -98,7 +102,7 @@ test('[rules.U05.ruleset-version] a week with actorless and legacy transfers con
     militiaSnapshot: input.snapshot,
   });
   const record = prepareCanonicalResolutionRecord(result, 'record');
-  expect(record.rulesetVersion).toBe(6);
+  expect(record.rulesetVersion).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
   expect(record.source.upkeep.treasuryTransfers).toEqual([legacy, actorless]);
   expect(
     result.finalPlan.effects.upkeep.flatMap((change) =>

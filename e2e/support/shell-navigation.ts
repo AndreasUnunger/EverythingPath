@@ -133,9 +133,10 @@ export async function exerciseShellNavigation(
   await expect(
     page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
   ).toHaveCount(0);
+  // Continue week opens the first week's first unready phase, Event.
   await openCampaignSection(page, 'week');
   await expect(
-    page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
+    page.getByRole('heading', { name: 'Week 1 · Event', exact: true }),
   ).toBeVisible();
   // The week host is bounded after a non-week visit at every width, with
   // its editor scrolling inside and the frame chrome pinned, including on
@@ -144,7 +145,7 @@ export async function exerciseShellNavigation(
   try {
     await page.setViewportSize({ width: 844, height: 390 });
     await expect(
-      page.getByRole('heading', { name: 'Week 1 · Upkeep', exact: true }),
+      page.getByRole('heading', { name: 'Week 1 · Event', exact: true }),
     ).toBeVisible();
     await expectBoundedWeekHost(page);
   } finally {

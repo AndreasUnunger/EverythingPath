@@ -20,7 +20,15 @@ import {
 } from './canonical-resolution-record';
 import type { UpkeepSnapshot } from './rules-upkeep';
 
-export const CANONICAL_WEEKLY_RULESET_VERSION = 6;
+// Ruleset Versions are allocated in order, one per change to Weekly
+// Resolution; a record keeps the version it was confirmed under.
+/** Treasury transfers name no character or officer (#158). */
+export const CHARACTERLESS_TRANSFERS_RULESET_VERSION = 6;
+/** A Roll Twice on an Activity event candidate is rerolled in its own die (#191). */
+export const CANDIDATE_REROLL_RULESET_VERSION =
+  CHARACTERLESS_TRANSFERS_RULESET_VERSION + 1;
+export const CANONICAL_WEEKLY_RULESET_VERSION =
+  CANDIDATE_REROLL_RULESET_VERSION;
 type Phases = ReturnType<typeof projectPersistentWeek>;
 export type CanonicalResolutionEffects = {
   upkeep: Phases['upkeep']['plan'];
