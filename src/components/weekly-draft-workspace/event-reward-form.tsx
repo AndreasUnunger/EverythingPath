@@ -25,7 +25,7 @@ import {
   rewardFormSchema,
   rewardFormValues,
   type RewardFormValues,
-} from './event-reward-form';
+} from './event-reward-values';
 import type { EventReward, EventRewardFacts } from './types';
 import type { EventRewardInput } from './use-event-edits';
 
@@ -189,6 +189,7 @@ export function EventRewardForm({
         <div className="flex flex-wrap gap-2">
           <Button
             type="submit"
+            className="min-h-11 sm:min-h-9"
             disabled={disabled}
             aria-label={`Save reward · ${subject}`}
           >
@@ -197,6 +198,7 @@ export function EventRewardForm({
           <Button
             type="button"
             variant="outline"
+            className="min-h-11 sm:min-h-9"
             aria-label={`Cancel · ${subject}`}
             onClick={onClose}
           >

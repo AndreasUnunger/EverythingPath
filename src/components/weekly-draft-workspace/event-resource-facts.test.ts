@@ -11,7 +11,7 @@ import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView } from './event-facts';
 import { resourcePanelMessage } from './event-resource-facts';
-import { rewardFormSchema, rewardFormValues } from './event-reward-form';
+import { rewardFormSchema, rewardFormValues } from './event-reward-values';
 import { derivePhaseReadiness } from './phase-readiness';
 import type { EventPanel, EventView } from './types';
 import { useEventEdits } from './use-event-edits';
@@ -128,11 +128,11 @@ test('[EVT-07.broke-the-code] Broke the Code identifies one item from the snapsh
     'This week (week 40): PCs gain +5 on Knowledge (local).',
   ]);
   expect(first.notes).toEqual([
-    'Twice in Event 1.2 · Broke the Code: the Knowledge (local) bonus becomes +5.',
+    'Twice in Event 1.2 · Broke the Code: the Knowledge (local) bonus increases, listed here.',
   ]);
   expect(twice.item).toBeNull();
   expect(twice.notes).toEqual([
-    'Twice with Event 1.1 · Broke the Code: the Knowledge (local) bonus becomes +5, listed there.',
+    'Twice with Event 1.1 · Broke the Code: the Knowledge (local) bonus increases, listed there.',
   ]);
   expect(twice.whatHappened?.required).toBe(true);
   // The Twice's own recorded item is kept, unused, until cleared.
@@ -253,6 +253,33 @@ test('[EVT-13.cache-twice] Cache Discovered Twice discovers every cache left, ea
   ]);
 });
 
+test('[EVT-07.cache-retained] a recorded cache already lost stays visible, and an older event-level roll counts as an attempt in either mode', () => {
+  const { draft, snapshot } = threatEventFixture(62, true);
+  snapshot.economy!.caches[0]!.status = 'lost';
+  draft.event.occurrences[1]!.rolls = { check: roll(20, 5) };
+  draft.event.occurrences[2]!.rolls = { check: roll(20, 5) };
+  const { view } = facts(draft, snapshot);
+  const first = panel(view, 'first');
+  expect(first.cache).toMatchObject({ selected: null, required: true });
+  expect(first.cache!.retained).toEqual([
+    {
+      value: 'cache',
+      label: 'Minor cache at Bridge',
+      reason:
+        'Already retrieved or lost, so it cannot be discovered. Clear it or choose another cache.',
+    },
+  ]);
+  const twice = panel(view, 'second');
+  expect(twice.caches[0]).toMatchObject({
+    cacheId: 'returning',
+    mitigation: 'attempted',
+  });
+  // The Twice does not use the older roll's value; it asks for the cache's
+  // own, and the older roll stays clearable.
+  expect(twice.caches[0]!.check.required).toBe(true);
+  expect(twice.legacyCheckRoll).toBe(true);
+});
+
 test('[EVT-07.cache-contents] a cache holding an item no longer recorded asks for its restoration', () => {
   // The snapshot never holds such a cache; the rules still name the case.
   const { draft, snapshot } = threatEventFixture(62);
@@ -313,7 +340,7 @@ test('[EVT-13.festival-twice] Festival Twice keeps its first’s town and names 
   ]);
   expect(panel(view, 'second').settlement).toBeNull();
   expect(panel(view, 'second').notes).toEqual([
-    'Twice with Event 1.1 · Festival: the morale bonus becomes +5 in the same town, listed there.',
+    'Twice with Event 1.1 · Festival: the morale bonus increases in the same town, listed there.',
   ]);
   snapshot.settlements.push({
     ...snapshot.settlements[0]!,
@@ -474,9 +501,7 @@ test('[EVT-12.hidden-agenda] Hidden Agenda recalculates Activity checks and link
   const { view, phase } = facts(draft, snapshot);
   const agenda = panel(view, 'agenda');
   expect(agenda.whatHappened).toBeNull();
-  expect(agenda.outcomes).toEqual([
-    'This week’s Activity checks gain +2, recalculated.',
-  ]);
+  expect(agenda.outcomes).toEqual(['This week’s Activity checks gain +2.']);
   expect(agenda.activity).toMatchObject({ bonus: 2, pending: true });
   expect(agenda.activity!.checks).toEqual([
     {
@@ -500,7 +525,7 @@ test('[EVT-12.hidden-agenda] Hidden Agenda recalculates Activity checks and link
   expect(panel(both, 'first').activity?.bonus).toBe(5);
   expect(panel(both, 'second').activity).toBeNull();
   expect(panel(both, 'second').notes).toEqual([
-    'Twice with Event 1.1 · Hidden Agenda: the Activity bonus becomes +5, listed there.',
+    'Twice with Event 1.1 · Hidden Agenda: the Activity bonus increases, listed there.',
   ]);
 });
 

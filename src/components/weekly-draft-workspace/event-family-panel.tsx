@@ -19,14 +19,15 @@ export function EventFamilyPanel({
   panel,
   disabled,
   edits,
-  openActivity,
+  openActivitySlot,
 }: {
   block: EventBlock;
   panel: EventPanel;
   disabled: boolean;
   edits: EventEdits;
-  // Opens Activity, where Hidden Agenda's recalculated choices are edited.
-  openActivity?: () => void;
+  // Opens Activity at a choice (or at its top for null), where Hidden
+  // Agenda's recalculated choices and the operated towns are edited.
+  openActivitySlot?: (slotId: string | null) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   function showRefusal(result: EventEditResult) {
@@ -95,7 +96,7 @@ export function EventFamilyPanel({
           showRefusal={showRefusal}
           targetCards={targetCards}
           subject={block.label}
-          openActivity={openActivity}
+          openActivitySlot={openActivitySlot}
         />
       ) : panel.family === 'recurring' ? (
         <EventRecurringInputs

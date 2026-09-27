@@ -240,7 +240,7 @@ function changeLine(
       return `${weekPhrase(draft, benefit.startsWeek, benefit.endsWeek)}: items and services bought in ${towns.length ? towns.join(', ') : 'no town'} cost an extra ${benefit.discountPercent}% less.`;
     }
     case 'event_activity_bonus':
-      return `This week’s Activity checks gain ${signed(change.value)}, recalculated.`;
+      return `This week’s Activity checks gain ${signed(change.value)}.`;
     case 'event_identification':
       return `${itemName(context, change.itemId) ?? 'The item'} is identified.`;
     case 'event_item':

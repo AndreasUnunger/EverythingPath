@@ -25,6 +25,8 @@ type EventViewProps = {
   disabled: boolean;
   preparation?: EventPreparation;
   openActivity?: () => void;
+  // Opens Activity at one choice's slot, or at its top for null.
+  openActivitySlot?: (slotId: string | null) => void;
   // The newest Overseer support facts, read between the edits of a move.
   latestOverseer?: LatestOverseerSupport;
 };
@@ -49,9 +51,17 @@ function EventSteps({
   disabled,
   preparation,
   openActivity,
+  openActivitySlot,
 }: EventViewProps) {
   const edits = useEventEdits(view, edit);
-  const blockProps = { view, edit, disabled, edits, preparation, openActivity };
+  const blockProps = {
+    view,
+    edit,
+    disabled,
+    edits,
+    preparation,
+    openActivitySlot,
+  };
   const activeSets = view.candidates.filter((set) => set.active);
   const keptSets = view.candidates.filter(
     (set) => !set.active && set.blocks.length > 0,

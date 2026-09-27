@@ -12,25 +12,17 @@ import type { EventRewardInput } from './use-event-edits';
 
 const rewardSchema = eventOccurrenceSchema.shape.rewards.unwrap().element;
 
-export type RewardFormValues = {
-  recipient: string;
-  name: string;
-  // gp, up to two decimal places.
-  value: string;
-  // lb, any decimal.
-  weight: string;
-  alchemical: boolean;
-  poison: boolean;
-};
-
 export const rewardFormValuesSchema = z.object({
   recipient: z.string(),
   name: z.string(),
+  // gp, up to two decimal places.
   value: z.string(),
+  // lb, any decimal.
   weight: z.string(),
   alchemical: z.boolean(),
   poison: z.boolean(),
 });
+export type RewardFormValues = z.infer<typeof rewardFormValuesSchema>;
 
 /**
  * A recorded reward's values, or a new reward's for `recipient`: Found Fire

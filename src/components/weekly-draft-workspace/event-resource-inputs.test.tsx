@@ -305,13 +305,13 @@ test('[EVT-12.hidden-agenda-view] Hidden Agenda shows the recalculated Activity 
   };
   draft.event.chanceRoll = roll(100, 1);
   draft.event.occurrences = [occurrence('agenda', 42)];
-  const openActivity = vi.fn();
+  const openActivitySlot = vi.fn();
   render(
     <EventView
       view={view(draft, snapshot)}
       edit={vi.fn()}
       disabled={false}
-      openActivity={openActivity}
+      openActivitySlot={openActivitySlot}
     />,
   );
   const checks = within(block('Event 1')).getByRole('group', {
@@ -320,10 +320,13 @@ test('[EVT-12.hidden-agenda-view] Hidden Agenda shows the recalculated Activity 
   expect(checks).toHaveTextContent('Action Slot 1 · Drill Militia');
   expect(checks).toHaveTextContent('Decided by this bonus');
   expect(checks).toHaveTextContent('Required roll: enter 2d6.');
+  // The newly required roll links to its own choice in Activity.
   fireEvent.click(
-    within(checks).getByRole('button', { name: 'Open Activity for Event 1' }),
+    within(checks).getByRole('button', {
+      name: 'Open Action Slot 1 · Drill Militia in Activity for Event 1',
+    }),
   );
-  expect(openActivity).toHaveBeenCalled();
+  expect(openActivitySlot).toHaveBeenCalledWith('one');
 });
 
 test('[EVT-07.resource-disabled] Confirmation disables every reward, cache and card control', () => {

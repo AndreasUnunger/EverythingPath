@@ -4,19 +4,22 @@ import type { EventActivityRecalculation as EventActivityRecalculationFacts } fr
 
 // Hidden Agenda's recalculated Activity checks: each check's label and
 // result, worded "Decided by this bonus" where the bonus turns the outcome,
-// and Activity's own notes when its inputs are still missing. Read-only:
-// the checks are edited in Activity. `subject` is the block label.
+// and Activity's own notes when its inputs are still missing, each with a
+// link to that choice in Activity. Read-only: the checks are edited in
+// Activity. `subject` is the block label.
 export function EventActivityRecalculation({
   activity,
   subject,
-  openActivity,
+  openActivitySlot,
 }: {
   activity: EventActivityRecalculationFacts;
   subject: string;
-  openActivity?: () => void;
+  openActivitySlot?: (slotId: string | null) => void;
 }) {
-  const needsActivity =
-    activity.pending || activity.checks.some((check) => check.issues.length);
+  // Choices with missing inputs link to themselves; otherwise one link to
+  // Activity while it is still incomplete.
+  const general =
+    activity.pending && activity.checks.every((check) => !check.issues.length);
   return (
     <section
       role="group"
@@ -45,6 +48,14 @@ export function EventActivityRecalculation({
                   {issue}
                 </p>
               ))}
+              {check.issues.length > 0 && openActivitySlot && (
+                <InlineAction
+                  onClick={() => openActivitySlot(check.slotId)}
+                  ariaLabel={`Open ${check.label} in Activity for ${subject}`}
+                >
+                  Open this choice in Activity
+                </InlineAction>
+              )}
             </li>
           ))}
         </ul>
@@ -63,9 +74,9 @@ export function EventActivityRecalculation({
           Review the Activity checks with the table.
         </p>
       )}
-      {needsActivity && openActivity && (
+      {general && openActivitySlot && (
         <InlineAction
-          onClick={openActivity}
+          onClick={() => openActivitySlot(null)}
           ariaLabel={`Open Activity for ${subject}`}
         >
           Open Activity

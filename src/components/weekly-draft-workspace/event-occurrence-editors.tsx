@@ -33,14 +33,14 @@ export function EventOccurrenceEditors({
   edit,
   disabled,
   edits,
-  openActivity,
+  openActivitySlot,
 }: {
   block: EventBlock;
   view: EventView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   edits: ReturnType<typeof useEventEdits>;
-  openActivity?: () => void;
+  openActivitySlot?: (slotId: string | null) => void;
 }) {
   const saveOccurrence = edits.saveOccurrence;
   const [error, setError] = useState('');
@@ -97,7 +97,7 @@ export function EventOccurrenceEditors({
           panel={panel}
           disabled={disabled}
           edits={edits}
-          openActivity={openActivity}
+          openActivitySlot={openActivitySlot}
         />
       )}
       {!panel && item.optionalMitigation !== 'unavailable' && (

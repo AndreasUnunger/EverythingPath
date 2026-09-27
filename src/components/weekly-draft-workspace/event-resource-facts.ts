@@ -71,34 +71,35 @@ const acknowledgementHints: Record<EventResourceFamily, string> = {
 };
 
 // How a Twice relates to its first occurrence, which carries the combined
-// effect the engine records for these events.
+// effect the engine records for these events. The amounts are the engine's,
+// read from the first's outcome lines, never restated here.
 const twiceWords: Record<
   EventResourceFamily,
   { twice: string; first: string }
 > = {
   broke_the_code: {
-    twice: 'the Knowledge (local) bonus becomes +5, listed there',
-    first: 'the Knowledge (local) bonus becomes +5',
+    twice: 'the Knowledge (local) bonus increases, listed there',
+    first: 'the Knowledge (local) bonus increases, listed here',
   },
   cache_discovered: {
     twice: 'every cache still hidden or planned is discovered here',
     first: 'every other cache still hidden or planned is discovered there',
   },
   festival: {
-    twice: 'the morale bonus becomes +5 in the same town, listed there',
-    first: 'the morale bonus becomes +5',
+    twice: 'the morale bonus increases in the same town, listed there',
+    first: 'the morale bonus increases, listed here',
   },
   market_day: {
     twice: 'the discount reaches every operated town, listed there',
-    first: 'the discount reaches every operated town',
+    first: 'the discount reaches every operated town, listed here',
   },
   found_fire: {
     twice: 'each PC chooses one more item here',
     first: 'each PC chooses one more item there',
   },
   hidden_agenda: {
-    twice: 'the Activity bonus becomes +5, listed there',
-    first: 'the Activity bonus becomes +5',
+    twice: 'the Activity bonus increases, listed there',
+    first: 'the Activity bonus increases, listed here',
   },
 };
 
@@ -167,6 +168,12 @@ const cacheStatusWords: Record<Cache['status'], string> = {
   retrieved: 'Retrieved',
   lost: 'Lost',
 };
+
+/** What Found Fire allows, in the words every reward message uses. */
+export const PERMITTED_REWARD =
+  'a non-poison alchemical item worth 100 gp or less';
+const DUPLICATE_REWARD =
+  'This reward matches an item the militia already has. Remove it and add it again.';
 
 // "A cache no longer recorded": a missing cache reference stays visible.
 const MISSING_CACHE = {
@@ -342,20 +349,26 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
         hint: 'One cache the militia has hidden or planned to retrieve.',
         required: has('cache'),
         recorded,
-        choices: [
-          ...eligible,
-          // A recorded cache already retrieved or lost stays choosable.
-          ...caches.filter(
-            (cache) =>
-              !isDiscoverableCache(cache) && recorded.includes(cache.cacheId),
-          ),
-        ].map(card),
+        choices: eligible.map(card),
         name: (cacheId) => {
           const cache = caches.find((entry) => entry.cacheId === cacheId);
           return cache ? cacheName(cache) : null;
         },
         missing: MISSING_CACHE,
       });
+  // A recorded cache already retrieved or lost cannot be discovered.
+  if (choice)
+    choice.retained = choice.retained.map((entry) =>
+      caches.some(
+        (cache) => cache.cacheId === entry.value && !isDiscoverableCache(cache),
+      )
+        ? {
+            ...entry,
+            reason:
+              'Already retrieved or lost, so it cannot be discovered. Clear it or choose another cache.',
+          }
+        : entry,
+    );
   const found = twice
     ? eligible
     : eligible.filter((cache) => cache.cacheId === choice?.selected);
@@ -366,12 +379,13 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
       (entry) =>
         entry.target.kind === 'cache' && entry.target.cacheId === cache.cacheId,
     );
-    // The base occurrence reads an older event-level check roll too.
+    // An older event-level roll counts as an attempt in either mode, as
+    // the engine reads it; only the base occurrence also uses its value.
     const legacyRoll = twice ? undefined : occurrence.rolls?.check;
     const checkRoll = input?.rolls?.check;
     const attempted = eventMitigationAttempted(
       input?.mitigation ?? occurrence.mitigation,
-      checkRoll ?? legacyRoll,
+      checkRoll ?? occurrence.rolls?.check,
     );
     const checkId = `${occurrence.eventId}:${cache.cacheId}:mitigation`;
     const name = cacheName(cache);
@@ -436,7 +450,7 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
       caches: targets,
       retainedCacheChecks,
       legacyMitigation: occurrence.mitigation ?? null,
-      legacyCheckRoll: !twice && Boolean(occurrence.rolls?.check),
+      legacyCheckRoll: Boolean(occurrence.rolls?.check),
     },
     notes:
       twice && !eligible.length
@@ -444,7 +458,7 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
         : [],
     uses: {
       targets: twice ? [] : ['cache'],
-      rolls: twice ? [] : ['check'],
+      rolls: ['check'],
       fields: ['targetChecks', 'mitigation', 'overseerCharacterId'],
     },
   };
@@ -463,7 +477,13 @@ function cacheDescription(
   ].join(' · ');
 }
 
+// "Action Slot 2 · Recruit Team"
+const slotLabel = (slot: EventPanelContext['activitySlots'][number]) =>
+  `Action Slot ${slot.number}${slot.actionName ? ` · ${slot.actionName}` : ''}`;
+
 // Where a town's operation this week or earlier comes from, for its card.
+// Whether it counts is the engine's `operatedSettlementIds`; these are only
+// the reasons shown beside it.
 function townSources(
   context: EventPanelContext,
   settlementId: string,
@@ -483,9 +503,7 @@ function townSources(
         choice.settlementId === settlementId &&
         choice.teamId &&
         used.has(choice.teamId)
-        ? [
-            `Action Slot ${slot.number}${slot.actionName ? ` · ${slot.actionName}` : ''}`,
-          ]
+        ? [slotLabel(slot)]
         : [];
     }),
     ...((context.activity?.outcome.economy?.markets ?? []).some(
@@ -628,11 +646,7 @@ function rewardFacts(item: Item, context: EventPanelContext): EventRewardFacts {
           : [
               'Only an active PC receives a reward. Give it to a PC or remove it.',
             ]),
-        ...(has(`reward:${reward.itemId}:duplicate`)
-          ? [
-              'This reward uses an item identity the militia already has. Remove it and add it again.',
-            ]
-          : []),
+        ...(has(`reward:${reward.itemId}:duplicate`) ? [DUPLICATE_REWARD] : []),
       ],
     };
   };
@@ -697,7 +711,7 @@ function hiddenAgendaParts(item: Item, context: EventPanelContext): Parts {
     return [
       {
         slotId: slot.slotId,
-        label: `Action Slot ${slot.number}${slot.actionName ? ` · ${slot.actionName}` : ''}${team}`,
+        label: `${slotLabel(slot)}${team}`,
         result,
         decided:
           check.total !== null &&
@@ -758,7 +772,7 @@ export function resourcePanelMessage(
         ? 'the town is not one the militia operated from recently.'
         : 'the town is not one the militia operated from recently. Record a reasoned Rules Exception or choose another town.';
     case 'alchemical-reward':
-      return 'a reward is not a non-poison alchemical item worth 100 gp or less.';
+      return `a reward is not ${PERMITTED_REWARD}.`;
   }
   const rewards = panel.rewards;
   const reward = /^reward:(.+?)(?::(recipient|exception|duplicate))?$/.exec(
@@ -772,9 +786,9 @@ export function resourcePanelMessage(
     ];
     const named = all.find((entry) => entry.itemId === subject)?.name;
     if (kind === 'exception')
-      return `${named ?? 'a reward'} is not a non-poison alchemical item worth 100 gp or less. Record a reasoned Rules Exception beside it or change it.`;
+      return `${named ?? 'a reward'} is not ${PERMITTED_REWARD}. Record a reasoned Rules Exception beside it or change it.`;
     if (kind === 'duplicate')
-      return `${named ?? 'a reward'} uses an item identity the militia already has. Remove it and add it again.`;
+      return `${named ?? 'a reward'}: ${DUPLICATE_REWARD.toLowerCase()}`;
     if (kind === 'recipient')
       return 'a reward goes to someone who is not an active PC. Give it to a PC or remove it.';
     const recipient = rewards.recipients.find(

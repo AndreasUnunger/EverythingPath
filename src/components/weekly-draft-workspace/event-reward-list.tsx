@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { ActivityText } from './activity-text';
 import type { EventEditResult, EventEdits } from './event-family-inputs';
-import { EventRewardForm } from './event-reward-form-fields';
+import { PERMITTED_REWARD } from './event-resource-facts';
+import { EventRewardForm } from './event-reward-form';
 import type { EventReward, EventRewardFacts } from './types';
 
 // Found Fire's rewards: one section per active PC with the reward recorded
@@ -105,6 +106,7 @@ export function EventRewardList({
                 type="button"
                 variant="outline"
                 size="sm"
+                className="min-h-11 sm:min-h-8"
                 disabled={disabled}
                 aria-label={`Add reward for ${recipient.name} · ${subject}`}
                 onClick={() =>
@@ -170,6 +172,7 @@ function EventRewardRow({
             type="button"
             variant="ghost"
             size="sm"
+            className="min-h-11 sm:min-h-8"
             disabled={disabled}
             aria-label={`Edit ${name}`}
             onClick={onEdit}
@@ -180,6 +183,7 @@ function EventRewardRow({
             type="button"
             variant="ghost"
             size="sm"
+            className="min-h-11 sm:min-h-8"
             disabled={disabled}
             aria-label={`Remove ${name}`}
             onClick={() => showRefusal(edits.removeReward(id, reward.itemId))}
@@ -200,7 +204,7 @@ function EventRewardRow({
           >
             {reward.permitted
               ? 'Rules Exception recorded for this reward.'
-              : 'Rules Exception: this reward is not a non-poison alchemical item worth 100 gp or less.'}
+              : `Rules Exception: this reward is not ${PERMITTED_REWARD}.`}
             {reward.exceptionRequired && (
               <span className="text-muted-foreground text-xs"> · required</span>
             )}
@@ -220,6 +224,7 @@ function EventRewardRow({
               type="button"
               variant="outline"
               size="sm"
+              className="min-h-11 sm:min-h-8"
               disabled={disabled}
               aria-label={`Remove the Rules Exception for ${reward.name} · ${subject}`}
               onClick={() => edits.clearException(exception.exceptionId)}
