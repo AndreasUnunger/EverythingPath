@@ -29,6 +29,7 @@ import {
   reviewSummaryWorkspace,
   reviewSummarySettlement,
 } from './support/summary-qa';
+import { resultCell } from './support/summary-result';
 import { reviewPersistentWorkspace } from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
@@ -589,15 +590,11 @@ test('players prepare shared Upkeep with independent navigation and save recover
       .click();
     for (const page of [gm, player]) {
       await expect(
-        page
-          .getByRole('region', { name: 'Rules Baseline', exact: true })
-          .getByText('3000 cp', { exact: true }),
-      ).toBeVisible();
-      await expect(
-        page
-          .getByRole('region', { name: 'Final preview', exact: true })
-          .getByText('3500 cp', { exact: true }),
-      ).toBeVisible();
+        await resultCell(page, 'Treasury', 'Rules Baseline'),
+      ).toHaveText('30 gp');
+      await expect(await resultCell(page, 'Treasury', 'Final')).toHaveText(
+        '35 gp',
+      );
       await expect(
         page.getByRole('button', { name: 'Confirm week', exact: true }),
       ).toBeEnabled();
@@ -816,9 +813,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
         scope: ownedCase.scope,
         change: 'treasury',
       });
-      await expect(
-        second.getByRole('region', { name: 'Final preview', exact: true }),
-      ).toContainText('5007 cp');
+      await expect(await resultCell(second, 'Treasury', 'Final')).toHaveText(
+        '50.07 gp',
+      );
       stale.release();
       await expect(
         first.getByRole('button', { name: 'Review updated week', exact: true }),
@@ -833,9 +830,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
           exact: true,
         }),
       ).toBeVisible();
-      await expect(
-        first.getByRole('region', { name: 'Final preview', exact: true }),
-      ).toContainText('5007 cp');
+      await expect(await resultCell(first, 'Treasury', 'Final')).toHaveText(
+        '50.07 gp',
+      );
       await first
         .getByRole('button', { name: 'Review updated week', exact: true })
         .click();
@@ -960,9 +957,10 @@ test('players prepare shared Upkeep with independent navigation and save recover
       await expect(confirmedWeekNotice(second)).toBeEmpty();
       for (const page of [first, second, late]) {
         await summary(page);
-        await expect(
-          page.getByRole('region', { name: 'Final preview', exact: true }),
-        ).toContainText('5007 cp');
+        // The successor week starts from the externally corrected treasury.
+        await expect(await resultCell(page, 'Treasury', 'Now')).toHaveText(
+          '50.07 gp',
+        );
       }
       await savePrivate(
         join(run.artifactDirectory, 'canonical-confirmation-successor.png'),

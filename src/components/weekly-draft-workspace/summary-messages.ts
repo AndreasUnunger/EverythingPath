@@ -1,6 +1,9 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
-type Summary = Extract<PhaseView, { phase: 'summary' }>;
+type Summary = Pick<
+  Extract<PhaseView, { phase: 'summary' }>,
+  'adjustments' | 'options'
+>;
 const messages: Record<string, string> = {
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
   'upkeep:attrition-training:roll': 'Enter the attrition training roll.',

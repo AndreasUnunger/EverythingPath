@@ -81,7 +81,10 @@ test('[rules.SUM-09.total-range] an out-of-range total warns in the current Summ
   render(
     <SummaryView view={totals.view} {...controls} edit={vi.fn()} canConfirm />,
   );
-  expect(screen.getByText(/Upkeep: .*outside its usual range/)).toBeVisible();
+  // Named in the Warnings card and again as the Upkeep item's warning note.
+  expect(
+    screen.getAllByText(/Upkeep: .*outside its usual range/)[0],
+  ).toBeVisible();
   cleanup();
   const legacy = summary({ check: roll(20, 0), training: roll(4, 3, 4) });
   expect(legacy.view.warnings).toEqual(totals.view.warnings);
