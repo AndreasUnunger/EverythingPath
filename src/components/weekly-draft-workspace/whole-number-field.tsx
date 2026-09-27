@@ -1,4 +1,5 @@
 'use client';
+import { useRef } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +35,11 @@ export function WholeNumberField({
   // Reports rejected local text so an enclosing form can refuse to save.
   onInvalid?: (message: string | null) => void;
 }) {
+  // Rejected text never enters the form value, so react-hook-form's blur
+  // validation would see the retained valid number and clear the error while
+  // the enclosing form still refuses to save. Remember the rejection so blur
+  // keeps that error until valid input replaces it.
+  const rejected = useRef<string | null>(null);
   const form = useForm({
     values: { value: value === null ? '' : String(value) },
     mode: 'onBlur',
@@ -63,15 +69,21 @@ export function WholeNumberField({
                 autoComplete="off"
                 disabled={disabled}
                 className="font-mono"
+                onBlur={() => {
+                  if (rejected.current === null) field.onBlur();
+                  else form.setError('value', { message: rejected.current });
+                }}
                 onChange={(event) => {
                   const text = event.target.value;
                   const parsed = digits.safeParse(text);
                   if (!parsed.success) {
                     const message = parsed.error.issues[0]!.message;
+                    rejected.current = message;
                     form.setError('value', { message });
                     onInvalid?.(message);
                     return;
                   }
+                  rejected.current = null;
                   form.clearErrors('value');
                   onInvalid?.(null);
                   field.onChange(text);

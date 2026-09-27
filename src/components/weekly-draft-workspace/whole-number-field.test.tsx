@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
+afterEach(cleanup);
 import { WholeNumberField } from './whole-number-field';
 test('[rules.P81.digits] digit entry rejects invalid text, keeps zero, and emits an explicit clear with styled required feedback', async () => {
   const save = vi.fn();
@@ -45,4 +46,44 @@ test('[rules.P81.digits] digit entry rejects invalid text, keeps zero, and emits
   );
   expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(input).toHaveAttribute('type', 'text');
+});
+
+test('[rules.WEEK-14.rejected-blur] a rejected character keeps its styled, announced error through blur while the prior valid value is retained, until valid input clears it', async () => {
+  const save = vi.fn();
+  const onInvalid = vi.fn();
+  render(
+    <WholeNumberField
+      label="Check roll"
+      value={20}
+      required
+      onValue={save}
+      onInvalid={onInvalid}
+    />,
+  );
+  const input = screen.getByRole('textbox', { name: 'Check roll' });
+  fireEvent.change(input, { target: { value: '20x' } });
+  expect(input).toHaveValue('20');
+  expect(onInvalid).toHaveBeenLastCalledWith('Use digits only.');
+  // Leaving the field (for example to press Save) must not hide the error:
+  // the enclosing form still refuses to save this field.
+  fireEvent.blur(input);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Use digits only.',
+  );
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+  expect(input).toHaveAccessibleDescription(/Use digits only\./);
+  expect(save).not.toHaveBeenCalled();
+  // Valid input clears both the field error and the parent's invalid state.
+  fireEvent.change(input, { target: { value: '7' } });
+  expect(onInvalid).toHaveBeenLastCalledWith(null);
+  expect(save).toHaveBeenLastCalledWith(7);
+  fireEvent.blur(input);
+  expect(input).toHaveAttribute('aria-invalid', 'false');
+  expect(screen.getByRole('alert')).not.toHaveTextContent('Use digits only.');
+  // Ordinary required validation on blur is unchanged.
+  fireEvent.change(input, { target: { value: '' } });
+  fireEvent.blur(input);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'A value is required.',
+  );
 });

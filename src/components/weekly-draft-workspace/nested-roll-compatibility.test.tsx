@@ -394,13 +394,16 @@ test('[rules.EVT-11.malformed-nested] malformed nested text blocks the enclosing
   );
   openDetails();
   const check = screen.getByRole('group', { name: 'Check' });
-  fireEvent.change(within(check).getByRole('textbox', { name: 'Check roll' }), {
-    target: { value: '1e2' },
-  });
+  const checkField = within(check).getByRole('textbox', { name: 'Check roll' });
+  fireEvent.change(checkField, { target: { value: '1e2' } });
   expect(within(check).getByRole('alert')).toHaveTextContent(
     'Use digits only.',
   );
+  // Moving focus to Save blurs the field; its own error must survive.
+  fireEvent.blur(checkField);
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  expect(checkField).toHaveAttribute('aria-invalid', 'true');
+  expect(checkField).toHaveAccessibleDescription(/Use digits only\./);
   await waitFor(() =>
     expect(
       screen

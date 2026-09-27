@@ -409,6 +409,17 @@ test('[rules.WEEK-14.upkeep-malformed] malformed totals never reach the edit and
     expect(alerts()).toContain('Use digits only.');
   }
   expect(edit).not.toHaveBeenCalled();
+  // Leaving the field keeps the rejected-input error; once the field is
+  // validly empty again, blur reports the ordinary required feedback.
+  fireEvent.blur(field);
+  expect(alerts()).toContain('Use digits only.');
+  fireEvent.change(field, { target: { value: '3' } });
+  fireEvent.change(field, { target: { value: '' } });
   fireEvent.blur(field);
   await waitFor(() => expect(alerts()).toContain('A value is required.'));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'upkeep_roll',
+    field: 'training',
+    roll: null,
+  });
 });
