@@ -416,14 +416,14 @@ export function useMilitiaCorrections({
   // A section edits its own facts from the newest militia; the People &
   // officers fallback sends the whole snapshot it opened from, so an absent
   // economy stays absent.
-  const startingValues = (entry: CorrectableEntry) =>
+  const startingValuesFor = (entry: CorrectableEntry) =>
     entry === 'people' ? setupFrom(accepted.state) : editorFrom(accepted.state);
 
   function open(entry: MilitiaEntryKey) {
     if (locked || entry === 'weekCarried') return;
     setSelected(entry);
     setCandidateErrors([]);
-    form.reset(startingValues(entry));
+    form.reset(startingValuesFor(entry));
     dispatch({
       type: 'open',
       target:
@@ -479,7 +479,7 @@ export function useMilitiaCorrections({
   }
 
   // A plan that sends nothing reports why (unchanged, conflict).
-  function sendable(plan: SavePlan) {
+  function reportUnlessSendable(plan: SavePlan) {
     if (plan.kind === 'send') return plan;
     if (plan.kind !== 'busy') dispatch({ type: plan.kind });
     return null;
@@ -489,7 +489,7 @@ export function useMilitiaCorrections({
   // result before sending it.
   const saveSection = (section: MilitiaSectionKey) =>
     submit((setup) => {
-      const plan = sendable(
+      const plan = reportUnlessSendable(
         planSectionSave(
           correction,
           accepted,
@@ -513,7 +513,9 @@ export function useMilitiaCorrections({
   // revision it opened from.
   const savePeople = () =>
     submit((setup) =>
-      sendable(planPeopleSave(correction, setup.state.militiaSnapshot)),
+      reportUnlessSendable(
+        planPeopleSave(correction, setup.state.militiaSnapshot),
+      ),
     );
 
   // A choice field (Focus) has no input for the form to focus: find its
@@ -524,7 +526,7 @@ export function useMilitiaCorrections({
     else form.setFocus(field as never);
   }
 
-  const reason = () => ({
+  const describeReason = () => ({
     label: REASON_LABEL,
     error: reasonError(values.notes, form.formState.errors.notes?.message),
   });
@@ -537,7 +539,7 @@ export function useMilitiaCorrections({
   // A new correction from the newest facts: fields and the reason are
   // cleared, so it must be reviewed again.
   function restart(entry: CorrectableEntry) {
-    form.reset(startingValues(entry));
+    form.reset(startingValuesFor(entry));
     setCandidateErrors([]);
     dispatch({ type: 'restart', accepted });
   }
@@ -574,7 +576,7 @@ export function useMilitiaCorrections({
           notes: { label: REASON_LABEL },
         },
       ),
-      reason: reason(),
+      reason: describeReason(),
       comparison: null,
       focusField,
       save: savePeople,
@@ -654,7 +656,7 @@ export function useMilitiaCorrections({
         ...sectionFieldLabels(section, values.state.militiaSnapshot),
         notes: { label: REASON_LABEL },
       }),
-      reason: reason(),
+      reason: describeReason(),
       comparison:
         view.kind === 'conflict'
           ? {

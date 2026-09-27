@@ -1,3 +1,5 @@
+import type { MilitiaEntryKey } from './militia-correction-sections';
+
 export type CampaignSection =
   | 'home'
   | 'week'
@@ -15,7 +17,10 @@ export function campaignPath(
 }
 
 /** Militia, optionally with one page entry selected (`?section=people`). */
-export function militiaPath(campaignId: string, entry?: string): string {
+export function militiaPath(
+  campaignId: string,
+  entry?: MilitiaEntryKey,
+): string {
   const path = campaignPath(campaignId, 'militia');
   return entry ? `${path}?section=${encodeURIComponent(entry)}` : path;
 }

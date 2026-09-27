@@ -362,68 +362,109 @@ export function namedItemReferences(
 }
 
 const sourcePath = 'state.militiaSnapshot';
-const conditionReference = new RegExp(
+const conditionField = new RegExp(
   `^${sourcePath}\\.characterActions\\.people\\.(\\d+)\\.(characterId|location)$`,
 );
-const benefitReference = new RegExp(
-  `^(${sourcePath}\\.eventBenefits\\.(skills|markets)\\.(\\d+)\\.(settlementId|characterIds|settlementIds))(?:\\.(\\d+))?$`,
+const skillSettlementField = new RegExp(
+  `^${sourcePath}\\.eventBenefits\\.skills\\.(\\d+)\\.settlementId$`,
 );
-const duplicateConditions = `${sourcePath}.characterActions.people`;
+// A choice list's element; the list itself is the control that fixes it.
+const skillCharacterField = new RegExp(
+  `^(${sourcePath}\\.eventBenefits\\.skills\\.(\\d+)\\.characterIds)\\.(\\d+)$`,
+);
+const marketSettlementField = new RegExp(
+  `^(${sourcePath}\\.eventBenefits\\.markets\\.(\\d+)\\.settlementIds)\\.(\\d+)$`,
+);
+const conditionsField = `${sourcePath}.characterActions.people`;
 
 type NamedReference = {
   /** The control that fixes it: the row's field, or its whole choice list. */
   field: string;
-  row: string;
+  /** The row as its editor labels it: "Skill benefit 1". */
+  rowLabel: string;
   missing: MissingReference;
 };
 
-// The settlement or character a condition or carried benefit names at a
-// form field path, with the row's label as its editor shows it.
-function sourceReferenceAt(
+// The character or refuge settlement a character condition names.
+function findConditionReference(
   field: string,
   snapshot: Snapshot,
 ): NamedReference | null {
-  const condition = conditionReference.exec(field);
-  if (condition) {
-    const [, row, key] = condition;
-    const person = snapshot.characterActions?.people[Number(row)];
-    if (!person) return null;
-    const missing: MissingReference | null =
-      key === 'characterId'
-        ? { kind: 'character', id: person.characterId }
-        : person.location.kind === 'refuge'
-          ? { kind: 'settlement', id: person.location.settlementId }
-          : null;
-    return missing
-      ? { field, row: `Character condition ${Number(row) + 1}`, missing }
-      : null;
-  }
-  const benefit = benefitReference.exec(field);
-  if (!benefit) return null;
-  const [, list, family, row, key, position] = benefit;
-  const at = Number(row);
-  const label =
-    family === 'skills'
-      ? `Skill benefit ${at + 1}`
-      : `Market Day benefit ${at + 1}`;
-  const skill = family === 'skills' ? snapshot.eventBenefits?.skills[at] : null;
-  const market =
-    family === 'markets' ? snapshot.eventBenefits?.markets[at] : null;
-  const id =
-    key === 'settlementId'
-      ? skill?.settlementId
-      : key === 'characterIds'
-        ? skill?.characterIds[Number(position)]
-        : market?.settlementIds[Number(position)];
-  if (id === undefined || id === null) return null;
+  const match = conditionField.exec(field);
+  if (!match) return null;
+  const [, row, key] = match;
+  const person = snapshot.characterActions?.people[Number(row)];
+  if (!person) return null;
+  const rowLabel = `Character condition ${Number(row) + 1}`;
+  if (key === 'characterId')
+    return {
+      field,
+      rowLabel,
+      missing: { kind: 'character', id: person.characterId },
+    };
+  if (person.location.kind !== 'refuge') return null;
   return {
-    field: list!,
-    row: label,
-    missing: {
-      kind: key === 'characterIds' ? 'character' : 'settlement',
-      id,
-    },
+    field,
+    rowLabel,
+    missing: { kind: 'settlement', id: person.location.settlementId },
   };
+}
+
+// The settlement or character a carried skill or Market Day benefit names.
+function findBenefitReference(
+  field: string,
+  snapshot: Snapshot,
+): NamedReference | null {
+  const skills = snapshot.eventBenefits?.skills ?? [];
+  const markets = snapshot.eventBenefits?.markets ?? [];
+  const settlement = skillSettlementField.exec(field);
+  if (settlement) {
+    const row = Number(settlement[1]);
+    const id = skills[row]?.settlementId;
+    if (!id) return null;
+    return {
+      field,
+      rowLabel: `Skill benefit ${row + 1}`,
+      missing: { kind: 'settlement', id },
+    };
+  }
+  const character = skillCharacterField.exec(field);
+  if (character) {
+    const [, list = field, row, position] = character;
+    const id = skills[Number(row)]?.characterIds[Number(position)];
+    if (!id) return null;
+    return {
+      field: list,
+      rowLabel: `Skill benefit ${Number(row) + 1}`,
+      missing: { kind: 'character', id },
+    };
+  }
+  const market = marketSettlementField.exec(field);
+  if (!market) return null;
+  const [, list = field, row, position] = market;
+  const id = markets[Number(row)]?.settlementIds[Number(position)];
+  if (!id) return null;
+  return {
+    field: list,
+    rowLabel: `Market Day benefit ${Number(row) + 1}`,
+    missing: { kind: 'settlement', id },
+  };
+}
+
+// "Ada has more than one character condition.", or null when no character
+// is recorded twice.
+function duplicateConditionsMessage(snapshot: Snapshot, names: IdentityNames) {
+  const ids = (snapshot.characterActions?.people ?? []).map(
+    (person) => person.characterId,
+  );
+  const repeated = [
+    ...new Set(ids.filter((id, index) => ids.indexOf(id) !== index)),
+  ];
+  if (repeated.length === 0) return null;
+  const characters = listed(
+    repeated.map((id) => missingName({ kind: 'character', id }, names)),
+  );
+  return `${capitalized(characters)} ${repeated.length === 1 ? 'has' : 'have'} more than one character condition.`;
 }
 
 /**
@@ -440,28 +481,18 @@ export function namedSourceReferences(
 ): SetupErrorDescriptor[] {
   return descriptors.map((descriptor) => {
     if (!descriptor.field) return descriptor;
-    if (descriptor.field === duplicateConditions) {
-      const ids = (snapshot.characterActions?.people ?? []).map(
-        (person) => person.characterId,
-      );
-      const twice = ids.filter((id, index) => ids.indexOf(id) !== index);
-      if (twice.length === 0) return descriptor;
-      const who = listed(
-        [...new Set(twice)].map((id) =>
-          missingName({ kind: 'character', id }, names),
-        ),
-      );
-      return {
-        ...descriptor,
-        message: `${capitalized(who)} ${twice.length === 1 ? 'has' : 'have'} more than one character condition.`,
-      };
+    if (descriptor.field === conditionsField) {
+      const message = duplicateConditionsMessage(snapshot, names);
+      return message ? { ...descriptor, message } : descriptor;
     }
-    const reference = sourceReferenceAt(descriptor.field, snapshot);
+    const reference =
+      findConditionReference(descriptor.field, snapshot) ??
+      findBenefitReference(descriptor.field, snapshot);
     if (!reference) return descriptor;
     return {
       ...descriptor,
       field: reference.field,
-      message: `${reference.row} names ${missingName(reference.missing, names)}, which is no longer in the militia.`,
+      message: `${reference.rowLabel} names ${missingName(reference.missing, names)}, which is no longer in the militia.`,
     };
   });
 }
