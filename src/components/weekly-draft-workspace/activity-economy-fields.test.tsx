@@ -125,6 +125,14 @@ describe('markets', () => {
     acknowledgements: [wandAvailability],
   };
 
+  test('the availability Save button wraps a long item name instead of widening the page', () => {
+    open(facts(market));
+    const classes = button('Save availability of wand').className.split(' ');
+    expect(classes).toContain('whitespace-normal');
+    expect(classes).not.toContain('whitespace-nowrap');
+    expect(classes).toContain('max-w-full');
+  });
+
   test('[rules.ACT-10.market-edit] a market edits its settlement, sales and each purchase’s availability without touching the rest', async () => {
     const { edit } = open(facts(market));
     fireEvent.click(card('Market settlement', 'Fort'));

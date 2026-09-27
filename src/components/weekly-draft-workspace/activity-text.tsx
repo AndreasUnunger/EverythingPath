@@ -50,7 +50,7 @@ export function ActivityText({
           control={form.control}
           name="text"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="min-w-0">
               <FormLabel>{name}</FormLabel>
               <FormControl>
                 <Input {...field} disabled={disabled} />
@@ -59,7 +59,14 @@ export function ActivityText({
             </FormItem>
           )}
         />
-        <Button type="submit" variant="outline" disabled={disabled}>
+        {/* The name can be long (an item's availability), so the button
+            wraps inside its column instead of widening the page. */}
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={disabled}
+          className="h-auto min-h-9 max-w-full whitespace-normal text-left [overflow-wrap:anywhere]"
+        >
           Save {name.toLowerCase()}
         </Button>
       </form>
