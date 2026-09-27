@@ -10,6 +10,8 @@ import {
 } from './event-steps';
 import type { EventView as EventFacts } from './types';
 import { useEventEdits } from './use-event-edits';
+import type { LatestOverseerSupport } from './overseer-support-facts';
+import { OverseerSupportProvider } from './use-overseer-support';
 
 // The Event phase in rules order: the chance roll, any automatic events, the
 // rolled event tree (with Roll Twice children nested inside the roll that
@@ -17,19 +19,37 @@ import { useEventEdits } from './use-event-edits';
 // outcome once everything above is in. Every step renders the view's facts;
 // edits go through the gated hook only.
 
-export function EventView({
-  view,
-  edit,
-  disabled,
-  preparation,
-  openActivity,
-}: {
+type EventViewProps = {
   view: EventFacts;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   preparation?: EventPreparation;
   openActivity?: () => void;
-}) {
+  // The newest Overseer support facts, read between the edits of a move.
+  latestOverseer?: LatestOverseerSupport;
+};
+
+// The week's one Overseer support is shared by every check toggle below.
+export function EventView(props: EventViewProps) {
+  return (
+    <OverseerSupportProvider
+      facts={props.view.overseer}
+      edit={props.edit}
+      latest={props.latestOverseer}
+      disabled={props.disabled}
+    >
+      <EventSteps {...props} />
+    </OverseerSupportProvider>
+  );
+}
+
+function EventSteps({
+  view,
+  edit,
+  disabled,
+  preparation,
+  openActivity,
+}: EventViewProps) {
   const edits = useEventEdits(view, edit);
   const blockProps = { view, edit, disabled, edits, preparation };
   const activeSets = view.candidates.filter((set) => set.active);

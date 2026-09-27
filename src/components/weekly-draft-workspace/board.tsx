@@ -121,6 +121,17 @@ function latestActivity(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView
     : null;
 }
+// The store's current Overseer support facts (Event or Persistent), read
+// between the edits of a support move so each step plans from the newest
+// accepted and pending draft.
+function latestOverseer(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' &&
+    (current.phaseView.phase === 'event' ||
+      current.phaseView.phase === 'persistent')
+    ? current.phaseView.overseer
+    : null;
+}
 // The one save/confirmation status with the other-player note beside it and
 // the phone-only details button. Inside the campaign shell it fills the
 // top-bar position; the standalone screen shows the same elements in the
@@ -252,6 +263,7 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             preparation={workspace.eventPreparation}
             openActivity={() => choosePhase('activity')}
+            latestOverseer={() => latestOverseer(controller?.store)}
           />
         ) : view.phase === 'persistent' ? (
           <PersistentView
@@ -259,6 +271,7 @@ export function WeeklyWorkspaceBoard({
             edit={workspace.edit}
             disabled={disabled}
             openSource={openSource}
+            latestOverseer={() => latestOverseer(controller?.store)}
           />
         ) : view.phase === 'summary' ? (
           <SummaryView

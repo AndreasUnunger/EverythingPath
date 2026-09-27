@@ -9,7 +9,6 @@ import type {
   EventTableArithmetic,
 } from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
-import type { projectUpkeep } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -17,6 +16,9 @@ import type { RollReadFacts } from './roll-facts';
 import type { RollSpec } from '~/lib/raw-roll';
 import type { OFFICER_ROLES } from '~/lib/canonical-roster';
 import type { TrackedCharacter } from '~/lib/rules-character-state';
+import type { ProgressionBoon } from '~/lib/rules-progression';
+import type { EventSabotageFacts } from './event-sabotage-facts';
+import type { OverseerSupportFacts } from './overseer-support-facts';
 export type OfficerRole = (typeof OFFICER_ROLES)[number];
 type CharacterStatus = TrackedCharacter['status'];
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
@@ -60,10 +62,6 @@ export type UpkeepView = {
     roles: CanonicalRoster['officers'][number]['role'][];
   }[];
   transfers: WeeklyDraft['upkeep']['treasuryTransfers'];
-  boons: Extract<
-    ReturnType<typeof projectUpkeep>['plan'][number],
-    { kind: 'boon' }
-  >[];
   exceptions: {
     subjectId: string;
     ruleId: string;
@@ -160,6 +158,53 @@ export type UpkeepTransfer = {
   } | null;
   issues: UpkeepIssue[];
 };
+// One PC's boon for one gained rank, recorded as the text acknowledgement
+// of `subjectId` (`upkeep:boon:<rank>:<characterId>`).
+export type UpkeepRankBoon = {
+  subjectId: string;
+  characterId: string;
+  name: string;
+  // The recorded acknowledgement's identity, or the one a first record uses.
+  acknowledgementId: string;
+  // Null until the boon's outcome is recorded.
+  outcome: string | null;
+  // The feat cards of a title with a fixed feat package; null for open
+  // outcomes (Skilled, Gift, XP, Champion), which are recorded as text.
+  feats: {
+    options: string[];
+    selected: string | null;
+    // Recorded text that is none of the options, kept until replaced or
+    // cleared.
+    legacyOutcome: string | null;
+  } | null;
+  // Still unrecorded, so the week cannot be confirmed yet.
+  required: boolean;
+};
+// A rank gained this week, its Table 6-1 training threshold and the boon
+// every eligible PC gains with it.
+export type UpkeepRankGain = {
+  rank: number;
+  minimumTraining: number;
+  reward: ProgressionBoon;
+  boons: UpkeepRankBoon[];
+};
+export type UpkeepRank = {
+  status: UpkeepSectionStatus;
+  before: number;
+  // Null while waiting or while no active PC level can cap the rank.
+  after: number | null;
+  // The training Step 4 judged, after the earlier steps; null while waiting.
+  training: number | null;
+  // The next rank above `after` and its minimum training; null at the top
+  // rank or while `after` is unknown.
+  next: { rank: number; minimumTraining: number } | null;
+  // Set when the highest active PC level, not training, keeps the militia
+  // from its next rank; `trainingRank` is the rank training alone reaches.
+  capped: { trainingRank: number; highestPcLevel: number } | null;
+  // Every rank gained this week in order, each with its boons.
+  gains: UpkeepRankGain[];
+  issues: UpkeepIssue[];
+};
 export type UpkeepSections = {
   teams: {
     status: UpkeepSectionStatus;
@@ -208,12 +253,7 @@ export type UpkeepSections = {
     trainingDelta: number | null;
     loss: UpkeepLoss | null;
   };
-  rank: {
-    status: UpkeepSectionStatus;
-    before: number;
-    after: number | null;
-    issues: UpkeepIssue[];
-  };
+  rank: UpkeepRank;
   transfers: {
     status: UpkeepSectionStatus;
     // Treasury before and after the ordered transfers (and any Theft on
@@ -600,6 +640,10 @@ export type EventView = {
   exceptions: WeeklyDraft['rulesExceptions'];
   checks: ActivityView['checks'];
   options: Record<string, { value: string; label: string }[]>;
+  // Sabotage per occurrence, by event identity, and the week's one Overseer
+  // support shared with Persistent. Hand-built test views may omit them.
+  sabotage?: Record<string, EventSabotageFacts>;
+  overseer?: OverseerSupportFacts;
   requirements: string[];
   warnings: string[];
 };
@@ -623,6 +667,7 @@ export type PersistentView = {
   // Earlier phases whose open requirements hold Persistent back.
   earlierPhases: Phase[];
   options: EventView['options'];
+  overseer?: OverseerSupportFacts;
   events: (WeeklyDraft['context']['carriedEvents'][number] & {
     name: string;
     // The event type's display name, e.g. "Low Morale".

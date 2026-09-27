@@ -274,6 +274,9 @@ export const initializeUpkeep = internalMutation({
     maximumNotoriety: v.optional(v.boolean()),
     // Adds a missing team that rolls to return during Upkeep.
     missingTeam: v.optional(v.boolean()),
+    // Rank 8 with enough training, treasury and PC level that settling every
+    // earlier Upkeep step gains rank 9 (Captain) and its feat choice.
+    rankGain: v.optional(v.boolean()),
     persistent: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
@@ -293,12 +296,18 @@ export const initializeUpkeep = internalMutation({
     if (!character) throw new Error('Missing fixture officer');
     const snapshot = militiaSnapshotSchema.parse({
       ...state.snapshot,
-      rank: 2,
-      training: 14,
-      treasuryCopper: 5000,
+      rank: args.rankGain ? 8 : 2,
+      training: args.rankGain ? 130 : 14,
+      treasuryCopper: args.rankGain ? 20000 : 5000,
       notoriety: args.maximumNotoriety ? 100 : state.snapshot.notoriety,
       roster: {
-        people: [{ characterId: character._id, kind: 'pc', hitDice: 2 }],
+        people: [
+          {
+            characterId: character._id,
+            kind: 'pc',
+            hitDice: args.rankGain ? 9 : 2,
+          },
+        ],
         teams: args.choices
           ? [
               {
@@ -354,7 +363,7 @@ export const initializeUpkeep = internalMutation({
       characters: [
         {
           characterId: character._id,
-          level: 2,
+          level: args.rankGain ? 9 : 2,
           strength: 10,
           dexterity: 10,
           constitution: 10,

@@ -59,6 +59,7 @@ const personKinds: Record<string, string> = {
   pc: 'Player character',
   officer_npc: 'Officer NPC',
   other_npc: 'Other NPC',
+  npc: 'NPC',
 };
 
 function omit<T extends object>(value: T, ...keys: string[]) {
@@ -231,14 +232,20 @@ function settlementFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
   });
 }
 
-function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+function rosterFacts(
+  snapshot: Snapshot,
+  names: ReviewNames,
+  frozen: boolean,
+): Fact[] {
   const people = snapshot.roster.people.map((person) =>
     fact(
       `person:${person.characterId}`,
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      `${personKinds[person.kind] ?? words(person.kind)}${person.hitDice === null ? '' : ` · ${person.hitDice} Hit Dice`}`,
+      // Unknown Hit Dice stay unknown, never zero: a frozen record never
+      // stored them, while a live week simply has none set yet.
+      `${personKinds[person.kind] ?? words(person.kind)} · ${person.hitDice === null ? `Hit Dice ${frozen ? 'not recorded' : 'not set'}` : `${person.hitDice} Hit Dice`}`,
       'Not on roster',
     ),
   );
@@ -490,7 +497,11 @@ function recordedFacts(
 }
 
 /** Every comparable fact of one state, in Result row order. */
-function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
+function stateFacts(
+  state: ComparedState,
+  names: ReviewNames,
+  frozen: boolean,
+): Fact[] {
   const snapshot = state.militiaSnapshot;
   const context = state.context;
   return [
@@ -499,7 +510,7 @@ function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
           ...militiaFacts(snapshot),
           ...teamFacts(snapshot, names),
           ...settlementFacts(snapshot, names),
-          ...rosterFacts(snapshot, names),
+          ...rosterFacts(snapshot, names, frozen),
           ...bonusFacts(snapshot, names),
           ...economyFacts(snapshot, names),
           ...conditionAndBenefitFacts(snapshot, names),
@@ -624,7 +635,10 @@ export function compareWeekStates({
       ? {
           state,
           facts: new Map(
-            stateFacts(state, names).map((fact) => [fact.key, fact]),
+            stateFacts(state, names, unrecorded !== undefined).map((fact) => [
+              fact.key,
+              fact,
+            ]),
           ),
         }
       : null,

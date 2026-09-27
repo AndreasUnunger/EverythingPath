@@ -43,6 +43,7 @@ import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import { test, expect } from './support/fixtures';
+import { exerciseRankBoon } from './support/rank-boons';
 import { workspaceCaseKey } from './support/matrix';
 import {
   canonicalPersistenceFixtureCall,
@@ -461,6 +462,7 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
         choices: true,
         maximumNotoriety: true,
         missingTeam: true,
+        rankGain: true,
       }),
     );
     const notorietyRoute = `/canonical-workspace?campaign=${notorietyScope.campaignId}`;
@@ -550,6 +552,7 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
     await exerciseTeamConditionRows(gm, player, run, notorietyScope);
+    await exerciseRankBoon(gm, player);
   } finally {
     network.release();
   }

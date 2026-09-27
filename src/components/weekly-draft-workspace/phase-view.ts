@@ -71,7 +71,6 @@ export function phaseView(
     rolls,
     officers,
     transfers,
-    boons: projection.plan.filter((change) => change.kind === 'boon'),
     exceptions: [
       ...source.snapshot.roster.teams.flatMap((team) => [
         {

@@ -70,6 +70,8 @@ export function eventTopologyMessage(
   if (!owner) return null;
   const tail = code.slice(owner.id.length + 1);
   const prefix = `${owner.event.label}: `;
+  if (owner.id === owner.event.sabotageId)
+    return `${prefix}${sabotageMessage(tail, context.warning)}`;
   if (tail === 'table:1d100') return `${prefix}enter the table roll (d100).`;
   if (tail === 'roll_twice:2')
     return overfull(
@@ -120,6 +122,18 @@ export function eventRequirement(value: string) {
     return `${labels[dice[1]!] ?? 'Required roll'}: enter ${dice[2]}d${dice[3]}.`;
   }
   const messages: [string, string][] = [
+    [
+      'overseer-already-used',
+      'Overseer support is already used on another event this week. Move it here or remove it.',
+    ],
+    [
+      'overseer-conflict',
+      'Different Overseers are recorded for this event. Turn support off and on again to keep one.',
+    ],
+    [
+      'overseer-ineligible',
+      'The recorded Overseer no longer holds the role. Remove the support.',
+    ],
     ['roll_twice', 'Roll Twice needs two independent child events.'],
     ['replacement', 'A replacement event roll is required.'],
     ['acknowledgement', 'Record the table’s outcome acknowledgement.'],
@@ -202,4 +216,25 @@ export function eventChange(
   return (
     labels[change.kind] ?? 'The event outcome is included in the week preview.'
   );
+}
+
+// Sabotage wording for one code of an event's reaction (`tail` follows the
+// reaction's identity).
+export function sabotageMessage(tail: string, warning = false) {
+  if (tail === 'team') return 'Sabotage: choose the Saboteurs team.';
+  if (tail === 'check-type')
+    return 'Sabotage: choose the check (Loyalty, Secrecy or Security).';
+  if (tail === 'check:1d20') return 'Sabotage: enter the check roll (d20).';
+  if (tail === 'notoriety:1d6')
+    return 'Sabotage: enter the notoriety roll (d6).';
+  if (tail === 'acknowledgement') return 'Sabotage: record what happened.';
+  if (tail === 'no-event')
+    return 'Sabotage: a calm week has no event to negate. Cancel it.';
+  if (tail.endsWith(':roll-range'))
+    return 'Sabotage: the roll is outside its usual range. The recorded value is kept for the table.';
+  if (tail.endsWith(':exception'))
+    return 'Sabotage: record a Rules Exception reason for this team, or choose another team.';
+  return warning
+    ? 'Sabotage: this team cannot normally sabotage now.'
+    : `Sabotage: ${eventRequirement(tail)}`;
 }

@@ -12,7 +12,9 @@ import type {
 import { Frame, SectionNumber, wrap } from './review-parts';
 
 // Section 6. The only state in the week renderer is the "Show all values"
-// toggle; the table serves md+ and the stacked list serves phones.
+// toggle. Both the table and the stacked list are always in the DOM; the
+// section's own width (a container query), not the viewport, decides which
+// shows, so a narrow pane beside another column stacks its values too.
 
 type Columns = readonly [string, string, string];
 
@@ -104,7 +106,7 @@ function ResultTable({
   columns: Columns;
 }) {
   return (
-    <table className="hidden w-full table-fixed text-sm md:table">
+    <table className="hidden w-full table-fixed text-sm @lg:table">
       {/* The label keeps a readable share; long recorded values wrap. */}
       <colgroup>
         <col className="w-[31%]" />
@@ -177,7 +179,7 @@ function ResultList({
   columns: Columns;
 }) {
   return (
-    <ul className="min-w-0 space-y-2 md:hidden">
+    <ul className="min-w-0 space-y-2 @lg:hidden">
       {rows.map((row) => (
         <ResultListItem key={row.key} row={row} columns={columns} />
       ))}
@@ -198,6 +200,7 @@ export function Result({
   return (
     <Frame
       label="Result"
+      className="@container"
       heading={
         <>
           <SectionNumber>6</SectionNumber>Result · week {result.nextWeek}{' '}

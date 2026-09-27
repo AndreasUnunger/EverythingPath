@@ -2,6 +2,7 @@
 import { EventCheckRow } from './event-check-row';
 import type { EventFamilyInputsProps } from './event-family-inputs';
 import { EventNote } from './event-note';
+import { OverseerSupportControl } from './overseer-support-control';
 
 // Missing in Action, Sickness and Turn Around: a team, and Sickness Twice's
 // mandatory Loyalty save. Team events never offer Attempt it / Let it happen.
@@ -22,6 +23,14 @@ export function EventTeamInputs({
           recorded={panel.checkRoll}
           disabled={disabled}
           onRoll={(roll) => showRefusal(edits.setCheckRoll(id, roll))}
+          support={
+            <OverseerSupportControl
+              eventId={id}
+              check="loyalty"
+              subject={panel.check.label}
+              breakdown={panel.check.breakdown}
+            />
+          }
         />
       )}
       {panel.retainedCheck && (

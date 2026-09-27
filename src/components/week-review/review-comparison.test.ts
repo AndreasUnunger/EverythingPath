@@ -169,6 +169,29 @@ describe('[SUM-06] Result comparison', () => {
     );
   });
 
+  test('unknown Hit Dice read "not set" in a live review and "not recorded" in a frozen record', () => {
+    const live = JSON.stringify(
+      compareWeekStates({
+        now: state(),
+        baseline: state(),
+        final: state(),
+        names,
+      }),
+    );
+    expect(live).toContain('Player character · Hit Dice not set');
+    expect(live).not.toContain('Hit Dice not recorded');
+    const frozen = JSON.stringify(
+      compareWeekStates({
+        now: state(),
+        baseline: state(),
+        final: state(),
+        names,
+        unrecorded: 'Not recorded',
+      }),
+    );
+    expect(frozen).toContain('Player character · Hit Dice not recorded');
+  });
+
   test('an incomplete preview leaves Rules Baseline and Final unavailable, never zero or unchanged', () => {
     const rows = compareWeekStates({
       now: state(),
