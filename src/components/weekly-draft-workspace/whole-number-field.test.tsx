@@ -48,6 +48,32 @@ test('[rules.P81.digits] digit entry rejects invalid text, keeps zero, and emits
   expect(input).toHaveAttribute('type', 'text');
 });
 
+test('[WEEK-15.signed] a signed field takes negative and zero bonuses, holds a lone minus sign locally and rejects malformed text', async () => {
+  const save = vi.fn();
+  render(
+    <WholeNumberField signed label="Skill bonus" value={3} onValue={save} />,
+  );
+  const input = screen.getByLabelText('Skill bonus');
+  fireEvent.change(input, { target: { value: '-' } });
+  expect(input).toHaveValue('-');
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.blur(input);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Use a whole number such as 4 or -3.',
+  );
+  fireEvent.change(input, { target: { value: '-2' } });
+  expect(save).toHaveBeenLastCalledWith(-2);
+  fireEvent.change(input, { target: { value: '-0' } });
+  expect(save).toHaveBeenLastCalledWith(0);
+  for (const invalid of ['--1', '1.5', '+', 'x']) {
+    fireEvent.change(input, { target: { value: invalid } });
+    expect(input).toHaveValue('-0');
+  }
+  expect(save).toHaveBeenCalledTimes(2);
+  fireEvent.change(input, { target: { value: '' } });
+  expect(save).toHaveBeenLastCalledWith(null);
+});
+
 test('[rules.WEEK-14.rejected-focus-loss] a rejected character keeps its styled, announced error when focus leaves while the prior valid value is retained, until valid input clears it', async () => {
   const save = vi.fn();
   const onInvalid = vi.fn();

@@ -216,18 +216,23 @@ function unmetDecision(decision: Decision | null, rules: string[]) {
 }
 
 // A check attempt that leaves the event in place this week.
+// A successful Theft check keeps 90% only once no other Theft still takes
+// half of this week's gains.
 function checkResult(
   eventType: Carried['eventType'],
   changes: readonly PersistentChange[],
+  otherThefts: readonly string[],
 ): Result {
   const mitigation = findChange(changes, 'persistent_mitigation');
-  if (mitigation)
+  if (mitigation && !mitigation.succeeded)
+    return { tone: 'stays', text: 'Stays · Loyalty check failed' };
+  if (mitigation && otherThefts.length)
     return {
       tone: 'stays',
-      text: mitigation.succeeded
-        ? 'Stays · keeps 90% of this week’s gains'
-        : 'Stays · Loyalty check failed',
+      text: 'Stays · check succeeded · another Theft still halves gains',
     };
+  if (mitigation)
+    return { tone: 'stays', text: 'Stays · keeps 90% of this week’s gains' };
   if (findChange(changes, 'persistent_officer_check'))
     return { tone: 'stays', text: 'Stays · officer check failed' };
   return {
@@ -248,6 +253,7 @@ export function projectedResult({
   changes,
   requirements,
   costPending,
+  otherThefts = [],
 }: {
   event: Pick<Carried, 'eventId' | 'eventType'>;
   decision: Decision | null;
@@ -255,6 +261,8 @@ export function projectedResult({
   changes: readonly PersistentChange[];
   requirements: readonly string[];
   costPending: boolean;
+  // Other Theft events still taking half of this week's gains.
+  otherThefts?: readonly string[];
 }): Result {
   if (endedBy) return { tone: 'ends', text: `Ends · ${endedBy.label}` };
   const rules = requirements.map((key) => key.slice(event.eventId.length + 1));
@@ -262,7 +270,7 @@ export function projectedResult({
     stagedEnding(changes, costPending) ?? unmetDecision(decision, rules);
   if (result) return result;
   if (decision?.kind === 'mitigate')
-    return checkResult(event.eventType, changes);
+    return checkResult(event.eventType, changes, otherThefts);
   return {
     tone: 'stays',
     text:

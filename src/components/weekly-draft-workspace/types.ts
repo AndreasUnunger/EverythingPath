@@ -687,12 +687,104 @@ export type PersistentView = {
     check: { label: string; note: string } | null;
     changes: PersistentChange[];
     checks: ActivityView['checks'];
+    // The saved check's own inputs and result, when the decision is a
+    // Theft or Rivalry check; null otherwise.
+    theftCheck: PersistentTheftCheck | null;
+    rivalryCheck: PersistentRivalryCheck | null;
+    // Recorded check fields this event's check does not use.
+    retained: PersistentRetained[];
     exceptions: WeeklyDraft['rulesExceptions'];
     requirements: string[];
     warnings: string[];
   })[];
   requirements: string[];
   warnings: string[];
+};
+// One modifier recorded on a Persistent check roll, by list position.
+export type PersistentRecordedModifier = {
+  index: number;
+  sourceId: string;
+  value: number;
+  reason: string;
+  // A one-use bonus by its source name; otherwise the entered reason.
+  label: string;
+  // Custom and other entered modifiers can be edited; a bonus only removed.
+  kind: 'custom' | 'bonus' | 'other';
+  // Why the rules add nothing for this entry, or null when it counts.
+  note: string | null;
+};
+// A one-use rules bonus this check can still take.
+export type PersistentBonusChoice = {
+  sourceId: string;
+  label: string;
+  value: number;
+};
+// Theft's Loyalty check for this week's temporary mitigation.
+export type PersistentTheftCheck = {
+  row: EventCheckFacts;
+  recorded: RawRoll | undefined;
+  modifiers: PersistentRecordedModifier[];
+  bonusChoices: PersistentBonusChoice[];
+};
+export type RivalrySkill = NonNullable<
+  Extract<
+    WeeklyDraft['persistent']['decisions'][number],
+    { kind: 'mitigate' }
+  >['officerCheck']
+>['skill'];
+// Rivalry's officer check: one character's skill check against DC 20.
+export type PersistentRivalryCheck = {
+  characterId: string | null;
+  // Every militia character, labelled with their officer roles ("Aubrin ·
+  // Ambassador", "Pell · not an officer"); a recorded character no longer
+  // in the militia is listed as unavailable.
+  characters: {
+    value: string;
+    label: string;
+    officer: boolean;
+    available: boolean;
+  }[];
+  skill: RivalrySkill | null;
+  // Null when blank, which leaves the check incomplete; zero is valid.
+  skillBonus: number | null;
+  recorded: RawRoll | undefined;
+  spec: RollSpec;
+  // Skill bonus plus counted modifiers; null without a skill bonus.
+  modifier: number | null;
+  total: number | null;
+  breakdown: { source: string; label: string; value: number }[];
+  succeeded: boolean | null;
+  resultText: string | null;
+  required: { character: boolean; skillBonus: boolean; roll: boolean };
+  // The chosen character is no longer in the militia.
+  unavailable: boolean;
+  // The chosen character holds no officer role: the check needs the
+  // officer-assignment Rules Exception.
+  notOfficer: boolean;
+  modifiers: PersistentRecordedModifier[];
+};
+// Check fields an older editor recorded that this check does not use.
+export type PersistentRetainedField =
+  | 'targets'
+  | 'strategistCharacterId'
+  | 'officerCheck'
+  | 'rolls'
+  | 'overseerCharacterId';
+// One retained field as shown: its name and recorded value, or its targets.
+export type PersistentRetained = {
+  field: PersistentRetainedField;
+  label: string;
+  // The recorded value in words; targets list each target instead.
+  value: string;
+  targets: {
+    name: string;
+    target: NonNullable<
+      Extract<
+        WeeklyDraft['persistent']['decisions'][number],
+        { kind: 'mitigate' }
+      >['targets']
+    >[number];
+  }[];
 };
 export type PhaseView =
   | UpkeepView

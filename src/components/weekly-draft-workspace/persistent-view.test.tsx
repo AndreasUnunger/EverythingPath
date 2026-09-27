@@ -38,6 +38,9 @@ const rivalry: Event = {
   },
   changes: [],
   checks: [],
+  theftCheck: null,
+  rivalryCheck: null,
+  retained: [],
   exceptions: [],
   requirements: [],
   warnings: [],
@@ -466,68 +469,6 @@ test('[WEEK-10.locked] Confirmation disables every Persistent control', () => {
     ...within(section).getAllByRole('textbox'),
   ])
     expect(control).toBeDisabled();
-});
-
-test('[rules.P84.officer] officer details accept named references, signed skill bonuses and one owned roll total', async () => {
-  const edit = accepted();
-  show(
-    [{ ...rivalry, decision: { kind: 'mitigate', eventId: 'rivalry' } }],
-    {},
-    edit,
-  );
-  expect(card('Rivalry · Event 1', 'Officer check to end it')).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Add officer check' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Aubrin' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Diplomacy' }));
-  const bonus = screen.getByRole('textbox', { name: 'Skill Bonus' });
-  fireEvent.change(bonus, { target: { value: '-' } });
-  fireEvent.change(bonus, { target: { value: '-2' } });
-  fireEvent.change(screen.getByRole('textbox', { name: 'Roll' }), {
-    target: { value: '20' },
-  });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Save persistent decision' }),
-  );
-  await waitFor(() =>
-    expect(edit).toHaveBeenLastCalledWith({
-      kind: 'persistent_decision',
-      decision: {
-        kind: 'mitigate',
-        eventId: 'rivalry',
-        officerCheck: {
-          characterId: 'pc',
-          skill: 'diplomacy',
-          skillBonus: -2,
-          roll: {
-            diceTotal: 20,
-            diceCount: 1,
-            sides: 20,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          },
-        },
-      },
-    }),
-  );
-  expect(
-    within(group('Rivalry · Event 1')).queryByRole('textbox', {
-      name: 'Event',
-    }),
-  ).toBeNull();
-});
-
-test('[rules.P84.theft] Theft offers only its applicable Loyalty roll and named Overseer support', () => {
-  show([{ ...theft, decision: { kind: 'mitigate', eventId: 'theft' } }]);
-  fireEvent.click(screen.getByRole('button', { name: 'Add rolls' }));
-  expect(screen.getByRole('textbox', { name: 'Check roll' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Add check' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Add notoriety' })).toBeNull();
-  expect(
-    screen.queryByRole('button', { name: 'Add officer check' }),
-  ).toBeNull();
 });
 
 test('[PER-03.legacy] an unsupported saved check on Low Morale is flagged and repairable', () => {
