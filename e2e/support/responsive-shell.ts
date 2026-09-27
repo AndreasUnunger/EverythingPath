@@ -344,9 +344,21 @@ export async function expectBoundedWeekHost(page: Page) {
   if (tall) {
     // The last control in page order can sit near the top of a tall column,
     // so reach the lowest visible content to prove the column scrolls.
+    // Only content a player can see and reach counts: skip faded or
+    // click-through leaves such as an empty, hidden form message.
     const leaves = editor.locator('*:visible:not(:has(*))');
     const bottoms = await leaves.evaluateAll((elements) =>
-      elements.map((element) => element.getBoundingClientRect().bottom),
+      elements.map((element) => {
+        const usable =
+          element.checkVisibility({
+            opacityProperty: true,
+            visibilityProperty: true,
+          }) &&
+          getComputedStyle(element).pointerEvents !== 'none' &&
+          (element.textContent?.trim() !== '' ||
+            element.matches('button, input, select, textarea, a[href]'));
+        return usable ? element.getBoundingClientRect().bottom : -Infinity;
+      }),
     );
     await expectReachable(
       page,
