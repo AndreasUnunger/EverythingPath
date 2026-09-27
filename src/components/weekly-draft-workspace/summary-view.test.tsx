@@ -275,7 +275,7 @@ test('[rules.P85.readiness] readiness names the required decisions and warnings 
   ).toBeInTheDocument();
   expect(
     screen.getByText(
-      'Scouts: Choose whether to recover, leave or remove this disabled team.',
+      'Scouts: Choose whether to recover this disabled team or leave it disabled.',
     ),
   ).toBeInTheDocument();
   expect(

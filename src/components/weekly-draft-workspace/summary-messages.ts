@@ -5,6 +5,8 @@ const messages: Record<string, string> = {
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
   'upkeep:attrition-training:roll': 'Enter the attrition training roll.',
   'upkeep:notoriety-training:roll': 'Enter the Notoriety training loss roll.',
+  'upkeep:notoriety:roll': 'Enter the Notoriety Loyalty roll.',
+  'upkeep:shortage:roll': 'Enter the treasury-shortage training roll.',
   'upkeep:notoriety:nearest-settlement':
     'Choose the nearest settlement for Notoriety consequences.',
   'upkeep:notoriety:settlement-reputation':
@@ -13,12 +15,12 @@ const messages: Record<string, string> = {
   'rank:pc-cap': 'The militia rank exceeds the highest player-character level.',
   'return:roll': 'Enter the missing team’s return roll.',
   'recovery-decision':
-    'Choose whether to recover, leave or remove this disabled team.',
+    'Choose whether to recover this disabled team or leave it disabled.',
   'recovery-funds': 'Recovery costs exceed the available treasury.',
   'recovery-cost-baseline':
     'The entered recovery cost differs from the calculated cost.',
   'removal-exception':
-    'Removing this team requires a reasoned Rules Exception.',
+    'A staged Remove choice is no longer offered in Upkeep. Clear it in Upkeep, or remove the team in Militia corrections.',
   'persistent-ending': 'Ending this event requires a reasoned Rules Exception.',
   'buyoff-cooldown':
     'This buyoff falls within the militia’s four-week waiting period.',

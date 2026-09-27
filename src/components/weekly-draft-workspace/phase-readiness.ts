@@ -26,6 +26,7 @@ export function derivePhaseReadiness(
     phase: view.phase,
     available:
       view.phase !== 'persistent' || draft.context.persistentPhaseEligible,
+    ...(view.phase === 'upkeep' ? { skipped: view.skipped } : {}),
     ready: view.ready,
     requirements: [...new Set(view.requirements)].map((id) => ({
       id,

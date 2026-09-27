@@ -31,6 +31,35 @@ export type UpkeepSnapshot = Pick<
   characterActions?: CharacterActionState;
 };
 type RawRoll = z.infer<typeof rawRollSchema>;
+// Upkeep check thresholds (militia-rules.md, Team Conditions and Upkeep).
+export const UPKEEP_RULES = {
+  attritionDc: 10,
+  maximumNotoriety: 100,
+  notorietyDc: 15,
+  returnDc: 15,
+} as const;
+// A natural 20 succeeds attrition and gains training; the natural value is
+// the raw single die, never the modified total.
+export function attritionOutcome(total: number, naturalValue: number | null) {
+  if (naturalValue === 20) return 'natural-20' as const;
+  return total >= UPKEEP_RULES.attritionDc
+    ? ('success' as const)
+    : ('failure' as const);
+}
+// Failing the maximum-notoriety Loyalty check lowers the nearest settlement.
+export function notorietyOutcome(total: number) {
+  return total >= UPKEEP_RULES.notorietyDc
+    ? ('success' as const)
+    : ('failure' as const);
+}
+// A missing team returns at the end of the week on DC 15 Security; a natural
+// 1 loses it permanently.
+export function returnOutcome(total: number, naturalValue: number | null) {
+  if (naturalValue === 1) return 'lost' as const;
+  return total >= UPKEEP_RULES.returnDc
+    ? ('returns' as const)
+    : ('stays-missing' as const);
+}
 type TrainingStep = 'attrition' | 'notoriety' | 'shortage';
 export type UpkeepChange =
   | {
@@ -246,10 +275,13 @@ function attrition(
     result,
   );
   if (total === null) return;
-  const naturalTwenty =
+  const outcome = attritionOutcome(
+    total,
     normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
-      .naturalValue === 20;
-  const success = naturalTwenty || total >= 10;
+      .naturalValue,
+  );
+  const naturalTwenty = outcome === 'natural-20';
+  const success = outcome !== 'failure';
   const loss = dice(
     draft.upkeep.rolls.training,
     success ? 1 : 2,
@@ -271,7 +303,7 @@ function notoriety(
   state: UpkeepSnapshot,
   result: UpkeepProjection,
 ) {
-  if (state.notoriety < 100) return;
+  if (state.notoriety < UPKEEP_RULES.maximumNotoriety) return;
   const loss = dice(
     draft.upkeep.rolls.notoriety,
     1,
@@ -288,7 +320,8 @@ function notoriety(
     'upkeep:notoriety',
     result,
   );
-  if (total !== null && total < 15) lowerReputation(draft, result);
+  if (total !== null && notorietyOutcome(total) === 'failure')
+    lowerReputation(draft, result);
 }
 function lowerReputation(draft: WeeklyDraft, result: UpkeepProjection) {
   const settlement = result.outcome.settlements.find(
@@ -437,11 +470,13 @@ function missingTeam(
     'security',
   );
   if (total === null) return;
-  if (
-    normalizeRawRoll(decision?.roll, { count: 1, sides: 20 }).naturalValue === 1
-  ) {
+  const outcome = returnOutcome(
+    total,
+    normalizeRawRoll(decision?.roll, { count: 1, sides: 20 }).naturalValue,
+  );
+  if (outcome === 'lost') {
     removeTeam(result, teamId);
-  } else if (total >= 15) {
+  } else if (outcome === 'returns') {
     result.plan.push({
       kind: 'team_status',
       teamId,
@@ -561,7 +596,7 @@ function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
     }
   }
 }
-function lossMultiplier(draft: WeeklyDraft) {
+export function lossMultiplier(draft: WeeklyDraft) {
   // Week of Pain's Twice clause never compounds the same loss multiplier.
   return Math.max(
     1,
@@ -628,6 +663,27 @@ export function projectUpkeep(
   return result;
 }
 
+// A check's calculated bonus before its die is entered; once entered, the
+// projected check itself.
+export function previewUpkeepCheck(
+  draft: WeeklyDraft,
+  snapshot: UpkeepSnapshot,
+  projection: UpkeepProjection,
+  checkId: string,
+  organizationCheck: 'loyalty' | 'security',
+) {
+  const projected = projection.checks.find(
+    (check) => check.checkId === checkId,
+  );
+  if (projected) return projected;
+  const [preview] = projectRulesFoundations({
+    ...foundationInput(draft, snapshot),
+    checks: [{ checkId, phase: 'upkeep', check: organizationCheck }],
+  }).checks;
+  if (!preview) throw new Error(`No preview for ${checkId}`);
+  return preview;
+}
+
 // Input affordances share the rule model; presentation supplies only raw dice.
 export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
   const projection = projectUpkeep(draft, snapshot);
@@ -635,11 +691,7 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     (check) => check.checkId === 'upkeep:attrition',
   );
   const previewCheck = (id: string) =>
-    projection.checks.find((check) => check.checkId === id) ??
-    projectRulesFoundations({
-      ...foundationInput(draft, snapshot),
-      checks: [{ checkId: id, phase: 'upkeep', check: 'loyalty' }],
-    }).checks[0]!;
+    previewUpkeepCheck(draft, snapshot, projection, id, 'loyalty');
   const fields: {
     field: 'check' | 'training' | 'notoriety' | 'loss' | 'notorietyCheck';
     count: number;
@@ -652,14 +704,16 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
       field: 'check',
       count: 1,
       sides: 20,
-      dc: 10,
+      dc: UPKEEP_RULES.attritionDc,
       check: previewCheck('upkeep:attrition'),
     });
     if (attritionCheck?.total !== null && attritionCheck?.total !== undefined) {
       const success =
-        attritionCheck.total >= 10 ||
-        normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
-          .naturalValue === 20;
+        attritionOutcome(
+          attritionCheck.total,
+          normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
+            .naturalValue,
+        ) !== 'failure';
       fields.push({
         field: 'training',
         count: success ? 1 : 2,
@@ -668,14 +722,14 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
         check: null,
       });
     }
-    if (snapshot.notoriety >= 100)
+    if (snapshot.notoriety >= UPKEEP_RULES.maximumNotoriety)
       fields.push(
         { field: 'notoriety', count: 1, sides: 20, dc: null, check: null },
         {
           field: 'notorietyCheck',
           count: 1,
           sides: 20,
-          dc: 15,
+          dc: UPKEEP_RULES.notorietyDc,
           check: previewCheck('upkeep:notoriety'),
         },
       );

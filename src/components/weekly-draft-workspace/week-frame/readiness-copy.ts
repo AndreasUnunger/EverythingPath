@@ -6,6 +6,7 @@ function count(value: number, noun: string) {
 }
 
 export const lockedCaption = 'No carried events';
+export const skippedCaption = 'Skipped · first week';
 
 /**
  * The short caption under a step. Review & confirm has none (the Summary
@@ -14,6 +15,7 @@ export const lockedCaption = 'No carried events';
  */
 export function stepCaption(step: PhaseReadiness): string | null {
   if (!step.available) return lockedCaption;
+  if (step.skipped) return skippedCaption;
   if (step.phase === 'summary') return null;
   const warnings = step.warnings.length
     ? ` · ${count(step.warnings.length, 'warning')}`
@@ -31,6 +33,7 @@ export function readinessLine(
   confirmationDisabledReason: string | null,
 ): string {
   if (step.phase === 'summary') return confirmationDisabledReason ?? '';
+  if (step.skipped) return 'Upkeep is skipped for the militia’s first week.';
   const label = phaseLabels[step.phase];
   const line = step.ready
     ? `${label} is ready.`

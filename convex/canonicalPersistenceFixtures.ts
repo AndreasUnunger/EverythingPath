@@ -267,6 +267,8 @@ export const initializeUpkeep = internalMutation({
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
     choices: v.optional(v.boolean()),
+    // Maximum notoriety, so the Upkeep settlement choice applies.
+    maximumNotoriety: v.optional(v.boolean()),
     persistent: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
@@ -289,6 +291,7 @@ export const initializeUpkeep = internalMutation({
       rank: 2,
       training: 14,
       treasuryCopper: 5000,
+      notoriety: args.maximumNotoriety ? 100 : state.snapshot.notoriety,
       roster: {
         people: [{ characterId: character._id, kind: 'pc', hitDice: 2 }],
         teams: args.choices

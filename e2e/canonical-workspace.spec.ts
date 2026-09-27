@@ -136,8 +136,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
       }),
     ).toHaveCount(0);
     const editor = gm.locator('[data-week-editor]');
-    await expect(editor.getByText('Calculated bonus')).toContainText('+3');
-    await expect(editor.getByText('1d20 · DC 10')).toBeVisible();
+    const attrition = editor.getByRole('region', {
+      name: 'Training attrition',
+      exact: true,
+    });
+    await expect(attrition.getByText('Loyalty DC 10')).toBeVisible();
+    await expect(attrition).toContainText('bonus +3');
     // Initial load announces no other-player change on either device.
     await expect(remoteChangeNote(gm)).toBeEmpty();
     await expect(remoteChangeNote(player)).toBeEmpty();
@@ -177,7 +181,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(
       gm.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
     ).toBeVisible();
-    await expect(gm.getByTestId('upkeep-training')).toHaveText('11');
+    // The step header reports its own change: 13 succeeds, losing 1d6 = 3.
+    await expect(attrition).toContainText('bonus +3 = total 13');
+    await expect(attrition).toContainText('Training −3');
     await saved();
     await die(gm).pressSequentially('x');
     await expect(die(gm)).toHaveValue('10');
@@ -225,7 +231,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await gm
       .getByRole('button', { name: 'Stage transfer', exact: true })
       .click();
-    await expect(player.getByTestId('upkeep-treasury')).toHaveText('5007 cp');
+    await expect(
+      player.getByRole('region', {
+        name: 'Deposits and withdrawals',
+        exact: true,
+      }),
+    ).toContainText('Treasury 50 gp → 50.07 gp');
     await saved();
     const charactersUrl = await prepareWeekHistory(gm);
     await expect(die(gm)).toHaveValue('10');
@@ -404,20 +415,38 @@ test('players prepare shared Upkeep with independent navigation and save recover
       ...ownedCase.scope,
       now: 1_700_000_000_000,
     });
-    const choicesScope = draftKeySchema.parse(
+    // The nearest settlement is chosen only at maximum notoriety, once the
+    // Loyalty check fails; its cards are exercised on that fixture.
+    const notorietyScope = draftKeySchema.parse(
       await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
         scope: ownedCase.scope,
         draftId: randomUUID(),
         choices: true,
+        maximumNotoriety: true,
       }),
     );
-    const choicesRoute = `/canonical-workspace?campaign=${choicesScope.campaignId}`;
-    await Promise.all([gm.goto(choicesRoute), player.goto(choicesRoute)]);
+    const notorietyRoute = `/canonical-workspace?campaign=${notorietyScope.campaignId}`;
+    await Promise.all([gm.goto(notorietyRoute), player.goto(notorietyRoute)]);
     await expect(die(gm)).toBeVisible();
     await die(gm).fill('10');
     await expect(die(player)).toHaveValue('10');
     await training(gm).fill('3');
     await expect(training(player)).toHaveValue('3');
+    await gm
+      .getByRole('textbox', {
+        name: 'Maximum-notoriety training roll',
+        exact: true,
+      })
+      .fill('5');
+    await gm
+      .getByRole('textbox', { name: 'Notoriety Loyalty roll', exact: true })
+      .fill('1');
+    await expect(
+      player.getByRole('textbox', {
+        name: 'Notoriety Loyalty roll',
+        exact: true,
+      }),
+    ).toHaveValue('1');
     const settlementCards = gm.getByRole('group', {
       name: 'Nearest settlement',
       exact: true,
@@ -482,64 +511,76 @@ test('players prepare shared Upkeep with independent navigation and save recover
     ).toBeVisible();
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
+    await fixtureCall(run, 'resetCase', {
+      ...ownedCase.scope,
+      now: 1_700_000_000_000,
+    });
+    const choicesScope = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+        scope: ownedCase.scope,
+        draftId: randomUUID(),
+        choices: true,
+      }),
+    );
+    const choicesRoute = `/canonical-workspace?campaign=${choicesScope.campaignId}`;
+    await Promise.all([gm.goto(choicesRoute), player.goto(choicesRoute)]);
+    await expect(die(gm)).toBeVisible();
+    await die(gm).fill('10');
+    await expect(die(player)).toHaveValue('10');
+    await training(gm).fill('3');
+    await expect(training(player)).toHaveValue('3');
+    // Below maximum notoriety the step collapses and no settlement is asked.
+    await expect(
+      gm.getByRole('group', { name: 'Nearest settlement', exact: true }),
+    ).toHaveCount(0);
     const recovery = gm.getByRole('group', {
-      name: 'Scouts recovery',
+      name: 'Scouts team condition',
       exact: true,
     });
     const remoteRecovery = player.getByRole('group', {
-      name: 'Scouts recovery',
+      name: 'Scouts team condition',
       exact: true,
     });
-    await expect(
-      recovery.getByRole('textbox', {
-        name: 'Recovery cost (copper)',
+    const cost = (group: typeof recovery) =>
+      group.getByRole('textbox', {
+        name: 'Scouts: Recovery cost (gp)',
         exact: true,
-      }),
-    ).toHaveValue('2000');
+      });
+    const reason = (group: typeof recovery) =>
+      group.getByRole('textbox', {
+        name: 'Scouts: Reason for the changed cost',
+        exact: true,
+      });
+    // Recover saves at once at the rules cost, shown in gp.
     await recovery
-      .getByRole('button', { name: 'Recover team', exact: true })
+      .getByRole('button', { name: 'Recover', exact: true })
       .click();
     await expect(
-      remoteRecovery.getByRole('button', { name: 'Recover team', exact: true }),
+      remoteRecovery.getByRole('button', { name: 'Recover', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
-    await recovery
-      .getByRole('textbox', { name: 'Recovery cost (copper)', exact: true })
-      .fill('1500');
-    await recovery
-      .getByRole('button', { name: 'Stage recovery', exact: true })
-      .click();
+    await expect(cost(recovery)).toHaveValue('20');
+    await expect(cost(remoteRecovery)).toHaveValue('20');
+    // A changed price stays local until its reason is present.
+    await cost(recovery).fill('15');
     await expect(
       recovery.getByRole('alert').filter({
         hasText: 'A reason is required for a changed recovery cost.',
       }),
     ).toBeVisible();
+    await expect(cost(remoteRecovery)).toHaveValue('20');
+    await cost(recovery).fill('15x');
     await expect(
-      remoteRecovery.getByRole('textbox', {
-        name: 'Recovery cost (copper)',
-        exact: true,
+      recovery.getByRole('alert').filter({
+        hasText: 'Enter an amount in gp, such as 12 or 0.07.',
       }),
-    ).toHaveValue('2000');
-    await recovery
-      .getByRole('textbox', {
-        name: 'Reason for recovery adjustment',
-        exact: true,
-      })
-      .fill('Local healer donated supplies');
-    await recovery
-      .getByRole('button', { name: 'Stage recovery', exact: true })
-      .click();
-    await expect(
-      remoteRecovery.getByRole('textbox', {
-        name: 'Recovery cost (copper)',
-        exact: true,
-      }),
-    ).toHaveValue('1500');
-    await expect(
-      remoteRecovery.getByRole('textbox', {
-        name: 'Reason for recovery adjustment',
-        exact: true,
-      }),
-    ).toHaveValue('Local healer donated supplies');
+    ).toBeVisible();
+    await cost(recovery).fill('15');
+    await reason(recovery).fill('Local healer donated supplies');
+    await expect(cost(remoteRecovery)).toHaveValue('15');
+    await expect(reason(remoteRecovery)).toHaveValue(
+      'Local healer donated supplies',
+    );
+    await saved();
     await gm
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
@@ -567,42 +608,30 @@ test('players prepare shared Upkeep with independent navigation and save recover
     );
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await player.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    // Leave disabled clears the recovery price and its adjustment.
     await recovery
-      .getByRole('button', { name: 'Leave team', exact: true })
+      .getByRole('button', { name: 'Leave disabled', exact: true })
       .click();
     await expect(
-      remoteRecovery.getByRole('button', { name: 'Leave team', exact: true }),
+      remoteRecovery.getByRole('button', {
+        name: 'Leave disabled',
+        exact: true,
+      }),
     ).toHaveAttribute('aria-pressed', 'true');
-    await expect(
-      remoteRecovery.getByRole('textbox', {
-        name: 'Recovery cost (copper)',
-        exact: true,
-      }),
-    ).toHaveValue('2000');
-    await expect(
-      remoteRecovery.getByRole('textbox', {
-        name: 'Reason for recovery adjustment',
-        exact: true,
-      }),
-    ).toHaveValue('');
-    await expect(
-      remoteRecovery.getByText('Recovery adjustment:', { exact: false }),
-    ).toHaveCount(0);
+    await expect(cost(remoteRecovery)).toHaveCount(0);
+    await expect(remoteRecovery.getByText(/Table Adjustment/)).toHaveCount(0);
     await recovery
-      .getByRole('textbox', { name: 'Recovery cost (copper)', exact: true })
-      .fill('1500');
-    await recovery
-      .getByRole('textbox', {
-        name: 'Reason for recovery adjustment',
-        exact: true,
-      })
-      .fill('Local healer donated supplies');
-    await recovery
-      .getByRole('button', { name: 'Stage recovery', exact: true })
+      .getByRole('button', { name: 'Recover', exact: true })
       .click();
+    await expect(cost(remoteRecovery)).toHaveValue('20');
+    await expect(reason(remoteRecovery)).toHaveCount(0);
+    await cost(recovery).fill('15');
+    await reason(recovery).fill('Local healer donated supplies');
     await expect(
-      remoteRecovery.getByRole('button', { name: 'Recover team', exact: true }),
+      remoteRecovery.getByRole('button', { name: 'Recover', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
+    await expect(cost(remoteRecovery)).toHaveValue('15');
+    await saved();
     for (const [name, width, height] of [
       ['tablet', 1194, 834],
       ['phone', 390, 844],

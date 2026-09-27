@@ -206,9 +206,13 @@ export async function exerciseMilitiaSetup(
       await training.fill('1');
       await training.blur();
       await expect(saveStatus(players.player)).toHaveText('Changes saved.');
-      await expect(players.player.getByTestId('upkeep-training')).toHaveText(
-        '1',
-      );
+      // A natural 20 gains the 1d6 training roll.
+      await expect(
+        players.player.getByRole('region', {
+          name: 'Training attrition',
+          exact: true,
+        }),
+      ).toContainText('Training +1');
     }
     await gm
       .getByRole('textbox', { name: 'Event chance roll', exact: true })

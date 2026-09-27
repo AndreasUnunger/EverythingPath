@@ -8,6 +8,7 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { Phase, PhaseView } from './types';
 import { legacyDiceSlots, rollReadFacts } from './roll-facts';
+import { upkeepSections } from './upkeep-sections';
 export function phaseView(
   phase: Phase,
   draft: WeeklyDraft,
@@ -32,6 +33,33 @@ export function phaseView(
     treasuryCopper: state.treasuryCopper,
     notoriety: state.notoriety,
   });
+  const rolls = fields.map((fact) => {
+    const raw =
+      fact.field === 'notorietyCheck'
+        ? draft.upkeep.notorietyCheck
+        : draft.upkeep.rolls[fact.field];
+    const spec = { count: fact.count, sides: fact.sides };
+    return {
+      field: fact.field,
+      ...spec,
+      ...rollReadFacts(raw, spec),
+      dice: legacyDiceSlots(raw, spec),
+      modifier: fact.check?.modifier ?? null,
+      total: fact.check?.total ?? null,
+      dc: fact.dc,
+      modifiers: fact.check?.modifiers ?? [],
+    };
+  });
+  const officers = source.snapshot.roster.people.map((person) => ({
+    characterId: person.characterId,
+    name:
+      source.people.find((entry) => entry.characterId === person.characterId)
+        ?.name ?? null,
+    roles: source.snapshot.roster.officers
+      .filter((officer) => officer.characterId === person.characterId)
+      .map((officer) => officer.role),
+  }));
+  const transfers = structuredClone(draft.upkeep.treasuryTransfers);
   return {
     phase,
     skipped: projection.skipped,
@@ -39,79 +67,9 @@ export function phaseView(
     before: values(source.snapshot),
     after: values(projection.outcome),
     minimumTreasuryCopper,
-    rolls: fields.map((fact) => {
-      const raw =
-        fact.field === 'notorietyCheck'
-          ? draft.upkeep.notorietyCheck
-          : draft.upkeep.rolls[fact.field];
-      const spec = { count: fact.count, sides: fact.sides };
-      return {
-        field: fact.field,
-        ...spec,
-        ...rollReadFacts(raw, spec),
-        dice: legacyDiceSlots(raw, spec),
-        modifier: fact.check?.modifier ?? null,
-        total: fact.check?.total ?? null,
-        dc: fact.dc,
-        modifiers: fact.check?.modifiers ?? [],
-      };
-    }),
-    nearestSettlement: {
-      required: projection.requirements.includes(
-        'upkeep:notoriety:nearest-settlement',
-      ),
-      selected: draft.upkeep.nearestSettlementId ?? null,
-      choices: source.snapshot.settlements.map((settlement) => ({
-        settlementId: settlement.settlementId,
-        name: settlement.name,
-      })),
-    },
-    officers: source.snapshot.roster.people.map((person) => ({
-      characterId: person.characterId,
-      name:
-        source.people.find((entry) => entry.characterId === person.characterId)
-          ?.name ?? null,
-      roles: source.snapshot.roster.officers
-        .filter((officer) => officer.characterId === person.characterId)
-        .map((officer) => officer.role),
-    })),
-    transfers: structuredClone(draft.upkeep.treasuryTransfers),
-    teams: source.snapshot.roster.teams
-      .filter((team) => team.status !== 'active')
-      .map((team) => {
-        const decision = draft.upkeep.teamDecisions.find(
-          (entry) => entry.teamId === team.teamId,
-        );
-        const adjustment = draft.tableAdjustments.find(
-          (item) => item.adjustmentId === `upkeep-recovery:${team.teamId}`,
-        );
-        return {
-          recoveryAdjustment:
-            adjustment?.kind === 'militia_value' &&
-            adjustment.field === 'treasuryCopper' &&
-            adjustment.operation === 'add'
-              ? { deltaCopper: adjustment.value, reason: adjustment.reason }
-              : null,
-          teamId: team.teamId,
-          name: team.name,
-          status: team.status,
-          decision: decision?.decision ?? null,
-          costCopper: minimumTreasuryCopper,
-          roll: rollReadFacts(decision?.roll, { count: 1, sides: 20 }),
-          // A missing roll, an incompatible recorded roll (`:return:dice:NdS`)
-          // or an emitted check all need the return row; a queued return
-          // that suppresses the check emits none of them and stays hidden.
-          needsReturnRoll:
-            projection.requirements.some(
-              (key) =>
-                key === `team:${team.teamId}:return:roll` ||
-                key.startsWith(`team:${team.teamId}:return:dice:`),
-            ) ||
-            projection.checks.some(
-              (check) => check.checkId === `team:${team.teamId}:return`,
-            ),
-        };
-      }),
+    rolls,
+    officers,
+    transfers,
     boons: projection.plan.filter((change) => change.kind === 'boon'),
     exceptions: [
       ...source.snapshot.roster.teams.flatMap((team) => [
@@ -161,5 +119,16 @@ export function phaseView(
     }),
     requirements: projection.requirements,
     warnings: projection.warnings,
+    sections: projection.skipped
+      ? null
+      : upkeepSections({
+          draft,
+          source,
+          projection,
+          rolls,
+          minimumTreasuryCopper,
+          transfers,
+          officers,
+        }),
   };
 }

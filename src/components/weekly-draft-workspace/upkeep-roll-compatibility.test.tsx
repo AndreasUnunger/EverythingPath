@@ -14,6 +14,7 @@ import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { phaseView } from './phase-view';
 import { UpkeepView } from './upkeep-view';
+import type { UpkeepView as UpkeepFacts } from './types';
 
 afterEach(cleanup);
 
@@ -66,6 +67,13 @@ function missingScouts(snapshot: ReturnType<typeof upkeepFixture>['snapshot']) {
     rewardCapExempt: false,
     notes: '',
   });
+}
+function returnCheck(view: UpkeepFacts) {
+  const row = view.sections?.teams.missing.find(
+    (team) => team.teamId === 'scouts',
+  )?.return;
+  if (row?.kind !== 'check') throw new Error('Expected a return check');
+  return row.check;
 }
 const textbox = (name: string) => screen.getByRole('textbox', { name });
 
@@ -276,7 +284,7 @@ test('[rules.WEEK-15.upkeep-natural] a single-die total of 20 keeps natural-20 a
   });
 });
 
-test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total shows in its field, survives decision changes exactly and clears through the decision edit', () => {
+test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total shows in its field, is replaced exactly by a new total and clears through the decision edit', () => {
   const { view } = fixture((draft, snapshot) => {
     missingScouts(snapshot);
     draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
@@ -284,30 +292,23 @@ test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total 
       { teamId: 'scouts', decision: 'leave', roll: total(20, 1, 1) },
     ];
   });
-  const team = view.teams.find((team) => team.teamId === 'scouts')!;
-  expect(team.roll.recorded).toEqual(total(20, 1, 1));
-  expect(team.roll.normalized).toMatchObject({
+  const team = returnCheck(view);
+  expect(team.recorded).toEqual(total(20, 1, 1));
+  expect(team.normalized).toMatchObject({
     status: 'complete',
     naturalValue: 1,
   });
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(<UpkeepView view={view} edit={edit} disabled={false} />);
-  const card = screen.getByRole('group', { name: 'Scouts recovery' });
+  const card = screen.getByRole('group', { name: 'Scouts return check' });
   const field = within(card).getByRole('textbox', {
     name: 'Scouts return roll',
   });
   expect(field).toHaveValue('1');
-  fireEvent.click(within(card).getByRole('button', { name: 'Leave team' }));
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'upkeep_team',
-    teamId: 'scouts',
-    decision: {
-      teamId: 'scouts',
-      decision: 'leave',
-      costCopper: 3000,
-      roll: total(20, 1, 1),
-    },
-  });
+  // A missing team has no Recover / Leave choice; only its return check.
+  expect(
+    within(card).queryByRole('button', { name: /recover|leave/i }),
+  ).not.toBeInTheDocument();
   fireEvent.change(field, { target: { value: '17' } });
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'upkeep_team',
@@ -348,12 +349,11 @@ test.each([
       if ('dice' in recorded) draft.upkeep.teamDecisions[0]!.roll = roll(6, 3);
     });
     expect(preview.requirements).toContain('team:scouts:return:dice:1d20');
-    const team = view.teams.find((team) => team.teamId === 'scouts')!;
-    expect(team.roll.normalized.status).toBe('incomplete');
-    expect(team.needsReturnRoll).toBe(true);
+    // The incompatible roll keeps the return check row open for repair.
+    expect(returnCheck(view).normalized.status).toBe('incomplete');
     const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
     render(<UpkeepView view={view} edit={edit} disabled={false} />);
-    const card = screen.getByRole('group', { name: 'Scouts recovery' });
+    const card = screen.getByRole('group', { name: 'Scouts return check' });
     const field = within(card).getByRole('textbox', {
       name: 'Scouts return roll',
     });

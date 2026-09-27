@@ -44,11 +44,6 @@ export type UpkeepView = {
     notoriety: number;
   };
   minimumTreasuryCopper: number;
-  nearestSettlement: {
-    required: boolean;
-    selected: string | null;
-    choices: { settlementId: string; name: string }[];
-  };
   officers: {
     characterId: string;
     name: string | null;
@@ -59,16 +54,6 @@ export type UpkeepView = {
     characterId: string;
     direction: 'deposit' | 'withdraw';
     copper: number;
-  }[];
-  teams: {
-    teamId: string;
-    name: string;
-    status: 'active' | 'disabled' | 'missing' | 'blocked';
-    decision: 'recover' | 'leave' | 'remove' | null;
-    costCopper: number;
-    recoveryAdjustment: { deltaCopper: number; reason: string } | null;
-    roll: RollReadFacts;
-    needsReturnRoll: boolean;
   }[];
   boons: Extract<
     ReturnType<typeof projectUpkeep>['plan'][number],
@@ -83,6 +68,134 @@ export type UpkeepView = {
   }[];
   requirements: string[];
   warnings: string[];
+  // Null in the militia's first week, when Upkeep is skipped entirely.
+  sections: UpkeepSections | null;
+};
+// A warning or blocker message owned by one Upkeep item; the view shows it
+// under that item while the frame lists the same codes in This phase.
+export type UpkeepIssue = { code: string; message: string };
+export type UpkeepCheck<Result extends string> = RollFact & {
+  // Null while the roll is missing, incomplete or otherwise not calculable.
+  result: Result | null;
+  issues: UpkeepIssue[];
+};
+// A training roll. `rank` is added by the rules (never entered) and
+// `trainingDelta` is this step's calculated change, null until known.
+export type UpkeepLoss = RollFact & {
+  rank: number | null;
+  multiplier: number;
+  trainingDelta: number | null;
+  issues: UpkeepIssue[];
+};
+// Open: applicable and still needs an input here. Waiting: an earlier step
+// must be resolved before this one can be known. Inapplicable sections
+// collapse to one line with their reason.
+export type UpkeepSectionStatus =
+  | 'inapplicable'
+  | 'waiting'
+  | 'open'
+  | 'resolved';
+export type UpkeepLegacyRemoval = {
+  // The reasoned exception recorded with the retired Remove choice, if any.
+  exceptionId: string | null;
+  reason: string | null;
+};
+export type UpkeepDisabledTeam = {
+  teamId: string;
+  name: string;
+  typeName: string;
+  tier: number | null;
+  decision: 'recover' | 'leave' | null;
+  legacyRemoval: UpkeepLegacyRemoval | null;
+  rulesCostCopper: number;
+  enteredCostCopper: number;
+  adjustment: { deltaCopper: number; reason: string } | null;
+  // Present while the recovery needs, or already has, a reasoned exception.
+  fundsException: {
+    exceptionId: string;
+    reason: string;
+    required: boolean;
+  } | null;
+  issues: UpkeepIssue[];
+};
+export type UpkeepMissingTeam = {
+  teamId: string;
+  name: string;
+  typeName: string;
+  tier: number | null;
+  legacyRemoval: UpkeepLegacyRemoval | null;
+  return:
+    | { kind: 'scheduled'; week: number; status: 'active' | 'disabled' }
+    | {
+        kind: 'check';
+        check: Omit<
+          UpkeepCheck<'returns' | 'stays-missing' | 'lost'>,
+          'field' | 'dice'
+        >;
+      }
+    | null;
+  issues: UpkeepIssue[];
+};
+export type UpkeepSections = {
+  teams: {
+    status: UpkeepSectionStatus;
+    treasuryBeforeCopper: number;
+    // Rules Baseline treasury after paying decided recoveries.
+    treasuryAfterRecoveryCopper: number;
+    // Post-baseline Table Adjustments from changed recovery prices.
+    adjustments: { teamId: string; name: string; deltaCopper: number }[];
+    disabled: UpkeepDisabledTeam[];
+    missing: UpkeepMissingTeam[];
+    // Staged decisions for teams no longer on the roster (for example after
+    // a Militia correction removed them); each blocks until cleared.
+    orphans: { teamId: string }[];
+  };
+  attrition: {
+    status: UpkeepSectionStatus;
+    trainingDelta: number | null;
+    check: UpkeepCheck<'natural-20' | 'success' | 'failure'>;
+    training: UpkeepLoss | null;
+  };
+  notoriety: {
+    status: UpkeepSectionStatus;
+    notoriety: number;
+    threshold: number;
+    trainingDelta: number | null;
+    loss: UpkeepLoss | null;
+    check: UpkeepCheck<'success' | 'failure'> | null;
+    settlement: {
+      required: boolean;
+      selected: string | null;
+      choices: {
+        settlementId: string;
+        name: string;
+        reputation: string | null;
+      }[];
+      change: { name: string; before: string; after: string } | null;
+      issues: UpkeepIssue[];
+    } | null;
+  };
+  shortage: {
+    status: UpkeepSectionStatus;
+    treasuryAfterRecoveryCopper: number;
+    minimumCopper: number;
+    trainingDelta: number | null;
+    loss: UpkeepLoss | null;
+  };
+  rank: {
+    status: UpkeepSectionStatus;
+    before: number;
+    after: number | null;
+    issues: UpkeepIssue[];
+  };
+  transfers: {
+    status: UpkeepSectionStatus;
+    beforeCopper: number | null;
+    afterCopper: number | null;
+    issues: UpkeepIssue[];
+  };
+  // Warnings no single item owns, such as archived officers' check bonuses.
+  general: UpkeepIssue[];
 };
 export type ActivityView = {
   phase: 'activity';
@@ -183,6 +296,8 @@ export type PhaseView =
 export type PhaseReadiness = {
   phase: Phase;
   available: boolean;
+  // Upkeep in the militia's first week: nothing applies or is required.
+  skipped?: boolean;
   ready: boolean;
   requirements: { id: string; message: string }[];
   warnings: { id: string; message: string }[];

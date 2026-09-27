@@ -214,7 +214,14 @@ export function WeeklyWorkspaceBoard({
         notes={<SetupNotesButton notes={workspace.setupNotes} />}
       >
         {view.phase === 'upkeep' ? (
-          <UpkeepView view={view} edit={workspace.edit} disabled={disabled} />
+          <UpkeepView
+            view={view}
+            edit={workspace.edit}
+            disabled={disabled}
+            correctionsHref={
+              campaignId ? campaignPath(campaignId, 'militia') : undefined
+            }
+          />
         ) : view.phase === 'activity' ? (
           <ActivityView view={view} edit={workspace.edit} disabled={disabled} />
         ) : view.phase === 'event' ? (

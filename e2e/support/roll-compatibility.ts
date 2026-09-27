@@ -143,11 +143,8 @@ export async function exerciseRollCompatibility(
       ).toBeVisible();
       // The calculated check still resolves from the recorded total.
       await expect(
-        page
-          .locator('[data-week-editor]')
-          .getByText('Calculated bonus')
-          .first(),
-      ).toBeVisible();
+        page.getByRole('region', { name: 'Training attrition', exact: true }),
+      ).toContainText(/bonus [+−]\d+ = total \d+/);
     }
     await phase(first, 'Event');
     await expect(field(first, 'Event chance roll')).toHaveValue('100');

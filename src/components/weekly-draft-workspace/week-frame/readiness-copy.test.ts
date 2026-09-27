@@ -84,3 +84,11 @@ test('progress segments distinguish current, done, open and locked positions', (
   );
   expect(stepState(step('summary'), 'event')).toBe('open');
 });
+
+test('a skipped first-week Upkeep says so instead of reporting readiness', () => {
+  const skipped = step('upkeep', { skipped: true });
+  expect(stepCaption(skipped)).toBe('Skipped · first week');
+  expect(readinessLine(skipped, null)).toBe(
+    'Upkeep is skipped for the militia’s first week.',
+  );
+});
