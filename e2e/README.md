@@ -845,4 +845,8 @@ instance, not to the app, so skipping it in Chromium and Firefox hides no app
 behaviour, and every project starts from the same session state. Later expiry
 is refreshed by Clerk in the page, as before, and every reload assertion is
 unchanged. With the change, the trial run `Fyy86A` passed 23/23, including
-WebKit access.
+WebKit access, and the loop has not recurred since. Open: now that it runs to
+the end, the WebKit access journey takes about 60 s (60 s in `Fyy86A`, a
+timeout at 61.7 s in `rUyJDK` in its final week-host check). Before #187 added the
+campaign-home checks it took about 48 s. It needs its campaign-home part as a
+separate journey; its limit stays 60 s.

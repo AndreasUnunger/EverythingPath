@@ -29,8 +29,11 @@ const jwks = z.object({
     .min(1),
 });
 
+// What the application check needs: the declaration and the secret key.
+export type ClerkTargets = Pick<SafeTargets, 'resources' | 'secretKey'>;
+
 export async function verifyClerkApplication(
-  targets: Pick<SafeTargets, 'resources' | 'secretKey'>,
+  targets: ClerkTargets,
   get: ReadJson = readJson,
 ) {
   const { resources, secretKey } = targets;

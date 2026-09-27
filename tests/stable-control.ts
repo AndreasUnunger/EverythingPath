@@ -7,7 +7,8 @@ import { expect } from 'vitest';
 // after any change, so repeated lookups in a large editor dominate a test's
 // time. Each use asserts what that lookup asserted for this element: it is
 // still in the document, exposed to assistive technology, and has the same
-// name.
+// name. A re-mounted control fails. Uniqueness is asserted only by the first
+// lookup: use it only for controls the test never duplicates.
 export function stableControl(
   role: string,
   name: string,

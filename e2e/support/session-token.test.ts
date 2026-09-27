@@ -209,6 +209,31 @@ describe('fresh role session tokens', () => {
     expect(target.addCookies).not.toHaveBeenCalled();
   });
 
+  it('reports a failed or unreadable Clerk response by the guard alone', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new Error(`network down ${minted}`))
+      .mockResolvedValueOnce(
+        new Response(`not json ${minted}`, { status: 200 }),
+      );
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const target = context();
+      const message = await refreshSessionToken(target, {
+        resources,
+        baseURL: 'http://127.0.0.1:4321',
+        userId,
+        environment: safeEnvironment,
+        verify: async () => undefined,
+        now: () => now,
+      }).catch((error: Error) => error.message);
+      expect(message).toBe(
+        'E2E session refresh: Clerk did not issue a session token',
+      );
+      expect(target.addCookies).not.toHaveBeenCalled();
+    }
+    fetchMock.mockRestore();
+  });
+
   it('never puts the key or a token into its errors', async () => {
     const failures = await Promise.all([
       refresh(
