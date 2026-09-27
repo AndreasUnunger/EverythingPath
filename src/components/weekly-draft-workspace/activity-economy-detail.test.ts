@@ -201,6 +201,16 @@ describe('items and caches at the slot position', () => {
       'rope',
     );
     expect(second.cache).toBe('new');
+    // An order for an item an earlier slot already buys would duplicate it.
+    place(1, {
+      choiceId: 'order',
+      actionId: 'special_order',
+      mode: 'purchase',
+      itemId: 'potion',
+    });
+    const order = narrow(at(view(), 1), 'special_order');
+    expect(order.item).toBe('existing');
+    expect(order.existingItem).toBe('Potion');
   });
 
   test('[rules.ACT-10.economy-missing] a sold item, retrieved cache and settlement nothing knows stay listed as missing', () => {
@@ -450,6 +460,19 @@ describe('cache details', () => {
     );
     expect(retrieving.retainedPlace).toBe(true);
     expect(retrieving.cache).toBe('none');
+    // A cleared mode keeps them, and a recorded cache nothing has is missing.
+    const unset = narrow(
+      detailFor({
+        choiceId: 'c',
+        actionId: 'secure_cache',
+        cacheId: 'gone',
+        location: 'Old Mill',
+      }),
+      'secure_cache',
+    );
+    expect(unset.retainedPlace).toBe(true);
+    expect(unset.cache).toBe('missing');
+    expect(unset.caches[0]).toMatchObject({ value: 'gone', missing: true });
   });
 });
 
@@ -492,9 +515,13 @@ describe('Special Order details', () => {
       eligible: true,
     });
     expect(enchant.retainedItem).toBe(true);
-    expect(
-      order({ mode: 'enchantment', itemId: 'lost' }).enchantItems[0],
-    ).toMatchObject({ value: 'lost', label: 'Missing item', missing: true });
+    const lost = order({ mode: 'enchantment', itemId: 'lost' });
+    expect(lost.item).toBe('missing');
+    expect(lost.enchantItems[0]).toMatchObject({
+      value: 'lost',
+      label: 'Missing item',
+      missing: true,
+    });
     expect(order({}).item).toBe('none');
     expect(order({}).availability).toBeNull();
   });

@@ -175,7 +175,7 @@ test('[rules.WEEK-04.economy-concurrent] two devices editing different market fi
   expect(facts(first).slots[0]!.choice).toEqual({
     ...market,
     settlementId: 'kassen',
-    purchases: [],
+    purchases: undefined,
     acknowledgements: undefined,
   });
   first.dispose();

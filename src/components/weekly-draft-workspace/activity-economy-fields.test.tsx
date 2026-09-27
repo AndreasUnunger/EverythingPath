@@ -160,7 +160,8 @@ describe('markets', () => {
     );
     fireEvent.click(button('Remove purchase Wand'));
     const { acknowledgements: _acknowledgements, ...rest } = market;
-    expect(lastChoice(edit)).toEqual({ ...rest, purchases: [] });
+    const { purchases: _purchases, ...unbought } = rest;
+    expect(lastChoice(edit)).toEqual(unbought);
   });
 
   test('[rules.ACT-10.purchase-edit] purchases are recorded as none or cleared, and an edited purchase keeps its item', async () => {
@@ -268,7 +269,8 @@ describe('caches', () => {
       screen.getByText(/Contents: 6 lb of 5 lb, over the limit/),
     ).toHaveAttribute('role', 'note');
     fireEvent.click(button('Remove Gear from the cache'));
-    expect(lastChoice(edit)).toEqual({ ...full, itemIds: [] });
+    const { itemIds: _itemIds, ...emptied } = full as Record<string, unknown>;
+    expect(lastChoice(edit)).toEqual(emptied);
   });
 
   test('[rules.ACT-10.cache-retrieve] retrieving lists hidden caches, keeps placing values visible and a missing cache repairable', () => {
@@ -308,6 +310,23 @@ describe('caches', () => {
       />,
     );
     expect(screen.getByText('Holds: Ring.')).toBeVisible();
+    // Clearing the mode keeps every recorded value on screen.
+    const { mode: _mode, ...unset } = { ...choice, cacheId: 'mill' };
+    rerender(
+      <ActivityView
+        view={facts(unset as StagedActionChoice)}
+        edit={edit}
+        disabled={false}
+      />,
+    );
+    expect(
+      screen.getByText(/Not used until you choose to place a cache/),
+    ).toBeVisible();
+    expect(textbox('Cache location')).toHaveValue('Old well');
+    expect(card('Cache to retrieve', 'Old Mill')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 });
 

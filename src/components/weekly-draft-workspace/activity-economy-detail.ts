@@ -1,5 +1,11 @@
 import { gp } from '~/components/week-review/review-text';
-import { cacheLimits } from '~/lib/rules-economy';
+import {
+  cacheLimits,
+  enchantmentCopperPerDay,
+  expeditedDelivery,
+  marketTerms,
+  secureCache,
+} from '~/lib/rules-economy';
 import type { EconomyState } from '~/lib/rules-economy-state';
 import { declaredChoiceEntities } from '~/lib/weekly-draft-identities';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
@@ -11,6 +17,7 @@ import {
   withMissing,
   type DetailCommon,
   type DetailOption,
+  type DetailRollField,
 } from './activity-action-detail';
 import { activityLabel } from './activity-labels';
 import type { ActivityView } from './types';
@@ -65,8 +72,10 @@ export type PurchaseFact = {
   duplicate: boolean;
   availability: AvailabilityFact;
 };
-// Whether a recorded item or cache identity is new, already exists, or unset.
-export type IdentityState = 'new' | 'existing' | 'none';
+// A recorded item or cache identity: one this choice creates, one the
+// militia or an earlier slot already has, a reference to one nothing here
+// has, or none.
+export type IdentityState = 'new' | 'existing' | 'missing' | 'none';
 export type CacheContents = {
   weight: number;
   valueCopper: number;
@@ -98,7 +107,7 @@ type Specific =
       caches: DetailOption[];
       // The chosen cache's item names while retrieving a known cache.
       retrievedItems: string[] | null;
-      // Place: the recorded cache identity.
+      // The recorded cache identity.
       cache: IdentityState;
       classes: DetailOption[];
       secure: DetailOption[];
@@ -107,15 +116,15 @@ type Specific =
       purchases: PurchaseFact[] | null;
       settlements: DetailOption[];
       contents: CacheContents;
-      // Placing values are recorded while retrieving; kept until cleared.
+      // Placing values are recorded while not placing; kept until cleared.
       retainedPlace: boolean;
     }
   | {
       actionId: 'special_order';
       modes: DetailOption[];
-      // Purchase: whether the recorded item is a new item.
+      // The recorded item identity.
       item: IdentityState;
-      // The existing item a purchase would duplicate.
+      // The existing item's name, which a purchase would duplicate.
       existingItem: string | null;
       // Enchantment: the items at this slot, held ones first.
       enchantItems: DetailOption[];
@@ -159,6 +168,7 @@ const LOCATIONS: Record<NonNullable<ItemFact['location']>, string> = {
   sold: 'Sold',
   lost: 'Lost',
 };
+const AVAILABILITY = { small_town: 'Small town', small_city: 'Small city' };
 const CACHE_STATUS: Record<NonNullable<CacheFact['status']>, string> = {
   hidden: 'Hidden',
   retrieved: 'Retrieved',
@@ -177,8 +187,8 @@ function declaredBefore(view: ActivityView, slot: Slot) {
       : [],
   );
 }
-// Items and caches declared by this slot or a later one cannot be referenced
-// here; the rules and the server take choices in slot order.
+// Items and caches declared by this slot or a later one are not offered here:
+// the rules take choices in slot order, so they do not exist yet.
 function declaredFromHere(view: ActivityView, slot: Slot) {
   const items = new Set<string>();
   const caches = new Set<string>();
@@ -382,10 +392,7 @@ function purchaseFacts(
     duplicate:
       slot.requirements.includes(
         `${choice.choiceId}:duplicate-item:${purchase.itemId}`,
-      ) ||
-      items.some(
-        (item) => item.itemId === purchase.itemId && item.stagedIn === null,
-      ),
+      ) || items.some((item) => item.itemId === purchase.itemId),
     availability: availability(choice, slot, purchase.itemId),
   }));
 }
@@ -410,6 +417,18 @@ function settlementOptions(view: ActivityView, recorded: string | undefined) {
     'Missing settlement',
     'No longer one of the campaign’s settlements',
   );
+}
+
+// Whether `recorded` is unset, known here, created by this choice, or a
+// reference to something nothing here has.
+function identityState(
+  recorded: string | undefined,
+  isKnown: boolean,
+  isCreated: boolean,
+): IdentityState {
+  if (!recorded) return 'none';
+  if (isKnown) return 'existing';
+  return isCreated ? 'new' : 'missing';
 }
 
 function teamTier(view: ActivityView, choice: EconomyChoice) {
@@ -440,21 +459,17 @@ const marketDetail: Build<'activate_black_market' | 'broker_market'> = (
   view,
 ) => {
   const items = itemFacts(view, slot);
-  const black = choice.actionId === 'activate_black_market';
-  const team = teamTier(view, choice);
+  const teamType = teamTier(view, choice)?.teamType ?? null;
+  const terms = marketTerms(choice.actionId, teamType ?? '');
   const own = new Set((choice.purchases ?? []).map((entry) => entry.itemId));
   return {
     actionId: choice.actionId,
     settlements: settlementOptions(view, choice.settlementId),
     market: {
-      availability: team?.teamType
-        ? team.teamType === 'merchants'
-          ? 'Small town'
-          : 'Small city'
-        : null,
-      salePercent: black ? 55 : 50,
-      contraband: black,
-      activationCopper: black ? 5000 : 10000,
+      availability: teamType ? AVAILABILITY[terms.availability] : null,
+      salePercent: terms.salePercent,
+      contraband: terms.contraband,
+      activationCopper: terms.costCopper,
     },
     purchases: purchaseFacts(choice, slot, items),
     sales: referenceList(items, choice.sales, own),
@@ -546,7 +561,7 @@ const cacheDetail: Build<'secure_cache'> = (choice, slot, view) => {
           ),
         ),
       ),
-      choice.mode === 'retrieve' ? choice.cacheId : undefined,
+      choice.mode === 'place' ? undefined : choice.cacheId,
       'Missing cache',
       'No longer one of the militia’s caches',
     ),
@@ -558,7 +573,11 @@ const cacheDetail: Build<'secure_cache'> = (choice, slot, view) => {
               MISSING_ITEM.label,
           )
         : null,
-    cache: !choice.cacheId ? 'none' : known ? 'existing' : 'new',
+    cache: identityState(
+      choice.cacheId,
+      known !== undefined,
+      choice.mode === 'place',
+    ),
     classes: (['minor', 'intermediate', 'major'] as const).map((cacheClass) =>
       option(
         cacheClass,
@@ -568,7 +587,11 @@ const cacheDetail: Build<'secure_cache'> = (choice, slot, view) => {
       ),
     ),
     secure: yesNo(
-      ['Secure location', '+5 DC · Tier 3 team', tier === null || tier >= 3],
+      [
+        'Secure location',
+        `+${secureCache.dcBonus} DC · Tier ${secureCache.tier} team`,
+        tier === null || tier >= secureCache.tier,
+      ],
       ['Ordinary location', null],
     ),
     extradimensional: yesNo(
@@ -580,7 +603,7 @@ const cacheDetail: Build<'secure_cache'> = (choice, slot, view) => {
     settlements: settlementOptions(view, choice.settlementId),
     contents: cacheContents(choice, items),
     retainedPlace:
-      choice.mode === 'retrieve' &&
+      choice.mode !== 'place' &&
       [
         choice.cacheClass,
         choice.location,
@@ -595,9 +618,8 @@ const cacheDetail: Build<'secure_cache'> = (choice, slot, view) => {
 
 const orderDetail: Build<'special_order'> = (choice, slot, view) => {
   const items = itemFacts(view, slot);
-  const existing = items.find(
-    (item) => item.itemId === choice.itemId && item.stagedIn === null,
-  );
+  const existing = items.find((item) => item.itemId === choice.itemId);
+  const perDay = gp(enchantmentCopperPerDay);
   return {
     actionId: choice.actionId,
     modes: [
@@ -605,21 +627,29 @@ const orderDetail: Build<'special_order'> = (choice, slot, view) => {
       option(
         'enchantment',
         'Enchant an item',
-        'An item the militia holds · +1 day per 1,000 gp',
+        `An item the militia holds · +1 day per ${perDay}`,
       ),
     ],
-    item: !choice.itemId ? 'none' : existing ? 'existing' : 'new',
+    item: identityState(
+      choice.itemId,
+      existing !== undefined,
+      choice.mode === 'purchase',
+    ),
     existingItem: existing?.label ?? null,
     enchantItems: withMissing(
       ordered(items.map(itemOption)),
-      choice.mode === 'enchantment' ? choice.itemId : undefined,
+      choice.mode === 'purchase' ? undefined : choice.itemId,
       MISSING_ITEM.label,
       MISSING_ITEM.description,
     ),
     settlements: settlementOptions(view, choice.settlementId),
     deliveries: [
       option('false', 'Normal delivery', '2d6 days'),
-      option('true', 'Expedited', '+900 gp · 1 day'),
+      option(
+        'true',
+        'Expedited',
+        `+${gp(expeditedDelivery.costCopper)} · ${expeditedDelivery.days} day`,
+      ),
     ],
     availability: choice.itemId
       ? availability(choice, slot, choice.itemId)
@@ -632,16 +662,17 @@ const orderDetail: Build<'special_order'> = (choice, slot, view) => {
   };
 };
 
-const rollWhen = {
+const rollWhen: Partial<
+  Record<EconomyActionId, Partial<Record<DetailRollField, string>>>
+> = {
   activate_black_market: {
     notoriety:
       'Rolled if the Secrecy check fails: Notoriety rises by the roll.',
   },
   special_order: {
-    delivery:
-      'Rolled unless delivery is expedited: the order arrives after this many days, plus 1 day per 1,000 gp for an enchantment.',
+    delivery: `Rolled unless delivery is expedited: the order arrives after this many days, plus 1 day per ${gp(enchantmentCopperPerDay)} for an enchantment.`,
   },
-} as const;
+};
 
 function specific(choice: EconomyChoice, slot: Slot, view: ActivityView) {
   switch (choice.actionId) {
@@ -665,13 +696,7 @@ export function economyDetail(
   if (!choice || !isEconomyChoice(choice)) return null;
   return {
     ...specific(choice, slot, view),
-    rolls: detailRolls(
-      choice,
-      slot,
-      choice.actionId in rollWhen
-        ? rollWhen[choice.actionId as keyof typeof rollWhen]
-        : {},
-    ),
+    rolls: detailRolls(choice, slot, rollWhen[choice.actionId]),
     consumables: consumables(choice, slot, view),
   };
 }

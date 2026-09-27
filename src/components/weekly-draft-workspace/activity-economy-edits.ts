@@ -67,12 +67,11 @@ export function economyFieldEdits(
       ...(values.weight === undefined ? {} : { weight: values.weight }),
     };
   }
-  // A list of item references: removing the last entry keeps the recorded
-  // (empty) list when `keepEmpty`, else omits it.
+  // A list of item references. Removing the last entry omits the list, so
+  // only an explicit "none" records that there are none.
   function references(
     field: 'sales' | 'itemIds',
     recorded: string[] | undefined,
-    keepEmpty: boolean,
   ) {
     return {
       add: (itemId: string) =>
@@ -81,19 +80,17 @@ export function economyFieldEdits(
           : set(field, [...(recorded ?? []), itemId]),
       remove: (itemId: string) => {
         const next = (recorded ?? []).filter((entry) => entry !== itemId);
-        return set(field, next.length || keepEmpty ? next : undefined);
+        return set(field, next.length ? next : undefined);
       },
     };
   }
   const sales = references(
     'sales',
     'sales' in choice ? choice.sales : undefined,
-    false,
   );
   const cacheItems = references(
     'itemIds',
     choice.actionId === 'secure_cache' ? choice.itemIds : undefined,
-    true,
   );
   return {
     ...commonFieldEdits(choice, set),
@@ -126,12 +123,14 @@ export function economyFieldEdits(
         ),
       );
     },
+    // Removing the last purchase leaves them unrecorded, like clearing.
     removePurchase(itemId: string) {
+      const remaining = (purchases ?? []).filter(
+        (entry) => entry.itemId !== itemId,
+      );
       return change(
         {
-          purchases: (purchases ?? []).filter(
-            (entry) => entry.itemId !== itemId,
-          ),
+          purchases: remaining.length ? remaining : undefined,
           acknowledgements: withoutAvailability([itemId]),
         },
         'purchases',
@@ -170,12 +169,18 @@ export function economyFieldEdits(
     setBoolean(field: string, value: string) {
       return set(field, value === 'true');
     },
-    // Placing makes a new cache; retrieving drops an identity no cache has,
-    // since retrieving refers to an existing cache.
+    // Placing makes a new cache, never reusing a missing cache's identity
+    // (Militia corrections may restore it); retrieving drops an identity no
+    // cache has, since retrieving refers to an existing cache.
     setCacheMode(mode: 'place' | 'retrieve', cache: IdentityState) {
       if (mode === 'place')
         return change(
-          { mode, ...(cache === 'none' ? { cacheId: newId() } : {}) },
+          {
+            mode,
+            ...(cache === 'none' || cache === 'missing'
+              ? { cacheId: newId() }
+              : {}),
+          },
           'mode',
         );
       return change(
@@ -186,13 +191,22 @@ export function economyFieldEdits(
     useNewCache() {
       return set('cacheId', newId());
     },
-    // Ordering makes a new item; enchanting drops an identity no item has,
-    // since an enchantment refers to an existing item.
+    // Ordering makes a new item, never reusing a missing item's identity;
+    // enchanting drops an identity no item has, since an enchantment refers
+    // to an existing item.
     setOrderMode(mode: 'purchase' | 'enchantment', item: IdentityState) {
       const itemId = 'itemId' in choice ? choice.itemId : undefined;
       if (mode === 'purchase')
         return change(
-          { mode, ...(item === 'none' ? { itemId: newId() } : {}) },
+          {
+            mode,
+            ...(item === 'none' || item === 'missing'
+              ? {
+                  itemId: newId(),
+                  acknowledgements: withoutAvailability([itemId]),
+                }
+              : {}),
+          },
           'mode',
         );
       return change(

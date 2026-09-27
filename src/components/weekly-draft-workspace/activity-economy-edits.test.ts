@@ -50,7 +50,7 @@ const availability = (itemId: string) => ({
 });
 
 describe('purchases', () => {
-  test('[rules.ACT-10.purchase-edits] adding makes one new item identity; saving keeps it; removing takes only its own availability and leaves an empty list recorded', () => {
+  test('[rules.ACT-10.purchase-edits] adding makes one new item identity; saving keeps it; removing takes only its own availability, and the last leaves purchases unrecorded', () => {
     const { edits, last, newId } = harness(
       broker({
         purchases: [wand],
@@ -74,10 +74,10 @@ describe('purchases', () => {
       settlementId: 'town',
     });
     edits.removePurchase('wand');
-    expect(last()).toMatchObject({
-      purchases: [],
-      acknowledgements: [availability('other')],
-    });
+    // The last purchase removed leaves them unrecorded, not "none".
+    expect(last()).toEqual(
+      broker({ acknowledgements: [availability('other')] }),
+    );
   });
 
   test('[rules.ACT-10.purchase-clear] “none” records an empty list; clear omits the list and its availability answers', () => {
@@ -105,7 +105,7 @@ describe('purchases', () => {
 });
 
 describe('item references', () => {
-  test('[rules.ACT-10.sale-edits] sales add once and removing the last omits them; a cache keeps an empty owned-item list recorded', () => {
+  test('[rules.ACT-10.sale-edits] sales and a cache’s held items add once, and removing the last leaves them unrecorded', () => {
     const market = harness(broker({ sales: ['gear'] }));
     market.edits.addSale('gear');
     expect(market.staged).toHaveLength(0);
@@ -120,6 +120,8 @@ describe('item references', () => {
       itemIds: ['gear'],
     });
     cache.edits.removeCacheItem('gear');
+    expect(cache.last()).not.toHaveProperty('itemIds');
+    cache.edits.recordNoCacheItems();
     expect(cache.last()).toMatchObject({ itemIds: [] });
     cache.edits.clearCacheItems();
     expect(cache.last()).not.toHaveProperty('itemIds');
@@ -150,6 +152,10 @@ describe('modes and identities', () => {
     expect(existing.last()).toEqual(cache({ mode: 'place', cacheId: 'mill' }));
     existing.edits.useNewCache();
     expect(existing.last()).toMatchObject({ cacheId: 'new-1' });
+    // A missing cache's identity is never reused for a new one.
+    const missing = harness(cache({ mode: 'retrieve', cacheId: 'gone' }));
+    missing.edits.setCacheMode('place', 'missing');
+    expect(missing.last()).toEqual(cache({ mode: 'place', cacheId: 'new-1' }));
   });
 
   test('[rules.ACT-10.order-mode] ordering makes a new item once; enchanting drops a new item and its availability; replacing the item drops the old answer', () => {
@@ -189,6 +195,17 @@ describe('modes and identities', () => {
     enchanting.edits.useNewOrderItem();
     expect(enchanting.last()).toEqual(
       order({ mode: 'enchantment', itemId: 'new-1' }),
+    );
+    const missing = harness(
+      order({
+        mode: 'enchantment',
+        itemId: 'gone',
+        acknowledgements: [availability('gone')],
+      }),
+    );
+    missing.edits.setOrderMode('purchase', 'missing');
+    expect(missing.last()).toEqual(
+      order({ mode: 'purchase', itemId: 'new-1' }),
     );
     const legacy = harness(order({}));
     legacy.edits.startOrder();

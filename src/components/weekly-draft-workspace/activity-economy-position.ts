@@ -16,13 +16,14 @@ export function economyAtPosition(
   const upkeep = preview.phases?.upkeep;
   const projection = preview.phases?.activity;
   if (!upkeep?.outcome.economy || !projection) return null;
+  // Preparing touches only the economy, so only it is copied.
+  const economy = structuredClone(upkeep.outcome.economy);
   const ledger: EconomyLedger = {
-    outcome: structuredClone(upkeep.outcome),
+    outcome: { ...upkeep.outcome, economy },
     plan: [],
     requirements: [],
   };
   prepareEconomy(draft, ledger);
-  const economy = ledger.outcome.economy!;
   const earlier = new Set(
     draft.activity.slots
       .slice(0, index)

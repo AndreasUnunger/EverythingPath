@@ -183,7 +183,9 @@ function PlaceFields({
     <div className="space-y-4">
       {!isPlacing && (
         <Note>
-          Not used when retrieving; kept until you clear or replace them.
+          {choice.mode === 'retrieve'
+            ? 'Not used when retrieving; kept until you clear or replace them.'
+            : 'Not used until you choose to place a cache; kept until you clear or replace them.'}
         </Note>
       )}
       {isPlacing && detail.cache !== 'new' && (
@@ -273,7 +275,11 @@ function PlaceFields({
 function CacheFields(fields: Fields<'secure_cache'>) {
   const { choice, detail, context, correctionsHref } = fields;
   const { edits } = context;
-  const isRetrieving = choice.mode === 'retrieve';
+  // Without a mode, a recorded cache to retrieve stays visible.
+  const isRetrieving =
+    choice.mode === 'retrieve' ||
+    (choice.mode === undefined &&
+      (detail.cache === 'existing' || detail.cache === 'missing'));
   return (
     <>
       <OptionField
@@ -422,7 +428,9 @@ function OrderFields(fields: Fields<'special_order'>) {
           </div>
         </Field>
       )}
-      {choice.mode === 'enchantment' && (
+      {(choice.mode === 'enchantment' ||
+        (choice.mode === undefined &&
+          (detail.item === 'existing' || detail.item === 'missing'))) && (
         <OptionField
           context={context}
           field="itemId"
