@@ -59,9 +59,9 @@ import { classifyWriteFailure } from '~/lib/write-outcome';
 import {
   carriedDependencyError,
   describeChoice,
-  heldItemError,
   identityNames,
   missingTitle,
+  namedItemReferences,
   neededByNote,
   restorationNeed,
   restoreFirstNote,
@@ -293,35 +293,6 @@ function namedErrors(
     })),
     ...descriptors.filter((descriptor) => !general.includes(descriptor)),
   ];
-}
-
-// An Items correction that removes an item a cache holds or an order is for
-// breaks the militia's integrity: name the item and what holds it in place
-// of the general reference error. An order carried into the week is already
-// named by `namedErrors`.
-function namedHeldItems(
-  descriptors: SetupErrorDescriptor[],
-  snapshot: Snapshot,
-  carried: readonly StagedReference[],
-  names: IdentityNames,
-): SetupErrorDescriptor[] {
-  const carriedOrders = new Set(
-    carried.flatMap(({ location }) =>
-      location.kind === 'order' ? [location.orderId] : [],
-    ),
-  );
-  return descriptors.flatMap((descriptor) => {
-    const message = descriptor.field
-      ? heldItemError(descriptor.field, snapshot, names)
-      : null;
-    if (message === null) return [descriptor];
-    const order = /\.orders\.(\d+)\./.exec(descriptor.field ?? '');
-    const orderId = order
-      ? snapshot.economy?.orders[Number(order[1])]?.orderId
-      : undefined;
-    if (orderId !== undefined && carriedOrders.has(orderId)) return [];
-    return [{ message, kind: 'refinement' as const }];
-  });
 }
 
 const entryGroups: Partial<Record<MilitiaEntryKey, MilitiaEntryView['group']>> =
@@ -600,15 +571,22 @@ export function useMilitiaCorrections({
     const descriptors = hasFormErrors
       ? setupErrorDescriptors(values, militiaCorrectionSchema)
       : candidateErrors;
+    // Items a cache or order refers to that this correction removes, or
+    // that another player removed meanwhile, are named with what holds them.
     const errors = namedErrors(
-      section === 'items'
-        ? namedHeldItems(
-            descriptors,
-            hasFormErrors ? values.state.militiaSnapshot : candidate,
-            impact.carried,
-            identities,
-          )
-        : descriptors,
+      namedItemReferences(
+        descriptors,
+        hasFormErrors ? values.state.militiaSnapshot : candidate,
+        {
+          removing: section === 'items',
+          carriedOrders: new Set(
+            impact.carried.flatMap(({ location }) =>
+              location.kind === 'order' ? [location.orderId] : [],
+            ),
+          ),
+          names: identities,
+        },
+      ),
       impact.carried,
       identities,
     );

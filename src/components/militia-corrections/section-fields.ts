@@ -25,10 +25,10 @@ function rowFields(
 ): FieldLabels {
   const labels: FieldLabels = {};
   for (let index = 0; index < count; index++)
-    for (const [field, { label, ...kind }] of Object.entries(fields))
+    for (const [field, { label, ...format }] of Object.entries(fields))
       labels[`${path}.${index}.${field}`] = {
         label: `${row(index + 1)} ${label}`,
-        ...kind,
+        ...format,
       };
   return labels;
 }

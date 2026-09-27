@@ -210,7 +210,7 @@ function AffectsWeek({ choices }: { choices: AffectedChoice[] }) {
 
 // One missing identity: what needs it, and its Restore button. While its
 // restoration is blocked, the reason is read out with the disabled button.
-function MissingReference({
+function MissingReferenceItem({
   entry,
   disabled,
 }: {
@@ -274,7 +274,11 @@ export function MissingReferences({
       </h3>
       <ul role="list" className="space-y-3">
         {entries.map((entry) => (
-          <MissingReference key={entry.key} entry={entry} disabled={disabled} />
+          <MissingReferenceItem
+            key={entry.key}
+            entry={entry}
+            disabled={disabled}
+          />
         ))}
       </ul>
     </section>

@@ -5,8 +5,8 @@ import { noCapturedFacts, rememberFacts } from '~/lib/reference-restoration';
 import {
   carriedDependencyError,
   describeChoice,
-  heldItemError,
   identityNames,
+  namedItemReferences,
   neededByNote,
   restoreFirstNote,
   restoreLabel,
@@ -128,28 +128,34 @@ test('a cache whose contents are missing names the items to restore first', () =
   );
 });
 
-test('removing an item a cache or order holds names the item and what holds it', () => {
+test('an item a cache or order holds is named with what holds it, whether this correction or another player removed it', () => {
   const snapshot = economyState();
   const names = identityNames(snapshot, noCapturedFacts, new Map());
-  expect(
-    heldItemError(
-      'state.militiaSnapshot.economy.caches.0.itemIds.0',
-      snapshot,
+  const unknown = 'Unknown referenced entity';
+  const descriptors = [
+    'state.militiaSnapshot.economy.caches.0.itemIds.0',
+    'state.militiaSnapshot.economy.orders.0.itemId',
+    'state.militiaSnapshot.economy.orders.0.settlementId',
+  ].map((field) => ({ field, message: unknown, kind: 'refinement' as const }));
+  const messages = (removing: boolean, carriedOrders = new Set<string>()) =>
+    namedItemReferences(descriptors, snapshot, {
+      removing,
+      carriedOrders,
       names,
-    ),
-  ).toBe('Keep Ring: Cache at Forest holds it.');
-  expect(
-    heldItemError(
-      'state.militiaSnapshot.economy.orders.0.itemId',
-      snapshot,
-      names,
-    ),
-  ).toBe('Keep Sword: an order from Town still needs it.');
-  expect(
-    heldItemError(
-      'state.militiaSnapshot.economy.orders.0.settlementId',
-      snapshot,
-      names,
-    ),
-  ).toBeNull();
+    }).map((descriptor) => descriptor.message);
+  expect(messages(true)).toEqual([
+    'Keep Ring: Cache at Forest holds it.',
+    'Keep Sword: an order from Town still needs it.',
+    unknown,
+  ]);
+  expect(messages(false)).toEqual([
+    'Cache at Forest holds Ring, which is no longer in the militia.',
+    'An order from Town is for Sword, which is no longer in the militia.',
+    unknown,
+  ]);
+  // An order carried into the week is named as carried context instead.
+  expect(messages(true, new Set(['sword-order']))).toEqual([
+    'Keep Ring: Cache at Forest holds it.',
+    unknown,
+  ]);
 });

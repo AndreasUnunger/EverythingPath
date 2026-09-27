@@ -350,6 +350,30 @@ describe('Caches correction', () => {
   });
 });
 
+describe('an item removed by another player meanwhile', () => {
+  test('a cache correction holding it is refused, naming the cache and the item', async () => {
+    const view = render(page());
+    const { editor, reason, save } = openSection('Caches');
+    const forest = within(editor.getByRole('group', { name: 'Cache 1' }));
+    fireEvent.click(forest.getByRole('button', { name: 'Gem' }));
+    // The Gem is sold elsewhere before this correction is saved.
+    const latest = state();
+    latest.militiaSnapshot.economy!.items =
+      latest.militiaSnapshot.economy!.items.filter(
+        (item) => item.itemId !== 'gem',
+      );
+    setMilitia(4, latest);
+    view.rerender(page());
+    fireEvent.change(reason(), { target: { value: 'Hid the gem' } });
+    await press(save());
+    expect(calls).toHaveLength(0);
+    expect(summary()).toHaveTextContent(
+      'Cache at Forest holds Gem, which is no longer in the militia.',
+    );
+    expect(summary()).not.toHaveTextContent('Unknown referenced entity');
+  });
+});
+
 describe('Orders correction', () => {
   test('decimal delivery facts and a recorded then cleared receipt save only the orders', async () => {
     render(page());

@@ -13,6 +13,7 @@ import {
   type CapturedFacts,
 } from '~/lib/reference-restoration';
 import type { ReferenceKind } from '~/lib/weekly-draft-references';
+import type { SetupErrorDescriptor } from '~/lib/setup-validation';
 
 // User-facing names for the open week's choices a correction affects and the
 // identities they use. Opaque identities are never shown: an identity with
@@ -284,30 +285,78 @@ function carriedPhrase(location: ChoiceLocation) {
 const heldItemPath =
   /^state\.militiaSnapshot\.economy\.(caches|orders)\.(\d+)\.(itemIds\.(\d+)|itemId)$/;
 
-/**
- * The integrity error for removing an item a cache holds or an order is
- * for, named by the item and what holds it; null for any other field.
- * `snapshot` holds the cache or order at the field's path.
- */
-export function heldItemError(
+type HeldItem = { itemId: string; holder: string; orderId: string | null };
+
+// The item a cache holds or an order is for at a form field path, and a
+// phrase naming what holds it; null for any other field.
+function heldItemAt(
   field: string,
   snapshot: Snapshot,
   names: IdentityNames,
-): string | null {
+): HeldItem | null {
   const match = heldItemPath.exec(field);
   if (!match) return null;
   const [, list, row, , content] = match;
-  const economy = snapshot.economy;
   if (list === 'caches') {
-    const cache = economy?.caches[Number(row)];
+    const cache = snapshot.economy?.caches[Number(row)];
     const itemId = cache?.itemIds[Number(content)];
     if (!cache || itemId === undefined) return null;
-    const item = missingName({ kind: 'item', id: itemId }, names);
-    return `Keep ${item}: Cache at ${cache.location} holds it.`;
+    return { itemId, holder: `Cache at ${cache.location}`, orderId: null };
   }
-  const order = economy?.orders[Number(row)];
+  const order = snapshot.economy?.orders[Number(row)];
   if (!order || content !== undefined) return null;
-  const item = missingName({ kind: 'item', id: order.itemId }, names);
   const town = knownName({ kind: 'settlement', id: order.settlementId }, names);
-  return `Keep ${item}: an order${town ? ` from ${town}` : ''} still needs it.`;
+  return {
+    itemId: order.itemId,
+    holder: `an order${town ? ` from ${town}` : ''}`,
+    orderId: order.orderId,
+  };
+}
+
+const capitalized = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * Names the integrity errors for items a cache holds or an order is for
+ * that the militia lacks, in place of the general reference error: "Keep
+ * Ring: Cache at Old Mill holds it." when this correction removes the item
+ * (`removing`), else "Cache at Old Mill holds Ring, which is no longer in
+ * the militia." Orders carried into the week (`carriedOrders`) are named as
+ * carried context instead. `snapshot` holds the rows the fields locate.
+ */
+export function namedItemReferences(
+  descriptors: readonly SetupErrorDescriptor[],
+  snapshot: Snapshot,
+  {
+    removing,
+    carriedOrders,
+    names,
+  }: {
+    removing: boolean;
+    carriedOrders: ReadonlySet<string>;
+    names: IdentityNames;
+  },
+): SetupErrorDescriptor[] {
+  return descriptors.flatMap((descriptor) => {
+    const held = descriptor.field
+      ? heldItemAt(descriptor.field, snapshot, names)
+      : null;
+    if (!held) return [descriptor];
+    if (held.orderId !== null && carriedOrders.has(held.orderId)) return [];
+    const item = missingName({ kind: 'item', id: held.itemId }, names);
+    if (removing)
+      return [
+        {
+          message: `Keep ${item}: ${held.holder} ${held.orderId === null ? 'holds it' : 'still needs it'}.`,
+          kind: 'refinement' as const,
+        },
+      ];
+    const has = held.orderId === null ? 'holds' : 'is for';
+    return [
+      {
+        ...descriptor,
+        message: `${capitalized(held.holder)} ${has} ${item}, which is no longer in the militia.`,
+      },
+    ];
+  });
 }
