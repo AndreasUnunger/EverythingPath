@@ -424,3 +424,20 @@ test('rank reports its own missing player-character cap instead of waiting', () 
   });
   expect(view.sections.transfers.status).not.toBe('waiting');
 });
+
+test('a recovery-funds ruling left over after choosing Leave disabled is not shown under the team', () => {
+  const view = upkeep((draft, snapshot) => {
+    snapshot.treasuryCopper = 1000;
+    snapshot.roster.teams.push(team('scouts', 'disabled'));
+    draft.upkeep.teamDecisions = [{ teamId: 'scouts', decision: 'leave' }];
+    draft.rulesExceptions = [
+      {
+        exceptionId: 'funds',
+        subjectId: 'scouts',
+        ruleId: 'upkeep-recovery-funds',
+        reason: 'Owed favour',
+      },
+    ];
+  });
+  expect(view.sections.teams.disabled[0]!.fundsException).toBeNull();
+});

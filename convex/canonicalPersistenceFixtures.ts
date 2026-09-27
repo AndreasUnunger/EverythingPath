@@ -269,6 +269,8 @@ export const initializeUpkeep = internalMutation({
     choices: v.optional(v.boolean()),
     // Maximum notoriety, so the Upkeep settlement choice applies.
     maximumNotoriety: v.optional(v.boolean()),
+    // Adds a missing team that rolls to return during Upkeep.
+    missingTeam: v.optional(v.boolean()),
     persistent: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
@@ -305,6 +307,19 @@ export const initializeUpkeep = internalMutation({
                 rewardCapExempt: false,
                 notes: '',
               },
+              ...(args.missingTeam
+                ? [
+                    {
+                      teamId: 'upkeep-riders',
+                      teamType: 'defenders' as const,
+                      name: 'Riders',
+                      status: 'missing' as const,
+                      managerCharacterId: null,
+                      rewardCapExempt: false,
+                      notes: '',
+                    },
+                  ]
+                : []),
             ]
           : [],
         officers: [{ characterId: character._id, role: 'ambassador' }],

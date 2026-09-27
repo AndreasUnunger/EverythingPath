@@ -213,14 +213,16 @@ function Rank({
       title="Rank"
       status={rank.status}
       effect={
-        rank.after === null
+        rank.status === 'waiting'
           ? 'Waiting for the steps above'
-          : rank.after === rank.before
-            ? `Stays rank ${rank.before}`
-            : `Rank ${rank.before} → ${rank.after}`
+          : rank.after === null
+            ? 'Highest player-character level needed'
+            : rank.after === rank.before
+              ? `Stays rank ${rank.before}`
+              : `Rank ${rank.before} → ${rank.after}`
       }
     >
-      {rank.after === null && (
+      {rank.status === 'waiting' && (
         <p className="text-muted-foreground text-sm">
           Rank is worked out once every roll and decision above is in.
         </p>

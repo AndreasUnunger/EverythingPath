@@ -146,6 +146,8 @@ export type UpkeepSections = {
     adjustments: { teamId: string; name: string; deltaCopper: number }[];
     disabled: UpkeepDisabledTeam[];
     missing: UpkeepMissingTeam[];
+    // What the open step still needs from the table, or null when settled.
+    need: 'decision' | 'roll' | null;
     // Staged decisions for teams no longer on the roster (for example after
     // a Militia correction removed them); each blocks until cleared.
     orphans: { teamId: string }[];

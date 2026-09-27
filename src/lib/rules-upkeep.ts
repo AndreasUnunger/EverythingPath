@@ -52,6 +52,12 @@ export function notorietyOutcome(total: number) {
     ? ('success' as const)
     : ('failure' as const);
 }
+// Requirements raised by Step 4 (rank, boons, the highest PC level) and
+// Step 5 (transfers). Every other Upkeep requirement belongs to an earlier
+// step, which rank and transfers wait for.
+export function isRankOrTransferRequirement(key: string) {
+  return /^(rank:|upkeep:boon:|transfer:|highest-level-pc$)/.test(key);
+}
 // A missing team returns at the end of the week on DC 15 Security; a natural
 // 1 loses it permanently.
 export function returnOutcome(total: number, naturalValue: number | null) {

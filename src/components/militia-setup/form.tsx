@@ -21,11 +21,14 @@ export function MilitiaSetupForm({
   onSave,
   initialValues,
   correction = false,
+  stagedChoiceNotice,
 }: {
   characters: SetupCharacter[];
   onSave: (setup: MilitiaSetup) => Promise<void>;
   initialValues?: MilitiaSetup;
   correction?: boolean;
+  // A correction's effect on choices already staged for the open week.
+  stagedChoiceNotice?: (setup: MilitiaSetup) => string | null;
 }) {
   const form = useForm<MilitiaSetup>({
     resolver: zodResolver(
@@ -44,6 +47,7 @@ export function MilitiaSetupForm({
   const warnings = parsed.success
     ? prepareMilitiaSetup(parsed.data, 'setup-review').warnings
     : [];
+  const staged = parsed.success ? stagedChoiceNotice?.(parsed.data) : null;
   return (
     <FormProvider {...form}>
       <form
@@ -195,6 +199,17 @@ export function MilitiaSetupForm({
             <p className="text-sm">
               You can keep these values and explain your table ruling in the
               notes.
+            </p>
+          </aside>
+        )}
+        {staged && (
+          <aside
+            aria-label="Staged choices this week"
+            className="space-y-1 border border-amber-500/60 p-3"
+          >
+            <h2 className="font-semibold">Staged choices this week</h2>
+            <p role="note" className="text-sm">
+              {staged}
             </p>
           </aside>
         )}

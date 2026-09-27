@@ -96,9 +96,7 @@ export function WholeNumberField({
                 }}
               />
             </FormControl>
-            {description && (
-              <FormDescription>{description}</FormDescription>
-            )}
+            {description && <FormDescription>{description}</FormDescription>}
             <div className="min-h-5">
               <FormMessage role="alert" />
             </div>

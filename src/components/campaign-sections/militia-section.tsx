@@ -9,6 +9,43 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { useCanonicalLedger } from '~/components/use-canonical-ledger';
 import { campaignPath } from '~/lib/campaign-routes';
+import { correctionStagedChoices } from '~/lib/correction-staged-choices';
+import type { MilitiaSetup } from '~/lib/canonical-setup';
+import { weeklyDraftSchema } from '~/lib/weekly-draft-contract';
+import { phaseLabels } from '~/components/weekly-draft-workspace/week-frame/labels';
+
+// Names the week phases whose staged choices the correction would orphan, so
+// the table can review them there; the correction itself stays allowed.
+function useStagedChoiceNotice(key: {
+  campaignId: Id<'campaign'>;
+  militiaId: Id<'militia'>;
+  draftId: string;
+}) {
+  const observation = useQuery(api.canonicalDraftPersistence.observe, key);
+  const draft =
+    observation?.status === 'open'
+      ? weeklyDraftSchema.safeParse(observation.draft)
+      : null;
+  if (!draft?.success) return undefined;
+  return (
+    current: MilitiaSetup['state']['militiaSnapshot'],
+    setup: MilitiaSetup,
+  ) => {
+    const affected = correctionStagedChoices(
+      draft.data,
+      current,
+      setup.state.militiaSnapshot,
+    );
+    if (affected.length === 0) return null;
+    const phases = affected
+      .map(
+        ({ phase, count }) =>
+          `${phaseLabels[phase]} (${count} ${count === 1 ? 'choice' : 'choices'})`,
+      )
+      .join(', ');
+    return `This correction removes something that choices already staged for the current week use: ${phases}. After saving, review those choices in the week; Upkeep lets you clear a staged decision for a removed team.`;
+  };
+}
 
 // Temporary host for the existing correction editor: values, teams with
 // managers, settlements, assets, roster and officer roles behind one required
@@ -16,12 +53,19 @@ import { campaignPath } from '~/lib/campaign-routes';
 export function MilitiaLedger({
   campaignId,
   militiaId,
+  draftId,
   organizationId,
 }: {
   campaignId: Id<'campaign'>;
   militiaId: Id<'militia'>;
+  draftId: string;
   organizationId: string;
 }) {
+  const stagedNotice = useStagedChoiceNotice({
+    campaignId,
+    militiaId,
+    draftId,
+  });
   const { ledger, editing, characters, toggle, save } = useCanonicalLedger({
     campaignId,
     militiaId,
@@ -51,6 +95,10 @@ export function MilitiaLedger({
             notes: '',
             state: editing.state,
           }}
+          stagedChoiceNotice={
+            stagedNotice &&
+            ((setup) => stagedNotice(editing.state.militiaSnapshot, setup))
+          }
           characters={characters}
           onSave={save}
         />
@@ -75,6 +123,7 @@ export function MilitiaSection({
       <MilitiaLedger
         campaignId={campaignId}
         militiaId={source.key.militiaId}
+        draftId={source.key.draftId}
         organizationId={organizationId}
       />
     );

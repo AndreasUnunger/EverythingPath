@@ -2,29 +2,29 @@
 // Parsing works on the digits, never through floating point, so every stored
 // copper amount survives a round trip exactly.
 export type GpInput =
-  | { status: 'valid'; copper: number }
-  | { status: 'empty' }
-  | { status: 'invalid'; message: string };
+  | { kind: 'valid'; copper: number }
+  | { kind: 'empty' }
+  | { kind: 'invalid'; message: string };
 
 export function parseGpInput(text: string): GpInput {
   const trimmed = text.trim();
-  if (trimmed === '') return { status: 'empty' };
+  if (trimmed === '') return { kind: 'empty' };
   const match = /^(\d+)(?:\.(\d*))?$/.exec(trimmed);
   if (!match)
     return {
-      status: 'invalid',
+      kind: 'invalid',
       message: 'Enter an amount in gp, such as 12 or 0.07.',
     };
   const [, whole = '', fraction = ''] = match;
   if (fraction.length > 2)
     return {
-      status: 'invalid',
+      kind: 'invalid',
       message: 'Use at most two decimal places (1 cp = 0.01 gp).',
     };
   const copper = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
   if (!Number.isSafeInteger(copper))
-    return { status: 'invalid', message: 'Enter a smaller amount.' };
-  return { status: 'valid', copper };
+    return { kind: 'invalid', message: 'Enter a smaller amount.' };
+  return { kind: 'valid', copper };
 }
 
 export function copperToGpInput(copper: number): string {

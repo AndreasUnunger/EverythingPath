@@ -9,8 +9,16 @@ export type UpkeepEdit = (edit: WeeklyDraftEdit) => unknown;
 // existing `upkeep_team` operation, so its atomic recovery adjustment and
 // latest-edit-wins ordering are unchanged.
 
-// Recover at the rules cost; any earlier price change is cleared.
-export function recoverTeam(team: UpkeepDisabledTeam): WeeklyDraftEdit {
+// Recover at the rules cost (the decision's cost); a different agreed price
+// is the reasoned post-baseline adjustment, and the rules price clears it.
+export function recoverTeam(
+  team: UpkeepDisabledTeam,
+  price: { copper: number; reason: string } = {
+    copper: team.rulesCostCopper,
+    reason: '',
+  },
+): WeeklyDraftEdit {
+  const deltaCopper = team.rulesCostCopper - price.copper;
   return {
     kind: 'upkeep_team',
     teamId: team.teamId,
@@ -19,22 +27,30 @@ export function recoverTeam(team: UpkeepDisabledTeam): WeeklyDraftEdit {
       decision: 'recover',
       costCopper: team.rulesCostCopper,
     },
-    recoveryAdjustment: null,
+    recoveryAdjustment:
+      deltaCopper === 0 ? null : { deltaCopper, reason: price.reason },
   };
 }
 
-// Leaving a team disabled also removes its recovery adjustment.
-export function leaveTeamDisabled(teamId: string): WeeklyDraftEdit {
-  return {
-    kind: 'upkeep_team',
-    teamId,
-    decision: { teamId, decision: 'leave' },
-  };
+// Leaving a team disabled also removes its recovery adjustment and any
+// recorded ruling for recovering beyond the treasury.
+export function leaveTeamDisabled(team: UpkeepDisabledTeam): WeeklyDraftEdit[] {
+  const ruling = team.fundsException;
+  return [
+    {
+      kind: 'upkeep_team',
+      teamId: team.teamId,
+      decision: { teamId: team.teamId, decision: 'leave' },
+    },
+    ...(ruling && !ruling.required
+      ? [clearRulesException(ruling.exceptionId)]
+      : []),
+  ];
 }
 
 // A missing team's return check is stored on its (leave) decision; a blank
 // clears the roll and keeps the decision.
-export function missingTeamReturnRoll(
+export function recordReturnRoll(
   teamId: string,
   roll: RawRoll | null,
 ): WeeklyDraftEdit {
@@ -54,18 +70,11 @@ export function clearTeamDecision(
 ): WeeklyDraftEdit[] {
   return [
     { kind: 'upkeep_team', teamId, decision: null },
-    ...(removal?.exceptionId
-      ? [
-          {
-            kind: 'clear_rules_exception' as const,
-            exceptionId: removal.exceptionId,
-          },
-        ]
-      : []),
+    ...(removal?.exceptionId ? [clearRulesException(removal.exceptionId)] : []),
   ];
 }
 
-export function recoveryFundsException(
+export function recordRecoveryFundsException(
   team: UpkeepDisabledTeam,
   reason: string,
 ): WeeklyDraftEdit | null {
@@ -79,4 +88,8 @@ export function recoveryFundsException(
       reason,
     },
   };
+}
+
+export function clearRulesException(exceptionId: string): WeeklyDraftEdit {
+  return { kind: 'clear_rules_exception', exceptionId };
 }

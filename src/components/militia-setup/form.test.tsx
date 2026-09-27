@@ -432,3 +432,27 @@ test('[setup.event-references] removing a targeted team blocks save until the ca
     },
   });
 });
+test('a correction explains how it affects choices already staged for the week without blocking the save', async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  const notice = vi.fn(() => 'Upkeep (1 choice) needs review.');
+  render(
+    <MilitiaSetupForm
+      characters={[]}
+      onSave={save}
+      correction
+      stagedChoiceNotice={notice}
+    />,
+  );
+  const aside = screen.getByRole('complementary', {
+    name: 'Staged choices this week',
+  });
+  expect(within(aside).getByRole('note')).toHaveTextContent(
+    'Upkeep (1 choice) needs review.',
+  );
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Reason for correction' }),
+    { target: { value: 'Team disbanded' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+});

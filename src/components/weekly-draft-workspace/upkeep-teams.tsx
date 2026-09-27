@@ -21,11 +21,12 @@ import type {
   UpkeepSections,
 } from './types';
 import {
+  clearRulesException,
   clearTeamDecision,
   leaveTeamDisabled,
-  missingTeamReturnRoll,
+  recordReturnRoll,
   recoverTeam,
-  recoveryFundsException,
+  recordRecoveryFundsException,
   type UpkeepEdit,
 } from './upkeep-edits';
 import {
@@ -53,17 +54,8 @@ const returnResults = {
 function teamsEffect(teams: UpkeepSections['teams']) {
   const paid = teams.treasuryAfterRecoveryCopper - teams.treasuryBeforeCopper;
   const change = paid === 0 ? 'No cost' : `Treasury ${signedGold(paid)}`;
-  if (teams.status !== 'open') return change;
-  const rollsOnly =
-    teams.orphans.length === 0 &&
-    teams.disabled.every(
-      (team) =>
-        team.decision !== null &&
-        team.legacyRemoval === null &&
-        !team.fundsException?.required,
-    ) &&
-    teams.missing.every((team) => team.legacyRemoval === null);
-  const need = rollsOnly ? 'Roll needed' : 'Decision needed';
+  if (!teams.need) return change;
+  const need = teams.need === 'roll' ? 'Roll needed' : 'Decision needed';
   return paid === 0 ? need : `${need} · ${change} so far`;
 }
 
@@ -280,11 +272,8 @@ function DisabledTeam({
             ]}
             onChange={(value) => {
               if (value === team.decision) return;
-              edit(
-                value === 'recover'
-                  ? recoverTeam(team)
-                  : leaveTeamDisabled(team.teamId),
-              );
+              if (value === 'recover') edit(recoverTeam(team));
+              else for (const item of leaveTeamDisabled(team)) edit(item);
             }}
           />
           {team.decision === 'recover' && (
@@ -302,14 +291,11 @@ function DisabledTeam({
             current={fundsException.reason}
             disabled={disabled}
             onSave={(reason) => {
-              const exception = recoveryFundsException(team, reason);
+              const exception = recordRecoveryFundsException(team, reason);
               if (exception) edit(exception);
             }}
             onClear={() =>
-              edit({
-                kind: 'clear_rules_exception',
-                exceptionId: fundsException.exceptionId,
-              })
+              edit(clearRulesException(fundsException.exceptionId))
             }
           />
         </div>
@@ -360,7 +346,7 @@ function MissingTeam({
               recorded={returning.check.recorded}
               required
               disabled={disabled}
-              onRoll={(roll) => edit(missingTeamReturnRoll(team.teamId, roll))}
+              onRoll={(roll) => edit(recordReturnRoll(team.teamId, roll))}
             />
           }
           summary={

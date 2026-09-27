@@ -711,3 +711,51 @@ test('[rules.P81.recovery-arbitration] disjoint recoveries coexist while stale e
   ).rejects.toThrow();
   expect(await authority.transport.read()).toEqual(adjusted);
 });
+
+test('leaving a recovering team disabled also clears its recorded recovery-funds ruling', () => {
+  const { view } = fixture((draft, snapshot) => {
+    snapshot.treasuryCopper = 1000;
+    snapshot.roster.teams.push(team('scouts', 'disabled'));
+    draft.upkeep.teamDecisions = [
+      { teamId: 'scouts', decision: 'recover', costCopper: 3000 },
+    ];
+    draft.rulesExceptions = [
+      {
+        exceptionId: 'x1',
+        subjectId: 'scouts',
+        ruleId: 'upkeep-recovery-funds',
+        reason: 'The mayor covers it',
+      },
+    ];
+  });
+  const edit = renderView(view);
+  fireEvent.click(
+    within(group('Scouts team condition')).getByRole('button', {
+      name: 'Leave disabled',
+    }),
+  );
+  expect(edit.mock.calls.map(([item]) => item)).toEqual([
+    {
+      kind: 'upkeep_team',
+      teamId: 'scouts',
+      decision: { teamId: 'scouts', decision: 'leave' },
+    },
+    { kind: 'clear_rules_exception', exceptionId: 'x1' },
+  ]);
+});
+
+test('rank names its own missing player-character level instead of waiting on earlier steps', () => {
+  const { view } = fixture((_, snapshot) => {
+    snapshot.characters = snapshot.characters.map((character) => ({
+      ...character,
+      isActive: false,
+    }));
+  });
+  renderView(view);
+  const rank = section('Rank');
+  expect(rank).toHaveTextContent('Highest player-character level needed');
+  expect(rank).not.toHaveTextContent('Waiting for the steps above');
+  expect(within(rank).getByRole('note')).toHaveTextContent(
+    'no active player character is on the roster',
+  );
+});

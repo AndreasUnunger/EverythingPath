@@ -58,8 +58,13 @@ export function buildResolvedTeamManagers({
   teams: TeamManagerAssignment[];
   characters: TeamManagerCharacter[];
 }) {
-  const charactersById = new Map(characters.map((character) => [character._id, character]));
-  const baseResolved = new Map<string, Omit<ResolvedTeamManager, 'managedTeamCount'>>();
+  const charactersById = new Map(
+    characters.map((character) => [character._id, character]),
+  );
+  const baseResolved = new Map<
+    string,
+    Omit<ResolvedTeamManager, 'managedTeamCount'>
+  >();
   const counts = new Map<string, number>();
 
   for (const team of teams) {
@@ -72,7 +77,10 @@ export function buildResolvedTeamManagers({
     }
 
     baseResolved.set(team.teamId, resolved);
-    counts.set(resolved.identityKey, (counts.get(resolved.identityKey) ?? 0) + 1);
+    counts.set(
+      resolved.identityKey,
+      (counts.get(resolved.identityKey) ?? 0) + 1,
+    );
   }
 
   return new Map(
@@ -102,10 +110,9 @@ export function buildResolvedTeamManagers({
   );
 }
 
-export function formatTeamManagerBonus(manager: Pick<
-  ResolvedTeamManager,
-  'displayName' | 'charismaBonus'
->) {
+export function formatTeamManagerBonus(
+  manager: Pick<ResolvedTeamManager, 'displayName' | 'charismaBonus'>,
+) {
   return `${manager.displayName} manager CHA bonus ${formatSigned(manager.charismaBonus)}`;
 }
 

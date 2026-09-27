@@ -3,6 +3,7 @@ import { normalizeRawRoll } from '~/lib/raw-roll';
 import {
   UPKEEP_RULES,
   attritionOutcome,
+  isRankOrTransferRequirement,
   lossMultiplier,
   notorietyOutcome,
   previewUpkeepCheck,
@@ -82,10 +83,8 @@ export function upkeepSections({
     issues,
   };
   const teams = teamsSection(context);
-  // Rank and transfers follow every earlier requirement; the highest PC
-  // level is the rank step's own input.
   const earlierOpen = projection.requirements.some(
-    (key) => !/^(rank:|upkeep:boon:|transfer:|highest-level-pc$)/.test(key),
+    (key) => !isRankOrTransferRequirement(key),
   );
   return {
     teams,
@@ -188,8 +187,22 @@ function teamsSection(context: Context): UpkeepSections['teams'] {
   const open =
     orphans.length > 0 ||
     teams.some((team) => requires(context, `team:${team.teamId}:`));
+  const missing = teams
+    .filter((team) => team.status === 'missing')
+    .map((team) => missingTeam(context, team));
+  // Only missing-team return rolls left, or a choice/reason still to make.
+  const rollsOnly =
+    orphans.length === 0 &&
+    disabled.every(
+      (team) =>
+        team.decision !== null &&
+        team.legacyRemoval === null &&
+        !team.fundsException?.required,
+    ) &&
+    missing.every((team) => team.legacyRemoval === null);
   return {
     status: open ? 'open' : teams.length === 0 ? 'inapplicable' : 'resolved',
+    need: open ? (rollsOnly ? 'roll' : 'decision') : null,
     treasuryBeforeCopper: snapshot.treasuryCopper,
     treasuryAfterRecoveryCopper:
       snapshot.treasuryCopper +
@@ -212,9 +225,7 @@ function teamsSection(context: Context): UpkeepSections['teams'] {
         : [],
     ),
     disabled,
-    missing: teams
-      .filter((team) => team.status === 'missing')
-      .map((team) => missingTeam(context, team)),
+    missing,
     orphans,
   };
 }
@@ -468,8 +479,9 @@ function disabledTeam(
     rulesCostCopper: minimumTreasuryCopper,
     enteredCostCopper: minimumTreasuryCopper - (adjustment?.deltaCopper ?? 0),
     adjustment,
+    // A recorded ruling belongs under the team only while it is recovering.
     fundsException:
-      exception || required
+      (exception && decision === 'recover') || required
         ? {
             exceptionId:
               exception?.exceptionId ?? recoveryFundsExceptionId(team.teamId),

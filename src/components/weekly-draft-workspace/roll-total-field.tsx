@@ -64,7 +64,7 @@ export function RollTotalField({
             <span>{rollNotation(spec)} · total of the dice only</span>
             {recorded && (
               <>
-                {' '}
+                {' · '}
                 <span>
                   {recorded.provenance.kind === 'generated'
                     ? 'Recorded roll.'

@@ -11,7 +11,9 @@ describe('team manager rules', () => {
     expect(getTeamManagerCharismaBonus(8)).toBe(0);
     expect(getTeamManagerCharismaBonus(18)).toBe(4);
     expect(getTeamManagerMaxTeams({ kind: 'pc', charisma: 8 })).toBe(1);
-    expect(getTeamManagerMaxTeams({ kind: 'officer_npc', charisma: 18 })).toBe(4);
+    expect(getTeamManagerMaxTeams({ kind: 'officer_npc', charisma: 18 })).toBe(
+      4,
+    );
     expect(getTeamManagerMaxTeams({ kind: 'other_npc', charisma: 18 })).toBe(1);
   });
 

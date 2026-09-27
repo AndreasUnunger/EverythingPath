@@ -1,4 +1,5 @@
 'use client';
+import { rollNotation } from './roll-facts';
 import type { UpkeepEdit } from './upkeep-edits';
 import { ChoiceCards } from './choice-cards';
 import { RollTotalField } from './roll-total-field';
@@ -88,8 +89,8 @@ function LossRow({
 }) {
   const notation =
     loss.rank === null
-      ? `${loss.count}d${loss.sides}`
-      : `${loss.count}d${loss.sides} + rank ${loss.rank}`;
+      ? rollNotation(loss)
+      : `${rollNotation(loss)} + rank ${loss.rank}`;
   return (
     <div className="space-y-1">
       <RollRow

@@ -157,6 +157,6 @@ test('the dice notation and provenance describe the input directly beneath it', 
   expect(
     screen.getByRole('textbox', { name: 'Training roll' }),
   ).toHaveAccessibleDescription(
-    '2d4 · total of the dice only Rolled at the table.',
+    '2d4 · total of the dice only · Rolled at the table.',
   );
 });

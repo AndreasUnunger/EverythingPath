@@ -34,6 +34,7 @@ import { exerciseEventWorkspace } from './support/event-workspace';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
+import { exerciseTeamConditionRows } from './support/team-conditions';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Page } from '@playwright/test';
@@ -423,6 +424,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
         draftId: randomUUID(),
         choices: true,
         maximumNotoriety: true,
+        missingTeam: true,
       }),
     );
     const notorietyRoute = `/canonical-workspace?campaign=${notorietyScope.campaignId}`;
@@ -511,6 +513,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     ).toBeVisible();
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
+    await exerciseTeamConditionRows(gm, player, run, notorietyScope);
     await fixtureCall(run, 'resetCase', {
       ...ownedCase.scope,
       now: 1_700_000_000_000,
@@ -581,6 +584,29 @@ test('players prepare shared Upkeep with independent navigation and save recover
       'Local healer donated supplies',
     );
     await saved();
+    // Both players change the price at once: every device converges on the
+    // latest accepted edit, never a mix or an older price.
+    await Promise.all([
+      cost(recovery).fill('14'),
+      cost(remoteRecovery).fill('16'),
+    ]);
+    await expect(async () => {
+      const [local, remote] = await Promise.all([
+        cost(recovery).inputValue(),
+        cost(remoteRecovery).inputValue(),
+      ]);
+      expect(local).toBe(remote);
+      expect(['14', '16']).toContain(local);
+    }).toPass();
+    await cost(recovery).fill('15');
+    await expect(cost(remoteRecovery)).toHaveValue('15');
+    await saved();
+    // An accepted price and reason survive a reload.
+    await player.reload();
+    await expect(cost(remoteRecovery)).toHaveValue('15');
+    await expect(reason(remoteRecovery)).toHaveValue(
+      'Local healer donated supplies',
+    );
     await gm
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();

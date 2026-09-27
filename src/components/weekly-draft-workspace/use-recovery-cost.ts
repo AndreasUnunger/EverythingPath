@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { copperToGpInput, parseGpInput } from '~/lib/gp-money';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { UpkeepDisabledTeam } from './types';
+import { recoverTeam } from './upkeep-edits';
 
 type Field = 'cost' | 'reason';
 type Values = Record<Field, string>;
@@ -15,11 +16,11 @@ function recoverySchema(rulesCostCopper: number) {
     .object({
       cost: z.string().transform((text, context) => {
         const parsed = parseGpInput(text);
-        if (parsed.status === 'valid') return parsed.copper;
+        if (parsed.kind === 'valid') return parsed.copper;
         context.addIssue({
           code: 'custom',
           message:
-            parsed.status === 'empty'
+            parsed.kind === 'empty'
               ? 'A recovery cost is required.'
               : parsed.message,
         });
@@ -87,13 +88,7 @@ export function useRecoveryCost(
   }, [form, schema, shared]);
 
   function save(copper: number, reason: string) {
-    const deltaCopper = rules - copper;
-    edit({
-      kind: 'upkeep_team',
-      teamId: team.teamId,
-      decision: { teamId: team.teamId, decision: 'recover', costCopper: rules },
-      recoveryAdjustment: deltaCopper === 0 ? null : { deltaCopper, reason },
-    });
+    edit(recoverTeam(team, { copper, reason }));
   }
 
   const cost = parseGpInput(form.watch('cost'));
@@ -101,8 +96,8 @@ export function useRecoveryCost(
     form,
     // The price differs from the rules cost (or cannot be read), so the
     // reason and resulting Table Adjustment apply.
-    changed: cost.status !== 'valid' || cost.copper !== rules,
-    pendingDeltaCopper: cost.status === 'valid' ? rules - cost.copper : null,
+    changed: cost.kind !== 'valid' || cost.copper !== rules,
+    pendingDeltaCopper: cost.kind === 'valid' ? rules - cost.copper : null,
     change(field: Field, text: string) {
       form.setValue(field, text, { shouldDirty: true });
       void form.trigger();
