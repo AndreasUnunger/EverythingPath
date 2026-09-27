@@ -15,9 +15,11 @@ test('organization members can open their campaign and outsiders cannot', async 
   await Promise.all(
     [players.gm, players.player].map(async (page) => {
       await page.goto('/campaigns');
+      // Continue week opens the first unready phase: the first week skips
+      // Upkeep and Activity has nothing required, so Event (#189).
       await openCampaignSection(page, 'week');
       await expect(
-        page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+        page.getByRole('heading', { name: 'Week 1 · Event' }),
       ).toBeVisible();
     }),
   );
@@ -27,7 +29,7 @@ test('organization members can open their campaign and outsiders cannot', async 
     ownedCase.campaignName,
   );
   await expect(
-    players.gm.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+    players.gm.getByRole('heading', { name: 'Week 1 · Event' }),
   ).toBeVisible();
   if (
     (await loadRun()).mode === 'nightly' &&

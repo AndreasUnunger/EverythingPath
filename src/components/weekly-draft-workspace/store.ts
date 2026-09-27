@@ -9,9 +9,9 @@ import type { AcceptedWeeklyPreview } from '~/lib/weekly-confirmation-contract';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { WorkspaceGateway } from './gateway';
 import { planEventTopology } from '~/lib/event-occurrence-preparation';
-import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import { createEventPreparation } from './event-preparation';
 import {
+  acceptedEventIds,
   derivePhaseReadiness,
   phaseNavigation,
   confirmationDisabledReason,
@@ -172,14 +172,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       : null;
     if (preparation.failed && !wasFailed) feedback = 'failed';
     const { views, phases } = derivePhaseReadiness(forecast, source, preview, {
-      acceptedEventIds: new Set(
-        [
-          ...accepted.event.occurrences,
-          ...accepted.activity.slots.flatMap((slot) =>
-            actionChoiceEvents(slot.choice),
-          ),
-        ].map((event) => event.eventId),
-      ),
+      acceptedEventIds: acceptedEventIds(accepted),
       preparationFailed: preparation.failed,
     });
     const canConfirm = Boolean(
