@@ -7,7 +7,11 @@ import type {
   MissingReference,
   StagedReference,
 } from '~/lib/correction-staged-choices';
-import type { CapturedFacts } from '~/lib/reference-restoration';
+import { MILITIA_SECTIONS } from '~/lib/militia-correction-sections';
+import {
+  restoringSection,
+  type CapturedFacts,
+} from '~/lib/reference-restoration';
 import type { ReferenceKind } from '~/lib/weekly-draft-references';
 
 // User-facing names for the open week's choices a correction affects and the
@@ -45,12 +49,13 @@ export function identityNames(
       case 'item':
         return (
           snapshot.economy?.items.find((item) => item.itemId === id)?.name ??
+          captured.item.get(id)?.name ??
           null
         );
       case 'cache': {
-        const cache = snapshot.economy?.caches.find(
-          (entry) => entry.cacheId === id,
-        );
+        const cache =
+          snapshot.economy?.caches.find((entry) => entry.cacheId === id) ??
+          captured.cache.get(id);
         return cache ? `Cache at ${cache.location}` : null;
       }
       case 'character':
@@ -110,9 +115,29 @@ export function restoreLabel(
   return first ? `${missing} for ${choiceLabel(first.location)}` : missing;
 }
 
-/** "Needed by Activity slot 2 and Upkeep team decision". */
-export function neededByNote(neededBy: readonly StagedReference[]) {
-  return `Needed by ${listed(neededBy.map((reference) => choiceLabel(reference.location)))}`;
+/** "Needed by Activity slot 2 and Cache at Old Mill", from their labels. */
+export function neededByNote(labels: readonly string[]) {
+  return `Needed by ${listed([...labels])}`;
+}
+
+/**
+ * "Restore Ring in Items first.": what a restoration needs restored before
+ * it, in the section that restores it.
+ */
+export function restoreFirstNote(
+  requires: readonly MissingReference[],
+  names: IdentityNames,
+) {
+  const sections = [
+    ...new Set(
+      requires.flatMap(({ kind }) => {
+        const section = restoringSection(kind);
+        return section ? [MILITIA_SECTIONS[section]] : [];
+      }),
+    ),
+  ];
+  const subjects = listed(requires.map((item) => missingName(item, names)));
+  return `Restore ${subjects} in ${listed(sections)} first.`;
 }
 
 /** "A", "A and B", "A, B and C". */
@@ -170,6 +195,28 @@ export type AffectedChoice = {
   /** The phase that repairs it; null for read-only carried context. */
   href: string | null;
 };
+
+/**
+ * What needs a missing identity: a staged choice, linked to the phase that
+ * repairs it, or another restoration (a cache holding a missing item).
+ */
+export type NeededBy = Pick<
+  AffectedChoice,
+  'key' | 'label' | 'action' | 'href'
+>;
+
+/** "Cache at Old Mill": a restoration that needs a missing identity first. */
+export function restorationNeed(
+  reference: MissingReference,
+  names: IdentityNames,
+): NeededBy {
+  return {
+    key: `${reference.kind}:${reference.id}`,
+    label: missingTitle(reference, names),
+    action: null,
+    href: null,
+  };
+}
 
 // "a team", "2 teams", "a team and an item".
 function without(missing: readonly MissingReference[]) {
@@ -232,4 +279,35 @@ function carriedPhrase(location: ChoiceLocation) {
     default:
       return choiceLabel(location);
   }
+}
+
+const heldItemPath =
+  /^state\.militiaSnapshot\.economy\.(caches|orders)\.(\d+)\.(itemIds\.(\d+)|itemId)$/;
+
+/**
+ * The integrity error for removing an item a cache holds or an order is
+ * for, named by the item and what holds it; null for any other field.
+ * `snapshot` holds the cache or order at the field's path.
+ */
+export function heldItemError(
+  field: string,
+  snapshot: Snapshot,
+  names: IdentityNames,
+): string | null {
+  const match = heldItemPath.exec(field);
+  if (!match) return null;
+  const [, list, row, , content] = match;
+  const economy = snapshot.economy;
+  if (list === 'caches') {
+    const cache = economy?.caches[Number(row)];
+    const itemId = cache?.itemIds[Number(content)];
+    if (!cache || itemId === undefined) return null;
+    const item = missingName({ kind: 'item', id: itemId }, names);
+    return `Keep ${item}: Cache at ${cache.location} holds it.`;
+  }
+  const order = economy?.orders[Number(row)];
+  if (!order || content !== undefined) return null;
+  const item = missingName({ kind: 'item', id: order.itemId }, names);
+  const town = knownName({ kind: 'settlement', id: order.settlementId }, names);
+  return `Keep ${item}: an order${town ? ` from ${town}` : ''} still needs it.`;
 }

@@ -14,6 +14,12 @@ import {
   PhoneStatusStrip,
   useShellSlotHost,
 } from '~/components/campaign-shell/shell-slots';
+import {
+  SetupCaches,
+  SetupItems,
+  SetupMarketplaces,
+  SetupOrders,
+} from '~/components/militia-setup/assets';
 import { SetupSectionHeading } from '~/components/militia-setup/fields';
 import {
   SetupTeams,
@@ -26,7 +32,7 @@ import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
 import type { MilitiaSectionKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
-import type { AffectedChoice } from './affected-choice-copy';
+import type { AffectedChoice, NeededBy } from './affected-choice-copy';
 import {
   AFFECTS_WEEK_HEADING,
   CONFLICT_HEADING,
@@ -67,6 +73,38 @@ function SettlementsEditor({ rowNotes }: SectionEditorProps) {
   );
 }
 
+function ItemsEditor({ characters, rowNotes }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupItems characters={characters} rowNotes={rowNotes} />
+    </SetupSectionHeading>
+  );
+}
+
+function CachesEditor({ rowNotes }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupCaches rowNotes={rowNotes} />
+    </SetupSectionHeading>
+  );
+}
+
+function OrdersEditor() {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupOrders />
+    </SetupSectionHeading>
+  );
+}
+
+function MarketplacesEditor() {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupMarketplaces />
+    </SetupSectionHeading>
+  );
+}
+
 // The editor of each section with its own isolated correction. Sections
 // missing here still open the temporary full editor.
 export const sectionEditors: Partial<
@@ -75,6 +113,10 @@ export const sectionEditors: Partial<
   values: SetupMilitiaValues,
   teams: TeamsEditor,
   settlements: SettlementsEditor,
+  items: ItemsEditor,
+  caches: CachesEditor,
+  orders: OrdersEditor,
+  marketplaces: MarketplacesEditor,
 };
 
 const action = 'min-h-11 md:min-h-9';
@@ -135,7 +177,7 @@ export function RulesWarnings({ warnings }: { warnings: string[] }) {
 
 // The choice's name, linked to the phase that repairs it; plain text for
 // read-only carried context.
-function ChoiceName({ choice }: { choice: AffectedChoice }) {
+function ChoiceName({ choice }: { choice: NeededBy }) {
   if (choice.href === null) return <>{choice.label}</>;
   return (
     <GuardedLink href={choice.href} className="underline underline-offset-4">
@@ -166,6 +208,51 @@ function AffectsWeek({ choices }: { choices: AffectedChoice[] }) {
   );
 }
 
+// One missing identity: what needs it, and its Restore button. While its
+// restoration is blocked, the reason is read out with the disabled button.
+function MissingReference({
+  entry,
+  disabled,
+}: {
+  entry: MissingEntry;
+  disabled: boolean;
+}) {
+  const id = useId();
+  const blockedId = `${id}-blocked`;
+  return (
+    <li className="min-w-0 space-y-1.5 [overflow-wrap:anywhere]">
+      <p className="font-medium">{entry.name}</p>
+      <p className="text-sm">
+        {NEEDED_BY_LABEL}:{' '}
+        {entry.neededBy.map((choice, index) => (
+          <Fragment key={choice.key}>
+            {index > 0 && ', '}
+            <ChoiceName choice={choice} />
+            {choice.action !== null && ` · ${choice.action}`}
+          </Fragment>
+        ))}
+      </p>
+      {entry.blocked !== null && (
+        <p id={blockedId} className="text-muted-foreground text-sm">
+          {entry.blocked}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className={action}
+          disabled={disabled || entry.blocked !== null}
+          aria-describedby={entry.blocked !== null ? blockedId : undefined}
+          onClick={entry.restore}
+        >
+          {entry.restoreLabel}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 /**
  * Identities the open week still uses but the militia lacks, each with the
  * choices that need it and a button that adds it back to this section. On
@@ -187,33 +274,7 @@ export function MissingReferences({
       </h3>
       <ul role="list" className="space-y-3">
         {entries.map((entry) => (
-          <li
-            key={entry.key}
-            className="min-w-0 space-y-1.5 [overflow-wrap:anywhere]"
-          >
-            <p className="font-medium">{entry.name}</p>
-            <p className="text-sm">
-              {NEEDED_BY_LABEL}:{' '}
-              {entry.neededBy.map((choice, index) => (
-                <Fragment key={choice.key}>
-                  {index > 0 && ', '}
-                  <ChoiceName choice={choice} />
-                  {choice.action !== null && ` · ${choice.action}`}
-                </Fragment>
-              ))}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className={action}
-                disabled={disabled}
-                onClick={entry.restore}
-              >
-                {entry.restoreLabel}
-              </Button>
-            </div>
-          </li>
+          <MissingReference key={entry.key} entry={entry} disabled={disabled} />
         ))}
       </ul>
     </section>

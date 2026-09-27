@@ -1,5 +1,8 @@
 import type { CanonicalWeekState } from './canonical-weekly-source';
-import type { StagedReference } from './correction-staged-choices';
+import type {
+  MissingReference,
+  StagedReference,
+} from './correction-staged-choices';
 import type {
   MilitiaSectionKey,
   SectionValues,
@@ -13,8 +16,10 @@ import type {
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
 type Team = SectionValues['teams'][number];
 type Settlement = SectionValues['settlements'][number];
+type Item = SectionValues['items'][number];
+type Cache = SectionValues['caches'][number];
 
-type Rows = { team: Team; settlement: Settlement };
+type Rows = { team: Team; settlement: Settlement; item: Item; cache: Cache };
 /** Identity kinds a section correction can restore. */
 export type RestorableKind = keyof Rows;
 export type RestorableRow<K extends RestorableKind = RestorableKind> = Rows[K];
@@ -25,10 +30,17 @@ type Adapter<K extends RestorableKind> = {
   identity: (row: Rows[K]) => string;
   /** The row to fill in when no facts were captured for the identity. */
   blank: (id: string) => Rows[K];
+  /**
+   * Identities a restored row refers to that `snapshot` lacks: snapshot
+   * integrity needs them restored first, e.g. the items a cache holds.
+   */
+  prerequisites?: (row: Rows[K], snapshot: Snapshot) => MissingReference[];
 };
 
-// Facts nobody entered stay unset or unrecorded: the player enters the name,
-// type and condition, and the form reports them as required.
+// Facts nobody entered stay unset or unrecorded: the player enters them (a
+// team's name, type and condition; an item's value, weight and location; a
+// cache's class, status and security), and the form reports them as
+// required.
 const unset = undefined as never;
 const adapters: { [K in RestorableKind]: Adapter<K> } = {
   team: {
@@ -60,10 +72,49 @@ const adapters: { [K in RestorableKind]: Adapter<K> } = {
       refugeActiveUntilWeek: null,
     }),
   },
+  item: {
+    section: 'items',
+    rows: (snapshot) => snapshot.economy?.items ?? [],
+    identity: (item) => item.itemId,
+    blank: (itemId) => ({
+      itemId,
+      name: '',
+      valueCopper: unset,
+      weight: unset,
+      location: unset,
+    }),
+  },
+  cache: {
+    section: 'caches',
+    rows: (snapshot) => snapshot.economy?.caches ?? [],
+    identity: (cache) => cache.cacheId,
+    blank: (cacheId) => ({
+      cacheId,
+      cacheClass: unset,
+      location: '',
+      secure: unset,
+      extradimensional: unset,
+      itemIds: [],
+      status: unset,
+      returnActivityWeek: null,
+    }),
+    prerequisites: (cache, snapshot) =>
+      cache.itemIds
+        .filter(
+          (itemId) =>
+            !snapshot.economy?.items.some((item) => item.itemId === itemId),
+        )
+        .map((id) => ({ kind: 'item', id })),
+  },
 };
 const kinds = Object.keys(adapters) as RestorableKind[];
 
 const isRestorable = (kind: string): kind is RestorableKind => kind in adapters;
+
+/** The section whose correction restores the kind, or null. */
+export function restoringSection(kind: string): MilitiaSectionKey | null {
+  return isRestorable(kind) ? adapters[kind].section : null;
+}
 
 /** The kinds of identity the section's correction can restore. */
 export function restorableKinds(section: MilitiaSectionKey): RestorableKind[] {
@@ -77,6 +128,8 @@ export type CapturedFacts = {
 export const noCapturedFacts: CapturedFacts = {
   team: new Map(),
   settlement: new Map(),
+  item: new Map(),
+  cache: new Map(),
 };
 
 function remember<K extends RestorableKind>(
@@ -102,6 +155,8 @@ export function rememberFacts(
   return {
     team: remember('team', previous.team, snapshot),
     settlement: remember('settlement', previous.settlement, snapshot),
+    item: remember('item', previous.item, snapshot),
+    cache: remember('cache', previous.cache, snapshot),
   };
 }
 
@@ -114,6 +169,10 @@ export type MissingIdentity<K extends RestorableKind = RestorableKind> =
         neededBy: StagedReference[];
         /** Its accepted facts, when this device saw them. */
         captured: Rows[K] | null;
+        /** Missing identities its captured facts need restored first. */
+        requires: MissingReference[];
+        /** Missing identities whose restoration needs this one first. */
+        requiredBy: MissingReference[];
       }
     : never;
 
@@ -127,33 +186,55 @@ export function missingOfKind<K extends RestorableKind>(
   );
 }
 
+function prerequisitesOf(identity: MissingIdentity, snapshot: Snapshot) {
+  const adapter = adapters[identity.kind] as Adapter<RestorableKind>;
+  return identity.captured && adapter.prerequisites
+    ? adapter.prerequisites(identity.captured, snapshot)
+    : [];
+}
+
 /**
- * The restorable identities the open week's staged choices use but the
- * militia lacks, in the order the week first needs them. Carried context is
- * never broken by a saved correction, so it is not listed.
+ * The restorable identities the open week's staged choices use but
+ * `snapshot`, the militia, lacks, in the order the week first needs them.
+ * Carried context is never broken by a saved correction, so it is not
+ * listed. A captured row that refers to other missing identities (a cache
+ * holding removed items) requires them first; those follow, needed by it.
  */
 export function missingIdentities(
   references: readonly StagedReference[],
   captured: CapturedFacts,
+  snapshot: Snapshot,
 ): MissingIdentity[] {
   const found = new Map<string, MissingIdentity>();
+  const entry = ({ kind, id }: { kind: RestorableKind; id: string }) => {
+    const key = `${kind}:${id}`;
+    const existing = found.get(key);
+    if (existing) return existing;
+    const created = {
+      kind,
+      id,
+      neededBy: [],
+      captured: captured[kind].get(id) ?? null,
+      requires: [],
+      requiredBy: [],
+    } as MissingIdentity;
+    found.set(key, created);
+    return created;
+  };
   for (const reference of references) {
     if (reference.phase === null) continue;
-    for (const { kind, id } of reference.missing) {
-      if (!isRestorable(kind)) continue;
-      const key = `${kind}:${id}`;
-      const entry =
-        found.get(key) ??
-        ({
-          kind,
-          id,
-          neededBy: [],
-          captured: captured[kind].get(id) ?? null,
-        } as MissingIdentity);
-      entry.neededBy.push(reference);
-      found.set(key, entry);
-    }
+    for (const { kind, id } of reference.missing)
+      if (isRestorable(kind)) entry({ kind, id }).neededBy.push(reference);
   }
+  for (const identity of [...found.values()])
+    for (const required of prerequisitesOf(identity, snapshot)) {
+      if (!isRestorable(required.kind)) continue;
+      identity.requires.push(required);
+      entry({ kind: required.kind, id: required.id }).requiredBy.push({
+        kind: identity.kind,
+        id: identity.id,
+      });
+    }
   return [...found.values()];
 }
 
