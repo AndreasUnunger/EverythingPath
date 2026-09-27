@@ -1,9 +1,12 @@
 import { join } from 'node:path';
-import { expect, type Page, type Locator } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
 import { expectSaveFailed, saveStatus } from './week-frame';
+
+// The fixture week is rank 2 (two actions) with slots 1–2 inside the
+// allowance, an empty extra slot 3, and the recovered Patrons team Scouts.
 export async function exerciseActivityWorkspace(
   gm: Page,
   player: Page,
@@ -12,153 +15,151 @@ export async function exerciseActivityWorkspace(
 ) {
   await gm.setViewportSize({ width: 1194, height: 834 });
   const slot = (page: Page, position: number) =>
-    page.locator(`[aria-label="Action Slot ${position}"]`);
+    page.getByRole('group', { name: `Action Slot ${position}`, exact: true });
   const card = (page: Page, position: number, action: string) =>
-    slot(page, position).getByRole('button', {
-      name: `Move ${action} from Action Slot ${position}`,
+    page.getByRole('button', {
+      name: `Action Slot ${position} · ${action}`,
+      exact: true,
+    });
+  const empty = (page: Page, position: number) =>
+    page.getByRole('button', {
+      name: `Choose an action for Action Slot ${position}`,
+      exact: true,
+    });
+  const details = (page: Page, position: number) =>
+    page.getByRole('region', {
+      name: `Action Slot ${position} details`,
       exact: true,
     });
   const saved = (page: Page) =>
     expect(saveStatus(page)).toHaveText('Changes saved.');
-  async function choose(
-    page: Page,
-    action: string,
-    position: number,
-    occupied = false,
-  ) {
-    await page
-      .getByRole('button', { name: `Choose ${action}`, exact: true })
-      .click();
-    await page
-      .getByRole('button', {
-        name: `${occupied ? 'Replace' : 'Place in'} Action Slot ${position}`,
-        exact: true,
-      })
-      .click();
+  async function pick(page: Page, action: string) {
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: action, exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+  }
+  async function choose(page: Page, action: string, position: number) {
+    await empty(page, position).click();
+    await pick(page, action);
     await saved(page);
   }
-  async function drag(page: Page, source: Locator, target: Locator | null) {
-    await source.scrollIntoViewIfNeeded();
-    const start = await source.boundingBox();
-    const end = target
-      ? await target.boundingBox()
-      : { x: 4, y: 4, width: 0, height: 0 };
-    expect(start).not.toBeNull();
-    expect(end).not.toBeNull();
-    await page.mouse.move(
-      start!.x + start!.width / 2,
-      start!.y + start!.height / 2,
-    );
-    await page.mouse.down();
-    await page.mouse.move(end!.x + end!.width / 2, end!.y + 30, { steps: 12 });
-    await page.mouse.up();
+  async function open(page: Page, position: number, action: string) {
+    await card(page, position, action).click();
+    await expect(details(page, position)).toBeVisible();
+    return details(page, position);
   }
+  async function menu(page: Page, name: string, option: RegExp | string) {
+    await page.getByRole('combobox', { name, exact: true }).click();
+    await page
+      .getByRole('option', {
+        name: option,
+        ...(typeof option === 'string' ? { exact: true } : {}),
+      })
+      .click();
+  }
+  async function moveTo(
+    page: Page,
+    position: number,
+    action: string,
+    target: string,
+  ) {
+    await open(page, position, action);
+    await menu(page, `Move Action Slot ${position} to`, target);
+    await saved(page);
+  }
+
   await gm.getByRole('button', { name: 'Activity', exact: true }).click();
-  await choose(gm, 'Drill Militia', 1);
+  await expect(gm.getByText(/^\d+ of 2$/)).toBeVisible();
+  await choose(gm, 'Earn Gold', 1);
+  // Each player keeps their own Phase View.
   await expect(
     player.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true }),
   ).toBeVisible();
   await player.getByRole('button', { name: 'Activity', exact: true }).click();
-  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
-  await slot(gm, 1)
-    .getByText('Edit Drill Militia details', { exact: true })
-    .click();
-  await slot(gm, 1)
+  await expect(card(player, 1, 'Earn Gold')).toBeVisible();
+
+  // Team, cost and check roll on the staged choice.
+  const earn = await open(gm, 1, 'Earn Gold');
+  await menu(gm, 'Team', /^Scouts · /);
+  await saved(gm);
+  await earn
     .getByRole('textbox', { name: 'Cost (copper)', exact: true })
     .fill('0');
   await saved(gm);
-  const rankException = slot(gm, 1).getByRole('group', {
-    name: 'Maximum Rank exception',
-    exact: true,
-  });
-  await rankException
-    .getByRole('textbox', { name: 'Exception reason', exact: true })
-    .fill('The table permits this training exercise');
-  await rankException
-    .getByRole('button', { name: 'Save exception reason', exact: true })
-    .click();
-  await saved(gm);
-  await slot(gm, 1)
-    .getByRole('group', { name: 'Team', exact: true })
-    .getByRole('button', { name: 'Scouts', exact: true })
-    .click();
-  await saved(gm);
-  await slot(gm, 1)
+  await earn
     .getByRole('textbox', { name: 'Check roll', exact: true })
     .fill('10');
   await saved(gm);
-  await slot(gm, 1)
-    .getByText('Edit Drill Militia details', { exact: true })
-    .click();
-  await card(gm, 1, 'Drill Militia').click();
-  await gm
-    .getByRole('button', { name: 'Place in Action Slot 2', exact: true })
-    .click();
-  await expect(card(player, 2, 'Drill Militia')).toBeVisible();
+  await expect(earn.getByText(/^Bonus [+-]\d+$/)).toBeVisible();
+  await expect(
+    slot(player, 1).getByText('Scouts', { exact: true }),
+  ).toBeVisible();
+
+  // Move a whole choice, then stage and describe another one.
+  await moveTo(gm, 1, 'Earn Gold', 'Action Slot 2 (empty)');
+  await expect(card(player, 2, 'Earn Gold')).toBeVisible();
   await choose(player, 'Gather Information', 1);
-  await slot(player, 1)
-    .getByText('Edit Gather Information details', { exact: true })
-    .click();
-  await slot(player, 1)
+  const gather = await open(player, 1, 'Gather Information');
+  await gather
     .getByRole('textbox', { name: 'Subject', exact: true })
     .fill('Ironfang patrol routes');
-  await slot(player, 1)
+  await gather
     .getByRole('button', { name: 'Save subject', exact: true })
     .click();
   await saved(player);
-  await slot(player, 1)
-    .getByText('Edit Gather Information details', { exact: true })
-    .click();
 
-  await card(gm, 2, 'Drill Militia').click();
-  await gm
-    .getByRole('button', { name: 'Swap with Action Slot 1', exact: true })
-    .click();
-  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
+  // Swap carries every detail of both choices.
+  await moveTo(
+    gm,
+    2,
+    'Earn Gold',
+    'Swap with Action Slot 1 · Gather Information',
+  );
+  await expect(card(player, 1, 'Earn Gold')).toBeVisible();
   await expect(card(player, 2, 'Gather Information')).toBeVisible();
-  await slot(player, 2)
-    .getByText('Edit Gather Information details', { exact: true })
-    .click();
   await expect(
-    slot(player, 2).getByRole('textbox', { name: 'Subject', exact: true }),
-  ).toHaveValue('Ironfang patrol routes');
-  await slot(player, 2)
-    .getByText('Edit Gather Information details', { exact: true })
-    .click();
-
-  await slot(player, 1)
-    .getByText('Edit Drill Militia details', { exact: true })
-    .click();
-  await expect(
-    slot(player, 1)
-      .getByRole('group', { name: 'Team', exact: true })
-      .getByRole('button', { name: 'Scouts', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true');
-  await expect(
-    slot(player, 1).getByRole('textbox', {
-      name: 'Cost (copper)',
+    (await open(player, 2, 'Gather Information')).getByRole('textbox', {
+      name: 'Subject',
       exact: true,
     }),
+  ).toHaveValue('Ironfang patrol routes');
+  const moved = await open(player, 1, 'Earn Gold');
+  await expect(
+    moved.getByRole('combobox', { name: 'Team', exact: true }),
+  ).toContainText('Scouts');
+  await expect(
+    moved.getByRole('textbox', { name: 'Cost (copper)', exact: true }),
   ).toHaveValue('0');
   await expect(
-    slot(player, 1).getByRole('textbox', { name: 'Check roll', exact: true }),
+    moved.getByRole('textbox', { name: 'Check roll', exact: true }),
   ).toHaveValue('10');
-  await slot(player, 1)
-    .getByText('Edit Drill Militia details', { exact: true })
+
+  // An ineligible team stays selectable and needs a reasoned exception.
+  const second = await open(gm, 2, 'Gather Information');
+  await menu(gm, 'Team', /^Scouts · /);
+  await saved(gm);
+  const teamException = second.getByRole('group', {
+    name: 'Team Action Limit exception',
+    exact: true,
+  });
+  await teamException
+    .getByRole('textbox', { name: 'Exception reason', exact: true })
+    .fill('The table lets Scouts gather this rumour too');
+  await teamException
+    .getByRole('button', { name: 'Save exception reason', exact: true })
     .click();
-  await drag(gm, card(gm, 1, 'Drill Militia'), slot(gm, 3));
-  await expect(card(player, 3, 'Drill Militia')).toBeVisible();
+  await saved(gm);
+
+  // An extra slot keeps its choice with an amber warning and blocks
+  // Confirmation until it is moved back.
+  await moveTo(gm, 1, 'Earn Gold', 'Action Slot 3 (empty)');
+  await expect(card(player, 3, 'Earn Gold')).toBeVisible();
+  await expect(slot(gm, 3).getByText('Beyond the allowance')).toBeVisible();
+  const extra = await open(gm, 3, 'Earn Gold');
+  await expect(extra.getByText(/restore the action allowance/)).toBeVisible();
   await expect(
-    slot(gm, 3).getByText(/exceeds the action allowance/),
-  ).toBeVisible();
-  await slot(gm, 3)
-    .getByText('Edit Drill Militia details', { exact: true })
-    .click();
-  await expect(
-    slot(gm, 3).getByRole('group', {
-      name: 'Action Capacity exception',
-      exact: true,
-    }),
+    extra.getByRole('group', { name: 'Action Capacity exception' }),
   ).toHaveCount(0);
   await gm
     .getByRole('button', { name: 'Review & confirm', exact: true })
@@ -172,46 +173,65 @@ export async function exerciseActivityWorkspace(
       .getByText(/restore the action allowance/),
   ).toBeVisible();
   await gm.getByRole('button', { name: 'Activity', exact: true }).click();
-  await slot(gm, 3)
-    .getByText('Edit Drill Militia details', { exact: true })
-    .click();
-  await slot(gm, 3)
-    .getByRole('group', { name: 'Maximum Rank exception', exact: true })
-    .getByRole('button', { name: 'Remove exception', exact: true })
+  await moveTo(gm, 3, 'Earn Gold', 'Action Slot 1 (empty)');
+  await expect(card(player, 1, 'Earn Gold')).toBeVisible();
+  await expect(slot(gm, 1).getByText('Beyond the allowance')).toHaveCount(0);
+
+  // Only an empty slot beyond the allowance can be removed; later slots
+  // keep their places, and every player sees the removal.
+  await expect(
+    slot(gm, 1).getByRole('button', { name: /^Remove Action Slot/ }),
+  ).toHaveCount(0);
+  await gm.getByRole('button', { name: 'Add slot', exact: true }).click();
+  await saved(gm);
+  await expect(slot(player, 4)).toBeVisible();
+  await slot(gm, 4)
+    .getByRole('button', { name: 'Remove Action Slot 4', exact: true })
     .click();
   await saved(gm);
-  await slot(gm, 3)
-    .getByText('Edit Drill Militia details', { exact: true })
+  await expect(slot(player, 4)).toHaveCount(0);
+  await expect(slot(player, 3)).toBeVisible();
+
+  // Clearing leaves the slot; closing the picker places nothing.
+  await (await open(gm, 1, 'Earn Gold'))
+    .getByRole('button', { name: 'Clear Earn Gold', exact: true })
     .click();
-  await card(gm, 3, 'Drill Militia').click();
-  await gm
-    .getByRole('button', { name: 'Place in Action Slot 1', exact: true })
-    .click();
-  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
-  await expect(
-    slot(gm, 1).getByText(/exceeds the action allowance/),
-  ).toHaveCount(0);
-  await drag(gm, card(gm, 1, 'Drill Militia'), null);
-  await expect(slot(player, 1).getByText('Empty slot')).toBeVisible();
-  await drag(
-    gm,
-    gm.getByRole('button', { name: 'Choose Drill Militia', exact: true }),
-    slot(gm, 1),
-  );
-  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
+  await saved(gm);
+  await expect(empty(player, 1)).toBeVisible();
+  // Keyboard: open the picker from the slot and close it back onto the slot.
+  await empty(gm, 1).focus();
+  await gm.keyboard.press('Enter');
+  await expect(gm.getByRole('dialog')).toBeVisible();
+  await gm.keyboard.press('Escape');
+  await expect(gm.getByRole('dialog')).toHaveCount(0);
+  await expect(empty(gm, 1)).toBeFocused();
+  await expect(empty(player, 1)).toBeVisible();
+
+  // A stale replacement is rejected and the player sees the accepted choice.
+  await choose(gm, 'Drill Militia', 1);
   const captured = network.hold();
-  await gm.getByRole('button', { name: 'Choose Lie Low', exact: true }).click();
-  await gm
-    .getByRole('button', { name: 'Replace Action Slot 1', exact: true })
+  await (await open(gm, 1, 'Drill Militia'))
+    .getByRole('button', { name: 'Change action', exact: true })
     .click();
+  await pick(gm, 'Lie Low');
   await captured;
   await gm.getByRole('button', { name: 'Event', exact: true }).click();
-  await choose(player, 'Gather Information', 1, true);
+  await (await open(player, 1, 'Drill Militia'))
+    .getByRole('button', { name: 'Change action', exact: true })
+    .click();
+  await pick(player, 'Gather Information');
+  await saved(player);
   network.release();
   await expectSaveFailed(gm);
   await gm.getByRole('button', { name: 'Activity', exact: true }).click();
   await expect(card(gm, 1, 'Gather Information')).toBeVisible();
-  await choose(gm, 'Drill Militia', 1, true);
+  await (await open(gm, 1, 'Gather Information'))
+    .getByRole('button', { name: 'Change action', exact: true })
+    .click();
+  await pick(gm, 'Drill Militia');
+  await saved(gm);
+  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
+
   for (const [name, width, height] of [
     ['tablet', 1194, 834],
     ['phone', 390, 844],
@@ -224,16 +244,31 @@ export async function exerciseActivityWorkspace(
       await gm.screenshot({ fullPage: true }),
     );
   }
+  await gm.setViewportSize({ width: 390, height: 844 });
+  await empty(gm, 3).click();
+  await expect(gm.getByRole('dialog')).toBeVisible();
+  await expectNoHorizontalOverflow(gm);
+  await savePrivate(
+    join(artifactDirectory, 'canonical-activity-picker-phone.png'),
+    await gm.screenshot(),
+  );
+  await gm.keyboard.press('Escape');
   await gm.setViewportSize({ width: 1194, height: 834 });
+
+  // Leave the Activity empty for the later phases.
+  await (await open(gm, 2, 'Gather Information'))
+    .getByRole('group', { name: 'Team Action Limit exception', exact: true })
+    .getByRole('button', { name: 'Remove exception', exact: true })
+    .click();
+  await saved(gm);
   for (const [position, action] of [
     [1, 'Drill Militia'],
     [2, 'Gather Information'],
   ] as const) {
-    await card(gm, position, action).click();
-    await gm
-      .getByRole('button', { name: 'Clear selected choice', exact: true })
+    await (await open(gm, position, action))
+      .getByRole('button', { name: `Clear ${action}`, exact: true })
       .click();
-    await expect(slot(player, position).getByText('Empty slot')).toBeVisible();
+    await expect(empty(player, position)).toBeVisible();
   }
   await Promise.all([
     gm.getByRole('button', { name: 'Upkeep', exact: true }).click(),
