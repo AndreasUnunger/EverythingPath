@@ -1,6 +1,39 @@
 // @vitest-environment node
 import { expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import ts from 'typescript';
+import { requiredTests } from './matrix';
 import { evaluateResults } from './results';
+
+it('requires the exact titles declared by the selected nightly journey sources', () => {
+  const required = requiredTests('nightly');
+  expect(required).toHaveLength(19);
+  for (const file of new Set(required.map(([file]) => file!))) {
+    const source = ts.createSourceFile(
+      file,
+      readFileSync(join(process.cwd(), 'e2e', file), 'utf8'),
+      ts.ScriptTarget.Latest,
+    );
+    const titles = source.statements.flatMap((statement) => {
+      if (!ts.isExpressionStatement(statement)) return [];
+      const call = statement.expression;
+      if (
+        !ts.isCallExpression(call) ||
+        !ts.isIdentifier(call.expression) ||
+        !['test', 'setup'].includes(call.expression.text)
+      )
+        return [];
+      const title = call.arguments[0];
+      return title && ts.isStringLiteral(title) ? [title.text] : [];
+    });
+    expect(titles, file).toEqual([
+      ...new Set(
+        required.filter(([name]) => name === file).map(([, , title]) => title),
+      ),
+    ]);
+  }
+});
 
 const passing = () => ({
   status: 'passed',
@@ -56,7 +89,8 @@ const passing = () => ({
     {
       file: 'complete-week.spec.ts',
       project: 'chromium-tablet',
-      title: 'a player confirms a complete week and reloads its outcome',
+      title:
+        'a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload',
       expectedStatus: 'passed',
       tags: [],
       annotations: [],

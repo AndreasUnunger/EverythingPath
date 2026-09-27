@@ -16,7 +16,7 @@ export const criticalJourneys = [
   ],
   [
     'complete-week.spec.ts',
-    'a player confirms a complete week and reloads its outcome',
+    'a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload',
   ],
   ['realtime-action-slot.spec.ts', 'players share a Staged Action Choice'],
 ] as const;
