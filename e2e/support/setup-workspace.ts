@@ -94,7 +94,8 @@ export async function exerciseMilitiaSetup(
       await openSetupStep(gm, 'People & officers');
       await gm
         .getByRole('main')
-        .getByRole('button', { name: /^Add / })
+        // The character's own "Add <name>", not the inline "Add character".
+        .getByRole('button', { name: /^Add (?!character$)/ })
         .first()
         .click();
       await openSetupStep(gm, 'Character conditions');
