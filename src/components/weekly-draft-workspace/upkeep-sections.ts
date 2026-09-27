@@ -13,6 +13,7 @@ import {
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import { rollReadFacts } from './roll-facts';
+import { rankSection } from './upkeep-rank';
 import type {
   RollFact,
   UpkeepDisabledTeam,
@@ -92,7 +93,14 @@ export function upkeepSections({
     attrition: attritionSection(context),
     notoriety: notorietySection(context),
     shortage: shortageSection(context, teams),
-    rank: rankSection(context, earlierOpen),
+    rank: rankSection({
+      draft,
+      snapshot: source.snapshot,
+      people: source.people,
+      projection,
+      earlierOpen,
+      issues: issues('rank'),
+    }),
     transfers: transfersSection(context, earlierOpen, transfers, source.people),
     general,
   };
@@ -361,37 +369,6 @@ function shortageSection(
       pending > 0 && after - pending < minimum ? 'waiting' : 'inapplicable',
     trainingDelta: null,
     loss: null,
-  };
-}
-
-function rankSection(
-  context: Context,
-  earlierOpen: boolean,
-): UpkeepSections['rank'] {
-  const before = context.snapshot.rank;
-  const change = context.projection.plan.find((item) => item.kind === 'rank');
-  const noPc = requires(context, 'highest-level-pc');
-  const issues = [
-    ...(noPc
-      ? [
-          {
-            code: 'highest-level-pc',
-            message:
-              'The rank cap needs the highest player-character level, but no active player character is on the roster. Add or reactivate one in Characters & officers.',
-          },
-        ]
-      : []),
-    ...context.issues('rank'),
-  ];
-  if (earlierOpen) return { status: 'waiting', before, after: null, issues };
-  return {
-    status:
-      noPc || requires(context, 'upkeep:boon:') || requires(context, 'rank:')
-        ? 'open'
-        : 'resolved',
-    before,
-    after: noPc ? null : change?.kind === 'rank' ? change.after : before,
-    issues,
   };
 }
 

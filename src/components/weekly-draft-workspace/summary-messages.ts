@@ -138,6 +138,9 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
     ? code.slice(code.indexOf(owner.value) + owner.value.length + 1)
     : code;
   const key = tail.replace(/:exception$/, '');
+  // A rank boon names its rank; the owner prefix names the PC.
+  const boonRank = /^upkeep:boon:(\d+):.+:acknowledgement$/.exec(code)?.[1];
+  if (boonRank) return `${prefix}Record the rank ${boonRank} boon.`;
   if (/reference|Unknown|revision/.test(code))
     return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
   const known = messages[key];

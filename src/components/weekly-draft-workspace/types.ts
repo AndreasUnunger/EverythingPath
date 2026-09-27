@@ -9,12 +9,12 @@ import type {
   EventTableArithmetic,
 } from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
-import type { projectUpkeep } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { RollReadFacts } from './roll-facts';
 import type { RollSpec } from '~/lib/raw-roll';
+import type { ProgressionBoon } from '~/lib/rules-progression';
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
 export type UpkeepRollField = Extract<
   WeeklyDraftEdit,
@@ -56,10 +56,6 @@ export type UpkeepView = {
     roles: CanonicalRoster['officers'][number]['role'][];
   }[];
   transfers: WeeklyDraft['upkeep']['treasuryTransfers'];
-  boons: Extract<
-    ReturnType<typeof projectUpkeep>['plan'][number],
-    { kind: 'boon' }
-  >[];
   exceptions: {
     subjectId: string;
     ruleId: string;
@@ -156,6 +152,53 @@ export type UpkeepTransfer = {
   } | null;
   issues: UpkeepIssue[];
 };
+// One PC's boon for one gained rank, recorded as the text acknowledgement
+// of `subjectId` (`upkeep:boon:<rank>:<characterId>`).
+export type UpkeepRankBoon = {
+  subjectId: string;
+  characterId: string;
+  name: string;
+  // The recorded acknowledgement's identity, or the one a first record uses.
+  acknowledgementId: string;
+  // Null until the boon's outcome is recorded.
+  outcome: string | null;
+  // The feat cards of a title with a fixed feat package; null for open
+  // outcomes (Skilled, Gift, XP, Champion), which are recorded as text.
+  feats: {
+    options: string[];
+    selected: string | null;
+    // Recorded text that is none of the options, kept until replaced or
+    // cleared.
+    legacyOutcome: string | null;
+  } | null;
+  // Still unrecorded, so the week cannot be confirmed yet.
+  required: boolean;
+};
+// A rank gained this week, its Table 6-1 training threshold and the boon
+// every eligible PC gains with it.
+export type UpkeepRankGain = {
+  rank: number;
+  minimumTraining: number;
+  reward: ProgressionBoon;
+  boons: UpkeepRankBoon[];
+};
+export type UpkeepRank = {
+  status: UpkeepSectionStatus;
+  before: number;
+  // Null while waiting or while no active PC level can cap the rank.
+  after: number | null;
+  // The training Step 4 judged, after the earlier steps; null while waiting.
+  training: number | null;
+  // The next rank above `after` and its minimum training; null at the top
+  // rank or while `after` is unknown.
+  next: { rank: number; minimumTraining: number } | null;
+  // Set when training alone reaches a higher rank than the highest active
+  // PC level allows.
+  capped: { trainingRank: number; highestPcLevel: number } | null;
+  // Every rank gained this week in order, each with its boons.
+  gains: UpkeepRankGain[];
+  issues: UpkeepIssue[];
+};
 export type UpkeepSections = {
   teams: {
     status: UpkeepSectionStatus;
@@ -204,12 +247,7 @@ export type UpkeepSections = {
     trainingDelta: number | null;
     loss: UpkeepLoss | null;
   };
-  rank: {
-    status: UpkeepSectionStatus;
-    before: number;
-    after: number | null;
-    issues: UpkeepIssue[];
-  };
+  rank: UpkeepRank;
   transfers: {
     status: UpkeepSectionStatus;
     // Treasury before and after the ordered transfers (and any Theft on
