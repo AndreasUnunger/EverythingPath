@@ -510,9 +510,11 @@ test('a queued same-target conflict remains rejected and does not hide the remot
   }
   expect(await first).toBe('accepted');
   expect(await queued).toBe('failed');
-  expect(
-    persistence.getSnapshot().observation?.draft?.event.chanceRoll?.dice,
-  ).toEqual([50]);
+  const savedRoll =
+    persistence.getSnapshot().observation?.draft?.event.chanceRoll;
+  expect(savedRoll && 'dice' in savedRoll ? savedRoll.dice : undefined).toEqual(
+    [50],
+  );
   expect(persistence.getSnapshot().remoteChange).toEqual({
     sequence: 1,
     targets: [['event', 'chanceRoll']],

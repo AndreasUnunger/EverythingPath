@@ -13,17 +13,27 @@ const signedInteger = z.number().int();
 const id = identitySchema;
 const int = integerSchema;
 const reason = z.string().trim().min(1);
-export const rawRollSchema = z.strictObject({
-  dice: z.array(int).min(1),
+export const rawRollProvenanceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('table') }),
+  z.strictObject({ kind: z.literal('generated'), sourceId: id }),
+]);
+export const rawRollModifiersSchema = z.array(
+  z.strictObject({ sourceId: id, value: signedInteger, reason }),
+);
+const rawRollCommon = {
   sides: int.min(2),
-  provenance: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('table') }),
-    z.strictObject({ kind: z.literal('generated'), sourceId: id }),
-  ]),
-  modifiers: z.array(
-    z.strictObject({ sourceId: id, value: signedInteger, reason }),
-  ),
-});
+  provenance: rawRollProvenanceSchema,
+  modifiers: rawRollModifiersSchema,
+};
+export const rawRollSchema = z.union([
+  z.strictObject({ ...rawRollCommon, dice: z.array(int).min(1) }),
+  z.strictObject({
+    ...rawRollCommon,
+    diceTotal: int,
+    diceCount: int.positive(),
+  }),
+]);
+export type RawRoll = z.infer<typeof rawRollSchema>;
 
 export const rollsSchema = z.partialRecord(
   z.enum([

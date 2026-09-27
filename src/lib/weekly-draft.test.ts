@@ -674,8 +674,11 @@ test('focused Upkeep edits preserve other facts and distinguish zero from an exp
       modifiers: [],
     },
   });
-  expect(set.ok && set.draft.upkeep.rolls.check?.dice).toEqual([0]);
   if (!set.ok) throw new Error(set.error);
+  const savedRoll = set.draft.upkeep.rolls.check;
+  expect(savedRoll && 'dice' in savedRoll ? savedRoll.dice : undefined).toEqual(
+    [0],
+  );
   const clear = editWeeklyDraft(set.draft, {
     kind: 'upkeep_roll',
     field: 'check',
