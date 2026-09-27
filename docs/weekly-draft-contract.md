@@ -24,6 +24,12 @@ identity and carries its complete typed contents (omitting a detail clears it).
 Move requires an empty destination; swap checks both identities. Both move entire
 choices atomically. Clear removes a complete choice. Slot identities and occupied
 extra slots survive every edit; `add_slot` permits explicit extra positions.
+`remove_slot` (#159) removes one empty slot by its stable identity; the reducer
+checks only identity and emptiness. Both persistence authorities additionally
+require, against the latest accepted draft and the current militia source,
+that the slot's position lies beyond the rules-derived allowance
+(`slotRemovalRejection`), and refuse while Upkeep or an earlier officer change
+is unsettled. It targets `['slot', slotId]`, so a concurrent fill conflicts.
 
 Callers must allocate fresh draft, slot, choice and event identities and never
 reuse retired identities. Reference strings denote domain identities, not Convex

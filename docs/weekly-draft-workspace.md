@@ -32,6 +32,10 @@ The two-player Workspace journey now checks team, subject, dice and cost retenti
 
 The first browser run (`QH1Jwf`) failed because the test tried to enter a Drill die before resolving the fixture's maximum-rank warning. That failed run does not establish browser coverage. The corrected gate and final review evidence are recorded below after verification.
 
+### Slot board and picker (#159)
+
+Issue [#159](https://github.com/AndreasUnunger/EverythingPath/issues/159) replaces the deck and its drag gestures with the approved slot board (spec [#142](https://github.com/AndreasUnunger/EverythingPath/issues/142)). `activity-facts.ts` derives the header allowance and sequential Strategist facts from the ordered projection (`projectActivity(...).slots[].allowance/beyondAllowance/allowanceKnown` and `.allowance`), per-slot status, issues, team, check bonus/breakdown and recorded modifiers. `activity-board.ts` holds the pure picker grouping (ready team / no team / needs an exception, as guidance over all 23 actions), eligible-first team options with usage and condition notes, move targets and edit builders. `use-activity-board.ts` owns local selection, the picker, focus return and the Helpful move: it clears Helpful from other checks first and assigns it only after those edits are accepted, building the assignment from the Workspace's newest facts; a failure reports what was accepted and offers a retry. A remote change to the picker or selected slot closes it rather than redirecting an edit. Empty slots beyond an authoritative allowance offer `remove_slot`. `ActivityDetails` (hosted mode) keeps every other action-specific field until #161, #162 and #190 replace it.
+
 ### Structured editor handoff for subsequent phases
 
 The #82 review audited all 23 action variants. Keep these contracts when reusing the structured editor for Event/Persistent work:
