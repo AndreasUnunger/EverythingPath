@@ -712,8 +712,10 @@ complete isolation unit: its organizations are disjoint from every other cohort'
   organization or identity. `fullyParallel` stays off: files run whole on one
   worker, except `canonical-workspace.spec.ts`, which opts in per test. The
   authentication setup seeds and signs in every used cohort one after another,
-  because parallel sign-ins would exceed Clerk's per-IP limits. Its deadline is
-  the unchanged one-cohort deadline multiplied by the number of cohorts.
+  because parallel sign-ins would exceed Clerk's per-IP limits. The limit is
+  60 s per cohort and cohorts sign in sequentially, so its deadline is 60 s
+  times the number of cohorts used (180 s for three). No cohort gets more time
+  than the single-cohort setup had.
 - **Isolation canary.** Every reset carries its test's owned and comparison
   cases (see Fixture contract). A second test in the cohort, a failed cleanup or
   a campaign created outside the fixtures fails the next reset in that cohort.
@@ -783,6 +785,60 @@ browser time. The canary adds no call because it runs inside the reset. A
 persistent guarded client could save an estimated 100–130 s. Measure that before
 replacing the spawns.
 
-Still to verify with live services: a serial and a three-worker nightly on the same
-fingerprint, a deliberate two-tests-on-one-cohort drill that turns the canary red,
-and five consecutive parallel nightlies with no flakes.
+Verified with live services on 2026-09-27: a three-worker (`JxnO44`) and a
+serial (`xpy7vn`) nightly on the same fingerprint gave the same verdicts except
+for a serial-only `canonical-cutover` race, since fixed (contract clients read
+their token from a tab the journey never navigates). The canary never fired in
+either run. Still to verify: a deliberate two-tests-on-one-cohort drill that
+turns the canary red, and five consecutive parallel nightlies with no flakes.
+
+## WebKit Clerk redirect loop and fresh role sessions (#187, 2026-09-27)
+
+After #187 the WebKit access journey failed in most nightlies: a reload hit
+"Too many redirects" (`C4MBwN`, `IKQBdO`), or Back stayed on
+`/campaigns/<id>` (`xsix69`, `JxnO44`, `xpy7vn`). The app was not the cause:
+nothing on the campaign list pushes, replaces or redirects. A diagnostic run
+(`Jj2TKl`) recorded the document requests:
+
+1. Role storage is created at the start of the run, so its 60 s session token
+   has expired when a test loads its first page. Clerk's development middleware
+   then sends the document through its handshake on `*.clerk.accounts.dev` and
+   back.
+2. A document that arrived through that cross-site redirect is still treated as
+   cross-site when it reloads: WebKit withholds Clerk's `SameSite=Strict`
+   `__client_uat` cookie on every reload of it. Chromium sends it. The
+   middleware sees `session-token-but-no-client-uat` and handshakes again. It
+   stopped after three rounds in `Jj2TKl`, guarded by its 2-second
+   `__clerk_redirect_count` cookie. The likely cause of "Too many redirects" is
+   rounds slow enough for that counter to expire, so the loop never stops.
+3. In WebKit, a reload that redirects through another origin also adds a
+   history entry, so Back lands on the same address.
+
+Production Safari is not affected in the same way: production Clerk has no
+cross-site development handshake. Reordering reloads only changed which symptom
+appeared, and a separate test would still start with the handshake.
+
+The fix is in the harness (`support/session-token.ts`). Before a test creates
+any page, each role context gets a session token minted through Clerk's Backend
+API (`POST /v1/sessions/<sid>/tokens`) for the session already in its storage,
+so the first page load needs no handshake. Guards:
+
+- The worker revalidates the targets on every call: trusted execution, a
+  `sk_test_` secret key, a publishable key that encodes the declared
+  development host, and the production denylist. Once per worker it also
+  confirms the development instance and the matching key pair (JWKS).
+- The stored and the issued token must both come from the declared issuer,
+  role user and session, the issued one must not have expired, and the cookies
+  must belong to the browser host. Any mismatch fails the test before a page
+  loads.
+- Test workers use `CLERK_SECRET_KEY` only in memory, for this request, as the
+  authentication setup already does. The key, tokens and cookie values never
+  enter logs, annotations, errors or artifacts; errors name only the guard
+  that failed.
+
+It applies to every browser. The handshake belongs to Clerk's development
+instance, not to the app, so skipping it in Chromium and Firefox hides no app
+behaviour, and every project starts from the same session state. Later expiry
+is refreshed by Clerk in the page, as before, and every reload assertion is
+unchanged. With the change, the trial run `Fyy86A` passed 23/23, including
+WebKit access.

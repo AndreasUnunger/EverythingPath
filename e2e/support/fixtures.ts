@@ -1,7 +1,9 @@
 import {
   test as base,
   expect,
+  type Browser,
   type BrowserContext,
+  type BrowserContextOptions,
   type Page,
   type TestInfo,
 } from '@playwright/test';
@@ -23,6 +25,7 @@ import {
 } from './process';
 import { sanitizeLog, sanitizeTrace } from './artifacts';
 import { caseAttempt, claimCaseKey } from './case-attempt';
+import { refreshSessionToken } from './session-token';
 
 type Fixture = {
   scope: FixtureScope;
@@ -84,6 +87,38 @@ async function closeWithEvidence(
   } finally {
     await context.close();
   }
+}
+
+// Opens a role's stored session with a current token, before any page loads.
+async function roleContext(
+  browser: Browser,
+  run: Run,
+  workerKey: string,
+  role: RoleKey,
+  options: Pick<BrowserContextOptions, 'viewport' | 'hasTouch' | 'isMobile'>,
+) {
+  const worker = run.resources.workers.find(({ key }) => key === workerKey);
+  if (!worker) throw new Error('Authenticated worker cohort is unavailable');
+  const context = await browser.newContext({
+    ...options,
+    baseURL: run.baseURL,
+    storageState: join(
+      run.privateDirectory,
+      'auth',
+      `${workerKey}-${role}.json`,
+    ),
+  });
+  try {
+    await refreshSessionToken(context, {
+      resources: run.resources,
+      baseURL: run.baseURL,
+      userId: worker[role].userId,
+    });
+  } catch (error) {
+    await context.close();
+    throw error;
+  }
+  return context;
 }
 
 async function useOwnedCase(
@@ -172,17 +207,13 @@ export const test = base.extend<{
     info,
   ) => {
     const run = await loadRun();
-    const context = await browser.newContext({
-      baseURL: run.baseURL,
-      viewport,
-      hasTouch,
-      isMobile,
-      storageState: join(
-        run.privateDirectory,
-        'auth',
-        `${ownedCase.scope.workerKey}-gm.json`,
-      ),
-    });
+    const context = await roleContext(
+      browser,
+      run,
+      ownedCase.scope.workerKey,
+      'gm',
+      { viewport, hasTouch, isMobile },
+    );
     if (info.retry === 1)
       await context.tracing.start({
         screenshots: true,
@@ -205,17 +236,13 @@ export const test = base.extend<{
     const pages = {} as Players;
     try {
       for (const role of ['gm', 'player', 'outsider'] as const) {
-        const context = await browser.newContext({
-          baseURL: run.baseURL,
-          viewport,
-          hasTouch,
-          isMobile,
-          storageState: join(
-            run.privateDirectory,
-            'auth',
-            `${ownedCase.scope.workerKey}-${role}.json`,
-          ),
-        });
+        const context = await roleContext(
+          browser,
+          run,
+          ownedCase.scope.workerKey,
+          role,
+          { viewport, hasTouch, isMobile },
+        );
         contexts.push({ role, context });
         if (info.retry === 1)
           await context.tracing.start({
