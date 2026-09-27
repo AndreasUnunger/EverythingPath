@@ -1,20 +1,39 @@
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { ResultCell, ResultRow } from './review-facts';
-import { describeValue, gp, words, type ReviewNames } from './review-text';
+import {
+  describeValue,
+  fieldLabel,
+  gp,
+  words,
+  type ReviewNames,
+} from './review-text';
 
 // Now / Rules Baseline / Final comparison over the union of facts in the
 // three states. Values are compared semantically (by their stable
-// serialization), never by formatted text. A missing state column is
-// `unavailable`; a fact missing from an available state is `absent`.
+// serialization), never by formatted text. A fact missing from a recorded
+// part of a state is `absent`; a column, or a part of it, that is not known
+// (an incomplete preview, or a frozen record that never stored it) is
+// `unavailable`, never zero or unchanged.
 
 type DeepReadonly<T> = T extends (infer E)[]
   ? readonly DeepReadonly<E>[]
   : T extends object
     ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
     : T;
-/** Any of the three compared states; only read, never mutated. */
-export type ComparedState = DeepReadonly<CanonicalWeekState>;
+type WeekState = DeepReadonly<CanonicalWeekState>;
+/**
+ * Any of the three compared states; only read, never mutated. A frozen record
+ * may lack its militia facts or week context (`null`), and an older artifact
+ * format may hold only loose `recorded` facts by field name.
+ */
+export type ComparedState = {
+  militiaSnapshot: WeekState['militiaSnapshot'] | null;
+  context: WeekState['context'] | null;
+  recorded?: Readonly<Record<string, unknown>>;
+};
 
+/** Which part of a state records a fact, and so decides its availability. */
+type Part = 'militia' | 'context' | 'recorded';
 type Fact = {
   key: string;
   group: string;
@@ -22,6 +41,7 @@ type Fact = {
   value: unknown;
   text: string;
   absent: string;
+  part: Part;
 };
 
 function stable(value: unknown): string {
@@ -47,8 +67,8 @@ function omit<T extends object>(value: T, ...keys: string[]) {
   );
 }
 
-type Snapshot = ComparedState['militiaSnapshot'];
-type Context = ComparedState['context'];
+type Snapshot = WeekState['militiaSnapshot'];
+type Context = WeekState['context'];
 
 function fact(
   key: string,
@@ -57,8 +77,9 @@ function fact(
   value: unknown,
   text: string,
   absent = 'None',
+  part: Part = 'militia',
 ): Fact {
-  return { key, group, label, value, text, absent };
+  return { key, group, label, value, text, absent, part };
 }
 type EntitySpec<T> = {
   prefix: string;
@@ -93,30 +114,46 @@ function entityFacts<T extends object>(
   );
 }
 
+// Militia values by their stored field. Older artifacts may record any of
+// them loosely; they share the row of the complete snapshot's value.
+const militiaValues = {
+  rank: { key: 'rank', label: 'Rank', text: String },
+  training: { key: 'training', label: 'Training', text: String },
+  treasuryCopper: { key: 'treasury', label: 'Treasury', text: gp },
+  notoriety: { key: 'notoriety', label: 'Notoriety', text: String },
+} as const;
+type MilitiaValue = keyof typeof militiaValues;
+
+function militiaValueFact(field: MilitiaValue, value: number, part: Part) {
+  const spec = militiaValues[field];
+  return fact(
+    `militia:${spec.key}`,
+    'Militia',
+    spec.label,
+    value,
+    spec.text(value),
+    'None',
+    part,
+  );
+}
+function focusFact(focus: string | null, part: Part) {
+  return fact(
+    'militia:focus',
+    'Militia',
+    'Focus',
+    focus,
+    focus ?? 'None',
+    'None',
+    part,
+  );
+}
+
 function militiaFacts(snapshot: Snapshot): Fact[] {
-  const militia = (key: string, label: string, value: unknown, text: string) =>
-    fact(`militia:${key}`, 'Militia', label, value, text);
   return [
-    militia('rank', 'Rank', snapshot.rank, String(snapshot.rank)),
-    militia(
-      'training',
-      'Training',
-      snapshot.training,
-      String(snapshot.training),
+    ...(Object.keys(militiaValues) as MilitiaValue[]).map((field) =>
+      militiaValueFact(field, snapshot[field], 'militia'),
     ),
-    militia(
-      'treasury',
-      'Treasury',
-      snapshot.treasuryCopper,
-      gp(snapshot.treasuryCopper),
-    ),
-    militia(
-      'notoriety',
-      'Notoriety',
-      snapshot.notoriety,
-      String(snapshot.notoriety),
-    ),
-    militia('focus', 'Focus', snapshot.focus, snapshot.focus ?? 'None'),
+    focusFact(snapshot.focus, 'militia'),
   ];
 }
 
@@ -343,7 +380,15 @@ function conditionAndBenefitFacts(
 // Week-start facts always exist; an optional one missing is unrecorded.
 function nextWeekFacts(context: Context, names: ReviewNames): Fact[] {
   const next = (key: string, label: string, value: unknown, text: string) =>
-    fact(`context:${key}`, 'Next week', label, value, text, 'Not recorded');
+    fact(
+      `context:${key}`,
+      'Next week',
+      label,
+      value,
+      text,
+      'Not recorded',
+      'context',
+    );
   const yesNo = (value: boolean) => (value ? 'Yes' : 'No');
   const operated = context.operatedSettlementIds;
   return [
@@ -391,6 +436,7 @@ function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
         omit(event, 'eventId'),
         describeValue(omit(event, 'eventId', 'eventType', 'order'), names),
         'Not carried',
+        'context',
       ),
     ),
     ...context.queuedEffects.map((effect) =>
@@ -401,6 +447,7 @@ function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
         omit(effect, 'effectId'),
         `${describeValue(effect.effect, names)} · weeks ${effect.startsWeek}–${effect.endsWeek}`,
         'Not queued',
+        'context',
       ),
     ),
     ...entityFacts(
@@ -413,34 +460,101 @@ function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
         label: (order) => `Order · ${names.item(order.itemId)}`,
       },
       names,
-    ),
+    ).map((order): Fact => ({ ...order, part: 'context' })),
   ];
+}
+
+/**
+ * Loose facts of an older artifact format. Militia values join their usual
+ * row; anything else stays readable under its own field label.
+ */
+function recordedFacts(
+  recorded: Readonly<Record<string, unknown>>,
+  names: ReviewNames,
+): Fact[] {
+  return Object.entries(recorded).map(([field, value]) => {
+    if (field in militiaValues && typeof value === 'number')
+      return militiaValueFact(field as MilitiaValue, value, 'recorded');
+    if (field === 'focus' && (typeof value === 'string' || value === null))
+      return focusFact(value, 'recorded');
+    return fact(
+      `recorded:${field}`,
+      'Recorded facts',
+      fieldLabel(field),
+      value,
+      describeValue(value, names, field),
+      'Not recorded',
+      'recorded',
+    );
+  });
 }
 
 /** Every comparable fact of one state, in Result row order. */
 function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
   const snapshot = state.militiaSnapshot;
+  const context = state.context;
   return [
-    ...militiaFacts(snapshot),
-    ...teamFacts(snapshot, names),
-    ...settlementFacts(snapshot, names),
-    ...rosterFacts(snapshot, names),
-    ...bonusFacts(snapshot, names),
-    ...economyFacts(snapshot, names),
-    ...conditionAndBenefitFacts(snapshot, names),
-    ...nextWeekFacts(state.context, names),
-    ...carriedForwardFacts(state.context, names),
+    ...(snapshot
+      ? [
+          ...militiaFacts(snapshot),
+          ...teamFacts(snapshot, names),
+          ...settlementFacts(snapshot, names),
+          ...rosterFacts(snapshot, names),
+          ...bonusFacts(snapshot, names),
+          ...economyFacts(snapshot, names),
+          ...conditionAndBenefitFacts(snapshot, names),
+        ]
+      : []),
+    ...(context
+      ? [
+          ...nextWeekFacts(context, names),
+          ...carriedForwardFacts(context, names),
+        ]
+      : []),
+    ...(state.recorded ? recordedFacts(state.recorded, names) : []),
   ];
 }
 
-function cell(
-  fact: Fact | undefined,
-  available: boolean,
-  absent: string,
-): ResultCell {
-  if (!available) return { kind: 'unavailable' };
-  if (!fact) return { kind: 'absent', text: absent };
-  return { kind: 'value', text: fact.text, key: stable(fact.value) };
+type Column = { state: ComparedState; facts: Map<string, Fact> } | null;
+const groupOrder = [
+  'Militia',
+  'Teams',
+  'Settlements',
+  'Roster',
+  'Officers',
+  'Characters',
+  'Bonuses',
+  'Assets and delivery',
+  'Character conditions',
+  'Event benefits',
+  'Next week',
+  'Persistent events',
+  'Queued effects',
+  'Orders',
+  'Recorded facts',
+];
+
+/**
+ * Whether a state records the part of the week a fact belongs to, so that
+ * the fact's absence there is itself a fact. Loose older facts never are.
+ */
+function records(state: ComparedState, row: Fact) {
+  if (row.part === 'context') return state.context !== null;
+  if (row.part === 'recorded') return false;
+  return state.militiaSnapshot !== null;
+}
+
+function cell(column: Column, row: Fact, unrecorded?: string): ResultCell {
+  const unavailable: ResultCell = unrecorded
+    ? { kind: 'unavailable', text: unrecorded }
+    : { kind: 'unavailable' };
+  if (!column) return unavailable;
+  const found = column.facts.get(row.key);
+  if (found)
+    return { kind: 'value', text: found.text, key: stable(found.value) };
+  return records(column.state, row)
+    ? { kind: 'absent', text: row.absent }
+    : unavailable;
 }
 function differs(a: ResultCell, b: ResultCell) {
   if (a.kind === 'unavailable' || b.kind === 'unavailable') return false;
@@ -449,7 +563,9 @@ function differs(a: ResultCell, b: ResultCell) {
 }
 /** The readable text of a Result cell; an unknown column is never a value. */
 export function resultCellText(value: ResultCell) {
-  return value.kind === 'unavailable' ? 'Not available' : value.text;
+  return value.kind === 'unavailable'
+    ? (value.text ?? 'Not available')
+    : value.text;
 }
 function adjustmentDifference(
   now: ResultCell,
@@ -464,10 +580,13 @@ function adjustmentDifference(
     : `Table Adjustments change the Rules Baseline ${from} to ${to}.`;
 }
 
-type Column = Map<string, Fact> | null;
-function compareFact(row: Fact, columns: [Column, Column, Column]): ResultRow {
-  const [now, baseline, final] = columns.map((facts) =>
-    cell(facts?.get(row.key), facts !== null, row.absent),
+function compareFact(
+  row: Fact,
+  columns: [Column, Column, Column],
+  unrecorded?: string,
+): ResultRow {
+  const [now, baseline, final] = columns.map((column) =>
+    cell(column, row, unrecorded),
   ) as [ResultCell, ResultCell, ResultCell];
   return {
     key: row.key,
@@ -476,7 +595,11 @@ function compareFact(row: Fact, columns: [Column, Column, Column]): ResultRow {
     now,
     baseline,
     final,
-    changed: differs(now, baseline) || differs(baseline, final),
+    // Without a Rules Baseline, Now and Final still show a change.
+    changed:
+      differs(now, baseline) ||
+      differs(baseline, final) ||
+      (baseline.kind === 'unavailable' && differs(now, final)),
     finalDiffers: differs(baseline, final),
     difference: adjustmentDifference(now, baseline, final),
   };
@@ -487,23 +610,38 @@ export function compareWeekStates({
   baseline,
   final,
   names,
+  unrecorded,
 }: {
-  now: ComparedState;
+  now: ComparedState | null;
   baseline: ComparedState | null;
   final: ComparedState | null;
   names: ReviewNames;
+  /** Text of an unknown value; a frozen record says it was not recorded. */
+  unrecorded?: string;
 }): ResultRow[] {
   const columns = [now, baseline, final].map((state) =>
     state
-      ? new Map(stateFacts(state, names).map((fact) => [fact.key, fact]))
+      ? {
+          state,
+          facts: new Map(
+            stateFacts(state, names).map((fact) => [fact.key, fact]),
+          ),
+        }
       : null,
   ) as [Column, Column, Column];
-  // Rows follow first appearance across Now, Rules Baseline and Final.
+  // Rows keep their group together and, within it, follow first appearance
+  // across Now, Rules Baseline and Final.
   const union = new Map<string, Fact>();
-  for (const facts of columns)
-    for (const [key, fact] of facts ?? [])
+  for (const column of columns)
+    for (const [key, fact] of column?.facts ?? [])
       if (!union.has(key)) union.set(key, fact);
-  return [...union.values()].map((fact) => compareFact(fact, columns));
+  const rank = (fact: Fact) => {
+    const index = groupOrder.indexOf(fact.group);
+    return index < 0 ? groupOrder.length : index;
+  };
+  return [...union.values()]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((fact) => compareFact(fact, columns, unrecorded));
 }
 
 /** Changed-only by default; Show all reveals every fact. Presentation only. */

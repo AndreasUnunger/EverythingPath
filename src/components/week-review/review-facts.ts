@@ -78,7 +78,8 @@ export type ReviewAdjustment = {
 export type ResultCell =
   | { kind: 'value'; text: string; key: string }
   | { kind: 'absent'; text: string }
-  | { kind: 'unavailable' };
+  /** `text` replaces the default "Not available", e.g. "Not recorded". */
+  | { kind: 'unavailable'; text?: string };
 
 export type ResultRow = {
   key: string;

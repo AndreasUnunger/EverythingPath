@@ -571,6 +571,27 @@ export function describeChange(
   };
 }
 
+/**
+ * A frozen record may hold an entry of an older shape that the readers above
+ * do not understand; it stays readable through the general fact text rather
+ * than breaking the whole record.
+ */
+export function describeRecordedChange(
+  phase: ReviewPhase,
+  change: PlanChange,
+  names: ReviewNames,
+): DescribedChange {
+  try {
+    return describeChange(phase, change, names);
+  } catch {
+    return {
+      ...generic(change, phase, names),
+      resolvesCheck: false,
+      acknowledgement: acknowledgementOf(change),
+    };
+  }
+}
+
 export type SabotageFact = CanonicalResolutionEffects['sabotage'][number];
 export function sabotageSubject(
   item: Pick<SabotageFact, 'eventId' | 'choiceId'>,

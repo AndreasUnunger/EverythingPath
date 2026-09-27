@@ -186,6 +186,45 @@ describe('[SUM-06] Result comparison', () => {
     expect(shownRows(rows, false)).toEqual([]);
   });
 
+  test('a state that did not record its militia or context leaves those values unrecorded, and loose older facts join their rows', () => {
+    const final = state(5);
+    final.militiaSnapshot.treasuryCopper = 4000;
+    const rows = compareWeekStates({
+      now: { militiaSnapshot: null, context: state().context },
+      baseline: {
+        militiaSnapshot: null,
+        context: null,
+        recorded: { treasuryCopper: 4500, ledger: 'Kept by hand' },
+      },
+      final,
+      names,
+      unrecorded: 'Not recorded',
+    });
+    expect(row(rows, 'Treasury')).toMatchObject({
+      now: { kind: 'unavailable', text: 'Not recorded' },
+      baseline: { kind: 'value', text: '45 gp' },
+      final: { kind: 'value', text: '40 gp' },
+      finalDiffers: true,
+    });
+    // Recorded context still compares; an unrecorded one is never "None".
+    expect(row(rows, 'Start day')).toMatchObject({
+      now: { kind: 'value' },
+      baseline: { kind: 'unavailable', text: 'Not recorded' },
+    });
+    expect(row(rows, 'Hollow Scouts')).toMatchObject({
+      now: { kind: 'unavailable' },
+      baseline: { kind: 'unavailable' },
+      final: { kind: 'value', text: 'Active' },
+      changed: false,
+    });
+    expect(row(rows, 'Ledger')).toMatchObject({
+      group: 'Recorded facts',
+      baseline: { text: 'Kept by hand' },
+      final: { kind: 'unavailable', text: 'Not recorded' },
+      changed: false,
+    });
+  });
+
   test('semantic values are compared, not formatted text', () => {
     const now = state();
     const baseline = state(5);

@@ -1,0 +1,795 @@
+import {
+  appendNote,
+  applyPlan,
+  createOutcomes,
+  newItem,
+  reviewItem,
+  type AssemblyItem as Item,
+  type Outcomes,
+} from '~/components/week-review/review-assembly';
+import {
+  choiceSubject,
+  describeAdjustment,
+  describeRecordedChange,
+  describeSabotage,
+  eventSubject,
+  phaseChips,
+  sabotageSubject,
+  teamSubject,
+  transferSubject,
+  type PlanAcknowledgement,
+  type PlanChange,
+} from '~/components/week-review/review-changes';
+import { compareWeekStates } from '~/components/week-review/review-comparison';
+import type {
+  ReviewNote,
+  ReviewPhase,
+  ReviewSection,
+  WeekReviewFacts,
+} from '~/components/week-review/review-facts';
+import { findOwner } from '~/components/week-review/review-notes';
+import {
+  gp,
+  rollText,
+  words,
+  type ReviewNames,
+} from '~/components/week-review/review-text';
+import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
+import type { RawRoll } from '~/lib/weekly-draft-facts';
+import { activityLabel } from '../weekly-draft-workspace/activity-labels';
+import { summaryMessage } from '../weekly-draft-workspace/summary-messages';
+import { readRecordedWeek, type RecordedWeek } from './record-artifacts';
+import {
+  recordedEventTree,
+  type RecordedOccurrence,
+} from './record-event-tree';
+import { orderCarried, recordNames } from './record-names';
+
+// Frozen adapter for the shared six-section presentation: one immutable
+// Resolution Record in, renderable facts out. It reads only that record's
+// source, source militia, stored plans and outcome, adjudication, warnings
+// and successor context, with record-local names. It never resolves rules,
+// reads today's militia, officers or characters, or offers an edit.
+
+type Record_ = CanonicalResolutionRecord;
+type Source = Record_['source'];
+type ItemsByPhase = Record<ReviewPhase, Item[]>;
+type Review = {
+  record: Record_;
+  week: RecordedWeek;
+  tree: RecordedOccurrence[];
+  names: ReviewNames;
+  items: ItemsByPhase;
+  unassociated: ReviewNote[];
+};
+
+const phaseOrder = ['upkeep', 'activity', 'event', 'persistent'] as const;
+const titles: Record<ReviewPhase, string> = {
+  upkeep: 'Upkeep',
+  activity: 'Activity',
+  event: 'Event',
+  persistent: 'Persistent',
+};
+const emptyText: Record<ReviewPhase, string> = {
+  upkeep: 'No Upkeep consequences this week.',
+  activity: 'No actions were chosen this Activity.',
+  event: 'No event consequences this week.',
+  persistent: 'No persistent event consequences this week.',
+};
+const notRecordedText =
+  'This record’s format does not list this phase’s consequences.';
+// Wording for recorded warnings the live week no longer raises.
+const historicalMessages: Record<string, string> = {
+  'buyoff-cost-recomputed':
+    'The recorded amount differs from the calculated buyoff cost.',
+};
+
+function rollLine(label: string, roll: RawRoll | undefined) {
+  return roll ? [`${label}: ${rollText(roll)}`] : [];
+}
+function withDetails(entry: Item, details: string[]) {
+  entry.details.push(...details);
+  return entry;
+}
+
+// ── Upkeep ────────────────────────────────────────────────────────────────
+
+const decisionLines: Record<string, string> = {
+  recover: 'Recover',
+  leave: 'Left disabled',
+  remove: 'Remove from the roster',
+};
+
+function upkeepTeamItems(review: Review) {
+  const { upkeep } = review.record.source;
+  const roster =
+    review.week.atConfirmation.militiaSnapshot?.roster.teams.map(
+      (team) => team.teamId,
+    ) ?? [];
+  const rank = (teamId: string) => {
+    const index = roster.indexOf(teamId);
+    return index < 0 ? roster.length : index;
+  };
+  // Recovery and returns run in roster order, as the rules do.
+  return [...upkeep.teamDecisions]
+    .sort((a, b) => rank(a.teamId) - rank(b.teamId))
+    .map((decision) =>
+      withDetails(
+        newItem(
+          teamSubject(decision.teamId),
+          review.names.team(decision.teamId),
+          [decision.teamId, teamSubject(decision.teamId)],
+        ),
+        [
+          `${decisionLines[decision.decision] ?? words(decision.decision)}${
+            decision.costCopper === undefined
+              ? ''
+              : ` · recorded cost ${gp(decision.costCopper)}`
+          }`,
+          ...rollLine('Return roll', decision.roll),
+        ],
+      ),
+    );
+}
+
+function upkeepStepItems(review: Review) {
+  const { upkeep } = review.record.source;
+  const step = (key: string, title: string, details: string[]) =>
+    details.length
+      ? [
+          withDetails(
+            newItem(`upkeep:${key}`, title, [
+              `upkeep:${key}`,
+              `upkeep:${key}-training`,
+            ]),
+            details,
+          ),
+        ]
+      : [];
+  return [
+    ...step('attrition', 'Training attrition', [
+      ...rollLine('Loyalty check roll', upkeep.rolls.check),
+      ...rollLine('Training loss roll', upkeep.rolls.training),
+    ]),
+    ...step('notoriety', 'Notoriety', [
+      ...rollLine('Training loss roll', upkeep.rolls.notoriety),
+      ...rollLine('Loyalty check roll', upkeep.notorietyCheck),
+      ...(upkeep.nearestSettlementId
+        ? [
+            `Nearest settlement ${review.names.settlement(upkeep.nearestSettlementId)}`,
+          ]
+        : []),
+    ]),
+    ...step('shortage', 'Treasury shortage', [
+      ...rollLine('Training loss roll', upkeep.rolls.loss),
+    ]),
+  ];
+}
+
+function rankItem(review: Review) {
+  const changed = (review.week.plans.upkeep ?? []).some(
+    (change) => change.kind === 'rank',
+  );
+  const rank = review.week.atConfirmation.militiaSnapshot?.rank;
+  if (!changed && rank === undefined) return [];
+  const entry = newItem('upkeep:rank', 'Rank', ['upkeep:rank', 'rank']);
+  if (!changed) entry.details.push(`Rank stays ${rank}`);
+  return [entry];
+}
+
+/** A transfer's recorded actor, from records that still name one. */
+function transferActor(
+  transfer: Source['upkeep']['treasuryTransfers'][number],
+) {
+  return 'characterId' in transfer && typeof transfer.characterId === 'string'
+    ? transfer.characterId
+    : null;
+}
+
+function transferItems(review: Review) {
+  return review.record.source.upkeep.treasuryTransfers.map((transfer) => {
+    const actor = transferActor(transfer);
+    const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
+    return newItem(
+      transferSubject(transfer.transferId),
+      `Treasury ${kind}${actor ? ` · ${review.names.character(actor)}` : ''}`,
+      [transfer.transferId, transferSubject(transfer.transferId)],
+    );
+  });
+}
+
+function upkeepItems(review: Review): Item[] {
+  if (review.record.source.context.firstMilitiaWeek) return [];
+  return [
+    ...upkeepTeamItems(review),
+    ...upkeepStepItems(review),
+    ...rankItem(review),
+    ...transferItems(review),
+  ];
+}
+
+/** A transfer the plan does not explain keeps its recorded amount. */
+function addTransferAmounts(review: Review, items: Item[]) {
+  for (const transfer of review.record.source.upkeep.treasuryTransfers) {
+    const entry = items.find(
+      (item) => item.key === transferSubject(transfer.transferId),
+    );
+    if (entry && entry.effects.length === 0 && entry.details.length === 0)
+      entry.details.push(`Recorded amount ${gp(transfer.copper)}`);
+  }
+}
+
+// ── Activity ──────────────────────────────────────────────────────────────
+
+type Choice = NonNullable<Source['activity']['slots'][number]['choice']>;
+
+function choiceSubjects(choice: Choice) {
+  return [
+    choice.choiceId,
+    ...('orderId' in choice && typeof choice.orderId === 'string'
+      ? [choice.orderId]
+      : []),
+    // Market and order outcomes are acknowledged per offered item.
+    ...('purchases' in choice
+      ? (choice.purchases ?? []).map((p) => `availability:${p.itemId}`)
+      : []),
+    ...('itemId' in choice && typeof choice.itemId === 'string'
+      ? [`availability:${choice.itemId}`]
+      : []),
+  ];
+}
+
+const choiceRolls: Record<string, string> = {
+  check: 'Check roll',
+  notoriety: 'Notoriety roll',
+  training: 'Training roll',
+  delivery: 'Delivery roll',
+};
+
+function activityItems(review: Review): Item[] {
+  const { names } = review;
+  return review.record.source.activity.slots.flatMap((slot, index) => {
+    const choice = slot.choice;
+    if (!choice) return [];
+    const team = choice.teamId ? ` · ${names.team(choice.teamId)}` : '';
+    const rolls: Partial<Record<string, RawRoll>> =
+      'rolls' in choice ? (choice.rolls ?? {}) : {};
+    return [
+      withDetails(
+        newItem(
+          choiceSubject(choice.choiceId),
+          `Slot ${index + 1} · ${activityLabel(choice.actionId)}${team}`,
+          choiceSubjects(choice),
+        ),
+        [
+          ...Object.entries(choiceRolls).flatMap(([field, label]) =>
+            rollLine(label, rolls[field]),
+          ),
+          ...(choice.costCopper === undefined
+            ? []
+            : [`Recorded cost ${gp(choice.costCopper)}`]),
+        ],
+      ),
+    ];
+  });
+}
+
+// ── Event ─────────────────────────────────────────────────────────────────
+
+function inForce(source: Source, kind: string) {
+  return source.context.queuedEffects.some(
+    (effect) =>
+      effect.effect.kind === kind &&
+      effect.startsWeek <= source.week &&
+      source.week <= effect.endsWeek,
+  );
+}
+
+/** The chance step exactly as recorded; no chance is recalculated. */
+function chanceItem(review: Review, guaranteed: boolean) {
+  const { source } = review.record;
+  const entry = newItem('event:chance', 'Event chance', ['event:chance']);
+  if (inForce(source, 'all_is_calm'))
+    entry.details.push('All Is Calm made this a calm week');
+  else if (guaranteed) entry.details.push('An event was guaranteed');
+  entry.details.push(
+    ...rollLine('Chance roll', source.event.chanceRoll),
+    ...(source.activity.operatingSettlementId
+      ? [
+          `Operating from ${review.names.settlement(source.activity.operatingSettlementId)}`,
+        ]
+      : []),
+  );
+  if (entry.details.length === 0) entry.details.push('No chance roll recorded');
+  return entry;
+}
+
+function occurrenceDetails(
+  review: Review,
+  { occurrence, owner }: RecordedOccurrence,
+) {
+  const label = (id: string) =>
+    review.tree.find((entry) => entry.occurrence.eventId === id)?.label ??
+    'an earlier event';
+  const { origin } = occurrence;
+  const selected =
+    owner && 'selectedEventId' in owner.choice
+      ? owner.choice.selectedEventId
+      : undefined;
+  return [
+    ...('parentEventId' in origin
+      ? [
+          `${origin.kind === 'roll_twice' ? 'Rolled twice from' : 'Replaces'} ${label(origin.parentEventId)}`,
+        ]
+      : []),
+    ...(owner ? [`From ${activityLabel(owner.choice.actionId)}`] : []),
+    ...(owner && origin.kind === 'rolled' && selected
+      ? [selected === occurrence.eventId ? 'Chosen' : 'Not chosen']
+      : []),
+    ...rollLine('Table roll', occurrence.tableRoll),
+    ...(occurrence.persistentDecision
+      ? [`Decision: ${words(occurrence.persistentDecision.kind)}`]
+      : []),
+  ];
+}
+
+function sabotageItem(
+  review: Review,
+  entry: RecordedOccurrence,
+  title: string,
+) {
+  const { occurrence } = entry;
+  const reactive = occurrence.sabotage;
+  if (!reactive) return [];
+  const subject = sabotageSubject({
+    eventId: occurrence.eventId,
+    choiceId: reactive.choiceId,
+  });
+  const item = newItem(subject, `${title} · Sabotage`, [
+    subject,
+    reactive.choiceId,
+  ]);
+  const fact = review.week.sabotage.find(
+    (s) => s.eventId === occurrence.eventId && s.choiceId === reactive.choiceId,
+  );
+  if (!fact) {
+    item.details.push('Sabotage result not recorded');
+    return [item];
+  }
+  const described = describeSabotage(fact);
+  item.details.push(described.detail);
+  item.effects.push(
+    ...described.effects.map((text, i) => ({
+      key: `${subject}:effect:${i}`,
+      text,
+    })),
+  );
+  return [item];
+}
+
+function eventItems(review: Review, guaranteed: boolean): Item[] {
+  return [
+    chanceItem(review, guaranteed),
+    ...review.tree.flatMap((entry) => {
+      const { occurrence } = entry;
+      const title = review.names.event(occurrence.eventId);
+      const item = withDetails(
+        newItem(eventSubject(occurrence.eventId), title, [
+          occurrence.eventId,
+          eventSubject(occurrence.eventId),
+          ...(occurrence.rewards ?? []).map((reward) => reward.itemId),
+        ]),
+        occurrenceDetails(review, entry),
+      );
+      return [item, ...sabotageItem(review, entry, title)];
+    }),
+  ];
+}
+
+// ── Persistent ────────────────────────────────────────────────────────────
+
+type Target = Source['context']['carriedEvents'][number]['targets'][number];
+function targetName(target: Target, names: ReviewNames) {
+  switch (target.kind) {
+    case 'team':
+      return names.team(target.teamId);
+    case 'settlement':
+      return names.settlement(target.settlementId);
+    case 'character':
+      return names.character(target.characterId);
+    case 'cache':
+      return names.cache(target.cacheId);
+    default:
+      return 'Recorded target';
+  }
+}
+
+type Decision = Source['persistent']['decisions'][number];
+function decisionDetails(decision: Decision | undefined) {
+  if (!decision) return ['No decision recorded'];
+  return [
+    `Decision: ${words(decision.kind)}`,
+    ...(decision.kind === 'buyoff' && decision.costCopper !== undefined
+      ? [`Recorded buyoff amount ${gp(decision.costCopper)}`]
+      : []),
+    ...(decision.kind === 'mitigate'
+      ? [
+          ...rollLine('Mitigation roll', decision.rolls?.check),
+          ...rollLine('Officer check roll', decision.officerCheck?.roll),
+        ]
+      : []),
+  ];
+}
+
+function persistentItems(review: Review): Item[] {
+  const { source } = review.record;
+  return orderCarried(source.context.carriedEvents).map((event) => {
+    const targets = event.targets.map((target) =>
+      targetName(target, review.names),
+    );
+    return withDetails(
+      newItem(eventSubject(event.eventId), review.names.event(event.eventId), [
+        event.eventId,
+        eventSubject(event.eventId),
+      ]),
+      [
+        ...(targets.length ? [`Affects ${targets.join(', ')}`] : []),
+        ...decisionDetails(
+          source.persistent.decisions.find(
+            (entry) => entry.eventId === event.eventId,
+          ),
+        ),
+      ],
+    );
+  });
+}
+
+// ── Assembly and placement ────────────────────────────────────────────────
+
+function guaranteedChoices(record: Record_, week: RecordedWeek) {
+  const plan = week.plans.activity;
+  if (plan)
+    return new Set(
+      plan.flatMap((change) =>
+        change.kind === 'event_guarantee' ? [change.choiceId] : [],
+      ),
+    );
+  // An older format without an Activity plan: a recorded chosen candidate.
+  return new Set(
+    record.source.activity.slots.flatMap(({ choice }) =>
+      choice && 'selectedEventId' in choice && choice.selectedEventId
+        ? [choice.choiceId]
+        : [],
+    ),
+  );
+}
+
+function phaseItems(review: Review, outcomes: Outcomes): ItemsByPhase {
+  const guaranteed = guaranteedChoices(review.record, review.week).size > 0;
+  const skeletons: ItemsByPhase = {
+    upkeep: upkeepItems(review),
+    activity: activityItems(review),
+    event: eventItems(review, guaranteed),
+    persistent: persistentItems(review),
+  };
+  const items = Object.fromEntries(
+    phaseOrder.map((phase) => [
+      phase,
+      applyPlan(
+        phase,
+        skeletons[phase],
+        review.week.plans[phase] ?? [],
+        review.names,
+        outcomes,
+        describeRecordedChange,
+      ),
+    ]),
+  ) as ItemsByPhase;
+  addTransferAmounts(review, items.upkeep);
+  return items;
+}
+
+/** Acknowledgements recorded on a choice, Sabotage or decision, by owner key. */
+function recordedOutcomes(review: Review) {
+  const { source } = review.record;
+  const ends = (decision: Decision | undefined): PlanAcknowledgement[] =>
+    decision?.kind === 'end' ? [decision.acknowledgement] : [];
+  return [
+    ...review.week.sabotage.map((fact) => ({
+      key: sabotageSubject(fact),
+      acks: fact.acknowledgement ? [fact.acknowledgement] : [],
+    })),
+    ...source.activity.slots.flatMap((slot) =>
+      slot.choice
+        ? [
+            {
+              key: choiceSubject(slot.choice.choiceId),
+              acks: slot.choice.acknowledgements ?? [],
+            },
+          ]
+        : [],
+    ),
+    ...review.tree.flatMap(({ occurrence }) => [
+      {
+        key: eventSubject(occurrence.eventId),
+        acks: ends(occurrence.persistentDecision),
+      },
+      ...(occurrence.sabotage
+        ? [
+            {
+              key: sabotageSubject({
+                eventId: occurrence.eventId,
+                choiceId: occurrence.sabotage.choiceId,
+              }),
+              acks: occurrence.sabotage.acknowledgements ?? [],
+            },
+          ]
+        : []),
+    ]),
+    ...source.persistent.decisions.map((decision) => ({
+      key: eventSubject(decision.eventId),
+      acks: ends(decision),
+    })),
+  ];
+}
+
+function allItems(review: Review) {
+  return Object.values(review.items).flat();
+}
+
+/** A readable name for a recorded subject, from this record's items. */
+function subjectName(review: Review, subjectId: string) {
+  return (
+    findOwner(subjectId, allItems(review))?.title ??
+    (review.names.event(subjectId) !== 'Recorded event'
+      ? review.names.event(subjectId)
+      : null)
+  );
+}
+
+function placeOutcomes(review: Review, outcomes: Outcomes) {
+  const all = allItems(review);
+  for (const { key, acks } of recordedOutcomes(review)) {
+    const target = all.find((entry) => entry.key === key);
+    if (target) for (const ack of acks) outcomes.place(target, ack);
+  }
+  for (const ack of review.record.adjudication.acknowledgements) {
+    if (outcomes.isPlaced(ack)) continue;
+    const owner = findOwner(ack.subjectId, all);
+    if (owner) {
+      outcomes.place(owner, ack);
+      continue;
+    }
+    const note = outcomes.placeUnlinked(
+      ack,
+      subjectName(review, ack.subjectId) ?? 'Table outcome',
+    );
+    if (note) review.unassociated.push(note);
+  }
+}
+
+/** The phase a recorded subject or code names by its known prefixes. */
+function recordedPhase(subjectOrCode: string, ruleId?: string) {
+  const [prefix] = subjectOrCode.split(':');
+  if (prefix === 'upkeep' || prefix === 'rank' || ruleId?.startsWith('upkeep-'))
+    return 'upkeep';
+  if (ruleId === 'action-capacity') return 'activity';
+  if (prefix === 'event') return 'event';
+  if (prefix === 'persistent') return 'persistent';
+  return null;
+}
+
+function placeExceptions(review: Review) {
+  for (const exception of review.record.adjudication.rulesExceptions) {
+    // A recorded reason is quoted as it stood; history offers no repair.
+    const note: ReviewNote = {
+      kind: 'exception',
+      key: `exception:${exception.exceptionId}`,
+      exceptionId: exception.exceptionId,
+      subjectId: exception.subjectId,
+      ruleId: exception.ruleId,
+      rule: activityLabel(exception.ruleId.replaceAll('-', '_')),
+      reason: exception.reason,
+      obsolete: false,
+    };
+    const owner = findOwner(exception.subjectId, allItems(review));
+    if (owner) {
+      owner.notes.push(note);
+      continue;
+    }
+    const phase = recordedPhase(exception.subjectId, exception.ruleId);
+    if (!phase) {
+      review.unassociated.push(note);
+      continue;
+    }
+    const orphan = newItem(
+      `missing:${exception.exceptionId}`,
+      subjectName(review, exception.subjectId) ?? 'Table ruling',
+    );
+    orphan.missing = true;
+    orphan.notes.push(note);
+    review.items[phase].push(orphan);
+  }
+}
+
+/**
+ * Newer records store each warning's full code as its message, led by its
+ * first segment as the code; older ones kept a written message instead.
+ */
+function warningCode({ code, message }: Record_['warnings'][number]) {
+  return message === code || message.startsWith(`${code}:`) ? message : null;
+}
+
+function warningText(review: Review, code: string) {
+  const known = historicalMessages[code.split(':').pop() ?? ''];
+  if (known) {
+    const owner = findOwner(code, allItems(review));
+    return owner ? `${owner.title}: ${known}` : known;
+  }
+  return summaryMessage(
+    code,
+    {
+      adjustments: review.record.adjudication.tableAdjustments,
+      options: {
+        subjectId: allItems(review).flatMap((item) =>
+          item.subjects.map((value) => ({ value, label: item.title })),
+        ),
+      },
+    },
+    true,
+  );
+}
+
+/** Every recorded warning appears once: under its item, adjustment or phase. */
+function placeWarnings(review: Review) {
+  const byAdjustment = new Map<string, ReviewNote[]>();
+  const general: Partial<Record<ReviewPhase, Item>> = {};
+  const all = allItems(review);
+  review.record.warnings.forEach((warning, index) => {
+    const code = warningCode(warning);
+    // Older records keep a written message; it is shown exactly as recorded.
+    const note: ReviewNote = {
+      kind: 'warning',
+      key: `warning:${index}`,
+      message: code ? warningText(review, code) : warning.message,
+    };
+    const subject = code ?? warning.code;
+    const adjustment = review.record.adjudication.tableAdjustments.find(
+      (entry) => subject.startsWith(`adjustment:${entry.adjustmentId}:`),
+    );
+    if (adjustment) {
+      appendNote(byAdjustment, adjustment.adjustmentId, note);
+      return;
+    }
+    const owner = findOwner(subject, all);
+    if (owner) {
+      owner.notes.push(note);
+      return;
+    }
+    const phase = recordedPhase(subject);
+    if (!phase) {
+      review.unassociated.push(note);
+      return;
+    }
+    general[phase] ??= newItem(
+      `general:${phase}`,
+      `Other ${titles[phase]} warnings`,
+    );
+    general[phase].notes.push(note);
+  });
+  for (const phase of phaseOrder) {
+    const entry = general[phase];
+    if (entry) review.items[phase].push(entry);
+  }
+  return byAdjustment;
+}
+
+// ── Sections, adjustments and Result ──────────────────────────────────────
+
+function sectionChips(phase: ReviewPhase, review: Review) {
+  const plan = review.week.plans[phase];
+  if (!plan) return [];
+  try {
+    return phaseChips(
+      phase,
+      plan as readonly PlanChange[],
+      phase === 'event' ? review.week.sabotage : [],
+    );
+  } catch {
+    // An older entry shape cannot be totalled; its lines remain readable.
+    return [];
+  }
+}
+
+function sectionStatus(
+  phase: ReviewPhase,
+  count: number,
+  review: Review,
+): Pick<ReviewSection, 'status' | 'statusText'> {
+  const { context } = review.record.source;
+  if (phase === 'upkeep' && context.firstMilitiaWeek && count === 0)
+    return {
+      status: 'not-applicable',
+      statusText: 'Upkeep is skipped in the militia’s first week.',
+    };
+  if (phase === 'persistent' && context.carriedEvents.length === 0 && !count)
+    return {
+      status: 'not-applicable',
+      statusText: 'No persistent events carried into this week.',
+    };
+  if (review.week.plans[phase] === null)
+    return { status: 'incomplete', statusText: notRecordedText };
+  if (count === 0) return { status: 'empty', statusText: emptyText[phase] };
+  return { status: 'complete', statusText: null };
+}
+
+function sectionFacts(
+  phase: ReviewPhase,
+  number: ReviewSection['number'],
+  review: Review,
+): ReviewSection {
+  const items = review.items[phase].map(reviewItem);
+  return {
+    phase,
+    number,
+    title: titles[phase],
+    chips: sectionChips(phase, review),
+    items,
+    ...sectionStatus(phase, items.length, review),
+  };
+}
+
+export function recordWeekReview(
+  record: CanonicalResolutionRecord,
+): WeekReviewFacts {
+  const week = readRecordedWeek(record);
+  const tree = recordedEventTree(
+    record.source,
+    guaranteedChoices(record, week),
+  );
+  const names = recordNames(record, tree);
+  const outcomes = createOutcomes();
+  const review: Review = {
+    record,
+    week,
+    tree,
+    names,
+    items: { upkeep: [], activity: [], event: [], persistent: [] },
+    unassociated: [],
+  };
+  review.items = phaseItems(review, outcomes);
+  placeOutcomes(review, outcomes);
+  placeExceptions(review);
+  const adjustmentNotes = placeWarnings(review);
+  return {
+    mode: 'record',
+    sections: [
+      sectionFacts('upkeep', 1, review),
+      sectionFacts('activity', 2, review),
+      sectionFacts('event', 3, review),
+      sectionFacts('persistent', 4, review),
+    ],
+    unassociated: review.unassociated,
+    adjustments: record.adjudication.tableAdjustments.map(
+      (adjustment, index) => ({
+        key: `adjustment:${adjustment.adjustmentId}`,
+        adjustmentId: adjustment.adjustmentId,
+        number: index + 1,
+        ...describeAdjustment(adjustment, names),
+        reason: adjustment.reason,
+        notes: adjustmentNotes.get(adjustment.adjustmentId) ?? [],
+      }),
+    ),
+    result: {
+      nextWeek: week.nextWeek,
+      complete: week.complete,
+      rows: compareWeekStates({
+        now: week.atConfirmation,
+        baseline: week.baseline,
+        final: week.final,
+        names,
+        unrecorded: 'Not recorded',
+      }),
+    },
+  };
+}
