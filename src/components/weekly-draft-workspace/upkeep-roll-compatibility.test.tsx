@@ -277,3 +277,90 @@ test('[rules.WEEK-15.upkeep-reentry] after a deliberate clear the existing legac
     roll: { dice: [3], sides: 4, provenance: { kind: 'table' }, modifiers: [] },
   });
 });
+
+test.each([
+  ['wrong sides', total(6, 1, 5), '1d6', '5'],
+  ['wrong count', total(20, 2, 25), '2d20', '25'],
+])(
+  '[rules.WEEK-15.upkeep-team-incompatible] a missing team’s %s return total stays visible with its incomplete explanation and can be cleared for legacy re-entry',
+  (_label, recorded, notation, shown) => {
+    const { view, preview } = fixture((draft, snapshot) => {
+      snapshot.roster.teams.push({
+        teamId: 'scouts',
+        teamType: 'patrons',
+        name: 'Scouts',
+        status: 'missing',
+        managerCharacterId: null,
+        rewardCapExempt: false,
+        notes: '',
+      });
+      draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
+      draft.upkeep.teamDecisions = [
+        { teamId: 'scouts', decision: 'leave', roll: recorded },
+      ];
+    });
+    expect(preview.requirements).toContain('team:scouts:return:dice:1d20');
+    const team = view.teams.find((team) => team.teamId === 'scouts')!;
+    expect(team.roll.normalized.status).toBe('incomplete');
+    expect(team.needsReturnRoll).toBe(true);
+    const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+    const { rerender } = render(
+      <UpkeepView view={view} edit={edit} disabled={false} />,
+    );
+    const card = screen.getByRole('group', { name: 'Scouts recovery' });
+    const group = within(card).getByRole('group', {
+      name: 'Scouts return roll',
+    });
+    expect(within(group).getByText(shown)).toBeVisible();
+    expect(within(group).getByText(notation)).toBeVisible();
+    expect(
+      within(group).getByText(
+        new RegExp(`needs 1d20, but the recorded total is for ${notation}`),
+      ),
+    ).toBeVisible();
+    fireEvent.click(
+      within(group).getByRole('button', { name: 'Clear scouts return roll' }),
+    );
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'upkeep_team',
+      teamId: 'scouts',
+      decision: { teamId: 'scouts', decision: 'leave' },
+    });
+    // After the deliberate clear the legacy return die is offered again.
+    const cleared = fixture((draft, snapshot) => {
+      snapshot.roster.teams.push({
+        teamId: 'scouts',
+        teamType: 'patrons',
+        name: 'Scouts',
+        status: 'missing',
+        managerCharacterId: null,
+        rewardCapExempt: false,
+        notes: '',
+      });
+      draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
+      draft.upkeep.teamDecisions = [{ teamId: 'scouts', decision: 'leave' }];
+    });
+    rerender(<UpkeepView view={cleared.view} edit={edit} disabled={false} />);
+    fireEvent.change(
+      within(screen.getByRole('group', { name: 'Scouts recovery' })).getByRole(
+        'textbox',
+        { name: 'Scouts return die' },
+      ),
+      { target: { value: '12' } },
+    );
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'upkeep_team',
+      teamId: 'scouts',
+      decision: {
+        teamId: 'scouts',
+        decision: 'leave',
+        roll: {
+          dice: [12],
+          sides: 20,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      },
+    });
+  },
+);

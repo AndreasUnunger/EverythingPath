@@ -153,46 +153,68 @@ function nestedField(props: FieldProps) {
     />
   );
 }
+// Structured schemas get an explicit "Add" control while optional and absent;
+// scalars render their input directly. The raw-roll union counts as structured.
+type StructuredBase =
+  | { kind: 'roll'; roll: NonNullable<ReturnType<typeof rollUnion>> }
+  | { kind: 'union'; base: z.ZodDiscriminatedUnion }
+  | { kind: 'object'; base: z.ZodObject | z.ZodRecord }
+  | { kind: 'array'; base: z.ZodArray };
+function classifyStructured(base: z.ZodType): StructuredBase | null {
+  const roll = rollUnion(base);
+  if (roll) return { kind: 'roll', roll };
+  if (base instanceof z.ZodDiscriminatedUnion) return { kind: 'union', base };
+  if (base instanceof z.ZodObject || base instanceof z.ZodRecord)
+    return { kind: 'object', base };
+  if (base instanceof z.ZodArray) return { kind: 'array', base };
+  return null;
+}
+function ProvenanceNote({ value }: { value: unknown }) {
+  return (
+    <p className="text-muted-foreground text-xs">
+      {record(value).kind === 'generated'
+        ? 'Recorded roll.'
+        : 'Rolled at the table.'}
+    </p>
+  );
+}
+function AddStructured(props: FieldProps & { base: z.ZodType }) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={props.disabled}
+      onClick={() =>
+        props.change(initial(props.base, props.name, props.rollSides))
+      }
+    >
+      Add {choiceFieldLabel(props.name).toLowerCase()}
+    </Button>
+  );
+}
+function StructuredFields(props: FieldProps & { structured: StructuredBase }) {
+  const { structured } = props;
+  switch (structured.kind) {
+    case 'roll':
+      return <RollFields {...props} roll={structured.roll} />;
+    case 'union':
+      return <UnionFields {...props} base={structured.base} />;
+    case 'object':
+      return <ObjectFields {...props} base={structured.base} />;
+    case 'array':
+      return <ArrayFields {...props} base={structured.base} />;
+  }
+}
 function Fields(props: FieldProps) {
   if (props.name === 'provenance')
-    return (
-      <p className="text-muted-foreground text-xs">
-        {record(props.value).kind === 'generated'
-          ? 'Recorded roll.'
-          : 'Rolled at the table.'}
-      </p>
-    );
+    return <ProvenanceNote value={props.value} />;
   const base = unwrap(props.schema);
   if (base instanceof z.ZodLiteral) return null;
-  const roll = rollUnion(base);
-  const structured =
-    roll !== null ||
-    base instanceof z.ZodObject ||
-    base instanceof z.ZodArray ||
-    base instanceof z.ZodRecord ||
-    base instanceof z.ZodDiscriminatedUnion;
-  if (
-    props.schema instanceof z.ZodOptional &&
-    props.value === undefined &&
-    structured
-  )
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        disabled={props.disabled}
-        onClick={() => props.change(initial(base, props.name, props.rollSides))}
-      >
-        Add {choiceFieldLabel(props.name).toLowerCase()}
-      </Button>
-    );
-  if (roll) return <RollFields {...props} roll={roll} />;
-  if (base instanceof z.ZodDiscriminatedUnion)
-    return <UnionFields {...props} base={base} />;
-  if (base instanceof z.ZodObject || base instanceof z.ZodRecord)
-    return <ObjectFields {...props} base={base} />;
-  if (base instanceof z.ZodArray) return <ArrayFields {...props} base={base} />;
-  return <ScalarField {...props} base={base} />;
+  const structured = classifyStructured(base);
+  if (!structured) return <ScalarField {...props} base={base} />;
+  if (props.schema instanceof z.ZodOptional && props.value === undefined)
+    return <AddStructured {...props} base={base} />;
+  return <StructuredFields {...props} structured={structured} />;
 }
 // A legacy array keeps the existing per-die object editor. A recorded total
 // is shown as recorded data with its modifiers and provenance still editable;

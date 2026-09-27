@@ -98,9 +98,14 @@ export function phaseView(
           decision: decision?.decision ?? null,
           costCopper: minimumTreasuryCopper,
           roll: rollReadFacts(decision?.roll, { count: 1, sides: 20 }),
+          // A missing roll, an incompatible recorded roll (`:return:dice:NdS`)
+          // or an emitted check all need the return row; a queued return
+          // that suppresses the check emits none of them and stays hidden.
           needsReturnRoll:
-            projection.requirements.includes(
-              `team:${team.teamId}:return:roll`,
+            projection.requirements.some(
+              (key) =>
+                key === `team:${team.teamId}:return:roll` ||
+                key.startsWith(`team:${team.teamId}:return:dice:`),
             ) ||
             projection.checks.some(
               (check) => check.checkId === `team:${team.teamId}:return`,

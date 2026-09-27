@@ -208,15 +208,17 @@ export async function exerciseRollCompatibility(
       second.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
     await phase(second, 'Upkeep');
-    const stored = (await transport.read()).draft;
-    expect(stored?.upkeep.rolls.check).toEqual(total(20, 1, 0));
-    expect(stored?.upkeep.rolls.training).toEqual({
-      dice: [3, 4],
-      sides: 4,
-      provenance: { kind: 'table' },
-      modifiers: [],
-    });
-    expect(stored?.event.chanceRoll).toEqual(total(100, 1, 100));
+    // The other device shows the re-entered legacy dice beside the untouched
+    // recorded totals; storage-shape equality belongs to the persistence
+    // contract suite, so the browser asserts only rendered outcomes.
+    await expect(trainingDie(second, 1)).toHaveValue('3');
+    await expect(trainingDie(second, 2)).toHaveValue('4');
+    await phase(second, 'Event');
+    const secondChance = group(second, 'Event chance roll');
+    await expect(secondChance).toContainText('Recorded total');
+    await expect(secondChance).toContainText('100');
+    await expect(secondChance).toContainText('1d100');
+    await phase(second, 'Upkeep');
 
     // The recorded-total presentation fits every target viewport with the
     // reference panel open and closed where it exists.
@@ -255,22 +257,34 @@ export async function exerciseRollCompatibility(
       kind: 'event_chance',
       roll: original!.event.chanceRoll ?? null,
     });
-    const restored = (await transport.read()).draft;
-    expect(restored?.upkeep).toEqual(original!.upkeep);
-    expect(restored?.event.chanceRoll).toEqual(original!.event.chanceRoll);
     const originalCheck = original!.upkeep.rolls.check;
     const originalDie =
       originalCheck && 'dice' in originalCheck
         ? String(originalCheck.dice[0] ?? '')
         : '';
+    const originalChance = original!.event.chanceRoll;
+    const originalChanceDie =
+      originalChance && 'dice' in originalChance
+        ? String(originalChance.dice[0] ?? '')
+        : '';
+    // Every page shows the original legacy inputs again: the recorded-total
+    // groups are gone and the legacy fields carry the original values.
     for (const page of [first, second, ...observers]) {
       await expect(group(page, 'Attrition Loyalty roll')).toHaveCount(0);
+      await expect(group(page, 'Attrition training roll')).toHaveCount(0);
       await expect(
         page.getByRole('textbox', {
           name: 'Attrition Loyalty die',
           exact: true,
         }),
       ).toHaveValue(originalDie);
+      await phase(page, 'Event');
+      await expect(group(page, 'Event chance roll')).toHaveCount(0);
+      await expect(
+        page.getByRole('textbox', { name: 'Event chance roll', exact: true }),
+      ).toHaveValue(originalChanceDie);
+      await phase(page, 'Upkeep');
+      await expect(heading(page)).toBeVisible();
     }
   } finally {
     await client.close();
