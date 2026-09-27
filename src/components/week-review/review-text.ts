@@ -99,7 +99,6 @@ export function fieldLabel(field: string) {
 const freeTextFields = new Set([
   'note',
   'notes',
-  'reason',
   'outcome',
   'message',
   'instruction',

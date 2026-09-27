@@ -381,7 +381,9 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
           sections.map((section) => section.getAttribute('aria-label')),
         );
       expect(
-        sectionOrder.filter((label) => historySections.includes(label!)),
+        sectionOrder.filter(
+          (label) => label !== null && historySections.includes(label),
+        ),
       ).toEqual(historySections);
       // Show all values adds the recorded context to the changed facts.
       await showAllResultValues(players.player);

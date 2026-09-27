@@ -12,11 +12,9 @@ import type {
 import { Frame, SectionNumber, wrap } from './review-parts';
 
 // Section 6. The only state in the week renderer is the "Show all values"
-// toggle. Both the table and the stacked list are always in the DOM; which
-// one shows depends on the section's own width (a container query), not the
-// viewport: the four-column table needs about 32rem of content width for
-// readable columns, which the live Summary has from tablet landscape up and
-// the Finished weeks pane (beside a 20rem index) from about 1040px up.
+// toggle. Both the table and the stacked list are always in the DOM; the
+// section's own width (a container query), not the viewport, decides which
+// shows, so a narrow pane beside another column stacks its values too.
 
 type Columns = readonly [string, string, string];
 

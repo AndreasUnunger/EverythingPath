@@ -40,7 +40,6 @@ export function PaneSkeleton({ announce = true }: { announce?: boolean }) {
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-4 w-64 max-w-full" />
       </div>
-      {/* The six stacked sections of the record body. */}
       <div aria-hidden className="space-y-4">
         {skeletonSections.map(([section, height]) => (
           <Skeleton key={section} className={height} />

@@ -276,7 +276,7 @@ test('[rules.HIST-05.record-kinds] recorded legacy, new and absent character kin
   const people = region('Result')
     .getAllByRole('row')
     .filter((row) => row.textContent?.startsWith('Roster · '))
-    .map((row) => within(row).getAllByRole('cell')[1]!.textContent);
+    .map((row) => within(row).getAllByRole('cell').at(1)?.textContent);
   expect(people).toEqual(
     expect.arrayContaining([
       'Player character · Hit Dice not recorded',
