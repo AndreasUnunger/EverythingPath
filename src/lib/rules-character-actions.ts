@@ -4,6 +4,7 @@ import type { ActivityHelpers } from './rules-economy';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import type { StagedActionChoice } from './weekly-draft-facts';
 import type { TrackedCharacter } from './rules-character-state';
+import { isRefugeActive } from './rules-settlements';
 
 type Choice = Extract<
   StagedActionChoice,
@@ -60,21 +61,6 @@ export function isPartyRestoration(mode: RestoreMode) {
     mode === 'ability_damage' ||
     mode === 'hit_points' ||
     mode === 'restorative_effect'
-  );
-}
-// A settlement's refuge shelters characters only during its active weeks.
-export function isRefugeActive(
-  settlement: Pick<
-    ActivityProjection['outcome']['settlements'][number],
-    'refugeActivatedWeek' | 'refugeActiveUntilWeek'
-  >,
-  week: number,
-) {
-  return (
-    settlement.refugeActivatedWeek !== null &&
-    settlement.refugeActivatedWeek <= week &&
-    settlement.refugeActiveUntilWeek !== null &&
-    settlement.refugeActiveUntilWeek >= week
   );
 }
 function update(

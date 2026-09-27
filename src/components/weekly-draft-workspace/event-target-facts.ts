@@ -2,8 +2,8 @@ import type { ActivityProjection } from '~/lib/rules-activity';
 import { raidRescueDc } from '~/lib/rules-character-actions';
 import { eventMitigationAttempted } from '~/lib/rules-event-checks';
 import type { EventOutcomeProjection } from '~/lib/rules-event-outcomes';
+import { isRefugeActive } from '~/lib/rules-settlements';
 import {
-  isRefugeActive,
   RAID_CAPTURE_CHANCE,
   RAID_SECURITY_DC,
   SICKNESS_TWICE_LOYALTY_DC,

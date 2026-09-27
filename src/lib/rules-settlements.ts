@@ -74,16 +74,27 @@ export function projectSettlements(
       ),
     );
     let reputation = REPUTATION_LEVELS[shiftedIndex]!;
-    const refuge =
-      settlement.refugeActivatedWeek !== null &&
-      settlement.refugeActiveUntilWeek !== null &&
-      settlement.refugeActivatedWeek <= week &&
-      week <= settlement.refugeActiveUntilWeek;
+    const refuge = isRefugeActive(settlement, week);
     if (refuge && (reputation === 'Hostile' || reputation === 'Unfriendly'))
       reputation = REPUTATION_LEVELS[shiftedIndex + 1]!;
     return { ...settlement, reputation, ...reputationEffects[reputation] };
   });
   return { settlements: facts, requirements };
+}
+/** Whether a settlement's refuge is active in the given week. */
+export function isRefugeActive(
+  town: {
+    refugeActivatedWeek: number | null;
+    refugeActiveUntilWeek: number | null;
+  },
+  week: number,
+) {
+  return (
+    town.refugeActivatedWeek !== null &&
+    town.refugeActiveUntilWeek !== null &&
+    town.refugeActivatedWeek <= week &&
+    town.refugeActiveUntilWeek >= week
+  );
 }
 export function getPurchaseCostCopper(
   priceCopper: number,

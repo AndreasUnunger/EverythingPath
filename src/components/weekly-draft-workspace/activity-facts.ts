@@ -8,9 +8,9 @@ import { MILITIA_ACTIVITY_ACTION_IDS } from '~/lib/militia-domain';
 import { actionRestrictions } from '~/lib/rules-action-eligibility';
 import { isTeamUnavailableThisActivity } from '~/lib/rules-action-teams';
 import { activityRollSpec } from '~/lib/rules-roll-spec';
-import { projectSettlements } from '~/lib/rules-settlements';
+import { isRefugeActive, projectSettlements } from '~/lib/rules-settlements';
 import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
-import { isRefugeActive } from '~/lib/rules-character-actions';
+
 import { recruitedTeamId } from '~/lib/weekly-draft-identities';
 import {
   actionChoiceRolls,
