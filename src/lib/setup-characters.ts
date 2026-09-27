@@ -107,14 +107,8 @@ export function setupSchemaForCharacters(
       if (!known.has(person.characterId))
         ctx.addIssue({
           code: 'custom',
-          path: [
-            'state',
-            'militiaSnapshot',
-            'roster',
-            'people',
-            index,
-            'characterId',
-          ],
+          // The whole entry, so the error links to that person's row.
+          path: ['state', 'militiaSnapshot', 'roster', 'people', index],
           message: MISSING_CHARACTER_MESSAGE,
         });
     }),

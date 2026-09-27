@@ -669,11 +669,14 @@ test('[setup.resume.migrate] a version 1 envelope resumes with its records’ PC
   expect(
     await screen.findByText('1 thing to fix before starting'),
   ).toBeVisible();
-  expect(
-    screen.getByRole('button', { name: MISSING_CHARACTER_MESSAGE }),
-  ).toBeVisible();
   expect(initialize).not.toHaveBeenCalled();
-  openStep('People & officers');
+  // The linked error opens that person's row.
+  click(MISSING_CHARACTER_MESSAGE);
+  await waitFor(() =>
+    expect(screen.getByRole('group', { name: 'Person 3' })).toContainElement(
+      document.activeElement as HTMLElement,
+    ),
+  );
   click('Remove Person 3');
   initialize.mockResolvedValueOnce(key);
   start();

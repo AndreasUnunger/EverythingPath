@@ -5,6 +5,7 @@ import {
   type MilitiaSetup,
 } from './canonical-setup';
 import { SETUP_STEP_KEYS, type SetupStepKey } from './setup-steps';
+import { normalizeCharacterKind } from './character-kind';
 
 // Browser resume for an unfinished Militia Setup (#173). The form's raw
 // values, open step and start-attempt identity are kept in this browser only,
@@ -111,8 +112,8 @@ export function parseSetupEnvelope(
   };
 }
 
-// Only the legacy NPC labels change. Anything else a person holds, including
-// an unfinished value, is the form's to show, never a kind to invent.
+// Only the legacy NPC labels change. A missing kind stays missing for the
+// form to show, never a kind to invent.
 function withNormalizedKinds(values: MilitiaSetup): MilitiaSetup {
   const snapshot = values.state.militiaSnapshot;
   return {
@@ -124,9 +125,9 @@ function withNormalizedKinds(values: MilitiaSetup): MilitiaSetup {
         roster: {
           ...snapshot.roster,
           people: snapshot.roster.people.map((person) =>
-            person.kind === 'officer_npc' || person.kind === 'other_npc'
-              ? { ...person, kind: 'npc' }
-              : person,
+            person.kind === undefined
+              ? person
+              : { ...person, kind: normalizeCharacterKind(person.kind) },
           ),
         },
       },

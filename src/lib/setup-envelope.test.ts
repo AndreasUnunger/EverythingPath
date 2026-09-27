@@ -359,10 +359,7 @@ test('[setup.resume.migrate-records] a migrated roster mirrors current record ki
       .safeParse(repaired)
       .error?.issues.map((issue) => [issue.path.join('.'), issue.message]),
   ).toEqual([
-    [
-      'state.militiaSnapshot.roster.people.2.characterId',
-      MISSING_CHARACTER_MESSAGE,
-    ],
+    ['state.militiaSnapshot.roster.people.2', MISSING_CHARACTER_MESSAGE],
   ]);
   repaired.state.militiaSnapshot.roster.people.pop();
   repaired.state.militiaSnapshot.characters.pop();

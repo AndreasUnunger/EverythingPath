@@ -136,7 +136,10 @@ Since #180 the mirror is kept in step atomically: every character write, Setup
 initialization and Militia correction resolves each person's kind from the
 campaign's current record (`withCurrentRecordKinds` in
 `convex/lib/canonicalCharacters.ts`), storing `pc` or `npc`; an absent record
-kind is PC. Weekly Confirmation commits its resolved outcome unchanged, and
+kind is PC. Relabelling `officer_npc`/`other_npc` as `npc` changes no rule
+result. Where a stored mirror disagreed with its record, including an NPC
+mirror of a record with no kind, the record wins on its next write, and PC-only
+rules then read the corrected kind. Weekly Confirmation commits its resolved outcome unchanged, and
 immutable records keep whatever kinds they were confirmed with.
 Officer assignments are a collection of role/character pairs; removing or moving
 an assignment never deletes its character. Multiple holders are retained for later
