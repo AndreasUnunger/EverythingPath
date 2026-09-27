@@ -128,9 +128,11 @@ can never satisfy the aggregate gate. Each attempt's `steps` time the
 journey's own `test.step` phases: the sanitized title path, `start` and
 `duration` in milliseconds, and `passed`, `failed` or `interrupted` (a timeout
 ended the attempt inside the step, so `duration` is null and `start` shows how
-long it ran). Step errors, locations, parameters, fixtures and Playwright
-actions are not recorded. The access journeys and the nightly extension use
-steps; a journey without them records none. `stages.log` records stage outcomes;
+long it ran). At most 100 steps are kept per attempt. Step errors, locations,
+parameters, fixtures and Playwright actions are not recorded. `access`, its
+three shell parts (see [Access split](#access-split)) and the nightly extension
+use steps; the other journeys, including campaign home, do not yet, so they
+record none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
@@ -875,8 +877,8 @@ both journeys keep the 60 s test limit.
 ### Access split
 
 The access journey still took 42–62 s against its 60 s limit, and under
-machine load it timed out on WebKit (`rUyJDK`) and Firefox (`qnkZrD`, in its
-legacy week-link checks). It made about 25 page loads one after another, and
+machine load it timed out on WebKit and Firefox (`XxSqla`, `rUyJDK`, and
+`qnkZrD` in its legacy week-link checks). It made about 25 page loads one after another, and
 no app regression was found. The journey and its shell checks
 (`support/shell-navigation.ts`) are now four parts. Each part runs as its own
 test with its own case, on every project that runs `access`
@@ -890,7 +892,8 @@ Chromium tablet run.
 | unknown campaigns stay unavailable and legacy addresses lead members to their campaign | `legacy-addresses.spec.ts`  | `legacyAddresses`  | Unknown id; `/canonical-*`, `/` and `/militia/correct` redirects                                                                                          |
 | legacy week links open their phase in a bounded week without moving other members      | `legacy-week-links.spec.ts` | `legacyWeekLinks`  | Legacy `?phase=` links, reload, home, Continue week, the bounded week host at two sizes; the GM stays on Event                                            |
 
-Every assertion moved unchanged. Each part starts where the single journey
+Every assertion moved unchanged; each part's phases are wrapped in `test.step`
+only so the evidence times them. Each part starts where the single journey
 reached it, and its state is equivalent:
 
 - **Database.** Each case is seeded exactly like `smoke` by `resetCase`: the
@@ -909,7 +912,9 @@ reached it, and its state is equivalent:
   has just opened.
 - **Moved check.** "The GM stays on Event" was checked after all of the
   player's navigation. It now closes the week-link part, after the player
-  follows the `?phase=` links.
+  follows the `?phase=` links, the only navigation that selects a phase. The
+  sections and address parts still open GM and outsider sessions (the
+  `players` fixture) but make no assertion with them.
 
 Lost coverage: one player session no longer survives all four parts. Each
 part repeats the list-to-week opening, which adds about two page loads. No

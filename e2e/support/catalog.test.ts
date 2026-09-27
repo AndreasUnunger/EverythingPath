@@ -32,12 +32,33 @@ it('gives each Workspace journey its own canonical case', () => {
   expect(() => workspaceCaseKey('an undeclared journey')).toThrow();
 });
 
-it.each([
+// Each required journey file's `test.use({ caseKey })` selections.
+const journeyCases = [
+  ...new Set(requiredTests('nightly').map(([name]) => name!)),
+]
+  .filter((name) => name.endsWith('.spec.ts'))
+  .flatMap((name) =>
+    [
+      ...readFileSync(join(process.cwd(), 'e2e', name), 'utf8').matchAll(
+        /test\.use\(\{ caseKey: '([A-Za-z]+)' \}\)/g,
+      ),
+    ].map(([, key]) => [name, key] as const),
+  );
+
+const accessSplits = [
   ['campaign-home.spec.ts', 'campaignHome'],
   ['campaign-sections.spec.ts', 'campaignSections'],
   ['legacy-addresses.spec.ts', 'legacyAddresses'],
   ['legacy-week-links.spec.ts', 'legacyWeekLinks'],
-] as const)(
+] as const;
+
+it('lists every journey split from access with its case', () => {
+  expect([...accessJourneyFiles].sort()).toEqual(
+    ['access.spec.ts', ...accessSplits.map(([file]) => file)].sort(),
+  );
+});
+
+it.each(accessSplits)(
   'gives %s, split from access, its own case seeded like access, wherever access runs',
   (file, caseKey) => {
     expect(caseKeys).toContain(caseKey);
@@ -45,19 +66,6 @@ it.each([
     expect(canonicalCaseKeys).not.toContain(caseKey);
     expect(accessJourneyFiles).toContain(file);
     // The journey selects exactly this case, which no other journey uses.
-    const uses = (source: string) =>
-      [...source.matchAll(/test\.use\(\{ caseKey: '([A-Za-z]+)' \}\)/g)].map(
-        ([, key]) => key,
-      );
-    const journeyCases = [
-      ...new Set(requiredTests('nightly').map(([name]) => name!)),
-    ]
-      .filter((name) => name.endsWith('.spec.ts'))
-      .flatMap((name) =>
-        uses(readFileSync(join(process.cwd(), 'e2e', name), 'utf8')).map(
-          (key) => [name, key] as const,
-        ),
-      );
     expect(journeyCases.filter(([, key]) => key === caseKey)).toEqual([
       [file, caseKey],
     ]);

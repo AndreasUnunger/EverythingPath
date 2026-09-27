@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
-import { requiredTests } from './matrix';
+import { accessJourneyFiles, requiredTests } from './matrix';
 import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
@@ -38,14 +38,14 @@ it('requires the exact titles declared by the selected nightly journey sources',
 const workspaceTitles = requiredTests('mandatory')
   .filter(([file]) => file === 'canonical-workspace.spec.ts')
   .map(([, , title]) => title!);
+const isAccessJourney = (file: string) =>
+  (accessJourneyFiles as readonly string[]).includes(file);
 // The access parts split out after the campaign home.
 const accessParts = requiredTests('mandatory')
-  .filter(([file]) =>
-    [
-      'campaign-sections.spec.ts',
-      'legacy-addresses.spec.ts',
-      'legacy-week-links.spec.ts',
-    ].includes(file!),
+  .filter(
+    ([file]) =>
+      isAccessJourney(file!) &&
+      !['access.spec.ts', 'campaign-home.spec.ts'].includes(file!),
   )
   .map(([file, , title]) => [file!, title!] as const);
 
@@ -276,16 +276,16 @@ function nightlyPassing() {
   );
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
-    ...[critical[0]!, critical[1]!, critical[3]!, ...critical.slice(5, 9)].map(
-      (test) => ({
-        ...test,
-        project: 'firefox-desktop',
-      }),
-    ),
-    ...[critical[0]!, ...critical.slice(5, 9)].map((test) => ({
-      ...test,
-      project: 'chromium-phone',
-    })),
+    ...critical
+      .filter(
+        ({ file }) =>
+          isAccessJourney(file) ||
+          ['existing-militia.spec.ts', 'complete-week.spec.ts'].includes(file),
+      )
+      .map((test) => ({ ...test, project: 'firefox-desktop' })),
+    ...critical
+      .filter(({ file }) => isAccessJourney(file))
+      .map((test) => ({ ...test, project: 'chromium-phone' })),
   );
   return report;
 }
