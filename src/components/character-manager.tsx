@@ -17,10 +17,12 @@ import {
 import { LedgerShell } from '~/components/ledger-shell';
 import { characterLedgerQuery } from '~/lib/sharedQueries';
 import { ArchivedCharactersCard } from './character-manager/archived-characters-card';
-import { CharacterFormCard } from './character-manager/character-form-card';
+import { CharacterDialog } from './character-manager/character-dialog';
 import { CharacterListCard } from './character-manager/character-list-card';
 import {
+  getCharacterErrorMessage,
   characterFormSchema,
+  toCharacterPayload,
   defaultCharacterFormValues,
   type CharacterFormValues,
   type CharacterId,
@@ -115,18 +117,7 @@ export function CharacterManager({
     if (!selectedCampaignId) return;
     setFormError(undefined);
 
-    const payload = {
-      name: values.name.trim(),
-      description: values.description.trim(),
-      kind: values.kind,
-      level: Number(values.level),
-      strength: Number(values.strength),
-      dexterity: Number(values.dexterity),
-      constitution: Number(values.constitution),
-      wisdom: Number(values.wisdom),
-      charisma: Number(values.charisma),
-      intelligence: Number(values.intelligence),
-    };
+    const payload = toCharacterPayload(values);
 
     try {
       if (editingId) {
@@ -152,7 +143,9 @@ export function CharacterManager({
       setEditingId(undefined);
       form.reset(defaultCharacterFormValues);
     } catch (error) {
-      setFormError(getErrorMessage(error, 'Failed to save character.'));
+      setFormError(
+        getCharacterErrorMessage(error, 'Failed to save character.'),
+      );
     }
   }
 
@@ -173,7 +166,7 @@ export function CharacterManager({
       });
     } catch (error) {
       setArchiveError(
-        getErrorMessage(error, 'Failed to update character status.'),
+        getCharacterErrorMessage(error, 'Failed to update character status.'),
       );
     } finally {
       setPendingArchiveId(undefined);
@@ -219,30 +212,17 @@ export function CharacterManager({
       }
     >
       <>
-        <Dialog
+        <CharacterDialog
           open={isFormOpen}
           onOpenChange={(open) => {
             if (!open) closeCharacterForm();
           }}
-        >
-          <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="font-sans text-xl">
-                {editingId ? 'Edit Character' : 'New Character'}
-              </DialogTitle>
-              <DialogDescription className="font-mono text-sm">
-                Update the character record. Officer assignments are in the
-                militia ledger.
-              </DialogDescription>
-            </DialogHeader>
-            <CharacterFormCard
-              form={form}
-              onSubmit={submitForm}
-              submitError={formError}
-              onCancel={closeCharacterForm}
-            />
-          </DialogContent>
-        </Dialog>
+          title={editingId ? 'Edit Character' : 'New Character'}
+          description="Update the character record. Officer assignments are in the militia ledger."
+          form={form}
+          onSubmit={submitForm}
+          submitError={formError}
+        />
 
         {archiveError ? (
           <div className="border-destructive/50 bg-destructive/10 text-destructive p-2 font-mono text-sm">
@@ -292,14 +272,4 @@ export function CharacterManager({
       </>
     </LedgerShell>
   );
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  if (typeof error === 'string' && error.trim()) {
-    return error;
-  }
-  return fallback;
 }
