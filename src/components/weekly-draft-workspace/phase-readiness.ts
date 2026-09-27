@@ -1,5 +1,6 @@
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
+import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import { phaseView } from './phase-view';
 import { summaryMessage } from './summary-messages';
@@ -13,6 +14,18 @@ const phaseOrder: Phase[] = [
   'persistent',
   'summary',
 ];
+
+/** The Event occurrences an accepted draft already holds, by identity. */
+export function acceptedEventIds(accepted: WeeklyDraft): Set<string> {
+  return new Set(
+    [
+      ...accepted.event.occurrences,
+      ...accepted.activity.slots.flatMap((slot) =>
+        actionChoiceEvents(slot.choice),
+      ),
+    ].map((event) => event.eventId),
+  );
+}
 
 export function derivePhaseReadiness(
   draft: WeeklyDraft,

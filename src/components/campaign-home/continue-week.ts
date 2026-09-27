@@ -1,8 +1,10 @@
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
-import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
-import { derivePhaseReadiness } from '~/components/weekly-draft-workspace/phase-readiness';
+import {
+  acceptedEventIds,
+  derivePhaseReadiness,
+} from '~/components/weekly-draft-workspace/phase-readiness';
 import type {
   Phase,
   PhaseReadiness,
@@ -35,14 +37,7 @@ export function continueTarget(
     militiaSnapshot: source.snapshot,
   });
   const { phases } = derivePhaseReadiness(draft, source, preview, {
-    acceptedEventIds: new Set(
-      [
-        ...draft.event.occurrences,
-        ...draft.activity.slots.flatMap((slot) =>
-          actionChoiceEvents(slot.choice),
-        ),
-      ].map((event) => event.eventId),
-    ),
+    acceptedEventIds: acceptedEventIds(draft),
     preparationFailed: false,
   });
   return { week: draft.week, phase: continuePhase(phases) };

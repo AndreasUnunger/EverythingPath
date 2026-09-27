@@ -1,12 +1,9 @@
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
+import { count } from '~/components/week-review/review-text';
 import { teamStatusLabels } from '~/components/weekly-draft-workspace/week-frame/reference-copy';
 
 type Snapshot = WorkspaceSource['snapshot'];
-
-function count(value: number, singular: string, plural: string) {
-  return `${value} ${value === 1 ? singular : plural}`;
-}
 
 function teamsText(teams: Snapshot['roster']['teams']) {
   if (teams.length === 0) return 'No teams';

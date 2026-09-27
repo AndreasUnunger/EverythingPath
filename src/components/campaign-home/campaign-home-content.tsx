@@ -128,7 +128,9 @@ function RecentWeekRow({ week }: { week: RecentWeek }) {
         <span className="min-w-0 flex-1 space-y-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-medium">Week {week.week}</span>
-            {week.badge && <Badge variant="secondary">{week.badge}</Badge>}
+            {week.badge ? (
+              <Badge variant="secondary">{week.badge}</Badge>
+            ) : null}
           </span>
           <span className="text-muted-foreground block text-sm [overflow-wrap:anywhere]">
             {week.headlines.join(' · ')}
@@ -206,7 +208,7 @@ function RecentWeeksCard({
 
 function CharactersLink({ campaignId }: { campaignId: string }) {
   return (
-    <Button asChild variant="outline" className={action}>
+    <Button asChild variant="outline" className={cn(action, 'max-md:w-full')}>
       <GuardedLink href={campaignPath(campaignId, 'characters')}>
         <Users aria-hidden /> Characters &amp; officers
       </GuardedLink>

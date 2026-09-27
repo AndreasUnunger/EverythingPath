@@ -125,31 +125,28 @@ export function useCampaignHomeContent(
   const { refetch: refetchObservation } = observation;
   const continueWeek = useMemo(
     () =>
-      source &&
-      continueWeekTarget(
-        source,
-        { data: observation.data, error: observation.error },
-        () => void refetchObservation(),
-      ),
+      source === null
+        ? null
+        : continueWeekTarget(
+            source,
+            { data: observation.data, error: observation.error },
+            () => void refetchObservation(),
+          ),
     [source, observation.data, observation.error, refetchObservation],
   );
-  switch (militia.kind) {
-    case 'loading':
-      return { kind: 'loading' };
-    case 'failed':
-      return { kind: 'failed', retry: () => void workspace.refetch() };
-    case 'none':
-      return { kind: 'no_militia' };
-    case 'ready':
-      return {
-        kind: 'militia',
-        summary: militiaSummaryParts(militia.source.snapshot),
-        continueWeek: continueWeek!,
-        recent: recentHistory(
-          campaignId,
-          { data: history.data, error: history.error },
-          () => void history.refetch(),
-        ),
-      };
-  }
+  if (militia.kind === 'loading') return { kind: 'loading' };
+  if (militia.kind === 'failed')
+    return { kind: 'failed', retry: () => void workspace.refetch() };
+  if (militia.kind === 'none' || continueWeek === null)
+    return { kind: 'no_militia' };
+  return {
+    kind: 'militia',
+    summary: militiaSummaryParts(militia.source.snapshot),
+    continueWeek,
+    recent: recentHistory(
+      campaignId,
+      { data: history.data, error: history.error },
+      () => void history.refetch(),
+    ),
+  };
 }

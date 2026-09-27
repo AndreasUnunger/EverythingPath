@@ -11,7 +11,7 @@ import type {
   FinishedWeekHeadlineFact,
   HeadlineValue,
 } from '~/lib/finished-week-headlines';
-import { militiaEventTable } from '~/lib/militia-event-table';
+import { eventName } from '~/components/weekly-draft-workspace/event-tree-facts';
 
 export type FinishedWeekList = FunctionReturnType<
   typeof api.canonicalHistory.list
@@ -31,11 +31,7 @@ export const recordedOutcomeAvailable = 'Recorded outcome available';
 function text(fact: FinishedWeekHeadlineFact, value: HeadlineValue) {
   if (value === null) return 'Not set';
   const raw = String(value);
-  if (fact.key.startsWith('event:'))
-    return (
-      militiaEventTable.find((entry) => entry.eventType === raw)?.name ??
-      words(raw)
-    );
+  if (fact.key.startsWith('event:')) return eventName(raw) ?? words(raw);
   return words(raw);
 }
 
@@ -68,6 +64,14 @@ export function headlineText(fact: FinishedWeekHeadlineFact): string {
   return `${label}: ${text(fact, before)} → ${text(fact, final)}`;
 }
 
+// Corrected (more than one audit entry) takes precedence; From setup marks
+// only an uncorrected reconstruction.
+function provenanceBadge(row: FinishedWeekList['weeks'][number]) {
+  if (row.entryCount > 1) return 'Corrected';
+  if (row.provenance === 'historical_reconstruction') return 'From setup';
+  return null;
+}
+
 /**
  * Up to three latest finished weeks, latest first as listed. Corrected (more
  * than one audit entry) takes precedence over From setup, which marks only an
@@ -84,12 +88,7 @@ export function recentWeeks(
     return {
       week: row.week,
       href: historyPath(campaignId, { week: row.week }),
-      badge:
-        row.entryCount > 1
-          ? 'Corrected'
-          : row.provenance === 'historical_reconstruction'
-            ? 'From setup'
-            : null,
+      badge: provenanceBadge(row),
       headlines: headlines.length ? headlines : [recordedOutcomeAvailable],
     };
   });
