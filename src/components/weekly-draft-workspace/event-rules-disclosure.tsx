@@ -23,7 +23,10 @@ export function EventRulesDisclosure({ rules }: { rules: EventBlockRules }) {
           <>
             <p>
               <span className="text-foreground font-medium">Twice:</span>{' '}
-              {rules.twice} Only this applies to this occurrence.
+              {rules.twice}
+            </p>
+            <p className="text-xs">
+              For this second roll only the Twice clause is resolved.
             </p>
             <p className="text-xs">
               {rules.name}, as it applied the first time:

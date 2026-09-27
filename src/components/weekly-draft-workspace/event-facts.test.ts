@@ -159,6 +159,7 @@ test('[EVT-04.blocks] blocks number in resolution order and name status, origin 
         'Roll and resolve two events.',
         'Roll Twice can only take effect once per Event phase.',
         'Additional Roll Twice results in same phase are rerolled.',
+        'If the same event is rolled twice and it has a Twice subsection, only the bonuses and penalties mentioned in the Twice subsection are resolved for the second roll.',
       ],
       twice: null,
     },

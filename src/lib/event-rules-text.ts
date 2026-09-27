@@ -7,8 +7,11 @@ import type { EventType } from './militia-domain';
 export type EventRulesText = { text: string[]; twice: string | null };
 
 // Verbatim from the `## Event:` sections of
-// docs/ai/ironfang-militia/militia-rules.md; `event-rules-text.test.ts`
-// fails when either drifts. Inline code marks are the corpus's own.
+// docs/ai/ironfang-militia/militia-rules.md, plus two sentences that file
+// omits, taken word for word from militia-verbatim.md: Roll Twice's
+// second-roll rule and Cache Discovered's no-cache Twice case.
+// `event-rules-text.test.ts` fails when the catalogue or either source
+// drifts. Inline code marks are the corpus's own.
 export const EVENT_RULES_TEXT: Record<EventType, EventRulesText> = {
   all_is_calm: {
     text: ['No event this week.'],
@@ -27,7 +30,8 @@ export const EVENT_RULES_TEXT: Record<EventType, EventRulesText> = {
       'Lose one hidden/planned cache and contents.',
       'Mitigate: Secrecy check DC `10 + rank` to retrieve.',
     ],
-    twice: 'all caches discovered.',
+    twice:
+      'all caches discovered. If the militia hasn’t hidden or can’t retrieve any caches, this has no effect.',
   },
   calm_before_the_storm: {
     text: [
@@ -111,6 +115,7 @@ export const EVENT_RULES_TEXT: Record<EventType, EventRulesText> = {
       'Roll and resolve two events.',
       'Roll Twice can only take effect once per Event phase.',
       'Additional Roll Twice results in same phase are rerolled.',
+      'If the same event is rolled twice and it has a Twice subsection, only the bonuses and penalties mentioned in the Twice subsection are resolved for the second roll.',
     ],
     twice: null,
   },
