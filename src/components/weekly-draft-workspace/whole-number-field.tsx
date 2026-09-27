@@ -24,12 +24,15 @@ export function WholeNumberField({
   required = false,
   disabled = false,
   onValue,
+  onInvalid,
 }: {
   label: string;
   value: number | null;
   required?: boolean;
   disabled?: boolean;
   onValue: (value: number | null) => void;
+  // Reports rejected local text so an enclosing form can refuse to save.
+  onInvalid?: (message: string | null) => void;
 }) {
   const form = useForm({
     values: { value: value === null ? '' : String(value) },
@@ -64,12 +67,13 @@ export function WholeNumberField({
                   const text = event.target.value;
                   const parsed = digits.safeParse(text);
                   if (!parsed.success) {
-                    form.setError('value', {
-                      message: parsed.error.issues[0]!.message,
-                    });
+                    const message = parsed.error.issues[0]!.message;
+                    form.setError('value', { message });
+                    onInvalid?.(message);
                     return;
                   }
                   form.clearErrors('value');
+                  onInvalid?.(null);
                   field.onChange(text);
                   onValue(text === '' ? null : Number(text));
                 }}

@@ -1,5 +1,5 @@
 'use client';
-import { useId, useState } from 'react';
+import { createContext, useContext, useId, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
@@ -8,7 +8,13 @@ import { ChoiceCards } from './choice-cards';
 import { WholeNumberField } from './whole-number-field';
 import { activityLabel } from './activity-labels';
 import { RecordedRollTotal } from './recorded-roll';
-import type { TotalRawRoll } from './roll-facts';
+import {
+  isTotalRoll,
+  rollPathSegments,
+  type RollSpecResolver,
+} from './roll-facts';
+import { RollTotalField } from './roll-total-field';
+import type { RawRoll } from '~/lib/weekly-draft-facts';
 type Options = Record<string, { value: string; label: string }[]>;
 export function choiceFieldLabel(field: string) {
   if (/^\d+$/.test(field)) return `Entry ${Number(field) + 1}`;
@@ -44,37 +50,15 @@ function rollUnion(schema: z.ZodType) {
   );
   return legacy && total ? { legacy, total } : null;
 }
-function isRecordedTotal(
-  value: Record<string, unknown>,
-): value is TotalRawRoll {
-  return typeof value.diceTotal === 'number' && !('dice' in value);
-}
-function initial(
-  schema: z.ZodType,
-  field = '',
-  rollSides: Record<string, number> = {},
-): unknown {
+function initial(schema: z.ZodType, field = ''): unknown {
   if (schema instanceof z.ZodOptional) return undefined;
   const base = unwrap(schema);
   if (base instanceof z.ZodLiteral) return base.value;
-  // New nested rolls keep using the existing legacy writer in this delivery.
-  const roll = rollUnion(base);
-  if (roll) return initial(roll.legacy, field, rollSides);
+  // A roll starts absent: its total is typed directly into the roll field.
+  if (rollUnion(base)) return undefined;
   if (base instanceof z.ZodDiscriminatedUnion)
-    return initial(base.options[0] as z.ZodType, field, rollSides);
+    return initial(base.options[0] as z.ZodType, field);
   if (base instanceof z.ZodArray) return [];
-  if (
-    base instanceof z.ZodObject &&
-    'dice' in base.shape &&
-    'sides' in base.shape &&
-    'provenance' in base.shape
-  )
-    return {
-      dice: [],
-      ...(rollSides[field] ? { sides: rollSides[field] } : {}),
-      provenance: { kind: 'table' },
-      modifiers: [],
-    };
   if (
     base instanceof z.ZodObject &&
     'sourceId' in base.shape &&
@@ -85,10 +69,7 @@ function initial(
   if (base instanceof z.ZodObject)
     return Object.fromEntries(
       Object.entries(base.shape)
-        .map(([key, child]) => [
-          key,
-          initial(child as z.ZodType, key, rollSides),
-        ])
+        .map(([key, child]) => [key, initial(child as z.ZodType, key)])
         .filter(([, value]) => value !== undefined),
     );
   if (base instanceof z.ZodRecord) return {};
@@ -111,6 +92,12 @@ function record(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
+// Local malformed text in a nested total field never reaches the form value,
+// so the parent Save must be told about it: it blocks the save with a styled
+// error at that path instead of silently saving the prior number.
+const InvalidInputContext = createContext<
+  (path: string, message: string | null) => void
+>(() => undefined);
 type FieldProps = {
   schema: z.ZodType;
   value: unknown;
@@ -122,7 +109,7 @@ type FieldProps = {
   disabled: boolean;
   modifierContext?: boolean;
   ownerEventId?: string;
-  rollSides?: Record<string, number>;
+  rollSpec?: RollSpecResolver;
   acknowledgementSubject?: string;
 };
 function nestedField(props: FieldProps) {
@@ -134,7 +121,7 @@ function nestedField(props: FieldProps) {
   ) => (
     <Fields
       key={name}
-      rollSides={props.rollSides}
+      rollSpec={props.rollSpec}
       modifierContext={props.modifierContext}
       ownerEventId={props.ownerEventId}
       acknowledgementSubject={props.acknowledgementSubject}
@@ -184,9 +171,7 @@ function AddStructured(props: FieldProps & { base: z.ZodType }) {
       type="button"
       variant="outline"
       disabled={props.disabled}
-      onClick={() =>
-        props.change(initial(props.base, props.name, props.rollSides))
-      }
+      onClick={() => props.change(initial(props.base, props.name))}
     >
       Add {choiceFieldLabel(props.name).toLowerCase()}
     </Button>
@@ -212,35 +197,81 @@ function Fields(props: FieldProps) {
   if (base instanceof z.ZodLiteral) return null;
   const structured = classifyStructured(base);
   if (!structured) return <ScalarField {...props} base={base} />;
-  if (props.schema instanceof z.ZodOptional && props.value === undefined)
+  if (
+    props.schema instanceof z.ZodOptional &&
+    props.value === undefined &&
+    structured.kind !== 'roll'
+  )
     return <AddStructured {...props} base={base} />;
   return <StructuredFields {...props} structured={structured} />;
 }
-// A legacy array keeps the existing per-die object editor. A recorded total
-// is shown as recorded data with its modifiers and provenance still editable;
-// the number itself is not edited here. Removing the roll uses the field's
-// existing optional omission, after which the legacy writer can re-enter it.
+// Every supported nested roll is one dice-only total against the rule
+// specification resolved from its path. Recorded data in either form reads
+// through the shared editor; modifiers stay editable beside it; a blank total
+// omits the optional key. Without an authoritative specification (for example
+// an occurrence whose type is not resolved yet) the recorded roll is shown
+// read-only with its metadata and can only be removed, never guessed.
+function isRawRollValue(value: Record<string, unknown>): value is RawRoll {
+  return (
+    typeof value.sides === 'number' &&
+    (Array.isArray(value.dice) || typeof value.diceTotal === 'number')
+  );
+}
 function RollFields(
   props: FieldProps & { roll: NonNullable<ReturnType<typeof rollUnion>> },
 ) {
   const { value, change, name, path = '', issues, disabled, roll } = props;
+  const reportInvalid = useContext(InvalidInputContext);
   const object = record(value);
-  if (!isRecordedTotal(object))
-    return <ObjectFields {...props} base={roll.legacy} />;
+  const recorded = isRawRollValue(object) ? object : null;
+  const spec = props.rollSpec?.(rollPathSegments(path)) ?? null;
+  if (!spec && !recorded) return null;
   const title = choiceFieldLabel(name);
+  const label = /roll$/i.test(title) ? title : `${title} roll`;
   const error = issues.find((issue) => issue.path.join('.') === path)?.message;
   const nested = nestedField(props);
+  const modifiers =
+    recorded &&
+    nested(
+      roll.total.shape.modifiers as z.ZodType,
+      recorded.modifiers,
+      'modifiers',
+      (next) => change({ ...recorded, modifiers: next ?? [] }),
+    );
   return (
     <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
       <legend className="text-sm font-semibold">{title}</legend>
-      <RecordedRollTotal label={`${title} roll`} recorded={object} />
-      {nested(
-        roll.total.shape.modifiers as z.ZodType,
-        object.modifiers,
-        'modifiers',
-        (next) => change({ ...object, modifiers: next ?? [] }),
+      {spec ? (
+        <RollTotalField
+          label={label}
+          spec={spec}
+          recorded={recorded}
+          disabled={disabled}
+          onInvalid={(message) => reportInvalid(path, message)}
+          onRoll={(next) => change(next ?? undefined)}
+        />
+      ) : (
+        <>
+          {recorded && isTotalRoll(recorded) ? (
+            <RecordedRollTotal label={label} recorded={recorded} />
+          ) : recorded ? (
+            <p className="text-sm">
+              Recorded dice{' '}
+              <strong className="font-mono">{recorded.dice.join(', ')}</strong>{' '}
+              <span className="text-muted-foreground font-mono text-xs">
+                d{recorded.sides}
+              </span>
+            </p>
+          ) : null}
+          <p role="note" className="text-muted-foreground text-xs">
+            This roll has no rule specification in the current context, so its
+            number cannot be edited here. Resolve the event first or remove the
+            recorded roll.
+          </p>
+        </>
       )}
-      {props.schema.isOptional() && (
+      {modifiers}
+      {!spec && props.schema.isOptional() && (
         <Button
           type="button"
           variant="outline"
@@ -298,12 +329,12 @@ function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
               (option.shape[discriminator] as z.ZodLiteral<string>).value ===
               selected,
           )!;
-          change(initial(option, name, props.rollSides));
+          change(initial(option, name));
         }}
       />
       {selectedSchema && (
         <Fields
-          rollSides={props.rollSides}
+          rollSpec={props.rollSpec}
           modifierContext={props.modifierContext}
           ownerEventId={props.ownerEventId}
           acknowledgementSubject={props.acknowledgementSubject}
@@ -467,10 +498,7 @@ function ArrayFields(props: FieldProps & { base: z.ZodArray }) {
         variant="outline"
         disabled={disabled}
         onClick={() =>
-          change([
-            ...values,
-            initial(base.element as z.ZodType, name, props.rollSides),
-          ])
+          change([...values, initial(base.element as z.ZodType, name)])
         }
       >
         Add {title.toLowerCase()} entry
@@ -606,9 +634,9 @@ export function StructuredChoiceField({
   options,
   onValue,
   disabled,
-  rollSides = {},
+  rollSpec,
 }: {
-  rollSides?: Record<string, number>;
+  rollSpec?: RollSpecResolver;
   schema: z.ZodType;
   value: unknown;
   name: string;
@@ -618,11 +646,23 @@ export function StructuredChoiceField({
 }) {
   const form = useForm<{ value: unknown }>({ values: { value } });
   const [issues, setIssues] = useState<z.core.$ZodIssue[]>([]);
+  const invalid = useRef(new Map<string, string>());
   return (
     <form
       noValidate
       className="space-y-2"
       onSubmit={form.handleSubmit(({ value }) => {
+        if (invalid.current.size > 0) {
+          setIssues(
+            [...invalid.current].map(([path, message]) => ({
+              code: 'custom',
+              path: rollPathSegments(path),
+              message,
+              input: undefined,
+            })),
+          );
+          return;
+        }
         const parsed = schema.safeParse(value);
         if (!parsed.success) {
           setIssues(
@@ -641,19 +681,26 @@ export function StructuredChoiceField({
         onValue(parsed.data);
       })}
     >
-      <Fields
-        rollSides={rollSides}
-        schema={schema}
-        value={form.watch('value')}
-        change={(value) => {
-          form.setValue('value', value);
-          setIssues([]);
+      <InvalidInputContext
+        value={(path, message) => {
+          if (message === null) invalid.current.delete(path);
+          else invalid.current.set(path, message);
         }}
-        name={name}
-        options={options}
-        issues={issues}
-        disabled={disabled}
-      />
+      >
+        <Fields
+          rollSpec={rollSpec}
+          schema={schema}
+          value={form.watch('value')}
+          change={(value) => {
+            form.setValue('value', value);
+            setIssues([]);
+          }}
+          name={name}
+          options={options}
+          issues={issues}
+          disabled={disabled}
+        />
+      </InvalidInputContext>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" type="submit" disabled={disabled}>
           Save {choiceFieldLabel(name).toLowerCase()}

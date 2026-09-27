@@ -7,13 +7,12 @@ import {
   eventOccurrenceSchema,
   eventTreeSchema,
 } from '~/lib/weekly-draft-facts';
-import { normalizeRawRoll } from '~/lib/raw-roll';
-import { RecordedRollTotal } from './recorded-roll';
-import { isTotalRoll } from './roll-facts';
+import { eventRollSpec, RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
+import { EVENT_TYPES, type EventType } from '~/lib/militia-domain';
+import { RollTotalField } from './roll-total-field';
 import type { WeeklyDraftEdit, WeeklyDraft } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
-import { WholeNumberField } from './whole-number-field';
 import { StructuredChoiceField } from './structured-choice-field';
 import { ActivityText } from './activity-details';
 import { activityLabel } from './activity-labels';
@@ -29,16 +28,11 @@ const detailsSchema = eventOccurrenceSchema.omit({
   tableRoll: true,
   eventType: true,
 });
-const PERCENTILE = { count: 1, sides: 100 };
-function percentile(value: number | null, previous?: Occurrence['tableRoll']) {
-  return value === null
-    ? null
-    : {
-        dice: [value],
-        sides: 100,
-        provenance: previous?.provenance ?? { kind: 'table' as const },
-        modifiers: previous?.modifiers ?? [],
-      };
+const PERCENTILE = RULE_ROLL_SPECS.percentile;
+function resolvedEventType(value: string | null): EventType | null {
+  return (EVENT_TYPES as readonly string[]).includes(value ?? '')
+    ? (value as EventType)
+    : null;
 }
 export function EventView({ view, edit, disabled }: Props) {
   const [error, setError] = useState('');
@@ -87,28 +81,14 @@ export function EventView({ view, edit, disabled }: Props) {
             occurrences below.
           </p>
         )}
-        {view.chanceRoll && isTotalRoll(view.chanceRoll) ? (
-          <RecordedRollTotal
-            label="Event chance roll"
-            recorded={view.chanceRoll}
-            normalized={normalizeRawRoll(view.chanceRoll, PERCENTILE)}
-            disabled={disabled}
-            onClear={() => edit({ kind: 'event_chance', roll: null })}
-          />
-        ) : (
-          <WholeNumberField
-            label="Event chance roll"
-            value={view.chanceRoll?.dice[0] ?? null}
-            required={view.requirements.includes('event:chance:1d100')}
-            disabled={disabled}
-            onValue={(value) =>
-              edit({
-                kind: 'event_chance',
-                roll: percentile(value, view.chanceRoll ?? undefined),
-              })
-            }
-          />
-        )}
+        <RollTotalField
+          label="Event chance roll"
+          spec={PERCENTILE}
+          recorded={view.chanceRoll}
+          required={view.requirements.includes('event:chance:1d100')}
+          disabled={disabled}
+          onRoll={(roll) => edit({ kind: 'event_chance', roll })}
+        />
         {view.chanceModifier ? (
           <p className="text-sm">
             Operating settlement reputation:{' '}
@@ -257,30 +237,17 @@ function EventOccurrence({
                 : 'Selected outcome'
             : 'Not selected'}
       </p>
-      {occurrence.tableRoll && isTotalRoll(occurrence.tableRoll) ? (
-        <RecordedRollTotal
-          label={`Event ${index + 1} table roll`}
-          recorded={occurrence.tableRoll}
-          normalized={normalizeRawRoll(occurrence.tableRoll, PERCENTILE)}
-          disabled={disabled}
-          onClear={() => {
-            const { tableRoll: _previous, ...rest } = occurrence;
-            save(rest);
-          }}
-        />
-      ) : (
-        <WholeNumberField
-          label={`Event ${index + 1} table roll`}
-          value={occurrence.tableRoll?.dice[0] ?? null}
-          disabled={disabled}
-          required
-          onValue={(value) => {
-            const { tableRoll: _previous, ...rest } = occurrence;
-            const roll = percentile(value, occurrence.tableRoll);
-            save(roll ? { ...rest, tableRoll: roll } : rest);
-          }}
-        />
-      )}
+      <RollTotalField
+        label={`Event ${index + 1} table roll`}
+        spec={PERCENTILE}
+        recorded={occurrence.tableRoll}
+        required
+        disabled={disabled}
+        onRoll={(roll) => {
+          const { tableRoll: _previous, ...rest } = occurrence;
+          save(roll ? { ...rest, tableRoll: roll } : rest);
+        }}
+      />
       {item.optionalMitigation !== 'unavailable' && (
         <p className="text-sm">
           Optional mitigation:{' '}
@@ -350,7 +317,15 @@ function EventOccurrence({
           <StructuredChoiceField
             name="occurrence"
             schema={detailsSchema}
-            rollSides={item.rollSides}
+            rollSpec={(path) =>
+              eventRollSpec(
+                {
+                  kind: 'occurrence',
+                  eventType: resolvedEventType(item.resolvedType),
+                },
+                path,
+              )
+            }
             value={details}
             options={view.options}
             disabled={disabled}

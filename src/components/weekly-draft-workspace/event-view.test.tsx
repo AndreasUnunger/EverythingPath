@@ -23,7 +23,6 @@ const view: Facts = {
       optionalMitigation: 'unavailable',
       changes: [],
       exceptionChoices: [],
-      rollSides: { check: 20, roll: 20, loss: 6, notoriety: 6 },
       mode: null,
       selected: false,
       negated: false,
@@ -50,7 +49,8 @@ test('[rules.P83.input] percentile input rejects malformed text and distinguishe
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'event_chance',
     roll: {
-      dice: [0],
+      diceTotal: 0,
+      diceCount: 1,
       sides: 100,
       provenance: { kind: 'table' },
       modifiers: [],
@@ -96,12 +96,11 @@ test('[rules.P83.acknowledgement] event notes use the occurrence subject and an 
   );
 });
 
-test('[rules.P83.details] target checks default percentile capture dice and preserve explicit omission when clearing', async () => {
+test('[rules.P83.details] target checks enter the percentile capture total and preserve explicit omission when clearing', async () => {
   const edit = vi.fn();
   const occurrence = {
     ...view.occurrences[0]!,
     resolvedType: 'raid',
-    rollSides: { check: 20, loss: 100, roll: 20 },
     occurrence: {
       ...view.occurrences[0]!.occurrence,
       targets: [{ kind: 'character' as const, characterId: 'person' }],
@@ -131,10 +130,8 @@ test('[rules.P83.details] target checks default percentile capture dice and pres
     name: 'Add rolls',
   });
   fireEvent.click(addRolls[addRolls.length - 1]!);
-  fireEvent.click(screen.getByRole('button', { name: 'Add loss' }));
-  expect(screen.getByRole('textbox', { name: 'Sides' })).toHaveValue('100');
-  fireEvent.click(screen.getByRole('button', { name: 'Add dice entry' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Entry 1' }), {
+  // Raid capture is a 1d100 per-target loss: one total, no dice list.
+  fireEvent.change(screen.getByRole('textbox', { name: 'Loss roll' }), {
     target: { value: '0' },
   });
   fireEvent.change(
@@ -151,7 +148,8 @@ test('[rules.P83.details] target checks default percentile capture dice and pres
             target: { kind: 'character', characterId: 'person' },
             rolls: {
               loss: {
-                dice: [0],
+                diceTotal: 0,
+                diceCount: 1,
                 sides: 100,
                 provenance: { kind: 'table' },
                 modifiers: [],
@@ -246,7 +244,8 @@ test('[rules.P83.candidates] Event edits preserve complete Activity candidate ow
     occurrence: {
       ...candidate,
       tableRoll: {
-        dice: [50],
+        diceTotal: 50,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],

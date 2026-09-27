@@ -11,11 +11,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   stagedActionChoiceSchema,
   rawRollModifiersSchema,
+  actionChoiceRolls,
+  type ActivityRollField,
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
-import { normalizeRawRoll } from '~/lib/raw-roll';
-import { RecordedRollTotal } from './recorded-roll';
-import { isTotalRoll, recordedDiceCount } from './roll-facts';
+import { activityRollSpec, eventRollSpec } from '~/lib/rules-roll-spec';
+import { RollTotalField } from './roll-total-field';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -192,6 +193,19 @@ function ChoiceFields({
           disabled={disabled}
           onValue={(value) => change(field, value)}
           options={activityReferenceOptions(choice, view)}
+          // Candidate occurrences resolve their event type on the Event page;
+          // here only type-independent rolls (the table roll) are editable.
+          rollSpec={
+            field === 'candidates'
+              ? (path) =>
+                  typeof path[0] === 'number'
+                    ? eventRollSpec(
+                        { kind: 'occurrence', eventType: null },
+                        path.slice(1),
+                      )
+                    : null
+              : undefined
+          }
         />,
       ];
     })
@@ -219,72 +233,45 @@ function ChoiceRolls({
   disabled: boolean;
   change: (field: string, value: unknown) => void;
 }) {
-  const fields = new Map<string, { count: number; sides: number }>();
-  for (const [field, roll] of Object.entries(choice.rolls ?? {}))
-    fields.set(field, { count: recordedDiceCount(roll), sides: roll.sides });
+  // Supported fields for this action come from the rules; a field shows when
+  // it is recorded or currently required. Known-but-inactive rolls stay
+  // editable against their rule specification.
+  const rolls = actionChoiceRolls(choice);
+  const required = new Set<string>();
   for (const requirement of requirements) {
-    const match = /^(\w+):(\d+)d(\d+)$/.exec(
+    const match = /^(\w+):\d+d\d+$/.exec(
       requirement.slice(choice.choiceId.length + 1),
     );
-    if (match)
-      fields.set(match[1]!, {
-        count: Number(match[2]),
-        sides: Number(match[3]),
-      });
+    if (match) required.add(match[1]!);
   }
-  return [...fields].map(([field, dice]) => {
-    const roll =
-      choice.rolls?.[field as keyof NonNullable<StagedActionChoice['rolls']>];
-    // Only a legacy array feeds the per-die writer; a total has no dice.
-    const entered = roll && !isTotalRoll(roll) ? roll.dice : [];
+  const fields = [
+    ...new Set<string>([...Object.keys(rolls), ...required]),
+  ].flatMap((field) => {
+    const spec = activityRollSpec(choice.actionId, field as ActivityRollField);
+    return spec ? [{ field: field as ActivityRollField, spec }] : [];
+  });
+  return fields.map(({ field, spec }) => {
+    const roll = rolls[field];
     return (
       <fieldset key={field} className="space-y-2">
         <legend className="text-sm font-semibold">
-          {activityLabel(field)} · {dice.count}d{dice.sides}
+          {activityLabel(field)} · {spec.count}d{spec.sides}
         </legend>
-        {roll && isTotalRoll(roll) ? (
-          <RecordedRollTotal
-            label={`${activityLabel(field)} roll`}
-            recorded={roll}
-            normalized={normalizeRawRoll(roll, dice)}
-            disabled={disabled}
-            onClear={() => {
-              const rolls = { ...choice.rolls };
-              delete rolls[field as keyof typeof rolls];
-              change('rolls', rolls);
-            }}
-          />
-        ) : (
-          <div className="grid grid-cols-2 items-start gap-2">
-            {Array.from({ length: dice.count }, (_, index) => (
-              <WholeNumberField
-                key={index}
-                label={`${activityLabel(field)} die ${index + 1}`}
-                required
-                disabled={
-                  disabled || (index > 0 && entered[index - 1] === undefined)
-                }
-                value={entered[index] ?? null}
-                onValue={(value) => {
-                  const next = entered.slice(0, index);
-                  if (value !== null)
-                    next.push(value, ...entered.slice(index + 1));
-                  const rolls = { ...choice.rolls };
-                  const key = field as keyof typeof rolls;
-                  if (!next.length) delete rolls[key];
-                  else
-                    rolls[key] = {
-                      dice: next,
-                      sides: dice.sides,
-                      provenance: { kind: 'table' },
-                      modifiers: roll?.modifiers ?? [],
-                    };
-                  change('rolls', rolls);
-                }}
-              />
-            ))}
-          </div>
-        )}
+        <RollTotalField
+          label={`${activityLabel(field)} roll`}
+          spec={spec}
+          recorded={roll}
+          required={required.has(field)}
+          disabled={disabled}
+          onRoll={(next) => {
+            const map: Partial<Record<ActivityRollField, typeof next>> = {
+              ...rolls,
+            };
+            if (next) map[field] = next;
+            else delete map[field];
+            change('rolls', map);
+          }}
+        />
         {roll && (
           <details className="space-y-2">
             <summary className="cursor-pointer text-sm">
@@ -303,7 +290,7 @@ function ChoiceRolls({
               options={activityReferenceOptions(choice, view)}
               onValue={(modifiers) =>
                 change('rolls', {
-                  ...choice.rolls,
+                  ...rolls,
                   [field]: { ...roll, modifiers: modifiers ?? [] },
                 })
               }
@@ -399,7 +386,7 @@ export function ActivityDetails({
         <ul className="text-muted-foreground space-y-1 text-xs">
           {check.modifiers.map((modifier) => (
             <li key={modifier.source}>
-              {choice.rolls?.check?.modifiers.find(
+              {actionChoiceRolls(choice).check?.modifiers.find(
                 (entry) => entry.sourceId === modifier.source,
               )?.reason ??
                 view.modifierSources.find(

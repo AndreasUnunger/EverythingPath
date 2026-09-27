@@ -82,13 +82,8 @@ export async function exerciseRollCompatibility(
 ) {
   const phase = (page: Page, name: string) =>
     page.getByRole('button', { name, exact: true }).click();
-  const group = (page: Page, name: string) =>
-    page.getByRole('group', { name, exact: true });
-  const trainingDie = (page: Page, index: number) =>
-    page.getByRole('textbox', {
-      name: `Attrition training die ${index}`,
-      exact: true,
-    });
+  const field = (page: Page, name: string) =>
+    page.getByRole('textbox', { name, exact: true });
   const heading = (page: Page) =>
     page.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true });
   const client = await connectAs(second, run.fixture!.convexUrl);
@@ -131,18 +126,13 @@ export async function exerciseRollCompatibility(
     await first.reload();
     for (const page of [first, second]) {
       await expect(heading(page)).toBeVisible();
-      const check = group(page, 'Attrition Loyalty roll');
-      await expect(check).toContainText('Recorded total');
-      await expect(check).toContainText('0');
-      await expect(check).toContainText('1d20');
-      const training = group(page, 'Attrition training roll');
-      await expect(training).toContainText('Recorded total');
-      await expect(training).toContainText('7');
-      await expect(training).toContainText('2d4');
-      // No total is ever shown as blank required individual dice.
+      // Recorded totals show in the single total field; nothing per die.
+      await expect(field(page, 'Attrition Loyalty roll')).toHaveValue('0');
+      await expect(field(page, 'Attrition training roll')).toHaveValue('7');
       await expect(
-        page.getByRole('textbox', { name: /Attrition (Loyalty|training) die/ }),
-      ).toHaveCount(0);
+        page.getByText('2d4 · total of the dice only'),
+      ).toBeVisible();
+      await expect(page.getByRole('textbox', { name: /die/ })).toHaveCount(0);
       await expect(
         page.getByRole('alert').filter({ hasText: 'A value is required.' }),
       ).toHaveCount(0);
@@ -160,13 +150,10 @@ export async function exerciseRollCompatibility(
       ).toBeVisible();
     }
     await phase(first, 'Event');
-    const chance = group(first, 'Event chance roll');
-    await expect(chance).toContainText('Recorded total');
-    await expect(chance).toContainText('100');
-    await expect(chance).toContainText('1d100');
+    await expect(field(first, 'Event chance roll')).toHaveValue('100');
     await expect(
-      first.getByRole('textbox', { name: 'Event chance roll', exact: true }),
-    ).toHaveCount(0);
+      first.getByText('1d100 · total of the dice only').first(),
+    ).toBeVisible();
     await phase(first, 'Review & confirm');
     await expect(
       first.getByRole('button', { name: 'Confirm week', exact: true }),
@@ -184,13 +171,12 @@ export async function exerciseRollCompatibility(
       roll: total(6, 1, 5),
     });
     for (const page of [first, second]) {
-      const training = group(page, 'Attrition training roll');
-      await expect(training).toContainText('5');
-      await expect(training).toContainText('1d6');
-      await expect(training).toContainText(
-        /needs 2d4, but the recorded total is for 1d6/,
-      );
-      await expect(trainingDie(page, 1)).toHaveCount(0);
+      await expect(field(page, 'Attrition training roll')).toHaveValue('');
+      await expect(
+        page.getByText(
+          /Recorded total 5 was entered for 1d6, but this step needs 2d4/,
+        ),
+      ).toBeVisible();
     }
     await phase(second, 'Review & confirm');
     await expect(
@@ -203,9 +189,9 @@ export async function exerciseRollCompatibility(
     ).toBeVisible();
     await phase(second, 'Upkeep');
 
-    // Deliberate clear through the existing nullable edit, then legacy re-entry
-    // with the current per-die writer; the untouched check total is preserved.
-    await group(first, 'Attrition training roll')
+    // Deliberate clear through the existing nullable edit, then re-entry as
+    // one dice total; the untouched check total is preserved.
+    await first
       .getByRole('button', {
         name: 'Clear attrition training roll',
         exact: true,
@@ -213,31 +199,27 @@ export async function exerciseRollCompatibility(
       .click();
     await expect(saveStatus(first)).toHaveText('Changes saved.');
     for (const page of [first, second]) {
-      await expect(group(page, 'Attrition training roll')).toHaveCount(0);
-      await expect(trainingDie(page, 1)).toHaveValue('');
-      await expect(trainingDie(page, 2)).toHaveValue('');
+      await expect(field(page, 'Attrition training roll')).toHaveValue('');
+      await expect(
+        page.getByText(/Recorded total 5 was entered for 1d6/),
+      ).toHaveCount(0);
     }
-    await trainingDie(first, 1).fill('3');
-    await expect(trainingDie(second, 1)).toHaveValue('3');
-    await trainingDie(first, 2).fill('4');
-    await expect(trainingDie(second, 2)).toHaveValue('4');
+    // Deliberate re-entry writes one 2d4 total; the other device mirrors it.
+    await field(first, 'Attrition training roll').fill('7');
+    await expect(field(second, 'Attrition training roll')).toHaveValue('7');
     await expect(saveStatus(first)).toHaveText('Changes saved.');
-    await expect(group(second, 'Attrition Loyalty roll')).toContainText('0');
+    await expect(field(second, 'Attrition Loyalty roll')).toHaveValue('0');
     await phase(second, 'Review & confirm');
     await expect(
       second.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
     await phase(second, 'Upkeep');
-    // The other device shows the re-entered legacy dice beside the untouched
+    // The other device shows the re-entered total beside the untouched
     // recorded totals; storage-shape equality belongs to the persistence
     // contract suite, so the browser asserts only rendered outcomes.
-    await expect(trainingDie(second, 1)).toHaveValue('3');
-    await expect(trainingDie(second, 2)).toHaveValue('4');
+    await expect(field(second, 'Attrition training roll')).toHaveValue('7');
     await phase(second, 'Event');
-    const secondChance = group(second, 'Event chance roll');
-    await expect(secondChance).toContainText('Recorded total');
-    await expect(secondChance).toContainText('100');
-    await expect(secondChance).toContainText('1d100');
+    await expect(field(second, 'Event chance roll')).toHaveValue('100');
     await phase(second, 'Upkeep');
 
     // The recorded-total presentation fits every target viewport with the
@@ -252,7 +234,7 @@ export async function exerciseRollCompatibility(
       await expect(heading(first)).toBeVisible();
       await expectNoHorizontalOverflow(first);
       await expectBoundedWeekHost(first);
-      await expectReachable(first, group(first, 'Attrition Loyalty roll'));
+      await expectReachable(first, field(first, 'Attrition Loyalty roll'));
       if (width >= 1024) {
         await first
           .getByRole('button', { name: 'Hide reference panel' })
@@ -287,22 +269,17 @@ export async function exerciseRollCompatibility(
       originalChance && 'dice' in originalChance
         ? String(originalChance.dice[0] ?? '')
         : '';
-    // Every page shows the original legacy inputs again: the recorded-total
-    // groups are gone and the legacy fields carry the original values.
+    // Every page shows the original inputs again in the same total fields,
+    // and the event chance field carries the original recorded value.
     for (const page of [first, second, ...observers]) {
-      await expect(group(page, 'Attrition Loyalty roll')).toHaveCount(0);
-      await expect(group(page, 'Attrition training roll')).toHaveCount(0);
-      await expect(
-        page.getByRole('textbox', {
-          name: 'Attrition Loyalty die',
-          exact: true,
-        }),
-      ).toHaveValue(originalDie);
+      await expect(field(page, 'Attrition Loyalty roll')).toHaveValue(
+        originalDie,
+      );
+      await expect(page.getByText(/Recorded total/)).toHaveCount(0);
       await phase(page, 'Event');
-      await expect(group(page, 'Event chance roll')).toHaveCount(0);
-      await expect(
-        page.getByRole('textbox', { name: 'Event chance roll', exact: true }),
-      ).toHaveValue(originalChanceDie);
+      await expect(field(page, 'Event chance roll')).toHaveValue(
+        originalChanceDie,
+      );
       await phase(page, 'Upkeep');
       await expect(heading(page)).toBeVisible();
     }

@@ -18,16 +18,7 @@ import { TeamRecovery } from './team-recovery';
 import { upkeepWarningMessages } from './upkeep-warnings';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RollFact, UpkeepView as UpkeepFacts } from './types';
-import { WholeNumberField } from './whole-number-field';
-import { RecordedRollTotal } from './recorded-roll';
-import { isTotalRoll } from './roll-facts';
-const rollLabels = {
-  check: 'Attrition Loyalty die',
-  training: 'Attrition training die',
-  notoriety: 'Maximum-notoriety training die',
-  notorietyCheck: 'Notoriety Loyalty die',
-  loss: 'Treasury-shortage training die',
-};
+import { RollTotalField } from './roll-total-field';
 export const rollNames = {
   check: 'Attrition Loyalty',
   training: 'Attrition training',
@@ -50,62 +41,25 @@ function Roll({
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
 }) {
-  const slots = fact.dice ?? [];
-  function change(index: number, value: number | null) {
-    const dice = slots.slice(0, index);
-    if (value !== null) dice.push(value);
-    if (value !== null) dice.push(...slots.slice(index + 1));
-    const entered: number[] = [];
-    for (const die of dice) {
-      if (die === null) break;
-      entered.push(die);
-    }
-    edit({
-      kind: 'upkeep_roll',
-      field: fact.field,
-      roll: entered.length
-        ? {
-            dice: entered,
-            sides: fact.sides,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          }
-        : null,
-    });
-  }
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-semibold">{rollLabels[fact.field]}</h3>
+        <h3 className="font-semibold">{rollNames[fact.field]}</h3>
         <span className="text-muted-foreground font-mono text-xs">
           {fact.count}d{fact.sides}
           {fact.dc !== null ? ` · DC ${fact.dc}` : ''}
         </span>
       </div>
-      {fact.recorded && isTotalRoll(fact.recorded) ? (
-        <RecordedRollTotal
-          label={`${rollNames[fact.field]} roll`}
-          recorded={fact.recorded}
-          normalized={fact.normalized}
-          disabled={disabled}
-          onClear={() =>
-            edit({ kind: 'upkeep_roll', field: fact.field, roll: null })
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-2 items-start gap-3">
-          {slots.map((value, index) => (
-            <WholeNumberField
-              key={['first-die', 'second-die'][index]}
-              label={`${rollLabels[fact.field]}${slots.length > 1 ? ` ${index + 1}` : ''}`}
-              value={value}
-              required
-              disabled={disabled || (index > 0 && slots[index - 1] === null)}
-              onValue={(value) => change(index, value)}
-            />
-          ))}
-        </div>
-      )}
+      <RollTotalField
+        label={`${rollNames[fact.field]} roll`}
+        spec={fact}
+        recorded={fact.recorded}
+        required
+        disabled={disabled}
+        onRoll={(roll) =>
+          edit({ kind: 'upkeep_roll', field: fact.field, roll })
+        }
+      />
       {fact.modifier !== null && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <span>
@@ -130,20 +84,6 @@ function Roll({
             </li>
           ))}
         </ul>
-      )}
-      {slots.some(
-        (value) => value !== null && (value < 1 || value > fact.sides),
-      ) && (
-        <p role="note" className="text-sm text-amber-300">
-          The usual range is 1–{fact.sides}. Your entered value is retained for
-          the table.
-        </p>
-      )}
-      {slots.length > 1 && (
-        <p className="text-muted-foreground text-xs">
-          Enter dice in order. Clearing an earlier die clears the rest of this
-          roll.
-        </p>
       )}
     </Card>
   );

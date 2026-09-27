@@ -16,9 +16,7 @@ import {
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { UpkeepView } from './types';
 import { ChoiceCards } from './choice-cards';
-import { WholeNumberField } from './whole-number-field';
-import { RecordedRollTotal } from './recorded-roll';
-import { isTotalRoll } from './roll-facts';
+import { RollTotalField } from './roll-total-field';
 
 type Team = UpkeepView['teams'][number];
 function RecoveryCost({
@@ -200,55 +198,26 @@ export function TeamRecovery({
       {team.status === 'disabled' && (
         <RecoveryCost team={team} edit={edit} disabled={disabled} />
       )}
-      {team.needsReturnRoll && recorded && isTotalRoll(recorded) ? (
-        <RecordedRollTotal
+      {team.needsReturnRoll && (
+        <RollTotalField
           label={`${team.name} return roll`}
+          spec={team.roll.normalized}
           recorded={recorded}
-          normalized={team.roll.normalized}
-          disabled={disabled}
-          onClear={() =>
-            edit({
-              kind: 'upkeep_team',
-              teamId: team.teamId,
-              decision: {
-                teamId: team.teamId,
-                decision: team.decision ?? 'leave',
-              },
-            })
-          }
-        />
-      ) : team.needsReturnRoll ? (
-        <WholeNumberField
-          label={`${team.name} return die`}
-          value={
-            recorded && !isTotalRoll(recorded)
-              ? (recorded.dice[0] ?? null)
-              : null
-          }
           required
           disabled={disabled}
-          onValue={(value) =>
+          onRoll={(roll) =>
             edit({
               kind: 'upkeep_team',
               teamId: team.teamId,
               decision: {
                 teamId: team.teamId,
                 decision: team.decision ?? 'leave',
-                ...(value === null
-                  ? {}
-                  : {
-                      roll: {
-                        dice: [value],
-                        sides: 20,
-                        provenance: { kind: 'table' },
-                        modifiers: [],
-                      },
-                    }),
+                ...(roll ? { roll } : {}),
               },
             })
           }
         />
-      ) : null}
+      )}
     </Card>
   );
 }

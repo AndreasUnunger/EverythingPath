@@ -28,10 +28,13 @@ export async function reviewPersistentWorkspace(
     })
     .click();
   await theft.getByRole('button', { name: 'Add rolls', exact: true }).click();
+  // Only the rule-supported Theft check exists, as one dice total.
   await expect(
-    theft.getByRole('button', { name: 'Add check', exact: true }),
+    theft.getByRole('textbox', { name: 'Check roll', exact: true }),
   ).toBeVisible();
+  await expect(theft.getByText('1d20 · total of the dice only')).toBeVisible();
   for (const name of [
+    'check',
     'notoriety',
     'training',
     'delivery',
@@ -45,14 +48,12 @@ export async function reviewPersistentWorkspace(
       theft.getByRole('button', { name: `Add ${name}`, exact: true }),
     ).toHaveCount(0);
   }
-  await theft.getByRole('button', { name: 'Add check', exact: true }).click();
   await expect(
     theft.getByRole('textbox', { name: 'Sides', exact: true }),
-  ).toHaveValue('20');
+  ).toHaveCount(0);
   await theft
-    .getByRole('button', { name: 'Add dice entry', exact: true })
-    .click();
-  await theft.getByRole('textbox', { name: 'Entry 1', exact: true }).fill('20');
+    .getByRole('textbox', { name: 'Check roll', exact: true })
+    .fill('20');
   for (const [name, width, height] of [
     ['tablet', 1194, 834],
     ['phone', 390, 844],

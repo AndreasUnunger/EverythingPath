@@ -94,7 +94,7 @@ test('[rules.P84.ending] ending notes bind to the carried event and stay editabl
     eventId: 'rivalry',
   });
 });
-test('[rules.P84.officer] officer details accept named references, signed skill bonuses and owned rolls', async () => {
+test('[rules.P84.officer] officer details accept named references, signed skill bonuses and one owned roll total', async () => {
   const edit = vi.fn();
   render(
     <PersistentView
@@ -114,9 +114,7 @@ test('[rules.P84.officer] officer details accept named references, signed skill 
   const bonus = screen.getByRole('textbox', { name: 'Skill Bonus' });
   fireEvent.change(bonus, { target: { value: '-' } });
   fireEvent.change(bonus, { target: { value: '-2' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Add roll' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add dice entry' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Entry 1' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Roll' }), {
     target: { value: '20' },
   });
   fireEvent.click(
@@ -133,7 +131,8 @@ test('[rules.P84.officer] officer details accept named references, signed skill 
           skill: 'diplomacy',
           skillBonus: -2,
           roll: {
-            dice: [20],
+            diceTotal: 20,
+            diceCount: 1,
             sides: 20,
             provenance: { kind: 'table' },
             modifiers: [],
@@ -203,7 +202,8 @@ test('[rules.P84.theft] Theft offers only its applicable Loyalty roll and named 
     />,
   );
   fireEvent.click(screen.getByRole('button', { name: 'Add rolls' }));
-  expect(screen.getByRole('button', { name: 'Add check' })).toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'Check roll' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Add check' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Add notoriety' })).toBeNull();
   expect(
     screen.queryByRole('button', { name: 'Add officer check' }),

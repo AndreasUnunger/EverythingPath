@@ -197,10 +197,10 @@ export async function exerciseMilitiaSetup(
       await expect(notesButton).toBeFocused();
       // Resuming a militia requires ordinary Upkeep before confirmation.
       await players.player
-        .getByRole('textbox', { name: 'Attrition Loyalty die', exact: true })
+        .getByRole('textbox', { name: 'Attrition Loyalty roll', exact: true })
         .fill('20');
       const training = players.player.getByRole('textbox', {
-        name: 'Attrition training die',
+        name: 'Attrition training roll',
         exact: true,
       });
       await training.fill('1');

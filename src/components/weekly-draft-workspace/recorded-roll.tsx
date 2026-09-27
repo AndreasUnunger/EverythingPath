@@ -3,10 +3,11 @@ import { Button } from '~/components/ui/button';
 import type { NormalizedRoll } from '~/lib/raw-roll';
 import { rollNotation, type TotalRawRoll } from './roll-facts';
 
-// Transitional numeric presentation for a roll that another editor recorded
-// as a dice total. It shows exactly what was recorded (zero included) and
-// what the current step needs. Editing the number belongs to a later
-// delivery; the only write here is the existing whole-roll clear.
+// Read-only presentation of a recorded dice total where no rule specification
+// applies in the current context (for example a nested roll on an occurrence
+// whose event type is not resolved yet). It shows exactly what was recorded,
+// zero included, and never guesses a specification; callers supply any
+// removal control through the owning operation.
 export function RecordedRollTotal({
   label,
   recorded,

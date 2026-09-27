@@ -121,7 +121,6 @@ export type EventView = {
     occurrence: WeeklyDraft['event']['occurrences'][number];
     resolvedType: string | null;
     optionalMitigation: 'unavailable' | 'unattempted' | 'attempted';
-    rollSides: Record<string, number>;
     exceptionChoices: WeeklyDraft['rulesExceptions'];
     changes: EventOutcomeChange[];
     mode: string | null;

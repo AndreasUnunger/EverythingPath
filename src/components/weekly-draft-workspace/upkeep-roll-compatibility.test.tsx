@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -16,7 +17,6 @@ import { UpkeepView } from './upkeep-view';
 
 afterEach(cleanup);
 
-// Test-only representation; the app never writes totals in this delivery.
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
     sides,
@@ -26,6 +26,7 @@ function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
     modifiers: [],
   };
 }
+const table = { kind: 'table' as const };
 
 function fixture(
   configure: (
@@ -55,17 +56,26 @@ function fixture(
   if (view.phase !== 'upkeep') throw new Error('Expected Upkeep');
   return { draft, source, view, preview };
 }
+function missingScouts(snapshot: ReturnType<typeof upkeepFixture>['snapshot']) {
+  snapshot.roster.teams.push({
+    teamId: 'scouts',
+    teamType: 'patrons',
+    name: 'Scouts',
+    status: 'missing',
+    managerCharacterId: null,
+    rewardCapExempt: false,
+    notes: '',
+  });
+}
+const textbox = (name: string) => screen.getByRole('textbox', { name });
 
-test('[rules.WEEK-15.upkeep-total] an incoming 2d4 total is read as complete and shown as the recorded total, never as blank required dice', () => {
+test('[rules.WEEK-15.upkeep-total] a recorded 2d4 total is complete, shows in the one total field without writing, and a blank clears through the existing nullable edit', () => {
   // Check 4 + 3 fails DC 10, so the attrition training roll is 2d4.
   const { view, preview } = fixture((draft) => {
     draft.upkeep.rolls = { check: roll(20, 4), training: total(4, 2, 7) };
   });
   const training = view.rolls.find((fact) => fact.field === 'training')!;
-  expect(training.count).toBe(2);
-  expect(training.sides).toBe(4);
-  expect(training.dice).toBeNull();
-  expect(training.recorded).toEqual(total(4, 2, 7));
+  expect(training).toMatchObject({ count: 2, sides: 4, dice: null });
   expect(training.normalized).toMatchObject({
     status: 'complete',
     diceTotal: 7,
@@ -78,28 +88,68 @@ test('[rules.WEEK-15.upkeep-total] an incoming 2d4 total is read as complete and
   expect(view.ready).toBe(true);
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(<UpkeepView view={view} edit={edit} disabled={false} />);
-  const group = screen.getByRole('group', { name: 'Attrition training roll' });
-  expect(within(group).getByText('Recorded total')).toBeVisible();
-  expect(within(group).getByText('7')).toBeVisible();
-  expect(within(group).getByText('2d4')).toBeVisible();
+  expect(textbox('Attrition training roll')).toHaveValue('7');
+  expect(screen.getByText('2d4 · total of the dice only')).toBeVisible();
   expect(
-    screen.queryByRole('textbox', { name: /Attrition training die/ }),
+    screen.queryByRole('textbox', { name: /die/ }),
   ).not.toBeInTheDocument();
   expect(screen.queryByText('A value is required.')).not.toBeInTheDocument();
-  // The check itself stays on the legacy per-die writer.
-  expect(
-    screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
-  ).toHaveValue('4');
-  fireEvent.click(
-    within(group).getByRole('button', {
-      name: 'Clear attrition training roll',
-    }),
-  );
+  // The complete legacy check shows its value the same way, with no write.
+  expect(textbox('Attrition Loyalty roll')).toHaveValue('4');
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(textbox('Attrition training roll'), {
+    target: { value: '' },
+  });
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'upkeep_roll',
     field: 'training',
     roll: null,
   });
+});
+
+test('[rules.WEEK-15.upkeep-writer] editing a number writes the strict total against the live 2d4 specification and preserves the prior provenance and modifiers', () => {
+  const generated = { kind: 'generated' as const, sourceId: 'roller' };
+  const modifiers = [{ sourceId: 'helpful', value: 1, reason: 'Allies' }];
+  const { view } = fixture((draft) => {
+    draft.upkeep.rolls = {
+      check: { dice: [4], sides: 20, provenance: generated, modifiers },
+      training: roll(4, 3, 4),
+    };
+  });
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(<UpkeepView view={view} edit={edit} disabled={false} />);
+  // Complete legacy arrays display their sum through normalization only.
+  expect(textbox('Attrition training roll')).toHaveValue('7');
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(textbox('Attrition training roll'), {
+    target: { value: '6' },
+  });
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'upkeep_roll',
+    field: 'training',
+    roll: {
+      diceTotal: 6,
+      diceCount: 2,
+      sides: 4,
+      provenance: table,
+      modifiers: [],
+    },
+  });
+  fireEvent.change(textbox('Attrition Loyalty roll'), {
+    target: { value: '12' },
+  });
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'upkeep_roll',
+    field: 'check',
+    roll: {
+      diceTotal: 12,
+      diceCount: 1,
+      sides: 20,
+      provenance: generated,
+      modifiers,
+    },
+  });
+  expect(edit.mock.lastCall![0]).not.toHaveProperty('roll.dice');
 });
 
 test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its range warning and stays complete', () => {
@@ -115,9 +165,8 @@ test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its r
   });
   expect(preview.warnings).toContain('upkeep:attrition:roll-range');
   render(<UpkeepView view={view} edit={vi.fn()} disabled={false} />);
-  const group = screen.getByRole('group', { name: 'Attrition Loyalty roll' });
-  expect(within(group).getByText('0')).toBeVisible();
-  expect(within(group).getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
+  expect(textbox('Attrition Loyalty roll')).toHaveValue('0');
+  expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
   expect(
     screen.getByText(
       /Attrition Loyalty total 0 is outside the usual 1–20 range/,
@@ -126,25 +175,39 @@ test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its r
   expect(screen.queryByText(/dice include a value/)).not.toBeInTheDocument();
 });
 
-test('[rules.WEEK-15.upkeep-wrong-spec] a total recorded for a different specification stays incomplete and says what the step needs', () => {
+test('[rules.WEEK-15.upkeep-wrong-spec] a total recorded for a different specification stays incomplete, shows what the step needs and is replaced only by a deliberate edit', () => {
   const { view, preview } = fixture((draft) => {
-    // Failure branch needs 2d4; a stale 1d6 total must not become ready.
     draft.upkeep.rolls = { check: roll(20, 4), training: total(6, 1, 5) };
   });
   const training = view.rolls.find((fact) => fact.field === 'training')!;
   expect(training.normalized.status).toBe('incomplete');
-  expect(training.dice).toBeNull();
   expect(preview.requirements).toContain('upkeep:attrition-training:dice:2d4');
-  render(<UpkeepView view={view} edit={vi.fn()} disabled={false} />);
-  const group = screen.getByRole('group', { name: 'Attrition training roll' });
-  expect(within(group).getByText('5')).toBeVisible();
-  expect(within(group).getByText('1d6')).toBeVisible();
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(<UpkeepView view={view} edit={edit} disabled={false} />);
+  expect(textbox('Attrition training roll')).toHaveValue('');
   expect(
-    within(group).getByText(/needs 2d4, but the recorded total is for 1d6/),
+    screen.getByText(
+      /Recorded total 5 was entered for 1d6, but this step needs 2d4/,
+    ),
   ).toBeVisible();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(textbox('Attrition training roll'), {
+    target: { value: '5' },
+  });
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'upkeep_roll',
+    field: 'training',
+    roll: {
+      diceTotal: 5,
+      diceCount: 2,
+      sides: 4,
+      provenance: table,
+      modifiers: [],
+    },
+  });
 });
 
-test('[rules.WEEK-15.upkeep-partial] a partial legacy array keeps its real die, stays incomplete and is never summed as complete', () => {
+test('[rules.WEEK-15.upkeep-partial] a partial legacy array keeps its real die, stays incomplete, is never summed as complete and clears explicitly', () => {
   const { view, preview } = fixture((draft) => {
     draft.upkeep.rolls = { check: roll(20, 4), training: roll(4, 3) };
   });
@@ -155,14 +218,20 @@ test('[rules.WEEK-15.upkeep-partial] a partial legacy array keeps its real die, 
     diceTotal: null,
   });
   expect(preview.requirements).toContain('upkeep:attrition-training:dice:2d4');
-  render(<UpkeepView view={view} edit={vi.fn()} disabled={false} />);
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(<UpkeepView view={view} edit={edit} disabled={false} />);
+  expect(textbox('Attrition training roll')).toHaveValue('');
   expect(
-    screen.getByRole('textbox', { name: 'Attrition training die 1' }),
-  ).toHaveValue('3');
-  expect(
-    screen.getByRole('textbox', { name: 'Attrition training die 2' }),
-  ).toHaveValue('');
-  expect(screen.queryByText('Recorded total')).not.toBeInTheDocument();
+    screen.getByText(/Recorded dice 3 are incomplete for 2d4/),
+  ).toBeVisible();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Clear attrition training roll' }),
+  );
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'upkeep_roll',
+    field: 'training',
+    roll: null,
+  });
 });
 
 test('[rules.WEEK-15.upkeep-legacy-equivalence] a complete legacy array and an equal total produce the same Upkeep facts and outcome', () => {
@@ -192,10 +261,7 @@ test('[rules.WEEK-15.upkeep-natural] a single-die total of 20 keeps natural-20 a
   });
   expect(
     natural.view.rolls.find((fact) => fact.field === 'training'),
-  ).toMatchObject({
-    count: 1,
-    sides: 6,
-  });
+  ).toMatchObject({ count: 1, sides: 6 });
   expect(natural.view.after.training).toBe(26);
   const twoDice = fixture((draft) => {
     draft.upkeep.rolls = { check: roll(20, 4), training: total(4, 2, 20) };
@@ -210,17 +276,9 @@ test('[rules.WEEK-15.upkeep-natural] a single-die total of 20 keeps natural-20 a
   });
 });
 
-test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total is shown honestly, kept on decision changes and cleared through the existing edit', () => {
+test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total shows in its field, survives decision changes exactly and clears through the decision edit', () => {
   const { view } = fixture((draft, snapshot) => {
-    snapshot.roster.teams.push({
-      teamId: 'scouts',
-      teamType: 'patrons',
-      name: 'Scouts',
-      status: 'missing',
-      managerCharacterId: null,
-      rewardCapExempt: false,
-      notes: '',
-    });
+    missingScouts(snapshot);
     draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
     draft.upkeep.teamDecisions = [
       { teamId: 'scouts', decision: 'leave', roll: total(20, 1, 1) },
@@ -235,11 +293,10 @@ test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total 
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(<UpkeepView view={view} edit={edit} disabled={false} />);
   const card = screen.getByRole('group', { name: 'Scouts recovery' });
-  const group = within(card).getByRole('group', { name: 'Scouts return roll' });
-  expect(within(group).getByText('1')).toBeVisible();
-  expect(
-    within(card).queryByRole('textbox', { name: 'Scouts return die' }),
-  ).not.toBeInTheDocument();
+  const field = within(card).getByRole('textbox', {
+    name: 'Scouts return roll',
+  });
+  expect(field).toHaveValue('1');
   fireEvent.click(within(card).getByRole('button', { name: 'Leave team' }));
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'upkeep_team',
@@ -251,9 +308,17 @@ test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total 
       roll: total(20, 1, 1),
     },
   });
-  fireEvent.click(
-    within(group).getByRole('button', { name: 'Clear scouts return roll' }),
-  );
+  fireEvent.change(field, { target: { value: '17' } });
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'upkeep_team',
+    teamId: 'scouts',
+    decision: {
+      teamId: 'scouts',
+      decision: 'leave',
+      roll: total(20, 1, 17),
+    },
+  });
+  fireEvent.change(field, { target: { value: '' } });
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'upkeep_team',
     teamId: 'scouts',
@@ -261,93 +326,52 @@ test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total 
   });
 });
 
-test('[rules.WEEK-15.upkeep-reentry] after a deliberate clear the existing legacy writer accepts newly supplied dice', () => {
-  const { view } = fixture((draft) => {
-    draft.upkeep.rolls = { check: roll(20, 4) };
-  });
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
-  render(<UpkeepView view={view} edit={edit} disabled={false} />);
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'Attrition training die 1' }),
-    { target: { value: '3' } },
-  );
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'upkeep_roll',
-    field: 'training',
-    roll: { dice: [3], sides: 4, provenance: { kind: 'table' }, modifiers: [] },
-  });
-});
-
 test.each([
-  ['wrong sides', total(6, 1, 5), '1d6', '5'],
-  ['wrong count', total(20, 2, 25), '2d20', '25'],
+  ['wrong sides', total(6, 1, 5), 'Recorded total 5 was entered for 1d6'],
+  ['wrong count', total(20, 2, 25), 'Recorded total 25 was entered for 2d20'],
+  ['partial legacy', roll(20), 'Recorded dice  are incomplete for 1d20'],
 ])(
-  '[rules.WEEK-15.upkeep-team-incompatible] a missing team’s %s return total stays visible with its incomplete explanation and can be cleared for legacy re-entry',
-  (_label, recorded, notation, shown) => {
+  '[rules.WEEK-15.upkeep-team-incompatible] a missing team’s %s return roll stays visible with its explanation, can be cleared, and a deliberate total replaces it',
+  (_label, recorded, explanation) => {
     const { view, preview } = fixture((draft, snapshot) => {
-      snapshot.roster.teams.push({
-        teamId: 'scouts',
-        teamType: 'patrons',
-        name: 'Scouts',
-        status: 'missing',
-        managerCharacterId: null,
-        rewardCapExempt: false,
-        notes: '',
-      });
+      missingScouts(snapshot);
       draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
       draft.upkeep.teamDecisions = [
-        { teamId: 'scouts', decision: 'leave', roll: recorded },
+        {
+          teamId: 'scouts',
+          decision: 'leave',
+          roll: 'dice' in recorded ? { ...recorded, dice: [] } : recorded,
+        },
       ];
+      // An empty legacy array is not a valid stored roll; use one die of the
+      // wrong sides for the "partial" case instead.
+      if ('dice' in recorded) draft.upkeep.teamDecisions[0]!.roll = roll(6, 3);
     });
     expect(preview.requirements).toContain('team:scouts:return:dice:1d20');
     const team = view.teams.find((team) => team.teamId === 'scouts')!;
     expect(team.roll.normalized.status).toBe('incomplete');
     expect(team.needsReturnRoll).toBe(true);
     const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
-    const { rerender } = render(
-      <UpkeepView view={view} edit={edit} disabled={false} />,
-    );
+    render(<UpkeepView view={view} edit={edit} disabled={false} />);
     const card = screen.getByRole('group', { name: 'Scouts recovery' });
-    const group = within(card).getByRole('group', {
+    const field = within(card).getByRole('textbox', {
       name: 'Scouts return roll',
     });
-    expect(within(group).getByText(shown)).toBeVisible();
-    expect(within(group).getByText(notation)).toBeVisible();
-    expect(
-      within(group).getByText(
-        new RegExp(`needs 1d20, but the recorded total is for ${notation}`),
-      ),
-    ).toBeVisible();
+    expect(field).toHaveValue('');
+    if ('dice' in recorded)
+      expect(
+        within(card).getByText(/Recorded dice 3 were entered for 1d6/),
+      ).toBeVisible();
+    else expect(within(card).getByText(new RegExp(explanation))).toBeVisible();
     fireEvent.click(
-      within(group).getByRole('button', { name: 'Clear scouts return roll' }),
+      within(card).getByRole('button', { name: 'Clear scouts return roll' }),
     );
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'upkeep_team',
       teamId: 'scouts',
       decision: { teamId: 'scouts', decision: 'leave' },
     });
-    // After the deliberate clear the legacy return die is offered again.
-    const cleared = fixture((draft, snapshot) => {
-      snapshot.roster.teams.push({
-        teamId: 'scouts',
-        teamType: 'patrons',
-        name: 'Scouts',
-        status: 'missing',
-        managerCharacterId: null,
-        rewardCapExempt: false,
-        notes: '',
-      });
-      draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
-      draft.upkeep.teamDecisions = [{ teamId: 'scouts', decision: 'leave' }];
-    });
-    rerender(<UpkeepView view={cleared.view} edit={edit} disabled={false} />);
-    fireEvent.change(
-      within(screen.getByRole('group', { name: 'Scouts recovery' })).getByRole(
-        'textbox',
-        { name: 'Scouts return die' },
-      ),
-      { target: { value: '12' } },
-    );
+    fireEvent.change(field, { target: { value: '12' } });
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'upkeep_team',
       teamId: 'scouts',
@@ -355,12 +379,32 @@ test.each([
         teamId: 'scouts',
         decision: 'leave',
         roll: {
-          dice: [12],
+          diceTotal: 12,
+          diceCount: 1,
           sides: 20,
-          provenance: { kind: 'table' },
+          provenance: table,
           modifiers: [],
         },
       },
     });
   },
 );
+
+test('[rules.WEEK-14.upkeep-malformed] malformed totals never reach the edit and required feedback is distinct from format errors', async () => {
+  const { view } = fixture((draft) => {
+    draft.upkeep.rolls = { check: roll(20, 4) };
+  });
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(<UpkeepView view={view} edit={edit} disabled={false} />);
+  const field = textbox('Attrition training roll');
+  const alerts = () =>
+    screen.getAllByRole('alert').map((alert) => alert.textContent);
+  for (const invalid of ['-1', '2.5', '1e1', ' 7', '７']) {
+    fireEvent.change(field, { target: { value: invalid } });
+    expect(field).toHaveValue('');
+    expect(alerts()).toContain('Use digits only.');
+  }
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.blur(field);
+  await waitFor(() => expect(alerts()).toContain('A value is required.'));
+});

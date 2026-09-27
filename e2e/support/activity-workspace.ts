@@ -84,7 +84,7 @@ export async function exerciseActivityWorkspace(
     .click();
   await saved(gm);
   await slot(gm, 1)
-    .getByRole('textbox', { name: 'Check die 1', exact: true })
+    .getByRole('textbox', { name: 'Check roll', exact: true })
     .fill('10');
   await saved(gm);
   await slot(gm, 1)
@@ -141,7 +141,7 @@ export async function exerciseActivityWorkspace(
     }),
   ).toHaveValue('0');
   await expect(
-    slot(player, 1).getByRole('textbox', { name: 'Check die 1', exact: true }),
+    slot(player, 1).getByRole('textbox', { name: 'Check roll', exact: true }),
   ).toHaveValue('10');
   await slot(player, 1)
     .getByText('Edit Drill Militia details', { exact: true })

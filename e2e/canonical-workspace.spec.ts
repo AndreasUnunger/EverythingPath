@@ -109,9 +109,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
   const gm = players.gm,
     player = players.player;
   const die = (page: typeof gm) =>
-    page.getByRole('textbox', { name: 'Attrition Loyalty die', exact: true });
+    page.getByRole('textbox', { name: 'Attrition Loyalty roll', exact: true });
   const training = (page: typeof gm) =>
-    page.getByRole('textbox', { name: 'Attrition training die', exact: true });
+    page.getByRole('textbox', { name: 'Attrition training roll', exact: true });
   const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
   try {
     await Promise.all([
@@ -131,7 +131,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     ).toBeVisible();
     await expect(
       players.outsider.getByRole('textbox', {
-        name: 'Attrition Loyalty die',
+        name: 'Attrition Loyalty roll',
         exact: true,
       }),
     ).toHaveCount(0);

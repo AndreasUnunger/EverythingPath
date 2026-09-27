@@ -335,7 +335,7 @@ test.each(['event', 'summary'] as const)(
       screen.getByRole('heading', { name: 'Week 4 · Upkeep' }),
     ).toBeVisible();
     expect(
-      screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
+      screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
     ).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Activity' }));
     expect(
@@ -349,7 +349,7 @@ test.each(['event', 'summary'] as const)(
     expect(screen.getByText('Shell week: 5')).toBeInTheDocument();
     expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
+      screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
     ).toBeEnabled();
     expect(document.querySelectorAll('[data-week-confirmed]')).toHaveLength(1);
     expect(notice()).toHaveTextContent('Week 4 confirmed.');
@@ -424,7 +424,7 @@ test('[shell.successor-implicit] an observer already on Upkeep publishes phase=u
   // The host writes the same address back; an ordinary save, a rerender and
   // dismissing the notice publish nothing more.
   view.rerender(host({ phase: 'upkeep', onPhaseChange }));
-  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty die' });
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty roll' });
   await act(async () => {
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
@@ -685,7 +685,7 @@ test('[feedback.remote] a remote change names its phases without moving phase or
   factory.mockImplementation(() => wire.gateway);
   render(host({ phase: 'upkeep' }));
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
-  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty die' });
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty roll' });
   await act(async () => {
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
@@ -693,7 +693,7 @@ test('[feedback.remote] a remote change names its phases without moving phase or
   await waitFor(() => expect(status()).toHaveTextContent('Changes saved.'));
   expect(remoteNote()).toBeEmptyDOMElement();
   const training = screen.getByRole('textbox', {
-    name: 'Attrition training die',
+    name: 'Attrition training roll',
   });
   training.focus();
   expect(training).toHaveFocus();
@@ -755,7 +755,7 @@ test('[feedback.failed] a rejected save is a red alert carrying only the safe se
   }));
   render(host({ phase: 'upkeep' }));
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
-  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty die' });
+  const die = screen.getByRole('textbox', { name: 'Attrition Loyalty roll' });
   await act(async () => {
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
@@ -823,7 +823,7 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
   expect(status()).not.toHaveTextContent('Confirming the week…');
   expect(
-    screen.getByRole('textbox', { name: 'Attrition Loyalty die' }),
+    screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
   ).toBeEnabled();
   expect(notice()).toHaveTextContent('Week 4 confirmed.');
   expect(

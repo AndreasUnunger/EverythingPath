@@ -1,7 +1,4 @@
-import {
-  eventInputRollSides,
-  eventMitigationInput,
-} from '~/lib/rules-event-checks';
+import { eventMitigationInput } from '~/lib/rules-event-checks';
 import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
@@ -59,7 +56,6 @@ export function eventView(
             (entry) => entry.event.eventId === occurrence.eventId,
           )?.mode ?? null,
         ),
-        rollSides: eventInputRollSides(resolved?.eventType ?? null),
         exceptionChoices: eventExceptions(
           occurrence,
           draft,

@@ -81,18 +81,29 @@ export async function exercisePersistentWorkspace(
   ).toHaveCount(0);
   await button(old(gm), 'Attempt temporary mitigation').click();
   await button(old(gm), 'Add rolls').click();
-  await button(old(gm), 'Add check').click();
+  // The Theft Loyalty check is one 1d20 dice total: no dice list or sides.
   await expect(
-    old(gm).getByRole('textbox', { name: 'Sides', exact: true }),
-  ).toHaveValue('20');
-  await button(old(gm), 'Add dice entry').click();
-  const die = old(gm).getByRole('textbox', { name: 'Entry 1', exact: true });
+    old(gm).getByText('1d20 · total of the dice only'),
+  ).toBeVisible();
+  await expect(
+    old(gm).getByRole('button', { name: 'Add dice entry', exact: true }),
+  ).toHaveCount(0);
+  const die = old(gm).getByRole('textbox', { name: 'Check roll', exact: true });
   await die.fill('20');
   await die.pressSequentially('x');
   await expect(die).toHaveValue('20');
   await expect(
     old(gm).getByRole('alert').filter({ hasText: 'Use digits only.' }),
   ).toBeVisible();
+  // Malformed local text blocks the enclosing Save instead of saving the
+  // prior number: the other device never sees a mitigation result.
+  await button(old(gm), 'Save persistent decision').click();
+  await expect(
+    old(gm).getByRole('alert').filter({ hasText: 'Use digits only.' }),
+  ).toBeVisible();
+  await expect(old(player)).not.toContainText(
+    'retains 90% of this week’s income.',
+  );
   await die.fill('0');
   await expect(die).toHaveValue('0');
   await die.fill('');
@@ -147,13 +158,8 @@ export async function exercisePersistentWorkspace(
   await rivalry(player)
     .getByRole('textbox', { name: 'Skill Bonus', exact: true })
     .fill('0');
-  await button(rivalry(player), 'Add roll').click();
-  await expect(
-    rivalry(player).getByRole('textbox', { name: 'Sides', exact: true }),
-  ).toHaveValue('20');
-  await button(rivalry(player), 'Add dice entry').click();
   await rivalry(player)
-    .getByRole('textbox', { name: 'Entry 1', exact: true })
+    .getByRole('textbox', { name: 'Roll', exact: true })
     .fill('20');
   await button(rivalry(player), 'Save persistent decision').click();
   await expect(rivalry(gm)).toContainText('ends the event.');

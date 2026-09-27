@@ -4,16 +4,14 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
-import type { RawRoll } from '~/lib/weekly-draft-facts';
+import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
 afterEach(cleanup);
 
-// Test-only representation; the app never writes totals in this delivery.
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
     sides,
@@ -23,13 +21,14 @@ function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
     modifiers: [],
   };
 }
+const table = { kind: 'table' as const };
 const legacyCheck: RawRoll = {
   dice: [10],
   sides: 20,
-  provenance: { kind: 'table' },
+  provenance: table,
   modifiers: [],
 };
-function facts(rolls: Record<string, RawRoll>, requirements: string[]): Facts {
+function facts(choice: StagedActionChoice, requirements: string[] = []): Facts {
   return {
     phase: 'activity',
     ready: false,
@@ -37,12 +36,7 @@ function facts(rolls: Record<string, RawRoll>, requirements: string[]): Facts {
     slots: [
       {
         slotId: 'one',
-        choice: {
-          actionId: 'drill_militia',
-          choiceId: 'drill',
-          costCopper: 0,
-          rolls,
-        },
+        choice,
         overAllowance: false,
         strategistBonus: false,
         calculatedCostCopper: null,
@@ -70,76 +64,106 @@ function facts(rolls: Record<string, RawRoll>, requirements: string[]): Facts {
     warnings: [],
   };
 }
-function open() {
+const drill = (
+  rolls: Extract<StagedActionChoice, { actionId: 'drill_militia' }>['rolls'],
+): StagedActionChoice => ({
+  actionId: 'drill_militia',
+  choiceId: 'drill',
+  costCopper: 0,
+  rolls,
+});
+function open(action = 'Drill Militia') {
   screen
-    .getByText('Edit Drill Militia details')
+    .getByText(`Edit ${action} details`)
     .parentElement!.setAttribute('open', '');
 }
+const textbox = (name: string) => screen.getByRole('textbox', { name });
+function lastChoice(edit: ReturnType<typeof vi.fn>) {
+  const call = edit.mock.lastCall![0] as WeeklyDraftEdit;
+  if (call.kind !== 'detail') throw new Error('Expected detail edit');
+  return call.choice;
+}
 
-test('[rules.ACT-12.total] a 2d6 training total is shown as the recorded total with no blank required dice, and clears through the existing rolls edit', () => {
+test('[rules.ACT-12.total] Drill training (2d6) shows a recorded total in its one field, writes a replacement against the rule spec and blanks to the existing rolls omission', () => {
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
-      view={facts({ check: legacyCheck, training: total(6, 2, 9) }, [])}
+      view={facts(drill({ check: legacyCheck, training: total(6, 2, 9) }))}
       edit={edit}
       disabled={false}
     />,
   );
   open();
-  const group = screen.getByRole('group', { name: 'Training roll' });
-  expect(within(group).getByText('9')).toBeVisible();
-  expect(within(group).getByText('2d6')).toBeVisible();
+  expect(textbox('Training roll')).toHaveValue('9');
   expect(screen.getByText(/Training · 2d6/)).toBeVisible();
+  expect(textbox('Check roll')).toHaveValue('10');
   expect(
-    screen.queryByRole('textbox', { name: /Training die/ }),
+    screen.queryByRole('textbox', { name: /die/ }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole('textbox', { name: 'Check die 1' })).toHaveValue(
-    '10',
+  fireEvent.change(textbox('Training roll'), { target: { value: '11' } });
+  expect(lastChoice(edit)).toEqual(
+    drill({ check: legacyCheck, training: total(6, 2, 11) }),
   );
-  fireEvent.click(
-    within(group).getByRole('button', { name: 'Clear training roll' }),
+  fireEvent.change(textbox('Training roll'), { target: { value: '' } });
+  expect(lastChoice(edit)).toEqual(drill({ check: legacyCheck }));
+});
+
+test('[rules.ACT-13.legacy-check] a complete legacy check shows its value without a write and a new number preserves its metadata in the total form', () => {
+  const generated = { kind: 'generated' as const, sourceId: 'roller' };
+  const modifiers = [{ sourceId: 'helpful', value: 2, reason: 'Allies' }];
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(
+        drill({ check: { ...legacyCheck, provenance: generated, modifiers } }),
+      )}
+      edit={edit}
+      disabled={false}
+    />,
   );
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'detail',
-    slotId: 'one',
-    choiceId: 'drill',
-    choice: {
-      actionId: 'drill_militia',
-      choiceId: 'drill',
-      costCopper: 0,
-      rolls: { check: legacyCheck },
-    },
-  });
+  open();
+  expect(textbox('Check roll')).toHaveValue('10');
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(textbox('Check roll'), { target: { value: '20' } });
+  expect(lastChoice(edit)).toEqual(
+    drill({
+      check: {
+        diceTotal: 20,
+        diceCount: 1,
+        sides: 20,
+        provenance: generated,
+        modifiers,
+      },
+    }),
+  );
 });
 
 test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserves its numeric representation exactly', async () => {
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
-      view={facts({ check: total(20, 1, 0) }, [])}
+      view={facts(drill({ check: total(20, 1, 0) }))}
       edit={edit}
       disabled={false}
     />,
   );
   open();
-  const group = screen.getByRole('group', { name: 'Check roll' });
-  expect(within(group).getByText('0')).toBeVisible();
+  expect(textbox('Check roll')).toHaveValue('0');
+  expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
   fireEvent.click(screen.getByText('Check sources and modifiers'));
   fireEvent.click(screen.getByRole('button', { name: 'Add modifiers entry' }));
   fireEvent.click(
     screen.getByRole('button', { name: 'Custom table modifier' }),
   );
-  fireEvent.change(screen.getByRole('textbox', { name: 'Value' }), {
-    target: { value: '2' },
-  });
-  fireEvent.change(screen.getByRole('textbox', { name: 'Reason' }), {
+  fireEvent.change(textbox('Value'), { target: { value: '2' } });
+  fireEvent.change(textbox('Reason'), {
     target: { value: 'Favourable weather' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save modifiers' }));
   await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
-  const choice = edit.mock.lastCall![0];
-  if (choice.kind !== 'detail') throw new Error('Expected detail edit');
-  expect(choice.choice.rolls?.check).toEqual({
+  const choice = lastChoice(edit);
+  if (choice.actionId !== 'drill_militia') throw new Error('Expected Drill');
+  expect(choice.rolls?.check).toEqual({
     ...total(20, 1, 0),
     modifiers: [
       {
@@ -149,49 +173,136 @@ test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserve
       },
     ],
   });
-  expect(choice.choice.rolls?.check).not.toHaveProperty('dice');
+  expect(choice.rolls?.check).not.toHaveProperty('dice');
 });
 
-test('[rules.ACT-12.wrong-count] a total recorded for another specification is shown with what the step needs and remains required', () => {
+test('[rules.ACT-12.modifier-only-legacy] a modifier-only edit keeps a legacy array in its legacy form', async () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
-      view={facts({ check: legacyCheck, training: total(6, 1, 4) }, [
-        'drill:training:2d6',
-      ])}
-      edit={vi.fn()}
+      view={facts(drill({ check: legacyCheck }))}
+      edit={edit}
       disabled={false}
     />,
   );
   open();
-  const group = screen.getByRole('group', { name: 'Training roll' });
-  expect(within(group).getByText('4')).toBeVisible();
-  expect(within(group).getByText('1d6')).toBeVisible();
-  expect(
-    within(group).getByText(/needs 2d6, but the recorded total is for 1d6/),
-  ).toBeVisible();
-  expect(screen.getByText(/Training · 2d6/)).toBeVisible();
+  fireEvent.click(screen.getByText('Check sources and modifiers'));
+  fireEvent.click(screen.getByRole('button', { name: 'Add modifiers entry' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Helpful settlement support' }),
+  );
+  fireEvent.change(textbox('Value'), { target: { value: '1' } });
+  fireEvent.change(textbox('Reason'), { target: { value: 'Allies' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save modifiers' }));
+  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
+  const choice = lastChoice(edit);
+  if (choice.actionId !== 'drill_militia') throw new Error('Expected Drill');
+  expect(choice.rolls?.check).toEqual({
+    ...legacyCheck,
+    modifiers: [{ sourceId: 'helpful', value: 1, reason: 'Allies' }],
+  });
 });
 
-test('[rules.ACT-12.partial] a partial legacy training array keeps its die and its second required field', () => {
+test('[rules.ACT-12.wrong-count] a total recorded for another specification stays required, explains the mismatch and is replaced only by a deliberate total', () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(drill({ check: legacyCheck, training: total(6, 1, 4) }), [
+        'drill:training:2d6',
+      ])}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open();
+  expect(textbox('Training roll')).toHaveValue('');
+  expect(
+    screen.getByText(
+      /Recorded total 4 was entered for 1d6, but this step needs 2d6/,
+    ),
+  ).toBeVisible();
+  expect(screen.getByText(/Training · 2d6/)).toBeVisible();
+  fireEvent.change(textbox('Training roll'), { target: { value: '8' } });
+  expect(lastChoice(edit)).toEqual(
+    drill({ check: legacyCheck, training: total(6, 2, 8) }),
+  );
+});
+
+test('[rules.ACT-12.partial] a partial legacy training array keeps its recorded die, an empty required total, and an explicit clear', () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
     <ActivityView
       view={facts(
-        {
+        drill({
           check: legacyCheck,
           training: { ...legacyCheck, dice: [5], sides: 6 },
-        },
+        }),
         ['drill:training:2d6'],
       )}
-      edit={vi.fn()}
+      edit={edit}
       disabled={false}
     />,
   );
   open();
-  expect(screen.getByRole('textbox', { name: 'Training die 1' })).toHaveValue(
-    '5',
+  expect(textbox('Training roll')).toHaveValue('');
+  expect(
+    screen.getByText(/Recorded dice 5 are incomplete for 2d6/),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear training roll' }));
+  expect(lastChoice(edit)).toEqual(drill({ check: legacyCheck }));
+});
+
+test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriety is 1d4, and roll-less actions render no roll field', () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const { rerender } = render(
+    <ActivityView
+      view={facts(
+        {
+          actionId: 'special_order',
+          choiceId: 'order',
+          itemId: 'item',
+          settlementId: 'town',
+        } as StagedActionChoice,
+        ['order:delivery:2d6'],
+      )}
+      edit={edit}
+      disabled={false}
+    />,
   );
-  expect(screen.getByRole('textbox', { name: 'Training die 2' })).toHaveValue(
-    '',
+  open('Special Order');
+  expect(screen.getByText(/Delivery · 2d6/)).toBeVisible();
+  fireEvent.change(textbox('Delivery roll'), { target: { value: '7' } });
+  expect(lastChoice(edit)).toMatchObject({
+    actionId: 'special_order',
+    rolls: { delivery: total(6, 2, 7) },
+  });
+  rerender(
+    <ActivityView
+      view={facts({
+        actionId: 'reduce_danger',
+        choiceId: 'danger',
+        settlementId: 'town',
+        rolls: { notoriety: total(4, 1, 3) },
+      } as StagedActionChoice)}
+      edit={edit}
+      disabled={false}
+    />,
   );
-  expect(screen.queryByText('Recorded total')).not.toBeInTheDocument();
+  open('Reduce Danger');
+  expect(screen.getByText(/Notoriety · 1d4/)).toBeVisible();
+  expect(textbox('Notoriety roll')).toHaveValue('3');
+  rerender(
+    <ActivityView
+      view={facts({
+        actionId: 'lie_low',
+        choiceId: 'low',
+      } as StagedActionChoice)}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open('Lie Low');
+  expect(
+    screen.queryByRole('textbox', { name: /roll/ }),
+  ).not.toBeInTheDocument();
 });
