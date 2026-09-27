@@ -6,7 +6,7 @@ import { activityView } from './activity-facts';
 import { eventView, type EventPreparationContext } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
-import { withoutDuplicateRollCodes } from './event-check-facts';
+import { withoutDuplicateRollCodes } from './roll-requirements';
 import { eventSubjectLabel } from './event-tree-facts';
 import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';

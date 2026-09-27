@@ -418,6 +418,16 @@ const recruitmentChecks: Record<string, OrganizationCheck | undefined> = {
   Secrecy: 'secrecy',
   Security: 'security',
 };
+// The recruitment check and DC the team table gives a team type, or null when
+// the type has no recruitment rules (recruiting it needs a Rules Exception and
+// a table-chosen check).
+export function teamRecruitmentCheck(
+  teamType: string | undefined,
+): { check: OrganizationCheck; dc: number } | null {
+  const recruitment = teams.find((team) => team.id === teamType)?.recruitment;
+  const check = recruitment ? recruitmentChecks[recruitment.check] : undefined;
+  return recruitment && check ? { check, dc: recruitment.dc } : null;
+}
 function recruit(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -434,10 +444,7 @@ function recruit(
   )
     return;
   const recruitment = definition.recruitment
-    ? {
-        check: recruitmentChecks[definition.recruitment.check],
-        dc: definition.recruitment.dc,
-      }
+    ? teamRecruitmentCheck(definition.id)
     : choice.recruitmentCheck;
   if (!recruitment?.check) {
     result.requirements.push(`${choice.choiceId}:recruitment-check`);

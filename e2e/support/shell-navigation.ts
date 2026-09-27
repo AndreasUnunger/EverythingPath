@@ -42,13 +42,13 @@ export async function exerciseShellNavigation(
   await expectNoHorizontalOverflow(page);
   await openCampaignSection(page, 'militia');
   await expect(
-    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+    page.getByRole('button', { name: 'Correct values', exact: true }),
   ).toBeVisible();
   // Non-week sections scroll as a normal document at every width.
   await expectDocumentScrolledPage(page);
   await expectReachable(
     page,
-    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+    page.getByRole('button', { name: 'Correct values', exact: true }),
   );
   await page.goBack();
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/characters`);
@@ -56,7 +56,7 @@ export async function exerciseShellNavigation(
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/militia`);
   await page.reload();
   await expect(
-    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+    page.getByRole('button', { name: 'Correct values', exact: true }),
   ).toBeVisible();
 
   for (const section of ['week', 'history', 'militia', 'characters', 'setup']) {
@@ -99,7 +99,7 @@ export async function exerciseShellNavigation(
   await page.goto(`${campaignPath}/militia/correct`);
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/militia`);
   await expect(
-    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+    page.getByRole('button', { name: 'Correct values', exact: true }),
   ).toBeVisible();
   await page.goto(`/canonical-setup?campaign=${campaignId}`);
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/setup`);

@@ -83,18 +83,3 @@ export function eventCheckFacts({
     overseerRecorded,
   };
 }
-
-/**
- * The engine reports a missing check die twice: as its dice (`…:1d20`) and
- * as the check's absent roll (`…:roll`). Both ask for the same entry, so the
- * list a player reads keeps only the dice code.
- */
-export function withoutDuplicateRollCodes(codes: readonly string[]) {
-  const dice = new Set(
-    codes.flatMap((code) => /^(.*):\d+d\d+$/.exec(code)?.slice(1, 2) ?? []),
-  );
-  return codes.filter((code) => {
-    const check = /^(.*):roll$/.exec(code)?.[1];
-    return check === undefined || !dice.has(check);
-  });
-}

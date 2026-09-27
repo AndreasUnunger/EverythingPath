@@ -231,6 +231,18 @@ export async function exerciseActivityWorkspace(
   await pick(gm, 'Drill Militia');
   await saved(gm);
   await expect(card(player, 1, 'Drill Militia')).toBeVisible();
+  // Drill's training roll is its own shared total input in the details, and
+  // the other player sees the recorded total.
+  await (await open(gm, 1, 'Drill Militia'))
+    .getByRole('textbox', { name: 'Training roll', exact: true })
+    .fill('7');
+  await saved(gm);
+  await expect(
+    (await open(player, 1, 'Drill Militia')).getByRole('textbox', {
+      name: 'Training roll',
+      exact: true,
+    }),
+  ).toHaveValue('7');
 
   for (const [name, width, height] of [
     ['tablet', 1194, 834],

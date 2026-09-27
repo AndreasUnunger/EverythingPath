@@ -4,6 +4,8 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { pair } from '../../../tests/rules/event-selection-fixture';
 import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
 import { upkeepFixture } from '../../../tests/rules/upkeep-fixture';
+import { foundationWeek } from '../../../tests/rules/foundation-acceptance-fixtures';
+import { activityView } from './activity-facts';
 import {
   derivePhaseReadiness,
   phaseNavigation,
@@ -239,4 +241,62 @@ test('Upkeep decisions read as the current choices, without the retired Remove o
   expect(message('upkeep:shortage:roll')).toBe(
     'Upkeep: Enter the treasury-shortage training roll.',
   );
+});
+
+// The engine reports a missing check die twice: its dice and the check's
+// absent roll. Each phase lists it once, and Review counts it once (#164).
+test('a missing Activity check die is one decision in the Activity step, its slot and Review', () => {
+  const input = foundationWeek(3);
+  input.revision.activity.slots[0]!.choice = {
+    choiceId: 'drill',
+    actionId: 'drill_militia',
+  };
+  const { draft, source, preview } = facts({
+    draft: input.revision,
+    snapshot: input.militiaSnapshot,
+  });
+  const { phases } = derivePhaseReadiness(draft, source, preview);
+  const drill = (phase: string) =>
+    phases
+      .find((item) => item.phase === phase)!
+      .requirements.filter(({ id }) => id.startsWith('drill:'))
+      .map(({ message }) => message);
+  expect(drill('activity')).toEqual([
+    'Drill Militia · Slot 1: Check: enter 1d20.',
+  ]);
+  expect(drill('summary')).toEqual(drill('activity'));
+  const decisions = phases.find((item) => item.phase === 'summary')!
+    .requirements.length;
+  expect(
+    confirmationDisabledReason({
+      canConfirm: false,
+      confirming: false,
+      reviewRequired: false,
+      forecastPending: false,
+      pendingWork: false,
+      decisions,
+    }),
+  ).toBe('1 decision left');
+  expect(activityView(draft, source, preview).slots[0]!.status).toEqual({
+    kind: 'todo',
+    count: 1,
+  });
+});
+
+test('a missing Persistent mitigation die is one decision in the Persistent step and Review', () => {
+  const fixture = persistentEventFixture('theft');
+  fixture.draft.persistent.decisions = [
+    { kind: 'mitigate', eventId: 'carried', overseerCharacterId: 'pc' },
+  ];
+  const { draft, source, preview } = facts(fixture);
+  const { phases } = derivePhaseReadiness(draft, source, preview);
+  const mitigation = (phase: string) =>
+    phases
+      .find((item) => item.phase === phase)!
+      .requirements.filter(({ id }) => id.startsWith('carried:mitigation:'))
+      .map(({ message }) => message);
+  expect(mitigation('persistent')).toEqual([
+    'Theft · Event 1: Target mitigation check: enter 1d20.',
+  ]);
+  expect(mitigation('summary')).toEqual(mitigation('persistent'));
 });

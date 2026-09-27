@@ -1,4 +1,5 @@
 import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import { isRefugeActive } from './rules-settlements';
 import type { EventDispatch } from './rules-event-selection';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
 import type { UpkeepSnapshot } from './rules-upkeep';
@@ -16,21 +17,6 @@ export const SICKNESS_TWICE_LOYALTY_DC = 20;
 export const RAID_SECURITY_DC = 20;
 /** A hidden person's capture chance (percent) without and with mitigation. */
 export const RAID_CAPTURE_CHANCE = { unmitigated: 100, mitigated: 50 } as const;
-/** Whether a settlement's refuge is active in the given week. */
-export function isRefugeActive(
-  town: Pick<
-    UpkeepSnapshot['settlements'][number],
-    'refugeActivatedWeek' | 'refugeActiveUntilWeek'
-  >,
-  week: number,
-) {
-  return (
-    town.refugeActivatedWeek !== null &&
-    town.refugeActiveUntilWeek !== null &&
-    town.refugeActivatedWeek <= week &&
-    town.refugeActiveUntilWeek >= week
-  );
-}
 type Cache = NonNullable<UpkeepSnapshot['economy']>['caches'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type ThreatEventChange =

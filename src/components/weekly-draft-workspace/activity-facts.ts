@@ -8,8 +8,10 @@ import { MILITIA_ACTIVITY_ACTION_IDS } from '~/lib/militia-domain';
 import { actionRestrictions } from '~/lib/rules-action-eligibility';
 import { isTeamUnavailableThisActivity } from '~/lib/rules-action-teams';
 import { activityRollSpec } from '~/lib/rules-roll-spec';
-import { projectSettlements } from '~/lib/rules-settlements';
+import { isRefugeActive, projectSettlements } from '~/lib/rules-settlements';
+import { withoutDuplicateRollCodes } from './roll-requirements';
 import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
+
 import { recruitedTeamId } from '~/lib/weekly-draft-identities';
 import {
   actionChoiceRolls,
@@ -24,6 +26,7 @@ import type {
   ActivityBonusChoice,
   ActivityCheck,
   ActivityIssue,
+  ActivityPositionFacts,
   ActivityRecordedModifier,
   ActivityTeamFact,
   ActivityView,
@@ -338,6 +341,13 @@ function allowanceFacts(
   };
 }
 
+function personName(source: WorkspaceSource, characterId: string) {
+  return (
+    source.people.find((entry) => entry.characterId === characterId)?.name ??
+    'Unnamed character'
+  );
+}
+
 export function activityView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -361,8 +371,8 @@ export function activityView(
     ready: projection?.ready ?? false,
     occupiedSlots: draft.activity.slots.filter((slot) => slot.choice).length,
     allowance: allowanceFacts(draft, preview, source),
-    slots: draft.activity.slots.map((slot, index) =>
-      slotFacts({
+    slots: draft.activity.slots.map((slot, index) => ({
+      ...slotFacts({
         draft,
         source,
         projection,
@@ -372,7 +382,8 @@ export function activityView(
         roster,
         helpfulName,
       }),
-    ),
+      position: slot.choice ? positionFacts(draft, preview, index) : null,
+    })),
     teamRoster: roster,
     helpful: helpfulName
       ? {
@@ -423,15 +434,70 @@ export function activityView(
     })),
     people: source.snapshot.roster.people.map((person) => ({
       value: person.characterId,
-      label:
-        source.people.find((entry) => entry.characterId === person.characterId)
-          ?.name ?? 'Unnamed character',
+      label: personName(source, person.characterId),
+    })),
+    characters: source.snapshot.roster.people.map((person) => ({
+      characterId: person.characterId,
+      name: personName(source, person.characterId),
+      level:
+        (upkeep?.outcome.characters ?? source.snapshot.characters).find(
+          (character) => character.characterId === person.characterId,
+        )?.level ?? null,
     })),
     startDay: draft.context.startDay,
     operatingSettlementId: operatingId,
     checks: projection?.checks ?? [],
     requirements: projection?.requirements ?? [],
     warnings: projection?.warnings ?? [],
+  };
+}
+
+// Replays the rules projection's changes from the choices before `index`
+// over the post-Upkeep state, so a detail editor sees the officers, refuges
+// and character conditions the resolver sees at this position.
+export function positionFacts(
+  draft: WeeklyDraft,
+  preview: CanonicalResolutionPreview,
+  index: number,
+): ActivityPositionFacts | null {
+  const upkeep = preview.phases?.upkeep;
+  const projection = preview.phases?.activity;
+  if (!upkeep || !projection) return null;
+  const earlier = new Set(
+    draft.activity.slots
+      .slice(0, index)
+      .flatMap((slot) => (slot.choice ? [slot.choice.choiceId] : [])),
+  );
+  let officers = upkeep.outcome.roster.officers;
+  const settlements = new Map(
+    upkeep.outcome.settlements.map((settlement) => [
+      settlement.settlementId,
+      settlement,
+    ]),
+  );
+  const people = new Map(
+    (upkeep.outcome.characterActions?.people ?? []).map((person) => [
+      person.characterId,
+      person,
+    ]),
+  );
+  for (const change of projection.plan) {
+    if (!('choiceId' in change) || !earlier.has(change.choiceId)) continue;
+    if (change.kind === 'officers') officers = change.after;
+    else if (change.kind === 'settlement')
+      settlements.set(change.after.settlementId, change.after);
+    else if (change.kind === 'tracked_character')
+      people.set(change.after.characterId, change.after);
+  }
+  return {
+    officers: officers.map(({ characterId, role }) => ({ characterId, role })),
+    refugeSettlementIds: [...settlements.values()].flatMap((settlement) =>
+      isRefugeActive(settlement, draft.week) ? [settlement.settlementId] : [],
+    ),
+    characterStatus: [...people.values()].map(({ characterId, status }) => ({
+      characterId,
+      status,
+    })),
   };
 }
 
@@ -455,12 +521,12 @@ function slotFacts({
   index: number;
   roster: ActivityTeamFact[];
   helpfulName: string | null;
-}): ActivityView['slots'][number] {
+}): Omit<ActivityView['slots'][number], 'position'> {
   const choice = slot.choice;
   const choiceId = choice?.choiceId;
   const position = projection?.slots[index];
   const requirements = choice
-    ? [
+    ? withoutDuplicateRollCodes([
         ...new Set(
           projection?.requirements.filter(
             (requirement) =>
@@ -470,7 +536,7 @@ function slotFacts({
                 requirement.startsWith(`${choice.orderId}:`)),
           ) ?? [],
         ),
-      ]
+      ])
     : [];
   const warnings = choice
     ? (projection?.warnings.filter((warning) =>

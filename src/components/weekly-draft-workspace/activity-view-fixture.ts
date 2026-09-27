@@ -64,6 +64,7 @@ export function activitySlot(
     calculatedCostCopper: null,
     warnings: [],
     exceptions: [],
+    position: null,
     ...overrides,
     requirements,
   };
@@ -104,6 +105,7 @@ export function activityFacts(
     teams: [],
     settlements: [],
     people: [],
+    characters: [],
     operatingSettlementId: null,
     checks: [],
     requirements: [],

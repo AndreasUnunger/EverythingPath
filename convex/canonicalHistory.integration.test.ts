@@ -5,6 +5,7 @@ import schema from './schema';
 import { api, internal } from './_generated/api';
 import { deploymentFixture } from '../e2e/support/test-data';
 import { appendResolutionRecord } from './lib/canonicalDraftStorage';
+import { locateAuditSequence } from '../src/lib/audit-ordinal';
 const modules = import.meta.glob('./**/*.ts');
 const scope = {
   namespace: deploymentFixture.namespace,
@@ -691,4 +692,34 @@ test('[rules.P86.record-dates] read adds document creation dates to the selected
     ctx.db.query('canonicalResolutionRecord').take(10),
   );
   for (const row of stored) expect(row.record).not.toHaveProperty('createdAt');
+});
+
+test('an earlier entry deep in a chain of more than ten is located through the existing five-entry pages', async () => {
+  const harness = await setup();
+  const { player, key, record } = harness;
+  await correct(harness, 1, 12);
+  const pages: (number | undefined)[] = [];
+  const read = (beforeSequence: number | undefined) => {
+    pages.push(beforeSequence);
+    return player.query(api.canonicalHistory.read, {
+      campaignId: key.campaignId,
+      week: 1,
+      beforeSequence,
+    });
+  };
+  const signal = { cancelled: false };
+  await expect(
+    locateAuditSequence(read, record.recordId, { signal }),
+  ).resolves.toBe(0);
+  expect(pages).toEqual([undefined, 8, 3]);
+  pages.length = 0;
+  await expect(
+    locateAuditSequence(read, 'week-1-correction-7', { signal }),
+  ).resolves.toBe(7);
+  expect(pages).toEqual([undefined, 8]);
+  pages.length = 0;
+  await expect(
+    locateAuditSequence(read, 'not-in-this-week', { signal }),
+  ).resolves.toBeNull();
+  expect(pages).toEqual([undefined, 8, 3]);
 });

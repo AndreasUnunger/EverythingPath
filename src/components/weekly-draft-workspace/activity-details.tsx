@@ -6,8 +6,6 @@ import {
   actionReferenceOptions,
 } from './activity-input-options';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   stagedActionChoiceSchema,
   rawRollModifiersSchema,
@@ -22,16 +20,11 @@ import type { RollSpecResolver } from './roll-facts';
 import { eventTypeForTableRoll } from '~/lib/rules-event-selection';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from '~/components/ui/form';
 import { WholeNumberField } from './whole-number-field';
+import { ActivityText } from './activity-text';
+import { actionDetail, isPeopleTeamChoice } from './activity-action-detail';
+import { actionFieldEdits } from './activity-action-edits';
+import { ActivityActionFields } from './activity-action-fields';
 import { ChoiceCards } from './choice-cards';
 import {
   choiceFieldLabel as label,
@@ -39,57 +32,6 @@ import {
 } from './structured-choice-field';
 import { activityLabel } from './activity-labels';
 import type { ActivityView } from './types';
-export function ActivityText({
-  name,
-  value,
-  onValue,
-  disabled,
-  required = false,
-}: {
-  name: string;
-  value: string;
-  onValue: (value: string) => void;
-  disabled: boolean;
-  required?: boolean;
-}) {
-  const form = useForm({
-    values: { text: value },
-    resolver: zodResolver(
-      z.object({
-        text: required
-          ? z.string().trim().min(1, 'A reason is required.')
-          : z.string(),
-      }),
-    ),
-    mode: 'onBlur',
-  });
-  return (
-    <Form {...form}>
-      <form
-        noValidate
-        onSubmit={form.handleSubmit(({ text }) => onValue(text))}
-        className="space-y-2"
-      >
-        <FormField
-          control={form.control}
-          name="text"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{name}</FormLabel>
-              <FormControl>
-                <Input {...field} disabled={disabled} />
-              </FormControl>
-              <FormMessage role="alert" />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" variant="outline" disabled={disabled}>
-          Save {name.toLowerCase()}
-        </Button>
-      </form>
-    </Form>
-  );
-}
 // Candidate paths are [index, ...occurrence-relative path]. The candidate's
 // event type is the engine's reading of its current table roll (including
 // modifiers); an incomplete or missing table roll leaves only type-independent
@@ -377,18 +319,31 @@ export function ActivityDetails({
     return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
+  // People and team actions have their own detail editor in the board.
+  const detail = hosted ? actionDetail(view, slot) : null;
   return (
     <div className="space-y-3">
-      <ChoiceFields
-        choice={choice}
-        calculatedCostCopper={slot.calculatedCostCopper}
-        detailError={detailError}
-        view={view}
-        change={change}
-        disabled={disabled}
-        hosted={hosted}
-      />
-      {slot.calculatedCostCopper !== null && (
+      {detail && isPeopleTeamChoice(choice) ? (
+        <ActivityActionFields
+          choice={choice}
+          detail={detail}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={actionFieldEdits(choice, change)}
+          fieldError={detailError}
+        />
+      ) : (
+        <ChoiceFields
+          choice={choice}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          detailError={detailError}
+          view={view}
+          change={change}
+          disabled={disabled}
+          hosted={hosted}
+        />
+      )}
+      {!detail && slot.calculatedCostCopper !== null && (
         <p className="text-sm">
           Calculated cost: {slot.calculatedCostCopper} cp
         </p>
@@ -401,14 +356,16 @@ export function ActivityDetails({
           save={(next) => saveChoice('receipt', next)}
         />
       )}
-      <ChoiceRolls
-        view={view}
-        choice={choice}
-        requirements={slot.requirements}
-        change={change}
-        disabled={disabled}
-        hosted={hosted}
-      />
+      {!detail && (
+        <ChoiceRolls
+          view={view}
+          choice={choice}
+          requirements={slot.requirements}
+          change={change}
+          disabled={disabled}
+          hosted={hosted}
+        />
+      )}
       {check && !hosted && (
         <p className="text-sm">
           Calculated bonus: {check.modifier >= 0 ? '+' : ''}

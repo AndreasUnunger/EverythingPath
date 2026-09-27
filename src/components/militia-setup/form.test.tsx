@@ -1,6 +1,7 @@
 import {
   cleanup,
   fireEvent,
+  isInaccessible,
   render,
   screen,
   waitFor,
@@ -84,6 +85,13 @@ test('a correction keeps the section captions guided Setup drops', () => {
   }
 });
 
+// What `getByRole(role, { name })` asserts about a control found another way.
+function exposed(element: HTMLElement, role: string, name: string) {
+  expect(element).toHaveRole(role);
+  expect(isInaccessible(element)).toBe(false);
+  expect(element).toHaveAccessibleName(name);
+  return element;
+}
 test('a correction keeps mixed legacy and new character kinds and Hit Dice unchanged', async () => {
   const save = vi.fn().mockResolvedValue(undefined);
   const setup = newMilitiaSetup('Loyalty');
@@ -98,7 +106,7 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
       militiaSnapshot: snapshot,
     },
   });
-  render(
+  const { container } = render(
     <MilitiaCorrectionForm
       initialValues={initialValues}
       characters={snapshot.characters.map((facts) => ({
@@ -110,16 +118,26 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
       onSave={save}
     />,
   );
-  const pressed = screen
-    .getAllByRole('group', { name: 'Character kind' })
-    .map((group) =>
-      within(group)
-        .getAllByRole('button')
-        .map(
-          (button) =>
-            `${button.textContent}${button.getAttribute('aria-pressed') === 'true' ? '*' : ''}`,
-        ),
-    );
+  // The full form holds hundreds of buttons and inputs, and a screen-wide
+  // role query computes the accessible name of each. Query the kind groups
+  // inside their section, and find the heading, reason and Save by their
+  // name and text, asserting what a role query would.
+  const people = within(
+    exposed(
+      screen.getByText('Characters and officers', { selector: 'h2' }),
+      'heading',
+      'Characters and officers',
+    ).closest('section')!,
+  );
+  const groups = people.getAllByRole('group', { name: 'Character kind' });
+  const pressed = groups.map((group) =>
+    within(group)
+      .getAllByRole('button')
+      .map(
+        (button) =>
+          `${button.textContent}${button.getAttribute('aria-pressed') === 'true' ? '*' : ''}`,
+      ),
+  );
   expect(pressed).toEqual([
     ['pc*', 'officer npc', 'other npc'],
     ['pc*', 'officer npc', 'other npc'],
@@ -127,9 +145,7 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
     ['pc', 'officer npc', 'other npc*'],
     ['pc', 'officer npc', 'other npc', 'npc*'],
   ]);
-  const vessa = within(
-    screen.getAllByRole('group', { name: 'Character kind' })[4]!,
-  );
+  const vessa = within(groups[4]!);
   fireEvent.click(vessa.getByRole('button', { name: 'pc' }));
   fireEvent.click(vessa.getByRole('button', { name: 'npc' }));
   expect(vessa.getByRole('button', { name: 'npc' })).toHaveAttribute(
@@ -137,10 +153,20 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
     'true',
   );
   fireEvent.change(
-    screen.getByRole('textbox', { name: 'Reason for correction' }),
+    exposed(
+      container.querySelector<HTMLElement>('[name="notes"]')!,
+      'textbox',
+      'Reason for correction',
+    ),
     { target: { value: 'Recorded table reward' } },
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+  fireEvent.click(
+    exposed(
+      screen.getByText('Save correction').closest('button')!,
+      'button',
+      'Save correction',
+    ),
+  );
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   expect(save.mock.calls[0]![0].state.militiaSnapshot.roster).toEqual(
     snapshot.roster,
