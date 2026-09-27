@@ -305,7 +305,10 @@ function economyFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
   ];
 }
 
-function characterEffectFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+function conditionAndBenefitFacts(
+  snapshot: Snapshot,
+  names: ReviewNames,
+): Fact[] {
   const benefits = [
     ...(snapshot.eventBenefits?.skills ?? []),
     ...(snapshot.eventBenefits?.markets ?? []),
@@ -378,7 +381,7 @@ function nextWeekFacts(context: Context, names: ReviewNames): Fact[] {
   ];
 }
 
-function carriedFacts(context: Context, names: ReviewNames): Fact[] {
+function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
   return [
     ...context.carriedEvents.map((event) =>
       fact(
@@ -424,9 +427,9 @@ function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
     ...rosterFacts(snapshot, names),
     ...bonusFacts(snapshot, names),
     ...economyFacts(snapshot, names),
-    ...characterEffectFacts(snapshot, names),
+    ...conditionAndBenefitFacts(snapshot, names),
     ...nextWeekFacts(state.context, names),
-    ...carriedFacts(state.context, names),
+    ...carriedForwardFacts(state.context, names),
   ];
 }
 
@@ -462,14 +465,14 @@ function adjustmentDifference(
 }
 
 type Column = Map<string, Fact> | null;
-function compareFact(fact: Fact, columns: [Column, Column, Column]): ResultRow {
+function compareFact(row: Fact, columns: [Column, Column, Column]): ResultRow {
   const [now, baseline, final] = columns.map((facts) =>
-    cell(facts?.get(fact.key), facts !== null, fact.absent),
+    cell(facts?.get(row.key), facts !== null, row.absent),
   ) as [ResultCell, ResultCell, ResultCell];
   return {
-    key: fact.key,
-    group: fact.group,
-    label: fact.label,
+    key: row.key,
+    group: row.group,
+    label: row.label,
     now,
     baseline,
     final,

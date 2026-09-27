@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { moveAdjustment } from './summary-adjustments';
+import { moveAdjustment } from './adjustment-order';
 
 const adjustment = (adjustmentId: string) => ({
   kind: 'event_end' as const,

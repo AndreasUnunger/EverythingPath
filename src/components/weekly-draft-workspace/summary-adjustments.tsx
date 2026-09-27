@@ -5,6 +5,7 @@ import { tableAdjustmentSchema } from '~/lib/weekly-draft-facts';
 import { Button } from '~/components/ui/button';
 import { ChoiceCards } from './choice-cards';
 import { StructuredChoiceField } from './structured-choice-field';
+import { moveAdjustment } from './adjustment-order';
 import type { PhaseView, WeeklyDraftWorkspace } from './types';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
 type Adjustment = Summary['adjustments'][number];
@@ -37,20 +38,6 @@ function fieldOptions(view: Summary) {
       { value: 'rank', label: 'Rank' },
     ],
   };
-}
-/** The complete ordered list with one adjustment swapped with its neighbour. */
-export function moveAdjustment(
-  adjustments: readonly Adjustment[],
-  index: number,
-  offset: -1 | 1,
-) {
-  const next = [...adjustments];
-  const target = index + offset;
-  const [moved, neighbour] = [next[index], next[target]];
-  if (!moved || !neighbour) return next;
-  next[target] = moved;
-  next[index] = neighbour;
-  return next;
 }
 /**
  * The editor and ordering controls of one staged Table Adjustment; every

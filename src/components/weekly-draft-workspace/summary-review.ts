@@ -413,8 +413,8 @@ function createOutcomes() {
       if (placed.has(ack.acknowledgementId) || !ack.outcome.trim()) return;
       target.notes.push(note(ack, ack.outcome));
     },
-    /** An outcome no consequence owns, kept with its subject's name. */
-    unlinked(ack: Summary['acknowledgements'][number]) {
+    /** Places an outcome no consequence owns, kept with its subject's name. */
+    placeUnlinked(ack: Summary['acknowledgements'][number]) {
       return ack.outcome.trim()
         ? note(ack, `${ack.name}: ${ack.outcome}`)
         : null;
@@ -512,8 +512,6 @@ function recordedOutcomes(
   views: Views,
   phases: Phases | null,
 ): { key: string; acks: readonly PlanAcknowledgement[] }[] {
-  const sabotage = (eventId: string, choiceId: string) =>
-    sabotageSubject({ eventId, choiceId });
   return [
     ...(phases?.event.sabotage ?? []).map((fact) => ({
       key: sabotageSubject(fact),
@@ -539,7 +537,10 @@ function recordedOutcomes(
         ...(occurrence.sabotage
           ? [
               {
-                key: sabotage(occurrence.eventId, occurrence.sabotage.choiceId),
+                key: sabotageSubject({
+                  eventId: occurrence.eventId,
+                  choiceId: occurrence.sabotage.choiceId,
+                }),
                 acks: occurrence.sabotage.acknowledgements ?? [],
               },
             ]
@@ -576,7 +577,7 @@ function placeOutcomes(
       outcomes.place(owner, ack);
       continue;
     }
-    const note = outcomes.unlinked(ack);
+    const note = outcomes.placeUnlinked(ack);
     if (note) review.unassociated.push(note);
   }
 }
