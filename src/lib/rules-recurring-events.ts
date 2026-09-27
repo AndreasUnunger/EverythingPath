@@ -6,7 +6,12 @@ import {
   eventCheck,
   eventDie,
   eventMitigationAttempted,
+  eventOfficerCheckExtras,
 } from './rules-event-checks';
+/** Theft mitigation: the Loyalty DC that keeps 90% of the treasury. */
+export const THEFT_LOYALTY_DC = 20;
+/** Rivalry Twice: the officer's Bluff, Diplomacy or Intimidate DC. */
+export const RIVALRY_OFFICER_DC = 20;
 type Persistent = WeeklyDraft['context']['carriedEvents'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type RecurringEventChange =
@@ -362,7 +367,7 @@ function resolveTheft(context: RecurringEventContext) {
       )
     : null;
   if (attempted && total === null) return true;
-  const retainedPercent = total !== null && total >= 20 ? 90 : 50;
+  const retainedPercent = total !== null && total >= THEFT_LOYALTY_DC ? 90 : 50;
   const before = result.outcome.treasuryCopper;
   result.outcome.treasuryCopper = Math.round((before * retainedPercent) / 100);
   result.plan.push({
@@ -425,28 +430,23 @@ function resolveRivalryOfficerCheck(
   if (input.skillBonus === undefined)
     requireRecurringInput(context, 'skill-bonus');
   if (raw === null || input.skillBonus === undefined) return true;
-  const extras = new Map(
-    (input.roll?.modifiers ?? [])
-      .filter(
-        (modifier) =>
-          !['skill', 'skill-bonus', 'charisma'].includes(modifier.sourceId),
-      )
-      .map((modifier) => [modifier.sourceId, modifier.value]),
-  );
   const total =
     raw +
     input.skillBonus +
-    [...extras.values()].reduce((sum, value) => sum + value, 0);
+    eventOfficerCheckExtras(input.roll).reduce(
+      (sum, extra) => sum + extra.value,
+      0,
+    );
   result.plan.push({
     kind: 'event_officer_check',
     eventId: event.eventId,
     characterId: input.characterId,
     skill: input.skill,
     total,
-    dc: 20,
-    succeeded: total >= 20,
+    dc: RIVALRY_OFFICER_DC,
+    succeeded: total >= RIVALRY_OFFICER_DC,
   });
-  if (total >= 20) {
+  if (total >= RIVALRY_OFFICER_DC) {
     dropRecurringQueues(context);
     if (result.persistentEvents.some((entry) => entry.eventId === firstEventId))
       endRecurringEvent(context, firstEventId);

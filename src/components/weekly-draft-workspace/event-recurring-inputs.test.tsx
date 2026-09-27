@@ -158,8 +158,11 @@ test('[EVT-10.rivalry-officer-view] Rivalry Twice: Attempt it shows the officer 
   fireEvent.click(
     within(twice).getByRole('button', { name: 'Attempt it for Event 1.2' }),
   );
-  // Revealing the check sends nothing.
+  // Revealing the check sends nothing, and the pressed card says so.
   expect(edit).not.toHaveBeenCalled();
+  expect(
+    within(twice).getByRole('button', { name: 'Attempt it for Event 1.2' }),
+  ).toHaveAttribute('aria-pressed', 'true');
   const officer = within(twice).getByRole('group', {
     name: 'Officer check for Event 1.2',
   });
@@ -238,6 +241,10 @@ test('[EVT-10.turncoat-view] Turncoat: the raw loss die, then Twice picks the te
     name: 'Diplomacy check for Event 1.2',
   });
   expect(within(check).getByText('Mandatory')).toBeVisible();
+  // The rules' skill shows before anything is stored.
+  expect(
+    within(check).getByRole('combobox', { name: 'Skill for Event 1.2' }),
+  ).toHaveValue('diplomacy');
   // Diplomacy is the rules' skill, so choosing the officer stores the check.
   fireEvent.click(
     within(check).getByRole('button', { name: 'Nora Vell · Event 1.2' }),

@@ -133,7 +133,7 @@ export function EventOutcomeInputs({
               field,
               // High Morale's own ended events are `event` targets and stay
               // when its unused target kinds are cleared.
-              panel.eventType === 'high_morale' ? ['event'] : [],
+              { targets: panel.eventType === 'high_morale' ? ['event'] : [] },
             ),
           )
         }

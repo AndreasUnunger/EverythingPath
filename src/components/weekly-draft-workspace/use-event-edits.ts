@@ -23,6 +23,11 @@ export type TargetCheckPatch = {
 };
 export type TableModifier = EventBlock['table']['modifiers'][number];
 type OfficerCheck = NonNullable<Occurrence['officerCheck']>;
+// What clearing retained targets or rolls keeps: the ones the event reads.
+export type RetainedKeep = {
+  targets?: readonly Target['kind'][];
+  rolls?: readonly string[];
+};
 export type OfficerCheckPatch = {
   characterId?: string;
   skill?: OfficerCheck['skill'];
@@ -165,14 +170,13 @@ export function useEventEdits(
       },
       /**
        * Clears a recorded input the resolved event does not use. Clearing
-       * `targets` keeps the kinds in `keep` (High Morale's ended events);
-       * clearing `rolls` keeps the named rolls in `keepRolls` (Theft's check).
+       * `targets` or `rolls` keeps the target kinds and named rolls the
+       * event reads (High Morale's ended events, Theft's check).
        */
       clearRetained(
         eventId: string,
         field: EventRetainedField['field'],
-        keep: readonly Target['kind'][] = [],
-        keepRolls: readonly string[] = [],
+        keep: RetainedKeep = {},
       ) {
         const occurrence = current(eventId);
         if (!occurrence) return 'This event is not ready for its roll yet.';
@@ -180,14 +184,14 @@ export function useEventEdits(
         const kept =
           field === 'targets'
             ? (occurrence.targets ?? []).filter((target) =>
-                keep.includes(target.kind),
+                (keep.targets ?? []).includes(target.kind),
               )
             : [];
         const rolls =
           field === 'rolls'
             ? Object.fromEntries(
                 Object.entries(occurrence.rolls ?? {}).filter(([name]) =>
-                  keepRolls.includes(name),
+                  (keep.rolls ?? []).includes(name),
                 ),
               )
             : {};

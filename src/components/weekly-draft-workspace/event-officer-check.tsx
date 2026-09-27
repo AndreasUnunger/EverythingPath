@@ -46,7 +46,8 @@ export function EventOfficerCheck({
   const [error, setError] = useState<string | null>(null);
   const stored = facts.characterId !== null && facts.skill !== null;
   const characterId = facts.characterId ?? pendingCharacter;
-  const skill = facts.skill ?? pendingSkill;
+  // The rules' own skill (Turncoat's Diplomacy) shows until another is chosen.
+  const skill = facts.skill ?? pendingSkill ?? facts.expectedSkill;
 
   // A refused edit stays visible until an accepted edit replaces it.
   function write(patch: OfficerCheckPatch) {

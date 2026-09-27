@@ -106,6 +106,32 @@ export function targetChoice({
   return { label, hint, required, selected, choices, retained };
 }
 
+// A recorded team no longer on the roster, and why it stays.
+export const MISSING_TEAM = {
+  label: 'A team no longer on the roster',
+  reason:
+    'This team is no longer on the roster. Clear it or choose another team.',
+};
+
+/** Every roster team as a card: its type and tier, then `describe`'s notes. */
+export function teamCards(
+  context: EventPanelContext,
+  describe: (team: ActivityTeamFact) => (string | null | undefined)[],
+): EventTargetCard[] {
+  return context.teams.map((team) => ({
+    value: team.teamId,
+    label: team.name,
+    description: [
+      team.typeName && team.tier !== null
+        ? `${team.typeName} · tier ${team.tier}`
+        : team.typeName,
+      ...describe(team),
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  }));
+}
+
 export function teamChoice({
   item,
   context,
@@ -129,23 +155,8 @@ export function teamChoice({
       item.occurrence.targets?.flatMap((target) =>
         target.kind === 'team' ? [target.teamId] : [],
       ) ?? [],
-    choices: context.teams.map((team) => ({
-      value: team.teamId,
-      label: team.name,
-      description: [
-        team.typeName && team.tier !== null
-          ? `${team.typeName} · tier ${team.tier}`
-          : team.typeName,
-        ...describe(team),
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    })),
+    choices: teamCards(context, describe),
     name: (teamId) => teamName(context, teamId),
-    missing: {
-      label: 'A team no longer on the roster',
-      reason:
-        'This team is no longer on the roster. Clear it or choose another team.',
-    },
+    missing: MISSING_TEAM,
   });
 }

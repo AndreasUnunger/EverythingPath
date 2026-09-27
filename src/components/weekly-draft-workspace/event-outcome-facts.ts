@@ -1,4 +1,7 @@
-import { highMoraleEndingCount } from '~/lib/rules-recurring-events';
+import {
+  highMoraleEndingCount,
+  RIVALRY_OFFICER_DC,
+} from '~/lib/rules-recurring-events';
 import {
   uneventfulCarryBlockers,
   type EventDispatch,
@@ -8,11 +11,13 @@ import { invasionChallengeRating } from '~/lib/rules-threat-events';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import {
   codes,
+  eventRank,
   whatHappened,
   type EventPanelContext,
   type EventPanelItem,
 } from './event-panel-context';
 import { eventChange } from './event-messages';
+import { teamName } from './event-target-choice';
 import { eventName } from './event-tree-facts';
 import { orderCarriedEvents, ordinal } from './persistent-sections';
 import { formatGold, plural } from './week-frame/reference-copy';
@@ -171,8 +176,7 @@ function checkGroupLine(group: CheckGroup, draft: WeeklyDraft) {
 }
 
 const teamOr = (context: EventPanelContext, teamId: string) =>
-  context.teams.find((team) => team.teamId === teamId)?.name ??
-  'A team no longer on the roster';
+  teamName(context, teamId) ?? 'A team no longer on the roster';
 
 // What a carried event does each week while it lasts.
 function persistentEffect(event: Carried, context: EventPanelContext) {
@@ -187,7 +191,7 @@ function persistentEffect(event: Carried, context: EventPanelContext) {
       const teams = event.targets.flatMap((target) =>
         target.kind === 'team' ? [teamOr(context, target.teamId)] : [],
       );
-      return `${teams.length ? teams.join(' and ') : 'The two teams'} cannot act in Activity until an officer succeeds at DC 20 Bluff, Diplomacy or Intimidate.`;
+      return `${teams.length ? teams.join(' and ') : 'The two teams'} cannot act in Activity until an officer succeeds at DC ${RIVALRY_OFFICER_DC} Bluff, Diplomacy or Intimidate.`;
     }
     default:
       return null;
@@ -199,12 +203,6 @@ function persistentLine(event: Carried, context: EventPanelContext) {
   const effect = persistentEffect(event, context);
   return `${eventName(event.eventType) ?? 'The event'} becomes persistent from week ${event.startedWeek} (${ordinal(event.order + 1)} that week).${effect ? ` ${effect}` : ''}`;
 }
-
-const officerSkillNames: Record<string, string> = {
-  diplomacy: 'Diplomacy',
-  bluff: 'Bluff',
-  intimidate: 'Intimidate',
-};
 
 // One change as an outcome line, or null when it has none of its own.
 function changeLine(
@@ -237,7 +235,7 @@ function changeLine(
     case 'event_treasury':
       return `Treasury ${change.retainedPercent === 50 ? 'halved' : `loses ${100 - change.retainedPercent}%`}: ${formatGold(change.before)} → ${formatGold(change.after)}.`;
     case 'event_officer_check':
-      return `${context.personName(change.characterId) ?? 'The officer'}’s ${officerSkillNames[change.skill] ?? 'skill'} check: ${change.total} against DC ${change.dc}, ${change.succeeded ? 'success' : 'failure'}.`;
+      return `${context.personName(change.characterId) ?? 'The officer'}’s ${skillNames[change.skill] ?? 'skill'} check: ${change.total} against DC ${change.dc}, ${change.succeeded ? 'success' : 'failure'}.`;
     case 'event_team_loss':
       return `${teamOr(context, change.teamId)} defects and is lost.`;
     default:
@@ -421,8 +419,7 @@ export function outcomePanel(
   const carriedName = carriedNames(context);
   const isCalm =
     eventType === 'all_is_calm' || eventType === 'calm_before_the_storm';
-  const rank =
-    context.activity?.outcome.rank ?? context.projection?.outcome.rank ?? 0;
+  const rank = eventRank(context);
   const lines = outcomeLines(item.changes, context, carriedName);
   const level = item.occurrence.averagePartyLevel ?? null;
   return {

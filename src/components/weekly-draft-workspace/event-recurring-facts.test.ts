@@ -557,7 +557,7 @@ test('[EVT-07.recurring-edits] each field edit saves the whole occurrence with i
     skill: 'diplomacy',
     roll: roll(20, 9),
   });
-  edits.clearRetained('second', 'rolls', [], ['check']);
+  edits.clearRetained('second', 'rolls', { rolls: ['check'] });
   expect(lastOccurrence(edit).rolls).toEqual({ check: roll(20, 5) });
   edits.setLossRoll('second', null);
   expect(lastOccurrence(edit).rolls).toEqual({ check: roll(20, 5) });

@@ -575,7 +575,7 @@ export type EventOfficerCheckFacts = {
 // A same-week persistent decision recorded on the occurrence that became
 // persistent: Persistent resolves it, Event keeps it with its occurrence.
 export type EventSameWeekDecision = {
-  // "Loyalty check · roll 14"
+  // "Check · Loyalty check roll recorded", "Ending · <what happened>"
   value: string;
   // Whether this occurrence's event is persistent this week, so Persistent
   // reads the decision.

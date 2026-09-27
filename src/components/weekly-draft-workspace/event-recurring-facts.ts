@@ -1,10 +1,18 @@
-import { eventMitigationAttempted } from '~/lib/rules-event-checks';
+import {
+  eventMitigationAttempted,
+  eventOfficerCheckExtras,
+} from '~/lib/rules-event-checks';
+import {
+  RIVALRY_OFFICER_DC,
+  THEFT_LOYALTY_DC,
+} from '~/lib/rules-recurring-events';
+import { turncoatDiplomacyDc } from '~/lib/rules-threat-events';
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
-import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { eventCheckFacts } from './event-check-facts';
 import {
   codes,
+  eventRank as rank,
   whatHappened,
   type EventPanelContext,
   type EventPanelItem,
@@ -17,6 +25,8 @@ import {
 } from './event-outcome-facts';
 import {
   firstOccurrence,
+  MISSING_TEAM,
+  teamCards,
   teamChoice,
   teamDescription,
   teamName,
@@ -53,16 +63,6 @@ export function isRecurringFamily(
 ): type is EventRecurringFamily {
   return RECURRING_FAMILIES.includes(type as EventRecurringFamily);
 }
-
-/** Rivalry's officer check DC, any of its three skills. */
-export const RIVALRY_OFFICER_DC = 20;
-/** Theft mitigation: the Loyalty DC that reduces the loss to 10%. */
-export const THEFT_LOYALTY_DC = 20;
-/** Turncoat Twice: the officer's Diplomacy DC is 10 + rank. */
-export const turncoatDiplomacyDc = (rank: number) => 10 + rank;
-
-const rank = (context: EventPanelContext) =>
-  context.activity?.outcome.rank ?? context.projection?.outcome.rank ?? 0;
 
 const acknowledgementHints: Record<EventRecurringFamily, string> = {
   rivalry: 'How the two teams were picked, and what the table made of it.',
@@ -320,7 +320,6 @@ function teamPair(
   ];
   const known = new Set(context.teams.map((team) => team.teamId));
   const selected = recorded.filter((teamId) => known.has(teamId)).slice(0, 2);
-  const describe = teamDescription(context, first);
   const retained: EventRetainedTarget[] = recorded
     .filter((teamId) => !selected.includes(teamId))
     .map((teamId) =>
@@ -331,30 +330,14 @@ function teamPair(
             reason:
               'Only two teams are rivals. Choose them, or clear this one.',
           }
-        : {
-            value: teamId,
-            label: 'A team no longer on the roster',
-            reason:
-              'This team is no longer on the roster. Clear it or choose another team.',
-          },
+        : { value: teamId, ...MISSING_TEAM },
     );
   return {
     label: 'Rival teams',
     hint: first ? `The same two teams as ${first.label}.` : 'Two random teams.',
     required,
     selected,
-    choices: context.teams.map((team) => ({
-      value: team.teamId,
-      label: team.name,
-      description: [
-        team.typeName && team.tier !== null
-          ? `${team.typeName} · tier ${team.tier}`
-          : team.typeName,
-        ...describe(team),
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    })),
+    choices: teamCards(context, teamDescription(context, first)),
     retained,
   };
 }
@@ -391,28 +374,13 @@ type OfficerSpec = {
   result: { success: string; failure: string };
 };
 
-// The entered modifiers the engine adds to the skill bonus: every source
-// but a recorded copy of the skill, its bonus or Charisma, at its latest value.
-function officerExtras(roll: RawRoll | undefined) {
-  const modifiers = roll?.modifiers ?? [];
-  const extras = new Map<string, { value: number; reason: string }>();
-  for (const modifier of modifiers)
-    if (!['skill', 'skill-bonus', 'charisma'].includes(modifier.sourceId))
-      extras.set(modifier.sourceId, {
-        value: modifier.value,
-        reason: modifier.reason,
-      });
-  return [...extras].map(([source, entry]) => ({ source, ...entry }));
-}
-
-function officerCheckFacts(
-  item: Item,
+// The characters offered for an officer check, officers first, and a
+// recorded character the offer does not include, kept until replaced.
+function officerChoices(
   context: EventPanelContext,
-  spec: OfficerSpec,
-): EventOfficerCheckFacts {
-  const { has } = codes(item);
-  const id = item.occurrence.eventId;
-  const input = item.occurrence.officerCheck;
+  officersOnly: boolean,
+  recordedId: string | null,
+) {
   const militia = context.activity?.outcome ?? context.projection?.outcome;
   // A blank recorded name reads as unnamed too.
   const name = (characterId: string) => {
@@ -421,7 +389,7 @@ function officerCheckFacts(
   };
   const candidates = militia ? officerCandidateFacts(militia) : [];
   const characters = candidates
-    .filter((character) => !spec.officersOnly || character.roles.length > 0)
+    .filter((character) => !officersOnly || character.roles.length > 0)
     .map((character) => ({
       value: character.characterId,
       label: name(character.characterId),
@@ -433,82 +401,107 @@ function officerCheckFacts(
       ].join(' · '),
       officer: character.roles.length > 0,
     }))
-    // Officers first, in roster order.
     .sort((a, b) => Number(b.officer) - Number(a.officer));
-  const recordedId = input?.characterId ?? null;
+  if (!recordedId || characters.some((entry) => entry.value === recordedId))
+    return { characters, retainedCharacter: null };
   const isKnown = candidates.some(
     (character) => character.characterId === recordedId,
   );
-  const retainedCharacter: EventRetainedTarget | null =
-    recordedId && !characters.some((entry) => entry.value === recordedId)
-      ? {
-          value: recordedId,
-          label: isKnown ? name(recordedId) : 'Unavailable character',
-          reason: isKnown
-            ? 'Not an officer: only an officer can make this check. Choose an officer.'
-            : 'No longer in the militia. Choose another character.',
-        }
-      : null;
-  const extras = officerExtras(input?.roll);
+  const retainedCharacter: EventRetainedTarget = isKnown
+    ? {
+        value: recordedId,
+        label: name(recordedId),
+        reason:
+          'Not an officer: only an officer can make this check. Choose an officer.',
+      }
+    : {
+        value: recordedId,
+        label: 'Unavailable character',
+        reason: 'No longer in the militia. Choose another character.',
+      };
+  return { characters, retainedCharacter };
+}
+
+// The skill bonus and entered modifiers, as the engine adds them.
+function officerArithmetic(input: Item['occurrence']['officerCheck']) {
   const skillBonus = input?.skillBonus ?? null;
-  const change = item.changes.find(
-    (entry) => entry.kind === 'event_officer_check',
-  );
-  const result = change?.kind === 'event_officer_check' ? change : null;
+  if (skillBonus === null) return { skillBonus, modifier: null, breakdown: [] };
+  const extras = eventOfficerCheckExtras(input?.roll);
+  return {
+    skillBonus,
+    modifier: skillBonus + extras.reduce((sum, extra) => sum + extra.value, 0),
+    breakdown: [
+      { source: 'skill-bonus', label: 'Skill bonus', value: skillBonus },
+      ...extras.map((extra) => ({
+        source: extra.source,
+        label: extra.reason,
+        value: extra.value,
+      })),
+    ],
+  };
+}
+
+// The Rules Exceptions a Turncoat check asks for, named beside it.
+function officerNotes(item: Item, expectedSkill: RivalrySkill | null) {
+  const id = item.occurrence.eventId;
   const warnings = new Set(item.warnings);
-  const notes = [
+  const skill = expectedSkill
+    ? rivalrySkillLabels[expectedSkill]
+    : 'the named skill';
+  return [
     ...(warnings.has(`${id}:officer`)
       ? ['Not an officer: this check needs a Rules Exception, recorded below.']
       : []),
     ...(warnings.has(`${id}:officer-skill`)
-      ? [
-          `Not ${spec.expectedSkill ? rivalrySkillLabels[spec.expectedSkill] : 'the named skill'}: this check needs a Rules Exception, recorded below.`,
-        ]
+      ? [`Not ${skill}: this check needs a Rules Exception, recorded below.`]
       : []),
   ];
+}
+
+function officerCheckFacts(
+  item: Item,
+  context: EventPanelContext,
+  spec: OfficerSpec,
+): EventOfficerCheckFacts {
+  const { has } = codes(item);
+  const input = item.occurrence.officerCheck;
+  const recordedId = input?.characterId ?? null;
+  const arithmetic = officerArithmetic(input);
+  const change = item.changes.find(
+    (entry) => entry.kind === 'event_officer_check',
+  );
+  const result = change?.kind === 'event_officer_check' ? change : null;
+  const notes = officerNotes(item, spec.expectedSkill);
+  const complete = Boolean(input?.roll) && arithmetic.skillBonus !== null;
+  let resultText: string | null = null;
+  if (result)
+    resultText = result.succeeded ? spec.result.success : spec.result.failure;
   return {
     label: spec.label,
     legend: spec.legend,
     mandatory: spec.mandatory,
     dc: result?.dc ?? spec.dc,
     characterId: recordedId,
-    characters,
-    retainedCharacter,
+    ...officerChoices(context, spec.officersOnly, recordedId),
     skill: input?.skill ?? null,
     expectedSkill: spec.expectedSkill,
-    skillBonus,
+    ...arithmetic,
     recorded: input?.roll,
     spec: RULE_ROLL_SPECS.check,
-    modifier:
-      skillBonus === null
-        ? null
-        : skillBonus + extras.reduce((sum, extra) => sum + extra.value, 0),
     total: result?.total ?? null,
-    breakdown:
-      skillBonus === null
-        ? []
-        : [
-            { source: 'skill-bonus', label: 'Skill bonus', value: skillBonus },
-            ...extras.map((extra) => ({
-              source: extra.source,
-              label: extra.reason,
-              value: extra.value,
-            })),
-          ],
     succeeded: result?.succeeded ?? null,
-    resultText: result
-      ? result.succeeded
-        ? spec.result.success
-        : spec.result.failure
-      : null,
+    resultText,
     waiting:
-      !result && input?.roll && skillBonus !== null
+      !result && complete
         ? 'The result follows once this event’s other inputs are in.'
         : null,
     required: {
+      // `officer` is a warning, not a missing input, once a non-officer
+      // waits for its Rules Exception.
       character:
         has('officer-check') ||
-        (has('officer') && !warnings.has(`${id}:officer`)),
+        (has('officer') &&
+          !item.warnings.includes(`${item.occurrence.eventId}:officer`)),
       skillBonus: has('skill-bonus'),
       roll: has(spec.rollCode),
     },

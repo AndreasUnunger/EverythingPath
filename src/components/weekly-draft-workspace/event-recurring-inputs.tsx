@@ -63,8 +63,8 @@ export function EventRecurringInputs({
       {mitigation && (
         <EventMitigationChoice
           subject={subject}
-          value={mitigation.value}
-          explicit={mitigation.explicit}
+          value={attempting ? 'attempted' : mitigation.value}
+          explicit={mitigation.explicit || attempting}
           attemptDescription={mitigation.attemptDescription}
           letDescription={mitigation.letDescription}
           disabled={disabled}
@@ -108,7 +108,7 @@ export function EventRecurringInputs({
           A Loyalty check roll stays on record, unused.
         </EventNote>
       )}
-      {officer && officerShown && (
+      {officerShown && (
         <EventOfficerCheck
           facts={officer}
           subject={subject}
@@ -147,14 +147,7 @@ export function EventRecurringInputs({
         subject={subject}
         disabled={disabled}
         onClear={(field) =>
-          showRefusal(
-            edits.clearRetained(
-              id,
-              field,
-              panel.keep.targets,
-              panel.keep.rolls,
-            ),
-          )
+          showRefusal(edits.clearRetained(id, field, panel.keep))
         }
       />
     </>
