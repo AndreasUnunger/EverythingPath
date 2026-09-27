@@ -43,18 +43,26 @@ function history(week: number, previousWeek: number | null): CanonicalHistory {
     nextWeek: null,
     effectiveRecordId: `effective-${week}`,
     earlierSequence: null,
+    createdAt: 3000,
     audit: [
       {
         recordId: `effective-${week}`,
         sequence: 2,
         provenance: 'historical_correction',
+        createdAt: 3000,
       },
       {
         recordId: `older-${week}`,
         sequence: 1,
         provenance: 'historical_correction',
+        createdAt: 2000,
       },
-      { recordId: `original-${week}`, sequence: 0, provenance: 'confirmation' },
+      {
+        recordId: `original-${week}`,
+        sequence: 0,
+        provenance: 'confirmation',
+        createdAt: 1000,
+      },
     ],
     record: canonicalResolutionRecordSchema.parse({
       recordId: `effective-${week}`,

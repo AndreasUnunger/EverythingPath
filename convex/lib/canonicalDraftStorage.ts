@@ -243,6 +243,15 @@ export async function readResolutionRecord(
   ctx: ReadCtx,
   input: Scope & { recordId: string },
 ) {
+  return (await readResolutionRecordEntry(ctx, input))?.record ?? null;
+}
+
+// The stored document's creation time is query envelope metadata only; it is
+// never written into, or backfilled onto, the immutable record itself.
+export async function readResolutionRecordEntry(
+  ctx: ReadCtx,
+  input: Scope & { recordId: string },
+) {
   const scope = await requireScope(ctx, input);
   const recordId = canonicalResolutionRecordSchema.shape.recordId.parse(
     input.recordId,
@@ -254,7 +263,10 @@ export async function readResolutionRecord(
   if (!row) return null;
   if (row.campaignId !== scope.campaignId || row.militiaId !== scope.militiaId)
     throw new ConvexError('Invalid record reference');
-  return canonicalResolutionRecordSchema.parse(row.record);
+  return {
+    record: canonicalResolutionRecordSchema.parse(row.record),
+    createdAt: row._creationTime,
+  };
 }
 
 // Append-only storage, not Weekly Confirmation or a History Rewrite endpoint.
