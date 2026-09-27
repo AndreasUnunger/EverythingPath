@@ -428,13 +428,25 @@ test('[EVT-07.retained-outcome] inputs a calm, morale or training event does not
   });
   // The event target is High Morale's own and is not listed.
   expect(morale.endings!.selected).toEqual(['one']);
-  // Other panels still get their own forms of these facts.
+  // A High Morale rerolled into War Games keeps its ending, named, and any
+  // Overseer support recorded on the occurrence.
   const games = resourceEventFixture(8);
-  games.draft.event.occurrences[0]!.averagePartyLevel = 3;
+  withCarried(games.draft, [carried('one', 'theft', 39)]);
+  Object.assign(games.draft.event.occurrences[0]!, {
+    averagePartyLevel: 3,
+    targets: [{ kind: 'event', eventId: 'one' }],
+    overseerCharacterId: 'pc',
+  });
   expect(
     panel(facts(games.draft, games.snapshot).view, 'event').retained,
   ).toEqual([
+    { field: 'targets', label: 'Targets', value: 'Theft (since week 39)' },
     { field: 'averagePartyLevel', label: 'Average Party Level', value: '3' },
+    {
+      field: 'overseerCharacterId',
+      label: 'Overseer support',
+      value: 'Wren Ashby',
+    },
   ]);
 });
 

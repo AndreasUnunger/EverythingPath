@@ -504,7 +504,8 @@ export type EventRetainedField = {
     | 'rewards'
     | 'persistent'
     | 'persistentDecision'
-    | 'strategistCharacterId';
+    | 'strategistCharacterId'
+    | 'overseerCharacterId';
   label: string;
   value: string;
 };

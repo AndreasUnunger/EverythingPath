@@ -17,11 +17,8 @@ import { activityView, checkModifierLabel } from './activity-facts';
 import { withoutDuplicateRollCodes } from './roll-requirements';
 import { eventSabotageFacts } from './event-sabotage-facts';
 import { overseerSupportFacts } from './overseer-support-facts';
-import {
-  eventPanel,
-  eventPanelMessage,
-  type EventPanelContext,
-} from './event-target-facts';
+import { eventPanel, eventPanelMessage } from './event-target-facts';
+import type { EventPanelContext } from './event-panel-context';
 import { activityReferenceOptions } from './activity-input-options';
 import { uneventfulCarryText } from './event-outcome-facts';
 import { activityLabel } from './activity-labels';

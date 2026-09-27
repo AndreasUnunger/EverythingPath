@@ -1,5 +1,7 @@
+import { highMoraleEndingCount } from '~/lib/rules-recurring-events';
 import {
   uneventfulCarryBlockers,
+  type EventDispatch,
   type UneventfulCarryBlocker,
 } from '~/lib/rules-event-selection';
 import { invasionChallengeRating } from '~/lib/rules-threat-events';
@@ -13,6 +15,7 @@ import {
 import { eventChange } from './event-messages';
 import { eventName } from './event-tree-facts';
 import { orderCarriedEvents, ordinal } from './persistent-sections';
+import { plural } from './week-frame/reference-copy';
 import type {
   EventEndingChoice,
   EventOutcomeFamily,
@@ -25,7 +28,14 @@ type Item = EventPanelItem;
 type Change = Item['changes'][number];
 type Carried = WeeklyDraft['context']['carriedEvents'][number];
 type Occurrence = Item['occurrence'];
+type Target = NonNullable<Occurrence['targets']>[number];
 type OutcomePanel = Extract<EventPanel, { family: 'outcome' }>;
+type Check = 'loyalty' | 'secrecy' | 'security';
+
+// Upkeep's signed wording. Facts stay free of component modules: the
+// Resolution Preview's browser bundle includes them without React.
+const signed = (value: number) =>
+  value < 0 ? `−${Math.abs(value)}` : `+${value}`;
 
 const OUTCOME_FAMILIES: readonly EventOutcomeFamily[] = [
   'all_is_calm',
@@ -44,23 +54,18 @@ export function isOutcomeFamily(
   return OUTCOME_FAMILIES.includes(type as EventOutcomeFamily);
 }
 
-const signed = (value: number) =>
-  value < 0 ? `−${Math.abs(value)}` : `+${value}`;
-const plural = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? '' : 's'}`;
-
 const carryReasons: Record<UneventfulCarryBlocker, string> = {
   first_week: 'the militia’s first week never counts',
   forced_calm: 'a calm forced by last week’s All Is Calm never counts',
   automatic_events: 'automatic events happen this week',
-  two_events: 'more than one event happens this week',
-  event: 'an event other than All Is Calm happens this week',
+  several_events: 'more than one event happens this week',
+  other_event: 'an event other than All Is Calm happens this week',
 };
 
 /**
  * Whether this week builds next week's uneventful chance bonus, and why not.
- * `carry` is the engine's answer: null until every Event roll and choice is
- * in; the reasons are read from the same rule the engine applies.
+ * The engine's `nextUneventfulCarry` is null until every Event roll and
+ * choice is in; the reasons come from the same rule the engine applies.
  */
 export function uneventfulCarryText(
   context: Pick<EventPanelContext, 'draft' | 'projection'>,
@@ -74,7 +79,7 @@ export function uneventfulCarryText(
   const reasons = uneventfulCarryBlockers({
     firstMilitiaWeek: context.draft.context.firstMilitiaWeek,
     forcedCalm: projection?.forcedCalm ?? false,
-    automaticEvents:
+    hasAutomaticEvents:
       projection?.positions.some((group) => group.kind === 'automatic') ??
       false,
     selected: projection?.selected ?? [],
@@ -84,20 +89,19 @@ export function uneventfulCarryText(
     : 'Not an uneventful week: no chance bonus next week.';
 }
 
-// When a queued effect applies, relative to the open week.
-function inWeek(draft: WeeklyDraft, week: number) {
-  return week === draft.week + 1
-    ? `Next week (week ${week})`
-    : week === draft.week
-      ? `This week (week ${week})`
-      : `Week ${week}`;
+// "Next week (week 41)": when a queued effect or benefit applies.
+function weekPhrase(draft: WeeklyDraft, week: number) {
+  if (week === draft.week + 1) return `Next week (week ${week})`;
+  if (week === draft.week) return `This week (week ${week})`;
+  return `Week ${week}`;
 }
 
-const checkNames = {
+const checkNames: Record<Check, string> = {
   loyalty: 'Loyalty',
   secrecy: 'Secrecy',
   security: 'Security',
 };
+const ALL_CHECKS = Object.keys(checkNames) as Check[];
 const skillNames: Record<string, string> = {
   stealth: 'Stealth',
   knowledge_local: 'Knowledge (local)',
@@ -105,98 +109,234 @@ const skillNames: Record<string, string> = {
   diplomacy: 'Diplomacy',
   intimidate: 'Intimidate',
 };
+const bonusTypeNames: Record<string, string> = {
+  circumstance: 'circumstance',
+  morale: 'morale',
+  untyped: '',
+};
+const multiplied = (value: number) =>
+  value === 2 ? 'doubled' : `multiplied by ${value}`;
+
+// One queued effect other than a check modifier, as an outcome line.
+function queuedLine(
+  change: Extract<Change, { kind: 'event_queue' }>,
+  draft: WeeklyDraft,
+) {
+  const effect = change.effect.effect;
+  const when = weekPhrase(draft, change.effect.startsWeek);
+  switch (effect.kind) {
+    case 'all_is_calm':
+      return `${when} is calm: no event-chance roll and no rolled event, and it does not count as uneventful.`;
+    case 'automatic_events':
+      return `${when}: ${plural(effect.count, 'automatic event')} before the normal Event roll.`;
+    case 'upkeep_loss_multiplier':
+      return `${when}: Upkeep training loss is ${multiplied(effect.value)}.`;
+    case 'activity_training_multiplier':
+      return `${when}: Activity training gain is ${multiplied(effect.value)}.`;
+    default:
+      return eventChange(change);
+  }
+}
+
+// Queued check modifiers of one week and value, read as one line.
+type CheckGroup = {
+  kind: 'checks';
+  week: number;
+  value: number;
+  checks: Check[];
+};
+
+function checkGroupLine(group: CheckGroup, draft: WeeklyDraft) {
+  const names = ALL_CHECKS.every((check) => group.checks.includes(check))
+    ? 'all organization checks'
+    : `${group.checks.map((check) => checkNames[check]).join(', ')} checks`;
+  return `${weekPhrase(draft, group.week)}: ${names} ${signed(group.value)}.`;
+}
+
+// One change as an outcome line, or null when it has none of its own.
+function changeLine(
+  change: Change,
+  draft: WeeklyDraft,
+  carriedName: (eventId: string) => string,
+) {
+  switch (change.kind) {
+    case 'event_acknowledgement':
+      return null;
+    case 'event_training':
+      return `Training ${signed(change.after - change.before)}: ${change.before} → ${change.after}.`;
+    case 'event_end':
+      return `${carriedName(change.endedEventId)} ends now.`;
+    case 'event_encounter':
+      return `The GM runs a combat encounter at CR ${change.challengeRating} (Average Party Level ${change.averagePartyLevel} + 1).`;
+    case 'event_skill_benefit': {
+      const { benefit } = change;
+      const skills = benefit.skills
+        .map((skill) => skillNames[skill] ?? 'a skill')
+        .join(', ');
+      const type = bonusTypeNames[benefit.bonusType] ?? '';
+      return `${weekPhrase(draft, benefit.startsWeek)}: PCs gain ${signed(benefit.value)}${type ? ` ${type}` : ''} on ${skills}${benefit.afterDark ? ' after dark' : ''}.`;
+    }
+    case 'event_queue':
+      return queuedLine(change, draft);
+    default:
+      return eventChange(change);
+  }
+}
 
 /**
  * The occurrence's own changes as outcome lines, in the order the rules made
- * them. Queued check modifiers of one value and week read as one line, and
+ * them. Queued check modifiers of one week and value read as one line, and
  * all three organization checks as "all organization checks".
  */
 function outcomeLines(
   changes: readonly Change[],
-  context: EventPanelContext,
+  draft: WeeklyDraft,
   carriedName: (eventId: string) => string,
 ): string[] {
-  const { draft } = context;
-  const lines: string[] = [];
-  const checkLines = new Map<string, { index: number; checks: string[] }>();
+  const entries: (string | CheckGroup)[] = [];
   for (const change of changes) {
-    switch (change.kind) {
-      case 'event_acknowledgement':
-        break;
-      case 'event_training':
-        lines.push(
-          `Training ${signed(change.after - change.before)}: ${change.before} → ${change.after}.`,
-        );
-        break;
-      case 'event_end':
-        lines.push(`${carriedName(change.endedEventId)} ends now.`);
-        break;
-      case 'event_encounter':
-        lines.push(
-          `The GM runs a combat encounter at CR ${change.challengeRating} (Average Party Level ${change.averagePartyLevel} + 1).`,
-        );
-        break;
-      case 'event_skill_benefit': {
-        const benefit = change.benefit;
-        const skills = benefit.skills
-          .map((skill) => skillNames[skill] ?? skill)
-          .join(', ');
-        lines.push(
-          `${inWeek(draft, benefit.startsWeek)}: PCs gain ${signed(benefit.value)} ${benefit.bonusType} on ${skills}${benefit.afterDark ? ' after dark' : ''}.`,
-        );
-        break;
-      }
-      case 'event_queue': {
-        const queued = change.effect;
-        const effect = queued.effect;
-        const when = inWeek(draft, queued.startsWeek);
-        if (effect.kind === 'check_modifier') {
-          const key = `${queued.startsWeek}:${effect.value}`;
-          const entry = checkLines.get(key);
-          if (entry) entry.checks.push(effect.check);
-          else {
-            checkLines.set(key, {
-              index: lines.length,
-              checks: [effect.check],
-            });
-            lines.push(key);
-          }
-        } else if (effect.kind === 'all_is_calm')
-          lines.push(
-            `${when} is calm: no event-chance roll and no rolled event, and it does not count as uneventful.`,
-          );
-        else if (effect.kind === 'automatic_events')
-          lines.push(
-            `${when}: ${plural(effect.count, 'automatic event')} before the normal Event roll.`,
-          );
-        else if (effect.kind === 'upkeep_loss_multiplier')
-          lines.push(
-            `${when}: Upkeep training loss is ${effect.value === 2 ? 'doubled' : `multiplied by ${effect.value}`}.`,
-          );
-        else if (effect.kind === 'activity_training_multiplier')
-          lines.push(
-            `${when}: Activity training gain is ${effect.value === 2 ? 'doubled' : `multiplied by ${effect.value}`}.`,
-          );
-        else lines.push(eventChange(change));
-        break;
-      }
-      default:
-        lines.push(eventChange(change));
+    if (
+      change.kind === 'event_queue' &&
+      change.effect.effect.kind === 'check_modifier'
+    ) {
+      const { startsWeek: week } = change.effect;
+      const { check, value } = change.effect.effect;
+      const group = entries.find(
+        (entry): entry is CheckGroup =>
+          typeof entry !== 'string' &&
+          entry.week === week &&
+          entry.value === value,
+      );
+      if (group) group.checks.push(check);
+      else entries.push({ kind: 'checks', week, value, checks: [check] });
+      continue;
     }
+    const line = changeLine(change, draft, carriedName);
+    if (line) entries.push(line);
   }
-  for (const [key, entry] of checkLines) {
-    const [week, value] = key.split(':').map(Number) as [number, number];
-    const all = ['loyalty', 'secrecy', 'security'].every((check) =>
-      entry.checks.includes(check),
+  return entries.map((entry) =>
+    typeof entry === 'string' ? entry : checkGroupLine(entry, draft),
+  );
+}
+
+// Where this occurrence sits in the week's resolution order.
+type Resolution = {
+  dispatch: EventDispatch[];
+  // Resolution index of an event; unresolved events sort last.
+  position: (eventId: string) => number;
+  own: number;
+  // The first occurrence of this type when this one is its Twice or a
+  // no-additional-effect duplicate.
+  firstOf: string | null;
+};
+
+function resolution(item: Item, context: EventPanelContext): Resolution {
+  const id = item.occurrence.eventId;
+  const dispatch = context.projection?.dispatch ?? [];
+  const position = (eventId: string) => {
+    const index = dispatch.findIndex(
+      (entry) => entry.event.eventId === eventId,
     );
-    const names = all
-      ? 'all organization checks'
-      : `${entry.checks
-          .map((check) => checkNames[check as keyof typeof checkNames])
-          .join(', ')} checks`;
-    lines[entry.index] = `${inWeek(draft, week)}: ${names} ${signed(value)}.`;
+    return index < 0 ? Number.POSITIVE_INFINITY : index;
+  };
+  const first = dispatch.find(
+    (entry) => entry.event.eventId === id,
+  )?.firstEventId;
+  return {
+    dispatch,
+    position,
+    own: position(id),
+    firstOf:
+      item.mode !== 'base' && item.mode !== null && first && first !== id
+        ? first
+        : null,
+  };
+}
+
+// How a Twice or duplicate relates to its first occurrence, which carries the
+// combined effect the engine records for most families.
+function twiceNotes(
+  item: Item,
+  eventType: EventOutcomeFamily,
+  context: EventPanelContext,
+  { dispatch, firstOf }: Resolution,
+) {
+  const id = item.occurrence.eventId;
+  const notes: string[] = [];
+  if (firstOf) {
+    const label = context.eventLabel(firstOf);
+    notes.push(
+      item.mode === 'no_additional_effect'
+        ? `No additional effect: ${label} already applies this.`
+        : eventType === 'all_is_calm'
+          ? `Twice with ${label}: next week is calm too.`
+          : eventType === 'high_morale'
+            ? `Twice with ${label}: this one ends its own carried events; the combined Loyalty bonus is listed under ${label}.`
+            : `Twice with ${label}: the combined effect is listed under ${label}.`,
+    );
   }
-  return lines;
+  const twins = dispatch.filter(
+    (entry) =>
+      entry.firstEventId === id &&
+      entry.event.eventId !== id &&
+      entry.mode === 'twice',
+  );
+  if (twins.length)
+    notes.push(
+      `Includes the Twice from ${twins.map((entry) => context.eventLabel(entry.event.eventId)).join(', ')}.`,
+    );
+  return notes;
+}
+
+// War Games and Invasion never combine: each occurrence counts on its own.
+function independenceNote(
+  item: Item,
+  eventType: EventOutcomeFamily,
+  context: EventPanelContext,
+  { dispatch, position, own }: Resolution,
+) {
+  if (
+    item.mode !== 'base' ||
+    (eventType !== 'war_games' && eventType !== 'invasion')
+  )
+    return [];
+  const earlier = dispatch.find(
+    (entry) =>
+      entry.event.eventType === eventType &&
+      entry.event.eventId !== item.occurrence.eventId &&
+      position(entry.event.eventId) < own,
+  );
+  if (!earlier) return [];
+  const label = context.eventLabel(earlier.event.eventId);
+  return [
+    eventType === 'war_games'
+      ? `Independent of ${label}: each War Games adds its own training.`
+      : `Independent of ${label}: each Invasion is its own encounter.`,
+  ];
+}
+
+// What happened: required where the engine asks (Invasion, Night Ops),
+// offered on War Games and High Morale. The calm events and the Weeks record
+// no account; one recorded earlier stays editable and clearable.
+const accountHints: Partial<Record<EventOutcomeFamily, string>> = {
+  invasion: 'How the encounter went at the table.',
+  night_ops: 'What the night’s operations achieved.',
+  war_games: 'The table’s outcome, in a sentence.',
+  high_morale: 'The table’s outcome, in a sentence.',
+};
+
+function account(
+  item: Item,
+  eventType: EventOutcomeFamily,
+  context: EventPanelContext,
+) {
+  const hint = accountHints[eventType];
+  const isRecorded = context.draft.acknowledgements.some(
+    (entry) => entry.subjectId === `event:${item.occurrence.eventId}`,
+  );
+  return hint || isRecorded || codes(item).has('acknowledgement')
+    ? whatHappened(item, context, hint ?? 'The table’s outcome, in a sentence.')
+    : null;
 }
 
 /**
@@ -213,121 +353,42 @@ export function outcomePanel(
 ): OutcomePanel {
   const { has } = codes(item);
   const id = item.occurrence.eventId;
-  const dispatch = context.projection?.dispatch ?? [];
-  const position = (eventId: string) => {
-    const index = dispatch.findIndex(
-      (entry) => entry.event.eventId === eventId,
-    );
-    return index < 0 ? Number.POSITIVE_INFINITY : index;
-  };
-  const own = position(id);
-  const first = dispatch.find(
-    (entry) => entry.event.eventId === id,
-  )?.firstEventId;
-  const twiceOf =
-    item.mode !== 'base' && item.mode !== null && first && first !== id
-      ? first
-      : null;
+  const order = resolution(item, context);
   const carriedName = carriedNames(context);
-  const notes: string[] = [];
-  if (twiceOf) {
-    const label = context.eventLabel(twiceOf);
-    if (item.mode === 'no_additional_effect')
-      notes.push(`No additional effect: ${label} already applies this.`);
-    else if (eventType === 'all_is_calm')
-      notes.push(`Twice with ${label}: next week is calm too.`);
-    else if (eventType === 'high_morale')
-      notes.push(
-        `Twice with ${label}: this one ends its own carried events; the combined Loyalty bonus is listed under ${label}.`,
-      );
-    else
-      notes.push(
-        `Twice with ${label}: the combined effect is listed under ${label}.`,
-      );
-  }
-  const twins = dispatch.filter(
-    (entry) =>
-      entry.firstEventId === id &&
-      entry.event.eventId !== id &&
-      entry.mode === 'twice',
-  );
-  if (twins.length)
-    notes.push(
-      `Includes the Twice from ${twins.map((entry) => context.eventLabel(entry.event.eventId)).join(', ')}.`,
-    );
-  // War Games and Invasion never combine: each occurrence counts on its own.
-  const earlier = dispatch.find(
-    (entry) =>
-      entry.event.eventType === eventType &&
-      entry.event.eventId !== id &&
-      position(entry.event.eventId) < own,
-  );
-  if (
-    earlier &&
-    item.mode === 'base' &&
-    (eventType === 'war_games' || eventType === 'invasion')
-  )
-    notes.push(
-      eventType === 'war_games'
-        ? `Independent of ${context.eventLabel(earlier.event.eventId)}: each War Games adds its own training.`
-        : `Independent of ${context.eventLabel(earlier.event.eventId)}: each Invasion is its own encounter.`,
-    );
-  if (eventType === 'all_is_calm' || eventType === 'calm_before_the_storm')
-    notes.push(
-      uneventfulCarryText(context, context.activity?.outcome.rank ?? 0),
-    );
-
-  const outcomes =
-    eventType === 'all_is_calm' && item.mode === 'base'
-      ? [
-          'No event this week.',
-          ...outcomeLines(item.changes, context, carriedName),
-        ]
-      : outcomeLines(item.changes, context, carriedName);
-  const recorded = context.draft.acknowledgements.some(
-    (entry) => entry.subjectId === `event:${id}`,
-  );
-  const accountHint: Partial<Record<EventOutcomeFamily, string>> = {
-    invasion: 'How the encounter went at the table.',
-    night_ops: 'What the night’s operations achieved.',
-    war_games: 'The table’s outcome, in a sentence.',
-    high_morale: 'The table’s outcome, in a sentence.',
-  };
-  // Calm events and the Weeks record no account; one recorded earlier stays
-  // editable and clearable.
-  const hint = accountHint[eventType];
-  const account =
-    hint || recorded || has('acknowledgement')
-      ? whatHappened(
-          item,
-          context,
-          hint ?? 'The table’s outcome, in a sentence.',
-        )
-      : null;
-  const averagePartyLevel = item.occurrence.averagePartyLevel ?? null;
+  const isCalm =
+    eventType === 'all_is_calm' || eventType === 'calm_before_the_storm';
+  const rank =
+    context.activity?.outcome.rank ?? context.projection?.outcome.rank ?? 0;
+  const lines = outcomeLines(item.changes, context.draft, carriedName);
+  const level = item.occurrence.averagePartyLevel ?? null;
   return {
     family: 'outcome',
     eventType,
     endings:
       eventType === 'high_morale'
-        ? endingChoice(item, context, { own, position, first, carriedName })
+        ? endingChoice(item, context, order, carriedName)
         : null,
     partyLevel:
       eventType === 'invasion'
         ? {
-            value: averagePartyLevel,
+            value: level,
             required: has('average-party-level'),
             challengeRating:
-              averagePartyLevel === null
-                ? null
-                : invasionChallengeRating(averagePartyLevel),
+              level === null ? null : invasionChallengeRating(level),
           }
         : null,
-    notes,
-    whatHappened: account,
-    outcomes,
+    notes: [
+      ...twiceNotes(item, eventType, context, order),
+      ...independenceNote(item, eventType, context, order),
+      ...(isCalm ? [uneventfulCarryText(context, rank)] : []),
+    ],
+    whatHappened: account(item, eventType, context),
+    outcomes:
+      eventType === 'all_is_calm' && item.mode === 'base'
+        ? ['No event this week.', ...lines]
+        : lines,
     partial: item.requirements.some((code) => code.startsWith(`${id}:`)),
-    retained: retainedFields(item.occurrence, eventType, context),
+    retained: retainedFields(item.occurrence, eventType, context, carriedName),
   };
 }
 
@@ -350,25 +411,15 @@ function carriedNames(context: EventPanelContext) {
   };
 }
 
-// High Morale ends the carried events still current when it resolves: those
-// carried in, less any Activity or earlier event ended, plus any an earlier
-// event this week made persistent. Without a recorded choice the rules end
-// the oldest; the Twice occurrence ends one more.
-function endingChoice(
+// The carried events still current when this High Morale resolves: those
+// carried in, less any Activity or an earlier event ended, plus any an
+// earlier event this week made persistent, oldest first. `source` names the
+// event that made one persistent this week.
+function currentCarriedEvents(
   item: Item,
   context: EventPanelContext,
-  {
-    own,
-    position,
-    first,
-    carriedName,
-  }: {
-    own: number;
-    position: (eventId: string) => number;
-    first: string | undefined;
-    carriedName: (eventId: string) => string;
-  },
-): EventEndingChoice {
+  { position, own }: Resolution,
+) {
   const id = item.occurrence.eventId;
   const plan = context.projection?.plan ?? [];
   const activityEnded = new Set(context.activity?.endedEventIds ?? []);
@@ -395,26 +446,68 @@ function endingChoice(
       .map((event) => ({ event, source: null })),
     ...created,
   ].filter(({ event }) => !endedEarlier.has(event.eventId));
-  const ordered = orderCarriedEvents(current.map(({ event }) => event));
-  const twice = item.mode === 'twice' && first !== undefined && first !== id;
-  const nominal = twice
-    ? 2 -
-      plan.filter(
-        (change) => change.kind === 'event_end' && change.eventId === first,
+  return orderCarriedEvents(current.map(({ event }) => event)).map(
+    (event) => current.find((entry) => entry.event === event)!,
+  );
+}
+
+function endingHint({
+  current,
+  count,
+  nominal,
+  isChosen,
+}: {
+  current: number;
+  count: number;
+  nominal: number;
+  isChosen: boolean;
+}) {
+  if (!current)
+    return 'No carried persistent event is left to end. The Loyalty bonus still applies.';
+  if (count < nominal)
+    return `Only ${plural(count, 'carried event')} ${count === 1 ? 'is' : 'are'} left to end, not ${nominal}. The Loyalty bonus still applies.`;
+  if (isChosen) return null;
+  return count === 1
+    ? 'The oldest carried event ends unless you choose another.'
+    : `The ${count} oldest carried events end unless you choose others.`;
+}
+
+// High Morale's ending cards. Without a recorded choice the rules end the
+// oldest; the Twice occurrence ends what is left of two.
+function endingChoice(
+  item: Item,
+  context: EventPanelContext,
+  order: Resolution,
+  carriedName: (eventId: string) => string,
+): EventEndingChoice {
+  const current = currentCarriedEvents(item, context, order);
+  const firstOf = order.firstOf;
+  const isTwice = item.mode === 'twice' && firstOf !== null;
+  // Only the first occurrence's endings precede this one in the plan.
+  const endedEarlier = isTwice
+    ? (context.projection?.plan ?? []).filter(
+        (change) => change.kind === 'event_end' && change.eventId === firstOf,
       ).length
-    : 1;
-  const count = Math.max(0, Math.min(nominal, ordered.length));
+    : 0;
+  const nominal = highMoraleEndingCount({
+    twice: isTwice,
+    endedEarlier,
+    current: Number.POSITIVE_INFINITY,
+  });
+  const count = Math.max(
+    0,
+    highMoraleEndingCount({
+      twice: isTwice,
+      endedEarlier,
+      current: current.length,
+    }),
+  );
   const recorded =
     item.occurrence.targets?.flatMap((target) =>
       target.kind === 'event' ? [target.eventId] : [],
     ) ?? [];
-  const chosen = recorded.length > 0;
-  const available = new Set(ordered.map((event) => event.eventId));
-  const selected = chosen
-    ? recorded.filter((eventId) => available.has(eventId))
-    : item.changes.flatMap((change) =>
-        change.kind === 'event_end' ? [change.endedEventId] : [],
-      );
+  const isChosen = recorded.length > 0;
+  const available = new Set(current.map(({ event }) => event.eventId));
   const retained: EventRetainedTarget[] = recorded
     .filter((eventId) => !available.has(eventId))
     .map((eventId) => ({
@@ -422,147 +515,182 @@ function endingChoice(
       label: carriedName(eventId),
       reason: 'It is no longer current when this event resolves. Clear it.',
     }));
-  const oldest =
-    count === 1
-      ? 'The oldest carried event ends'
-      : `The ${count} oldest carried events end`;
   return {
     label:
       count > 1 ? 'Persistent events that end' : 'Persistent event that ends',
-    hint: !ordered.length
-      ? 'No carried persistent event is left to end. The Loyalty bonus still applies.'
-      : count < nominal
-        ? `Only ${plural(count, 'carried event')} ${count === 1 ? 'is' : 'are'} left to end, not ${nominal}. The Loyalty bonus still applies.`
-        : chosen
-          ? null
-          : `${oldest} unless you choose ${count === 1 ? 'another' : 'others'}.`,
+    hint: endingHint({ current: current.length, count, nominal, isChosen }),
     required: codes(item).has('persistent-targets'),
     count,
-    chosen,
-    selected,
-    choices: ordered.map((event) => {
-      const source = current.find(
-        (entry) => entry.event.eventId === event.eventId,
-      )?.source;
-      return {
-        value: event.eventId,
-        label: eventName(event.eventType) ?? 'A carried event',
-        description: source
-          ? `Persistent from ${context.eventLabel(source)}`
-          : `Since week ${event.startedWeek} · ${ordinal(event.order + 1)} that week`,
-      };
-    }),
+    chosen: isChosen,
+    selected: isChosen
+      ? recorded.filter((eventId) => available.has(eventId))
+      : item.changes.flatMap((change) =>
+          change.kind === 'event_end' ? [change.endedEventId] : [],
+        ),
+    choices: current.map(({ event, source }) => ({
+      value: event.eventId,
+      label: eventName(event.eventType) ?? 'A carried event',
+      description: source
+        ? `Persistent from ${context.eventLabel(source)}`
+        : `Since week ${event.startedWeek} · ${ordinal(event.order + 1)} that week`,
+    })),
     retained,
   };
 }
 
 const decisionNames = {
   unattempted: 'Let it happen',
-  mitigate: 'Mitigate',
-  buyoff: 'Buy off',
-  end: 'End',
+  mitigate: 'Check',
+  buyoff: 'Buyoff',
+  end: 'Ending',
 } as const;
+const rollNames: Record<string, string> = {
+  check: 'check',
+  loss: 'loss',
+  notoriety: 'notoriety',
+};
+
+function targetName(
+  target: Target,
+  context: EventPanelContext,
+  carriedName: (eventId: string) => string,
+) {
+  switch (target.kind) {
+    case 'team':
+      return (
+        context.teams.find((team) => team.teamId === target.teamId)?.name ??
+        'A team'
+      );
+    case 'settlement':
+      return context.settlementName(target.settlementId) ?? 'A settlement';
+    case 'character':
+      return context.personName(target.characterId) ?? 'A character';
+    case 'event': {
+      const label = context.eventLabel(target.eventId);
+      // A current-week event has its block label; otherwise a carried one.
+      return label === 'Event' ? carriedName(target.eventId) : label;
+    }
+    case 'item':
+      return 'An item';
+    case 'cache':
+      return 'A cache';
+  }
+}
+
+const personOr = (context: EventPanelContext, characterId: string) =>
+  context.personName(characterId) ?? 'An unnamed character';
+
+// Each field an outcome event never uses: its label and recorded value, or
+// null when nothing is recorded.
+const RETAINED: {
+  field: Exclude<EventRetainedField['field'], 'targets' | 'averagePartyLevel'>;
+  label: string;
+  value: (occurrence: Occurrence, context: EventPanelContext) => string | null;
+}[] = [
+  {
+    field: 'mitigation',
+    label: 'Mitigation',
+    value: ({ mitigation }) =>
+      mitigation === undefined
+        ? null
+        : mitigation === 'attempted'
+          ? 'Attempt it'
+          : 'Let it happen',
+  },
+  {
+    field: 'rolls',
+    label: 'Rolls',
+    value: ({ rolls }) =>
+      rolls && Object.keys(rolls).length
+        ? Object.keys(rolls)
+            .map((name) => `${rollNames[name] ?? 'other'} roll`)
+            .join(', ')
+        : null,
+  },
+  {
+    field: 'officerCheck',
+    label: 'Officer check',
+    value: ({ officerCheck }, context) =>
+      officerCheck ? personOr(context, officerCheck.characterId) : null,
+  },
+  {
+    field: 'targetChecks',
+    label: 'Target checks',
+    value: ({ targetChecks }) =>
+      targetChecks?.length ? plural(targetChecks.length, 'check') : null,
+  },
+  {
+    field: 'rewards',
+    label: 'Rewards',
+    value: ({ rewards }) =>
+      rewards?.length ? rewards.map((reward) => reward.name).join(', ') : null,
+  },
+  {
+    field: 'persistent',
+    label: 'Persistent flag',
+    value: ({ persistent }) =>
+      persistent === undefined
+        ? null
+        : persistent
+          ? 'Persistent'
+          : 'Not persistent',
+  },
+  {
+    field: 'persistentDecision',
+    label: 'Persistent decision',
+    value: ({ persistentDecision }) =>
+      persistentDecision ? decisionNames[persistentDecision.kind] : null,
+  },
+  {
+    field: 'strategistCharacterId',
+    label: 'Strategist',
+    value: ({ strategistCharacterId }, context) =>
+      strategistCharacterId ? personOr(context, strategistCharacterId) : null,
+  },
+  {
+    field: 'overseerCharacterId',
+    label: 'Overseer support',
+    value: ({ overseerCharacterId }, context) =>
+      overseerCharacterId ? personOr(context, overseerCharacterId) : null,
+  },
+];
 
 // Recorded inputs the event does not use, listed so each can be cleared.
 function retainedFields(
   occurrence: Occurrence,
   eventType: EventOutcomeFamily,
   context: EventPanelContext,
+  carriedName: (eventId: string) => string,
 ): EventRetainedField[] {
-  const fields: EventRetainedField[] = [];
   const unusedTargets = (occurrence.targets ?? []).filter(
     (target) => !(eventType === 'high_morale' && target.kind === 'event'),
   );
-  if (unusedTargets.length)
-    fields.push({
-      field: 'targets',
-      label: 'Targets',
-      value: unusedTargets
-        .map((target) => {
-          switch (target.kind) {
-            case 'team':
-              return (
-                context.teams.find((team) => team.teamId === target.teamId)
-                  ?.name ?? 'A team'
-              );
-            case 'settlement':
-              return (
-                context.settlementName(target.settlementId) ?? 'A settlement'
-              );
-            case 'character':
-              return context.personName(target.characterId) ?? 'A character';
-            case 'event':
-              return context.eventLabel(target.eventId);
-            case 'item':
-              return 'An item';
-            case 'cache':
-              return 'A cache';
-          }
-        })
-        .join(', '),
-    });
-  if (eventType !== 'invasion' && occurrence.averagePartyLevel !== undefined)
-    fields.push({
-      field: 'averagePartyLevel',
-      label: 'Average Party Level',
-      value: String(occurrence.averagePartyLevel),
-    });
-  if (occurrence.mitigation)
-    fields.push({
-      field: 'mitigation',
-      label: 'Mitigation',
-      value:
-        occurrence.mitigation === 'attempted' ? 'Attempted' : 'Let it happen',
-    });
-  if (occurrence.rolls && Object.keys(occurrence.rolls).length)
-    fields.push({
-      field: 'rolls',
-      label: 'Rolls',
-      value: Object.keys(occurrence.rolls)
-        .map((name) => `${name} roll`)
-        .join(', '),
-    });
-  if (occurrence.officerCheck)
-    fields.push({
-      field: 'officerCheck',
-      label: 'Officer check',
-      value:
-        context.personName(occurrence.officerCheck.characterId) ??
-        'An unnamed character',
-    });
-  if (occurrence.targetChecks?.length)
-    fields.push({
-      field: 'targetChecks',
-      label: 'Target checks',
-      value: plural(occurrence.targetChecks.length, 'check'),
-    });
-  if (occurrence.rewards?.length)
-    fields.push({
-      field: 'rewards',
-      label: 'Rewards',
-      value: occurrence.rewards.map((reward) => reward.name).join(', '),
-    });
-  if (occurrence.persistent !== undefined)
-    fields.push({
-      field: 'persistent',
-      label: 'Persistent flag',
-      value: occurrence.persistent ? 'Persistent' : 'Not persistent',
-    });
-  if (occurrence.persistentDecision)
-    fields.push({
-      field: 'persistentDecision',
-      label: 'Persistent decision',
-      value: decisionNames[occurrence.persistentDecision.kind],
-    });
-  if (occurrence.strategistCharacterId)
-    fields.push({
-      field: 'strategistCharacterId',
-      label: 'Strategist',
-      value:
-        context.personName(occurrence.strategistCharacterId) ??
-        'An unnamed character',
-    });
-  return fields;
+  return [
+    ...(unusedTargets.length
+      ? [
+          {
+            field: 'targets' as const,
+            label: 'Targets',
+            value: unusedTargets
+              .map((target) => targetName(target, context, carriedName))
+              .join(', '),
+          },
+        ]
+      : []),
+    ...(eventType !== 'invasion' && occurrence.averagePartyLevel !== undefined
+      ? [
+          {
+            field: 'averagePartyLevel' as const,
+            label: 'Average Party Level',
+            value: String(occurrence.averagePartyLevel),
+          },
+        ]
+      : []),
+    ...RETAINED.flatMap(({ field, label, value }) => {
+      const recorded = value(occurrence, context);
+      return recorded === null ? [] : [{ field, label, value: recorded }];
+    }),
+  ];
 }
 
 /**

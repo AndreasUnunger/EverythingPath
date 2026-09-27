@@ -540,5 +540,3 @@ export function eventPanelMessage(
   }
   return null;
 }
-
-export type { EventPanelContext } from './event-panel-context';
