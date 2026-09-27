@@ -37,6 +37,10 @@ export const createCampaign = mutation({
     description: campaignValidator.fields.description,
     organizationId: campaignValidator.fields.organizationId,
   },
+  returns: v.id('campaign'),
+  // The caller selects the returned id; names are not unique, so it never
+  // needs to find the new campaign by name. Callers that ignore the result
+  // keep working.
   async handler(ctx, args) {
     const access = await hasAccessToOrg(ctx, args.organizationId);
 
@@ -44,7 +48,7 @@ export const createCampaign = mutation({
       throw new ConvexError('You do not have access to this org');
     }
 
-    await ctx.db.insert('campaign', {
+    return await ctx.db.insert('campaign', {
       name: args.name,
       ownerId: access.user.tokenIdentifier,
       organizationId: args.organizationId,
@@ -73,6 +77,35 @@ export const updateCampaignInGameDate = mutation({
 
     await ctx.db.patch('campaign', args.campaignId, {
       inGameDate: args.inGameDate,
+    });
+
+    return await ctx.db.get('campaign', args.campaignId);
+  },
+});
+
+// Independent of the in-game date: a header Save sends each changed field
+// through its own mutation, so neither write can undo or overwrite the other.
+// An empty string clears the description.
+export const updateCampaignDescription = mutation({
+  args: {
+    campaignId: v.id('campaign'),
+    organizationId: campaignValidator.fields.organizationId,
+    description: campaignValidator.fields.description,
+  },
+  async handler(ctx, args) {
+    const access = await hasAccessToOrg(ctx, args.organizationId);
+
+    if (!access) {
+      throw new ConvexError('You do not have access to this org');
+    }
+
+    const campaign = await ctx.db.get('campaign', args.campaignId);
+    if (campaign?.organizationId !== args.organizationId) {
+      throw new ConvexError('No campaign exists for this organization');
+    }
+
+    await ctx.db.patch('campaign', args.campaignId, {
+      description: args.description,
     });
 
     return await ctx.db.get('campaign', args.campaignId);
