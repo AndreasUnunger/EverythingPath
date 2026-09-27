@@ -1,5 +1,5 @@
 import { test, expect } from './support/fixtures';
-import { openCampaignSection, pointerPlace } from './support/interactions';
+import { openCampaignSection } from './support/interactions';
 
 test.use({ caseKey: 'realtimeActionSlot' });
 test('players share a Staged Action Choice', async ({ players }) => {
@@ -8,20 +8,22 @@ test('players share a Staged Action Choice', async ({ players }) => {
     await openCampaignSection(page, 'week');
     await page.getByRole('button', { name: 'Activity', exact: true }).click();
   }
-  const card = players.player.getByRole('button', {
-    name: 'Choose Earn Gold',
-    exact: true,
-  });
-  const slot = players.player.locator('[aria-label="Action Slot 1"]');
-  await pointerPlace(players.player, card, slot);
-  await expect(
-    players.gm.locator('[aria-label="Action Slot 1"]'),
-  ).toContainText('Earn Gold');
+  const slot = (page: typeof players.gm) =>
+    page.getByRole('group', { name: 'Action Slot 1', exact: true });
+  await slot(players.player)
+    .getByRole('button', {
+      name: 'Choose an action for Action Slot 1',
+      exact: true,
+    })
+    .tap();
+  await players.player
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Earn Gold', exact: true })
+    .tap();
+  await expect(slot(players.gm)).toContainText('Earn Gold');
   await players.player.reload();
   await players.player
     .getByRole('button', { name: 'Activity', exact: true })
     .click();
-  await expect(
-    players.player.locator('[aria-label="Action Slot 1"]'),
-  ).toContainText('Earn Gold');
+  await expect(slot(players.player)).toContainText('Earn Gold');
 });

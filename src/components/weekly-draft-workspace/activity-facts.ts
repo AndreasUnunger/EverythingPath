@@ -1,80 +1,405 @@
 import { activityLabel } from './activity-labels';
 import { activityOptionFacts } from './activity-option-facts';
+import { activityWarning } from './activity-warnings';
+import { subjectMessage } from './summary-messages';
+import teamTable from '~/lib/militia-team-table';
 import { MILITIA_ACTIVITY_ACTION_IDS } from '~/lib/militia-domain';
+import { actionRestrictions } from '~/lib/rules-action-eligibility';
+import { isTeamUnavailableThisActivity } from '~/lib/rules-action-teams';
+import { activityRollSpec } from '~/lib/rules-roll-spec';
+import { projectSettlements } from '~/lib/rules-settlements';
+import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
+import { recruitedTeamId } from '~/lib/weekly-draft-identities';
+import {
+  actionChoiceRolls,
+  type StagedActionChoice,
+} from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
-import type { ActivityView } from './types';
+import type { ActivityProjection } from '~/lib/rules-activity';
+import type {
+  ActivityAllowance,
+  ActivityBonusChoice,
+  ActivityCheck,
+  ActivityIssue,
+  ActivityRecordedModifier,
+  ActivityTeamFact,
+  ActivityView,
+} from './types';
+
+type Slot = WeeklyDraft['activity']['slots'][number];
+type ProjectedCheck = ActivityProjection['checks'][number];
+// Sources the rules calculate for every check. A recorded modifier naming one
+// of them is never added a second time.
+const automaticLabels: Record<string, string> = {
+  'rank-focus': 'Rank and focus',
+  officers: 'Officers',
+  strategist: 'Strategist',
+  'gather-tier': 'Team tier',
+  'knowledge-rank': 'Militia rank',
+  'overseer-support': 'Overseer support',
+};
+const automaticPrefix = /^(queued|officer|manager|covert):/;
+
+function teamFacts(
+  draft: WeeklyDraft,
+  source: WorkspaceSource,
+  preview: CanonicalResolutionPreview,
+): ActivityTeamFact[] {
+  const roster =
+    preview.phases?.upkeep.outcome.roster.teams ?? source.snapshot.roster.teams;
+  const definition = (teamType: string | null | undefined) =>
+    teamTable.find((entry) => entry.id === teamType);
+  const current: ActivityTeamFact[] = roster.map((team) => ({
+    teamId: team.teamId,
+    name: team.name,
+    teamType: team.teamType,
+    typeName: definition(team.teamType)?.name ?? null,
+    tier: definition(team.teamType)?.tier ?? null,
+    condition: team.status,
+    unavailable: isTeamUnavailableThisActivity(draft, team.teamId),
+    recruitedInSlot: null,
+  }));
+  const recruits = draft.activity.slots.flatMap<ActivityTeamFact>(
+    (slot, index) =>
+      slot.choice?.actionId === 'recruit_team'
+        ? [
+            {
+              teamId: recruitedTeamId(slot.choice.choiceId),
+              name: definition(slot.choice.teamType)?.name ?? 'Recruited team',
+              teamType: slot.choice.teamType ?? null,
+              typeName: definition(slot.choice.teamType)?.name ?? null,
+              tier: definition(slot.choice.teamType)?.tier ?? null,
+              condition: 'active' as const,
+              unavailable: false,
+              recruitedInSlot: index + 1,
+            },
+          ]
+        : [],
+  );
+  return [
+    ...current,
+    ...recruits.filter(
+      (recruit) => !current.some((team) => team.teamId === recruit.teamId),
+    ),
+  ];
+}
+
+function sourceLabel(
+  modifier: string,
+  context: {
+    draft: WeeklyDraft;
+    source: WorkspaceSource;
+    helpfulName: string | null;
+    recorded: { sourceId: string; reason: string }[];
+  },
+) {
+  if (automaticLabels[modifier]) return automaticLabels[modifier];
+  if (modifier === 'helpful')
+    return context.helpfulName ? `Helpful (${context.helpfulName})` : 'Helpful';
+  const [prefix, ...rest] = modifier.split(':');
+  const id = rest.join(':');
+  if (prefix === 'bonus') {
+    const bonus = context.source.snapshot.bonuses.find(
+      (entry) => entry.bonusId === id,
+    );
+    return bonus ? bonus.source : 'Bonus';
+  }
+  if (prefix === 'manager') {
+    const name = context.source.people.find(
+      (person) => person.characterId === id,
+    )?.name;
+    return name ? `Manager ${name}` : 'Team manager';
+  }
+  if (prefix === 'queued') {
+    const effect = context.draft.context.queuedEffects.find(
+      (entry) => entry.sourceId === id || entry.effectId === id,
+    );
+    const carried = context.draft.context.carriedEvents.find(
+      (event) => event.eventId === id,
+    );
+    const eventType = effect?.eventType ?? carried?.eventType;
+    return eventType ? activityLabel(eventType) : 'Carried effect';
+  }
+  if (prefix === 'covert') {
+    const index = context.draft.activity.slots.findIndex(
+      (slot) => slot.choice?.choiceId === id,
+    );
+    return index >= 0
+      ? `Covert Action (Action Slot ${index + 1})`
+      : 'Covert Action';
+  }
+  return (
+    context.recorded.find((entry) => entry.sourceId === modifier)?.reason ??
+    'Table modifier'
+  );
+}
+
+function checkFacts(
+  choice: StagedActionChoice,
+  projected: ProjectedCheck | undefined,
+  label: (source: string) => string,
+): ActivityCheck | null {
+  const spec = activityRollSpec(choice.actionId, 'check');
+  if (!spec) return null;
+  return {
+    spec,
+    organizationCheck: projected?.organizationCheck ?? null,
+    dc: projected?.dc ?? null,
+    modifier: projected?.modifier ?? null,
+    total: projected?.total ?? null,
+    breakdown: (projected?.modifiers ?? []).map((modifier) => ({
+      source: modifier.source,
+      label: label(modifier.source),
+      value: modifier.value,
+    })),
+  };
+}
+
+function recordedModifiers(
+  choice: StagedActionChoice,
+  requirements: string[],
+  projected: ProjectedCheck | undefined,
+  label: (source: string) => string,
+): ActivityRecordedModifier[] {
+  const has = (code: string) =>
+    requirements.includes(`${choice.choiceId}:${code}`);
+  const applied = new Set(projected?.modifiers.map((entry) => entry.source));
+  return (actionChoiceRolls(choice).check?.modifiers ?? []).map(
+    (modifier, index) => {
+      const base = {
+        index,
+        sourceId: modifier.sourceId,
+        value: modifier.value,
+        reason: modifier.reason,
+      };
+      if (modifier.sourceId === 'helpful')
+        return {
+          ...base,
+          kind: 'helpful' as const,
+          label: label('helpful'),
+          warning: has('helpful-ineligible')
+            ? 'Helpful applies only while operating from a Helpful settlement.'
+            : has('helpful-already-used')
+              ? 'Helpful is already used on an earlier check this Activity. Remove one of them.'
+              : null,
+        };
+      if (modifier.sourceId.startsWith('bonus:'))
+        return {
+          ...base,
+          kind: 'bonus' as const,
+          label: label(modifier.sourceId),
+          warning: has(`${modifier.sourceId}:unavailable`)
+            ? 'This bonus is not available for this check.'
+            : null,
+        };
+      if (
+        automaticLabels[modifier.sourceId] ||
+        automaticPrefix.test(modifier.sourceId)
+      )
+        return {
+          ...base,
+          kind: 'automatic' as const,
+          label: label(modifier.sourceId),
+          warning:
+            'The rules calculate this automatically, so this recorded copy is not added again.',
+        };
+      const counted = projected
+        ? applied.has(modifier.sourceId)
+        : modifier.sourceId.startsWith('custom:');
+      return counted
+        ? {
+            ...base,
+            kind: 'custom' as const,
+            label: modifier.reason,
+            warning: null,
+          }
+        : {
+            ...base,
+            kind: 'unknown' as const,
+            label: modifier.reason,
+            warning: projected
+              ? 'This recorded modifier is not applied by the rules.'
+              : null,
+          };
+    },
+  );
+}
+
+function bonusChoices(
+  draft: WeeklyDraft,
+  source: WorkspaceSource,
+  projection: ActivityProjection | undefined,
+  choice: StagedActionChoice,
+  projected: ProjectedCheck | undefined,
+): ActivityBonusChoice[] {
+  const recorded = new Set(
+    (actionChoiceRolls(choice).check?.modifiers ?? []).map(
+      (modifier) => modifier.sourceId,
+    ),
+  );
+  const own = new Set(
+    projected?.modifiers.flatMap((modifier) =>
+      modifier.source.startsWith('bonus:') ? [modifier.source.slice(6)] : [],
+    ),
+  );
+  const used = new Set(
+    (projection?.checkUsage.bonusIds ?? []).filter((id) => !own.has(id)),
+  );
+  const bonuses =
+    projection?.outcome.bonuses.map((bonus) => ({
+      ...bonus,
+      // The projection marks bonuses consumed by this week's own checks.
+      consumedWeek:
+        bonus.consumedWeek === draft.week && own.has(bonus.bonusId)
+          ? null
+          : bonus.consumedWeek,
+    })) ?? source.snapshot.bonuses;
+  return bonuses.flatMap((bonus) =>
+    bonus.availableWeek === draft.week &&
+    bonus.consumedWeek === null &&
+    !used.has(bonus.bonusId) &&
+    !recorded.has(`bonus:${bonus.bonusId}`) &&
+    (bonus.phase === undefined || bonus.phase === 'activity') &&
+    (bonus.teamId === undefined || bonus.teamId === choice.teamId) &&
+    (bonus.check === 'any' ||
+      !projected?.organizationCheck ||
+      bonus.check === projected.organizationCheck)
+      ? [
+          {
+            sourceId: `bonus:${bonus.bonusId}`,
+            label: bonus.source,
+            value: bonus.value,
+          },
+        ]
+      : [],
+  );
+}
+
+function slotIssues(
+  choiceId: string,
+  requirements: string[],
+  warnings: string[],
+): ActivityIssue[] {
+  return [
+    ...requirements.map((code) => ({
+      code,
+      message: subjectMessage(code, choiceId),
+    })),
+    ...warnings
+      .filter((code) => !requirements.includes(`${code}:exception`))
+      .map((code) => ({ code, message: activityWarning(code, choiceId) })),
+  ];
+}
+
+function allowanceFacts(
+  draft: WeeklyDraft,
+  preview: CanonicalResolutionPreview,
+  source: WorkspaceSource,
+): ActivityAllowance {
+  const occupied = draft.activity.slots.filter((slot) => slot.choice).length;
+  const phases = preview.phases;
+  if (!phases)
+    return {
+      occupied,
+      actions: 0,
+      rank: source.snapshot.rank,
+      rankActions: null,
+      strategist: false,
+      changes: [],
+      removalBlocked: 'unknown',
+    };
+  const { allowance, slots } = phases.activity;
+  return {
+    occupied,
+    actions: allowance.actions,
+    rank: allowance.rank,
+    rankActions: allowance.rankActions,
+    strategist: allowance.strategistAssigned,
+    changes: slots.flatMap((slot, index) =>
+      index > 0 && slot.allowance !== slots[index - 1]!.allowance
+        ? [{ slotNumber: index + 1, allowance: slot.allowance }]
+        : [],
+    ),
+    removalBlocked:
+      !phases.upkeep.skipped && !phases.upkeep.ready
+        ? 'upkeep'
+        : allowance.known
+          ? null
+          : 'unknown',
+  };
+}
+
 export function activityView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
 ): ActivityView {
   const projection = preview.phases?.activity;
+  const upkeep = preview.phases?.upkeep;
+  const roster = teamFacts(draft, source, preview);
+  const startSettlements = projectSettlements(
+    upkeep?.outcome.settlements ?? source.snapshot.settlements,
+    draft.week,
+  ).settlements;
+  const operatingId = draft.activity.operatingSettlementId ?? null;
+  const operating = startSettlements.find(
+    (settlement) => settlement.settlementId === operatingId,
+  );
+  const helpfulName =
+    operating?.reputation === 'Helpful' ? operating.name : null;
   return {
     phase: 'activity',
     ready: projection?.ready ?? false,
     occupiedSlots: draft.activity.slots.filter((slot) => slot.choice).length,
-    slots: draft.activity.slots.map((slot) => {
-      const choiceId = slot.choice?.choiceId;
-      const warnings =
-        projection?.warnings.filter((warning) =>
-          warning.startsWith(`${choiceId}:`),
-        ) ?? [];
-      const existing = draft.rulesExceptions.filter(
-        (exception) => exception.subjectId === choiceId,
-      );
-      const ruleIds = new Set([
-        ...existing.map((exception) => exception.ruleId),
-        ...(projection?.requirements ?? [])
-          .filter(
-            (requirement) =>
-              requirement.startsWith(`${choiceId}:`) &&
-              requirement.endsWith(':exception'),
-          )
-          .map((requirement) =>
-            requirement.slice(`${choiceId}:`.length, -':exception'.length),
+    allowance: allowanceFacts(draft, preview, source),
+    slots: draft.activity.slots.map((slot, index) =>
+      slotFacts({
+        draft,
+        source,
+        projection,
+        upkeep,
+        slot,
+        index,
+        roster,
+        helpfulName,
+      }),
+    ),
+    teamRoster: roster,
+    helpful: helpfulName
+      ? {
+          settlementName: helpfulName,
+          usedIn: draft.activity.slots.flatMap((slot, index) =>
+            slot.choice &&
+            actionChoiceRolls(slot.choice).check?.modifiers.some(
+              (modifier) => modifier.sourceId === 'helpful',
+            )
+              ? [{ slotId: slot.slotId, slotNumber: index + 1 }]
+              : [],
           ),
-      ]);
-      return {
-        ...structuredClone(slot),
-        calculatedCostCopper: (projection?.plan ?? []).reduce<number | null>(
-          (cost, change) =>
-            change.kind === 'treasuryCopper' &&
-            change.choiceId === choiceId &&
-            change.after < change.before
-              ? (cost ?? 0) + change.before - change.after
-              : cost,
-          null,
+        }
+      : null,
+    operating: {
+      selected: operatingId,
+      missing:
+        operatingId !== null &&
+        !source.snapshot.settlements.some(
+          (settlement) => settlement.settlementId === operatingId,
         ),
-        strategistBonus:
-          projection?.slots.find((entry) => entry.slotId === slot.slotId)
-            ?.strategistBonus ?? false,
-        overAllowance:
-          projection?.slots.find((entry) => entry.slotId === slot.slotId)
-            ?.overAllowance ?? false,
-        requirements:
-          projection?.requirements.filter(
-            (requirement) =>
-              requirement.startsWith(`${choiceId}:`) ||
-              (slot.choice?.actionId === 'special_order' &&
-                Boolean(slot.choice.orderId) &&
-                requirement.startsWith(`${slot.choice.orderId}:`)),
-          ) ?? [],
-        warnings,
-        exceptions: [...ruleIds]
-          .filter((ruleId) => ruleId !== 'action-capacity')
-          .map((ruleId) => ({
-            exceptionId:
-              existing.find((exception) => exception.ruleId === ruleId)
-                ?.exceptionId ?? `activity:${choiceId}:${ruleId}`,
-            ruleId,
-            reason:
-              existing.find((exception) => exception.ruleId === ruleId)
-                ?.reason ?? '',
-          })),
-      };
-    }),
+      choices: startSettlements.map((settlement) => ({
+        value: settlement.settlementId,
+        label: settlement.name,
+        reputation: settlement.reputation,
+      })),
+    },
+    blockedActions: MILITIA_ACTIVITY_ACTION_IDS.filter(
+      (actionId) =>
+        actionRestrictions(draft, {
+          actionId,
+          choiceId: 'picker',
+        } as StagedActionChoice).length > 0,
+    ),
     actions: MILITIA_ACTIVITY_ACTION_IDS.map((actionId) => ({
       actionId,
       name: activityLabel(actionId),
@@ -91,9 +416,129 @@ export function activityView(
           ?.name ?? 'Unnamed character',
     })),
     startDay: draft.context.startDay,
-    operatingSettlementId: draft.activity.operatingSettlementId ?? null,
+    operatingSettlementId: operatingId,
     checks: projection?.checks ?? [],
     requirements: projection?.requirements ?? [],
     warnings: projection?.warnings ?? [],
+  };
+}
+
+function slotFacts({
+  draft,
+  source,
+  projection,
+  upkeep,
+  slot,
+  index,
+  roster,
+  helpfulName,
+}: {
+  draft: WeeklyDraft;
+  source: WorkspaceSource;
+  projection: ActivityProjection | undefined;
+  upkeep:
+    | NonNullable<CanonicalResolutionPreview['phases']>['upkeep']
+    | undefined;
+  slot: Slot;
+  index: number;
+  roster: ActivityTeamFact[];
+  helpfulName: string | null;
+}): ActivityView['slots'][number] {
+  const choice = slot.choice;
+  const choiceId = choice?.choiceId;
+  const position = projection?.slots[index];
+  const requirements = choice
+    ? [
+        ...new Set(
+          projection?.requirements.filter(
+            (requirement) =>
+              requirement.startsWith(`${choiceId}:`) ||
+              (choice.actionId === 'special_order' &&
+                Boolean(choice.orderId) &&
+                requirement.startsWith(`${choice.orderId}:`)),
+          ) ?? [],
+        ),
+      ]
+    : [];
+  const warnings = choice
+    ? (projection?.warnings.filter((warning) =>
+        warning.startsWith(`${choiceId}:`),
+      ) ?? [])
+    : [];
+  const existing = draft.rulesExceptions.filter(
+    (exception) => exception.subjectId === choiceId,
+  );
+  const ruleIds = new Set([
+    ...existing.map((exception) => exception.ruleId),
+    ...requirements
+      .filter((requirement) => requirement.endsWith(':exception'))
+      .map((requirement) =>
+        requirement.slice(`${choiceId}:`.length, -':exception'.length),
+      ),
+  ]);
+  const projected = choice
+    ? projection?.checks.find((check) => check.checkId === choiceId)
+    : undefined;
+  const recorded = choice
+    ? (actionChoiceRolls(choice).check?.modifiers ?? [])
+    : [];
+  const label = (modifier: string) =>
+    sourceLabel(modifier, { draft, source, helpfulName, recorded });
+  return {
+    ...structuredClone(slot),
+    number: index + 1,
+    actionName: choice ? activityLabel(choice.actionId) : null,
+    overAllowance: position?.overAllowance ?? false,
+    strategistBonus: position?.strategistBonus ?? false,
+    allowance: position?.allowance ?? 0,
+    beyondAllowance: position?.beyondAllowance ?? false,
+    allowanceKnown: position?.allowanceKnown ?? false,
+    status: !choice
+      ? { kind: 'empty' }
+      : requirements.length
+        ? { kind: 'todo', count: requirements.length }
+        : { kind: 'ready' },
+    issues: choiceId ? slotIssues(choiceId, requirements, warnings) : [],
+    warningCount: warnings.length,
+    removable:
+      upkeep !== undefined &&
+      projection !== undefined &&
+      slotRemovalRejectionFrom(draft, upkeep, projection, slot.slotId) === null,
+    team: choice?.teamId
+      ? {
+          teamId: choice.teamId,
+          name:
+            roster.find((team) => team.teamId === choice.teamId)?.name ?? null,
+        }
+      : null,
+    check: choice ? checkFacts(choice, projected, label) : null,
+    modifiers: choice
+      ? recordedModifiers(choice, requirements, projected, label)
+      : [],
+    bonusChoices: choice
+      ? bonusChoices(draft, source, projection, choice, projected)
+      : [],
+    calculatedCostCopper: (projection?.plan ?? []).reduce<number | null>(
+      (cost, change) =>
+        change.kind === 'treasuryCopper' &&
+        change.choiceId === choiceId &&
+        change.after < change.before
+          ? (cost ?? 0) + change.before - change.after
+          : cost,
+      null,
+    ),
+    requirements,
+    warnings,
+    exceptions: [...ruleIds]
+      .filter((ruleId) => ruleId !== 'action-capacity')
+      .map((ruleId) => ({
+        exceptionId:
+          existing.find((exception) => exception.ruleId === ruleId)
+            ?.exceptionId ?? `activity:${choiceId}:${ruleId}`,
+        ruleId,
+        reason:
+          existing.find((exception) => exception.ruleId === ruleId)?.reason ??
+          '',
+      })),
   };
 }

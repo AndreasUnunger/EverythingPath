@@ -83,6 +83,13 @@ export async function persistDraftOperation(
   const base =
     operation.baseRevision === 0 ? row.initialDraft : baseRow?.acceptedDraft;
   if (!base) throw new ConvexError('Unknown base revision');
+  const state = await ctx.db
+    .query('canonicalMilitiaState')
+    .withIndex('by_militiaId', (q) => q.eq('militiaId', key.militiaId))
+    .unique();
+  if (state?.campaignId !== key.campaignId)
+    throw new ConvexError('Canonical source unavailable');
+  const source = militiaSnapshotSchema.parse(state.snapshot);
   let accepted;
   try {
     accepted = acceptDraftOperation(
@@ -90,6 +97,7 @@ export async function persistDraftOperation(
       weeklyDraftDataSchema.parse(base),
       [],
       operation,
+      source,
     );
   } catch (error) {
     throw new ConvexError(
@@ -102,13 +110,6 @@ export async function persistDraftOperation(
     accepted.targets,
     operation.baseRevision,
   );
-  const state = await ctx.db
-    .query('canonicalMilitiaState')
-    .withIndex('by_militiaId', (q) => q.eq('militiaId', key.militiaId))
-    .unique();
-  if (state?.campaignId !== key.campaignId)
-    throw new ConvexError('Canonical source unavailable');
-  const source = militiaSnapshotSchema.parse(state.snapshot);
   if (draftReferenceRequirements(accepted.draft, source, source).length)
     throw new ConvexError('Invalid draft entity reference');
   await ctx.db.patch('canonicalWeeklyDraft', row._id, {

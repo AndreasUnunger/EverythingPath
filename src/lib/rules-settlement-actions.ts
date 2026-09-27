@@ -30,12 +30,14 @@ export type SettlementChange =
       settlementId: string;
       acknowledgement: WeeklyDraft['acknowledgements'][number];
     };
-const teams: Record<Choice['actionId'], readonly (typeof TEAM_IDS)[number][]> =
-  {
-    activate_refuge: ['conspirators', 'scholars', 'spellcasters'],
-    reduce_danger: ['defenders', 'guardians', 'infiltrators', 'specialists'],
-    spread_propaganda: ['propagandists', 'saboteurs', 'spies'],
-  };
+export const settlementActionTeams: Record<
+  Choice['actionId'],
+  readonly (typeof TEAM_IDS)[number][]
+> = {
+  activate_refuge: ['conspirators', 'scholars', 'spellcasters'],
+  reduce_danger: ['defenders', 'guardians', 'infiltrators', 'specialists'],
+  spread_propaganda: ['propagandists', 'saboteurs', 'spies'],
+};
 function change(
   result: ActivityProjection,
   choice: Choice,
@@ -59,7 +61,7 @@ export function resolveSettlementChoice(
     'check' | 'dice' | 'value' | 'exception' | 'spend'
   >,
 ) {
-  if (!(staged.actionId in teams)) return false;
+  if (!(staged.actionId in settlementActionTeams)) return false;
   const choice = staged as Choice;
   const required = (key: string) =>
     result.requirements.push(`${choice.choiceId}:${key}`);
@@ -73,7 +75,7 @@ export function resolveSettlementChoice(
   if (!settlement) required('settlement');
   if (!team || !settlement) return true;
   if (
-    !teams[choice.actionId].includes(team.teamType) &&
+    !settlementActionTeams[choice.actionId].includes(team.teamType) &&
     !helpers.exception(draft, result, choice, 'team-action')
   )
     return true;

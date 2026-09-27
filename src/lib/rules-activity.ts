@@ -18,6 +18,7 @@ import {
   type SettlementChange,
 } from './rules-settlement-actions';
 import { actionRestrictions } from './rules-action-eligibility';
+import { isTeamUnavailableThisActivity } from './rules-action-teams';
 import {
   resolveEconomyChoice,
   prepareEconomy,
@@ -34,7 +35,10 @@ import {
   projectRulesFoundations,
   type FoundationInput,
 } from './rules-foundations';
-import { getMinimumTreasuryForRank } from './militia-progression-rules';
+import {
+  getAdvancementForRank,
+  getMinimumTreasuryForRank,
+} from './militia-progression-rules';
 import { projectOfficers } from './rules-officers';
 import type { CheckUsage } from './rules-checks';
 
@@ -75,15 +79,37 @@ export type ActivityProjection = {
   ready: boolean;
   actionResults: { choiceId: string; succeeded: boolean | null }[];
   slots: (WeeklyDraft['activity']['slots'][number] & {
+    // An occupied slot beyond the allowance; empty slots are never over it.
     overAllowance: boolean;
     strategistBonus: boolean;
+    // The action allowance at this slot's position in the ordered fold, after
+    // every earlier choice (including officer changes) has been applied.
+    allowance: number;
+    // The position lies beyond that allowance, whether or not it is occupied.
+    beyondAllowance: boolean;
+    // False while this position's allowance can still change: the rank has no
+    // table row, an officer lacks character facts, or an earlier officer
+    // change within the allowance is not yet applied.
+    allowanceKnown: boolean;
   })[];
+  // The allowance after every slot, which is what a newly added slot receives.
+  allowance: {
+    rank: number;
+    rankActions: number | null;
+    strategistAssigned: boolean;
+    actions: number;
+    known: boolean;
+  };
   outcome: UpkeepSnapshot;
   endedEventIds: string[];
   plan: ActivityChange[];
   requirements: string[];
   warnings: string[];
-  checks: ReturnType<typeof projectRulesFoundations>['checks'];
+  // Activity checks also name their organization check and DC for display.
+  checks: (ReturnType<typeof projectRulesFoundations>['checks'][number] & {
+    organizationCheck?: OrganizationCheck;
+    dc?: number;
+  })[];
   checkUsage: CheckUsage;
   teamUse: { usedTeamIds: string[]; upgradedTeamIds: string[] };
 };
@@ -206,7 +232,13 @@ function check(
     projected.modifier += actionModifier.value;
     if (projected.total !== null) projected.total += actionModifier.value;
   }
-  result.checks.push(...facts.checks);
+  result.checks.push(
+    ...facts.checks.map((entry) => ({
+      ...entry,
+      organizationCheck,
+      ...(dc === undefined ? {} : { dc }),
+    })),
+  );
   result.checkUsage = facts.checkUsage;
   result.requirements.push(
     ...facts.requirements.filter(
@@ -664,22 +696,7 @@ function assignedTeam(
     return false;
   }
   let eligible = true;
-  if (
-    draft.context.queuedEffects.some(
-      (effect) =>
-        effect.startsWeek <= draft.week &&
-        draft.week <= effect.endsWeek &&
-        effect.effect.kind === 'team_unavailable' &&
-        effect.effect.teamId === team.teamId,
-    ) ||
-    draft.context.carriedEvents.some(
-      (event) =>
-        event.eventType === 'rivalry' &&
-        event.targets.some(
-          (target) => target.kind === 'team' && target.teamId === team.teamId,
-        ),
-    )
-  )
+  if (isTeamUnavailableThisActivity(draft, team.teamId))
     eligible = exception(draft, result, choice, 'team-unavailable') && eligible;
   if (team.status !== 'active')
     eligible = exception(draft, result, choice, 'team-condition') && eligible;
@@ -760,6 +777,12 @@ function resolveChoice(
       result.requirements.push(`${choice.choiceId}:unresolved-action`);
   }
 }
+function isAllowanceKnown(facts: ReturnType<typeof activityFoundations>) {
+  return !facts.requirements.some(
+    (requirement) =>
+      requirement === 'rank' || requirement.startsWith('officer:'),
+  );
+}
 function drillEligible(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -831,21 +854,51 @@ export function projectActivity(
       overseerCharacterId: null,
     },
     teamUse: { usedTeamIds: [], upgradedTeamIds: [] },
+    allowance: {
+      rank: snapshot.rank,
+      rankActions: null,
+      strategistAssigned: false,
+      actions: 0,
+      known: false,
+    },
   };
   prepareEconomy(draft, result);
   let drills = 0;
+  // An officer change within the allowance that is not applied (missing
+  // facts, a pending exception) could still add or remove the Strategist's
+  // action, so every later position's allowance stays unknown.
+  let officersSettled = true;
+  let officerChange: string | null = null;
+  const settleOfficerChange = () => {
+    if (
+      officerChange &&
+      !result.plan.some(
+        (change) =>
+          change.kind === 'officers' && change.choiceId === officerChange,
+      )
+    )
+      officersSettled = false;
+    officerChange = null;
+  };
   for (const [index, slot] of draft.activity.slots.entries()) {
+    settleOfficerChange();
     const choice = slot.choice;
     const facts = activityFoundations(draft, result);
-    const overAllowance = index >= facts.capacity.actions && choice !== null;
+    const beyondAllowance = index >= facts.capacity.actions;
+    const overAllowance = beyondAllowance && choice !== null;
     result.slots.push({
       ...structuredClone(slot),
       overAllowance,
       strategistBonus:
         facts.officers.strategistAssigned &&
         index === facts.capacity.actions - 1,
+      allowance: facts.capacity.actions,
+      beyondAllowance,
+      allowanceKnown: officersSettled && isAllowanceKnown(facts),
     });
     if (!choice) continue;
+    if (choice.actionId === 'change_officer_role' && !overAllowance)
+      officerChange = choice.choiceId;
     let eligible = true;
     if (overAllowance) {
       result.requirements.push(`${choice.choiceId}:action-capacity`);
@@ -864,6 +917,15 @@ export function projectActivity(
     resolveChoice(draft, result, choice);
     finishCovertAction(result, choice, planStart, requirementStart);
   }
+  settleOfficerChange();
+  const final = activityFoundations(draft, result);
+  result.allowance = {
+    rank: result.outcome.rank,
+    rankActions: getAdvancementForRank(result.outcome.rank)?.actions ?? null,
+    strategistAssigned: final.officers.strategistAssigned,
+    actions: final.capacity.actions,
+    known: officersSettled && isAllowanceKnown(final),
+  };
   validateRecruitmentCapacity(draft, result);
   receiveEconomyOrders(draft, result);
   consumeBonuses(draft, result);

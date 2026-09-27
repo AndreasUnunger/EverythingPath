@@ -94,30 +94,6 @@ export function actionSlot(page: Page, number: number) {
   });
 }
 
-export async function pointerPlace(page: Page, card: Locator, slot: Locator) {
-  await card.scrollIntoViewIfNeeded();
-  await expect(card).toBeVisible();
-  const origin = await card.boundingBox();
-  if (!origin) throw new Error('Action Choice has no visible drag handle');
-  await page.mouse.move(
-    origin.x + origin.width / 2,
-    origin.y + Math.min(20, origin.height / 2),
-  );
-  await page.mouse.down();
-  try {
-    await slot.scrollIntoViewIfNeeded();
-    const target = await slot.boundingBox();
-    if (!target) throw new Error('Action Slot is not visible');
-    await page.mouse.move(
-      target.x + target.width / 2,
-      target.y + target.height / 2,
-      { steps: 12 },
-    );
-  } finally {
-    await page.mouse.up();
-  }
-}
-
 export async function visiblePlace(
   page: Page,
   action: string,

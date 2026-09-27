@@ -112,6 +112,14 @@ function usePhaseAddress(
     onPhaseChange?.(next);
   };
 }
+// The store's current Activity facts, read after an awaited edit so a
+// follow-up edit starts from the newest accepted and pending choices.
+function latestActivity(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' && current.phaseView.phase === 'activity'
+    ? current.phaseView
+    : null;
+}
 // The one save/confirmation status with the other-player note beside it and
 // the phone-only details button. Inside the campaign shell it fills the
 // top-bar position; the standalone screen shows the same elements in the
@@ -223,7 +231,15 @@ export function WeeklyWorkspaceBoard({
             }
           />
         ) : view.phase === 'activity' ? (
-          <ActivityView view={view} edit={workspace.edit} disabled={disabled} />
+          <ActivityView
+            view={view}
+            edit={workspace.edit}
+            disabled={disabled}
+            latest={() => latestActivity(controller?.store)}
+            correctionsHref={
+              campaignId ? campaignPath(campaignId, 'militia') : undefined
+            }
+          />
         ) : view.phase === 'event' ? (
           <EventView view={view} edit={workspace.edit} disabled={disabled} />
         ) : view.phase === 'persistent' ? (

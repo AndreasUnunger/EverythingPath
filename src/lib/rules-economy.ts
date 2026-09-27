@@ -59,7 +59,7 @@ export type ActivityHelpers = {
   ): boolean;
   naturalOne(result: Result, choice: Choice): void;
 };
-const allowedTeams: Record<
+export const economyActionTeams: Record<
   EconomyChoice['actionId'],
   readonly (typeof TEAM_IDS)[number][]
 > = {
@@ -150,7 +150,7 @@ function team(
     return null;
   }
   if (
-    !allowedTeams[choice.actionId].includes(assigned.teamType) &&
+    !economyActionTeams[choice.actionId].includes(assigned.teamType) &&
     !helpers.exception(draft, result, choice, 'team-action')
   )
     return null;
@@ -559,7 +559,7 @@ export function resolveEconomyChoice(
   choice: Choice,
   helpers: ActivityHelpers,
 ) {
-  if (!(choice.actionId in allowedTeams)) return false;
+  if (!(choice.actionId in economyActionTeams)) return false;
   const economyChoice = choice as EconomyChoice;
   const assigned = team(draft, result, economyChoice, helpers);
   if (!assigned) return true;

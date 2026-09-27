@@ -7,11 +7,16 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
-import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
+import { afterEach, expect, test } from 'vitest';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
+import {
+  activityFacts,
+  activitySlot,
+  acceptingEdit,
+  selectSlot,
+} from './activity-view-fixture';
 afterEach(cleanup);
 // react-hook-form runs the submit callback asynchronously; a blocked Save is
 // only proven after that callback has had its turn.
@@ -38,40 +43,7 @@ const legacyCheck: RawRoll = {
   modifiers: [],
 };
 function facts(choice: StagedActionChoice, requirements: string[] = []): Facts {
-  return {
-    phase: 'activity',
-    ready: false,
-    occupiedSlots: 1,
-    slots: [
-      {
-        slotId: 'one',
-        choice,
-        overAllowance: false,
-        strategistBonus: false,
-        calculatedCostCopper: null,
-        requirements,
-        warnings: [],
-        exceptions: [],
-      },
-    ],
-    actions: [],
-    items: [],
-    caches: [],
-    events: [],
-    bonuses: [],
-    startDay: 21,
-    automaticSources: [],
-    modifierSources: [
-      { value: 'helpful', label: 'Helpful settlement support' },
-    ],
-    teams: [],
-    settlements: [],
-    people: [],
-    operatingSettlementId: null,
-    checks: [],
-    requirements: [],
-    warnings: [],
-  };
+  return activityFacts([activitySlot(choice, { requirements })]);
 }
 const drill = (
   rolls: Extract<StagedActionChoice, { actionId: 'drill_militia' }>['rolls'],
@@ -82,19 +54,17 @@ const drill = (
   rolls,
 });
 function open(action = 'Drill Militia') {
-  screen
-    .getByText(`Edit ${action} details`)
-    .parentElement!.setAttribute('open', '');
+  selectSlot(action);
 }
 const textbox = (name: string) => screen.getByRole('textbox', { name });
-function lastChoice(edit: ReturnType<typeof vi.fn>) {
-  const call = edit.mock.lastCall![0] as WeeklyDraftEdit;
+function lastChoice(edit: ReturnType<typeof acceptingEdit>) {
+  const call = edit.mock.lastCall![0];
   if (call.kind !== 'detail') throw new Error('Expected detail edit');
   return call.choice;
 }
 
 test('[rules.ACT-12.total] Drill training (2d6) shows a recorded total in its one field, writes a replacement against the rule spec and blanks to the existing rolls omission', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(drill({ check: legacyCheck, training: total(6, 2, 9) }))}
@@ -120,7 +90,7 @@ test('[rules.ACT-12.total] Drill training (2d6) shows a recorded total in its on
 test('[rules.ACT-13.legacy-check] a complete legacy check shows its value without a write and a new number preserves its metadata in the total form', () => {
   const generated = { kind: 'generated' as const, sourceId: 'roller' };
   const modifiers = [{ sourceId: 'helpful', value: 2, reason: 'Allies' }];
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
@@ -148,7 +118,7 @@ test('[rules.ACT-13.legacy-check] a complete legacy check shows its value withou
 });
 
 test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserves its numeric representation exactly', async () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(drill({ check: total(20, 1, 0) }))}
@@ -159,16 +129,12 @@ test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserve
   open();
   expect(textbox('Check roll')).toHaveValue('0');
   expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
-  fireEvent.click(screen.getByText('Check sources and modifiers'));
-  fireEvent.click(screen.getByRole('button', { name: 'Add modifiers entry' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Custom table modifier' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
   fireEvent.change(textbox('Value'), { target: { value: '2' } });
   fireEvent.change(textbox('Reason'), {
     target: { value: 'Favourable weather' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save modifiers' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
   await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
   const choice = lastChoice(edit);
   if (choice.actionId !== 'drill_militia') throw new Error('Expected Drill');
@@ -186,7 +152,7 @@ test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserve
 });
 
 test('[rules.ACT-12.modifier-only-legacy] a modifier-only edit keeps a legacy array in its legacy form', async () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(drill({ check: legacyCheck }))}
@@ -195,25 +161,27 @@ test('[rules.ACT-12.modifier-only-legacy] a modifier-only edit keeps a legacy ar
     />,
   );
   open();
-  fireEvent.click(screen.getByText('Check sources and modifiers'));
-  fireEvent.click(screen.getByRole('button', { name: 'Add modifiers entry' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Helpful settlement support' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
   fireEvent.change(textbox('Value'), { target: { value: '1' } });
   fireEvent.change(textbox('Reason'), { target: { value: 'Allies' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save modifiers' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
   await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
   const choice = lastChoice(edit);
   if (choice.actionId !== 'drill_militia') throw new Error('Expected Drill');
   expect(choice.rolls?.check).toEqual({
     ...legacyCheck,
-    modifiers: [{ sourceId: 'helpful', value: 1, reason: 'Allies' }],
+    modifiers: [
+      {
+        sourceId: expect.stringMatching(/^custom:/),
+        value: 1,
+        reason: 'Allies',
+      },
+    ],
   });
 });
 
 test('[rules.ACT-12.wrong-count] a total recorded for another specification stays required, explains the mismatch and is replaced only by a deliberate total', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(drill({ check: legacyCheck, training: total(6, 1, 4) }), [
@@ -238,7 +206,7 @@ test('[rules.ACT-12.wrong-count] a total recorded for another specification stay
 });
 
 test('[rules.ACT-12.partial] a partial legacy training array keeps its recorded die, an empty required total, and an explicit clear', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
@@ -262,7 +230,7 @@ test('[rules.ACT-12.partial] a partial legacy training array keeps its recorded 
 });
 
 test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriety is 1d4, and roll-less actions render no roll field', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   const { rerender } = render(
     <ActivityView
       view={facts(
@@ -336,7 +304,7 @@ function candidateEntries() {
 }
 
 test('[rules.EVT-07.candidate-context] a saved candidate with a known table roll keeps its nested total editors in the Activity editor, while an unresolved one offers only its table roll', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
@@ -372,7 +340,7 @@ test('[rules.EVT-07.candidate-context] a saved candidate with a known table roll
 });
 
 test('[rules.EVT-07.candidate-live-context] an unsaved table roll change re-resolves the candidate’s nested specifications immediately, and an explicit eventType never overrides the table', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
@@ -427,7 +395,7 @@ test('[rules.EVT-07.candidate-live-context] an unsaved table roll change re-reso
 });
 
 test('[rules.EVT-07.candidate-removal] removing the first candidate keeps the survivor’s own table-roll context, not the removed entry’s', () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
@@ -464,7 +432,7 @@ test('[rules.EVT-07.candidate-removal] removing the first candidate keeps the su
 });
 
 test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no longer blocks Save once the table roll changes to an event without that check, while another still-editable malformed field keeps blocking', async () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
@@ -539,7 +507,7 @@ test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no lo
 });
 
 test('[rules.EVT-11.invalid-spec-cleared] clearing the table roll of a candidate with a malformed check leaves the check unresolved and releases its block', async () => {
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(

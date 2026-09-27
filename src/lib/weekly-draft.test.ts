@@ -686,3 +686,36 @@ test('focused Upkeep edits preserve other facts and distinguish zero from an exp
   });
   expect(clear.ok && clear.draft.upkeep.rolls.check).toBeUndefined();
 });
+
+test('[rules.ACT-19.reducer] remove_slot drops only the identified empty slot and later slots keep their identities and choices', () => {
+  let draft = fresh();
+  draft = accepted(draft, {
+    kind: 'stage',
+    slotId: 'extra',
+    choice: { choiceId: 'gold', actionId: 'earn_gold', costCopper: 0 },
+  });
+  const removed = editWeeklyDraft(draft, {
+    kind: 'remove_slot',
+    slotId: 'right',
+  });
+  if (!removed.ok) throw new Error(removed.error);
+  expect(removed.draft.revision).toBe(draft.revision + 1);
+  expect(removed.draft.activity.slots).toEqual([
+    { slotId: 'left', choice: null },
+    {
+      slotId: 'extra',
+      choice: { choiceId: 'gold', actionId: 'earn_gold', costCopper: 0 },
+    },
+  ]);
+  expect(
+    editWeeklyDraft(draft, { kind: 'remove_slot', slotId: 'extra' }),
+  ).toEqual({ ok: false, error: 'occupied_slot' });
+  expect(
+    editWeeklyDraft(removed.draft, { kind: 'remove_slot', slotId: 'right' }),
+  ).toEqual({ ok: false, error: 'unknown_slot' });
+  expect(draft.activity.slots).toHaveLength(3);
+  expect(
+    weeklyDraftEditSchema.safeParse({ kind: 'remove_slot', slotId: ' ' })
+      .success,
+  ).toBe(false);
+});

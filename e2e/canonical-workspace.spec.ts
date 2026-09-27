@@ -678,10 +678,22 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await expect(
       player.getByRole('button', { name: 'Confirm week', exact: true }),
     ).toBeEnabled();
+    // A Confirmation arriving while another player's action picker is open
+    // closes it with the week; nothing is placed in either week.
+    await gm.getByRole('button', { name: 'Activity', exact: true }).click();
+    await gm
+      .getByRole('button', {
+        name: 'Choose an action for Action Slot 1',
+        exact: true,
+      })
+      .click();
+    await expect(gm.getByRole('dialog')).toBeVisible();
     await player
       .getByRole('button', { name: 'Confirm week', exact: true })
       .click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+    await expect(gm.getByRole('dialog')).toHaveCount(0);
+    await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     const committed = confirmationInspectionSchema.parse(
       await canonicalPersistenceFixtureCall(run, 'inspect', {
         ...choicesScope,

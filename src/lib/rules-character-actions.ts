@@ -17,20 +17,22 @@ type Choice = Extract<
       | 'special';
   }
 >;
-const teams: Record<Choice['actionId'], readonly (typeof TEAM_IDS)[number][]> =
-  {
-    rescue_character: ['infiltrators', 'guardians', 'specialists'],
-    restore_character: ['spellcasters'],
-    gather_information: [
-      'informants',
-      'conspirators',
-      'scholars',
-      'spellcasters',
-    ],
-    knowledge_check: ['scholars'],
-    strike_team: ['specialists'],
-    special: [],
-  };
+export const characterActionTeams: Record<
+  Choice['actionId'],
+  readonly (typeof TEAM_IDS)[number][]
+> = {
+  rescue_character: ['infiltrators', 'guardians', 'specialists'],
+  restore_character: ['spellcasters'],
+  gather_information: [
+    'informants',
+    'conspirators',
+    'scholars',
+    'spellcasters',
+  ],
+  knowledge_check: ['scholars'],
+  strike_team: ['specialists'],
+  special: [],
+};
 const scrollCosts = {
   break_enchantment: 112500,
   raise_dead: 612500,
@@ -57,7 +59,7 @@ export function resolveCharacterChoice(
   staged: StagedActionChoice,
   helpers: ActivityHelpers,
 ) {
-  if (!(staged.actionId in teams)) return false;
+  if (!(staged.actionId in characterActionTeams)) return false;
   const choice = staged as Choice;
   const required = (key: string) =>
     result.requirements.push(`${choice.choiceId}:${key}`);
@@ -72,7 +74,7 @@ export function resolveCharacterChoice(
       return true;
     }
     if (
-      !teams[choice.actionId].includes(team.teamType) &&
+      !characterActionTeams[choice.actionId].includes(team.teamType) &&
       !exception('team-action')
     )
       return true;

@@ -1,6 +1,9 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
-type Summary = Extract<PhaseView, { phase: 'summary' }>;
+type Summary = Pick<
+  Extract<PhaseView, { phase: 'summary' }>,
+  'adjustments' | 'options'
+>;
 const messages: Record<string, string> = {
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
   'upkeep:attrition-training:roll': 'Enter the attrition training roll.',
@@ -143,4 +146,21 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
   const translated = eventRequirement(code);
   if (!translated.startsWith('An earlier')) return prefix + translated;
   return `${prefix}Complete the highlighted decision in the affected phase before confirming.`;
+}
+
+// The same message for one subject's own code, without the owner prefix that
+// the phase-wide lists add (for example inside that Action Slot's details).
+export function subjectMessage(
+  code: string,
+  subjectId: string,
+  warning = false,
+) {
+  return summaryMessage(
+    code,
+    {
+      adjustments: [],
+      options: { subjectId: [{ value: subjectId, label: '' }] },
+    },
+    warning,
+  ).replace(/^: /, '');
 }

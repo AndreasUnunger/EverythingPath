@@ -1109,3 +1109,87 @@ test('public edits reject unsupported roll fields across action and nested conte
     expect(await member.query(observe, key)).toEqual(before);
   }
 });
+
+test('[rules.ACT-19.server] remove_slot checks the latest draft and current source allowance, replays by identity and refuses other scopes', async () => {
+  const { t, key, member, operation, send } = await setup();
+  const removal = operation(0, 'remove-extra', {
+    kind: 'remove_slot',
+    slotId: 'extra',
+  });
+  // Outsiders, anonymous callers and mismatched campaigns never reach the
+  // allowance check and leave no operation receipt behind.
+  const outsider = t.withIdentity({ tokenIdentifier: 'outsider' });
+  await expect(
+    outsider.mutation(edit, {
+      campaignId: key.campaignId,
+      militiaId: key.militiaId,
+      operation: removal,
+    }),
+  ).rejects.toThrow('Campaign access');
+  await expect(
+    t.mutation(edit, {
+      campaignId: key.campaignId,
+      militiaId: key.militiaId,
+      operation: removal,
+    }),
+  ).rejects.toThrow('Campaign access');
+  const foreignCampaign = await t.run((ctx) =>
+    ctx.db.insert('campaign', {
+      name: 'Other',
+      ownerId: 'other',
+      organizationId: 'foreign',
+      description: '',
+    }),
+  );
+  await expect(
+    member.mutation(edit, {
+      campaignId: foreignCampaign,
+      militiaId: key.militiaId,
+      operation: removal,
+    }),
+  ).rejects.toThrow();
+  expect((await member.query(observe, key)).revision).toBe(0);
+  // Rank 1 allows one action; the first militia week has no Upkeep.
+  await expect(
+    send(operation(0, 'remove-left', { kind: 'remove_slot', slotId: 'left' })),
+  ).rejects.toThrow('Slot is within the action allowance');
+  await expect(
+    send(operation(0, 'remove-none', { kind: 'remove_slot', slotId: 'none' })),
+  ).rejects.toThrow('unknown_slot');
+  // A correction raising the rank after the request's base widens the
+  // allowance; the server judges the removal against the current source.
+  await t.run(async (ctx) => {
+    const state = await ctx.db.query('canonicalMilitiaState').unique();
+    await ctx.db.patch('canonicalMilitiaState', state!._id, {
+      snapshot: { ...state!.snapshot, rank: 2 },
+    });
+  });
+  await expect(
+    send(
+      operation(0, 'remove-right', { kind: 'remove_slot', slotId: 'right' }),
+    ),
+  ).rejects.toThrow('Slot is within the action allowance');
+  expect(await send(removal)).toMatchObject({ acceptedRevision: 1 });
+  expect(await send(removal)).toMatchObject({ acceptedRevision: 1 });
+  await expect(
+    send(
+      operation(0, 'remove-again', { kind: 'remove_slot', slotId: 'extra' }),
+    ),
+  ).rejects.toThrow();
+  const observed = await member.query(observe, key);
+  expect(observed.revision).toBe(1);
+  expect(observed.draft?.activity.slots.map((slot) => slot.slotId)).toEqual([
+    'left',
+    'right',
+  ]);
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalDraftOperation').collect()),
+  ).toHaveLength(1);
+  await t.mutation(internal.canonicalPersistenceFixtures.close, {
+    ...key,
+    scope: fixtureScope,
+  });
+  await expect(
+    send(operation(1, 'closed', { kind: 'remove_slot', slotId: 'right' })),
+  ).rejects.toThrow('Draft is closed');
+});

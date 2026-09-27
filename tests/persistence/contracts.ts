@@ -1006,4 +1006,129 @@ export async function runPersistenceContract(
       'Delayed occurrence edits conflict with owner movement',
     );
   });
+  await removeSlotScenarios(scenario);
+}
+
+type Scenario = (
+  run: (
+    harness: PersistenceContractHarness,
+    operation: (baseRevision: number, edit: WeeklyDraftEdit) => DraftOperation,
+  ) => Promise<void>,
+) => Promise<void>;
+const slotIds = (observation: DraftObservation) =>
+  observation.draft?.activity.slots.map((slot) => slot.slotId).join(',');
+// The shared fixture is a first militia week at rank 1: one action, so
+// 'left' is within the allowance and 'right' and 'extra' are beyond it.
+async function removeSlotScenarios(scenario: Scenario) {
+  await scenario(async ({ first, second }, op) => {
+    const removal = op(0, { kind: 'remove_slot', slotId: 'right' });
+    const receipt = await first.send(removal);
+    const removed = await second.read();
+    check(
+      receipt.acceptedRevision === 1 &&
+        removed.revision === 1 &&
+        slotIds(removed) === 'left,extra',
+      'An empty slot beyond the allowance is removed by identity',
+    );
+    const replay = await second.send(structuredClone(removal));
+    check(
+      replay.acceptedRevision === 1 && (await first.read()).revision === 1,
+      'A repeated removal operation returns its original revision',
+    );
+    await rejects(
+      second.send(op(1, { kind: 'remove_slot', slotId: 'right' })),
+      'A second removal of the same slot is rejected',
+    );
+    await rejects(
+      first.send(op(1, { kind: 'remove_slot', slotId: 'left' })),
+      'A slot within the allowance cannot be removed',
+    );
+    await rejects(
+      first.send(op(1, { kind: 'remove_slot', slotId: 'unknown' })),
+      'An unknown slot cannot be removed',
+    );
+    await first.send(
+      op(1, {
+        kind: 'stage',
+        slotId: 'extra',
+        choice: { choiceId: 'later', actionId: 'lie_low' },
+      }),
+    );
+    await rejects(
+      second.send(op(2, { kind: 'remove_slot', slotId: 'extra' })),
+      'An occupied extra slot cannot be removed',
+    );
+    const after = await first.read();
+    check(
+      after.revision === 2 &&
+        slotIds(after) === 'left,extra' &&
+        after.draft?.activity.slots[1]?.choice?.choiceId === 'later',
+      'Later slots keep their identities and choices after a removal',
+    );
+  });
+  // Concurrent fill and removal of the same slot: whichever is accepted
+  // first wins and the delayed operation is rejected, in both orders.
+  await scenario(async ({ first, second }, op) => {
+    await first.send(
+      op(0, {
+        kind: 'stage',
+        slotId: 'extra',
+        choice: { choiceId: 'filled', actionId: 'lie_low' },
+      }),
+    );
+    await rejects(
+      second.send(op(0, { kind: 'remove_slot', slotId: 'extra' })),
+      'A removal based on the empty slot loses to a concurrent fill',
+    );
+    await first.send(op(1, { kind: 'remove_slot', slotId: 'right' }));
+    await rejects(
+      second.send(
+        op(1, {
+          kind: 'stage',
+          slotId: 'right',
+          choice: { choiceId: 'late', actionId: 'lie_low' },
+        }),
+      ),
+      'A delayed fill of a removed slot is rejected',
+    );
+    const after = await second.read();
+    check(
+      after.revision === 2 &&
+        slotIds(after) === 'left,extra' &&
+        after.draft?.activity.slots[1]?.choice?.choiceId === 'filled',
+      'Rejected concurrent edits never redirect to another slot',
+    );
+  });
+  // Optimistic removal: a rejected removal restores the accepted slots, and
+  // an accepted one keeps the following slot identities stable.
+  await scenario(async ({ first }) => {
+    const adapter = createDraftPersistence(first);
+    try {
+      await adapter.ready;
+      const optimistic = adapter.edit({ kind: 'remove_slot', slotId: 'left' });
+      check(
+        (await optimistic) === 'failed' &&
+          slotIds(adapter.getSnapshot().observation!) === 'left,right,extra',
+        'A rejected optimistic removal restores the accepted slots',
+      );
+      check(
+        (await adapter.edit({ kind: 'remove_slot', slotId: 'right' })) ===
+          'accepted' &&
+          (await adapter.edit({
+            kind: 'stage',
+            slotId: 'extra',
+            choice: { choiceId: 'after', actionId: 'lie_low' },
+          })) === 'accepted',
+        'Edits continue to address surviving slots by identity',
+      );
+      const accepted = adapter.getSnapshot().observation!;
+      check(
+        slotIds(accepted) === 'left,extra' &&
+          accepted.draft?.activity.slots[1]?.choice?.choiceId === 'after',
+        'Accepted removal keeps subsequent slot identities',
+      );
+    } finally {
+      adapter.dispose();
+    }
+  });
 }
