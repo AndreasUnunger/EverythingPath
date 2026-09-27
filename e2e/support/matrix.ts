@@ -79,55 +79,58 @@ export function browserProjects(mode: SuiteMode): Project[] {
       hasTouch: true,
     },
   };
+  const webkit: Project = {
+    ...tablet,
+    name: 'webkit-tablet',
+    use: { ...tablet.use, browserName: 'webkit' },
+  };
+  const phone: Project = {
+    name: 'chromium-phone',
+    testMatch: 'access.spec.ts',
+    dependencies: ['authentication'],
+    use: {
+      browserName: 'chromium',
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+    },
+  };
+  const firefox: Project = {
+    name: 'firefox-desktop',
+    testMatch: [
+      'access.spec.ts',
+      'existing-militia.spec.ts',
+      'complete-week.spec.ts',
+    ],
+    dependencies: ['authentication'],
+    use: {
+      browserName: 'firefox',
+      viewport: { width: 1440, height: 900 },
+      hasTouch: false,
+    },
+  };
+  const nightly = mode === 'nightly';
+  // Workers take test groups in project order, so the longest go first and the
+  // parallel critical path stays short. Nightly runs WTH1EO and IKQBdO took:
+  // Confirmation 134 s, persistence 121 s, the Workspace parts 15-81 s (255 s
+  // in total), each project's access journey 46-50 s, and cutover 19 s.
   return [
     { name: 'authentication', testMatch: 'auth.setup.ts', retries: 0 },
-    { ...tablet, name: 'canonical-cutover', testMatch: cutoverJourney[0] },
-    { ...tablet, name: 'canonical-workspace', testMatch: workspaceFile },
-    tablet,
-    {
-      ...tablet,
-      name: 'canonical-persistence',
-      testMatch: persistenceContract[0],
-    },
     {
       ...tablet,
       name: 'canonical-confirmation',
       testMatch: confirmationContract[0],
     },
-    ...(mode === 'nightly'
-      ? [
-          {
-            ...tablet,
-            name: 'webkit-tablet',
-            use: { ...tablet.use, browserName: 'webkit' as const },
-          },
-          {
-            name: 'firefox-desktop',
-            testMatch: [
-              'access.spec.ts',
-              'existing-militia.spec.ts',
-              'complete-week.spec.ts',
-            ],
-            dependencies: ['authentication'],
-            use: {
-              browserName: 'firefox' as const,
-              viewport: { width: 1440, height: 900 },
-              hasTouch: false,
-            },
-          },
-          {
-            name: 'chromium-phone',
-            testMatch: 'access.spec.ts',
-            dependencies: ['authentication'],
-            use: {
-              browserName: 'chromium' as const,
-              viewport: { width: 390, height: 844 },
-              hasTouch: true,
-              isMobile: true,
-            },
-          },
-        ]
-      : []),
+    {
+      ...tablet,
+      name: 'canonical-persistence',
+      testMatch: persistenceContract[0],
+    },
+    { ...tablet, name: 'canonical-workspace', testMatch: workspaceFile },
+    ...(nightly ? [webkit, phone] : []),
+    tablet,
+    ...(nightly ? [firefox] : []),
+    { ...tablet, name: 'canonical-cutover', testMatch: cutoverJourney[0] },
   ];
 }
 
