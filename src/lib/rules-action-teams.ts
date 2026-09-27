@@ -28,7 +28,10 @@ export function actionTeamTypes(
 
 // A queued effect or a carried Rivalry keeps a team out of this Activity; the
 // resolver then requires a `team-unavailable` Rules Exception.
-export function activityTeamUnavailable(draft: WeeklyDraft, teamId: string) {
+export function isTeamUnavailableThisActivity(
+  draft: WeeklyDraft,
+  teamId: string,
+) {
   return (
     draft.context.queuedEffects.some(
       (effect) =>

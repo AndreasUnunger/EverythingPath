@@ -50,12 +50,15 @@ function TeamField({
   board,
   disabled,
   correctionsHref,
+  optional,
 }: {
   slot: Slot;
   recordedTeamId: string | undefined;
   board: ActivityBoard;
   disabled: boolean;
   correctionsHref?: string;
+  // The action needs no team; one may still be recorded for the table.
+  optional: boolean;
 }) {
   const id = useId();
   const options = board.teamOptions(slot.slotId);
@@ -99,6 +102,11 @@ function TeamField({
           </SelectItem>
         </SelectContent>
       </Select>
+      {optional && !missing && (
+        <p className="text-muted-foreground text-sm">
+          Optional: this action needs no team.
+        </p>
+      )}
       {missing && (
         <p role="note" className="text-sm text-amber-300">
           The recorded team is no longer on the roster. Choose another team or
@@ -221,15 +229,14 @@ export function ActivitySlotDetails({
         </Select>
       </header>
       <Issues slot={slot} />
-      {(takesTeam || recordedTeamId) && (
-        <TeamField
-          slot={slot}
-          recordedTeamId={recordedTeamId}
-          board={board}
-          disabled={disabled}
-          correctionsHref={correctionsHref}
-        />
-      )}
+      <TeamField
+        slot={slot}
+        recordedTeamId={recordedTeamId}
+        board={board}
+        disabled={disabled}
+        correctionsHref={correctionsHref}
+        optional={!takesTeam}
+      />
       {slot.check && (
         <div className="space-y-3">
           <ActivityCheckRow

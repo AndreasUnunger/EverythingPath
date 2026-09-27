@@ -252,6 +252,20 @@ describe('teams', () => {
   });
 });
 
+test('[rules.ACT-10.optional-team] Special takes an optional team of any ready type', () => {
+  const { input, view, place } = week();
+  input.militiaSnapshot.roster.teams = [
+    team('Whisper Net', 'informants'),
+    team('Quill', 'scholars', { status: 'disabled' }),
+  ];
+  place(0, { choiceId: 'task', actionId: 'special' });
+  const options = activityTeamOptions(view(), 'one');
+  expect(options.eligible.map((option) => option.name)).toEqual([
+    'Whisper Net',
+  ]);
+  expect(options.other.map((option) => option.name)).toEqual(['Quill']);
+});
+
 describe('checks and modifiers', () => {
   test('[rules.ACT-13.breakdown] the check shows its calculated bonus, total and breakdown without folding the bonus into the dice', () => {
     const { input, view, place } = week();

@@ -56,7 +56,7 @@ export function ActivityCheckRow({
   board: ActivityBoard;
   disabled: boolean;
 }) {
-  const choiceId = slot.choice!.choiceId;
+  const choiceId = slot.choice?.choiceId;
   return (
     <fieldset className="min-w-0 space-y-2">
       <legend className="text-sm font-semibold">{checkLegend(check)}</legend>

@@ -64,7 +64,7 @@ function teamUse(view: ActivityView, teamId: string, slotId: string) {
   );
 }
 
-function teamReady(
+function isTeamReady(
   view: ActivityView,
   team: ActivityTeamFact,
   slot: Slot,
@@ -113,7 +113,7 @@ export function activityPickerGroups(
           (team) =>
             team.teamType !== null &&
             types.includes(team.teamType as (typeof types)[number]) &&
-            teamReady(view, team, slot),
+            isTeamReady(view, team, slot),
         )
       : [];
     groups[ready.length ? 'ready-team' : 'needs-exception'].push({
@@ -140,6 +140,8 @@ export function activityTeamOptions(
 ): { eligible: TeamOption[]; other: TeamOption[] } {
   const slot = view.slots.find((entry) => entry.slotId === slotId);
   const types = slot?.choice ? actionTeamTypes(slot.choice.actionId) : null;
+  // Special accepts an optional team of any type.
+  const anyType = slot?.choice?.actionId === 'special';
   const options = view.teamRoster.flatMap((team) => {
     if (!slot) return [];
     if (team.recruitedInSlot === slot.number) return [];
@@ -167,10 +169,11 @@ export function activityTeamOptions(
         name: team.name,
         detail: [kind, state].filter(Boolean).join(' · '),
         eligible:
-          types !== null &&
-          team.teamType !== null &&
-          types.includes(team.teamType as (typeof types)[number]) &&
-          teamReady(view, team, slot),
+          (anyType ||
+            (types !== null &&
+              team.teamType !== null &&
+              types.includes(team.teamType as (typeof types)[number]))) &&
+          isTeamReady(view, team, slot),
       },
     ];
   });

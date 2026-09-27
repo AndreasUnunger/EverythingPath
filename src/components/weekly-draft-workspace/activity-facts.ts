@@ -5,7 +5,7 @@ import { subjectMessage } from './summary-messages';
 import teamTable from '~/lib/militia-team-table';
 import { MILITIA_ACTIVITY_ACTION_IDS } from '~/lib/militia-domain';
 import { actionRestrictions } from '~/lib/rules-action-eligibility';
-import { activityTeamUnavailable } from '~/lib/rules-action-teams';
+import { isTeamUnavailableThisActivity } from '~/lib/rules-action-teams';
 import { activityRollSpec } from '~/lib/rules-roll-spec';
 import { projectSettlements } from '~/lib/rules-settlements';
 import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
@@ -58,7 +58,7 @@ function teamFacts(
     typeName: definition(team.teamType)?.name ?? null,
     tier: definition(team.teamType)?.tier ?? null,
     condition: team.status,
-    unavailable: activityTeamUnavailable(draft, team.teamId),
+    unavailable: isTeamUnavailableThisActivity(draft, team.teamId),
     recruitedInSlot: null,
   }));
   const recruits = draft.activity.slots.flatMap<ActivityTeamFact>(

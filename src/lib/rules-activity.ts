@@ -18,7 +18,7 @@ import {
   type SettlementChange,
 } from './rules-settlement-actions';
 import { actionRestrictions } from './rules-action-eligibility';
-import { activityTeamUnavailable } from './rules-action-teams';
+import { isTeamUnavailableThisActivity } from './rules-action-teams';
 import {
   resolveEconomyChoice,
   prepareEconomy,
@@ -696,7 +696,7 @@ function assignedTeam(
     return false;
   }
   let eligible = true;
-  if (activityTeamUnavailable(draft, team.teamId))
+  if (isTeamUnavailableThisActivity(draft, team.teamId))
     eligible = exception(draft, result, choice, 'team-unavailable') && eligible;
   if (team.status !== 'active')
     eligible = exception(draft, result, choice, 'team-condition') && eligible;
@@ -777,7 +777,7 @@ function resolveChoice(
       result.requirements.push(`${choice.choiceId}:unresolved-action`);
   }
 }
-function allowanceFactsKnown(facts: ReturnType<typeof activityFoundations>) {
+function isAllowanceKnown(facts: ReturnType<typeof activityFoundations>) {
   return !facts.requirements.some(
     (requirement) =>
       requirement === 'rank' || requirement.startsWith('officer:'),
@@ -894,7 +894,7 @@ export function projectActivity(
         index === facts.capacity.actions - 1,
       allowance: facts.capacity.actions,
       beyondAllowance,
-      allowanceKnown: officersSettled && allowanceFactsKnown(facts),
+      allowanceKnown: officersSettled && isAllowanceKnown(facts),
     });
     if (!choice) continue;
     if (choice.actionId === 'change_officer_role' && !overAllowance)
@@ -924,7 +924,7 @@ export function projectActivity(
     rankActions: getAdvancementForRank(result.outcome.rank)?.actions ?? null,
     strategistAssigned: final.officers.strategistAssigned,
     actions: final.capacity.actions,
-    known: officersSettled && allowanceFactsKnown(final),
+    known: officersSettled && isAllowanceKnown(final),
   };
   validateRecruitmentCapacity(draft, result);
   receiveEconomyOrders(draft, result);

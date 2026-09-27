@@ -157,7 +157,7 @@ function SlotCard({
     <div
       role="group"
       aria-label={`Action Slot ${slot.number}`}
-      className="relative flex min-w-0 md:min-w-40 md:flex-1"
+      className="relative flex min-w-0 md:min-w-32 md:flex-1"
     >
       <button
         type="button"
@@ -221,7 +221,7 @@ function SlotCard({
           aria-label={`Remove Action Slot ${slot.number}`}
           disabled={disabled}
           onClick={() => board.removeSlot(slot.slotId)}
-          className="bg-background absolute -top-2 -right-2 size-7 touch-manipulation rounded-full"
+          className="bg-background absolute -top-2 -right-2 size-8 touch-manipulation rounded-full"
         >
           <X aria-hidden className="size-3.5" />
         </Button>
@@ -294,7 +294,7 @@ export function ActivitySlotBoard({
           correctionsHref={correctionsHref}
         />
       </div>
-      <div className="-mx-1 overflow-x-auto px-1 pt-2 pb-2">
+      <div className="-mx-1 overflow-x-auto px-3 pt-3 pb-2">
         <div className="grid grid-cols-2 gap-3 md:flex md:items-stretch md:gap-2">
           {view.slots.map((slot, index) => {
             const previous = view.slots[index - 1];
