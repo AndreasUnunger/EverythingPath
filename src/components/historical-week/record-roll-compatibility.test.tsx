@@ -69,8 +69,7 @@ function record(
   });
 }
 
-const region = (name: string) =>
-  within(screen.getByRole('region', { name }));
+const region = (name: string) => within(screen.getByRole('region', { name }));
 /** One consequence line of a section, as the player reads it. */
 const line = (section: string, title: string) =>
   region(section)

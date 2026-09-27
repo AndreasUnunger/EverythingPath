@@ -43,17 +43,22 @@ export function Frame({
   label,
   heading,
   right,
+  className,
   children,
 }: {
   label: string;
   heading: ReactNode;
   right?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   return (
     <section
       aria-label={label}
-      className="bg-card text-card-foreground min-w-0 space-y-3 border p-4 shadow-sm sm:p-5"
+      className={cn(
+        'bg-card text-card-foreground min-w-0 space-y-3 border p-4 shadow-sm sm:p-5',
+        className,
+      )}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <h3 className={cn('text-base font-semibold', wrap)}>{heading}</h3>

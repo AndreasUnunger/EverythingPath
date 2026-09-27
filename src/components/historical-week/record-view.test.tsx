@@ -87,8 +87,7 @@ const record: CanonicalResolutionRecord = {
   supersedesRecordId: null,
 };
 
-const region = (name: string) =>
-  within(screen.getByRole('region', { name }));
+const region = (name: string) => within(screen.getByRole('region', { name }));
 /** The Result's table row for one "Group · Label" fact, as its cell texts. */
 function resultRow(label: string) {
   const row = region('Result')
