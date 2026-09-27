@@ -11,7 +11,9 @@ export async function select(
 }
 
 // The campaign list/home selects a row (its address changes to the
-// campaign's home); campaign pages use the top-bar campaign switcher.
+// campaign's home); campaign pages use the top-bar campaign switcher, which
+// opens the chosen campaign's home (CAMP-01). Either way the helper ends on
+// that home with the campaign's row selected, unless it was already open.
 export function campaignRows(page: Page) {
   return page
     .getByRole('navigation', { name: 'Campaigns', exact: true })
@@ -34,9 +36,14 @@ export async function selectCampaign(page: Page, name: string) {
     await expect(page).toHaveURL(/\/campaigns\/[^/]+$/);
     return;
   }
+  // Choosing the current campaign again changes nothing and stays here.
+  if ((await switcher.textContent())?.trim() === name) return;
   await switcher.click();
   await page.getByRole('option', { name, exact: true }).click();
-  await expect(switcher).toContainText(name);
+  // The switcher keeps showing the current campaign until the route changes,
+  // so wait for the home rather than reading the switcher.
+  await expect(page).toHaveURL(/\/campaigns\/[^/]+$/);
+  await expectSelectedCampaign(page, name);
 }
 
 /** The list/home's selected row names this campaign. */
