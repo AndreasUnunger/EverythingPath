@@ -14,6 +14,7 @@ import {
   mixedKindRecords,
   mixedKindSnapshot,
 } from '../../../tests/rules/character-kind-fixture';
+import { stableControl } from '../../../tests/stable-control';
 afterEach(cleanup);
 test('a ledger correction requires a field-level reason before saving', async () => {
   const save = vi.fn().mockResolvedValue(undefined);
@@ -267,19 +268,20 @@ test('[setup.receipt-decimal] enchantment delivery preserves decimal input and e
     screen.getByRole('textbox', { name: 'Due day (day delivery)' }),
     { target: { value: '0.5' } },
   );
+  const start = stableControl('button', 'Start militia week');
   fireEvent.click(screen.getByRole('button', { name: 'Record receipt' }));
   const received = screen.getByRole('textbox', { name: 'Received day' });
   fireEvent.change(received, { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  fireEvent.click(start());
   expect(await screen.findByText('Received day is required.')).toBeVisible();
   expect(save).not.toHaveBeenCalled();
   fireEvent.change(received, { target: { value: 'abc' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  fireEvent.click(start());
   expect(
     await screen.findByText('Enter a valid whole number for Received day.'),
   ).toBeVisible();
   fireEvent.change(received, { target: { value: '2' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  fireEvent.click(start());
   await waitFor(() =>
     expect(
       save,
@@ -307,7 +309,7 @@ test('[setup.receipt-decimal] enchantment delivery preserves decimal input and e
     },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Mark unreceived' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Start militia week' }));
+  fireEvent.click(start());
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
   expect(save.mock.calls[1]?.[0]).toMatchObject({
     state: {

@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { stableControl } from '../../../tests/stable-control';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { EventView as RulesOrderedEventView } from './event-view';
@@ -568,16 +569,20 @@ raidWithTargets.options = {
     { value: 'pell', label: 'Pell' },
   ],
 };
-function targetEntry(index: number) {
-  return within(
-    screen.getByRole('group', { name: 'Target Checks' }),
-  ).getAllByRole('group', { name: /^Entry \d$/ })[index]!;
+// Entries are re-read on every use (removal shifts them); the enclosing
+// group is looked up once (see stableControl).
+function targetEntries() {
+  const checks = stableControl('group', 'Target Checks');
+  return (index: number) =>
+    within(checks()).getAllByRole('group', { name: /^Entry \d$/ })[index]!;
 }
 
 test('[rules.EVT-11.invalid-removed] malformed text in a removed target no longer blocks saving the structurally valid rest', async () => {
   const edit = vi.fn();
   render(<EventView view={raidWithTargets} edit={edit} disabled={false} />);
   openDetails();
+  const targetEntry = targetEntries();
+  const save = stableControl('button', 'Save occurrence');
   fireEvent.click(
     within(targetEntry(0)).getByRole('button', { name: 'Add rolls' }),
   );
@@ -587,13 +592,13 @@ test('[rules.EVT-11.invalid-removed] malformed text in a removed target no longe
       target: { value: 'x1' },
     },
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  fireEvent.click(save());
   await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getByRole('button', { name: 'Remove target checks 1' }),
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  fireEvent.click(save());
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'event_occurrence',
@@ -608,30 +613,35 @@ test('[rules.EVT-11.invalid-shift] removing an earlier entry keeps a later entry
   const edit = vi.fn();
   render(<EventView view={raidWithTargets} edit={edit} disabled={false} />);
   openDetails();
+  const targetEntry = targetEntries();
+  const save = stableControl('button', 'Save occurrence');
   fireEvent.click(
     within(targetEntry(1)).getByRole('button', { name: 'Add rolls' }),
   );
-  const pellCheck = () =>
-    within(targetEntry(1)).getByRole('textbox', { name: 'Check roll' });
+  const pellCheck = stableControl(
+    'textbox',
+    'Check roll',
+    within(targetEntry(1)),
+  );
   fireEvent.change(pellCheck(), { target: { value: '9' } });
   fireEvent.change(pellCheck(), { target: { value: '9e' } });
   fireEvent.click(
     screen.getByRole('button', { name: 'Remove target checks 1' }),
   );
   // Pell's entry is now first; its own malformed text still blocks the save.
-  const survivor = () =>
-    within(targetEntry(0)).getByRole('textbox', { name: 'Check roll' });
+  const pell = targetEntry(0);
+  const survivor = stableControl('textbox', 'Check roll', within(pell));
   expect(survivor()).toHaveValue('9');
   expect(
-    within(targetEntry(0))
+    within(pell)
       .getAllByRole('alert')
       .map((alert) => alert.textContent),
   ).toContain('Use digits only.');
-  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  fireEvent.click(save());
   await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.change(survivor(), { target: { value: '11' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  fireEvent.click(save());
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'event_occurrence',

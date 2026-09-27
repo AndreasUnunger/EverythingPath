@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { stableControl } from '../../../tests/stable-control';
 import { afterEach, expect, test } from 'vitest';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
@@ -455,6 +456,7 @@ test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no lo
   );
   open('Guarantee Event');
   const [first, second] = candidateEntries();
+  const save = stableControl('button', 'Save candidates');
   fireEvent.click(within(first!).getByRole('button', { name: 'Add rolls' }));
   fireEvent.change(
     within(first!).getByRole('textbox', { name: 'Check roll' }),
@@ -469,7 +471,7 @@ test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no lo
       target: { value: '7z' },
     },
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  fireEvent.click(save());
   await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   // The first candidate becomes Turncoat: its check control disappears and so
@@ -483,7 +485,7 @@ test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no lo
   expect(
     within(first!).queryByRole('textbox', { name: 'Check roll' }),
   ).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  fireEvent.click(save());
   await flushSubmit();
   expect(edit).not.toHaveBeenCalled();
   fireEvent.change(
@@ -492,7 +494,7 @@ test('[rules.EVT-11.invalid-spec-lost] malformed text in a candidate check no lo
       target: { value: '7' },
     },
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Save candidates' }));
+  fireEvent.click(save());
   await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
   const choice = lastChoice(edit);
   if (choice.actionId !== 'guarantee_event')
