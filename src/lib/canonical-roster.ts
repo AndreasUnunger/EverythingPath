@@ -94,48 +94,79 @@ export type RosterCharacter = {
   isActive: boolean;
 };
 
+// A rules warning with the roster list it concerns and, where one control can
+// repair it, that control's path within the roster.
+export type RosterWarning = {
+  list: 'people' | 'teams';
+  message: string;
+  path?:
+    | ['people', number, 'hitDice']
+    | ['teams', number, 'managerCharacterId'];
+};
 export function rosterWarnings(
   roster: CanonicalRoster,
   characters: RosterCharacter[],
   maxTeams: number,
 ) {
-  const warnings: string[] = [];
+  return rosterWarningDescriptors(roster, characters, maxTeams).map(
+    (warning) => warning.message,
+  );
+}
+export function rosterWarningDescriptors(
+  roster: CanonicalRoster,
+  characters: RosterCharacter[],
+  maxTeams: number,
+) {
+  const warnings: RosterWarning[] = [];
   const counted = roster.teams.filter((team) => !team.rewardCapExempt).length;
   if (counted > maxTeams)
-    warnings.push(
-      `${counted} teams count toward the normal limit of ${maxTeams}.`,
-    );
-  for (const person of roster.people) {
+    warnings.push({
+      list: 'teams',
+      message: `${counted} teams count toward the normal limit of ${maxTeams}.`,
+    });
+  roster.people.forEach((person, personIndex) => {
     const character = characters.find(
       (value) => value.characterId === person.characterId,
     );
-    if (!character) continue; // Reference integrity is enforced separately, never invented here.
+    if (!character) return; // Reference integrity is enforced separately, never invented here.
     const roles = roster.officers.filter(
       (officer) => officer.characterId === person.characterId,
     );
-    const managed = roster.teams.filter(
-      (team) => team.managerCharacterId === person.characterId,
-    ).length;
+    const managed = roster.teams.flatMap((team, index) =>
+      team.managerCharacterId === person.characterId ? [index] : [],
+    );
     const limit = getTeamManagerMaxTeams({
       kind: toCurrentRulesManagerKind(person.kind),
       charisma: character.charisma,
     });
-    if (managed > limit)
-      warnings.push(
-        `${character.name} manages ${managed} teams; the normal limit is ${limit}.`,
-      );
+    // Present exactly when the person manages more teams than the limit.
+    const firstBeyondLimit = managed[limit];
+    if (firstBeyondLimit !== undefined)
+      warnings.push({
+        list: 'teams',
+        message: `${character.name} manages ${managed.length} teams; the normal limit is ${limit}.`,
+        path: ['teams', firstBeyondLimit, 'managerCharacterId'],
+      });
     if (roles.length > 1)
-      warnings.push(`${character.name} holds more than one officer role.`);
+      warnings.push({
+        list: 'people',
+        message: `${character.name} holds more than one officer role.`,
+      });
     if (
       roles.some((officer) => officer.role === 'commandant') &&
       person.hitDice === null
     )
-      warnings.push(
-        `Enter ${character.name}'s Hit Dice before resolving Commandant training.`,
-      );
-    if (!character.isActive && (roles.length || managed))
-      warnings.push(`${character.name} is archived but still assigned.`);
-  }
+      warnings.push({
+        list: 'people',
+        message: `Enter ${character.name}'s Hit Dice before resolving Commandant training.`,
+        path: ['people', personIndex, 'hitDice'],
+      });
+    if (!character.isActive && (roles.length || managed.length))
+      warnings.push({
+        list: 'people',
+        message: `${character.name} is archived but still assigned.`,
+      });
+  });
   return warnings;
 }
 
