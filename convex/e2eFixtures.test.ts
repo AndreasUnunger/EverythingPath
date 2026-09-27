@@ -310,6 +310,111 @@ describe('internal fixture boundary', () => {
     ).toMatchObject({ campaignCount: 1, militia: { treasury: 100 } });
   });
 
+  describe('isolation canary', () => {
+    const existing: FixtureScope = {
+      ...scope,
+      caseKey: 'existingMilitia',
+      token: 'd'.repeat(64),
+    };
+    const campaignNames = (t: ReturnType<typeof convexTest>) =>
+      t.run(async (ctx) =>
+        (await ctx.db.query('campaign').collect()).map((row) => row.name),
+      );
+
+    it('accepts the owned and comparison campaigns of the running test', async () => {
+      const t = convexTest({ schema, modules });
+      await t.mutation(internal.e2eFixtures.resetCase, {
+        ...existing,
+        now: 0,
+        isolatedWith: ['existingMilitia', 'isolation'],
+      });
+      await t.mutation(internal.e2eFixtures.resetCase, {
+        ...isolation,
+        now: 0,
+        isolatedWith: ['existingMilitia', 'isolation'],
+      });
+      expect(await campaignNames(t)).toHaveLength(2);
+    });
+
+    it.each([
+      [
+        'another case of the same cohort',
+        async (t: ReturnType<typeof convexTest>) => {
+          await t.mutation(internal.e2eFixtures.resetCase, {
+            ...characterLedger,
+            now: 0,
+          });
+        },
+      ],
+      [
+        'an unowned campaign in the member organization',
+        async (t: ReturnType<typeof convexTest>) => {
+          await t.run(async (ctx) => {
+            await ctx.db.insert('campaign', {
+              name: 'Unowned campaign',
+              ownerId: 'unowned',
+              organizationId: 'org_members',
+              description: '',
+            });
+          });
+        },
+      ],
+      [
+        'a campaign in the outsider organization',
+        async (t: ReturnType<typeof convexTest>) => {
+          await t.run(async (ctx) => {
+            await ctx.db.insert('campaign', {
+              name: 'Outsider campaign',
+              ownerId: 'outsider',
+              organizationId: 'org_outsiders',
+              description: '',
+            });
+          });
+        },
+      ],
+    ])('fails the reset and rolls it back with %s', async (_label, leak) => {
+      const t = convexTest({ schema, modules });
+      await leak(t);
+      const before = await campaignNames(t);
+      await expect(
+        t.mutation(internal.e2eFixtures.resetCase, {
+          ...scope,
+          now: 0,
+          isolatedWith: ['smoke'],
+        }),
+      ).rejects.toThrow('E2E isolation canary');
+      expect(await campaignNames(t)).toEqual(before);
+    });
+
+    it('fails a contract reset through resetAndInitialize', async () => {
+      const t = convexTest({ schema, modules });
+      await t.mutation(internal.e2eFixtures.resetCase, { ...scope, now: 0 });
+      await expect(
+        t.mutation(internal.canonicalPersistenceFixtures.resetAndInitialize, {
+          scope: {
+            ...scope,
+            caseKey: 'canonicalPersistence',
+            token: 'c'.repeat(64),
+          },
+          draftId: 'draft',
+          now: 0,
+          isolatedWith: ['canonicalPersistence', 'isolation'],
+        }),
+      ).rejects.toThrow('E2E isolation canary');
+    });
+
+    it('requires the reset case in the checked set', async () => {
+      const t = convexTest({ schema, modules });
+      await expect(
+        t.mutation(internal.e2eFixtures.resetCase, {
+          ...scope,
+          now: 0,
+          isolatedWith: ['isolation'],
+        }),
+      ).rejects.toThrow('must include the reset case');
+    });
+  });
+
   const [cohort] = deploymentFixture.workers;
   it.each(canonicalCaseKeys)(
     'starts canonical case %s with a bare militia for its canonical fixture',
@@ -323,6 +428,7 @@ describe('internal fixture boundary', () => {
       await t.mutation(internal.e2eFixtures.resetCase, {
         ...owned,
         now: 0,
+        isolatedWith: [caseKey],
       });
       expect(
         await t.query(internal.e2eFixtures.inspectCase, owned),

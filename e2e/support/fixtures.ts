@@ -14,7 +14,13 @@ import {
   type RoleKey,
   type FixtureScope,
 } from '../fixtures/catalog';
-import { fixtureCall, loadRun, savePrivate, type Run } from './process';
+import {
+  fixtureCall,
+  isolateCases,
+  loadRun,
+  savePrivate,
+  type Run,
+} from './process';
 import { sanitizeLog, sanitizeTrace } from './artifacts';
 import { caseAttempt, claimCaseKey } from './case-attempt';
 
@@ -82,6 +88,7 @@ async function closeWithEvidence(
 
 async function useOwnedCase(
   caseKey: CaseKey,
+  testCases: (CaseKey | undefined)[],
   use: (fixture: Fixture) => Promise<void>,
   info: TestInfo,
 ) {
@@ -91,6 +98,7 @@ async function useOwnedCase(
   const worker = run.fixture?.workers[info.parallelIndex];
   if (!worker || info.parallelIndex >= run.workers)
     throw new Error('Authenticated worker cohort is unavailable');
+  isolateCases(testCases.filter((key) => key !== undefined));
   const scope: FixtureScope = {
     namespace: run.resources.previewName,
     version: FIXTURE_VERSION,
@@ -119,7 +127,7 @@ async function useOwnedCase(
     },
     () => {
       process.stderr.write(
-        'E2E case cleanup failed; the next attempt will reset it.\n',
+        'E2E case cleanup failed; other tests in its cohort fail the isolation check until the case is reset.\n',
       );
     },
   );
@@ -135,8 +143,8 @@ export const test = base.extend<{
   caseKey: ['smoke', { option: true }],
   comparisonCaseKey: [undefined, { option: true }],
   ownedCase: [
-    async ({ caseKey }, use, info) => {
-      await useOwnedCase(caseKey, use, info);
+    async ({ caseKey, comparisonCaseKey }, use, info) => {
+      await useOwnedCase(caseKey, [caseKey, comparisonCaseKey], use, info);
     },
     { auto: true },
   ],
@@ -148,7 +156,12 @@ export const test = base.extend<{
         throw new Error(
           'Comparison campaign must differ from the journey campaign',
         );
-      await useOwnedCase(comparisonCaseKey, use, info);
+      await useOwnedCase(
+        comparisonCaseKey,
+        [caseKey, comparisonCaseKey],
+        use,
+        info,
+      );
     },
     { auto: true },
   ],

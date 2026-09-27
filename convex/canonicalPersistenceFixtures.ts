@@ -1,6 +1,7 @@
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { mutation } from './_generated/server';
 import { internal } from './_generated/api';
+import { isolationArgs } from './e2eFixtures';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
 import { v } from 'convex/values';
@@ -105,12 +106,14 @@ export const resetAndInitialize = internalMutation({
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
     now: v.number(),
+    ...isolationArgs,
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
     await ctx.runMutation(internal.e2eFixtures.resetCase, {
       ...args.scope,
       now: args.now,
+      isolatedWith: args.isolatedWith,
     });
     return await ctx.runMutation(
       internal.canonicalPersistenceFixtures.initialize,

@@ -5,7 +5,12 @@ import { createInterface } from 'node:readline';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import { deploymentFixtureSchema, resourceSchema } from '../fixtures/catalog';
+import {
+  caseKeys,
+  deploymentFixtureSchema,
+  resourceSchema,
+  type CaseKey,
+} from '../fixtures/catalog';
 import { safeDiagnostic } from './artifacts';
 
 export const runSchema = z.object({
@@ -179,6 +184,29 @@ export async function command(
   }
 }
 
+// The cases the running test owns in its cohort. A Playwright worker process
+// runs one test at a time, so each reset it sends asks `resetCase` to check
+// that the cohort's organizations hold no other campaign (isolation canary).
+let isolatedCases: readonly CaseKey[] = [];
+export function isolateCases(keys: readonly CaseKey[]) {
+  isolatedCases = keys;
+}
+const resetScope = z.object({ caseKey: z.enum(caseKeys) });
+export function withIsolationCanary(
+  operation: string,
+  args: Record<string, unknown>,
+) {
+  const scope =
+    operation === 'resetCase'
+      ? args
+      : operation === 'resetAndInitialize'
+        ? args.scope
+        : undefined;
+  if (scope === undefined) return args;
+  const { caseKey } = resetScope.parse(scope);
+  return { ...args, isolatedWith: [...new Set([caseKey, ...isolatedCases])] };
+}
+
 export async function fixtureCall(
   run: Run,
   operation:
@@ -195,7 +223,7 @@ export async function fixtureCall(
       'convex',
       'run',
       `e2eFixtures:${operation}`,
-      JSON.stringify(args),
+      JSON.stringify(withIsolationCanary(operation, args)),
       '--preview-name',
       run.resources.previewName,
       '--env-file',
@@ -226,7 +254,7 @@ export async function canonicalPersistenceFixtureCall(
       'convex',
       'run',
       `canonicalPersistenceFixtures:${operation}`,
-      JSON.stringify(args),
+      JSON.stringify(withIsolationCanary(operation, args)),
       '--preview-name',
       run.resources.previewName,
       '--env-file',
