@@ -1,5 +1,11 @@
 'use client';
-import { useId, type ComponentType } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ComponentType,
+  type RefObject,
+} from 'react';
 import { Controller, FormProvider } from 'react-hook-form';
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
@@ -15,7 +21,6 @@ import type { MilitiaSectionKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
 import {
   AFFECTS_WEEK_HEADING,
-  CHECKING_MESSAGE,
   CONFLICT_HEADING,
   RESTART_FROM_THEIRS,
   RESTART_FROM_WEEK,
@@ -32,6 +37,43 @@ export const sectionEditors: Partial<Record<MilitiaSectionKey, ComponentType>> =
 
 const action = 'min-h-11 md:min-h-9';
 const advisory = 'border-primary/40 bg-primary/10 space-y-1 border p-3';
+// Headings that take programmatic focus (`tabIndex={-1}`) so keyboard and
+// screen-reader users land on the state that just opened.
+const focusTarget = 'outline-none';
+
+/** Moves focus to the element on mount: the heading of a state that opened. */
+export function useFocusOnMount<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+  return ref;
+}
+
+// Below the phone strip, focused fields must scroll above the sticky reason
+// bar: reserve the bar's height as scroll padding while it is mounted.
+function useScrollPaddingFor(
+  ref: RefObject<HTMLElement | null>,
+  active: boolean,
+) {
+  useEffect(() => {
+    const bar = ref.current;
+    if (!active || !bar || typeof ResizeObserver === 'undefined') return;
+    // The whole sticky bottom area covers the page: this bar and the
+    // shell's tabs below it.
+    const cover = bar.closest('[data-shell-slot]')?.parentElement ?? bar;
+    const style = document.documentElement.style;
+    const previous = style.scrollPaddingBottom;
+    const observer = new ResizeObserver(() => {
+      style.scrollPaddingBottom = `${cover.offsetHeight + 16}px`;
+    });
+    observer.observe(cover);
+    return () => {
+      observer.disconnect();
+      style.scrollPaddingBottom = previous;
+    };
+  }, [ref, active]);
+}
 
 /** Advisory rules warnings, on the read view and on an open correction. */
 export function RulesWarnings({ warnings }: { warnings: string[] }) {
@@ -163,8 +205,11 @@ function ReasonBar({
   const errorId = `${id}-error`;
   const { view, reason } = correction;
   const editing = view.kind === 'editing';
+  const bar = useRef<HTMLDivElement>(null);
+  useScrollPaddingFor(bar, inStrip);
   return (
     <div
+      ref={bar}
       data-reason-bar
       className={cn('grid gap-3', inStrip && 'bg-background px-3 py-2')}
     >
@@ -216,9 +261,9 @@ function ReasonBar({
         >
           Cancel
         </Button>
-        {view.kind === 'checking' && (
-          <p role="status" className="text-muted-foreground text-sm">
-            {CHECKING_MESSAGE}
+        {view.kind === 'saving' && (
+          <p role="status" className="sr-only">
+            {SAVING_MESSAGE}
           </p>
         )}
       </div>
@@ -279,10 +324,17 @@ function Conflict({ correction }: { correction: SectionCorrection }) {
   const theirsId = `${id}-theirs`;
   const yoursId = `${id}-yours`;
   const { comparison } = correction;
+  const heading = useFocusOnMount<HTMLHeadingElement>();
   return (
     <div className="space-y-4">
       <div role="alert">
-        <h3 className="font-semibold">{CONFLICT_HEADING}</h3>
+        <h3
+          ref={heading}
+          tabIndex={-1}
+          className={cn('font-semibold', focusTarget)}
+        >
+          {CONFLICT_HEADING}
+        </h3>
       </div>
       {comparison && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -324,9 +376,12 @@ function Conflict({ correction }: { correction: SectionCorrection }) {
 }
 
 function WeekChanged({ correction }: { correction: SectionCorrection }) {
+  const message = useFocusOnMount<HTMLParagraphElement>();
   return (
     <div className="space-y-4">
-      <p role="alert">{WEEK_CHANGED_MESSAGE}</p>
+      <p ref={message} role="alert" tabIndex={-1} className={focusTarget}>
+        {WEEK_CHANGED_MESSAGE}
+      </p>
       <div className="flex flex-wrap gap-2">
         <Button type="button" className={action} onClick={correction.restart}>
           {RESTART_FROM_WEEK}
@@ -354,9 +409,16 @@ export function SectionCorrectionView({
   wide: boolean;
 }) {
   const { view } = correction;
+  const heading = useFocusOnMount<HTMLHeadingElement>();
   return (
     <section className="min-w-0 space-y-4">
-      <h2 className="text-xl [overflow-wrap:anywhere]">{correction.heading}</h2>
+      <h2
+        ref={heading}
+        tabIndex={-1}
+        className={cn('text-xl [overflow-wrap:anywhere]', focusTarget)}
+      >
+        {correction.heading}
+      </h2>
       {view.kind === 'conflict' ? (
         <Conflict correction={correction} />
       ) : view.kind === 'weekChanged' ? (

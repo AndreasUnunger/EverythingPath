@@ -374,6 +374,10 @@ describe('concurrent changes', () => {
       screen.getAllByText('Values now show your correction.').length,
     ).toBeGreaterThan(0);
     expect(calls).toHaveLength(1);
+    // The page is free again for the next correction.
+    fireEvent.click(screen.getByRole('button', { name: 'Correct values' }));
+    expect(treasury()).toHaveValue('50000');
+    expect(reason()).toHaveValue('');
   });
 
   test('a new week requires restarting from its facts', () => {

@@ -1,6 +1,7 @@
 'use client';
 import { MilitiaSetupForm } from '~/components/militia-setup/form';
 import { Button } from '~/components/ui/button';
+import { useFocusOnMount } from './section-correction';
 import type { FullCorrection } from './use-militia-corrections';
 
 // The temporary full correction editor for entries without their own
@@ -10,10 +11,15 @@ export function FullCorrectionView({
 }: {
   correction: FullCorrection;
 }) {
+  const heading = useFocusOnMount<HTMLHeadingElement>();
   return (
     <section className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="min-w-0 text-xl [overflow-wrap:anywhere]">
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="min-w-0 text-xl [overflow-wrap:anywhere] outline-none"
+        >
           {correction.heading}
         </h2>
         <Button

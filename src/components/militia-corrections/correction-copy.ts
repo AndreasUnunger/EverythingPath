@@ -42,7 +42,6 @@ export function editingNotice(
 }
 
 export const SAVING_MESSAGE = 'Saving correction…';
-export const CHECKING_MESSAGE = 'Checking the latest militia…';
 export const CONFLICT_HEADING = 'Another player changed this section';
 export const RESTART_FROM_THEIRS = 'Start again from their values';
 export const WEEK_CHANGED_MESSAGE =
@@ -109,7 +108,7 @@ export function errorSummary(
         item = {
           field,
           kind: 'invalid',
-          message: reasonError(value, descriptor.message)!,
+          message: reasonError(value, descriptor.message) ?? descriptor.message,
         };
       else if (descriptor.kind === 'field' && control.numeric)
         item = {

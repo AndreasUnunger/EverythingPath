@@ -342,3 +342,61 @@ describe('the temporary full editor', () => {
     });
   });
 });
+
+describe('settling an unconfirmed Save', () => {
+  test('a retry refused because the first Save was applied closes as matched, not as a conflict', () => {
+    const base = accepted();
+    const open = openValues(base);
+    const first = send(open, base);
+    const unknown = run(
+      [
+        { type: 'submit', attempt: first.attempt },
+        { type: 'unknown', attempt: first.attempt },
+      ],
+      open,
+    );
+    // Saved again before the first write was observed; refused as stale.
+    const retry = send(unknown, base);
+    const refused = run(
+      [
+        { type: 'submit', attempt: retry.attempt },
+        { type: 'rejected', attempt: retry.attempt, message: null },
+      ],
+      unknown,
+    );
+    const applied = {
+      ...base,
+      revision: 4,
+      state: { ...base.state, militiaSnapshot: first.snapshot },
+    };
+    expect(correctionView(refused, applied)).toEqual({
+      kind: 'closed',
+      feedback: { kind: 'matched', entry: 'values' },
+    });
+  });
+
+  test('once settled, the correction closes and the page is free for the next one', () => {
+    const base = accepted();
+    const open = openValues(base);
+    const { attempt } = send(open, base);
+    const reconciled = run(
+      [
+        { type: 'submit', attempt },
+        { type: 'unknown', attempt },
+        { type: 'reconciled', feedback: { kind: 'matched', entry: 'values' } },
+      ],
+      open,
+    );
+    expect(reconciled).toEqual({
+      kind: 'closed',
+      feedback: { kind: 'matched', entry: 'values' },
+    });
+    expect(
+      correctionReducer(reconciled, {
+        type: 'open',
+        target: { kind: 'full', entry: 'people' },
+        accepted: base,
+      }),
+    ).toMatchObject({ kind: 'open' });
+  });
+});

@@ -1,5 +1,13 @@
 'use client';
-import { useId, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import {
   Check,
   ChevronDown,
@@ -27,6 +35,12 @@ const action = 'min-h-11 md:min-h-9';
 const row =
   'flex w-full min-h-11 items-start gap-2 border-l-4 border-transparent px-4 py-2.5 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset enabled:hover:bg-foreground/5 disabled:opacity-50';
 const currentRow = 'border-primary bg-primary/10';
+
+// The selected entry's Correct button, where focus returns when its
+// correction closes. Only the selected entry renders one, so a single ref.
+const CorrectButtonRef = createContext<RefObject<HTMLButtonElement | null>>({
+  current: null,
+});
 
 const entryOf = (page: Page, key: MilitiaEntryKey) =>
   page.entries.find((entry) => entry.key === key);
@@ -109,16 +123,18 @@ function CorrectButton({
   page: Page;
   entry: MilitiaEntryView;
 }) {
-  if (entry.correct === null) return null;
+  const ref = useContext(CorrectButtonRef);
+  if (entry.correctLabel === null) return null;
   return (
     <Button
+      ref={ref}
       type="button"
       variant="outline"
       className={action}
       disabled={page.locked}
       onClick={() => page.open(entry.key)}
     >
-      <Pencil /> {entry.correct}
+      <Pencil /> {entry.correctLabel}
     </Button>
   );
 }
@@ -316,12 +332,23 @@ function NarrowLayout({ page }: { page: Page }) {
 // controls at any width.
 export function MilitiaPage({ page }: { page: Page }) {
   const wide = useWideLayout();
+  const correctButton = useRef<HTMLButtonElement>(null);
+  // Focus returns to Correct when a correction closes (saved, cancelled or
+  // reconciled), never on the first render.
+  const open = page.correction !== null;
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (wasOpen.current && !open) correctButton.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
   return (
-    <div className="min-w-0">
-      <p role="status" aria-live="polite" className="sr-only">
-        {page.feedback ?? ''}
-      </p>
-      {wide ? <WideLayout page={page} /> : <NarrowLayout page={page} />}
-    </div>
+    <CorrectButtonRef.Provider value={correctButton}>
+      <div className="min-w-0">
+        <p role="status" aria-live="polite" className="sr-only">
+          {page.feedback ?? ''}
+        </p>
+        {wide ? <WideLayout page={page} /> : <NarrowLayout page={page} />}
+      </div>
+    </CorrectButtonRef.Provider>
   );
 }

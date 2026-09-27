@@ -48,8 +48,10 @@ import {
   correctionView,
   planSectionSave,
   type AcceptedMilitia,
+  type CorrectionAction,
   type CorrectionView,
   type SaveAttempt,
+  type SavePlan,
 } from './correction-lifecycle';
 import {
   correctLabel,
@@ -61,10 +63,9 @@ import {
   type ErrorSummaryItem,
 } from './correction-copy';
 
-// Sections with their own isolated correction. Every other correctable
-// section still opens the temporary full editor until its replacement ships.
-const SECTION_EDITORS = new Set<MilitiaSectionKey>(['values']);
-// The controls of each section editor, for linked errors.
+// The sections with their own isolated correction, and the controls of each
+// for linked errors. Every other correctable section still opens the
+// temporary full editor until its replacement ships.
 const SECTION_FIELDS: Partial<
   Record<
     MilitiaSectionKey,
@@ -92,7 +93,7 @@ export type MilitiaEntryView = {
   /** Advisory rules warnings for the accepted facts. */
   warnings: string[];
   /** Label of this entry's Correct button; null for read-only entries. */
-  correct: string | null;
+  correctLabel: string | null;
 };
 
 export type AffectedPhase = {
@@ -107,7 +108,7 @@ export type SectionCorrection = {
   entry: MilitiaSectionKey;
   heading: string;
   form: UseFormReturn<MilitiaSetup>;
-  /** Editing, saving, checking, conflict or week changed. */
+  /** Editing, saving, conflict or week changed. */
   view: Exclude<CorrectionView, { kind: 'closed' }>;
   /** Accessible status text for the editing view, or null. */
   notice: string | null;
@@ -169,11 +170,31 @@ function groupedWarnings(state: CanonicalWeekState) {
   return grouped;
 }
 
+type Snapshot = CanonicalWeekState['militiaSnapshot'];
+
+// The full editor's existing notice: which phases hold staged choices the
+// correction would leave without their subject.
+function stagedChoiceSentence(
+  draft: WeeklyDraft,
+  latest: Snapshot,
+  candidate: Snapshot,
+) {
+  const affected = correctionStagedChoices(draft, latest, candidate);
+  if (affected.length === 0) return null;
+  const phases = affected
+    .map(
+      ({ phase, count }) =>
+        `${phaseLabels[phase]} (${count} ${count === 1 ? 'choice' : 'choices'})`,
+    )
+    .join(', ');
+  return `This correction removes something that choices already staged for the current week use: ${phases}. After saving, review those choices in the week; Upkeep lets you clear a staged decision for a removed team.`;
+}
+
 function affectedPhases(
   campaignId: string,
   draft: WeeklyDraft | null,
-  latest: CanonicalWeekState['militiaSnapshot'],
-  candidate: CanonicalWeekState['militiaSnapshot'],
+  latest: Snapshot,
+  candidate: Snapshot,
 ): AffectedPhase[] {
   if (!draft || !militiaSnapshotSchema.safeParse(candidate).success) return [];
   return correctionStagedChoices(draft, latest, candidate).map(
@@ -185,6 +206,37 @@ function affectedPhases(
     }),
   );
 }
+
+// Sends one planned section correction and reports its outcome to the
+// lifecycle. Only a ConvexError is a definite refusal; anything else may or
+// may not have been applied and is reconciled from the observed militia.
+function sendSectionCorrection(
+  plan: Extract<SavePlan, { kind: 'send' }>,
+  reason: string,
+  save: ReturnType<typeof useCanonicalLedger>['save'],
+  dispatch: (action: CorrectionAction) => void,
+) {
+  const { attempt } = plan;
+  dispatch({ type: 'submit', attempt });
+  return save({
+    expectedRevision: attempt.expectedRevision,
+    snapshot: plan.snapshot,
+    reason,
+  }).then(
+    () => dispatch({ type: 'accepted', attempt }),
+    (error: unknown) => {
+      const failure = classifyWriteFailure(error);
+      dispatch(
+        failure.kind === 'rejected'
+          ? { type: 'rejected', attempt, message: failure.message }
+          : { type: 'unknown', attempt },
+      );
+    },
+  );
+}
+
+const entryGroups: Partial<Record<MilitiaEntryKey, MilitiaEntryView['group']>> =
+  { weekCarried: 'week', people: 'fallback' };
 
 // The Militia page: accepted facts by section, the one local correction and
 // its lifecycle. Mount per campaign, militia and organization (keyed), so a
@@ -255,6 +307,10 @@ export function useMilitiaCorrections({
       : null;
   const draft = parsedDraft?.success ? parsedDraft.data : null;
   const view = correctionView(correction, accepted);
+  // The newest militia settled the open correction (an unconfirmed Save now
+  // shows): close it, so the page is free for the next correction.
+  if (correction.kind === 'open' && view.kind === 'closed' && view.feedback)
+    dispatch({ type: 'reconciled', feedback: view.feedback });
   const locked = correction.kind === 'open' && view.kind !== 'closed';
 
   const entries: MilitiaEntryView[] = (
@@ -262,22 +318,17 @@ export function useMilitiaCorrections({
   ).map((key) => ({
     key,
     label: MILITIA_ENTRY_LABELS[key],
-    group:
-      key === 'weekCarried'
-        ? 'week'
-        : key === 'people'
-          ? 'fallback'
-          : 'sections',
+    group: entryGroups[key] ?? 'sections',
     facts: militiaEntryFacts(key, ledger.state, names),
     warnings: warnings.get(key) ?? [],
-    correct: key === 'weekCarried' ? null : correctLabel(key),
+    correctLabel: key === 'weekCarried' ? null : correctLabel(key),
   }));
 
   function open(entry: MilitiaEntryKey) {
     if (locked || entry === 'weekCarried') return;
     setSelected(entry);
     setCandidateErrors([]);
-    if (entry !== 'people' && SECTION_EDITORS.has(entry)) {
+    if (entry !== 'people' && entry in SECTION_FIELDS) {
       form.reset(setupFrom(accepted.state));
       dispatch({
         type: 'open',
@@ -290,172 +341,149 @@ export function useMilitiaCorrections({
     dispatch({ type: 'open', target: { kind: 'full', entry }, accepted });
   }
 
-  let current: SectionCorrection | FullCorrection | null = null;
-  if (correction.kind === 'open' && view.kind !== 'closed') {
-    const { target } = correction;
-    if (target.kind === 'full' && fullBase) {
-      const base = fullBase;
-      current = {
-        kind: 'full',
-        entry: target.entry,
-        heading: correctLabel(target.entry),
-        initialValues: setupFrom(base.state),
-        characters,
-        stagedChoiceNotice: draft
-          ? (setup) => {
-              const affected = correctionStagedChoices(
-                draft,
-                base.state.militiaSnapshot,
-                setup.state.militiaSnapshot,
-              );
-              if (affected.length === 0) return null;
-              const phases = affected
-                .map(
-                  ({ phase, count }) =>
-                    `${phaseLabels[phase]} (${count} ${count === 1 ? 'choice' : 'choices'})`,
-                )
-                .join(', ');
-              return `This correction removes something that choices already staged for the current week use: ${phases}. After saving, review those choices in the week; Upkeep lets you clear a staged decision for a removed team.`;
-            }
-          : undefined,
-        // The existing editor's revision-bound save: a stale full snapshot
-        // is refused, never merged.
-        onSave: async (setup) => {
-          await save({
-            expectedRevision: base.revision,
-            snapshot: setup.state.militiaSnapshot,
-            reason: setup.notes,
-          });
-          dispatch({ type: 'fullSaved' });
-        },
-        cancel: () => dispatch({ type: 'cancel' }),
-      };
-    }
-    if (target.kind === 'section') {
-      const section = target.section;
-      const latest = accepted.state.militiaSnapshot;
-      const yours = sectionValue(section, values.state.militiaSnapshot);
-      const candidate = mergeSection(section, latest, yours);
-      const candidateSetup = setupFrom({
-        ...accepted.state,
-        militiaSnapshot: candidate,
-      });
-      const fields = SECTION_FIELDS[section] ?? {};
-      const formErrors = Object.keys(form.formState.errors).length > 0;
-      const errors = formErrors
-        ? setupErrorDescriptors(values, militiaCorrectionSchema)
-        : candidateErrors;
-      current = {
-        kind: 'section',
-        entry: section,
-        heading: correctLabel(section),
-        form,
-        view,
-        notice: view.kind === 'editing' ? editingNotice(view) : null,
-        warnings: setupWarningDescriptors(candidateSetup)
-          .filter((warning) => militiaEntryForLocation(warning) === section)
-          .map((warning) => warning.message),
-        affectsWeek: affectedPhases(campaignId, draft, latest, candidate),
-        errors: errorSummary(errors, values, {
-          ...fields,
-          notes: { label: REASON_LABEL },
-        }),
-        reason: {
-          label: REASON_LABEL,
-          error: reasonError(
-            values.notes,
-            form.formState.errors.notes?.message,
+  function fullCorrection(
+    entry: MilitiaEntryKey,
+    base: AcceptedMilitia,
+  ): FullCorrection {
+    return {
+      kind: 'full',
+      entry,
+      heading: correctLabel(entry),
+      initialValues: setupFrom(base.state),
+      characters,
+      stagedChoiceNotice: draft
+        ? (setup) =>
+            stagedChoiceSentence(
+              draft,
+              base.state.militiaSnapshot,
+              setup.state.militiaSnapshot,
+            )
+        : undefined,
+      // The existing editor's revision-bound save: a stale full snapshot
+      // is refused, never merged.
+      onSave: async (setup) => {
+        await save({
+          expectedRevision: base.revision,
+          snapshot: setup.state.militiaSnapshot,
+          reason: setup.notes,
+        });
+        dispatch({ type: 'fullSaved' });
+      },
+      cancel: () => dispatch({ type: 'cancel' }),
+    };
+  }
+
+  // Validates the form, plans against the newest militia, validates the
+  // merged result and sends it. `sending` is set before validation settles,
+  // so a second press can never send the same correction twice.
+  function saveSection(section: MilitiaSectionKey) {
+    if (sending.current) return;
+    sending.current = 'validating';
+    const release = () => {
+      sending.current = null;
+    };
+    void form
+      .handleSubmit((setup) => {
+        const plan = planSectionSave(
+          correction,
+          accepted,
+          section,
+          sectionValue(section, setup.state.militiaSnapshot),
+        );
+        if (plan.kind !== 'send') {
+          release();
+          if (plan.kind !== 'busy') dispatch({ type: plan.kind });
+          return;
+        }
+        const invalid = setupErrorDescriptors(
+          setupFrom(
+            { ...accepted.state, militiaSnapshot: plan.snapshot },
+            setup.notes,
           ),
-        },
-        comparison:
-          view.kind === 'conflict'
-            ? {
-                theirs: militiaEntryFacts(section, accepted.state, names),
-                yours: militiaEntryFacts(
-                  section,
-                  { ...accepted.state, militiaSnapshot: candidate },
-                  names,
-                ),
-              }
-            : null,
-        focusField: (field) => form.setFocus(field as never),
-        save: () => {
-          if (sending.current) return;
-          sending.current = 'validating';
-          void form
-            .handleSubmit(
-              (setup) => {
-                const plan = planSectionSave(
-                  correction,
-                  accepted,
-                  section,
-                  sectionValue(section, setup.state.militiaSnapshot),
-                );
-                if (plan.kind !== 'send') {
-                  sending.current = null;
-                  if (plan.kind !== 'busy') dispatch({ type: plan.kind });
-                  return;
-                }
-                const invalid = setupErrorDescriptors(
-                  setupFrom(
-                    { ...accepted.state, militiaSnapshot: plan.snapshot },
-                    setup.notes,
-                  ),
-                  militiaCorrectionSchema,
-                );
-                setCandidateErrors(invalid);
-                if (invalid.length) {
-                  sending.current = null;
-                  return;
-                }
-                const { attempt } = plan;
-                sending.current = attempt;
-                dispatch({ type: 'submit', attempt });
-                save({
-                  expectedRevision: attempt.expectedRevision,
-                  snapshot: plan.snapshot,
-                  reason: setup.notes,
-                })
-                  .then(
-                    () => dispatch({ type: 'accepted', attempt }),
-                    (error: unknown) => {
-                      const failure = classifyWriteFailure(error);
-                      dispatch(
-                        failure.kind === 'rejected'
-                          ? {
-                              type: 'rejected',
-                              attempt,
-                              message: failure.message,
-                            }
-                          : { type: 'unknown', attempt },
-                      );
-                    },
-                  )
-                  .finally(() => {
-                    if (sending.current === attempt) sending.current = null;
-                  });
-              },
-              () => {
-                sending.current = null;
-              },
-            )()
-            .catch(() => {
-              sending.current = null;
-            });
-        },
-        cancel: () => {
-          setCandidateErrors([]);
-          dispatch({ type: 'cancel' });
-        },
-        // A new correction from the newest facts: fields and the reason are
-        // cleared, so it must be reviewed again.
-        restart: () => {
-          form.reset(setupFrom(accepted.state));
-          setCandidateErrors([]);
-          dispatch({ type: 'restart', accepted });
-        },
-      };
-    }
+          militiaCorrectionSchema,
+        );
+        setCandidateErrors(invalid);
+        if (invalid.length) {
+          release();
+          return;
+        }
+        sending.current = plan.attempt;
+        void sendSectionCorrection(plan, setup.notes, save, dispatch).finally(
+          () => {
+            if (sending.current === plan.attempt) release();
+          },
+        );
+      }, release)()
+      .catch(release);
+  }
+
+  function sectionCorrection(
+    section: MilitiaSectionKey,
+    view: Exclude<CorrectionView, { kind: 'closed' }>,
+  ): SectionCorrection {
+    const latest = accepted.state.militiaSnapshot;
+    const yours = sectionValue(section, values.state.militiaSnapshot);
+    const candidate = mergeSection(section, latest, yours);
+    const candidateSetup = setupFrom({
+      ...accepted.state,
+      militiaSnapshot: candidate,
+    });
+    const hasFormErrors = Object.keys(form.formState.errors).length > 0;
+    const errors = hasFormErrors
+      ? setupErrorDescriptors(values, militiaCorrectionSchema)
+      : candidateErrors;
+    return {
+      kind: 'section',
+      entry: section,
+      heading: correctLabel(section),
+      form,
+      view,
+      notice: view.kind === 'editing' ? editingNotice(view) : null,
+      warnings: setupWarningDescriptors(candidateSetup)
+        .filter((warning) => militiaEntryForLocation(warning) === section)
+        .map((warning) => warning.message),
+      affectsWeek: affectedPhases(campaignId, draft, latest, candidate),
+      errors: errorSummary(errors, values, {
+        ...SECTION_FIELDS[section],
+        notes: { label: REASON_LABEL },
+      }),
+      reason: {
+        label: REASON_LABEL,
+        error: reasonError(values.notes, form.formState.errors.notes?.message),
+      },
+      comparison:
+        view.kind === 'conflict'
+          ? {
+              theirs: militiaEntryFacts(section, accepted.state, names),
+              yours: militiaEntryFacts(
+                section,
+                { ...accepted.state, militiaSnapshot: candidate },
+                names,
+              ),
+            }
+          : null,
+      focusField: (field) => form.setFocus(field as never),
+      save: () => saveSection(section),
+      cancel: () => {
+        setCandidateErrors([]);
+        dispatch({ type: 'cancel' });
+      },
+      // A new correction from the newest facts: fields and the reason are
+      // cleared, so it must be reviewed again.
+      restart: () => {
+        form.reset(setupFrom(accepted.state));
+        setCandidateErrors([]);
+        dispatch({ type: 'restart', accepted });
+      },
+    };
+  }
+
+  function currentCorrection() {
+    if (correction.kind !== 'open' || view.kind === 'closed') return null;
+    const { target } = correction;
+    if (target.kind === 'section')
+      return sectionCorrection(target.section, view);
+    return fullBase ? fullCorrection(target.entry, fullBase) : null;
   }
 
   const feedback =
@@ -472,7 +500,7 @@ export function useMilitiaCorrections({
     },
     locked,
     open,
-    correction: current,
+    correction: currentCorrection(),
     feedback,
   };
 }

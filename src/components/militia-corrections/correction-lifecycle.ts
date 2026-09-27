@@ -66,7 +66,9 @@ export type CorrectionAction =
   | { type: 'accepted'; attempt: SaveAttempt }
   | { type: 'rejected'; attempt: SaveAttempt; message: string | null }
   | { type: 'unknown'; attempt: SaveAttempt }
-  | { type: 'fullSaved' };
+  | { type: 'fullSaved' }
+  // The newest militia settled the open correction (see `correctionView`).
+  | { type: 'reconciled'; feedback: Feedback };
 
 export const closedCorrection: Correction = { kind: 'closed', feedback: null };
 
@@ -157,6 +159,8 @@ export function correctionReducer(
         kind: 'closed',
         feedback: { kind: 'saved', entry: entryOf(state.target) },
       };
+    case 'reconciled':
+      return saving ? state : { kind: 'closed', feedback: action.feedback };
   }
 }
 
@@ -173,8 +177,6 @@ export type CorrectionView =
       message: string | null;
     }
   | { kind: 'saving' }
-  /** Waiting to observe the militia after a Save that was not accepted. */
-  | { kind: 'checking' }
   | { kind: 'conflict' }
   | { kind: 'weekChanged' };
 
@@ -199,30 +201,27 @@ export function correctionView(
     return { kind: 'weekChanged' };
   const latest = sectionKey(target.section, accepted.state.militiaSnapshot);
   const changed = latest !== captured.section;
-  switch (status.kind) {
-    case 'editing':
-      return editing(status.notice);
-    case 'conflict':
-      return { kind: 'conflict' };
-    case 'rejected':
-      // A refusal against a revision that is no longer the newest was a
-      // race with another write: reconcile instead of reporting it.
-      if (accepted.revision === status.attempt.expectedRevision)
-        return editing('rejected', status.message);
-      return changed ? { kind: 'conflict' } : editing('retry');
-    case 'unknown':
-      // Saves are bound to their revision, so saving again can never apply
-      // the same correction twice. Until a newer revision is observed the
-      // earlier Save has not been applied.
-      if (accepted.revision === status.attempt.expectedRevision)
-        return editing('unconfirmed');
-      if (latest === status.attempt.candidate)
-        return {
-          kind: 'closed',
-          feedback: { kind: 'matched', entry: target.section },
-        };
-      return changed ? { kind: 'conflict' } : editing('unconfirmed');
-  }
+  if (status.kind === 'editing') return editing(status.notice);
+  if (status.kind === 'conflict') return { kind: 'conflict' };
+  // Saves are bound to their revision, so saving again can never apply the
+  // same correction twice. Until a newer revision is observed, a Save that
+  // failed or went unconfirmed has not been applied.
+  if (accepted.revision === status.attempt.expectedRevision)
+    return status.kind === 'rejected'
+      ? editing('rejected', status.message)
+      : editing('unconfirmed');
+  // The militia moved on. If it now shows this correction (an earlier
+  // unconfirmed Save was applied), there is nothing left to save; the reason
+  // is not claimed as stored.
+  if (latest === status.attempt.candidate)
+    return {
+      kind: 'closed',
+      feedback: { kind: 'matched', entry: target.section },
+    };
+  if (changed) return { kind: 'conflict' };
+  // A refusal against an older revision was a race with another section's
+  // write: retry against the newest militia.
+  return editing(status.kind === 'rejected' ? 'retry' : 'unconfirmed');
 }
 
 export type SavePlan =
