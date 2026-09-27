@@ -110,9 +110,9 @@ test('[EVT-07.high-morale-view] High Morale picks its ended carried event on car
     <EventView view={view(draft, snapshot)} edit={edit} disabled={false} />,
   );
   fireEvent.click(
-    // Named for its own High Morale, so two blocks never share a name.
+    // Named for its own event block, so two High Morales never share a name.
     within(block).getByRole('button', {
-      name: /^End the oldest instead for High Morale/,
+      name: 'End the oldest instead for Event 1',
     }),
   );
   expect(lastOccurrence(edit)).not.toHaveProperty('targets');
