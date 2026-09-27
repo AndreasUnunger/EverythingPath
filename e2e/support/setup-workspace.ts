@@ -5,6 +5,17 @@ import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
 import { saveStatus } from './week-frame';
 
+// Opens a guided Setup step from the step index (tablet and wider).
+export async function openSetupStep(page: Page, step: string) {
+  await page
+    .getByRole('navigation', { name: 'Setup steps', exact: true })
+    .getByRole('button', { name: step, exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { level: 2, name: step, exact: true }),
+  ).toBeVisible();
+}
+
 // Uses the same owned campaign, auth contexts, reset and cleanup as #26/#27.
 export async function exerciseMilitiaSetup(
   run: Run,
@@ -39,20 +50,26 @@ export async function exerciseMilitiaSetup(
         .getByRole('button', { name: 'Existing militia', exact: true })
         .click();
       await gm
+        .getByRole('textbox', { name: 'Notoriety', exact: true })
+        .fill('-1');
+      // Rules warnings are advisory and shown on their step.
+      await expect(gm.getByLabel('Rules warnings')).toContainText('0–100');
+      await openSetupStep(gm, 'Week');
+      await gm
         .getByRole('textbox', { name: 'Current week', exact: true })
         .fill('12');
       await gm
         .getByRole('textbox', { name: 'Week start day', exact: true })
         .fill('77');
-      await gm
-        .getByRole('textbox', { name: 'Notoriety', exact: true })
-        .fill('-1');
-      await expect(gm.getByLabel('Rules warnings')).toContainText('0–100');
-      await gm
-        .getByRole('textbox', {
-          name: 'Setup notes / intentional rules deviations (optional)',
+      await openSetupStep(gm, 'Review & start');
+      await expect(
+        gm.getByRole('button', {
+          name: 'Notoriety is outside the normal range of 0–100.',
           exact: true,
-        })
+        }),
+      ).toBeVisible();
+      await gm
+        .getByRole('textbox', { name: 'Setup notes (optional)', exact: true })
         .fill('The table starts this militia in week twelve.');
     }
     if (existing) {
@@ -63,12 +80,13 @@ export async function exerciseMilitiaSetup(
           .click();
       const fill = async (name: string, value: string) =>
         gm.getByRole('textbox', { name, exact: true }).fill(value);
+      await openSetupStep(gm, 'People & officers');
       await gm
-        .getByRole('heading', { name: 'Characters and officers', exact: true })
-        .locator('..')
-        .getByRole('button')
+        .getByRole('main')
+        .getByRole('button', { name: /^Add / })
         .first()
         .click();
+      await openSetupStep(gm, 'Character conditions');
       await gm
         .getByRole('button', { name: 'Add character condition', exact: true })
         .click();
@@ -77,8 +95,10 @@ export async function exerciseMilitiaSetup(
         .getByRole('button')
         .first()
         .click();
+      await openSetupStep(gm, 'Teams');
       await gm.getByRole('button', { name: 'Add team', exact: true }).click();
       await fill('Team name', 'Scouts');
+      await openSetupStep(gm, 'Settlements');
       await gm
         .getByRole('button', { name: 'Add settlement', exact: true })
         .click();
@@ -90,6 +110,7 @@ export async function exerciseMilitiaSetup(
         })
         .click();
       await fill('Reduce Danger ends week', '13');
+      await openSetupStep(gm, 'Carried effects');
       await gm.getByRole('button', { name: 'Add bonus', exact: true }).click();
       await fill('Bonus source', 'Prior mission');
       await choose('Bonus team (optional)', 'Scouts');
@@ -98,6 +119,7 @@ export async function exerciseMilitiaSetup(
         .getByRole('button', { name: 'Add Market Day benefit', exact: true })
         .click();
       await choose('Discount settlements', 'Home');
+      // The open step and its entries stay in bounds on phone rows too.
       for (const [layout, width, height] of [
         ['tablet', 1194, 834],
         ['phone', 390, 844],
@@ -123,19 +145,31 @@ export async function exerciseMilitiaSetup(
       }
       await gm.setViewportSize({ width: 1194, height: 834 });
     }
+    await openSetupStep(gm, 'Starting point');
     const rank = gm.getByRole('textbox', { name: 'Rank', exact: true });
     await rank.fill('invalid');
-    await gm
-      .getByRole('button', { name: 'Start militia week', exact: true })
-      .click();
     await expect(
       gm.getByText('Enter a valid whole number for Rank.'),
     ).toBeVisible();
+    // Only Start is blocked; its summary links back to the field.
+    await openSetupStep(gm, 'Review & start');
+    await gm
+      .getByRole('button', { name: 'Start militia week', exact: true })
+      .click();
+    await gm
+      .getByRole('button', {
+        name: 'Enter a valid value for Rank.',
+        exact: true,
+      })
+      .click();
+    await expect(rank).toBeFocused();
     await rank.fill('1');
+    await openSetupStep(gm, 'Week');
     await gm
       .getByRole('group', { name: 'Open phase', exact: true })
       .getByRole('button', { name: 'event', exact: true })
       .click();
+    await openSetupStep(gm, 'Review & start');
     await gm
       .getByRole('button', { name: 'Start militia week', exact: true })
       .click();

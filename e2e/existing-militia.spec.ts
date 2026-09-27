@@ -1,5 +1,6 @@
 import { test, expect } from './support/fixtures';
 import { openCampaignSection, selectCampaign } from './support/interactions';
+import { openSetupStep } from './support/setup-workspace';
 
 test.use({ caseKey: 'existingMilitia', comparisonCaseKey: 'isolation' });
 test('existing militia state survives reload within its campaign', async ({
@@ -14,15 +15,29 @@ test('existing militia state survives reload within its campaign', async ({
   await page
     .getByRole('button', { name: 'Existing militia', exact: true })
     .click();
-  for (const [name, value] of [
-    ['Current week', '8'],
-    ['Week start day', '49'],
-    ['Rank', '4'],
-    ['Training', '24'],
-    ['Treasury (copper)', '72500'],
-    ['Notoriety', '17'],
-  ])
-    await page.getByRole('textbox', { name: name!, exact: true }).fill(value!);
+  for (const [step, fields] of [
+    [
+      'Starting point',
+      [
+        ['Rank', '4'],
+        ['Training', '24'],
+        ['Treasury (copper)', '72500'],
+        ['Notoriety', '17'],
+      ],
+    ],
+    [
+      'Week',
+      [
+        ['Current week', '8'],
+        ['Week start day', '49'],
+      ],
+    ],
+  ] as const) {
+    await openSetupStep(page, step);
+    for (const [name, value] of fields)
+      await page.getByRole('textbox', { name, exact: true }).fill(value);
+  }
+  await openSetupStep(page, 'Review & start');
   await page
     .getByRole('button', { name: 'Start militia week', exact: true })
     .click();

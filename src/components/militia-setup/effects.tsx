@@ -46,10 +46,6 @@ export function SetupCharacterConditions({
         })
       }
     >
-      <p className="text-muted-foreground text-sm">
-        Record the location and condition of characters the militia can hide,
-        rescue or restore.
-      </p>
       {people.fields.map((row, i) => {
         const person = snapshot.characterActions?.people[i];
         return (
@@ -295,10 +291,6 @@ export function SetupMarketDayBenefits() {
         })
       }
     >
-      <p className="text-muted-foreground text-sm">
-        Market Day gives a 5% discount in the selected settlements for its
-        recorded duration.
-      </p>
       {markets.fields.map((row, i) => (
         <SetupEntry
           key={row.id}

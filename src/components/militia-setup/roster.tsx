@@ -40,10 +40,6 @@ export function SetupPeople({
   const selected = useRosterCharacters(characters);
   return (
     <SetupSection title="Characters and officers">
-      <p className="text-muted-foreground text-sm">
-        Choose people from the campaign ledger. Record Hit Dice separately from
-        level.
-      </p>
       <div className="flex flex-wrap gap-2">
         {characters
           .filter((character) => !selected.includes(character))
