@@ -16,7 +16,7 @@ export type EventFamilyInputsProps<Family extends EventPanel['family']> = {
   showRefusal: (result: EventEditResult) => void;
   // `subject` names the cards by event block (see EventTargetCards).
   targetCards: (
-    kind: 'team' | 'settlement',
+    kind: 'team' | 'settlement' | 'item' | 'cache',
     choice: EventTargetChoice,
     subject?: string,
   ) => ReactNode;

@@ -11,6 +11,7 @@ import { activityRollSpec } from '~/lib/rules-roll-spec';
 import { isRefugeActive, projectSettlements } from '~/lib/rules-settlements';
 import { withoutDuplicateRollCodes } from './roll-requirements';
 import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
+import { HIDDEN_AGENDA_SOURCE } from '~/lib/rules-event-outcomes';
 
 import { recruitedTeamId } from '~/lib/weekly-draft-identities';
 import {
@@ -118,6 +119,8 @@ export function checkModifierLabel(
     return name ? `Manager ${name}` : 'Team manager';
   }
   if (prefix === 'queued') {
+    // Hidden Agenda's recalculated bonus is not a queued draft effect.
+    if (id === HIDDEN_AGENDA_SOURCE) return activityLabel('hidden_agenda');
     const effect = context.draft.context.queuedEffects.find(
       (entry) => entry.sourceId === id || entry.effectId === id,
     );

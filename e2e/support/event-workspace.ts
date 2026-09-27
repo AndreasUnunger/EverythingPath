@@ -148,6 +148,35 @@ export async function exerciseEventWorkspace(
   await expect(
     sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
   ).toHaveAttribute('aria-pressed', 'false');
+  // Found Fire (21–24): a reward for the militia's PC, entered in gp to the
+  // copper on one device, appears on the other. The GM's next roll waits for
+  // it, as it would otherwise save the occurrence without the reward.
+  await table(gm, '1.1').fill('22');
+  const rewards = (page: Page) =>
+    occurrence(page, '1.1').getByRole('group', {
+      name: /^Rewards for .+ · Event 1\.1$/,
+    });
+  await rewards(player)
+    .getByRole('button', { name: /^Add reward for .+ · Event 1\.1$/ })
+    .click();
+  const reward = rewards(player).getByRole('group', {
+    name: /^New reward for .+ · Event 1\.1$/,
+  });
+  await reward
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Tanglefoot bag');
+  await reward
+    .getByRole('textbox', { name: 'Value (gp)', exact: true })
+    .fill('0.07');
+  await reward
+    .getByRole('textbox', { name: 'Weight (lb)', exact: true })
+    .fill('4');
+  await reward
+    .getByRole('button', { name: 'Save reward · Event 1.1', exact: true })
+    .click();
+  await expect(
+    rewards(gm).getByText('0.07 gp · 4 lb · alchemical', { exact: true }),
+  ).toBeVisible();
   // Theft (73–76): its optional mitigation is chosen on one device and its
   // Loyalty check appears on the other. The GM's next roll waits for it, as
   // it would otherwise save the occurrence without the choice.

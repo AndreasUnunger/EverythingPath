@@ -3,6 +3,7 @@ import type { EventType } from './militia-domain';
 import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import { normalizeRawRoll } from './raw-roll';
 import { operatedSettlementIds } from './rules-event-context';
+import { isDiscoverableCache } from './rules-threat-events';
 import { projectSettlements } from './rules-settlements';
 import type { ActivityProjection } from './rules-activity';
 import type { WeeklyDraft } from './weekly-draft-contract';
@@ -175,11 +176,7 @@ function canEventOccur({ draft, activity }: SelectionContext, event: Event) {
   const state = activity.outcome;
   switch (event.eventType) {
     case 'cache_discovered':
-      return (
-        state.economy?.caches.some(
-          (cache) => cache.status === 'hidden' || cache.status === 'returning',
-        ) ?? false
-      );
+      return state.economy?.caches.some(isDiscoverableCache) ?? false;
     case 'raid':
       return state.settlements.some(
         (town) =>

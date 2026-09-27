@@ -32,6 +32,11 @@ import {
   recurringPanel,
   recurringPanelMessage,
 } from './event-recurring-facts';
+import {
+  isResourceFamily,
+  resourcePanel,
+  resourcePanelMessage,
+} from './event-resource-facts';
 import type {
   ActivityTeamFact,
   EventPanel,
@@ -54,8 +59,9 @@ const TEAM_FAMILIES: readonly TeamFamily[] = [
  * The event-specific controls of one occurrence: Missing in Action,
  * Sickness, Turn Around and Raid, the calm, morale, narrative and training
  * events (`event-outcome-facts.ts`), and the officer-check and
- * persistent-producing events (`event-recurring-facts.ts`). Other families return null and keep the
- * general details editor until their own controls ship.
+ * persistent-producing events (`event-recurring-facts.ts`), and the item,
+ * cache, settlement, reward and Activity-recalculation events
+ * (`event-resource-facts.ts`). Only Roll Twice has no panel of its own.
  */
 export function eventPanel(
   item: Item,
@@ -64,6 +70,7 @@ export function eventPanel(
   const type = item.resolvedType;
   if (isOutcomeFamily(type)) return outcomePanel(item, type, context);
   if (isRecurringFamily(type)) return recurringPanel(item, type, context);
+  if (isResourceFamily(type)) return resourcePanel(item, type, context);
   if (type === 'raid') return raidPanel(item, context);
   if (TEAM_FAMILIES.includes(type as TeamFamily))
     return teamPanel(item, type as TeamFamily, context);
@@ -396,6 +403,8 @@ export function eventPanelMessage(
   if (panel.family === 'outcome') return outcomePanelMessage(panel, tail);
   if (panel.family === 'recurring')
     return recurringPanelMessage(panel, tail, warning);
+  if (panel.family === 'resource')
+    return resourcePanelMessage(panel, tail, warning);
   if (panel.family === 'team') {
     if (tail === 'team' || tail === 'same-team')
       return panel.team

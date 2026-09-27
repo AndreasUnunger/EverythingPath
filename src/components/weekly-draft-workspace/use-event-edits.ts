@@ -4,6 +4,7 @@ import {
   eventOccurrenceSchema,
   eventTreeSchema,
   rawRollModifiersSchema,
+  rulesExceptionSchema,
   type RawRoll,
 } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
@@ -13,6 +14,8 @@ import type { EventBlock, EventRetainedField, EventView } from './types';
 type Occurrence = EventView['occurrences'][number]['occurrence'];
 type TargetCheck = NonNullable<Occurrence['targetChecks']>[number];
 type Target = NonNullable<Occurrence['targets']>[number];
+export type EventRewardInput = NonNullable<Occurrence['rewards']>[number];
+type RulesException = EventView['exceptions'][number];
 export type TargetCheckPatch = {
   mitigation?: 'attempted' | 'unattempted';
   // A die, or null to clear it.
@@ -141,7 +144,7 @@ export function useEventEdits(
        */
       setTargets(
         eventId: string,
-        kind: 'team' | 'settlement' | 'event',
+        kind: 'team' | 'settlement' | 'event' | 'item' | 'cache',
         ids: readonly string[],
       ) {
         const occurrence = current(eventId);
@@ -153,6 +156,8 @@ export function useEventEdits(
           ...ids.map((id): Target => {
             if (kind === 'team') return { kind, teamId: id };
             if (kind === 'settlement') return { kind, settlementId: id };
+            if (kind === 'item') return { kind, itemId: id };
+            if (kind === 'cache') return { kind, cacheId: id };
             return { kind, eventId: id };
           }),
         ];
@@ -265,6 +270,58 @@ export function useEventEdits(
         return saveOccurrence(
           Object.keys(others).length ? { ...rest, rolls: others } : rest,
         );
+      },
+      /**
+       * One Found Fire reward, added last or replaced in place by its item
+       * identity. The rest of the occurrence is the latest this device
+       * knows, so an edit built on an older one is refused, never merged.
+       */
+      saveReward(eventId: string, reward: EventRewardInput) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const rewards = occurrence.rewards ?? [];
+        return saveOccurrence({
+          ...occurrence,
+          rewards: rewards.some((entry) => entry.itemId === reward.itemId)
+            ? rewards.map((entry) =>
+                entry.itemId === reward.itemId ? reward : entry,
+              )
+            : [...rewards, reward],
+        });
+      },
+      /**
+       * Removes one reward. Its Rules Exception is cleared first, so a
+       * failed removal leaves the reward asking for one again rather than an
+       * exception nobody can see.
+       */
+      removeReward(eventId: string, itemId: string) {
+        const occurrence = current(eventId);
+        if (!occurrence?.rewards?.some((entry) => entry.itemId === itemId))
+          return 'This reward is no longer recorded.';
+        for (const exception of view.exceptions)
+          if (exception.subjectId === itemId)
+            edit({
+              kind: 'clear_rules_exception',
+              exceptionId: exception.exceptionId,
+            });
+        const rewards = occurrence.rewards.filter(
+          (entry) => entry.itemId !== itemId,
+        );
+        const { rewards: _previous, ...rest } = occurrence;
+        return saveOccurrence(rewards.length ? { ...rest, rewards } : rest);
+      },
+      /** A Rules Exception reason beside its subject (a reward). */
+      saveException(exception: RulesException) {
+        const parsed = rulesExceptionSchema.safeParse(exception);
+        if (!parsed.success)
+          return parsed.error.issues[0]!.path[0] === 'reason'
+            ? 'A reason is required.'
+            : parsed.error.issues[0]!.message;
+        edit({ kind: 'rules_exception', exception: parsed.data });
+        return null;
+      },
+      clearException(exceptionId: string) {
+        edit({ kind: 'clear_rules_exception', exceptionId });
       },
       /** What happened: the occurrence's acknowledgement, saved or cleared. */
       saveWhatHappened(eventId: string, outcome: string) {

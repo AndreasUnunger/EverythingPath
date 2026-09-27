@@ -596,6 +596,92 @@ export type EventOutcomeFamily =
   | 'war_games'
   | 'week_of_pain'
   | 'week_of_serenity';
+export type EventResourceFamily =
+  | 'broke_the_code'
+  | 'cache_discovered'
+  | 'festival'
+  | 'market_day'
+  | 'found_fire'
+  | 'hidden_agenda';
+// One cache Cache Discovered finds: its own Attempt it / Let it happen and
+// Secrecy check, like a Raid's hidden person.
+export type EventCacheTarget = {
+  cacheId: string;
+  // "Minor cache at Bridge"
+  name: string;
+  // "Hidden · Supplies, Rope"
+  description: string;
+  // Contents the campaign no longer records, by item identity.
+  missingItems: string[];
+  mitigation: 'attempted' | 'unattempted';
+  // The choice is recorded on the cache, not read from the event or a roll.
+  explicit: boolean;
+  check: EventCheckFacts;
+  checkRoll: RawRoll | undefined;
+};
+// A recorded Rules Exception, or the blank one a reward can take.
+export type EventRewardException = {
+  exceptionId: string;
+  subjectId: string;
+  ruleId: string;
+  reason: string;
+};
+// One Found Fire reward: an item a player character receives.
+export type EventReward = {
+  itemId: string;
+  characterId: string;
+  // The recipient's name, or words for one no longer an active PC.
+  recipient: string;
+  name: string;
+  valueCopper: number;
+  weight: number;
+  alchemical: boolean;
+  poison: boolean;
+  // "100 gp · 1 lb · alchemical"
+  description: string;
+  // A non-poison alchemical item worth 100 gp or less, as the rules allow.
+  permitted: boolean;
+  // Present when the reward is not permitted or an exception is recorded.
+  exception: EventRewardException | null;
+  exceptionRequired: boolean;
+  // What else the rules ask of this reward, worded.
+  issues: string[];
+};
+export type EventRewardFacts = {
+  // Each active PC and the rewards recorded for them; the rules ask for
+  // exactly one each.
+  recipients: {
+    characterId: string;
+    name: string;
+    required: boolean;
+    // "Record one reward." / "Only one reward counts. Remove the others."
+    issue: string | null;
+    rewards: EventReward[];
+  }[];
+  // Rewards recorded for someone who is not an active PC.
+  others: EventReward[];
+  // The PCs a reward can go to, for the reward form.
+  choices: { value: string; label: string }[];
+};
+// One Activity check Hidden Agenda recalculates.
+export type EventActivityCheck = {
+  slotId: string;
+  // "Action Slot 2 · Recruit Team · Scouts"
+  label: string;
+  // "Loyalty check 19 vs DC 15 (Hidden Agenda +2): success"
+  result: string;
+  // The outcome turns on this bonus: without it the check fails.
+  decided: boolean;
+  // The choice's missing inputs, worded by Activity.
+  issues: string[];
+};
+export type EventActivityRecalculation = {
+  bonus: number;
+  checks: EventActivityCheck[];
+  // Activity is not ready: its outcome is not final yet.
+  pending: boolean;
+  cycle: boolean;
+};
 export type EventPanel =
   | {
       // Calm, morale, narrative and training events: their outcome lines,
@@ -673,6 +759,41 @@ export type EventPanel =
       retained: EventRetainedField[];
       // What clearing retained targets or rolls keeps: the target kinds and
       // named rolls this event reads.
+      keep: {
+        targets: NonNullable<
+          WeeklyDraft['event']['occurrences'][number]['targets']
+        >[number]['kind'][];
+        rolls: string[];
+      };
+    }
+  | {
+      // Item, cache, settlement, reward and Activity-recalculation events:
+      // Broke the Code, Cache Discovered, Festival, Market Day, Found Fire
+      // and Hidden Agenda. Each part is null where the event and its mode do
+      // not use it.
+      family: 'resource';
+      eventType: EventResourceFamily;
+      // Broke the Code's identified item.
+      item: EventTargetChoice | null;
+      // Festival's and Market Day's town.
+      settlement: EventTargetChoice | null;
+      // Market Day Twice: every operated town the discount reaches.
+      towns: EventTargetCard[] | null;
+      // Cache Discovered's cache (base mode), then each cache found.
+      cache: EventTargetChoice | null;
+      caches: EventCacheTarget[];
+      // Recorded per-cache checks for caches this event does not find.
+      retainedCacheChecks: (EventRetainedTarget & { index: number })[];
+      // An event-level mitigation or check roll from an older editor.
+      legacyMitigation: 'attempted' | 'unattempted' | null;
+      legacyCheckRoll: boolean;
+      rewards: EventRewardFacts | null;
+      activity: EventActivityRecalculation | null;
+      notes: string[];
+      whatHappened: EventWhatHappened | null;
+      outcomes: string[];
+      partial: boolean;
+      retained: EventRetainedField[];
       keep: {
         targets: NonNullable<
           WeeklyDraft['event']['occurrences'][number]['targets']

@@ -106,6 +106,28 @@ export function targetChoice({
   return { label, hint, required, selected, choices, retained };
 }
 
+type Cache = NonNullable<
+  NonNullable<EventPanelContext['projection']>['outcome']['economy']
+>['caches'][number];
+const cacheClassNames: Record<Cache['cacheClass'], string> = {
+  minor: 'Minor',
+  intermediate: 'Intermediate',
+  major: 'Major',
+};
+/** "Minor cache at Bridge": caches have no name of their own. */
+export const cacheName = (cache: Pick<Cache, 'cacheClass' | 'location'>) =>
+  `${cacheClassNames[cache.cacheClass]} cache at ${cache.location}`;
+
+/** An item's name wherever the week knows it, after Activity or later. */
+export function itemName(context: EventPanelContext, itemId: string) {
+  return (
+    [
+      ...(context.projection?.outcome.economy?.items ?? []),
+      ...(context.activity?.outcome.economy?.items ?? []),
+    ].find((item) => item.itemId === itemId)?.name ?? null
+  );
+}
+
 // A recorded team no longer on the roster, and why it stays.
 export const MISSING_TEAM = {
   label: 'A team no longer on the roster',

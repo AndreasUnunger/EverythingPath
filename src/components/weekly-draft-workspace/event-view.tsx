@@ -51,7 +51,7 @@ function EventSteps({
   openActivity,
 }: EventViewProps) {
   const edits = useEventEdits(view, edit);
-  const blockProps = { view, edit, disabled, edits, preparation };
+  const blockProps = { view, edit, disabled, edits, preparation, openActivity };
   const activeSets = view.candidates.filter((set) => set.active);
   const keptSets = view.candidates.filter(
     (set) => !set.active && set.blocks.length > 0,

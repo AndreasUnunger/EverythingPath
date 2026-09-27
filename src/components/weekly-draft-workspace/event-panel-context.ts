@@ -4,6 +4,7 @@ import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import type {
   ActivityTeamFact,
+  ActivityView,
   EventOccurrenceFacts,
   EventWhatHappened,
 } from './types';
@@ -21,6 +22,9 @@ export type EventPanelContext = {
   projection: EventOutcomeProjection | undefined;
   activity: ActivityProjection | undefined;
   teams: ActivityTeamFact[];
+  // Activity's slots with their checks and worded issues, which Hidden
+  // Agenda recalculates.
+  activitySlots: ActivityView['slots'];
   personName: (characterId: string) => string | null;
   settlementName: (settlementId: string) => string | null;
   // "Event 3 · Sickness"
