@@ -1,12 +1,5 @@
 'use client';
-import { eventRollSpec } from '~/lib/rules-roll-spec';
-import {
-  keepOverseerSupport,
-  withoutOverseerSupport,
-} from '~/lib/overseer-support';
-import { persistentDecisionSchema } from '~/lib/weekly-draft-facts';
 import { Button } from '~/components/ui/button';
-import { StructuredChoiceField } from './structured-choice-field';
 import { eventRequirement } from './event-messages';
 import {
   decisionCards,
@@ -17,16 +10,20 @@ import {
   ProjectedResult,
   SectionMarker,
 } from './persistent-parts';
-import { persistentMessage, PersistentOutcomes } from './persistent-outcomes';
+import { RivalryCheckInputs, TheftCheckInputs } from './persistent-checks';
+import { persistentMessage } from './persistent-outcomes';
 import { endingNeedsReason, exceptionInUse } from './persistent-sections';
 import type { PersistentSourceLink, PersistentView as Facts } from './types';
 import {
   usePersistentChoice,
   type PersistentEdit,
 } from './use-persistent-choice';
+import {
+  usePersistentCheck,
+  type LatestPersistentDecision,
+} from './use-persistent-check';
 import { phaseLabels } from './week-frame/labels';
 import type { LatestOverseerSupport } from './overseer-support-facts';
-import { OverseerSupportControl } from './overseer-support-control';
 import { OverseerSupportProvider } from './use-overseer-support';
 import { formatGold } from './week-frame/reference-copy';
 
@@ -44,20 +41,6 @@ type Props = {
   latestOverseer?: LatestOverseerSupport;
 };
 type Event = Facts['events'][number];
-const mitigation = persistentDecisionSchema.options[1];
-const officerDecision = mitigation.omit({
-  overseerCharacterId: true,
-  rolls: true,
-  targets: true,
-  strategistCharacterId: true,
-});
-// Overseer support has its own toggle below the check, shared with Event.
-const theftDecision = mitigation.omit({
-  officerCheck: true,
-  overseerCharacterId: true,
-  targets: true,
-  strategistCharacterId: true,
-});
 
 export function PersistentView({
   view,
@@ -66,6 +49,19 @@ export function PersistentView({
   openSource,
   latestOverseer,
 }: Props) {
+  // Check fields build their edits from the newest decision, so one never
+  // replays a decision captured before a support move or a peer's edit.
+  const latest: LatestPersistentDecision | undefined = latestOverseer
+    ? (eventId) => {
+        const facts = latestOverseer();
+        if (!facts) return undefined;
+        return (
+          facts.source.decisions.find(
+            (decision) => decision.eventId === eventId,
+          ) ?? null
+        );
+      }
+    : undefined;
   return (
     <OverseerSupportProvider
       facts={view.overseer}
@@ -87,6 +83,7 @@ export function PersistentView({
             edit={edit}
             disabled={disabled}
             openSource={openSource}
+            latest={latest}
           />
         ))}
       </section>
@@ -108,14 +105,27 @@ function PersistentEvent({
   edit,
   disabled,
   openSource,
-}: Props & { number: number; event: Event }) {
+  latest,
+}: Omit<Props, 'latestOverseer'> & {
+  number: number;
+  event: Event;
+  latest?: LatestPersistentDecision;
+}) {
   const choice = usePersistentChoice(event, edit);
+  const check = usePersistentCheck(event, edit, latest);
   const decision = event.decision;
   const cost = view.buyoffCostCopper;
   const targets = event.targetNames.length
     ? event.targetNames.join(' & ')
     : 'Militia';
   const unsupportedCheck = choice.saved === 'mitigate' && event.check === null;
+  // A warning its Rules Exception block already explains is not repeated.
+  const warnings = event.warnings.filter(
+    (key) =>
+      !event.exceptions.some(
+        (exception) => key === `${event.eventId}:${exception.ruleId}`,
+      ),
+  );
   const requirements = event.requirements.filter(
     (key) => !key.endsWith(':exception'),
   );
@@ -178,69 +188,22 @@ function PersistentEvent({
                 · taken from the treasury at Confirmation
               </p>
             )}
-            {choice.selected === 'mitigate' &&
-              decision?.kind === 'mitigate' &&
-              event.check && (
-                <>
-                  <p className="text-sm">
-                    {event.eventType === 'rivalry'
-                      ? 'An officer’s Diplomacy, Bluff or Intimidate check against DC 20 can end this Rivalry permanently.'
-                      : 'A Loyalty check against DC 20 can reduce this week’s Theft loss to 10%. The event remains.'}
-                  </p>
-                  <StructuredChoiceField
-                    name="persistentDecision"
-                    schema={
-                      event.eventType === 'rivalry'
-                        ? officerDecision
-                        : theftDecision
-                    }
-                    value={
-                      event.eventType === 'rivalry'
-                        ? decision
-                        : withoutOverseerSupport(decision)
-                    }
-                    options={view.options}
-                    rollSpec={(path) =>
-                      eventRollSpec(
-                        { kind: 'persistent', eventType: event.eventType },
-                        path,
-                      )
-                    }
-                    disabled={disabled}
-                    onValue={(value) => {
-                      if (value === undefined) {
-                        void edit({
-                          kind: 'clear_persistent_decision',
-                          eventId: event.eventId,
-                        });
-                        return;
-                      }
-                      const parsed = persistentDecisionSchema.safeParse(value);
-                      if (!parsed.success) return false;
-                      void edit({
-                        kind: 'persistent_decision',
-                        decision: keepOverseerSupport(
-                          { ...parsed.data, eventId: event.eventId },
-                          decision,
-                        ),
-                      });
-                    }}
-                  />
-                  {event.eventType === 'theft' && (
-                    <OverseerSupportControl
-                      eventId={event.eventId}
-                      check="loyalty"
-                      subject={`${event.name} Loyalty check`}
-                      breakdown={
-                        event.checks.find(
-                          (check) =>
-                            check.checkId === `${event.eventId}:mitigation`,
-                        )?.modifiers
-                      }
-                    />
-                  )}
-                </>
-              )}
+            {choice.selected === 'mitigate' && event.theftCheck && (
+              <TheftCheckInputs
+                event={event}
+                check={event.theftCheck}
+                actions={check}
+                disabled={disabled}
+              />
+            )}
+            {choice.selected === 'mitigate' && event.rivalryCheck && (
+              <RivalryCheckInputs
+                event={event}
+                check={event.rivalryCheck}
+                actions={check}
+                disabled={disabled}
+              />
+            )}
             {choice.selected === 'end' && (
               <EndingForm
                 key={event.eventId}
@@ -261,8 +224,7 @@ function PersistentEvent({
             )}
           </>
         )}
-        <PersistentOutcomes event={event} options={view.options} />
-        {event.warnings.map((key) => (
+        {warnings.map((key) => (
           <p key={key} role="note" className="text-sm text-amber-300">
             {persistentMessage(key)}
           </p>

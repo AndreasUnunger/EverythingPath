@@ -17,7 +17,15 @@ import {
   sourceEndings,
 } from './persistent-sections';
 import type { PersistentView } from './types';
+
+type Carried = WeeklyDraft['context']['carriedEvents'][number];
 import { withoutDuplicateRollCodes } from './roll-requirements';
+import {
+  retainedFields,
+  rivalryCheckFacts,
+  theftCheckFacts,
+  unmitigatedThefts,
+} from './persistent-check-facts';
 
 export function persistentView(
   draft: WeeklyDraft,
@@ -28,6 +36,13 @@ export function persistentView(
   const projection = phases?.persistent;
   const { options, overseer } = eventView(draft, source, preview);
   const events = orderCarriedEvents(draft.context.carriedEvents);
+  const targetName = (target: Carried['targets'][number]) => {
+    const [field, id] = Object.entries(target).find(([key]) => key !== 'kind')!;
+    return (
+      options[field]?.find((option) => option.value === id)?.label ??
+      `Unavailable ${target.kind}`
+    );
+  };
   const ownIds = events.map((event) => event.eventId);
   const allRequirements = projection?.requirements ?? [];
   const earlier = earlierPhases(allRequirements, ownIds, phases);
@@ -69,21 +84,26 @@ export function persistentView(
           (change) => 'eventId' in change && change.eventId === event.eventId,
         ) ?? [];
       const endedBy = endings.get(event.eventId) ?? null;
+      const checks =
+        projection?.checks.filter((check) =>
+          check.checkId.startsWith(`${event.eventId}:`),
+        ) ?? [];
+      const eventWarnings = warnings.filter((key) =>
+        key.startsWith(`${event.eventId}:`),
+      );
+      const mitigation = decision?.kind === 'mitigate' ? decision : null;
+      const otherThefts =
+        event.eventType === 'theft'
+          ? unmitigatedThefts(draft, phases, event.eventId)
+          : [];
+      const context = { draft, source, phases };
       return {
         ...structuredClone(event),
         name: `${activityLabel(event.eventType)} · Event ${index + 1}`,
         typeLabel: activityLabel(event.eventType),
         ageWeeks: draft.week - event.startedWeek,
         orderLabel: `${ordinal(event.order + 1)} that week`,
-        targetNames: event.targets.map((target) => {
-          const [field, id] = Object.entries(target).find(
-            ([key]) => key !== 'kind',
-          )!;
-          return (
-            options[field]?.find((option) => option.value === id)?.label ??
-            `Unavailable ${target.kind}`
-          );
-        }),
+        targetNames: event.targets.map(targetName),
         decision,
         ended: projection?.endedEventIds.includes(event.eventId) ?? false,
         endedBy,
@@ -94,16 +114,39 @@ export function persistentView(
           changes,
           requirements,
           costPending,
+          otherThefts,
         }),
         leaveNote: leaveNote(event.eventType),
         check: checkChoice(event.eventType),
         changes,
-        checks:
-          projection?.checks.filter((check) =>
-            check.checkId.startsWith(`${event.eventId}:`),
-          ) ?? [],
+        checks,
+        theftCheck:
+          mitigation && event.eventType === 'theft'
+            ? theftCheckFacts(
+                context,
+                { eventId: event.eventId, checks, requirements },
+                mitigation,
+                otherThefts,
+              )
+            : null,
+        rivalryCheck:
+          mitigation && event.eventType === 'rivalry'
+            ? rivalryCheckFacts(
+                context,
+                {
+                  eventId: event.eventId,
+                  changes,
+                  requirements,
+                  warnings: eventWarnings,
+                },
+                mitigation,
+              )
+            : null,
+        retained: mitigation
+          ? retainedFields(context, event.eventType, mitigation, targetName)
+          : [],
         requirements,
-        warnings: warnings.filter((key) => key.startsWith(`${event.eventId}:`)),
+        warnings: eventWarnings,
         exceptions: [
           ...existing,
           ...requirements.flatMap((key) => {
