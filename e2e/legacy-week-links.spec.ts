@@ -13,9 +13,12 @@ test.use({ caseKey: 'legacyWeekLinks' });
 test('legacy week links open their phase in a bounded week without moving other members', async ({
   players,
 }) => {
-  await Promise.all([players.gm, players.player].map(openWeekFromList));
-  await exerciseLegacyWeekLinks(players.player);
-  await expect(
-    players.gm.getByRole('heading', { name: 'Week 1 · Event' }),
-  ).toBeVisible();
+  await test.step('members open the week from the campaign list', () =>
+    Promise.all([players.gm, players.player].map(openWeekFromList)));
+  await test.step('the player follows legacy week links back to a bounded week', () =>
+    exerciseLegacyWeekLinks(players.player));
+  await test.step('the GM stays on its own phase', () =>
+    expect(
+      players.gm.getByRole('heading', { name: 'Week 1 · Event' }),
+    ).toBeVisible());
 });

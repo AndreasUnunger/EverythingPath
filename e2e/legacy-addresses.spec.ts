@@ -13,6 +13,8 @@ test('unknown campaigns stay unavailable and legacy addresses lead members to th
   players,
   ownedCase,
 }) => {
-  await openWeekFromList(players.player);
-  await exerciseLegacyAddresses(players.player, ownedCase.campaignName);
+  await test.step('the player opens the week from the campaign list', () =>
+    openWeekFromList(players.player));
+  await test.step('the player follows unknown and legacy addresses', () =>
+    exerciseLegacyAddresses(players.player, ownedCase.campaignName));
 });

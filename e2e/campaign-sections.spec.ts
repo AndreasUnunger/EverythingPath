@@ -12,6 +12,8 @@ test.use({ caseKey: 'campaignSections' });
 test('members move between campaign sections at every width and through browser history', async ({
   players,
 }) => {
-  await openWeekFromList(players.player);
-  await exerciseSectionNavigation(players.player);
+  await test.step('the player opens the week from the campaign list', () =>
+    openWeekFromList(players.player));
+  await test.step('the player moves between sections at every width and through browser history', () =>
+    exerciseSectionNavigation(players.player));
 });

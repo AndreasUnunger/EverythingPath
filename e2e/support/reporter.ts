@@ -15,6 +15,47 @@ import { evaluateResults } from './results';
 import { loadRun, runSchema } from './process';
 import { sanitizeLog } from './artifacts';
 
+const safeTitle = (title: string) =>
+  sanitizeLog(title)
+    .replace(/[^a-zA-Z0-9 .:_-]/g, '')
+    .slice(0, 160);
+
+type StepTiming = {
+  step: string;
+  /** Milliseconds from the attempt's start. */
+  start: number;
+  /** Milliseconds, or null for a step the attempt's end interrupted. */
+  duration: number | null;
+  status: 'passed' | 'failed' | 'interrupted';
+};
+
+// The journey's own `test.step` phases, in order, so a slow or timed-out
+// attempt shows where its time went. Only the sanitized step titles written in
+// the journeys are kept: never errors, locations, parameters, hooks, fixtures
+// or Playwright actions. A step still running when a timeout ends the attempt
+// never finishes (Playwright reports its duration as -1): it is recorded as
+// interrupted, and its start shows how long it ran.
+export function stepTimings(
+  result: Pick<TestResult, 'startTime' | 'steps'>,
+): StepTiming[] {
+  const visit = (steps: TestStep[], parents: string[]): StepTiming[] =>
+    steps.flatMap((step) => {
+      if (step.category !== 'test.step') return [];
+      const path = [...parents, safeTitle(step.title)];
+      const finished = step.duration >= 0;
+      return [
+        {
+          step: path.join(' > '),
+          start: step.startTime.getTime() - result.startTime.getTime(),
+          duration: finished ? step.duration : null,
+          status: !finished ? 'interrupted' : step.error ? 'failed' : 'passed',
+        },
+        ...visit(step.steps, path),
+      ];
+    });
+  return visit(result.steps, []).slice(0, 100);
+}
+
 export default class SafeReporter implements Reporter {
   private suite?: Suite;
   private errors = 0;
@@ -48,11 +89,10 @@ export default class SafeReporter implements Reporter {
     duration: number;
     errors: string[];
     observations: string[];
+    steps: StepTiming[];
   }[] = [];
   onTestEnd(test: TestCase, result: TestResult) {
-    const journey = sanitizeLog(test.title)
-      .replace(/[^a-zA-Z0-9 .:_-]/g, '')
-      .slice(0, 160);
+    const journey = safeTitle(test.title);
     const errors =
       test.parent.project()?.name === 'authentication'
         ? result.errors.map(
@@ -91,6 +131,7 @@ export default class SafeReporter implements Reporter {
         .map(({ description }) =>
           sanitizeLog(description ?? 'No visible state'),
         ),
+      steps: stepTimings(result),
     });
     // onTestEnd is synchronous in Playwright's reporter protocol. Checkpoint
     // before announcing completion so an outer deadline cannot erase the first

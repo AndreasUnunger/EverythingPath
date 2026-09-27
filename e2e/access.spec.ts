@@ -15,12 +15,14 @@ test('organization members can open their campaign and outsiders cannot', async 
   // (landing, selection, header edits, outsider view) are the campaign-home
   // journey; section navigation, legacy addresses and legacy week links are
   // their own journeys, split from this one.
-  await Promise.all([players.gm, players.player].map(openWeekFromList));
-  await expectOutsiderShutOut(
-    players.player,
-    players.outsider,
-    ownedCase.campaignName,
-  );
+  await test.step('members open the week from the campaign list', () =>
+    Promise.all([players.gm, players.player].map(openWeekFromList)));
+  await test.step('the outsider cannot open any section of the campaign', () =>
+    expectOutsiderShutOut(
+      players.player,
+      players.outsider,
+      ownedCase.campaignName,
+    ));
   if (
     (await loadRun()).mode === 'nightly' &&
     ['chromium-tablet', 'chromium-phone'].includes(info.project.name)

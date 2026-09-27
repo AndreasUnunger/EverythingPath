@@ -124,7 +124,13 @@ reporter keeps safe assertion messages, test outcomes and timings; auth setup
 errors are replaced with a fixed diagnostic. Each completed attempt is atomically
 checkpointed in `progress.json`, so an outer deadline retains the first failure
 even if `onEnd` cannot write the final report. Its status remains `running` and
-can never satisfy the aggregate gate. `stages.log` records stage outcomes;
+can never satisfy the aggregate gate. Each attempt's `steps` time the
+journey's own `test.step` phases: the sanitized title path, `start` and
+`duration` in milliseconds, and `passed`, `failed` or `interrupted` (a timeout
+ended the attempt inside the step, so `duration` is null and `start` shows how
+long it ran). Step errors, locations, parameters, fixtures and Playwright
+actions are not recorded. The access journeys and the nightly extension use
+steps; a journey without them records none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
