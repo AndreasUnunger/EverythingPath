@@ -14,7 +14,7 @@ export function persistentMessage(key: string) {
     'persistent-phase':
       'No event was carried into this week. This decision needs a reasoned exception.',
     'roll-range':
-      'A die is outside its usual range. Your entered value is retained for the table.',
+      'The roll is outside its usual range. The recorded value is retained for the table.',
   };
   return (
     messages[key.split(':').at(-1)!] ??

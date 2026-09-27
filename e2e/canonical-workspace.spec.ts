@@ -33,6 +33,7 @@ import { reviewPersistentWorkspace } from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
+import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Page } from '@playwright/test';
@@ -750,6 +751,9 @@ test('players prepare shared Upkeep with independent navigation and save recover
         second.goto(summaryRoute),
         late.goto(summaryRoute),
       ]);
+      // Incoming dice totals are read, cleared and re-entered on this fresh
+      // week before its original inputs are restored for the Confirmation race.
+      await exerciseRollCompatibility(first, second, run, summaryScope, [late]);
       const confirmationCharactersUrl = await prepareWeekHistory(first);
       await die(first).fill('20');
       await expect(die(second)).toHaveValue('20');
@@ -870,9 +874,13 @@ test('players prepare shared Upkeep with independent navigation and save recover
       expect(resolved.records).toHaveLength(1);
       expect(resolved.openDrafts).toHaveLength(1);
       expect(resolved.snapshot.treasuryCopper).toBe(5007);
-      expect(resolved.records[0]?.source.upkeep.rolls.check?.dice).toEqual([
-        20,
-      ]);
+      // The legacy writer confirmed a legacy array; the record keeps it exactly.
+      expect(resolved.records[0]?.source.upkeep.rolls.check).toEqual({
+        dice: [20],
+        sides: 20,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      });
       expect(resolved.openDrafts[0]?.upkeep.rolls.check).toBeUndefined();
       // The notice survives an ordinary save on the new week, stays
       // reachable on a phone beside the pinned chrome, and is dismissed

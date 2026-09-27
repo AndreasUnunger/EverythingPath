@@ -1,7 +1,7 @@
 export function activityWarning(warning: string, choiceId: string): string {
   const code = warning.slice(choiceId.length + 1);
   if (code.endsWith('roll-range'))
-    return 'A die is outside its usual range. Your entered value is retained for the table.';
+    return 'The roll is outside its usual range. The recorded value is retained for the table.';
   if (code === 'calculated-cost')
     return 'The entered cost differs from the rules calculation. The preview uses the calculated cost; changing this field does not adjust the treasury outcome.';
   const reasons: Record<string, string> = {

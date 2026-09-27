@@ -10,9 +10,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   stagedActionChoiceSchema,
-  rawRollSchema,
+  rawRollModifiersSchema,
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
+import { normalizeRawRoll } from '~/lib/raw-roll';
+import { RecordedRollTotal } from './recorded-roll';
+import { isTotalRoll, recordedDiceCount } from './roll-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -218,7 +221,7 @@ function ChoiceRolls({
 }) {
   const fields = new Map<string, { count: number; sides: number }>();
   for (const [field, roll] of Object.entries(choice.rolls ?? {}))
-    fields.set(field, { count: roll.dice.length, sides: roll.sides });
+    fields.set(field, { count: recordedDiceCount(roll), sides: roll.sides });
   for (const requirement of requirements) {
     const match = /^(\w+):(\d+)d(\d+)$/.exec(
       requirement.slice(choice.choiceId.length + 1),
@@ -232,40 +235,56 @@ function ChoiceRolls({
   return [...fields].map(([field, dice]) => {
     const roll =
       choice.rolls?.[field as keyof NonNullable<StagedActionChoice['rolls']>];
+    // Only a legacy array feeds the per-die writer; a total has no dice.
+    const entered = roll && !isTotalRoll(roll) ? roll.dice : [];
     return (
       <fieldset key={field} className="space-y-2">
         <legend className="text-sm font-semibold">
           {activityLabel(field)} · {dice.count}d{dice.sides}
         </legend>
-        <div className="grid grid-cols-2 items-start gap-2">
-          {Array.from({ length: dice.count }, (_, index) => (
-            <WholeNumberField
-              key={index}
-              label={`${activityLabel(field)} die ${index + 1}`}
-              required
-              disabled={
-                disabled || (index > 0 && roll?.dice[index - 1] === undefined)
-              }
-              value={roll?.dice[index] ?? null}
-              onValue={(value) => {
-                const entered = roll?.dice.slice(0, index) ?? [];
-                if (value !== null)
-                  entered.push(value, ...(roll?.dice.slice(index + 1) ?? []));
-                const rolls = { ...choice.rolls };
-                const key = field as keyof typeof rolls;
-                if (!entered.length) delete rolls[key];
-                else
-                  rolls[key] = {
-                    dice: entered,
-                    sides: dice.sides,
-                    provenance: { kind: 'table' },
-                    modifiers: roll?.modifiers ?? [],
-                  };
-                change('rolls', rolls);
-              }}
-            />
-          ))}
-        </div>
+        {roll && isTotalRoll(roll) ? (
+          <RecordedRollTotal
+            label={`${activityLabel(field)} roll`}
+            recorded={roll}
+            normalized={normalizeRawRoll(roll, dice)}
+            disabled={disabled}
+            onClear={() => {
+              const rolls = { ...choice.rolls };
+              delete rolls[field as keyof typeof rolls];
+              change('rolls', rolls);
+            }}
+          />
+        ) : (
+          <div className="grid grid-cols-2 items-start gap-2">
+            {Array.from({ length: dice.count }, (_, index) => (
+              <WholeNumberField
+                key={index}
+                label={`${activityLabel(field)} die ${index + 1}`}
+                required
+                disabled={
+                  disabled || (index > 0 && entered[index - 1] === undefined)
+                }
+                value={entered[index] ?? null}
+                onValue={(value) => {
+                  const next = entered.slice(0, index);
+                  if (value !== null)
+                    next.push(value, ...entered.slice(index + 1));
+                  const rolls = { ...choice.rolls };
+                  const key = field as keyof typeof rolls;
+                  if (!next.length) delete rolls[key];
+                  else
+                    rolls[key] = {
+                      dice: next,
+                      sides: dice.sides,
+                      provenance: { kind: 'table' },
+                      modifiers: roll?.modifiers ?? [],
+                    };
+                  change('rolls', rolls);
+                }}
+              />
+            ))}
+          </div>
+        )}
         {roll && (
           <details className="space-y-2">
             <summary className="cursor-pointer text-sm">
@@ -277,7 +296,7 @@ function ChoiceRolls({
               with a reason.
             </p>
             <StructuredChoiceField
-              schema={rawRollSchema.shape.modifiers.optional()}
+              schema={rawRollModifiersSchema.optional()}
               value={roll.modifiers}
               name="modifiers"
               disabled={disabled}

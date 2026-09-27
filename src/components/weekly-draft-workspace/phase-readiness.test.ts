@@ -62,12 +62,12 @@ test('phase warnings keep their identities and do not prevent ready decisions', 
     {
       id: 'event:first:roll-range',
       message:
-        'Event: A die is outside its usual range. Your entered value is retained for the table.',
+        'Event: The roll is outside its usual range. The recorded value is retained for the table.',
     },
     {
       id: 'event:second:roll-range',
       message:
-        'Event: A die is outside its usual range. Your entered value is retained for the table.',
+        'Event: The roll is outside its usual range. The recorded value is retained for the table.',
     },
   ]);
 });

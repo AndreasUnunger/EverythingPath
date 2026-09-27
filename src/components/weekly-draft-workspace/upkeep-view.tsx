@@ -19,12 +19,21 @@ import { upkeepWarningMessages } from './upkeep-warnings';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RollFact, UpkeepView as UpkeepFacts } from './types';
 import { WholeNumberField } from './whole-number-field';
+import { RecordedRollTotal } from './recorded-roll';
+import { isTotalRoll } from './roll-facts';
 const rollLabels = {
   check: 'Attrition Loyalty die',
   training: 'Attrition training die',
   notoriety: 'Maximum-notoriety training die',
   notorietyCheck: 'Notoriety Loyalty die',
   loss: 'Treasury-shortage training die',
+};
+export const rollNames = {
+  check: 'Attrition Loyalty',
+  training: 'Attrition training',
+  notoriety: 'Maximum-notoriety training',
+  notorietyCheck: 'Notoriety Loyalty',
+  loss: 'Treasury-shortage training',
 };
 const modifierLabels: Record<string, string> = {
   'rank-focus': 'Rank and focus',
@@ -41,10 +50,11 @@ function Roll({
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
 }) {
+  const slots = fact.dice ?? [];
   function change(index: number, value: number | null) {
-    const dice = fact.dice.slice(0, index);
+    const dice = slots.slice(0, index);
     if (value !== null) dice.push(value);
-    if (value !== null) dice.push(...fact.dice.slice(index + 1));
+    if (value !== null) dice.push(...slots.slice(index + 1));
     const entered: number[] = [];
     for (const die of dice) {
       if (die === null) break;
@@ -68,22 +78,34 @@ function Roll({
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold">{rollLabels[fact.field]}</h3>
         <span className="text-muted-foreground font-mono text-xs">
-          {fact.dice.length}d{fact.sides}
+          {fact.count}d{fact.sides}
           {fact.dc !== null ? ` · DC ${fact.dc}` : ''}
         </span>
       </div>
-      <div className="grid grid-cols-2 items-start gap-3">
-        {fact.dice.map((value, index) => (
-          <WholeNumberField
-            key={['first-die', 'second-die'][index]}
-            label={`${rollLabels[fact.field]}${fact.dice.length > 1 ? ` ${index + 1}` : ''}`}
-            value={value}
-            required
-            disabled={disabled || (index > 0 && fact.dice[index - 1] === null)}
-            onValue={(value) => change(index, value)}
-          />
-        ))}
-      </div>
+      {fact.recorded && isTotalRoll(fact.recorded) ? (
+        <RecordedRollTotal
+          label={`${rollNames[fact.field]} roll`}
+          recorded={fact.recorded}
+          normalized={fact.normalized}
+          disabled={disabled}
+          onClear={() =>
+            edit({ kind: 'upkeep_roll', field: fact.field, roll: null })
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-2 items-start gap-3">
+          {slots.map((value, index) => (
+            <WholeNumberField
+              key={['first-die', 'second-die'][index]}
+              label={`${rollLabels[fact.field]}${slots.length > 1 ? ` ${index + 1}` : ''}`}
+              value={value}
+              required
+              disabled={disabled || (index > 0 && slots[index - 1] === null)}
+              onValue={(value) => change(index, value)}
+            />
+          ))}
+        </div>
+      )}
       {fact.modifier !== null && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <span>
@@ -109,7 +131,7 @@ function Roll({
           ))}
         </ul>
       )}
-      {fact.dice.some(
+      {slots.some(
         (value) => value !== null && (value < 1 || value > fact.sides),
       ) && (
         <p role="note" className="text-sm text-amber-300">
@@ -117,7 +139,7 @@ function Roll({
           the table.
         </p>
       )}
-      {fact.dice.length > 1 && (
+      {slots.length > 1 && (
         <p className="text-muted-foreground text-xs">
           Enter dice in order. Clearing an earlier die clears the rest of this
           roll.
@@ -402,7 +424,7 @@ export function UpkeepView({
           <div className="grid items-start gap-4 lg:grid-cols-2">
             {view.rolls.map((fact) => (
               <Roll
-                key={`${fact.field}:${fact.sides}:${fact.dice.length}`}
+                key={`${fact.field}:${fact.sides}:${fact.count}`}
                 fact={fact}
                 edit={edit}
                 disabled={disabled}

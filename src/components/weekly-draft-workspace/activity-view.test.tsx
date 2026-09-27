@@ -343,7 +343,7 @@ test('[rules.P82.warnings] staged cards explain range and calculated-cost mismat
       disabled={false}
     />,
   );
-  expect(screen.getByText(/A die is outside its usual range/)).toBeVisible();
+  expect(screen.getByText(/The roll is outside its usual range/)).toBeVisible();
   expect(
     screen.getByText(/The preview uses the calculated cost/),
   ).toBeVisible();

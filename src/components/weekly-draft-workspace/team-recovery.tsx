@@ -17,6 +17,8 @@ import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { UpkeepView } from './types';
 import { ChoiceCards } from './choice-cards';
 import { WholeNumberField } from './whole-number-field';
+import { RecordedRollTotal } from './recorded-roll';
+import { isTotalRoll } from './roll-facts';
 
 type Team = UpkeepView['teams'][number];
 function RecoveryCost({
@@ -145,6 +147,7 @@ export function TeamRecovery({
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
 }) {
+  const recorded = team.roll.recorded;
   return (
     <Card
       role="group"
@@ -188,16 +191,8 @@ export function TeamRecovery({
               teamId: team.teamId,
               decision,
               costCopper: team.costCopper,
-              ...(team.roll === null
-                ? {}
-                : {
-                    roll: {
-                      dice: [team.roll],
-                      sides: 20,
-                      provenance: { kind: 'table' },
-                      modifiers: [],
-                    },
-                  }),
+              // The recorded roll is kept exactly as stored in either form.
+              ...(recorded ? { roll: recorded } : {}),
             },
           });
         }}
@@ -205,10 +200,31 @@ export function TeamRecovery({
       {team.status === 'disabled' && (
         <RecoveryCost team={team} edit={edit} disabled={disabled} />
       )}
-      {team.needsReturnRoll && (
+      {team.needsReturnRoll && recorded && isTotalRoll(recorded) ? (
+        <RecordedRollTotal
+          label={`${team.name} return roll`}
+          recorded={recorded}
+          normalized={team.roll.normalized}
+          disabled={disabled}
+          onClear={() =>
+            edit({
+              kind: 'upkeep_team',
+              teamId: team.teamId,
+              decision: {
+                teamId: team.teamId,
+                decision: team.decision ?? 'leave',
+              },
+            })
+          }
+        />
+      ) : team.needsReturnRoll ? (
         <WholeNumberField
           label={`${team.name} return die`}
-          value={team.roll}
+          value={
+            recorded && !isTotalRoll(recorded)
+              ? (recorded.dice[0] ?? null)
+              : null
+          }
           required
           disabled={disabled}
           onValue={(value) =>
@@ -232,7 +248,7 @@ export function TeamRecovery({
             })
           }
         />
-      )}
+      ) : null}
     </Card>
   );
 }

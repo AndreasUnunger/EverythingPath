@@ -7,6 +7,7 @@ import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { Phase, PhaseView } from './types';
+import { legacyDiceSlots, rollReadFacts } from './roll-facts';
 export function phaseView(
   phase: Phase,
   draft: WeeklyDraft,
@@ -43,13 +44,12 @@ export function phaseView(
         fact.field === 'notorietyCheck'
           ? draft.upkeep.notorietyCheck
           : draft.upkeep.rolls[fact.field];
-      const complete = raw?.sides === fact.sides;
+      const spec = { count: fact.count, sides: fact.sides };
       return {
         field: fact.field,
-        sides: fact.sides,
-        dice: Array.from({ length: fact.count }, (_, index) =>
-          complete ? (raw.dice[index] ?? null) : null,
-        ),
+        ...spec,
+        ...rollReadFacts(raw, spec),
+        dice: legacyDiceSlots(raw, spec),
         modifier: fact.check?.modifier ?? null,
         total: fact.check?.total ?? null,
         dc: fact.dc,
@@ -97,7 +97,7 @@ export function phaseView(
           status: team.status,
           decision: decision?.decision ?? null,
           costCopper: minimumTreasuryCopper,
-          roll: decision?.roll?.dice[0] ?? null,
+          roll: rollReadFacts(decision?.roll, { count: 1, sides: 20 }),
           needsReturnRoll:
             projection.requirements.includes(
               `team:${team.teamId}:return:roll`,

@@ -7,6 +7,8 @@ import { Input } from '~/components/ui/input';
 import { ChoiceCards } from './choice-cards';
 import { WholeNumberField } from './whole-number-field';
 import { activityLabel } from './activity-labels';
+import { RecordedRollTotal } from './recorded-roll';
+import type { TotalRawRoll } from './roll-facts';
 type Options = Record<string, { value: string; label: string }[]>;
 export function choiceFieldLabel(field: string) {
   if (/^\d+$/.test(field)) return `Entry ${Number(field) + 1}`;
@@ -23,6 +25,30 @@ function unwrap(schema: z.ZodType): z.ZodType {
     return unwrap(schema.unwrap() as z.ZodType);
   return schema;
 }
+// The shared raw-roll schema is a strict union of the legacy dice array and
+// the dice-total form. Nested editors recognise it here instead of relying on
+// `.shape`, so neither alternative loses its common fields or list operations.
+function rollUnion(schema: z.ZodType) {
+  if (!(schema instanceof z.ZodUnion)) return null;
+  const options = schema.options.filter(
+    (option): option is z.ZodObject => option instanceof z.ZodObject,
+  );
+  const legacy = options.find(
+    (option) =>
+      'dice' in option.shape &&
+      'sides' in option.shape &&
+      'provenance' in option.shape,
+  );
+  const total = options.find(
+    (option) => 'diceTotal' in option.shape && 'diceCount' in option.shape,
+  );
+  return legacy && total ? { legacy, total } : null;
+}
+function isRecordedTotal(
+  value: Record<string, unknown>,
+): value is TotalRawRoll {
+  return typeof value.diceTotal === 'number' && !('dice' in value);
+}
 function initial(
   schema: z.ZodType,
   field = '',
@@ -31,6 +57,9 @@ function initial(
   if (schema instanceof z.ZodOptional) return undefined;
   const base = unwrap(schema);
   if (base instanceof z.ZodLiteral) return base.value;
+  // New nested rolls keep using the existing legacy writer in this delivery.
+  const roll = rollUnion(base);
+  if (roll) return initial(roll.legacy, field, rollSides);
   if (base instanceof z.ZodDiscriminatedUnion)
     return initial(base.options[0] as z.ZodType, field, rollSides);
   if (base instanceof z.ZodArray) return [];
@@ -135,7 +164,9 @@ function Fields(props: FieldProps) {
     );
   const base = unwrap(props.schema);
   if (base instanceof z.ZodLiteral) return null;
+  const roll = rollUnion(base);
   const structured =
+    roll !== null ||
     base instanceof z.ZodObject ||
     base instanceof z.ZodArray ||
     base instanceof z.ZodRecord ||
@@ -155,12 +186,55 @@ function Fields(props: FieldProps) {
         Add {choiceFieldLabel(props.name).toLowerCase()}
       </Button>
     );
+  if (roll) return <RollFields {...props} roll={roll} />;
   if (base instanceof z.ZodDiscriminatedUnion)
     return <UnionFields {...props} base={base} />;
   if (base instanceof z.ZodObject || base instanceof z.ZodRecord)
     return <ObjectFields {...props} base={base} />;
   if (base instanceof z.ZodArray) return <ArrayFields {...props} base={base} />;
   return <ScalarField {...props} base={base} />;
+}
+// A legacy array keeps the existing per-die object editor. A recorded total
+// is shown as recorded data with its modifiers and provenance still editable;
+// the number itself is not edited here. Removing the roll uses the field's
+// existing optional omission, after which the legacy writer can re-enter it.
+function RollFields(
+  props: FieldProps & { roll: NonNullable<ReturnType<typeof rollUnion>> },
+) {
+  const { value, change, name, path = '', issues, disabled, roll } = props;
+  const object = record(value);
+  if (!isRecordedTotal(object))
+    return <ObjectFields {...props} base={roll.legacy} />;
+  const title = choiceFieldLabel(name);
+  const error = issues.find((issue) => issue.path.join('.') === path)?.message;
+  const nested = nestedField(props);
+  return (
+    <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
+      <legend className="text-sm font-semibold">{title}</legend>
+      <RecordedRollTotal label={`${title} roll`} recorded={object} />
+      {nested(
+        roll.total.shape.modifiers as z.ZodType,
+        object.modifiers,
+        'modifiers',
+        (next) => change({ ...object, modifiers: next ?? [] }),
+      )}
+      {props.schema.isOptional() && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => change(undefined)}
+        >
+          Remove {title.toLowerCase()}
+        </Button>
+      )}
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
 }
 function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
   const {

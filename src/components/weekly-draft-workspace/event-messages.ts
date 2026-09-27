@@ -56,7 +56,7 @@ export function eventRequirement(value: string) {
 }
 export function eventWarning(value: string) {
   if (value.endsWith('roll-range'))
-    return 'A die is outside its usual range. Your entered value is retained for the table.';
+    return 'The roll is outside its usual range. The recorded value is retained for the table.';
   if (value.endsWith('calculated-event'))
     return 'The event type follows the modified table roll.';
   if (value.includes('alchemical-reward'))

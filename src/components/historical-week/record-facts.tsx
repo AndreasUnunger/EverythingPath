@@ -31,6 +31,12 @@ const labels: Record<string, string> = {
   teamId: 'Team',
   slotId: 'Action slot',
   subjectId: 'Subject',
+  // Either recorded roll form is shown exactly as stored: individual dice for
+  // older records, the dice total and count for newer ones.
+  dice: 'Dice',
+  diceTotal: 'Dice total',
+  diceCount: 'Dice count',
+  sides: 'Sides',
 };
 const label = (field: string) =>
   labels[field] ?? choiceFieldLabel(field).replace(/[-:]/g, ' ');

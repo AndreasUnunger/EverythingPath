@@ -8,14 +8,18 @@ import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { projectUpkeep } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
+import type { RollReadFacts } from './roll-facts';
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
 export type UpkeepRollField = Extract<
   WeeklyDraftEdit,
   { kind: 'upkeep_roll' }
 >['field'];
-export type RollFact = {
+// `dice` holds the legacy per-die editor slots and is null when the recorded
+// roll is a dice total, which has no individual dice to show or fabricate.
+export type RollFact = RollReadFacts & {
   field: UpkeepRollField;
-  dice: (number | null)[];
+  count: number;
+  dice: (number | null)[] | null;
   sides: number;
   modifier: number | null;
   total: number | null;
@@ -63,7 +67,7 @@ export type UpkeepView = {
     decision: 'recover' | 'leave' | 'remove' | null;
     costCopper: number;
     recoveryAdjustment: { deltaCopper: number; reason: string } | null;
-    roll: number | null;
+    roll: RollReadFacts;
     needsReturnRoll: boolean;
   }[];
   boons: Extract<
