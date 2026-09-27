@@ -235,7 +235,7 @@ function settlementFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
 function rosterFacts(
   snapshot: Snapshot,
   names: ReviewNames,
-  frozen: boolean,
+  reading: StateReading,
 ): Fact[] {
   const people = snapshot.roster.people.map((person) =>
     fact(
@@ -243,7 +243,7 @@ function rosterFacts(
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      `${personKinds[person.kind] ?? words(person.kind)} · ${hitDiceText(snapshot, person, frozen)}`,
+      `${personKinds[person.kind] ?? words(person.kind)} · ${hitDiceText(snapshot, person, reading)}`,
       'Not on roster',
     ),
   );
@@ -259,21 +259,23 @@ function rosterFacts(
   return [...people, ...officerFacts(snapshot, names), ...characters];
 }
 
-// A live week shows the effective Hit Dice the rules use (`getEffectiveHitDice`,
-// which this renderer may not import): the override, or else the character's
-// level. A frozen record shows only what it stored and never infers one.
+// The effective Hit Dice the rules use (`getEffectiveHitDice`, which this
+// renderer may not import): the override, or else the level of the character
+// in this same state, when a blank meant level for it. A record confirmed
+// before that rule shows only what it stored.
 function hitDiceText(
   snapshot: Snapshot,
   person: Snapshot['roster']['people'][number],
-  frozen: boolean,
+  reading: StateReading,
 ) {
   const character = snapshot.characters.find(
     (entry) => entry.characterId === person.characterId,
   );
   const hitDice =
-    frozen || !character ? person.hitDice : (person.hitDice ?? character.level);
+    person.hitDice ??
+    (reading.isBlankHitDiceLevel && character ? character.level : null);
   if (hitDice !== null) return `${hitDice} Hit Dice`;
-  return `Hit Dice ${frozen ? 'not recorded' : 'not set'}`;
+  return `Hit Dice ${reading.isFrozen ? 'not recorded' : 'not set'}`;
 }
 
 /** One row per officer role, compared by its sorted holders. */
@@ -511,11 +513,15 @@ function recordedFacts(
   });
 }
 
+// How to read a compared state: a frozen record, and whether a blank Hit Dice
+// override meant the level under the rules it was confirmed with.
+type StateReading = { isFrozen: boolean; isBlankHitDiceLevel: boolean };
+
 /** Every comparable fact of one state, in Result row order. */
 function stateFacts(
   state: ComparedState,
   names: ReviewNames,
-  frozen: boolean,
+  reading: StateReading,
 ): Fact[] {
   const snapshot = state.militiaSnapshot;
   const context = state.context;
@@ -525,7 +531,7 @@ function stateFacts(
           ...militiaFacts(snapshot),
           ...teamFacts(snapshot, names),
           ...settlementFacts(snapshot, names),
-          ...rosterFacts(snapshot, names, frozen),
+          ...rosterFacts(snapshot, names, reading),
           ...bonusFacts(snapshot, names),
           ...economyFacts(snapshot, names),
           ...conditionAndBenefitFacts(snapshot, names),
@@ -637,6 +643,7 @@ export function compareWeekStates({
   final,
   names,
   unrecorded,
+  isBlankHitDiceLevel = unrecorded === undefined,
 }: {
   now: ComparedState | null;
   baseline: ComparedState | null;
@@ -644,16 +651,20 @@ export function compareWeekStates({
   names: ReviewNames;
   /** Text of an unknown value; a frozen record says it was not recorded. */
   unrecorded?: string;
+  /**
+   * Whether a blank Hit Dice override means the character's level, as it
+   * always does for a live week; a frozen record passes what held under
+   * its own Ruleset Version.
+   */
+  isBlankHitDiceLevel?: boolean;
 }): ResultRow[] {
+  const reading = { isFrozen: unrecorded !== undefined, isBlankHitDiceLevel };
   const columns = [now, baseline, final].map((state) =>
     state
       ? {
           state,
           facts: new Map(
-            stateFacts(state, names, unrecorded !== undefined).map((fact) => [
-              fact.key,
-              fact,
-            ]),
+            stateFacts(state, names, reading).map((fact) => [fact.key, fact]),
           ),
         }
       : null,

@@ -2905,6 +2905,7 @@ export const coverageCatalog = {
           tests: [
             'rules.A07.hit-dice-fallback',
             'rules.O06.role-aware-parity',
+            'rules.HIST-05.record-hit-dice',
             'rules.acceptance.commandants',
             'rules.GATE.projection-parity',
           ],

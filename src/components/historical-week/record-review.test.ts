@@ -511,6 +511,50 @@ test('[rules.HIST-05.manager-limit-version] a record confirmed before role-aware
   });
 });
 
+// The roster Result rows of a record whose `ally` (level 4) has the given
+// Hit Dice override and whose PC keeps an explicit 10, confirmed under the
+// given Ruleset Version.
+function recordedHitDice(rulesetVersion: number, allyHitDice: number | null) {
+  const input = managerWeek('npc', true, 16);
+  input.militiaSnapshot.roster.people[1]!.hitDice = allyHitDice;
+  input.militiaSnapshot.characters[1]!.level = 4;
+  const record = canonicalResolutionRecordSchema.parse({
+    ...prepareCanonicalResolutionRecord(
+      resolveCanonicalWeeklyDraft(input),
+      'hit-dice-record',
+    ),
+    rulesetVersion,
+  });
+  return recordWeekReview(record)
+    .result.rows.filter((entry) => entry.group === 'Roster')
+    .flatMap((entry) =>
+      entry.now.kind === 'value' && entry.now.text.includes('Hit Dice')
+        ? [entry.now.text]
+        : [],
+    );
+}
+
+test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the record’s own level from the role-aware version on, and as not recorded before it', () => {
+  const earlier = ROLE_AWARE_OFFICERS_RULESET_VERSION - 1;
+  expect(recordedHitDice(earlier, null)).toEqual([
+    'Player character · 10 Hit Dice',
+    'NPC · Hit Dice not recorded',
+  ]);
+  for (const version of [
+    ROLE_AWARE_OFFICERS_RULESET_VERSION,
+    ROLE_AWARE_OFFICERS_RULESET_VERSION + 1,
+  ])
+    expect(recordedHitDice(version, null)).toEqual([
+      'Player character · 10 Hit Dice',
+      'NPC · 4 Hit Dice',
+    ]);
+  // An explicit override always wins, and zero stays zero.
+  for (const version of [earlier, ROLE_AWARE_OFFICERS_RULESET_VERSION]) {
+    expect(recordedHitDice(version, 7)).toContain('NPC · 7 Hit Dice');
+    expect(recordedHitDice(version, 0)).toContain('NPC · 0 Hit Dice');
+  }
+});
+
 test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, backend, React or rules resolver', () => {
   const directory = path.dirname(fileURLToPath(import.meta.url));
   const files = [
@@ -525,6 +569,7 @@ test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, 
     '~/lib/canonical-weekly-source',
     '~/lib/weekly-draft-contract',
     '~/lib/militia-event-table',
+    '~/lib/ruleset-versions',
     '../weekly-draft-workspace/activity-labels',
     '../weekly-draft-workspace/summary-messages',
   ]);
