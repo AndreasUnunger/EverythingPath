@@ -66,7 +66,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the five Chromium tablet journeys at 1194×834 with
+creates fresh ignored role storage and runs the six Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
 unless `--workers N` asks for up to the declared number; a single cohort runs
 exactly serially. Local runs acquire an
@@ -352,14 +352,14 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 ## Nightly compatibility matrix (#30)
 
 Run the same isolated harness with `--nightly`. The default command and **E2E
-required** retain the five mandatory Chromium tablet journeys. Nightly selects:
+required** retain the six mandatory Chromium tablet journeys. Nightly selects:
 
 | Project         | Viewport | Journeys                                                                   |
 | --------------- | -------- | -------------------------------------------------------------------------- |
-| Chromium tablet | 1194×834 | All five, plus navigation/form/persistence and reconnect steps             |
-| WebKit tablet   | 1194×834 | All five critical journeys                                                 |
-| Firefox desktop | 1440×900 | Access, existing-militia initialization, complete week                     |
-| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits |
+| Chromium tablet | 1194×834 | All six, plus navigation/form/persistence and reconnect steps              |
+| WebKit tablet   | 1194×834 | All six critical journeys                                                  |
+| Firefox desktop | 1440×900 | Access, campaign home, existing-militia initialization, complete week      |
+| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; campaign home |
 
 The access journey's nightly extension creates a character, checks that form
 controls fit the viewport, reloads the saved record, edits at the alternate
@@ -845,8 +845,20 @@ instance, not to the app, so skipping it in Chromium and Firefox hides no app
 behaviour, and every project starts from the same session state. Later expiry
 is refreshed by Clerk in the page, as before, and every reload assertion is
 unchanged. With the change, the trial run `Fyy86A` passed 23/23, including
-WebKit access, and the loop has not recurred since. Open: now that it runs to
-the end, the WebKit access journey takes about 60 s (60 s in `Fyy86A`, a
-timeout at 61.7 s in `rUyJDK` in its final week-host check). Before #187 added the
-campaign-home checks it took about 48 s. It needs its campaign-home part as a
-separate journey; its limit stays 60 s.
+WebKit access, and the loop has not recurred since. Running to the end, the
+WebKit access journey then took about 60 s against its 60 s limit (60 s in
+`Fyy86A`, a timeout at 61.7 s in `rUyJDK` in its final week-host check); before
+#187 added the campaign-home checks it took about 48 s.
+
+### Campaign-home journey
+
+The campaign-home checks (`support/campaign-home.ts`) moved out of `access` into
+`campaign-home.spec.ts` ("members choose and edit their campaign home and
+outsiders never see it"), which runs on every project that runs `access`. Its
+case, `campaignHome`, is seeded exactly like `smoke` (same names, a rank-1
+militia and one officer, alone in the cohort's member organization), so the
+starting state and the measured text are unchanged. Every assertion moved
+unchanged, and the GM, player and outsider are still three separate signed-in
+sessions. `access` now opens the list with a plain page load before choosing
+the week; its landing assertions belong to the new journey. No limit changed:
+both journeys keep the 60 s test limit.

@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(23);
+  expect(required).toHaveLength(27);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -137,6 +137,16 @@ const passing = () => ({
       annotations: [] as string[],
       results: [{ status: 'passed', retry: 0 }],
     })),
+    {
+      file: 'campaign-home.spec.ts',
+      project: 'chromium-tablet',
+      title:
+        'members choose and edit their campaign home and outsiders never see it',
+      expectedStatus: 'passed',
+      tags: [] as string[],
+      annotations: [] as string[],
+      results: [{ status: 'passed', retry: 0 }],
+    },
   ],
 });
 
@@ -247,11 +257,12 @@ function nightlyPassing() {
   );
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
-    ...[critical[0]!, critical[1]!, critical[3]!].map((test) => ({
+    ...[critical[0]!, critical[1]!, critical[3]!, critical[5]!].map((test) => ({
       ...test,
       project: 'firefox-desktop',
     })),
     { ...critical[0]!, project: 'chromium-phone' },
+    { ...critical[5]!, project: 'chromium-phone' },
   );
   return report;
 }

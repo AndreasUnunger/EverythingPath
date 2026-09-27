@@ -75,6 +75,7 @@ export const deploymentFixture: DeploymentFixture = {
       workspaceRecovery: '3'.repeat(64),
       workspacePersistent: '4'.repeat(64),
       workspaceConfirmation: '5'.repeat(64),
+      campaignHome: '6'.repeat(64),
     },
   })),
 };

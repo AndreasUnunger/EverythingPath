@@ -30,6 +30,7 @@ const caseKey = v.union(
   v.literal('workspaceRecovery'),
   v.literal('workspacePersistent'),
   v.literal('workspaceConfirmation'),
+  v.literal('campaignHome'),
 );
 const scopeArgs = {
   namespace: v.string(),

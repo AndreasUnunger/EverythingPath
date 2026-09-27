@@ -7,6 +7,12 @@ export const criticalJourneys = [
     'access.spec.ts',
     'organization members can open their campaign and outsiders cannot',
   ],
+  // Split from access (#187), which runs on every browser project: this runs
+  // wherever access runs.
+  [
+    'campaign-home.spec.ts',
+    'members choose and edit their campaign home and outsiders never see it',
+  ],
   [
     'existing-militia.spec.ts',
     'existing militia state survives reload within its campaign',
@@ -86,7 +92,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   };
   const phone: Project = {
     name: 'chromium-phone',
-    testMatch: 'access.spec.ts',
+    testMatch: ['access.spec.ts', 'campaign-home.spec.ts'],
     dependencies: ['authentication'],
     use: {
       browserName: 'chromium',
@@ -99,6 +105,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
     name: 'firefox-desktop',
     testMatch: [
       'access.spec.ts',
+      'campaign-home.spec.ts',
       'existing-militia.spec.ts',
       'complete-week.spec.ts',
     ],

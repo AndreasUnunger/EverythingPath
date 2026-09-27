@@ -18,6 +18,7 @@ export const caseKeys = [
   'workspaceRecovery',
   'workspacePersistent',
   'workspaceConfirmation',
+  'campaignHome',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
 // These cases start with a bare militia; canonical fixtures install the source.
@@ -39,6 +40,12 @@ const canonicalDomain = {
   character: 'canonical-persistence-officer',
 };
 
+const harnessDomain = {
+  campaign: 'harness-campaign',
+  militia: 'harness-militia',
+  character: 'harness-officer',
+};
+
 // Provider IDs belong in the external resource declaration, never in this catalog.
 export const fixtureCatalog = {
   canonicalPersistence: canonicalDomain,
@@ -49,11 +56,10 @@ export const fixtureCatalog = {
   workspaceRecovery: canonicalDomain,
   workspacePersistent: canonicalDomain,
   workspaceConfirmation: canonicalDomain,
-  smoke: {
-    campaign: 'harness-campaign',
-    militia: 'harness-militia',
-    character: 'harness-officer',
-  },
+  smoke: harnessDomain,
+  // The campaign-home journey, split from access (smoke), keeps its names so
+  // the list, header and overflow checks measure text of the same length.
+  campaignHome: harnessDomain,
   existingMilitia: {
     campaign: 'existing-militia-campaign',
     militia: 'existing-militia',
@@ -173,6 +179,7 @@ export const deploymentFixtureSchema = z
                 workspaceRecovery: z.string().length(64),
                 workspacePersistent: z.string().length(64),
                 workspaceConfirmation: z.string().length(64),
+                campaignHome: z.string().length(64),
               })
               .strict(),
           })

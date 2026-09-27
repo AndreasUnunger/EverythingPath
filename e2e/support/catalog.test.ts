@@ -25,6 +25,21 @@ it('gives each Workspace journey its own canonical case', () => {
   expect(() => workspaceCaseKey('an undeclared journey')).toThrow();
 });
 
+it('gives the campaign home its own case, seeded like access, wherever access runs', () => {
+  expect(caseKeys).toContain('campaignHome');
+  expect(fixtureCatalog.campaignHome).toEqual(fixtureCatalog.smoke);
+  expect(canonicalCaseKeys).not.toContain('campaignHome');
+  for (const mode of ['mandatory', 'nightly'] as const) {
+    const projects = (file: string) =>
+      requiredTests(mode)
+        .filter(([candidate]) => candidate === file)
+        .map(([, project]) => project);
+    expect(projects('campaign-home.spec.ts')).toEqual(
+      projects('access.spec.ts'),
+    );
+  }
+});
+
 it('schedules the longest projects first and cutover last', () => {
   for (const mode of ['mandatory', 'nightly'] as const) {
     const names = browserProjects(mode).map(({ name }) => name);

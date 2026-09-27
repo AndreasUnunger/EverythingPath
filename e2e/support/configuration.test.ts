@@ -58,7 +58,7 @@ it.each(['mandatory', 'nightly'] as const)(
       expect(result.stdout).toContain('[canonical-cutover]');
       expect(result.stdout).toContain('canonical-cutover.spec.ts');
       expect(result.stdout).toContain(
-        mode === 'nightly' ? 'Total: 23 tests' : 'Total: 14 tests',
+        mode === 'nightly' ? 'Total: 27 tests' : 'Total: 15 tests',
       );
       if (mode === 'nightly') {
         expect(result.stdout).toContain('[webkit-tablet]');
@@ -112,7 +112,7 @@ it.each([
         },
       );
       expect(result.status, result.stdout + result.stderr).toBe(status);
-      if (status === 0) expect(result.stdout).toContain('Total: 23 tests');
+      if (status === 0) expect(result.stdout).toContain('Total: 27 tests');
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

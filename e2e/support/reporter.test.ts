@@ -59,6 +59,10 @@ it.each([
       );
       await writeAccessJourney(directory, playwright, mode);
       await writeFile(
+        join(directory, 'campaign-home.spec.ts'),
+        `import { test } from ${playwright}; test('members choose and edit their campaign home and outsiders never see it', () => {});`,
+      );
+      await writeFile(
         join(directory, 'existing-militia.spec.ts'),
         `import { test } from ${playwright}; test('existing militia state survives reload within its campaign', () => {});`,
       );
