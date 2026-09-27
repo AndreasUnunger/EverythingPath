@@ -9,6 +9,7 @@ import { actionRestrictions } from '~/lib/rules-action-eligibility';
 import { isTeamUnavailableThisActivity } from '~/lib/rules-action-teams';
 import { activityRollSpec } from '~/lib/rules-roll-spec';
 import { isRefugeActive, projectSettlements } from '~/lib/rules-settlements';
+import { withoutDuplicateRollCodes } from './roll-requirements';
 import { slotRemovalRejectionFrom } from '~/lib/activity-slot-removal';
 
 import { recruitedTeamId } from '~/lib/weekly-draft-identities';
@@ -525,7 +526,7 @@ function slotFacts({
   const choiceId = choice?.choiceId;
   const position = projection?.slots[index];
   const requirements = choice
-    ? [
+    ? withoutDuplicateRollCodes([
         ...new Set(
           projection?.requirements.filter(
             (requirement) =>
@@ -535,7 +536,7 @@ function slotFacts({
                 requirement.startsWith(`${choice.orderId}:`)),
           ) ?? [],
         ),
-      ]
+      ])
     : [];
   const warnings = choice
     ? (projection?.warnings.filter((warning) =>

@@ -17,6 +17,7 @@ import {
   sourceEndings,
 } from './persistent-sections';
 import type { PersistentView } from './types';
+import { withoutDuplicateRollCodes } from './roll-requirements';
 
 export function persistentView(
   draft: WeeklyDraft,
@@ -51,8 +52,8 @@ export function persistentView(
     earlierPhases: earlier,
     options,
     events: events.map((event, index) => {
-      const requirements = allRequirements.filter((key) =>
-        key.startsWith(`${event.eventId}:`),
+      const requirements = withoutDuplicateRollCodes(
+        allRequirements.filter((key) => key.startsWith(`${event.eventId}:`)),
       );
       const existing = draft.rulesExceptions.filter(
         (entry) => entry.subjectId === event.eventId,

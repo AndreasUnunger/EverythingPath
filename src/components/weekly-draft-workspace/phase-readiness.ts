@@ -2,6 +2,7 @@ import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resoluti
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import { phaseView } from './phase-view';
+import { withoutDuplicateRollCodes } from './roll-requirements';
 import { summaryMessage } from './summary-messages';
 import type { Phase, PhaseReadiness } from './types';
 import type { EventPreparationContext } from './event-facts';
@@ -30,7 +31,10 @@ export function derivePhaseReadiness(
       view.phase !== 'persistent' || draft.context.persistentPhaseEligible,
     ...(view.phase === 'upkeep' ? { skipped: view.skipped } : {}),
     ready: view.ready,
-    requirements: [...new Set(view.requirements)].map((id) => ({
+    // One line per missing die in every phase and in Review's count.
+    requirements: withoutDuplicateRollCodes([
+      ...new Set(view.requirements),
+    ]).map((id) => ({
       id,
       message: summaryMessage(id, summary),
     })),

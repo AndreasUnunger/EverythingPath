@@ -14,7 +14,7 @@ import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import { activityView, checkModifierLabel } from './activity-facts';
-import { withoutDuplicateRollCodes } from './event-check-facts';
+import { withoutDuplicateRollCodes } from './roll-requirements';
 import {
   eventPanel,
   eventPanelMessage,
