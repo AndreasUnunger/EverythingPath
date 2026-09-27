@@ -108,6 +108,48 @@ function eventRules(
   };
 }
 
+// Display labels, never identities. Top-level events are numbered in
+// resolution order, active ones first and then the ones not taking part this
+// week, so a label only moves when the rules change which events take part.
+// A candidate set shares one number and letters its candidates (2A, 2B);
+// nested events extend their parent's label (1.1, 2A.1, 1.1.1) by their
+// position among all recorded siblings, so adding, hiding or restoring
+// children never relabels another event.
+function eventLabels({
+  units,
+  order,
+  childrenOf,
+}: {
+  units: { roots: LocatedEvent[]; lettered: boolean; active: boolean }[];
+  order: LocatedEvent[];
+  childrenOf: (entry: LocatedEvent) => LocatedEvent[];
+}) {
+  const labels = new Map<string, string>();
+  const assign = (entry: LocatedEvent, label: string) => {
+    labels.set(entry.event.eventId, label);
+    childrenOf(entry).forEach((child, index) =>
+      assign(child, `${label}.${index + 1}`),
+    );
+  };
+  let number = 0;
+  for (const unit of [
+    ...units.filter((entry) => entry.active),
+    ...units.filter((entry) => !entry.active),
+  ]) {
+    if (unit.roots.length === 0) continue;
+    number++;
+    unit.roots.forEach((root, index) =>
+      assign(
+        root,
+        `Event ${number}${unit.lettered ? String.fromCharCode(65 + index) : ''}`,
+      ),
+    );
+  }
+  for (const entry of order)
+    if (!labels.has(entry.event.eventId)) assign(entry, `Event ${++number}`);
+  return labels;
+}
+
 function childKind(group: EventPositionGroup) {
   return group.kind === 'roll_twice' || group.kind === 'replacement'
     ? group
@@ -133,8 +175,8 @@ export function eventTreeBlocks({
   accepted: ReadonlySet<string> | null;
   facts: (
     located: LocatedEvent,
-    number: number,
-  ) => Omit<EventOccurrenceFacts, 'number'> & { number?: number };
+    label: string,
+  ) => Omit<EventOccurrenceFacts, 'label'> & { label?: string };
   issues: (codes: string[]) => EventIssue[];
 }) {
   const positions = uniquePositions(projection?.positions ?? []);
@@ -210,8 +252,8 @@ export function eventTreeBlocks({
     ),
   );
 
-  // Numbers follow resolution order: automatic, rolled, then candidates,
-  // each root before its nested events. Retained events keep their number.
+  // Occurrences in resolution order: automatic, rolled, then candidates,
+  // each root before its nested events.
   const order: LocatedEvent[] = [];
   const visit = (entry: LocatedEvent) => {
     order.push(entry);
@@ -220,21 +262,39 @@ export function eventTreeBlocks({
   const roots = located.filter(
     (entry) => !('parentEventId' in entry.event.origin),
   );
-  for (const entry of roots)
-    if (entry.owner === null && entry.event.origin.kind === 'automatic')
-      visit(entry);
-  for (const entry of roots)
-    if (entry.owner === null && entry.event.origin.kind === 'rolled')
-      visit(entry);
+  const automaticRoots = roots.filter(
+    (entry) => entry.owner === null && entry.event.origin.kind === 'automatic',
+  );
+  const rolledRoots = roots.filter(
+    (entry) => entry.owner === null && entry.event.origin.kind === 'rolled',
+  );
+  for (const entry of [...automaticRoots, ...rolledRoots]) visit(entry);
   for (const entry of roots) if (entry.owner !== null) visit(entry);
   for (const entry of located) if (!order.includes(entry)) order.push(entry);
-  const numbers = new Map(
-    order.map((entry, index) => [entry.event.eventId, index + 1]),
-  );
+  const labels = eventLabels({
+    units: [
+      ...[...automaticRoots, ...rolledRoots].map((root) => ({
+        roots: [root],
+        lettered: false,
+        active: active.has(root.event.eventId),
+      })),
+      ...plan.trees.candidates.map((tree) => ({
+        roots: roots.filter(
+          (entry) => entry.owner?.choice.choiceId === tree.choiceId,
+        ),
+        lettered: true,
+        active: activeCandidateSets.has(tree.choiceId),
+      })),
+    ],
+    order,
+    childrenOf: (entry) =>
+      childrenOf(entry).map((child) => byId.get(child.eventId)!),
+  });
+  const labelOf = (eventId: string) => labels.get(eventId) ?? 'Event';
 
   const occurrences = order.map((entry) => ({
-    ...facts(entry, numbers.get(entry.event.eventId)!),
-    number: numbers.get(entry.event.eventId)!,
+    ...facts(entry, labelOf(entry.event.eventId)),
+    label: labelOf(entry.event.eventId),
   }));
   const factsById = new Map(
     occurrences.map((item) => [item.occurrence.eventId, item]),
@@ -282,7 +342,7 @@ export function eventTreeBlocks({
   function origin(entry: LocatedEvent) {
     const { origin } = entry.event;
     if ('parentEventId' in origin) {
-      const parent = `Event ${numbers.get(origin.parentEventId) ?? '?'}`;
+      const parent = labelOf(origin.parentEventId);
       if (origin.kind === 'roll_twice') return `From ${parent} (Roll Twice)`;
       const group = groupOfParent.get(origin.parentEventId);
       return group?.kind === 'replacement' && group.reroll
@@ -303,7 +363,7 @@ export function eventTreeBlocks({
     const choice = entry.owner?.choice;
     return {
       eventId: id,
-      number: item.number,
+      label: item.label,
       item,
       saved: !accepted || accepted.has(id),
       status: current,
@@ -336,7 +396,6 @@ export function eventTreeBlocks({
   }
   return {
     occurrences,
-    numbers,
     active,
     activeCandidateSets,
     located,

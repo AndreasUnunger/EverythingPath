@@ -66,7 +66,7 @@ export function EventOccurrenceEditors({
       )}
       <details>
         <summary className="cursor-pointer font-medium">
-          Edit Event {block.number} details
+          Edit {block.label} details
         </summary>
         <div className="mt-3 space-y-3">
           <StructuredChoiceField

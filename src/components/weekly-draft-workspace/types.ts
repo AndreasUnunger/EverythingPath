@@ -229,8 +229,8 @@ export type ActivityView = {
 };
 export type EventOccurrenceFacts = {
   occurrence: WeeklyDraft['event']['occurrences'][number];
-  // Display position across the whole Event tree; never an identity.
-  number: number;
+  // Display label such as "Event 2A.1"; never an identity.
+  label: string;
   resolvedType: string | null;
   optionalMitigation: 'unavailable' | 'unattempted' | 'attempted';
   exceptionChoices: WeeklyDraft['rulesExceptions'];
@@ -269,7 +269,7 @@ export type EventBlockRules = {
 };
 export type EventBlock = {
   eventId: string;
-  number: number;
+  label: string;
   item: EventOccurrenceFacts;
   // False until the occurrence exists in the accepted draft: its inputs wait.
   saved: boolean;

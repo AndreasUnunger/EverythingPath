@@ -59,7 +59,7 @@ test('[EVT-13.view] a first Roll Twice nests two blank child positions; manual t
       'Roll Twice can only take effect once per Event phase.',
     ),
   ).toBeInTheDocument();
-  for (const name of ['Event 2', 'Event 3']) {
+  for (const name of ['Event 1.1', 'Event 1.2']) {
     const child = within(root).getByRole('group', { name });
     expect(within(child).getByText('Awaiting roll')).toBeVisible();
     expect(
@@ -153,7 +153,8 @@ test('[EVT-06.view] candidates sit side by side with Choose this event; the chan
   expect(
     screen.queryByRole('textbox', { name: 'Event chance roll' }),
   ).toBeNull();
-  const theft = group('Event 2');
+  // A candidate pair shares one number: Raid is 1A, Theft is 1B.
+  const theft = group('Event 1B');
   fireEvent.click(
     within(theft).getByRole('button', { name: 'Choose this event' }),
   );

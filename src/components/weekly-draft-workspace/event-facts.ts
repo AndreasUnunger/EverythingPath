@@ -90,7 +90,7 @@ export function eventView(
     projection,
     plan,
     accepted: context.acceptedEventIds,
-    facts: (located, number) => occurrenceFacts(located, number),
+    facts: (located, label) => occurrenceFacts(located, label),
     // Never a raw code: unowned codes fall back to the generic wording.
     issues: (codes) =>
       [...new Set(codes)].map((code) => ({
@@ -98,7 +98,7 @@ export function eventView(
         message: messages[code] ?? eventRequirement(code),
       })),
   });
-  function occurrenceFacts({ event, owner }: LocatedEvent, number: number) {
+  function occurrenceFacts({ event, owner }: LocatedEvent, label: string) {
     const resolved = projection?.tree.find(
       (entry) => entry.eventId === event.eventId,
     );
@@ -109,7 +109,7 @@ export function eventView(
     const prefixes = [event.eventId, event.sabotage?.choiceId].filter(Boolean);
     return {
       occurrence: structuredClone(event),
-      number,
+      label,
       owner: structuredClone(owner),
       resolvedType: resolved?.eventType ?? null,
       optionalMitigation: eventMitigationInput(resolved ?? event, mode),
@@ -147,7 +147,7 @@ export function eventView(
     const name =
       eventName(item.resolvedType) ??
       eventTableFacts(item.occurrence.tableRoll).name;
-    return name ? `Event ${item.number} · ${name}` : `Event ${item.number}`;
+    return name ? `${item.label} · ${name}` : item.label;
   };
   const settlement = draft.activity.operatingSettlementId
     ? projectSettlements(

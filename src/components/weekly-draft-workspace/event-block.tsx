@@ -64,7 +64,7 @@ export function EventBlock({
   return (
     <div
       role="group"
-      aria-label={`Event ${block.number}`}
+      aria-label={block.label}
       className={cn(
         'bg-card min-w-0 space-y-3 rounded-md border p-3',
         (block.status === 'not_chosen' || block.status === 'not_used') &&
@@ -72,7 +72,7 @@ export function EventBlock({
       )}
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <h4 className="font-semibold">Event {block.number}</h4>
+        <h4 className="font-semibold">{block.label}</h4>
         <span
           className={cn(
             'ml-auto inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium [overflow-wrap:anywhere]',
@@ -88,7 +88,7 @@ export function EventBlock({
       {/* The die beside its arithmetic, like the Upkeep roll rows; stacked on a phone. */}
       <div className="grid min-w-0 items-start gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <RollTotalField
-          label={`Event ${block.number} table roll`}
+          label={`${block.label} table roll`}
           spec={PERCENTILE}
           recorded={block.item.occurrence.tableRoll}
           required={block.status !== 'not_used'}

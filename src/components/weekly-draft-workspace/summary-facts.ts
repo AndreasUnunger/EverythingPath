@@ -8,10 +8,10 @@ import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
 import { eventName } from './event-tree-facts';
 
-// "Event 2 · Sickness", or "Event 2" before its roll resolves.
+// "Event 2A · Sickness", or "Event 2A" before its roll resolves.
 function eventSubjectLabel(event: EventView['occurrences'][number]) {
   const name = eventName(event.resolvedType);
-  return name ? `Event ${event.number} · ${name}` : `Event ${event.number}`;
+  return name ? `${event.label} · ${name}` : event.label;
 }
 export function summaryView(
   draft: WeeklyDraft,

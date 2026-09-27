@@ -10,6 +10,9 @@ import {
 import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView, type EventPreparationContext } from './event-facts';
+import { planEventTopology } from '~/lib/event-occurrence-preparation';
+import { editWeeklyDraft } from '~/lib/weekly-draft';
+import type { EventBlock } from './types';
 import { derivePhaseReadiness } from './phase-readiness';
 
 function facts(
@@ -145,7 +148,7 @@ test('[EVT-04.blocks] blocks number in resolution order and name status, origin 
   const { view, phases } = facts(draft, snapshot);
   const [root] = view.rolled.blocks;
   expect(root).toMatchObject({
-    number: 1,
+    label: 'Event 1',
     status: 'two_more',
     statusLabel: 'Two more',
     origin: 'Rolled',
@@ -162,14 +165,14 @@ test('[EVT-04.blocks] blocks number in resolution order and name status, origin 
   });
   expect(root!.children).toMatchObject([
     {
-      number: 2,
+      label: 'Event 1.1',
       status: 'reroll',
       statusText: 'Roll Twice again: reroll and enter the new die',
       origin: 'From Event 1 (Roll Twice)',
       children: [],
     },
     {
-      number: 3,
+      label: 'Event 1.2',
       table: {
         raw: 30,
         total: 34,
@@ -184,7 +187,7 @@ test('[EVT-04.blocks] blocks number in resolution order and name status, origin 
   expect(eventPhase(phases).requirements).toContainEqual({
     id: 'first:replacement:1',
     message:
-      'Event 2 · Roll Twice: Roll Twice again: reroll and enter the new die.',
+      'Event 1.1 · Roll Twice: Roll Twice again: reroll and enter the new die.',
   });
 });
 
@@ -235,7 +238,12 @@ test('[EVT-03.placeholders] missing positions show as numbered blanks, preparing
   });
   expect(preparing.view.preparation).toBe('preparing');
   expect(preparing.view.rolled.blocks).toMatchObject([
-    { eventId: 'd:rolled:1', number: 1, saved: false, status: 'preparing' },
+    {
+      eventId: 'd:rolled:1',
+      label: 'Event 1',
+      saved: false,
+      status: 'preparing',
+    },
   ]);
   expect(eventPhase(preparing.phases).requirements).toContainEqual({
     id: 'event:root:1',
@@ -277,7 +285,7 @@ test('[EVT-13.legacy] surplus legacy roots stay visible, need repair and are rem
   expect(eventPhase(phases).requirements.map((entry) => entry.message)).toEqual(
     expect.arrayContaining([
       'The event: more than one rolled event is recorded. Clear the extra one to remove it.',
-      'Event 1: no automatic event is due from its source this week. Clear it to remove it.',
+      'Event 3: no automatic event is due from its source this week. Clear it to remove it.',
     ]),
   );
 });
@@ -323,4 +331,122 @@ test('[EVT-rules.view] resolved blocks carry corpus rules text; the Twice clause
   ]);
   delete draft.event.occurrences[0]!.tableRoll;
   expect(facts(draft, snapshot).view.rolled.blocks[0]!.rules).toBeNull();
+});
+
+// Every block's label by identity, nested blocks included.
+function labels(view: ReturnType<typeof facts>['view']) {
+  const result: Record<string, string> = {};
+  const visit = (block: EventBlock) => {
+    result[block.eventId] = block.label;
+    for (const child of [...block.children, ...block.hidden]) visit(child);
+  };
+  for (const block of [
+    ...(view.automatic?.blocks ?? []),
+    ...view.rolled.blocks,
+    ...view.candidates.flatMap((set) => set.blocks),
+    ...view.inactive,
+  ])
+    visit(block);
+  return result;
+}
+function withAutomatic(draft: WeeklyDraft) {
+  draft.context = {
+    ...draft.context,
+    queuedEffects: [
+      {
+        effectId: 'storm-effect',
+        sourceId: 'storm',
+        startsWeek: draft.week,
+        endsWeek: draft.week,
+        effect: { kind: 'automatic_events', count: 1 },
+      },
+    ],
+  };
+}
+
+test('[EVT-labels.candidates] a candidate pair shares one number with letters, stable while candidate A gains children', () => {
+  const { draft, snapshot } = eventActionFixture();
+  withAutomatic(draft);
+  draft.event.occurrences = [
+    occurrence('auto', 10, { kind: 'automatic', sourceId: 'storm' }),
+  ];
+  const choice = draft.activity.slots.find(
+    (slot) => slot.choice?.choiceId === 'shape',
+  )!.choice!;
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  choice.candidates = [
+    { eventId: 'raid', origin: { kind: 'rolled' }, tableRoll: roll(100, 10) },
+    { eventId: 'theft', origin: { kind: 'rolled' }, tableRoll: roll(100, 74) },
+  ];
+  choice.selectedEventId = 'raid';
+  expect(labels(facts(draft, snapshot).view)).toEqual({
+    auto: 'Event 1',
+    raid: 'Event 2A',
+    theft: 'Event 2B',
+  });
+  // Candidate A rolls Roll Twice: its children show as planned blanks first…
+  choice.candidates[0]!.tableRoll = roll(100, 50);
+  const before = labels(facts(draft, snapshot).view);
+  expect(before).toEqual({
+    auto: 'Event 1',
+    raid: 'Event 2A',
+    'raid/twice/1': 'Event 2A.1',
+    'raid/twice/2': 'Event 2A.2',
+    theft: 'Event 2B',
+  });
+  // …and keep every label once the preparation is saved.
+  let next = draft;
+  const preview = projectWeeklyDraft({
+    revision: draft,
+    militiaSnapshot: snapshot,
+  });
+  for (const edit of planEventTopology(draft, preview.phases!.event.positions)
+    .edits) {
+    const result = editWeeklyDraft(next, edit);
+    if (!result.ok) throw new Error(result.error);
+    next = result.draft;
+  }
+  expect(labels(facts(next, snapshot).view)).toEqual(before);
+});
+
+test('[EVT-labels.deep] nested events extend their parent label; hidden siblings keep theirs', () => {
+  const { draft, snapshot } = eventSelectionFixture();
+  draft.event.occurrences = [
+    occurrence('root', 50),
+    occurrence('first', 50, { kind: 'roll_twice', parentEventId: 'root' }),
+    occurrence('second', 10, { kind: 'roll_twice', parentEventId: 'root' }),
+    occurrence('again', 30, { kind: 'replacement', parentEventId: 'first' }),
+  ];
+  const expected = {
+    root: 'Event 1',
+    first: 'Event 1.1',
+    again: 'Event 1.1.1',
+    second: 'Event 1.2',
+  };
+  const view = facts(draft, snapshot).view;
+  expect(labels(view)).toEqual(expected);
+  expect(view.rolled.blocks[0]!.children[0]!.children[0]!.origin).toBe(
+    'Recorded reroll of Event 1.1',
+  );
+  // Moving the root off Roll Twice hides its children without relabelling.
+  draft.event.occurrences[0]!.tableRoll = roll(100, 10);
+  expect(labels(facts(draft, snapshot).view)).toEqual(expected);
+});
+
+test('[EVT-labels.inactive] events not taking part this week are numbered after the active ones', () => {
+  const { draft, snapshot } = eventSelectionFixture();
+  withAutomatic(draft);
+  draft.event.chanceRoll = roll(100, 100);
+  draft.event.occurrences = [
+    occurrence('old', 50),
+    occurrence('old-a', 45, { kind: 'roll_twice', parentEventId: 'old' }),
+    occurrence('auto', 10, { kind: 'automatic', sourceId: 'storm' }),
+  ];
+  const view = facts(draft, snapshot).view;
+  expect(labels(view)).toEqual({
+    auto: 'Event 1',
+    old: 'Event 2',
+    'old-a': 'Event 2.1',
+  });
+  expect(view.inactive.map((block) => block.label)).toEqual(['Event 2']);
 });
