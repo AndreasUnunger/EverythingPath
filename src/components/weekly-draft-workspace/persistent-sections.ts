@@ -2,7 +2,7 @@ import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resoluti
 import type { PersistentChange } from '~/lib/rules-persistent-events';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { activityLabel } from './activity-labels';
-import { eventOccurrenceLabels } from './event-tree-facts';
+import { eventName, eventOccurrenceLabels } from './event-tree-facts';
 import { activitySlotAnchor, eventOccurrenceAnchor } from './source-anchors';
 import { formatGold } from './week-frame/reference-copy';
 import type { Phase, PersistentView } from './types';
@@ -79,7 +79,7 @@ export function sourceEndings(draft: WeeklyDraft, phases: Phases | null) {
     const type = phases.event.tree.find(
       (entry) => entry.eventId === change.eventId,
     )?.eventType;
-    const name = type ? activityLabel(type) : 'An event';
+    const name = eventName(type) ?? 'An event';
     endings.set(change.endedEventId, {
       label: label ? `${name} in ${label}` : `${name} in Event`,
       link: {

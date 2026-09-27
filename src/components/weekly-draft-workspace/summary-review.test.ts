@@ -316,6 +316,22 @@ describe('[SUM-10] live six-section consequences', () => {
     expect(item(facts, 2, 'Event 1.2 · High Morale').details).toContain(
       'Rolled twice from Event 1',
     );
+    // All Is Calm from last week replaces the roll instead of awaiting it.
+    draft.context = {
+      ...draft.context,
+      queuedEffects: [
+        {
+          effectId: 'calm',
+          sourceId: 'last-week',
+          startsWeek: draft.week,
+          endsWeek: draft.week,
+          effect: { kind: 'all_is_calm' },
+        },
+      ],
+    };
+    expect(
+      item(review(draft, snapshot).facts, 2, 'Event chance').details,
+    ).toEqual(['Event chance · no roll: All Is Calm makes this a calm week']);
   });
 
   test('a first militia week shows Upkeep as not applicable', () => {
