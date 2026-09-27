@@ -17,10 +17,13 @@ export type SetupErrorDescriptor = (SetupLocation | { section?: undefined }) & {
 };
 
 // Rules warnings for the current form values, grouped by step. Unfinished or
-// structurally invalid values have none.
-export function setupWarningDescriptors(values: unknown) {
+// structurally invalid values have none. `names` names characters by identity.
+export function setupWarningDescriptors(
+  values: unknown,
+  names?: ReadonlyMap<string, string>,
+) {
   const parsed = militiaSetupSchema.safeParse(values);
-  return parsed.success ? militiaSetupWarnings(parsed.data) : [];
+  return parsed.success ? militiaSetupWarnings(parsed.data, names) : [];
 }
 
 type Path = readonly PropertyKey[];

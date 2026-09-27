@@ -150,10 +150,13 @@ export function SetupSection({
 }
 export function SetupEntry({
   label,
+  note,
   children,
   onRemove,
 }: {
   label: string;
+  /** Why this row matters here, e.g. which open-week choices need it. */
+  note?: string;
   children: ReactNode;
   onRemove: () => void;
 }) {
@@ -162,6 +165,11 @@ export function SetupEntry({
       <legend className="max-w-full px-1 font-semibold wrap-break-word">
         {label}
       </legend>
+      {note && (
+        <p className="text-primary min-w-0 text-sm font-medium [overflow-wrap:anywhere]">
+          {note}
+        </p>
+      )}
       <div className="grid items-start gap-3 md:grid-cols-2">{children}</div>
       <Button type="button" variant="outline" onClick={onRemove}>
         Remove {label}
