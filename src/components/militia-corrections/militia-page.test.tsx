@@ -447,10 +447,10 @@ describe('concurrent changes', () => {
 describe('temporary full editor', () => {
   test('an unsplit section opens the full editor, exclusive with section editing, and Cancel writes nothing', () => {
     mount();
-    fireEvent.click(entry(/^Teams/));
-    fireEvent.click(screen.getByRole('button', { name: 'Correct teams' }));
+    fireEvent.click(entry(/^Items/));
+    fireEvent.click(screen.getByRole('button', { name: 'Correct items' }));
     expect(
-      screen.getByRole('heading', { name: 'Correct teams' }),
+      screen.getByRole('heading', { name: 'Correct items' }),
     ).toBeVisible();
     expect(
       screen.getByRole('heading', { name: 'Characters and officers' }),
@@ -462,7 +462,7 @@ describe('temporary full editor', () => {
       ),
     ).toBeVisible();
     for (const button of within(index()).getAllByRole('button'))
-      if (!(button.textContent ?? '').startsWith('Teams'))
+      if (!(button.textContent ?? '').startsWith('Items'))
         expect(button).toBeDisabled();
     fireEvent.click(screen.getByText('Cancel correction'));
     expect(entry(/^Values/)).toBeEnabled();

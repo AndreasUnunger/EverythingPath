@@ -22,7 +22,11 @@ import type { MilitiaEntryKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
 import { FactsView } from './facts-view';
 import { FullCorrectionView } from './full-correction';
-import { RulesWarnings, SectionCorrectionView } from './section-correction';
+import {
+  MissingReferences,
+  RulesWarnings,
+  SectionCorrectionView,
+} from './section-correction';
 import type {
   MilitiaCorrections,
   MilitiaEntryView,
@@ -59,7 +63,8 @@ function RowContent({
   trailing?: ReactNode;
 }) {
   const { count, preview } = entry.facts;
-  const warnings = entry.warnings.length;
+  // Rules warnings and identities the open week still needs both warn.
+  const warnings = entry.warnings.length + entry.missing.length;
   return (
     <>
       <span className="min-w-0 flex-1">
@@ -183,6 +188,7 @@ function Detail({
         </div>
       )}
       <RulesWarnings warnings={entry.warnings} />
+      <MissingReferences entries={entry.missing} disabled={page.locked} />
       <FactsView facts={entry.facts} />
       {!wide && <CorrectButton page={page} entry={entry} />}
     </section>

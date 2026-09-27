@@ -10,7 +10,12 @@ import {
   yesNo,
 } from './fields';
 import type { SetupCharacter } from './roster';
-export function SetupSettlements() {
+export function SetupSettlements({
+  rowNotes,
+}: {
+  /** A note under a settlement's title, by its identity. */
+  rowNotes?: ReadonlyMap<string, string>;
+} = {}) {
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const settlements = useFieldArray({
     control,
@@ -39,6 +44,7 @@ export function SetupSettlements() {
         <SetupEntry
           key={row.id}
           label={`Settlement ${i + 1}`}
+          note={rowNotes?.get(row.settlementId)}
           onRemove={() => settlements.remove(i)}
         >
           <Field

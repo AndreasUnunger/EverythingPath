@@ -172,7 +172,14 @@ export function SetupPeople({
     </SetupSection>
   );
 }
-export function SetupTeams({ characters }: { characters: SetupCharacter[] }) {
+export function SetupTeams({
+  characters,
+  rowNotes,
+}: {
+  characters: SetupCharacter[];
+  /** A note under a team's title, by its identity. */
+  rowNotes?: ReadonlyMap<string, string>;
+}) {
   const { control } = useFormContext<MilitiaSetup>();
   const teams = useFieldArray({
     control,
@@ -199,6 +206,7 @@ export function SetupTeams({ characters }: { characters: SetupCharacter[] }) {
         <SetupEntry
           key={team.id}
           label={`Team ${index + 1}`}
+          note={rowNotes?.get(team.teamId)}
           onRemove={() => teams.remove(index)}
         >
           <Field

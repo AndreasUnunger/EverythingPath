@@ -48,6 +48,8 @@ export const WEEK_CHANGED_MESSAGE =
   'The week changed while you were correcting. Start again from the new week’s values.';
 export const RESTART_FROM_WEEK = 'Start again';
 export const AFFECTS_WEEK_HEADING = 'This affects the open week';
+export const MISSING_HEADING = 'Missing from the militia';
+export const NEEDED_BY_LABEL = 'Needed by';
 
 /** The reason field's own message, or null. */
 export function reasonError(value: unknown, error: string | undefined) {
