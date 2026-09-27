@@ -1193,3 +1193,66 @@ test('[rules.ACT-19.server] remove_slot checks the latest draft and current sour
     send(operation(1, 'closed', { kind: 'remove_slot', slotId: 'right' })),
   ).rejects.toThrow('Draft is closed');
 });
+
+// #164's two-device Sickness step: each device saves the whole occurrence it
+// observed, changing a different field. The occurrence is one conflict target
+// (#143 §5), so whichever save lands second on the same base is refused and
+// can never write the other device's accepted field back.
+test('stale whole-occurrence saves of different fields are refused in either order', async () => {
+  const { key, member, send, operation } = await setup();
+  const percentile = (value: number) => ({
+    dice: [value],
+    sides: 100,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  });
+  const save = {
+    dice: [5],
+    sides: 20,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  };
+  const event = { eventId: 'sickness', origin: { kind: 'rolled' as const } };
+  const occurrence = (
+    base: number,
+    id: string,
+    value: Record<string, unknown>,
+  ) =>
+    send(
+      operation(base, id, {
+        kind: 'event_occurrence',
+        occurrence: { ...event, ...value },
+      }),
+    );
+  await send(
+    operation(0, 'tree', { kind: 'event_tree', occurrences: [event] }),
+  );
+  await occurrence(1, 'observed', {
+    tableRoll: percentile(90),
+    rolls: { check: save },
+  });
+  // Both devices observed revision 2. The player's clear lands first.
+  await occurrence(2, 'player-clear', { tableRoll: percentile(90) });
+  await expect(
+    occurrence(2, 'gm-roll', {
+      tableRoll: percentile(45),
+      rolls: { check: save },
+    }),
+  ).rejects.toThrow('Target changed');
+  expect((await member.query(observe, key)).draft?.event.occurrences).toEqual([
+    { ...event, tableRoll: percentile(90) },
+  ]);
+  // Both observed revision 3. The table roll lands first this time.
+  await occurrence(3, 'gm-retry', { tableRoll: percentile(45) });
+  await expect(
+    occurrence(3, 'player-stale', {
+      tableRoll: percentile(90),
+      rolls: { check: save },
+    }),
+  ).rejects.toThrow('Target changed');
+  const accepted = await member.query(observe, key);
+  expect(accepted.revision).toBe(4);
+  expect(accepted.draft?.event.occurrences).toEqual([
+    { ...event, tableRoll: percentile(45) },
+  ]);
+});
