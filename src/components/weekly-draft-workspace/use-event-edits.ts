@@ -8,10 +8,11 @@ import {
 } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { isCandidateChoice } from '~/lib/event-occurrence-preparation';
-import type { EventBlock, EventView } from './types';
+import type { EventBlock, EventRetainedField, EventView } from './types';
 
 type Occurrence = EventView['occurrences'][number]['occurrence'];
 type TargetCheck = NonNullable<Occurrence['targetChecks']>[number];
+type Target = NonNullable<Occurrence['targets']>[number];
 export type TargetCheckPatch = {
   mitigation?: 'attempted' | 'unattempted';
   // A die, or null to clear it.
@@ -106,24 +107,58 @@ export function useEventEdits(
     }
     return {
       saveOccurrence,
-      /** Replaces the occurrence's targets of one kind; other kinds stay. */
+      /**
+       * Replaces the occurrence's targets of one kind (High Morale's ended
+       * carried events are `event` targets); other kinds stay.
+       */
       setTargets(
         eventId: string,
-        kind: 'team' | 'settlement',
+        kind: 'team' | 'settlement' | 'event',
         ids: readonly string[],
       ) {
         const occurrence = current(eventId);
         if (!occurrence) return 'This event is not ready for its roll yet.';
-        const targets = [
+        const targets: Target[] = [
           ...(occurrence.targets ?? []).filter(
             (target) => target.kind !== kind,
           ),
-          ...ids.map((id) =>
-            kind === 'team' ? { kind, teamId: id } : { kind, settlementId: id },
-          ),
+          ...ids.map((id): Target => {
+            if (kind === 'team') return { kind, teamId: id };
+            if (kind === 'settlement') return { kind, settlementId: id };
+            return { kind, eventId: id };
+          }),
         ];
         const { targets: _previous, ...rest } = occurrence;
         return saveOccurrence(targets.length ? { ...rest, targets } : rest);
+      },
+      /** Invasion's Average Party Level, or null to clear it. */
+      setAveragePartyLevel(eventId: string, level: number | null) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const { averagePartyLevel: _previous, ...rest } = occurrence;
+        return saveOccurrence(
+          level === null ? rest : { ...rest, averagePartyLevel: level },
+        );
+      },
+      /**
+       * Clears a recorded input the resolved event does not use. Clearing
+       * `targets` keeps the kinds in `keep` (High Morale's ended events).
+       */
+      clearRetained(
+        eventId: string,
+        field: EventRetainedField['field'],
+        keep: readonly Target['kind'][] = [],
+      ) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const { [field]: _previous, ...rest } = occurrence;
+        const kept =
+          field === 'targets'
+            ? (occurrence.targets ?? []).filter((target) =>
+                keep.includes(target.kind),
+              )
+            : [];
+        return saveOccurrence(kept.length ? { ...rest, targets: kept } : rest);
       },
       /** The occurrence's own check die (for example Sickness's save). */
       setCheckRoll(eventId: string, roll: RawRoll | null) {

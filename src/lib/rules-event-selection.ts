@@ -579,10 +579,46 @@ export function projectEventSelection(
   finalizeEventSelection(result);
   if (result.ready)
     result.nextUneventfulCarry =
-      !draft.context.firstMilitiaWeek &&
-      !forcedCalm &&
-      automaticSources.length === 0 &&
-      result.selected.length < 2 &&
-      result.selected.every((event) => event.eventType === 'all_is_calm');
+      uneventfulCarryBlockers({
+        firstMilitiaWeek: draft.context.firstMilitiaWeek,
+        forcedCalm,
+        automaticEvents: automaticSources.length > 0,
+        selected: result.selected,
+      }).length === 0;
   return result;
+}
+
+/** Why a week does not build the uneventful chance carry. */
+export type UneventfulCarryBlocker =
+  | 'first_week'
+  | 'forced_calm'
+  | 'automatic_events'
+  | 'two_events'
+  | 'event';
+
+/**
+ * The reasons a week is not uneventful for next week's chance carry; none
+ * means it counts. Only a lone All Is Calm (or no event) outside the first
+ * week, a forced calm and any automatic event builds the carry.
+ */
+export function uneventfulCarryBlockers({
+  firstMilitiaWeek,
+  forcedCalm,
+  automaticEvents,
+  selected,
+}: {
+  firstMilitiaWeek: boolean;
+  forcedCalm: boolean;
+  automaticEvents: boolean;
+  selected: readonly Pick<Event, 'eventType'>[];
+}): UneventfulCarryBlocker[] {
+  return [
+    ...(firstMilitiaWeek ? (['first_week'] as const) : []),
+    ...(forcedCalm ? (['forced_calm'] as const) : []),
+    ...(automaticEvents ? (['automatic_events'] as const) : []),
+    ...(selected.length >= 2 ? (['two_events'] as const) : []),
+    ...(selected.some((event) => event.eventType !== 'all_is_calm')
+      ? (['event'] as const)
+      : []),
+  ];
 }

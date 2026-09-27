@@ -85,7 +85,7 @@ function EventSteps({
           effect={view.automatic.sources
             .map(
               (source) =>
-                `${source.label} · ${source.count} automatic ${source.count === 1 ? 'event' : 'events'}`,
+                `${source.label} (week ${source.week}) · ${source.count} automatic ${source.count === 1 ? 'event' : 'events'}`,
             )
             .join(' · ')}
         >
@@ -94,9 +94,9 @@ function EventSteps({
               key={source.sourceId}
               className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]"
             >
-              {source.label} brings {source.count} automatic{' '}
-              {source.count === 1 ? 'event' : 'events'} before the normal roll.
-              A Roll Twice here is rerolled.
+              {source.label} (week {source.week}) brings {source.count}{' '}
+              automatic {source.count === 1 ? 'event' : 'events'} before the
+              normal roll. A Roll Twice here is rerolled.
             </p>
           ))}
           <div className="space-y-3">

@@ -17,6 +17,10 @@ export const SICKNESS_TWICE_LOYALTY_DC = 20;
 export const RAID_SECURITY_DC = 20;
 /** A hidden person's capture chance (percent) without and with mitigation. */
 export const RAID_CAPTURE_CHANCE = { unmitigated: 100, mitigated: 50 } as const;
+/** Invasion: the GM's random encounter is at CR `APL + 1`. */
+export function invasionChallengeRating(averagePartyLevel: number) {
+  return averagePartyLevel + 1;
+}
 type Cache = NonNullable<UpkeepSnapshot['economy']>['caches'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type ThreatEventChange =
@@ -318,7 +322,7 @@ function resolveInvasion(context: ThreatEventContext) {
       kind: 'event_encounter',
       eventId: event.eventId,
       averagePartyLevel: event.averagePartyLevel,
-      challengeRating: event.averagePartyLevel + 1,
+      challengeRating: invasionChallengeRating(event.averagePartyLevel),
       acknowledgement,
     });
   return true;

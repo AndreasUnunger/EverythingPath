@@ -63,42 +63,43 @@ export async function exerciseEventWorkspace(
   await table(gm, '1').fill('50');
   await expect(table(player, '1.1')).toHaveValue('45');
   await expect(table(player, '1.2')).toHaveValue('82');
-  await occurrence(gm, '1.2')
-    .getByText('Edit Event 1.2 details', { exact: true })
-    .click();
-  await occurrence(gm, '1.2')
-    .getByRole('textbox', { name: 'Average Party Level', exact: true })
-    .fill('4');
-  await occurrence(gm, '1.2')
-    .getByRole('button', { name: 'Save occurrence', exact: true })
-    .click();
-  await occurrence(player, '1.2')
-    .getByText('Edit Event 1.2 details', { exact: true })
-    .click();
+  // All Is Calm (45–48) shows its outcome line and asks for nothing.
+  const outcomes = (page: Page, path: string) =>
+    occurrence(page, path).getByRole('list', {
+      name: `Event ${path} outcomes`,
+      exact: true,
+    });
+  await expect(outcomes(player, '1.1')).toHaveText('›No event this week.');
   await expect(
-    occurrence(player, '1.2').getByRole('textbox', {
+    occurrence(player, '1.1').getByRole('textbox', {
+      name: 'What happened',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  // Invasion's own controls: the Average Party Level and a required What
+  // happened, each entered on one device and shown on the other.
+  const partyLevel = (page: Page) =>
+    occurrence(page, '1.2').getByRole('textbox', {
       name: 'Average Party Level',
       exact: true,
-    }),
-  ).toHaveValue('4');
-  await occurrence(player, '1.2')
-    .getByRole('textbox', {
-      name: 'Event outcome acknowledgement',
+    });
+  const invasionNote = (page: Page) =>
+    occurrence(page, '1.2').getByRole('textbox', {
+      name: 'What happened',
       exact: true,
-    })
-    .fill('The table drove the invaders away.');
+    });
+  await partyLevel(gm).fill('4');
+  await expect(partyLevel(player)).toHaveValue('4');
+  await invasionNote(player).fill('The table drove the invaders away.');
   await occurrence(player, '1.2')
-    .getByRole('button', {
-      name: 'Save event outcome acknowledgement',
-      exact: true,
-    })
+    .getByRole('button', { name: 'Save what happened', exact: true })
     .click();
-  await expect(
-    occurrence(gm, '1.2').getByRole('textbox', {
-      name: 'Event outcome acknowledgement',
-      exact: true,
-    }),
-  ).toHaveValue('The table drove the invaders away.');
+  await expect(invasionNote(gm)).toHaveValue(
+    'The table drove the invaders away.',
+  );
+  await expect(outcomes(gm, '1.2')).toHaveText(
+    '›The GM runs a combat encounter at CR 5 (Average Party Level 4 + 1).',
+  );
   await table(gm, '1.1').fill('0');
   await expect(table(player, '1.1')).toHaveValue('0');
   await table(gm, '1.1').fill('');
@@ -203,14 +204,9 @@ export async function exerciseEventWorkspace(
     );
   }
   await occurrence(gm, '1.2')
-    .getByRole('button', { name: 'Clear event acknowledgement', exact: true })
+    .getByRole('button', { name: 'Clear what happened', exact: true })
     .click();
-  await expect(
-    occurrence(player, '1.2').getByRole('textbox', {
-      name: 'Event outcome acknowledgement',
-      exact: true,
-    }),
-  ).toHaveValue('');
+  await expect(invasionNote(player)).toHaveValue('');
   // Restore the supported journey's quiet week so its exact Confirmation
   // assertions remain meaningful. The recorded events stay on record, unused.
   await chance(gm).fill(previousChance);
