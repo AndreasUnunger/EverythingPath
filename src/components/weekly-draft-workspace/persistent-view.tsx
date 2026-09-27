@@ -21,6 +21,9 @@ import {
   type PersistentEdit,
 } from './use-persistent-choice';
 import { phaseLabels } from './week-frame/labels';
+import type { OverseerSupportFacts } from './overseer-support-facts';
+import { OverseerSupportControl } from './overseer-support-control';
+import { OverseerSupportProvider } from './use-overseer-support';
 import { formatGold } from './week-frame/reference-copy';
 
 // Persistent as one numbered section per carried event, in the order the
@@ -33,6 +36,8 @@ type Props = {
   edit: PersistentEdit;
   disabled: boolean;
   openSource?: (link: PersistentSourceLink) => void;
+  // The newest Overseer support facts, read between the edits of a move.
+  latestOverseer?: () => OverseerSupportFacts | null | undefined;
 };
 type Event = Facts['events'][number];
 const mitigation = persistentDecisionSchema.options[1];
@@ -42,31 +47,46 @@ const officerDecision = mitigation.omit({
   targets: true,
   strategistCharacterId: true,
 });
+// Overseer support has its own toggle below the check, shared with Event.
 const theftDecision = mitigation.omit({
   officerCheck: true,
+  overseerCharacterId: true,
   targets: true,
   strategistCharacterId: true,
 });
 
-export function PersistentView({ view, edit, disabled, openSource }: Props) {
+export function PersistentView({
+  view,
+  edit,
+  disabled,
+  openSource,
+  latestOverseer,
+}: Props) {
   return (
-    <section
-      aria-label="Persistent preparation"
-      className="min-w-0 space-y-6 [&_button]:h-auto [&_button]:max-w-full [&_button]:[overflow-wrap:anywhere] [&_button]:whitespace-normal"
+    <OverseerSupportProvider
+      facts={view.overseer}
+      edit={edit}
+      latest={latestOverseer}
+      disabled={disabled}
     >
-      <Overview view={view} />
-      {view.events.map((event, index) => (
-        <PersistentEvent
-          key={event.eventId}
-          number={index + 1}
-          event={event}
-          view={view}
-          edit={edit}
-          disabled={disabled}
-          openSource={openSource}
-        />
-      ))}
-    </section>
+      <section
+        aria-label="Persistent preparation"
+        className="min-w-0 space-y-6 [&_button]:h-auto [&_button]:max-w-full [&_button]:[overflow-wrap:anywhere] [&_button]:whitespace-normal"
+      >
+        <Overview view={view} />
+        {view.events.map((event, index) => (
+          <PersistentEvent
+            key={event.eventId}
+            number={index + 1}
+            event={event}
+            view={view}
+            edit={edit}
+            disabled={disabled}
+            openSource={openSource}
+          />
+        ))}
+      </section>
+    </OverseerSupportProvider>
   );
 }
 
@@ -170,7 +190,11 @@ function PersistentEvent({
                         ? officerDecision
                         : theftDecision
                     }
-                    value={decision}
+                    value={
+                      event.eventType === 'rivalry'
+                        ? decision
+                        : withoutSupport(decision)
+                    }
                     options={view.options}
                     rollSpec={(path) =>
                       eventRollSpec(
@@ -191,10 +215,26 @@ function PersistentEvent({
                       if (!parsed.success) return false;
                       void edit({
                         kind: 'persistent_decision',
-                        decision: { ...parsed.data, eventId: event.eventId },
+                        decision: withSupportOf(
+                          { ...parsed.data, eventId: event.eventId },
+                          decision,
+                        ),
                       });
                     }}
                   />
+                  {event.eventType === 'theft' && (
+                    <OverseerSupportControl
+                      eventId={event.eventId}
+                      check="loyalty"
+                      subject={`${event.name} Loyalty check`}
+                      breakdown={
+                        event.checks.find(
+                          (check) =>
+                            check.checkId === `${event.eventId}:mitigation`,
+                        )?.modifiers
+                      }
+                    />
+                  )}
                 </>
               )}
             {choice.selected === 'end' && (
@@ -244,4 +284,20 @@ function PersistentEvent({
       </div>
     </section>
   );
+}
+
+type Decision = NonNullable<Event['decision']>;
+// The Theft form edits the check; its Overseer support is the toggle's, so a
+// saved form keeps whatever support the decision records now.
+function withoutSupport(decision: Decision) {
+  if (decision.kind !== 'mitigate') return decision;
+  const { overseerCharacterId: _support, ...rest } = decision;
+  return rest;
+}
+function withSupportOf(next: Decision, current: Decision | null): Decision {
+  return next.kind === 'mitigate' &&
+    current?.kind === 'mitigate' &&
+    current.overseerCharacterId
+    ? { ...next, overseerCharacterId: current.overseerCharacterId }
+    : next;
 }

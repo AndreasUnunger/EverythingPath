@@ -25,7 +25,7 @@ export function persistentView(
 ): PersistentView {
   const phases = preview.phases;
   const projection = phases?.persistent;
-  const options = eventView(draft, source, preview).options;
+  const { options, overseer } = eventView(draft, source, preview);
   const events = orderCarriedEvents(draft.context.carriedEvents);
   const ownIds = events.map((event) => event.eventId);
   const allRequirements = projection?.requirements ?? [];
@@ -50,6 +50,7 @@ export function persistentView(
       : (projection?.buyoffCostCopper ?? null),
     earlierPhases: earlier,
     options,
+    overseer,
     events: events.map((event, index) => {
       const requirements = allRequirements.filter((key) =>
         key.startsWith(`${event.eventId}:`),

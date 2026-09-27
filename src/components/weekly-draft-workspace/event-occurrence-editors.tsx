@@ -45,13 +45,19 @@ export function EventOccurrenceEditors({
   const occurrence = item.occurrence;
   const panel = item.panel;
   // Checks the family controls show in their own rows.
-  const covered = !panel
-    ? []
-    : panel.family === 'team'
-      ? panel.check
-        ? [panel.check.checkId]
-        : []
-      : panel.people.map((person) => person.check.checkId);
+  const covered = [
+    ...(!panel
+      ? []
+      : panel.family === 'team'
+        ? panel.check
+          ? [panel.check.checkId]
+          : []
+        : panel.people.map((person) => person.check.checkId)),
+    // The Sabotage panel shows its own check row.
+    ...(occurrence.sabotage
+      ? [`${occurrence.eventId}:sabotage:${occurrence.sabotage.choiceId}`]
+      : []),
+  ];
   const acknowledgement = view.acknowledgements.find(
     (entry) => entry.subjectId === `event:${occurrence.eventId}`,
   );
