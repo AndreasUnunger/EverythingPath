@@ -1,7 +1,5 @@
 'use client';
 import { useCallback, useState, type ReactNode } from 'react';
-import { useAuth, useOrganization } from '@clerk/nextjs';
-import { useConvexAuth } from 'convex/react';
 import { usePathname } from 'next/navigation';
 import {
   History,
@@ -36,6 +34,7 @@ import { cn } from '~/lib/utils';
 import { CampaignWorkspaceProvider } from '~/components/weekly-draft-workspace/campaign-workspace-provider';
 import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
 import { CampaignProvider } from './campaign-context';
+import { useSession, type Organization, type Session } from './session';
 import { FailedLoadCard } from './failed-load';
 import {
   BeforeDeparture,
@@ -57,12 +56,6 @@ import {
 type Campaign = Doc<'campaign'>;
 const ALL_CAMPAIGNS = '__all';
 
-type Organization = { id: string; name: string };
-type Session =
-  | { kind: 'resolving' }
-  | { kind: 'signed_out' }
-  | { kind: 'no_organization' }
-  | { kind: 'member'; organization: Organization };
 type Access =
   | Exclude<Session, { kind: 'member' }>
   | { kind: 'failed'; retry: () => void }
@@ -77,23 +70,6 @@ type CampaignListQuery = Pick<
   ReturnType<typeof campaignQuery>,
   'data' | 'error' | 'refetch'
 >;
-
-// Who is asking: sign-in and active organization must both be settled before
-// any campaign list is read, so nothing from a previous organization shows.
-function useSession(): Session {
-  const auth = useAuth();
-  const { organization, isLoaded: organizationLoaded } = useOrganization();
-  const convexAuth = useConvexAuth();
-  if (!auth.isLoaded || !organizationLoaded || convexAuth.isLoading)
-    return { kind: 'resolving' };
-  if (auth.isSignedIn !== true || !convexAuth.isAuthenticated)
-    return { kind: 'signed_out' };
-  if (!organization) return { kind: 'no_organization' };
-  return {
-    kind: 'member',
-    organization: { id: organization.id, name: organization.name },
-  };
-}
 
 // The active organization's own campaign list decides access. An explicit id
 // that is not in it is unavailable and never falls back to another campaign;

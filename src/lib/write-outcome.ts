@@ -1,0 +1,18 @@
+import { ConvexError } from 'convex/values';
+
+export type WriteFailure =
+  | { kind: 'rejected'; message: string | null }
+  | { kind: 'unknown' };
+
+// Only a ConvexError is a definite server refusal (authorization, a missing
+// campaign, maintenance), and the transaction did not commit. Anything else
+// (a closed connection, an unexpected failure) may or may not have been
+// applied, so the caller must not claim it failed or replay it blindly.
+export function classifyWriteFailure(error: unknown): WriteFailure {
+  if (error instanceof ConvexError)
+    return {
+      kind: 'rejected',
+      message: typeof error.data === 'string' ? error.data : null,
+    };
+  return { kind: 'unknown' };
+}

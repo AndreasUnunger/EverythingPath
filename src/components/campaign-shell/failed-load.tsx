@@ -9,14 +9,18 @@ export function FailedLoadCard({
   noun,
   retry,
   className,
+  hint,
 }: {
   noun: string;
   retry: () => void;
   className?: string;
+  /** A sentence after the failure, e.g. "Please try again." */
+  hint?: string;
 }) {
+  const sentence = `${noun} could not be loaded.`;
   return (
     <Card role="alert" className={cn('gap-3 p-4', className)}>
-      <p>{noun} could not be loaded.</p>
+      <p>{hint ? `${sentence} ${hint}` : sentence}</p>
       <div>
         <Button variant="outline" onClick={retry}>
           Try again

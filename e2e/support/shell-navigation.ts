@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { openCampaignSection } from './interactions';
+import { expectSelectedCampaign, openCampaignSection } from './interactions';
 import {
   exercisePhoneShell,
   exerciseTopBarShell,
@@ -91,9 +91,7 @@ export async function exerciseShellNavigation(
   ]) {
     await page.goto(`/${legacy}`);
     await expect(page).toHaveURL(`${week.origin}/campaigns`);
-    await expect(
-      page.getByRole('combobox', { name: 'Active campaign' }),
-    ).toContainText(campaignName);
+    await expectSelectedCampaign(page, campaignName);
   }
   await page.goto('/');
   await expect(page).toHaveURL(`${week.origin}/campaigns`);
