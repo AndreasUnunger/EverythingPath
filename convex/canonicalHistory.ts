@@ -14,7 +14,12 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 const provenanceValidator = zodOutputToConvex(
   canonicalResolutionRecordSchema.shape.provenance,
 );
-const headlineValue = v.union(v.string(), v.number(), v.boolean(), v.null());
+const headlineValueValidator = v.union(
+  v.string(),
+  v.number(),
+  v.boolean(),
+  v.null(),
+);
 const finishedWeekValidator = v.object({
   week: v.number(),
   effectiveRecordId: v.string(),
@@ -27,24 +32,35 @@ const finishedWeekValidator = v.object({
     v.object({
       key: v.string(),
       label: v.string(),
-      before: headlineValue,
-      final: headlineValue,
+      before: headlineValueValidator,
+      final: headlineValueValidator,
       beforeRecorded: v.boolean(),
       finalRecorded: v.boolean(),
       unit: v.union(v.literal('number'), v.literal('gp'), v.literal('text')),
     }),
   ),
 });
-const weekSelector = z.number().int().nonnegative();
+
+type RecordRow = Doc<'canonicalResolutionRecord'>;
+type HistoryScope = { campaignId: Id<'campaign'>; militiaId: Id<'militia'> };
+type WeekSeek =
+  | { kind: 'latest' }
+  | { kind: 'before'; week: number }
+  | { kind: 'exact'; week: number };
+
+const nonnegativeIntegerSchema = z.number().int().nonnegative();
 const listArgsSchema = z.strictObject({
-  beforeWeek: weekSelector.optional(),
+  beforeWeek: nonnegativeIntegerSchema.optional(),
   limit: z.number().int().min(1).max(50).default(25),
-  selectedWeek: weekSelector.optional(),
+  selectedWeek: nonnegativeIntegerSchema.optional(),
 });
 
 // The militia row is used solely to authorize campaign ownership, never to
 // reconstruct historical facts. A campaign without a militia has no history.
-async function historyScope(ctx: QueryCtx, campaignId: Id<'campaign'>) {
+async function requireHistoryScope(
+  ctx: QueryCtx,
+  campaignId: Id<'campaign'>,
+): Promise<HistoryScope> {
   const militia = await ctx.db
     .query('militia')
     .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
@@ -53,42 +69,61 @@ async function historyScope(ctx: QueryCtx, campaignId: Id<'campaign'>) {
   return await requireScope(ctx, { campaignId, militiaId: militia._id });
 }
 
-function requireRecordMilitia(
-  row: Doc<'canonicalResolutionRecord'>,
-  militiaId: Id<'militia'>,
-) {
-  if (row.militiaId !== militiaId)
+function requireRecordMilitia(row: RecordRow, scope: HistoryScope) {
+  if (row.militiaId !== scope.militiaId)
     throw new ConvexError('Invalid record militia reference');
   return row;
 }
 
-// Append-only storage gives each week a single chain whose highest sequence is
-// the effective tip, so a descending index seek below a week boundary lands on
-// the next older week's tip and skips that week's whole correction chain.
-async function effectiveTip(
+// Append-only storage gives each week a single chain: every later sequence
+// supersedes the then effective record, so a week's highest sequence is its
+// effective record. A descending seek below a week boundary therefore lands on
+// the next older week's effective record, skipping that week's whole chain.
+async function findEffectiveRecord(
   ctx: QueryCtx,
-  campaignId: Id<'campaign'>,
-  week: { before: number | undefined } | { exact: number },
+  scope: HistoryScope,
+  seek: WeekSeek,
 ) {
-  return await ctx.db
+  const row = await ctx.db
     .query('canonicalResolutionRecord')
     .withIndex('by_campaignId_and_week_and_sequence', (q) => {
-      const campaign = q.eq('campaignId', campaignId);
-      if ('exact' in week) return campaign.eq('week', week.exact);
-      return week.before === undefined
-        ? campaign
-        : campaign.lt('week', week.before);
+      const campaign = q.eq('campaignId', scope.campaignId);
+      if (seek.kind === 'exact') return campaign.eq('week', seek.week);
+      if (seek.kind === 'before') return campaign.lt('week', seek.week);
+      return campaign;
     })
     .order('desc')
     .first();
+  return row && requireRecordMilitia(row, scope);
 }
 
-function finishedWeek(row: Doc<'canonicalResolutionRecord'>) {
+// Seeks up to `limit` + 1 distinct weeks; the extra one only reveals whether an
+// older page exists.
+async function findEffectiveRecordPage(
+  ctx: QueryCtx,
+  scope: HistoryScope,
+  { beforeWeek, limit }: { beforeWeek?: number; limit: number },
+) {
+  const rows: RecordRow[] = [];
+  let seek: WeekSeek =
+    beforeWeek === undefined
+      ? { kind: 'latest' }
+      : { kind: 'before', week: beforeWeek };
+  while (rows.length <= limit) {
+    const row = await findEffectiveRecord(ctx, scope, seek);
+    if (!row) break;
+    rows.push(row);
+    seek = { kind: 'before', week: row.week };
+  }
+  return { rows: rows.slice(0, limit), hasEarlier: rows.length > limit };
+}
+
+function toFinishedWeek(row: RecordRow) {
   return {
     week: row.week,
     effectiveRecordId: row.recordId,
     effectiveSequence: row.sequence,
-    // Sequences start at zero and every append supersedes the previous tip.
+    // Sequences start at zero, so the effective sequence + 1 counts the chain.
     entryCount: row.sequence + 1,
     provenance: row.record.provenance,
     rulesetVersion: row.record.rulesetVersion,
@@ -115,32 +150,26 @@ export const list = query({
     const parsed = listArgsSchema.safeParse(selectors);
     if (!parsed.success)
       throw new ConvexError('Invalid finished-week selection');
-    const { beforeWeek, limit, selectedWeek } = parsed.data;
-    const scope = await historyScope(ctx, campaignId);
-    // One extra tip reveals whether an older page exists.
-    const tips: Doc<'canonicalResolutionRecord'>[] = [];
-    let before = beforeWeek;
-    while (tips.length <= limit) {
-      const tip = await effectiveTip(ctx, campaignId, { before });
-      if (!tip) break;
-      tips.push(requireRecordMilitia(tip, scope.militiaId));
-      before = tip.week;
-    }
-    const weeks = tips.slice(0, limit).map(finishedWeek);
-    const earlierWeek =
-      tips.length > limit ? (weeks[weeks.length - 1]?.week ?? null) : null;
+    const { selectedWeek, ...page } = parsed.data;
+    const scope = await requireHistoryScope(ctx, campaignId);
+    const { rows, hasEarlier } = await findEffectiveRecordPage(
+      ctx,
+      scope,
+      page,
+    );
+    const weeks = rows.map(toFinishedWeek);
+    const earlierWeek = hasEarlier
+      ? (weeks[weeks.length - 1]?.week ?? null)
+      : null;
     if (selectedWeek === undefined)
       return { weeks, earlierWeek, selected: null };
     const listed = weeks.find((row) => row.week === selectedWeek);
     if (listed) return { weeks, earlierWeek, selected: listed };
-    const tip = await effectiveTip(ctx, campaignId, { exact: selectedWeek });
-    return {
-      weeks,
-      earlierWeek,
-      selected: tip
-        ? finishedWeek(requireRecordMilitia(tip, scope.militiaId))
-        : null,
-    };
+    const row = await findEffectiveRecord(ctx, scope, {
+      kind: 'exact',
+      week: selectedWeek,
+    });
+    return { weeks, earlierWeek, selected: row && toFinishedWeek(row) };
   },
 });
 
@@ -173,22 +202,21 @@ export const read = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const scope = await historyScope(ctx, args.campaignId);
+    const scope = await requireHistoryScope(ctx, args.campaignId);
     const week =
-      args.week === undefined ? undefined : weekSelector.parse(args.week);
+      args.week === undefined
+        ? undefined
+        : nonnegativeIntegerSchema.parse(args.week);
     const before =
       args.beforeSequence === undefined
         ? undefined
-        : z.number().int().nonnegative().parse(args.beforeSequence);
-    const effective = await effectiveTip(
+        : nonnegativeIntegerSchema.parse(args.beforeSequence);
+    const effective = await findEffectiveRecord(
       ctx,
-      args.campaignId,
-      week === undefined ? { before: undefined } : { exact: week },
+      scope,
+      week === undefined ? { kind: 'latest' } : { kind: 'exact', week },
     );
     if (!effective) return null;
-    requireRecordMilitia(effective, scope.militiaId);
-    // Append enforces a single chain: every later sequence supersedes the then
-    // effective record. Its highest sequence is therefore the unsuperseded tip.
     const selected =
       args.recordId === undefined
         ? {
@@ -202,7 +230,13 @@ export const read = query({
     if (selected?.record.source.week !== effective.week)
       throw new ConvexError('Invalid historical week reference');
     const [previous, next, audit] = await Promise.all([
-      effectiveTip(ctx, args.campaignId, { before: effective.week }),
+      ctx.db
+        .query('canonicalResolutionRecord')
+        .withIndex('by_campaignId_and_week_and_sequence', (q) =>
+          q.eq('campaignId', args.campaignId).lt('week', effective.week),
+        )
+        .order('desc')
+        .first(),
       ctx.db
         .query('canonicalResolutionRecord')
         .withIndex('by_campaignId_and_week_and_sequence', (q) =>

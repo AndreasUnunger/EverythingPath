@@ -251,6 +251,41 @@ test('[rules.P86.history] settlement reputation precedes persistent-event change
     ['event:storm', 'Persistent event 1'],
     ['event:raid', 'Persistent event 2'],
   ]);
+  // Settlements headline their reputation only: one added without a known
+  // reputation records no reputation change.
+  expect(
+    projectHeadlineFacts(
+      formatTwo((after) => {
+        after.settlements.push(settlement('camp', 'Camp', null));
+        after.settlements.push(settlement('fort', 'Fort', 'Helpful'));
+      }),
+    ),
+  ).toEqual([
+    {
+      key: 'settlement:fort',
+      label: 'Fort',
+      before: null,
+      final: 'Helpful',
+      unit: 'text',
+      ...known,
+    },
+  ]);
+});
+
+test('[rules.P86.history] known changes lead outcomes whose starting value was not recorded', () => {
+  const { sourceMilitiaSnapshot: _omitted, ...withoutSnapshot } = formatTwo(
+    () => undefined,
+    { before: [event('storm')] },
+  );
+  const record = {
+    ...withoutSnapshot,
+    finalPlan: { formatVersion: 1, data: {} },
+    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 87, rank: 2 } },
+  };
+  expect(projectHeadlineFacts(record).map(({ key }) => key)).toEqual([
+    'event:storm',
+    'treasury',
+  ]);
 });
 
 test('[rules.P86.history] unchanged records and records without comparable facts have no headlines', () => {
