@@ -134,6 +134,12 @@ export async function exerciseEventWorkspace(
     .getByRole('button', { name: 'Clear team that falls sick', exact: true })
     .click();
   await expect(happened(gm)).toHaveValue('');
+  // The GM's next roll saves the whole occurrence it sees. Built before the
+  // cleared team arrives, it would be refused as stale (#143 §5), so the GM
+  // first sees the player's clear.
+  await expect(
+    sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
   await table(gm, '1.1').fill('45');
   await expect(table(player, '1.1')).toHaveValue('45');
   const observer = await gm.context().newPage();
