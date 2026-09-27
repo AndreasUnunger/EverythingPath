@@ -243,9 +243,7 @@ function rosterFacts(
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      // Unknown Hit Dice stay unknown, never zero: a frozen record never
-      // stored them, while a live week simply has none set yet.
-      `${personKinds[person.kind] ?? words(person.kind)} · ${person.hitDice === null ? `Hit Dice ${frozen ? 'not recorded' : 'not set'}` : `${person.hitDice} Hit Dice`}`,
+      `${personKinds[person.kind] ?? words(person.kind)} · ${hitDiceText(snapshot, person, frozen)}`,
       'Not on roster',
     ),
   );
@@ -259,6 +257,23 @@ function rosterFacts(
     ),
   );
   return [...people, ...officerFacts(snapshot, names), ...characters];
+}
+
+// A live week shows the effective Hit Dice the rules use (`getEffectiveHitDice`,
+// which this renderer may not import): the override, or else the character's
+// level. A frozen record shows only what it stored and never infers one.
+function hitDiceText(
+  snapshot: Snapshot,
+  person: Snapshot['roster']['people'][number],
+  frozen: boolean,
+) {
+  const character = snapshot.characters.find(
+    (entry) => entry.characterId === person.characterId,
+  );
+  const hitDice =
+    frozen || !character ? person.hitDice : (person.hitDice ?? character.level);
+  if (hitDice !== null) return `${hitDice} Hit Dice`;
+  return `Hit Dice ${frozen ? 'not recorded' : 'not set'}`;
 }
 
 /** One row per officer role, compared by its sorted holders. */

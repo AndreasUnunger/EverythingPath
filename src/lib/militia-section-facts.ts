@@ -1,5 +1,5 @@
 import type { CanonicalWeekState } from './canonical-weekly-source';
-import { effectiveHitDice } from './canonical-roster';
+import { getEffectiveHitDice } from './canonical-roster';
 import { formatCharacterKind } from './character-kind';
 import type { MilitiaEntryKey } from './militia-correction-sections';
 
@@ -572,7 +572,7 @@ function people(snapshot: Snapshot, names: Names): EntryFacts {
         {
           label: 'Hit Dice',
           value: character
-            ? String(effectiveHitDice(person, character))
+            ? String(getEffectiveHitDice(person, character))
             : 'Not recorded',
         },
         { label: 'Officer roles', value: list(roles(person.characterId)) },

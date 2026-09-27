@@ -8,15 +8,26 @@ export function getTeamManagerCharismaBonus(charisma: number) {
 // How many teams a roster person normally manages, from the roster the rules
 // are evaluating at that point. An NPC is an Officer exactly while holding a
 // role there: pending roles and the stored legacy kind never make one.
-export function teamManagerLimit(
-  roster: { officers: readonly { characterId: string }[] },
-  person: { characterId: string; kind: RosterKind },
-  charisma: number,
-) {
-  const officer = roster.officers.some(
+export function getTeamManagerLimit({
+  officers,
+  person,
+  charisma,
+}: {
+  officers: readonly { characterId: string }[];
+  person: { characterId: string; kind: RosterKind };
+  charisma: number;
+}) {
+  const isOfficer = officers.some(
     (officer) => officer.characterId === person.characterId,
   );
-  return normalizeCharacterKind(person.kind) === 'pc' || officer
+  return normalizeCharacterKind(person.kind) === 'pc' || isOfficer
     ? Math.max(1, abilityModifier(charisma))
     : 1;
+}
+
+export function countManagedTeams(
+  teams: readonly { managerCharacterId: string | null }[],
+  characterId: string,
+) {
+  return teams.filter((team) => team.managerCharacterId === characterId).length;
 }

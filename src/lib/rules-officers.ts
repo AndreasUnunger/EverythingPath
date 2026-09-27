@@ -1,5 +1,5 @@
 import { abilityModifier } from './ability-scores';
-import { effectiveHitDice, type CanonicalRoster } from './canonical-roster';
+import { getEffectiveHitDice, type CanonicalRoster } from './canonical-roster';
 
 export type FoundationCharacter = {
   characterId: string;
@@ -67,7 +67,7 @@ export function projectOfficers(
     const person = roster.people.find(
       (x) => x.characterId === character.characterId,
     );
-    return total + (person ? effectiveHitDice(person, character) : 0);
+    return total + (person ? getEffectiveHitDice(person, character) : 0);
   }, 0);
   const secondary = (check: OrganizationCheck) =>
     focus && check !== focus.toLowerCase() && overseers.length ? 1 : 0;

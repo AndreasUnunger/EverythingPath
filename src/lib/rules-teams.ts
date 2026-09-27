@@ -2,8 +2,9 @@ import teams from './militia-team-table';
 import type { CanonicalRoster } from './canonical-roster';
 import type { FoundationCharacter } from './rules-officers';
 import {
+  countManagedTeams,
   getTeamManagerCharismaBonus,
-  teamManagerLimit,
+  getTeamManagerLimit,
 } from './team-manager-rules';
 
 export function getTeamCost(teamType: string) {
@@ -34,10 +35,12 @@ export function projectTeams(
         (x) => x.characterId === person.characterId,
       );
       if (!character) return [person.characterId, null];
-      const maxTeams = teamManagerLimit(roster, person, character.charisma);
-      const managedTeams = roster.teams.filter(
-        (x) => x.managerCharacterId === person.characterId,
-      ).length;
+      const maxTeams = getTeamManagerLimit({
+        officers: roster.officers,
+        person,
+        charisma: character.charisma,
+      });
+      const managedTeams = countManagedTeams(roster.teams, person.characterId);
       if (managedTeams > maxTeams)
         warnings.push(`manager:${person.characterId}:capacity`);
       if (managedTeams && !character.isActive)

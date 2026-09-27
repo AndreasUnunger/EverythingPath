@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TEAM_IDS, TEAM_STATUSES } from './militia-domain';
 import { identitySchema } from './weekly-draft-facts';
-import { teamManagerLimit } from './team-manager-rules';
+import { getTeamManagerLimit } from './team-manager-rules';
 import { rosterKindSchema } from './character-kind';
 
 export const OFFICER_ROLES = [
@@ -90,7 +90,7 @@ export type CanonicalRoster = z.infer<typeof canonicalRosterSchema>;
 
 // A roster person's Hit Dice: the explicit override, zero included, or else
 // the character record's level.
-export function effectiveHitDice(
+export function getEffectiveHitDice(
   person: Pick<CanonicalRoster['people'][number], 'hitDice'>,
   character: { level: number },
 ) {
@@ -142,7 +142,11 @@ export function rosterWarningDescriptors(
     const managed = roster.teams.flatMap((team, index) =>
       team.managerCharacterId === person.characterId ? [index] : [],
     );
-    const limit = teamManagerLimit(roster, person, character.charisma);
+    const limit = getTeamManagerLimit({
+      officers: roster.officers,
+      person,
+      charisma: character.charisma,
+    });
     // Present exactly when the person manages more teams than the limit.
     const firstBeyondLimit = managed[limit];
     if (firstBeyondLimit !== undefined)

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ROSTER_KINDS } from './character-kind';
 import {
   getTeamManagerCharismaBonus,
-  teamManagerLimit,
+  getTeamManagerLimit,
 } from './team-manager-rules';
 
 describe('team manager rules', () => {
@@ -21,17 +21,17 @@ describe('team manager rules', () => {
     for (const kind of ROSTER_KINDS) {
       const person = { characterId: 'a', kind };
       for (const [charisma, officerLimit] of charismas) {
-        const withRole = teamManagerLimit(
-          { officers: [{ characterId: 'a' }] },
+        const withRole = getTeamManagerLimit({
+          officers: [{ characterId: 'a' }],
           person,
           charisma,
-        );
+        });
         // Another person's role never makes this one an Officer.
-        const withoutRole = teamManagerLimit(
-          { officers: [{ characterId: 'b' }] },
+        const withoutRole = getTeamManagerLimit({
+          officers: [{ characterId: 'b' }],
           person,
           charisma,
-        );
+        });
         expect(withRole, `${kind} ${charisma} with a role`).toBe(officerLimit);
         expect(withoutRole, `${kind} ${charisma} without a role`).toBe(
           kind === 'pc' ? officerLimit : 1,

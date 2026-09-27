@@ -418,21 +418,46 @@ test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agre
     [1, true],
   ] as const) {
     const training = new Map<string, number>();
-    for (const [label, hitDice] of [
-      ['blank', null],
-      ['zero', 0],
-      ['explicit', 5],
-    ] as const) {
-      const server = await confirm(
-        `drill-${die}-${label}`,
-        commandantDrillWeek(die, hitDice),
+    // A level change moves a blank override; an archived commandant counts.
+    const levelled = () => {
+      const input = commandantDrillWeek(die, null);
+      input.militiaSnapshot.characters = input.militiaSnapshot.characters.map(
+        (character) =>
+          character.characterId === 'npc'
+            ? { ...character, level: 6 }
+            : character,
       );
+      return input;
+    };
+    const archived = () => {
+      const input = commandantDrillWeek(die, null);
+      input.militiaSnapshot.characters = input.militiaSnapshot.characters.map(
+        (character) =>
+          character.characterId === 'npc'
+            ? { ...character, isActive: false }
+            : character,
+      );
+      return input;
+    };
+    for (const [label, input] of [
+      ['blank', () => commandantDrillWeek(die, null)],
+      ['zero', () => commandantDrillWeek(die, 0)],
+      ['explicit', () => commandantDrillWeek(die, 5)],
+      ['levelled', levelled],
+      ['archived', archived],
+    ] as const) {
+      const server = await confirm(`drill-${die}-${label}`, input());
       training.set(label, server.outcome!.militiaSnapshot.training);
     }
     const zero = training.get('zero')!;
-    expect(training.get('blank')! - zero, `die ${die}`).toBe(succeeds ? 4 : 0);
-    expect(training.get('explicit')! - zero, `die ${die}`).toBe(
-      succeeds ? 5 : 0,
-    );
+    for (const [label, gain] of [
+      ['blank', 4],
+      ['explicit', 5],
+      ['levelled', 6],
+      ['archived', 4],
+    ] as const)
+      expect(training.get(label)! - zero, `die ${die} ${label}`).toBe(
+        succeeds ? gain : 0,
+      );
   }
 });
