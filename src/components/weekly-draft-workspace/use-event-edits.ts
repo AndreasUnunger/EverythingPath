@@ -22,6 +22,14 @@ export type TargetCheckPatch = {
   overseer?: null;
 };
 export type TableModifier = EventBlock['table']['modifiers'][number];
+type OfficerCheck = NonNullable<Occurrence['officerCheck']>;
+export type OfficerCheckPatch = {
+  characterId?: string;
+  skill?: OfficerCheck['skill'];
+  // Null clears the field.
+  skillBonus?: number | null;
+  roll?: RawRoll | null;
+};
 
 /**
  * The Event view's edits. Every occurrence edit waits for its occurrence to
@@ -74,6 +82,21 @@ export function useEventEdits(
     }
     function current(eventId: string) {
       return blocks.get(eventId)?.item.occurrence ?? null;
+    }
+    // One named die of the occurrence, set or cleared; other rolls stay.
+    function setRoll(
+      eventId: string,
+      name: 'check' | 'loss',
+      roll: RawRoll | null,
+    ) {
+      const occurrence = current(eventId);
+      if (!occurrence) return 'This event is not ready for its roll yet.';
+      const { rolls, ...rest } = occurrence;
+      const { [name]: _previous, ...others } = rolls ?? {};
+      const next = roll ? { ...others, [name]: roll } : others;
+      return saveOccurrence(
+        Object.keys(next).length ? { ...rest, rolls: next } : rest,
+      );
     }
     // One target's recorded check on the occurrence, patched in place; an
     // entry left naming only its target is removed.
@@ -142,12 +165,14 @@ export function useEventEdits(
       },
       /**
        * Clears a recorded input the resolved event does not use. Clearing
-       * `targets` keeps the kinds in `keep` (High Morale's ended events).
+       * `targets` keeps the kinds in `keep` (High Morale's ended events);
+       * clearing `rolls` keeps the named rolls in `keepRolls` (Theft's check).
        */
       clearRetained(
         eventId: string,
         field: EventRetainedField['field'],
         keep: readonly Target['kind'][] = [],
+        keepRolls: readonly string[] = [],
       ) {
         const occurrence = current(eventId);
         if (!occurrence) return 'This event is not ready for its roll yet.';
@@ -158,18 +183,56 @@ export function useEventEdits(
                 keep.includes(target.kind),
               )
             : [];
-        return saveOccurrence(kept.length ? { ...rest, targets: kept } : rest);
+        const rolls =
+          field === 'rolls'
+            ? Object.fromEntries(
+                Object.entries(occurrence.rolls ?? {}).filter(([name]) =>
+                  keepRolls.includes(name),
+                ),
+              )
+            : {};
+        return saveOccurrence({
+          ...rest,
+          ...(kept.length ? { targets: kept } : {}),
+          ...(Object.keys(rolls).length ? { rolls } : {}),
+        });
       },
       /** The occurrence's own check die (for example Sickness's save). */
       setCheckRoll(eventId: string, roll: RawRoll | null) {
+        return setRoll(eventId, 'check', roll);
+      },
+      /** Turncoat's raw training loss die. */
+      setLossRoll(eventId: string, roll: RawRoll | null) {
+        return setRoll(eventId, 'loss', roll);
+      },
+      /** The occurrence's own Attempt it / Let it happen (Theft). */
+      setMitigation(eventId: string, mitigation: 'attempted' | 'unattempted') {
         const occurrence = current(eventId);
         if (!occurrence) return 'This event is not ready for its roll yet.';
-        const { rolls, ...rest } = occurrence;
-        const { check: _previous, ...others } = rolls ?? {};
-        const next = roll ? { ...others, check: roll } : others;
-        return saveOccurrence(
-          Object.keys(next).length ? { ...rest, rolls: next } : rest,
-        );
+        return saveOccurrence({ ...occurrence, mitigation });
+      },
+      /**
+       * One or more officer-check fields (Rivalry and Turncoat Twice). The
+       * stored check names its character and skill, so the first write
+       * carries both; a null skill bonus or roll is cleared, never zeroed.
+       */
+      patchOfficerCheck(eventId: string, patch: OfficerCheckPatch) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const next: Partial<OfficerCheck> = { ...occurrence.officerCheck };
+        for (const [key, value] of Object.entries(patch) as [
+          keyof OfficerCheckPatch,
+          unknown,
+        ][])
+          if (value === null) delete next[key];
+          else if (value !== undefined) Object.assign(next, { [key]: value });
+        const { characterId, skill } = next;
+        if (!characterId || !skill)
+          return 'Choose the character and skill first.';
+        return saveOccurrence({
+          ...occurrence,
+          officerCheck: { ...next, characterId, skill },
+        });
       },
       /** Attempt it / Let it happen, or a die, for one target's check. */
       setTargetCheck: patchTargetCheck,

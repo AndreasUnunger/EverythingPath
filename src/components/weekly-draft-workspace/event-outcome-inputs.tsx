@@ -4,6 +4,7 @@ import { EventChoiceCard } from './event-choice-card';
 import type { EventFamilyInputsProps } from './event-family-inputs';
 import { EventNote } from './event-note';
 import { endingsWithout, pressEnding } from './event-outcome-facts';
+import { EventRetainedInputs } from './event-retained-inputs';
 import { WholeNumberField } from './whole-number-field';
 
 // Calm, morale, narrative and training events. Their only inputs besides
@@ -121,45 +122,22 @@ export function EventOutcomeInputs({
           )}
         </div>
       )}
-      {panel.retained.length > 0 && (
-        <details className="min-w-0">
-          <summary className="cursor-pointer text-sm font-medium">
-            Recorded inputs this event does not use ({panel.retained.length})
-          </summary>
-          <div className="mt-2 space-y-2">
-            {panel.retained.map((entry) => (
-              <div
-                key={entry.field}
-                className="flex flex-wrap items-center gap-x-4 gap-y-2"
-              >
-                <p className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]">
-                  {entry.label}: {entry.value}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label={`Clear ${entry.label} from ${subject}`}
-                  disabled={disabled}
-                  onClick={() =>
-                    showRefusal(
-                      edits.clearRetained(
-                        id,
-                        entry.field,
-                        // High Morale's own ended events are `event` targets
-                        // and stay when its unused target kinds are cleared.
-                        panel.eventType === 'high_morale' ? ['event'] : [],
-                      ),
-                    )
-                  }
-                >
-                  Clear {entry.label.toLowerCase()}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
+      <EventRetainedInputs
+        retained={panel.retained}
+        subject={subject}
+        disabled={disabled}
+        onClear={(field) =>
+          showRefusal(
+            edits.clearRetained(
+              id,
+              field,
+              // High Morale's own ended events are `event` targets and stay
+              // when its unused target kinds are cleared.
+              panel.eventType === 'high_morale' ? ['event'] : [],
+            ),
+          )
+        }
+      />
     </>
   );
 }

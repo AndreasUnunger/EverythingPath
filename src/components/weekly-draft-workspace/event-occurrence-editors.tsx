@@ -49,7 +49,7 @@ export function EventOccurrenceEditors({
   const covered = [
     ...(!panel || panel.family === 'outcome'
       ? []
-      : panel.family === 'team'
+      : panel.family === 'team' || panel.family === 'recurring'
         ? panel.check
           ? [panel.check.checkId]
           : []

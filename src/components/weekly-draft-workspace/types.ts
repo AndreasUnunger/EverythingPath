@@ -524,6 +524,69 @@ export type EventEndingChoice = {
   choices: EventTargetCard[];
   retained: EventRetainedTarget[];
 };
+// Rivalry's two rival teams, chosen on cards. `selected` holds at most two
+// known teams; any other recorded team stays until cleared.
+export type EventTeamPairChoice = {
+  // "Rival teams"
+  label: string;
+  hint: string | null;
+  required: boolean;
+  selected: string[];
+  choices: EventTargetCard[];
+  retained: EventRetainedTarget[];
+};
+// One officer's own skill check made during the Event: Rivalry Twice's
+// optional Bluff, Diplomacy or Intimidate check that ends it, and Turncoat
+// Twice's mandatory Diplomacy check against the defection. It is the
+// character's skill check, so only the entered skill bonus and custom
+// modifiers count.
+export type EventOfficerCheckFacts = {
+  // "Officer check" or "Diplomacy check"
+  label: string;
+  // "Bluff, Diplomacy or Intimidate DC 20 · 1d20"
+  legend: string;
+  mandatory: boolean;
+  dc: number;
+  characterId: string | null;
+  // Officers first, each labelled with their roles. A character the check
+  // cannot use (not an officer for Rivalry) is not offered.
+  characters: (EventTargetCard & { officer: boolean })[];
+  // A recorded character the choices do not include, kept until replaced.
+  retainedCharacter: EventRetainedTarget | null;
+  skill: RivalrySkill | null;
+  // The skill the rules name first; a Turncoat skill other than Diplomacy
+  // needs a Rules Exception.
+  expectedSkill: RivalrySkill | null;
+  skillBonus: number | null;
+  recorded: RawRoll | undefined;
+  spec: RollSpec;
+  // Skill bonus plus counted modifiers; null without a skill bonus.
+  modifier: number | null;
+  // The engine's recorded result; null until every input it needs is in.
+  total: number | null;
+  breakdown: { source: string; label: string; value: number }[];
+  succeeded: boolean | null;
+  resultText: string | null;
+  // Why a complete entry has no result yet, or null.
+  waiting: string | null;
+  required: { character: boolean; skillBonus: boolean; roll: boolean };
+  notes: string[];
+};
+// A same-week persistent decision recorded on the occurrence that became
+// persistent: Persistent resolves it, Event keeps it with its occurrence.
+export type EventSameWeekDecision = {
+  // "Loyalty check · roll 14"
+  value: string;
+  // Whether this occurrence's event is persistent this week, so Persistent
+  // reads the decision.
+  used: boolean;
+};
+export type EventRecurringFamily =
+  | 'rivalry'
+  | 'turncoat'
+  | 'theft'
+  | 'double_agent'
+  | 'low_morale';
 export type EventOutcomeFamily =
   | 'all_is_calm'
   | 'calm_before_the_storm'
@@ -568,6 +631,54 @@ export type EventPanel =
       retainedCheck: boolean;
       whatHappened: EventWhatHappened;
       outcomes: string[];
+    }
+  | {
+      // Officer-check and persistent-producing events: Rivalry, Turncoat,
+      // Theft, Double Agent and Low Morale. Each part is null where the
+      // event and its mode do not use it.
+      family: 'recurring';
+      eventType: EventRecurringFamily;
+      // Rivalry's two teams, base and Twice.
+      teams: EventTeamPairChoice | null;
+      // Turncoat Twice's defecting team (GM choice).
+      team: EventTargetChoice | null;
+      // Turncoat's raw 1d6 training loss; the rank is added by the rules.
+      lossRoll: {
+        label: string;
+        legend: string;
+        spec: RollSpec;
+        recorded: RawRoll | undefined;
+        required: boolean;
+      } | null;
+      // Attempt it / Let it happen: Theft's Loyalty check and Rivalry Twice's
+      // officer check. `explicit` when the choice is recorded rather than
+      // read from a roll or the default.
+      mitigation: {
+        value: 'attempted' | 'unattempted';
+        explicit: boolean;
+        attemptDescription: string;
+        letDescription: string;
+      } | null;
+      // Theft's optional Loyalty check (base mode only).
+      check: EventCheckFacts | null;
+      checkRoll: RawRoll | undefined;
+      // A Theft check roll kept while Let it happen applies.
+      unusedCheckRoll: boolean;
+      officer: EventOfficerCheckFacts | null;
+      sameWeek: EventSameWeekDecision | null;
+      notes: string[];
+      whatHappened: EventWhatHappened | null;
+      outcomes: string[];
+      partial: boolean;
+      retained: EventRetainedField[];
+      // What clearing retained targets or rolls keeps: the target kinds and
+      // named rolls this event reads.
+      keep: {
+        targets: NonNullable<
+          WeeklyDraft['event']['occurrences'][number]['targets']
+        >[number]['kind'][];
+        rolls: string[];
+      };
     }
   | {
       family: 'raid';
