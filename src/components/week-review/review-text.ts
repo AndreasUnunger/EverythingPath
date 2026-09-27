@@ -9,6 +9,8 @@ export type ReviewNames = {
   event(id: string): string;
   item(id: string): string;
   cache(id: string): string;
+  /** A recorded source: an event's name when it names one, else its text. */
+  source(value: string): string;
 };
 
 const goldFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
@@ -102,6 +104,7 @@ export function describeValue(
     return field.endsWith('Copper') ? gp(value) : String(value);
   if (typeof value === 'string') {
     if (!value.trim()) return 'None';
+    if (field === 'source') return names.source(value);
     if (/Ids?$/.test(field) || field === 'sourceId') {
       return referenceName(field, value, names) ?? 'Recorded reference';
     }

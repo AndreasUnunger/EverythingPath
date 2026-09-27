@@ -76,6 +76,12 @@ describe('[SUM-10] live six-section consequences', () => {
       'Slot 4 · Broker Market · Fixers',
     ]);
     const rescue = item(facts, 1, 'Slot 2 · Rescue Character · Rescuers');
+    // The resolved rescue check replaces the bare check total: no repeats.
+    expect(rescue.details).toEqual([
+      expect.stringMatching(
+        /^Rescue Aubrin · Check \d+ vs DC \d+ · succeeded$/,
+      ),
+    ]);
     expect(rescue.notes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -140,7 +146,13 @@ describe('[SUM-10] live six-section consequences', () => {
         kind: 'Settlement reputation',
         effect: expect.stringMatching(/ → Friendly$/),
         reason: 'The officer was rescued',
-        notes: [],
+        // The preview's reason warning is listed here as in top Warnings.
+        notes: [
+          expect.objectContaining({
+            kind: 'warning',
+            message: 'Table Adjustment: The officer was rescued',
+          }),
+        ],
       }),
     ]);
     expect(facts.result.complete).toBe(true);
@@ -295,5 +307,59 @@ describe('[SUM-10] live six-section consequences', () => {
       statusText: 'Upkeep is skipped in the militia’s first week.',
       items: [],
     });
+  });
+
+  test('[rules.P85.outcomes] bonuses and queued effects are named from their source event without opaque identities', () => {
+    const { draft, snapshot } = upkeepFixture();
+    draft.context = {
+      ...draft.context,
+      persistentPhaseEligible: true,
+      carriedEvents: [
+        {
+          eventId: 'hidden-event',
+          eventType: 'high_morale',
+          startedWeek: 39,
+          order: 0,
+          targets: [],
+        },
+      ],
+      queuedEffects: [
+        {
+          effectId: 'hidden-effect',
+          sourceId: 'hidden-event',
+          startsWeek: 40,
+          endsWeek: 41,
+          effect: { kind: 'narrative', instruction: 'Neighbors supply scouts' },
+        },
+      ],
+    };
+    snapshot.bonuses = [
+      {
+        bonusId: 'hidden-bonus',
+        source: 'hidden-event',
+        check: 'loyalty',
+        value: 2,
+        availableWeek: 40,
+        consumedWeek: null,
+      },
+    ];
+    const { facts } = review(draft, snapshot);
+    const rows = facts.result.rows.map((row) => ({
+      label: row.label,
+      now: row.now.kind === 'value' ? row.now.text : row.now.kind,
+    }));
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        {
+          label: 'Loyalty bonus · High Morale · Event 1',
+          now: expect.stringContaining('Value: 2'),
+        },
+        {
+          label: 'High Morale · Event 1',
+          now: expect.stringContaining('Neighbors supply scouts'),
+        },
+      ]),
+    );
+    expect(JSON.stringify(rows)).not.toMatch(/hidden-/);
   });
 });

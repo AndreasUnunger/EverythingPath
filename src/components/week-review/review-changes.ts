@@ -33,8 +33,19 @@ export type DescribedChange = {
   effect: string | null;
   /** Check detail or other explanation line. */
   detail: string | null;
+  /** The detail states a resolved check, so a bare check total is redundant. */
+  resolvesCheck: boolean;
   acknowledgement: PlanAcknowledgement | null;
 };
+type Described = Omit<DescribedChange, 'acknowledgement' | 'resolvesCheck'>;
+const checkKinds = new Set([
+  'rescue_result',
+  'information',
+  'event_capture',
+  'event_officer_check',
+  'persistent_mitigation',
+  'persistent_officer_check',
+]);
 
 const statusLabels: Record<string, string> = {
   active: 'Active',
@@ -92,7 +103,7 @@ export function transferSubject(transferId: string) {
 function describeUpkeep(
   change: CanonicalResolutionEffects['upkeep'][number],
   names: ReviewNames,
-): Omit<DescribedChange, 'acknowledgement'> {
+): Described {
   switch (change.kind) {
     case 'training':
       return {
@@ -183,7 +194,7 @@ function describeUpkeep(
 function describeActivity(
   change: CanonicalResolutionEffects['activity'][number],
   names: ReviewNames,
-): Omit<DescribedChange, 'acknowledgement'> {
+): Described {
   const subject =
     'choiceId' in change && typeof change.choiceId === 'string'
       ? choiceSubject(change.choiceId)
@@ -332,7 +343,7 @@ function describeActivity(
 function describeEvent(
   change: CanonicalResolutionEffects['event'][number],
   names: ReviewNames,
-): Omit<DescribedChange, 'acknowledgement'> {
+): Described {
   const base = {
     subject: eventSubject(change.eventId),
     title: names.event(change.eventId),
@@ -415,7 +426,7 @@ function describeEvent(
 function describePersistent(
   change: CanonicalResolutionEffects['persistent'][number],
   names: ReviewNames,
-): Omit<DescribedChange, 'acknowledgement'> {
+): Described {
   if (change.kind === 'upkeep_team_return')
     return {
       subject: teamSubject(change.teamId),
@@ -469,7 +480,7 @@ function generic(
   change: object,
   phase: ReviewPhase,
   names: ReviewNames,
-): Omit<DescribedChange, 'acknowledgement'> {
+): Described {
   const kind = (change as { kind?: unknown }).kind;
   const label = typeof kind === 'string' ? words(kind) : 'Recorded change';
   const { acknowledgement: _ignored, ...rest } = change as {
@@ -508,7 +519,11 @@ export function describeChange(
               change as CanonicalResolutionEffects['persistent'][number],
               names,
             );
-  return { ...described, acknowledgement: acknowledgementOf(change) };
+  return {
+    ...described,
+    resolvesCheck: checkKinds.has(change.kind),
+    acknowledgement: acknowledgementOf(change),
+  };
 }
 
 export type SabotageFact = CanonicalResolutionEffects['sabotage'][number];
@@ -534,13 +549,16 @@ export function describeSabotage(item: SabotageFact) {
 }
 
 /**
- * Net phase changes for the section header, from the phase's own plan only.
+ * Net phase changes for the section header, from the phase's own plan only
+ * (Sabotage's Notoriety is a requested change unless the applied one is given).
  * Table Adjustments are never included: they apply after the Rules Baseline.
  */
 export function phaseChips(
   phase: ReviewPhase,
   plan: readonly PlanChange[],
   sabotage: readonly SabotageFact[] = [],
+  /** The phase's applied Notoriety change, when known, after its 0–100 limits. */
+  appliedNotoriety: number | null = null,
 ) {
   let training = 0;
   let treasury = 0;
@@ -610,6 +628,7 @@ export function phaseChips(
   }
   if (phase === 'event')
     for (const item of sabotage) notoriety += item.notoriety ?? 0;
+  if (appliedNotoriety !== null) notoriety = appliedNotoriety;
   const disabled = [...teamsDown.values()].filter((s) => s === 'disabled');
   const missing = [...teamsDown.values()].filter((s) => s === 'missing');
   return [

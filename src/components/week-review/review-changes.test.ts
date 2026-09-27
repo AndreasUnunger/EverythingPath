@@ -14,6 +14,7 @@ const names: ReviewNames = {
   event: (id) => ({ theft: 'Theft · Event 1' })[id] ?? 'Recorded event',
   item: () => 'Wand',
   cache: () => 'Bridge cache',
+  source: (value) => value,
 };
 
 describe('[SUM-10] plan descriptions shared by live and recorded weeks', () => {
@@ -113,6 +114,19 @@ describe('[SUM-10] plan descriptions shared by live and recorded weeks', () => {
       '1 team back',
     ]);
     expect(phaseChips('upkeep', [])).toEqual([]);
+    // Sabotage requests +4 Notoriety; at 99 the resolver applies only +1.
+    const sabotage = {
+      choiceId: 'c',
+      eventId: 'e',
+      checkId: 'e:sabotage:c',
+      dc: 20,
+      total: 25,
+      succeeded: true,
+      notoriety: 4,
+      acknowledgement: null,
+    };
+    expect(phaseChips('event', [], [sabotage])).toEqual(['Notoriety +4']);
+    expect(phaseChips('event', [], [sabotage], 1)).toEqual(['Notoriety +1']);
   });
 
   test('adjustments describe exact signed gp, set values and named targets', () => {

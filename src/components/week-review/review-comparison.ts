@@ -183,7 +183,7 @@ function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
     add(
       `bonus:${bonus.bonusId}`,
       'Bonuses',
-      `${words(bonus.check)} bonus`,
+      `${words(bonus.check)} bonus · ${names.source(bonus.source)}`,
       omit(bonus, 'bonusId'),
       describeValue(omit(bonus, 'bonusId', 'check'), names),
     );

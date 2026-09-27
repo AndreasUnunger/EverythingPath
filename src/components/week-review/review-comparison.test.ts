@@ -11,6 +11,7 @@ const names: ReviewNames = {
   event: (id) => ({ theft: 'Theft · Event 1' })[id] ?? 'Recorded event',
   item: () => 'Recorded item',
   cache: () => 'Recorded cache',
+  source: (value) => value,
 };
 
 function state(week = 4): CanonicalWeekState {

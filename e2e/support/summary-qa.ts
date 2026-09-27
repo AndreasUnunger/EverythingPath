@@ -45,6 +45,32 @@ async function choose(form: Locator, field: string, value: string) {
     .getByRole('button', { name: value, exact: true })
     .click();
 }
+const sectionLabels = [
+  '1 Upkeep',
+  '2 Activity',
+  '3 Event',
+  '4 Persistent',
+  'Table Adjustments',
+  'Result',
+];
+/** Four expanded phase sections, then Table Adjustments and Result, in order. */
+async function expectSixSections(page: Page) {
+  for (const name of sectionLabels) {
+    const section = page.getByRole('region', { name, exact: true });
+    await expect(section).toBeVisible();
+    // Expanded: no collapsed disclosure hides a consequence.
+    await expect(section.locator('details')).toHaveCount(0);
+  }
+  const order = await page
+    .locator('section[aria-label]')
+    .evaluateAll((sections) =>
+      sections.map((section) => section.getAttribute('aria-label')),
+    );
+  expect(order.filter((label) => sectionLabels.includes(label!))).toEqual(
+    sectionLabels,
+  );
+}
+
 // Show all values lists every militia, roster, officer and next-week fact
 // beside the changed ones.
 async function openOutcomes(page: Page) {
@@ -62,6 +88,14 @@ export async function reviewSummaryWorkspace(
   artifactDirectory: string,
 ) {
   await Promise.all([openSummary(page), openSummary(peer)]);
+  await expectSixSections(page);
+  // The carried event's consequence belongs to Persistent, not Event.
+  await expect(
+    page.getByRole('region', { name: '4 Persistent', exact: true }),
+  ).toContainText('Theft · Event 1');
+  await expect(
+    page.getByRole('region', { name: '3 Event', exact: true }),
+  ).not.toContainText('Theft · Event 1');
   const baseline = await summaryResult(page).innerText();
   let form = await start(page, 'Militia value');
   await expect(button(form, 'Treasury (copper)')).toHaveAttribute(
