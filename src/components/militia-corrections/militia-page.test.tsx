@@ -254,6 +254,24 @@ describe('Values correction', () => {
     expect(calls).toHaveLength(1);
   });
 
+  test('the error link for a choice field focuses its first choice', async () => {
+    const missing = state();
+    delete (missing.militiaSnapshot as { focus?: unknown }).focus;
+    setMilitia({ revision: 3, state: missing });
+    const editor = openValues();
+    fireEvent.change(editor.reason(), { target: { value: 'Recount' } });
+    await save(editor.save());
+    expect(calls).toHaveLength(0);
+    const link = within(summary()).getByRole('button', { name: /Focus/ });
+    fireEvent.click(link);
+    const focus = screen.getByRole('group', { name: 'Focus' });
+    await waitFor(() =>
+      expect(
+        within(focus).getByRole('button', { name: 'Loyalty' }),
+      ).toHaveFocus(),
+    );
+  });
+
   test('rules warnings stay advisory: a below-minimum treasury still saves', async () => {
     const editor = openValues();
     fireEvent.change(editor.treasury(), { target: { value: '1' } });

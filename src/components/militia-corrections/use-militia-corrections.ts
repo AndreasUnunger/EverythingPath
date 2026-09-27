@@ -7,6 +7,7 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useCanonicalLedger } from '~/components/use-canonical-ledger';
 import type { SetupCharacter } from '~/components/militia-setup/roster';
+import { findSetupField } from '~/components/militia-setup/use-guided-setup';
 import { phaseLabels } from '~/components/weekly-draft-workspace/week-frame/labels';
 import { weekPath } from '~/lib/campaign-routes';
 import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
@@ -462,7 +463,13 @@ export function useMilitiaCorrections({
               ),
             }
           : null,
-      focusField: (field) => form.setFocus(field as never),
+      // A choice field (Focus) has no input for the form to focus: find its
+      // first choice the way guided Setup does.
+      focusField: (field) => {
+        const control = findSetupField(document.body, field);
+        if (control) control.focus();
+        else form.setFocus(field as never);
+      },
       save: () => saveSection(section),
       cancel: () => {
         setCandidateErrors([]);
