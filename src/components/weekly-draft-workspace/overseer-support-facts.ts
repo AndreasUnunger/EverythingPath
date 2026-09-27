@@ -22,6 +22,10 @@ export type OverseerSupportFacts = {
   holders: { eventId: string; label: string }[];
   // Every event that could hold it, by identity.
   labels: Record<string, string>;
+  // Recorded occurrences the rules do not use this week (a candidate not
+  // chosen, a hidden child, an earlier Roll Twice's events): support there
+  // adds nothing, so they offer no switch.
+  unused: string[];
   source: OverseerSupportSource;
 };
 
@@ -33,9 +37,10 @@ export type LatestOverseerSupport = () =>
 
 // One check's toggle: "Use Overseer support · +3 · one event a week".
 export type OverseerToggleFacts =
-  // No filled Overseer role. `recorded`: this event still records support
-  // (from before the role was emptied), which gives no bonus and can be removed.
-  | { kind: 'unavailable'; recorded: boolean }
+  // No filled Overseer role, or an event the rules do not use this week.
+  // `recorded`: this event still records support, which gives no bonus and
+  // can be removed.
+  | { kind: 'unavailable'; reason: 'no-overseer' | 'unused'; recorded: boolean }
   | {
       kind: 'available';
       eventId: string;
@@ -55,10 +60,12 @@ export function overseerSupportFacts({
   draft,
   outcome,
   eventLabel,
+  unused = [],
 }: {
   draft: WeeklyDraft;
   outcome: Pick<UpkeepSnapshot, 'roster' | 'characters'>;
   eventLabel: (eventId: string) => string;
+  unused?: string[];
 }): OverseerSupportFacts {
   const source = overseerSupportSource(draft);
   const overseer = outcome.roster.officers
@@ -99,6 +106,7 @@ export function overseerSupportFacts({
       label: labels[holder.eventId] ?? 'Another event',
     })),
     labels,
+    unused,
     source,
   };
 }
@@ -116,7 +124,9 @@ export function overseerToggle(
 ): OverseerToggleFacts {
   const on = facts.holders.some((holder) => holder.eventId === eventId);
   if (!facts.characterId || !facts.contribution)
-    return { kind: 'unavailable', recorded: on };
+    return { kind: 'unavailable', reason: 'no-overseer', recorded: on };
+  if (facts.unused.includes(eventId))
+    return { kind: 'unavailable', reason: 'unused', recorded: on };
   const actual = breakdown.find(
     (entry) => entry.source === 'overseer-support',
   )?.value;

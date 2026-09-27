@@ -512,6 +512,9 @@ export function eventView(
       draft,
       outcome: activity?.outcome ?? source.snapshot,
       eventLabel: label,
+      unused: tree.occurrences
+        .filter((item) => !item.selected)
+        .map((item) => item.occurrence.eventId),
     }),
     requirements: withoutDuplicateRollCodes(projection?.requirements ?? []),
     warnings: projection?.warnings ?? [],

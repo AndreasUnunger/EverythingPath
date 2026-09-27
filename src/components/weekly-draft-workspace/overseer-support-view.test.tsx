@@ -16,9 +16,12 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
+import { childEvent } from '../../../tests/rules/candidate-reroll-fixture';
+import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView } from './event-facts';
 import { EventView } from './event-view';
+import { overseerToggle } from './overseer-support-facts';
 import { persistentView } from './persistent-facts';
 import { PersistentView } from './persistent-view';
 
@@ -327,4 +330,36 @@ test('[WEEK-10.overseer-locked] Confirmation disables the support toggle', () =>
       name: /for Loyalty check$/,
     }),
   ).toBeDisabled();
+});
+
+test('[EVT-13.overseer-unused] an event the rules do not use this week offers no support switch; support recorded there only offers Remove', () => {
+  const { draft, snapshot, choice } = eventActionFixture('guarantee_event');
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  snapshot.roster.officers = [{ role: 'overseer', characterId: 'pc' }];
+  // An earlier Roll Twice expansion of the chosen Raid, now unused, still
+  // holds support from before the candidate reroll Ruleset Version.
+  const legacy = childEvent('raid/twice/1', 74, 'roll_twice', 'raid');
+  legacy.overseerCharacterId = 'pc';
+  choice.candidates!.push(legacy);
+  const { overseer } = eventView(
+    draft,
+    source(draft, snapshot),
+    preview(draft, snapshot),
+  );
+  expect([...overseer!.unused].sort()).toEqual(['raid/twice/1', 'theft']);
+  expect(overseerToggle(overseer!, 'raid/twice/1', 'loyalty')).toEqual({
+    kind: 'unavailable',
+    reason: 'unused',
+    recorded: true,
+  });
+  expect(overseerToggle(overseer!, 'theft', 'loyalty')).toEqual({
+    kind: 'unavailable',
+    reason: 'unused',
+    recorded: false,
+  });
+  expect(overseerToggle(overseer!, 'raid', 'loyalty')).toMatchObject({
+    kind: 'available',
+    on: false,
+    elsewhere: [overseer!.labels['raid/twice/1']],
+  });
 });

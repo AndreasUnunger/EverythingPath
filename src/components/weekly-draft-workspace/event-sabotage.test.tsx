@@ -11,6 +11,7 @@ import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
+import { childEvent } from '../../../tests/rules/candidate-reroll-fixture';
 import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
@@ -141,6 +142,9 @@ test('[rules.EVT-10.sabotage-incomplete] an incomplete attempt negates nothing a
   expect(view.messages['sabotage-event:check:1d20']).toBe(
     'Event 1 · Sickness: Sabotage: enter the check roll (d20).',
   );
+  // One missing d20 is one decision, not also the check's absent roll.
+  expect(view.requirements).toContain('sabotage-event:check:1d20');
+  expect(view.requirements).not.toContain('event:sabotage:sabotage-event:roll');
   // Without a team, only the team is asked for.
   delete draft.event.occurrences[0]!.sabotage!.teamId;
   const noTeam = project(draft, snapshot).view;
@@ -438,7 +442,7 @@ test('[rules.EVT-10.sabotage-candidate-switch] switching the chosen candidate ke
   ).toBe(4);
 });
 
-test('[rules.EVT-10.sabotage-candidate-reroll] under the candidate reroll Ruleset Version, Sabotage waits for a chosen candidate’s Roll Twice reroll and works on either reroll representation', () => {
+test('[rules.EVT-13.sabotage-candidate-reroll] Sabotage waits for a chosen candidate’s Roll Twice reroll and works on either reroll representation', () => {
   const { draft, snapshot, choice } = eventActionFixture('sabotage');
   if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
   const [raid] = choice.candidates!;
@@ -460,9 +464,7 @@ test('[rules.EVT-10.sabotage-candidate-reroll] under the candidate reroll Rulese
   raid!.tableRoll = roll(100, 50);
   delete raid!.sabotage;
   choice.candidates!.push({
-    eventId: 'raid/replacement/1',
-    origin: { kind: 'replacement', parentEventId: 'raid' },
-    tableRoll: roll(100, 78),
+    ...childEvent('raid/replacement/1', 78, 'replacement', 'raid'),
     sabotage: {
       ...reaction,
       acknowledgements: [

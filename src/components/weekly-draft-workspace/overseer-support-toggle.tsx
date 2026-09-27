@@ -22,7 +22,8 @@ export type OverseerSupportToggleProps = {
 // "Use Overseer support · +3 · one event a week" and never names the
 // Overseer: the contribution is what the toggle adds here. Without a filled
 // Overseer role there is no switch, only a line saying so (and a Remove when
-// an older record still holds support).
+// an older record still holds support); an event the rules do not use this
+// week shows only that Remove.
 export function OverseerSupportToggle({
   toggle,
   subject,
@@ -33,14 +34,22 @@ export function OverseerSupportToggle({
   onRetry,
 }: OverseerSupportToggleProps) {
   const hintId = useId();
+  if (
+    toggle.kind === 'unavailable' &&
+    toggle.reason === 'unused' &&
+    !toggle.recorded &&
+    !failure
+  )
+    return null;
   if (toggle.kind === 'unavailable') {
     return (
       <div className="min-w-0 space-y-2 text-sm [overflow-wrap:anywhere]">
         {toggle.recorded ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <p role="note" className="min-w-0 text-amber-300">
-              Overseer support is recorded here, but no Overseer is assigned, so
-              it adds nothing.
+              {toggle.reason === 'unused'
+                ? 'Overseer support is recorded here, but this event is not used this week, so it adds nothing.'
+                : 'Overseer support is recorded here, but no Overseer is assigned, so it adds nothing.'}
             </p>
             <Button
               type="button"
@@ -53,7 +62,7 @@ export function OverseerSupportToggle({
               Remove Overseer support
             </Button>
           </div>
-        ) : (
+        ) : toggle.reason === 'unused' ? null : (
           <p className="text-muted-foreground min-w-0">
             No Overseer is assigned, so no Overseer support this week.
           </p>
@@ -98,8 +107,7 @@ export function OverseerSupportToggle({
             <span className="text-muted-foreground">
               · <span className="font-mono">{signed(contribution)}</span> · one
               event a week
-            </span>
-            {' '}
+            </span>{' '}
             <span className="sr-only">for {subject}</span>
           </span>
         </button>
