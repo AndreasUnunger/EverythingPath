@@ -288,8 +288,13 @@ function slotIssues(
       code,
       message: subjectMessage(code, choiceId),
     })),
+    // A requirement already explains a warning with the same code.
     ...warnings
-      .filter((code) => !requirements.includes(`${code}:exception`))
+      .filter(
+        (code) =>
+          !requirements.includes(code) &&
+          !requirements.includes(`${code}:exception`),
+      )
       .map((code) => ({ code, message: activityWarning(code, choiceId) })),
   ];
 }

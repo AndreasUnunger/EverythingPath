@@ -418,10 +418,11 @@ describe('slot board and picker', () => {
       ),
     ).toBeVisible();
     selectSlot('Drill Militia', 3);
+    // Shown once, although the rules report it as a requirement and a warning.
     expect(
-      screen.getAllByText(
+      screen.getByText(
         /Move this choice to an available slot, clear it, or restore the action allowance before confirming the week\./,
-      )[0],
+      ),
     ).toBeVisible();
     expect(
       screen.queryByText(/record an exception with a reason/i),
