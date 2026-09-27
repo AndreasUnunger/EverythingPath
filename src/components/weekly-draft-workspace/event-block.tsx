@@ -63,6 +63,7 @@ export function EventBlock({
   const table = block.table;
   const applied = table.modifiers.filter((modifier) => !modifier.ignored);
   const nested = { view, edit, disabled, edits, preparation, depth: depth + 1 };
+  const sabotage = view.sabotage?.[block.eventId];
   return (
     <div
       role="group"
@@ -188,9 +189,9 @@ export function EventBlock({
           edits={edits}
         />
       )}
-      {block.saved && view.sabotage?.[block.eventId] && (
+      {block.saved && sabotage && (
         <EventSabotage
-          facts={view.sabotage[block.eventId]!}
+          facts={sabotage}
           eventLabel={
             table.name ? `${block.label} · ${table.name}` : block.label
           }

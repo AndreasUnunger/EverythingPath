@@ -25,6 +25,12 @@ export type OverseerSupportFacts = {
   source: OverseerSupportSource;
 };
 
+// The newest facts from the Workspace, read between the edits of a move.
+export type LatestOverseerSupport = () =>
+  | OverseerSupportFacts
+  | null
+  | undefined;
+
 // One check's toggle: "Use Overseer support · +3 · one event a week".
 export type OverseerToggleFacts =
   // No filled Overseer role. `recorded`: this event still records support

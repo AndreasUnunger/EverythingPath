@@ -6,6 +6,7 @@ import type { OrganizationCheck } from '~/lib/rules-officers';
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import { cn } from '~/lib/utils';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import { checkNames } from './event-check-facts';
 import { EventCheckRow } from './event-check-row';
 import type {
   EventSabotageFacts,
@@ -28,7 +29,8 @@ export type EventSabotagePanelProps = {
   onCancel: () => void;
   onTeam: (teamId: string) => void;
   onClearTeam: () => void;
-  onCheck: (check: OrganizationCheck) => void;
+  // null clears the recorded check kind.
+  onCheck: (check: OrganizationCheck | null) => void;
   onCheckRoll: (roll: RawRoll | null) => void;
   onNotorietyRoll: (roll: RawRoll | null) => void;
   // Returns a refusal message to show at the field, or null.
@@ -38,11 +40,10 @@ export type EventSabotagePanelProps = {
   support: ReactNode;
 };
 
-const CHECKS: { kind: OrganizationCheck; label: string }[] = [
-  { kind: 'loyalty', label: 'Loyalty' },
-  { kind: 'secrecy', label: 'Secrecy' },
-  { kind: 'security', label: 'Security' },
-];
+const CHECKS = (['loyalty', 'secrecy', 'security'] as const).map((kind) => ({
+  kind,
+  label: checkNames[kind],
+}));
 
 // The words say whether the Sabotage worked; colour only echoes them.
 const RESULT_TONE: Record<EventSabotageResult['kind'], string> = {
@@ -82,7 +83,7 @@ export function EventSabotagePanel({
         type="button"
         variant="ghost"
         size="sm"
-        aria-label={`Sabotage ${eventLabel}`}
+        aria-label={`Sabotage this event · ${eventLabel}`}
         disabled={disabled}
         onClick={onStart}
         className="text-muted-foreground hover:text-foreground h-auto min-h-11 sm:min-h-8"
@@ -158,7 +159,8 @@ export function EventSabotagePanel({
               aria-pressed={facts.check === check.kind}
               disabled={disabled}
               onClick={() => {
-                if (facts.check !== check.kind) onCheck(check.kind);
+                // Pressing the chosen check again clears it.
+                onCheck(facts.check === check.kind ? null : check.kind);
               }}
               className="aria-pressed:border-primary aria-pressed:bg-primary/15 aria-pressed:hover:border-primary aria-pressed:hover:bg-primary/15 hover:border-primary/60 hover:bg-background hover:text-foreground h-auto min-h-11 border-2 sm:min-h-9"
             >
@@ -189,7 +191,7 @@ export function EventSabotagePanel({
 
       <div className="grid min-w-0 items-start gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <RollTotalField
-          label="Sabotage notoriety roll"
+          label={`Sabotage notoriety roll for ${eventLabel}`}
           spec={RULE_ROLL_SPECS.singleD6}
           recorded={facts.notoriety.recorded}
           required={facts.notoriety.required}
@@ -227,7 +229,7 @@ export function EventSabotagePanel({
           disabled={disabled}
           onSave={onSaveNote}
           onClear={onClearNote}
-          subject="Sabotage"
+          subject={`Sabotage of ${eventLabel}`}
         />
       )}
 

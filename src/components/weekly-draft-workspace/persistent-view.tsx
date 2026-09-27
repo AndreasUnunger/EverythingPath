@@ -1,5 +1,9 @@
 'use client';
 import { eventRollSpec } from '~/lib/rules-roll-spec';
+import {
+  keepOverseerSupport,
+  withoutOverseerSupport,
+} from '~/lib/overseer-support';
 import { persistentDecisionSchema } from '~/lib/weekly-draft-facts';
 import { Button } from '~/components/ui/button';
 import { StructuredChoiceField } from './structured-choice-field';
@@ -21,7 +25,7 @@ import {
   type PersistentEdit,
 } from './use-persistent-choice';
 import { phaseLabels } from './week-frame/labels';
-import type { OverseerSupportFacts } from './overseer-support-facts';
+import type { LatestOverseerSupport } from './overseer-support-facts';
 import { OverseerSupportControl } from './overseer-support-control';
 import { OverseerSupportProvider } from './use-overseer-support';
 import { formatGold } from './week-frame/reference-copy';
@@ -37,7 +41,7 @@ type Props = {
   disabled: boolean;
   openSource?: (link: PersistentSourceLink) => void;
   // The newest Overseer support facts, read between the edits of a move.
-  latestOverseer?: () => OverseerSupportFacts | null | undefined;
+  latestOverseer?: LatestOverseerSupport;
 };
 type Event = Facts['events'][number];
 const mitigation = persistentDecisionSchema.options[1];
@@ -193,7 +197,7 @@ function PersistentEvent({
                     value={
                       event.eventType === 'rivalry'
                         ? decision
-                        : withoutSupport(decision)
+                        : withoutOverseerSupport(decision)
                     }
                     options={view.options}
                     rollSpec={(path) =>
@@ -215,7 +219,7 @@ function PersistentEvent({
                       if (!parsed.success) return false;
                       void edit({
                         kind: 'persistent_decision',
-                        decision: withSupportOf(
+                        decision: keepOverseerSupport(
                           { ...parsed.data, eventId: event.eventId },
                           decision,
                         ),
@@ -284,20 +288,4 @@ function PersistentEvent({
       </div>
     </section>
   );
-}
-
-type Decision = NonNullable<Event['decision']>;
-// The Theft form edits the check; its Overseer support is the toggle's, so a
-// saved form keeps whatever support the decision records now.
-function withoutSupport(decision: Decision) {
-  if (decision.kind !== 'mitigate') return decision;
-  const { overseerCharacterId: _support, ...rest } = decision;
-  return rest;
-}
-function withSupportOf(next: Decision, current: Decision | null): Decision {
-  return next.kind === 'mitigate' &&
-    current?.kind === 'mitigate' &&
-    current.overseerCharacterId
-    ? { ...next, overseerCharacterId: current.overseerCharacterId }
-    : next;
 }

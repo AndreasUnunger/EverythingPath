@@ -11,6 +11,7 @@ import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
+import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView } from './event-facts';
@@ -93,7 +94,7 @@ test('[rules.EVT-10.sabotage-failure] a failed Sabotage still adds its notoriety
     text: 'Sabotage fails: Sickness still happens.',
   });
   expect(view.sabotage!.event!.checkRow).toMatchObject({
-    label: 'Sabotage Secrecy check',
+    label: 'Sabotage Secrecy check for Event 1 · Sickness',
     dc: 15 + snapshot.rank,
     succeeded: false,
     resultText: 'Sickness still happens.',
@@ -190,7 +191,9 @@ test('[EVT-07.sabotage-open] the quiet button opens the reaction locally; the fi
     />,
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Sabotage Event 1 · Sickness' }),
+    screen.getByRole('button', {
+      name: 'Sabotage this event · Event 1 · Sickness',
+    }),
   );
   expect(edit).not.toHaveBeenCalled();
   const panel = screen.getByRole('group', {
@@ -212,7 +215,9 @@ test('[EVT-07.sabotage-open] the quiet button opens the reaction locally; the fi
   ).not.toBeInTheDocument();
 
   fireEvent.click(
-    screen.getByRole('button', { name: 'Sabotage Event 1 · Sickness' }),
+    screen.getByRole('button', {
+      name: 'Sabotage this event · Event 1 · Sickness',
+    }),
   );
   const cards = within(
     screen.getByRole('group', { name: 'Sabotage of Event 1 · Sickness' }),
@@ -264,7 +269,9 @@ test('[EVT-07.sabotage-inputs] check kind, rolls and What happened edit the same
     },
   });
   fireEvent.change(
-    within(recorded).getByRole('textbox', { name: 'Sabotage notoriety roll' }),
+    within(recorded).getByRole('textbox', {
+      name: 'Sabotage notoriety roll for Event 1 · Sickness',
+    }),
     { target: { value: '6' } },
   );
   expect(edit.mock.lastCall![0]).toMatchObject({
@@ -277,13 +284,13 @@ test('[EVT-07.sabotage-inputs] check kind, rolls and What happened edit the same
   });
   fireEvent.change(
     within(recorded).getByRole('textbox', {
-      name: 'What happened · Sabotage',
+      name: 'What happened · Sabotage of Event 1 · Sickness',
     }),
     { target: { value: 'The bridge burned.' } },
   );
   fireEvent.click(
     within(recorded).getByRole('button', {
-      name: 'Save what happened · Sabotage',
+      name: 'Save what happened · Sabotage of Event 1 · Sickness',
     }),
   );
   await waitFor(() =>
@@ -375,6 +382,58 @@ test('[EVT-07.sabotage-not-offered] no quiet button for a calm week, without Sab
     />,
   );
   expect(
-    screen.getByRole('button', { name: 'Sabotage Event 1 · Sickness' }),
+    screen.getByRole('button', {
+      name: 'Sabotage this event · Event 1 · Sickness',
+    }),
   ).toBeDisabled();
+});
+
+test('[EVT-07.sabotage-clear-check] pressing the chosen check again clears only the check kind', () => {
+  const { draft, snapshot } = sickness(12, 2);
+  const edit = vi.fn((_edit: WeeklyDraftEdit) =>
+    Promise.resolve('accepted' as const),
+  );
+  render(
+    <EventView
+      view={project(draft, snapshot).view}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  const check = screen.getByRole('button', {
+    name: 'Secrecy check for the Sabotage',
+  });
+  expect(check).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(check);
+  expect(edit.mock.lastCall![0]).toEqual({
+    kind: 'event_occurrence',
+    occurrence: {
+      eventId: 'event',
+      origin: { kind: 'rolled' },
+      tableRoll: draft.event.occurrences[0]!.tableRoll,
+      sabotage: {
+        choiceId: 'sabotage-event',
+        teamId: 'second-team',
+        rolls: { check: roll(20, 12), notoriety: roll(6, 2) },
+      },
+    },
+  });
+});
+
+test('[rules.EVT-10.sabotage-candidate-switch] switching the chosen candidate keeps the other candidate’s Sabotage on record, unused and without notoriety', () => {
+  const { draft, snapshot, choice } = eventActionFixture('sabotage');
+  const chosen = project(draft, snapshot);
+  expect(chosen.view.sabotage!.raid!.recorded).toBe(true);
+  expect(chosen.view.sabotage!.raid!.notorietyGain).toBe(4);
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  choice.selectedEventId = 'theft';
+  const switched = project(draft, snapshot);
+  const kept = switched.view.sabotage!.raid!;
+  expect(kept.recorded).toBe(true);
+  expect(kept.result?.kind).toBe('inactive');
+  expect(kept.notorietyGain).toBeNull();
+  expect(switched.preview.phases!.event.negatedEventIds).toEqual([]);
+  expect(
+    notorietyAfter(chosen.preview) - notorietyAfter(switched.preview),
+  ).toBe(4);
 });

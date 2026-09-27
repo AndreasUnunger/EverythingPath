@@ -1,7 +1,8 @@
+import { sabotageCheckId, sabotageDc } from '~/lib/rules-event-shaping';
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import type { OrganizationCheck } from '~/lib/rules-officers';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
-import { eventCheckFacts } from './event-check-facts';
+import { checkNames, eventCheckFacts } from './event-check-facts';
 import { targetChoice, type EventPanelContext } from './event-target-facts';
 import { eventName } from './event-tree-facts';
 import type {
@@ -54,12 +55,6 @@ export type EventSabotageFacts = {
   nestedAcknowledgement: boolean;
 };
 
-const CHECK_NAMES: Record<OrganizationCheck, string> = {
-  loyalty: 'Loyalty',
-  secrecy: 'Secrecy',
-  security: 'Security',
-};
-
 export function sabotageChoiceId(eventId: string) {
   return `sabotage-${eventId}`;
 }
@@ -78,7 +73,7 @@ export function eventSabotageFacts(
     (entry) => entry.eventId === eventId && entry.choiceId === choiceId,
   );
   const rank = context.activity?.outcome.rank ?? null;
-  const dc = projected?.dc ?? (rank === null ? null : 15 + rank);
+  const dc = projected?.dc ?? (rank === null ? null : sabotageDc(rank));
   const name = eventName(item.resolvedType) ?? 'This event';
   const calm =
     item.resolvedType === 'all_is_calm' ||
@@ -129,7 +124,7 @@ export function eventSabotageFacts(
       : entry,
   );
   const check = sabotage?.check ?? null;
-  const checkId = `${eventId}:sabotage:${choiceId}`;
+  const checkId = sabotageCheckId(eventId, choiceId);
   const checkRoll = sabotage?.rolls?.check;
   const checkRow =
     check && dc !== null
@@ -151,7 +146,8 @@ export function eventSabotageFacts(
               failure: `${name} still happens.`,
             },
           }),
-          label: `Sabotage ${CHECK_NAMES[check]} check`,
+          // Names its event: several events can each have a Sabotage.
+          label: `Sabotage ${checkNames[check]} check for ${context.eventLabel(eventId)}`,
           required: has('check:1d20'),
         }
       : null;
@@ -182,7 +178,17 @@ export function eventSabotageFacts(
     },
     notorietyGain: projected?.notoriety ?? null,
     result: sabotage
-      ? sabotageResult({ item, name, has, projected, codes, choiceId })
+      ? sabotageResult({
+          item,
+          name,
+          has,
+          projected,
+          // A team the rules refuse without a reasoned Rules Exception.
+          refused: codes.some(
+            (code) =>
+              code.startsWith(`${choiceId}:`) && code.endsWith(':exception'),
+          ),
+        })
       : null,
     whatHappened: {
       subjectId,
@@ -201,15 +207,13 @@ function sabotageResult({
   name,
   has,
   projected,
-  codes,
-  choiceId,
+  refused,
 }: {
   item: Item;
   name: string;
   has: (tail: string) => boolean;
   projected: { succeeded: boolean | null } | undefined;
-  codes: readonly string[];
-  choiceId: string;
+  refused: boolean;
 }): EventSabotageResult {
   if (!item.selected)
     return {
@@ -226,12 +230,7 @@ function sabotageResult({
       kind: 'incomplete',
       text: 'Choose the Saboteurs team. Nothing is negated until the attempt is complete.',
     };
-  if (
-    !projected &&
-    codes.some(
-      (code) => code.startsWith(`${choiceId}:`) && code.endsWith(':exception'),
-    )
-  )
+  if (!projected && refused)
     return {
       kind: 'unavailable',
       text: 'This team cannot sabotage now. Record a Rules Exception below to attempt it anyway; until then nothing is rolled, spent or negated.',

@@ -125,26 +125,31 @@ const holders = (draft: WeeklyDraft) =>
     decisions: draft.persistent.decisions,
   }).map((holder) => holder.eventId);
 
-test('[EVT-10.overseer-toggle] the check row offers the approved support toggle, names where support is now and moves it from Persistent to this event', async () => {
+test('[EVT-10.overseer-toggle] the check row offers the approved support toggle and names where support is now', () => {
   const { draft, snapshot } = week();
   const store = workspace(draft, snapshot);
   render(<store.Event />);
   const block = screen.getByRole('group', { name: 'Event 1.2' });
-  const toggle = within(block).getByRole('switch', {
-    name: 'Use Overseer support for Loyalty check',
-  });
-  expect(toggle).toHaveAttribute('aria-checked', 'false');
-  // Approved copy: the contribution, no holder name or ability.
-  expect(toggle).toHaveTextContent(
-    'Use Overseer support · +3 · one event a week',
+  const toggle = within(block).getByRole('switch');
+  expect(toggle).toHaveAccessibleName(
+    'Use Overseer support · +3 · one event a week for Loyalty check',
   );
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect(toggle).toHaveAccessibleDescription(
+    'Now on Theft (week 39). Tapping moves it here.',
+  );
+  // Approved copy: the contribution, never the holder's name or ability.
   expect(
     within(block).getByRole('group', { name: 'Loyalty check' }),
   ).not.toHaveTextContent(/Wren|Constitution|Charisma/);
-  expect(block).toHaveTextContent(
-    'Now on Theft (week 39). Tapping moves it here.',
-  );
-  fireEvent.click(toggle);
+});
+
+test('[EVT-10.overseer-move-view] tapping the toggle moves support from Persistent to this event, and tapping again turns it off', async () => {
+  const { draft, snapshot } = week();
+  const store = workspace(draft, snapshot);
+  render(<store.Event />);
+  const block = () => screen.getByRole('group', { name: 'Event 1.2' });
+  fireEvent.click(within(block()).getByRole('switch'));
   await waitFor(() => expect(store.sent).toHaveLength(2));
   // Cleared from the carried Theft first, keeping its roll, then recorded here.
   expect(store.sent[0]).toEqual({
@@ -161,16 +166,13 @@ test('[EVT-10.overseer-toggle] the check row offers the approved support toggle,
   });
   expect(holders(store.draft())).toEqual(['second']);
   await waitFor(() =>
-    expect(
-      within(screen.getByRole('group', { name: 'Event 1.2' })).getByRole(
-        'switch',
-      ),
-    ).toHaveAttribute('aria-checked', 'true'),
+    expect(within(block()).getByRole('switch')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    ),
   );
   // The breakdown names the source, and the rules apply it once.
-  expect(screen.getByRole('group', { name: 'Event 1.2' })).toHaveTextContent(
-    'Overseer +3',
-  );
+  expect(block()).toHaveTextContent('Overseer +3');
   const phases = preview(store.draft(), snapshot).phases!;
   expect(
     [...phases.event.checks, ...phases.persistent.checks]
@@ -184,11 +186,7 @@ test('[EVT-10.overseer-toggle] the check row offers the approved support toggle,
       .map((check) => check.checkId),
   ).toEqual(['second:sickness']);
   // Tapping again turns it off.
-  fireEvent.click(
-    within(screen.getByRole('group', { name: 'Event 1.2' })).getByRole(
-      'switch',
-    ),
-  );
+  fireEvent.click(within(block()).getByRole('switch'));
   await waitFor(() => expect(holders(store.draft())).toEqual([]));
 });
 
@@ -203,7 +201,7 @@ test('[EVT-10.overseer-partial-view] a move stopped between edits says where sup
   render(<store.Event />);
   fireEvent.click(
     screen.getByRole('switch', {
-      name: 'Use Overseer support for Loyalty check',
+      name: /for Loyalty check$/,
     }),
   );
   expect(
@@ -214,7 +212,7 @@ test('[EVT-10.overseer-partial-view] a move stopped between edits says where sup
   expect(holders(store.draft())).toEqual([]);
   refuseAssign = false;
   fireEvent.click(
-    screen.getByRole('button', { name: 'Try moving Overseer support again' }),
+    screen.getByRole('button', { name: 'Try again: move Overseer support' }),
   );
   await waitFor(() => expect(holders(store.draft())).toEqual(['second']));
   await waitFor(() =>
@@ -239,7 +237,7 @@ test('[EVT-10.overseer-legacy] a legacy target-level selection reads as this eve
   render(<store.Persistent />);
   const theft = screen.getByRole('group', { name: 'Theft · Event 1' });
   const toggle = within(theft).getByRole('switch', {
-    name: 'Use Overseer support for Theft · Event 1 Loyalty check',
+    name: /for Theft · Event 1 Loyalty check$/,
   });
   expect(toggle).toHaveAttribute('aria-checked', 'false');
   expect(theft).toHaveTextContent(
@@ -326,7 +324,7 @@ test('[WEEK-10.overseer-locked] Confirmation disables the support toggle', () =>
   render(<store.Event disabled />);
   expect(
     screen.getByRole('switch', {
-      name: 'Use Overseer support for Loyalty check',
+      name: /for Loyalty check$/,
     }),
   ).toBeDisabled();
 });

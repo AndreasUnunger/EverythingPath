@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { eventOccurrenceSchema } from '~/lib/weekly-draft-facts';
+import { sabotageCheckId } from '~/lib/rules-event-shaping';
 import { eventRollSpec } from '~/lib/rules-roll-spec';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
@@ -55,7 +56,7 @@ export function EventOccurrenceEditors({
         : panel.people.map((person) => person.check.checkId)),
     // The Sabotage panel shows its own check row.
     ...(occurrence.sabotage
-      ? [`${occurrence.eventId}:sabotage:${occurrence.sabotage.choiceId}`]
+      ? [sabotageCheckId(occurrence.eventId, occurrence.sabotage.choiceId)]
       : []),
   ];
   const acknowledgement = view.acknowledgements.find(

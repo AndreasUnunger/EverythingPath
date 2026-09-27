@@ -35,7 +35,6 @@ export function EventSabotage({
     saveOccurrence: edits.saveOccurrence,
     facts,
   });
-  const show = (message: string | null) => setError(message);
   return (
     <EventSabotagePanel
       facts={facts}
@@ -55,25 +54,25 @@ export function EventSabotage({
           if (!message) setOpened(false);
         });
       }}
-      onTeam={(teamId) => show(actions.patch({ teamId }))}
-      onClearTeam={() => show(actions.patch({ teamId: null }))}
-      onCheck={(check) => show(actions.patch({ check }))}
-      onCheckRoll={(checkRoll) => show(actions.patch({ checkRoll }))}
+      onTeam={(teamId) => setError(actions.patch({ teamId }))}
+      onClearTeam={() => setError(actions.patch({ teamId: null }))}
+      onCheck={(check) => setError(actions.patch({ check }))}
+      onCheckRoll={(checkRoll) => setError(actions.patch({ checkRoll }))}
       onNotorietyRoll={(notorietyRoll) =>
-        show(actions.patch({ notorietyRoll }))
+        setError(actions.patch({ notorietyRoll }))
       }
       onSaveNote={(text) => {
         const message = actions.saveNote(text);
         if (!message) setError(null);
         return message;
       }}
-      onClearNote={() => show(actions.clearNote())}
+      onClearNote={() => setError(actions.clearNote())}
       support={
         facts.checkRow && facts.check ? (
           <OverseerSupportControl
             eventId={facts.eventId}
             check={facts.check}
-            subject={`${eventLabel} ${facts.checkRow.label}`}
+            subject={facts.checkRow.label}
             breakdown={facts.checkRow.breakdown}
           />
         ) : null

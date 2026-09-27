@@ -10,7 +10,7 @@ import {
 } from './event-steps';
 import type { EventView as EventFacts } from './types';
 import { useEventEdits } from './use-event-edits';
-import type { OverseerSupportFacts } from './overseer-support-facts';
+import type { LatestOverseerSupport } from './overseer-support-facts';
 import { OverseerSupportProvider } from './use-overseer-support';
 
 // The Event phase in rules order: the chance roll, any automatic events, the
@@ -26,7 +26,7 @@ type EventViewProps = {
   preparation?: EventPreparation;
   openActivity?: () => void;
   // The newest Overseer support facts, read between the edits of a move.
-  latestOverseer?: () => OverseerSupportFacts | null | undefined;
+  latestOverseer?: LatestOverseerSupport;
 };
 
 // The week's one Overseer support is shared by every check toggle below.

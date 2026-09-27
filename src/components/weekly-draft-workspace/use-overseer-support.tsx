@@ -5,7 +5,10 @@ import {
   moveOverseerSupport,
 } from '~/lib/overseer-support';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
-import type { OverseerSupportFacts } from './overseer-support-facts';
+import type {
+  LatestOverseerSupport,
+  OverseerSupportFacts,
+} from './overseer-support-facts';
 
 // The week's one Overseer support as seen by one phase's toggles. Tapping a
 // toggle that is off moves support to that event through the ordered
@@ -37,21 +40,19 @@ export function useOverseerSupportContext() {
   return use(OverseerSupportContext);
 }
 
-export function OverseerSupportProvider({
-  facts,
-  edit,
-  latest,
-  disabled,
-  children,
-}: {
+type SupportInputs = {
   facts: OverseerSupportFacts | undefined;
   edit: (edit: WeeklyDraftEdit) => unknown;
   // The newest accepted-and-pending facts, read after each awaited edit.
-  latest?: () => OverseerSupportFacts | null | undefined;
+  latest?: LatestOverseerSupport;
   disabled: boolean;
-  children: ReactNode;
-}) {
-  const support = useOverseerSupport({ facts, edit, latest, disabled });
+};
+
+export function OverseerSupportProvider({
+  children,
+  ...inputs
+}: SupportInputs & { children: ReactNode }) {
+  const support = useOverseerSupport(inputs);
   return (
     <OverseerSupportContext value={support}>{children}</OverseerSupportContext>
   );
@@ -62,12 +63,7 @@ function useOverseerSupport({
   edit,
   latest,
   disabled,
-}: {
-  facts: OverseerSupportFacts | undefined;
-  edit: (edit: WeeklyDraftEdit) => unknown;
-  latest?: () => OverseerSupportFacts | null | undefined;
-  disabled: boolean;
-}): OverseerSupport | null {
+}: SupportInputs): OverseerSupport | null {
   const [status, setStatus] = useState<OverseerSupportStatus>({
     state: 'idle',
   });

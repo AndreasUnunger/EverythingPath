@@ -168,10 +168,11 @@ export function assignOverseerSupportEdit(
   const event = source.occurrences.find((entry) => entry.eventId === eventId);
   if (event) {
     const found = occurrenceSelections(event);
+    const [only] = found;
     if (
       found.length === 1 &&
-      found[0]![0] === 'occurrence' &&
-      found[0]![1] === characterId
+      only?.[0] === 'occurrence' &&
+      only[1] === characterId
     )
       return 'already';
     return {
@@ -202,8 +203,14 @@ export type OverseerSupportMoveResult =
   | { status: 'done'; cleared: string[] }
   // A clear was refused: support may still be on `eventId`.
   | { status: 'failed'; stage: 'clear'; eventId: string; cleared: string[] }
-  // Every other selection is gone but support could not be recorded here.
-  | { status: 'failed'; stage: 'assign'; eventId: string; cleared: string[] };
+  // Every other selection is gone but support could not be recorded on
+  // `eventId` (null when the move was removing it everywhere).
+  | {
+      status: 'failed';
+      stage: 'assign';
+      eventId: string | null;
+      cleared: string[];
+    };
 
 /**
  * Moves Overseer support to one event (or removes it everywhere when `to` is
@@ -230,13 +237,13 @@ export async function moveOverseerSupport({
   const cleared: string[] = [];
   const start = latest();
   if (!start)
-    return { status: 'failed', stage: 'assign', eventId: to ?? '', cleared };
+    return { status: 'failed', stage: 'assign', eventId: to, cleared };
   // Bounded: every holder seen at the start plus a few a peer adds meanwhile.
   let budget = overseerSupportHolders(start).length + 3;
   for (;;) {
     const source = latest();
     if (!source)
-      return { status: 'failed', stage: 'assign', eventId: to ?? '', cleared };
+      return { status: 'failed', stage: 'assign', eventId: to, cleared };
     const other = overseerSupportHolders(source).find(
       (holder) => holder.eventId !== to,
     );
@@ -260,4 +267,25 @@ export async function moveOverseerSupport({
   if (edit === 'unavailable' || (await send(edit)) !== 'accepted')
     return { status: 'failed', stage: 'assign', eventId: to, cleared };
   return { status: 'done', cleared };
+}
+
+type Mitigation = Extract<Decision, { kind: 'mitigate' }>;
+/**
+ * A carried event's mitigation decision as its check form edits it: the
+ * support selection belongs to the shared toggle, not the form.
+ */
+export function withoutOverseerSupport(decision: Mitigation) {
+  const { overseerCharacterId: _support, ...rest } = decision;
+  return rest;
+}
+/** A saved check form keeps whatever support the decision records now. */
+export function keepOverseerSupport(
+  next: Decision,
+  current: Decision | null,
+): Decision {
+  return next.kind === 'mitigate' &&
+    current?.kind === 'mitigate' &&
+    current.overseerCharacterId
+    ? { ...next, overseerCharacterId: current.overseerCharacterId }
+    : next;
 }

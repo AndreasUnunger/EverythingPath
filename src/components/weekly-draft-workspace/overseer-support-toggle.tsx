@@ -1,4 +1,5 @@
 'use client';
+import { useId } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import type { OverseerToggleFacts } from './overseer-support-facts';
@@ -31,6 +32,7 @@ export function OverseerSupportToggle({
   onToggle,
   onRetry,
 }: OverseerSupportToggleProps) {
+  const hintId = useId();
   if (toggle.kind === 'unavailable') {
     return (
       <div className="min-w-0 space-y-2 text-sm [overflow-wrap:anywhere]">
@@ -56,12 +58,15 @@ export function OverseerSupportToggle({
             No Overseer is assigned, so no Overseer support this week.
           </p>
         )}
-        {failure && <Failure failure={failure} onRetry={onRetry} />}
+        {failure && (
+          <Failure failure={failure} disabled={disabled} onRetry={onRetry} />
+        )}
       </div>
     );
   }
   const { on, elsewhere, contribution } = toggle;
   const where = elsewhere.join(' and ');
+  const hint = !on && where ? `${hintId}-hint` : undefined;
   return (
     <div className="min-w-0 space-y-2 text-sm [overflow-wrap:anywhere]">
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
@@ -69,7 +74,7 @@ export function OverseerSupportToggle({
           type="button"
           role="switch"
           aria-checked={on}
-          aria-label={`Use Overseer support for ${subject}`}
+          aria-describedby={hint}
           disabled={disabled}
           onClick={onToggle}
           className="focus-visible:ring-ring/50 inline-flex min-h-11 min-w-0 items-center gap-2 rounded-md py-1 pr-1 text-left outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50"
@@ -94,6 +99,8 @@ export function OverseerSupportToggle({
               · <span className="font-mono">{signed(contribution)}</span> · one
               event a week
             </span>
+            {' '}
+            <span className="sr-only">for {subject}</span>
           </span>
         </button>
         {moving && (
@@ -102,7 +109,7 @@ export function OverseerSupportToggle({
           </p>
         )}
         {!on && where && (
-          <p className="text-muted-foreground min-w-0 text-xs">
+          <p id={hint} className="text-muted-foreground min-w-0 text-xs">
             Now on {where}. Tapping moves it here.
           </p>
         )}
@@ -113,16 +120,20 @@ export function OverseerSupportToggle({
           here or tap it there to move it.
         </p>
       )}
-      {failure && <Failure failure={failure} onRetry={onRetry} />}
+      {failure && (
+        <Failure failure={failure} disabled={disabled} onRetry={onRetry} />
+      )}
     </div>
   );
 }
 
 function Failure({
   failure,
+  disabled,
   onRetry,
 }: {
   failure: string;
+  disabled: boolean;
   onRetry: () => void;
 }) {
   return (
@@ -134,7 +145,8 @@ function Failure({
         type="button"
         variant="outline"
         size="sm"
-        aria-label="Try moving Overseer support again"
+        aria-label="Try again: move Overseer support"
+        disabled={disabled}
         onClick={onRetry}
       >
         Try again
