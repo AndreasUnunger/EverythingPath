@@ -244,6 +244,35 @@ export async function exerciseActivityWorkspace(
     }),
   ).toHaveValue('7');
 
+  // A market purchase is entered in gp, kept to the copper with its decimal
+  // weight, and the other player sees it. Its details stay open for the
+  // layout checks below.
+  await choose(player, 'Broker Market', 3);
+  const market = await open(gm, 3, 'Broker Market');
+  await market
+    .getByRole('button', { name: 'Add purchase', exact: true })
+    .click();
+  const purchase = market.getByRole('form', { name: 'New purchase' });
+  await purchase
+    .getByRole('textbox', { name: 'Item name', exact: true })
+    .fill('Potion of healing');
+  await purchase
+    .getByRole('textbox', { name: 'Price (gp)', exact: true })
+    .fill('12.34');
+  await purchase
+    .getByRole('textbox', { name: 'Weight (lb)', exact: true })
+    .fill('0.5');
+  await purchase
+    .getByRole('button', { name: 'Save purchase', exact: true })
+    .click();
+  await saved(gm);
+  await expect(
+    (await open(player, 3, 'Broker Market')).getByRole('list', {
+      name: 'Purchases',
+      exact: true,
+    }),
+  ).toContainText('Potion of healing · 12.34 gp · 0.5 lb');
+
   for (const [name, width, height] of [
     ['tablet', 1194, 834],
     ['phone', 390, 844],
@@ -257,7 +286,9 @@ export async function exerciseActivityWorkspace(
     );
   }
   await gm.setViewportSize({ width: 390, height: 844 });
-  await empty(gm, 3).click();
+  await details(gm, 3)
+    .getByRole('button', { name: 'Change action', exact: true })
+    .click();
   await expect(gm.getByRole('dialog')).toBeVisible();
   await expectNoHorizontalOverflow(gm);
   await savePrivate(
@@ -265,6 +296,7 @@ export async function exerciseActivityWorkspace(
     await gm.screenshot(),
   );
   await gm.keyboard.press('Escape');
+  await expect(gm.getByRole('dialog')).toHaveCount(0);
   await gm.setViewportSize({ width: 1194, height: 834 });
 
   // Leave the Activity empty for the later phases.
@@ -276,6 +308,7 @@ export async function exerciseActivityWorkspace(
   for (const [position, action] of [
     [1, 'Drill Militia'],
     [2, 'Gather Information'],
+    [3, 'Broker Market'],
   ] as const) {
     await (await open(gm, position, action))
       .getByRole('button', { name: `Clear ${action}`, exact: true })

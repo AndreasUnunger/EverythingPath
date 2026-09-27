@@ -12,6 +12,10 @@ import teams from './militia-team-table';
 
 type Choice = StagedActionChoice;
 type Result = ActivityProjection;
+// The parts of a projection that preparing the economy reads and writes, so
+// a presentation can replay the same preparation on its own state.
+export type EconomyLedger = Pick<Result, 'outcome' | 'plan' | 'requirements'>;
+type Ledger = EconomyLedger;
 type Item = EconomyState['items'][number];
 type EconomyChoice = Extract<
   Choice,
@@ -69,7 +73,7 @@ export const economyActionTeams: Record<
   secure_cache: ['moles', 'propagandists', 'saboteurs', 'spies'],
   special_order: ['fixers'],
 };
-function required(result: Result, subjectId: string, key: string) {
+function required(result: Ledger, subjectId: string, key: string) {
   result.requirements.push(`${subjectId}:${key}`);
 }
 function acknowledged(
@@ -85,7 +89,7 @@ function acknowledged(
   if (!found) required(result, choice.choiceId, `acknowledgement:${subjectId}`);
   return found;
 }
-function itemChange(result: Result, choiceId: string, item: Item, after: Item) {
+function itemChange(result: Ledger, choiceId: string, item: Item, after: Item) {
   result.plan.push({
     kind: 'item',
     choiceId,
@@ -380,7 +384,9 @@ function specialOrder(
     order: structuredClone(order),
   });
 }
-const cacheLimits = {
+// Each cache class's weight (lb) and value (cp) limits, check DC and minimum
+// team tier.
+export const cacheLimits = {
   minor: { weight: 5, value: 90000, dc: 15, tier: 1 },
   intermediate: { weight: 10, value: 250000, dc: 20, tier: 2 },
   major: { weight: 20, value: Infinity, dc: 30, tier: 3 },
@@ -588,7 +594,7 @@ export function resolveEconomyChoice(
   }
   return true;
 }
-export function prepareEconomy(draft: WeeklyDraft, result: Result) {
+export function prepareEconomy(draft: WeeklyDraft, result: Ledger) {
   const state = result.outcome.economy;
   if (!state) return;
   state.markets = state.markets.filter((market) => {
@@ -637,7 +643,7 @@ export function prepareEconomy(draft: WeeklyDraft, result: Result) {
   }
 }
 function receive(
-  result: Result,
+  result: Ledger,
   order: EconomyState['orders'][number],
   receipt: NonNullable<EconomyState['orders'][number]['receipt']>,
 ) {

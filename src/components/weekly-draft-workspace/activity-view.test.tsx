@@ -13,7 +13,8 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
+vi.mock('~/components/ui/select', () => import('./native-select-test-double'));
 afterEach(cleanup);
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
@@ -37,26 +38,23 @@ test('[rules.P82.nested] a purchase keeps copper precision, requires its price a
   };
   render(<ActivityView view={purchaseView} edit={edit} disabled={false} />);
   selectSlot('Broker Market');
-  fireEvent.click(screen.getByRole('button', { name: 'Add purchases' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add purchases entry' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save purchases' }));
-  await waitFor(() =>
-    expect(
-      screen
-        .getAllByRole('alert')
-        .some((alert) => alert.textContent === 'A value is required.'),
-    ).toBe(true),
+  fireEvent.click(screen.getByRole('button', { name: 'Add purchase' }));
+  const form = screen.getByRole('form', { name: 'New purchase' });
+  const price = within(form).getByRole('textbox', { name: 'Price (gp)' });
+  fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));
+  expect(await within(form).findByText('A price is required.')).toHaveAttribute(
+    'role',
+    'alert',
   );
-  fireEvent.change(screen.getByRole('textbox', { name: 'Price (copper)' }), {
-    target: { value: '123' },
-  });
-  fireEvent.change(screen.getByRole('textbox', { name: 'Price (copper)' }), {
-    target: { value: '1e3' },
-  });
-  expect(screen.getByRole('textbox', { name: 'Price (copper)' })).toHaveValue(
-    '123',
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Save purchases' }));
+  fireEvent.change(price, { target: { value: '1e3' } });
+  fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));
+  expect(
+    await within(form).findByText('Enter an amount in gp, such as 12 or 0.07.'),
+  ).toHaveAttribute('role', 'alert');
+  expect(edit).not.toHaveBeenCalled();
+  // Gold is entered in gp and stored as exact copper.
+  fireEvent.change(price, { target: { value: '1.23' } });
+  fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -151,12 +149,25 @@ test('[rules.P82.decimal] item weight can be typed as a decimal and complete det
     />,
   );
   selectSlot('Special Order');
-  const weight = screen.getByRole('textbox', { name: 'Weight' });
+  const form = screen.getByRole('form', { name: 'Ordered item' });
+  const weight = within(form).getByRole('textbox', { name: 'Weight (lb)' });
   fireEvent.change(weight, { target: { value: '1' } });
   fireEvent.change(weight, { target: { value: '1.' } });
   expect(weight).toHaveValue('1.');
+  fireEvent.change(weight, { target: { value: 'one' } });
+  fireEvent.click(
+    within(form).getByRole('button', { name: 'Save ordered item' }),
+  );
+  expect(
+    await within(form).findByText(
+      'Enter the weight in pounds, such as 2 or 0.5.',
+    ),
+  ).toHaveAttribute('role', 'alert');
+  expect(edit).not.toHaveBeenCalled();
   fireEvent.change(weight, { target: { value: '1.5' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save weight' }));
+  fireEvent.click(
+    within(form).getByRole('button', { name: 'Save ordered item' }),
+  );
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -173,17 +184,27 @@ test('[rules.P82.references] cache item lists use named cards instead of interna
       view={{
         ...view,
         items: [{ value: 'internal-item', label: 'Healing potion' }],
-        slots: [activitySlot({ choiceId: 'cache', actionId: 'secure_cache' })],
+        slots: [
+          activitySlot({
+            choiceId: 'cache',
+            actionId: 'secure_cache',
+            mode: 'place',
+            cacheId: 'new-cache',
+          }),
+        ],
       }}
       edit={edit}
       disabled={false}
     />,
   );
   selectSlot('Secure Cache');
-  fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add item entry' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Healing potion' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+  const add = screen.getByRole('combobox', { name: 'Add a held item' });
+  expect(
+    within(add)
+      .getAllByRole('option')
+      .map((option) => option.textContent),
+  ).toEqual(['', 'Healing potion']);
+  fireEvent.change(add, { target: { value: 'internal-item' } });
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -191,7 +212,7 @@ test('[rules.P82.references] cache item lists use named cards instead of interna
       }),
     ),
   );
-  expect(screen.queryByDisplayValue('internal-item')).not.toBeInTheDocument();
+  expect(screen.queryByText(/internal-item/)).not.toBeInTheDocument();
 });
 
 test('[rules.P82.validation] removing a selected event candidate explains the structural failure', async () => {

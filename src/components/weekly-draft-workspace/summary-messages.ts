@@ -1,11 +1,17 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
 import { phaseLabels } from './week-frame/labels';
+import {
+  economyCodeMessage,
+  economyMessages,
+} from './activity-economy-messages';
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 type Summary = Pick<
   Extract<PhaseView, { phase: 'summary' }>,
   'adjustments' | 'options' | 'eventMessages'
 >;
 const messages: Record<string, string> = {
+  ...economyMessages,
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
   'upkeep:attrition-training:roll': 'Enter the attrition training roll.',
   'upkeep:notoriety-training:roll': 'Enter the Notoriety training loss roll.',
@@ -162,7 +168,13 @@ function earlierPhasesMessage(code: string) {
   return `Earlier phases still need preparation: ${names.join(', ')}.`;
 }
 
-export function summaryMessage(code: string, view: Summary, warning = false) {
+// `actionId` names the Activity action that owns `code`, when it is known.
+export function summaryMessage(
+  code: string,
+  view: Summary,
+  warning = false,
+  actionId?: StagedActionChoice['actionId'],
+) {
   const event = view.eventMessages?.[code];
   if (event) return event;
   const earlier = earlierPhasesMessage(code);
@@ -186,7 +198,9 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
   if (boonRank) return `${prefix}Record the rank ${boonRank} boon.`;
   if (/reference|Unknown|revision/.test(code))
     return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
-  const known = ruleMessage(key, warning);
+  const known =
+    ruleMessage(key, warning) ??
+    (warning ? null : economyCodeMessage(key, actionId));
   if (known)
     return (
       prefix +
@@ -217,6 +231,7 @@ export function subjectMessage(
   code: string,
   subjectId: string,
   warning = false,
+  actionId?: StagedActionChoice['actionId'],
 ) {
   return summaryMessage(
     code,
@@ -225,5 +240,6 @@ export function subjectMessage(
       options: { subjectId: [{ value: subjectId, label: '' }] },
     },
     warning,
+    actionId,
   ).replace(/^: /, '');
 }
