@@ -48,7 +48,11 @@ start disables Start while pending, ignores the racing `started` observation
 and opens the requested phase exactly once, then retires the envelope. Every
 attempt, including one after a reload, reuses the envelope's
 `initializationId`, so the server's same-ID/same-source idempotence and its
-rejection of any other source keep an accepted setup from being replaced. A
+rejection of any other source keep an accepted setup from being replaced. The
+envelope also keeps the source of a start whose result never arrived (a
+reload while starting). If the militia then starts while the form is open,
+that source is resent under the same identity: acceptance opens its requested
+phase, refusal means another player won and the page follows their week. A
 failed start keeps all entries; if `options` then reports the militia started,
 the page follows it. Leaving the page during a start never navigates the next
 page. **Add character** in People & officers opens the shared character dialog

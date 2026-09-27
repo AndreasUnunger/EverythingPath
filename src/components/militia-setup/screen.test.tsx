@@ -85,7 +85,29 @@ beforeEach(() => {
   backend.createCharacter = createCharacter;
   backend.router = { push, replace };
 });
-afterEach(cleanup);
+const originalMatchMedia = window.matchMedia;
+afterEach(() => {
+  cleanup();
+  window.matchMedia = originalMatchMedia;
+});
+// Tablet width until the returned function narrows or widens the window.
+function mockWidth() {
+  const listeners = new Set<() => void>();
+  let matches = true;
+  window.matchMedia = vi.fn(() => ({
+    get matches() {
+      return matches;
+    },
+    addEventListener: (_: string, listener: () => void) =>
+      listeners.add(listener),
+    removeEventListener: (_: string, listener: () => void) =>
+      listeners.delete(listener),
+  })) as unknown as typeof window.matchMedia;
+  return (wide: boolean) => {
+    matches = wide;
+    act(() => listeners.forEach((listener) => listener()));
+  };
+}
 
 const screenFor = (
   props: Partial<Parameters<typeof MilitiaSetupScreen>[0]> = {},
@@ -426,4 +448,111 @@ test('[setup.characters.inline] Add character keeps its values on failure and th
   openStep('Starting point');
   expect(textbox('Rank')).toHaveValue('4');
   expect(initialize).not.toHaveBeenCalled();
+});
+
+test('[setup.characters.dialog-survives] the Add character dialog keeps its values across a breakpoint change and when reopened', async () => {
+  const resize = mockWidth();
+  render(screenFor());
+  openStep('People & officers');
+  click('Add character');
+  const name = () =>
+    within(screen.getByRole('dialog', { name: 'New Character' })).getByRole(
+      'textbox',
+      { name: 'Name' },
+    );
+  fireEvent.change(name(), { target: { value: 'Mira' } });
+  resize(false);
+  expect(name()).toHaveValue('Mira');
+  resize(true);
+  fireEvent.click(
+    within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }),
+  );
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  openStep('Teams');
+  openStep('People & officers');
+  click('Add character');
+  expect(name()).toHaveValue('Mira');
+  expect(createCharacter).not.toHaveBeenCalled();
+});
+
+// A start whose result never arrived because the page reloaded.
+async function reloadDuringStart() {
+  initialize.mockReturnValueOnce(new Promise(() => undefined));
+  const { unmount } = render(screenFor());
+  chooseEvent();
+  start();
+  await screen.findByRole('button', { name: 'Starting militia…' });
+  unmount();
+  const [[sent]] = initialize.mock.calls as [[{ initializationId: string }]];
+  return sent;
+}
+
+test('[setup.race.unacknowledged-own] a start sent before a reload that turns out accepted opens its requested phase', async () => {
+  const sent = await reloadDuringStart();
+  initialize.mockResolvedValueOnce(key);
+  const { rerender } = render(screenFor());
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Review & start' }),
+  ).toBeVisible();
+  // The earlier start lands after the reload.
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledExactlyOnceWith(
+      '/campaigns/campaign_a/week?phase=event',
+    ),
+  );
+  expect(initialize).toHaveBeenLastCalledWith(sent);
+  expect(replace).not.toHaveBeenCalled();
+  expect(stored()).toEqual({ kind: 'fresh' });
+});
+
+test('[setup.race.unacknowledged-other] when another player won instead, the resent start is refused and the page follows their week', async () => {
+  const sent = await reloadDuringStart();
+  initialize.mockRejectedValueOnce(
+    new ConvexError(
+      'Militia setup is already complete. Open the current week.',
+    ),
+  );
+  const { rerender } = render(screenFor());
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  await waitFor(() =>
+    expect(replace).toHaveBeenCalledWith('/campaigns/campaign_a/week'),
+  );
+  expect(initialize).toHaveBeenLastCalledWith(sent);
+  expect(push).not.toHaveBeenCalled();
+  expect(stored()).toEqual({ kind: 'fresh' });
+});
+
+test('[setup.start.changed-source] a changed retry after an unacknowledged start keeps the identity, and its refusal follows the accepted week', async () => {
+  const sent = await reloadDuringStart();
+  const refused = deferred<typeof key>();
+  initialize.mockReturnValueOnce(refused.promise);
+  const { rerender } = render(screenFor());
+  openStep('Starting point');
+  fill('Rank', '3');
+  start();
+  await screen.findByRole('button', { name: 'Starting militia…' });
+  const [, [retry]] = initialize.mock.calls as [
+    unknown,
+    [{ initializationId: string; setup: MilitiaSetup }],
+  ];
+  expect(retry.initializationId).toBe(sent.initializationId);
+  expect(retry.setup.state.militiaSnapshot.rank).toBe(3);
+  // The server keeps the first source for that identity.
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  await act(async () =>
+    refused.reject(
+      new ConvexError(
+        'Militia setup is already complete. Open the current week.',
+      ),
+    ),
+  );
+  await waitFor(() =>
+    expect(replace).toHaveBeenCalledWith('/campaigns/campaign_a/week'),
+  );
+  expect(initialize).toHaveBeenCalledTimes(2);
+  expect(push).not.toHaveBeenCalled();
 });

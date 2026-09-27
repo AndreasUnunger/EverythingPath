@@ -20,9 +20,9 @@ import { ArchivedCharactersCard } from './character-manager/archived-characters-
 import { CharacterDialog } from './character-manager/character-dialog';
 import { CharacterListCard } from './character-manager/character-list-card';
 import {
-  characterErrorMessage,
+  getCharacterErrorMessage,
   characterFormSchema,
-  characterPayload,
+  toCharacterPayload,
   defaultCharacterFormValues,
   type CharacterFormValues,
   type CharacterId,
@@ -117,7 +117,7 @@ export function CharacterManager({
     if (!selectedCampaignId) return;
     setFormError(undefined);
 
-    const payload = characterPayload(values);
+    const payload = toCharacterPayload(values);
 
     try {
       if (editingId) {
@@ -143,7 +143,9 @@ export function CharacterManager({
       setEditingId(undefined);
       form.reset(defaultCharacterFormValues);
     } catch (error) {
-      setFormError(characterErrorMessage(error, 'Failed to save character.'));
+      setFormError(
+        getCharacterErrorMessage(error, 'Failed to save character.'),
+      );
     }
   }
 
@@ -164,7 +166,7 @@ export function CharacterManager({
       });
     } catch (error) {
       setArchiveError(
-        characterErrorMessage(error, 'Failed to update character status.'),
+        getCharacterErrorMessage(error, 'Failed to update character status.'),
       );
     } finally {
       setPendingArchiveId(undefined);
@@ -216,6 +218,7 @@ export function CharacterManager({
             if (!open) closeCharacterForm();
           }}
           title={editingId ? 'Edit Character' : 'New Character'}
+          description="Update the character record. Officer assignments are in the militia ledger."
           form={form}
           onSubmit={submitForm}
           submitError={formError}

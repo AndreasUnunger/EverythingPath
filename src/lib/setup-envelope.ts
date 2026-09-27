@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { militiaSetupFieldsSchema, type MilitiaSetup } from './canonical-setup';
+import {
+  militiaSetupFieldsSchema,
+  militiaSetupSchema,
+  type MilitiaSetup,
+} from './canonical-setup';
 import { SETUP_STEP_KEYS, type SetupStepKey } from './setup-steps';
 
 // Browser resume for an unfinished Militia Setup (#173). The form's raw
@@ -33,6 +37,11 @@ export type SetupEnvelope = SetupProgress & {
   scope: SetupScope;
   /** Reused by every start attempt, so an unacknowledged start is retried idempotently. */
   initializationId: string;
+  /**
+   * The source of a start sent from this browser whose result never arrived,
+   * e.g. because the page reloaded. It may have been accepted.
+   */
+  submitted: MilitiaSetup | null;
 };
 export type SetupStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export type SetupRestore =
@@ -73,6 +82,7 @@ const envelopeV1Schema = z.strictObject({
   step: stepSchema,
   visited: z.array(stepSchema),
   initializationId: z.string().trim().min(1).max(200),
+  submitted: z.unknown(),
 });
 
 export function parseSetupEnvelope(
@@ -92,7 +102,14 @@ export function parseSetupEnvelope(
         !isEditableSetup(parsed.data.values)
       )
         return null;
-      return { ...parsed.data, values: parsed.data.values };
+      // An unreadable submitted source is forgotten, not fatal: the server
+      // still refuses a different source under an accepted identity.
+      const submitted = militiaSetupSchema.safeParse(parsed.data.submitted);
+      return {
+        ...parsed.data,
+        values: parsed.data.values,
+        submitted: submitted.success ? submitted.data : null,
+      };
     }
     default:
       return null;
@@ -104,21 +121,26 @@ export function readSetupEnvelope(
   storage: SetupStorage | null,
   scope: SetupScope,
 ): SetupRestore {
-  if (!storage) return { kind: 'unavailable' };
-  let stored: string | null;
-  try {
-    stored = storage.getItem(setupEnvelopeKey(scope));
-  } catch {
-    return { kind: 'unavailable' };
-  }
+  const stored = storedEnvelope(storage, scope);
+  if (stored === undefined) return { kind: 'unavailable' };
   if (stored === null) return { kind: 'fresh' };
-  let envelope: SetupEnvelope | null = null;
-  try {
-    envelope = parseSetupEnvelope(JSON.parse(stored), scope);
-  } catch {
-    // Not JSON: discarded below.
-  }
+  const envelope = parseStored(stored, scope);
   return envelope ? { kind: 'restored', envelope } : { kind: 'discarded' };
+}
+// The stored text, null when there is none, or undefined when storage refuses.
+function storedEnvelope(storage: SetupStorage | null, scope: SetupScope) {
+  try {
+    return storage ? storage.getItem(setupEnvelopeKey(scope)) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function parseStored(stored: string, scope: SetupScope) {
+  try {
+    return parseSetupEnvelope(JSON.parse(stored), scope);
+  } catch {
+    return null;
+  }
 }
 
 /** Returns false when this browser refused to keep the envelope. */
@@ -156,7 +178,6 @@ const repairableCodes = new Set([
   'too_big',
   'not_multiple_of',
   'invalid_format',
-  'custom',
 ]);
 const leafTypes = new Set(['number', 'string', 'boolean']);
 function isLeaf(value: unknown) {

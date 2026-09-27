@@ -19,11 +19,7 @@ export function StepBody({ setup }: { setup: GuidedSetup }) {
           openProblem={setup.openProblem}
         />
       ) : null}
-      <SetupStepEditor
-        step={current.key}
-        characters={setup.characters}
-        addCharacter={setup.addCharacter}
-      />
+      <SetupStepEditor step={current.key} characters={setup.characters} />
     </>
   );
 }

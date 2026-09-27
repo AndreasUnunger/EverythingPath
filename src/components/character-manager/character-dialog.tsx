@@ -18,6 +18,7 @@ export function CharacterDialog({
   form,
   onSubmit,
   submitError,
+  description,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,16 +26,22 @@ export function CharacterDialog({
   form: UseFormReturn<CharacterFormValues>;
   onSubmit: (values: CharacterFormValues) => Promise<void>;
   submitError?: string;
+  /** Guidance under the title; guided Setup shows none. */
+  description?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-primary bg-card border-2 font-mono sm:max-w-4xl">
+      <DialogContent
+        className="border-primary bg-card border-2 font-mono sm:max-w-4xl"
+        {...(description ? {} : { 'aria-describedby': undefined })}
+      >
         <DialogHeader>
           <DialogTitle className="font-sans text-xl">{title}</DialogTitle>
-          <DialogDescription className="font-mono text-sm">
-            Update the character record. Officer assignments are in the militia
-            ledger.
-          </DialogDescription>
+          {description ? (
+            <DialogDescription className="font-mono text-sm">
+              {description}
+            </DialogDescription>
+          ) : null}
         </DialogHeader>
         <CharacterFormCard
           form={form}

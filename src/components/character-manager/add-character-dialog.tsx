@@ -3,30 +3,32 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
-import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Button } from '~/components/ui/button';
 import { CharacterDialog } from './character-dialog';
 import {
-  characterErrorMessage,
+  getCharacterErrorMessage,
   characterFormSchema,
-  characterPayload,
+  toCharacterPayload,
   defaultCharacterFormValues,
   type CharacterFormValues,
 } from './types';
 
 // Creates a shared campaign character from another page, e.g. Setup. The new
 // record reaches every member through their own character queries; nothing
-// else is assigned. A failed save keeps the dialog open with its values.
+// else is assigned. Its values live as long as this component, so a failed
+// save, or closing and reopening, keeps them; a successful save clears them.
 export function AddCharacterDialog({
   campaignId,
   organizationId,
+  open,
+  onOpenChange,
 }: {
   campaignId: Id<'campaign'>;
   organizationId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const form = useForm<CharacterFormValues>({
     resolver: zodResolver(characterFormSchema),
@@ -38,36 +40,27 @@ export function AddCharacterDialog({
     try {
       await createCharacter({
         organizationId,
-        character: { campaignId, ...characterPayload(values) },
+        character: { campaignId, ...toCharacterPayload(values) },
       });
-      setOpen(false);
+      onOpenChange(false);
       form.reset(defaultCharacterFormValues);
     } catch (error) {
-      setSubmitError(characterErrorMessage(error, 'Failed to save character.'));
+      setSubmitError(
+        getCharacterErrorMessage(error, 'Failed to save character.'),
+      );
     }
   }
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          setSubmitError(undefined);
-          setOpen(true);
-        }}
-      >
-        <UserPlus aria-hidden />
-        Add character
-      </Button>
-      <CharacterDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="New Character"
-        form={form}
-        onSubmit={submit}
-        submitError={submitError}
-      />
-    </>
+    <CharacterDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setSubmitError(undefined);
+        onOpenChange(next);
+      }}
+      title="New Character"
+      form={form}
+      onSubmit={submit}
+      submitError={submitError}
+    />
   );
 }

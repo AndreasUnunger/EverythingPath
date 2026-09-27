@@ -5,11 +5,11 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { warningText, wrap } from '~/components/week-review/review-parts';
+import { SETUP_STEP_KEYS } from '~/lib/setup-steps';
 import { cn } from '~/lib/utils';
+import type { SetupNotice } from './use-setup-session';
 
 // The states the guided Setup page shows around, or instead of, the form.
-
-const stepKeys = Array.from({ length: 9 }, (_, index) => index);
 
 // Stands in for SetupModeChoice: its label and the two choice buttons.
 function ModeChoiceSkeleton() {
@@ -37,7 +37,7 @@ export function SetupSkeleton() {
         <div className="space-y-4 md:border-r md:pr-4">
           <ModeChoiceSkeleton />
           <div className="space-y-0.5 max-md:border-t">
-            {stepKeys.map((key) => (
+            {SETUP_STEP_KEYS.map((key) => (
               <Skeleton
                 key={key}
                 className="h-12 w-full rounded-none md:h-9 md:rounded-md"
@@ -104,17 +104,13 @@ export function SetupOpening() {
   );
 }
 
-const storageNotices = {
+const storageNotices: Record<SetupNotice, string> = {
   unkept: "Your entries won't be kept if you reload or leave this page.",
   notRestored: 'Your earlier entries could not be restored.',
-} as const;
+};
 
 // One line above the form about this browser's copy of the entries.
-export function SetupStorageNotice({
-  notice,
-}: {
-  notice: 'unkept' | 'notRestored';
-}) {
+export function SetupStorageNotice({ notice }: { notice: SetupNotice }) {
   return (
     <p
       role="status"

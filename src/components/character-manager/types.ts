@@ -52,7 +52,7 @@ export const defaultCharacterFormValues: CharacterFormValues = {
 };
 
 // The record fields a valid form submits.
-export function characterPayload(values: CharacterFormValues) {
+export function toCharacterPayload(values: CharacterFormValues) {
   return {
     name: values.name.trim(),
     description: values.description.trim(),
@@ -67,7 +67,7 @@ export function characterPayload(values: CharacterFormValues) {
   };
 }
 
-export function characterErrorMessage(error: unknown, fallback: string) {
+export function getCharacterErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string' && error.trim()) return error;
   return fallback;

@@ -79,6 +79,7 @@ const envelope = (values: MilitiaSetup = unfinished()): SetupEnvelope => ({
   step: 'teams',
   visited: ['startingPoint', 'week', 'teams'],
   initializationId: 'attempt-1',
+  submitted: null,
 });
 
 test('[setup.resume.round-trip] unfinished values, step, mode and attempt identity survive a reload', () => {
@@ -92,6 +93,24 @@ test('[setup.resume.round-trip] unfinished values, step, mode and attempt identi
   expect(restored.envelope.values.state.militiaSnapshot.treasuryCopper).toBe(
     null,
   );
+});
+
+test('[setup.resume.submitted] a start sent before a reload keeps its source; an unreadable one is forgotten', () => {
+  const storage = memoryStorage();
+  const submitted = newMilitiaSetup('Loyalty');
+  writeSetupEnvelope(storage, { ...envelope(), submitted });
+  expect(readSetupEnvelope(storage, scope)).toEqual({
+    kind: 'restored',
+    envelope: { ...envelope(), submitted },
+  });
+  writeSetupEnvelope(storage, {
+    ...envelope(),
+    submitted: unfinished(),
+  });
+  expect(readSetupEnvelope(storage, scope)).toEqual({
+    kind: 'restored',
+    envelope: envelope(),
+  });
 });
 
 test('[setup.resume.scope] another account, organization or campaign never sees the unfinished setup', () => {

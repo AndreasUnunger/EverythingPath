@@ -9,7 +9,6 @@ import {
   useState,
   useSyncExternalStore,
   type FocusEvent,
-  type ReactNode,
 } from 'react';
 import { useForm } from 'react-hook-form';
 import {
@@ -137,8 +136,8 @@ export type GuidedSetupProps = {
   onProgress?: (progress: SetupProgress) => void;
   /** Keeps Start disabled and showing progress, e.g. while the started week opens. */
   starting?: boolean;
-  /** Shown above the roster in People & officers. */
-  addCharacter?: ReactNode;
+  /** Opens character creation from People & officers. */
+  onAddCharacter?: () => void;
 };
 export function useGuidedSetup({
   characters,
@@ -149,8 +148,7 @@ export function useGuidedSetup({
   resumed = false,
   onProgress,
   starting = false,
-  addCharacter,
-}: GuidedSetupProps) {
+}: Omit<GuidedSetupProps, 'onAddCharacter'>) {
   const form = useForm<MilitiaSetup>({
     resolver: zodResolver(militiaSetupSchema),
     defaultValues: initialValues ?? newMilitiaSetup('Loyalty'),
@@ -212,35 +210,26 @@ export function useGuidedSetup({
   }, [layout]);
 
   // Resumed input shows the field errors it showed before the reload.
-  const [showResumedErrors] = useState(resumed);
-  useEffect(() => {
-    if (showResumedErrors) void form.trigger();
-  }, [form, showResumedErrors]);
+  const showResumedErrors = useEffectEvent(() => {
+    if (resumed) void form.trigger();
+  });
+  useEffect(() => showResumedErrors(), []);
 
   // Every value change and step change is reported with the whole position.
-  const report = useEffectEvent(() =>
-    onProgress?.({
-      values: form.getValues(),
-      step: stepKey,
-      visited: [...visited],
-    }),
-  );
+  const progress = (step: SetupStepKey, seen: ReadonlySet<SetupStepKey>) =>
+    onProgress?.({ values: form.getValues(), step, visited: [...seen] });
+  const reportValues = useEffectEvent(() => progress(stepKey, visited));
   useEffect(() => {
-    const subscription = form.watch(() => report());
+    const subscription = form.watch(() => reportValues());
     return () => subscription.unsubscribe();
   }, [form]);
-  const reported = useRef({ stepKey, visited });
-  useEffect(() => {
-    const last = reported.current;
-    if (last.stepKey === stepKey && last.visited === visited) return;
-    reported.current = { stepKey, visited };
-    report();
-  }, [stepKey, visited]);
 
   function open(key: SetupStepKey, focus: FocusTarget | null) {
+    const seen = visited.has(key) ? visited : new Set([...visited, key]);
     setStepKey(key);
-    setVisited((seen) => (seen.has(key) ? seen : new Set([...seen, key])));
+    setVisited(seen);
     setFocusRequest(focus);
+    if (key !== stepKey || seen !== visited) progress(key, seen);
   }
   // The heading that names a newly opened step in this layout.
   const stepTitle = (key: SetupStepKey) =>
@@ -292,7 +281,6 @@ export function useGuidedSetup({
         )
       : [],
     pending: form.formState.isSubmitting || starting,
-    addCharacter,
     submitError,
     preview: (key: SetupStepKey) => setupStepPreview(key, values, characters),
     /** Choose a step from the index or a row header; focus stays there. */

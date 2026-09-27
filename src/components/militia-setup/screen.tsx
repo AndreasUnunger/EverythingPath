@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import type { Id } from '@convex/_generated/dataModel';
 import { AddCharacterDialog } from '~/components/character-manager/add-character-dialog';
 import type { SetupStorage } from '~/lib/setup-envelope';
@@ -15,6 +16,7 @@ function SetupSession(
   props: SetupSessionScope & { storage?: SetupStorage | null },
 ) {
   const session = useSetupSession(props);
+  const [addingCharacter, setAddingCharacter] = useState(false);
   switch (session.kind) {
     case 'loading':
       return <SetupSkeleton />;
@@ -40,12 +42,14 @@ function SetupSession(
           ) : null}
           <GuidedMilitiaSetup
             {...session.guided}
-            addCharacter={
-              <AddCharacterDialog
-                campaignId={props.campaignId}
-                organizationId={props.organizationId}
-              />
-            }
+            onAddCharacter={() => setAddingCharacter(true)}
+          />
+          {/* Outside the step layouts, so its values survive any change. */}
+          <AddCharacterDialog
+            campaignId={props.campaignId}
+            organizationId={props.organizationId}
+            open={addingCharacter}
+            onOpenChange={setAddingCharacter}
           />
         </>
       );
