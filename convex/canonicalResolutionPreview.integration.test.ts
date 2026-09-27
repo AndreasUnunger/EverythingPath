@@ -38,7 +38,15 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
   if (!output || !('output' in output)) throw Error('Expected bundle');
   const script = output.output.find((entry) => entry.type === 'chunk');
   if (script?.type !== 'chunk') throw Error('Expected JavaScript');
-  for (const kind of ['low_morale', 'theft', 'rivalry'] as const) {
+  for (const [kind, totalForm] of (
+    ['low_morale', 'theft', 'rivalry'] as const
+  ).flatMap(
+    (kind) =>
+      [
+        [kind, false],
+        [kind, true],
+      ] as const,
+  )) {
     const { draft, snapshot } = persistentEventFixture(kind);
     snapshot.training = 15;
     if (kind === 'low_morale') {
@@ -77,6 +85,32 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
         reason: 'Three copper found at the table',
       },
     ];
+    const legacyPreview = projectWeeklyDraft({
+      revision: draft,
+      militiaSnapshot: snapshot,
+    });
+    if (totalForm) {
+      draft.upkeep.rolls.check = {
+        diceTotal: 19,
+        diceCount: 1,
+        sides: 20,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      };
+      const drill = draft.activity.slots[0]?.choice;
+      if (kind === 'low_morale' && drill?.actionId === 'drill_militia') {
+        drill.rolls = {
+          ...drill.rolls,
+          training: {
+            diceTotal: 7,
+            diceCount: 2,
+            sides: 6,
+            provenance: { kind: 'table' },
+            modifiers: [],
+          },
+        };
+      }
+    }
     const t = convexTest(schema, modules);
     const scope = await t.run(async (ctx) => {
       await ctx.db.insert('user', {
@@ -115,6 +149,13 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
     );
     expect(browser, kind).toEqual(server);
     expect(server.status, kind).toBe('ready');
+    expect(server.outcome, `${kind} preserves legacy outcomes`).toEqual(
+      legacyPreview.outcome,
+    );
+    expect(server.requirements).toEqual(legacyPreview.requirements);
+    expect(server.warnings).toEqual(legacyPreview.warnings);
+    if (totalForm) expect(server.sourceKey).not.toBe(legacyPreview.sourceKey);
+
     expect(server.outcome?.militiaSnapshot.treasuryCopper).toBe(
       kind === 'low_morale' ? 21003 : 24003,
     );
@@ -143,6 +184,7 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
       JSON.parse(JSON.stringify(server.outcome)),
     );
     expect(record.sourceMilitiaSnapshot).toEqual(snapshot);
+    expect(record.source).toEqual(draft);
     expect(record.adjudication.tableAdjustments[0]?.reason).toBe(
       'Three copper found at the table',
     );

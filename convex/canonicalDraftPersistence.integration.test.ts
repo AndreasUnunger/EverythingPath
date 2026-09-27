@@ -805,3 +805,209 @@ test('combined contract setup starts a fresh case and rolls back an invalid init
     }),
   ).toEqual(inspection);
 });
+
+test('mixed roll forms survive public stale replay and retain exact operation identity', async () => {
+  const { key, member, send, operation } = await setup();
+  const legacy = {
+    dice: [12],
+    sides: 20,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  };
+  const total = {
+    diceTotal: 7,
+    diceCount: 2,
+    sides: 6,
+    provenance: { kind: 'table' as const },
+    modifiers: [{ sourceId: 'weather', value: -2, reason: 'Rain' }],
+  };
+  const choice = {
+    choiceId: 'mixed',
+    actionId: 'earn_gold' as const,
+    rolls: { check: legacy },
+  };
+  await send(
+    operation(0, 'mixed-stage', { kind: 'stage', slotId: 'left', choice }),
+  );
+  await send(
+    operation(1, 'mixed-cost', {
+      kind: 'detail',
+      slotId: 'left',
+      choiceId: choice.choiceId,
+      choice: { ...choice, costCopper: 10 },
+    }),
+  );
+  const request = operation(1, 'mixed-total', {
+    kind: 'detail',
+    slotId: 'left',
+    choiceId: choice.choiceId,
+    choice: { ...choice, rolls: { ...choice.rolls, reward: total } },
+  });
+  const receipt = await send(request);
+  expect(receipt.acceptedRevision).toBe(3);
+  expect((await send(request)).acceptedRevision).toBe(3);
+  const accepted = await member.query(observe, key);
+  expect(accepted.draft?.activity.slots[0]?.choice).toEqual({
+    ...choice,
+    costCopper: 10,
+    rolls: { check: legacy, reward: total },
+  });
+  await expect(
+    send({
+      ...request,
+      edit: {
+        ...request.edit,
+        kind: 'detail',
+        slotId: 'left',
+        choiceId: choice.choiceId,
+        choice: {
+          ...choice,
+          rolls: {
+            check: legacy,
+            reward: {
+              dice: [3, 4],
+              sides: 6,
+              provenance: total.provenance,
+              modifiers: total.modifiers,
+            },
+          },
+        },
+      },
+    }),
+  ).rejects.toThrow('Operation identity');
+  await send(
+    operation(0, 'from-initial', {
+      kind: 'event_chance',
+      roll: {
+        diceTotal: 100,
+        diceCount: 1,
+        sides: 100,
+        provenance: { kind: 'table' },
+        modifiers: [],
+      },
+    }),
+  );
+  const merged = await member.query(observe, key);
+  expect(merged.revision).toBe(4);
+  expect(merged.draft?.activity).toEqual(accepted.draft?.activity);
+  expect(merged.draft?.event.chanceRoll).toMatchObject({
+    diceTotal: 100,
+    diceCount: 1,
+  });
+  expect(await member.query(observe, key)).toEqual(merged);
+  await send(
+    operation(3, 'from-accepted-total', {
+      kind: 'detail',
+      slotId: 'left',
+      choiceId: choice.choiceId,
+      choice: {
+        ...choice,
+        costCopper: 20,
+        rolls: { check: legacy, reward: total },
+      },
+    }),
+  );
+  const replayed = await member.query(observe, key);
+  expect(replayed.revision).toBe(5);
+  expect(replayed.draft?.event).toEqual(merged.draft?.event);
+  expect(replayed.draft?.activity.slots[0]?.choice).toEqual({
+    ...choice,
+    costCopper: 20,
+    rolls: { check: legacy, reward: total },
+  });
+});
+
+test('public nested roll validation rejects malformed totals atomically without relaxing campaign authority', async () => {
+  const { t, key, member, operation } = await setup();
+  const total = {
+    diceTotal: 0,
+    diceCount: 1,
+    sides: 20,
+    provenance: { kind: 'generated' as const, sourceId: 'dice-service' },
+    modifiers: [{ sourceId: 'weather', value: -1, reason: 'Rain' }],
+  };
+  const before = await member.query(observe, key);
+  const malformed = [
+    { ...total, dice: [0] },
+    { sides: 20, provenance: total.provenance, modifiers: [], diceTotal: 0 },
+    { sides: 20, provenance: total.provenance, modifiers: [], diceCount: 1 },
+    { ...total, diceTotal: -1 },
+    { ...total, diceTotal: 0.5 },
+    { ...total, diceTotal: Number.MAX_SAFE_INTEGER + 1 },
+    { ...total, diceTotal: Number.NaN },
+    { ...total, diceTotal: Infinity },
+    { ...total, diceCount: 0 },
+    { ...total, diceCount: -1 },
+    { ...total, diceCount: 1.5 },
+    { ...total, diceCount: Number.MAX_SAFE_INTEGER + 1 },
+    { ...total, diceCount: Infinity },
+    { ...total, provenance: { ...total.provenance, extra: true } },
+    { ...total, modifiers: [{ ...total.modifiers[0], extra: true }] },
+    { ...total, extra: true },
+  ];
+  for (const [index, roll] of malformed.entries()) {
+    await expect(
+      Reflect.apply(member.mutation, member, [
+        edit,
+        {
+          campaignId: key.campaignId,
+          militiaId: key.militiaId,
+          operation: {
+            draftId: key.draftId,
+            operationId: `bad-total-${index}`,
+            baseRevision: 0,
+            edit: {
+              kind: 'event_tree',
+              occurrences: [
+                {
+                  eventId: 'nested',
+                  origin: { kind: 'rolled' },
+                  eventType: 'theft',
+                  sabotage: { choiceId: 'defend', rolls: { check: roll } },
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    ).rejects.toThrow();
+    expect(await member.query(observe, key)).toEqual(before);
+  }
+  const valid = operation(0, 'zero-total', {
+    kind: 'upkeep_roll',
+    field: 'check',
+    roll: total,
+  });
+  const args = {
+    campaignId: key.campaignId,
+    militiaId: key.militiaId,
+    operation: valid,
+  };
+  await expect(t.mutation(edit, args)).rejects.toThrow('Campaign access');
+  await expect(
+    t.withIdentity({ tokenIdentifier: 'outsider' }).mutation(edit, args),
+  ).rejects.toThrow('Campaign access');
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalDraftOperation').take(1)),
+  ).toEqual([]);
+  await member.mutation(edit, args);
+  expect((await member.query(observe, key)).draft?.upkeep.rolls.check).toEqual(
+    total,
+  );
+  await expect(
+    member.mutation(edit, {
+      ...args,
+      operation: operation(1, 'foreign-total', {
+        kind: 'stage',
+        slotId: 'left',
+        choice: {
+          choiceId: 'foreign',
+          actionId: 'rescue_character',
+          characterId: 'foreign-character',
+          rolls: { check: total },
+        },
+      }),
+    }),
+  ).rejects.toThrow('Invalid draft entity reference');
+  expect((await member.query(observe, key)).revision).toBe(1);
+});

@@ -1,3 +1,4 @@
+import { normalizeRawRoll } from './raw-roll';
 import { operatedSettlementIds } from './rules-event-context';
 import { projectSettlements } from './rules-settlements';
 import type { ActivityProjection } from './rules-activity';
@@ -65,13 +66,13 @@ function readEventDie(
   id: string,
   sides: number,
 ) {
-  if (raw?.sides !== sides || raw.dice.length !== 1) {
+  const normalized = normalizeRawRoll(raw, { count: 1, sides });
+  if (normalized.status !== 'complete') {
     result.requirements.push(`${id}:1d${sides}`);
     return null;
   }
-  const value = raw.dice[0]!;
-  if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
-  return value;
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
 // The operating settlement's reputation never touches the table roll; it
 // modifies the chance roll (see selectChanceEvent).

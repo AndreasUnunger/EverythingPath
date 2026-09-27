@@ -1,3 +1,4 @@
+import { normalizeRawRoll } from './raw-roll';
 import type { EventBenefits } from './rules-event-benefits';
 import type { CharacterActionState } from './rules-character-state';
 import { projectTreasuryIncome } from './rules-treasury';
@@ -121,17 +122,17 @@ function dice(
   id: string,
   result: UpkeepProjection,
 ) {
-  if (!raw) {
+  const normalized = normalizeRawRoll(raw, { count, sides });
+  if (normalized.status === 'missing') {
     result.requirements.push(`${id}:roll`);
     return null;
   }
-  if (raw.sides !== sides || raw.dice.length !== count) {
+  if (normalized.status !== 'complete') {
     result.requirements.push(`${id}:dice:${count}d${sides}`);
     return null;
   }
-  if (raw.dice.some((value) => value < 1 || value > sides))
-    result.warnings.push(`${id}:roll-range`);
-  return raw.dice.reduce((sum, value) => sum + value, 0);
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
 function check(
   draft: WeeklyDraft,
@@ -245,7 +246,9 @@ function attrition(
     result,
   );
   if (total === null) return;
-  const naturalTwenty = draft.upkeep.rolls.check?.dice[0] === 20;
+  const naturalTwenty =
+    normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
+      .naturalValue === 20;
   const success = naturalTwenty || total >= 10;
   const loss = dice(
     draft.upkeep.rolls.training,
@@ -434,7 +437,9 @@ function missingTeam(
     'security',
   );
   if (total === null) return;
-  if (decision?.roll?.dice[0] === 1) {
+  if (
+    normalizeRawRoll(decision?.roll, { count: 1, sides: 20 }).naturalValue === 1
+  ) {
     removeTeam(result, teamId);
   } else if (total >= 15) {
     result.plan.push({
@@ -652,7 +657,9 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     });
     if (attritionCheck?.total !== null && attritionCheck?.total !== undefined) {
       const success =
-        attritionCheck.total >= 10 || draft.upkeep.rolls.check?.dice[0] === 20;
+        attritionCheck.total >= 10 ||
+        normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
+          .naturalValue === 20;
       fields.push({
         field: 'training',
         count: success ? 1 : 2,

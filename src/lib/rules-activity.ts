@@ -1,3 +1,4 @@
+import { normalizeRawRoll } from './raw-roll';
 import { recruitedTeamId } from './weekly-draft-identities';
 import {
   resolveEventAction,
@@ -89,13 +90,14 @@ function dice(
   sides: number,
 ) {
   const raw = choice.rolls?.[key];
-  if (raw?.sides !== sides || raw.dice.length !== count) {
+  const normalized = normalizeRawRoll(raw, { count, sides });
+  if (normalized.status !== 'complete') {
     result.requirements.push(`${choice.choiceId}:${key}:${count}d${sides}`);
     return null;
   }
-  if (raw.dice.some((value) => value < 1 || value > sides))
+  if (normalized.rangeWarning)
     result.warnings.push(`${choice.choiceId}:${key}:roll-range`);
-  return raw.dice.reduce((sum, value) => sum + value, 0);
+  return normalized.diceTotal;
 }
 function check(
   draft: WeeklyDraft,
@@ -319,7 +321,11 @@ function spend(
   return true;
 }
 function naturalOne(result: ActivityProjection, choice: Choice) {
-  if (choice.rolls?.check?.dice[0] !== 1) return;
+  if (
+    normalizeRawRoll(choice.rolls?.check, { count: 1, sides: 20 })
+      .naturalValue !== 1
+  )
+    return;
   const gain = dice(result, choice, 'notoriety', 1, 6);
   if (gain !== null) value(result, choice, 'notoriety', gain);
 }

@@ -1,3 +1,4 @@
+import { normalizeRawRoll } from './raw-roll';
 import { eventOverseerSelection } from './rules-overseer-event';
 import {
   projectActivity,
@@ -57,13 +58,13 @@ function readSabotageDie(
   id: string,
   sides: number,
 ) {
-  if (raw?.sides !== sides || raw.dice.length !== 1) {
+  const normalized = normalizeRawRoll(raw, { count: 1, sides });
+  if (normalized.status !== 'complete') {
     result.requirements.push(`${id}:1d${sides}`);
     return null;
   }
-  const value = raw.dice[0]!;
-  if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
-  return value;
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
 function requireSabotageException(
   { draft, result }: ShapingContext,

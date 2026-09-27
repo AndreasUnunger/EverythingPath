@@ -83,6 +83,97 @@ export async function runConfirmationContract(
     }
   }
   await scenario(async (h, edit) => {
+    const legacy = {
+      dice: [3],
+      sides: 6,
+      provenance: { kind: 'table' as const },
+      modifiers: [],
+    };
+    await edit({ kind: 'upkeep_roll', field: 'training', roll: legacy });
+    await edit(chance);
+    const oldReview = await h.first.preview();
+    check(oldReview.status === 'ready', 'Legacy first-week source is ready');
+    const total = {
+      diceTotal: 100,
+      diceCount: 1,
+      sides: 100,
+      provenance: { kind: 'table' as const },
+      modifiers: [],
+    };
+    await edit({ kind: 'event_chance', roll: total });
+    const before = await h.inspect();
+    await rejected(
+      h.second.confirm({
+        operationId: 'old-roll-format',
+        reviewed: oldReview.reviewed,
+      }),
+      'Equivalent numeric outcome cannot authorize a changed raw source',
+    );
+    equal(
+      await h.inspect(),
+      before,
+      'Rejected stale review does not mutate history or successor',
+    );
+    const review = await h.second.preview();
+    check(review.status === 'ready', 'Mixed raw source is ready');
+    check(
+      review.reviewed.sourceKey !== oldReview.reviewed.sourceKey,
+      'Reviewed source identity includes the roll representation',
+    );
+    equal(
+      review.outcome,
+      oldReview.outcome,
+      'Legacy and total outcomes remain equivalent',
+    );
+    const accepted = await h.first.read();
+    check(accepted.draft, 'Reviewed mixed draft exists');
+    check(chance.kind === 'event_chance', 'Legacy fixture is an Event chance');
+    check(
+      weeklySourceKey(accepted.draft) !==
+        weeklySourceKey({
+          ...accepted.draft,
+          event: { ...accepted.draft.event, chanceRoll: chance.roll },
+        }),
+      'Same-revision fingerprint distinguishes raw representations',
+    );
+
+    const operation = {
+      operationId: 'mixed-raw-week',
+      reviewed: review.reviewed,
+    };
+    const receipt = await h.first.confirm(operation);
+    equal(
+      receipt.record.source,
+      accepted.draft,
+      'Confirmation retains exact reviewed mixed source',
+    );
+    equal(
+      receipt.record.source.event.chanceRoll,
+      total,
+      'Receipt retains total form',
+    );
+    equal(
+      receipt.record.source.upkeep.rolls.training,
+      legacy,
+      'Receipt retains legacy form',
+    );
+    equal(
+      await h.second.confirm(operation),
+      receipt,
+      'Mixed Confirmation receipt retries exactly',
+    );
+    const state = await h.inspect();
+    check(
+      state.records.length === 1 && state.openDrafts.length === 1,
+      'Mixed Confirmation commits once',
+    );
+    check(
+      receipt.successor.event.chanceRoll === undefined &&
+        receipt.successor.upkeep.rolls.training === undefined,
+      'Successor does not inherit either recorded raw form',
+    );
+  });
+  await scenario(async (h, edit) => {
     await edit(chance);
     const review = await h.first.preview();
     check(review.status === 'ready', 'accepted source is ready');

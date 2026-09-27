@@ -1,3 +1,5 @@
+import type { RawRoll } from '../../src/lib/weekly-draft-facts';
+import { weeklySourceKey } from '../../src/lib/canonical-weekly-source';
 import type {
   DraftTransport,
   DraftOperation,
@@ -23,6 +25,10 @@ const roll = (value: number) => ({
 });
 function check(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
+}
+function firstLegacyDie(raw: RawRoll | undefined) {
+  check(raw && 'dice' in raw, 'Legacy writes retain individual dice');
+  return raw.dice[0];
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -85,6 +91,97 @@ export async function runPersistenceContract(
       await harness.dispose();
     }
   }
+  await scenario(async ({ first, second }, op) => {
+    const legacy = { ...roll(12), sides: 20 };
+    await first.send(
+      op(0, {
+        kind: 'stage',
+        slotId: 'left',
+        choice: {
+          choiceId: 'mixed',
+          actionId: 'earn_gold',
+          rolls: { check: legacy },
+        },
+      }),
+    );
+    const total = {
+      diceTotal: 100,
+      diceCount: 1,
+      sides: 100,
+      provenance: { kind: 'generated' as const, sourceId: 'table-dice' },
+      modifiers: [{ sourceId: 'weather', value: -2, reason: 'Rain' }],
+    };
+    const sent: DraftOperation[] = [];
+    const adapter = createDraftPersistence({
+      ...first,
+      async send(operation) {
+        sent.push(structuredClone(operation));
+        const receipt = await first.send(operation);
+        if (sent.length === 1)
+          throw new DraftTransportFailure('Acknowledgement dropped');
+        return receipt;
+      },
+    });
+    try {
+      await adapter.ready;
+      check(
+        (await adapter.edit({ kind: 'event_chance', roll: total })) ===
+          'accepted',
+        'Total-form dropped acknowledgement recovers',
+      );
+      check(
+        sent.length === 2 &&
+          weeklySourceKey(sent[0]) === weeklySourceKey(sent[1]),
+        'Total retry keeps exact identity and payload',
+      );
+      const accepted = await second.read();
+      check(accepted.revision === 2, 'Mixed writes advance exactly once each');
+      check(
+        weeklySourceKey(accepted.draft?.event.chanceRoll) ===
+          weeklySourceKey(total),
+        'Other player reads original total metadata',
+      );
+      check(
+        weeklySourceKey(
+          accepted.draft?.activity.slots[0]?.choice?.rolls?.check,
+        ) === weeklySourceKey(legacy),
+        'Other player retains the original individual dice',
+      );
+      const reloaded = createDraftPersistence(second);
+      try {
+        await reloaded.ready;
+        check(
+          weeklySourceKey(reloaded.getSnapshot().observation?.draft) ===
+            weeklySourceKey(accepted.draft),
+          'Reload preserves both representations without a write',
+        );
+      } finally {
+        reloaded.dispose();
+      }
+      check(
+        (await first.read()).revision === 2,
+        'Reading mixed forms does not advance revision',
+      );
+      check(
+        (await adapter.edit({ kind: 'event_chance', roll: null })) ===
+          'accepted',
+        'Existing clear accepts a total-form field',
+      );
+      const cleared = await second.read();
+      check(
+        cleared.draft?.event.chanceRoll === undefined,
+        'Clear deletes the total instead of inventing zero or dice',
+      );
+      check(
+        weeklySourceKey(
+          cleared.draft?.activity.slots[0]?.choice?.rolls?.check,
+        ) === weeklySourceKey(legacy),
+        'Clearing total preserves unrelated legacy roll',
+      );
+    } finally {
+      adapter.dispose();
+    }
+  });
   await scenario(async ({ first, second, close }, op) => {
     const watcher = observationAt(second, 2);
     try {
@@ -175,7 +272,7 @@ export async function runPersistenceContract(
     );
     const result = (await first.read()).draft?.activity.slots[0]?.choice;
     check(
-      result?.costCopper === 12 && result.rolls?.check?.dice[0] === 10,
+      result?.costCopper === 12 && firstLegacyDie(result.rolls?.check) === 10,
       'Disjoint detail fields merge without dropping accepted changes',
     );
     const before = await first.read();
@@ -311,7 +408,7 @@ export async function runPersistenceContract(
       );
       check(
         acknowledgements.join(',') === '1,2' &&
-          (await first.read()).draft?.event.chanceRoll?.dice[0] === 25,
+          firstLegacyDie((await first.read()).draft?.event.chanceRoll) === 25,
         'Acknowledgements and final outcome follow submission order',
       );
       const remote = await second.send(
@@ -363,7 +460,7 @@ export async function runPersistenceContract(
       );
       check(
         adapter.getSnapshot().observation?.revision === 2 &&
-          (await first.read()).draft?.event.chanceRoll?.dice[0] === 35,
+          firstLegacyDie((await first.read()).draft?.event.chanceRoll) === 35,
         'Old acknowledgement must not regress remote observation',
       );
       check(
@@ -407,7 +504,8 @@ export async function runPersistenceContract(
     const accepted = await second.read();
     check(
       accepted.revision === 2 &&
-        accepted.draft?.event.occurrences[0]?.persistentDecision?.kind === 'buyoff',
+        accepted.draft?.event.occurrences[0]?.persistentDecision?.kind ===
+          'buyoff',
       'Both players retain the accepted buyoff without a second revision',
     );
   });
@@ -775,8 +873,8 @@ export async function runPersistenceContract(
     );
     let current = await first.read();
     check(
-      current.draft?.upkeep.rolls.check?.dice[0] === 0 &&
-        current.draft.upkeep.rolls.training?.dice[0] === 3,
+      firstLegacyDie(current.draft?.upkeep.rolls.check) === 0 &&
+        firstLegacyDie(current.draft?.upkeep.rolls.training) === 3,
       'Disjoint focused Upkeep rolls coexist and zero remains entered',
     );
     await rejects(
@@ -789,7 +887,7 @@ export async function runPersistenceContract(
     current = await second.read();
     check(
       current.draft?.upkeep.rolls.check === undefined &&
-        current.draft?.upkeep.rolls.training?.dice[0] === 3,
+        firstLegacyDie(current.draft?.upkeep.rolls.training) === 3,
       'Explicit clear removes only its roll',
     );
   });
@@ -819,8 +917,8 @@ export async function runPersistenceContract(
     );
     const observed = await first.read();
     check(
-      observed.draft?.event.occurrences[0]?.tableRoll?.dice[0] === 50 &&
-        observed.draft.event.occurrences[1]?.tableRoll?.dice[0] === 45,
+      firstLegacyDie(observed.draft?.event.occurrences[0]?.tableRoll) === 50 &&
+        firstLegacyDie(observed.draft?.event.occurrences[1]?.tableRoll) === 45,
       'Disjoint stale occurrence inputs coexist',
     );
     await rejects(
@@ -866,7 +964,7 @@ export async function runPersistenceContract(
     const choice = (await second.read()).draft?.activity.slots[0]?.choice;
     check(
       choice?.actionId === 'guarantee_event' &&
-        choice.candidates?.[0]?.tableRoll?.dice[0] === 45,
+        firstLegacyDie(choice.candidates?.[0]?.tableRoll) === 45,
       'Occurrence edits retain Activity ownership',
     );
     await rejects(

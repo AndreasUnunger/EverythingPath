@@ -42,20 +42,26 @@ export function normalizeRawRoll(
     'dice' in raw
       ? raw.dice.reduce((sum, value) => sum + value, 0)
       : raw.diceTotal;
-  const rangeWarning =
-    'dice' in raw
-      ? raw.dice.some((value) => value < 1 || value > expected.sides)
-        ? 'legacy-die'
-        : null
-      : diceTotal < expected.count ||
-          diceTotal > expected.count * expected.sides
-        ? 'total'
-        : null;
   return {
     ...expected,
     status: 'complete',
     diceTotal,
     naturalValue: expected.count === 1 ? diceTotal : null,
-    rangeWarning,
+    rangeWarning: rollRangeWarning(raw, expected, diceTotal),
   };
+}
+
+function rollRangeWarning(
+  raw: RawRoll,
+  expected: RollSpec,
+  diceTotal: number,
+): NormalizedRoll['rangeWarning'] {
+  if ('dice' in raw)
+    return raw.dice.some((value) => value < 1 || value > expected.sides)
+      ? 'legacy-die'
+      : null;
+  return diceTotal < expected.count ||
+    diceTotal > expected.count * expected.sides
+    ? 'total'
+    : null;
 }
