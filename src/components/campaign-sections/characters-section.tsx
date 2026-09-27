@@ -16,7 +16,8 @@ export function CharactersSection({
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">
-        Officer roles, roster people and team managers are corrected on{' '}
+        Officer roles and roster people are corrected under People &amp;
+        officers, and team managers under Teams, on{' '}
         <GuardedLink
           href={campaignPath(campaignId, 'militia')}
           className="text-primary underline underline-offset-4"

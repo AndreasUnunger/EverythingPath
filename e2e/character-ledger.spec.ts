@@ -30,8 +30,9 @@ test('players share character and officer assignment changes', async ({
     players.gm.getByRole('row').filter({ hasText: 'Nara' }),
   ).toContainText('CHA 16');
   await openCampaignSection(player, 'militia');
+  await player.getByRole('button', { name: /^People & officers/ }).click();
   await player
-    .getByRole('button', { name: 'Edit militia ledger', exact: true })
+    .getByRole('button', { name: 'Correct people & officers', exact: true })
     .click();
   const officers = player
     .getByRole('heading', { name: 'Characters and officers', exact: true })
@@ -50,8 +51,14 @@ test('players share character and officer assignment changes', async ({
   await openCampaignSection(players.gm, 'militia');
   await players.gm.reload();
   await expect(players.gm).toHaveURL(/\/campaigns\/[^/]+\/militia$/);
+  await players.gm.getByRole('button', { name: /^People & officers/ }).click();
+  await expect(
+    players.gm.getByRole('listitem').filter({
+      has: players.gm.getByRole('heading', { name: 'Nara', exact: true }),
+    }),
+  ).toContainText('Marshal');
   await players.gm
-    .getByRole('button', { name: 'Edit militia ledger', exact: true })
+    .getByRole('button', { name: 'Correct people & officers', exact: true })
     .click();
   await expect(
     players.gm.getByRole('button', { name: 'marshal', exact: true }),

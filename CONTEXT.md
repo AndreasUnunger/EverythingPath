@@ -52,6 +52,9 @@ A manually authored Resolution Record for a past week that has no record. Its pr
 **Historical Correction**:
 A change to a past week that already has a Resolution Record. It is prepared outside the closed Weekly Draft, recalculates that week and every later week, and appends superseding Resolution Records rather than changing existing records.
 
+**Militia Correction**:
+A reasoned change to the militia's current recorded facts outside Weekly Resolution. It preserves the current week and its prepared choices; choices it affects must be reviewed before Confirmation. It corrects one section of the militia at a time and never changes a finished week, unlike a Historical Correction, which rewrites a finished week.
+
 **History Rewrite**:
 The complete proposed result of a Historical Reconstruction or Historical Correction, including recalculated later weeks and current militia state. It becomes authoritative only through one explicit confirmation that publishes the whole rewrite atomically; an incomplete rewrite never changes shared campaign state.
 A campaign can have at most one open History Rewrite. It is shared and editable by all players. Recalculation proceeds in week order and pauses at the first rules conflict so the conflict can be resolved before later weeks are recalculated.
