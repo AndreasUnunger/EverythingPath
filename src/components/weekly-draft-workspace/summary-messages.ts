@@ -1,5 +1,6 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
+import { phaseLabels } from './week-frame/labels';
 type Summary = Pick<
   Extract<PhaseView, { phase: 'summary' }>,
   'adjustments' | 'options'
@@ -25,10 +26,10 @@ const messages: Record<string, string> = {
   'removal-exception':
     'A staged Remove choice is no longer offered in Upkeep. Clear it in Upkeep, or remove the team in Militia corrections.',
   'persistent-ending': 'Ending this event requires a reasoned Rules Exception.',
+  'ending-acknowledgement': 'Record how this event ended at the table.',
+  teams: 'This Rivalry needs its two distinct rival teams.',
   'buyoff-cooldown':
     'This buyoff falls within the militia’s four-week waiting period.',
-  'buyoff-cost-recomputed':
-    'The recorded amount differs from the calculated buyoff cost.',
   'officer-assignment':
     'Choose an assigned officer or record a reasoned Rules Exception.',
   'team-type': 'Choose the type of team to recruit.',
@@ -104,7 +105,23 @@ function requiredRoll(code: string) {
     : `Enter the required roll (${match[2]}).`;
 }
 
+// Persistent's single "earlier phases" item names those phases in order.
+function earlierPhasesMessage(code: string) {
+  const match = /^persistent:earlier-phases:(.+)$/.exec(code);
+  if (!match) return null;
+  const names = match[1]!
+    .split('+')
+    .flatMap((phase) =>
+      phase in phaseLabels
+        ? [phaseLabels[phase as keyof typeof phaseLabels]]
+        : [],
+    );
+  return `Earlier phases still need preparation: ${names.join(', ')}.`;
+}
+
 export function summaryMessage(code: string, view: Summary, warning = false) {
+  const earlier = earlierPhasesMessage(code);
+  if (earlier) return earlier;
   const adjustment = adjustmentMessage(code, view);
   if (adjustment) return adjustment;
   const owner = messageOwner(code, view);

@@ -14,6 +14,7 @@ import {
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { actionTeamTypes } from '~/lib/rules-action-teams';
 import { cn } from '~/lib/utils';
+import { activitySlotAnchor } from './source-anchors';
 import type { ActivityView } from './types';
 import type { ActivityBoard } from './use-activity-board';
 
@@ -156,6 +157,8 @@ function SlotCard({
   return (
     <div
       role="group"
+      id={activitySlotAnchor(slot.slotId)}
+      tabIndex={-1}
       aria-label={`Action Slot ${slot.number}`}
       className="relative flex min-w-0 md:min-w-32 md:flex-1"
     >

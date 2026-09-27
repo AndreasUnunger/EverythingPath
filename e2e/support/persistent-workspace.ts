@@ -10,6 +10,12 @@ const event = (page: Page, name: string) =>
   page.getByRole('group', { name, exact: true });
 const button = (group: Locator, name: string) =>
   group.getByRole('button', { name, exact: true });
+const editor = (page: Page) => page.locator('[data-week-editor]');
+// The rules cost for this fixture's rank: 2 × the 20 gp minimum treasury.
+const BUY_OFF = 'Buy off · 40 gp';
+const BUYOFF_STAGED = 'Ends · buyoff 40 gp';
+const reason = (group: Locator) =>
+  group.getByRole('textbox', { name: 'Rules Exception reason', exact: true });
 
 export async function exercisePersistentWorkspace(
   gm: Page,
@@ -25,61 +31,60 @@ export async function exercisePersistentWorkspace(
   await expect(recent(player)).toBeVisible();
   await expect(rivalry(player)).toContainText('Scouts');
   await expect(rivalry(player)).toContainText('Rangers');
-  await expect(
-    gm
-      .locator('[data-week-editor]')
-      .getByText('First buyoff is available immediately.', { exact: true }),
-  ).toBeVisible();
-  await button(old(gm), 'Buy off event').click();
-  await expect(old(player)).toContainText('Buyoff staged: 4000 cp.');
-  await expect(
-    gm
-      .locator('[data-week-editor]')
-      .getByText('Next buyoff: week 8.', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    recent(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),
-  ).toHaveCount(0);
-  await button(recent(player), 'Buy off event').click();
-  await expect(
-    recent(gm).getByRole('textbox', {
-      name: 'Persistent exception reason',
-      exact: true,
-    }),
-  ).toBeVisible();
-  await recent(gm)
-    .getByRole('textbox', { name: 'Persistent exception reason', exact: true })
-    .fill('The table permits both buyoffs this week.');
-  await button(recent(gm), 'Save persistent exception reason').click();
-  await expect(recent(player)).toContainText('Buyoff staged: 4000 cp.');
-  await button(recent(player), 'Clear decision').click();
-  await expect(
-    recent(gm).getByText('Buyoff staged: 4000 cp.', { exact: true }),
-  ).toHaveCount(0);
-  await button(old(gm), 'Clear decision').click();
-  await expect(
-    old(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),
-  ).toHaveCount(0);
+  await expect(editor(gm)).toContainText('First buyoff available now');
+  await expect(editor(gm)).toContainText('40 gp (2 × minimum treasury)');
+  // Removed controls stay removed: no Clear decision, no recorded amount.
+  await expect(button(old(gm), 'Clear decision')).toHaveCount(0);
+  await expect(old(gm).getByRole('textbox')).toHaveCount(0);
+  await button(old(gm), BUY_OFF).click();
+  await expect(button(old(gm), BUY_OFF)).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(old(player)).toContainText(BUYOFF_STAGED);
+  await expect(old(player)).toContainText(
+    'Buyoff cost 40 gp (2 × minimum treasury) · taken from the treasury at Confirmation',
+  );
+  await expect(editor(gm)).toContainText('Next buyoff week 8');
+  await expect(recent(player)).not.toContainText(BUYOFF_STAGED);
+  await button(recent(player), BUY_OFF).click();
+  await expect(recent(gm)).toContainText('Buyoff needs a Rules Exception');
+  await expect(reason(recent(gm))).toBeVisible();
+  await reason(recent(gm)).fill('The table permits both buyoffs this week.');
+  await button(recent(gm), 'Save reason').click();
+  await expect(recent(player)).toContainText(BUYOFF_STAGED);
+  // Leave it is the deliberate reset; the shared cooldown exception stays.
+  await button(recent(player), 'Leave it').click();
+  await expect(recent(gm)).not.toContainText(BUYOFF_STAGED);
+  await expect(button(recent(gm), 'Remove exception')).toBeVisible();
+  await button(recent(gm), 'Remove exception').click();
+  await expect(button(recent(player), 'Remove exception')).toHaveCount(0);
 
+  // Choosing Ended at the table is local until a nonempty outcome is saved:
+  // the other device keeps seeing the saved buyoff meanwhile.
+  await button(old(gm), 'Ended at the table').click();
+  await expect(old(gm).getByRole('status')).toContainText(
+    'Not saved yet. Buy off still applies until you save how it ended.',
+  );
+  await button(old(gm), 'Save how it ended').click();
+  await expect(old(gm)).toContainText('Describe how it ended.');
+  await expect(old(player)).toContainText(BUYOFF_STAGED);
   await old(gm)
-    .getByRole('textbox', { name: 'Ending outcome', exact: true })
+    .getByRole('textbox', { name: 'How it ended', exact: true })
     .fill('The table recovered the stolen goods.');
-  await button(old(gm), 'Save ending outcome').click();
-  await old(gm)
-    .getByRole('textbox', { name: 'Persistent exception reason', exact: true })
-    .fill('The thieves agreed to leave the militia alone.');
-  await button(old(gm), 'Save persistent exception reason').click();
-  await expect(old(player)).toContainText('Ending staged for Confirmation.');
-  await expect(
-    recent(player).getByText('Ending staged for Confirmation.', {
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await button(old(player), 'Clear decision').click();
-  await expect(
-    old(gm).getByText('Ending staged for Confirmation.', { exact: true }),
-  ).toHaveCount(0);
-  await button(old(gm), 'Attempt temporary mitigation').click();
+  // The ending asks for its Rules Exception reason in the same step.
+  await reason(old(gm)).fill('The thieves agreed to leave the militia alone.');
+  await button(old(gm), 'Save how it ended').click();
+  await expect(old(player)).toContainText('Ends · recorded at the table');
+  await expect(reason(old(player))).toHaveValue(
+    'The thieves agreed to leave the militia alone.',
+  );
+  await expect(recent(player)).not.toContainText(
+    'Ends · recorded at the table',
+  );
+  await button(old(player), 'Leave it').click();
+  await expect(old(gm)).not.toContainText('Ends · recorded at the table');
+  await button(old(gm), 'Loyalty check (this week only)').click();
   await button(old(gm), 'Add rolls').click();
   // The Theft Loyalty check is one 1d20 dice total: no dice list or sides.
   await expect(
@@ -121,15 +126,15 @@ export async function exercisePersistentWorkspace(
       'retains 90% of this week’s income.',
     );
     const held = network.hold();
-    await button(old(gm), 'Clear decision').click();
+    await button(old(gm), 'Leave it').click();
     await held;
     await expect(saveStatus(gm)).toHaveText('Saving changes…');
     await phase(gm, 'Event');
     await expect(
       player.getByRole('heading', { name: /· Persistent$/ }),
     ).toBeVisible();
-    await button(old(player), 'Buy off event').click();
-    await expect(old(observer)).toContainText('Buyoff staged: 4000 cp.');
+    await button(old(player), BUY_OFF).click();
+    await expect(old(observer)).toContainText(BUYOFF_STAGED);
     network.release();
     await expectSaveFailed(gm);
     await expect(gm.getByRole('heading', { name: /· Event$/ })).toBeVisible();
@@ -138,17 +143,17 @@ export async function exercisePersistentWorkspace(
     await observer.close();
   }
   await phase(gm, 'Persistent');
-  await expect(old(gm)).toContainText('Buyoff staged: 4000 cp.');
-  await button(old(gm), 'Clear decision').click();
-  await expect(
-    old(player).getByText('Buyoff staged: 4000 cp.', { exact: true }),
-  ).toHaveCount(0);
-  await button(old(player), 'Buy off event').click();
-  await expect(old(gm)).toContainText('Buyoff staged: 4000 cp.');
-  await button(recent(gm), 'Buy off event').click();
-  await expect(recent(player)).toContainText('Buyoff staged: 4000 cp.');
+  await expect(old(gm)).toContainText(BUYOFF_STAGED);
+  await button(old(gm), 'Leave it').click();
+  await expect(old(player)).not.toContainText(BUYOFF_STAGED);
+  await button(old(player), BUY_OFF).click();
+  await expect(old(gm)).toContainText(BUYOFF_STAGED);
+  await button(recent(gm), BUY_OFF).click();
+  await reason(recent(gm)).fill('The table permits both buyoffs this week.');
+  await button(recent(gm), 'Save reason').click();
+  await expect(recent(player)).toContainText(BUYOFF_STAGED);
 
-  await button(rivalry(player), 'Attempt officer ending').click();
+  await button(rivalry(player), 'Officer check to end it').click();
   await button(rivalry(player), 'Add officer check').click();
   await rivalry(player)
     .getByRole('group', { name: 'Character', exact: true })

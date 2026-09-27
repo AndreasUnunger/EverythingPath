@@ -16,14 +16,25 @@ export async function reviewPersistentWorkspace(
     name: 'Rivalry · Event 3',
     exact: true,
   });
-  await expect(theft).toContainText('Buyoff staged: 4000 cp.');
+  await expect(theft).toContainText('Ends · buyoff 40 gp');
   await expect(rivalry).toContainText('ends the event.');
   await expect(
     rivalry.getByRole('button', { name: 'Add rolls', exact: true }),
   ).toHaveCount(0);
+  // Only the applicable check card: Theft has no officer card, Rivalry no
+  // Loyalty card, and neither offers a recorded amount.
+  await expect(
+    theft.getByRole('button', { name: 'Officer check to end it', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    rivalry.getByRole('button', {
+      name: 'Loyalty check (this week only)',
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await theft
     .getByRole('button', {
-      name: 'Attempt temporary mitigation',
+      name: 'Loyalty check (this week only)',
       exact: true,
     })
     .click();
@@ -93,9 +104,9 @@ export async function reviewPersistentWorkspace(
   }
   // Discard the unsaved roll and restore the previously reviewed buyoff.
   await theft
-    .getByRole('button', { name: 'Buy off event', exact: true })
+    .getByRole('button', { name: 'Buy off · 40 gp', exact: true })
     .click();
-  await expect(theft).toContainText('Buyoff staged: 4000 cp.');
+  await expect(theft).toContainText('Ends · buyoff 40 gp');
   await page
     .getByRole('button', { name: 'Review & confirm', exact: true })
     .click();
@@ -103,7 +114,7 @@ export async function reviewPersistentWorkspace(
     page.getByRole('heading', { name: /· Review & confirm$/ }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Persistent', exact: true }).click();
-  await expect(theft).toContainText('Buyoff staged: 4000 cp.');
+  await expect(theft).toContainText('Ends · buyoff 40 gp');
   await expect(rivalry).toContainText('ends the event.');
   await page.setViewportSize({ width: 1194, height: 834 });
 }

@@ -342,19 +342,43 @@ export type EventView = {
   requirements: string[];
   warnings: string[];
 };
+// Where an Activity or Event result that ended a carried event is edited.
+// `anchor` is the DOM id of its slot or occurrence, when it can be found.
+export type PersistentSourceLink = {
+  phase: 'activity' | 'event';
+  anchor: string | null;
+};
 export type PersistentView = {
   phase: 'persistent';
   ready: boolean;
   firstBuyoff: boolean;
+  // "First buyoff available now", "Buyoff available now" or the week the
+  // four-week wait ends, from the week-start facts.
+  buyoffAvailability: string;
+  // Includes buyoffs staged this week; null only without a preview.
   nextBuyoffWeek: number | null;
+  // Null while earlier phases leave the rank open: never a guessed cost.
   buyoffCostCopper: number | null;
+  // Earlier phases whose open requirements hold Persistent back.
+  earlierPhases: Phase[];
   options: EventView['options'];
   events: (WeeklyDraft['context']['carriedEvents'][number] & {
     name: string;
+    // The event type's display name, e.g. "Low Morale".
+    typeLabel: string;
     ageWeeks: number;
+    // The recorded within-week order, e.g. "2nd that week".
+    orderLabel: string;
     targetNames: string[];
     decision: WeeklyDraft['persistent']['decisions'][number] | null;
     ended: boolean;
+    // Set when a resolved Activity or Event result ended this event: the
+    // section then offers no Persistent decision of its own.
+    endedBy: { label: string; link: PersistentSourceLink } | null;
+    result: { tone: 'ends' | 'stays' | 'attention'; text: string };
+    leaveNote: string;
+    // Theft's Loyalty check or Rivalry's officer check; null otherwise.
+    check: { label: string; note: string } | null;
     changes: PersistentChange[];
     checks: ActivityView['checks'];
     exceptions: WeeklyDraft['rulesExceptions'];

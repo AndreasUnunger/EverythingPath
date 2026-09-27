@@ -6,6 +6,7 @@ import { activityView } from './activity-facts';
 import { eventView } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
+import { liveWarnings } from './persistent-sections';
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -155,6 +156,6 @@ export function summaryView(
         }
       : null,
     requirements: preview.requirements,
-    warnings: preview.warnings,
+    warnings: liveWarnings(preview.warnings),
   };
 }
