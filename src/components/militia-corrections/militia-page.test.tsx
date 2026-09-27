@@ -447,10 +447,12 @@ describe('concurrent changes', () => {
 describe('temporary full editor', () => {
   test('an unsplit section opens the full editor, exclusive with section editing, and Cancel writes nothing', () => {
     mount();
-    fireEvent.click(entry(/^Items/));
-    fireEvent.click(screen.getByRole('button', { name: 'Correct items' }));
+    fireEvent.click(entry(/^Character conditions/));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Correct character conditions' }),
+    );
     expect(
-      screen.getByRole('heading', { name: 'Correct items' }),
+      screen.getByRole('heading', { name: 'Correct character conditions' }),
     ).toBeVisible();
     expect(
       screen.getByRole('heading', { name: 'Characters and officers' }),
@@ -462,7 +464,7 @@ describe('temporary full editor', () => {
       ),
     ).toBeVisible();
     for (const button of within(index()).getAllByRole('button'))
-      if (!(button.textContent ?? '').startsWith('Items'))
+      if (!(button.textContent ?? '').startsWith('Character conditions'))
         expect(button).toBeDisabled();
     fireEvent.click(screen.getByText('Cancel correction'));
     expect(entry(/^Values/)).toBeEnabled();

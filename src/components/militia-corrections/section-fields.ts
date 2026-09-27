@@ -8,7 +8,12 @@ import type { MilitiaSectionKey } from '~/lib/militia-correction-sections';
 // section still opens the temporary full editor until its replacement ships.
 
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
-export type FieldLabels = Record<string, { label: string; numeric?: boolean }>;
+export type FieldLabel = {
+  label: string;
+  numeric?: boolean;
+  decimal?: boolean;
+};
+export type FieldLabels = Record<string, FieldLabel>;
 
 const snapshotPath = 'state.militiaSnapshot';
 
@@ -16,17 +21,23 @@ function rowFields(
   path: string,
   count: number,
   row: (position: number) => string,
-  fields: Record<string, { label: string; numeric?: boolean }>,
+  fields: FieldLabels,
 ): FieldLabels {
   const labels: FieldLabels = {};
   for (let index = 0; index < count; index++)
-    for (const [field, { label, numeric }] of Object.entries(fields))
+    for (const [field, { label, ...format }] of Object.entries(fields))
       labels[`${path}.${index}.${field}`] = {
         label: `${row(index + 1)} ${label}`,
-        numeric,
+        ...format,
       };
   return labels;
 }
+
+const economyPath = `${snapshotPath}.economy`;
+const economyRows = (
+  snapshot: Snapshot,
+  list: 'items' | 'caches' | 'orders' | 'markets',
+) => snapshot.economy?.[list].length ?? 0;
 
 const sectionFields: Partial<
   Record<MilitiaSectionKey, (snapshot: Snapshot) => FieldLabels>
@@ -84,6 +95,77 @@ const sectionFields: Partial<
         refugeActiveUntilWeek: { label: 'refuge end week', numeric: true },
       },
     ),
+  items: (snapshot) =>
+    rowFields(
+      `${economyPath}.items`,
+      economyRows(snapshot, 'items'),
+      (position) => `Item ${position}`,
+      {
+        name: { label: 'name' },
+        valueCopper: { label: 'value (copper)', numeric: true },
+        ownerCharacterId: { label: 'owner' },
+        identified: { label: 'identified' },
+        weight: { label: 'weight', numeric: true, decimal: true },
+        location: { label: 'location' },
+      },
+    ),
+  caches: (snapshot) =>
+    rowFields(
+      `${economyPath}.caches`,
+      economyRows(snapshot, 'caches'),
+      (position) => `Cache ${position}`,
+      {
+        location: { label: 'location' },
+        cacheClass: { label: 'class' },
+        status: { label: 'status' },
+        secure: { label: 'secure location' },
+        extradimensional: { label: 'extradimensional' },
+        returnActivityWeek: { label: 'return Activity week', numeric: true },
+      },
+    ),
+  orders: (snapshot) =>
+    rowFields(
+      `${economyPath}.orders`,
+      economyRows(snapshot, 'orders'),
+      (position) => `Order ${position}`,
+      {
+        itemId: { label: 'item' },
+        settlementId: { label: 'delivery settlement' },
+        source: { label: 'source' },
+        mode: { label: 'kind' },
+        orderedWeek: { label: 'ordered week', numeric: true },
+        orderedDay: { label: 'ordered day', numeric: true },
+        dueDay: { label: 'due day', numeric: true, decimal: true },
+        dueActivityWeek: { label: 'due Activity week', numeric: true },
+        priceCopper: { label: 'price paid (copper)', numeric: true },
+        deliveryDays: {
+          label: 'delivery duration (days)',
+          numeric: true,
+          decimal: true,
+        },
+        enchantmentValueCopper: {
+          label: 'enchantment value (copper)',
+          numeric: true,
+        },
+        'receipt.receivedDay': { label: 'received day', numeric: true },
+      },
+    ),
+  marketplaces: (snapshot) =>
+    rowFields(
+      `${economyPath}.markets`,
+      economyRows(snapshot, 'markets'),
+      (position) => `Marketplace ${position}`,
+      {
+        source: { label: 'source' },
+        settlementId: { label: 'settlement' },
+        availableWeek: { label: 'available week', numeric: true },
+        expiresWeek: { label: 'expires week', numeric: true },
+        availability: { label: 'availability' },
+        availabilityPercent: { label: 'availability percent', numeric: true },
+        salePercent: { label: 'sale percent', numeric: true },
+        contraband: { label: 'contraband allowed' },
+      },
+    ),
 };
 
 export function hasSectionEditor(section: MilitiaSectionKey) {
@@ -104,4 +186,6 @@ export const sectionRowsPath: Partial<
 > = {
   teams: `${snapshotPath}.roster.teams`,
   settlements: `${snapshotPath}.settlements`,
+  items: `${economyPath}.items`,
+  caches: `${economyPath}.caches`,
 };

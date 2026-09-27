@@ -90,7 +90,10 @@ const blank = (value: unknown) =>
 export function errorSummary(
   descriptors: SetupErrorDescriptor[],
   values: unknown,
-  labels: Record<string, { label: string; numeric?: boolean }>,
+  labels: Record<
+    string,
+    { label: string; numeric?: boolean; decimal?: boolean }
+  >,
 ): ErrorSummaryItem[] {
   const seen = new Set<string>();
   const items: ErrorSummaryItem[] = [];
@@ -116,7 +119,7 @@ export function errorSummary(
         item = {
           field,
           kind: 'invalid',
-          message: `Enter a valid whole number for ${control.label}.`,
+          message: `Enter a valid ${control.decimal ? 'number' : 'whole number'} for ${control.label}.`,
         };
       else item = { field, kind: 'other', message: descriptor.message };
     } else {

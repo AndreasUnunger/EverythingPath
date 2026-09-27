@@ -38,7 +38,9 @@ import type { DraftOperation } from '../src/lib/weekly-draft-persistence-contrac
 // again; each device restores one under its identity through an ordinary
 // reasoned Teams correction, one from facts it saw and one, as after a
 // reload, from facts entered again; then the choices are repaired and the
-// intended removal is made as a new correction.
+// intended removal is made as a new correction. Items and caches (#177)
+// recover the same way, alongside teams and settlements, with the items a
+// cache holds restored before it.
 
 const modules = import.meta.glob('./**/*.ts');
 
@@ -227,23 +229,21 @@ test('two staged teams removed by a correction are restored under their identiti
 
   // The player saw both teams before the removal; the GM's device, as after
   // a reload, knows none of their facts.
+  const playerSource = (await player.read()).state.militiaSnapshot;
   const playerMissing = missingIdentities(
-    stagedReferences(
-      (await player.observe()).draft,
-      (await player.read()).state.militiaSnapshot,
-    ),
+    stagedReferences((await player.observe()).draft, playerSource),
     player.captured(),
+    playerSource,
   );
   expect(playerMissing.map(({ id, captured }) => [id, captured])).toEqual([
     ['scouts', scouts],
     ['guards', guards],
   ]);
+  const gmSource = (await gm.read()).state.militiaSnapshot;
   const reloaded = missingIdentities(
-    stagedReferences(
-      (await gm.observe()).draft,
-      (await gm.read()).state.militiaSnapshot,
-    ),
+    stagedReferences((await gm.observe()).draft, gmSource),
     noCapturedFacts,
+    gmSource,
   );
   expect(reloaded.map(({ id, captured }) => [id, captured])).toEqual([
     ['scouts', null],
@@ -289,6 +289,7 @@ test('two staged teams removed by a correction are restored under their identiti
   const still = missingIdentities(
     stagedReferences((await gm.observe()).draft, latest.state.militiaSnapshot),
     noCapturedFacts,
+    latest.state.militiaSnapshot,
   );
   expect(still.map(({ id }) => id)).toEqual(['guards']);
   expect(
@@ -426,6 +427,7 @@ test('a settlement an Activity and an Event choice use is restored from entered 
   const missing = missingIdentities(
     stagedReferences(draft, latest.state.militiaSnapshot),
     noCapturedFacts,
+    latest.state.militiaSnapshot,
   );
   expect(missing).toMatchObject([{ kind: 'settlement', id: 'teilwood' }]);
   await player.correct(
@@ -465,4 +467,323 @@ test('a settlement an Activity and an Event choice use is restored from entered 
       (await gm.read()).state.militiaSnapshot,
     ),
   ).toEqual([]);
+});
+
+type Economy = NonNullable<Snapshot['economy']>;
+type Item = Economy['items'][number];
+type Cache = Economy['caches'][number];
+
+test('mixed team, settlement, item and cache orphans are restored across separate corrections after a reload, items before the cache that holds them', async () => {
+  const setup = await fixture();
+  const player = device(setup.player, setup);
+  const gm = device(setup.gm, setup);
+  const teilwood = {
+    settlementId: 'teilwood',
+    name: 'Teilwood',
+    reputation: 'Friendly' as const,
+    secured: true,
+    occupied: false,
+    temporaryReputationShift: 0,
+    refugeActivatedWeek: null,
+    refugeActiveUntilWeek: null,
+  };
+  const ring: Item = {
+    itemId: 'ring',
+    name: 'Ring',
+    valueCopper: 500,
+    weight: 0.25,
+    location: 'cache',
+    identified: true,
+  };
+  const gem: Item = {
+    itemId: 'gem',
+    name: 'Gem',
+    valueCopper: 200,
+    weight: 0.5,
+    location: 'held',
+  };
+  const mill: Cache = {
+    cacheId: 'mill',
+    cacheClass: 'minor',
+    location: 'Old Mill',
+    secure: true,
+    extradimensional: false,
+    itemIds: ['ring'],
+    status: 'hidden',
+    returnActivityWeek: null,
+  };
+
+  // Each source is added by its own correction.
+  const add = async <K extends MilitiaSectionKey>(
+    section: K,
+    rows: (latest: SectionValue<K>) => SectionValue<K>,
+    reason: string,
+  ) =>
+    expect(
+      (
+        await player.correct(
+          player.open(section, await player.read()),
+          section,
+          rows,
+          reason,
+        )
+      ).kind,
+    ).toBe('send');
+  await add('teams', (teams) => [...teams, scouts], 'Scouts joined');
+  await add('settlements', (towns) => [...towns, teilwood], 'Teilwood joined');
+  await add('items', (items) => [...items, ring, gem], 'Found a ring and gem');
+  await add('caches', (caches) => [...caches, mill], 'Hid the ring');
+
+  // The week uses all four kinds: Scouts drill, the Old Mill cache is
+  // retrieved, and a rolled theft targets Teilwood and the gem.
+  for (const slotId of ['one', 'two'])
+    await player.edit({ kind: 'add_slot', slotId });
+  await player.edit({
+    kind: 'stage',
+    slotId: 'one',
+    choice: { choiceId: 'drill', actionId: 'drill_militia', teamId: 'scouts' },
+  });
+  await gm.edit({
+    kind: 'stage',
+    slotId: 'two',
+    choice: {
+      choiceId: 'fetch',
+      actionId: 'secure_cache',
+      mode: 'retrieve',
+      cacheId: 'mill',
+    },
+  });
+  await gm.edit({
+    kind: 'event_tree',
+    occurrences: [
+      {
+        eventId: 'rolled',
+        origin: { kind: 'rolled' },
+        eventType: 'theft',
+        targets: [
+          { kind: 'settlement', settlementId: 'teilwood' },
+          { kind: 'item', itemId: 'gem' },
+        ],
+      },
+    ],
+  });
+  await player.read();
+
+  // The ring cannot go while the cache holds it.
+  const withoutItems = (items: Item[]) =>
+    items.filter((item) => !['ring', 'gem'].includes(item.itemId));
+  await expect(
+    gm.correct(
+      gm.open('items', await gm.read()),
+      'items',
+      withoutItems,
+      'Sold the ring and gem',
+    ),
+  ).rejects.toThrow('Unknown referenced entity');
+
+  // The GM removes each source by its own correction; each preflight names
+  // the choices it newly affects.
+  const remove = async <K extends MilitiaSectionKey>(
+    section: K,
+    rows: (latest: SectionValue<K>) => SectionValue<K>,
+    reason: string,
+  ) => {
+    const opened = await gm.read();
+    const { draft } = await gm.observe();
+    const source = opened.state.militiaSnapshot;
+    const impact = correctionImpact(
+      draft,
+      source,
+      mergeSection(section, source, rows(sectionValue(section, source))),
+    );
+    await gm.correct(gm.open(section, opened), section, rows, reason);
+    return impact.added.map(({ key, missing }) => [key, missing]);
+  };
+  const withoutMill = (caches: Cache[]) =>
+    caches.filter((cache) => cache.cacheId !== 'mill');
+  expect(await remove('caches', withoutMill, 'The mill burned')).toEqual([
+    ['activitySlot:two', [{ kind: 'cache', id: 'mill' }]],
+  ]);
+  expect(await remove('items', withoutItems, 'Sold the ring and gem')).toEqual([
+    ['event:rolled', [{ kind: 'item', id: 'gem' }]],
+  ]);
+  expect(
+    await remove(
+      'teams',
+      (teams) => teams.filter((item) => item.teamId !== 'scouts'),
+      'Scouts disbanded',
+    ),
+  ).toEqual([['activitySlot:one', [{ kind: 'team', id: 'scouts' }]]]);
+  expect(
+    await remove(
+      'settlements',
+      (towns) => towns.filter((town) => town.settlementId !== 'teilwood'),
+      'Teilwood fell',
+    ),
+  ).toEqual([['event:rolled', [{ kind: 'settlement', id: 'teilwood' }]]]);
+
+  // Every choice is orphaned; Confirmation is blocked and every draft edit,
+  // including clearing one choice while others remain, is refused.
+  const preview = () =>
+    setup.player.query(api.canonicalDraftPersistence.preview, {
+      ...setup.scope,
+      draftId: setup.draftId,
+    });
+  expect((await preview()).requirements).toEqual(
+    expect.arrayContaining([
+      'drill:team:reference',
+      'fetch:cache:reference',
+      'event:rolled:item:reference',
+      'event:rolled:settlement:reference',
+    ]),
+  );
+  const revision = (await player.observe()).revision;
+  await expect(
+    player.edit({ kind: 'upkeep_settlement', settlementId: 'town' }),
+  ).rejects.toThrow(refused);
+  await expect(
+    player.edit({ kind: 'clear', slotId: 'two', choiceId: 'fetch' }),
+  ).rejects.toThrow(refused);
+  await expect(
+    gm.edit({ kind: 'event_tree', occurrences: [] }),
+  ).rejects.toThrow(refused);
+  expect((await player.observe()).revision).toBe(revision);
+
+  // What a device lists as missing, from what it has seen.
+  const missingOn = async (on: ReturnType<typeof device>) => {
+    const source = (await on.read()).state.militiaSnapshot;
+    return missingIdentities(
+      stagedReferences((await on.observe()).draft, source),
+      on.captured(),
+      source,
+    );
+  };
+  // The player saw everything: the cache holds the ring, so the ring is
+  // restored before it.
+  const seen = await missingOn(player);
+  expect(
+    seen.map(({ kind, id, captured, requires }) => [
+      kind,
+      id,
+      captured !== null,
+      requires,
+    ]),
+  ).toEqual([
+    ['team', 'scouts', true, []],
+    ['cache', 'mill', true, [{ kind: 'item', id: 'ring' }]],
+    ['settlement', 'teilwood', true, []],
+    ['item', 'gem', true, []],
+    ['item', 'ring', true, []],
+  ]);
+  await expect(
+    player.correct(
+      player.open('caches', await player.read()),
+      'caches',
+      (caches) => [...caches, restoredRow(missingOfKind(seen, 'cache').at(0)!)],
+      'The mill still stands',
+    ),
+  ).rejects.toThrow('Unknown referenced entity');
+  await player.correct(
+    player.open('items', await player.read()),
+    'items',
+    (items) => [...items, ...missingOfKind(seen, 'item').map(restoredRow)],
+    'The ring and gem were never sold',
+  );
+
+  // Another device after a reload has seen none of the removed facts. The
+  // items already exist again, so it lists only the rest, and enters their
+  // facts: nothing is invented.
+  const reloaded = device(setup.gm, setup);
+  const afterReload = await missingOn(reloaded);
+  expect(
+    afterReload.map(({ kind, id, captured, requires }) => [
+      kind,
+      id,
+      captured,
+      requires,
+    ]),
+  ).toEqual([
+    ['team', 'scouts', null, []],
+    ['cache', 'mill', null, []],
+    ['settlement', 'teilwood', null, []],
+  ]);
+  const blankMill = restoredRow(missingOfKind(afterReload, 'cache').at(0)!);
+  expect(blankMill).toMatchObject({
+    cacheId: 'mill',
+    location: '',
+    itemIds: [],
+  });
+  await reloaded.correct(
+    reloaded.open('caches', await reloaded.read()),
+    'caches',
+    (caches) => [
+      ...caches,
+      {
+        ...blankMill,
+        location: 'Old Mill',
+        cacheClass: 'minor',
+        secure: true,
+        extradimensional: false,
+        status: 'hidden',
+        itemIds: ['ring'],
+      },
+    ],
+    'The mill still stands',
+  );
+  await reloaded.correct(
+    reloaded.open('settlements', await reloaded.read()),
+    'settlements',
+    (towns) => [
+      ...towns,
+      {
+        ...restoredRow(missingOfKind(afterReload, 'settlement').at(0)!),
+        name: 'Teilwood',
+      },
+    ],
+    'Teilwood still stands',
+  );
+  await player.correct(
+    player.open('teams', await player.read()),
+    'teams',
+    (teams) => [...teams, restoredRow(missingOfKind(seen, 'team').at(0)!)],
+    'Scouts were removed by mistake',
+  );
+
+  // Every reference exists again, under the same identities.
+  const restored = (await gm.read()).state.militiaSnapshot;
+  expect(
+    restored.economy?.items.filter((item) => item.itemId !== 'sword'),
+  ).toEqual([gem, ring]);
+  expect(restored.economy?.caches.at(-1)).toEqual(mill);
+  expect(await missingOn(gm)).toEqual([]);
+  expect(
+    (await preview()).requirements.filter((key) => key.endsWith(':reference')),
+  ).toEqual([]);
+
+  // The choices are repaired through normal operations, then each intended
+  // removal is a new reviewed correction.
+  await player.edit({ kind: 'clear', slotId: 'one', choiceId: 'drill' });
+  await gm.edit({ kind: 'clear', slotId: 'two', choiceId: 'fetch' });
+  await gm.edit({ kind: 'event_tree', occurrences: [] });
+  expect(await remove('caches', withoutMill, 'The mill burned')).toEqual([]);
+  expect(await remove('items', withoutItems, 'Sold the ring and gem')).toEqual(
+    [],
+  );
+  expect(
+    await remove(
+      'teams',
+      (teams) => teams.filter((item) => item.teamId !== 'scouts'),
+      'Scouts disbanded',
+    ),
+  ).toEqual([]);
+  expect(
+    await remove(
+      'settlements',
+      (towns) => towns.filter((town) => town.settlementId !== 'teilwood'),
+      'Teilwood fell',
+    ),
+  ).toEqual([]);
+  expect(await missingOn(player)).toEqual([]);
+  // The week is editable again.
+  await gm.edit({ kind: 'upkeep_settlement', settlementId: 'town' });
 });

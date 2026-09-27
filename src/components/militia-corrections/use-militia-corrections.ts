@@ -61,10 +61,14 @@ import {
   describeChoice,
   identityNames,
   missingTitle,
+  namedItemReferences,
   neededByNote,
+  restorationNeed,
+  restoreFirstNote,
   restoreLabel,
   type AffectedChoice,
   type IdentityNames,
+  type NeededBy,
 } from './affected-choice-copy';
 import {
   closedCorrection,
@@ -114,10 +118,18 @@ export type MissingEntry = {
   key: string;
   /** "Scouts", or "A missing team" when this device never saw its facts. */
   name: string;
-  /** The choices that use it, linked to their phase. */
-  neededBy: AffectedChoice[];
+  /**
+   * The choices that use it, linked to their phase, then restorations that
+   * need it first ("Cache at Old Mill").
+   */
+  neededBy: NeededBy[];
   /** "Restore Scouts" or "Restore missing team for Activity slot 2". */
   restoreLabel: string;
+  /**
+   * "Restore Ring in Items first.": its facts refer to identities still
+   * missing, so it cannot be restored yet. Null when it can.
+   */
+  blocked: string | null;
   /** Opens this section's correction (or adds to the open one) with it. */
   restore: () => void;
 };
@@ -184,6 +196,22 @@ const setupFrom = (state: CanonicalWeekState, notes = ''): MilitiaSetup => ({
   notes,
   state,
 });
+
+// A section editor's starting values. An accepted militia may have no
+// economy yet: its editors start from empty lists, so an added item or order
+// is a complete economy. Only the edited list is ever saved.
+const editorFrom = (state: CanonicalWeekState): MilitiaSetup =>
+  setupFrom(
+    state.militiaSnapshot.economy
+      ? state
+      : {
+          ...state,
+          militiaSnapshot: {
+            ...state.militiaSnapshot,
+            economy: { items: [], caches: [], orders: [], markets: [] },
+          },
+        },
+  );
 
 function groupedWarnings(
   state: CanonicalWeekState,
@@ -361,13 +389,23 @@ export function useMilitiaCorrections({
   const identities = identityNames(latest, captured, names);
   // The open week's choices that already use something the militia lacks.
   const missing = draft
-    ? missingIdentities(stagedReferences(draft, latest), captured)
+    ? missingIdentities(stagedReferences(draft, latest), captured, latest)
     : [];
   const openSection =
     correction.kind === 'open' && correction.target.kind === 'section'
       ? correction.target.section
       : null;
 
+  // The choices that use a missing identity, then the restorations that
+  // need it first.
+  const neededBy = (identity: MissingIdentity): NeededBy[] => [
+    ...identity.neededBy.map((reference) =>
+      describeChoice(reference, campaignId, identities),
+    ),
+    ...identity.requiredBy.map((reference) =>
+      restorationNeed(reference, identities),
+    ),
+  ];
   function missingEntry(
     section: MilitiaSectionKey,
     identity: MissingIdentity,
@@ -375,10 +413,12 @@ export function useMilitiaCorrections({
     return {
       key: `${identity.kind}:${identity.id}`,
       name: missingTitle(identity, identities),
-      neededBy: identity.neededBy.map((reference) =>
-        describeChoice(reference, campaignId, identities),
-      ),
+      neededBy: neededBy(identity),
       restoreLabel: restoreLabel(identity, identity.neededBy, identities),
+      blocked:
+        identity.requires.length > 0
+          ? restoreFirstNote(identity.requires, identities)
+          : null,
       restore: () => restore(section, identity),
     };
   }
@@ -407,7 +447,7 @@ export function useMilitiaCorrections({
     setSelected(entry);
     setCandidateErrors([]);
     if (entry !== 'people' && hasSectionEditor(entry)) {
-      form.reset(setupFrom(accepted.state));
+      form.reset(editorFrom(accepted.state));
       dispatch({
         type: 'open',
         target: { kind: 'section', section: entry },
@@ -424,7 +464,8 @@ export function useMilitiaCorrections({
   // saves only through that correction, with its reason.
   function restore(section: MilitiaSectionKey, identity: MissingIdentity) {
     const path = sectionRowsPath[section];
-    if (!path) return;
+    // Snapshot integrity needs what its facts refer to restored first.
+    if (!path || identity.requires.length > 0) return;
     if (locked && !(openSection === section && view.kind === 'editing')) return;
     if (!locked) open(section);
     const rows = form.getValues(path) as RestorableRow[];
@@ -527,10 +568,25 @@ export function useMilitiaCorrections({
       ? correctionImpact(draft, latest, candidate)
       : { added: [], existing: [], carried: [] };
     const hasFormErrors = Object.keys(form.formState.errors).length > 0;
+    const descriptors = hasFormErrors
+      ? setupErrorDescriptors(values, militiaCorrectionSchema)
+      : candidateErrors;
+    // Items a cache or order refers to that this correction removes, or
+    // that another player removed meanwhile, are named with what holds them.
     const errors = namedErrors(
-      hasFormErrors
-        ? setupErrorDescriptors(values, militiaCorrectionSchema)
-        : candidateErrors,
+      namedItemReferences(
+        descriptors,
+        hasFormErrors ? values.state.militiaSnapshot : candidate,
+        {
+          removing: section === 'items',
+          carriedOrders: new Set(
+            impact.carried.flatMap(({ location }) =>
+              location.kind === 'order' ? [location.orderId] : [],
+            ),
+          ),
+          names: identities,
+        },
+      ),
       impact.carried,
       identities,
     );
@@ -556,7 +612,7 @@ export function useMilitiaCorrections({
       rowNotes: new Map(
         sectionMissing.map((identity) => [
           identity.id,
-          neededByNote(identity.neededBy),
+          neededByNote(neededBy(identity).map((need) => need.label)),
         ]),
       ),
       errors: errorSummary(errors, values, {
@@ -593,7 +649,7 @@ export function useMilitiaCorrections({
       // A new correction from the newest facts: fields and the reason are
       // cleared, so it must be reviewed again.
       restart: () => {
-        form.reset(setupFrom(accepted.state));
+        form.reset(editorFrom(accepted.state));
         setCandidateErrors([]);
         dispatch({ type: 'restart', accepted });
       },
