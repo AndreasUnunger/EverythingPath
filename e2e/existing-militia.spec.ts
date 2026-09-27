@@ -52,15 +52,41 @@ test('existing militia state survives reload within its campaign', async ({
     page.getByRole('heading', { name: 'Week 8 · Upkeep' }),
   ).toBeVisible();
   await openCampaignSection(page, 'militia');
-  await page
-    .getByRole('button', { name: 'Edit militia ledger', exact: true })
-    .click();
-  await expect(
-    page.getByRole('textbox', { name: 'Treasury (copper)', exact: true }),
-  ).toHaveValue('72500');
+  const correctValues = page.getByRole('button', {
+    name: 'Correct values',
+    exact: true,
+  });
+  const treasury = page.getByRole('textbox', {
+    name: 'Treasury (copper)',
+    exact: true,
+  });
+  await correctValues.click();
+  await expect(treasury).toHaveValue('72500');
   await expect(
     page.getByRole('textbox', { name: 'Rank', exact: true }),
   ).toHaveValue('4');
+  // Values are corrected on their own, with a reason, keeping every other
+  // imported fact.
+  await treasury.fill('80000');
+  await page
+    .getByRole('textbox', { name: 'Reason for correction', exact: true })
+    .fill('Sold a captured wand');
+  await page
+    .getByRole('button', { name: 'Save correction', exact: true })
+    .click();
+  await expect(page.getByText('Values corrected.').first()).toBeVisible();
+  await expect(page.getByText('800 gp (80,000 cp)')).toBeVisible();
+  await correctValues.click();
+  for (const [name, value] of [
+    ['Treasury (copper)', '80000'],
+    ['Rank', '4'],
+    ['Training', '24'],
+    ['Notoriety', '17'],
+  ])
+    await expect(
+      page.getByRole('textbox', { name: name!, exact: true }),
+    ).toHaveValue(value!);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await selectCampaign(page, comparisonCase!.campaignName);
   await openCampaignSection(page, 'week');
   await expect(
