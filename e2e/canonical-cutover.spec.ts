@@ -68,6 +68,20 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
       week: 9,
     });
     expect(history).not.toBeNull();
+    // Campaign home's latest-weeks contract: the same bounded listing query.
+    const finished = await client.query(api.canonicalHistory.list, {
+      campaignId: key.campaignId,
+      limit: 3,
+    });
+    expect(finished.weeks[0]).toMatchObject({
+      week: 9,
+      effectiveRecordId: history!.effectiveRecordId,
+      entryCount: 1,
+      provenance: 'confirmation',
+      createdAt: history!.createdAt,
+    });
+    expect(finished.weeks.length).toBeLessThanOrEqual(3);
+    expect(history!.audit[0]?.createdAt).toBe(history!.createdAt);
     await expect(
       client.mutation(api.weekBoard.saveWeekBoardState, {}),
     ).rejects.toThrow('Open the current militia week');
@@ -89,6 +103,12 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
         week: 9,
       }),
     ).toEqual(history);
+    expect(
+      await client.query(api.canonicalHistory.list, {
+        campaignId: key.campaignId,
+        limit: 3,
+      }),
+    ).toEqual(finished);
     await savePrivate(
       join(run.artifactDirectory, 'cutover-evidence.json'),
       JSON.stringify(

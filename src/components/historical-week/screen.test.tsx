@@ -67,9 +67,20 @@ const history: ComponentProps<typeof HistoricalWeekNavigation>['history'] = {
   effectiveRecordId: 'latest',
   previousWeek: 2,
   nextWeek: 8,
+  createdAt: 2000,
   audit: [
-    { recordId: 'latest', sequence: 1, provenance: 'historical_correction' },
-    { recordId: 'original', sequence: 0, provenance: 'confirmation' },
+    {
+      recordId: 'latest',
+      sequence: 1,
+      provenance: 'historical_correction',
+      createdAt: 3000,
+    },
+    {
+      recordId: 'original',
+      sequence: 0,
+      provenance: 'confirmation',
+      createdAt: 2000,
+    },
   ],
   earlierSequence: 3,
 };

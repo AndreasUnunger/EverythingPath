@@ -335,3 +335,360 @@ test('mixed confirmed history remains exact across selectors, live changes and d
     await t.run((ctx) => ctx.db.query('canonicalResolutionRecord').take(2)),
   ).toEqual(storedBefore);
 });
+
+type Harness = Awaited<ReturnType<typeof setup>>;
+function listFor(
+  { player, key }: Pick<Harness, 'player' | 'key'>,
+  args: { beforeWeek?: number; limit?: number; selectedWeek?: number } = {},
+) {
+  return player.query(api.canonicalHistory.list, {
+    campaignId: key.campaignId,
+    ...args,
+  });
+}
+// Weeks other than the confirmed week 1 and its open successor are recorded
+// as historical reconstructions of their own drafts.
+async function reconstruct({ gm, key, record }: Harness, weeks: number[]) {
+  await gm.run(async (ctx) => {
+    for (const week of weeks)
+      await appendResolutionRecord(ctx, {
+        campaignId: key.campaignId,
+        militiaId: key.militiaId,
+        record: {
+          ...record,
+          recordId: `week-${week}`,
+          provenance: 'historical_reconstruction',
+          source: { ...record.source, week, draftId: `draft-${week}` },
+        },
+      });
+  });
+}
+async function correct(
+  { gm, key, record }: Harness,
+  week: number,
+  count: number,
+) {
+  const original = week === record.source.week;
+  await gm.run(async (ctx) => {
+    for (let i = 1; i <= count; i++)
+      await appendResolutionRecord(ctx, {
+        campaignId: key.campaignId,
+        militiaId: key.militiaId,
+        record: {
+          ...record,
+          ...(original
+            ? {}
+            : {
+                source: { ...record.source, week, draftId: `draft-${week}` },
+              }),
+          recordId: `week-${week}-correction-${i}`,
+          provenance: 'historical_correction',
+          supersedesRecordId:
+            i > 1
+              ? `week-${week}-correction-${i - 1}`
+              : original
+                ? record.recordId
+                : `week-${week}`,
+          finalOutcome: { formatVersion: 1, data: { treasuryCopper: i } },
+        },
+      });
+  });
+}
+async function creationTimes(t: Harness['t']) {
+  const rows = await t.run((ctx) =>
+    ctx.db.query('canonicalResolutionRecord').take(200),
+  );
+  return new Map(rows.map((row) => [row.recordId, row._creationTime]));
+}
+
+test('[rules.P86.history] finished-week listing returns distinct effective weeks latest-first with dates, chain counts and compact headlines', async () => {
+  const harness = await setup();
+  const { t, record } = harness;
+  vi.setSystemTime(Date.UTC(2030, 0, 1));
+  await reconstruct(harness, [3, 5, 9]);
+  vi.setSystemTime(Date.UTC(2030, 0, 2));
+  await correct(harness, 1, 7);
+  const times = await creationTimes(t);
+  const home = await listFor(harness, { limit: 3 });
+  expect(home.weeks.map((row) => row.week)).toEqual([9, 5, 3]);
+  expect(home.earlierWeek).toBe(3);
+  expect(home.selected).toBeNull();
+  const all = await listFor(harness);
+  expect(all.weeks.map((row) => row.week)).toEqual([9, 5, 3, 1]);
+  expect(all.earlierWeek).toBeNull();
+  const [latest, , , corrected] = all.weeks;
+  expect(corrected).toEqual({
+    week: 1,
+    effectiveRecordId: 'week-1-correction-7',
+    effectiveSequence: 7,
+    entryCount: 8,
+    provenance: 'historical_correction',
+    rulesetVersion: record.rulesetVersion,
+    createdAt: times.get('week-1-correction-7'),
+    headlineFacts: [
+      {
+        key: 'treasury',
+        label: 'Treasury',
+        before: record.sourceMilitiaSnapshot!.treasuryCopper,
+        final: 7,
+        beforeRecorded: true,
+        finalRecorded: true,
+        unit: 'gp',
+      },
+    ],
+  });
+  // Same-instant inserts receive sub-millisecond tiebreaks in the test backend.
+  expect(Math.floor(corrected?.createdAt ?? 0)).toBe(Date.UTC(2030, 0, 2));
+  expect(corrected?.createdAt).not.toBe(times.get(record.recordId));
+  expect(latest).toMatchObject({
+    week: 9,
+    effectiveRecordId: 'week-9',
+    entryCount: 1,
+    provenance: 'historical_reconstruction',
+    createdAt: times.get('week-9'),
+  });
+  expect(Math.floor(latest?.createdAt ?? 0)).toBe(Date.UTC(2030, 0, 1));
+  for (const row of all.weeks)
+    expect(Object.keys(row).sort()).toEqual([
+      'createdAt',
+      'effectiveRecordId',
+      'effectiveSequence',
+      'entryCount',
+      'headlineFacts',
+      'provenance',
+      'rulesetVersion',
+      'week',
+    ]);
+  expect(JSON.stringify(all)).not.toContain('militiaSnapshot');
+  expect(await listFor(harness, { beforeWeek: 5, limit: 1 })).toEqual({
+    weeks: [all.weeks[2]],
+    earlierWeek: 3,
+    selected: null,
+  });
+  expect(await listFor(harness, { beforeWeek: 3 })).toEqual({
+    weeks: [corrected],
+    earlierWeek: null,
+    selected: null,
+  });
+  expect(await listFor(harness, { beforeWeek: 1 })).toEqual({
+    weeks: [],
+    earlierWeek: null,
+    selected: null,
+  });
+});
+
+test('[rules.P86.navigation] selectedWeek metadata is exact and independent of the listed window', async () => {
+  const harness = await setup();
+  await reconstruct(harness, [3, 5, 9]);
+  await correct(harness, 1, 2);
+  const all = await listFor(harness);
+  const deep = await listFor(harness, { limit: 1, selectedWeek: 1 });
+  expect(deep.weeks).toEqual([all.weeks[0]]);
+  expect(deep.earlierWeek).toBe(9);
+  expect(deep.selected).toEqual(all.weeks[3]);
+  expect(deep.selected).toMatchObject({ entryCount: 3, effectiveSequence: 2 });
+  const listed = await listFor(harness, { limit: 2, selectedWeek: 5 });
+  expect(listed.selected).toEqual(listed.weeks[1]);
+  expect(
+    (await listFor(harness, { beforeWeek: 5, selectedWeek: 9 })).selected,
+  ).toEqual(all.weeks[0]);
+  for (const selectedWeek of [0, 2, 4, 400])
+    expect((await listFor(harness, { selectedWeek })).selected).toBeNull();
+});
+
+test('[rules.P86.history] listing pages more than fifty sparse weeks without duplicates or loss, skipping whole correction chains', async () => {
+  const harness = await setup();
+  const recorded = Array.from({ length: 60 }, (_, index) => 3 + index * 2);
+  await reconstruct(harness, recorded);
+  const newest = Math.max(...recorded);
+  await correct(harness, newest, 30);
+  const home = await listFor(harness, { limit: 3 });
+  expect(home.weeks.map((row) => row.week)).toEqual([
+    newest,
+    newest - 2,
+    newest - 4,
+  ]);
+  expect(home.weeks[0]).toMatchObject({ entryCount: 31 });
+  const expected = [...recorded, 1].sort((a, b) => b - a);
+  for (const limit of [undefined, 7, 50]) {
+    const seen: number[] = [];
+    let beforeWeek: number | undefined;
+    for (;;) {
+      const page = await listFor(harness, { beforeWeek, limit });
+      seen.push(...page.weeks.map((row) => row.week));
+      if (page.earlierWeek === null) break;
+      expect(page.weeks).toHaveLength(limit ?? 25);
+      expect(page.earlierWeek).toBe(page.weeks.at(-1)?.week);
+      beforeWeek = page.earlierWeek;
+    }
+    expect(seen).toEqual(expected);
+  }
+});
+
+test('[rules.P86.navigation] listing rejects malformed selectors', async () => {
+  const harness = await setup();
+  for (const args of [
+    { limit: 0 },
+    { limit: 51 },
+    { limit: 2.5 },
+    { beforeWeek: -1 },
+    { beforeWeek: 1.5 },
+    { selectedWeek: -1 },
+    { selectedWeek: 0.5 },
+    { beforeWeek: Number.NaN },
+  ])
+    await expect(listFor(harness, args)).rejects.toThrow(
+      'Invalid finished-week selection',
+    );
+  expect((await listFor(harness, { limit: 50 })).weeks).toHaveLength(1);
+  expect((await listFor(harness, { limit: 1 })).weeks).toHaveLength(1);
+  expect(await listFor(harness, { beforeWeek: 0, selectedWeek: 0 })).toEqual({
+    weeks: [],
+    earlierWeek: null,
+    selected: null,
+  });
+});
+
+test('[rules.P86.authority] listing requires membership and stays within the campaign and militia', async () => {
+  const harness = await setup();
+  const { t, gm, key, record } = harness;
+  const args = { campaignId: key.campaignId, limit: 3 };
+  const before = await listFor(harness, { limit: 3 });
+  expect(before.weeks.map((row) => row.week)).toEqual([1]);
+  expect(await gm.query(api.canonicalHistory.list, args)).toEqual(before);
+  await expect(t.query(api.canonicalHistory.list, args)).rejects.toThrow(
+    'Campaign access',
+  );
+  await expect(
+    t
+      .withIdentity({ tokenIdentifier: 'outsider' })
+      .query(api.canonicalHistory.list, args),
+  ).rejects.toThrow('Campaign access');
+  const campaign = (organizationId: string, militia = true) =>
+    t.run(async (ctx) => {
+      const campaignId = await ctx.db.insert('campaign', {
+        name: 'Other',
+        description: '',
+        ownerId: 'other',
+        organizationId,
+      });
+      const militiaId = militia
+        ? await ctx.db.insert('militia', { campaignId, name: 'Other' })
+        : null;
+      return { campaignId, militiaId };
+    });
+  const foreign = await campaign('org_outsiders');
+  await expect(
+    gm.query(api.canonicalHistory.list, { campaignId: foreign.campaignId }),
+  ).rejects.toThrow('Campaign access');
+  const unscoped = await campaign('org_members', false);
+  await expect(
+    gm.query(api.canonicalHistory.list, { campaignId: unscoped.campaignId }),
+  ).rejects.toThrow('Campaign militia unavailable');
+  // A sibling campaign in the same organization keeps its own history.
+  const sibling = await campaign('org_members');
+  await gm.run((ctx) =>
+    appendResolutionRecord(ctx, {
+      campaignId: sibling.campaignId,
+      militiaId: sibling.militiaId!,
+      record: {
+        ...record,
+        recordId: 'sibling',
+        provenance: 'historical_reconstruction',
+        source: { ...record.source, week: 12, draftId: 'sibling-draft' },
+      },
+    }),
+  );
+  expect(await listFor(harness, { limit: 3 })).toEqual(before);
+  expect(
+    await gm.query(api.canonicalHistory.list, {
+      campaignId: sibling.campaignId,
+      selectedWeek: 1,
+    }),
+  ).toMatchObject({ weeks: [{ week: 12 }], selected: null });
+  // A stored tip naming another militia is never served as this campaign's.
+  await t.run(async (ctx) => {
+    const stored = await ctx.db
+      .query('canonicalResolutionRecord')
+      .withIndex('by_recordId', (q) => q.eq('recordId', record.recordId))
+      .unique();
+    if (!stored) throw Error('Missing record');
+    await ctx.db.insert('canonicalResolutionRecord', {
+      campaignId: key.campaignId,
+      militiaId: sibling.militiaId!,
+      recordId: 'misfiled',
+      week: 20,
+      sequence: 0,
+      record: {
+        ...stored.record,
+        recordId: 'misfiled',
+        source: { ...stored.record.source, week: 20 },
+      },
+    });
+  });
+  for (const selectors of [{}, { beforeWeek: 20, selectedWeek: 20 }])
+    await expect(listFor(harness, selectors)).rejects.toThrow(
+      'Invalid record militia reference',
+    );
+  // Revoked membership removes access to previously listed history.
+  await t.run(async (ctx) => {
+    for (const user of await ctx.db.query('user').take(20))
+      await ctx.db.patch('user', user._id, {
+        orgIds: user.orgIds.filter((org) => org.orgId !== 'org_members'),
+      });
+  });
+  await expect(listFor(harness, { beforeWeek: 20 })).rejects.toThrow(
+    'Campaign access',
+  );
+});
+
+test('[rules.P86.history] read adds document creation dates to the selected record and each audit entry', async () => {
+  const harness = await setup();
+  const { t, player, key, record } = harness;
+  vi.setSystemTime(Date.UTC(2030, 0, 3));
+  await correct(harness, 1, 6);
+  const times = await creationTimes(t);
+  const args = { campaignId: key.campaignId };
+  const latest = await player.query(api.canonicalHistory.read, args);
+  expect(latest?.createdAt).toBe(times.get('week-1-correction-6'));
+  expect(latest?.audit).toEqual(
+    [6, 5, 4, 3, 2].map((sequence) => ({
+      recordId: `week-1-correction-${sequence}`,
+      sequence,
+      provenance: 'historical_correction',
+      createdAt: times.get(`week-1-correction-${sequence}`),
+    })),
+  );
+  const older = await player.query(api.canonicalHistory.read, {
+    ...args,
+    week: 1,
+    beforeSequence: latest!.earlierSequence!,
+  });
+  expect(older?.audit).toEqual([
+    {
+      recordId: 'week-1-correction-1',
+      sequence: 1,
+      provenance: 'historical_correction',
+      createdAt: times.get('week-1-correction-1'),
+    },
+    {
+      recordId: record.recordId,
+      sequence: 0,
+      provenance: 'confirmation',
+      createdAt: times.get(record.recordId),
+    },
+  ]);
+  const original = await player.query(api.canonicalHistory.read, {
+    ...args,
+    week: 1,
+    recordId: record.recordId,
+  });
+  expect(original?.record).toEqual(record);
+  expect(original?.effectiveRecordId).toBe('week-1-correction-6');
+  expect(original?.createdAt).toBe(times.get(record.recordId));
+  expect(original?.createdAt).not.toBe(latest?.createdAt);
+  const stored = await t.run((ctx) =>
+    ctx.db.query('canonicalResolutionRecord').take(10),
+  );
+  for (const row of stored) expect(row.record).not.toHaveProperty('createdAt');
+});
