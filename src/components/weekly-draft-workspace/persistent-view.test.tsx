@@ -10,103 +10,425 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { PersistentView } from './persistent-view';
 import type { PersistentView as Facts } from './types';
 afterEach(cleanup);
-const event: Facts['events'][number] = {
+
+type Event = Facts['events'][number];
+const rivalry: Event = {
   eventId: 'rivalry',
   eventType: 'rivalry',
   startedWeek: 1,
-  order: 0,
+  order: 1,
   targets: [
     { kind: 'team', teamId: 'one' },
     { kind: 'team', teamId: 'two' },
   ],
   name: 'Rivalry · Event 1',
+  typeLabel: 'Rivalry',
   ageWeeks: 3,
+  orderLabel: '2nd that week',
   targetNames: ['Scouts', 'Rangers'],
   decision: null,
   ended: false,
+  endedBy: null,
+  result: { tone: 'stays', text: 'Stays' },
+  leaveNote: 'The two rival teams cannot act in the Activity phase.',
+  check: {
+    label: 'Officer check to end it',
+    note: 'An officer ends the Rivalry for good.',
+  },
   changes: [],
   checks: [],
   exceptions: [],
   requirements: [],
   warnings: [],
 };
+const theft: Event = {
+  ...rivalry,
+  eventId: 'theft',
+  eventType: 'theft',
+  order: 0,
+  targets: [],
+  name: 'Theft · Event 2',
+  typeLabel: 'Theft',
+  orderLabel: '1st that week',
+  targetNames: [],
+  leaveNote: 'Half of all incoming treasury gains are lost.',
+  check: {
+    label: 'Loyalty check (this week only)',
+    note: 'A Loyalty check against DC 20 keeps 90% of this week’s gains.',
+  },
+};
+const morale: Event = {
+  ...rivalry,
+  eventId: 'morale',
+  eventType: 'low_morale',
+  targets: [],
+  name: 'Low Morale · Event 3',
+  typeLabel: 'Low Morale',
+  targetNames: [],
+  leaveNote: 'Loyalty checks suffer −2.',
+  check: null,
+};
 const view: Facts = {
   phase: 'persistent',
   ready: true,
   firstBuyoff: true,
+  buyoffAvailability: 'First buyoff available now',
   nextBuyoffWeek: 4,
   buyoffCostCopper: 4000,
+  earlierPhases: [],
   options: { characterId: [{ value: 'pc', label: 'Aubrin' }] },
-  events: [event],
+  events: [rivalry],
   requirements: [],
   warnings: [],
 };
-test('[rules.P84.decisions] per-instance choices preserve identity and prefill projected buyoff', () => {
-  const edit = vi.fn();
-  render(<PersistentView view={view} edit={edit} disabled={false} />);
-  expect(screen.getByText('Targets: Scouts, Rangers')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Buy off event' }));
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'persistent_decision',
-    decision: { kind: 'buyoff', eventId: 'rivalry', costCopper: 4000 },
-  });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Attempt officer ending' }),
+const accepted = () =>
+  vi.fn<(edit: unknown) => Promise<'accepted' | 'failed'>>(() =>
+    Promise.resolve('accepted'),
   );
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'persistent_decision',
-    decision: { kind: 'mitigate', eventId: 'rivalry' },
-  });
-  expect(
-    screen.queryByRole('button', { name: 'Attempt temporary mitigation' }),
-  ).toBeNull();
-});
-test('[rules.P84.ending] ending notes bind to the carried event and stay editable after projected ending', async () => {
-  const edit = vi.fn();
-  render(
+function show(events: Event[], extra: Partial<Facts> = {}, edit = accepted()) {
+  const result = render(
     <PersistentView
-      view={{ ...view, events: [{ ...event, ended: true }] }}
+      view={{ ...view, ...extra, events }}
       edit={edit}
       disabled={false}
+      openSource={vi.fn()}
     />,
   );
-  fireEvent.change(screen.getByRole('textbox', { name: 'Ending outcome' }), {
-    target: { value: 'The officers reconciled the teams' },
+  return { ...result, edit };
+}
+const group = (name: string) => screen.getByRole('group', { name });
+const card = (event: string, name: string) =>
+  within(group(`${event} decision`)).getByRole('button', { name });
+
+test('[PER-01.overview] the overview shows availability, rules cost, cadence and the next buyoff week', () => {
+  show([rivalry]);
+  const section = screen.getByRole('region', {
+    name: 'Persistent preparation',
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save ending outcome' }));
+  expect(section).toHaveTextContent('First buyoff available now');
+  expect(section).toHaveTextContent('40 gp (2 × minimum treasury)');
+  expect(section).toHaveTextContent('Next buyoff week 4');
+  expect(group('Rivalry · Event 1')).toHaveTextContent('2nd that week');
+  expect(group('Rivalry · Event 1')).toHaveTextContent('Scouts & Rangers');
+});
+
+test('[PER-01.pending] a pending cost is shown honestly with the earlier phases that hold it', () => {
+  show([rivalry], {
+    buyoffCostCopper: null,
+    earlierPhases: ['upkeep', 'event'],
+  });
+  const section = screen.getByRole('region', {
+    name: 'Persistent preparation',
+  });
+  expect(section).toHaveTextContent('cost waits for earlier phases');
+  expect(section).toHaveTextContent(
+    'Earlier phases still need preparation: Upkeep, Event.',
+  );
+  expect(card('Rivalry · Event 1', 'Buy off · cost pending')).toBeVisible();
+});
+
+test('[PER-03.cards] Theft and Rivalry get their own check card and Low Morale gets none', () => {
+  show([theft, rivalry, morale]);
+  expect(
+    within(group('Theft · Event 2 decision'))
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('aria-label') ?? button.textContent),
+  ).toHaveLength(4);
+  expect(
+    card('Theft · Event 2', 'Loyalty check (this week only)'),
+  ).toBeVisible();
+  expect(card('Rivalry · Event 1', 'Officer check to end it')).toBeVisible();
+  expect(
+    within(group('Low Morale · Event 3 decision')).getAllByRole('button'),
+  ).toHaveLength(3);
+  expect(group('Theft · Event 2')).toHaveTextContent('Militia');
+  // A missing decision reads as Leave it.
+  expect(card('Theft · Event 2', 'Leave it')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
+
+test('[PER-05.buyoff] Buy off sends the amount-free decision and shows the rules cost without an amount field', () => {
+  const { edit } = show([rivalry]);
+  fireEvent.click(card('Rivalry · Event 1', 'Buy off · 40 gp'));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'persistent_decision',
+    decision: { kind: 'buyoff', eventId: 'rivalry' },
+  });
+});
+
+test('[PER-05.legacy] a saved legacy amount is kept, never edited, and the removed controls are gone', () => {
+  const { edit } = show([
+    {
+      ...rivalry,
+      decision: { kind: 'buyoff', eventId: 'rivalry', costCopper: 1 },
+    },
+  ]);
+  const section = group('Rivalry · Event 1');
+  expect(section).toHaveTextContent(
+    'Buyoff cost 40 gp (2 × minimum treasury) · taken from the treasury at Confirmation',
+  );
+  expect(within(section).queryByRole('textbox')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Clear decision' })).toBeNull();
+  // Tapping the saved card again keeps the stored decision as it is.
+  fireEvent.click(card('Rivalry · Event 1', 'Buy off · 40 gp'));
+  expect(edit).not.toHaveBeenCalled();
+});
+
+test('[PER-09.leave] Leave it is the deliberate reset of this event only', () => {
+  const { edit } = show([
+    { ...theft, decision: { kind: 'buyoff', eventId: 'theft' } },
+    { ...rivalry, decision: { kind: 'buyoff', eventId: 'rivalry' } },
+  ]);
+  fireEvent.click(card('Theft · Event 2', 'Leave it'));
+  expect(edit).toHaveBeenCalledTimes(1);
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'persistent_decision',
+    decision: { kind: 'unattempted', eventId: 'theft' },
+  });
+});
+
+test('[PER-06.local] Ended at the table stays local until a nonempty outcome is saved', async () => {
+  const edit = accepted();
+  const saved = {
+    ...theft,
+    decision: { kind: 'buyoff' as const, eventId: 'theft' },
+  };
+  const { rerender } = show([saved], {}, edit);
+  fireEvent.click(card('Theft · Event 2', 'Ended at the table'));
+  expect(edit).not.toHaveBeenCalled();
+  expect(card('Theft · Event 2', 'Ended at the table')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(
+    within(group('Theft · Event 2')).getByRole('status'),
+  ).toHaveTextContent(
+    'Not saved yet. Buy off still applies until you save how it ended.',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
+  expect(await screen.findByText('Describe how it ended.')).toBeVisible();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
+    target: { value: '   ' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
+  await waitFor(() =>
+    expect(screen.getByText('Describe how it ended.')).toBeVisible(),
+  );
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
+    target: { value: 'The thieves fled' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith({
       kind: 'persistent_decision',
       decision: {
         kind: 'end',
-        eventId: 'rivalry',
+        eventId: 'theft',
         acknowledgement: {
           acknowledgementId: expect.any(String),
-          subjectId: 'rivalry',
-          outcome: 'The officers reconciled the teams',
+          subjectId: 'theft',
+          outcome: 'The thieves fled',
         },
       },
     }),
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Clear decision' }));
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'clear_persistent_decision',
-    eventId: 'rivalry',
+  // The accepted ending replaces the local intent and keeps its identity.
+  const ending = {
+    kind: 'end' as const,
+    eventId: 'theft',
+    acknowledgement: {
+      acknowledgementId: 'ack',
+      subjectId: 'theft',
+      outcome: 'The thieves fled',
+    },
+  };
+  rerender(
+    <PersistentView
+      view={{ ...view, events: [{ ...theft, decision: ending }] }}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  expect(screen.getByRole('textbox', { name: 'How it ended' })).toHaveValue(
+    'The thieves fled',
+  );
+  expect(within(group('Theft · Event 2')).queryByRole('status')).toBeNull();
+  fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
+    target: { value: 'They returned the goods' },
   });
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'persistent_decision',
+      decision: {
+        ...ending,
+        acknowledgement: {
+          ...ending.acknowledgement,
+          outcome: 'They returned the goods',
+        },
+      },
+    }),
+  );
 });
-test('[rules.P84.officer] officer details accept named references, signed skill bonuses and one owned roll total', async () => {
-  const edit = vi.fn();
-  render(
+
+test('[PER-06.failure] a rejected ending keeps the form, its text and the saved decision', async () => {
+  const edit = vi.fn(() => Promise.resolve('failed' as const));
+  show(
+    [{ ...theft, decision: { kind: 'buyoff', eventId: 'theft' } }],
+    {},
+    edit,
+  );
+  fireEvent.click(card('Theft · Event 2', 'Ended at the table'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
+    target: { value: 'The thieves fled' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
+  expect(
+    await screen.findByText('This ending wasn’t saved. Try again.'),
+  ).toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'How it ended' })).toHaveValue(
+    'The thieves fled',
+  );
+  expect(card('Theft · Event 2', 'Ended at the table')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  // Leave it abandons the local ending.
+  fireEvent.click(card('Theft · Event 2', 'Leave it'));
+  expect(screen.queryByRole('textbox', { name: 'How it ended' })).toBeNull();
+});
+
+test('[PER-08.exceptions] a Rules Exception reason is recorded, edited and removed with its identity', async () => {
+  const exception = {
+    exceptionId: 'persistent:theft:persistent-ending',
+    subjectId: 'theft',
+    ruleId: 'persistent-ending',
+    reason: '',
+  };
+  const { edit, rerender } = show([{ ...theft, exceptions: [exception] }]);
+  expect(screen.queryByRole('button', { name: 'Remove exception' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save reason' }));
+  expect(await screen.findByText('A reason is required.')).toBeVisible();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Rules Exception reason' }),
+    { target: { value: 'The GM ruled it' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save reason' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'rules_exception',
+      exception: { ...exception, reason: 'The GM ruled it' },
+    }),
+  );
+  rerender(
     <PersistentView
       view={{
         ...view,
         events: [
-          { ...event, decision: { kind: 'mitigate', eventId: 'rivalry' } },
+          {
+            ...theft,
+            exceptions: [{ ...exception, reason: 'The GM ruled it' }],
+          },
         ],
       }}
       edit={edit}
       disabled={false}
     />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Remove exception' }));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'clear_rules_exception',
+    exceptionId: exception.exceptionId,
+  });
+});
+
+test('[PER-02.source] an event ended in Activity offers no decision and links to its source', () => {
+  const openSource = vi.fn();
+  const link = { phase: 'activity' as const, anchor: 'activity-slot-left' };
+  render(
+    <PersistentView
+      view={{
+        ...view,
+        events: [
+          {
+            ...theft,
+            decision: { kind: 'buyoff', eventId: 'theft' },
+            ended: true,
+            endedBy: { label: 'Reduce Danger in Activity slot 2', link },
+            result: {
+              tone: 'ends',
+              text: 'Ends · Reduce Danger in Activity slot 2',
+            },
+          },
+        ],
+      }}
+      edit={accepted()}
+      disabled={false}
+      openSource={openSource}
+    />,
+  );
+  const section = group('Theft · Event 2');
+  expect(section).toHaveTextContent(
+    'Ends this week · staged by Reduce Danger in Activity slot 2.',
+  );
+  expect(
+    screen.queryByRole('group', { name: 'Theft · Event 2 decision' }),
+  ).toBeNull();
+  fireEvent.click(
+    within(section).getByRole('button', { name: 'Change it in Activity' }),
+  );
+  expect(openSource).toHaveBeenCalledWith(link);
+});
+
+test('[WEEK-10.locked] Confirmation disables every Persistent control', () => {
+  render(
+    <PersistentView
+      view={{
+        ...view,
+        events: [
+          theft,
+          {
+            ...rivalry,
+            exceptions: [
+              {
+                exceptionId: 'x',
+                subjectId: 'rivalry',
+                ruleId: 'treasury',
+                reason: 'Saved',
+              },
+            ],
+          },
+        ],
+      }}
+      edit={accepted()}
+      disabled
+    />,
+  );
+  const section = screen.getByRole('region', {
+    name: 'Persistent preparation',
+  });
+  for (const control of [
+    ...within(section).getAllByRole('button'),
+    ...within(section).getAllByRole('textbox'),
+  ])
+    expect(control).toBeDisabled();
+});
+
+test('[rules.P84.officer] officer details accept named references, signed skill bonuses and one owned roll total', async () => {
+  const edit = accepted();
+  show(
+    [{ ...rivalry, decision: { kind: 'mitigate', eventId: 'rivalry' } }],
+    {},
+    edit,
+  );
+  expect(card('Rivalry · Event 1', 'Officer check to end it')).toHaveAttribute(
+    'aria-pressed',
+    'true',
   );
   fireEvent.click(screen.getByRole('button', { name: 'Add officer check' }));
   fireEvent.click(screen.getByRole('button', { name: 'Aubrin' }));
@@ -142,65 +464,14 @@ test('[rules.P84.officer] officer details accept named references, signed skill 
     }),
   );
   expect(
-    within(
-      screen.getByRole('group', { name: 'Rivalry · Event 1' }),
-    ).queryByRole('textbox', { name: 'Event' }),
+    within(group('Rivalry · Event 1')).queryByRole('textbox', {
+      name: 'Event',
+    }),
   ).toBeNull();
 });
 
-test('[rules.P84.copper] buyoff cost preserves zero and clear and rejects malformed text without changing the rules cost', () => {
-  const edit = vi.fn();
-  render(
-    <PersistentView
-      view={{
-        ...view,
-        events: [
-          {
-            ...event,
-            decision: { kind: 'buyoff', eventId: 'rivalry', costCopper: 4000 },
-          },
-        ],
-      }}
-      edit={edit}
-      disabled={false}
-    />,
-  );
-  const amount = screen.getByRole('textbox', {
-    name: 'Recorded buyoff cost (copper)',
-  });
-  fireEvent.change(amount, { target: { value: '1e2' } });
-  expect(amount).toHaveValue('4000');
-  expect(edit).not.toHaveBeenCalled();
-  fireEvent.change(amount, { target: { value: '0' } });
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'persistent_decision',
-    decision: { kind: 'buyoff', eventId: 'rivalry', costCopper: 0 },
-  });
-  fireEvent.change(amount, { target: { value: '' } });
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'persistent_decision',
-    decision: { kind: 'buyoff', eventId: 'rivalry' },
-  });
-  expect(screen.getByText('Projected buyoff cost: 4000 cp.')).toBeVisible();
-});
-
 test('[rules.P84.theft] Theft offers only its applicable Loyalty roll and named Overseer support', () => {
-  render(
-    <PersistentView
-      view={{
-        ...view,
-        events: [
-          {
-            ...event,
-            eventType: 'theft',
-            decision: { kind: 'mitigate', eventId: 'rivalry' },
-          },
-        ],
-      }}
-      edit={vi.fn()}
-      disabled={false}
-    />,
-  );
+  show([{ ...theft, decision: { kind: 'mitigate', eventId: 'theft' } }]);
   fireEvent.click(screen.getByRole('button', { name: 'Add rolls' }));
   expect(screen.getByRole('textbox', { name: 'Check roll' })).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Add check' })).toBeNull();
@@ -208,4 +479,18 @@ test('[rules.P84.theft] Theft offers only its applicable Loyalty roll and named 
   expect(
     screen.queryByRole('button', { name: 'Add officer check' }),
   ).toBeNull();
+});
+
+test('[PER-03.legacy] an unsupported saved check on Low Morale is flagged and repairable', () => {
+  const { edit } = show([
+    { ...morale, decision: { kind: 'mitigate', eventId: 'morale' } },
+  ]);
+  expect(group('Low Morale · Event 3')).toHaveTextContent(
+    'This saved check isn’t available for Low Morale. Choose another decision.',
+  );
+  fireEvent.click(card('Low Morale · Event 3', 'Leave it'));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'persistent_decision',
+    decision: { kind: 'unattempted', eventId: 'morale' },
+  });
 });

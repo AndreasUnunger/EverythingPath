@@ -5,8 +5,6 @@ export function persistentMessage(key: string) {
       'Another buyoff falls within the militia’s four-week waiting period. Record an exception or revise the decision.',
     treasury:
       'The treasury cannot cover this buyoff. Record an exception or revise the decision.',
-    'buyoff-cost-recomputed':
-      'The recorded amount differs from the projected buyoff cost. The rules cost is used.',
     'persistent-ending':
       'This recorded ending needs the table’s reasoned exception.',
     'officer-assignment':
@@ -70,11 +68,8 @@ export function PersistentOutcomes({
           </ul>
         </div>
       ))}
+      {/* A staged buyoff is already the header's result and the cost line. */}
       {event.changes.map((change) => {
-        if (change.kind === 'persistent_buyoff')
-          return (
-            <p key={change.kind}>Buyoff staged: {change.costCopper} cp.</p>
-          );
         if (change.kind === 'persistent_officer_check')
           return (
             <p key={change.kind}>

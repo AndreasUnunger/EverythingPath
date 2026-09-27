@@ -11,6 +11,7 @@ import { activityLabel } from './activity-labels';
 import { useActivityPlacement } from './use-activity-placement';
 import { ActivityDetails } from './activity-details';
 import { ChoiceCards } from './choice-cards';
+import { activitySlotAnchor } from './persistent-sections';
 export function ActivityView({
   view,
   edit,
@@ -134,6 +135,8 @@ export function ActivityView({
           <Card
             key={slot.slotId}
             ref={(node) => placement.targetRef(slot.slotId, node)}
+            id={activitySlotAnchor(slot.slotId)}
+            tabIndex={-1}
             aria-label={`Action Slot ${index + 1}`}
             data-drop-active={
               placement.drag?.target === slot.slotId ||

@@ -21,6 +21,7 @@ import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
+import { useSourceFocus } from './use-source-focus';
 import { SetupNotesButton } from './week-frame/setup-notes';
 import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
@@ -160,6 +161,10 @@ export function WeeklyWorkspaceBoard({
     phase,
     onPhaseChange,
   );
+  const openSource = useSourceFocus(
+    workspace.status === 'ready' ? workspace.phaseView.phase : null,
+    choosePhase,
+  );
   const panel = useReferencePanel(campaignId);
   const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
@@ -231,6 +236,7 @@ export function WeeklyWorkspaceBoard({
             view={view}
             edit={workspace.edit}
             disabled={disabled}
+            openSource={openSource}
           />
         ) : view.phase === 'summary' ? (
           <SummaryView

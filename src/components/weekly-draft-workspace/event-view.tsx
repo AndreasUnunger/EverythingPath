@@ -16,6 +16,7 @@ import { Card } from '~/components/ui/card';
 import { StructuredChoiceField } from './structured-choice-field';
 import { ActivityText } from './activity-details';
 import { activityLabel } from './activity-labels';
+import { eventOccurrenceAnchor } from './persistent-sections';
 import type { EventView as Facts } from './types';
 type Occurrence = WeeklyDraft['event']['occurrences'][number];
 type Props = {
@@ -210,6 +211,8 @@ function EventOccurrence({
   );
   return (
     <Card
+      id={eventOccurrenceAnchor(occurrence.eventId)}
+      tabIndex={-1}
       className="space-y-3 p-5"
       role="group"
       aria-label={`Event ${index + 1}`}
