@@ -102,6 +102,8 @@ function requiredRoll(code: string) {
 }
 
 export function summaryMessage(code: string, view: Summary, warning = false) {
+  const event = view.eventMessages?.[code];
+  if (event) return event;
   const adjustment = adjustmentMessage(code, view);
   if (adjustment) return adjustment;
   const owner = messageOwner(code, view);

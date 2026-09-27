@@ -1,19 +1,27 @@
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
-import type { UpkeepView, PhaseView } from './types';
+import type { EventView, UpkeepView, PhaseView } from './types';
 import { activityView } from './activity-facts';
-import { eventView } from './event-facts';
+import { eventView, type EventPreparationContext } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
+import { eventName } from './event-tree-facts';
+
+// "Event 2 · Sickness", or "Event 2" before its roll resolves.
+function eventSubjectLabel(event: EventView['occurrences'][number]) {
+  const name = eventName(event.resolvedType);
+  return name ? `Event ${event.number} · ${name}` : `Event ${event.number}`;
+}
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
   upkeep: UpkeepView,
+  eventContext?: EventPreparationContext,
 ): Extract<PhaseView, { phase: 'summary' }> {
   const activity = activityView(draft, source, preview);
-  const events = eventView(draft, source, preview);
+  const events = eventView(draft, source, preview, eventContext);
   const persistent = persistentView(draft, source, preview);
   const candidates = [
     ...upkeep.exceptions,
@@ -24,10 +32,10 @@ export function summaryView(
         name: `Activity ${index + 1}: ${activity.actions.find((action) => action.actionId === slot.choice?.actionId)?.name ?? 'Choice'}`,
       })),
     ),
-    ...events.occurrences.flatMap((event, index) =>
+    ...events.occurrences.flatMap((event) =>
       event.exceptionChoices.map((item) => ({
         ...item,
-        name: `${event.resolvedType ? activityLabel(event.resolvedType) : 'Event'} · Event ${index + 1}`,
+        name: eventSubjectLabel(event),
       })),
     ),
     ...persistent.events.flatMap((event) =>
@@ -45,8 +53,8 @@ export function summaryView(
           ]
         : [],
     ),
-    ...events.occurrences.flatMap((event, index) => {
-      const label = `${activityLabel(event.resolvedType ?? 'event')} · Event ${index + 1}`;
+    ...events.occurrences.flatMap((event) => {
+      const label = eventSubjectLabel(event);
       return [
         { value: event.occurrence.eventId, label },
         { value: `event:${event.occurrence.eventId}`, label },
@@ -94,6 +102,7 @@ export function summaryView(
     choiceId: subjects,
     sourceId: subjects,
   };
+  const eventMessages = events.messages;
   const states = [preview.baseline, preview.outcome].filter(
     (state) => state !== null,
   );
@@ -143,6 +152,7 @@ export function summaryView(
       name: person.name ?? 'Unnamed character',
     })),
     options,
+    eventMessages,
     baseline: preview.baseline,
     outcome: preview.outcome,
     effects: preview.phases

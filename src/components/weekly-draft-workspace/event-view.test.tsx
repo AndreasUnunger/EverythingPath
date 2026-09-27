@@ -6,10 +6,19 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-import { EventView } from './event-view';
-import type { EventView as Facts } from './types';
+import { EventView as RulesOrderedEventView } from './event-view';
+import { eventFacts, type EventFactsInput } from './event-view-test-fixture';
 afterEach(cleanup);
-const view: Facts = {
+// Old occurrence-level facts, placed into the rules-ordered sections.
+function EventView({
+  view,
+  ...props
+}: Omit<Parameters<typeof RulesOrderedEventView>[0], 'view'> & {
+  view: EventFactsInput;
+}) {
+  return <RulesOrderedEventView view={eventFacts(view)} {...props} />;
+}
+const view: EventFactsInput = {
   phase: 'event',
   ready: false,
   chance: 10,
@@ -252,9 +261,7 @@ test('[rules.P83.candidates] Event edits preserve complete Activity candidate ow
       },
     },
   });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Select this Activity event' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Choose this event' }));
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'detail',
     slotId: 'slot',

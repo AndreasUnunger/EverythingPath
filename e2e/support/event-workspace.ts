@@ -23,29 +23,43 @@ export async function exerciseEventWorkspace(
     page.getByRole('group', { name: `Event ${position}`, exact: true });
   await Promise.all([phase(gm, 'Event'), phase(player, 'Event')]);
   const previousChance = await chance(gm).inputValue();
+  // A triggered chance roll prepares the rolled event's blank position on
+  // every device; nobody adds it by hand.
   await chance(gm).fill('1');
   await expect(chance(player)).toHaveValue('1');
-  await gm
-    .getByRole('button', { name: 'Add rolled event', exact: true })
-    .click();
   await expect(table(player, 1)).toHaveValue('');
+  await expect(table(player, 1)).toBeEnabled();
   await table(gm, 1).fill('50');
-  await expect(occurrence(player, 1).getByRole('heading')).toHaveText(
-    'Event 1: Roll Twice',
-  );
-  await occurrence(gm, 1)
-    .getByRole('button', { name: 'Add Roll Twice child', exact: true })
-    .click();
+  await expect(
+    occurrence(player, 1).getByText('Two more', { exact: true }),
+  ).toBeVisible();
+  // The first Roll Twice brings its two blank child positions with it.
   await expect(table(player, 2)).toHaveValue('');
-  await occurrence(gm, 1)
-    .getByRole('button', { name: 'Add Roll Twice child', exact: true })
-    .click();
   await expect(table(player, 3)).toHaveValue('');
+  await expect(table(player, 2)).toBeEnabled();
+  await expect(table(player, 3)).toBeEnabled();
+  for (const retired of [
+    'Add rolled event',
+    'Add Roll Twice child',
+    'Add replacement event',
+    'Remove Event 1 and its branches',
+  ])
+    await expect(
+      gm.getByRole('button', { name: retired, exact: true }),
+    ).toHaveCount(0);
   await table(gm, 2).fill('45');
   await table(player, 3).fill('82');
-  await expect(occurrence(gm, 3).getByRole('heading')).toHaveText(
-    'Event 3: Invasion',
-  );
+  await expect(
+    occurrence(gm, 3).getByText('Invasion', { exact: true }),
+  ).toBeVisible();
+  // Moving Event 1 away from Roll Twice hides its children; returning restores
+  // them with their rolls and identities.
+  await table(gm, 1).fill('10');
+  await expect(table(player, 2)).toBeHidden();
+  await expect(table(player, 3)).toBeHidden();
+  await table(gm, 1).fill('50');
+  await expect(table(player, 2)).toHaveValue('45');
+  await expect(table(player, 3)).toHaveValue('82');
   await occurrence(gm, 3)
     .getByText('Edit Event 3 details', { exact: true })
     .click();
@@ -150,15 +164,13 @@ export async function exerciseEventWorkspace(
       exact: true,
     }),
   ).toHaveValue('');
-  // Restore the supported journey's prepared week so its exact Confirmation assertions remain meaningful.
-  await occurrence(gm, 1)
-    .getByRole('button', {
-      name: 'Remove Event 1 and its branches',
-      exact: true,
-    })
-    .click();
-  await expect(table(player, 1)).toHaveCount(0);
+  // Restore the supported journey's quiet week so its exact Confirmation
+  // assertions remain meaningful. The recorded events stay on record, unused.
   await chance(gm).fill(previousChance);
   await expect(chance(player)).toHaveValue(previousChance);
+  await expect(table(player, 1)).toBeHidden();
+  await expect(
+    player.getByText(/^Kept on record, not used this week/),
+  ).toBeVisible();
   await gm.setViewportSize({ width: 1194, height: 834 });
 }

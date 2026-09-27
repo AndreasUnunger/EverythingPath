@@ -513,6 +513,7 @@ function selectEventReplacements(
   result.requirements.push(...replacement.requirements);
   result.warnings.push(...replacement.warnings);
   result.tree.push(...replacement.tree);
+  result.positions.push(...replacement.positions);
   const replacements = replacement.selected.map((event) =>
     dispatchEvent(event, []),
   );

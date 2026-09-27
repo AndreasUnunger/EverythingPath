@@ -1,4 +1,14 @@
 import { eventMitigationInput } from '~/lib/rules-event-checks';
+import { normalizeRawRoll } from '~/lib/raw-roll';
+import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
+import { projectSettlements } from '~/lib/rules-settlements';
+import {
+  isCandidateChoice,
+  isSurplusEventOccurrence,
+  planEventTopology,
+  removableEventOccurrence,
+  uniquePositions,
+} from '~/lib/event-occurrence-preparation';
 import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
@@ -6,30 +16,399 @@ import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resoluti
 import { activityView } from './activity-facts';
 import { activityReferenceOptions } from './activity-input-options';
 import { activityLabel } from './activity-labels';
-import type { EventView } from './types';
+import { eventRequirement, eventTopologyMessage } from './event-messages';
+import {
+  eventName,
+  eventTableFacts,
+  eventTreeBlocks,
+  type LocatedEvent,
+  type Repair,
+} from './event-tree-facts';
+import type { EventCandidateSet, EventChanceStep, EventView } from './types';
+
+type Event = WeeklyDraft['event']['occurrences'][number];
+
+// What the Workspace knows beyond the draft: which occurrences the accepted
+// draft already holds, and whether preparing the missing ones has failed.
+export type EventPreparationContext = {
+  acceptedEventIds: ReadonlySet<string> | null;
+  preparationFailed: boolean;
+};
+
 export function eventView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
+  context: EventPreparationContext = {
+    acceptedEventIds: null,
+    preparationFailed: false,
+  },
 ): EventView {
   const projection = preview.phases?.event;
-  const occurrences = [
-    ...draft.event.occurrences.map((occurrence) => ({
-      occurrence,
-      owner: null,
-    })),
-    ...draft.activity.slots.flatMap((slot) =>
-      slot.choice
-        ? actionChoiceEvents(slot.choice).map((occurrence) => ({
-            occurrence,
-            owner: { slotId: slot.slotId, choice: slot.choice! },
-          }))
-        : [],
-    ),
-  ];
+  const activity = preview.phases?.activity;
+  const positions = uniquePositions(projection?.positions ?? []);
+  // Missing required positions show as stable blanks before they are saved.
+  const plan = planEventTopology(draft, positions);
   const references = activityReferenceOptions(
     { choiceId: '', actionId: 'lie_low' },
     activityView(draft, source, preview),
+  );
+  const slotNumber = (slotId: string) =>
+    draft.activity.slots.findIndex((slot) => slot.slotId === slotId) + 1;
+  const teamName = (teamId: string | undefined) =>
+    source.snapshot.roster.teams.find((team) => team.teamId === teamId)?.name;
+  const candidateLabel = (slotId: string) => {
+    const choice = draft.activity.slots.find(
+      (slot) => slot.slotId === slotId,
+    )?.choice;
+    const team = teamName(choice?.teamId);
+    return `${activityLabel(choice?.actionId ?? 'event')} · Action Slot ${slotNumber(slotId)}${team ? ` · ${team}` : ''}`;
+  };
+  const automaticSources = draft.context.queuedEffects.flatMap((effect) =>
+    effect.effect.kind === 'automatic_events' &&
+    effect.startsWeek <= draft.week &&
+    draft.week <= effect.endsWeek
+      ? [
+          {
+            sourceId: effect.sourceId,
+            label: eventName(effect.eventType) ?? 'An earlier event',
+            count: effect.effect.count,
+          },
+        ]
+      : [],
+  );
+  const sourceLabel = (sourceId: string) =>
+    automaticSources.find((entry) => entry.sourceId === sourceId)?.label ??
+    'An earlier event';
+
+  const tree = eventTreeBlocks({
+    draft,
+    projection,
+    plan,
+    accepted: context.acceptedEventIds,
+    facts: (located, number) => occurrenceFacts(located, number),
+    // Never a raw code: unowned codes fall back to the generic wording.
+    issues: (codes) =>
+      [...new Set(codes)].map((code) => ({
+        code,
+        message: messages[code] ?? eventRequirement(code),
+      })),
+  });
+  function occurrenceFacts({ event, owner }: LocatedEvent, number: number) {
+    const resolved = projection?.tree.find(
+      (entry) => entry.eventId === event.eventId,
+    );
+    const mode =
+      projection?.dispatch.find(
+        (entry) => entry.event.eventId === event.eventId,
+      )?.mode ?? null;
+    const prefixes = [event.eventId, event.sabotage?.choiceId].filter(Boolean);
+    return {
+      occurrence: structuredClone(event),
+      number,
+      owner: structuredClone(owner),
+      resolvedType: resolved?.eventType ?? null,
+      optionalMitigation: eventMitigationInput(resolved ?? event, mode),
+      exceptionChoices: eventExceptions(
+        event,
+        draft,
+        projection?.requirements ?? [],
+        projection?.warnings ?? [],
+      ),
+      changes:
+        projection?.plan.filter((change) => change.eventId === event.eventId) ??
+        [],
+      mode,
+      selected:
+        projection?.selected.some((entry) => entry.eventId === event.eventId) ??
+        false,
+      negated: projection?.negatedEventIds.includes(event.eventId) ?? false,
+      requirements:
+        projection?.requirements.filter((key) =>
+          prefixes.some((id) => key.startsWith(`${id}:`)),
+        ) ?? [],
+      warnings:
+        projection?.warnings.filter((key) =>
+          prefixes.some((id) => key.startsWith(`${id}:`)),
+        ) ?? [],
+    };
+  }
+
+  // Event-identified wording for every code, shared with This phase.
+  const label = (eventId: string) => {
+    const item = tree.occurrences.find(
+      (entry) => entry.occurrence.eventId === eventId,
+    );
+    if (!item) return 'Event';
+    const name =
+      eventName(item.resolvedType) ??
+      eventTableFacts(item.occurrence.tableRoll).name;
+    return name ? `Event ${item.number} · ${name}` : `Event ${item.number}`;
+  };
+  const settlement = draft.activity.operatingSettlementId
+    ? projectSettlements(
+        activity?.outcome.settlements ?? source.snapshot.settlements,
+        draft.week,
+      ).settlements.find(
+        (town) => town.settlementId === draft.activity.operatingSettlementId,
+      )
+    : undefined;
+  const settlementName =
+    settlement?.name ??
+    source.snapshot.settlements.find(
+      (town) => town.settlementId === draft.activity.operatingSettlementId,
+    )?.name ??
+    null;
+  const messages: Record<string, string> = {};
+  for (const code of [
+    ...(projection?.requirements ?? []),
+    ...(projection?.warnings ?? []),
+  ]) {
+    const message = eventTopologyMessage(code, {
+      positions,
+      events: tree.occurrences.map((item) => ({
+        eventId: item.occurrence.eventId,
+        sabotageId: item.occurrence.sabotage?.choiceId ?? null,
+        label: label(item.occurrence.eventId),
+      })),
+      candidateLabel: (choiceId) => {
+        const slot = draft.activity.slots.find(
+          (entry) => entry.choice?.choiceId === choiceId,
+        );
+        return slot ? candidateLabel(slot.slotId) : null;
+      },
+      sourceLabel,
+      settlementName,
+      preparationFailed: context.preparationFailed,
+      warning: (projection?.warnings ?? []).includes(code),
+    });
+    if (message) messages[code] = message;
+  }
+  const issues = (codes: string[]) =>
+    [...new Set(codes)].flatMap((code) =>
+      messages[code] ? [{ code, message: messages[code] }] : [],
+    );
+  const codes = [
+    ...(projection?.requirements ?? []),
+    ...(projection?.warnings ?? []),
+  ];
+
+  // Clearing the table roll of an otherwise empty surplus position removes it
+  // through the existing tree or candidate edit.
+  const surplus: Repair = {
+    surplus: (eventId) => isSurplusEventOccurrence(draft, positions, eventId),
+    removal: (eventId) => {
+      const cleared = structuredClone(draft);
+      for (const event of [
+        ...cleared.event.occurrences,
+        ...cleared.activity.slots.flatMap((slot) =>
+          actionChoiceEvents(slot.choice),
+        ),
+      ])
+        if (event.eventId === eventId) delete event.tableRoll;
+      return removableEventOccurrence(cleared, positions, eventId);
+    },
+  };
+  const mainRoots = tree.roots.filter((entry) => entry.owner === null);
+  const automaticRoots = mainRoots.filter(
+    (entry) => entry.event.origin.kind === 'automatic',
+  );
+  const rolledRoots = mainRoots.filter(
+    (entry) => entry.event.origin.kind === 'rolled',
+  );
+  const isActive = (entry: LocatedEvent) =>
+    tree.active.has(entry.event.eventId);
+
+  const forcedCalm = projection?.forcedCalm ?? false;
+  const guaranteed = projection?.guaranteed ?? false;
+  const chanceStep = chanceFacts();
+  function chanceFacts(): EventChanceStep {
+    const normalized = normalizeRawRoll(
+      draft.event.chanceRoll,
+      RULE_ROLL_SPECS.percentile,
+    );
+    const raw = normalized.status === 'complete' ? normalized.diceTotal : null;
+    const modifier = projection?.chanceModifier ?? null;
+    const total = raw !== null && modifier !== null ? raw + modifier : null;
+    const chance = projection?.chance ?? 10;
+    const breakdown = projection
+      ? [
+          { label: 'Notoriety', value: projection.chanceBreakdown.notoriety },
+          ...(projection.chanceBreakdown.carry
+            ? [
+                {
+                  label: 'Uneventful last week (rank)',
+                  value: projection.chanceBreakdown.carry,
+                },
+              ]
+            : []),
+          ...projection.chanceBreakdown.queued.map((entry) => ({
+            label:
+              eventName(
+                draft.context.queuedEffects.find(
+                  (effect) => effect.effectId === entry.effectId,
+                )?.eventType,
+              ) ?? 'An earlier event',
+            value: entry.value,
+          })),
+        ]
+      : [];
+    const sources = (projection?.guarantees ?? []).flatMap((guarantee) => {
+      const slot = draft.activity.slots.find(
+        (entry) => entry.choice?.choiceId === guarantee.choiceId,
+      );
+      return slot
+        ? [{ choiceId: guarantee.choiceId, label: candidateLabel(slot.slotId) }]
+        : [];
+    });
+    const applies = forcedCalm
+      ? 'forced_calm'
+      : guaranteed
+        ? 'guaranteed'
+        : 'roll';
+    const result =
+      applies === 'roll' && total !== null
+        ? total < chance
+          ? 'event'
+          : 'quiet'
+        : null;
+    return {
+      applies,
+      effect:
+        applies === 'forced_calm'
+          ? 'A calm week'
+          : applies === 'guaranteed'
+            ? 'An event is guaranteed'
+            : result === 'event'
+              ? 'An event happens'
+              : result === 'quiet'
+                ? 'A quiet week'
+                : 'Waiting for the chance roll',
+      explanation:
+        applies === 'forced_calm'
+          ? 'All Is Calm from last week: no chance roll and no rolled or candidate event this week. Automatic events still happen.'
+          : applies === 'guaranteed'
+            ? `${sources.map((entry) => entry.label).join('; ')} guarantees an event, so there is no chance roll.`
+            : null,
+      breakdown,
+      required: codes.includes('event:chance:1d100'),
+      raw,
+      total,
+      result,
+      operating: settlementName
+        ? {
+            name: settlementName,
+            reputation: settlement?.reputation ?? null,
+            modifier,
+          }
+        : null,
+      sources,
+      issues: issues(
+        codes.filter(
+          (code) =>
+            code === 'event:chance:1d100' ||
+            code === 'event:operating-settlement' ||
+            code === 'event:chance:roll-range',
+        ),
+      ),
+    };
+  }
+
+  const automatic =
+    automaticSources.length || automaticRoots.some(isActive)
+      ? {
+          sources: automaticSources,
+          blocks: automaticRoots
+            .filter(isActive)
+            .map((entry) => tree.block(entry, surplus)),
+          issues: issues(
+            codes.filter((code) =>
+              automaticSources.some((entry) =>
+                code.startsWith(`${entry.sourceId}:automatic-events:`),
+              ),
+            ),
+          ),
+        }
+      : null;
+  const rolledBlocks = rolledRoots
+    .filter(isActive)
+    .map((entry) => tree.block(entry, surplus));
+  const happened = (projection?.dispatch ?? []).filter(
+    (entry) => !projection?.negatedEventIds.includes(entry.event.eventId),
+  );
+  const rolled = {
+    applies: rolledBlocks.length > 0,
+    effect: happened.length
+      ? happened.map((entry) => eventName(entry.event.eventType)).join(' · ')
+      : 'Waiting for dice',
+    reason: forcedCalm
+      ? 'No rolled event in a calm week'
+      : guaranteed
+        ? 'An Activity choice guarantees the event'
+        : chanceStep.result === 'quiet'
+          ? 'A quiet week'
+          : rolledBlocks.length
+            ? null
+            : 'Waiting for the chance roll',
+    blocks: rolledBlocks,
+    issues: issues(codes.filter((code) => code === 'event:root:1')),
+  };
+  const candidates: EventCandidateSet[] = draft.activity.slots.flatMap(
+    (slot) => {
+      const choice = slot.choice;
+      if (!isCandidateChoice(choice)) return [];
+      return [
+        {
+          slotId: slot.slotId,
+          choiceId: choice.choiceId,
+          label: candidateLabel(slot.slotId),
+          active: tree.activeCandidateSets.has(choice.choiceId),
+          selectedEventId: choice.selectedEventId ?? null,
+          blocks: tree.roots
+            .filter((entry) => entry.owner?.choice.choiceId === choice.choiceId)
+            .map((entry) => tree.block(entry, surplus)),
+          issues: issues(
+            codes.filter(
+              (code) =>
+                code === `${choice.choiceId}:candidates:2` ||
+                code === `${choice.choiceId}:selected-event`,
+            ),
+          ),
+        },
+      ];
+    },
+  );
+  const inactive = mainRoots
+    .filter((entry) => !isActive(entry))
+    .map((entry) => tree.block(entry, surplus));
+  const complete = Boolean(projection?.ready);
+  const outcome = {
+    complete,
+    lines: complete
+      ? [
+          happened.length
+            ? `This week: ${happened
+                .map(
+                  (entry) =>
+                    `${eventName(entry.event.eventType)}${entry.mode === 'twice' ? ' (twice)' : ''}`,
+                )
+                .join(', ')}.`
+            : forcedCalm
+              ? 'A calm week: no event.'
+              : 'No event this week.',
+          ...(projection?.negatedEventIds ?? []).map(
+            (eventId) => `${label(eventId)} was sabotaged and does not happen.`,
+          ),
+          projection?.nextUneventfulCarry
+            ? `Uneventful: next week's event chance rises by ${activity?.outcome.rank ?? source.snapshot.rank}.`
+            : 'Not an uneventful week: no chance bonus next week.',
+        ]
+      : [],
+  };
+  const unsaved = tree.occurrences.some(
+    (item) =>
+      context.acceptedEventIds &&
+      !context.acceptedEventIds.has(item.occurrence.eventId),
   );
   return {
     phase: 'event',
@@ -37,79 +416,36 @@ export function eventView(
     chance: projection?.chance ?? 10,
     chanceRoll: draft.event.chanceRoll ?? null,
     chanceModifier: projection?.chanceModifier ?? null,
-    guaranteed: projection?.guaranteed ?? false,
-    occurrences: occurrences.map(({ occurrence, owner }) => {
-      const resolved = projection?.tree.find(
-        (event) => event.eventId === occurrence.eventId,
-      );
-      const prefixes = [
-        occurrence.eventId,
-        occurrence.sabotage?.choiceId,
-      ].filter(Boolean);
-      return {
-        occurrence: structuredClone(occurrence),
-        owner: structuredClone(owner),
-        resolvedType: resolved?.eventType ?? null,
-        optionalMitigation: eventMitigationInput(
-          resolved ?? occurrence,
-          projection?.dispatch.find(
-            (entry) => entry.event.eventId === occurrence.eventId,
-          )?.mode ?? null,
-        ),
-        exceptionChoices: eventExceptions(
-          occurrence,
-          draft,
-          projection?.requirements ?? [],
-          projection?.warnings ?? [],
-        ),
-        changes:
-          projection?.plan.filter(
-            (change) => change.eventId === occurrence.eventId,
-          ) ?? [],
-        mode:
-          projection?.dispatch.find(
-            (entry) => entry.event.eventId === occurrence.eventId,
-          )?.mode ?? null,
-        selected:
-          projection?.selected.some(
-            (event) => event.eventId === occurrence.eventId,
-          ) ?? false,
-        negated:
-          projection?.negatedEventIds.includes(occurrence.eventId) ?? false,
-        requirements:
-          projection?.requirements.filter((key) =>
-            prefixes.some((id) => key.startsWith(`${id}:`)),
-          ) ?? [],
-        warnings:
-          projection?.warnings.filter((key) =>
-            prefixes.some((id) => key.startsWith(`${id}:`)),
-          ) ?? [],
-      };
-    }),
+    guaranteed,
+    chanceStep,
+    automatic,
+    rolled,
+    candidates,
+    inactive,
+    outcome,
+    preparation: context.preparationFailed
+      ? 'failed'
+      : unsaved
+        ? 'preparing'
+        : 'idle',
+    occurrences: tree.occurrences,
+    messages,
     acknowledgements: structuredClone(draft.acknowledgements),
     exceptions: structuredClone(draft.rulesExceptions),
     checks: projection?.checks ?? [],
     options: {
       ...references,
       eventId: references.eventId.map((option) => {
-        const index = occurrences.findIndex(
-          ({ occurrence }) => occurrence.eventId === option.value,
+        const item = tree.occurrences.find(
+          (entry) => entry.occurrence.eventId === option.value,
         );
-        const resolved = projection?.tree.find(
-          (event) => event.eventId === option.value,
-        );
-        return index < 0
-          ? option
-          : {
-              ...option,
-              label: `Event ${index + 1}: ${activityLabel(resolved?.eventType ?? 'awaiting_roll')}`,
-            };
+        return item ? { ...option, label: label(option.value) } : option;
       }),
       itemId: [
         ...new Map(
           [
             ...references.itemId,
-            ...occurrences.flatMap(({ occurrence }) =>
+            ...tree.occurrences.flatMap(({ occurrence }) =>
               (occurrence.rewards ?? []).map((reward) => ({
                 value: reward.itemId,
                 label: reward.name,
@@ -122,9 +458,9 @@ export function eventView(
           ].map((item) => [item.value, item]),
         ).values(),
       ],
-      parentEventId: occurrences.map(({ occurrence }, index) => ({
+      parentEventId: tree.occurrences.map(({ occurrence }) => ({
         value: occurrence.eventId,
-        label: `Event ${index + 1}: ${activityLabel(projection?.tree.find((event) => event.eventId === occurrence.eventId)?.eventType ?? 'awaiting_roll')}`,
+        label: label(occurrence.eventId),
       })),
     },
     requirements: projection?.requirements ?? [],
@@ -133,7 +469,7 @@ export function eventView(
 }
 
 function eventExceptions(
-  occurrence: WeeklyDraft['event']['occurrences'][number],
+  occurrence: Event,
   draft: WeeklyDraft,
   requirements: string[],
   warnings: string[],

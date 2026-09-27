@@ -225,7 +225,13 @@ export function WeeklyWorkspaceBoard({
         ) : view.phase === 'activity' ? (
           <ActivityView view={view} edit={workspace.edit} disabled={disabled} />
         ) : view.phase === 'event' ? (
-          <EventView view={view} edit={workspace.edit} disabled={disabled} />
+          <EventView
+            view={view}
+            edit={workspace.edit}
+            disabled={disabled}
+            preparation={workspace.eventPreparation}
+            openActivity={() => choosePhase('activity')}
+          />
         ) : view.phase === 'persistent' ? (
           <PersistentView
             view={view}

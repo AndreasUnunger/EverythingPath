@@ -1,6 +1,6 @@
 import { summaryView } from './summary-facts';
 import { persistentView } from './persistent-facts';
-import { eventView } from './event-facts';
+import { eventView, type EventPreparationContext } from './event-facts';
 import { activityView } from './activity-facts';
 import { upkeepInputFacts } from '~/lib/rules-upkeep';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
@@ -14,14 +14,15 @@ export function phaseView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
+  event?: EventPreparationContext,
 ): PhaseView {
   if (phase === 'summary') {
     const upkeep = phaseView('upkeep', draft, source, preview);
     if (upkeep.phase !== 'upkeep') throw new Error('Expected Upkeep facts');
-    return summaryView(draft, source, preview, upkeep);
+    return summaryView(draft, source, preview, upkeep, event);
   }
   if (phase === 'activity') return activityView(draft, source, preview);
-  if (phase === 'event') return eventView(draft, source, preview);
+  if (phase === 'event') return eventView(draft, source, preview, event);
   if (phase === 'persistent') return persistentView(draft, source, preview);
   const { projection, fields, minimumTreasuryCopper } = upkeepInputFacts(
     draft,
