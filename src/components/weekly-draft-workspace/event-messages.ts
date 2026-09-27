@@ -31,6 +31,8 @@ export function eventTopologyMessage(
     return 'Event chance: enter the chance roll (d100).';
   if (code === 'event:chance:roll-range')
     return 'Event chance: the roll is outside 1–100. The recorded value is kept for the table.';
+  if (code === 'event:hidden-agenda-cycle')
+    return 'Hidden Agenda: the recalculated Activity keeps changing whether the event happens. Review the Activity checks with the table.';
   if (code === 'event:operating-settlement')
     return `Event chance: record ${context.settlementName ?? 'the operating settlement'}’s reputation, or choose another operating settlement in Activity.`;
   if (code === 'event:root:1')

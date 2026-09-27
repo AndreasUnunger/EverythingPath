@@ -22,6 +22,7 @@ import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
 import { useSourceFocus } from './use-source-focus';
+import { activitySlotAnchor } from './source-anchors';
 import { SetupNotesButton } from './week-frame/setup-notes';
 import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
@@ -284,6 +285,12 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             preparation={workspace.eventPreparation}
             openActivity={() => choosePhase('activity')}
+            openActivitySlot={(slotId) =>
+              openSource({
+                phase: 'activity',
+                anchor: slotId ? activitySlotAnchor(slotId) : null,
+              })
+            }
             latestOverseer={() => latestOverseer(controller?.store)}
           />
         ) : view.phase === 'persistent' ? (

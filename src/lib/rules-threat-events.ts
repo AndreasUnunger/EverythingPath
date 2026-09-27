@@ -26,6 +26,14 @@ export function turncoatDiplomacyDc(rank: number) {
 export function invasionChallengeRating(averagePartyLevel: number) {
   return averagePartyLevel + 1;
 }
+/** Cache Discovered mitigation: the Secrecy DC that retrieves the cache. */
+export function cacheSecrecyDc(rank: number) {
+  return 10 + rank;
+}
+/** A cache Cache Discovered can find: hidden, or planned for retrieval. */
+export function isDiscoverableCache(cache: { status: string }) {
+  return cache.status === 'hidden' || cache.status === 'returning';
+}
 type Cache = NonNullable<UpkeepSnapshot['economy']>['caches'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type ThreatEventChange =
@@ -282,10 +290,7 @@ function checkThreatMitigation(
 function resolveCacheDiscovered(context: ThreatEventContext) {
   const { event, twice, state } = context;
 
-  const eligible =
-    state.economy?.caches.filter(
-      (cache) => cache.status === 'hidden' || cache.status === 'returning',
-    ) ?? [];
+  const eligible = state.economy?.caches.filter(isDiscoverableCache) ?? [];
   // The actual Twice clause explicitly says no additional effect with no caches.
   if (!eligible.length) {
     if (!twice) requireThreatInput(context, 'replacement:1');
@@ -577,7 +582,7 @@ function resolveDiscoveredCache(context: ThreatEventContext, cache: Cache) {
     context,
     { kind: 'cache', cacheId: cache.cacheId },
     'secrecy',
-    10 + state.rank,
+    cacheSecrecyDc(state.rank),
   );
   if (recovered === null) return;
   if (

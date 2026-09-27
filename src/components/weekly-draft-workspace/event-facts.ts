@@ -164,6 +164,7 @@ export function eventView(
     projection,
     activity,
     teams: activityFacts.teamRoster,
+    activitySlots: activityFacts.slots,
     personName: (characterId) =>
       source.people.find((person) => person.characterId === characterId)
         ?.name ?? null,

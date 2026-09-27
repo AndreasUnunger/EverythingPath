@@ -33,12 +33,14 @@ export function EventOccurrenceEditors({
   edit,
   disabled,
   edits,
+  openActivitySlot,
 }: {
   block: EventBlock;
   view: EventView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   edits: ReturnType<typeof useEventEdits>;
+  openActivitySlot?: (slotId: string | null) => void;
 }) {
   const saveOccurrence = edits.saveOccurrence;
   const [error, setError] = useState('');
@@ -53,12 +55,26 @@ export function EventOccurrenceEditors({
         ? panel.check
           ? [panel.check.checkId]
           : []
-        : panel.people.map((person) => person.check.checkId)),
+        : panel.family === 'resource'
+          ? panel.caches.map((cache) => cache.check.checkId)
+          : panel.people.map((person) => person.check.checkId)),
     // The Sabotage panel shows its own check row.
     ...(occurrence.sabotage
       ? [sabotageCheckId(occurrence.eventId, occurrence.sabotage.choiceId)]
       : []),
   ];
+  // A reward's Rules Exception is edited beside its reward.
+  const rewardIds = new Set(
+    panel?.family === 'resource' && panel.rewards
+      ? [
+          ...panel.rewards.recipients.flatMap((entry) => entry.rewards),
+          ...panel.rewards.others,
+        ].map((reward) => reward.itemId)
+      : [],
+  );
+  const exceptions = item.exceptionChoices.filter(
+    (exception) => !rewardIds.has(exception.subjectId),
+  );
   const acknowledgement = view.acknowledgements.find(
     (entry) => entry.subjectId === `event:${occurrence.eventId}`,
   );
@@ -81,6 +97,7 @@ export function EventOccurrenceEditors({
           panel={panel}
           disabled={disabled}
           edits={edits}
+          openActivitySlot={openActivitySlot}
         />
       )}
       {!panel && item.optionalMitigation !== 'unavailable' && (
@@ -181,7 +198,7 @@ export function EventOccurrenceEditors({
           </div>
         )}
       <EventChecks item={item} view={view} exclude={covered} />
-      {item.exceptionChoices.map((exception) => (
+      {exceptions.map((exception) => (
         <div
           key={exception.exceptionId}
           className="space-y-2 rounded-md border border-amber-500 p-3"

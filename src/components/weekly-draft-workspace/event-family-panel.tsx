@@ -4,6 +4,7 @@ import type { EventEditResult, EventEdits } from './event-family-inputs';
 import { EventOutcomeInputs } from './event-outcome-inputs';
 import { EventRaidInputs } from './event-raid-inputs';
 import { EventRecurringInputs } from './event-recurring-inputs';
+import { EventResourceInputs } from './event-resource-inputs';
 import { EventTargetCards } from './event-target-cards';
 import { EventTeamInputs } from './event-team-inputs';
 import { EventWhatHappenedLine } from './event-what-happened';
@@ -18,11 +19,15 @@ export function EventFamilyPanel({
   panel,
   disabled,
   edits,
+  openActivitySlot,
 }: {
   block: EventBlock;
   panel: EventPanel;
   disabled: boolean;
   edits: EventEdits;
+  // Opens Activity at a choice (or at its top for null), where Hidden
+  // Agenda's recalculated choices and the operated towns are edited.
+  openActivitySlot?: (slotId: string | null) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   function showRefusal(result: EventEditResult) {
@@ -30,7 +35,7 @@ export function EventFamilyPanel({
   }
   const id = block.eventId;
   function targetCards(
-    kind: 'team' | 'settlement',
+    kind: 'team' | 'settlement' | 'item' | 'cache',
     choice: EventTargetChoice,
     subject?: string,
   ) {
@@ -54,9 +59,14 @@ export function EventFamilyPanel({
       />
     );
   }
-  // Outcome and recurring panels carry rules notes and may be partial.
+  // Outcome, recurring and resource panels carry rules notes and may be
+  // partial.
   const detail =
-    panel.family === 'outcome' || panel.family === 'recurring' ? panel : null;
+    panel.family === 'outcome' ||
+    panel.family === 'recurring' ||
+    panel.family === 'resource'
+      ? panel
+      : null;
   return (
     <div className="min-w-0 space-y-4">
       {panel.family === 'outcome' ? (
@@ -76,6 +86,17 @@ export function EventFamilyPanel({
           edits={edits}
           showRefusal={showRefusal}
           targetCards={targetCards}
+        />
+      ) : panel.family === 'resource' ? (
+        <EventResourceInputs
+          panel={panel}
+          id={id}
+          disabled={disabled}
+          edits={edits}
+          showRefusal={showRefusal}
+          targetCards={targetCards}
+          subject={block.label}
+          openActivitySlot={openActivitySlot}
         />
       ) : panel.family === 'recurring' ? (
         <EventRecurringInputs

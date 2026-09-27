@@ -17,7 +17,7 @@ import {
   type EventPanelItem,
 } from './event-panel-context';
 import { eventChange } from './event-messages';
-import { teamName } from './event-target-choice';
+import { cacheName, itemName, teamName } from './event-target-choice';
 import { eventName } from './event-tree-facts';
 import { orderCarriedEvents, ordinal } from './persistent-sections';
 import { formatGold, plural } from './week-frame/reference-copy';
@@ -226,8 +226,29 @@ function changeLine(
         .map((skill) => skillNames[skill] ?? 'a skill')
         .join(', ');
       const type = bonusTypeNames[benefit.bonusType] ?? '';
-      return `${weekPhrase(draft, benefit.startsWeek)}: PCs gain ${signed(benefit.value)}${type ? ` ${type}` : ''} on ${skills}${benefit.afterDark ? ' after dark' : ''}.`;
+      const town = benefit.settlementId
+        ? ` in ${context.settlementName(benefit.settlementId) ?? 'the chosen town'}`
+        : '';
+      return `${weekPhrase(draft, benefit.startsWeek)}: PCs gain ${signed(benefit.value)}${type ? ` ${type}` : ''} on ${skills}${benefit.afterDark ? ' after dark' : ''}${town}.`;
     }
+    case 'event_market_benefit': {
+      const { benefit } = change;
+      const towns = benefit.settlementIds.map(
+        (settlementId) =>
+          context.settlementName(settlementId) ?? 'a town no longer recorded',
+      );
+      return `${weekPhrase(draft, benefit.startsWeek, benefit.endsWeek)}: items and services bought in ${towns.length ? towns.join(', ') : 'no town'} cost an extra ${benefit.discountPercent}% less.`;
+    }
+    case 'event_activity_bonus':
+      return `This week’s Activity checks gain ${signed(change.value)}.`;
+    case 'event_identification':
+      return `${itemName(context, change.itemId) ?? 'The item'} is identified.`;
+    case 'event_item':
+      return `${context.personName(change.item.ownerCharacterId ?? '') ?? 'A PC'} receives ${change.item.name} (${formatGold(change.item.valueCopper)}, ${change.item.weight} lb).`;
+    case 'event_cache':
+      return `${cacheName(change.after)}: ${change.after.status === 'retrieved' ? 'retrieved by the PCs' : 'discovered and lost'}.`;
+    case 'event_item_location':
+      return `${itemName(context, change.itemId) ?? 'An item'}: ${change.after === 'held' ? 'back in the PCs’ hands' : 'lost with the cache'}.`;
     case 'event_queue':
       return queuedLine(change, context);
     case 'event_persistent':

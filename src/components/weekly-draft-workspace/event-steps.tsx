@@ -106,14 +106,18 @@ export function EventIssueNotes({ issues }: { issues: EventIssue[] }) {
 export function InlineAction({
   onClick,
   children,
+  ariaLabel,
 }: {
   onClick: () => void;
   children: ReactNode;
+  // The accessible name when the visible words need context, e.g. the block.
+  ariaLabel?: string;
 }) {
   return (
     <Button
       type="button"
       variant="link"
+      aria-label={ariaLabel}
       className="h-auto justify-start p-0 text-left text-sm"
       onClick={onClick}
     >
