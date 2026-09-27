@@ -990,9 +990,14 @@ test('a stale whole-occurrence save fails on its device and never reverts the ot
     return value;
   };
   // The edits a click on this device would use right now.
-  const edits = (device: Device) =>
-    renderHook(() => useEventEdits(view(device), ready(device).edit)).result
-      .current;
+  const builders: { unmount: () => void }[] = [];
+  const edits = (device: Device) => {
+    const builder = renderHook(() =>
+      useEventEdits(view(device), ready(device).edit),
+    );
+    builders.push(builder);
+    return builder.result.current;
+  };
   const percentile = (value: number) => ({
     dice: [value],
     sides: 100,
@@ -1065,6 +1070,7 @@ test('a stale whole-occurrence save fails on its device and never reverts the ot
     });
   expect(ready(gm).feedback).toBe('saved');
   expect(ready(player).feedback).toBe('failed');
+  for (const builder of builders) builder.unmount();
   player.unmount();
   gm.unmount();
 });
