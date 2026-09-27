@@ -9,14 +9,31 @@ import {
   expectReachable,
 } from './responsive-shell';
 
-export async function exerciseShellNavigation(
-  page: Page,
-  outsider: Page,
-  campaignName: string,
-) {
+// The access journey's shell checks, split into parts that each start where
+// access left its members: on Week 1 · Event, opened from the campaign list
+// with Continue week (`openWeekFromList`). Every part reads the campaign's
+// address from that week page, as the single journey did.
+function campaignAddress(page: Page) {
   const week = new URL(page.url());
   const campaignPath = week.pathname.replace(/\/week$/, '');
   const campaignId = campaignPath.split('/').at(-1)!;
+  return { week, campaignPath, campaignId };
+}
+
+/** A member opens the campaign from the list, as every access part starts. */
+export async function openWeekFromList(page: Page) {
+  await page.goto('/campaigns');
+  // Continue week opens the first unready phase: the first week skips
+  // Upkeep and Activity has nothing required, so Event (#189).
+  await openCampaignSection(page, 'week');
+  await expect(
+    page.getByRole('heading', { name: 'Week 1 · Event' }),
+  ).toBeVisible();
+}
+
+/** Section links at every shell width, Back/Forward and reload. */
+export async function exerciseSectionNavigation(page: Page) {
+  const { week, campaignPath } = campaignAddress(page);
 
   await openCampaignSection(page, 'characters');
   await expect(
@@ -58,6 +75,15 @@ export async function exerciseShellNavigation(
   await expect(
     page.getByRole('button', { name: 'Correct values', exact: true }),
   ).toBeVisible();
+}
+
+/** The outsider sees none of the member campaign on any of its sections. */
+export async function expectOutsiderShutOut(
+  page: Page,
+  outsider: Page,
+  campaignName: string,
+) {
+  const { campaignPath } = campaignAddress(page);
 
   for (const section of ['week', 'history', 'militia', 'characters', 'setup']) {
     await outsider.goto(`${campaignPath}/${section}`);
@@ -74,6 +100,14 @@ export async function exerciseShellNavigation(
       0,
     );
   }
+}
+
+/** An unknown campaign stays unavailable; legacy addresses redirect. */
+export async function exerciseLegacyAddresses(
+  page: Page,
+  campaignName: string,
+) {
+  const { week, campaignPath, campaignId } = campaignAddress(page);
 
   await page.goto('/campaigns/not-a-campaign/week');
   await expect(
@@ -108,6 +142,12 @@ export async function exerciseShellNavigation(
   ).toBeVisible();
   await page.goto(`/canonical-history?campaign=${campaignId}`);
   await expect(page).toHaveURL(`${week.origin}${campaignPath}/history`);
+}
+
+/** Legacy week links open their phase; the week host stays bounded. */
+export async function exerciseLegacyWeekLinks(page: Page) {
+  const { week, campaignPath, campaignId } = campaignAddress(page);
+  const original = page.viewportSize()!;
 
   for (const phase of ['upkeep', 'activity', 'event', 'summary', 'invalid']) {
     await page.goto(

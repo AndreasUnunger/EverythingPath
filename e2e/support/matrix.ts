@@ -2,16 +2,38 @@ import type { Project } from '@playwright/test';
 import type { CaseKey } from '../fixtures/catalog';
 
 export type SuiteMode = 'mandatory' | 'nightly';
+// Access and the journeys split from it (#187 and the load timeouts in
+// XxSqla, rUyJDK and qnkZrD): each owns a case seeded like `smoke` and runs on
+// every browser project that runs access.
+export const accessJourneyFiles = [
+  'access.spec.ts',
+  'campaign-home.spec.ts',
+  'campaign-sections.spec.ts',
+  'legacy-addresses.spec.ts',
+  'legacy-week-links.spec.ts',
+] as const;
 export const criticalJourneys = [
   [
     'access.spec.ts',
     'organization members can open their campaign and outsiders cannot',
   ],
-  // Split from access (#187), which runs on every browser project: this runs
-  // wherever access runs.
+  // Split from access, which runs on every browser project: these run
+  // wherever access runs (`accessJourneyFiles`).
   [
     'campaign-home.spec.ts',
     'members choose and edit their campaign home and outsiders never see it',
+  ],
+  [
+    'campaign-sections.spec.ts',
+    'members move between campaign sections at every width and through browser history',
+  ],
+  [
+    'legacy-addresses.spec.ts',
+    'unknown campaigns stay unavailable and legacy addresses lead members to their campaign',
+  ],
+  [
+    'legacy-week-links.spec.ts',
+    'legacy week links open their phase in a bounded week without moving other members',
   ],
   [
     'existing-militia.spec.ts',
@@ -92,7 +114,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   };
   const phone: Project = {
     name: 'chromium-phone',
-    testMatch: ['access.spec.ts', 'campaign-home.spec.ts'],
+    testMatch: [...accessJourneyFiles],
     dependencies: ['authentication'],
     use: {
       browserName: 'chromium',
@@ -104,8 +126,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   const firefox: Project = {
     name: 'firefox-desktop',
     testMatch: [
-      'access.spec.ts',
-      'campaign-home.spec.ts',
+      ...accessJourneyFiles,
       'existing-militia.spec.ts',
       'complete-week.spec.ts',
     ],

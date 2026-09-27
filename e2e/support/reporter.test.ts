@@ -6,11 +6,19 @@ import { spawn, spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { deploymentFixture, resources } from './test-data';
 import { evaluateResults } from './results';
-import { requiredTests } from './matrix';
+import { accessJourneyFiles, requiredTests } from './matrix';
 
 const workspaceTitles = requiredTests('mandatory')
   .filter(([file]) => file === 'canonical-workspace.spec.ts')
   .map(([, , title]) => title!);
+// The journeys split from access, each written as a passing stub.
+const accessParts = requiredTests('mandatory')
+  .filter(
+    ([file]) =>
+      file !== 'access.spec.ts' &&
+      (accessJourneyFiles as readonly string[]).includes(file!),
+  )
+  .map(([file, , title]) => [file!, title!] as const);
 
 // Exercise the actual reporter/Playwright protocol without browser or service
 // dependencies. These synthetic bodies test result handling, not authentication.
@@ -58,10 +66,11 @@ it.each([
         `import { test } from ${playwright}; test('prepare fresh role sessions', () => {});`,
       );
       await writeAccessJourney(directory, playwright, mode);
-      await writeFile(
-        join(directory, 'campaign-home.spec.ts'),
-        `import { test } from ${playwright}; test('members choose and edit their campaign home and outsiders never see it', () => {});`,
-      );
+      for (const [file, title] of accessParts)
+        await writeFile(
+          join(directory, file),
+          `import { test } from ${playwright}; test(${JSON.stringify(title)}, () => {});`,
+        );
       await writeFile(
         join(directory, 'existing-militia.spec.ts'),
         `import { test } from ${playwright}; test('existing militia state survives reload within its campaign', () => {});`,

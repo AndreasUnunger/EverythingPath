@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(27);
+  expect(required).toHaveLength(39);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -38,6 +38,16 @@ it('requires the exact titles declared by the selected nightly journey sources',
 const workspaceTitles = requiredTests('mandatory')
   .filter(([file]) => file === 'canonical-workspace.spec.ts')
   .map(([, , title]) => title!);
+// The access parts split out after the campaign home.
+const accessParts = requiredTests('mandatory')
+  .filter(([file]) =>
+    [
+      'campaign-sections.spec.ts',
+      'legacy-addresses.spec.ts',
+      'legacy-week-links.spec.ts',
+    ].includes(file!),
+  )
+  .map(([file, , title]) => [file!, title!] as const);
 
 const passing = () => ({
   status: 'passed',
@@ -147,6 +157,15 @@ const passing = () => ({
       annotations: [] as string[],
       results: [{ status: 'passed', retry: 0 }],
     },
+    ...accessParts.map(([file, title]) => ({
+      file,
+      project: 'chromium-tablet',
+      title,
+      expectedStatus: 'passed',
+      tags: [] as string[],
+      annotations: [] as string[],
+      results: [{ status: 'passed', retry: 0 }],
+    })),
   ],
 });
 
@@ -257,12 +276,16 @@ function nightlyPassing() {
   );
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
-    ...[critical[0]!, critical[1]!, critical[3]!, critical[5]!].map((test) => ({
+    ...[critical[0]!, critical[1]!, critical[3]!, ...critical.slice(5, 9)].map(
+      (test) => ({
+        ...test,
+        project: 'firefox-desktop',
+      }),
+    ),
+    ...[critical[0]!, ...critical.slice(5, 9)].map((test) => ({
       ...test,
-      project: 'firefox-desktop',
+      project: 'chromium-phone',
     })),
-    { ...critical[0]!, project: 'chromium-phone' },
-    { ...critical[5]!, project: 'chromium-phone' },
   );
   return report;
 }
