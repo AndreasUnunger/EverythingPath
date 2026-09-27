@@ -410,7 +410,7 @@ test('[rules.WEEK-14.upkeep-malformed] malformed totals never reach the edit and
   }
   expect(edit).not.toHaveBeenCalled();
   // Leaving the field keeps the rejected-input error; once the field is
-  // validly empty again, blur reports the ordinary required feedback.
+  // validly empty again, focus loss reports the ordinary required feedback.
   fireEvent.blur(field);
   expect(alerts()).toContain('Use digits only.');
   fireEvent.change(field, { target: { value: '3' } });

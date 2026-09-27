@@ -35,10 +35,10 @@ export function WholeNumberField({
   // Reports rejected local text so an enclosing form can refuse to save.
   onInvalid?: (message: string | null) => void;
 }) {
-  // Rejected text never enters the form value, so react-hook-form's blur
+  // Rejected text never enters the form value, so react-hook-form's focus-loss
   // validation would see the retained valid number and clear the error while
-  // the enclosing form still refuses to save. Remember the rejection so blur
-  // keeps that error until valid input replaces it.
+  // the enclosing form still refuses to save. Remember the rejection so leaving
+  // the field keeps that error until valid input replaces it.
   const rejected = useRef<string | null>(null);
   const form = useForm({
     values: { value: value === null ? '' : String(value) },

@@ -399,7 +399,7 @@ test('[rules.EVT-11.malformed-nested] malformed nested text blocks the enclosing
   expect(within(check).getByRole('alert')).toHaveTextContent(
     'Use digits only.',
   );
-  // Moving focus to Save blurs the field; its own error must survive.
+  // Moving focus to Save leaves the field; its own error must survive.
   fireEvent.blur(checkField);
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
   expect(checkField).toHaveAttribute('aria-invalid', 'true');

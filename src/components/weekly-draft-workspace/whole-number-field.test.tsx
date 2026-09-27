@@ -48,7 +48,7 @@ test('[rules.P81.digits] digit entry rejects invalid text, keeps zero, and emits
   expect(input).toHaveAttribute('type', 'text');
 });
 
-test('[rules.WEEK-14.rejected-blur] a rejected character keeps its styled, announced error through blur while the prior valid value is retained, until valid input clears it', async () => {
+test('[rules.WEEK-14.rejected-focus-loss] a rejected character keeps its styled, announced error when focus leaves while the prior valid value is retained, until valid input clears it', async () => {
   const save = vi.fn();
   const onInvalid = vi.fn();
   render(
@@ -80,7 +80,7 @@ test('[rules.WEEK-14.rejected-blur] a rejected character keeps its styled, annou
   fireEvent.blur(input);
   expect(input).toHaveAttribute('aria-invalid', 'false');
   expect(screen.getByRole('alert')).not.toHaveTextContent('Use digits only.');
-  // Ordinary required validation on blur is unchanged.
+  // Ordinary required validation on focus loss is unchanged.
   fireEvent.change(input, { target: { value: '' } });
   fireEvent.blur(input);
   expect(await screen.findByRole('alert')).toHaveTextContent(
