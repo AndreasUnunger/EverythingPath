@@ -876,9 +876,11 @@ test('players prepare shared Upkeep with independent navigation and save recover
       expect(resolved.records).toHaveLength(1);
       expect(resolved.openDrafts).toHaveLength(1);
       expect(resolved.snapshot.treasuryCopper).toBe(5007);
-      // The legacy writer confirmed a legacy array; the record keeps it exactly.
+      // The total writer confirmed one dice total against the 1d20 rule
+      // specification; the record keeps exactly that form, with no dice key.
       expect(resolved.records[0]?.source.upkeep.rolls.check).toEqual({
-        dice: [20],
+        diceTotal: 20,
+        diceCount: 1,
         sides: 20,
         provenance: { kind: 'table' },
         modifiers: [],
