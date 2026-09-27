@@ -5,7 +5,7 @@ import schema from './schema';
 import { api, internal } from './_generated/api';
 import { deploymentFixture } from '../e2e/support/test-data';
 import { appendResolutionRecord } from './lib/canonicalDraftStorage';
-import { locateAuditSequence } from '../src/components/historical-week/audit-ordinal';
+import { locateAuditSequence } from '../src/lib/audit-ordinal';
 const modules = import.meta.glob('./**/*.ts');
 const scope = {
   namespace: deploymentFixture.namespace,

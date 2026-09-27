@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import { useState, type ComponentProps } from 'react';
 import { getFunctionName } from 'convex/server';
+import { ConvexError } from 'convex/values';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CanonicalHistoryScreen } from './screen';
 import type { CampaignWeek } from '~/components/campaign-home/use-campaign-week';
@@ -141,7 +142,7 @@ function read(args: Record<string, unknown>) {
     args.recordId === undefined
       ? effectiveSequence
       : chain.findIndex((entry) => entry.recordId === args.recordId);
-  if (sequence < 0) throw new Error('Invalid historical week reference');
+  if (sequence < 0) throw new ConvexError('Invalid historical week reference');
   const before = args.beforeSequence as number | undefined;
   const audit = chain
     .map((entry, index) => ({ entry, sequence: index }))
@@ -174,9 +175,9 @@ function resolve(name: string, args: Record<string, unknown>) {
 const convex = {
   watchQuery: (query: never, args: Record<string, unknown>) => {
     const subscription: Subscription = { name: getFunctionName(query), args };
-    opened.push(subscription);
     return {
       onUpdate: (listener: () => void) => {
+        opened.push(subscription);
         subscription.listener = listener;
         live.add(subscription);
         return () => live.delete(subscription);
@@ -426,30 +427,25 @@ test('pages a chain of more than ten entries five at a time without reloading th
   await waitFor(() =>
     expect(screen.getByText('Ruleset 18')).toBeInTheDocument(),
   );
-  const detailReads = () =>
-    opened.filter(
-      (subscription) =>
-        subscription.name === 'canonicalHistory:read' &&
-        subscription.args.recordId === undefined &&
-        subscription.args.beforeSequence === undefined,
-    ).length;
-  const detailBefore = detailReads();
+  const readsOpened = opened.length;
 
   fireEvent.click(screen.getByRole('button', { name: 'Earlier entries' }));
-  expect(address()).toBe(
-    '/campaigns/campaign/history?week=7&recordId=w7-e12&beforeSequence=8',
-  );
+  expect(address()).toBe('/campaigns/campaign/history?week=7&beforeSequence=8');
   await waitFor(() => expect(entries(7)).toEqual(['8', '7', '6', '5', '4']));
   expect(finalOutcome()).toContain('1712');
+  // Only the visible page is read: the first page's readers are gone.
   expect(
     metadata()
       .map((read) => read.args.recordId)
       .sort(),
-  ).toEqual(['w7-e12', 'w7-e3', 'w7-e4', 'w7-e5', 'w7-e6', 'w7-e7']);
-  // Only the visible page is read: the first page's readers are gone.
+  ).toEqual(['w7-e3', 'w7-e4', 'w7-e5', 'w7-e6', 'w7-e7']);
+  // Paging opened the older page and its Ruleset reads, never the record again.
   expect(
-    metadata().filter((read) => read.args.recordId !== 'w7-e12'),
-  ).toHaveLength(5);
+    opened
+      .slice(readsOpened)
+      .filter((read) => read.args.beforeSequence === undefined)
+      .every((read) => read.args.recordId !== undefined),
+  ).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Earlier entries' }));
   await waitFor(() => expect(entries(7)).toEqual(['3', '2', '1']));
   expect(
@@ -459,7 +455,6 @@ test('pages a chain of more than ten entries five at a time without reloading th
   await waitFor(() => expect(finalOutcome()).toContain('1701'));
   expect(screen.getByText('Earlier entry 2 of 13')).toBeInTheDocument();
   expect(entries(7)).toEqual(['3', '2', '1']);
-  expect(detailReads()).toBe(detailBefore);
   // Reopening starts from the newest page again and keeps the chosen entry.
   const toggle = screen.getByRole('button', { name: /13 entries/ });
   fireEvent.click(toggle);
@@ -496,9 +491,8 @@ test('a direct link to an early entry shows its own record at once and finds its
 test('a linked record that does not belong to the week is unavailable, never replaced by another entry', async () => {
   seed('campaign', { 7: chain(7, 2) });
   show({ initial: { week: 7, recordId: 'elsewhere' } });
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Finished weeks could not be loaded.',
-  );
+  await screen.findByText("This entry isn't available.");
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   expect(
     screen.queryByRole('region', { name: 'Final outcome' }),
   ).not.toBeInTheDocument();

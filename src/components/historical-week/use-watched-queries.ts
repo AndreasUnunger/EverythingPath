@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useConvex } from 'convex/react';
+import { useConvex, type ConvexReactClient } from 'convex/react';
+import { ConvexError } from 'convex/values';
 import {
   getFunctionName,
   makeFunctionReference,
@@ -12,7 +13,8 @@ import {
 
 export type Watched<T> =
   | { status: 'loading' }
-  | { status: 'failed' }
+  /** `isRejected`: the server refused the request, so retrying won't help. */
+  | { status: 'failed'; isRejected: boolean }
   | { status: 'ready'; data: T };
 
 export type WatchRequest<Q extends FunctionReference<'query'>> = {
@@ -22,6 +24,37 @@ export type WatchRequest<Q extends FunctionReference<'query'>> = {
 };
 
 const loading = { status: 'loading' } as const;
+
+function failure(error: unknown) {
+  return {
+    status: 'failed',
+    isRejected: error instanceof ConvexError,
+  } as const;
+}
+
+// Generated `api` references are fresh objects on every access; the function
+// name is their stable identity.
+function reference<Q extends FunctionReference<'query'>>(name: string) {
+  return makeFunctionReference<'query', FunctionArgs<Q>, FunctionReturnType<Q>>(
+    name,
+  );
+}
+
+// A result the client already holds for another subscriber, read without
+// subscribing, so switching to a cached record never flashes a loading state.
+function readCached<Q extends FunctionReference<'query'>>(
+  convex: ConvexReactClient,
+  name: string,
+  args: FunctionArgs<Q>,
+): Watched<FunctionReturnType<Q>> {
+  try {
+    const data = convex.watchQuery(reference<Q>(name), args).localQueryResult();
+    return data === undefined ? loading : { status: 'ready', data };
+  } catch {
+    // The subscription reports the failure itself.
+    return loading;
+  }
+}
 
 /**
  * A changing set of live query subscriptions, one per request key. Keys that
@@ -34,8 +67,6 @@ export function useWatchedQueries<Q extends FunctionReference<'query'>>(
   requests: WatchRequest<Q>[],
 ): Record<string, Watched<FunctionReturnType<Q>>> {
   const convex = useConvex();
-  // Generated `api` references are fresh objects on every access; the name is
-  // the stable identity.
   const name = getFunctionName(query);
   const signature = JSON.stringify(
     requests.map(({ key, args }) => [key, args]),
@@ -57,33 +88,26 @@ export function useWatchedQueries<Q extends FunctionReference<'query'>>(
     // served from the client's cache instead of being fetched again.
     for (const [key, args] of wanted) {
       if (live.has(key)) continue;
-      let active = true;
+      let isActive = true;
       let stop: (() => void) | undefined;
       try {
-        const watch = convex.watchQuery(
-          makeFunctionReference<
-            'query',
-            FunctionArgs<Q>,
-            FunctionReturnType<Q>
-          >(name),
-          args,
-        );
+        const watch = convex.watchQuery(reference<Q>(name), args);
         const update = () => {
-          if (!active) return;
+          if (!isActive) return;
           try {
             const data = watch.localQueryResult();
             if (data !== undefined) set(key, { status: 'ready', data });
-          } catch {
-            set(key, { status: 'failed' });
+          } catch (error) {
+            set(key, failure(error));
           }
         };
         stop = watch.onUpdate(update);
         update();
-      } catch {
-        set(key, { status: 'failed' });
+      } catch (error) {
+        set(key, failure(error));
       }
       live.set(key, () => {
-        active = false;
+        isActive = false;
         stop?.();
       });
     }
@@ -112,9 +136,12 @@ export function useWatchedQueries<Q extends FunctionReference<'query'>>(
   return useMemo(
     () =>
       Object.fromEntries(
-        [...wanted.keys()].map((key) => [key, results[key] ?? loading]),
+        [...wanted].map(([key, args]) => [
+          key,
+          results[key] ?? readCached<Q>(convex, name, args),
+        ]),
       ),
-    [wanted, results],
+    [convex, name, wanted, results],
   );
 }
 
