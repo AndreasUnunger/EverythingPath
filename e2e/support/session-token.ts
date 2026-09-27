@@ -74,6 +74,18 @@ function verifyOnce(targets: SafeTargets, verify: Verify) {
   return pending;
 }
 
+// Playwright runs as a harness `command()`, which pins Convex CLI
+// authentication by copying the declared preview key into
+// CONVEX_OVERRIDE_ACCESS_TOKEN; workers inherit that pin. Only that exact
+// pin is set aside before the inherited-selector checks; any other value is
+// still refused.
+function withoutHarnessPin(environment: Environment): Environment {
+  const { CONVEX_OVERRIDE_ACCESS_TOKEN: pin, ...rest } = environment;
+  if (pin && pin !== environment.CONVEX_DEPLOY_KEY)
+    refuse('CONVEX_OVERRIDE_ACCESS_TOKEN is not the harness pin');
+  return rest;
+}
+
 // Test seam: forget which applications this worker has verified.
 export function forgetVerifiedApplications() {
   verified.clear();
@@ -99,7 +111,7 @@ export async function refreshSessionToken(
     now?: () => number;
   },
 ) {
-  const targets = validateE2ETargets(environment, resources);
+  const targets = validateE2ETargets(withoutHarnessPin(environment), resources);
   await verifyOnce(targets, verify);
   const issuer = `https://${resources.clerkHost}`;
   const host = new URL(baseURL).hostname;

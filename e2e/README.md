@@ -825,7 +825,9 @@ so the first page load needs no handshake. Guards:
 
 - The worker revalidates the targets on every call: trusted execution, a
   `sk_test_` secret key, a publishable key that encodes the declared
-  development host, and the production denylist. Once per worker it also
+  development host, and the production denylist. The only inherited selector
+  it sets aside is the harness's own `CONVEX_OVERRIDE_ACCESS_TOKEN` pin, which
+  must equal the preview key. Once per worker it also
   confirms the development instance and the matching key pair (JWKS).
 - The stored and the issued token must both come from the declared issuer,
   role user and session, the issued one must not have expired, and the cookies

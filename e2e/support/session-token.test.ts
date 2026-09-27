@@ -106,6 +106,33 @@ describe('fresh role session tokens', () => {
     expect(target.addCookies).not.toHaveBeenCalled();
   });
 
+  it('accepts the Convex CLI pin the harness gives its Playwright process', async () => {
+    const target = context();
+    await refresh(target, {
+      environment: {
+        ...safeEnvironment,
+        CONVEX_OVERRIDE_ACCESS_TOKEN: safeEnvironment.CONVEX_DEPLOY_KEY,
+      },
+    });
+    expect(target.addCookies).toHaveBeenCalledOnce();
+  });
+
+  it('refuses any other inherited Convex access token', async () => {
+    const request = vi.fn(async () => ({ jwt: minted }));
+    const target = context();
+    await expect(
+      refresh(target, {
+        request,
+        environment: {
+          ...safeEnvironment,
+          CONVEX_OVERRIDE_ACCESS_TOKEN: 'preview:other-team:other|secret',
+        },
+      }),
+    ).rejects.toThrow('not the harness pin');
+    expect(request).not.toHaveBeenCalled();
+    expect(target.addCookies).not.toHaveBeenCalled();
+  });
+
   it.each<[string, Partial<Parameters<typeof refreshSessionToken>[1]>]>([
     [
       'a live secret key',
