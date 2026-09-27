@@ -28,10 +28,30 @@ function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
     modifiers: [],
   };
 }
-function connectAs(page: Page, convexUrl: string) {
-  // Provider logs may contain authentication payloads; keep them out of
-  // the harness report. The client authenticates as the page's signed-in user.
-  const client = new ConvexClient(convexUrl, { logger: false });
+export type ConnectablePage = Pick<Page, 'waitForFunction' | 'evaluate'>;
+export type AuthenticatedClient = Pick<ConvexClient, 'setAuth'>;
+// Wait for the page's Clerk session BEFORE configuring the client: `setAuth`
+// requests a token immediately, and a still-loading page answers null, so
+// the client would authenticate as nobody (same ordering as
+// `prepareContract`). Provider logs may contain authentication payloads;
+// keep them out of the harness report.
+export async function connectAs(
+  page: ConnectablePage,
+  convexUrl: string,
+): Promise<ConvexClient>;
+export async function connectAs<Client extends AuthenticatedClient>(
+  page: ConnectablePage,
+  convexUrl: string,
+  createClient: (url: string) => Client,
+): Promise<Client>;
+export async function connectAs(
+  page: ConnectablePage,
+  convexUrl: string,
+  createClient: (url: string) => AuthenticatedClient = (url) =>
+    new ConvexClient(url, { logger: false }),
+): Promise<AuthenticatedClient> {
+  await page.waitForFunction(() => Boolean(window.Clerk?.session));
+  const client = createClient(convexUrl);
   client.setAuth(async ({ forceRefreshToken }) =>
     page.evaluate(
       async (skipCache) =>
@@ -71,7 +91,7 @@ export async function exerciseRollCompatibility(
     });
   const heading = (page: Page) =>
     page.getByRole('heading', { name: 'Week 4 · Upkeep', exact: true });
-  const client = connectAs(second, run.fixture!.convexUrl);
+  const client = await connectAs(second, run.fixture!.convexUrl);
   const transport = createConvexDraftTransport(client, key);
   async function record(
     edit: Extract<
