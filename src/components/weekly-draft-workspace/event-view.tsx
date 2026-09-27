@@ -131,7 +131,8 @@ export function EventView({
                 </h4>
                 <p className="text-muted-foreground text-sm">
                   Roll on the event table twice. Both rolls are needed, then
-                  choose which event happens.
+                  choose which event happens. A Roll Twice on either is
+                  rerolled.
                 </p>
               </div>
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">

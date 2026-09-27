@@ -4,6 +4,8 @@ import { projectWeeklyDraft } from './canonical-weekly-resolution';
 import { editWeeklyDraft } from './weekly-draft';
 import {
   eventOccurrenceIdentity,
+  isLegacyCandidateExpansion,
+  isSurplusEventOccurrence,
   planEventTopology,
   removableEventOccurrence,
 } from './event-occurrence-preparation';
@@ -180,7 +182,7 @@ test('[EVT-06.candidates] each guaranteeing choice prepares its two candidate ro
   ]);
 });
 
-test('[EVT-13.candidate-expansion] a selected candidate follows the current engine: its Roll Twice expands inside its own choice', () => {
+test('[EVT-13.candidate-reroll] a candidate Roll Twice, chosen or not, prepares nothing: it is rerolled in its own die', () => {
   const fixture = eventActionFixture();
   const choice = fixture.draft.activity.slots.find(
     (entry) => entry.choice?.choiceId === 'shape',
@@ -188,13 +190,17 @@ test('[EVT-13.candidate-expansion] a selected candidate follows the current engi
   if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
   choice.candidates = [
     { eventId: 'raid', origin: { kind: 'rolled' }, tableRoll: roll(100, 50) },
-    { eventId: 'theft', origin: { kind: 'rolled' }, tableRoll: roll(100, 74) },
+    { eventId: 'theft', origin: { kind: 'rolled' }, tableRoll: roll(100, 51) },
   ];
-  choice.selectedEventId = 'raid';
-  const plan = planEventTopology(fixture.draft, positions(fixture));
-  expect(plan.added).toEqual(['raid/twice/1', 'raid/twice/2']);
-  expect(plan.edits).toHaveLength(1);
-  expect(plan.edits[0]).toMatchObject({ kind: 'detail', choiceId: 'shape' });
+  for (const selectedEventId of ['raid', 'theft']) {
+    choice.selectedEventId = selectedEventId;
+    const traced = positions(fixture);
+    expect(traced.filter((group) => group.kind === 'roll_twice')).toEqual([]);
+    expect(planEventTopology(fixture.draft, traced)).toMatchObject({
+      edits: [],
+      added: [],
+    });
+  }
 });
 
 test('[EVT-13.ineligible] an event that cannot occur prepares one replacement unless a Rules Exception keeps it', () => {
@@ -317,4 +323,76 @@ test('[EVT-03.remove] only an empty surplus occurrence without descendants or re
   expect(
     removableEventOccurrence(fixture.draft, positions(fixture), 'only'),
   ).toBeNull();
+});
+
+test('[EVT-13.candidate-legacy] a candidate expansion from an earlier version stays recorded and unused; clearing an empty child removes it', () => {
+  const fixture = eventActionFixture();
+  const choice = fixture.draft.activity.slots.find(
+    (entry) => entry.choice?.choiceId === 'shape',
+  )!.choice!;
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  choice.candidates = [
+    { eventId: 'raid', origin: { kind: 'rolled' }, tableRoll: roll(100, 50) },
+    { eventId: 'theft', origin: { kind: 'rolled' }, tableRoll: roll(100, 74) },
+    {
+      eventId: 'raid/twice/1',
+      origin: { kind: 'roll_twice', parentEventId: 'raid' },
+      tableRoll: roll(100, 74),
+    },
+    {
+      eventId: 'raid/twice/2',
+      origin: { kind: 'roll_twice', parentEventId: 'raid' },
+      tableRoll: roll(100, 78),
+      targets: [{ kind: 'settlement', settlementId: 'town' }],
+    },
+  ];
+  const before = structuredClone(fixture.draft);
+  const traced = positions(fixture);
+  // Opening prepares nothing and rewrites nothing.
+  expect(planEventTopology(fixture.draft, traced).edits).toEqual([]);
+  expect(fixture.draft).toEqual(before);
+  for (const [eventId, legacy] of [
+    ['raid', false],
+    ['theft', false],
+    ['raid/twice/1', true],
+    ['raid/twice/2', true],
+  ] as const) {
+    expect(isLegacyCandidateExpansion(fixture.draft, eventId), eventId).toBe(
+      legacy,
+    );
+    expect(isSurplusEventOccurrence(fixture.draft, traced, eventId)).toBe(
+      legacy,
+    );
+  }
+  // Recorded facts are never removed; an emptied child is, choice intact.
+  expect(
+    removableEventOccurrence(fixture.draft, traced, 'raid/twice/1'),
+  ).toBeNull();
+  delete choice.candidates[2]!.tableRoll;
+  const removal = removableEventOccurrence(
+    fixture.draft,
+    traced,
+    'raid/twice/1',
+  );
+  expect(removal).toEqual({
+    kind: 'detail',
+    slotId: 'one',
+    choiceId: 'shape',
+    choice: {
+      ...choice,
+      candidates: [
+        choice.candidates[0],
+        choice.candidates[1],
+        choice.candidates[3],
+      ],
+    },
+  });
+  expect(editWeeklyDraft(fixture.draft, removal!).ok).toBe(true);
+  // Roll Twice children of the chance-rolled event are never legacy.
+  const rolled = eventSelectionFixture();
+  rolled.draft.event.occurrences = [
+    occurrence('root', 50),
+    occurrence('first', 10, { kind: 'roll_twice', parentEventId: 'root' }),
+  ];
+  expect(isLegacyCandidateExpansion(rolled.draft, 'first')).toBe(false);
 });

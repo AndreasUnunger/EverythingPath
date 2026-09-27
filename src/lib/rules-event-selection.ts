@@ -42,8 +42,10 @@ export function dispatchEvent(
  * A group of occurrence positions the rules ask for, with the saved
  * occurrences that fill it in their saved order. Recording a group never
  * changes selection: it is the trace that preparation and presentation read.
- * A `reroll` replacement group belongs to a Roll Twice after the phase's one
- * expansion; the rules reroll that event's own die instead of adding one.
+ * A `reroll` replacement group belongs to a Roll Twice that is rerolled in
+ * its own die instead of adding events: one after the phase's one expansion,
+ * or any on an automatic event or an Activity candidate. A recorded
+ * replacement child is an older client's representation of that reroll.
  */
 export type EventPositionGroup =
   | { kind: 'rolled'; count: number; eventIds: string[] }
@@ -211,11 +213,14 @@ function canEventOccur({ draft, activity }: SelectionContext, event: Event) {
       return true;
   }
 }
+// Only the chance-rolled tree can expand a Roll Twice. Automatic events and,
+// since the candidate reroll Ruleset Version (#191), every event in an
+// Activity candidate set reroll it in place.
 function selectOccurrence(
   context: SelectionContext,
   event: Event,
   tree: Event[],
-  automatic = false,
+  inPlace = false,
 ) {
   const { draft, result } = context;
   const resolved = resolveTableRoll(context, event);
@@ -233,7 +238,7 @@ function selectOccurrence(
     return;
   }
   const expands =
-    resolved.eventType === 'roll_twice' && !automatic && !context.expanded;
+    resolved.eventType === 'roll_twice' && !inPlace && !context.expanded;
   const kind = expands ? 'roll_twice' : 'replacement';
   const count = expands ? 2 : 1;
   if (expands) context.expanded = true;
@@ -254,8 +259,7 @@ function selectOccurrence(
     result.requirements.push(`${event.eventId}:${kind}:${count}`);
     return;
   }
-  for (const child of children)
-    selectOccurrence(context, child, tree, automatic);
+  for (const child of children) selectOccurrence(context, child, tree, inPlace);
 }
 
 function selectReplacement(
@@ -282,7 +286,7 @@ function selectReplacement(
       context,
       children[0]!,
       replacement.tree,
-      replacement.automatic,
+      replacement.inPlace,
     );
 }
 function selectAutomaticEvents(context: SelectionContext) {
@@ -334,6 +338,8 @@ function selectAutomaticEvents(context: SelectionContext) {
   }
   return automaticSources;
 }
+// Both candidates need a usable result, chosen or not: one that cannot occur
+// needs its replacement, and a Roll Twice is rerolled in its own die.
 function validateCandidate(
   context: SelectionContext,
   guarantee: Guarantee,
@@ -341,17 +347,21 @@ function validateCandidate(
 ) {
   const { draft, result } = context;
   const resolved = resolveTableRoll(context, event);
-  if (!resolved || canEventOccur(context, resolved)) return;
-  result.warnings.push(`${event.eventId}:event-eligibility`);
-  if (
-    draft.rulesExceptions.some(
-      (entry) =>
-        entry.subjectId === event.eventId &&
-        entry.ruleId === 'event-eligibility' &&
-        entry.reason.trim(),
+  if (!resolved) return;
+  const reroll = resolved.eventType === 'roll_twice';
+  if (!reroll) {
+    if (canEventOccur(context, resolved)) return;
+    result.warnings.push(`${event.eventId}:event-eligibility`);
+    if (
+      draft.rulesExceptions.some(
+        (entry) =>
+          entry.subjectId === event.eventId &&
+          entry.ruleId === 'event-eligibility' &&
+          entry.reason.trim(),
+      )
     )
-  )
-    return;
+      return;
+  }
   const replacements = guarantee.candidates.filter(
     (entry) =>
       entry.origin.kind === 'replacement' &&
@@ -362,7 +372,7 @@ function validateCandidate(
     parentEventId: event.eventId,
     count: 1,
     eventIds: replacements.map((entry) => entry.eventId),
-    reroll: false,
+    reroll,
   });
   if (replacements.length !== 1)
     result.requirements.push(`${event.eventId}:replacement:1`);
@@ -391,7 +401,7 @@ function selectGuaranteedEvents(context: SelectionContext) {
     if (!chosen)
       result.requirements.push(`${guarantee.choiceId}:selected-event`);
     else if (roots.length === 2)
-      selectOccurrence(context, chosen, guarantee.candidates);
+      selectOccurrence(context, chosen, guarantee.candidates, true);
   }
 }
 function selectChanceEvent(context: SelectionContext) {
@@ -542,7 +552,8 @@ export function projectEventSelection(
   replacement?: {
     parentEventId: string;
     tree: Event[];
-    automatic: boolean;
+    /** An automatic event's or an Activity candidate's tree rerolls a Roll Twice in place. */
+    inPlace: boolean;
     expanded: boolean;
   },
 ): EventSelectionProjection {

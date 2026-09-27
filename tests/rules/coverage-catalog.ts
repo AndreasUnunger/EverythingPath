@@ -528,7 +528,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Action: Guarantee Event',
       fingerprint:
-        '95dbe0ff065c58802d10cd2edae81435c9dc775f8ef7236ea809031bba301acd',
+        '3bc682dc0ff4086ec29e58a57ce3309683b37e4bee8f62635be5dafaf96cb7f5',
       reviewGap: null,
     },
     {
@@ -552,7 +552,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Action: Manipulate Events',
       fingerprint:
-        'fb656c11cc52127c89816922963de959c4acc74022847e6abdb57249810d5bde',
+        '74af748934d22aafaba0b572e02d0e72d815627eea7243dd2cb3da18844d8e21',
       reviewGap: null,
     },
     {
@@ -4581,10 +4581,25 @@ export const coverageCatalog = {
         {
           id: 'roll-twice',
           checkpoint: '4-activity',
+          // Since the candidate reroll Ruleset Version (#191, approved in
+          // #108) a candidate's Roll Twice never expands; see the Guarantee
+          // Event note in the corpus.
           expected:
-            'Phase View / Resolution Preview: Chosen Roll Twice expands to two valid final events.',
+            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die; earlier expansions stay recorded and unused, and earlier records keep their version.',
           plannedTests: ['rules.A10.roll-twice'],
-          tests: ['rules.A10.roll-twice', 'rules.A72.projection-parity'],
+          tests: [
+            'rules.A10.roll-twice',
+            'rules.A10.reroll-version',
+            'rules.A10.reroll-before-after',
+            'rules.A10.reroll-representation',
+            'rules.A10.unchosen-reroll',
+            'rules.A10.reroll-ineligible-chain',
+            'rules.A10.reroll-exception',
+            'rules.A10.reroll-dynamic',
+            'rules.A10.reroll-parity',
+            'rules.HIST-05.candidate-expansion',
+            'rules.A72.projection-parity',
+          ],
           gap: null,
         },
         {

@@ -231,6 +231,114 @@ test('[EVT-06.candidates] candidate sets name their source and keep both blocks,
   });
 });
 
+test('[EVT-13.candidate-reroll] an automatic event and both candidates that roll Roll Twice ask for a reroll in their own die, with no children', () => {
+  const { draft, snapshot } = eventActionFixture();
+  draft.context = {
+    ...draft.context,
+    queuedEffects: [
+      {
+        effectId: 'storm',
+        sourceId: 'storm',
+        startsWeek: draft.week,
+        endsWeek: draft.week,
+        effect: { kind: 'automatic_events', count: 1 },
+      },
+    ],
+  };
+  draft.event.occurrences = [
+    occurrence('auto', 50, { kind: 'automatic', sourceId: 'storm' }),
+  ];
+  const choice = draft.activity.slots.find(
+    (slot) => slot.choice?.choiceId === 'shape',
+  )!.choice!;
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  choice.candidates = [occurrence('raid', 50), occurrence('theft', 51)];
+  choice.selectedEventId = 'theft';
+  const { view, phases } = facts(draft, snapshot);
+  const reroll = {
+    status: 'reroll',
+    statusLabel: 'Reroll',
+    statusText: 'Roll Twice again: reroll and enter the new die',
+    children: [],
+    hidden: [],
+    legacy: [],
+  };
+  expect(view.automatic!.blocks).toMatchObject([
+    { label: 'Event 1', ...reroll },
+  ]);
+  expect(view.candidates[0]!.blocks).toMatchObject([
+    { label: 'Event 2A', candidate: { chosen: false }, ...reroll },
+    { label: 'Event 2B', candidate: { chosen: true }, ...reroll },
+  ]);
+  expect(eventPhase(phases).requirements.map((entry) => entry.message)).toEqual(
+    expect.arrayContaining([
+      'Event 1 · Roll Twice: Roll Twice again: reroll and enter the new die.',
+      'Event 2A · Roll Twice: Roll Twice again: reroll and enter the new die.',
+      'Event 2B · Roll Twice: Roll Twice again: reroll and enter the new die.',
+    ]),
+  );
+});
+
+test('[EVT-13.candidate-legacy-view] a candidate expansion from an earlier version shows as events no longer used, removable once cleared', () => {
+  const { draft, snapshot } = eventActionFixture();
+  const choice = draft.activity.slots.find(
+    (slot) => slot.choice?.choiceId === 'shape',
+  )!.choice!;
+  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  choice.candidates = [
+    occurrence('raid', 50),
+    occurrence('theft', 74),
+    {
+      ...occurrence('raid/twice/1', 74, {
+        kind: 'roll_twice',
+        parentEventId: 'raid',
+      }),
+      targets: [{ kind: 'team', teamId: 'team' }],
+    },
+    {
+      eventId: 'raid/twice/2',
+      origin: { kind: 'roll_twice', parentEventId: 'raid' },
+    },
+  ];
+  const before = structuredClone(draft);
+  const { view, phases } = facts(draft, snapshot);
+  const [raid] = view.candidates[0]!.blocks;
+  expect(raid).toMatchObject({
+    status: 'reroll',
+    children: [],
+    hidden: [],
+    legacy: [
+      {
+        label: 'Event 1A.1',
+        status: 'legacy',
+        statusLabel: 'No longer used',
+        surplus: true,
+        removal: null,
+        table: { raw: 74, name: 'Theft' },
+      },
+      { label: 'Event 1A.2', status: 'legacy', surplus: true },
+    ],
+  });
+  // Clearing the roll removes an otherwise empty one, through the candidate's
+  // own edit; one with other recorded inputs stays until those are cleared.
+  expect(raid!.legacy[1]!.removal).toEqual({
+    kind: 'detail',
+    slotId: 'one',
+    choiceId: 'shape',
+    choice: {
+      ...choice,
+      candidates: choice.candidates.slice(0, 3),
+    },
+  });
+  // They ask for nothing; only the reroll is open.
+  expect(
+    eventPhase(phases).requirements.filter((entry) =>
+      entry.id.startsWith('raid/'),
+    ),
+  ).toEqual([]);
+  expect(draft).toEqual(before);
+});
+
 test('[EVT-03.placeholders] missing positions show as numbered blanks, preparing until the accepted draft holds them', () => {
   const { draft, snapshot } = eventSelectionFixture();
   draft.draftId = 'd';
@@ -369,6 +477,12 @@ function withAutomatic(draft: WeeklyDraft) {
 
 test('[EVT-labels.candidates] a candidate pair shares one number with letters, stable while candidate A gains children', () => {
   const { draft, snapshot } = eventActionFixture();
+  // Without an active refuge a Raid cannot occur and needs a replacement.
+  snapshot.settlements[0] = {
+    ...snapshot.settlements[0]!,
+    refugeActivatedWeek: null,
+    refugeActiveUntilWeek: null,
+  };
   withAutomatic(draft);
   draft.event.occurrences = [
     occurrence('auto', 10, { kind: 'automatic', sourceId: 'storm' }),
@@ -387,14 +501,14 @@ test('[EVT-labels.candidates] a candidate pair shares one number with letters, s
     raid: 'Event 2A',
     theft: 'Event 2B',
   });
-  // Candidate A rolls Roll Twice: its children show as planned blanks first…
-  choice.candidates[0]!.tableRoll = roll(100, 50);
+  // Candidate A rolls a Raid that cannot occur: its replacement shows as a
+  // planned blank first…
+  choice.candidates[0]!.tableRoll = roll(100, 78);
   const before = labels(facts(draft, snapshot).view);
   expect(before).toEqual({
     auto: 'Event 1',
     raid: 'Event 2A',
-    'raid/twice/1': 'Event 2A.1',
-    'raid/twice/2': 'Event 2A.2',
+    'raid/replacement/1': 'Event 2A.1',
     theft: 'Event 2B',
   });
   // …and keep every label once the preparation is saved.
