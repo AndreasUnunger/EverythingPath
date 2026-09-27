@@ -1,3 +1,4 @@
+import { verifyIndependentAuthorization } from './support/authorization-probes';
 import { openCampaignSection } from './support/interactions';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { compoundAcceptanceFixture } from '../tests/rules/compound-acceptance-fixture';
@@ -72,24 +73,32 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       const before = await inspect();
       const preview = await firstTransport.preview();
       if (verifyConfirmationAuthorization) expect(preview.status).toBe('ready');
-      for (const denied of [
-        createConvexDraftTransport(outsider, scope),
-        createConvexDraftTransport(anonymous, scope),
-        createConvexDraftTransport(first, {
-          ...scope,
-          campaignId: comparison.campaignId,
-        }),
-      ]) {
-        await expect(denied.preview()).rejects.toThrow();
-        if (verifyConfirmationAuthorization)
-          await expect(
-            denied.confirm({
-              operationId: randomUUID(),
-              reviewed: preview.reviewed,
-            }),
-          ).rejects.toThrow();
-      }
-      expect(await inspect()).toEqual(before);
+      await verifyIndependentAuthorization(
+        [
+          createConvexDraftTransport(outsider, scope),
+          createConvexDraftTransport(anonymous, scope),
+          createConvexDraftTransport(first, {
+            ...scope,
+            campaignId: comparison.campaignId,
+          }),
+        ].map((denied) => [
+          () => expect(denied.preview()).rejects.toThrow(),
+          ...(verifyConfirmationAuthorization
+            ? [
+                () =>
+                  expect(
+                    denied.confirm({
+                      operationId: randomUUID(),
+                      reviewed: preview.reviewed,
+                    }),
+                  ).rejects.toThrow(),
+              ]
+            : []),
+        ]),
+        async () => {
+          expect(await inspect()).toEqual(before);
+        },
+      );
       return {
         first: firstTransport,
         second: createConvexDraftTransport(second, scope),

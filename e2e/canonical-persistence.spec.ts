@@ -1,3 +1,4 @@
+import { verifyIndependentAuthorization } from './support/authorization-probes';
 import { randomUUID } from 'node:crypto';
 import { ConvexClient } from 'convex/browser';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
@@ -46,26 +47,29 @@ test('shared persistence contract uses authenticated isolated Convex', async ({
       const initial = await firstTransport.read();
       const slotId = initial.draft?.activity.slots[0]?.slotId;
       expect(slotId).toBeDefined();
-      for (const denied of [
-        outsiderTransport,
-        anonymousTransport,
-        crossCampaignTransport,
-      ]) {
-        await expect(denied.read()).rejects.toThrow();
-        await expect(
-          denied.send({
-            draftId: scope.draftId,
-            operationId: randomUUID(),
-            baseRevision: 0,
-            edit: {
-              kind: 'stage',
-              slotId: slotId!,
-              choice: { choiceId: randomUUID(), actionId: 'special' },
-            },
-          }),
-        ).rejects.toThrow();
-      }
-      expect(await firstTransport.read()).toEqual(initial);
+      await verifyIndependentAuthorization(
+        [outsiderTransport, anonymousTransport, crossCampaignTransport].map(
+          (denied) => [
+            () => expect(denied.read()).rejects.toThrow(),
+            () =>
+              expect(
+                denied.send({
+                  draftId: scope.draftId,
+                  operationId: randomUUID(),
+                  baseRevision: 0,
+                  edit: {
+                    kind: 'stage',
+                    slotId: slotId!,
+                    choice: { choiceId: randomUUID(), actionId: 'special' },
+                  },
+                }),
+              ).rejects.toThrow(),
+          ],
+        ),
+        async () => {
+          expect(await firstTransport.read()).toEqual(initial);
+        },
+      );
       return {
         first: firstTransport,
         second: createConvexDraftTransport(second, scope),
