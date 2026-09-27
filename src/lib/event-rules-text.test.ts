@@ -63,7 +63,7 @@ test('[EVT-rules.catalogue] every engine event type has rules text taken verbati
   const byName = new Map(
     militiaEventTable.map((entry) => [entry.name.toLowerCase(), entry]),
   );
-  // Table names differ only in capitalization ("Missing In Action").
+  // Table names may differ from the corpus headings in capitalization.
   const names = (values: string[]) =>
     values.map((value) => value.toLowerCase()).sort();
   expect(names(corpus.map((entry) => entry.name))).toEqual(

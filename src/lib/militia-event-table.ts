@@ -37,7 +37,7 @@ export const militiaEventTable = boundaries.map(([max, eventType], index) => ({
           .split('_')
           .map((word) => word[0]!.toUpperCase() + word.slice(1))
           .join(' ')
-          .replace(/\b(Of|The)\b/g, (word) => word.toLowerCase()),
+          .replace(/\b(Of|The|In)\b/g, (word) => word.toLowerCase()),
 }));
 export function eventTypeForPercentile(value: number) {
   return (

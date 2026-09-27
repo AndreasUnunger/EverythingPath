@@ -9,6 +9,8 @@ type TopologyContext = {
   settlementName: string | null;
   preparationFailed: boolean;
   warning: boolean;
+  // Wording an event's own controls give a code (`tail` follows its id).
+  detail?: (eventId: string, tail: string, warning: boolean) => string | null;
 };
 
 // Wording for one Event requirement or warning that names its event, source
@@ -94,6 +96,8 @@ export function eventTopologyMessage(
     return `${prefix}no automatic event is due from its source this week. Clear it to remove it.`;
   if (tail === 'event-eligibility')
     return `${prefix}cannot normally occur now. Roll its replacement, or keep it with a reasoned Rules Exception.`;
+  const detail = context.detail?.(owner.id, tail, context.warning);
+  if (detail) return `${prefix}${detail}`;
   const text = context.warning ? eventWarning(code) : eventRequirement(code);
   return `${prefix}${text}`;
 }

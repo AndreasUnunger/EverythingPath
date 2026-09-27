@@ -2,9 +2,12 @@ import type { EventView } from './types';
 export function EventChecks({
   item,
   view,
+  exclude = [],
 }: {
   item: EventView['occurrences'][number];
   view: EventView;
+  // Checks another control already shows.
+  exclude?: readonly string[];
 }) {
   const occurrence = item.occurrence;
   const inputModifiers = [
@@ -23,8 +26,10 @@ export function EventChecks({
     strategist: 'Strategist',
     helpful: 'Helpful settlement support',
   };
-  const checks = view.checks.filter((check) =>
-    check.checkId.startsWith(`${occurrence.eventId}:`),
+  const checks = view.checks.filter(
+    (check) =>
+      check.checkId.startsWith(`${occurrence.eventId}:`) &&
+      !exclude.includes(check.checkId),
   );
   return checks.map((check) => {
     const target = [

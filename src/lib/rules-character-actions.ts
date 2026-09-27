@@ -39,6 +39,11 @@ const scrollCosts = {
   restoration: 170000,
   stone_to_flesh: 165000,
 };
+/** Rescue Character's DC in the Activity right after a Raid capture. */
+export function raidRescueDc(rank: number) {
+  return 5 + rank;
+}
+
 function update(
   result: ActivityProjection,
   choice: Choice,
@@ -226,7 +231,7 @@ export function resolveCharacterChoice(
       return true;
     const dc =
       person.capture.source === 'raid' && person.capture.week + 1 === draft.week
-        ? 5 + result.outcome.rank
+        ? raidRescueDc(result.outcome.rank)
         : 10 + level;
     const total = helpers.check(draft, result, choice, 'security', dc);
     if (total === null || !receipt) return true;
