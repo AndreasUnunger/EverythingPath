@@ -55,12 +55,7 @@ export type UpkeepView = {
     name: string | null;
     roles: CanonicalRoster['officers'][number]['role'][];
   }[];
-  transfers: {
-    transferId: string;
-    characterId: string;
-    direction: 'deposit' | 'withdraw';
-    copper: number;
-  }[];
+  transfers: WeeklyDraft['upkeep']['treasuryTransfers'];
   boons: Extract<
     ReturnType<typeof projectUpkeep>['plan'][number],
     { kind: 'boon' }
@@ -142,6 +137,25 @@ export type UpkeepMissingTeam = {
     | null;
   issues: UpkeepIssue[];
 };
+// One staged deposit or withdrawal, in staged order.
+export type UpkeepTransfer = {
+  transferId: string;
+  direction: 'deposit' | 'withdraw';
+  copper: number;
+  // The character recorded on a transfer staged before transfers became
+  // characterless; null for every new transfer.
+  legacyCharacterName: string | null;
+  // The treasury change Theft makes to this deposit (negative); null if none.
+  theftCopper: number | null;
+  // Present while a withdrawal beyond the treasury needs, or already has, its
+  // reasoned exception.
+  fundsException: {
+    exceptionId: string;
+    reason: string;
+    required: boolean;
+  } | null;
+  issues: UpkeepIssue[];
+};
 export type UpkeepSections = {
   teams: {
     status: UpkeepSectionStatus;
@@ -198,8 +212,21 @@ export type UpkeepSections = {
   };
   transfers: {
     status: UpkeepSectionStatus;
+    // Treasury before and after the ordered transfers (and any Theft on
+    // them); null while an earlier step is still open.
     beforeCopper: number | null;
     afterCopper: number | null;
+    items: UpkeepTransfer[];
+    // Treasury Table Adjustments, which apply after the whole week and are
+    // never part of before/after; named under the list only.
+    // A recovery price names its team; any other adjustment its reason.
+    adjustments: {
+      adjustmentId: string;
+      label: string;
+      operation: 'add' | 'set';
+      copper: number;
+    }[];
+    // Transfer warnings no listed transfer owns.
     issues: UpkeepIssue[];
   };
   // Warnings no single item owns, such as archived officers' check bonuses.

@@ -215,6 +215,28 @@ const slotRemovalMessages: Record<SlotRemovalRejection, string> = {
 };
 // `source` is the authoritative week-start militia snapshot. Removal checks
 // the latest accepted draft, never only the operation's retained base.
+// New transfers carry no character. A character sent on a transfer by an
+// older client must still belong to this campaign; one already stored is
+// historical metadata and is never re-checked against the roster.
+function newTransferCharacterOutsideCampaign(
+  current: WeeklyDraft,
+  next: WeeklyDraft,
+  source: UpkeepSnapshot,
+) {
+  const stored = new Set(
+    current.upkeep.treasuryTransfers.map(
+      (transfer) => `${transfer.transferId}:${transfer.characterId}`,
+    ),
+  );
+  return next.upkeep.treasuryTransfers.some(
+    (transfer) =>
+      transfer.characterId !== undefined &&
+      !stored.has(`${transfer.transferId}:${transfer.characterId}`) &&
+      !source.characters.some(
+        (character) => character.characterId === transfer.characterId,
+      ),
+  );
+}
 export function acceptDraftOperation(
   current: WeeklyDraft,
   base: WeeklyDraft,
@@ -231,6 +253,7 @@ export function acceptDraftOperation(
     throw new DraftRejected('Invalid draft revision');
   const requested = editWeeklyDraft(base, operation.edit);
   if (!requested.ok) throw new DraftRejected(requested.error);
+
   const targets = requireUnchangedTargets(base, targetRevisions, operation);
   if (operation.edit.kind === 'remove_slot') {
     const rejection = slotRemovalRejection(
@@ -245,6 +268,8 @@ export function acceptDraftOperation(
     rebaseDraftEdit(base, current, operation.edit),
   );
   if (!result.ok) throw new DraftRejected(result.error);
+  if (newTransferCharacterOutsideCampaign(current, result.draft, source))
+    throw new DraftRejected('Invalid transfer character');
   const metadata = new Map(
     targetRevisions.map((entry) => [entry.target, entry.revision]),
   );

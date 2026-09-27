@@ -522,7 +522,7 @@ test('resolved attrition reports its own training change with the failure notati
   expect(section('Deposits and withdrawals')).toHaveTextContent(
     'Treasury 100 gp → 100 gp',
   );
-  expect(screen.getByRole('button', { name: 'Stage transfer' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Add' })).toBeVisible();
 });
 
 test('maximum notoriety asks for the nearest settlement after a failed check and clears it on a second tap', () => {
