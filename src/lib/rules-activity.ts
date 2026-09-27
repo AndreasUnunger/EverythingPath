@@ -40,6 +40,7 @@ import {
   getMinimumTreasuryForRank,
 } from './militia-progression-rules';
 import { projectOfficers } from './rules-officers';
+import { teamManagerLimit } from './team-manager-rules';
 import type { CheckUsage } from './rules-checks';
 
 type Choice = StagedActionChoice;
@@ -405,7 +406,7 @@ function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
         : [],
     ),
   );
-  if (gain !== null && officers.commandantTrainingBonus !== null)
+  if (gain !== null)
     value(
       result,
       choice,
@@ -612,6 +613,22 @@ function changeOfficer(
       return;
     after.push({ characterId: person.characterId, role: choice.toRole });
   }
+  // Leaving an NPC's last role lowers their manager limit; going over it is
+  // a departure the table records, never a silent unassignment.
+  const charisma = result.outcome.characters.find(
+    (character) => character.characterId === person.characterId,
+  )!.charisma;
+  const limit = (officers: typeof before) =>
+    teamManagerLimit({ officers }, person, charisma);
+  const managed = result.outcome.roster.teams.filter(
+    (team) => team.managerCharacterId === person.characterId,
+  ).length;
+  if (
+    managed > limit(after) &&
+    limit(after) < limit(before) &&
+    !exception(draft, result, choice, 'manager-limit')
+  )
+    return;
   result.outcome.roster.officers = after;
   result.plan.push({
     kind: 'officers',

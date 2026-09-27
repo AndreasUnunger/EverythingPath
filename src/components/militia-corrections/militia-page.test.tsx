@@ -458,7 +458,7 @@ describe('temporary full editor', () => {
     // The full editor keeps the section captions until #178 retires it.
     expect(
       screen.getByText(
-        'Choose people from the campaign ledger. Record Hit Dice separately from level.',
+        'Choose people from the campaign ledger. Leave Hit Dice blank to use the character’s level.',
       ),
     ).toBeVisible();
     for (const button of within(index()).getAllByRole('button'))

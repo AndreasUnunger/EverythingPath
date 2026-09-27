@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { TeamManagerKind } from './team-manager-rules';
 
 // Stored kinds are what records, rosters, drafts and immutable history may
 // contain: the legacy values old clients still send plus the approved `npc`.
@@ -44,12 +43,6 @@ export function mirrorRosterKinds<
       ),
     })),
   };
-}
-
-// Until role-aware manager limits replace the legacy distinction (#196), `npc`
-// keeps the limit of the officer NPC record kind it replaces.
-export function toCurrentRulesManagerKind(kind: RosterKind): TeamManagerKind {
-  return kind === 'npc' ? 'officer_npc' : kind;
 }
 
 // Legacy editors still write only their legacy kinds, but a stored `npc`

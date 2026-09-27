@@ -76,7 +76,7 @@ test('a correction keeps the section captions guided Setup drops', () => {
     />,
   );
   for (const caption of [
-    'Choose people from the campaign ledger. Record Hit Dice separately from level.',
+    'Choose people from the campaign ledger. Leave Hit Dice blank to use the character’s level.',
     'Record the location and condition of characters the militia can hide, rescue or restore.',
     'Record the agreed delivery date, including expedition or enchantment time. Receipt is a separate decision.',
     'Market Day gives a 5% discount in the selected settlements for its recorded duration.',

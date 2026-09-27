@@ -228,7 +228,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '### Officers and Teams Management',
       fingerprint:
-        'b61424ae0fa6c2f67e674da30cfb11d42c235e5c37c7564c2d6f8320b562a422',
+        '8d1042aee0aaa420f1c700a8d941668e333d95bbc2c2e746a132193f6f516e5a',
       reviewGap: null,
     },
     {
@@ -276,7 +276,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '### Commandant',
       fingerprint:
-        '87feb1730dc25bca93659119c1014b7e8c659e251807e7a486e2239e68e62ca7',
+        '52b4ef375b70a2ce9b7edcaf69079f6282282eb8bb4cf7b0eb7a58a5720cf454',
       reviewGap: null,
     },
     {
@@ -2784,7 +2784,8 @@ export const coverageCatalog = {
           id: 'commandants',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Commandant Hit Dice stack.',
+            // Since #196 a blank Hit Dice override counts the level.
+            'Phase View / Resolution Preview: Commandant Hit Dice stack; each commandant counts an explicit override, zero included, or else their level.',
           plannedTests: ['rules.O01.commandants'],
           tests: [
             'rules.O01.commandants',
@@ -2889,7 +2890,8 @@ export const coverageCatalog = {
           id: 'roster-hit-dice',
           checkpoint: '3-roster',
           expected:
-            'Roster preparation retains explicit Commandant Hit Dice separately from level and reports unknown legacy Hit Dice for preflight resolution.',
+            // Since #196 a blank override follows level and blocks nothing.
+            'Roster preparation retains explicit Commandant Hit Dice overrides, zero included, separately from level; a blank override follows the current level.',
           plannedTests: ['setup.import', 'setup.import', 'setup.carry-form'],
           tests: ['setup.import', 'setup.import', 'setup.carry-form'],
           gap: null,
@@ -2898,9 +2900,11 @@ export const coverageCatalog = {
           id: 'success',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level.',
+            'Phase View / Resolution Preview: Successful Drill adds all Commandant Hit Dice, including NPC HD differing from level, and level for a blank override.',
           plannedTests: ['rules.O03.success'],
           tests: [
+            'rules.A07.hit-dice-fallback',
+            'rules.O06.role-aware-parity',
             'rules.acceptance.commandants',
             'rules.GATE.projection-parity',
           ],
@@ -3070,16 +3074,26 @@ export const coverageCatalog = {
             'roster.limits',
             'setup.references',
           ],
-          tests: ['roster.identities', 'roster.limits', 'setup.references'],
+          tests: [
+            'roster.identities',
+            'roster.limits',
+            'roster.role-limits',
+            'setup.references',
+          ],
           gap: null,
         },
         {
           id: 'capacity',
           checkpoint: '4-officers',
           expected:
-            'Phase View / Resolution Preview: PC or officer NPC manages max(1, Charisma modifier) teams; other NPC manages one.',
+            // Since #196 (approved in #112) an NPC is an officer exactly while
+            // holding a role; the stored kind never decides it.
+            'Phase View / Resolution Preview: A PC, or an NPC holding an officer role, manages max(1, Charisma modifier) teams; an NPC holding none manages one.',
           plannedTests: ['rules.O06.capacity'],
           tests: [
+            'rules.O06.role-aware',
+            'rules.O06.role-aware-parity',
+            'rules.HIST-05.manager-limit-version',
             'rules.A06.capacity',
             'rules.O06.capacity',
             'rules.acceptance.manager-checks',
@@ -4231,6 +4245,16 @@ export const coverageCatalog = {
             'Phase View / Resolution Preview: One no-team action changes one PC role; ally or cohort departure needs Rules Exception.',
           plannedTests: ['rules.A04.pc'],
           tests: ['rules.A04.pc', 'rules.GATE.projection-parity'],
+          gap: null,
+        },
+        {
+          id: 'manager-limit',
+          checkpoint: '4-activity',
+          // Approved in #112; applied since #196.
+          expected:
+            'Phase View / Resolution Preview: Leaving an NPC’s last role mid-week needs a reasoned Rules Exception when it leaves them managing more teams than their new limit.',
+          plannedTests: ['rules.A04.manager-limit'],
+          tests: ['rules.A04.manager-limit'],
           gap: null,
         },
         {

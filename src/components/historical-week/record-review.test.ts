@@ -10,6 +10,7 @@ import {
 import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
 import { occurrence } from '../../../tests/rules/event-selection-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
+import { managerWeek } from '../../../tests/rules/role-aware-officers-fixture';
 import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import type {
   ResultCell,
@@ -22,6 +23,7 @@ import {
   prepareCanonicalResolutionRecord,
   projectWeeklyDraft,
   resolveCanonicalWeeklyDraft,
+  ROLE_AWARE_OFFICERS_RULESET_VERSION,
 } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
@@ -469,6 +471,43 @@ test('[rules.HIST-05.candidate-expansion] a record whose chosen candidate expand
   expect(row(facts, 'Militia', 'Training')).toMatchObject({
     now: { text: '15' },
     final: { text: '17' },
+  });
+});
+
+// A week confirmed before role-aware manager limits: its Marshal, stored as an
+// Other NPC, managed two teams over that version's limit of one. Resolved
+// through today's engine, then recorded with the version and warning it had.
+test('[rules.HIST-05.manager-limit-version] a record confirmed before role-aware limits keeps its version, its recorded manager warning and its outcomes', () => {
+  const resolved = resolveCanonicalWeeklyDraft(
+    managerWeek('other_npc', true, 16),
+  );
+  const current = prepareCanonicalResolutionRecord(resolved, 'earlier-record');
+  const warning = 'manager:ally:capacity';
+  expect(current.warnings.map((entry) => entry.message)).not.toContain(warning);
+  const record = deepFreeze(
+    canonicalResolutionRecordSchema.parse({
+      ...current,
+      rulesetVersion: CANDIDATE_REROLL_RULESET_VERSION,
+      warnings: [...current.warnings, { code: 'manager', message: warning }],
+    }),
+  );
+  expect(record.rulesetVersion).toBeLessThan(
+    ROLE_AWARE_OFFICERS_RULESET_VERSION,
+  );
+  const before = structuredClone(record);
+  const facts = recordWeekReview(record);
+  expect(record).toEqual(before);
+  const shown = [
+    ...facts.sections.flatMap((section) =>
+      section.items.flatMap((entry) => entry.notes),
+    ),
+    ...facts.unassociated,
+  ].filter((note) => note.kind === 'warning');
+  expect(shown).toHaveLength(record.warnings.length);
+  expect(row(facts, 'Militia', 'Training')).toMatchObject({
+    final: {
+      text: String(resolved.outcome!.militiaSnapshot.training),
+    },
   });
 });
 

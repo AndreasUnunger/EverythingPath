@@ -1,10 +1,9 @@
 import teams from './militia-team-table';
 import type { CanonicalRoster } from './canonical-roster';
-import { toCurrentRulesManagerKind } from './character-kind';
 import type { FoundationCharacter } from './rules-officers';
 import {
   getTeamManagerCharismaBonus,
-  getTeamManagerMaxTeams,
+  teamManagerLimit,
 } from './team-manager-rules';
 
 export function getTeamCost(teamType: string) {
@@ -35,10 +34,7 @@ export function projectTeams(
         (x) => x.characterId === person.characterId,
       );
       if (!character) return [person.characterId, null];
-      const maxTeams = getTeamManagerMaxTeams({
-        kind: toCurrentRulesManagerKind(person.kind),
-        charisma: character.charisma,
-      });
+      const maxTeams = teamManagerLimit(roster, person, character.charisma);
       const managedTeams = roster.teams.filter(
         (x) => x.managerCharacterId === person.characterId,
       ).length;

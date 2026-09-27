@@ -27,8 +27,14 @@ export const CHARACTERLESS_TRANSFERS_RULESET_VERSION = 6;
 /** A Roll Twice on an Activity event candidate is rerolled in its own die (#191). */
 export const CANDIDATE_REROLL_RULESET_VERSION =
   CHARACTERLESS_TRANSFERS_RULESET_VERSION + 1;
+/**
+ * Team-manager limits follow held officer roles, and a commandant without a
+ * Hit Dice override counts their level (#196).
+ */
+export const ROLE_AWARE_OFFICERS_RULESET_VERSION =
+  CANDIDATE_REROLL_RULESET_VERSION + 1;
 export const CANONICAL_WEEKLY_RULESET_VERSION =
-  CANDIDATE_REROLL_RULESET_VERSION;
+  ROLE_AWARE_OFFICERS_RULESET_VERSION;
 type Phases = ReturnType<typeof projectPersistentWeek>;
 export type CanonicalResolutionEffects = {
   upkeep: Phases['upkeep']['plan'];

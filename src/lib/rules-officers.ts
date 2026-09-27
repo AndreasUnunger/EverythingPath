@@ -1,5 +1,5 @@
 import { abilityModifier } from './ability-scores';
-import type { CanonicalRoster } from './canonical-roster';
+import { effectiveHitDice, type CanonicalRoster } from './canonical-roster';
 
 export type FoundationCharacter = {
   characterId: string;
@@ -62,17 +62,13 @@ export function projectOfficers(
   const overseers = holders('overseer');
   const strategists = holders('strategist');
   const commandants = holders('commandant');
-  let commandantTrainingBonus: number | null = 0;
-  for (const character of commandants) {
-    const hitDice = roster.people.find(
+  // Commandants stack: each distinct holder adds their effective Hit Dice.
+  const commandantTrainingBonus = commandants.reduce((total, character) => {
+    const person = roster.people.find(
       (x) => x.characterId === character.characterId,
-    )?.hitDice;
-    if (hitDice === null || hitDice === undefined) {
-      requirements.push(`commandant:${character.characterId}:hit-dice`);
-      commandantTrainingBonus = null;
-    } else if (commandantTrainingBonus !== null)
-      commandantTrainingBonus += hitDice;
-  }
+    );
+    return total + (person ? effectiveHitDice(person, character) : 0);
+  }, 0);
   const secondary = (check: OrganizationCheck) =>
     focus && check !== focus.toLowerCase() && overseers.length ? 1 : 0;
   return {

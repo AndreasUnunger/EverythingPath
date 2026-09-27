@@ -28,7 +28,7 @@ import { SetupMilitiaValues } from './starting-point';
 // approval removes only its own listed hints.
 const correctionCaptions = {
   'Characters and officers':
-    'Choose people from the campaign ledger. Record Hit Dice separately from level.',
+    'Choose people from the campaign ledger. Leave Hit Dice blank to use the character’s level.',
   'Character conditions':
     'Record the location and condition of characters the militia can hide, rescue or restore.',
   Orders:
