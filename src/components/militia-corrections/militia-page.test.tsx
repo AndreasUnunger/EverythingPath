@@ -14,6 +14,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import { MilitiaSection } from '~/components/campaign-sections/militia-section';
+import { stableControl } from '../../../tests/stable-control';
 
 type Call = {
   args: Record<string, unknown>;
@@ -95,26 +96,50 @@ function rerender(view: ReturnType<typeof mount>) {
 const index = () =>
   screen.getByRole('navigation', { name: 'Militia sections' });
 const entry = (name: RegExp) => within(index()).getByRole('button', { name });
-const reason = () =>
-  screen.getByRole('textbox', { name: 'Reason for correction' });
-const treasury = () =>
-  screen.getByRole('textbox', { name: 'Treasury (copper)' });
-const saveButton = () =>
-  screen.getByRole('button', { name: /Save correction|Saving correction…/ });
+const summary = () =>
+  screen
+    .getByText('Fix these before saving')
+    .closest<HTMLElement>('[role="alert"]')!;
+
+// The open Values editor's controls, looked up once inside the editor and
+// re-checked on each use (see tests/stable-control.ts). Look them up again
+// after the editor remounts (Start again, a new correction).
+function valuesEditor() {
+  const editor = within(
+    screen
+      .getByRole('heading', { name: 'Correct values' })
+      .closest<HTMLElement>('section')!,
+  );
+  return {
+    treasury: stableControl('textbox', 'Treasury (copper)', editor),
+    training: stableControl('textbox', 'Training', editor),
+    notoriety: stableControl('textbox', 'Notoriety', editor),
+    reason: stableControl('textbox', 'Reason for correction', editor),
+    save: stableControl('button', 'Save correction', editor),
+    cancel: stableControl('button', 'Cancel', editor),
+  };
+}
+type ValuesEditor = ReturnType<typeof valuesEditor>;
 
 function openValues(view = mount()) {
   fireEvent.click(screen.getByRole('button', { name: 'Correct values' }));
-  return view;
+  return { view, ...valuesEditor() };
 }
-function correctTreasury(value: string, why = 'Found a purse at the table') {
-  fireEvent.change(treasury(), { target: { value } });
-  fireEvent.change(reason(), { target: { value: why } });
+function correctTreasury(
+  editor: ValuesEditor,
+  value: string,
+  why = 'Found a purse at the table',
+) {
+  fireEvent.change(editor.treasury(), { target: { value } });
+  fireEvent.change(editor.reason(), { target: { value: why } });
 }
-async function save() {
+async function save(button: HTMLElement) {
   await act(async () => {
-    fireEvent.click(saveButton());
+    fireEvent.click(button);
   });
 }
+const noReasonField = () =>
+  expect(screen.queryByLabelText('Reason for correction')).toBeNull();
 
 beforeEach(() => {
   calls = [];
@@ -122,7 +147,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('read view', { timeout: 15000 }, () => {
+describe('read view', () => {
   test('lists the nine sections, the read-only week view and the fallback with counts and warnings', () => {
     mount();
     const names = within(index())
@@ -173,15 +198,15 @@ describe('read view', { timeout: 15000 }, () => {
   });
 });
 
-describe('Values correction', { timeout: 15000 }, () => {
+describe('Values correction', () => {
   test('only one correction is open: every other entry is disabled until Save or Cancel, and Cancel writes nothing', () => {
-    openValues();
+    const editor = openValues();
     for (const button of within(index()).getAllByRole('button'))
       if (!(button.textContent ?? '').startsWith('Values'))
         expect(button).toBeDisabled();
-    expect(treasury()).toHaveValue('12345');
-    fireEvent.change(treasury(), { target: { value: '1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(editor.treasury()).toHaveValue('12345');
+    fireEvent.change(editor.treasury(), { target: { value: '1' } });
+    fireEvent.click(editor.cancel());
     expect(calls).toHaveLength(0);
     expect(entry(/^Teams/)).toBeEnabled();
     expect(screen.getByText('123.45 gp (12,345 cp)')).toBeVisible();
@@ -197,56 +222,53 @@ describe('Values correction', { timeout: 15000 }, () => {
   ])(
     'a reason of %j is refused inline and in the save summary without a write',
     async (text, message) => {
-      openValues();
-      correctTreasury('50000', text);
-      await save();
+      const editor = openValues();
+      correctTreasury(editor, '50000', text);
+      await save(editor.save());
       expect(calls).toHaveLength(0);
-      expect(reason()).toHaveAttribute('aria-invalid', 'true');
+      expect(editor.reason()).toHaveAttribute('aria-invalid', 'true');
       expect(screen.getAllByText(message).length).toBeGreaterThanOrEqual(1);
-      expect(
-        screen
-          .getByRole('heading', { name: 'Fix these before saving' })
-          .closest('[role="alert"]'),
-      ).toHaveTextContent(message);
+      expect(summary()).toHaveTextContent(message);
     },
   );
 
-  test('empty and malformed values are distinguished and linked to their fields; rules warnings stay advisory', async () => {
-    openValues();
-    fireEvent.change(treasury(), { target: { value: '' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Training' }), {
-      target: { value: '4x' },
-    });
-    fireEvent.change(reason(), { target: { value: 'Recount' } });
-    await save();
+  test('empty and malformed values are distinguished in a summary linked to their fields', async () => {
+    const editor = openValues();
+    fireEvent.change(editor.treasury(), { target: { value: '' } });
+    fireEvent.change(editor.training(), { target: { value: '4x' } });
+    fireEvent.change(editor.reason(), { target: { value: 'Recount' } });
+    await save(editor.save());
     expect(calls).toHaveLength(0);
-    const summary = screen
-      .getByRole('heading', { name: 'Fix these before saving' })
-      .closest<HTMLElement>('[role="alert"]')!;
-    const required = within(summary).getByRole('button', {
+    const links = within(summary());
+    const required = links.getByRole('button', {
       name: 'Treasury (copper) is required.',
     });
-    within(summary).getByRole('button', {
+    links.getByRole('button', {
       name: 'Enter a valid whole number for Training.',
     });
     fireEvent.click(required);
-    await waitFor(() => expect(treasury()).toHaveFocus());
+    await waitFor(() => expect(editor.treasury()).toHaveFocus());
+    fireEvent.change(editor.treasury(), { target: { value: '50000' } });
+    fireEvent.change(editor.training(), { target: { value: '42' } });
+    await save(editor.save());
+    expect(calls).toHaveLength(1);
+  });
 
-    fireEvent.change(treasury(), { target: { value: '1' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Training' }), {
-      target: { value: '42' },
-    });
+  test('rules warnings stay advisory: a below-minimum treasury still saves', async () => {
+    const editor = openValues();
+    fireEvent.change(editor.treasury(), { target: { value: '1' } });
+    fireEvent.change(editor.reason(), { target: { value: 'Recount' } });
     expect(
       screen.getByRole('complementary', { name: 'Rules warnings' }),
     ).toHaveTextContent('Treasury is below the normal minimum');
-    await save();
+    await save(editor.save());
     expect(calls).toHaveLength(1);
   });
 
   test('an unchanged section is not saved', async () => {
-    openValues();
-    fireEvent.change(reason(), { target: { value: 'Nothing really' } });
-    await save();
+    const editor = openValues();
+    fireEvent.change(editor.reason(), { target: { value: 'Nothing really' } });
+    await save(editor.save());
     expect(calls).toHaveLength(0);
     expect(
       screen.getByText('Nothing to save: these values match the militia.'),
@@ -254,14 +276,15 @@ describe('Values correction', { timeout: 15000 }, () => {
   });
 
   test('Save merges Values onto the latest militia, prevents duplicates while pending and reports success', async () => {
-    const view = openValues();
-    correctTreasury('50000', '  Found a purse  ');
+    const editor = openValues();
+    correctTreasury(editor, '50000', '  Found a purse  ');
     // Another player corrected Teams meanwhile.
     const latest = state();
     latest.militiaSnapshot.roster.teams[0]!.notes = 'Found by scouts';
     setMilitia({ revision: 4, state: latest });
-    rerender(view);
-    await save();
+    rerender(editor.view);
+    const button = editor.save();
+    await save(button);
     expect(calls).toHaveLength(1);
     const [call] = calls;
     expect(call!.args).toMatchObject({
@@ -274,33 +297,32 @@ describe('Values correction', { timeout: 15000 }, () => {
       .snapshot as CanonicalWeekState['militiaSnapshot'];
     expect(snapshot.treasuryCopper).toBe(50000);
     expect(snapshot.roster.teams[0]?.notes).toBe('Found by scouts');
-    expect(saveButton()).toHaveTextContent('Saving correction…');
-    expect(saveButton()).toBeDisabled();
-    await save();
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAccessibleName('Saving correction…');
+    expect(button).toBeDisabled();
+    await save(button);
     expect(calls).toHaveLength(1);
 
     const saved = state();
     saved.militiaSnapshot = snapshot;
     await act(async () => call!.resolve(5));
     setMilitia({ revision: 5, state: saved });
-    rerender(view);
-    expect(
-      screen.queryByRole('textbox', { name: 'Reason for correction' }),
-    ).toBeNull();
+    rerender(editor.view);
+    noReasonField();
     expect(screen.getAllByText('Values corrected.').length).toBeGreaterThan(0);
     expect(screen.getByText('500 gp (50,000 cp)')).toBeVisible();
   });
 });
 
-describe('concurrent changes', { timeout: 15000 }, () => {
-  test('the same section changed elsewhere shows theirs and yours; Start again takes their values and clears the reason', async () => {
-    const view = openValues();
-    correctTreasury('50000', 'Miscounted at the table');
+describe('concurrent changes', () => {
+  test('the same section changed elsewhere shows theirs and yours without a write', async () => {
+    const editor = openValues();
+    correctTreasury(editor, '50000', 'Miscounted at the table');
     const theirs = state();
     theirs.militiaSnapshot.notoriety = 30;
     setMilitia({ revision: 4, state: theirs });
-    rerender(view);
-    await save();
+    rerender(editor.view);
+    await save(editor.save());
     expect(calls).toHaveLength(0);
     expect(
       screen.getByText('Another player changed this section'),
@@ -311,24 +333,32 @@ describe('concurrent changes', { timeout: 15000 }, () => {
     expect(within(their).getByText('123.45 gp (12,345 cp)')).toBeVisible();
     expect(within(your).getByText('500 gp (50,000 cp)')).toBeVisible();
     expect(within(your).getByText('17')).toBeVisible();
+  });
 
+  test('Start again from their values takes their section, clears the reason and saves at their revision', async () => {
+    const editor = openValues();
+    correctTreasury(editor, '50000', 'Miscounted at the table');
+    const theirs = state();
+    theirs.militiaSnapshot.notoriety = 30;
+    setMilitia({ revision: 4, state: theirs });
+    rerender(editor.view);
+    await save(editor.save());
     fireEvent.click(
       screen.getByRole('button', { name: 'Start again from their values' }),
     );
-    expect(reason()).toHaveValue('');
-    expect(treasury()).toHaveValue('12345');
-    expect(screen.getByRole('textbox', { name: 'Notoriety' })).toHaveValue(
-      '30',
-    );
-    correctTreasury('40000', 'Recounted');
-    await save();
+    const restarted = valuesEditor();
+    expect(restarted.reason()).toHaveValue('');
+    expect(restarted.treasury()).toHaveValue('12345');
+    expect(restarted.notoriety()).toHaveValue('30');
+    correctTreasury(restarted, '40000', 'Recounted');
+    await save(restarted.save());
     expect(calls[0]!.args).toMatchObject({ expectedRevision: 4 });
   });
 
   test('a refused Save after another write retries against the refreshed militia; the input and reason are kept', async () => {
-    const view = openValues();
-    correctTreasury('50000');
-    await save();
+    const editor = openValues();
+    correctTreasury(editor, '50000');
+    await save(editor.save());
     await act(async () =>
       calls[0]!.reject(
         new ConvexError(
@@ -339,15 +369,15 @@ describe('concurrent changes', { timeout: 15000 }, () => {
     const characterEdit = state();
     characterEdit.militiaSnapshot.characters[0]!.charisma = 20;
     setMilitia({ revision: 4, state: characterEdit });
-    rerender(view);
+    rerender(editor.view);
     expect(
       screen.getByText(
         /Another player changed the militia while you were saving/,
       ),
     ).toBeVisible();
-    expect(treasury()).toHaveValue('50000');
-    expect(reason()).toHaveValue('Found a purse at the table');
-    await save();
+    expect(editor.treasury()).toHaveValue('50000');
+    expect(editor.reason()).toHaveValue('Found a purse at the table');
+    await save(editor.save());
     expect(calls[1]!.args).toMatchObject({ expectedRevision: 4 });
     expect(
       (calls[1]!.args.snapshot as CanonicalWeekState['militiaSnapshot'])
@@ -356,9 +386,9 @@ describe('concurrent changes', { timeout: 15000 }, () => {
   });
 
   test('an unknown acknowledgement is reconciled: matching values close without claiming the reason was stored', async () => {
-    const view = openValues();
-    correctTreasury('50000');
-    await save();
+    const editor = openValues();
+    correctTreasury(editor, '50000');
+    await save(editor.save());
     await act(async () => calls[0]!.reject(new Error('Connection lost')));
     expect(
       screen.getByText(/couldn't be confirmed and the militia doesn't show it/),
@@ -366,41 +396,38 @@ describe('concurrent changes', { timeout: 15000 }, () => {
     const applied = state();
     applied.militiaSnapshot.treasuryCopper = 50000;
     setMilitia({ revision: 4, state: applied });
-    rerender(view);
-    expect(
-      screen.queryByRole('textbox', { name: 'Reason for correction' }),
-    ).toBeNull();
+    rerender(editor.view);
+    noReasonField();
     expect(
       screen.getAllByText('Values now show your correction.').length,
     ).toBeGreaterThan(0);
     expect(calls).toHaveLength(1);
     // The page is free again for the next correction.
-    fireEvent.click(screen.getByRole('button', { name: 'Correct values' }));
-    expect(treasury()).toHaveValue('50000');
-    expect(reason()).toHaveValue('');
+    const next = openValues(editor.view);
+    expect(next.treasury()).toHaveValue('50000');
+    expect(next.reason()).toHaveValue('');
   });
 
   test('a new week requires restarting from its facts', () => {
-    const view = openValues();
-    correctTreasury('50000');
+    const editor = openValues();
+    correctTreasury(editor, '50000');
     const next = state();
     next.week = 10;
     setMilitia({ revision: 4, state: next }, 'draft-10');
-    rerender(view);
+    rerender(editor.view);
     expect(
       screen.getByText(/The week changed while you were correcting/),
     ).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: 'Save correction' }),
-    ).toBeNull();
+    expect(screen.queryByText('Save correction')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Start again' }));
-    expect(treasury()).toHaveValue('12345');
-    expect(reason()).toHaveValue('');
+    const restarted = valuesEditor();
+    expect(restarted.treasury()).toHaveValue('12345');
+    expect(restarted.reason()).toHaveValue('');
   });
 });
 
 describe('temporary full editor', () => {
-  test('unsplit sections open the full editor, exclusive with section editing', () => {
+  test('an unsplit section opens the full editor, exclusive with section editing, and Cancel writes nothing', () => {
     mount();
     fireEvent.click(entry(/^Teams/));
     fireEvent.click(screen.getByRole('button', { name: 'Correct teams' }));
@@ -413,20 +440,28 @@ describe('temporary full editor', () => {
     for (const button of within(index()).getAllByRole('button'))
       if (!(button.textContent ?? '').startsWith('Teams'))
         expect(button).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel correction' }));
+    fireEvent.click(screen.getByText('Cancel correction'));
     expect(entry(/^Values/)).toBeEnabled();
+    expect(calls).toHaveLength(0);
+  });
+
+  test('People & officers opens the full editor with the roster and officers', () => {
+    mount();
     fireEvent.click(entry(/^People & officers/));
     fireEvent.click(
       screen.getByRole('button', { name: 'Correct people & officers' }),
     );
     expect(
+      screen.getByRole('heading', { name: 'Correct people & officers' }),
+    ).toBeVisible();
+    expect(
       screen.getByRole('heading', { name: 'Characters and officers' }),
     ).toBeVisible();
     expect(calls).toHaveLength(0);
-  }, 15000);
+  });
 });
 
-describe('phone layout', { timeout: 15000 }, () => {
+describe('phone layout', () => {
   test('rows expand one at a time and other rows are disabled while correcting', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: false,
@@ -436,17 +471,18 @@ describe('phone layout', { timeout: 15000 }, () => {
     try {
       mount();
       const values = screen.getByRole('button', { name: /^Values/ });
+      const teams = screen.getByRole('button', { name: /^Teams/ });
       expect(values).toHaveAttribute('aria-expanded', 'true');
-      fireEvent.click(screen.getByRole('button', { name: /^Teams/ }));
-      expect(screen.getByRole('button', { name: /^Teams/ })).toHaveAttribute(
-        'aria-expanded',
-        'true',
-      );
+      fireEvent.click(teams);
+      expect(teams).toHaveAttribute('aria-expanded', 'true');
       expect(values).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(screen.getByRole('button', { name: /^Values/ }));
+      fireEvent.click(values);
       fireEvent.click(screen.getByRole('button', { name: 'Correct values' }));
-      expect(screen.getByRole('button', { name: /^Teams/ })).toBeDisabled();
-      expect(reason()).toBeVisible();
+      expect(teams).toBeDisabled();
+      expect(teams).toHaveAccessibleName(/^Teams/);
+      expect(
+        screen.getByRole('textbox', { name: 'Reason for correction' }),
+      ).toBeVisible();
     } finally {
       vi.unstubAllGlobals();
     }
