@@ -16,3 +16,9 @@ export function classifyWriteFailure(error: unknown): WriteFailure {
     };
   return { kind: 'unknown' };
 }
+
+/** ": <server message>." or ".", so a refusal reads as one sentence. */
+export function refusalReason(message: string | null) {
+  if (!message) return '.';
+  return /[.!?]$/.test(message) ? `: ${message}` : `: ${message}.`;
+}

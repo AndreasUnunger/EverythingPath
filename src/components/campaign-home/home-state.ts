@@ -1,18 +1,15 @@
+import type { FunctionReturnType } from 'convex/server';
+import type { api } from '@convex/_generated/api';
 import type { Doc } from '@convex/_generated/dataModel';
+import type {
+  Organization,
+  Session,
+} from '~/components/campaign-shell/session';
 
+export type { Organization };
 type Campaign = Doc<'campaign'>;
-export type Organization = { id: string; name: string };
 
-export type HomeSession =
-  | { kind: 'resolving' }
-  | { kind: 'signed_out' }
-  | { kind: 'no_organization' }
-  | { kind: 'member'; organization: Organization };
-
-type CampaignList =
-  | { state: 'no_org_selected' }
-  | { state: 'no_access' }
-  | { state: 'ready'; campaigns: Campaign[] };
+type CampaignList = FunctionReturnType<typeof api.campaign.getCampaigns>;
 
 export type HomeList =
   | { kind: 'resolving' }
@@ -25,7 +22,7 @@ export type HomeList =
 // The list is read only for a settled member session. A failed read is never
 // an empty organization, and "no access" is distinct from choosing none.
 export function classifyList(
-  session: HomeSession,
+  session: Session,
   query: { data?: CampaignList; error?: unknown },
 ): HomeList {
   if (session.kind !== 'member') return session;

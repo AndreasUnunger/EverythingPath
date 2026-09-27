@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { Doc, Id } from '@convex/_generated/dataModel';
+import type { Doc } from '@convex/_generated/dataModel';
 import { campaignQuery } from '~/lib/sharedQueries';
 import { campaignPath } from '~/lib/campaign-routes';
 import { useNavigationGuard } from '~/components/campaign-shell/navigation-guard';
@@ -57,31 +57,40 @@ export function useCampaignHomeSelection({
   const [creating, setCreating] = useState(false);
   const [opening, setOpening] = useState<Opening | null>(null);
   const [announcement, setAnnouncement] = useState<string | null>(null);
-  // Read by the create acknowledgement, which may arrive after the player
-  // has moved on: the new campaign is then listed but not selected.
-  const current = useRef({ creating, requested, alive: true });
-  current.current.creating = creating;
-  current.current.requested = requested;
+  // Read when a create is acknowledged, which may be after the player has
+  // left the form (the new campaign is then listed but not selected) or
+  // after this organization's screen is gone (nothing happens). Written only
+  // in event handlers and the unmount cleanup.
+  const inCreateForm = useRef(false);
+  const mounted = useRef(true);
   useEffect(() => {
-    const state = current.current;
-    state.alive = true;
+    mounted.current = true;
     return () => {
-      state.alive = false;
+      mounted.current = false;
     };
   }, []);
+  const showCreateForm = (value: boolean) => {
+    inCreateForm.current = value;
+    setCreating(value);
+  };
 
-  const create = useCreateCampaign(
-    organization.id,
-    (campaignId: Id<'campaign'>, name: string) => {
-      const state = current.current;
-      if (!state.alive) return;
-      setAnnouncement(`Created ${name}.`);
-      if (!state.creating) return;
-      setCreating(false);
-      setOpening({ campaignId, name, from: state.requested });
-      guard.navigate(campaignPath(campaignId));
+  const request = useCreateCampaign({ organizationId: organization.id });
+  const create: CreateCampaign = {
+    status: request.status,
+    submit: async (values) => {
+      const from = requested;
+      const campaignId = await request.submit(values);
+      if (campaignId === null) return false;
+      if (!mounted.current) return true;
+      setAnnouncement(`Created ${values.name}.`);
+      if (inCreateForm.current) {
+        showCreateForm(false);
+        setOpening({ campaignId, name: values.name, from });
+        guard.navigate(campaignPath(campaignId));
+      }
+      return true;
     },
-  );
+  };
 
   const selection = resolveSelection({
     campaigns,
@@ -99,11 +108,11 @@ export function useCampaignHomeSelection({
     announcement,
     startCreate: () => {
       setAnnouncement(null);
-      setCreating(true);
+      showCreateForm(true);
     },
-    cancelCreate: () => setCreating(false),
+    cancelCreate: () => showCreateForm(false),
     choose: () => {
-      setCreating(false);
+      showCreateForm(false);
       setOpening(null);
     },
   };

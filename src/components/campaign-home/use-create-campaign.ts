@@ -12,25 +12,33 @@ export type CreateStatus =
   | { kind: 'rejected'; message: string | null }
   | { kind: 'unknown' };
 
+/** What the create form needs: the request status and a submit. */
 export type CreateCampaign = {
   status: CreateStatus;
   /** Resolves true once the campaign was created. */
   submit: (values: CreateCampaignValues) => Promise<boolean>;
 };
 
-// One request at a time for the organization this controller was mounted
-// for; a later organization never receives it. An unconfirmed result is
-// reported as such and is never retried or matched by name: creating again
-// is the player's explicit choice.
-export function useCreateCampaign(
-  organizationId: string,
-  onCreated: (campaignId: Id<'campaign'>, name: string) => void,
-): CreateCampaign {
+export type CreateCampaignRequest = {
+  status: CreateStatus;
+  /** The created campaign's id, or null when it was refused, unconfirmed or already pending. */
+  submit: (values: CreateCampaignValues) => Promise<Id<'campaign'> | null>;
+};
+
+// One request at a time for the organization this hook was mounted for; a
+// later organization never receives it. An unconfirmed result is reported
+// as such and is never retried or matched by name: creating again is the
+// player's explicit choice.
+export function useCreateCampaign({
+  organizationId,
+}: {
+  organizationId: string;
+}): CreateCampaignRequest {
   const create = useMutation(api.campaign.createCampaign);
   const [status, setStatus] = useState<CreateStatus>({ kind: 'idle' });
   const inFlight = useRef(false);
   async function submit(values: CreateCampaignValues) {
-    if (inFlight.current) return false;
+    if (inFlight.current) return null;
     inFlight.current = true;
     setStatus({ kind: 'pending' });
     try {
@@ -40,8 +48,7 @@ export function useCreateCampaign(
         organizationId,
       });
       setStatus({ kind: 'idle' });
-      onCreated(campaignId, values.name);
-      return true;
+      return campaignId;
     } catch (error) {
       const failure = classifyWriteFailure(error);
       setStatus(
@@ -49,7 +56,7 @@ export function useCreateCampaign(
           ? { kind: 'rejected', message: failure.message }
           : { kind: 'unknown' },
       );
-      return false;
+      return null;
     } finally {
       inFlight.current = false;
     }

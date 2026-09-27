@@ -40,6 +40,11 @@ export type CampaignHeaderEditor = {
   cancel: () => void;
 };
 
+// Not react-hook-form: the form's contract is per field. Each field saves
+// through its own mutation with its own acknowledgement, untouched fields
+// follow the saved campaign as other players change it, and an accepted
+// field leaves the form while a failed one stays. The same zod schema
+// (campaignHeaderSchema) validates everything that will be sent.
 // Mount per campaign and organization (keyed), so a scope change drops the
 // editor and any late acknowledgement lands in the discarded instance.
 // Each write carries the campaign and organization it was started for.

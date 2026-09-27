@@ -4,6 +4,7 @@ import {
   type CampaignHeaderField as Field,
   type CampaignHeaderValues as Values,
 } from '~/lib/campaign-fields';
+import { refusalReason } from '~/lib/write-outcome';
 
 // One header Save sends each changed field through its own mutation. The two
 // writes are independent: either can be accepted while the other fails, and
@@ -179,11 +180,16 @@ export type SavePlan =
 // retry never replays it over a newer remote edit.
 export function planHeaderSave(state: HeaderEditor, saved: Values): SavePlan {
   if (pending(state)) return { kind: 'busy' };
-  const values = {
-    description: fieldView(state, saved, 'description').value,
-    inGameDate: fieldView(state, saved, 'inGameDate').value,
-  };
-  const parsed = campaignHeaderSchema.safeParse(values);
+  const dirty = campaignHeaderFields.filter(
+    (field) => fieldView(state, saved, field).dirty,
+  );
+  if (dirty.length === 0) return { kind: 'nothing' };
+  // Every value to be sent is checked before any is sent. An untouched
+  // saved value is not re-validated: it is not being written.
+  const values = Object.fromEntries(
+    dirty.map((field) => [field, fieldView(state, saved, field).value]),
+  );
+  const parsed = campaignHeaderSchema.partial().safeParse(values);
   if (!parsed.success) {
     const errors: Partial<Record<Field, string>> = {};
     for (const issue of parsed.error.issues) {
@@ -192,26 +198,16 @@ export function planHeaderSave(state: HeaderEditor, saved: Values): SavePlan {
     }
     return { kind: 'invalid', errors };
   }
-  const writes = campaignHeaderFields
-    .filter((field) => fieldView(state, saved, field).dirty)
-    .map((field) => ({ field, value: parsed.data[field] }));
-  return writes.length === 0 ? { kind: 'nothing' } : { kind: 'send', writes };
+  return {
+    kind: 'send',
+    writes: dirty.map((field) => ({ field, value: parsed.data[field] ?? '' })),
+  };
 }
 
 const labels: Record<Field, { name: string; kept: string }> = {
   description: { name: 'Description', kept: 'Your text is kept.' },
   inGameDate: { name: 'In-game date', kept: 'Your date is kept.' },
 };
-
-export function fieldLabel(field: Field) {
-  return labels[field].name;
-}
-
-/** ": <server message>." or ".", so a refusal reads as one sentence. */
-export function reason(message: string | null) {
-  if (!message) return '.';
-  return /[.!?]$/.test(message) ? `: ${message}` : `: ${message}.`;
-}
 
 /** Accessible per-field feedback for the open editor, or null. */
 export function fieldFeedback(view: FieldView, field: Field): string | null {
@@ -222,7 +218,7 @@ export function fieldFeedback(view: FieldView, field: Field): string | null {
     case 'saved':
       return `${name} saved.`;
     case 'rejected':
-      return `${name} wasn't saved${reason(view.status.message)} ${kept} Save to try again.`;
+      return `${name} wasn't saved${refusalReason(view.status.message)} ${kept} Save to try again.`;
     case 'unknown':
       return `${name} may not have been saved. ${kept} Check it, then Save to try again.`;
     default:

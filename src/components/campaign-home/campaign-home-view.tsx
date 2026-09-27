@@ -1,6 +1,6 @@
 'use client';
 import type { CSSProperties } from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import type { Doc, Id } from '@convex/_generated/dataModel';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { Button } from '~/components/ui/button';
@@ -67,13 +67,28 @@ function CampaignRow({
       aria-current={current ? 'page' : undefined}
       className={cn(row, 'hover:bg-foreground/5', current && currentRow)}
     >
-      <span className="block [overflow-wrap:anywhere]">{campaign.name}</span>
-      <span className="text-muted-foreground block">
-        <WeekLabel campaignId={campaign._id} />
-        {campaign.description !== '' && (
-          <span className="hidden truncate pt-0.5 text-xs xl:block">
-            {campaign.description}
+      <span className="flex items-start gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="block [overflow-wrap:anywhere]">
+            {campaign.name}
           </span>
+          <span className="text-muted-foreground block">
+            <WeekLabel campaignId={campaign._id} />
+            {campaign.description !== '' ? (
+              <span className="hidden truncate pt-0.5 text-xs xl:block">
+                {campaign.description}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        {/* Phone: the selected row is the expanded one, its home below it. */}
+        {current ? (
+          <ChevronUp aria-hidden className="mt-1 size-4 shrink-0 md:hidden" />
+        ) : (
+          <ChevronDown
+            aria-hidden
+            className="text-muted-foreground mt-1 size-4 shrink-0 md:hidden"
+          />
         )}
       </span>
     </GuardedLink>

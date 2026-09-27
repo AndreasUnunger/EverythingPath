@@ -17,7 +17,7 @@ import {
   type CreateCampaignInput,
   type CreateCampaignValues,
 } from '~/lib/campaign-fields';
-import { reason } from './header-editor';
+import { refusalReason } from '~/lib/write-outcome';
 import type { CreateCampaign } from './use-create-campaign';
 
 // The pane's create form. `entry` is why it is shown: "new" was chosen from
@@ -100,7 +100,7 @@ export function CreateCampaignForm({
           </div>
           {create.status.kind === 'rejected' && (
             <p role="alert" className="text-destructive text-sm">
-              The campaign wasn&apos;t created{reason(create.status.message)}{' '}
+              The campaign wasn&apos;t created{refusalReason(create.status.message)}{' '}
               Your entries are kept.
             </p>
           )}

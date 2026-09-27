@@ -73,6 +73,19 @@ describe('planning a header Save', () => {
     });
   });
 
+  test('an unreadable stored date does not block saving the description', () => {
+    const stored = { ...saved, inGameDate: '12 Pharast 4717' };
+    const state = run(
+      closedHeaderEditor(stored),
+      { type: 'open', saved: stored },
+      { type: 'change', field: 'description', value: 'Book 3.' },
+    );
+    expect(planHeaderSave(state, stored)).toEqual({
+      kind: 'send',
+      writes: [{ field: 'description', value: 'Book 3.' }],
+    });
+  });
+
   test('a Save while writes are pending sends nothing more', () => {
     const { state } = submit(
       run(opened(), { type: 'change', field: 'description', value: 'x' }),
