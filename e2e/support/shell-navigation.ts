@@ -17,79 +17,63 @@ export async function exerciseShellNavigation(
   const week = new URL(page.url());
   const campaignPath = week.pathname.replace(/\/week$/, '');
   const campaignId = campaignPath.split('/').at(-1)!;
-  const original = page.viewportSize()!;
 
-  // The outsider's address probes are independent of the member's section
-  // checks, so the two run side by side.
-  await Promise.all([
-    (async () => {
-      await openCampaignSection(page, 'characters');
-      await expect(
-        page.getByRole('region', { name: 'Character Ledger', exact: true }),
-      ).toBeVisible();
-      // Phone portrait, a short phone-landscape viewport below the 768px
-      // breakpoint, and a short viewport at tablet width with the top-bar
-      // layout; then back to this project's size.
-      try {
-        for (const size of [
-          { width: 390, height: 844 },
-          { width: 740, height: 360 },
-        ]) {
-          await page.setViewportSize(size);
-          await exercisePhoneShell(page);
-        }
-        await page.setViewportSize({ width: 844, height: 390 });
-        await exerciseTopBarShell(page);
-      } finally {
-        await page.setViewportSize(original);
-      }
-      await expectNoHorizontalOverflow(page);
-      await openCampaignSection(page, 'militia');
-      await expect(
-        page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
-      ).toBeVisible();
-      // Non-week sections scroll as a normal document at every width.
-      await expectDocumentScrolledPage(page);
-      await expectReachable(
-        page,
-        page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
-      );
-      await page.goBack();
-      await expect(page).toHaveURL(`${week.origin}${campaignPath}/characters`);
-      await page.goForward();
-      await expect(page).toHaveURL(`${week.origin}${campaignPath}/militia`);
-      await page.reload();
-      await expect(
-        page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
-      ).toBeVisible();
-    })(),
-    (async () => {
-      for (const section of [
-        'week',
-        'history',
-        'militia',
-        'characters',
-        'setup',
-      ]) {
-        await outsider.goto(`${campaignPath}/${section}`);
-        await expect(
-          outsider.getByText("This campaign isn't available", { exact: false }),
-        ).toBeVisible();
-        await expect(
-          outsider.getByRole('heading', { name: /Week 1/ }),
-        ).toHaveCount(0);
-        await expect(
-          outsider.getByRole('region', {
-            name: 'Character Ledger',
-            exact: true,
-          }),
-        ).toHaveCount(0);
-        await expect(
-          outsider.getByText(campaignName, { exact: true }),
-        ).toHaveCount(0);
-      }
-    })(),
-  ]);
+  await openCampaignSection(page, 'characters');
+  await expect(
+    page.getByRole('region', { name: 'Character Ledger', exact: true }),
+  ).toBeVisible();
+  // Phone portrait, a short phone-landscape viewport below the 768px
+  // breakpoint, and a short viewport at tablet width with the top-bar
+  // layout; then back to this project's size.
+  const original = page.viewportSize()!;
+  try {
+    for (const size of [
+      { width: 390, height: 844 },
+      { width: 740, height: 360 },
+    ]) {
+      await page.setViewportSize(size);
+      await exercisePhoneShell(page);
+    }
+    await page.setViewportSize({ width: 844, height: 390 });
+    await exerciseTopBarShell(page);
+  } finally {
+    await page.setViewportSize(original);
+  }
+  await expectNoHorizontalOverflow(page);
+  await openCampaignSection(page, 'militia');
+  await expect(
+    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+  ).toBeVisible();
+  // Non-week sections scroll as a normal document at every width.
+  await expectDocumentScrolledPage(page);
+  await expectReachable(
+    page,
+    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+  );
+  await page.goBack();
+  await expect(page).toHaveURL(`${week.origin}${campaignPath}/characters`);
+  await page.goForward();
+  await expect(page).toHaveURL(`${week.origin}${campaignPath}/militia`);
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Edit militia ledger', exact: true }),
+  ).toBeVisible();
+
+  for (const section of ['week', 'history', 'militia', 'characters', 'setup']) {
+    await outsider.goto(`${campaignPath}/${section}`);
+    await expect(
+      outsider.getByText("This campaign isn't available", { exact: false }),
+    ).toBeVisible();
+    await expect(outsider.getByRole('heading', { name: /Week 1/ })).toHaveCount(
+      0,
+    );
+    await expect(
+      outsider.getByRole('region', { name: 'Character Ledger', exact: true }),
+    ).toHaveCount(0);
+    await expect(outsider.getByText(campaignName, { exact: true })).toHaveCount(
+      0,
+    );
+  }
 
   await page.goto('/campaigns/not-a-campaign/week');
   await expect(

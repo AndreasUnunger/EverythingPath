@@ -27,47 +27,42 @@ export async function exerciseCampaignHome(
   outsider: Page,
   campaignName: string,
 ) {
-  // The three landings are independent, so they load side by side.
-  await Promise.all([
-    ...[editor, observer].map(async (page) => {
-      await page.goto('/campaigns');
-      await expectSelectedCampaign(page, campaignName);
-      await expect(
-        campaignRows(page).getByRole('link').filter({ hasText: campaignName }),
-      ).toContainText(/Week \d+|Not set up/);
-      await expect(
-        page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
-      ).toHaveCount(0);
+  for (const page of [editor, observer]) {
+    await page.goto('/campaigns');
+    await expectSelectedCampaign(page, campaignName);
+    await expect(
+      campaignRows(page).getByRole('link').filter({ hasText: campaignName }),
+    ).toContainText(/Week \d+|Not set up/);
+    await expect(
+      page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+    ).toHaveCount(0);
+  }
+  // Outsiders see their own empty organization and no trace of this campaign.
+  await outsider.goto('/campaigns');
+  await expect(
+    outsider.getByText('No campaigns yet', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    outsider.getByRole('heading', {
+      name: 'Create a campaign to get started.',
     }),
-    // Outsiders see their own empty organization and no trace of this campaign.
-    (async () => {
-      await outsider.goto('/campaigns');
-      await expect(
-        outsider.getByText('No campaigns yet', { exact: true }),
-      ).toBeVisible();
-      await expect(
-        outsider.getByRole('heading', {
-          name: 'Create a campaign to get started.',
-        }),
-      ).toBeVisible();
-      await expect(
-        outsider.getByText(campaignName, { exact: true }),
-      ).toHaveCount(0);
-      await expect(
-        outsider.getByRole('heading', { name: 'Week 1 · Upkeep' }),
-      ).toHaveCount(0);
-    })(),
-  ]);
+  ).toBeVisible();
+  await expect(outsider.getByText(campaignName, { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    outsider.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+  ).toHaveCount(0);
 
-  // Choosing the row records it in the address; Back/Forward and reload keep it.
+  // Choosing the row records it in the address; reload and Back/Forward keep it.
   await selectCampaign(editor, campaignName);
   const home = editor.url();
+  await editor.reload();
+  await expectSelectedCampaign(editor, campaignName);
   await editor.goBack();
   await expect(editor).toHaveURL(/\/campaigns$/);
   await editor.goForward();
   await expect(editor).toHaveURL(home);
-  await editor.reload();
-  await expectSelectedCampaign(editor, campaignName);
   await expectNoHorizontalOverflow(editor);
 
   // Edit: the name stays read-only; description and date save independently.
@@ -119,7 +114,6 @@ export async function exerciseCampaignHome(
   await expect(pane(observer, campaignName)).not.toContainText(chosen.trim());
   await editor.reload();
   await expect(pane(editor, campaignName)).not.toContainText('Refugees');
-
   // The outsider cannot open the campaign's home by address.
   await outsider.goto(new URL(home).pathname);
   await expect(
