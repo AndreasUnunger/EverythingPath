@@ -211,11 +211,11 @@ scripts before submitting them. Branch patterns alone do not establish trust.
 Do not move service keys to repository or organization secrets. Revisit this
 policy before giving other contributors write access.
 
-The runner budgets fifteen minutes across preview/build/browser execution. CI also
-shares one fifteen-minute deadline across setup, installation and execution, with
-interrupt then forced termination. Artifact upload has a separate one-minute cap. The
-access job has seventeen minutes including installation and artifact finalization;
-the aggregate has one minute, keeping the jobs' execution budget at eighteen.
+The runner budgets 17.5 minutes across preview/build/browser execution. CI also
+shares one 17.5-minute deadline across setup, installation and execution, with
+interrupt then forced termination. Artifact upload has a separate one-minute cap.
+The browser job has twenty minutes including installation and artifact finalization;
+the aggregate has one minute, keeping those jobs' execution budget at twenty-one.
 GitHub queue and environment approval wait time are outside job execution limits.
 A hard job cancellation may prevent evidence finalization, and never passes the gate.
 
@@ -650,6 +650,23 @@ for teardown and evidence retention. Individual test deadlines, one-worker
 fixture isolation, all required results, and first-attempt acceptance are
 unchanged. This explicitly supersedes the earlier 720-second budget; it does
 not classify incomplete or retry-only results as passing.
+
+## Expanded compatibility-suite deadline (2026-09-27)
+
+The #154 run at `f9b08db` completed eighteen nightly journeys on their first
+attempts with zero recorded errors before the 900-second outer deadline stopped
+execution before the phone journey. It is an incomplete gate, not a pass.
+The browser stage consumed about 843 seconds; the remaining phone journey
+has previously taken about 48 seconds, while outer setup consumed about 57 seconds.
+That suggests roughly 950 seconds for the full run before modest runtime variation.
+
+The aggregate execution budget is 1,050 seconds (17.5 minutes) in CI, the local
+runner, Playwright, and its application-server lifetime. The CI browser job allows
+twenty minutes, leaving 2.5 minutes beyond execution for teardown and evidence.
+This supersedes the 900-second aggregate limit above. All nineteen nightly journey
+identities, first-attempt acceptance, individual test and assertion deadlines,
+one-worker fixture isolation, preview authorization and redaction remain unchanged.
+No incomplete run becomes a pass; the complete gate must still be rerun and verified.
 
 ## Accepted campaign regression (#91)
 

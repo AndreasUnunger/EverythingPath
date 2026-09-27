@@ -23,12 +23,12 @@ jobs:
   browser:
     environment: e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 17
+    timeout-minutes: 20
     outputs:
       required_result: ${{ steps.journey.outputs.required_result }}
     steps:
-      - name: Start fifteen-minute setup and execution budget
-        run: echo "E2E_DEADLINE=$(( $(date +%s) + 900 ))" >> "$GITHUB_ENV"
+      - name: Start 17.5-minute setup and execution budget
+        run: echo "E2E_DEADLINE=$(( $(date +%s) + 1050 ))" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         timeout-minutes: 1
         with:

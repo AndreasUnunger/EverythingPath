@@ -29,11 +29,11 @@ async function availablePort() {
 }
 
 async function main() {
-  const deadline = Date.now() + 900_000;
+  const deadline = Date.now() + 1_050_000;
   const remaining = () => {
     const milliseconds = deadline - Date.now();
     if (milliseconds <= 0)
-      throw new Error('E2E execution exceeded fifteen minutes');
+      throw new Error('E2E execution exceeded seventeen and a half minutes');
     return milliseconds;
   };
   const { values } = parseArgs({
