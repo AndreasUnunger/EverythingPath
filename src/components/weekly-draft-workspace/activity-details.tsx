@@ -25,6 +25,13 @@ import { ActivityText } from './activity-text';
 import { actionDetail, isPeopleTeamChoice } from './activity-action-detail';
 import { actionFieldEdits } from './activity-action-edits';
 import { ActivityActionFields } from './activity-action-fields';
+import {
+  economyAcknowledgementSubjects,
+  economyDetail,
+  isEconomyChoice,
+} from './activity-economy-detail';
+import { economyFieldEdits } from './activity-economy-edits';
+import { ActivityEconomyFields } from './activity-economy-fields';
 import { ChoiceCards } from './choice-cards';
 import {
   choiceFieldLabel as label,
@@ -278,27 +285,34 @@ export function ActivityDetails({
   edit,
   disabled,
   hosted = false,
+  correctionsHref,
 }: {
   slot: ActivityView['slots'][number];
   view: ActivityView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   hosted?: boolean;
+  // Where missing items, caches and settlements are repaired.
+  correctionsHref?: string;
 }) {
   const choice = slot.choice!;
   const [detailError, setDetailError] = useState<{
     field: string;
     message: string;
   } | null>(null);
-  function change(field: string, value: unknown) {
+  // Writes several fields as one detail edit; `undefined` omits a field.
+  function changeFields(fields: Record<string, unknown>, field: string) {
     return saveChoice(
       field,
       Object.fromEntries(
-        Object.entries({ ...choice, [field]: value }).filter(
+        Object.entries({ ...choice, ...fields }).filter(
           ([, value]) => value !== undefined,
         ),
       ),
     );
+  }
+  function change(field: string, value: unknown) {
+    return changeFields({ [field]: value }, field);
   }
   function saveChoice(field: string, next: unknown) {
     const parsed = stagedActionChoiceSchema.safeParse(next);
@@ -319,18 +333,36 @@ export function ActivityDetails({
     return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
-  // People and team actions have their own detail editor in the board.
-  const detail = hosted ? actionDetail(view, slot) : null;
+  // People and team, market, cache and Special Order actions have their own
+  // detail editors in the board.
+  const people = hosted ? actionDetail(view, slot) : null;
+  const economy = hosted ? economyDetail(view, slot) : null;
+  const detail = people ?? economy;
+  // Acknowledgements the economy editor shows beside their purchase or order.
+  const shown =
+    economy && isEconomyChoice(choice)
+      ? economyAcknowledgementSubjects(choice)
+      : new Set<string>();
   return (
     <div className="space-y-3">
-      {detail && isPeopleTeamChoice(choice) ? (
+      {people && isPeopleTeamChoice(choice) ? (
         <ActivityActionFields
           choice={choice}
-          detail={detail}
+          detail={people}
           calculatedCostCopper={slot.calculatedCostCopper}
           disabled={disabled}
           edits={actionFieldEdits(choice, change)}
           fieldError={detailError}
+        />
+      ) : economy && isEconomyChoice(choice) ? (
+        <ActivityEconomyFields
+          choice={choice}
+          detail={economy}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={economyFieldEdits(choice, changeFields)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
         />
       ) : (
         <ChoiceFields
@@ -406,33 +438,35 @@ export function ActivityDetails({
             }),
           ...(choice.acknowledgements ?? []).map((item) => item.subjectId),
         ]),
-      ].map((subjectId, index) => {
-        const existing = choice.acknowledgements?.find(
-          (item) => item.subjectId === subjectId,
-        );
-        return (
-          <ActivityText
-            key={subjectId}
-            name={`Outcome acknowledgement ${index + 1}`}
-            value={existing?.outcome ?? ''}
-            required
-            disabled={disabled}
-            onValue={(outcome) =>
-              change('acknowledgements', [
-                ...(choice.acknowledgements ?? []).filter(
-                  (item) => item.subjectId !== subjectId,
-                ),
-                {
-                  acknowledgementId:
-                    existing?.acknowledgementId ?? crypto.randomUUID(),
-                  subjectId,
-                  outcome,
-                },
-              ])
-            }
-          />
-        );
-      })}
+      ]
+        .filter((subjectId) => !shown.has(subjectId))
+        .map((subjectId, index) => {
+          const existing = choice.acknowledgements?.find(
+            (item) => item.subjectId === subjectId,
+          );
+          return (
+            <ActivityText
+              key={subjectId}
+              name={`Outcome acknowledgement ${index + 1}`}
+              value={existing?.outcome ?? ''}
+              required
+              disabled={disabled}
+              onValue={(outcome) =>
+                change('acknowledgements', [
+                  ...(choice.acknowledgements ?? []).filter(
+                    (item) => item.subjectId !== subjectId,
+                  ),
+                  {
+                    acknowledgementId:
+                      existing?.acknowledgementId ?? crypto.randomUUID(),
+                    subjectId,
+                    outcome,
+                  },
+                ])
+              }
+            />
+          );
+        })}
       {slot.exceptions.map((exception) => (
         <div
           key={exception.exceptionId}

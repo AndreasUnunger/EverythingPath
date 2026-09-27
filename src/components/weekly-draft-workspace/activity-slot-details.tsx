@@ -297,6 +297,7 @@ export function ActivitySlotDetails({
         edit={edit}
         disabled={disabled}
         hosted
+        correctionsHref={correctionsHref}
       />
       <Button
         type="button"

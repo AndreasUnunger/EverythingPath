@@ -9,6 +9,7 @@ import type {
   EventTableArithmetic,
 } from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
+import type { EconomyState } from '~/lib/rules-economy-state';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -321,13 +322,17 @@ export type ActivityBonusChoice = {
   value: number;
 };
 // What the ordered Activity fold has done before one slot: officer changes,
-// refuges activated and characters rescued or restored by earlier choices.
+// refuges activated, characters rescued or restored, and items and caches
+// moved by earlier choices.
 export type ActivityPositionFacts = {
   officers: { characterId: string; role: OfficerRole }[];
   // Settlements whose refuge is active at this position.
   refugeSettlementIds: string[];
   // Tracked character conditions at this position; absent when untracked.
   characterStatus: { characterId: string; status: CharacterStatus }[];
+  // The militia's items and caches at this position; null while the militia
+  // records no economy.
+  economy: Pick<EconomyState, 'items' | 'caches'> | null;
 };
 export type ActivitySlotStatus =
   | { kind: 'empty' }

@@ -83,6 +83,7 @@ describe('people actions', () => {
           officers: [{ characterId: 'ameiko', role: 'marshal' }],
           refugeSettlementIds: [],
           characterStatus: [],
+          economy: null,
         },
       }),
     );

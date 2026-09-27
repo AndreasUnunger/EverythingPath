@@ -1,4 +1,5 @@
 import { activityLabel } from './activity-labels';
+import { economyAtPosition } from './activity-economy-position';
 import { activityOptionFacts } from './activity-option-facts';
 import { activityWarning } from './activity-warnings';
 import { eventOccurrenceLabels } from './event-tree-facts';
@@ -283,14 +284,21 @@ function bonusChoices(
 }
 
 function slotIssues(
-  choiceId: string,
+  choice: StagedActionChoice,
   requirements: string[],
   warnings: string[],
 ): ActivityIssue[] {
+  const choiceId = choice.choiceId;
+  // A Special Order's receipt codes belong to its order.
+  const orderId =
+    choice.actionId === 'special_order' ? choice.orderId : undefined;
   return [
     ...requirements.map((code) => ({
       code,
-      message: subjectMessage(code, choiceId),
+      message:
+        orderId && code.startsWith(`${orderId}:`)
+          ? subjectMessage(code, orderId)
+          : subjectMessage(code, choiceId, false, choice.actionId),
     })),
     // A requirement already explains a warning with the same code.
     ...warnings
@@ -453,8 +461,8 @@ export function activityView(
 }
 
 // Replays the rules projection's changes from the choices before `index`
-// over the post-Upkeep state, so a detail editor sees the officers, refuges
-// and character conditions the resolver sees at this position.
+// over the post-Upkeep state, so a detail editor sees the officers, refuges,
+// character conditions, items and caches the resolver sees at this position.
 export function positionFacts(
   draft: WeeklyDraft,
   preview: CanonicalResolutionPreview,
@@ -498,6 +506,7 @@ export function positionFacts(
       characterId,
       status,
     })),
+    economy: economyAtPosition(draft, preview, index),
   };
 }
 
@@ -576,7 +585,7 @@ function slotFacts({
       : requirements.length
         ? { kind: 'todo', count: requirements.length }
         : { kind: 'ready' },
-    issues: choiceId ? slotIssues(choiceId, requirements, warnings) : [],
+    issues: choice ? slotIssues(choice, requirements, warnings) : [],
     warningCount: warnings.length,
     removable:
       upkeep !== undefined &&
