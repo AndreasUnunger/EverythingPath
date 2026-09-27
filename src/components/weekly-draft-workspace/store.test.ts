@@ -26,6 +26,7 @@ function fixture(draftId = 'week-40', week?: number) {
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],

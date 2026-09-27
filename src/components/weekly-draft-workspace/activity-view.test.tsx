@@ -667,6 +667,7 @@ test('[rules.O05.slot-label] the automatic Strategist label follows rank and ord
           militiaId: 'militia',
           draftId: input.revision.draftId,
         },
+        week: input.revision.week,
         sourceRevision: 0,
         snapshot: input.militiaSnapshot,
         people: [{ characterId: 'pc', name: 'Officer' }],

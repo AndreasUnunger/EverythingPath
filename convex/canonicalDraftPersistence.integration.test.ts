@@ -603,6 +603,7 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
     sourceRevision: 0,
     snapshot: { rank: 2, training: 14, treasuryCopper: 5000 },
   });
+  expect(source?.week).toEqual(expect.any(Number));
   expect(source?.people[0]?.name).toBeTruthy();
   for (const [revision, edit] of [
     {
@@ -650,6 +651,7 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
     sourceRevision: 1,
     key: { draftId: 'next:workspace-next' },
     snapshot: { training: 11, treasuryCopper: 5000 },
+    week: source!.week + 1,
   });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   vi.stubEnv('E2E_ENABLED', 'false');

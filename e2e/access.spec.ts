@@ -1,4 +1,8 @@
-import { openCampaignSection } from './support/interactions';
+import {
+  expectSelectedCampaign,
+  openCampaignSection,
+} from './support/interactions';
+import { exerciseCampaignHome } from './support/campaign-home';
 import { exerciseShellNavigation } from './support/shell-navigation';
 import { loadRun } from './support/process';
 import { navigationAndPersistence } from './support/nightly-flows';
@@ -11,9 +15,7 @@ test('organization members can open their campaign and outsiders cannot', async 
 }, info) => {
   for (const page of [players.gm, players.player]) {
     await page.goto('/campaigns');
-    await expect(
-      page.getByRole('combobox', { name: 'Active campaign' }),
-    ).toContainText(ownedCase.campaignName);
+    await expectSelectedCampaign(page, ownedCase.campaignName);
     await expect(
       page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
     ).toHaveCount(0);
@@ -24,7 +26,9 @@ test('organization members can open their campaign and outsiders cannot', async 
   }
   await players.outsider.goto('/campaigns');
   await expect(
-    players.outsider.getByText('Create a campaign to get started.'),
+    players.outsider.getByRole('heading', {
+      name: 'Create a campaign to get started.',
+    }),
   ).toBeVisible();
   await expect(
     players.outsider.getByText(ownedCase.campaignName, { exact: true }),
@@ -32,6 +36,14 @@ test('organization members can open their campaign and outsiders cannot', async 
   await expect(
     players.outsider.getByRole('heading', { name: 'Week 1 · Upkeep' }),
   ).toHaveCount(0);
+  await exerciseCampaignHome(
+    players.player,
+    players.gm,
+    players.outsider,
+    ownedCase.campaignName,
+  );
+  for (const page of [players.gm, players.player])
+    await openCampaignSection(page, 'week');
   await exerciseShellNavigation(
     players.player,
     players.outsider,

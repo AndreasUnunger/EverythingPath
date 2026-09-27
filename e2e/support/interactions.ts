@@ -10,11 +10,39 @@ export async function select(
   await page.getByRole('option', { name: option, exact: true }).click();
 }
 
+// The campaign list/home selects a row (its address changes to the
+// campaign's home); campaign pages use the top-bar campaign switcher.
+export function campaignRows(page: Page) {
+  return page
+    .getByRole('navigation', { name: 'Campaigns', exact: true })
+    .locator('visible=true');
+}
+
 export async function selectCampaign(page: Page, name: string) {
-  await page.getByRole('combobox', { name: 'Active campaign' }).click();
+  const rows = campaignRows(page);
+  const switcher = page.getByRole('combobox', { name: 'Active campaign' });
+  await expect
+    .poll(async () => (await rows.count()) + (await switcher.count()), {
+      message: 'the campaign list or a campaign page is shown',
+    })
+    .toBeGreaterThan(0);
+  if ((await rows.count()) > 0) {
+    const row = rows.getByRole('link').filter({ hasText: name });
+    await expect(row).toHaveCount(1);
+    await row.click();
+    await expect(row).toHaveAttribute('aria-current', 'page');
+    await expect(page).toHaveURL(/\/campaigns\/[^/]+$/);
+    return;
+  }
+  await switcher.click();
   await page.getByRole('option', { name, exact: true }).click();
+  await expect(switcher).toContainText(name);
+}
+
+/** The list/home's selected row names this campaign. */
+export async function expectSelectedCampaign(page: Page, name: string) {
   await expect(
-    page.getByRole('combobox', { name: 'Active campaign' }),
+    campaignRows(page).locator('a[aria-current="page"]'),
   ).toContainText(name);
 }
 
@@ -22,10 +50,9 @@ export async function selectCampaign(page: Page, name: string) {
 // is the sole owner of that destination:
 // - Campaign pages: the one visible "Campaign sections" navigation (top bar
 //   or phone bottom bar) for week, history, militia and characters. Setup is
-//   not a section item there; its link sits in page content (the campaign
-//   home card or an empty state).
-// - The campaign directory (`/campaigns`, before any campaign page): no
-//   shell sections exist, so the selected campaign's entry card navigation
+//   not a section item there; its link sits in page content (an empty state).
+// - The campaign list/home (`/campaigns` and `/campaigns/<id>`): no shell
+//   sections exist, so the selected campaign's home navigation
 //   ("<name> screens") is the only owner of every destination, setup included.
 // - The Week reference panel repeats militia/characters/history links; those
 //   are exercised by the reference helpers and never chosen here.
