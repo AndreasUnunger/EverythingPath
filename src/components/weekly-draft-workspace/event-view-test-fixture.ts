@@ -49,7 +49,7 @@ export function eventFacts(input: EventFactsInput): EventView {
         status === 'happens' ? 'Happens this week' : 'Awaiting the table roll',
       origin: candidate ? 'Candidate' : 'Rolled',
       table: eventTableFacts(item.occurrence.tableRoll),
-      rulesNote: null,
+      rules: null,
       candidate,
       children: [],
       hidden: [],

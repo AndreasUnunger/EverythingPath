@@ -52,6 +52,13 @@ test('[EVT-13.view] a first Roll Twice nests two blank child positions; manual t
   );
   const root = group('Event 1');
   expect(within(root).getByText('Two more')).toBeVisible();
+  // Corpus rules text sits collapsed under its block.
+  expect(within(root).getAllByText('Rules: Roll Twice')[0]).toBeVisible();
+  expect(
+    within(root).getByText(
+      'Roll Twice can only take effect once per Event phase.',
+    ),
+  ).toBeInTheDocument();
   for (const name of ['Event 2', 'Event 3']) {
     const child = within(root).getByRole('group', { name });
     expect(within(child).getByText('Awaiting roll')).toBeVisible();

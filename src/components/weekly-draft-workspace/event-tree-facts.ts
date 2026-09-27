@@ -12,6 +12,7 @@ import {
   uniquePositions,
   type EventTopologyPlan,
 } from '~/lib/event-occurrence-preparation';
+import { EVENT_RULES_TEXT } from '~/lib/event-rules-text';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { activityLabel } from './activity-labels';
@@ -84,9 +85,26 @@ const STATUS_TEXT: Record<EventBlockStatus, string> = {
   needs_repair:
     'More events are recorded here than the rules ask for; clear the extra one',
 };
-// Militia rules, Event: Roll Twice.
-const ROLL_TWICE_NOTE =
-  'Roll and resolve two events. Roll Twice takes effect only once per Event phase; another Roll Twice is rerolled.';
+// The corpus rules for the event a complete table roll names. Its Twice
+// clause is included only when that clause is what applies to this block (a
+// second occurrence dispatched as Twice or with no additional effect).
+export function eventRules(
+  roll: Event['tableRoll'],
+  mode: string | null,
+): EventBlock['rules'] {
+  const type = eventTypeForTableRoll(roll);
+  if (!type) return null;
+  const rules = EVENT_RULES_TEXT[type];
+  const plain = (line: string) => line.replaceAll('`', '');
+  return {
+    name: eventName(type)!,
+    text: rules.text.map(plain),
+    twice:
+      rules.twice && (mode === 'twice' || mode === 'no_additional_effect')
+        ? plain(rules.twice)
+        : null,
+  };
+}
 
 function childKind(group: EventPositionGroup) {
   return group.kind === 'roll_twice' || group.kind === 'replacement'
@@ -291,10 +309,7 @@ export function eventTreeBlocks({
       statusText: STATUS_TEXT[current],
       origin: origin(entry),
       table: eventTableFacts(entry.event.tableRoll),
-      rulesNote:
-        current === 'two_more' || current === 'reroll' || current === 'rerolled'
-          ? ROLL_TWICE_NOTE
-          : null,
+      rules: eventRules(entry.event.tableRoll, item.mode),
       candidate:
         entry.owner &&
         choice &&

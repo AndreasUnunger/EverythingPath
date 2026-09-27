@@ -150,7 +150,15 @@ test('[EVT-04.blocks] blocks number in resolution order and name status, origin 
     statusLabel: 'Two more',
     origin: 'Rolled',
     table: { raw: 50, total: 50, name: 'Roll Twice' },
-    rulesNote: expect.stringContaining('only once per Event phase'),
+    rules: {
+      name: 'Roll Twice',
+      text: [
+        'Roll and resolve two events.',
+        'Roll Twice can only take effect once per Event phase.',
+        'Additional Roll Twice results in same phase are rerolled.',
+      ],
+      twice: null,
+    },
   });
   expect(root!.children).toMatchObject([
     {
@@ -286,4 +294,33 @@ test('[EVT-14.outcome] the week outcome appears only when every roll and choice 
     complete: true,
     lines: ['No event this week.', expect.stringMatching(/^Uneventful/)],
   });
+});
+
+test('[EVT-rules.view] resolved blocks carry corpus rules text; the Twice clause only on a second occurrence; blanks carry none', () => {
+  const { draft, snapshot } = eventSelectionFixture();
+  draft.event.occurrences = [
+    occurrence('root', 50),
+    occurrence('first', 90, { kind: 'roll_twice', parentEventId: 'root' }),
+    occurrence('second', 90, { kind: 'roll_twice', parentEventId: 'root' }),
+  ];
+  const [root] = facts(draft, snapshot).view.rolled.blocks;
+  const [first, second] = root!.children;
+  expect(first!.rules).toEqual({
+    name: 'Sickness',
+    text: ['One random team becomes disabled.'],
+    twice: null,
+  });
+  expect(second!.status).toBe('twice');
+  expect(second!.rules).toEqual({
+    name: 'Sickness',
+    text: ['One random team becomes disabled.'],
+    twice: 'team is lost unless militia succeeds on DC 20 Loyalty.',
+  });
+  // Inline code marks are presentation-neutral text in the view.
+  draft.event.occurrences = [occurrence('root', 82)];
+  expect(facts(draft, snapshot).view.rolled.blocks[0]!.rules!.text).toEqual([
+    'GM presents random combat encounter at CR APL + 1.',
+  ]);
+  delete draft.event.occurrences[0]!.tableRoll;
+  expect(facts(draft, snapshot).view.rolled.blocks[0]!.rules).toBeNull();
 });

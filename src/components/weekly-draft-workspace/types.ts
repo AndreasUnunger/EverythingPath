@@ -275,7 +275,9 @@ export type EventBlock = {
     total: number | null;
     name: string | null;
   };
-  rulesNote: string | null;
+  // The corpus rules for the rolled event; null until the table roll is
+  // complete. `twice` is set only when its Twice clause applies here.
+  rules: { name: string; text: string[]; twice: string | null } | null;
   candidate: { slotId: string; choiceId: string; chosen: boolean } | null;
   // Active nested events (Roll Twice children, a replacement) in order.
   children: EventBlock[];
