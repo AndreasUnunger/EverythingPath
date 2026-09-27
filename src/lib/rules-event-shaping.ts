@@ -1,3 +1,5 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import type { RollSpec } from './raw-roll';
 import { normalizeRawRoll } from './raw-roll';
 import { eventOverseerSelection } from './rules-overseer-event';
 import {
@@ -56,11 +58,11 @@ function readSabotageDie(
   { result }: ShapingContext,
   raw: Event['tableRoll'],
   id: string,
-  sides: number,
+  spec: RollSpec,
 ) {
-  const normalized = normalizeRawRoll(raw, { count: 1, sides });
+  const normalized = normalizeRawRoll(raw, spec);
   if (normalized.status !== 'complete') {
-    result.requirements.push(`${id}:1d${sides}`);
+    result.requirements.push(`${id}:${spec.count}d${spec.sides}`);
     return null;
   }
   if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
@@ -271,13 +273,13 @@ function resolveSabotage(context: ShapingContext, event: Event) {
     context,
     choice.rolls?.check,
     `${choice.choiceId}:check`,
-    20,
+    RULE_ROLL_SPECS.check,
   );
   const notoriety = readSabotageDie(
     context,
     choice.rolls?.notoriety,
     `${choice.choiceId}:notoriety`,
-    6,
+    RULE_ROLL_SPECS.singleD6,
   );
   const checkId = `${event.eventId}:sabotage:${choice.choiceId}`;
   const facts = projectSabotageCheck(

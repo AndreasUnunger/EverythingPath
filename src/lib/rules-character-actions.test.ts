@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { characterFixture } from '../../tests/rules/character-fixture';
 import { roll } from '../../tests/rules/upkeep-fixture';
 import { projectActivity } from './rules-activity';
@@ -6,6 +6,7 @@ import { stagedActionChoiceSchema } from './weekly-draft-facts';
 
 test('[rules.A16.rescue] rescue updates the tracked person and floors odd failed level Notoriety', () => {
   const { draft, snapshot, choice } = characterFixture('rescue_character');
+  assert(choice.actionId === 'rescue_character');
   snapshot.characters.find((entry) => entry.characterId === 'pc')!.level = 5;
   let result = projectActivity(draft, snapshot);
   expect(result.ready).toBe(true);
@@ -122,6 +123,7 @@ test('[rules.A17.readiness] restoration requires presence, effect level, owned s
 
 test('[rules.A09.information] tier bonus applies once and a natural one can succeed while gaining Notoriety', () => {
   const { draft, snapshot, choice } = characterFixture('gather_information');
+  assert(choice.actionId === 'gather_information');
   for (const [teamType, bonus] of [
     ['informants', 2],
     ['conspirators', 4],
@@ -158,6 +160,7 @@ test('[rules.A09.information] tier bonus applies once and a natural one can succ
 
 test('[rules.A11.knowledge] knowledge records achieved DC with rank exactly once and recomputes upstream rank', () => {
   const { draft, snapshot, choice } = characterFixture('knowledge_check');
+  assert(choice.actionId === 'knowledge_check');
   choice.rolls!.check!.modifiers = [
     { sourceId: 'knowledge-rank', value: 3, reason: 'Computed' },
   ];
@@ -333,6 +336,7 @@ test('[rules.A17.ordered] rescue to a refuge makes subsequent restoration eligib
 
 test('[rules.A09.repeat] independent information choices keep their own DC boundaries and outcomes', () => {
   const { draft, snapshot, choice } = characterFixture('gather_information');
+  assert(choice.actionId === 'gather_information');
   snapshot.roster.teams[0]!.teamType = 'informants';
   choice.rolls = { check: roll(20, 9) };
   snapshot.roster.teams.push({
@@ -468,6 +472,7 @@ test('[rules.A71.inputs] each action retains every required selection and schema
 
 test('[rules.A16.raid-expiry] Raid special DC expires back to ordinary rescue without permanently barring the captured target', () => {
   const { draft, snapshot, choice } = characterFixture('rescue_character');
+  assert(choice.actionId === 'rescue_character');
   snapshot.characters[0]!.level = 5;
   snapshot.characterActions!.people[0]!.capture = {
     source: 'raid',

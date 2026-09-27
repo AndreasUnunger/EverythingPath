@@ -1,6 +1,6 @@
 import { settlementFixture } from '../../tests/rules/settlement-fixture';
 import { characterFixture } from '../../tests/rules/character-fixture';
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { activityFixture } from '../../tests/rules/activity-fixture';
 import {
   activityAcceptanceFixtures,
@@ -161,12 +161,14 @@ test('[rules.teams.recruit-then-act] recruitment creates a usable independent id
   expect(result.ready).toBe(true);
   expect(result.outcome.roster.teams[0]!.teamId).toBe('recruit:join');
   expect(result.outcome.treasuryCopper).toBe(1001100);
-  draft.activity.slots[0]!.choice!.rolls = { check: roll(20, 2) };
+  assert(draft.activity.slots[0]!.choice?.actionId === 'recruit_team');
+  draft.activity.slots[0]!.choice.rolls = { check: roll(20, 2) };
   result = projectActivity(draft, snapshot);
   expect(result.outcome.roster.teams).toEqual([]);
   expect(result.outcome.treasuryCopper).toBe(1000000);
   expect(result.requirements).toContain('earn:team');
-  draft.activity.slots[0]!.choice!.rolls = { check: roll(20, 15) };
+  assert(draft.activity.slots[0]!.choice?.actionId === 'recruit_team');
+  draft.activity.slots[0]!.choice.rolls = { check: roll(20, 15) };
   draft.activity.slots.reverse();
   expect(projectActivity(draft, snapshot).requirements).toContain('earn:team');
 });
@@ -238,9 +240,10 @@ test('[rules.teams.use-eligibility] repeated actions need distinct capable activ
 
 test('[rules.A06.success-repeat] successful dismissal adds no notoriety and a second dismissal cannot remove a different team', () => {
   const { draft, snapshot } = activityFixture('dismiss_team');
-  draft.activity.slots[0]!.choice!.rolls = { check: roll(20, 7) };
+  assert(draft.activity.slots[0]!.choice?.actionId === 'dismiss_team');
+  draft.activity.slots[0]!.choice.rolls = { check: roll(20, 7) };
   draft.activity.slots[1]!.choice = {
-    ...draft.activity.slots[0]!.choice!,
+    ...draft.activity.slots[0]!.choice,
     choiceId: 'again',
   };
   const result = projectActivity(draft, snapshot);
@@ -296,6 +299,7 @@ test('[rules.A09.boundaries] all Intelligence tiers independently resolve DC14/1
     ['spellcasters', 6],
   ] as const) {
     const { draft, snapshot, choice } = characterFixture('gather_information');
+    assert(choice.actionId === 'gather_information');
     snapshot.roster.teams[0]!.teamType = teamType;
     for (const total of [14, 15]) {
       choice.rolls = { check: roll(20, total - 3 - bonus) };

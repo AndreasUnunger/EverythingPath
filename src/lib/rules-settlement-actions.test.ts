@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { projectActivity } from './rules-activity';
 import { projectSettlements } from './rules-settlements';
 import { contextSettlementSchema } from './canonical-campaign-context';
@@ -87,6 +87,7 @@ test('[rules.A15.success] Security 15 grants one temporary step and open movemen
 });
 test('[rules.A15.failure] Security 14 needs one d4 and adds exactly its notoriety on failure', () => {
   const { draft, snapshot, choice } = settlementFixture('reduce_danger');
+  assert(choice.actionId === 'reduce_danger');
   choice.rolls = { check: roll(20, 13) };
   expect(projectActivity(draft, snapshot).requirements).toContain(
     'settlement:notoriety:1d4',
@@ -195,6 +196,7 @@ test('[rules.A22.success] Propaganda permanently raises each base reputation onl
 });
 test('[rules.A22.attempt] A failed attempt consumes the settlement opportunity while different settlements remain independent', () => {
   const { draft, snapshot, choice } = settlementFixture('spread_propaganda');
+  assert(choice.actionId === 'spread_propaganda');
   choice.rolls = { check: roll(20, 1) };
   snapshot.roster.teams.push({
     ...snapshot.roster.teams[0]!,
@@ -347,6 +349,7 @@ test('[rules.settlements.partial-expiry] Partial temporary effects are missing f
 
 test('[rules.settlements.modifiers] Operating Helpful, officers, managers and contextual sources apply once while target social DC stays separate', () => {
   const { draft, snapshot, choice } = settlementFixture('spread_propaganda');
+  assert(choice.actionId === 'spread_propaganda');
   snapshot.settlements.push({
     ...snapshot.settlements[0]!,
     settlementId: 'hq',

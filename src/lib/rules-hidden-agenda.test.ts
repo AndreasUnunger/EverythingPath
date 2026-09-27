@@ -1,3 +1,8 @@
+import {
+  actionChoiceRolls,
+  stagedActionChoiceSchema,
+} from './weekly-draft-facts';
+import { activityRollSpec } from './rules-roll-spec';
 import { expect, test } from 'vitest';
 import { activityFixture } from '../../tests/rules/activity-fixture';
 import { characterFixture } from '../../tests/rules/character-fixture';
@@ -125,11 +130,15 @@ for (const { action, fixture, die, total, before, after, read } of scenarios) {
   test(`[rules.EV08.actions.${action}] Hidden Agenda recomputes the action outcome from its raw check and removing it restores the original projection`, () => {
     const { draft, snapshot } = fixture();
     const choice = draft.activity.slots[0]!.choice!;
-    choice.rolls = {
-      ...choice.rolls,
-      check: roll(20, die),
-      notoriety: roll(choice.actionId === 'reduce_danger' ? 4 : 6, 4),
-    };
+    const notorietySpec = activityRollSpec(choice.actionId, 'notoriety');
+    draft.activity.slots[0]!.choice = stagedActionChoiceSchema.parse({
+      ...choice,
+      rolls: {
+        ...actionChoiceRolls(choice),
+        check: roll(20, die),
+        ...(notorietySpec ? { notoriety: roll(notorietySpec.sides, 4) } : {}),
+      },
+    });
     draft.event.chanceRoll = roll(100, 1);
     draft.event.occurrences = [occurrence('agenda', 42)];
     const unchanged = structuredClone({ draft, snapshot });

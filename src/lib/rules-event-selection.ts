@@ -1,3 +1,4 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import { normalizeRawRoll } from './raw-roll';
 import { operatedSettlementIds } from './rules-event-context';
 import { projectSettlements } from './rules-settlements';
@@ -64,11 +65,12 @@ function readEventDie(
   { result }: SelectionContext,
   raw: Event['tableRoll'],
   id: string,
-  sides: number,
 ) {
-  const normalized = normalizeRawRoll(raw, { count: 1, sides });
+  const normalized = normalizeRawRoll(raw, RULE_ROLL_SPECS.percentile);
   if (normalized.status !== 'complete') {
-    result.requirements.push(`${id}:1d${sides}`);
+    result.requirements.push(
+      `${id}:${RULE_ROLL_SPECS.percentile.count}d${RULE_ROLL_SPECS.percentile.sides}`,
+    );
     return null;
   }
   if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
@@ -82,7 +84,6 @@ function resolveTableRoll(context: SelectionContext, event: Event) {
     context,
     event.tableRoll,
     `${event.eventId}:table`,
-    100,
   );
   if (value === null) return null;
   const extra = new Map<string, number>();
@@ -303,7 +304,6 @@ function selectChanceEvent(context: SelectionContext) {
     context,
     draft.event.chanceRoll,
     'event:chance',
-    100,
   );
   // Friendly subtracts 5 from, and Unfriendly adds 5 to, the percentile roll
   // that decides whether an event occurs (Table 6-2).

@@ -1,3 +1,4 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import type { EventDispatch } from './rules-event-selection';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
 import type { UpkeepSnapshot } from './rules-upkeep';
@@ -424,7 +425,12 @@ function resolveTurncoat(context: ThreatEventContext) {
     !acceptThreatException(context, 'officer-skill')
   )
     return true;
-  const raw = eventDie(result, input.roll, `${event.eventId}:diplomacy`, 20);
+  const raw = eventDie(
+    result,
+    input.roll,
+    `${event.eventId}:diplomacy`,
+    RULE_ROLL_SPECS.check,
+  );
   if (input.skillBonus === undefined)
     requireThreatInput(context, 'skill-bonus');
   if (raw === null || input.skillBonus === undefined) return true;
@@ -624,7 +630,7 @@ function resolveRaidCapture(
         result,
         input?.rolls?.loss,
         `${event.eventId}:${person.characterId}:capture`,
-        100,
+        RULE_ROLL_SPECS.percentile,
       )
     : null;
   if (mitigated && captureRoll === null) return;
@@ -654,7 +660,12 @@ function resolveRaidCapture(
 function applyTurncoatTrainingLoss(context: ThreatEventContext) {
   const { result, state, event } = context;
 
-  const loss = eventDie(result, event.rolls?.loss, `${event.eventId}:loss`, 6);
+  const loss = eventDie(
+    result,
+    event.rolls?.loss,
+    `${event.eventId}:loss`,
+    RULE_ROLL_SPECS.singleD6,
+  );
   if (loss !== null) {
     const before = state.training;
     state.training = Math.max(0, state.training - loss - state.rank);

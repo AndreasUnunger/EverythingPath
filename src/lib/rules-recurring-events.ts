@@ -1,3 +1,4 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
 import type { EventDispatch } from './rules-event-selection';
 import type { WeeklyDraft } from './weekly-draft-contract';
@@ -397,7 +398,12 @@ function resolveRivalryOfficerCheck(
     requireRecurringInput(context, 'officer');
     return true;
   }
-  const raw = eventDie(result, input.roll, `${event.eventId}:rivalry`, 20);
+  const raw = eventDie(
+    result,
+    input.roll,
+    `${event.eventId}:rivalry`,
+    RULE_ROLL_SPECS.check,
+  );
   if (input.skillBonus === undefined)
     requireRecurringInput(context, 'skill-bonus');
   if (raw === null || input.skillBonus === undefined) return true;

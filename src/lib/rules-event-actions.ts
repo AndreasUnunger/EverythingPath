@@ -131,7 +131,7 @@ export function resolveEventAction(
       )
     )
       return true;
-    const gain = helpers.dice(result, choice, 'notoriety', 1, 6);
+    const gain = helpers.dice(result, choice, 'notoriety');
     if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
   }
   if (!acknowledgement) required('acknowledgement');

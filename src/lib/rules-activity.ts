@@ -1,3 +1,8 @@
+import { activityRollSpec } from './rules-roll-spec';
+import {
+  actionChoiceRolls,
+  type ActivityRollField,
+} from './weekly-draft-facts';
 import { normalizeRawRoll } from './raw-roll';
 import { recruitedTeamId } from './weekly-draft-identities';
 import {
@@ -85,12 +90,13 @@ export type ActivityProjection = {
 function dice(
   result: ActivityProjection,
   choice: Choice,
-  key: 'check' | 'notoriety' | 'training' | 'delivery',
-  count: number,
-  sides: number,
+  key: ActivityRollField,
 ) {
-  const raw = choice.rolls?.[key];
-  const normalized = normalizeRawRoll(raw, { count, sides });
+  const spec = activityRollSpec(choice.actionId, key);
+  if (!spec)
+    throw new Error(`No roll specification for ${choice.actionId}:${key}`);
+  const { count, sides } = spec;
+  const normalized = normalizeRawRoll(actionChoiceRolls(choice)[key], spec);
   if (normalized.status !== 'complete') {
     result.requirements.push(`${choice.choiceId}:${key}:${count}d${sides}`);
     return null;
@@ -106,7 +112,8 @@ function check(
   organizationCheck: OrganizationCheck = 'loyalty',
   dc?: number,
 ) {
-  const die = dice(result, choice, 'check', 1, 20);
+  const raw = actionChoiceRolls(choice).check;
+  const die = dice(result, choice, 'check');
   const facts = projectRulesFoundations({
     ...foundationInput(draft, result),
     checks: [
@@ -116,12 +123,12 @@ function check(
         check: organizationCheck,
         choiceId: choice.choiceId,
         die: die ?? undefined,
-        helpful: choice.rolls?.check?.modifiers.some(
+        helpful: raw?.modifiers.some(
           (modifier) => modifier.sourceId === 'helpful',
         ),
         bonusIds: [
           ...(choice.consumableIds ?? []),
-          ...(choice.rolls?.check?.modifiers.flatMap((modifier) =>
+          ...(raw?.modifiers.flatMap((modifier) =>
             modifier.sourceId.startsWith('bonus:')
               ? [modifier.sourceId.slice(6)]
               : [],
@@ -150,7 +157,7 @@ function check(
       effect.sourceId,
     ]),
   ]);
-  for (const modifier of choice.rolls?.check?.modifiers ?? []) {
+  for (const modifier of raw?.modifiers ?? []) {
     if (
       sources.has(modifier.sourceId) ||
       /^(bonus|queued|officer|manager|covert):/.test(modifier.sourceId)
@@ -271,7 +278,7 @@ function dismiss(
   const total = check(draft, result, choice, 'loyalty', 10);
   if (total === null) return;
   if (total < 10) {
-    const gain = dice(result, choice, 'notoriety', 1, 6);
+    const gain = dice(result, choice, 'notoriety');
     if (gain === null) return;
     value(result, choice, 'notoriety', gain);
   }
@@ -321,12 +328,13 @@ function spend(
   return true;
 }
 function naturalOne(result: ActivityProjection, choice: Choice) {
+  const spec = activityRollSpec(choice.actionId, 'check');
+  if (!spec) return;
   if (
-    normalizeRawRoll(choice.rolls?.check, { count: 1, sides: 20 })
-      .naturalValue !== 1
+    normalizeRawRoll(actionChoiceRolls(choice).check, spec).naturalValue !== 1
   )
     return;
-  const gain = dice(result, choice, 'notoriety', 1, 6);
+  const gain = dice(result, choice, 'notoriety');
   if (gain !== null) value(result, choice, 'notoriety', gain);
 }
 function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
@@ -348,7 +356,7 @@ function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
   );
   naturalOne(result, choice);
   if (total === null || total < 10 + result.outcome.rank) return;
-  const gain = dice(result, choice, 'training', 2, 6);
+  const gain = dice(result, choice, 'training');
   const officers = projectOfficers(
     result.outcome.roster,
     result.outcome.characters,

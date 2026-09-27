@@ -1,5 +1,8 @@
 import type { WeeklyDraft } from './weekly-draft-contract';
-import type { StagedActionChoice } from './weekly-draft-facts';
+import type {
+  ActivityRollField,
+  StagedActionChoice,
+} from './weekly-draft-facts';
 import type { ActivityProjection } from './rules-activity';
 import type { EconomyState } from './rules-economy-state';
 import type { TEAM_IDS } from './militia-domain';
@@ -28,13 +31,7 @@ export type ActivityHelpers = {
     choice: Choice,
     grossCopper: number,
   ): void;
-  dice(
-    result: Result,
-    choice: Choice,
-    key: 'check' | 'notoriety' | 'training' | 'delivery',
-    count: number,
-    sides: number,
-  ): number | null;
+  dice(result: Result, choice: Choice, key: ActivityRollField): number | null;
   check(
     draft: WeeklyDraft,
     result: Result,
@@ -184,7 +181,7 @@ function market(
     const total = helpers.check(draft, result, choice, 'secrecy', 20);
     if (total === null) return;
     if (total < 20) {
-      const gain = helpers.dice(result, choice, 'notoriety', 1, 6);
+      const gain = helpers.dice(result, choice, 'notoriety');
       if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
       return;
     }
@@ -327,7 +324,7 @@ function specialOrder(
   }
   const baseDays = choice.expedited
     ? 1
-    : helpers.dice(result, choice, 'delivery', 2, 6);
+    : helpers.dice(result, choice, 'delivery');
   const price = purchasePrice(
     draft,
     result,

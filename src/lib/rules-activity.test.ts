@@ -1,3 +1,4 @@
+import { actionChoiceRolls } from './weekly-draft-facts';
 import { expect, test } from 'vitest';
 import { activityFixture } from '../../tests/rules/activity-fixture';
 import { upkeepFixture, roll } from '../../tests/rules/upkeep-fixture';
@@ -675,10 +676,9 @@ test.each([
 test('Carried penalties preserve unrelated queued modifiers and do not reapply entered event provenance', () => {
   const { draft, snapshot } = activityFixture('drill_militia');
   const choice = draft.activity.slots[0]?.choice;
-  if (!choice?.rolls?.check) throw new Error('Missing fixture check');
-  choice.rolls.check.modifiers = [
-    { sourceId: 'morale', value: -2, reason: 'Low Morale' },
-  ];
+  const raw = actionChoiceRolls(choice ?? null).check;
+  if (!raw) throw new Error('Missing fixture check');
+  raw.modifiers = [{ sourceId: 'morale', value: -2, reason: 'Low Morale' }];
   const source = {
     ...draft,
     context: {

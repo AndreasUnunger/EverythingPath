@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { projectActivity } from './rules-activity';
 import { projectActivityAndEventShaping as project } from './rules-event-shaping';
 import { eventActionFixture } from '../../tests/rules/event-action-fixture';
@@ -37,7 +37,8 @@ test('[rules.A05.next] augmentation follows the next actual choice and recompute
 test('[rules.A05.success] natural one is successful with sufficient bonus and suppresses only target notoriety', () => {
   const { draft, snapshot } = eventActionFixture('covert_action');
   snapshot.characters[0]!.charisma = 40;
-  draft.activity.slots[1]!.choice!.rolls = {
+  assert(draft.activity.slots[1]!.choice?.actionId === 'drill_militia');
+  draft.activity.slots[1]!.choice.rolls = {
     check: roll(20, 1),
     training: roll(6, 2, 4),
   };
@@ -49,7 +50,8 @@ test('[rules.A05.success] natural one is successful with sufficient bonus and su
 });
 test('[rules.A05.failure] failed targets retain natural-one notoriety and duplicate action types never share augmentation', () => {
   const { draft, snapshot } = eventActionFixture('covert_action');
-  draft.activity.slots[1]!.choice!.rolls = {
+  assert(draft.activity.slots[1]!.choice?.actionId === 'drill_militia');
+  draft.activity.slots[1]!.choice.rolls = {
     check: roll(20, 1),
     notoriety: roll(6, 4),
   };

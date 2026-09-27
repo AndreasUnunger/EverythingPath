@@ -1,3 +1,4 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import {
   actionChoiceEvents,
   persistentEventSchema,
@@ -222,7 +223,12 @@ function mitigatePersistentRivalry(
     !acceptPersistentException(context, id, 'officer-assignment')
   )
     return;
-  const die = eventDie(state, input.roll, `${id}:officer`, 20);
+  const die = eventDie(
+    state,
+    input.roll,
+    `${id}:officer`,
+    RULE_ROLL_SPECS.check,
+  );
   if (input.skillBonus === undefined)
     requirePersistentInput(context, id, 'skill-bonus');
   if (die === null || input.skillBonus === undefined) return;

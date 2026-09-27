@@ -1,3 +1,5 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import type { RollSpec } from './raw-roll';
 import { normalizeRawRoll } from './raw-roll';
 import { eventOverseerSelection } from './rules-overseer-event';
 import { projectRulesFoundations } from './rules-foundations';
@@ -12,11 +14,11 @@ export function eventDie(
   result: Pick<EventOutcomeProjection, 'requirements' | 'warnings'>,
   raw: Raw,
   id: string,
-  sides: number,
+  spec: RollSpec,
 ) {
-  const normalized = normalizeRawRoll(raw, { count: 1, sides });
+  const normalized = normalizeRawRoll(raw, spec);
   if (normalized.status !== 'complete') {
-    result.requirements.push(`${id}:1d${sides}`);
+    result.requirements.push(`${id}:${spec.count}d${spec.sides}`);
     return null;
   }
   if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
@@ -41,7 +43,7 @@ export function eventCheck(
   };
   const support = eventOverseerSelection(event);
   if (support.conflicting) result.requirements.push(`${id}:overseer-conflict`);
-  const die = eventDie(result, raw, id, 20);
+  const die = eventDie(result, raw, id, RULE_ROLL_SPECS.check);
   const facts = projectRulesFoundations({
     ...result.outcome,
     week: draft.week,
@@ -116,19 +118,6 @@ export function eventCheck(
   return die === null || facts.requirements.some((key) => key.startsWith(id))
     ? null
     : projected.total;
-}
-
-// Raw dice required by the event input contract; calculations remain in the resolvers.
-export function eventInputRollSides(
-  eventType: string | null,
-): Record<string, number> {
-  return {
-    tableRoll: 100,
-    check: 20,
-    roll: 20,
-    notoriety: 6,
-    loss: eventType === 'raid' ? 100 : 6,
-  };
 }
 
 export function eventMitigationAttempted(

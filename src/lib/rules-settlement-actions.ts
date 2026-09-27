@@ -130,7 +130,7 @@ export function resolveSettlementChoice(
     const total = helpers.check(draft, result, choice, 'security', 15);
     if (total === null) return true;
     if (total < 15) {
-      const gain = helpers.dice(result, choice, 'notoriety', 1, 4);
+      const gain = helpers.dice(result, choice, 'notoriety');
       if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
       return true;
     }

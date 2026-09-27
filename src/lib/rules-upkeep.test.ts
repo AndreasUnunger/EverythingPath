@@ -370,7 +370,6 @@ test('[rules.U02.provenance] entered modifiers augment raw dice while computed a
 test('[rules.U02.readiness] missing dice never invent a loss, rank increase, or Activity gain', () => {
   const { draft, snapshot } = upkeepFixture();
   draft.upkeep.rolls.training = roll(6, 6);
-  draft.upkeep.rolls.reward = roll(6, 6);
   draft.activity.slots[0]!.choice = {
     choiceId: 'drill',
     actionId: 'drill_militia',
@@ -749,35 +748,33 @@ test('[rules.U02.persistent-morale] carried Low Morale affects both Loyalty chec
       draftId: original.draftId,
       week: 40,
       slotIds: [],
-      context: weekStartFactsSchema
-        .strip()
-        .parse({
-          ...original.context,
-          carriedEvents: [
-            {
-              eventId: 'morale',
-              eventType: 'low_morale',
-              startedWeek: 38,
-              order: 0,
-              targets: [],
-            },
-          ],
-          queuedEffects: queued
-            ? [
-                {
-                  effectId: 'morale-queue',
-                  sourceId: 'morale',
-                  startsWeek: 40,
-                  endsWeek: 40,
-                  effect: {
-                    kind: 'check_modifier',
-                    check: 'loyalty',
-                    value: -2,
-                  },
+      context: weekStartFactsSchema.strip().parse({
+        ...original.context,
+        carriedEvents: [
+          {
+            eventId: 'morale',
+            eventType: 'low_morale',
+            startedWeek: 38,
+            order: 0,
+            targets: [],
+          },
+        ],
+        queuedEffects: queued
+          ? [
+              {
+                effectId: 'morale-queue',
+                sourceId: 'morale',
+                startsWeek: 40,
+                endsWeek: 40,
+                effect: {
+                  kind: 'check_modifier',
+                  check: 'loyalty',
+                  value: -2,
                 },
-              ]
-            : [],
-        }),
+              },
+            ]
+          : [],
+      }),
     });
     draft.upkeep.rolls = {
       check: roll(20, 8),

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { upkeepFixture, roll } from '../../tests/rules/upkeep-fixture';
 import { projectUpkeep } from './rules-upkeep';
 import type { RawRoll } from './weekly-draft-facts';
@@ -129,6 +129,7 @@ test('nested reactive Sabotage preserves check, notoriety and negated event with
 
 test('failed Reduce Danger uses a 1d4 total through the delegated settlement action', () => {
   const { draft, snapshot, choice } = settlementFixture('reduce_danger');
+  assert(choice.actionId === 'reduce_danger');
   choice.rolls = { check: roll(20, 1), notoriety: roll(4, 4) };
   const legacy = projectActivity(draft, snapshot);
   expect(legacy.outcome.notoriety).toBe(14);
@@ -299,6 +300,7 @@ test.each([roll(6, 3), total(6, 1, 7), total(4, 2, 7)])(
   (raw) => {
     const { draft, snapshot } = activityFixture('drill_militia');
     const choice = draft.activity.slots[0]!.choice!;
+    assert(choice.actionId === 'drill_militia');
     choice.rolls = { check: total(20, 1, 10), training: raw };
     const result = projectActivity(draft, snapshot);
     expect(result.requirements).toContain('drill:training:2d6');
@@ -310,7 +312,8 @@ test.each([0, 20])(
   'Drill out-of-range total %i applies once without natural-d20 behavior',
   (value) => {
     const { draft, snapshot } = activityFixture('drill_militia');
-    draft.activity.slots[0]!.choice!.rolls = {
+    assert(draft.activity.slots[0]!.choice?.actionId === 'drill_militia');
+    draft.activity.slots[0]!.choice.rolls = {
       check: total(20, 1, 10),
       training: total(6, 2, value),
     };
@@ -323,7 +326,8 @@ test.each([0, 20])(
 
 test('Drill legacy per-die outlier warning survives an ordinary sum', () => {
   const { draft, snapshot } = activityFixture('drill_militia');
-  draft.activity.slots[0]!.choice!.rolls = {
+  assert(draft.activity.slots[0]!.choice?.actionId === 'drill_militia');
+  draft.activity.slots[0]!.choice.rolls = {
     check: total(20, 1, 10),
     training: roll(6, 0, 6),
   };
@@ -359,6 +363,7 @@ test.each([0, 101])('Event percentile total %i stays advisory', (value) => {
 test('Activity natural one comes from the complete raw d20, never its modified total', () => {
   const { draft, snapshot } = activityFixture('recruit_team');
   const choice = draft.activity.slots[0]!.choice!;
+  assert(choice.actionId === 'recruit_team');
   choice.rolls = {
     check: {
       ...roll(20, 1),
