@@ -85,6 +85,21 @@ test('without a militia the home reads neither the draft nor finished weeks', ()
   ]);
 });
 
+test('another player finishing Setup switches the same home to Continue without a reload', () => {
+  reads.set('workspace', ok(null));
+  const hook = renderHook(() => useCampaignHomeContent(campaignId));
+  expect(hook.result.current).toEqual({ kind: 'no_militia' });
+  const { source, observation } = militia();
+  reads.set('workspace', ok(source));
+  reads.set('observe', ok(observation));
+  reads.set('list', listed());
+  hook.rerender();
+  expect(hook.result.current).toMatchObject({
+    kind: 'militia',
+    continueWeek: { kind: 'ready', week: 40 },
+  });
+});
+
 test('with a militia it makes exactly the shared finished-week listing request', () => {
   const { source, observation } = militia();
   reads.set('workspace', ok(source));

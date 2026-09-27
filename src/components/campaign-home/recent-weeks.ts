@@ -1,11 +1,13 @@
-import type { FunctionReturnType } from 'convex/server';
-import type { api } from '@convex/_generated/api';
-import { rowHeadlines } from '~/components/historical-week/finished-week-headline-text';
+import {
+  finishedWeekProvenance,
+  rowHeadlines,
+} from '~/components/historical-week/finished-week-headline-text';
+import type {
+  FinishedWeek,
+  FinishedWeekListing,
+} from '~/components/historical-week/finished-week-index';
 import { historyPath } from '~/lib/campaign-routes';
 
-export type FinishedWeekList = FunctionReturnType<
-  typeof api.canonicalHistory.list
->;
 export type RecentWeek = {
   week: number;
   href: string;
@@ -15,13 +17,12 @@ export type RecentWeek = {
 
 export const RECENT_WEEK_LIMIT = 3;
 
-// Corrected (more than one audit entry) takes precedence; From setup marks
-// only an uncorrected reconstruction. Finished weeks words the same marker
-// Reconstructed on purpose.
-function provenanceBadge(row: FinishedWeekList['weeks'][number]) {
-  if (row.entryCount > 1) return 'Corrected';
-  if (row.provenance === 'historical_reconstruction') return 'From setup';
-  return null;
+// The home words an uncorrected reconstruction From setup; Finished weeks
+// says Reconstructed on purpose.
+const badges = { corrected: 'Corrected', reconstructed: 'From setup' } as const;
+function provenanceBadge(row: FinishedWeek) {
+  const provenance = finishedWeekProvenance(row);
+  return provenance ? badges[provenance] : null;
 }
 
 /**
@@ -30,7 +31,7 @@ function provenanceBadge(row: FinishedWeekList['weeks'][number]) {
  */
 export function recentWeeks(
   campaignId: string,
-  list: FinishedWeekList,
+  list: FinishedWeekListing,
 ): RecentWeek[] {
   return list.weeks.slice(0, RECENT_WEEK_LIMIT).map((row) => ({
     week: row.week,

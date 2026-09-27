@@ -1,5 +1,6 @@
 import type { FunctionReturnType } from 'convex/server';
 import type { api } from '../../../convex/_generated/api';
+import { finishedWeekProvenance } from './finished-week-headline-text';
 
 // Pure derivation for the Finished weeks index: merging listing windows into
 // one oldest-first list, marking omitted ranges, and wording each row's marker
@@ -94,9 +95,10 @@ export const provenanceLabels: Record<FinishedWeek['provenance'], string> = {
 };
 
 export function rowMarker(row: FinishedWeek): string | null {
-  if (row.entryCount > 1) return `Corrected · ${row.entryCount} entries`;
-  if (row.provenance === 'historical_reconstruction') return 'Reconstructed';
-  return null;
+  const provenance = finishedWeekProvenance(row);
+  if (provenance === 'corrected')
+    return `Corrected · ${row.entryCount} entries`;
+  return provenance === 'reconstructed' ? 'Reconstructed' : null;
 }
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });

@@ -11,12 +11,12 @@ import {
   type WorkspaceSource,
 } from '~/lib/weekly-workspace-source';
 import type { Phase } from '~/components/weekly-draft-workspace/types';
+import type { FinishedWeekListing } from '~/components/historical-week/finished-week-index';
 import { continueTarget } from './continue-week';
 import { militiaSummaryParts } from './militia-summary';
 import {
   RECENT_WEEK_LIMIT,
   recentWeeks,
-  type FinishedWeekList,
   type RecentWeek,
 } from './recent-weeks';
 
@@ -85,7 +85,7 @@ export function continueWeekTarget(
 
 export function recentHistory(
   campaignId: string,
-  list: Read<FinishedWeekList>,
+  list: Read<FinishedWeekListing>,
   retry: () => void,
 ): RecentHistory {
   if (list.error) return { kind: 'failed', retry };

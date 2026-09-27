@@ -12,8 +12,9 @@ import {
 // Campaign list/home (#187): URL-backed selection, the full description and
 // in-game date header, and its two independent saves observed by a second
 // member without reload. Its content (#189): Continue week's target, the
-// militia line and the empty finished-weeks preview. Creating campaigns is covered below the browser
-// (the fixture harness cannot clean up UI-created campaigns).
+// militia line and the empty finished-weeks preview. Creating campaigns is
+// covered below the browser (the fixture harness cannot clean up UI-created
+// campaigns).
 
 // The selected campaign's home is a region named by the campaign.
 function pane(page: Page, campaignName: string) {

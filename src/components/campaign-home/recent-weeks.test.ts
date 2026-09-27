@@ -1,9 +1,10 @@
 import { expect, test } from 'vitest';
 import type { FinishedWeekHeadlineFact } from '~/lib/finished-week-headlines';
 import { recordedOutcomeAvailable } from '~/components/historical-week/finished-week-headline-text';
-import { recentWeeks, type FinishedWeekList } from './recent-weeks';
+import type { FinishedWeekListing } from '~/components/historical-week/finished-week-index';
+import { recentWeeks } from './recent-weeks';
 
-type Row = FinishedWeekList['weeks'][number];
+type Row = FinishedWeekListing['weeks'][number];
 const row = (week: number, patch: Partial<Row> = {}): Row => ({
   week,
   effectiveRecordId: `record-${week}`,
@@ -15,7 +16,7 @@ const row = (week: number, patch: Partial<Row> = {}): Row => ({
   headlineFacts: [],
   ...patch,
 });
-const list = (weeks: Row[]): FinishedWeekList => ({
+const list = (weeks: Row[]): FinishedWeekListing => ({
   weeks,
   earlierWeek: null,
   selected: null,

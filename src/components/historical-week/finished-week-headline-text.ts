@@ -10,7 +10,7 @@ import type {
   HeadlineValue,
 } from '~/lib/finished-week-headlines';
 
-// Recorded headline wording shared by the Finished weeks index and Campaign
+// Recorded headline wording and provenance precedence shared by the Finished weeks index and Campaign
 // home's Recent finished weeks. Each screen keeps its own provenance marker
 // (Reconstructed there, From setup on the home).
 
@@ -47,6 +47,20 @@ export function headlineText(fact: FinishedWeekHeadlineFact): string | null {
     return `${label} added: ${valueText(fact, final)}`;
   if (subject && before !== null && final === null) return `${label} removed`;
   return `${label}: ${valueText(fact, before)} → ${valueText(fact, final)}`;
+}
+
+/**
+ * A finished week's provenance marker: Corrected (more than one audit entry)
+ * takes precedence over an uncorrected reconstruction. Each screen words it
+ * itself: Finished weeks says Reconstructed, Campaign home says From setup.
+ */
+export function finishedWeekProvenance(row: {
+  entryCount: number;
+  provenance: string;
+}): 'corrected' | 'reconstructed' | null {
+  if (row.entryCount > 1) return 'corrected';
+  if (row.provenance === 'historical_reconstruction') return 'reconstructed';
+  return null;
 }
 
 /** Up to two headline phrases; a record without comparable facts says so. */
