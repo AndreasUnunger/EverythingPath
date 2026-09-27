@@ -8,8 +8,8 @@ import {
   eventTreeSchema,
 } from '~/lib/weekly-draft-facts';
 import { eventRollSpec, RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
-import { EVENT_TYPES, type EventType } from '~/lib/militia-domain';
 import { RollTotalField } from './roll-total-field';
+import { resolvedEventType } from './roll-facts';
 import type { WeeklyDraftEdit, WeeklyDraft } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -29,11 +29,6 @@ const detailsSchema = eventOccurrenceSchema.omit({
   eventType: true,
 });
 const PERCENTILE = RULE_ROLL_SPECS.percentile;
-function resolvedEventType(value: string | null): EventType | null {
-  return (EVENT_TYPES as readonly string[]).includes(value ?? '')
-    ? (value as EventType)
-    : null;
-}
 export function EventView({ view, edit, disabled }: Props) {
   const [error, setError] = useState('');
   function saveTree(

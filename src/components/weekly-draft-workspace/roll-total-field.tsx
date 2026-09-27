@@ -1,12 +1,13 @@
 'use client';
+import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import type { RollSpec } from '~/lib/raw-roll';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { WholeNumberField } from './whole-number-field';
 import {
   editableTotal,
-  isLegacyRoll,
-  recordedDiceCount,
+  rangeAdvisory,
+  recordedRollExplanation,
   rollNotation,
   rollReadFacts,
   totalRoll,
@@ -36,12 +37,20 @@ export function RollTotalField({
   onInvalid?: (message: string | null) => void;
 }) {
   const facts = rollReadFacts(recorded, spec);
-  const { normalized } = facts;
   const value = editableTotal(facts);
-  const retained = recorded && normalized.status === 'incomplete';
+  const explanation = recordedRollExplanation(recorded, spec);
+  const advisory = rangeAdvisory(facts.normalized, spec);
+  // An explicit clear discards any rejected local text with the recorded roll.
+  const [generation, setGeneration] = useState(0);
+  function clear() {
+    onInvalid?.(null);
+    setGeneration((current) => current + 1);
+    onRoll(null);
+  }
   return (
     <div className="min-w-0 space-y-1">
       <WholeNumberField
+        key={generation}
         label={label}
         value={value}
         required={required}
@@ -61,40 +70,26 @@ export function RollTotalField({
             : 'Rolled at the table.'}
         </p>
       )}
-      {retained && (
+      {explanation && (
         <p role="note" className="text-sm text-amber-300">
-          {isLegacyRoll(recorded)
-            ? recorded.sides === spec.sides && recorded.dice.length < spec.count
-              ? `Recorded dice ${recorded.dice.join(', ')} are incomplete for ${rollNotation(spec)}. Enter the total of all dice or clear the recorded roll.`
-              : `Recorded dice ${recorded.dice.join(', ')} were entered for ${rollNotation({ count: recorded.dice.length, sides: recorded.sides })}, but this step needs ${rollNotation(spec)}. Enter the total or clear the recorded roll.`
-            : `Recorded total ${recorded.diceTotal} was entered for ${rollNotation({ count: recordedDiceCount(recorded), sides: recorded.sides })}, but this step needs ${rollNotation(spec)}. Enter the total or clear the recorded roll.`}
+          {explanation}
         </p>
       )}
-      {retained && (
+      {explanation && (
         <Button
           type="button"
           variant="outline"
           disabled={disabled}
-          onClick={() => onRoll(null)}
+          onClick={clear}
         >
           Clear {label.toLowerCase()}
         </Button>
       )}
-      {normalized.status === 'complete' &&
-        normalized.rangeWarning === 'total' && (
-          <p role="note" className="text-sm text-amber-300">
-            The usual range for {rollNotation(spec)} is {spec.count}–
-            {spec.count * spec.sides}. Your entered total is retained for the
-            table.
-          </p>
-        )}
-      {normalized.status === 'complete' &&
-        normalized.rangeWarning === 'legacy-die' && (
-          <p role="note" className="text-sm text-amber-300">
-            The recorded dice include a value outside 1–{spec.sides}. They are
-            retained for the table until you enter a new total.
-          </p>
-        )}
+      {advisory && (
+        <p role="note" className="text-sm text-amber-300">
+          {advisory}
+        </p>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
@@ -304,5 +305,152 @@ test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriet
   open('Lie Low');
   expect(
     screen.queryByRole('textbox', { name: /roll/ }),
+  ).not.toBeInTheDocument();
+});
+
+const candidateChoice = (
+  candidates: Extract<
+    StagedActionChoice,
+    { actionId: 'guarantee_event' }
+  >['candidates'],
+): StagedActionChoice =>
+  ({
+    choiceId: 'guarantee',
+    actionId: 'guarantee_event',
+    teamId: 'team',
+    candidates,
+  }) as StagedActionChoice;
+function candidateEntries() {
+  return within(screen.getByRole('group', { name: 'Candidates' })).getAllByRole(
+    'group',
+    { name: /^Entry \d$/ },
+  );
+}
+
+test('[rules.EVT-07.candidate-context] a saved candidate with a known table roll keeps its nested total editors in the Activity editor, while an unresolved one offers only its table roll', () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(
+        candidateChoice([
+          {
+            eventId: 'theft-candidate',
+            origin: { kind: 'rolled' },
+            tableRoll: total(100, 1, 76),
+          },
+          { eventId: 'pending-candidate', origin: { kind: 'rolled' } },
+        ]),
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open('Guarantee Event');
+  const [theft, pending] = candidateEntries();
+  fireEvent.click(within(theft!).getByRole('button', { name: 'Add rolls' }));
+  expect(
+    within(theft!).getByRole('textbox', { name: 'Check roll' }),
+  ).toBeVisible();
+  expect(
+    within(theft!).getByText('1d20 · total of the dice only'),
+  ).toBeVisible();
+  expect(
+    within(pending!).getByRole('textbox', { name: 'Table Roll' }),
+  ).toBeVisible();
+  fireEvent.click(within(pending!).getByRole('button', { name: 'Add rolls' }));
+  expect(
+    within(pending!).queryByRole('textbox', { name: 'Check roll' }),
+  ).not.toBeInTheDocument();
+});
+
+test('[rules.EVT-07.candidate-live-context] an unsaved table roll change re-resolves the candidate’s nested specifications immediately, and an explicit eventType never overrides the table', () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(
+        candidateChoice([
+          {
+            eventId: 'declared',
+            origin: { kind: 'rolled' },
+            // Declared Turncoat, but the table roll says Theft: the table wins.
+            eventType: 'turncoat',
+            tableRoll: total(100, 1, 76),
+          },
+        ]),
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open('Guarantee Event');
+  const [entry] = candidateEntries();
+  fireEvent.click(within(entry!).getByRole('button', { name: 'Add rolls' }));
+  expect(
+    within(entry!).getByRole('textbox', { name: 'Check roll' }),
+  ).toBeVisible();
+  expect(
+    within(entry!).queryByRole('group', { name: 'Loss' }),
+  ).not.toBeInTheDocument();
+  // Typing a Turncoat table roll (60) locally, before any Save, switches the
+  // supported nested fields: no check, a 1d6 loss.
+  fireEvent.change(
+    within(entry!).getByRole('textbox', { name: 'Table Roll' }),
+    {
+      target: { value: '60' },
+    },
+  );
+  expect(edit).not.toHaveBeenCalled();
+  expect(
+    within(entry!).queryByRole('textbox', { name: 'Check roll' }),
+  ).not.toBeInTheDocument();
+  expect(
+    within(entry!).getByText('1d6 · total of the dice only'),
+  ).toBeVisible();
+  // A wrong-specification table roll leaves the candidate unresolved again.
+  fireEvent.change(
+    within(entry!).getByRole('textbox', { name: 'Table Roll' }),
+    {
+      target: { value: '' },
+    },
+  );
+  expect(
+    within(entry!).queryByRole('group', { name: 'Loss' }),
+  ).not.toBeInTheDocument();
+});
+
+test('[rules.EVT-07.candidate-removal] removing the first candidate keeps the survivor’s own table-roll context, not the removed entry’s', () => {
+  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
+  render(
+    <ActivityView
+      view={facts(
+        candidateChoice([
+          {
+            eventId: 'turncoat-candidate',
+            origin: { kind: 'rolled' },
+            tableRoll: total(100, 1, 60),
+          },
+          {
+            eventId: 'theft-candidate',
+            origin: { kind: 'rolled' },
+            tableRoll: total(100, 1, 76),
+            rolls: { check: total(20, 1, 9) },
+          },
+        ]),
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  open('Guarantee Event');
+  fireEvent.click(screen.getByRole('button', { name: 'Remove candidates 1' }));
+  const [survivor] = candidateEntries();
+  expect(
+    within(survivor!).getByRole('textbox', { name: 'Table Roll' }),
+  ).toHaveValue('76');
+  expect(
+    within(survivor!).getByRole('textbox', { name: 'Check roll' }),
+  ).toHaveValue('9');
+  expect(
+    within(survivor!).queryByRole('group', { name: 'Loss' }),
   ).not.toBeInTheDocument();
 });

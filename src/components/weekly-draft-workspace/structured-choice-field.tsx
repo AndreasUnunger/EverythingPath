@@ -1,5 +1,12 @@
 'use client';
-import { createContext, useContext, useId, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
@@ -93,11 +100,32 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 // Local malformed text in a nested total field never reaches the form value,
-// so the parent Save must be told about it: it blocks the save with a styled
-// error at that path instead of silently saving the prior number.
-const InvalidInputContext = createContext<
-  (path: string, message: string | null) => void
->(() => undefined);
+// so the enclosing Save must know about it. Entries belong to the mounted
+// field instance (not to a path string): a field reports while it exists,
+// moves when its path shifts, and disappears when it unmounts through entry
+// removal, a branch switch or a container clear. The Save then blocks with a
+// styled error at each still-mounted invalid field and nowhere else.
+type InvalidInputRegistry = {
+  report(id: string, path: string, message: string | null): void;
+  release(id: string): void;
+};
+const InvalidInputContext = createContext<InvalidInputRegistry>({
+  report: () => undefined,
+  release: () => undefined,
+});
+function useInvalidInput(path: string) {
+  const registry = useContext(InvalidInputContext);
+  const id = useId();
+  const message = useRef<string | null>(null);
+  useEffect(() => {
+    if (message.current !== null) registry.report(id, path, message.current);
+    return () => registry.release(id);
+  }, [id, path, registry]);
+  return (next: string | null) => {
+    message.current = next;
+    registry.report(id, path, next);
+  };
+}
 type FieldProps = {
   schema: z.ZodType;
   value: unknown;
@@ -110,6 +138,8 @@ type FieldProps = {
   modifierContext?: boolean;
   ownerEventId?: string;
   rollSpec?: RollSpecResolver;
+  // The whole value under edit, for context-dependent roll specifications.
+  rootValue?: unknown;
   acknowledgementSubject?: string;
 };
 function nestedField(props: FieldProps) {
@@ -118,10 +148,12 @@ function nestedField(props: FieldProps) {
     value: unknown,
     name: string,
     change: (value: unknown) => void,
+    key: string = name,
   ) => (
     <Fields
-      key={name}
+      key={key}
       rollSpec={props.rollSpec}
+      rootValue={props.rootValue}
       modifierContext={props.modifierContext}
       ownerEventId={props.ownerEventId}
       acknowledgementSubject={props.acknowledgementSubject}
@@ -221,10 +253,11 @@ function RollFields(
   props: FieldProps & { roll: NonNullable<ReturnType<typeof rollUnion>> },
 ) {
   const { value, change, name, path = '', issues, disabled, roll } = props;
-  const reportInvalid = useContext(InvalidInputContext);
+  const reportInvalid = useInvalidInput(path);
   const object = record(value);
   const recorded = isRawRollValue(object) ? object : null;
-  const spec = props.rollSpec?.(rollPathSegments(path)) ?? null;
+  const spec =
+    props.rollSpec?.(rollPathSegments(path), props.rootValue) ?? null;
   if (!spec && !recorded) return null;
   const title = choiceFieldLabel(name);
   const label = /roll$/i.test(title) ? title : `${title} roll`;
@@ -247,7 +280,7 @@ function RollFields(
           spec={spec}
           recorded={recorded}
           disabled={disabled}
-          onInvalid={(message) => reportInvalid(path, message)}
+          onInvalid={reportInvalid}
           onRoll={(next) => change(next ?? undefined)}
         />
       ) : (
@@ -335,6 +368,7 @@ function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
       {selectedSchema && (
         <Fields
           rollSpec={props.rollSpec}
+          rootValue={props.rootValue}
           modifierContext={props.modifierContext}
           ownerEventId={props.ownerEventId}
           acknowledgementSubject={props.acknowledgementSubject}
@@ -464,30 +498,41 @@ function ArrayFields(props: FieldProps & { base: z.ZodArray }) {
     modifierContext: props.modifierContext === true || name === 'modifiers',
   });
   const values = Array.isArray(value) ? (value as unknown[]) : [];
+  // Entries without a domain identity keep a stable local key across edits,
+  // so removing one entry unmounts exactly that entry's fields (and any
+  // malformed text they hold) instead of shifting state onto the next row.
+  const keys = useRef<string[]>([]);
+  while (keys.current.length < values.length)
+    keys.current.push(crypto.randomUUID());
+  keys.current.length = values.length;
+  const entryKey = (entry: unknown, index: number) =>
+    scalarText(record(entry).eventId ?? record(entry).itemId) ||
+    keys.current[index]!;
   return (
     <fieldset className="min-w-0 space-y-3 rounded-md border p-3">
       <legend className="text-sm font-semibold">{title}</legend>
       {values.map((entry, index) => (
-        <div
-          key={scalarText(
-            record(entry).eventId ?? record(entry).itemId ?? index,
-          )}
-          className="space-y-2"
-        >
-          {nested(base.element as z.ZodType, entry, String(index), (next) =>
-            change(
-              values.map((item, itemIndex) =>
-                itemIndex === index ? next : item,
+        <div key={entryKey(entry, index)} className="space-y-2">
+          {nested(
+            base.element as z.ZodType,
+            entry,
+            String(index),
+            (next) =>
+              change(
+                values.map((item, itemIndex) =>
+                  itemIndex === index ? next : item,
+                ),
               ),
-            ),
+            entryKey(entry, index),
           )}
           <Button
             type="button"
             variant="outline"
             disabled={disabled}
-            onClick={() =>
-              change(values.filter((_, itemIndex) => itemIndex !== index))
-            }
+            onClick={() => {
+              keys.current.splice(index, 1);
+              change(values.filter((_, itemIndex) => itemIndex !== index));
+            }}
           >
             Remove {title.toLowerCase()} {index + 1}
           </Button>
@@ -646,7 +691,16 @@ export function StructuredChoiceField({
 }) {
   const form = useForm<{ value: unknown }>({ values: { value } });
   const [issues, setIssues] = useState<z.core.$ZodIssue[]>([]);
-  const invalid = useRef(new Map<string, string>());
+  const invalid = useRef(new Map<string, { path: string; message: string }>());
+  const registry = useRef<InvalidInputRegistry>({
+    report(id, path, message) {
+      if (message === null) invalid.current.delete(id);
+      else invalid.current.set(id, { path, message });
+    },
+    release(id) {
+      invalid.current.delete(id);
+    },
+  });
   return (
     <form
       noValidate
@@ -654,7 +708,7 @@ export function StructuredChoiceField({
       onSubmit={form.handleSubmit(({ value }) => {
         if (invalid.current.size > 0) {
           setIssues(
-            [...invalid.current].map(([path, message]) => ({
+            [...invalid.current.values()].map(({ path, message }) => ({
               code: 'custom',
               path: rollPathSegments(path),
               message,
@@ -681,14 +735,10 @@ export function StructuredChoiceField({
         onValue(parsed.data);
       })}
     >
-      <InvalidInputContext
-        value={(path, message) => {
-          if (message === null) invalid.current.delete(path);
-          else invalid.current.set(path, message);
-        }}
-      >
+      <InvalidInputContext value={registry.current}>
         <Fields
           rollSpec={rollSpec}
+          rootValue={form.watch('value')}
           schema={schema}
           value={form.watch('value')}
           change={(value) => {

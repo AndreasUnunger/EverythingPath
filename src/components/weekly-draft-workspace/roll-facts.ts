@@ -1,4 +1,5 @@
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import { EVENT_TYPES, type EventType } from '~/lib/militia-domain';
 import {
   normalizeRawRoll,
   type NormalizedRoll,
@@ -69,14 +70,53 @@ export function editableTotal(facts: RollReadFacts): number | null {
     : null;
 }
 // Resolves the rule specification for a nested roll from its path relative to
-// the edited structure (e.g. ['targetChecks', 0, 'rolls', 'loss']). Null means
-// no authoritative specification; editors then never write a number.
+// the edited structure (e.g. ['targetChecks', 0, 'rolls', 'loss']) and the
+// CURRENT local form root, so context that the player is still editing (an
+// unsaved candidate table roll) counts immediately. Null means no
+// authoritative specification; editors then never write a number.
 export type RollSpecResolver = (
   path: readonly (string | number)[],
+  root: unknown,
 ) => RollSpec | null;
 export function rollPathSegments(path: string): (string | number)[] {
   return path
     .split('.')
     .filter(Boolean)
     .map((segment) => (/^\d+$/.test(segment) ? Number(segment) : segment));
+}
+
+// Explains recorded data that the current specification cannot use as a
+// complete roll, so the player sees exactly what is retained until they type
+// a replacement or clear it. Null for missing or complete rolls.
+export function recordedRollExplanation(
+  recorded: RawRoll | null | undefined,
+  spec: RollSpec,
+): string | null {
+  if (!recorded || normalizeRawRoll(recorded, spec).status !== 'incomplete')
+    return null;
+  const needed = rollNotation(spec);
+  if (isTotalRoll(recorded))
+    return `Recorded total ${recorded.diceTotal} was entered for ${rollNotation({ count: recorded.diceCount, sides: recorded.sides })}, but this step needs ${needed}. Enter the total or clear the recorded roll.`;
+  const dice = recorded.dice.join(', ');
+  if (recorded.sides === spec.sides && recorded.dice.length < spec.count)
+    return `Recorded dice ${dice} are incomplete for ${needed}. Enter the total of all dice or clear the recorded roll.`;
+  return `Recorded dice ${dice} were entered for ${rollNotation({ count: recorded.dice.length, sides: recorded.sides })}, but this step needs ${needed}. Enter the total or clear the recorded roll.`;
+}
+// Advisory wording for a complete roll outside its usual range; never blocks.
+export function rangeAdvisory(
+  normalized: NormalizedRoll,
+  spec: RollSpec,
+): string | null {
+  if (normalized.status !== 'complete') return null;
+  if (normalized.rangeWarning === 'total')
+    return `The usual range for ${rollNotation(spec)} is ${spec.count}–${spec.count * spec.sides}. Your entered total is retained for the table.`;
+  if (normalized.rangeWarning === 'legacy-die')
+    return `The recorded dice include a value outside 1–${spec.sides}. They are retained for the table until you enter a new total.`;
+  return null;
+}
+// Narrows a projected event type string to the domain type for spec lookups.
+export function resolvedEventType(value: string | null): EventType | null {
+  return (EVENT_TYPES as readonly string[]).includes(value ?? '')
+    ? (value as EventType)
+    : null;
 }

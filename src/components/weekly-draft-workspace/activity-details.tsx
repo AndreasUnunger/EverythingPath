@@ -16,7 +16,10 @@ import {
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
 import { activityRollSpec, eventRollSpec } from '~/lib/rules-roll-spec';
+import { rawRollSchema } from '~/lib/weekly-draft-facts';
 import { RollTotalField } from './roll-total-field';
+import type { RollSpecResolver } from './roll-facts';
+import { eventTypeForTableRoll } from '~/lib/rules-event-selection';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -87,6 +90,28 @@ export function ActivityText({
     </Form>
   );
 }
+// Candidate paths are [index, ...occurrence-relative path]. The candidate's
+// event type is the engine's reading of its current table roll (including
+// modifiers); an incomplete or missing table roll leaves only type-independent
+// specifications. Explicit `eventType` text never overrides the table.
+const candidateRollSpec: RollSpecResolver = (path, root) => {
+  const [index, ...rest] = path;
+  const candidate: unknown =
+    Array.isArray(root) && typeof index === 'number' ? root[index] : undefined;
+  if (!candidate || typeof candidate !== 'object') return null;
+  const tableRoll = rawRollSchema.safeParse(
+    (candidate as { tableRoll?: unknown }).tableRoll,
+  );
+  return eventRollSpec(
+    {
+      kind: 'occurrence',
+      eventType: eventTypeForTableRoll(
+        tableRoll.success ? tableRoll.data : null,
+      ),
+    },
+    rest,
+  );
+};
 function ChoiceFields({
   choice,
   view,
@@ -193,19 +218,10 @@ function ChoiceFields({
           disabled={disabled}
           onValue={(value) => change(field, value)}
           options={activityReferenceOptions(choice, view)}
-          // Candidate occurrences resolve their event type on the Event page;
-          // here only type-independent rolls (the table roll) are editable.
-          rollSpec={
-            field === 'candidates'
-              ? (path) =>
-                  typeof path[0] === 'number'
-                    ? eventRollSpec(
-                        { kind: 'occurrence', eventType: null },
-                        path.slice(1),
-                      )
-                    : null
-              : undefined
-          }
+          // A candidate occurrence's numeric context follows its CURRENT local
+          // table roll through the engine's own table interpretation, so an
+          // unsaved table change updates its nested specifications at once.
+          rollSpec={field === 'candidates' ? candidateRollSpec : undefined}
         />,
       ];
     })

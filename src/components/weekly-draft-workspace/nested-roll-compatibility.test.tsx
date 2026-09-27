@@ -504,3 +504,232 @@ test('[rules.PER-04.total] a Persistent Rivalry officer check is one 1d20 total 
     }),
   );
 });
+
+const raidWithTargets: EventFacts = withOccurrence(
+  {
+    eventId: 'root',
+    origin: { kind: 'rolled' },
+    targets: [
+      { kind: 'character', characterId: 'nora' },
+      { kind: 'character', characterId: 'pell' },
+    ],
+    targetChecks: [
+      { target: { kind: 'character', characterId: 'nora' } },
+      { target: { kind: 'character', characterId: 'pell' } },
+    ],
+  },
+  'raid',
+);
+raidWithTargets.options = {
+  ...eventFacts.options,
+  characterId: [
+    { value: 'nora', label: 'Nora' },
+    { value: 'pell', label: 'Pell' },
+  ],
+};
+function targetEntry(index: number) {
+  return within(
+    screen.getByRole('group', { name: 'Target Checks' }),
+  ).getAllByRole('group', { name: /^Entry \d$/ })[index]!;
+}
+
+test('[rules.EVT-11.invalid-removed] malformed text in a removed target no longer blocks saving the structurally valid rest', async () => {
+  const edit = vi.fn();
+  render(<EventView view={raidWithTargets} edit={edit} disabled={false} />);
+  openDetails();
+  fireEvent.click(
+    within(targetEntry(0)).getByRole('button', { name: 'Add rolls' }),
+  );
+  fireEvent.change(
+    within(targetEntry(0)).getByRole('textbox', { name: 'Check roll' }),
+    {
+      target: { value: 'x1' },
+    },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Remove target checks 1' }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'event_occurrence',
+      occurrence: expect.objectContaining({
+        targetChecks: [{ target: { kind: 'character', characterId: 'pell' } }],
+      }),
+    }),
+  );
+});
+
+test('[rules.EVT-11.invalid-shift] removing an earlier entry keeps a later entry’s malformed text blocking the save until it is fixed', async () => {
+  const edit = vi.fn();
+  render(<EventView view={raidWithTargets} edit={edit} disabled={false} />);
+  openDetails();
+  fireEvent.click(
+    within(targetEntry(1)).getByRole('button', { name: 'Add rolls' }),
+  );
+  const pellCheck = () =>
+    within(targetEntry(1)).getByRole('textbox', { name: 'Check roll' });
+  fireEvent.change(pellCheck(), { target: { value: '9' } });
+  fireEvent.change(pellCheck(), { target: { value: '9e' } });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Remove target checks 1' }),
+  );
+  // Pell's entry is now first; its own malformed text still blocks the save.
+  const survivor = () =>
+    within(targetEntry(0)).getByRole('textbox', { name: 'Check roll' });
+  expect(survivor()).toHaveValue('9');
+  expect(
+    within(targetEntry(0))
+      .getAllByRole('alert')
+      .map((alert) => alert.textContent),
+  ).toContain('Use digits only.');
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(survivor(), { target: { value: '11' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'event_occurrence',
+      occurrence: expect.objectContaining({
+        targetChecks: [
+          {
+            target: { kind: 'character', characterId: 'pell' },
+            rolls: { check: total(20, 1, 11) },
+          },
+        ],
+      }),
+    }),
+  );
+});
+
+test('[rules.EVT-11.invalid-branch] switching a nested Persistent decision away from a malformed mitigation roll saves the new branch', async () => {
+  const edit = vi.fn();
+  render(
+    <EventView
+      view={withOccurrence(
+        { eventId: 'root', origin: { kind: 'rolled' }, persistent: true },
+        'theft',
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  openDetails();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Add persistent decision' }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Mitigate' }));
+  // The occurrence's own rolls come first; the decision's follow.
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add rolls' }).at(-1)!);
+  fireEvent.change(
+    screen.getAllByRole('textbox', { name: 'Check roll' }).at(-1)!,
+    { target: { value: '-3' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getAllByRole('button', { name: 'Unattempted' }).at(-1)!,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'event_occurrence',
+      occurrence: expect.objectContaining({
+        persistentDecision: { kind: 'unattempted', eventId: 'root' },
+      }),
+    }),
+  );
+});
+
+test('[rules.EVT-11.invalid-clear] clearing the enclosing details after malformed text lets the next save go through once the cleared occurrence arrives', async () => {
+  const edit = vi.fn().mockReturnValue(true);
+  const { rerender } = render(
+    <EventView
+      view={withOccurrence(
+        {
+          eventId: 'root',
+          origin: { kind: 'rolled' },
+          rolls: { check: total(20, 1, 12) },
+        },
+        'theft',
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  openDetails();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Check roll' }), {
+    target: { value: '1.5' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear occurrence' }));
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'event_occurrence',
+    occurrence: { eventId: 'root', origin: { kind: 'rolled' } },
+  });
+  edit.mockClear();
+  // The cleared occurrence comes back from the shared draft.
+  rerender(
+    <EventView
+      view={withOccurrence(
+        { eventId: 'root', origin: { kind: 'rolled' } },
+        'theft',
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  openDetails();
+  fireEvent.click(screen.getByRole('button', { name: 'Add rolls' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Check roll' }), {
+    target: { value: '8' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'event_occurrence',
+      occurrence: {
+        eventId: 'root',
+        origin: { kind: 'rolled' },
+        rolls: { check: total(20, 1, 8) },
+      },
+    }),
+  );
+});
+
+test('[rules.EVT-11.invalid-explicit-clear] a partial legacy roll’s explicit Clear releases its malformed-text block', async () => {
+  const edit = vi.fn();
+  render(
+    <EventView
+      view={withOccurrence(
+        {
+          eventId: 'root',
+          origin: { kind: 'rolled' },
+          rolls: {
+            check: { dice: [3], sides: 6, provenance: table, modifiers: [] },
+          },
+        },
+        'theft',
+      )}
+      edit={edit}
+      disabled={false}
+    />,
+  );
+  openDetails();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Check roll' }), {
+    target: { value: 'ab' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear check roll' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+  await waitFor(() =>
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'event_occurrence',
+      occurrence: { eventId: 'root', origin: { kind: 'rolled' }, rolls: {} },
+    }),
+  );
+});

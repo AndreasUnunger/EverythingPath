@@ -371,7 +371,11 @@ test.each([
       teamId: 'scouts',
       decision: { teamId: 'scouts', decision: 'leave' },
     });
-    fireEvent.change(field, { target: { value: '12' } });
+    // The explicit clear discards the field's local state, so query it again.
+    fireEvent.change(
+      within(card).getByRole('textbox', { name: 'Scouts return roll' }),
+      { target: { value: '12' } },
+    );
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'upkeep_team',
       teamId: 'scouts',
