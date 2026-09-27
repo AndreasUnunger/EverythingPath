@@ -166,9 +166,6 @@ function AffectsWeek({ choices }: { choices: AffectedChoice[] }) {
   );
 }
 
-const displayName = (name: string) =>
-  name.charAt(0).toUpperCase() + name.slice(1);
-
 /**
  * Identities the open week still uses but the militia lacks, each with the
  * choices that need it and a button that adds it back to this section. On
@@ -194,7 +191,7 @@ export function MissingReferences({
             key={entry.key}
             className="min-w-0 space-y-1.5 [overflow-wrap:anywhere]"
           >
-            <p className="font-medium">{displayName(entry.name)}</p>
+            <p className="font-medium">{entry.name}</p>
             <p className="text-sm">
               {NEEDED_BY_LABEL}:{' '}
               {entry.neededBy.map((choice, index) => (

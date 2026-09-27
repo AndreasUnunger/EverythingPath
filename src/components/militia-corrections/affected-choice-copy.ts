@@ -61,26 +61,62 @@ export function identityNames(
   };
 }
 
-const kindWords: Record<ReferenceKind, string> = {
-  team: 'team',
-  settlement: 'settlement',
-  character: 'character',
-  item: 'item',
-  cache: 'cache',
-  event: 'event',
-  bonus: 'one-use bonus',
+// One and several of each kind, with the article for one.
+const kindWords: Record<
+  ReferenceKind,
+  { one: string; article: 'a' | 'an'; many: string }
+> = {
+  team: { one: 'team', article: 'a', many: 'teams' },
+  settlement: { one: 'settlement', article: 'a', many: 'settlements' },
+  character: { one: 'character', article: 'a', many: 'characters' },
+  item: { one: 'item', article: 'an', many: 'items' },
+  cache: { one: 'cache', article: 'a', many: 'caches' },
+  event: { one: 'event', article: 'an', many: 'events' },
+  bonus: { one: 'one-use bonus', article: 'a', many: 'one-use bonuses' },
 };
 
-/** "Scouts", or "a missing team" when no name is known. */
-export function missingName(
-  { kind, id }: MissingReference,
-  names: IdentityNames,
-) {
-  const name = names(kind, id);
-  return name?.trim() ? name : `a missing ${kindWords[kind]}`;
+/** The identity's name, or null when this device does not know one. */
+function knownName({ kind, id }: MissingReference, names: IdentityNames) {
+  const name = names(kind, id)?.trim();
+  return name !== undefined && name.length > 0 ? name : null;
 }
 
-const listed = (names: string[]) =>
+/** "Scouts", or "a missing team" when no name is known. */
+export function missingName(reference: MissingReference, names: IdentityNames) {
+  return (
+    knownName(reference, names) ?? `a missing ${kindWords[reference.kind].one}`
+  );
+}
+
+/** "Scouts" or "A missing team", as the title of a missing identity. */
+export function missingTitle(
+  reference: MissingReference,
+  names: IdentityNames,
+) {
+  const name = missingName(reference, names);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** "Restore Scouts", or "Restore missing team for Activity slot 2". */
+export function restoreLabel(
+  reference: MissingReference,
+  neededBy: readonly StagedReference[],
+  names: IdentityNames,
+) {
+  const name = knownName(reference, names);
+  if (name) return `Restore ${name}`;
+  const [first] = neededBy;
+  const missing = `Restore missing ${kindWords[reference.kind].one}`;
+  return first ? `${missing} for ${choiceLabel(first.location)}` : missing;
+}
+
+/** "Needed by Activity slot 2 and Upkeep team decision". */
+export function neededByNote(neededBy: readonly StagedReference[]) {
+  return `Needed by ${listed(neededBy.map((reference) => choiceLabel(reference.location)))}`;
+}
+
+/** "A", "A and B", "A, B and C". */
+export const listed = (names: string[]) =>
   names.length <= 2
     ? names.join(' and ')
     : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
@@ -135,16 +171,17 @@ export type AffectedChoice = {
   href: string | null;
 };
 
-// "a team", "two teams", "a team and a settlement".
+// "a team", "2 teams", "a team and an item".
 function without(missing: readonly MissingReference[]) {
   const counts = new Map<ReferenceKind, number>();
   for (const { kind } of missing) counts.set(kind, (counts.get(kind) ?? 0) + 1);
   return listed(
-    [...counts].map(([kind, count]) =>
-      count === 1
-        ? `${kindWords[kind] === 'item' ? 'an' : 'a'} ${kindWords[kind]}`
-        : `${count} ${kindWords[kind]}s`,
-    ),
+    [...counts].map(([kind, count]) => {
+      const word = kindWords[kind];
+      return count === 1
+        ? `${word.article} ${word.one}`
+        : `${count} ${word.many}`;
+    }),
   );
 }
 

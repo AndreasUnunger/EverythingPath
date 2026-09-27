@@ -88,116 +88,113 @@ function locationKey(location: ChoiceLocation) {
   }
 }
 
-// Reference paths name their owner by prefix (see
-// `draftReferenceRequirements`); owners are matched by their full identity so
-// an identity containing ':' still locates correctly.
-function locator(draft: WeeklyDraft) {
-  const slots = draft.activity.slots.flatMap((slot, index) =>
-    slot.choice ? [{ slot, position: index + 1, choice: slot.choice }] : [],
-  );
-  const slotLocation = ({
-    slot,
-    position,
-    choice,
-  }: (typeof slots)[number]): ChoiceLocation => ({
-    kind: 'activitySlot',
-    slotId: slot.slotId,
-    position,
-    actionId: choice.actionId,
-  });
+// Where each event is repaired: carried events are read-only, rolled
+// occurrences belong to Event and events an Activity action produced to
+// that slot.
+function eventLocations(draft: WeeklyDraft, slots: readonly SlotOwner[]) {
   const events = new Map<string, ChoiceLocation>();
-  for (const event of draft.context.carriedEvents)
-    events.set(event.eventId, {
-      kind: 'carriedEvent',
-      eventId: event.eventId,
-      eventType: event.eventType,
-    });
-  for (const event of draft.event.occurrences)
-    events.set(event.eventId, {
+  for (const { eventId, eventType } of draft.context.carriedEvents)
+    events.set(eventId, { kind: 'carriedEvent', eventId, eventType });
+  for (const { eventId, eventType } of draft.event.occurrences)
+    events.set(eventId, {
       kind: 'event',
-      eventId: event.eventId,
-      eventType: event.eventType ?? null,
+      eventId,
+      eventType: eventType ?? null,
     });
-  // Events an Activity action produced are repaired in that slot.
-  for (const entry of slots)
-    for (const event of actionChoiceEvents(entry.choice))
-      events.set(event.eventId, slotLocation(entry));
-  const eventType = (eventId: string) => {
+  for (const { choice, location } of slots)
+    for (const event of actionChoiceEvents(choice))
+      events.set(event.eventId, location);
+  return events;
+}
+
+type SlotOwner = {
+  choice: NonNullable<WeeklyDraft['activity']['slots'][number]['choice']>;
+  location: ChoiceLocation;
+};
+type Owner = [prefix: string, location: ChoiceLocation];
+
+// The draft's reference owners by the path prefix their references use (see
+// `draftReferenceRequirements`), in matching order. Owners are matched by
+// their full identity, so an identity containing ':' still locates.
+function ownerPrefixes(draft: WeeklyDraft): Owner[] {
+  const slots = draft.activity.slots.flatMap((slot, index): SlotOwner[] =>
+    slot.choice
+      ? [
+          {
+            choice: slot.choice,
+            location: {
+              kind: 'activitySlot',
+              slotId: slot.slotId,
+              position: index + 1,
+              actionId: slot.choice.actionId,
+            },
+          },
+        ]
+      : [],
+  );
+  const events = eventLocations(draft, slots);
+  const typeOf = (eventId: string) => {
     const event = events.get(eventId);
     return event && 'eventType' in event ? event.eventType : null;
   };
-  const prefixed = <T>(
-    path: string,
-    owner: string,
-    items: readonly T[],
-    id: (item: T) => string,
-  ) => items.find((item) => path.startsWith(`${owner}:${id(item)}:`));
-
-  return (path: string): ChoiceLocation | null => {
-    if (path === 'upkeep:nearest-settlement')
-      return { kind: 'nearestSettlement' };
-    if (path === 'activity:operating-settlement')
-      return { kind: 'operatingSettlement' };
-    if (path.startsWith('activity:consumable:')) return { kind: 'consumables' };
-    if (path.startsWith('context:operated-settlement:'))
-      return { kind: 'operatedSettlements' };
-    const decision = draft.upkeep.teamDecisions.find(
-      (item) => path === `team:${item.teamId}`,
-    );
-    if (decision) return { kind: 'upkeepTeam', teamId: decision.teamId };
-    const order = prefixed(
-      path,
-      'order',
-      draft.context.orders,
-      (x) => x.orderId,
-    );
-    if (order) return { kind: 'order', orderId: order.orderId };
-    const effect = prefixed(
-      path,
-      'queue',
-      draft.context.queuedEffects,
-      (x) => x.effectId,
-    );
-    if (effect) return { kind: 'queuedEffect', effectId: effect.effectId };
-    const adjustment = prefixed(
-      path,
-      'adjustment',
-      draft.tableAdjustments,
-      (x) => x.adjustmentId,
-    );
-    if (adjustment)
-      return {
-        kind: 'tableAdjustment',
-        adjustmentId: adjustment.adjustmentId,
-      };
-    const persistent = prefixed(
-      path,
-      'decision',
-      draft.persistent.decisions,
-      (x) => x.eventId,
-    );
-    if (persistent)
-      return {
-        kind: 'persistentDecision',
-        eventId: persistent.eventId,
-        eventType: eventType(persistent.eventId),
-      };
-    // An event's own references and the persistent decision nested in it.
-    for (const owner of ['event', 'decision'])
-      for (const [eventId, location] of events)
-        if (path.startsWith(`${owner}:${eventId}:`)) return location;
-    const slot = slots.find(({ choice }) =>
-      path.startsWith(`${choice.choiceId}:`),
-    );
-    return slot ? slotLocation(slot) : null;
-  };
+  return [
+    ['activity:consumable:', { kind: 'consumables' }],
+    ['context:operated-settlement:', { kind: 'operatedSettlements' }],
+    ...draft.context.orders.map(
+      ({ orderId }): Owner => [`order:${orderId}:`, { kind: 'order', orderId }],
+    ),
+    ...draft.context.queuedEffects.map(
+      ({ effectId }): Owner => [
+        `queue:${effectId}:`,
+        { kind: 'queuedEffect', effectId },
+      ],
+    ),
+    ...draft.tableAdjustments.map(
+      ({ adjustmentId }): Owner => [
+        `adjustment:${adjustmentId}:`,
+        { kind: 'tableAdjustment', adjustmentId },
+      ],
+    ),
+    ...draft.persistent.decisions.map(
+      ({ eventId }): Owner => [
+        `decision:${eventId}:`,
+        { kind: 'persistentDecision', eventId, eventType: typeOf(eventId) },
+      ],
+    ),
+    // An event's own references, then the persistent decision nested in it.
+    ...['event', 'decision'].flatMap((owner) =>
+      [...events].map(
+        ([eventId, location]): Owner => [`${owner}:${eventId}:`, location],
+      ),
+    ),
+    ...slots.map(
+      ({ choice, location }): Owner => [`${choice.choiceId}:`, location],
+    ),
+  ];
 }
 
-function group(
+// Locates a reference path at the choice that repairs it.
+function referenceLocator(draft: WeeklyDraft) {
+  const exact = new Map<string, ChoiceLocation>([
+    ['upkeep:nearest-settlement', { kind: 'nearestSettlement' }],
+    ['activity:operating-settlement', { kind: 'operatingSettlement' }],
+    ...draft.upkeep.teamDecisions.map(
+      ({ teamId }): Owner => [`team:${teamId}`, { kind: 'upkeepTeam', teamId }],
+    ),
+  ]);
+  const prefixes = ownerPrefixes(draft);
+  return (path: string): ChoiceLocation | null =>
+    exact.get(path) ??
+    prefixes.find(([prefix]) => path.startsWith(prefix))?.[1] ??
+    null;
+}
+
+// Groups the issues by the choice that repairs them, in week order.
+function groupByChoice(
   draft: WeeklyDraft,
   issues: readonly DraftReferenceIssue[],
 ): StagedReference[] {
-  const locate = locator(draft);
+  const locate = referenceLocator(draft);
   const grouped = new Map<string, StagedReference>();
   for (const issue of issues) {
     const location = locate(issue.path);
@@ -245,7 +242,7 @@ export function stagedReferences(
   draft: WeeklyDraft,
   source: UpkeepSnapshot,
 ): StagedReference[] {
-  return group(draft, draftReferenceIssues(draft, source, source));
+  return groupByChoice(draft, draftReferenceIssues(draft, source, source));
 }
 
 const sameMissing = (left: MissingReference, right: MissingReference) =>

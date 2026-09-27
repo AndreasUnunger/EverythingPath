@@ -212,6 +212,18 @@ describe('Teams correction', () => {
     );
   });
 
+  test('an unfinished new team does not hide what a removal affects', () => {
+    render(page());
+    const { editor } = openSection('Teams');
+    fireEvent.click(editor.getByRole('button', { name: 'Add team' }));
+    fireEvent.click(editor.getByRole('button', { name: 'Remove Team 2' }));
+    expect(
+      screen.getByRole('complementary', {
+        name: 'This affects the open week',
+      }),
+    ).toHaveTextContent('Removing Scouts leaves Activity slot 2');
+  });
+
   test('manager limit warnings name the manager', () => {
     const managed = state();
     managed.militiaSnapshot.roster.teams.push({

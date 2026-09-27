@@ -14,10 +14,7 @@ import {
   newMilitiaSetup,
   type MilitiaSetup,
 } from '~/lib/canonical-setup';
-import {
-  militiaSnapshotSchema,
-  type CanonicalWeekState,
-} from '~/lib/canonical-weekly-source';
+import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import {
   correctionImpact,
   correctionStagedChoices,
@@ -61,10 +58,11 @@ import {
 import { classifyWriteFailure } from '~/lib/write-outcome';
 import {
   carriedDependencyError,
-  choiceLabel,
   describeChoice,
   identityNames,
-  missingName,
+  missingTitle,
+  neededByNote,
+  restoreLabel,
   type AffectedChoice,
   type IdentityNames,
 } from './affected-choice-copy';
@@ -114,10 +112,8 @@ export type MilitiaEntryView = {
  */
 export type MissingEntry = {
   key: string;
-  /** "Scouts", or "a missing team" when this device never saw its facts. */
+  /** "Scouts", or "A missing team" when this device never saw its facts. */
   name: string;
-  /** Its last accepted facts are reused; otherwise they are entered again. */
-  hasFacts: boolean;
   /** The choices that use it, linked to their phase. */
   neededBy: AffectedChoice[];
   /** "Restore Scouts" or "Restore missing team for Activity slot 2". */
@@ -221,15 +217,6 @@ function stagedChoiceSentence(
     .join(', ');
   return `This correction removes something that choices already staged for the current week use: ${phases}. After saving, review those choices in the week; Upkeep lets you clear a staged decision for a removed team.`;
 }
-
-const listed = (items: string[]) =>
-  items.length <= 2
-    ? items.join(' and ')
-    : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
-
-/** "Needed by Activity slot 2 and Upkeep team decision". */
-const neededByNote = (references: readonly StagedReference[]) =>
-  `Needed by ${listed(references.map((reference) => choiceLabel(reference.location)))}`;
 
 // Sends one planned section correction and reports its outcome to the
 // lifecycle. Only a ConvexError is a definite refusal; anything else may or
@@ -385,19 +372,13 @@ export function useMilitiaCorrections({
     section: MilitiaSectionKey,
     identity: MissingIdentity,
   ): MissingEntry {
-    const known = identities(identity.kind, identity.id);
-    const name = missingName(identity, identities);
-    const [first] = identity.neededBy;
     return {
       key: `${identity.kind}:${identity.id}`,
-      name,
-      hasFacts: identity.captured !== null,
+      name: missingTitle(identity, identities),
       neededBy: identity.neededBy.map((reference) =>
         describeChoice(reference, campaignId, identities),
       ),
-      restoreLabel: known
-        ? `Restore ${known}`
-        : `Restore ${name.replace(/^a /, '')}${first ? ` for ${choiceLabel(first.location)}` : ''}`,
+      restoreLabel: restoreLabel(identity, identity.neededBy, identities),
       restore: () => restore(section, identity),
     };
   }
@@ -540,11 +521,11 @@ export function useMilitiaCorrections({
       militiaSnapshot: candidate,
     });
     // Named against the live week: what this correction newly breaks, and
-    // carried context it may not break.
-    const impact =
-      draft && militiaSnapshotSchema.safeParse(candidate).success
-        ? correctionImpact(draft, latest, candidate)
-        : { added: [], existing: [], carried: [] };
+    // carried context it may not break. Only identities are compared, so
+    // an unfinished row elsewhere in the section does not hide it.
+    const impact = draft
+      ? correctionImpact(draft, latest, candidate)
+      : { added: [], existing: [], carried: [] };
     const hasFormErrors = Object.keys(form.formState.errors).length > 0;
     const errors = namedErrors(
       hasFormErrors
