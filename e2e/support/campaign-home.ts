@@ -4,7 +4,10 @@ import {
   expectSelectedCampaign,
   selectCampaign,
 } from './interactions';
-import { expectNoHorizontalOverflow, expectReachable } from './responsive-shell';
+import {
+  expectNoHorizontalOverflow,
+  expectReachable,
+} from './responsive-shell';
 
 // Campaign list/home (#187): URL-backed selection, the full description and
 // in-game date header, and its two independent saves observed by a second
@@ -16,28 +19,55 @@ function pane(page: Page, campaignName: string) {
   return page.getByRole('region', { name: campaignName, exact: true });
 }
 
+// Starts every page on the campaign list, so it also owns the members' and
+// the outsider's landing checks.
 export async function exerciseCampaignHome(
   editor: Page,
   observer: Page,
   outsider: Page,
   campaignName: string,
 ) {
-  for (const page of [editor, observer]) {
-    await page.goto('/campaigns');
-    await expectSelectedCampaign(page, campaignName);
-    await expect(
-      campaignRows(page).getByRole('link').filter({ hasText: campaignName }),
-    ).toContainText(/Week \d+|Not set up/);
-  }
-  // Choosing the row records it in the address; reload and Back/Forward keep it.
+  // The three landings are independent, so they load side by side.
+  await Promise.all([
+    ...[editor, observer].map(async (page) => {
+      await page.goto('/campaigns');
+      await expectSelectedCampaign(page, campaignName);
+      await expect(
+        campaignRows(page).getByRole('link').filter({ hasText: campaignName }),
+      ).toContainText(/Week \d+|Not set up/);
+      await expect(
+        page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+      ).toHaveCount(0);
+    }),
+    // Outsiders see their own empty organization and no trace of this campaign.
+    (async () => {
+      await outsider.goto('/campaigns');
+      await expect(
+        outsider.getByText('No campaigns yet', { exact: true }),
+      ).toBeVisible();
+      await expect(
+        outsider.getByRole('heading', {
+          name: 'Create a campaign to get started.',
+        }),
+      ).toBeVisible();
+      await expect(
+        outsider.getByText(campaignName, { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        outsider.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+      ).toHaveCount(0);
+    })(),
+  ]);
+
+  // Choosing the row records it in the address; Back/Forward and reload keep it.
   await selectCampaign(editor, campaignName);
   const home = editor.url();
-  await editor.reload();
-  await expectSelectedCampaign(editor, campaignName);
   await editor.goBack();
   await expect(editor).toHaveURL(/\/campaigns$/);
   await editor.goForward();
   await expect(editor).toHaveURL(home);
+  await editor.reload();
+  await expectSelectedCampaign(editor, campaignName);
   await expectNoHorizontalOverflow(editor);
 
   // Edit: the name stays read-only; description and date save independently.
@@ -49,18 +79,20 @@ export async function exerciseCampaignHome(
     exact: true,
   });
   await expect(description).toBeFocused();
-  await expect(
-    editor.getByRole('textbox', { name: /name/i }),
-  ).toHaveCount(0);
+  await expect(editor.getByRole('textbox', { name: /name/i })).toHaveCount(0);
   const text = 'Refugees regroup under Phaendar.\n\nThe Fangwood burns.';
   await description.fill(text);
-  await editor.getByRole('button', { name: 'In-game date', exact: true }).click();
+  await editor
+    .getByRole('button', { name: 'In-game date', exact: true })
+    .click();
   await editor.getByRole('button', { name: '12', exact: true }).click();
   const chosen = await editor
     .getByRole('button', { name: 'In-game date', exact: true })
     .innerText();
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(editor.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await expect(
+    editor.getByRole('status').filter({ hasText: 'Saved.' }),
+  ).toBeVisible();
   await expect(edit).toBeFocused();
   for (const page of [editor, observer]) {
     const header = pane(page, campaignName);
@@ -88,17 +120,12 @@ export async function exerciseCampaignHome(
   await editor.reload();
   await expect(pane(editor, campaignName)).not.toContainText('Refugees');
 
-  // Outsiders see their own empty organization and no trace of this campaign.
-  await outsider.goto('/campaigns');
-  await expect(outsider.getByText('No campaigns yet', { exact: true })).toBeVisible();
-  await expect(
-    outsider.getByRole('heading', {
-      name: 'Create a campaign to get started.',
-    }),
-  ).toBeVisible();
+  // The outsider cannot open the campaign's home by address.
   await outsider.goto(new URL(home).pathname);
   await expect(
     outsider.getByText("This campaign isn't available", { exact: false }),
   ).toBeVisible();
-  await expect(outsider.getByText(campaignName, { exact: true })).toHaveCount(0);
+  await expect(outsider.getByText(campaignName, { exact: true })).toHaveCount(
+    0,
+  );
 }
