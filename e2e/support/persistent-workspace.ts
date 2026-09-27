@@ -89,18 +89,28 @@ export async function exercisePersistentWorkspace(
     old(gm).getByRole('button', { name: 'Add dice entry', exact: true }),
   ).toHaveCount(0);
   const die = old(gm).getByRole('textbox', { name: 'Check roll', exact: true });
+  // The field's own accessible error (its aria-describedby message), distinct
+  // from the enclosing form's issue for the same path after a blocked Save.
+  const fieldError = async () => {
+    const described = (await die.getAttribute('aria-describedby')) ?? '';
+    const id = described
+      .split(' ')
+      .find((part) => part.endsWith('-form-item-message'));
+    expect(
+      id,
+      'field error is announced through aria-describedby',
+    ).toBeTruthy();
+    return old(gm).locator(`[id="${id}"]`);
+  };
   await die.fill('20');
   await die.pressSequentially('x');
   await expect(die).toHaveValue('20');
-  await expect(
-    old(gm).getByRole('alert').filter({ hasText: 'Use digits only.' }),
-  ).toBeVisible();
+  await expect(await fieldError()).toHaveText('Use digits only.');
   // Malformed local text blocks the enclosing Save instead of saving the
   // prior number: the other device never sees a mitigation result.
   await button(old(gm), 'Save persistent decision').click();
-  await expect(
-    old(gm).getByRole('alert').filter({ hasText: 'Use digits only.' }),
-  ).toBeVisible();
+  await expect(await fieldError()).toHaveText('Use digits only.');
+  await expect(die).toHaveAttribute('aria-invalid', 'true');
   await expect(old(player)).not.toContainText(
     'retains 90% of this week’s income.',
   );
