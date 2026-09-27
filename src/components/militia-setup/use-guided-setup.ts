@@ -3,11 +3,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ConvexError } from 'convex/values';
 import {
   useEffect,
+  useEffectEvent,
   useId,
   useRef,
   useState,
   useSyncExternalStore,
   type FocusEvent,
+  type ReactNode,
 } from 'react';
 import { useForm } from 'react-hook-form';
 import {
@@ -15,6 +17,7 @@ import {
   newMilitiaSetup,
   type MilitiaSetup,
 } from '~/lib/canonical-setup';
+import type { SetupProgress } from '~/lib/setup-envelope';
 import type { SetupSectionMessage } from '~/lib/setup-sections';
 import {
   setupStepPreview,
@@ -125,11 +128,28 @@ export type GuidedSetupProps = {
   onSave: (setup: MilitiaSetup) => Promise<void>;
   /** Values to begin from; a New militia's defaults otherwise. */
   initialValues?: MilitiaSetup;
+  /** The step to open and the steps already visited, when resuming. */
+  initialStep?: SetupStepKey;
+  initialVisited?: readonly SetupStepKey[];
+  /** The values were entered earlier; show their field errors straight away. */
+  resumed?: boolean;
+  /** Called with the whole form position whenever a value or the open step changes. */
+  onProgress?: (progress: SetupProgress) => void;
+  /** Keeps Start disabled and showing progress, e.g. while the started week opens. */
+  starting?: boolean;
+  /** Shown above the roster in People & officers. */
+  addCharacter?: ReactNode;
 };
 export function useGuidedSetup({
   characters,
   onSave,
   initialValues,
+  initialStep = 'startingPoint',
+  initialVisited,
+  resumed = false,
+  onProgress,
+  starting = false,
+  addCharacter,
 }: GuidedSetupProps) {
   const form = useForm<MilitiaSetup>({
     resolver: zodResolver(militiaSetupSchema),
@@ -148,9 +168,9 @@ export function useGuidedSetup({
     summary: `${prefix}-summary`,
     next: `${prefix}-next`,
   };
-  const [stepKey, setStepKey] = useState<SetupStepKey>('startingPoint');
+  const [stepKey, setStepKey] = useState<SetupStepKey>(initialStep);
   const [visited, setVisited] = useState<ReadonlySet<SetupStepKey>>(
-    () => new Set(['startingPoint']),
+    () => new Set([...(initialVisited ?? []), initialStep]),
   );
   const [attempted, setAttempted] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
@@ -190,6 +210,32 @@ export function useGuidedSetup({
       return;
     reveal(findKey(root.current, lastFocus.current));
   }, [layout]);
+
+  // Resumed input shows the field errors it showed before the reload.
+  const [showResumedErrors] = useState(resumed);
+  useEffect(() => {
+    if (showResumedErrors) void form.trigger();
+  }, [form, showResumedErrors]);
+
+  // Every value change and step change is reported with the whole position.
+  const report = useEffectEvent(() =>
+    onProgress?.({
+      values: form.getValues(),
+      step: stepKey,
+      visited: [...visited],
+    }),
+  );
+  useEffect(() => {
+    const subscription = form.watch(() => report());
+    return () => subscription.unsubscribe();
+  }, [form]);
+  const reported = useRef({ stepKey, visited });
+  useEffect(() => {
+    const last = reported.current;
+    if (last.stepKey === stepKey && last.visited === visited) return;
+    reported.current = { stepKey, visited };
+    report();
+  }, [stepKey, visited]);
 
   function open(key: SetupStepKey, focus: FocusTarget | null) {
     setStepKey(key);
@@ -245,7 +291,8 @@ export function useGuidedSetup({
           })),
         )
       : [],
-    pending: form.formState.isSubmitting,
+    pending: form.formState.isSubmitting || starting,
+    addCharacter,
     submitError,
     preview: (key: SetupStepKey) => setupStepPreview(key, values, characters),
     /** Choose a step from the index or a row header; focus stays there. */

@@ -1,5 +1,5 @@
 'use client';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { Textarea } from '~/components/ui/textarea';
 import type { MilitiaSetup } from '~/lib/canonical-setup';
@@ -13,14 +13,20 @@ import { SetupMilitiaValues, SetupWeek } from './starting-point';
 import { SetupSettlements } from './world';
 
 type EditorStep = Exclude<SetupStepKey, 'review'>;
-function editor(step: EditorStep, characters: SetupCharacter[]) {
+function editor(
+  step: EditorStep,
+  characters: SetupCharacter[],
+  addCharacter: ReactNode,
+) {
   switch (step) {
     case 'startingPoint':
       return <SetupMilitiaValues />;
     case 'week':
       return <SetupWeek />;
     case 'people':
-      return <SetupPeople characters={characters} />;
+      return (
+        <SetupPeople characters={characters} addCharacter={addCharacter} />
+      );
     case 'teams':
       return <SetupTeams characters={characters} />;
     case 'settlements':
@@ -38,15 +44,17 @@ function editor(step: EditorStep, characters: SetupCharacter[]) {
 export function SetupStepEditor({
   step,
   characters,
+  addCharacter,
 }: {
   step: EditorStep;
   characters: SetupCharacter[];
+  addCharacter?: ReactNode;
 }) {
   return (
     <SetupSectionHeading
       value={step === 'assets' || step === 'carriedEffects' ? 'h3' : 'none'}
     >
-      {editor(step, characters)}
+      {editor(step, characters, addCharacter)}
     </SetupSectionHeading>
   );
 }

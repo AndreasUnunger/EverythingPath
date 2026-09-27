@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
@@ -27,9 +28,12 @@ function useRosterCharacters(characters: SetupCharacter[]) {
 export function SetupPeople({
   characters,
   preserveCharacters = false,
+  addCharacter,
 }: {
   characters: SetupCharacter[];
   preserveCharacters?: boolean;
+  /** Creates a campaign character; roster inclusion stays a separate choice. */
+  addCharacter?: ReactNode;
 }) {
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const people = useFieldArray({
@@ -40,6 +44,9 @@ export function SetupPeople({
   const selected = useRosterCharacters(characters);
   return (
     <SetupSection title="Characters and officers">
+      {addCharacter ? (
+        <div className="flex justify-end">{addCharacter}</div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {characters
           .filter((character) => !selected.includes(character))

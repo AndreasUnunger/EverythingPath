@@ -30,7 +30,12 @@ export async function exerciseMilitiaSetup(
       }),
     );
     const route = `/canonical-setup?campaign=${campaignId}`;
-    await Promise.all([players.gm.goto(route), players.outsider.goto(route)]);
+    // Both members open Setup; each form keeps its own unfinished input.
+    await Promise.all([
+      players.gm.goto(route),
+      players.player.goto(route),
+      players.outsider.goto(route),
+    ]);
     await expect(
       players.outsider.getByText("This campaign isn't available"),
     ).toBeVisible();
@@ -38,9 +43,15 @@ export async function exerciseMilitiaSetup(
       new RegExp(`/campaigns/${campaignId}/setup$`),
     );
     const gm = players.gm;
+    await players.player
+      .getByRole('textbox', { name: 'Rank', exact: true })
+      .fill('9');
     await expect(
       gm.getByRole('textbox', { name: 'Treasury (copper)', exact: true }),
     ).toHaveValue('1000');
+    await expect(
+      gm.getByRole('textbox', { name: 'Rank', exact: true }),
+    ).toHaveValue('1');
     await gm
       .getByRole('group', { name: 'Focus', exact: true })
       .getByRole('button', { name: 'Security', exact: true })
@@ -182,7 +193,7 @@ export async function exerciseMilitiaSetup(
     await expect(gm).toHaveURL(
       new RegExp(`/campaigns/${campaignId}/week\\?phase=event$`),
     );
-    await players.player.goto(`/canonical-workspace?campaign=${campaignId}`);
+    // The other member's open form follows the accepted setup to its week.
     await expect(players.player).toHaveURL(
       new RegExp(`/campaigns/${campaignId}/week(?:\\?|$)`),
     );

@@ -1,0 +1,429 @@
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import { ConvexError } from 'convex/values';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { Id } from '@convex/_generated/dataModel';
+import type { MilitiaSetup } from '~/lib/canonical-setup';
+import {
+  readSetupEnvelope,
+  setupEnvelopeKey,
+  type SetupScope,
+} from '~/lib/setup-envelope';
+import type { SetupCharacter } from './roster';
+import { MilitiaSetupScreen } from './screen';
+
+type Options = {
+  name: string;
+  started: boolean;
+  characters: SetupCharacter[];
+} | null;
+const backend = vi.hoisted(() => ({
+  options: undefined as unknown,
+  workspace: undefined as unknown,
+  initialize: (() => undefined) as (args: unknown) => unknown,
+  createCharacter: (() => undefined) as (args: unknown) => unknown,
+  router: { push: (href: string) => href, replace: (href: string) => href },
+}));
+vi.mock('@convex/_generated/api', () => ({
+  api: {
+    canonicalSetup: { options: 'options', initialize: 'initialize' },
+    canonicalDraftPersistence: { workspace: 'workspace' },
+    character: { createCharacter: 'createCharacter' },
+  },
+}));
+vi.mock('convex/react', () => ({
+  useQuery: (ref: string, args: unknown) =>
+    args === 'skip'
+      ? undefined
+      : ref === 'options'
+        ? backend.options
+        : backend.workspace,
+  useMutation: (ref: string) =>
+    ref === 'initialize'
+      ? (args: unknown) => backend.initialize(args)
+      : (args: unknown) => backend.createCharacter(args),
+}));
+vi.mock('next/navigation', () => ({ useRouter: () => backend.router }));
+
+const campaignId = 'campaign_a' as Id<'campaign'>;
+const scope: SetupScope = {
+  accountId: 'user_a',
+  organizationId: 'org_a',
+  campaignId,
+};
+const mira: SetupCharacter = {
+  characterId: 'mira',
+  name: 'Mira',
+  level: 3,
+  strength: 10,
+  dexterity: 12,
+  constitution: 10,
+  intelligence: 10,
+  wisdom: 10,
+  charisma: 16,
+  isActive: true,
+};
+const push = vi.fn();
+const replace = vi.fn();
+const initialize = vi.fn();
+const createCharacter = vi.fn();
+function setOptions(options: Options | undefined) {
+  backend.options = options;
+}
+beforeEach(() => {
+  window.localStorage.clear();
+  setOptions({ name: 'Ironfang', started: false, characters: [] });
+  backend.workspace = undefined;
+  backend.initialize = initialize;
+  backend.createCharacter = createCharacter;
+  backend.router = { push, replace };
+});
+afterEach(cleanup);
+
+const screenFor = (
+  props: Partial<Parameters<typeof MilitiaSetupScreen>[0]> = {},
+) => (
+  <MilitiaSetupScreen
+    accountId={scope.accountId}
+    organizationId={scope.organizationId}
+    campaignId={campaignId}
+    {...props}
+  />
+);
+const click = (name: string) =>
+  fireEvent.click(screen.getByRole('button', { name }));
+const textbox = (name: string) => screen.getByRole('textbox', { name });
+const fill = (name: string, value: string) =>
+  fireEvent.change(textbox(name), { target: { value } });
+const openStep = (name: string) =>
+  fireEvent.click(
+    within(screen.getByRole('navigation', { name: 'Setup steps' })).getByRole(
+      'button',
+      { name },
+    ),
+  );
+const chooseEvent = () => {
+  openStep('Week');
+  fireEvent.click(
+    within(screen.getByRole('group', { name: 'Open phase' })).getByRole(
+      'button',
+      { name: 'event' },
+    ),
+  );
+};
+const start = () => {
+  openStep('Review & start');
+  click('Start militia week');
+};
+const stored = () => readSetupEnvelope(window.localStorage, scope);
+const deferred = <T,>() => {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (error: unknown) => void = () => undefined;
+  const promise = new Promise<T>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+};
+const key = { campaignId, militiaId: 'militia', draftId: 'draft' };
+
+test('[setup.state.loading] Setup shows its layout skeleton with a loading status until options resolve', () => {
+  setOptions(undefined);
+  const { rerender } = render(screenFor());
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Loading militia setup…',
+  );
+  expect(screen.queryByRole('navigation', { name: 'Setup steps' })).toBeNull();
+  // The account is still loading: the same skeleton, and no data is read.
+  rerender(screenFor({ accountId: null }));
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Loading militia setup…',
+  );
+});
+
+test('[setup.started.initial] a first visit to a started militia shows the two-link page and retires a stale envelope', async () => {
+  // An unfinished setup left in this browser before another player started.
+  const { unmount } = render(screenFor());
+  fill('Rank', '7');
+  expect(stored().kind).toBe('restored');
+  unmount();
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  backend.workspace = { week: 8 };
+  const { rerender } = render(screenFor());
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'This militia is already set up.',
+  );
+  expect(screen.getByRole('link', { name: 'Open week 8' })).toHaveAttribute(
+    'href',
+    '/campaigns/campaign_a/week',
+  );
+  expect(screen.getByRole('link', { name: 'Open militia' })).toHaveAttribute(
+    'href',
+    '/campaigns/campaign_a/militia',
+  );
+  expect(screen.queryByRole('textbox', { name: 'Rank' })).toBeNull();
+  await waitFor(() => expect(stored()).toEqual({ kind: 'fresh' }));
+  rerender(screenFor());
+  expect(push).not.toHaveBeenCalled();
+  expect(replace).not.toHaveBeenCalled();
+});
+
+test('[setup.resume.reload] unfinished and invalid input, mode and open step survive leaving and returning, without submitting', async () => {
+  const { unmount } = render(screenFor());
+  click('Existing militia');
+  fill('Rank', 'four');
+  fill('Treasury (copper)', '');
+  openStep('Teams');
+  click('Add team');
+  fill('Team name', 'Scouts');
+  unmount();
+  render(screenFor());
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Teams' }),
+  ).toBeVisible();
+  expect(textbox('Team name')).toHaveValue('Scouts');
+  openStep('Starting point');
+  expect(
+    screen.getByRole('button', { name: 'Existing militia' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(textbox('Rank')).toHaveValue('four');
+  expect(textbox('Treasury (copper)')).toHaveValue('');
+  expect(
+    await screen.findByText('Enter a valid whole number for Rank.'),
+  ).toBeVisible();
+  expect(initialize).not.toHaveBeenCalled();
+});
+
+test('[setup.resume.scope] another account, organization or campaign starts from its own defaults', () => {
+  const { unmount } = render(screenFor());
+  fill('Rank', '6');
+  unmount();
+  for (const other of [
+    { accountId: 'user_b' },
+    { organizationId: 'org_b' },
+    { campaignId: 'campaign_b' as Id<'campaign'> },
+  ]) {
+    const { unmount: leave } = render(screenFor(other));
+    expect(textbox('Rank')).toHaveValue('1');
+    leave();
+  }
+  render(screenFor());
+  expect(textbox('Rank')).toHaveValue('6');
+});
+
+test('[setup.resume.corrupt] a damaged envelope is replaced by defaults with a short notice', async () => {
+  window.localStorage.setItem(setupEnvelopeKey(scope), '{"version":1,');
+  render(screenFor());
+  expect(
+    screen.getByText('Your earlier entries could not be restored.'),
+  ).toBeVisible();
+  expect(textbox('Treasury (copper)')).toHaveValue('1000');
+  await waitFor(() => expect(stored()).toEqual({ kind: 'fresh' }));
+  fill('Rank', '2');
+  expect(stored().kind).toBe('restored');
+});
+
+test('[setup.resume.unavailable] a browser without storage still enters and starts setup', async () => {
+  initialize.mockResolvedValue(key);
+  render(screenFor({ storage: null }));
+  expect(
+    screen.getByText(
+      "Your entries won't be kept if you reload or leave this page.",
+    ),
+  ).toBeVisible();
+  fill('Rank', '2');
+  start();
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith(
+      '/campaigns/campaign_a/week?phase=upkeep',
+    ),
+  );
+});
+
+test('[setup.race.external] another player finishing opens the accepted week and retires this form', async () => {
+  const { rerender } = render(screenFor());
+  fill('Rank', '3');
+  expect(stored().kind).toBe('restored');
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Another player started the militia. Opening the week…',
+  );
+  await waitFor(() =>
+    expect(replace).toHaveBeenCalledWith('/campaigns/campaign_a/week'),
+  );
+  expect(stored()).toEqual({ kind: 'fresh' });
+  expect(initialize).not.toHaveBeenCalled();
+  expect(push).not.toHaveBeenCalled();
+});
+
+test('[setup.race.own-first-observation] own start opens the requested phase once even when the started observation arrives first', async () => {
+  const result = deferred<typeof key>();
+  initialize.mockReturnValue(result.promise);
+  const { rerender } = render(screenFor());
+  chooseEvent();
+  start();
+  const pending = await screen.findByRole('button', {
+    name: 'Starting militia…',
+  });
+  fireEvent.click(pending);
+  // This player's own write is observed before its result.
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  expect(replace).not.toHaveBeenCalled();
+  await act(async () => result.resolve(key));
+  expect(push).toHaveBeenCalledExactlyOnceWith(
+    '/campaigns/campaign_a/week?phase=event',
+  );
+  expect(initialize).toHaveBeenCalledOnce();
+  expect(stored()).toEqual({ kind: 'fresh' });
+  // The page keeps Start disabled while the week opens.
+  expect(
+    screen.getByRole('button', { name: 'Starting militia…' }),
+  ).toBeDisabled();
+  rerender(screenFor());
+  expect(replace).not.toHaveBeenCalled();
+});
+
+test('[setup.race.own-first-result] own start opens the requested phase once when its result arrives first', async () => {
+  initialize.mockResolvedValue(key);
+  const { rerender } = render(screenFor());
+  chooseEvent();
+  start();
+  await waitFor(() => expect(push).toHaveBeenCalledOnce());
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  expect(push).toHaveBeenCalledExactlyOnceWith(
+    '/campaigns/campaign_a/week?phase=event',
+  );
+  expect(replace).not.toHaveBeenCalled();
+});
+
+test('[setup.race.lost] a start rejected because another player won follows the accepted week', async () => {
+  const result = deferred<typeof key>();
+  initialize.mockReturnValue(result.promise);
+  const { rerender } = render(screenFor());
+  chooseEvent();
+  start();
+  await screen.findByRole('button', { name: 'Starting militia…' });
+  setOptions({ name: 'Ironfang', started: true, characters: [] });
+  rerender(screenFor());
+  await act(async () =>
+    result.reject(
+      new ConvexError(
+        'Militia setup is already complete. Open the current week.',
+      ),
+    ),
+  );
+  await waitFor(() =>
+    expect(replace).toHaveBeenCalledWith('/campaigns/campaign_a/week'),
+  );
+  expect(push).not.toHaveBeenCalled();
+  expect(stored()).toEqual({ kind: 'fresh' });
+});
+
+test('[setup.start.identity] a failed start keeps entries and every retry, even after a reload, reuses one attempt identity', async () => {
+  initialize
+    .mockRejectedValueOnce(
+      new ConvexError('Campaign editing is paused for maintenance.'),
+    )
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(key);
+  const { unmount } = render(screenFor());
+  fill('Rank', '2');
+  start();
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Campaign editing is paused for maintenance.',
+  );
+  expect(push).not.toHaveBeenCalled();
+  click('Start militia week');
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Your entries are retained.',
+  );
+  unmount();
+  render(screenFor());
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'Review & start' }),
+  ).toBeVisible();
+  click('Start militia week');
+  await waitFor(() => expect(push).toHaveBeenCalledOnce());
+  const calls = initialize.mock.calls.map(
+    ([args]) =>
+      args as {
+        campaignId: string;
+        initializationId: string;
+        setup: MilitiaSetup;
+      },
+  );
+  expect(calls).toHaveLength(3);
+  expect(new Set(calls.map((call) => call.initializationId)).size).toBe(1);
+  for (const call of calls) {
+    expect(call.campaignId).toBe(campaignId);
+    expect(call.setup.state.militiaSnapshot.rank).toBe(2);
+  }
+});
+
+test('[setup.start.scope-change] leaving during a start never navigates the next page', async () => {
+  const result = deferred<typeof key>();
+  initialize.mockReturnValue(result.promise);
+  const { rerender } = render(screenFor());
+  start();
+  await screen.findByRole('button', { name: 'Starting militia…' });
+  // The player switches campaign while the start is in flight.
+  rerender(screenFor({ campaignId: 'campaign_b' as Id<'campaign'> }));
+  await act(async () => result.resolve(key));
+  expect(push).not.toHaveBeenCalled();
+  expect(textbox('Rank')).toHaveValue('1');
+  // The started campaign's envelope is retired; campaign B keeps its own.
+  expect(stored()).toEqual({ kind: 'fresh' });
+});
+
+test('[setup.characters.inline] Add character keeps its values on failure and the new record arrives without touching setup entries', async () => {
+  createCharacter
+    .mockRejectedValueOnce(new Error('Character name is taken'))
+    .mockResolvedValueOnce('mira');
+  const { rerender } = render(screenFor());
+  fill('Rank', '4');
+  openStep('People & officers');
+  click('Add character');
+  const dialog = await screen.findByRole('dialog', { name: 'New Character' });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: 'Name' }), {
+    target: { value: 'Mira' },
+  });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: 'CHA' }), {
+    target: { value: '16' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+  expect(
+    await within(dialog).findByText('Character name is taken'),
+  ).toBeVisible();
+  expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveValue(
+    'Mira',
+  );
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(createCharacter).toHaveBeenLastCalledWith({
+    organizationId: 'org_a',
+    character: expect.objectContaining({
+      campaignId,
+      name: 'Mira',
+      charisma: 16,
+      kind: 'pc',
+    }),
+  });
+  // The record arrives through options; it is offered, not added.
+  setOptions({ name: 'Ironfang', started: false, characters: [mira] });
+  rerender(screenFor());
+  expect(screen.getByRole('button', { name: 'Add Mira' })).toBeVisible();
+  expect(screen.queryByRole('group', { name: 'Mira' })).toBeNull();
+  openStep('Starting point');
+  expect(textbox('Rank')).toHaveValue('4');
+  expect(initialize).not.toHaveBeenCalled();
+});
