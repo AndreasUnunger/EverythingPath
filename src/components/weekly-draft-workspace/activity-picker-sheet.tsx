@@ -73,6 +73,10 @@ export function ActivityPickerSheet({
     >
       <SheetContent
         side="bottom"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          board.returnPickerFocus();
+        }}
         className="max-h-[80dvh] gap-0 rounded-t-lg pb-[env(safe-area-inset-bottom)]"
       >
         {picker && (

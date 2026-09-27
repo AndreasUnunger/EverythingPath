@@ -50,6 +50,8 @@ export function useActivityBoard({
   const [picker, setPicker] = useState<Picker | null>(null);
   const [helpful, setHelpful] = useState<HelpfulStatus>({ state: 'idle' });
   const slotNodes = useRef(new Map<string, HTMLElement>());
+  // The slot whose picker is open; closing returns focus to it (ACT-02).
+  const pickerOrigin = useRef<string | null>(null);
   const current = () => latest?.() ?? view;
   const slotById = (slotId: string | null) =>
     view.slots.find((slot) => slot.slotId === slotId);
@@ -103,13 +105,22 @@ export function useActivityBoard({
         setSelectedSlotId(slotId);
       } else {
         setSelectedSlotId(null);
-        if (!disabled) setPicker({ slotId, choiceId: null });
+        if (disabled) return;
+        pickerOrigin.current = slotId;
+        setPicker({ slotId, choiceId: null });
       }
     },
     changeAction(slotId: string) {
       const slot = slotById(slotId);
       if (!slot?.choice || disabled) return;
+      pickerOrigin.current = slotId;
       setPicker({ slotId, choiceId: slot.choice.choiceId });
+    },
+    // The sheet has no trigger of its own, so however it closes (Escape,
+    // a pick, or a change elsewhere) focus goes back to the slot card.
+    returnPickerFocus() {
+      focusSlot(pickerOrigin.current ?? undefined);
+      pickerOrigin.current = null;
     },
     // Closing or Escape cancels without editing.
     closePicker() {

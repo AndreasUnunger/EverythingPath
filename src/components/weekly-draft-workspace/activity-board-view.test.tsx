@@ -182,6 +182,24 @@ describe('slot board and picker', () => {
     });
   });
 
+  test('[rules.ACT-02.picker] closing the picker with Escape returns focus to the slot that opened it', async () => {
+    const edit = acceptingEdit();
+    render(<ActivityView view={board()} edit={edit} disabled={false} />);
+    const slot = screen.getByRole('button', {
+      name: 'Choose an action for Action Slot 2',
+    });
+    slot.focus();
+    fireEvent.click(slot);
+    const sheet = await screen.findByRole('dialog');
+    await waitFor(() => expect(slot).not.toHaveFocus());
+    fireEvent.keyDown(sheet, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(slot).toHaveFocus());
+    expect(edit).not.toHaveBeenCalled();
+  });
+
   test('[rules.ACT-04.move] [rules.P82.cards] Move to moves a whole choice into an empty slot or swaps occupied ones; Clear and Remove are distinct', () => {
     const edit = acceptingEdit();
     const facts = board();
