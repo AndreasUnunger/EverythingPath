@@ -1,9 +1,14 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useId } from 'react';
 import { UserPlus } from 'lucide-react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
-import { listEditableKinds } from '~/lib/character-kind';
+import { formatCharacterKind } from '~/lib/character-kind';
+import {
+  MISSING_CHARACTER_MESSAGE,
+  setupCharacterFacts,
+  type SetupCharacter,
+} from '~/lib/setup-characters';
 import { TEAM_IDS, TEAM_STATUSES } from '~/lib/militia-domain';
 import type { MilitiaSetup } from '~/lib/canonical-setup';
 import {
@@ -13,11 +18,7 @@ import {
   choices,
   yesNo,
 } from './fields';
-const writtenKinds = ['pc', 'officer_npc', 'other_npc'] as const;
-export type SetupCharacter =
-  MilitiaSetup['state']['militiaSnapshot']['characters'][number] & {
-    name: string;
-  };
+export type { SetupCharacter };
 // The campaign characters that are on this roster.
 function useRosterCharacters(characters: SetupCharacter[]) {
   const { watch } = useFormContext<MilitiaSetup>();
@@ -70,16 +71,16 @@ export function SetupPeople({
               variant="outline"
               className="h-auto min-h-16 border-2 transition-transform hover:-translate-y-1"
               onClick={() => {
+                // Joining takes the record's kind; only the record sets it.
                 people.append({
                   characterId: character.characterId,
-                  kind: 'pc',
+                  kind: character.kind,
                   hitDice: null,
                 });
-                const { name: _name, ...facts } = character;
                 if (!preserveCharacters)
                   setValue('state.militiaSnapshot.characters', [
                     ...watch('state.militiaSnapshot.characters'),
-                    facts,
+                    setupCharacterFacts(character),
                   ]);
               }}
             >
@@ -120,10 +121,11 @@ export function SetupPeople({
             );
           }}
         >
-          <Field
-            name={`state.militiaSnapshot.roster.people.${index}.kind`}
-            label="Character kind"
-            options={choices(listEditableKinds(writtenKinds, person.kind))}
+          <SetupPersonKind
+            index={index}
+            character={characters.find(
+              (character) => character.characterId === person.characterId,
+            )}
           />
           <Field
             name={`state.militiaSnapshot.roster.people.${index}.hitDice`}
@@ -170,6 +172,42 @@ export function SetupPeople({
         </SetupEntry>
       ))}
     </SetupSection>
+  );
+}
+// The kind a roster person's record owns, shown read-only: it changes only
+// in the character dialog. A person whose record is not in this campaign
+// shows why they must be removed.
+function SetupPersonKind({
+  index,
+  character,
+}: {
+  index: number;
+  character: SetupCharacter | undefined;
+}) {
+  const id = useId();
+  return (
+    <div
+      role="group"
+      aria-labelledby={`${id}-label`}
+      data-setup-path={`state.militiaSnapshot.roster.people.${index}.characterId`}
+      className="min-w-0 space-y-1"
+    >
+      <p id={`${id}-label`} className="text-sm font-medium">
+        Kind
+      </p>
+      {character ? (
+        <p className="border-input bg-muted text-muted-foreground flex min-h-9 items-center border px-3 py-1 text-base md:text-sm">
+          {formatCharacterKind(character.kind)}
+        </p>
+      ) : (
+        <p
+          role="alert"
+          className="text-destructive flex min-h-9 items-center text-sm [overflow-wrap:anywhere]"
+        >
+          {MISSING_CHARACTER_MESSAGE}
+        </p>
+      )}
+    </div>
   );
 }
 export function SetupTeams({

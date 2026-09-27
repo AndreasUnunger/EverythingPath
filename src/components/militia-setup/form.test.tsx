@@ -11,6 +11,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { MilitiaCorrectionForm } from './form';
 import { militiaSetupSchema, newMilitiaSetup } from '~/lib/canonical-setup';
 import { militiaSnapshotSchema } from '~/lib/canonical-weekly-source';
+import { normalizeCharacterKind } from '~/lib/character-kind';
 import {
   mixedKindRecords,
   mixedKindSnapshot,
@@ -92,7 +93,7 @@ function exposed(element: HTMLElement, role: string, name: string) {
   expect(element).toHaveAccessibleName(name);
   return element;
 }
-test('a correction keeps mixed legacy and new character kinds and Hit Dice unchanged', async () => {
+test('a correction shows each record’s PC or NPC kind read-only and keeps roster membership and Hit Dice', async () => {
   const save = vi.fn().mockResolvedValue(undefined);
   const setup = newMilitiaSetup('Loyalty');
   const snapshot = militiaSnapshotSchema.parse(mixedKindSnapshot());
@@ -109,19 +110,23 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
   const { container } = render(
     <MilitiaCorrectionForm
       initialValues={initialValues}
-      characters={snapshot.characters.map((facts) => ({
-        ...facts,
-        name: mixedKindRecords.find(
-          (record) => record.characterId === facts.characterId,
-        )!.name,
-      }))}
+      characters={snapshot.characters.map((facts) => {
+        const record = mixedKindRecords.find(
+          (entry) => entry.characterId === facts.characterId,
+        )!;
+        return {
+          ...facts,
+          name: record.name,
+          kind: normalizeCharacterKind(record.kind),
+        };
+      })}
       onSave={save}
     />,
   );
   // The full form holds hundreds of buttons and inputs, and a screen-wide
-  // role query computes the accessible name of each. Query the kind groups
-  // inside their section, and find the heading, reason and Save by their
-  // name and text, asserting what a role query would.
+  // role query computes the accessible name of each. Query the kinds inside
+  // their section, and find the heading, reason and Save by their name and
+  // text, asserting what a role query would.
   const people = within(
     exposed(
       screen.getByText('Characters and officers', { selector: 'h2' }),
@@ -129,29 +134,14 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
       'Characters and officers',
     ).closest('section')!,
   );
-  const groups = people.getAllByRole('group', { name: 'Character kind' });
-  const pressed = groups.map((group) =>
-    within(group)
-      .getAllByRole('button')
-      .map(
-        (button) =>
-          `${button.textContent}${button.getAttribute('aria-pressed') === 'true' ? '*' : ''}`,
-      ),
-  );
-  expect(pressed).toEqual([
-    ['pc*', 'officer npc', 'other npc'],
-    ['pc*', 'officer npc', 'other npc'],
-    ['pc', 'officer npc*', 'other npc'],
-    ['pc', 'officer npc', 'other npc*'],
-    ['pc', 'officer npc', 'other npc', 'npc*'],
-  ]);
-  const vessa = within(groups[4]!);
-  fireEvent.click(vessa.getByRole('button', { name: 'pc' }));
-  fireEvent.click(vessa.getByRole('button', { name: 'npc' }));
-  expect(vessa.getByRole('button', { name: 'npc' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  // The record owns the kind: Rook's stale other_npc mirror reads as the
+  // record's PC default, and no kind can be chosen here.
+  expect(
+    people
+      .getAllByRole('group', { name: 'Kind' })
+      .map((group) => group.textContent),
+  ).toEqual(['KindPC', 'KindPC', 'KindNPC', 'KindPC', 'KindNPC']);
+  expect(people.queryByRole('group', { name: 'Character kind' })).toBeNull();
   fireEvent.change(
     exposed(
       container.querySelector<HTMLElement>('[name="notes"]')!,
@@ -168,6 +158,8 @@ test('a correction keeps mixed legacy and new character kinds and Hit Dice uncha
     ),
   );
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  // Membership, order, Hit Dice and assignments are untouched; the write
+  // boundary mirrors kinds from the records.
   expect(save.mock.calls[0]![0].state.militiaSnapshot.roster).toEqual(
     snapshot.roster,
   );

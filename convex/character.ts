@@ -8,6 +8,7 @@ import {
   characterValidator,
 } from './schema';
 import { hasAccessToOrg } from './user';
+import { normalizeCharacterKind } from '../src/lib/character-kind';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 
@@ -91,8 +92,10 @@ export const createCharacter = mutation({
       args.organizationId,
     );
 
+    // Old clients may still send officer_npc; the record stores PC or NPC.
     const characterId = await ctx.db.insert('character', {
       ...args.character,
+      kind: normalizeCharacterKind(args.character.kind),
       ownerId: access.user.tokenIdentifier,
       isActive: true,
     });
@@ -131,7 +134,12 @@ export const updateCharacter = mutation({
 
     await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
 
-    await ctx.db.patch('character', args.characterId, args.patch);
+    // A submitted kind is stored as PC or NPC; an unrelated edit leaves the
+    // stored kind alone. Either way the roster mirror follows in this write.
+    await ctx.db.patch('character', args.characterId, {
+      ...args.patch,
+      ...(args.patch.kind && { kind: normalizeCharacterKind(args.patch.kind) }),
+    });
     await updateCanonicalCharacter(ctx, args.characterId);
   },
 });

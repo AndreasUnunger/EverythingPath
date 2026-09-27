@@ -15,6 +15,7 @@ import {
   SetupSection,
   SetupSectionCaptions,
 } from './fields';
+import { withRecordKinds } from '~/lib/setup-characters';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
 import { SetupSettlements } from './world';
 import { SetupAssets } from './assets';
@@ -57,7 +58,7 @@ export function MilitiaCorrectionForm({
   });
   const [error, setError] = useState<string>();
   const values = form.watch();
-  const warnings = setupWarningDescriptors(values);
+  const warnings = setupWarningDescriptors(withRecordKinds(values, characters));
   const parsed = militiaSetupSchema.safeParse(values);
   const staged = parsed.success ? stagedChoiceNotice?.(parsed.data) : null;
   return (

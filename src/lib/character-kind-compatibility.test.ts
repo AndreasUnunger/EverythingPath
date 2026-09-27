@@ -18,7 +18,7 @@ import {
   newMilitiaSetup,
   prepareMilitiaSetup,
 } from './canonical-setup';
-import type { RosterKind } from './character-kind';
+import { mirrorRosterKinds, type RosterKind } from './character-kind';
 import { persistentEventFixture } from '../../tests/rules/persistent-event-fixture';
 import {
   mixedKindRecords,
@@ -152,4 +152,41 @@ test('Change Officer Role still needs the PC exception for every stored NPC kind
       ),
     ).toBe(kind !== 'pc');
   }
+});
+
+test('normalizing every legacy roster kind to PC or NPC changes no preview or Confirmation outcome', () => {
+  const legacy = mixedWeek('officer_npc');
+  const normalized = structuredClone(legacy);
+  normalized.militiaSnapshot.roster = mirrorRosterKinds(
+    normalized.militiaSnapshot.roster,
+    [],
+  );
+  expect(
+    new Set(normalized.militiaSnapshot.roster.people.map((p) => p.kind)),
+  ).toEqual(new Set(['pc', 'npc']));
+  const before = resolveCanonicalWeeklyDraft(legacy);
+  const after = resolveCanonicalWeeklyDraft(normalized);
+  expect(before.status).toBe('ready');
+  expect(after.status).toBe(before.status);
+  expect(after.rulesetVersion).toBe(before.rulesetVersion);
+  expect(after.requirements).toEqual(before.requirements);
+  expect(after.warnings).toEqual(before.warnings);
+  // Only the kinds a plan carries through differ; every roll, check and
+  // resulting value is the same.
+  const asNormalized = (value: unknown) =>
+    JSON.parse(
+      JSON.stringify(value).replaceAll(
+        /"kind":"(officer_npc|other_npc)"/g,
+        '"kind":"npc"',
+      ),
+    ) as unknown;
+  expect(asNormalized(before.finalPlan)).toEqual(after.finalPlan);
+  expect(asNormalized(before.outcome)).toEqual(after.outcome);
+  const beforeRecord = prepareCanonicalResolutionRecord(before, 'record');
+  const afterRecord = prepareCanonicalResolutionRecord(after, 'record');
+  expect(afterRecord.rulesetVersion).toBe(beforeRecord.rulesetVersion);
+  expect(afterRecord.warnings).toEqual(beforeRecord.warnings);
+  expect(asNormalized(beforeRecord.finalOutcome)).toEqual(
+    afterRecord.finalOutcome,
+  );
 });

@@ -11,15 +11,17 @@ import { SETUP_STEP_KEYS, type SetupStepKey } from './setup-steps';
 // under the signed-in account, organization and campaign. Nothing here is
 // shared or sent to the server.
 //
-// The shape is versioned so a later change can migrate stored envelopes.
-// Version 1 stores the values of this shipping stage: character-record kinds
-// `pc | officer_npc`, roster kinds `pc | officer_npc | other_npc` and nullable
-// Hit Dice overrides; since #196 a blank commandant override uses level, which
-// needs no new shape. The Characters & officers kind migration (#180) owns
-// the next version: it must read version 1 in `parseSetupEnvelope` and map
-// roster kinds, Hit Dice and character facts to its shape rather than
+// The shape is versioned so a change can migrate stored envelopes instead of
 // discarding players' unfinished setups.
-export const SETUP_ENVELOPE_VERSION = 1;
+// - Version 1 (#173) held legacy roster kinds `pc | officer_npc | other_npc`.
+// - Version 2 (#180) holds PC or NPC roster kinds. Reading version 1 maps both
+//   legacy NPC labels to `npc` and keeps every other value, raw or not, as
+//   stored. Its unacknowledged start stays verbatim: resending exactly that
+//   source is how a same-identity retry learns whether it was accepted.
+// Hit Dice overrides keep their nullable shape: since #196 a blank uses the
+// record's level. Once records are loaded, Setup mirrors each roster person's
+// current record kind and facts (`withCurrentCharacters`).
+export const SETUP_ENVELOPE_VERSION = 2;
 
 export type SetupScope = {
   accountId: string;
@@ -72,8 +74,9 @@ export function browserSetupStorage(): SetupStorage | null {
 }
 
 const stepSchema = z.enum(SETUP_STEP_KEYS as [SetupStepKey, ...SetupStepKey[]]);
-const envelopeV1Schema = z.strictObject({
-  version: z.literal(1),
+// Versions 1 and 2 share one outer shape; only the roster kinds differ.
+const envelopeSchema = z.strictObject({
+  version: z.union([z.literal(1), z.literal(2)]),
   scope: z.strictObject({
     accountId: z.string(),
     organizationId: z.string(),
@@ -90,31 +93,45 @@ export function parseSetupEnvelope(
   raw: unknown,
   scope: SetupScope,
 ): SetupEnvelope | null {
-  const version =
-    raw !== null && typeof raw === 'object' && 'version' in raw
-      ? raw.version
-      : undefined;
-  switch (version) {
-    case 1: {
-      const parsed = envelopeV1Schema.safeParse(raw);
-      if (
-        !parsed.success ||
-        setupEnvelopeKey(parsed.data.scope) !== setupEnvelopeKey(scope) ||
-        !isEditableSetup(parsed.data.values)
-      )
-        return null;
-      // An unreadable submitted source is forgotten, not fatal: the server
-      // still refuses a different source under an accepted identity.
-      const submitted = militiaSetupSchema.safeParse(parsed.data.submitted);
-      return {
-        ...parsed.data,
-        values: parsed.data.values,
-        submitted: submitted.success ? submitted.data : null,
-      };
-    }
-    default:
-      return null;
-  }
+  const parsed = envelopeSchema.safeParse(raw);
+  if (
+    !parsed.success ||
+    setupEnvelopeKey(parsed.data.scope) !== setupEnvelopeKey(scope) ||
+    !isEditableSetup(parsed.data.values)
+  )
+    return null;
+  // An unreadable submitted source is forgotten, not fatal: the server
+  // still refuses a different source under an accepted identity.
+  const submitted = militiaSetupSchema.safeParse(parsed.data.submitted);
+  return {
+    ...parsed.data,
+    version: SETUP_ENVELOPE_VERSION,
+    values: withNormalizedKinds(parsed.data.values),
+    submitted: submitted.success ? submitted.data : null,
+  };
+}
+
+// Only the legacy NPC labels change. Anything else a person holds, including
+// an unfinished value, is the form's to show, never a kind to invent.
+function withNormalizedKinds(values: MilitiaSetup): MilitiaSetup {
+  const snapshot = values.state.militiaSnapshot;
+  return {
+    ...values,
+    state: {
+      ...values.state,
+      militiaSnapshot: {
+        ...snapshot,
+        roster: {
+          ...snapshot.roster,
+          people: snapshot.roster.people.map((person) =>
+            person.kind === 'officer_npc' || person.kind === 'other_npc'
+              ? { ...person, kind: 'npc' }
+              : person,
+          ),
+        },
+      },
+    },
+  };
 }
 
 // Reading never changes storage, so a repeated render reads the same result.
@@ -205,31 +222,4 @@ function isEditableSetup(values: unknown): values is MilitiaSetup {
         : repairableCodes.has(issue.code);
     })
   );
-}
-
-type SetupCharacterFacts =
-  MilitiaSetup['state']['militiaSnapshot']['characters'][number];
-// A restored roster takes each character's current ledger facts, so a reload
-// repairs a start that failed because a character changed since it was
-// added. Characters no longer in the ledger stay for the player to remove.
-export function withCurrentCharacterFacts(
-  values: MilitiaSetup,
-  characters: readonly (SetupCharacterFacts & { name: string })[],
-): MilitiaSetup {
-  const current = new Map(
-    characters.map(({ name: _name, ...facts }) => [facts.characterId, facts]),
-  );
-  const snapshot = values.state.militiaSnapshot;
-  return {
-    ...values,
-    state: {
-      ...values.state,
-      militiaSnapshot: {
-        ...snapshot,
-        characters: snapshot.characters.map(
-          (character) => current.get(character.characterId) ?? character,
-        ),
-      },
-    },
-  };
 }

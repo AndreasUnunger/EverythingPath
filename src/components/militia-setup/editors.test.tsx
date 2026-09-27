@@ -20,6 +20,7 @@ afterEach(cleanup);
 const hero: SetupCharacter = {
   characterId: 'hero',
   name: 'Hero',
+  kind: 'pc',
   level: 3,
   strength: 10,
   dexterity: 10,

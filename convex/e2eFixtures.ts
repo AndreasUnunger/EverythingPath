@@ -1,6 +1,7 @@
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
+import { normalizeCharacterKind } from '../src/lib/character-kind';
 import { v } from 'convex/values';
 import {
   internalMutation,
@@ -255,7 +256,10 @@ export const resetCase = internalMutation({
             ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,
             name: `E2E ${domain.character}`,
             description: 'Synthetic officer',
-            kind: 'officer_npc',
+            // The record owns the kind its roster mirror follows. Canonical
+            // journeys play this officer as a PC (Setup and their seeded
+            // rosters); the others seed an NPC roster.
+            kind: isCanonicalCase(args.caseKey) ? 'pc' : 'npc',
             isActive: true,
             level: 1,
             strength: 10,
@@ -296,7 +300,13 @@ export const resetCase = internalMutation({
           : [],
         roster: {
           people: character
-            ? [{ characterId: character._id, kind: 'officer_npc', hitDice: 1 }]
+            ? [
+                {
+                  characterId: character._id,
+                  kind: normalizeCharacterKind(character.kind),
+                  hitDice: 1,
+                },
+              ]
             : [],
           teams: [],
           officers: [],

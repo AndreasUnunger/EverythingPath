@@ -11,12 +11,16 @@ import {
   readSetupEnvelope,
   retireSetupEnvelope,
   SETUP_ENVELOPE_VERSION,
-  withCurrentCharacterFacts,
   writeSetupEnvelope,
   type SetupProgress,
   type SetupRestore,
   type SetupStorage,
 } from '~/lib/setup-envelope';
+import {
+  composeSetupCharacters,
+  withCurrentCharacters,
+  type SetupCharacter,
+} from '~/lib/setup-characters';
 import type { GuidedSetupProps } from './use-guided-setup';
 
 export type SetupSessionScope = {
@@ -79,16 +83,29 @@ export function useSetupSession({
     givenStorage === undefined ? browserSetupStorage() : givenStorage,
   );
   const options = useQuery(api.canonicalSetup.options, { campaignId });
+  // Options carry no kind; the authorized character read supplies each
+  // record's kind, composed here rather than added to the options result.
+  const records = useQuery(api.character.listByCampaign, {
+    campaignId,
+    organizationId,
+    includeInactive: true,
+  });
+  const characters = useMemo(
+    () =>
+      options && records
+        ? composeSetupCharacters(options.characters, records)
+        : undefined,
+    [options, records],
+  );
   const initialize = useMutation(api.canonicalSetup.initialize);
   const router = useRouter();
 
+  // The entry waits for authorization (options) and the current records, so
+  // a restored envelope is migrated against the kinds its records own now.
   const [entry, setEntry] = useState<Entry>();
-  if (entry === undefined && options)
-    setEntry(
-      options.started
-        ? { kind: 'started' }
-        : formEntry(readSetupEnvelope(storage, scope), options.characters),
-    );
+  if (entry === undefined && options?.started) setEntry({ kind: 'started' });
+  else if (entry === undefined && options && characters)
+    setEntry(formEntry(readSetupEnvelope(storage, scope), characters));
   const workspace = useQuery(
     api.canonicalDraftPersistence.workspace,
     entry?.kind === 'started' ? { campaignId } : 'skip',
@@ -200,11 +217,13 @@ export function useSetupSession({
       militiaHref: campaignPath(campaignId, 'militia'),
     };
   if (startedElsewhere && !unacknowledged) return { kind: 'opening' };
+  // A form entry exists only once the records have loaded.
+  if (!characters) return { kind: 'loading' };
   return {
     kind: 'form',
     notice: storageNotice(entry.restore, unkept),
     guided: {
-      characters: options.characters,
+      characters,
       initialValues: entry.values,
       initialStep: entry.step,
       initialVisited: entry.visited,
@@ -230,10 +249,11 @@ function storageNotice(
 }
 
 // The form's starting point: the restored envelope, with each roster
-// character's current ledger facts, or a New militia's defaults.
+// character's current ledger facts and record kind, or a New militia's
+// defaults.
 function formEntry(
   restore: SetupRestore,
-  characters: Parameters<typeof withCurrentCharacterFacts>[1],
+  characters: readonly SetupCharacter[],
 ): FormEntry {
   if (restore.kind === 'restored') {
     const { values, step, visited, initializationId, submitted } =
@@ -241,7 +261,7 @@ function formEntry(
     return {
       kind: 'form',
       restore: restore.kind,
-      values: withCurrentCharacterFacts(values, characters),
+      values: withCurrentCharacters(values, characters),
       step,
       visited,
       initializationId,
