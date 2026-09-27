@@ -59,8 +59,10 @@ export async function expectSelectedCampaign(page: Page, name: string) {
 //   or phone bottom bar) for week, history, militia and characters. Setup is
 //   not a section item there; its link sits in page content (an empty state).
 // - The campaign list/home (`/campaigns` and `/campaigns/<id>`): no shell
-//   sections exist, so the selected campaign's home navigation
-//   ("<name> screens") is the only owner of every destination, setup included.
+//   sections exist, so the selected campaign's home content owns every
+//   destination (#189). The week is its Continue week link, which opens the
+//   first unready phase; history is All finished weeks (the recent rows add
+//   `?week=`); setup exists only without a militia.
 // - The Week reference panel repeats militia/characters/history links; those
 //   are exercised by the reference helpers and never chosen here.
 // Exactly one link must match in the chosen owner; duplicates fail loudly.
@@ -68,24 +70,28 @@ export async function openCampaignSection(
   page: Page,
   section: 'week' | 'history' | 'militia' | 'characters' | 'setup',
 ) {
-  const shell = page
-    .getByRole('navigation', { name: 'Campaign sections', exact: true })
-    .locator('visible=true');
-  const entry = page
-    .getByRole('navigation', { name: / screens$/ })
-    .locator('visible=true');
-  await expect
-    .poll(async () => (await shell.count()) + (await entry.count()), {
-      message: 'a campaign page or the campaign directory is shown',
-    })
-    .toBeGreaterThan(0);
-  const href = `a[href$="/${section}"], a[href*="/${section}?"]`;
-  const link =
-    (await shell.count()) > 0
-      ? section === 'setup'
+  const home = /^\/campaigns(?:\/[^/]+)?\/?$/.test(
+    new URL(page.url()).pathname,
+  );
+  let link: Locator;
+  if (home) {
+    link = page
+      .getByRole('main')
+      .locator(
+        section === 'week'
+          ? 'a[href*="/week?"]:visible'
+          : `a[href$="/${section}"]:visible`,
+      );
+  } else {
+    const shell = page
+      .getByRole('navigation', { name: 'Campaign sections', exact: true })
+      .locator('visible=true');
+    await expect(shell, 'a campaign page is shown').toHaveCount(1);
+    link =
+      section === 'setup'
         ? page.locator('main').locator('a[href$="/setup"]:visible')
-        : shell.locator(href)
-      : entry.locator(href);
+        : shell.locator(`a[href$="/${section}"], a[href*="/${section}?"]`);
+  }
   await expect(link).toHaveCount(1);
   await expect(link).toBeVisible();
   await link.click();

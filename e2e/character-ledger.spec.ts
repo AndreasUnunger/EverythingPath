@@ -8,8 +8,9 @@ test('players share character and officer assignment changes', async ({
   for (const page of [players.gm, players.player]) {
     await page.goto('/campaigns');
     await openCampaignSection(page, 'week');
+    // Continue week: the first week's first unready phase is Event.
     await expect(
-      page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+      page.getByRole('heading', { name: 'Week 1 · Event' }),
     ).toBeVisible();
     await openCampaignSection(page, 'characters');
     await page.getByRole('button', { name: /Character Ledger/ }).click();

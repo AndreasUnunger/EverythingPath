@@ -10,8 +10,8 @@ test('existing militia state survives reload within its campaign', async ({
 }) => {
   await page.goto('/campaigns');
   await selectCampaign(page, ownedCase.campaignName);
-  await openCampaignSection(page, 'week');
-  await page.getByRole('link', { name: 'Set up militia', exact: true }).click();
+  // Without a militia the home offers Set up militia instead of Continue.
+  await openCampaignSection(page, 'setup');
   await page
     .getByRole('button', { name: 'Existing militia', exact: true })
     .click();
@@ -62,9 +62,10 @@ test('existing militia state survives reload within its campaign', async ({
     page.getByRole('textbox', { name: 'Rank', exact: true }),
   ).toHaveValue('4');
   await selectCampaign(page, comparisonCase!.campaignName);
+  // Continue week: the comparison's first week skips Upkeep (#189).
   await openCampaignSection(page, 'week');
   await expect(
-    page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
+    page.getByRole('heading', { name: 'Week 1 · Event' }),
   ).toBeVisible();
   await selectCampaign(page, ownedCase.campaignName);
   await openCampaignSection(page, 'week');

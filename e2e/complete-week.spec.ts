@@ -60,8 +60,9 @@ test('a player confirms a complete week, every device moves to the next week onc
   const draftKey = observeDraftKey(gm);
   for (const page of [gm, player]) {
     await page.goto('/campaigns');
+    // Continue week: the first week skips Upkeep; Event is first unready.
     await openCampaignSection(page, 'week');
-    await expect(heading(page, 'Week 1 · Upkeep')).toBeVisible();
+    await expect(heading(page, 'Week 1 · Event')).toBeVisible();
     // Initial load announces nothing: no other-player note, no notice.
     await expect(remoteChangeNote(page)).toBeEmpty();
     await expect(confirmedWeekNotice(page)).toBeEmpty();
