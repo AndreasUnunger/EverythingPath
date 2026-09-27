@@ -14,6 +14,9 @@ export default defineConfig([
     'build/**',
     'next-env.d.ts',
     'convex/_generated/**',
+    // Agent worktrees and local scratch files are not part of the project.
+    '.claude/**',
+    '.scratch/**',
   ]),
   {
     name: 'defaultconfig',
