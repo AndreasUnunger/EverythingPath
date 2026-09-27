@@ -108,7 +108,11 @@ function earlierPhasesMessage(code: string) {
   if (!match) return null;
   const names = match[1]!
     .split('+')
-    .map((phase) => phaseLabels[phase as keyof typeof phaseLabels] ?? phase);
+    .flatMap((phase) =>
+      phase in phaseLabels
+        ? [phaseLabels[phase as keyof typeof phaseLabels]]
+        : [],
+    );
   return `Earlier phases still need preparation: ${names.join(', ')}.`;
 }
 

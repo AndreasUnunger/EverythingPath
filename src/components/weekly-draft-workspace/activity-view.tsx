@@ -11,7 +11,7 @@ import { activityLabel } from './activity-labels';
 import { useActivityPlacement } from './use-activity-placement';
 import { ActivityDetails } from './activity-details';
 import { ChoiceCards } from './choice-cards';
-import { activitySlotAnchor } from './persistent-sections';
+import { activitySlotAnchor } from './source-anchors';
 export function ActivityView({
   view,
   edit,

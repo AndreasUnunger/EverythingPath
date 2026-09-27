@@ -4,6 +4,7 @@ import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import {
   decisionEdit,
   endingEdit,
+  endingExceptionEdit,
   type PersistentCard,
 } from './persistent-sections';
 import type { PersistentView } from './types';
@@ -20,7 +21,7 @@ export type PersistentEdit = (
 // applying meanwhile, and a failed save keeps the form open to retry.
 export function usePersistentChoice(event: Event, edit: PersistentEdit) {
   const [endingIntent, setEndingIntent] = useState(false);
-  const saved: string = event.decision?.kind ?? 'unattempted';
+  const saved: PersistentCard = event.decision?.kind ?? 'unattempted';
   // Once an ending is saved (here or on another device) the intent is spent.
   if (endingIntent && saved === 'end') setEndingIntent(false);
   const endingUnsaved = endingIntent && saved !== 'end';
@@ -37,10 +38,19 @@ export function usePersistentChoice(event: Event, edit: PersistentEdit) {
       const next = decisionEdit(event, card);
       if (next) void edit(next);
     },
-    saveEnding: async (outcome: string) => {
+    // The outcome is saved first; its reason, when given, only after the
+    // ending was accepted. 'reason-failed' means the ending is saved and its
+    // Rules Exception still needs its reason.
+    saveEnding: async (
+      outcome: string,
+      reason?: string,
+    ): Promise<'accepted' | 'failed' | 'reason-failed'> => {
       const result = await edit(endingEdit(event, outcome));
-      if (result === 'accepted') setEndingIntent(false);
-      return result;
+      if (result !== 'accepted') return result;
+      setEndingIntent(false);
+      if (!reason?.trim()) return result;
+      const recorded = await edit(endingExceptionEdit(event, reason));
+      return recorded === 'accepted' ? recorded : 'reason-failed';
     },
     saveException: (exception: Exception, reason: string) =>
       edit({

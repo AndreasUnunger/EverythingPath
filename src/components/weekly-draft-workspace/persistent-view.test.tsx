@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { PersistentView } from './persistent-view';
+import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { PersistentView as Facts } from './types';
 afterEach(cleanup);
 
@@ -221,9 +222,19 @@ test('[PER-06.local] Ended at the table stays local until a nonempty outcome is 
   fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
     target: { value: 'The thieves fled' },
   });
+  // The reason is asked for together with the outcome.
   fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
-  await waitFor(() =>
-    expect(edit).toHaveBeenCalledWith({
+  expect(await screen.findByText('A reason is required.')).toBeVisible();
+  expect(edit).not.toHaveBeenCalled();
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Rules Exception reason' }),
+    { target: { value: 'The GM ruled it' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
+  await waitFor(() => expect(edit).toHaveBeenCalledTimes(2));
+  // The outcome is written first; its reason only after it was accepted.
+  expect(edit.mock.calls.map(([call]) => call)).toEqual([
+    {
       kind: 'persistent_decision',
       decision: {
         kind: 'end',
@@ -234,8 +245,17 @@ test('[PER-06.local] Ended at the table stays local until a nonempty outcome is 
           outcome: 'The thieves fled',
         },
       },
-    }),
-  );
+    },
+    {
+      kind: 'rules_exception',
+      exception: {
+        exceptionId: 'persistent:theft:persistent-ending',
+        subjectId: 'theft',
+        ruleId: 'persistent-ending',
+        reason: 'The GM ruled it',
+      },
+    },
+  ]);
   // The accepted ending replaces the local intent and keeps its identity.
   const ending = {
     kind: 'end' as const,
@@ -286,10 +306,16 @@ test('[PER-06.failure] a rejected ending keeps the form, its text and the saved 
   fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
     target: { value: 'The thieves fled' },
   });
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Rules Exception reason' }),
+    { target: { value: 'The GM ruled it' } },
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
   expect(
     await screen.findByText('This ending wasn’t saved. Try again.'),
   ).toBeVisible();
+  // Nothing after the rejected outcome is sent.
+  expect(edit).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('textbox', { name: 'How it ended' })).toHaveValue(
     'The thieves fled',
   );
@@ -493,4 +519,92 @@ test('[PER-03.legacy] an unsupported saved check on Low Morale is flagged and re
     kind: 'persistent_decision',
     decision: { kind: 'unattempted', eventId: 'morale' },
   });
+});
+
+test('[PER-06.partial] an ending saved without its reason says so and leaves the reason to repair', async () => {
+  // Like the shared store, an accepted decision is shown at once; the
+  // exception write is rejected.
+  const edit = vi.fn((next: unknown) => {
+    const value = next as WeeklyDraftEdit;
+    if (value.kind !== 'persistent_decision')
+      return Promise.resolve('failed' as const);
+    rerender(
+      <PersistentView
+        view={{ ...view, events: [{ ...theft, decision: value.decision }] }}
+        edit={edit}
+        disabled={false}
+      />,
+    );
+    return Promise.resolve('accepted' as const);
+  });
+  const { rerender } = show([theft], {}, edit);
+  fireEvent.click(card('Theft · Event 2', 'Ended at the table'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'How it ended' }), {
+    target: { value: 'The thieves fled' },
+  });
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Rules Exception reason' }),
+    { target: { value: 'The GM ruled it' } },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save how it ended' }));
+  expect(
+    await screen.findByText(
+      'The ending was saved, but its reason wasn’t. Enter the reason again below.',
+    ),
+  ).toBeVisible();
+});
+
+test('[PER-08.kept] an exception the current decision no longer needs is labelled as such and stays removable', () => {
+  const exception = {
+    exceptionId: 'persistent:theft:buyoff-cooldown',
+    subjectId: 'theft',
+    ruleId: 'buyoff-cooldown',
+    reason: 'Allowed earlier',
+  };
+  const { edit } = show([
+    {
+      ...theft,
+      decision: { kind: 'unattempted', eventId: 'theft' },
+      exceptions: [exception],
+    },
+  ]);
+  const section = group('Theft · Event 2');
+  expect(section).toHaveTextContent(
+    'This Rules Exception is still recorded, but the current decision doesn’t need it.',
+  );
+  expect(section).not.toHaveTextContent('four-week waiting period');
+  fireEvent.click(
+    within(section).getByRole('button', { name: 'Remove exception' }),
+  );
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'clear_rules_exception',
+    exceptionId: exception.exceptionId,
+  });
+});
+
+test('[WEEK-10.link] the source link still navigates while editing is locked', () => {
+  const openSource = vi.fn();
+  const link = { phase: 'event' as const, anchor: null };
+  render(
+    <PersistentView
+      view={{
+        ...view,
+        events: [
+          {
+            ...theft,
+            ended: true,
+            endedBy: { label: 'High Morale in Event 1', link },
+            result: { tone: 'ends', text: 'Ends · High Morale in Event 1' },
+          },
+        ],
+      }}
+      edit={accepted()}
+      disabled
+      openSource={openSource}
+    />,
+  );
+  const button = screen.getByRole('button', { name: 'Change it in Event' });
+  expect(button).toBeEnabled();
+  fireEvent.click(button);
+  expect(openSource).toHaveBeenCalledWith(link);
 });

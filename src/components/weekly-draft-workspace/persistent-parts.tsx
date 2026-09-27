@@ -28,6 +28,7 @@ import { formatGold } from './week-frame/reference-copy';
 type Event = PersistentView['events'][number];
 type Exception = Event['exceptions'][number];
 type SaveResult = 'accepted' | 'failed';
+type EndingResult = SaveResult | 'reason-failed';
 
 export function Overview({ view }: { view: PersistentView }) {
   const items = [
@@ -155,7 +156,7 @@ export function DecisionCards({
 }: {
   label: string;
   cards: DecisionCardFacts[];
-  selected: string;
+  selected: PersistentCard;
   disabled: boolean;
   onChoose: (card: PersistentCard) => void;
 }) {
@@ -227,33 +228,48 @@ function DecisionCard({
   );
 }
 
-const endingSchema = z.object({
-  outcome: z.string().trim().min(1, 'Describe how it ended.'),
+const outcomeSchema = z.string().trim().min(1, 'Describe how it ended.');
+const reasonText = z.string().trim().min(1, 'A reason is required.');
+const endingSchema = z.object({ outcome: outcomeSchema, reason: z.string() });
+const reasonedEndingSchema = z.object({
+  outcome: outcomeSchema,
+  reason: reasonText,
 });
+const endingAlerts: Record<Exclude<EndingResult, 'accepted'>, string> = {
+  failed: 'This ending wasn’t saved. Try again.',
+  'reason-failed':
+    'The ending was saved, but its reason wasn’t. Enter the reason again below.',
+};
 
 // How an event ended at the table. The saved outcome prefills the field;
 // typed text survives re-renders and a failed save keeps it for a retry.
+// An unsaved ending that still lacks its Rules Exception reason asks for
+// both at once; a saved ending's reason lives in the exception block below.
 export function EndingForm({
   saved,
   notice,
+  needsReason,
   disabled,
   onSave,
 }: {
   saved: string;
   notice: string | null;
+  needsReason: boolean;
   disabled: boolean;
-  onSave: (outcome: string) => Promise<SaveResult>;
+  onSave: (outcome: string, reason?: string) => Promise<EndingResult>;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [alert, setAlert] = useState<EndingResult>('accepted');
   const form = useForm({
-    values: { outcome: saved },
-    resolver: zodResolver(endingSchema),
+    values: { outcome: saved, reason: '' },
+    resolver: zodResolver(needsReason ? reasonedEndingSchema : endingSchema),
   });
   const saving = form.formState.isSubmitting;
   const submit = form.handleSubmit(async (values) => {
-    setFailed(false);
-    const result = await onSave(values.outcome);
-    setFailed(result !== 'accepted');
+    setAlert('accepted');
+    const result = needsReason
+      ? await onSave(values.outcome, values.reason)
+      : await onSave(values.outcome);
+    setAlert(result);
   });
   return (
     <Form {...form}>
@@ -276,6 +292,24 @@ export function EndingForm({
             </FormItem>
           )}
         />
+        {needsReason && (
+          <FormField
+            control={form.control}
+            name="reason"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Rules Exception reason</FormLabel>
+                <FormControl>
+                  <Input {...field} autoComplete="off" disabled={disabled} />
+                </FormControl>
+                <p className="text-muted-foreground text-xs">
+                  A table-adjudicated ending needs the table’s reason.
+                </p>
+                <FormMessage role="alert" />
+              </FormItem>
+            )}
+          />
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="submit"
@@ -284,9 +318,9 @@ export function EndingForm({
           >
             {saving ? 'Saving…' : 'Save how it ended'}
           </Button>
-          {failed && (
+          {alert !== 'accepted' && (
             <p role="alert" className="text-destructive text-sm">
-              This ending wasn’t saved. Try again.
+              {endingAlerts[alert]}
             </p>
           )}
         </div>
@@ -295,41 +329,64 @@ export function EndingForm({
   );
 }
 
-const reasonSchema = z.object({
-  reason: z.string().trim().min(1, 'A reason is required.'),
-});
+const reasonSchema = z.object({ reason: reasonText });
+const exceptionAlerts = {
+  save: 'This reason wasn’t saved. Try again.',
+  remove: 'This exception wasn’t removed. Try again.',
+};
 
-// One Rules Exception the decision needs, with the table's reason.
+// One recorded Rules Exception with the table's reason. An exception the
+// current decision relies on carries the rules message; one it no longer
+// needs stays listed, in neutral tone, so it can be removed deliberately.
 export function ExceptionBlock({
   message,
   exception,
+  inUse,
   disabled,
   onSave,
   onRemove,
 }: {
   message: string;
   exception: Exception;
+  inUse: boolean;
   disabled: boolean;
   onSave: (exception: Exception, reason: string) => Promise<SaveResult>;
   onRemove: (exception: Exception) => Promise<SaveResult>;
 }) {
+  const [alert, setAlert] = useState<keyof typeof exceptionAlerts | null>(null);
   const form = useForm({
     values: { reason: exception.reason },
     resolver: zodResolver(reasonSchema),
   });
+  const settle = (action: keyof typeof exceptionAlerts, result: SaveResult) =>
+    setAlert(result === 'accepted' ? null : action);
+  const save = form.handleSubmit(async (values) => {
+    setAlert(null);
+    settle('save', await onSave(exception, values.reason));
+  });
+  const remove = async () => {
+    setAlert(null);
+    settle('remove', await onRemove(exception));
+  };
   return (
-    <div className="space-y-2 border-l-2 border-amber-500/60 pl-3">
-      <p role="note" className="text-sm text-amber-300">
-        {message}
-      </p>
+    <div
+      className={cn(
+        'space-y-2 border-l-2 pl-3',
+        inUse ? 'border-amber-500/60' : 'border-muted-foreground/40',
+      )}
+    >
+      {inUse ? (
+        <p role="note" className="text-sm text-amber-300">
+          {message}
+        </p>
+      ) : (
+        <p role="note" className="text-muted-foreground text-sm">
+          This Rules Exception is still recorded, but the current decision
+          doesn’t need it. Remove it if it no longer applies.
+        </p>
+      )}
       <Form {...form}>
-        <form
-          noValidate
-          onSubmit={form.handleSubmit((values) => {
-            void onSave(exception, values.reason);
-          })}
-          className="space-y-2"
-        >
+        <form noValidate onSubmit={save} className="space-y-2">
           <FormField
             control={form.control}
             name="reason"
@@ -343,7 +400,7 @@ export function ExceptionBlock({
               </FormItem>
             )}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={disabled}>
               Save reason
             </Button>
@@ -353,11 +410,16 @@ export function ExceptionBlock({
                 variant="outline"
                 disabled={disabled}
                 onClick={() => {
-                  void onRemove(exception);
+                  void remove();
                 }}
               >
                 Remove exception
               </Button>
+            )}
+            {alert && (
+              <p role="alert" className="text-destructive text-sm">
+                {exceptionAlerts[alert]}
+              </p>
             )}
           </div>
         </form>

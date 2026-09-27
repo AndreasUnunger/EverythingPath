@@ -72,11 +72,13 @@ export async function exercisePersistentWorkspace(
   await old(gm)
     .getByRole('textbox', { name: 'How it ended', exact: true })
     .fill('The table recovered the stolen goods.');
-  await button(old(gm), 'Save how it ended').click();
-  await expect(old(player)).toContainText('Ending needs a Rules Exception');
+  // The ending asks for its Rules Exception reason in the same step.
   await reason(old(gm)).fill('The thieves agreed to leave the militia alone.');
-  await button(old(gm), 'Save reason').click();
+  await button(old(gm), 'Save how it ended').click();
   await expect(old(player)).toContainText('Ends · recorded at the table');
+  await expect(reason(old(player))).toHaveValue(
+    'The thieves agreed to leave the militia alone.',
+  );
   await expect(recent(player)).not.toContainText(
     'Ends · recorded at the table',
   );

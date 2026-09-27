@@ -16,7 +16,7 @@ import { Card } from '~/components/ui/card';
 import { StructuredChoiceField } from './structured-choice-field';
 import { ActivityText } from './activity-details';
 import { activityLabel } from './activity-labels';
-import { eventOccurrenceAnchor } from './persistent-sections';
+import { eventOccurrenceAnchor } from './source-anchors';
 import type { EventView as Facts } from './types';
 type Occurrence = WeeklyDraft['event']['occurrences'][number];
 type Props = {

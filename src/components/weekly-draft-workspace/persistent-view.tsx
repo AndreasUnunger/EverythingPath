@@ -14,6 +14,7 @@ import {
   SectionMarker,
 } from './persistent-parts';
 import { persistentMessage, PersistentOutcomes } from './persistent-outcomes';
+import { endingNeedsReason, exceptionInUse } from './persistent-sections';
 import type { PersistentSourceLink, PersistentView as Facts } from './types';
 import {
   usePersistentChoice,
@@ -121,8 +122,8 @@ function PersistentEvent({
                 <Button
                   type="button"
                   variant="link"
-                  className="h-auto p-0 align-baseline"
-                  disabled={disabled}
+                  // Only navigates, so a locked week never disables it.
+                  className="text-primary h-auto p-0 align-baseline underline underline-offset-4"
                   onClick={() => openSource(event.endedBy!.link)}
                 >
                   Change it in {phaseLabels[event.endedBy.link.phase]}
@@ -209,6 +210,7 @@ function PersistentEvent({
                     ? `Not saved yet. ${savedLabel(choice.saved, event)} still applies until you save how it ended.`
                     : null
                 }
+                needsReason={choice.endingUnsaved && endingNeedsReason(event)}
                 disabled={disabled}
                 onSave={choice.saveEnding}
               />
@@ -226,6 +228,7 @@ function PersistentEvent({
             key={exception.exceptionId}
             message={persistentMessage(`${event.eventId}:${exception.ruleId}`)}
             exception={exception}
+            inUse={exceptionInUse(event, exception.ruleId)}
             disabled={disabled}
             onSave={choice.saveException}
             onRemove={choice.removeException}

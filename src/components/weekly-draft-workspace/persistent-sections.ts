@@ -3,6 +3,7 @@ import type { PersistentChange } from '~/lib/rules-persistent-events';
 import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { activityLabel } from './activity-labels';
+import { activitySlotAnchor, eventOccurrenceAnchor } from './source-anchors';
 import { formatGold } from './week-frame/reference-copy';
 import type { Phase, PersistentView } from './types';
 
@@ -43,13 +44,6 @@ export function ordinal(value: number) {
 const removedLiveWarnings = new Set(['buyoff-cost-recomputed']);
 export function liveWarnings(keys: readonly string[]) {
   return keys.filter((key) => !removedLiveWarnings.has(key.split(':').at(-1)!));
-}
-
-export function activitySlotAnchor(slotId: string) {
-  return `activity-slot-${slotId}`;
-}
-export function eventOccurrenceAnchor(eventId: string) {
-  return `event-occurrence-${eventId}`;
 }
 
 // An Activity or Event result that actually ended a carried event this
@@ -171,6 +165,84 @@ export function checkChoice(type: Carried['eventType']) {
   return null;
 }
 
+type Result = Event['result'];
+function findChange<K extends PersistentChange['kind']>(
+  changes: readonly PersistentChange[],
+  kind: K,
+) {
+  return changes.find(
+    (change): change is Extract<PersistentChange, { kind: K }> =>
+      change.kind === kind,
+  );
+}
+
+// An ending the Persistent decision itself staged, if any.
+function stagedEnding(
+  changes: readonly PersistentChange[],
+  costPending: boolean,
+): Result | null {
+  const ended = findChange(changes, 'persistent_ended');
+  if (!ended) return null;
+  if (ended.reason === 'officer')
+    return { tone: 'ends', text: 'Ends · officer check succeeded' };
+  if (ended.reason === 'recorded')
+    return { tone: 'ends', text: 'Ends · recorded at the table' };
+  const buyoff = findChange(changes, 'persistent_buyoff');
+  return {
+    tone: 'ends',
+    text:
+      costPending || !buyoff
+        ? 'Ends · buyoff cost waits for earlier phases'
+        : `Ends · buyoff ${formatGold(buyoff.costCopper)}`,
+  };
+}
+
+const decisionSubjects: Record<PersistentCard, string> = {
+  buyoff: 'Buyoff',
+  end: 'Ending',
+  mitigate: 'Check',
+  unattempted: 'Decision',
+};
+
+// What still holds the chosen decision back, if anything.
+function unmetDecision(decision: Decision | null, rules: string[]) {
+  const attention = (text: string): Result => ({ tone: 'attention', text });
+  if (rules.includes('teams')) return attention('Needs two rival teams');
+  if (decision?.kind === 'buyoff' && rules.includes('rank'))
+    return attention('Buyoff cost needs the militia rank');
+  if (decision?.kind === 'end' && rules.includes('ending-acknowledgement'))
+    return attention('Ending needs how it ended');
+  if (decision?.kind === 'mitigate' && rules.includes('no-mitigation-rule'))
+    return attention('This event has no check to attempt');
+  if (!rules.some((rule) => rule.endsWith(':exception'))) return null;
+  const subject = decisionSubjects[decision?.kind ?? 'unattempted'];
+  return attention(`${subject} needs a Rules Exception`);
+}
+
+// A check attempt that leaves the event in place this week.
+function checkResult(
+  eventType: Carried['eventType'],
+  changes: readonly PersistentChange[],
+): Result {
+  const mitigation = findChange(changes, 'persistent_mitigation');
+  if (mitigation)
+    return {
+      tone: 'stays',
+      text: mitigation.succeeded
+        ? 'Stays · keeps 90% of this week’s gains'
+        : 'Stays · Loyalty check failed',
+    };
+  if (findChange(changes, 'persistent_officer_check'))
+    return { tone: 'stays', text: 'Stays · officer check failed' };
+  return {
+    tone: 'stays',
+    text:
+      eventType === 'rivalry'
+        ? 'Stays · officer check pending'
+        : 'Stays · Loyalty check pending',
+  };
+}
+
 // The section header's forecast. Only an actual staged ending reads "Ends";
 // a chosen card without its inputs, or an unmet exception, never does.
 export function projectedResult({
@@ -187,74 +259,14 @@ export function projectedResult({
   changes: readonly PersistentChange[];
   requirements: readonly string[];
   costPending: boolean;
-}): Event['result'] {
+}): Result {
   if (endedBy) return { tone: 'ends', text: `Ends · ${endedBy.label}` };
-  const ended = changes.find((change) => change.kind === 'persistent_ended');
-  if (ended?.kind === 'persistent_ended') {
-    if (ended.reason === 'buyoff') {
-      const buyoff = changes.find(
-        (change) => change.kind === 'persistent_buyoff',
-      );
-      return {
-        tone: 'ends',
-        text:
-          costPending || buyoff?.kind !== 'persistent_buyoff'
-            ? 'Ends · buyoff cost waits for earlier phases'
-            : `Ends · buyoff ${formatGold(buyoff.costCopper)}`,
-      };
-    }
-    return {
-      tone: 'ends',
-      text:
-        ended.reason === 'officer'
-          ? 'Ends · officer check succeeded'
-          : 'Ends · recorded at the table',
-    };
-  }
   const rules = requirements.map((key) => key.slice(event.eventId.length + 1));
-  const exception = rules.some((rule) => rule.endsWith(':exception'));
-  if (rules.includes('teams'))
-    return { tone: 'attention', text: 'Needs two rival teams' };
-  if (decision?.kind === 'buyoff') {
-    if (rules.includes('rank'))
-      return { tone: 'attention', text: 'Buyoff cost needs the militia rank' };
-    if (exception)
-      return { tone: 'attention', text: 'Buyoff needs a Rules Exception' };
-  }
-  if (decision?.kind === 'end')
-    return rules.includes('ending-acknowledgement')
-      ? { tone: 'attention', text: 'Ending needs how it ended' }
-      : { tone: 'attention', text: 'Ending needs a Rules Exception' };
-  if (decision?.kind === 'mitigate') {
-    if (rules.includes('no-mitigation-rule'))
-      return { tone: 'attention', text: 'This event has no check to attempt' };
-    if (exception)
-      return { tone: 'attention', text: 'Check needs a Rules Exception' };
-    const mitigation = changes.find(
-      (change) => change.kind === 'persistent_mitigation',
-    );
-    if (mitigation?.kind === 'persistent_mitigation')
-      return {
-        tone: 'stays',
-        text: mitigation.succeeded
-          ? 'Stays · keeps 90% of this week’s gains'
-          : 'Stays · Loyalty check failed',
-      };
-    const officer = changes.find(
-      (change) => change.kind === 'persistent_officer_check',
-    );
-    if (officer?.kind === 'persistent_officer_check')
-      return { tone: 'stays', text: 'Stays · officer check failed' };
-    return {
-      tone: 'stays',
-      text:
-        event.eventType === 'rivalry'
-          ? 'Stays · officer check pending'
-          : 'Stays · Loyalty check pending',
-    };
-  }
-  if (exception)
-    return { tone: 'attention', text: 'Decision needs a Rules Exception' };
+  const result =
+    stagedEnding(changes, costPending) ?? unmetDecision(decision, rules);
+  if (result) return result;
+  if (decision?.kind === 'mitigate')
+    return checkResult(event.eventType, changes);
   return {
     tone: 'stays',
     text:
@@ -299,4 +311,47 @@ export function endingEdit(
       },
     },
   };
+}
+
+// The persistent-ending Rules Exception an ending's reason is written to:
+// the event's existing one when present, so its identity is kept.
+export function endingExceptionEdit(
+  event: Pick<Event, 'eventId' | 'exceptions'>,
+  reason: string,
+): WeeklyDraftEdit {
+  const existing = event.exceptions.find(
+    (entry) => entry.ruleId === 'persistent-ending',
+  );
+  return {
+    kind: 'rules_exception',
+    exception: {
+      exceptionId:
+        existing?.exceptionId ??
+        `persistent:${event.eventId}:persistent-ending`,
+      subjectId: event.eventId,
+      ruleId: 'persistent-ending',
+      reason: reason.trim(),
+    },
+  };
+}
+
+// Whether the current decision relies on this exception: the preview either
+// asks for it or has accepted it. A kept exception the decision no longer
+// needs stays listed so it can be removed deliberately.
+export function exceptionInUse(
+  event: Pick<Event, 'eventId' | 'requirements' | 'warnings'>,
+  ruleId: string,
+) {
+  const key = `${event.eventId}:${ruleId}`;
+  return (
+    event.warnings.includes(key) ||
+    event.requirements.includes(`${key}:exception`)
+  );
+}
+
+// An ending that still needs its reason asks for both at once.
+export function endingNeedsReason(event: Pick<Event, 'exceptions'>) {
+  return !event.exceptions.some(
+    (entry) => entry.ruleId === 'persistent-ending' && entry.reason.trim(),
+  );
 }
