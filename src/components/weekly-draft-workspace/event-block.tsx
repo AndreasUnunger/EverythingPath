@@ -71,9 +71,7 @@ export function EventBlock({
       aria-label={block.label}
       className={cn(
         'bg-card min-w-0 space-y-3 rounded-md border p-3',
-        (block.status === 'not_chosen' ||
-          block.status === 'not_used' ||
-          block.status === 'legacy') &&
+        (block.status === 'not_chosen' || block.status === 'not_used') &&
           'opacity-70',
       )}
     >
@@ -218,12 +216,13 @@ export function EventBlock({
         <details className="min-w-0">
           <summary className="cursor-pointer text-sm font-medium">
             {block.legacy.length}{' '}
-            {block.legacy.length === 1 ? 'event' : 'events'} from a Roll Twice
-            no longer used
+            {block.legacy.length === 1 ? 'event' : 'events'} from an earlier
+            Roll Twice, no longer used
           </summary>
           <p className="text-muted-foreground mt-1 text-xs">
             A candidate’s Roll Twice is now rerolled in its own die, so these
-            events are kept on record but not used. Clear each one to remove it.
+            events are kept on record but not used. Clear an event’s roll and
+            inputs to remove it.
           </p>
           <div className="border-foreground/20 mt-2 ml-1 min-w-0 space-y-3 border-l-2 pl-2 opacity-70 sm:ml-3 sm:pl-3">
             {block.legacy.map((child) => (

@@ -98,7 +98,7 @@ const STATUS_TEXT: Record<EventBlockStatus, string> = {
   needs_repair:
     'More events are recorded here than the rules ask for; clear the extra one',
   legacy:
-    'Recorded when a candidate’s Roll Twice added two events. It is now rerolled in its own die, so this event is not used; clear it to remove it',
+    'From an earlier Roll Twice on a candidate, which is now rerolled in its own die. Kept on record, not used; clear its roll and inputs to remove it',
 };
 // The corpus rules for the event a complete table roll names. Its Twice
 // clause is included only when that clause is what applies to this block (a
@@ -426,6 +426,22 @@ export function eventTreeBlocks({
     const isSurplus = repair.surplus(id);
     const current = status(entry, isSurplus);
     const children = childrenOf(entry).map((child) => byId.get(child.eventId)!);
+    // Active children, restorable inactive ones, and an older candidate
+    // expansion the rules never use again.
+    const nested: Pick<EventBlock, 'children' | 'hidden' | 'legacy'> = {
+      children: [],
+      hidden: [],
+      legacy: [],
+    };
+    for (const child of children) {
+      const childId = child.event.eventId;
+      const list = active.has(childId)
+        ? nested.children
+        : isLegacyCandidateExpansion(draft, childId)
+          ? nested.legacy
+          : nested.hidden;
+      list.push(block(child, repair));
+    }
     const choice = entry.owner?.choice;
     return {
       eventId: id,
@@ -449,23 +465,9 @@ export function eventTreeBlocks({
               chosen: choice.selectedEventId === id,
             }
           : null,
-      children: children
-        .filter((child) => active.has(child.event.eventId))
-        .map((child) => block(child, repair)),
-      hidden: children
-        .filter(
-          (child) =>
-            !active.has(child.event.eventId) &&
-            !isLegacyCandidateExpansion(draft, child.event.eventId),
-        )
-        .map((child) => block(child, repair)),
-      legacy: children
-        .filter(
-          (child) =>
-            !active.has(child.event.eventId) &&
-            isLegacyCandidateExpansion(draft, child.event.eventId),
-        )
-        .map((child) => block(child, repair)),
+      children: nested.children,
+      hidden: nested.hidden,
+      legacy: nested.legacy,
       surplus: isSurplus || overfull.has(id),
       removal: repair.removal(id),
       issues: issues([...item.requirements, ...item.warnings]),

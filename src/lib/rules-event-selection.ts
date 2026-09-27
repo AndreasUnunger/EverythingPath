@@ -348,8 +348,8 @@ function validateCandidate(
   const { draft, result } = context;
   const resolved = resolveTableRoll(context, event);
   if (!resolved) return;
-  const reroll = resolved.eventType === 'roll_twice';
-  if (!reroll) {
+  const isRollTwice = resolved.eventType === 'roll_twice';
+  if (!isRollTwice) {
     if (canEventOccur(context, resolved)) return;
     result.warnings.push(`${event.eventId}:event-eligibility`);
     if (
@@ -372,7 +372,7 @@ function validateCandidate(
     parentEventId: event.eventId,
     count: 1,
     eventIds: replacements.map((entry) => entry.eventId),
-    reroll,
+    reroll: isRollTwice,
   });
   if (replacements.length !== 1)
     result.requirements.push(`${event.eventId}:replacement:1`);

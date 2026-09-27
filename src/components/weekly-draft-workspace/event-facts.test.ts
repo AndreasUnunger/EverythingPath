@@ -231,7 +231,7 @@ test('[EVT-06.candidates] candidate sets name their source and keep both blocks,
   });
 });
 
-test('[EVT-13.candidate-reroll] an automatic event and both candidates that roll Roll Twice ask for a reroll in their own die, with no children', () => {
+test('[EVT-13.candidate-reroll-status] an automatic event and both candidates that roll Roll Twice ask for a reroll in their own die, with no children', () => {
   const { draft, snapshot } = eventActionFixture();
   draft.context = {
     ...draft.context,

@@ -246,7 +246,7 @@ test('[EVT-13.candidate-reroll-view] candidates that roll Roll Twice show Reroll
   // The earlier children sit in their own closed disclosure, not as children.
   const raid = group('Event 1A');
   const summary = within(raid).getByText(
-    '2 events from a Roll Twice no longer used',
+    '2 events from an earlier Roll Twice, no longer used',
   );
   expect(
     within(raid).getByRole('group', { name: 'Event 1A.1' }),
