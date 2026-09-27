@@ -9,7 +9,7 @@ import {
   resolveCanonicalWeeklyDraft,
 } from './canonical-weekly-resolution';
 import { canonicalResolutionRecordSchema } from './canonical-resolution-record';
-import { correctionStagedChoices } from './correction-staged-choices';
+import { correctionImpact } from './correction-staged-choices';
 import { editWeeklyDraft } from './weekly-draft';
 import { weeklyDraftSchema, type WeeklyDraft } from './weekly-draft-contract';
 import { acceptDraftOperation } from './weekly-draft-consistency';
@@ -75,7 +75,7 @@ test('[rules.U05.legacy-actor] a transfer actor missing from the roster is no re
   ).toEqual([]);
   const edited = structuredClone(input.snapshot);
   edited.characters = [];
-  expect(correctionStagedChoices(input.draft, input.snapshot, edited)).toEqual(
+  expect(correctionImpact(input.draft, input.snapshot, edited).added).toEqual(
     [],
   );
   const preview = projectWeeklyDraft({

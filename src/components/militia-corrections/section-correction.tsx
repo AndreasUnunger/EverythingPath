@@ -20,8 +20,14 @@ import {
   SetupMarketplaces,
   SetupOrders,
 } from '~/components/militia-setup/assets';
+import {
+  SetupCharacterConditions,
+  SetupMarketDayBenefits,
+  SetupSkillBenefits,
+} from '~/components/militia-setup/effects';
 import { SetupSectionHeading } from '~/components/militia-setup/fields';
 import {
+  SetupPeople,
   SetupTeams,
   type SetupCharacter,
 } from '~/components/militia-setup/roster';
@@ -30,7 +36,6 @@ import { SetupSettlements } from '~/components/militia-setup/world';
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
-import type { MilitiaSectionKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
 import type { AffectedChoice, NeededBy } from './affected-choice-copy';
 import {
@@ -44,6 +49,7 @@ import {
   WEEK_CHANGED_MESSAGE,
 } from './correction-copy';
 import { FactsView } from './facts-view';
+import type { CorrectableEntry } from './section-fields';
 import type {
   MissingEntry,
   SectionCorrection,
@@ -105,18 +111,51 @@ function MarketplacesEditor() {
   );
 }
 
-// The editor of each section with its own isolated correction. Sections
-// missing here still open the temporary full editor.
-export const sectionEditors: Partial<
-  Record<MilitiaSectionKey, ComponentType<SectionEditorProps>>
+function CharacterConditionsEditor({ characters }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupCharacterConditions characters={characters} />
+    </SetupSectionHeading>
+  );
+}
+
+// Two subsections under the pane's heading, each keeping Setup's own title.
+function CarriedBenefitsEditor({ characters }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="h3">
+      <div className="space-y-6">
+        <SetupSkillBenefits characters={characters} />
+        <SetupMarketDayBenefits />
+      </div>
+    </SetupSectionHeading>
+  );
+}
+
+// The temporary People & officers fallback: roster people, kind, Hit Dice
+// and officer roles, under Setup's own "Characters and officers" title.
+function PeopleEditor({ characters }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="h3">
+      <SetupPeople characters={characters} preserveCharacters />
+    </SetupSectionHeading>
+  );
+}
+
+// The editor of every entry the page corrects in place.
+export const sectionEditors: Record<
+  CorrectableEntry,
+  ComponentType<SectionEditorProps>
 > = {
   values: SetupMilitiaValues,
   teams: TeamsEditor,
   settlements: SettlementsEditor,
+  characterConditions: CharacterConditionsEditor,
   items: ItemsEditor,
   caches: CachesEditor,
   orders: OrdersEditor,
   marketplaces: MarketplacesEditor,
+  carriedBenefits: CarriedBenefitsEditor,
+  people: PeopleEditor,
 };
 
 const action = 'min-h-11 md:min-h-9';
@@ -126,7 +165,7 @@ const advisory = 'border-primary/40 bg-primary/10 space-y-1 border p-3';
 const focusTarget = 'outline-none';
 
 /** Moves focus to the element on mount: the heading of a state that opened. */
-export function useFocusOnMount<T extends HTMLElement>() {
+function useFocusOnMount<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   useEffect(() => {
     ref.current?.focus();
@@ -472,12 +511,10 @@ function Editor({
           disabled={view.kind !== 'editing'}
           className="min-w-0 space-y-4"
         >
-          {SectionEditor && (
-            <SectionEditor
-              characters={correction.characters}
-              rowNotes={correction.rowNotes}
-            />
-          )}
+          <SectionEditor
+            characters={correction.characters}
+            rowNotes={correction.rowNotes}
+          />
         </fieldset>
         <MissingReferences
           entries={correction.restorable}

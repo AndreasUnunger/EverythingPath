@@ -285,18 +285,3 @@ export function correctionImpact(
     carried,
   };
 }
-
-/**
- * The phases holding staged choices a correction would leave without their
- * subject, with the number of such choices in each.
- */
-export function correctionStagedChoices(
-  draft: WeeklyDraft,
-  current: UpkeepSnapshot,
-  edited: UpkeepSnapshot,
-): { phase: StagedChoicePhase; count: number }[] {
-  const counts = new Map<StagedChoicePhase, number>();
-  for (const { phase } of correctionImpact(draft, current, edited).added)
-    if (phase) counts.set(phase, (counts.get(phase) ?? 0) + 1);
-  return [...counts].map(([phase, count]) => ({ phase, count }));
-}

@@ -14,6 +14,12 @@ export function campaignPath(
   return section === 'home' ? base : `${base}/${section}`;
 }
 
+/** Militia, optionally with one page entry selected (`?section=people`). */
+export function militiaPath(campaignId: string, entry?: string): string {
+  const path = campaignPath(campaignId, 'militia');
+  return entry ? `${path}?section=${encodeURIComponent(entry)}` : path;
+}
+
 export type PhaseView =
   | 'upkeep'
   | 'activity'

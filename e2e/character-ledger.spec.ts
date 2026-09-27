@@ -30,8 +30,11 @@ test('players share character and officer assignment changes', async ({
   await expect(
     players.gm.getByRole('row').filter({ hasText: 'Nara' }),
   ).toContainText('CHA 16');
-  await openCampaignSection(player, 'militia');
-  await player.getByRole('button', { name: /^People & officers/ }).click();
+  // Characters & officers links straight to the People & officers fallback.
+  await player
+    .getByRole('link', { name: 'People & officers', exact: true })
+    .click();
+  await expect(player).toHaveURL(/\/militia\?section=people$/);
   await player
     .getByRole('button', { name: 'Correct people & officers', exact: true })
     .click();

@@ -1,13 +1,17 @@
 import type { FieldPath } from 'react-hook-form';
 import type { MilitiaSetup } from '~/lib/canonical-setup';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
-import type { MilitiaSectionKey } from '~/lib/militia-correction-sections';
+import type {
+  MilitiaEntryKey,
+  MilitiaSectionKey,
+} from '~/lib/militia-correction-sections';
 
-// The sections with their own isolated correction, and the controls of each
-// by form path, for the linked error summary. Every other correctable
-// section still opens the temporary full editor until its replacement ships.
+// The controls of each correction by form path, for the linked error
+// summary: the nine sections and the People & officers fallback.
 
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
+/** A Militia page entry with a correction: all but the read-only week. */
+export type CorrectableEntry = Exclude<MilitiaEntryKey, 'weekCarried'>;
 export type FieldLabel = {
   label: string;
   numeric?: boolean;
@@ -39,8 +43,17 @@ const economyRows = (
   list: 'items' | 'caches' | 'orders' | 'markets',
 ) => snapshot.economy?.[list].length ?? 0;
 
-const sectionFields: Partial<
-  Record<MilitiaSectionKey, (snapshot: Snapshot) => FieldLabels>
+const snapshotRows = (
+  path: string,
+  count: number,
+  row: string,
+  fields: FieldLabels,
+) =>
+  rowFields(`${snapshotPath}.${path}`, count, (at) => `${row} ${at}`, fields);
+
+const sectionFields: Record<
+  CorrectableEntry,
+  (snapshot: Snapshot, names: ReadonlyMap<string, string>) => FieldLabels
 > = {
   values: () => ({
     [`${snapshotPath}.focus`]: { label: 'Focus' },
@@ -166,18 +179,71 @@ const sectionFields: Partial<
         contraband: { label: 'contraband allowed' },
       },
     ),
+  characterConditions: (snapshot) =>
+    snapshotRows(
+      'characterActions.people',
+      snapshot.characterActions?.people.length ?? 0,
+      'Character condition',
+      {
+        characterId: { label: 'character' },
+        status: { label: 'condition' },
+        location: { label: 'location' },
+        'location.settlementId': { label: 'refuge settlement' },
+        'location.location': { label: 'location description' },
+        directRescueRequired: { label: 'PCs must perform rescue' },
+        'capture.source': { label: 'capture source' },
+        'capture.week': { label: 'captured week', numeric: true },
+        rescuedWeek: { label: 'rescued week', numeric: true },
+        restoredWeek: { label: 'restored week', numeric: true },
+      },
+    ),
+  carriedBenefits: (snapshot) => ({
+    ...snapshotRows(
+      'eventBenefits.skills',
+      snapshot.eventBenefits?.skills.length ?? 0,
+      'Skill benefit',
+      {
+        characterIds: { label: 'benefiting characters' },
+        skills: { label: 'affected skills' },
+        bonusType: { label: 'bonus type' },
+        value: { label: 'skill bonus', numeric: true },
+        settlementId: { label: 'benefit settlement' },
+        afterDark: { label: 'only after dark' },
+        startsWeek: { label: 'starts week', numeric: true },
+        endsWeek: { label: 'ends week', numeric: true },
+      },
+    ),
+    ...snapshotRows(
+      'eventBenefits.markets',
+      snapshot.eventBenefits?.markets.length ?? 0,
+      'Market Day benefit',
+      {
+        settlementIds: { label: 'discount settlements' },
+        startsWeek: { label: 'starts week', numeric: true },
+        endsWeek: { label: 'ends week', numeric: true },
+      },
+    ),
+  }),
+  // Each roster person is named, as their entry in the fallback is.
+  people: (snapshot, names) => {
+    const labels: FieldLabels = {};
+    snapshot.roster.people.forEach((person, index) => {
+      const name = names.get(person.characterId) ?? `Person ${index + 1}`;
+      const path = `${snapshotPath}.roster.people.${index}`;
+      labels[`${path}.kind`] = { label: `${name} character kind` };
+      labels[`${path}.hitDice`] = { label: `${name} Hit Dice`, numeric: true };
+    });
+    return labels;
+  },
 };
 
-export function hasSectionEditor(section: MilitiaSectionKey) {
-  return section in sectionFields;
-}
-
-/** The section's controls in the form, labelled for the error summary. */
+/** The correction's controls in the form, labelled for the error summary. */
 export function sectionFieldLabels(
-  section: MilitiaSectionKey,
+  entry: CorrectableEntry,
   snapshot: Snapshot,
+  names: ReadonlyMap<string, string> = new Map(),
 ): FieldLabels {
-  return sectionFields[section]?.(snapshot) ?? {};
+  return sectionFields[entry](snapshot, names);
 }
 
 /** The form path of a list section's rows. */

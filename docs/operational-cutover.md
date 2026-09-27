@@ -48,7 +48,7 @@ backup restore is destructive and must target only the authorized deployment.
 The isolated acceptance test deliberately discards synthetic work to exercise
 restoration; this does not authorize discarding real work after reopening.
 
-The correction form updates canonical source with a revision check and a required
+Militia corrections update canonical source with a revision check and a required
 reason. Character edits also update that same source transactionally. Legacy week
 writers stay disabled after activation; the legacy source is retained as historical
 migration evidence, rather than kept in sync with new gameplay.

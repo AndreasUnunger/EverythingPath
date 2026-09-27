@@ -21,7 +21,6 @@ import { Separator } from '~/components/ui/separator';
 import type { MilitiaEntryKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
 import { FactsView } from './facts-view';
-import { FullCorrectionView } from './full-correction';
 import {
   MissingReferences,
   RulesWarnings,
@@ -161,11 +160,7 @@ function Detail({
     return (
       <div className="space-y-4">
         <Feedback feedback={page.feedback} />
-        {correction.kind === 'section' ? (
-          <SectionCorrectionView correction={correction} wide={wide} />
-        ) : (
-          <FullCorrectionView correction={correction} />
-        )}
+        <SectionCorrectionView correction={correction} wide={wide} />
       </div>
     );
   return (

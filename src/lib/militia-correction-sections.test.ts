@@ -5,10 +5,23 @@ import {
   MILITIA_SECTION_KEYS,
   mergeSection,
   militiaEntryForLocation,
+  parseMilitiaEntry,
   sectionKey,
   sectionValue,
   type MilitiaSectionKey,
 } from './militia-correction-sections';
+import { militiaPath } from './campaign-routes';
+
+test('a Militia address selects a page entry by its key; anything else selects none', () => {
+  expect(militiaPath('c 1', 'people')).toBe(
+    '/campaigns/c%201/militia?section=people',
+  );
+  expect(militiaPath('c1')).toBe('/campaigns/c1/militia');
+  expect(parseMilitiaEntry('people')).toBe('people');
+  expect(parseMilitiaEntry('carriedBenefits')).toBe('carriedBenefits');
+  for (const value of [null, '', 'toString', 'ledger'])
+    expect(parseMilitiaEntry(value)).toBeUndefined();
+});
 
 const snapshot = () => acceptedCampaignSetup('officer').state.militiaSnapshot;
 

@@ -360,3 +360,108 @@ export function namedItemReferences(
     ];
   });
 }
+
+const sourcePath = 'state.militiaSnapshot';
+const conditionReference = new RegExp(
+  `^${sourcePath}\\.characterActions\\.people\\.(\\d+)\\.(characterId|location)$`,
+);
+const benefitReference = new RegExp(
+  `^(${sourcePath}\\.eventBenefits\\.(skills|markets)\\.(\\d+)\\.(settlementId|characterIds|settlementIds))(?:\\.(\\d+))?$`,
+);
+const duplicateConditions = `${sourcePath}.characterActions.people`;
+
+type NamedReference = {
+  /** The control that fixes it: the row's field, or its whole choice list. */
+  field: string;
+  row: string;
+  missing: MissingReference;
+};
+
+// The settlement or character a condition or carried benefit names at a
+// form field path, with the row's label as its editor shows it.
+function sourceReferenceAt(
+  field: string,
+  snapshot: Snapshot,
+): NamedReference | null {
+  const condition = conditionReference.exec(field);
+  if (condition) {
+    const [, row, key] = condition;
+    const person = snapshot.characterActions?.people[Number(row)];
+    if (!person) return null;
+    const missing: MissingReference | null =
+      key === 'characterId'
+        ? { kind: 'character', id: person.characterId }
+        : person.location.kind === 'refuge'
+          ? { kind: 'settlement', id: person.location.settlementId }
+          : null;
+    return missing
+      ? { field, row: `Character condition ${Number(row) + 1}`, missing }
+      : null;
+  }
+  const benefit = benefitReference.exec(field);
+  if (!benefit) return null;
+  const [, list, family, row, key, position] = benefit;
+  const at = Number(row);
+  const label =
+    family === 'skills'
+      ? `Skill benefit ${at + 1}`
+      : `Market Day benefit ${at + 1}`;
+  const skill = family === 'skills' ? snapshot.eventBenefits?.skills[at] : null;
+  const market =
+    family === 'markets' ? snapshot.eventBenefits?.markets[at] : null;
+  const id =
+    key === 'settlementId'
+      ? skill?.settlementId
+      : key === 'characterIds'
+        ? skill?.characterIds[Number(position)]
+        : market?.settlementIds[Number(position)];
+  if (id === undefined || id === null) return null;
+  return {
+    field: list!,
+    row: label,
+    missing: {
+      kind: key === 'characterIds' ? 'character' : 'settlement',
+      id,
+    },
+  };
+}
+
+/**
+ * Names the reference errors of Character conditions and Carried benefits
+ * in place of the general message ("Skill benefit 1 names Old Mill, which
+ * is no longer in the militia."), located at the control that fixes them,
+ * and names the character with more than one condition. Others pass
+ * through. `snapshot` holds the rows the fields locate.
+ */
+export function namedSourceReferences(
+  descriptors: readonly SetupErrorDescriptor[],
+  snapshot: Snapshot,
+  names: IdentityNames,
+): SetupErrorDescriptor[] {
+  return descriptors.map((descriptor) => {
+    if (!descriptor.field) return descriptor;
+    if (descriptor.field === duplicateConditions) {
+      const ids = (snapshot.characterActions?.people ?? []).map(
+        (person) => person.characterId,
+      );
+      const twice = ids.filter((id, index) => ids.indexOf(id) !== index);
+      if (twice.length === 0) return descriptor;
+      const who = listed(
+        [...new Set(twice)].map((id) =>
+          missingName({ kind: 'character', id }, names),
+        ),
+      );
+      return {
+        ...descriptor,
+        message: `${capitalized(who)} ${twice.length === 1 ? 'has' : 'have'} more than one character condition.`,
+      };
+    }
+    const reference = sourceReferenceAt(descriptor.field, snapshot);
+    if (!reference) return descriptor;
+    return {
+      ...descriptor,
+      field: reference.field,
+      message: `${reference.row} names ${missingName(reference.missing, names)}, which is no longer in the militia.`,
+    };
+  });
+}

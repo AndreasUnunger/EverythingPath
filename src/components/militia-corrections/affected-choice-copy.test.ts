@@ -7,6 +7,7 @@ import {
   describeChoice,
   identityNames,
   namedItemReferences,
+  namedSourceReferences,
   neededByNote,
   restoreFirstNote,
   restoreLabel,
@@ -158,4 +159,108 @@ test('an item a cache or order holds is named with what holds it, whether this c
     'Keep Ring: Cache at Forest holds it.',
     unknown,
   ]);
+});
+
+test('a condition or carried benefit naming a settlement or character the militia lacks says which, at the list that fixes it', () => {
+  const { state } = acceptedCampaignSetup('officer');
+  const snapshot = structuredClone(state.militiaSnapshot);
+  snapshot.characterActions = {
+    people: [
+      {
+        characterId: 'officer',
+        status: 'hidden',
+        location: { kind: 'refuge', settlementId: 'mill' },
+        directRescueRequired: false,
+        capture: null,
+      },
+    ],
+  };
+  snapshot.eventBenefits = {
+    skills: [
+      {
+        benefitId: 'b-1',
+        sourceEventIds: ['e-1'],
+        characterIds: ['officer', 'nara'],
+        skills: ['diplomacy'],
+        bonusType: 'morale',
+        value: 2,
+        settlementId: 'mill',
+        afterDark: false,
+        startsWeek: 9,
+        endsWeek: 10,
+      },
+    ],
+    markets: [
+      {
+        benefitId: 'b-2',
+        sourceEventIds: ['e-2'],
+        settlementIds: ['town', 'mill'],
+        discountPercent: 5,
+        startsWeek: 9,
+        endsWeek: 9,
+      },
+    ],
+  };
+  // This device saw the Old Mill before another player removed it.
+  const seen = rememberFacts(noCapturedFacts, {
+    ...snapshot,
+    settlements: [
+      ...snapshot.settlements,
+      { ...snapshot.settlements[0]!, settlementId: 'mill', name: 'Old Mill' },
+    ],
+  });
+  const names = identityNames(snapshot, seen, new Map([['nara', 'Nara']]));
+  const unknown = 'Unknown referenced entity';
+  const path = 'state.militiaSnapshot';
+  const named = namedSourceReferences(
+    [
+      `${path}.characterActions.people.0.location`,
+      `${path}.eventBenefits.skills.0.settlementId`,
+      `${path}.eventBenefits.skills.0.characterIds.1`,
+      `${path}.eventBenefits.markets.0.settlementIds.1`,
+      `${path}.economy.orders.0.settlementId`,
+    ].map((field) => ({
+      field,
+      message: unknown,
+      kind: 'refinement' as const,
+    })),
+    snapshot,
+    names,
+  );
+  expect(named.map(({ field, message }) => [field, message])).toEqual([
+    [
+      `${path}.characterActions.people.0.location`,
+      'Character condition 1 names Old Mill, which is no longer in the militia.',
+    ],
+    [
+      `${path}.eventBenefits.skills.0.settlementId`,
+      'Skill benefit 1 names Old Mill, which is no longer in the militia.',
+    ],
+    [
+      `${path}.eventBenefits.skills.0.characterIds`,
+      'Skill benefit 1 names Nara, which is no longer in the militia.',
+    ],
+    [
+      `${path}.eventBenefits.markets.0.settlementIds`,
+      'Market Day benefit 1 names Old Mill, which is no longer in the militia.',
+    ],
+    [`${path}.economy.orders.0.settlementId`, unknown],
+  ]);
+  // Two conditions for one character name that character.
+  snapshot.characterActions.people.push({
+    ...snapshot.characterActions.people[0]!,
+  });
+  expect(
+    namedSourceReferences(
+      [
+        {
+          field: `${path}.characterActions.people`,
+          message: 'Duplicate character state',
+          kind: 'refinement',
+        },
+      ],
+      snapshot,
+      identityNames(snapshot, seen, new Map([['officer', 'Ada']])),
+    ).map(({ message }) => message),
+  ).toEqual(['Ada has more than one character condition.']);
 });

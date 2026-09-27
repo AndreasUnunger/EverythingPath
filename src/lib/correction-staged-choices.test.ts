@@ -3,9 +3,13 @@ import { upkeepFixture } from '../../tests/rules/upkeep-fixture';
 import type { UpkeepSnapshot } from './rules-upkeep';
 import {
   correctionImpact,
-  correctionStagedChoices,
   stagedReferences,
 } from './correction-staged-choices';
+
+// The phase of each staged choice a correction newly leaves without its
+// subject.
+const affectedPhases = (...args: Parameters<typeof correctionImpact>) =>
+  correctionImpact(...args).added.map(({ phase }) => phase);
 
 function withScouts(snapshot: UpkeepSnapshot): UpkeepSnapshot {
   return {
@@ -34,17 +38,15 @@ test('removing a team with a staged Upkeep decision names the affected phase', (
     { teamId: 'scouts', decision: 'recover', costCopper: 3000 },
   ];
   const edited = { ...current, roster: { ...current.roster, teams: [] } };
-  expect(correctionStagedChoices(draft, current, edited)).toEqual([
-    { phase: 'upkeep', count: 1 },
-  ]);
+  expect(affectedPhases(draft, current, edited)).toEqual(['upkeep']);
   // Keeping the team affects nothing.
-  expect(correctionStagedChoices(draft, current, current)).toEqual([]);
+  expect(affectedPhases(draft, current, current)).toEqual([]);
 });
 
 test('references that were already broken before the correction are not blamed on it', () => {
   const { draft, snapshot } = upkeepFixture();
   draft.upkeep.teamDecisions = [{ teamId: 'gone', decision: 'leave' }];
-  expect(correctionStagedChoices(draft, snapshot, snapshot)).toEqual([]);
+  expect(affectedPhases(draft, snapshot, snapshot)).toEqual([]);
 });
 
 test('an Activity choice aimed at the removed team is attributed to Activity', () => {
@@ -58,9 +60,9 @@ test('an Activity choice aimed at the removed team is attributed to Activity', (
   };
   draft.upkeep.teamDecisions = [{ teamId: 'scouts', decision: 'leave' }];
   const edited = { ...current, roster: { ...current.roster, teams: [] } };
-  expect(correctionStagedChoices(draft, current, edited)).toEqual([
-    { phase: 'upkeep', count: 1 },
-    { phase: 'activity', count: 1 },
+  expect(affectedPhases(draft, current, edited)).toEqual([
+    'upkeep',
+    'activity',
   ]);
 });
 
@@ -199,12 +201,6 @@ test('settlement references are located by the choice that repairs them', () => 
     eventId: 'rolled',
     eventType: 'theft',
   });
-  expect(correctionStagedChoices(draft, current, edited)).toEqual([
-    { phase: 'upkeep', count: 1 },
-    { phase: 'activity', count: 3 },
-    { phase: 'event', count: 1 },
-    { phase: 'summary', count: 1 },
-  ]);
 });
 
 test('already missing references stay apart from what the correction newly breaks', () => {
