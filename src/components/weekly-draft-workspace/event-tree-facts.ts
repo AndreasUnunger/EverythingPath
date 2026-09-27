@@ -10,6 +10,7 @@ import {
 import type { EventOutcomeProjection } from '~/lib/rules-event-outcomes';
 import {
   isCandidateChoice,
+  isLegacyCandidateExpansion,
   planEventTopology,
   uniquePositions,
   type EventTopologyPlan,
@@ -77,6 +78,7 @@ const STATUS_LABELS: Record<EventBlockStatus, string> = {
   not_chosen: 'Not chosen',
   not_used: 'Not used',
   needs_repair: 'Needs repair',
+  legacy: 'No longer used',
 };
 const STATUS_TEXT: Record<EventBlockStatus, string> = {
   preparing: 'Preparing this event',
@@ -95,6 +97,8 @@ const STATUS_TEXT: Record<EventBlockStatus, string> = {
   not_used: 'Kept on record; not used this week',
   needs_repair:
     'More events are recorded here than the rules ask for; clear the extra one',
+  legacy:
+    'From an earlier Roll Twice on a candidate, which is now rerolled in its own die. Kept on record, not used; clear its roll and inputs to remove it',
 };
 // The corpus rules for the event a complete table roll names. Its Twice
 // clause is included only when that clause is what applies to this block (a
@@ -363,7 +367,12 @@ export function eventTreeBlocks({
     const id = entry.event.eventId;
     const item = factsById.get(id)!;
     if (accepted && !accepted.has(id)) return 'preparing';
-    if (!active.has(id)) return surplus ? 'needs_repair' : 'not_used';
+    if (!active.has(id))
+      return isLegacyCandidateExpansion(draft, id)
+        ? 'legacy'
+        : surplus
+          ? 'needs_repair'
+          : 'not_used';
     if (overfull.has(id)) return 'needs_repair';
     const table = normalizeRawRoll(
       entry.event.tableRoll,
@@ -372,22 +381,20 @@ export function eventTreeBlocks({
     if (table.status !== 'complete') return 'awaiting_roll';
     if (item.negated) return 'sabotaged';
     const group = groupOfParent.get(id);
+    // A Roll Twice rerolled in its own die, chosen candidate or not.
+    if (group?.kind === 'replacement' && group.reroll)
+      return group.eventIds.length > 0 ? 'rerolled' : 'reroll';
     const choice = entry.owner?.choice;
     const candidateRoot =
       isCandidateChoice(choice) && entry.event.origin.kind === 'rolled';
     if (candidateRoot && choice.selectedEventId !== id)
-      return group?.kind === 'replacement' && !group.reroll
+      return group?.kind === 'replacement'
         ? 'cannot_occur'
         : choice.selectedEventId
           ? 'not_chosen'
           : 'candidate';
     if (group?.kind === 'roll_twice') return 'two_more';
-    if (group?.kind === 'replacement')
-      return group.reroll
-        ? group.eventIds.length > 0
-          ? 'rerolled'
-          : 'reroll'
-        : 'cannot_occur';
+    if (group?.kind === 'replacement') return 'cannot_occur';
     if (item.selected)
       return item.mode === 'twice'
         ? 'twice'
@@ -419,6 +426,22 @@ export function eventTreeBlocks({
     const isSurplus = repair.surplus(id);
     const current = status(entry, isSurplus);
     const children = childrenOf(entry).map((child) => byId.get(child.eventId)!);
+    // Active children, restorable inactive ones, and an older candidate
+    // expansion the rules never use again.
+    const nested: Pick<EventBlock, 'children' | 'hidden' | 'legacy'> = {
+      children: [],
+      hidden: [],
+      legacy: [],
+    };
+    for (const child of children) {
+      const childId = child.event.eventId;
+      const list = active.has(childId)
+        ? nested.children
+        : isLegacyCandidateExpansion(draft, childId)
+          ? nested.legacy
+          : nested.hidden;
+      list.push(block(child, repair));
+    }
     const choice = entry.owner?.choice;
     return {
       eventId: id,
@@ -442,12 +465,9 @@ export function eventTreeBlocks({
               chosen: choice.selectedEventId === id,
             }
           : null,
-      children: children
-        .filter((child) => active.has(child.event.eventId))
-        .map((child) => block(child, repair)),
-      hidden: children
-        .filter((child) => !active.has(child.event.eventId))
-        .map((child) => block(child, repair)),
+      children: nested.children,
+      hidden: nested.hidden,
+      legacy: nested.legacy,
       surplus: isSurplus || overfull.has(id),
       removal: repair.removal(id),
       issues: issues([...item.requirements, ...item.warnings]),

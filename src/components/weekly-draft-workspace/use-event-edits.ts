@@ -36,7 +36,8 @@ export function useEventEdits(
     const blocks = new Map<string, EventBlock>();
     const collect = (block: EventBlock) => {
       blocks.set(block.eventId, block);
-      for (const child of [...block.children, ...block.hidden]) collect(child);
+      for (const child of [...block.children, ...block.hidden, ...block.legacy])
+        collect(child);
     };
     for (const block of [
       ...(view.automatic?.blocks ?? []),

@@ -506,7 +506,13 @@ function selectEventReplacements(
     {
       parentEventId: event.eventId,
       tree: allOccurrences,
-      automatic: isAutomaticOccurrence(allOccurrences, event.eventId),
+      inPlace:
+        isAutomaticOccurrence(allOccurrences, event.eventId) ||
+        result.guarantees.some((guarantee) =>
+          guarantee.candidates.some(
+            (candidate) => candidate.eventId === event.eventId,
+          ),
+        ),
       expanded,
     },
   );

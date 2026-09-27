@@ -319,6 +319,7 @@ If treasury is below minimum:
 - Cost: minimum treasury value.
 - Also increase Notoriety by `+1d6`.
 - Effect: event guaranteed this week; GM rolls twice and PCs choose event.
+- Application departure (approved in [#108](https://github.com/AndreasUnunger/EverythingPath/issues/108#issuecomment-5837858373), Ruleset Version 7): a Roll Twice on either rolled event, chosen or not, is rerolled in its own die and never expands, even as the phase's first Roll Twice. The `Event: Roll Twice` text is unchanged; weeks confirmed under earlier Ruleset Versions keep their recorded expansion.
 
 ## Action: Knowledge Check
 
@@ -339,6 +340,7 @@ If treasury is below minimum:
 - Guarantees an event this week.
 - GM rolls twice on event table.
 - Any player chooses which of the two rolled events occurs (review decision A13.chooser).
+- Application departure (Ruleset Version 7): as for Guarantee Event, a Roll Twice on either rolled event is rerolled in its own die and never expands.
 
 ## Action: Recruit Team
 
