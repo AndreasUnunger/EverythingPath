@@ -38,6 +38,20 @@ function fieldOptions(view: Summary) {
     ],
   };
 }
+/** The complete ordered list with one adjustment swapped with its neighbour. */
+export function moveAdjustment(
+  adjustments: readonly Adjustment[],
+  index: number,
+  offset: -1 | 1,
+) {
+  const next = [...adjustments];
+  const target = index + offset;
+  const [moved, neighbour] = [next[index], next[target]];
+  if (!moved || !neighbour) return next;
+  next[target] = moved;
+  next[index] = neighbour;
+  return next;
+}
 /**
  * The editor and ordering controls of one staged Table Adjustment; every
  * change saves the complete ordered list.
@@ -94,22 +108,14 @@ export function AdjustmentControls({
         <Button
           variant="outline"
           disabled={disabled || index === 0}
-          onClick={() => {
-            const next = [...view.adjustments];
-            [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
-            save(next);
-          }}
+          onClick={() => save(moveAdjustment(view.adjustments, index, -1))}
         >
           Move adjustment {index + 1} earlier
         </Button>
         <Button
           variant="outline"
           disabled={disabled || index === view.adjustments.length - 1}
-          onClick={() => {
-            const next = [...view.adjustments];
-            [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
-            save(next);
-          }}
+          onClick={() => save(moveAdjustment(view.adjustments, index, 1))}
         >
           Move adjustment {index + 1} later
         </Button>

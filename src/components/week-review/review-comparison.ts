@@ -47,120 +47,187 @@ function omit<T extends object>(value: T, ...keys: string[]) {
   );
 }
 
-function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
-  const snapshot = state.militiaSnapshot;
-  const context = state.context;
-  const facts: Fact[] = [];
-  const add = (
-    key: string,
-    group: string,
-    label: string,
-    value: unknown,
-    text: string,
-    absent = 'None',
-  ) => facts.push({ key, group, label, value, text, absent });
-  const militia = (key: string, label: string, value: unknown, text: string) =>
-    add(`militia:${key}`, 'Militia', label, value, text);
+type Snapshot = ComparedState['militiaSnapshot'];
+type Context = ComparedState['context'];
 
-  militia('rank', 'Rank', snapshot.rank, String(snapshot.rank));
-  militia('training', 'Training', snapshot.training, String(snapshot.training));
-  militia(
-    'treasury',
-    'Treasury',
-    snapshot.treasuryCopper,
-    gp(snapshot.treasuryCopper),
-  );
-  militia(
-    'notoriety',
-    'Notoriety',
-    snapshot.notoriety,
-    String(snapshot.notoriety),
-  );
-  militia('focus', 'Focus', snapshot.focus, snapshot.focus ?? 'None');
-
-  for (const team of snapshot.roster.teams) {
-    const key = `team:${team.teamId}`;
-    add(
-      `${key}:status`,
-      'Teams',
-      team.name,
-      team.status,
-      words(team.status),
-      'Not on roster',
-    );
-    add(
-      `${key}:type`,
-      'Teams',
-      `${team.name} · type`,
-      team.teamType,
-      words(team.teamType),
-      'Not on roster',
-    );
-    add(
-      `${key}:manager`,
-      'Teams',
-      `${team.name} · manager`,
-      team.managerCharacterId,
-      team.managerCharacterId
-        ? names.character(team.managerCharacterId)
-        : 'None',
-      'Not on roster',
-    );
-    add(
-      `${key}:details`,
-      'Teams',
-      `${team.name} · details`,
-      omit(team, 'teamId', 'name', 'status', 'teamType', 'managerCharacterId'),
+function fact(
+  key: string,
+  group: string,
+  label: string,
+  value: unknown,
+  text: string,
+  absent = 'None',
+): Fact {
+  return { key, group, label, value, text, absent };
+}
+type EntitySpec<T> = {
+  prefix: string;
+  group: string;
+  identity: keyof T & string;
+  /** Fields already shown in the label, left out of the value text. */
+  labelled?: (keyof T & string)[];
+  label: (entity: T) => string;
+  absent?: string;
+};
+/**
+ * Recorded entities compared as a whole: identity is dropped from the value
+ * and, with any labelled fields, from the readable text.
+ */
+function entityFacts<T extends object>(
+  entities: readonly T[] | undefined,
+  spec: EntitySpec<T>,
+  names: ReviewNames,
+): Fact[] {
+  return (entities ?? []).map((entity) =>
+    fact(
+      `${spec.prefix}:${String(entity[spec.identity])}`,
+      spec.group,
+      spec.label(entity),
+      omit(entity, spec.identity),
       describeValue(
-        omit(
-          team,
-          'teamId',
-          'name',
-          'status',
-          'teamType',
-          'managerCharacterId',
-        ),
+        omit(entity, spec.identity, ...(spec.labelled ?? [])),
         names,
       ),
-      'Not on roster',
+      spec.absent,
+    ),
+  );
+}
+
+function militiaFacts(snapshot: Snapshot): Fact[] {
+  const militia = (key: string, label: string, value: unknown, text: string) =>
+    fact(`militia:${key}`, 'Militia', label, value, text);
+  return [
+    militia('rank', 'Rank', snapshot.rank, String(snapshot.rank)),
+    militia(
+      'training',
+      'Training',
+      snapshot.training,
+      String(snapshot.training),
+    ),
+    militia(
+      'treasury',
+      'Treasury',
+      snapshot.treasuryCopper,
+      gp(snapshot.treasuryCopper),
+    ),
+    militia(
+      'notoriety',
+      'Notoriety',
+      snapshot.notoriety,
+      String(snapshot.notoriety),
+    ),
+    militia('focus', 'Focus', snapshot.focus, snapshot.focus ?? 'None'),
+  ];
+}
+
+function teamFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+  const absent = 'Not on roster';
+  return snapshot.roster.teams.flatMap((team) => {
+    const key = `team:${team.teamId}`;
+    const manager = team.managerCharacterId;
+    const details = omit(
+      team,
+      'teamId',
+      'name',
+      'status',
+      'teamType',
+      'managerCharacterId',
     );
-  }
-  for (const settlement of snapshot.settlements) {
+    return [
+      fact(
+        `${key}:status`,
+        'Teams',
+        team.name,
+        team.status,
+        words(team.status),
+        absent,
+      ),
+      fact(
+        `${key}:type`,
+        'Teams',
+        `${team.name} · type`,
+        team.teamType,
+        words(team.teamType),
+        absent,
+      ),
+      fact(
+        `${key}:manager`,
+        'Teams',
+        `${team.name} · manager`,
+        manager,
+        manager ? names.character(manager) : 'None',
+        absent,
+      ),
+      fact(
+        `${key}:details`,
+        'Teams',
+        `${team.name} · details`,
+        details,
+        describeValue(details, names),
+        absent,
+      ),
+    ];
+  });
+}
+
+function settlementFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+  return snapshot.settlements.flatMap((settlement) => {
     const key = `settlement:${settlement.settlementId}`;
-    add(
-      `${key}:reputation`,
-      'Settlements',
-      settlement.name,
-      settlement.reputation,
-      settlement.reputation ? words(settlement.reputation) : 'Unknown',
-    );
-    const rest = omit(settlement, 'settlementId', 'name', 'reputation');
-    add(
-      `${key}:details`,
-      'Settlements',
-      `${settlement.name} · details`,
-      rest,
-      describeValue(rest, names),
-    );
-  }
-  for (const person of snapshot.roster.people)
-    add(
+    const reputation = settlement.reputation;
+    const details = omit(settlement, 'settlementId', 'name', 'reputation');
+    return [
+      fact(
+        `${key}:reputation`,
+        'Settlements',
+        settlement.name,
+        reputation,
+        reputation ? words(reputation) : 'Unknown',
+      ),
+      fact(
+        `${key}:details`,
+        'Settlements',
+        `${settlement.name} · details`,
+        details,
+        describeValue(details, names),
+      ),
+    ];
+  });
+}
+
+function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+  const people = snapshot.roster.people.map((person) =>
+    fact(
       `person:${person.characterId}`,
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
       `${personKinds[person.kind] ?? words(person.kind)}${person.hitDice === null ? '' : ` · ${person.hitDice} Hit Dice`}`,
       'Not on roster',
-    );
+    ),
+  );
+  const characters = snapshot.characters.map((character) =>
+    fact(
+      `character:${character.characterId}`,
+      'Characters',
+      names.character(character.characterId),
+      omit(character, 'characterId'),
+      `Level ${character.level} · Str ${character.strength} · Dex ${character.dexterity} · Con ${character.constitution} · Int ${character.intelligence} · Wis ${character.wisdom} · Cha ${character.charisma}${character.isActive ? '' : ' · Inactive'}`,
+    ),
+  );
+  return [...people, ...officerFacts(snapshot, names), ...characters];
+}
+
+/** One row per officer role, compared by its sorted holders. */
+function officerFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
   const roles = [
     ...new Set(snapshot.roster.officers.map((entry) => entry.role)),
   ];
-  for (const role of roles) {
+  return roles.map((role) => {
     const holders = snapshot.roster.officers
       .filter((entry) => entry.role === role)
       .map((entry) => entry.characterId)
       .sort();
-    add(
+    return fact(
       `officer:${role}`,
       'Officers',
       words(role),
@@ -168,138 +235,199 @@ function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
       holders.map((id) => names.character(id)).join(', '),
       'Unassigned',
     );
-  }
-  for (const character of snapshot.characters) {
-    const rest = omit(character, 'characterId');
-    add(
-      `character:${character.characterId}`,
-      'Characters',
-      names.character(character.characterId),
-      rest,
-      `Level ${character.level} · Str ${character.strength} · Dex ${character.dexterity} · Con ${character.constitution} · Int ${character.intelligence} · Wis ${character.wisdom} · Cha ${character.charisma}${character.isActive ? '' : ' · Inactive'}`,
-    );
-  }
-  for (const bonus of snapshot.bonuses)
-    add(
-      `bonus:${bonus.bonusId}`,
-      'Bonuses',
-      `${words(bonus.check)} bonus · ${names.source(bonus.source)}`,
-      omit(bonus, 'bonusId'),
-      describeValue(omit(bonus, 'bonusId', 'check'), names),
-    );
-  for (const item of snapshot.economy?.items ?? [])
-    add(
-      `item:${item.itemId}`,
-      'Assets and delivery',
-      item.name,
-      omit(item, 'itemId'),
-      describeValue(omit(item, 'itemId', 'name'), names),
-    );
-  for (const cache of snapshot.economy?.caches ?? [])
-    add(
-      `cache:${cache.cacheId}`,
-      'Assets and delivery',
-      `Cache at ${cache.location}`,
-      omit(cache, 'cacheId'),
-      describeValue(omit(cache, 'cacheId', 'location'), names),
-    );
-  for (const market of snapshot.economy?.markets ?? [])
-    add(
-      `market:${market.marketId}`,
-      'Assets and delivery',
-      `${words(market.source)} · ${names.settlement(market.settlementId)}`,
-      omit(market, 'marketId'),
-      describeValue(omit(market, 'marketId', 'source', 'settlementId'), names),
-    );
-  for (const order of snapshot.economy?.orders ?? [])
-    add(
-      `economy-order:${order.orderId}`,
-      'Assets and delivery',
-      `Order · ${names.item(order.itemId)}`,
-      omit(order, 'orderId'),
-      describeValue(omit(order, 'orderId', 'itemId'), names),
-    );
-  for (const person of snapshot.characterActions?.people ?? [])
-    add(
-      `condition:${person.characterId}`,
-      'Character conditions',
-      names.character(person.characterId),
-      omit(person, 'characterId'),
-      describeValue(omit(person, 'characterId'), names),
-    );
-  for (const benefit of [
+  });
+}
+
+function bonusFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+  return entityFacts(
+    snapshot.bonuses,
+    {
+      prefix: 'bonus',
+      group: 'Bonuses',
+      identity: 'bonusId',
+      labelled: ['check'],
+      label: (bonus) =>
+        `${words(bonus.check)} bonus · ${names.source(bonus.source)}`,
+    },
+    names,
+  );
+}
+
+function economyFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+  const economy = snapshot.economy;
+  const group = 'Assets and delivery';
+  return [
+    ...entityFacts(
+      economy?.items,
+      {
+        prefix: 'item',
+        group,
+        identity: 'itemId',
+        labelled: ['name'],
+        label: (item) => item.name,
+      },
+      names,
+    ),
+    ...entityFacts(
+      economy?.caches,
+      {
+        prefix: 'cache',
+        group,
+        identity: 'cacheId',
+        labelled: ['location'],
+        label: (cache) => `Cache at ${cache.location}`,
+      },
+      names,
+    ),
+    ...entityFacts(
+      economy?.markets,
+      {
+        prefix: 'market',
+        group,
+        identity: 'marketId',
+        labelled: ['source', 'settlementId'],
+        label: (market) =>
+          `${words(market.source)} · ${names.settlement(market.settlementId)}`,
+      },
+      names,
+    ),
+    ...entityFacts(
+      economy?.orders,
+      {
+        prefix: 'economy-order',
+        group,
+        identity: 'orderId',
+        labelled: ['itemId'],
+        label: (order) => `Order · ${names.item(order.itemId)}`,
+      },
+      names,
+    ),
+  ];
+}
+
+function characterEffectFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
+  const benefits = [
     ...(snapshot.eventBenefits?.skills ?? []),
     ...(snapshot.eventBenefits?.markets ?? []),
-  ])
-    add(
-      `benefit:${benefit.benefitId}`,
-      'Event benefits',
-      benefit.sourceEventIds.map((id) => names.event(id)).join(', ') ||
-        'Event benefit',
-      omit(benefit, 'benefitId'),
-      describeValue(omit(benefit, 'benefitId', 'sourceEventIds'), names),
-    );
+  ];
+  return [
+    ...entityFacts(
+      snapshot.characterActions?.people,
+      {
+        prefix: 'condition',
+        group: 'Character conditions',
+        identity: 'characterId',
+        label: (person) => names.character(person.characterId),
+      },
+      names,
+    ),
+    ...entityFacts(
+      benefits,
+      {
+        prefix: 'benefit',
+        group: 'Event benefits',
+        identity: 'benefitId',
+        labelled: ['sourceEventIds'],
+        label: (benefit) =>
+          benefit.sourceEventIds.map((id) => names.event(id)).join(', ') ||
+          'Event benefit',
+      },
+      names,
+    ),
+  ];
+}
 
-  // Week-start facts always exist; an optional one missing is unrecorded.
+// Week-start facts always exist; an optional one missing is unrecorded.
+function nextWeekFacts(context: Context, names: ReviewNames): Fact[] {
   const next = (key: string, label: string, value: unknown, text: string) =>
-    add(`context:${key}`, 'Next week', label, value, text, 'Not recorded');
-  next('startDay', 'Start day', context.startDay, String(context.startDay));
-  next(
-    'uneventfulCarry',
-    'Uneventful-week benefit',
-    context.uneventfulCarry,
-    context.uneventfulCarry ? 'Yes' : 'No',
-  );
-  next(
-    'firstMilitiaWeek',
-    'Skip first Upkeep',
-    context.firstMilitiaWeek,
-    context.firstMilitiaWeek ? 'Yes' : 'No',
-  );
-  next(
-    'lastBuyoffWeek',
-    'Last buyoff',
-    context.lastBuyoffWeek,
-    context.lastBuyoffWeek === null ? 'None' : `Week ${context.lastBuyoffWeek}`,
-  );
-  if (context.operatedSettlementIds)
+    fact(`context:${key}`, 'Next week', label, value, text, 'Not recorded');
+  const yesNo = (value: boolean) => (value ? 'Yes' : 'No');
+  const operated = context.operatedSettlementIds;
+  return [
+    next('startDay', 'Start day', context.startDay, String(context.startDay)),
     next(
-      'operatedSettlementIds',
-      'Operating from',
-      [...context.operatedSettlementIds].sort(),
-      context.operatedSettlementIds
-        .map((id) => names.settlement(id))
-        .join(', ') || 'None',
-    );
-  for (const event of context.carriedEvents) {
-    const rest = omit(event, 'eventId', 'eventType', 'order');
-    add(
-      `carried:${event.eventId}`,
-      'Persistent events',
-      names.event(event.eventId),
-      omit(event, 'eventId'),
-      describeValue(rest, names),
-      'Not carried',
-    );
-  }
-  for (const effect of context.queuedEffects)
-    add(
-      `queued:${effect.effectId}`,
-      'Queued effects',
-      names.event(effect.sourceId),
-      omit(effect, 'effectId'),
-      `${describeValue(effect.effect, names)} · weeks ${effect.startsWeek}–${effect.endsWeek}`,
-      'Not queued',
-    );
-  for (const order of context.orders)
-    add(
-      `order:${order.orderId}`,
-      'Orders',
-      `Order · ${names.item(order.itemId)}`,
-      omit(order, 'orderId'),
-      describeValue(omit(order, 'orderId', 'itemId'), names),
-    );
-  return facts;
+      'uneventfulCarry',
+      'Uneventful-week benefit',
+      context.uneventfulCarry,
+      yesNo(context.uneventfulCarry),
+    ),
+    next(
+      'firstMilitiaWeek',
+      'Skip first Upkeep',
+      context.firstMilitiaWeek,
+      yesNo(context.firstMilitiaWeek),
+    ),
+    next(
+      'lastBuyoffWeek',
+      'Last buyoff',
+      context.lastBuyoffWeek,
+      context.lastBuyoffWeek === null
+        ? 'None'
+        : `Week ${context.lastBuyoffWeek}`,
+    ),
+    ...(operated
+      ? [
+          next(
+            'operatedSettlementIds',
+            'Operating from',
+            [...operated].sort(),
+            operated.map((id) => names.settlement(id)).join(', ') || 'None',
+          ),
+        ]
+      : []),
+  ];
+}
+
+function carriedFacts(context: Context, names: ReviewNames): Fact[] {
+  return [
+    ...context.carriedEvents.map((event) =>
+      fact(
+        `carried:${event.eventId}`,
+        'Persistent events',
+        names.event(event.eventId),
+        omit(event, 'eventId'),
+        describeValue(omit(event, 'eventId', 'eventType', 'order'), names),
+        'Not carried',
+      ),
+    ),
+    ...context.queuedEffects.map((effect) =>
+      fact(
+        `queued:${effect.effectId}`,
+        'Queued effects',
+        names.event(effect.sourceId),
+        omit(effect, 'effectId'),
+        `${describeValue(effect.effect, names)} · weeks ${effect.startsWeek}–${effect.endsWeek}`,
+        'Not queued',
+      ),
+    ),
+    ...entityFacts(
+      context.orders,
+      {
+        prefix: 'order',
+        group: 'Orders',
+        identity: 'orderId',
+        labelled: ['itemId'],
+        label: (order) => `Order · ${names.item(order.itemId)}`,
+      },
+      names,
+    ),
+  ];
+}
+
+/** Every comparable fact of one state, in Result row order. */
+function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
+  const snapshot = state.militiaSnapshot;
+  return [
+    ...militiaFacts(snapshot),
+    ...teamFacts(snapshot, names),
+    ...settlementFacts(snapshot, names),
+    ...rosterFacts(snapshot, names),
+    ...bonusFacts(snapshot, names),
+    ...economyFacts(snapshot, names),
+    ...characterEffectFacts(snapshot, names),
+    ...nextWeekFacts(state.context, names),
+    ...carriedFacts(state.context, names),
+  ];
 }
 
 function cell(
@@ -316,8 +444,40 @@ function differs(a: ResultCell, b: ResultCell) {
   if (a.kind === 'absent' || b.kind === 'absent') return a.kind !== b.kind;
   return a.key !== b.key;
 }
-const text = (value: ResultCell) =>
-  value.kind === 'unavailable' ? 'Not available' : value.text;
+/** The readable text of a Result cell; an unknown column is never a value. */
+export function resultCellText(value: ResultCell) {
+  return value.kind === 'unavailable' ? 'Not available' : value.text;
+}
+function adjustmentDifference(
+  now: ResultCell,
+  baseline: ResultCell,
+  final: ResultCell,
+) {
+  if (!differs(baseline, final)) return null;
+  const from = resultCellText(baseline);
+  const to = resultCellText(final);
+  return differs(now, baseline) && !differs(now, final)
+    ? `Table Adjustments reverse this week’s change: ${from} returns to ${to}.`
+    : `Table Adjustments change the Rules Baseline ${from} to ${to}.`;
+}
+
+type Column = Map<string, Fact> | null;
+function compareFact(fact: Fact, columns: [Column, Column, Column]): ResultRow {
+  const [now, baseline, final] = columns.map((facts) =>
+    cell(facts?.get(fact.key), facts !== null, fact.absent),
+  ) as [ResultCell, ResultCell, ResultCell];
+  return {
+    key: fact.key,
+    group: fact.group,
+    label: fact.label,
+    now,
+    baseline,
+    final,
+    changed: differs(now, baseline) || differs(baseline, final),
+    finalDiffers: differs(baseline, final),
+    difference: adjustmentDifference(now, baseline, final),
+  };
+}
 
 export function compareWeekStates({
   now,
@@ -334,32 +494,13 @@ export function compareWeekStates({
     state
       ? new Map(stateFacts(state, names).map((fact) => [fact.key, fact]))
       : null,
-  );
-  const order = new Map<string, Fact>();
+  ) as [Column, Column, Column];
+  // Rows follow first appearance across Now, Rules Baseline and Final.
+  const union = new Map<string, Fact>();
   for (const facts of columns)
     for (const [key, fact] of facts ?? [])
-      if (!order.has(key)) order.set(key, fact);
-  return [...order.values()].map((fact) => {
-    const [a, b, c] = columns.map((facts) =>
-      cell(facts?.get(fact.key), facts !== null, fact.absent),
-    ) as [ResultCell, ResultCell, ResultCell];
-    const finalDiffers = differs(b, c);
-    return {
-      key: fact.key,
-      group: fact.group,
-      label: fact.label,
-      now: a,
-      baseline: b,
-      final: c,
-      changed: differs(a, b) || finalDiffers,
-      finalDiffers,
-      difference: !finalDiffers
-        ? null
-        : differs(a, b) && !differs(a, c)
-          ? `Table Adjustments reverse this week’s change: ${text(b)} returns to ${text(c)}.`
-          : `Table Adjustments change the Rules Baseline ${text(b)} to ${text(c)}.`,
-    };
-  });
+      if (!union.has(key)) union.set(key, fact);
+  return [...union.values()].map((fact) => compareFact(fact, columns));
 }
 
 /** Changed-only by default; Show all reveals every fact. Presentation only. */

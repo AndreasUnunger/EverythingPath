@@ -1,10 +1,9 @@
 'use client';
-import { z } from 'zod';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { WeekReviewSections } from '~/components/week-review/week-review';
-import { StructuredChoiceField } from './structured-choice-field';
 import { AddAdjustment, AdjustmentControls } from './summary-adjustments';
+import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
 import type { PhaseView, WeeklyDraftWorkspace } from './types';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
@@ -89,48 +88,9 @@ export function SummaryView({
       <WeekReviewSections
         facts={view.review}
         capabilities={{
-          exception: (note) =>
-            note.obsolete ? (
-              <Button
-                variant="outline"
-                disabled={disabled}
-                onClick={() =>
-                  void edit({
-                    kind: 'clear_rules_exception',
-                    exceptionId: note.exceptionId,
-                  })
-                }
-              >
-                Remove obsolete exception
-              </Button>
-            ) : (
-              <StructuredChoiceField
-                name="exceptionReason"
-                schema={z.string().trim().min(1, 'A reason is required.')}
-                value={note.reason || undefined}
-                options={{}}
-                disabled={disabled}
-                onValue={(reason) => {
-                  if (reason === undefined) {
-                    void edit({
-                      kind: 'clear_rules_exception',
-                      exceptionId: note.exceptionId,
-                    });
-                    return false;
-                  }
-                  if (typeof reason === 'string')
-                    void edit({
-                      kind: 'rules_exception',
-                      exception: {
-                        exceptionId: note.exceptionId,
-                        subjectId: note.subjectId,
-                        ruleId: note.ruleId,
-                        reason,
-                      },
-                    });
-                }}
-              />
-            ),
+          exception: (note) => (
+            <ExceptionControl note={note} edit={edit} disabled={disabled} />
+          ),
           adjustment: (_adjustment, index) => (
             <AdjustmentControls
               view={view}

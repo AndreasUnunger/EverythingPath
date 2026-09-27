@@ -191,6 +191,20 @@ function upkeepTeamItems(upkeep: UpkeepView, source: WorkspaceSource) {
   });
 }
 
+function transferItems(upkeep: UpkeepView): Item[] {
+  return upkeep.transfers.map((transfer) => {
+    const person = upkeep.officers.find(
+      (entry) => entry.characterId === transfer.characterId,
+    )?.name;
+    const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
+    return newItem(
+      transferSubject(transfer.transferId),
+      `Treasury ${kind}${person ? ` · ${person}` : ''}`,
+      [transfer.transferId, transferSubject(transfer.transferId)],
+    );
+  });
+}
+
 function upkeepItems(upkeep: UpkeepView, source: WorkspaceSource): Item[] {
   const sections = upkeep.sections;
   if (!sections) return [];
@@ -213,17 +227,6 @@ function upkeepItems(upkeep: UpkeepView, source: WorkspaceSource): Item[] {
   };
   const rankItem = newItem('upkeep:rank', 'Rank', ['upkeep:rank', 'rank']);
   rankItem.details.push(rankLine(rank.before, rank.after));
-  const transfers = upkeep.transfers.map((transfer) => {
-    const person = upkeep.officers.find(
-      (entry) => entry.characterId === transfer.characterId,
-    )?.name;
-    const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
-    return newItem(
-      transferSubject(transfer.transferId),
-      `Treasury ${kind}${person ? ` · ${person}` : ''}`,
-      [transfer.transferId, transferSubject(transfer.transferId)],
-    );
-  });
   return [
     ...upkeepTeamItems(upkeep, source),
     ...step('attrition', 'Training attrition', attrition.status, [
@@ -237,7 +240,7 @@ function upkeepItems(upkeep: UpkeepView, source: WorkspaceSource): Item[] {
       `Treasury ${gp(shortage.treasuryAfterRecoveryCopper)} is below the ${gp(shortage.minimumCopper)} minimum`,
     ]),
     rankItem,
-    ...transfers,
+    ...transferItems(upkeep),
   ];
 }
 
@@ -397,13 +400,56 @@ function persistentItems(persistent: PersistentView): Item[] {
   });
 }
 
+/** Outcome notes: each acknowledgement is placed at most once in the review. */
+function createOutcomes() {
+  const placed = new Set<string>();
+  const note = (ack: PlanAcknowledgement, text: string): ReviewNote => {
+    placed.add(ack.acknowledgementId);
+    return { kind: 'outcome', key: `outcome:${ack.acknowledgementId}`, text };
+  };
+  return {
+    isPlaced: (ack: PlanAcknowledgement) => placed.has(ack.acknowledgementId),
+    place(target: Item, ack: PlanAcknowledgement) {
+      if (placed.has(ack.acknowledgementId) || !ack.outcome.trim()) return;
+      target.notes.push(note(ack, ack.outcome));
+    },
+    /** An outcome no consequence owns, kept with its subject's name. */
+    unlinked(ack: Summary['acknowledgements'][number]) {
+      return ack.outcome.trim()
+        ? note(ack, `${ack.name}: ${ack.outcome}`)
+        : null;
+    },
+  };
+}
+type Outcomes = ReturnType<typeof createOutcomes>;
+
+function addPlanLine(
+  target: Item,
+  described: ReturnType<typeof describeChange>,
+  index: number,
+  outcomes: Outcomes,
+) {
+  if (described.effect)
+    target.effects.push({
+      key: `${described.subject}:effect:${index}`,
+      text: described.effect,
+    });
+  if (described.resolvesCheck)
+    target.details = target.details.filter(
+      (line) => !target.checkTotals.includes(line),
+    );
+  if (described.detail) target.details.push(described.detail);
+  if (described.acknowledgement)
+    outcomes.place(target, described.acknowledgement);
+}
+
 /** Order plan lines into the skeleton; unknown subjects keep plan order. */
 function applyPlan(
   phase: ReviewPhase,
   skeleton: Item[],
   plan: readonly PlanChange[],
   names: ReviewNames,
-  place: (item: Item, ack: PlanAcknowledgement) => void,
+  outcomes: Outcomes,
 ) {
   const leading: Item[] = [];
   const trailing: Item[] = [];
@@ -421,21 +467,10 @@ function applyPlan(
       ]);
     if (!known) {
       byKey.set(described.subject, target);
-      (reachedSkeleton || skeleton.length === 0 ? trailing : leading).push(
-        target,
-      );
+      const before = !reachedSkeleton && skeleton.length > 0;
+      (before ? leading : trailing).push(target);
     }
-    if (described.effect)
-      target.effects.push({
-        key: `${described.subject}:effect:${index}`,
-        text: described.effect,
-      });
-    if (described.resolvesCheck)
-      target.details = target.details.filter(
-        (line) => !target.checkTotals.includes(line),
-      );
-    if (described.detail) target.details.push(described.detail);
-    if (described.acknowledgement) place(target, described.acknowledgement);
+    addPlanLine(target, described, index, outcomes);
   });
   return [...leading, ...skeleton, ...trailing];
 }
@@ -445,7 +480,7 @@ function phaseItems(
   views: Views,
   phases: Phases | null,
   names: ReviewNames,
-  place: (item: Item, ack: PlanAcknowledgement) => void,
+  outcomes: Outcomes,
 ): ItemsByPhase {
   const skeletons: ItemsByPhase = {
     upkeep: upkeepItems(views.upkeep, source),
@@ -457,7 +492,7 @@ function phaseItems(
     event: eventItems(views.event, phases?.event),
     persistent: persistentItems(views.persistent),
   };
-  const items = Object.fromEntries(
+  return Object.fromEntries(
     phaseOrder.map((phase) => [
       phase,
       applyPlan(
@@ -465,68 +500,84 @@ function phaseItems(
         skeletons[phase],
         (phases?.[phase].plan ?? []) as readonly PlanChange[],
         names,
-        place,
+        outcomes,
       ),
     ]),
   ) as ItemsByPhase;
-  return items;
+}
+
+/** Acknowledgements recorded on a choice, Sabotage or decision, by owner key. */
+function recordedOutcomes(
+  draft: WeeklyDraft,
+  views: Views,
+  phases: Phases | null,
+): { key: string; acks: readonly PlanAcknowledgement[] }[] {
+  const sabotage = (eventId: string, choiceId: string) =>
+    sabotageSubject({ eventId, choiceId });
+  return [
+    ...(phases?.event.sabotage ?? []).map((fact) => ({
+      key: sabotageSubject(fact),
+      acks: fact.acknowledgement ? [fact.acknowledgement] : [],
+    })),
+    ...draft.activity.slots.flatMap((slot) =>
+      slot.choice
+        ? [
+            {
+              key: choiceSubject(slot.choice.choiceId),
+              acks: slot.choice.acknowledgements ?? [],
+            },
+          ]
+        : [],
+    ),
+    ...views.event.occurrences.flatMap(({ occurrence }) => {
+      const decision = occurrence.persistentDecision;
+      return [
+        {
+          key: eventSubject(occurrence.eventId),
+          acks: decision?.kind === 'end' ? [decision.acknowledgement] : [],
+        },
+        ...(occurrence.sabotage
+          ? [
+              {
+                key: sabotage(occurrence.eventId, occurrence.sabotage.choiceId),
+                acks: occurrence.sabotage.acknowledgements ?? [],
+              },
+            ]
+          : []),
+      ];
+    }),
+    ...draft.persistent.decisions.map((decision) => ({
+      key: eventSubject(decision.eventId),
+      acks: decision.kind === 'end' ? [decision.acknowledgement] : [],
+    })),
+  ];
 }
 
 // Outcomes recorded on an item itself first, then shared acknowledgements by
 // subject; anything left over is kept as an unlinked fact.
 function placeOutcomes(
-  draft: WeeklyDraft,
-  views: Views,
-  phases: Phases | null,
-  items: ItemsByPhase,
+  review: ReviewState,
   acknowledgements: Summary['acknowledgements'],
-  place: (item: Item, ack: PlanAcknowledgement) => void,
-  unassociated: ReviewNote[],
-  placed: Set<string>,
+  outcomes: Outcomes,
 ) {
-  const all = Object.values(items).flat();
-  const byKey = (key: string) => all.find((entry) => entry.key === key);
-  const placeAll = (key: string, acks: readonly PlanAcknowledgement[]) => {
-    const target = byKey(key);
-    if (target) for (const ack of acks) place(target, ack);
-  };
-  for (const fact of phases?.event.sabotage ?? [])
-    if (fact.acknowledgement)
-      placeAll(sabotageSubject(fact), [fact.acknowledgement]);
-  for (const slot of draft.activity.slots)
-    if (slot.choice)
-      placeAll(
-        choiceSubject(slot.choice.choiceId),
-        slot.choice.acknowledgements ?? [],
-      );
-  for (const { occurrence } of views.event.occurrences) {
-    const decision = occurrence.persistentDecision;
-    if (decision?.kind === 'end')
-      placeAll(eventSubject(occurrence.eventId), [decision.acknowledgement]);
-    if (occurrence.sabotage)
-      placeAll(
-        sabotageSubject({
-          eventId: occurrence.eventId,
-          choiceId: occurrence.sabotage.choiceId,
-        }),
-        occurrence.sabotage.acknowledgements ?? [],
-      );
+  const all = Object.values(review.items).flat();
+  for (const { key, acks } of recordedOutcomes(
+    review.draft,
+    review.views,
+    review.phases,
+  )) {
+    const target = all.find((entry) => entry.key === key);
+    if (target) for (const ack of acks) outcomes.place(target, ack);
   }
-  for (const decision of draft.persistent.decisions)
-    if (decision.kind === 'end')
-      placeAll(eventSubject(decision.eventId), [decision.acknowledgement]);
   for (const ack of acknowledgements) {
-    if (placed.has(ack.acknowledgementId)) continue;
+    if (outcomes.isPlaced(ack)) continue;
     const owner = findOwner(ack.subjectId, all);
-    if (owner) place(owner, ack);
-    else if (ack.outcome.trim()) {
-      placed.add(ack.acknowledgementId);
-      unassociated.push({
-        kind: 'outcome',
-        key: `outcome:${ack.acknowledgementId}`,
-        text: `${ack.name}: ${ack.outcome}`,
-      });
+    if (owner) {
+      outcomes.place(owner, ack);
+      continue;
     }
+    const note = outcomes.unlinked(ack);
+    if (note) review.unassociated.push(note);
   }
 }
 
@@ -551,38 +602,114 @@ function knownPhase(
 }
 const actionCapacity = 'action-capacity';
 
+function exceptionNote(exception: Summary['exceptions'][number]): ReviewNote {
+  return {
+    kind: 'exception',
+    key: `exception:${exception.exceptionId}`,
+    exceptionId: exception.exceptionId,
+    subjectId: exception.subjectId,
+    ruleId: exception.ruleId,
+    rule: activityLabel(exception.ruleId.replaceAll('-', '_')),
+    reason: exception.reason,
+    obsolete: exception.ruleId === actionCapacity,
+  };
+}
+
 function placeExceptions(
-  phases: Phases | null,
-  items: ItemsByPhase,
+  review: ReviewState,
   exceptions: Summary['exceptions'],
-  unassociated: ReviewNote[],
 ) {
   for (const exception of exceptions) {
-    const note: ReviewNote = {
-      kind: 'exception',
-      key: `exception:${exception.exceptionId}`,
-      exceptionId: exception.exceptionId,
-      subjectId: exception.subjectId,
-      ruleId: exception.ruleId,
-      rule: activityLabel(exception.ruleId.replaceAll('-', '_')),
-      reason: exception.reason,
-      obsolete: exception.ruleId === actionCapacity,
-    };
-    const owner = findOwner(exception.subjectId, Object.values(items).flat());
+    const note = exceptionNote(exception);
+    const owner = findOwner(
+      exception.subjectId,
+      Object.values(review.items).flat(),
+    );
     if (owner) {
       owner.notes.push(note);
       continue;
     }
     // A fact whose item is gone stays at the end of its known phase.
-    const phase = knownPhase(phases, exception.subjectId, exception.ruleId);
+    const phase = knownPhase(
+      review.phases,
+      exception.subjectId,
+      exception.ruleId,
+    );
     if (!phase) {
-      unassociated.push(note);
+      review.unassociated.push(note);
       continue;
     }
     const orphan = newItem(`missing:${exception.exceptionId}`, exception.name);
     orphan.missing = true;
     orphan.notes.push(note);
-    items[phase].push(orphan);
+    review.items[phase].push(orphan);
+  }
+}
+
+function adjustmentOf(draft: WeeklyDraft, code: string) {
+  return draft.tableAdjustments.find((entry) =>
+    code.startsWith(`adjustment:${entry.adjustmentId}:`),
+  );
+}
+
+/** Every live warning appears once: under its item, adjustment or phase. */
+function placeWarnings(
+  review: ReviewState,
+  warnings: readonly string[],
+  message: Message,
+) {
+  const byAdjustment = new Map<string, ReviewNote[]>();
+  const general: Partial<Record<ReviewPhase, Item>> = {};
+  const all = Object.values(review.items).flat();
+  for (const code of warnings) {
+    const note: ReviewNote = {
+      kind: 'warning',
+      key: `warning:${code}`,
+      message: message(code, true),
+    };
+    const adjustment = adjustmentOf(review.draft, code);
+    if (adjustment) {
+      appendNote(byAdjustment, adjustment.adjustmentId, note);
+      continue;
+    }
+    const owner = findOwner(code, all);
+    if (owner) {
+      owner.notes.push(note);
+      continue;
+    }
+    const phase = knownPhase(review.phases, code);
+    if (!phase) {
+      review.unassociated.push(note);
+      continue;
+    }
+    general[phase] ??= newItem(
+      `general:${phase}`,
+      `Other ${titles[phase]} warnings`,
+    );
+    general[phase].notes.push(note);
+  }
+  for (const phase of phaseOrder) {
+    const entry = general[phase];
+    if (entry) review.items[phase].push(entry);
+  }
+  return byAdjustment;
+}
+
+/** An unavailable target or overflow is a requirement of that adjustment. */
+function addAdjustmentRequirements(
+  draft: WeeklyDraft,
+  requirements: readonly string[],
+  message: Message,
+  byAdjustment: Map<string, ReviewNote[]>,
+) {
+  for (const code of requirements) {
+    const adjustment = adjustmentOf(draft, code);
+    if (adjustment)
+      appendNote(byAdjustment, adjustment.adjustmentId, {
+        kind: 'warning',
+        key: `requirement:${code}`,
+        message: message(code, false),
+      });
   }
 }
 
@@ -594,111 +721,104 @@ function appendNote(
   map.set(key, [...(map.get(key) ?? []), note]);
 }
 
-/** Every live warning appears once: under its item, adjustment or phase. */
-function placeWarnings(
+function sectionChips(phase: ReviewPhase, phases: Phases) {
+  const plan = phases[phase].plan as readonly PlanChange[];
+  if (phase !== 'event') return phaseChips(phase, plan);
+  // Sabotage requests a Notoriety change the resolver keeps in 0–100.
+  const applied =
+    phases.event.outcome.notoriety - phases.activity.outcome.notoriety;
+  return phaseChips(phase, plan, phases.event.sabotage, applied);
+}
+
+function notApplicableText(
+  phase: ReviewPhase,
   draft: WeeklyDraft,
-  preview: CanonicalResolutionPreview,
-  items: ItemsByPhase,
-  warnings: readonly string[],
-  message: Message,
-  unassociated: ReviewNote[],
+  views: Views,
 ) {
-  const byAdjustment = new Map<string, ReviewNote[]>();
-  const adjustmentOf = (code: string) =>
-    draft.tableAdjustments.find((entry) =>
-      code.startsWith(`adjustment:${entry.adjustmentId}:`),
-    );
-  const general: Partial<Record<ReviewPhase, Item>> = {};
-  for (const code of warnings) {
-    const note: ReviewNote = {
-      kind: 'warning',
-      key: `warning:${code}`,
-      message: message(code, true),
+  if (phase === 'upkeep' && views.upkeep.skipped)
+    return 'Upkeep is skipped in the militia’s first week.';
+  if (phase === 'persistent' && !draft.context.persistentPhaseEligible)
+    return 'No persistent events carried into this week.';
+  return null;
+}
+
+/** The honest one-line state of a phase section, from least to most known. */
+function sectionStatus(
+  phase: ReviewPhase,
+  count: number,
+  review: ReviewState,
+): Pick<ReviewSection, 'status' | 'statusText'> {
+  if (!review.phases)
+    return {
+      status: 'incomplete',
+      statusText:
+        'Consequences are not available until the week’s entries are valid.',
     };
-    const adjustment = adjustmentOf(code);
-    const owner = adjustment
-      ? null
-      : findOwner(code, Object.values(items).flat());
-    const phase = adjustment || owner ? null : knownPhase(preview.phases, code);
-    if (adjustment) appendNote(byAdjustment, adjustment.adjustmentId, note);
-    else if (owner) owner.notes.push(note);
-    else if (phase)
-      (general[phase] ??= newItem(
-        `general:${phase}`,
-        `Other ${titles[phase]} warnings`,
-      )).notes.push(note);
-    else unassociated.push(note);
-  }
-  for (const phase of phaseOrder) {
-    const entry = general[phase];
-    if (entry) items[phase].push(entry);
-  }
-  // An unavailable target or overflow is a requirement of that adjustment.
-  for (const code of preview.requirements) {
-    const adjustment = adjustmentOf(code);
-    if (adjustment)
-      appendNote(byAdjustment, adjustment.adjustmentId, {
-        kind: 'warning',
-        key: `requirement:${code}`,
-        message: message(code, false),
-      });
-  }
-  return byAdjustment;
+  const notApplicable = notApplicableText(phase, review.draft, review.views);
+  if (notApplicable && count === 0)
+    return { status: 'not-applicable', statusText: notApplicable };
+  if (!review.views[phase].ready)
+    return {
+      status: 'incomplete',
+      statusText:
+        'Some decisions in this phase are still open, so these consequences are partial.',
+    };
+  if (count === 0) return { status: 'empty', statusText: emptyText[phase] };
+  return { status: 'complete', statusText: null };
 }
 
 function sectionFacts(
   phase: ReviewPhase,
   number: ReviewSection['number'],
-  items: Item[],
-  draft: WeeklyDraft,
-  views: Views,
-  phases: Phases | null,
+  review: ReviewState,
 ): ReviewSection {
-  const list = items.map(
+  const items = review.items[phase].map(
     ({ subjects: _subjects, checkTotals: _checkTotals, ...rest }) => rest,
   );
-  const base = {
+  return {
     phase,
     number,
     title: titles[phase],
-    chips: phases
-      ? phaseChips(
-          phase,
-          phases[phase].plan as readonly PlanChange[],
-          phase === 'event' ? phases.event.sabotage : [],
-          // Sabotage requests a Notoriety change the resolver keeps in 0–100.
-          phase === 'event'
-            ? phases.event.outcome.notoriety - phases.activity.outcome.notoriety
-            : null,
-        )
-      : [],
-    items: list,
+    chips: review.phases ? sectionChips(phase, review.phases) : [],
+    items,
+    ...sectionStatus(phase, items.length, review),
   };
-  const ready = views[phase].ready;
-  let notApplicable: string | null = null;
-  if (phase === 'upkeep' && views.upkeep.skipped)
-    notApplicable = 'Upkeep is skipped in the militia’s first week.';
-  if (phase === 'persistent' && !draft.context.persistentPhaseEligible)
-    notApplicable = 'No persistent events carried into this week.';
-  if (!phases)
-    return {
-      ...base,
-      status: 'incomplete',
-      statusText:
-        'Consequences are not available until the week’s entries are valid.',
-    };
-  if (notApplicable && list.length === 0)
-    return { ...base, status: 'not-applicable', statusText: notApplicable };
-  if (!ready)
-    return {
-      ...base,
-      status: 'incomplete',
-      statusText:
-        'Some decisions in this phase are still open, so these consequences are partial.',
-    };
-  if (list.length === 0)
-    return { ...base, status: 'empty', statusText: emptyText[phase] };
-  return { ...base, status: 'complete', statusText: null };
+}
+
+function adjustmentFacts(
+  draft: WeeklyDraft,
+  names: ReviewNames,
+  notes: Map<string, ReviewNote[]>,
+): WeekReviewFacts['adjustments'] {
+  return draft.tableAdjustments.map((adjustment, index) => ({
+    key: `adjustment:${adjustment.adjustmentId}`,
+    adjustmentId: adjustment.adjustmentId,
+    number: index + 1,
+    ...describeAdjustment(adjustment, names),
+    reason: adjustment.reason,
+    notes: notes.get(adjustment.adjustmentId) ?? [],
+  }));
+}
+
+/** Now is this week's source; Rules Baseline and Final share one preview. */
+function resultFacts(
+  draft: WeeklyDraft,
+  source: WorkspaceSource,
+  preview: CanonicalResolutionPreview,
+  names: ReviewNames,
+): WeekReviewFacts['result'] {
+  const baseline = preview.baselinePlan?.after ?? null;
+  const final = preview.finalPlan?.after ?? null;
+  const now = {
+    week: draft.week,
+    militiaSnapshot: source.snapshot,
+    context: draft.context,
+  };
+  return {
+    nextWeek: final?.week ?? draft.week + 1,
+    complete: baseline !== null && final !== null,
+    rows: compareWeekStates({ now, baseline, final, names }),
+  };
 }
 
 type Views = {
@@ -708,6 +828,14 @@ type Views = {
   persistent: PersistentView;
 };
 type Message = (code: string, warning: boolean) => string;
+/** What placement reads and extends while the review is assembled. */
+type ReviewState = {
+  draft: WeeklyDraft;
+  views: Views;
+  phases: Phases | null;
+  items: ItemsByPhase;
+  unassociated: ReviewNote[];
+};
 
 export function liveWeekReview({
   draft,
@@ -728,70 +856,33 @@ export function liveWeekReview({
   message: Message;
 }): WeekReviewFacts {
   const names = liveNames(source, preview, summary);
-  const phases = preview.phases;
-  const placed = new Set<string>();
-  const place = (target: Item, ack: PlanAcknowledgement) => {
-    if (placed.has(ack.acknowledgementId) || !ack.outcome.trim()) return;
-    placed.add(ack.acknowledgementId);
-    target.notes.push({
-      kind: 'outcome',
-      key: `outcome:${ack.acknowledgementId}`,
-      text: ack.outcome,
-    });
-  };
-  const unassociated: ReviewNote[] = [];
-  const items = phaseItems(source, views, phases, names, place);
-  placeOutcomes(
+  const outcomes = createOutcomes();
+  const review: ReviewState = {
     draft,
     views,
-    phases,
-    items,
-    summary.acknowledgements,
-    place,
-    unassociated,
-    placed,
-  );
-  placeExceptions(phases, items, summary.exceptions, unassociated);
-  const adjustmentNotes = placeWarnings(
+    phases: preview.phases,
+    items: phaseItems(source, views, preview.phases, names, outcomes),
+    unassociated: [],
+  };
+  placeOutcomes(review, summary.acknowledgements, outcomes);
+  placeExceptions(review, summary.exceptions);
+  const adjustmentNotes = placeWarnings(review, summary.warnings, message);
+  addAdjustmentRequirements(
     draft,
-    preview,
-    items,
-    summary.warnings,
+    preview.requirements,
     message,
-    unassociated,
+    adjustmentNotes,
   );
-  const baseline = preview.baselinePlan?.after ?? null;
-  const final = preview.finalPlan?.after ?? null;
   return {
     mode: 'live',
     sections: [
-      sectionFacts('upkeep', 1, items.upkeep, draft, views, phases),
-      sectionFacts('activity', 2, items.activity, draft, views, phases),
-      sectionFacts('event', 3, items.event, draft, views, phases),
-      sectionFacts('persistent', 4, items.persistent, draft, views, phases),
+      sectionFacts('upkeep', 1, review),
+      sectionFacts('activity', 2, review),
+      sectionFacts('event', 3, review),
+      sectionFacts('persistent', 4, review),
     ],
-    unassociated,
-    adjustments: draft.tableAdjustments.map((adjustment, index) => ({
-      key: `adjustment:${adjustment.adjustmentId}`,
-      adjustmentId: adjustment.adjustmentId,
-      number: index + 1,
-      ...describeAdjustment(adjustment, names),
-      reason: adjustment.reason,
-      notes: adjustmentNotes.get(adjustment.adjustmentId) ?? [],
-    })),
-    result: {
-      nextWeek: final?.week ?? draft.week + 1,
-      complete: baseline !== null && final !== null,
-      rows: compareWeekStates({
-        now: {
-          week: draft.week,
-          militiaSnapshot: source.snapshot,
-          context: draft.context,
-        },
-        baseline,
-        final,
-        names,
-      }),
-    },
+    unassociated: review.unassociated,
+    adjustments: adjustmentFacts(draft, names, adjustmentNotes),
+    result: resultFacts(draft, source, preview, names),
   };
 }
