@@ -8,6 +8,7 @@ import {
   SetupSection,
   SetupSelection,
   choices,
+  useSettlementOptions,
   yesNo,
 } from './fields';
 
@@ -173,13 +174,6 @@ export function SetupCharacterConditions({
       })}
     </SetupSection>
   );
-}
-function useSettlementOptions() {
-  const { watch } = useFormContext<MilitiaSetup>();
-  return watch('state.militiaSnapshot.settlements').map((town) => ({
-    value: town.settlementId,
-    label: town.name,
-  }));
 }
 export function SetupSkillBenefits({
   characters,

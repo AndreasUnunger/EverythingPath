@@ -8,7 +8,7 @@ import {
   getMinimumTreasuryForRank,
 } from './militia-progression-rules';
 import { rosterWarningDescriptors } from './canonical-roster';
-import type { SetupSectionMessage } from './setup-validation';
+import type { SetupSectionMessage } from './setup-sections';
 
 // Field-level validation: types, required values and each list's own identity
 // and reference rules. Setup supplies facts, never resolved outcomes or

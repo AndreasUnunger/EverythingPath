@@ -5,12 +5,13 @@ import type { MilitiaSetup } from '~/lib/canonical-setup';
 import {
   SETUP_ASSET_SUBSECTIONS,
   type SetupAssetSubsection,
-} from '~/lib/setup-validation';
+} from '~/lib/setup-sections';
 import {
   SetupField as Field,
   SetupEntry,
   SetupSection,
   choices,
+  useSettlementOptions,
   yesNo,
 } from './fields';
 
@@ -26,19 +27,12 @@ export function SetupAssets({
     subsections.includes(subsection);
   return (
     <>
-      {show('items') && <SetupItems characters={characters} />}
-      {show('caches') && <SetupCaches />}
-      {show('orders') && <SetupOrders />}
-      {show('marketplaces') && <SetupMarketplaces />}
+      {show('items') ? <SetupItems characters={characters} /> : null}
+      {show('caches') ? <SetupCaches /> : null}
+      {show('orders') ? <SetupOrders /> : null}
+      {show('marketplaces') ? <SetupMarketplaces /> : null}
     </>
   );
-}
-function useSettlementOptions() {
-  const { watch } = useFormContext<MilitiaSetup>();
-  return watch('state.militiaSnapshot.settlements').map((x) => ({
-    value: x.settlementId,
-    label: x.name,
-  }));
 }
 export function SetupItems({ characters }: { characters: SetupCharacter[] }) {
   const { control, watch } = useFormContext<MilitiaSetup>();

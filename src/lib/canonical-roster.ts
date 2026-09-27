@@ -137,12 +137,13 @@ export function rosterWarningDescriptors(
       kind: person.kind,
       charisma: character.charisma,
     });
-    if (managed.length > limit)
+    // Present exactly when the person manages more teams than the limit.
+    const firstBeyondLimit = managed[limit];
+    if (firstBeyondLimit !== undefined)
       warnings.push({
         list: 'teams',
         message: `${character.name} manages ${managed.length} teams; the normal limit is ${limit}.`,
-        // The first assignment beyond the limit.
-        path: ['teams', managed[limit]!, 'managerCharacterId'],
+        path: ['teams', firstBeyondLimit, 'managerCharacterId'],
       });
     if (roles.length > 1)
       warnings.push({

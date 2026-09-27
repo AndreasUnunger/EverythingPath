@@ -87,9 +87,9 @@ export function MilitiaSetupForm({
           <SetupTeams characters={characters} />
           <SetupCharacterConditions characters={characters} />
           <SetupSettlements />
-          {!correction && <SetupCarriedEvents characters={characters} />}
+          {correction ? null : <SetupCarriedEvents characters={characters} />}
           <SetupAssets characters={characters} />
-          {!correction && (
+          {correction ? null : (
             <>
               <SetupQueuedEffects />
               <SetupOneUseBonuses />

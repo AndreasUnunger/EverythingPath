@@ -10,6 +10,14 @@ export const yesNo = [
   { value: true, label: 'Yes' },
   { value: false, label: 'No' },
 ];
+// The settlements entered in this form, as choices.
+export function useSettlementOptions() {
+  const { watch } = useFormContext<MilitiaSetup>();
+  return watch('state.militiaSnapshot.settlements').map((town) => ({
+    value: town.settlementId,
+    label: town.name,
+  }));
+}
 export function SetupField({
   name,
   label,

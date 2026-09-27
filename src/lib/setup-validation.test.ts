@@ -9,9 +9,9 @@ import {
   militiaCorrectionSchema,
   setupErrorDescriptors,
   setupFieldErrorMessage,
-  setupLocationForPath,
   setupWarningDescriptors,
 } from './setup-validation';
+import { setupLocationForPath } from './setup-sections';
 
 const team = (teamId: string, managerCharacterId: string | null = null) => ({
   teamId,

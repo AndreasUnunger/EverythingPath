@@ -5,7 +5,7 @@ import type { MilitiaSetup } from '~/lib/canonical-setup';
 import {
   SETUP_CARRIED_SUBSECTIONS,
   type SetupCarriedSubsection,
-} from '~/lib/setup-validation';
+} from '~/lib/setup-sections';
 import {
   SetupField as Field,
   SetupEntry,
@@ -274,11 +274,13 @@ export function SetupCarriedEffects({
     subsections.includes(subsection);
   return (
     <>
-      {show('events') && <SetupCarriedEvents characters={characters} />}
-      {show('queuedEffects') && <SetupQueuedEffects />}
-      {show('bonuses') && <SetupOneUseBonuses />}
-      {show('skillBenefits') && <SetupSkillBenefits characters={characters} />}
-      {show('marketDayBenefits') && <SetupMarketDayBenefits />}
+      {show('events') ? <SetupCarriedEvents characters={characters} /> : null}
+      {show('queuedEffects') ? <SetupQueuedEffects /> : null}
+      {show('bonuses') ? <SetupOneUseBonuses /> : null}
+      {show('skillBenefits') ? (
+        <SetupSkillBenefits characters={characters} />
+      ) : null}
+      {show('marketDayBenefits') ? <SetupMarketDayBenefits /> : null}
     </>
   );
 }
