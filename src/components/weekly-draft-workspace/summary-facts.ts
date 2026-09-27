@@ -7,6 +7,8 @@ import { eventView } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
 import { liveWarnings } from './persistent-sections';
+import { liveWeekReview } from './summary-review';
+import { summaryMessage } from './summary-messages';
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -128,7 +130,7 @@ export function summaryView(
         ).values(),
       ];
   }
-  return {
+  const view: Omit<Extract<PhaseView, { phase: 'summary' }>, 'review'> = {
     phase: 'summary',
     ready: preview.status === 'ready',
     adjustments: structuredClone(draft.tableAdjustments),
@@ -157,5 +159,16 @@ export function summaryView(
       : null,
     requirements: preview.requirements,
     warnings: liveWarnings(preview.warnings),
+  };
+  return {
+    ...view,
+    review: liveWeekReview({
+      draft,
+      source,
+      preview,
+      views: { upkeep, activity, event: events, persistent },
+      summary: view,
+      message: (code, warning) => summaryMessage(code, view, warning),
+    }),
   };
 }

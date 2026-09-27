@@ -5,6 +5,7 @@ import { tableAdjustmentSchema } from '~/lib/weekly-draft-facts';
 import { Button } from '~/components/ui/button';
 import { ChoiceCards } from './choice-cards';
 import { StructuredChoiceField } from './structured-choice-field';
+import { moveAdjustment } from './adjustment-order';
 import type { PhaseView, WeeklyDraftWorkspace } from './types';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
 type Adjustment = Summary['adjustments'][number];
@@ -15,6 +16,8 @@ const kinds = [
   { value: 'settlement_reputation', label: 'Settlement reputation' },
   { value: 'event_end', label: 'End persistent event' },
 ];
+const fieldGrid =
+  'min-w-0 space-y-3 [&_.grid]:grid-cols-1 sm:[&_.grid]:grid-cols-2';
 function adjustmentSchema(kind: Adjustment['kind']) {
   const schema = tableAdjustmentSchema.options.find(
     (schema) => schema.shape.kind.value === kind,
@@ -25,16 +28,8 @@ function adjustmentSchema(kind: Adjustment['kind']) {
     ),
   );
 }
-export function SummaryAdjustments({
-  view,
-  edit,
-  disabled,
-}: {
-  view: Summary;
-  edit: Edit;
-  disabled: boolean;
-}) {
-  const options = {
+function fieldOptions(view: Summary) {
+  return {
     ...view.options,
     field: [
       { value: 'training', label: 'Training' },
@@ -43,6 +38,88 @@ export function SummaryAdjustments({
       { value: 'rank', label: 'Rank' },
     ],
   };
+}
+/**
+ * The editor and ordering controls of one staged Table Adjustment; every
+ * change saves the complete ordered list.
+ */
+export function AdjustmentControls({
+  view,
+  edit,
+  disabled,
+  index,
+}: {
+  view: Summary;
+  edit: Edit;
+  disabled: boolean;
+  index: number;
+}) {
+  const adjustment = view.adjustments[index];
+  if (!adjustment) return null;
+  const save = (adjustments: Adjustment[]) =>
+    void edit({ kind: 'table_adjustments', adjustments });
+  return (
+    <div className={fieldGrid}>
+      <StructuredChoiceField
+        name="adjustment"
+        schema={adjustmentSchema(adjustment.kind)}
+        value={Object.fromEntries(
+          Object.entries(adjustment).filter(([key]) => key !== 'adjustmentId'),
+        )}
+        options={fieldOptions(view)}
+        disabled={disabled}
+        onValue={(value) => {
+          if (value === undefined) {
+            save(
+              view.adjustments.filter(
+                (item) => item.adjustmentId !== adjustment.adjustmentId,
+              ),
+            );
+            return false;
+          }
+          const parsed = tableAdjustmentSchema.safeParse({
+            ...Object(value),
+            adjustmentId: adjustment.adjustmentId,
+          });
+          if (parsed.success)
+            save(
+              view.adjustments.map((item) =>
+                item.adjustmentId === adjustment.adjustmentId
+                  ? parsed.data
+                  : item,
+              ),
+            );
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          disabled={disabled || index === 0}
+          onClick={() => save(moveAdjustment(view.adjustments, index, -1))}
+        >
+          Move adjustment {index + 1} earlier
+        </Button>
+        <Button
+          variant="outline"
+          disabled={disabled || index === view.adjustments.length - 1}
+          onClick={() => save(moveAdjustment(view.adjustments, index, 1))}
+        >
+          Move adjustment {index + 1} later
+        </Button>
+      </div>
+    </div>
+  );
+}
+/** Kind cards and the form that appends a new Table Adjustment. */
+export function AddAdjustment({
+  view,
+  edit,
+  disabled,
+}: {
+  view: Summary;
+  edit: Edit;
+  disabled: boolean;
+}) {
   const [adding, setAdding] = useState<{
     id: string;
     kind: Adjustment['kind'];
@@ -52,87 +129,7 @@ export function SummaryAdjustments({
       setAdding(null);
   };
   return (
-    <section
-      className="min-w-0 space-y-3 [&_.grid]:grid-cols-1 sm:[&_.grid]:grid-cols-2"
-      aria-label="Table Adjustments"
-    >
-      <h2 className="text-lg font-semibold">Table Adjustments</h2>
-      <p className="text-muted-foreground text-sm">
-        Apply in the order shown, after the complete Rules Baseline. Every
-        adjustment needs a reason.
-      </p>
-      {view.adjustments.length === 0 && <p>No Table Adjustments.</p>}
-      {view.adjustments.map((adjustment, index) => (
-        <article
-          key={adjustment.adjustmentId}
-          className="min-w-0 space-y-2 rounded-md border p-3"
-        >
-          <h3 className="font-medium">Adjustment {index + 1}</h3>
-          <StructuredChoiceField
-            name="adjustment"
-            schema={adjustmentSchema(adjustment.kind)}
-            value={Object.fromEntries(
-              Object.entries(adjustment).filter(
-                ([key]) => key !== 'adjustmentId',
-              ),
-            )}
-            options={options}
-            disabled={disabled}
-            onValue={(value) => {
-              if (value === undefined) {
-                void save(
-                  view.adjustments.filter(
-                    (item) => item.adjustmentId !== adjustment.adjustmentId,
-                  ),
-                );
-                return false;
-              }
-              const parsed = tableAdjustmentSchema.safeParse({
-                ...Object(value),
-                adjustmentId: adjustment.adjustmentId,
-              });
-              if (parsed.success)
-                void save(
-                  view.adjustments.map((item) =>
-                    item.adjustmentId === adjustment.adjustmentId
-                      ? parsed.data
-                      : item,
-                  ),
-                );
-            }}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={disabled || index === 0}
-              onClick={() => {
-                const next = [...view.adjustments];
-                [next[index - 1], next[index]] = [
-                  next[index]!,
-                  next[index - 1]!,
-                ];
-                void save(next);
-              }}
-            >
-              Move adjustment {index + 1} earlier
-            </Button>
-            <Button
-              variant="outline"
-              disabled={disabled || index === view.adjustments.length - 1}
-              onClick={() => {
-                const next = [...view.adjustments];
-                [next[index], next[index + 1]] = [
-                  next[index + 1]!,
-                  next[index]!,
-                ];
-                void save(next);
-              }}
-            >
-              Move adjustment {index + 1} later
-            </Button>
-          </div>
-        </article>
-      ))}
+    <div className={fieldGrid}>
       <ChoiceCards
         label="New Table Adjustment"
         choices={kinds}
@@ -159,7 +156,7 @@ export function SummaryAdjustments({
               ? { kind: adding.kind, field: 'treasuryCopper', operation: 'add' }
               : { kind: adding.kind }
           }
-          options={options}
+          options={fieldOptions(view)}
           disabled={disabled}
           onValue={(value) => {
             if (value === undefined) {
@@ -174,6 +171,6 @@ export function SummaryAdjustments({
           }}
         />
       )}
-    </section>
+    </div>
   );
 }

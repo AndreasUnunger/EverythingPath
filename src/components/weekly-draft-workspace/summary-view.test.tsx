@@ -6,9 +6,43 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import type {
+  ResultRow,
+  ReviewException,
+  ReviewPhase,
+  ReviewSection,
+  WeekReviewFacts,
+} from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
 import type { PhaseView } from './types';
 afterEach(cleanup);
+function section(
+  phase: ReviewPhase,
+  number: ReviewSection['number'],
+  title: string,
+): ReviewSection {
+  return {
+    phase,
+    number,
+    title,
+    chips: [],
+    status: 'empty',
+    statusText: `No ${title} consequences this week.`,
+    items: [],
+  };
+}
+const review: WeekReviewFacts = {
+  mode: 'live',
+  sections: [
+    section('upkeep', 1, 'Upkeep'),
+    section('activity', 2, 'Activity'),
+    section('event', 3, 'Event'),
+    section('persistent', 4, 'Persistent'),
+  ],
+  unassociated: [],
+  adjustments: [],
+  result: { nextWeek: 5, complete: true, rows: [] },
+};
 const view: Extract<PhaseView, { phase: 'summary' }> = {
   phase: 'summary',
   effects: null,
@@ -22,7 +56,39 @@ const view: Extract<PhaseView, { phase: 'summary' }> = {
   acknowledgements: [],
   people: [],
   options: {},
+  review,
 };
+/** The exception note the live adapter attaches to the item it belongs to. */
+function withException(
+  note: ReviewException,
+  title: string,
+  missing = false,
+): WeekReviewFacts {
+  const [upkeep, activity, event, persistent] = review.sections;
+  return {
+    ...review,
+    sections: [
+      upkeep,
+      {
+        ...activity,
+        status: 'complete',
+        statusText: null,
+        items: [
+          {
+            key: note.subjectId,
+            title,
+            details: [],
+            effects: [],
+            notes: [note],
+            missing,
+          },
+        ],
+      },
+      event,
+      persistent,
+    ],
+  };
+}
 const controls = {
   disabled: false,
   canConfirm: true,
@@ -103,9 +169,37 @@ test('[rules.P85.order] moving and clearing adjudication retains complete other 
       reason: 'Correction',
     },
   ];
+  const facts: WeekReviewFacts = {
+    ...review,
+    adjustments: [
+      {
+        key: 'adjustment:first',
+        adjustmentId: 'first',
+        number: 1,
+        kind: 'Militia value',
+        effect: 'Treasury +1.25 gp',
+        reason: 'Reward',
+        notes: [],
+      },
+      {
+        key: 'adjustment:second',
+        adjustmentId: 'second',
+        number: 2,
+        kind: 'Militia value',
+        effect: 'Treasury → 10 gp',
+        reason: 'Correction',
+        notes: [],
+      },
+    ],
+  };
   render(
-    <SummaryView view={{ ...view, adjustments }} edit={edit} {...controls} />,
+    <SummaryView
+      view={{ ...view, adjustments, review: facts }}
+      edit={edit}
+      {...controls}
+    />,
   );
+  expect(screen.getAllByRole('article')).toHaveLength(2);
   fireEvent.click(
     screen.getByRole('button', { name: 'Move adjustment 2 earlier' }),
   );
@@ -141,11 +235,25 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
             reason: '',
           },
         ],
+        review: withException(
+          {
+            kind: 'exception',
+            key: 'exception:exception',
+            exceptionId: 'exception',
+            subjectId: 'choice',
+            ruleId: 'team-capacity',
+            rule: 'Team capacity',
+            reason: '',
+            obsolete: false,
+          },
+          'Recruitment',
+        ),
       }}
       edit={edit}
       {...controls}
     />,
   );
+  expect(screen.getByText('Recruitment')).toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: 'Exception Reason' }), {
     target: { value: 'Narrative reinforcements' },
   });
@@ -173,71 +281,63 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
 });
 
 test('[rules.P85.outcomes] full preview includes named event bonuses and future effects without exposing event identities', () => {
-  const state = {
-    week: 5,
-    militiaSnapshot: {
-      rank: 2,
-      training: 14,
-      treasuryCopper: 5000,
-      notoriety: 0,
-      focus: 'Loyalty' as const,
-      roster: { people: [], teams: [], officers: [] },
-      characters: [],
-      settlements: [],
-      bonuses: [
-        {
-          bonusId: 'hidden-bonus',
-          source: 'hidden-event',
-          check: 'loyalty' as const,
-          value: 2,
-          availableWeek: 5,
-          consumedWeek: null,
-        },
-      ],
+  const rows: ResultRow[] = [
+    {
+      key: 'bonus:hidden-bonus',
+      group: 'Bonuses',
+      label: 'High Morale · Event 1',
+      now: { kind: 'absent', text: 'Not recorded' },
+      baseline: { kind: 'value', text: 'Loyalty +2', key: 'hidden-bonus' },
+      final: { kind: 'value', text: 'Loyalty +2', key: 'hidden-bonus' },
+      changed: true,
+      finalDiffers: false,
+      difference: null,
     },
-    context: {
-      firstMilitiaWeek: false,
-      startDay: 28,
-      uneventfulCarry: true,
-      carriedEvents: [],
-      queuedEffects: [
-        {
-          effectId: 'hidden-effect',
-          sourceId: 'hidden-event',
-          startsWeek: 5,
-          endsWeek: 6,
-          effect: {
-            kind: 'narrative' as const,
-            instruction: 'Neighbors_supply_scouts',
-          },
-        },
-      ],
-      orders: [],
-      lastBuyoffWeek: null,
+    {
+      key: 'effect:hidden-effect',
+      group: 'Queued effects',
+      label: 'High Morale · Event 1',
+      now: {
+        kind: 'value',
+        text: 'Neighbors supply scouts',
+        key: 'hidden-effect',
+      },
+      baseline: {
+        kind: 'value',
+        text: 'Neighbors supply scouts',
+        key: 'hidden-effect',
+      },
+      final: {
+        kind: 'value',
+        text: 'Neighbors supply scouts',
+        key: 'hidden-effect',
+      },
+      changed: false,
+      finalDiffers: false,
+      difference: null,
     },
-  };
+  ];
   render(
     <SummaryView
       view={{
         ...view,
-        baseline: state,
-        outcome: state,
-        options: {
-          eventId: [{ value: 'hidden-event', label: 'High Morale · Event 1' }],
-          sourceId: [{ value: 'hidden-event', label: 'High Morale · Event 1' }],
-        },
+        review: { ...review, result: { ...review.result, rows } },
       }}
       edit={vi.fn()}
       {...controls}
     />,
   );
+  fireEvent.click(screen.getByRole('button', { name: 'Show all values' }));
   expect(screen.queryByText('hidden-event')).not.toBeInTheDocument();
   expect(screen.queryByText('hidden-bonus')).not.toBeInTheDocument();
   expect(screen.queryByText('hidden-effect')).not.toBeInTheDocument();
   expect(
     screen.getAllByText('High Morale · Event 1').length,
   ).toBeGreaterThanOrEqual(2);
-  expect(screen.getAllByText('Neighbors_supply_scouts')).toHaveLength(2);
+  expect(
+    screen.getAllByText('Neighbors supply scouts').length,
+  ).toBeGreaterThanOrEqual(2);
+  expect(document.body.textContent).not.toContain('hidden-');
 });
 
 test('[rules.P85.readiness] readiness names the required decisions and warnings never expose opaque targets', () => {
@@ -309,6 +409,20 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
             reason: 'An extra day was once allowed',
           },
         ],
+        review: withException(
+          {
+            kind: 'exception',
+            key: 'exception:old',
+            exceptionId: 'old',
+            subjectId: 'quiet',
+            ruleId: 'action-capacity',
+            rule: 'Action capacity',
+            reason: 'An extra day was once allowed',
+            obsolete: true,
+          },
+          'Lie Low',
+          true,
+        ),
       }}
       edit={edit}
       {...controls}
@@ -316,8 +430,12 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
     />,
   );
   expect(screen.getByText('An extra day was once allowed')).toBeVisible();
+  expect(screen.getByText('No longer part of this week.')).toBeVisible();
   expect(
     screen.getByText(/restore the action allowance before confirming/),
+  ).toBeVisible();
+  expect(
+    screen.getByText(/This recorded exception cannot permit an extra action/),
   ).toBeVisible();
   expect(screen.getByRole('button', { name: 'Confirm week' })).toBeDisabled();
   expect(

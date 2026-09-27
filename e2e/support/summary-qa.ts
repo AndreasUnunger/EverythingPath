@@ -3,6 +3,11 @@ import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import { saveStatus } from './week-frame';
+import {
+  resultCell,
+  showAllResultValues,
+  summaryResult,
+} from './summary-result';
 
 const region = (page: Page) =>
   page.getByRole('region', { name: 'Table Adjustments', exact: true });
@@ -40,19 +45,40 @@ async function choose(form: Locator, field: string, value: string) {
     .getByRole('button', { name: value, exact: true })
     .click();
 }
-async function openOutcomes(page: Page) {
-  for (const title of ['Rules Baseline', 'Final preview']) {
-    const outcome = page.getByRole('region', { name: title, exact: true });
-    for (const disclosure of await outcome.locator('details').all()) {
-      if (
-        !(await disclosure.evaluate((element) => element.hasAttribute('open')))
-      )
-        await disclosure.locator('summary').first().click();
-    }
-    await expect(outcome).toContainText('Future week');
-    await expect(outcome).toContainText('Roster');
-    await expect(outcome).toContainText('Officers');
+const sectionLabels = [
+  '1 Upkeep',
+  '2 Activity',
+  '3 Event',
+  '4 Persistent',
+  'Table Adjustments',
+  'Result',
+];
+/** Four expanded phase sections, then Table Adjustments and Result, in order. */
+async function expectSixSections(page: Page) {
+  for (const name of sectionLabels) {
+    const section = page.getByRole('region', { name, exact: true });
+    await expect(section).toBeVisible();
+    // Expanded: no collapsed disclosure hides a consequence.
+    await expect(section.locator('details')).toHaveCount(0);
   }
+  const order = await page
+    .locator('section[aria-label]')
+    .evaluateAll((sections) =>
+      sections.map((section) => section.getAttribute('aria-label')),
+    );
+  expect(order.filter((label) => sectionLabels.includes(label!))).toEqual(
+    sectionLabels,
+  );
+}
+
+// Show all values lists every militia, roster, officer and next-week fact
+// beside the changed ones.
+async function openOutcomes(page: Page) {
+  await showAllResultValues(page);
+  const result = summaryResult(page);
+  await expect(result).toContainText('Next week');
+  await expect(result).toContainText('Roster');
+  await expect(result).toContainText('Officers');
 }
 
 /** Real controls, all outcome disclosures, and responsive layout on the owned persistent fixture. */
@@ -62,9 +88,15 @@ export async function reviewSummaryWorkspace(
   artifactDirectory: string,
 ) {
   await Promise.all([openSummary(page), openSummary(peer)]);
-  const baseline = await page
-    .getByRole('region', { name: 'Final preview', exact: true })
-    .innerText();
+  await expectSixSections(page);
+  // The carried event's consequence belongs to Persistent, not Event.
+  await expect(
+    page.getByRole('region', { name: '4 Persistent', exact: true }),
+  ).toContainText('Theft · Event 1');
+  await expect(
+    page.getByRole('region', { name: '3 Event', exact: true }),
+  ).not.toContainText('Theft · Event 1');
+  const baseline = await summaryResult(page).innerText();
   let form = await start(page, 'Militia value');
   await expect(button(form, 'Treasury (copper)')).toHaveAttribute(
     'aria-pressed',
@@ -84,17 +116,18 @@ export async function reviewSummaryWorkspace(
   form = await start(page, 'Militia value');
   await form.getByRole('textbox', { name: 'Value', exact: true }).fill('-7');
   await save(page, peer, form, 'Seven copper paid for local supplies.');
-  await expect(
-    page.getByRole('region', { name: 'Final preview', exact: true }),
-  ).toContainText('49993 cp');
+  // Order matters: set 500 gp then −0.07 gp, or −0.07 gp then set 500 gp.
+  await expect(await resultCell(page, 'Treasury', 'Final')).toHaveText(
+    '499.93 gp',
+  );
   await button(region(page), 'Move adjustment 2 earlier').click();
-  await expect(
-    peer.getByRole('region', { name: 'Final preview', exact: true }),
-  ).toContainText('50000 cp');
+  await expect(await resultCell(peer, 'Treasury', 'Final')).toHaveText(
+    '500 gp',
+  );
   await button(region(page), 'Move adjustment 1 later').click();
-  await expect(
-    peer.getByRole('region', { name: 'Final preview', exact: true }),
-  ).toContainText('49993 cp');
+  await expect(await resultCell(peer, 'Treasury', 'Final')).toHaveText(
+    '499.93 gp',
+  );
   form = await start(page, 'Team condition');
   await choose(form, 'Team', 'Scouts');
   await choose(form, 'Status', 'Disabled');
@@ -104,12 +137,10 @@ export async function reviewSummaryWorkspace(
   await save(page, peer, form, 'The thieves have left the region.');
   await expect(region(peer).locator('article')).toHaveCount(4);
   await openOutcomes(page);
-  const final = page.getByRole('region', {
-    name: 'Final preview',
-    exact: true,
-  });
-  await expect(final).toContainText('Scouts');
-  await expect(final).toContainText('Disabled');
+  const final = summaryResult(page);
+  await expect(await resultCell(page, 'Scouts', 'Final', 'Teams')).toHaveText(
+    'Disabled',
+  );
   await expect(final).not.toContainText('theft-old');
   await expect(final).not.toContainText('persistent-team-');
   for (const [name, width, height] of [
@@ -189,15 +220,9 @@ export async function reviewSummaryWorkspace(
     await expect(region(peer).locator('article')).toHaveCount(count - 1);
   }
   await expect(saveStatus(page)).toHaveText('Changes saved.');
-  // Compare the displayed pre-adjustment outcome with the restored one, with disclosures closed again.
-  for (const disclosure of await final.locator('details').all())
-    if (await disclosure.evaluate((element) => element.hasAttribute('open')))
-      await disclosure.locator('summary').first().click();
-  for (const title of ['Rank', 'Notoriety', 'Focus'])
-    await final
-      .locator('summary')
-      .filter({ hasText: new RegExp(`^${title}$`) })
-      .click();
+  // Compare the displayed pre-adjustment Result with the restored one, back
+  // on the default changed-only presentation.
+  await showAllResultValues(page, false);
   await expect(final).toHaveText(baseline, { useInnerText: true });
   await page.setViewportSize({ width: 1194, height: 834 });
 }
@@ -215,19 +240,12 @@ export async function reviewSummarySettlement(page: Page, peer: Page) {
     form,
     'The settlement welcomed the militia after a table ruling.',
   );
-  const final = peer.getByRole('region', {
-    name: 'Final preview',
-    exact: true,
-  });
-  await final
-    .locator('summary')
-    .filter({ hasText: /^Settlements$/ })
-    .click();
-  await expect(final).toContainText('Friendly');
+  const final = await resultCell(peer, 'Phaendar', 'Final', 'Settlements');
+  await expect(final).toHaveText('Friendly');
   await button(
     region(page).locator('article').last(),
     'Clear adjustment',
   ).click();
   await expect(region(peer).locator('article')).toHaveCount(count);
-  await expect(final).not.toContainText('Friendly');
+  await expect(final).not.toHaveText('Friendly');
 }
