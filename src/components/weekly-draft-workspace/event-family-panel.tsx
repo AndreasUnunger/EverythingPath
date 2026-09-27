@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { EventEditResult, EventEdits } from './event-family-inputs';
+import { EventOutcomeInputs } from './event-outcome-inputs';
 import { EventRaidInputs } from './event-raid-inputs';
 import { EventTargetCards } from './event-target-cards';
 import { EventTeamInputs } from './event-team-inputs';
@@ -47,9 +48,19 @@ export function EventFamilyPanel({
       />
     );
   }
+  const outcome = panel.family === 'outcome' ? panel : null;
   return (
     <div className="min-w-0 space-y-4">
-      {panel.family === 'team' ? (
+      {panel.family === 'outcome' ? (
+        <EventOutcomeInputs
+          panel={panel}
+          id={id}
+          disabled={disabled}
+          edits={edits}
+          showRefusal={showRefusal}
+          subject={block.label}
+        />
+      ) : panel.family === 'team' ? (
         <EventTeamInputs
           panel={panel}
           id={id}
@@ -73,6 +84,11 @@ export function EventFamilyPanel({
           {error}
         </p>
       )}
+      {outcome?.partial && (
+        <p className="text-muted-foreground min-w-0 text-xs [overflow-wrap:anywhere]">
+          So far. More follows once the inputs above are in.
+        </p>
+      )}
       {panel.outcomes.length > 0 && (
         <ul aria-label={`${block.label} outcomes`} className="space-y-1">
           {panel.outcomes.map((line) => (
@@ -88,21 +104,31 @@ export function EventFamilyPanel({
           ))}
         </ul>
       )}
-      <EventWhatHappenedLine
-        facts={panel.whatHappened}
-        disabled={disabled}
-        // The line shows its own refusal at the field; only success clears
-        // a message another input left here.
-        onSave={(text) => {
-          const result = edits.saveWhatHappened(id, text);
-          if (!result) setError(null);
-          return result;
-        }}
-        onClear={() => {
-          edits.clearWhatHappened(id);
-          setError(null);
-        }}
-      />
+      {outcome?.notes.map((note) => (
+        <p
+          key={note}
+          className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]"
+        >
+          {note}
+        </p>
+      ))}
+      {panel.whatHappened && (
+        <EventWhatHappenedLine
+          facts={panel.whatHappened}
+          disabled={disabled}
+          // The line shows its own refusal at the field; only success clears
+          // a message another input left here.
+          onSave={(text) => {
+            const result = edits.saveWhatHappened(id, text);
+            if (!result) setError(null);
+            return result;
+          }}
+          onClear={() => {
+            edits.clearWhatHappened(id);
+            setError(null);
+          }}
+        />
+      )}
     </div>
   );
 }

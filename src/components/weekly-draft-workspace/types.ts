@@ -490,7 +490,72 @@ export type EventRaidPerson = {
     required: boolean;
   };
 };
+// A recorded occurrence input the resolved event does not use, kept until
+// cleared on purpose. `field` names the occurrence field; for `targets` only
+// the kinds the event does not use are listed and cleared.
+export type EventRetainedField = {
+  field:
+    | 'targets'
+    | 'averagePartyLevel'
+    | 'mitigation'
+    | 'rolls'
+    | 'officerCheck'
+    | 'targetChecks'
+    | 'rewards'
+    | 'persistent'
+    | 'persistentDecision'
+    | 'strategistCharacterId'
+    | 'overseerCharacterId';
+  label: string;
+  value: string;
+};
+// High Morale's carried events that end here, oldest first.
+export type EventEndingChoice = {
+  // "Persistent event that ends"
+  label: string;
+  hint: string | null;
+  required: boolean;
+  // How many this occurrence ends: fewer than the rules name when fewer
+  // carried events remain.
+  count: number;
+  // The recorded choice, or false while the rules end the oldest.
+  chosen: boolean;
+  selected: string[];
+  choices: EventTargetCard[];
+  retained: EventRetainedTarget[];
+};
+export type EventOutcomeFamily =
+  | 'all_is_calm'
+  | 'calm_before_the_storm'
+  | 'high_morale'
+  | 'invasion'
+  | 'night_ops'
+  | 'war_games'
+  | 'week_of_pain'
+  | 'week_of_serenity';
 export type EventPanel =
+  | {
+      // Calm, morale, narrative and training events: their outcome lines,
+      // with High Morale's endings and Invasion's party level as the only
+      // inputs besides What happened.
+      family: 'outcome';
+      eventType: EventOutcomeFamily;
+      endings: EventEndingChoice | null;
+      partyLevel: {
+        value: number | null;
+        required: boolean;
+        // The encounter's CR from the rules, once the level is in.
+        challengeRating: number | null;
+      } | null;
+      // Rules facts beside the outcome: uneventful carry, Twice, independence.
+      notes: string[];
+      // Null for events that record no account of their own (and have none).
+      whatHappened: EventWhatHappened | null;
+      outcomes: string[];
+      // Inputs are still missing, so the outcome lines are not final.
+      partial: boolean;
+      retained: EventRetainedField[];
+    }
   | {
       family: 'team';
       eventType: 'missing_in_action' | 'sickness' | 'turn_around';
@@ -617,7 +682,8 @@ export type EventView = {
   guaranteed: boolean;
   chanceStep: EventChanceStep;
   automatic: {
-    sources: { sourceId: string; label: string; count: number }[];
+    // "Calm before the Storm" from `week`, bringing `count` events now.
+    sources: { sourceId: string; label: string; week: number; count: number }[];
     blocks: EventBlock[];
     issues: EventIssue[];
   } | null;

@@ -3,7 +3,8 @@ import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import type { OrganizationCheck } from '~/lib/rules-officers';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { checkNames, eventCheckFacts } from './event-check-facts';
-import { targetChoice, type EventPanelContext } from './event-target-facts';
+import type { EventPanelContext } from './event-panel-context';
+import { targetChoice } from './event-target-facts';
 import { eventName } from './event-tree-facts';
 import type {
   EventCheckFacts,

@@ -17,12 +17,10 @@ import { activityView, checkModifierLabel } from './activity-facts';
 import { withoutDuplicateRollCodes } from './roll-requirements';
 import { eventSabotageFacts } from './event-sabotage-facts';
 import { overseerSupportFacts } from './overseer-support-facts';
-import {
-  eventPanel,
-  eventPanelMessage,
-  type EventPanelContext,
-} from './event-target-facts';
+import { eventPanel, eventPanelMessage } from './event-target-facts';
+import type { EventPanelContext } from './event-panel-context';
 import { activityReferenceOptions } from './activity-input-options';
+import { uneventfulCarryText } from './event-outcome-facts';
 import { activityLabel } from './activity-labels';
 import { eventRequirement, eventTopologyMessage } from './event-messages';
 import {
@@ -74,22 +72,23 @@ export function eventView(
     return `${activityLabel(choice?.actionId ?? 'event')} · Action Slot ${slotNumber(slotId)}${team ? ` · ${team}` : ''}`;
   };
   // Due automatic sources and their counts come from the engine's trace.
-  const automaticSources = positions.flatMap((group) =>
-    group.kind === 'automatic'
-      ? [
-          {
-            sourceId: group.sourceId,
-            label:
-              eventName(
-                draft.context.queuedEffects.find(
-                  (effect) => effect.sourceId === group.sourceId,
-                )?.eventType,
-              ) ?? 'An earlier event',
-            count: group.count,
-          },
-        ]
-      : [],
-  );
+  // The source's week is the one before its automatic events are due.
+  const automaticSources = positions.flatMap((group) => {
+    if (group.kind !== 'automatic') return [];
+    const queued = draft.context.queuedEffects.find(
+      (effect) =>
+        effect.sourceId === group.sourceId &&
+        effect.effect.kind === 'automatic_events',
+    );
+    return [
+      {
+        sourceId: group.sourceId,
+        label: eventName(queued?.eventType) ?? 'An earlier event',
+        week: (queued?.startsWeek ?? draft.week) - 1,
+        count: group.count,
+      },
+    ];
+  });
   const sourceLabel = (sourceId: string) =>
     automaticSources.find((entry) => entry.sourceId === sourceId)?.label ??
     'An earlier event';
@@ -438,9 +437,10 @@ export function eventView(
           ...(projection?.negatedEventIds ?? []).map(
             (eventId) => `${label(eventId)} was sabotaged and does not happen.`,
           ),
-          projection?.nextUneventfulCarry
-            ? `Uneventful: next week's event chance rises by ${activity?.outcome.rank ?? source.snapshot.rank}.`
-            : 'Not an uneventful week: no chance bonus next week.',
+          uneventfulCarryText(
+            { draft, projection },
+            activity?.outcome.rank ?? source.snapshot.rank,
+          ),
         ]
       : [],
   };

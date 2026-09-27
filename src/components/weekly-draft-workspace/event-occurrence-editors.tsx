@@ -47,7 +47,7 @@ export function EventOccurrenceEditors({
   const panel = item.panel;
   // Checks the family controls show in their own rows.
   const covered = [
-    ...(!panel
+    ...(!panel || panel.family === 'outcome'
       ? []
       : panel.family === 'team'
         ? panel.check

@@ -213,6 +213,23 @@ function resolveHiddenAgenda(context: RecurringEventContext) {
   return true;
 }
 
+/**
+ * How many carried events one High Morale ends: one, or what is left of two
+ * for its Twice after the earlier occurrence's endings, and never more than
+ * are current when it resolves.
+ */
+export function highMoraleEndingCount({
+  twice,
+  endedEarlier,
+  current,
+}: {
+  twice: boolean;
+  endedEarlier: number;
+  current: number;
+}) {
+  return Math.min((twice ? 2 : 1) - endedEarlier, current);
+}
+
 function resolveHighMorale(context: RecurringEventContext) {
   const { result, event, firstEventId, twice } = context;
 
@@ -221,10 +238,11 @@ function resolveHighMorale(context: RecurringEventContext) {
       change.kind === 'event_end' &&
       [firstEventId, event.eventId].includes(change.eventId),
   );
-  const count = Math.min(
-    (twice ? 2 : 1) - earlier.length,
-    result.persistentEvents.length,
-  );
+  const count = highMoraleEndingCount({
+    twice,
+    endedEarlier: earlier.length,
+    current: result.persistentEvents.length,
+  });
   const targets = event.targets?.filter((target) => target.kind === 'event');
   const ordered = [...result.persistentEvents].sort(
     (a, b) =>

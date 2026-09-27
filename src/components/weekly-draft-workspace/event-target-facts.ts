@@ -1,47 +1,37 @@
-import type { ActivityProjection } from '~/lib/rules-activity';
 import { raidRescueDc } from '~/lib/rules-character-actions';
 import { eventMitigationAttempted } from '~/lib/rules-event-checks';
-import type { EventOutcomeProjection } from '~/lib/rules-event-outcomes';
 import { isRefugeActive } from '~/lib/rules-settlements';
 import {
   RAID_CAPTURE_CHANCE,
   RAID_SECURITY_DC,
   SICKNESS_TWICE_LOYALTY_DC,
 } from '~/lib/rules-threat-events';
-import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
-import { actionChoiceEvents, type RawRoll } from '~/lib/weekly-draft-facts';
+import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import { eventCheckFacts } from './event-check-facts';
+import {
+  codes,
+  whatHappened,
+  type EventPanelContext,
+  type EventPanelItem,
+} from './event-panel-context';
+import {
+  isOutcomeFamily,
+  outcomePanel,
+  outcomePanelMessage,
+} from './event-outcome-facts';
 import { eventChange } from './event-messages';
 import type {
   ActivityTeamFact,
-  EventOccurrenceFacts,
   EventPanel,
   EventRaidPerson,
   EventRetainedTarget,
   EventTargetCard,
   EventTargetChoice,
-  EventWhatHappened,
 } from './types';
 
-type Item = Omit<EventOccurrenceFacts, 'panel'>;
+type Item = EventPanelItem;
 type Change = Item['changes'][number];
 type TeamFamily = Extract<EventPanel, { family: 'team' }>['eventType'];
-
-// What the event-specific controls need beyond the occurrence itself. Teams,
-// refuges and hidden people are read after Activity: events before this one
-// in the week never add them, and the rules stop a second Raid on a refuge
-// the first one closed.
-export type EventPanelContext = {
-  draft: WeeklyDraft;
-  projection: EventOutcomeProjection | undefined;
-  activity: ActivityProjection | undefined;
-  teams: ActivityTeamFact[];
-  personName: (characterId: string) => string | null;
-  settlementName: (settlementId: string) => string | null;
-  // "Event 3 · Sickness"
-  eventLabel: (eventId: string) => string;
-  modifierLabel: (source: string, recorded: RawRoll | undefined) => string;
-};
 
 const TEAM_FAMILIES: readonly TeamFamily[] = [
   'missing_in_action',
@@ -51,7 +41,8 @@ const TEAM_FAMILIES: readonly TeamFamily[] = [
 
 /**
  * The event-specific controls of one occurrence: Missing in Action,
- * Sickness, Turn Around and Raid. Other families return null and keep the
+ * Sickness, Turn Around and Raid, and the calm, morale, narrative and
+ * training events (`event-outcome-facts.ts`). Other families return null and keep the
  * general details editor until their own controls ship.
  */
 export function eventPanel(
@@ -59,42 +50,11 @@ export function eventPanel(
   context: EventPanelContext,
 ): EventPanel | null {
   const type = item.resolvedType;
+  if (isOutcomeFamily(type)) return outcomePanel(item, type, context);
   if (type === 'raid') return raidPanel(item, context);
   if (TEAM_FAMILIES.includes(type as TeamFamily))
     return teamPanel(item, type as TeamFamily, context);
   return null;
-}
-
-function codes(item: Item) {
-  const id = item.occurrence.eventId;
-  return {
-    has: (tail: string) => item.requirements.includes(`${id}:${tail}`),
-  };
-}
-
-function whatHappened(
-  item: Item,
-  context: EventPanelContext,
-  hint: string,
-): EventWhatHappened {
-  const subjectId = `event:${item.occurrence.eventId}`;
-  const recorded = context.draft.acknowledgements.find(
-    (entry) => entry.subjectId === subjectId,
-  );
-  return {
-    subjectId,
-    // The rules ask for it while it is missing, and use it once recorded.
-    required:
-      codes(item).has('acknowledgement') ||
-      item.changes.some((change) => change.kind === 'event_acknowledgement'),
-    hint,
-    acknowledgement: recorded
-      ? {
-          acknowledgementId: recorded.acknowledgementId,
-          outcome: recorded.outcome,
-        }
-      : null,
-  };
 }
 
 function teamName(context: EventPanelContext, teamId: string) {
@@ -547,6 +507,7 @@ export function eventPanelMessage(
   warning: boolean,
 ): string | null {
   if (tail === 'acknowledgement') return 'record what happened.';
+  if (panel.family === 'outcome') return outcomePanelMessage(panel, tail);
   if (panel.family === 'team') {
     if (tail === 'team' || tail === 'same-team')
       return panel.team
