@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
-import { Button } from '~/components/ui/button';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import { LegacyOverseerNote } from './event-legacy-overseer-note';
 import { RollTotalField } from './roll-total-field';
 import type { EventCheckFacts } from './types';
 import { signed } from './upkeep-parts';
@@ -17,7 +17,6 @@ export function EventCheckRow({
   onRoll,
   support,
   onClearOverseer,
-  children,
 }: {
   facts: EventCheckFacts;
   recorded: RawRoll | undefined;
@@ -25,20 +24,18 @@ export function EventCheckRow({
   onRoll: (roll: RawRoll | null) => void;
   support?: ReactNode;
   onClearOverseer?: () => void;
-  children?: ReactNode;
 }) {
   return (
-    <fieldset className="min-w-0 space-y-2">
-      <legend className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold [overflow-wrap:anywhere]">
-        <span className="min-w-0">{facts.label}</span>
+    // The dice field carries the visible label; the group repeats it for
+    // assistive technology with the DC line beneath.
+    <fieldset aria-label={facts.label} className="min-w-0 space-y-2">
+      <p className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs [overflow-wrap:anywhere]">
+        <span className="min-w-0">{facts.legend}</span>
         {facts.mandatory && (
-          <span className="rounded-full border px-2 py-0.5 text-xs font-medium">
+          <span className="text-foreground rounded-full border px-2 py-0.5 font-medium">
             Mandatory
           </span>
         )}
-      </legend>
-      <p className="text-muted-foreground min-w-0 text-xs [overflow-wrap:anywhere]">
-        {facts.legend}
       </p>
       <div className="grid min-w-0 items-start gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <RollTotalField
@@ -87,25 +84,13 @@ export function EventCheckRow({
         </div>
       </div>
       {facts.overseerRecorded && onClearOverseer && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <p role="note" className="min-w-0 text-sm text-amber-300">
-            Overseer support is recorded on this check. It helps every check of
-            this event once.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={`Remove Overseer support from ${facts.label}`}
-            disabled={disabled}
-            onClick={onClearOverseer}
-          >
-            Remove Overseer support
-          </Button>
-        </div>
+        <LegacyOverseerNote
+          checkLabel={facts.label}
+          disabled={disabled}
+          onClear={onClearOverseer}
+        />
       )}
       {support}
-      {children}
     </fieldset>
   );
 }

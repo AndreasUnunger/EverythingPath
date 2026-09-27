@@ -14,12 +14,12 @@ const checkNames: Record<OrganizationCheck, string> = {
 
 // Contribution names in an Event check breakdown. The rules calculate these
 // for every check; the people supplying them are never named here.
-const calculated: Record<string, string> = {
+export const EVENT_CHECK_SOURCES: Record<string, string> = {
   'rank-focus': 'Rank and focus',
   officers: 'Officers',
   'overseer-support': 'Overseer',
   strategist: 'Strategist',
-  helpful: 'Settlement support',
+  helpful: 'Helpful settlement support',
 };
 
 /**
@@ -72,7 +72,8 @@ export function eventCheckFacts({
     breakdown: (projected?.modifiers ?? []).map((modifier) => ({
       source: modifier.source,
       label:
-        calculated[modifier.source] ?? modifierLabel(modifier.source, recorded),
+        EVENT_CHECK_SOURCES[modifier.source] ??
+        modifierLabel(modifier.source, recorded),
       value: modifier.value,
     })),
     succeeded,
@@ -90,13 +91,10 @@ export function eventCheckFacts({
  */
 export function withoutDuplicateRollCodes(codes: readonly string[]) {
   const dice = new Set(
-    codes.flatMap((code) => {
-      const match = /^(.*):\d+d\d+$/.exec(code);
-      return match ? [match[1]!] : [];
-    }),
+    codes.flatMap((code) => /^(.*):\d+d\d+$/.exec(code)?.slice(1, 2) ?? []),
   );
   return codes.filter((code) => {
-    const match = /^(.*):roll$/.exec(code);
-    return !match || !dice.has(match[1]!);
+    const check = /^(.*):roll$/.exec(code)?.[1];
+    return check === undefined || !dice.has(check);
   });
 }

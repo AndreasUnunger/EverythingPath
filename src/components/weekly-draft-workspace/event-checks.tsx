@@ -1,3 +1,4 @@
+import { EVENT_CHECK_SOURCES } from './event-check-facts';
 import type { EventView } from './types';
 export function EventChecks({
   item,
@@ -19,13 +20,6 @@ export function EventChecks({
       Object.values(target.rolls ?? {}),
     ),
   ].flatMap((roll) => roll?.modifiers ?? []);
-  const names: Record<string, string> = {
-    'rank-focus': 'Rank and focus',
-    officers: 'Officers',
-    'overseer-support': 'Overseer support',
-    strategist: 'Strategist',
-    helpful: 'Helpful settlement support',
-  };
   const checks = view.checks.filter(
     (check) =>
       check.checkId.startsWith(`${occurrence.eventId}:`) &&
@@ -64,7 +58,7 @@ export function EventChecks({
                 view.options.modifierSources?.find(
                   (option) => option.value === modifier.source,
                 )?.label ??
-                names[modifier.source] ??
+                EVENT_CHECK_SOURCES[modifier.source] ??
                 'Calculated modifier'}
               : {modifier.value >= 0 ? '+' : ''}
               {modifier.value}

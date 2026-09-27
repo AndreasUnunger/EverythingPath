@@ -69,7 +69,6 @@ function codes(item: Item) {
   const id = item.occurrence.eventId;
   return {
     has: (tail: string) => item.requirements.includes(`${id}:${tail}`),
-    warns: (tail: string) => item.warnings.includes(`${id}:${tail}`),
   };
 }
 
@@ -131,6 +130,51 @@ function firstOccurrence(item: Item, context: EventPanelContext) {
   };
 }
 
+// One recorded target of a kind is the selection; any other recorded one
+// (a second target, or one no longer known) stays until cleared.
+function targetChoice({
+  label,
+  hint,
+  required,
+  recorded,
+  choices,
+  name,
+  missing,
+}: {
+  label: string;
+  hint: string | null;
+  required: boolean;
+  recorded: string[];
+  choices: EventTargetCard[];
+  name: (value: string) => string | null;
+  // What a recorded target no longer known is called and why it stays.
+  missing: { label: string; reason: string };
+}): EventTargetChoice {
+  const [only] = recorded;
+  const known = (value: string) =>
+    choices.some((choice) => choice.value === value);
+  const selected =
+    recorded.length === 1 && only !== undefined && known(only) ? only : null;
+  const retained: EventRetainedTarget[] = recorded.flatMap((value) =>
+    value === selected
+      ? []
+      : [
+          known(value)
+            ? {
+                value,
+                label: name(value) ?? missing.label,
+                reason: `Only one is affected. Choose it, or clear this one.`,
+              }
+            : {
+                value,
+                label: name(value) ?? missing.label,
+                reason: missing.reason,
+              },
+        ],
+  );
+  return { label, hint, required, selected, choices, retained };
+}
+
 function teamChoice({
   item,
   context,
@@ -146,40 +190,71 @@ function teamChoice({
   required: boolean;
   describe: (team: ActivityTeamFact) => (string | null | undefined)[];
 }): EventTargetChoice {
-  const recorded =
-    item.occurrence.targets?.flatMap((target) =>
-      target.kind === 'team' ? [target.teamId] : [],
-    ) ?? [];
-  const known = new Set(context.teams.map((team) => team.teamId));
-  const selected =
-    recorded.length === 1 && known.has(recorded[0]!) ? recorded[0]! : null;
-  const choices: EventTargetCard[] = context.teams.map((team) => ({
-    value: team.teamId,
-    label: team.name,
-    description: [
-      team.typeName && team.tier !== null
-        ? `${team.typeName} · tier ${team.tier}`
-        : team.typeName,
-      ...describe(team),
-    ]
-      .filter(Boolean)
-      .join(' · '),
-  }));
-  const retained: EventRetainedTarget[] = recorded.flatMap((teamId) =>
-    teamId === selected
-      ? []
-      : [
-          {
-            value: teamId,
-            label:
-              teamName(context, teamId) ?? 'A team no longer on the roster',
-            reason: known.has(teamId)
-              ? 'One team is affected. Choose it, or clear this one.'
-              : 'This team is no longer on the roster. Clear it or choose another team.',
-          },
-        ],
+  return targetChoice({
+    label,
+    hint,
+    required,
+    recorded:
+      item.occurrence.targets?.flatMap((target) =>
+        target.kind === 'team' ? [target.teamId] : [],
+      ) ?? [],
+    choices: context.teams.map((team) => ({
+      value: team.teamId,
+      label: team.name,
+      description: [
+        team.typeName && team.tier !== null
+          ? `${team.typeName} · tier ${team.tier}`
+          : team.typeName,
+        ...describe(team),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    })),
+    name: (teamId) => teamName(context, teamId),
+    missing: {
+      label: 'A team no longer on the roster',
+      reason:
+        'This team is no longer on the roster. Clear it or choose another team.',
+    },
+  });
+}
+
+// Turn Around recovers every disabled team; only without one does a team
+// gain the bonus. A team recorded before a recovery stays until cleared.
+function turnAroundTeam(
+  item: Item,
+  context: EventPanelContext,
+  describe: (team: ActivityTeamFact) => (string | null | undefined)[],
+): EventTargetChoice {
+  const recovered = item.changes.some(
+    (change) => change.kind === 'event_team_recovery',
   );
-  return { label, hint, required, selected, choices, retained };
+  const team = teamChoice({
+    item,
+    context,
+    label: 'Team that gains +2 on one check next Activity',
+    hint: recovered
+      ? 'Disabled teams recover instead, so no team gains the bonus.'
+      : 'No team is disabled, so one team gains the bonus.',
+    required: codes(item).has('team'),
+    describe,
+  });
+  if (!recovered) return team;
+  const unused = team.selected
+    ? [
+        {
+          value: team.selected,
+          label: teamName(context, team.selected) ?? 'A team',
+          reason: 'Not used: disabled teams recover instead.',
+        },
+      ]
+    : [];
+  return {
+    ...team,
+    selected: null,
+    choices: [],
+    retained: [...unused, ...team.retained],
+  };
 }
 
 function teamPanel(
@@ -197,58 +272,24 @@ function teamPanel(
     first?.teamIds.includes(team.teamId) ? `Chosen in ${first.label}` : null,
   ];
   const sameAsFirst = first ? `The same team as ${first.label}.` : null;
-  let team: EventTargetChoice | null;
-  if (eventType === 'turn_around') {
-    const recovered = item.changes.some(
-      (change) => change.kind === 'event_team_recovery',
-    );
-    team = teamChoice({
-      item,
-      context,
-      label: 'Team that gains +2 on one check next Activity',
-      hint: recovered
-        ? 'Disabled teams recover instead, so no team gains the bonus.'
-        : 'No team is disabled, so one team gains the bonus.',
-      required: has('team'),
-      describe,
-    });
-    if (recovered) {
-      // A team recorded before the recovery stays visible until cleared.
-      team = team.selected
-        ? {
-            ...team,
-            selected: null,
-            choices: [],
-            retained: [
-              {
-                value: team.selected,
-                label: teamName(context, team.selected) ?? 'A team',
-                reason: 'Not used: disabled teams recover instead.',
-              },
-              ...team.retained,
-            ],
-          }
-        : team.retained.length
-          ? { ...team, choices: [] }
-          : null;
-    }
-  } else {
-    team = teamChoice({
-      item,
-      context,
-      label:
-        eventType === 'sickness'
-          ? 'Team that falls sick'
-          : 'Team that goes missing',
-      hint:
-        sameAsFirst ??
-        (eventType === 'sickness'
-          ? 'A random team.'
-          : 'A random team that acted this week.'),
-      required: has('team') || has('same-team'),
-      describe,
-    });
-  }
+  const team =
+    eventType === 'turn_around'
+      ? turnAroundTeam(item, context, describe)
+      : teamChoice({
+          item,
+          context,
+          label:
+            eventType === 'sickness'
+              ? 'Team that falls sick'
+              : 'Team that goes missing',
+          hint:
+            sameAsFirst ??
+            (eventType === 'sickness'
+              ? 'A random team.'
+              : 'A random team that acted this week.'),
+          required: has('team') || has('same-team'),
+          describe,
+        });
   const sicknessSave = eventType === 'sickness' && item.mode === 'twice';
   const roll = occurrence.rolls?.check;
   const check = sicknessSave
@@ -306,9 +347,6 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
     occurrence.targets?.flatMap((target) =>
       target.kind === 'settlement' ? [target.settlementId] : [],
     ) ?? [];
-  const known = new Set(towns.map((town) => town.settlementId));
-  const selected =
-    recorded.length === 1 && known.has(recorded[0]!) ? recorded[0]! : null;
   const choices: EventTargetCard[] = towns
     .filter(
       (town) =>
@@ -325,28 +363,20 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
         ].join(' · '),
       };
     });
-  const settlement: EventTargetChoice = {
+  const settlement = targetChoice({
     label: 'Settlement raided',
     hint: 'A random settlement with an active refuge.',
     required: has('settlement'),
-    selected,
+    recorded,
     choices,
-    retained: recorded.flatMap((settlementId) =>
-      settlementId === selected
-        ? []
-        : [
-            {
-              value: settlementId,
-              label:
-                context.settlementName(settlementId) ??
-                'A settlement no longer in this campaign',
-              reason: known.has(settlementId)
-                ? 'One settlement is raided. Choose it, or clear this one.'
-                : 'This settlement is no longer in the campaign. Clear it or choose another.',
-            },
-          ],
-    ),
-  };
+    name: context.settlementName,
+    missing: {
+      label: 'A settlement no longer in this campaign',
+      reason:
+        'This settlement is no longer in the campaign. Clear it or choose another.',
+    },
+  });
+  const selected = settlement.selected;
   const inputs = occurrence.targetChecks ?? [];
   const hidden = selected ? hiddenIn(selected) : [];
   const name = (characterId: string) =>

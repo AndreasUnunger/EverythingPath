@@ -243,10 +243,25 @@ export function newTableModifierSource() {
   return `table-modifier:${crypto.randomUUID()}`;
 }
 
+function targetIdentity(target: TargetCheck['target']) {
+  switch (target.kind) {
+    case 'event':
+      return target.eventId;
+    case 'item':
+      return target.itemId;
+    case 'team':
+      return target.teamId;
+    case 'settlement':
+      return target.settlementId;
+    case 'character':
+      return target.characterId;
+    case 'cache':
+      return target.cacheId;
+  }
+}
+
 function sameTarget(a: TargetCheck['target'], b: TargetCheck['target']) {
-  const id = (target: TargetCheck['target']) =>
-    Object.entries(target).find(([key]) => key !== 'kind')?.[1];
-  return a.kind === b.kind && id(a) === id(b);
+  return a.kind === b.kind && targetIdentity(a) === targetIdentity(b);
 }
 
 // A target check with the patch applied, or null once only its target is left.

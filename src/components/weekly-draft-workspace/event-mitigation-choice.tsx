@@ -1,12 +1,16 @@
 'use client';
-import { EventChoiceCard } from './event-target-cards';
+import { EventChoiceCard } from './event-choice-card';
 
 type Mitigation = 'attempted' | 'unattempted';
 
-const cards: { value: Mitigation; label: string }[] = [
-  { value: 'attempted', label: 'Attempt it' },
-  { value: 'unattempted', label: 'Let it happen' },
-];
+const labels: Record<Mitigation, string> = {
+  attempted: 'Attempt it',
+  unattempted: 'Let it happen',
+};
+const cards = (['attempted', 'unattempted'] as const).map((value) => ({
+  value,
+  label: labels[value],
+}));
 
 // Attempt it / Let it happen for one person or target. The pressed card
 // always shows which choice applies; until the choice is recorded here a
@@ -28,7 +32,7 @@ export function EventMitigationChoice({
   disabled: boolean;
   onChange: (value: Mitigation) => void;
 }) {
-  const applies = cards.find((card) => card.value === value)!.label;
+  const applies = labels[value];
   return (
     <div
       role="group"
