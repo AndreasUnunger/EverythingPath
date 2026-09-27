@@ -1,5 +1,48 @@
 import { expect, test } from 'vitest';
-import { copperToGpInput, parseGpInput } from './gp-money';
+import {
+  copperToGpInput,
+  parseGpInput,
+  parseSignedGpInput,
+  signedCopperToGpInput,
+} from './gp-money';
+
+test('signed gp converts exactly to signed copper, to one copper', () => {
+  expect(parseSignedGpInput('-0.07')).toEqual({ kind: 'valid', copper: -7 });
+  expect(parseSignedGpInput('−12.5')).toEqual({
+    kind: 'valid',
+    copper: -1250,
+  });
+  expect(parseSignedGpInput('+3')).toEqual({ kind: 'valid', copper: 300 });
+  expect(parseSignedGpInput('500')).toEqual({ kind: 'valid', copper: 50000 });
+  const zero = parseSignedGpInput('-0');
+  expect(zero).toEqual({ kind: 'valid', copper: 0 });
+  expect(zero.kind === 'valid' && Object.is(zero.copper, -0)).toBe(false);
+});
+
+test('signed gp keeps empty separate from malformed, too-precise or oversized input', () => {
+  expect(parseSignedGpInput(' ')).toEqual({ kind: 'empty' });
+  for (const text of ['-', '+', '--3', '-3a', '1e3', '-.5', '3-'])
+    expect(parseSignedGpInput(text)).toMatchObject({ kind: 'invalid' });
+  expect(parseSignedGpInput('-0.075')).toEqual({
+    kind: 'invalid',
+    message: 'Use at most two decimal places (1 cp = 0.01 gp).',
+  });
+  expect(parseSignedGpInput('-999999999999999999')).toEqual({
+    kind: 'invalid',
+    message: 'Enter a smaller amount.',
+  });
+});
+
+test('stored signed copper is shown as editable gp and parses back unchanged', () => {
+  expect(signedCopperToGpInput(-7)).toBe('-0.07');
+  expect(signedCopperToGpInput(-1250)).toBe('-12.5');
+  expect(signedCopperToGpInput(0)).toBe('0');
+  for (const copper of [-900719925474099, -1205, -7, 0, 7, 50000])
+    expect(parseSignedGpInput(signedCopperToGpInput(copper))).toEqual({
+      kind: 'valid',
+      copper,
+    });
+});
 
 test('whole and decimal gp convert exactly to copper', () => {
   expect(parseGpInput('30')).toEqual({ kind: 'valid', copper: 3000 });

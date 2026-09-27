@@ -3,6 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import type { controlNextDraftEdit } from './held-mutation';
 import { expectSaveFailed, saveStatus } from './week-frame';
+import { reviewSummaryExceptionReason } from './summary-qa';
 
 const phase = (page: Page, name: string) =>
   page.getByRole('button', { name, exact: true }).click();
@@ -55,6 +56,7 @@ export async function exercisePersistentWorkspace(
   await reason(recent(gm)).fill('The table permits both buyoffs this week.');
   await button(recent(gm), 'Save reason').click();
   await expect(recent(player)).toContainText(BUYOFF_STAGED);
+  await reviewSummaryExceptionReason(gm, player, reason(recent(player)));
   // Leave it is the deliberate reset; the shared cooldown exception stays.
   await button(recent(player), 'Leave it').click();
   await expect(recent(gm)).not.toContainText(BUYOFF_STAGED);

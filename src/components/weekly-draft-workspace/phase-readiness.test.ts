@@ -128,6 +128,15 @@ test.each([
   ],
   [{ pendingWork: true }, 'Review will be ready when your changes are saved.'],
   [{ canConfirm: true }, null],
+  [
+    { localForms: 1, decisions: 2 },
+    'Save or cancel your unsaved change first.',
+  ],
+  [{ localForms: 2 }, 'Save or cancel your 2 unsaved changes first.'],
+  [
+    { localForms: 1, pendingWork: true },
+    'Review will be ready when your changes are saved.',
+  ],
   [{ decisions: 1 }, '1 decision left'],
   [{ decisions: 2 }, '2 decisions left'],
   [{}, 'Review the updated week before confirming.'],

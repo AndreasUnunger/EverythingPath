@@ -1,174 +1,278 @@
 'use client';
-import { z } from 'zod';
-import { useState } from 'react';
-import { tableAdjustmentSchema } from '~/lib/weekly-draft-facts';
+import { Check, Plus } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
 import { Button } from '~/components/ui/button';
-import { ChoiceCards } from './choice-cards';
-import { StructuredChoiceField } from './structured-choice-field';
-import { moveAdjustment } from './adjustment-order';
-import type { PhaseView, WeeklyDraftWorkspace } from './types';
-type Summary = Extract<PhaseView, { phase: 'summary' }>;
-type Adjustment = Summary['adjustments'][number];
-type Edit = Extract<WeeklyDraftWorkspace, { status: 'ready' }>['edit'];
-const kinds = [
-  { value: 'militia_value', label: 'Militia value' },
-  { value: 'team_status', label: 'Team condition' },
-  { value: 'settlement_reputation', label: 'Settlement reputation' },
-  { value: 'event_end', label: 'End persistent event' },
-];
-const fieldGrid =
-  'min-w-0 space-y-3 [&_.grid]:grid-cols-1 sm:[&_.grid]:grid-cols-2';
-function adjustmentSchema(kind: Adjustment['kind']) {
-  const schema = tableAdjustmentSchema.options.find(
-    (schema) => schema.shape.kind.value === kind,
-  )!;
-  return z.strictObject(
-    Object.fromEntries(
-      Object.entries(schema.shape).filter(([key]) => key !== 'adjustmentId'),
-    ),
-  );
-}
-function fieldOptions(view: Summary) {
-  return {
-    ...view.options,
-    field: [
-      { value: 'training', label: 'Training' },
-      { value: 'treasuryCopper', label: 'Treasury (copper)' },
-      { value: 'notoriety', label: 'Notoriety' },
-      { value: 'rank', label: 'Rank' },
-    ],
-  };
-}
-/**
- * The editor and ordering controls of one staged Table Adjustment; every
- * change saves the complete ordered list.
- */
-export function AdjustmentControls({
-  view,
-  edit,
-  disabled,
-  index,
-}: {
-  view: Summary;
+import { wrap } from '~/components/week-review/review-parts';
+import { cn } from '~/lib/utils';
+import {
+  AdjustmentFields,
+  FormNotes,
+  ReasonField,
+} from './summary-adjustment-fields';
+import {
+  adjustmentKinds,
+  kindLabel,
+  type AdjustmentFormValues,
+  type AdjustmentKind,
+  type AdjustmentTargets,
+  type TableAdjustment,
+} from './summary-adjustment-form';
+import {
+  keptNewAdjustment,
+  useAdjustmentForm,
+  useRemovedDraftRegistration,
+  type Edit,
+  type LocalFormGuard,
+  type RemovedAdjustmentDraft,
+} from './use-summary-forms';
+
+// The kind cards that open a new Table Adjustment, its form, and the kept
+// input of adjustments another player removed. Values, validation and
+// saving live in the form hooks; this file lays them out.
+
+type ListProps = {
+  targets: AdjustmentTargets;
+  latest: () => readonly TableAdjustment[];
   edit: Edit;
+  guard?: LocalFormGuard;
   disabled: boolean;
-  index: number;
-}) {
-  const adjustment = view.adjustments[index];
-  if (!adjustment) return null;
-  const save = (adjustments: Adjustment[]) =>
-    void edit({ kind: 'table_adjustments', adjustments });
+};
+
+type NewAdjustment = {
+  id: string;
+  kind: AdjustmentKind;
+  initialValues?: AdjustmentFormValues;
+};
+
+function NewAdjustmentForm({
+  open,
+  targets,
+  latest,
+  edit,
+  guard,
+  disabled,
+  onClose,
+}: ListProps & { open: NewAdjustment; onClose: () => void }) {
+  const adding = useAdjustmentForm({
+    adjustmentId: open.id,
+    accepted: null,
+    kind: open.kind,
+    initialValues: open.initialValues,
+    targets,
+    latest,
+    edit,
+    guard,
+    onSaved: onClose,
+    onCancelled: onClose,
+  });
+  const label = kindLabel(open.kind);
+  const reason = adding.form.watch('reason');
   return (
-    <div className={fieldGrid}>
-      <StructuredChoiceField
-        name="adjustment"
-        schema={adjustmentSchema(adjustment.kind)}
-        value={Object.fromEntries(
-          Object.entries(adjustment).filter(([key]) => key !== 'adjustmentId'),
-        )}
-        options={fieldOptions(view)}
+    <form
+      noValidate
+      id={adding.elementId}
+      aria-label={`New ${label} adjustment`}
+      onSubmit={adding.submit}
+      className="min-w-0 space-y-3 border p-3"
+    >
+      <p className="text-sm font-semibold">{label}</p>
+      <AdjustmentFields form={adding} disabled={disabled} />
+      <ReasonField
+        label="Reason"
+        registration={adding.form.register('reason')}
+        value={reason}
+        error={adding.form.formState.errors.reason}
         disabled={disabled}
-        onValue={(value) => {
-          if (value === undefined) {
-            save(
-              view.adjustments.filter(
-                (item) => item.adjustmentId !== adjustment.adjustmentId,
-              ),
-            );
-            return false;
-          }
-          const parsed = tableAdjustmentSchema.safeParse({
-            ...Object(value),
-            adjustmentId: adjustment.adjustmentId,
-          });
-          if (parsed.success)
-            save(
-              view.adjustments.map((item) =>
-                item.adjustmentId === adjustment.adjustmentId
-                  ? parsed.data
-                  : item,
-              ),
-            );
+        onEnter={() => {
+          if (!adding.isSaving) void adding.submit();
         }}
+      />
+      <FormNotes
+        failure={adding.failure}
+        hasRemoteChange={adding.hasRemoteChange}
+        remoteMessage=""
       />
       <div className="flex flex-wrap gap-2">
         <Button
-          variant="outline"
-          disabled={disabled || index === 0}
-          onClick={() => save(moveAdjustment(view.adjustments, index, -1))}
+          type="submit"
+          size="sm"
+          disabled={disabled || adding.isSaving}
+          aria-busy={adding.isSaving || undefined}
         >
-          Move adjustment {index + 1} earlier
+          <Check aria-hidden />
+          {adding.isSaving ? 'Saving…' : 'Save adjustment'}
         </Button>
         <Button
-          variant="outline"
-          disabled={disabled || index === view.adjustments.length - 1}
-          onClick={() => save(moveAdjustment(view.adjustments, index, 1))}
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={adding.cancel}
         >
-          Move adjustment {index + 1} later
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function RemovedDraftCard({
+  draft,
+  guard,
+  disabled,
+  onAddAgain,
+}: {
+  draft: RemovedAdjustmentDraft;
+  guard?: LocalFormGuard;
+  disabled: boolean;
+  onAddAgain: () => void;
+}) {
+  const removed = useRemovedDraftRegistration(guard, draft);
+  const reason = draft.values.reason.trim();
+  return (
+    <div
+      id={removed.elementId}
+      role="status"
+      className="min-w-0 space-y-2 border border-amber-500/60 p-3"
+    >
+      <p className={cn('text-sm', wrap)}>
+        Another player removed the {kindLabel(draft.values.kind)} adjustment
+        {reason ? ` “${reason}”` : ''} while you were changing it. Your unsaved
+        changes are kept.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => {
+            removed.discard();
+            onAddAgain();
+          }}
+        >
+          Add again as a new adjustment
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={removed.discard}
+        >
+          Discard changes
         </Button>
       </div>
     </div>
   );
 }
-/** Kind cards and the form that appends a new Table Adjustment. */
+
+/** Kind cards, the form that appends a new adjustment and kept removed drafts. */
 export function AddAdjustment({
-  view,
-  edit,
-  disabled,
-}: {
-  view: Summary;
-  edit: Edit;
-  disabled: boolean;
+  localForms,
+  removedDrafts,
+  ...list
+}: ListProps & {
+  /** This device's registered local forms, to reopen a new form left open. */
+  localForms: readonly { id: string }[];
+  removedDrafts: RemovedAdjustmentDraft[];
 }) {
-  const [adding, setAdding] = useState<{
-    id: string;
-    kind: Adjustment['kind'];
-  } | null>(null);
-  const save = async (adjustments: Adjustment[]) => {
-    if ((await edit({ kind: 'table_adjustments', adjustments })) === 'accepted')
-      setAdding(null);
+  const { guard, disabled } = list;
+  const [open, setOpen] = useState<NewAdjustment | null>(() =>
+    keptNewAdjustment(guard, localForms),
+  );
+  const cardRefs = useRef(new Map<AdjustmentKind, HTMLButtonElement>());
+  const describedBy = useId();
+  const openNew = (next: NewAdjustment) => {
+    // Choosing another kind replaces the open new form and its input.
+    if (open) guard?.set(`new-adjustment:${open.id}`, null);
+    setOpen(next);
+  };
+  const close = () => {
+    const kind = open?.kind;
+    setOpen(null);
+    if (kind) cardRefs.current.get(kind)?.focus();
   };
   return (
-    <div className={fieldGrid}>
-      <ChoiceCards
-        label="New Table Adjustment"
-        choices={kinds}
-        value={adding?.kind ?? null}
-        disabled={disabled}
-        onChange={(kind) => {
-          const parsed = tableAdjustmentSchema.options.find(
-            (schema) => schema.shape.kind.value === kind,
-          );
-          if (parsed)
-            setAdding({
-              id: crypto.randomUUID(),
-              kind: parsed.shape.kind.value,
-            });
-        }}
-      />
-      {adding && (
-        <StructuredChoiceField
-          key={adding.id}
-          name="adjustment"
-          schema={adjustmentSchema(adding.kind)}
-          value={
-            adding.kind === 'militia_value'
-              ? { kind: adding.kind, field: 'treasuryCopper', operation: 'add' }
-              : { kind: adding.kind }
-          }
-          options={fieldOptions(view)}
+    <div className="min-w-0 space-y-3">
+      {removedDrafts.map((draft) => (
+        <RemovedDraftCard
+          key={draft.formId}
+          draft={draft}
+          guard={guard}
           disabled={disabled}
-          onValue={(value) => {
-            if (value === undefined) {
-              setAdding(null);
-              return;
-            }
-            const parsed = tableAdjustmentSchema.safeParse({
-              ...Object(value),
-              adjustmentId: adding.id,
-            });
-            if (parsed.success) void save([...view.adjustments, parsed.data]);
-          }}
+          onAddAgain={() =>
+            openNew({
+              id: crypto.randomUUID(),
+              kind: draft.values.kind,
+              initialValues: draft.values,
+            })
+          }
+        />
+      ))}
+      <div
+        role="group"
+        aria-label="New Table Adjustment"
+        data-adjustment-kinds
+        className="grid grid-cols-2 gap-2 md:grid-cols-4"
+      >
+        {adjustmentKinds.map((kind) => {
+          const isOpen = open?.kind === kind.value;
+          const noteId = `${describedBy}-${kind.value}`;
+          return (
+            // Hover only lifts and tints the border so it never resembles the
+            // open kind's fill.
+            <button
+              key={kind.value}
+              ref={(node) => {
+                if (node) cardRefs.current.set(kind.value, node);
+                else cardRefs.current.delete(kind.value);
+              }}
+              type="button"
+              aria-label={kind.label}
+              aria-describedby={noteId}
+              aria-pressed={isOpen}
+              disabled={disabled}
+              onClick={() => {
+                if (!isOpen)
+                  openNew({ id: crypto.randomUUID(), kind: kind.value });
+              }}
+              className={cn(
+                // Words wrap between each other, never inside one: the label
+                // shrinks on a phone instead of splitting "Settlement".
+                'bg-background flex h-auto min-h-16 max-w-full min-w-0 flex-col items-start gap-1 rounded-lg border-2 p-2.5 text-left break-normal whitespace-normal transition-transform select-none sm:p-3',
+                'hover:border-primary/60 hover:-translate-y-1 focus-visible:-translate-y-1 motion-reduce:transform-none',
+                'focus-visible:border-ring focus-visible:ring-ring/50 outline-none focus-visible:ring-[3px]',
+                'disabled:pointer-events-none disabled:opacity-50',
+                isOpen
+                  ? 'border-primary bg-primary/15 hover:border-primary'
+                  : 'border-border',
+              )}
+            >
+              <span className="flex w-full min-w-0 items-start gap-1.5 text-xs font-semibold sm:text-sm">
+                {isOpen ? (
+                  <Check aria-hidden className="mt-0.5 size-4 shrink-0" />
+                ) : (
+                  <Plus aria-hidden className="mt-0.5 size-4 shrink-0" />
+                )}
+                <span className="min-w-0 break-normal">{kind.label}</span>
+              </span>
+              <span
+                id={noteId}
+                className="text-muted-foreground min-w-0 text-xs font-normal"
+              >
+                {kind.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {open && (
+        <NewAdjustmentForm
+          key={open.id}
+          open={open}
+          {...list}
+          onClose={close}
         />
       )}
     </div>

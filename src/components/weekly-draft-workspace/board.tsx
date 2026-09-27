@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -121,6 +121,26 @@ function latestActivity(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView
     : null;
 }
+// The store's current Table Adjustments (accepted plus this device's pending
+// edits), read at Save time so a form never sends a list it captured earlier.
+function latestAdjustments(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' && current.phaseView.phase === 'summary'
+    ? current.phaseView.adjustments
+    : null;
+}
+// This device's Confirm guard for Review's local forms, from the one store.
+function useLocalFormGuard(store: WorkspaceController['store'] | undefined) {
+  return useMemo(
+    () =>
+      store && {
+        set: store.setLocalForm,
+        keep: store.keepLocalValues,
+        read: store.readLocalValues,
+      },
+    [store],
+  );
+}
 // The store's current Overseer support facts (Event or Persistent), read
 // between the edits of a support move so each step plans from the newest
 // accepted and pending draft.
@@ -185,6 +205,7 @@ export function WeeklyWorkspaceBoard({
     choosePhase,
   );
   const panel = useReferencePanel(campaignId);
+  const localFormGuard = useLocalFormGuard(controller?.store);
   const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
   if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
@@ -286,6 +307,11 @@ export function WeeklyWorkspaceBoard({
               void workspace.confirm();
             }}
             review={() => choosePhase('summary')}
+            localForms={workspace.localForms}
+            localFormGuard={localFormGuard}
+            latestAdjustments={() =>
+              latestAdjustments(controller?.store) ?? view.adjustments
+            }
           />
         ) : null}
       </WeekFrame>

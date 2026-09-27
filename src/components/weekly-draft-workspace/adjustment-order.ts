@@ -16,3 +16,18 @@ export function moveAdjustment(
   next[index] = neighbour;
   return next;
 }
+
+/**
+ * The latest list with one adjustment, found by identity, swapped with its
+ * neighbour; null when it has gone or has no neighbour that way, so nothing
+ * is sent.
+ */
+export function moveAdjustmentById(
+  latest: readonly Adjustment[],
+  adjustmentId: string,
+  offset: -1 | 1,
+) {
+  const index = latest.findIndex((item) => item.adjustmentId === adjustmentId);
+  if (index === -1 || !latest[index + offset]) return null;
+  return moveAdjustment(latest, index, offset);
+}

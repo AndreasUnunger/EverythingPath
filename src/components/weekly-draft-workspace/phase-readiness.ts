@@ -75,6 +75,7 @@ export function confirmationDisabledReason({
   forecastPending,
   pendingWork,
   decisions,
+  localForms = 0,
 }: {
   canConfirm: boolean;
   confirming: boolean;
@@ -82,11 +83,17 @@ export function confirmationDisabledReason({
   forecastPending: boolean;
   pendingWork: boolean;
   decisions: number;
+  /** This device's open or invalid Summary forms; never shared state. */
+  localForms?: number;
 }) {
   if (confirming) return 'Confirming the week…';
   if (reviewRequired) return 'Review the updated week before confirming.';
   if (forecastPending || pendingWork)
     return 'Review will be ready when your changes are saved.';
+  if (localForms)
+    return localForms === 1
+      ? 'Save or cancel your unsaved change first.'
+      : `Save or cancel your ${localForms} unsaved changes first.`;
   if (canConfirm) return null;
   if (decisions)
     return `${decisions} ${decisions === 1 ? 'decision' : 'decisions'} left`;

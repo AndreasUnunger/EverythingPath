@@ -1,11 +1,23 @@
 'use client';
+import { useId, useMemo } from 'react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { WeekReviewSections } from '~/components/week-review/week-review';
-import { AddAdjustment, AdjustmentControls } from './summary-adjustments';
+import {
+  adjustmentTargets,
+  type TableAdjustment,
+} from './summary-adjustment-form';
+import { AdjustmentRow } from './summary-adjustment-row';
+import { AddAdjustment } from './summary-adjustments';
 import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
 import type { PhaseView, WeeklyDraftWorkspace } from './types';
+import {
+  focusLocalForm,
+  removedAdjustmentDrafts,
+  useForgetGoneExceptions,
+  type LocalFormGuard,
+} from './use-summary-forms';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
 export function SummaryView({
   view,
@@ -17,6 +29,9 @@ export function SummaryView({
   reviewRequired,
   confirm,
   review,
+  localForms = [],
+  localFormGuard,
+  latestAdjustments,
 }: {
   view: Summary;
   edit: Extract<WeeklyDraftWorkspace, { status: 'ready' }>['edit'];
@@ -28,7 +43,27 @@ export function SummaryView({
   reviewRequired: boolean;
   confirm: () => void;
   review: () => void;
+  /** This device's open or invalid local forms, each a Required decision. */
+  localForms?: { id: string; message: string }[];
+  /** The Workspace's Confirm guard for this device's local forms. */
+  localFormGuard?: LocalFormGuard;
+  /** The latest ordered Table Adjustments this device knows, read at Save time. */
+  latestAdjustments?: () => readonly TableAdjustment[];
 }) {
+  const targets = useMemo(() => adjustmentTargets(view), [view]);
+  const latest = latestAdjustments ?? (() => view.adjustments);
+  const guard = localFormGuard;
+  const removedDrafts = removedAdjustmentDrafts(
+    guard,
+    localForms,
+    view.adjustments,
+  );
+  useForgetGoneExceptions(guard, localForms, view.exceptions);
+  const subjectOf = (exceptionId: string) =>
+    view.exceptions.find((exception) => exception.exceptionId === exceptionId)
+      ?.name ?? 'Rules Exception';
+  const localFormId = useId();
+  const count = view.review.adjustments.length;
   return (
     <div className="min-w-0 space-y-4 [&_button]:h-auto [&_button]:min-h-9 [&_button]:max-w-full [&_button]:break-words [&_button]:whitespace-normal">
       <Card className="min-w-0 space-y-3 p-5">
@@ -40,13 +75,34 @@ export function SummaryView({
               ? 'The week is ready for confirmation.'
               : 'Some rolls or decisions still need attention.'}
         </p>
-        {view.requirements.length > 0 && (
+        {(view.requirements.length > 0 || localForms.length > 0) && (
           <section aria-label="Required decisions">
             <h3 className="font-medium">Required decisions</h3>
             <ul className="list-disc space-y-1 pl-5">
               {view.requirements.map((item) => (
                 <li key={item}>{summaryMessage(item, view)}</li>
               ))}
+              {localForms.map((form, index) => {
+                const messageId = `${localFormId}-${index}`;
+                return (
+                  <li
+                    key={form.id}
+                    className="min-w-0 [overflow-wrap:anywhere]"
+                  >
+                    <span id={messageId}>{form.message}</span>{' '}
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      aria-describedby={messageId}
+                      className="h-auto min-h-0 px-1 py-0 text-sm"
+                      onClick={() => focusLocalForm(form.id)}
+                    >
+                      Go to form
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
@@ -89,18 +145,43 @@ export function SummaryView({
         facts={view.review}
         capabilities={{
           exception: (note) => (
-            <ExceptionControl note={note} edit={edit} disabled={disabled} />
-          ),
-          adjustment: (_adjustment, index) => (
-            <AdjustmentControls
-              view={view}
+            <ExceptionControl
+              note={note}
+              subject={subjectOf(note.exceptionId)}
               edit={edit}
+              guard={guard}
               disabled={disabled}
-              index={index}
             />
           ),
+          adjustment: (adjustment, index) => {
+            const accepted = view.adjustments.find(
+              (item) => item.adjustmentId === adjustment.adjustmentId,
+            );
+            if (!accepted) return null;
+            return (
+              <AdjustmentRow
+                adjustment={adjustment}
+                index={index}
+                count={count}
+                accepted={accepted}
+                targets={targets}
+                latest={latest}
+                edit={edit}
+                guard={guard}
+                disabled={disabled}
+              />
+            );
+          },
           addAdjustment: (
-            <AddAdjustment view={view} edit={edit} disabled={disabled} />
+            <AddAdjustment
+              targets={targets}
+              latest={latest}
+              edit={edit}
+              guard={guard}
+              disabled={disabled}
+              localForms={localForms}
+              removedDrafts={removedDrafts}
+            />
           ),
         }}
       />
