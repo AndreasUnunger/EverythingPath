@@ -823,7 +823,7 @@ test('mixed roll forms survive public stale replay and retain exact operation id
   };
   const choice = {
     choiceId: 'mixed',
-    actionId: 'earn_gold' as const,
+    actionId: 'drill_militia' as const,
     rolls: { check: legacy },
   };
   await send(
@@ -841,7 +841,7 @@ test('mixed roll forms survive public stale replay and retain exact operation id
     kind: 'detail',
     slotId: 'left',
     choiceId: choice.choiceId,
-    choice: { ...choice, rolls: { ...choice.rolls, reward: total } },
+    choice: { ...choice, rolls: { ...choice.rolls, training: total } },
   });
   const receipt = await send(request);
   expect(receipt.acceptedRevision).toBe(3);
@@ -850,7 +850,7 @@ test('mixed roll forms survive public stale replay and retain exact operation id
   expect(accepted.draft?.activity.slots[0]?.choice).toEqual({
     ...choice,
     costCopper: 10,
-    rolls: { check: legacy, reward: total },
+    rolls: { check: legacy, training: total },
   });
   await expect(
     send({
@@ -864,7 +864,7 @@ test('mixed roll forms survive public stale replay and retain exact operation id
           ...choice,
           rolls: {
             check: legacy,
-            reward: {
+            training: {
               dice: [3, 4],
               sides: 6,
               provenance: total.provenance,
@@ -903,7 +903,7 @@ test('mixed roll forms survive public stale replay and retain exact operation id
       choice: {
         ...choice,
         costCopper: 20,
-        rolls: { check: legacy, reward: total },
+        rolls: { check: legacy, training: total },
       },
     }),
   );
@@ -913,7 +913,7 @@ test('mixed roll forms survive public stale replay and retain exact operation id
   expect(replayed.draft?.activity.slots[0]?.choice).toEqual({
     ...choice,
     costCopper: 20,
-    rolls: { check: legacy, reward: total },
+    rolls: { check: legacy, training: total },
   });
 });
 
@@ -1010,4 +1010,100 @@ test('public nested roll validation rejects malformed totals atomically without 
     }),
   ).rejects.toThrow('Invalid draft entity reference');
   expect((await member.query(observe, key)).revision).toBe(1);
+});
+
+test('public edits reject unsupported roll fields across action and nested contexts without accepting a revision', async () => {
+  const { key, member } = await setup();
+  const before = await member.query(observe, key);
+  const roll = {
+    diceTotal: 7,
+    diceCount: 2,
+    sides: 6,
+    provenance: { kind: 'table' },
+    modifiers: [],
+  };
+  const occurrence = { eventId: 'nested', origin: { kind: 'rolled' } };
+  const unsupported = [
+    ...['earn_gold', 'special'].map((actionId) => ({
+      kind: 'stage',
+      slotId: 'left',
+      choice: {
+        choiceId: 'unsupported',
+        actionId,
+        rolls: { [actionId === 'earn_gold' ? 'reward' : 'check']: roll },
+      },
+    })),
+    {
+      kind: 'upkeep',
+      inputs: { ...before.draft!.upkeep, rolls: { reward: roll } },
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [{ ...occurrence, rolls: { duration: roll } }],
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [
+        {
+          ...occurrence,
+          targetChecks: [
+            {
+              target: { kind: 'event', eventId: 'nested' },
+              rolls: { training: roll },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [
+        {
+          ...occurrence,
+          sabotage: { choiceId: 'sabotage', rolls: { delivery: roll } },
+        },
+      ],
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [
+        {
+          ...occurrence,
+          persistent: true,
+          persistentDecision: {
+            eventId: 'nested',
+            kind: 'mitigate',
+            rolls: { loss: roll },
+          },
+        },
+      ],
+    },
+    {
+      kind: 'stage',
+      slotId: 'left',
+      choice: {
+        actionId: 'guarantee_event',
+        choiceId: 'candidate',
+        candidates: [{ ...occurrence, rolls: { reward: roll } }],
+      },
+    },
+  ];
+  for (const [index, intent] of unsupported.entries()) {
+    await expect(
+      Reflect.apply(member.mutation, member, [
+        edit,
+        {
+          campaignId: key.campaignId,
+          militiaId: key.militiaId,
+          operation: {
+            draftId: key.draftId,
+            operationId: `unsupported-${index}`,
+            baseRevision: 0,
+            edit: intent,
+          },
+        },
+      ]),
+    ).rejects.toThrow(/rolls/);
+    expect(await member.query(observe, key)).toEqual(before);
+  }
 });

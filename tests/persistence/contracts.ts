@@ -143,7 +143,9 @@ export async function runPersistenceContract(
       );
       check(
         weeklySourceKey(
-          accepted.draft?.activity.slots[0]?.choice?.rolls?.check,
+          accepted.draft?.activity.slots[0]?.choice?.actionId === 'earn_gold'
+            ? accepted.draft.activity.slots[0].choice.rolls?.check
+            : undefined,
         ) === weeklySourceKey(legacy),
         'Other player retains the original individual dice',
       );
@@ -174,7 +176,9 @@ export async function runPersistenceContract(
       );
       check(
         weeklySourceKey(
-          cleared.draft?.activity.slots[0]?.choice?.rolls?.check,
+          cleared.draft?.activity.slots[0]?.choice?.actionId === 'earn_gold'
+            ? cleared.draft.activity.slots[0].choice.rolls?.check
+            : undefined,
         ) === weeklySourceKey(legacy),
         'Clearing total preserves unrelated legacy roll',
       );
@@ -272,7 +276,9 @@ export async function runPersistenceContract(
     );
     const result = (await first.read()).draft?.activity.slots[0]?.choice;
     check(
-      result?.costCopper === 12 && firstLegacyDie(result.rolls?.check) === 10,
+      result?.actionId === 'earn_gold' &&
+        result.costCopper === 12 &&
+        firstLegacyDie(result.rolls?.check) === 10,
       'Disjoint detail fields merge without dropping accepted changes',
     );
     const before = await first.read();

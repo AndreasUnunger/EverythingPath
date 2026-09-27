@@ -625,3 +625,50 @@ test('storage retains mixed complete and partial raw forms without rewriting rea
   expect(historical.rulesetVersion).toBe(1);
   expect(historical.finalOutcome.data).toEqual({ treasuryCopper: 10001 });
 });
+
+test('storage rejects retired rolls in open and historical sources without writing partial records', async () => {
+  const { player, scope } = await fixture();
+  const draft = fresh();
+  const unsupported = {
+    ...draft,
+    upkeep: {
+      ...draft.upkeep,
+      rolls: {
+        reward: {
+          dice: [4],
+          sides: 6,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      },
+    },
+  };
+  await expect(
+    player.run((ctx) =>
+      Reflect.apply(openDraft, undefined, [
+        ctx,
+        { ...scope, draft: unsupported },
+      ]),
+    ),
+  ).rejects.toThrow(/reward/);
+  expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+  await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
+  await expect(
+    player.run((ctx) =>
+      Reflect.apply(appendResolutionRecord, undefined, [
+        ctx,
+        { ...scope, record: { ...record(), source: unsupported } },
+      ]),
+    ),
+  ).rejects.toThrow(/reward/);
+  expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
+  expect(
+    await player.run((ctx) => readEffectiveRecord(ctx, { ...scope, week: 11 })),
+  ).toBeNull();
+  await player.run((ctx) =>
+    appendResolutionRecord(ctx, { ...scope, record: record() }),
+  );
+  expect(
+    await player.run((ctx) => readEffectiveRecord(ctx, { ...scope, week: 11 })),
+  ).toEqual(record());
+});

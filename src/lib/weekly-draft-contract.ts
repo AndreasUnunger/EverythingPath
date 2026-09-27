@@ -4,7 +4,7 @@ import {
   integerSchema as int,
   stagedActionChoiceSchema,
   rawRollSchema,
-  rollsSchema,
+  upkeepRollsSchema,
   persistentEventSchema,
   orderSchema,
   queuedEffectSchema,
@@ -54,7 +54,7 @@ const upkeepSchema = z.strictObject({
   // check/training: attrition; notoriety: maximum-Notoriety loss; loss: treasury shortage.
   notorietyCheck: rawRollSchema.optional(),
   nearestSettlementId: id.optional(),
-  rolls: rollsSchema.default({}),
+  rolls: upkeepRollsSchema.default({}),
   treasuryTransfers: z
     .array(
       z.strictObject({
