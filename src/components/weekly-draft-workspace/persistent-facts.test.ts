@@ -255,6 +255,12 @@ test('[PER-05.legacy] a legacy recorded amount never controls the deduction and 
   });
   const summary = phaseView('summary', draft, source, preview);
   expect(summary.warnings).not.toContain('carried:buyoff-cost-recomputed');
+  // The six-section review places only live warnings, so the removed legacy
+  // amount warning cannot return under the buyoff's item.
+  assert(summary.phase === 'summary');
+  expect(JSON.stringify(summary.review)).not.toContain(
+    'buyoff-cost-recomputed',
+  );
   for (const phase of derivePhaseReadiness(draft, source, preview).phases)
     expect(phase.warnings.map((item) => item.id)).not.toContain(
       'carried:buyoff-cost-recomputed',

@@ -14,6 +14,7 @@ function review(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [
