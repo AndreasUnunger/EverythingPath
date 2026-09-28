@@ -1,0 +1,835 @@
+# Legacy compatibility inventory (#148)
+
+This inventory lists code that exists only to read, validate, display, repair
+or migrate data shapes older than the current writers produce. It is a removal
+plan, not a removal: every path below is reviewed, tested and gated, so each is
+retired deliberately in its own change.
+
+Surveyed at `72f94c3` on `implement/148-ui-rework`, 2026-09-28. Each file,
+function and test ID cited here existed at that commit.
+
+## Relation to the legacy retirement record
+
+[Legacy retirement](legacy-retirement.md) is the finished record of #91: the
+pre-cutover board, tables and migration readers it removed, the backups it
+retained and the evidence behind it. That record is closed, so this forward
+plan is a separate document. It covers what the canonical application has
+since accumulated for its own older shapes. The #91 rejection endpoints that
+remain are listed once here (B6) so every removable path is in one place.
+
+## Production facts this plan relies on
+
+A read-only production check on 2026-09-28 found one campaign and one militia
+holding:
+
+- one open week-8 Weekly Draft at revision 0 with no Action Slot choices, event
+  occurrences, Persistent decisions, Table Adjustments or carried events;
+- no Resolution Records (no confirmed week);
+- six characters, all stored with `kind: 'pc'`, each with a matching roster
+  entry.
+
+The user confirmed there will be no data changes before release. Because the
+draft is at revision 0, production also holds no accepted
+`canonicalDraftOperation` rows and no `canonicalDraftTarget` rows.
+
+"Safe now" below means safe given these facts. Before removing anything:
+
+1. Re-run the read-only production check. The first Confirmation after release
+   creates a Resolution Record, and every later edit creates stored draft and
+   operation rows.
+2. Check the dev deployment and any preview you intend to keep. A Convex schema
+   push validates every stored document, not just production's. Dev held older
+   data before #91 and may hold older rolls, kinds or records. The e2e seeding
+   mutations in `convex/canonicalPersistenceFixtures.ts` and
+   `convex/e2eFixtures.ts` also write some old shapes (noted per entry).
+
+## Rules that apply to every removal
+
+- **Zod schemas are the Convex schema.** `convex/lib/canonicalStorageValidators.ts`
+  derives the `canonicalWeeklyDraft`, `canonicalDraftOperation` and
+  `canonicalResolutionRecord` validators from `weeklyDraftDataSchema`,
+  `weeklyDraftEditSchema` and `canonicalResolutionRecordSchema`.
+  `canonicalMilitiaState.snapshot` comes from `militiaSnapshotSchema`
+  (`convex/schema.ts`). Narrowing a union in `src/lib/weekly-draft-facts.ts` or
+  `src/lib/weekly-draft-contract.ts` therefore narrows stored tables. If any
+  stored document could still hold the old shape, use widen-migrate-narrow.
+  Otherwise use this order: stop every writer of the shape, re-check stored
+  data, then narrow the schema and delete the readers in one deploy.
+- **Old browser tabs.** After narrowing, the Convex argument validators reject
+  an old bundle that still sends the old shape. The current UI already sends
+  none of the shapes in group A.
+- **Two generic editors still write almost any schema field.** Several shapes
+  described in code as "from an older editor" can still be written today
+  through two generic editors built on `StructuredChoiceField`
+  (`src/components/weekly-draft-workspace/structured-choice-field.tsx`):
+  - **W1: the Event block's "Edit ... details" disclosure.** This is
+    `EventOccurrenceEditors` in `event-occurrence-editors.tsx`, rendered for
+    every Event block that is not still preparing. It edits the whole
+    `eventOccurrenceSchema` except `origin`, `tableRoll` and `eventType`.
+  - **W2: Activity's "Recorded candidate details" disclosure.** This is
+    `CANDIDATE_FIELDS` in `activity-details.tsx`. It edits whole candidate
+    trees, including each occurrence's `origin`. This old candidate-tree
+    editor is being retired separately. The entries that depend on it only
+    note the dependency.
+
+  Entries that depend on retiring or narrowing W1 or W2 are in group B.
+
+- **Rules coverage.** `pnpm -s rules:check` must stay at 0 errors.
+  - Only IDs listed in a case's `tests` array in
+    `tests/rules/coverage-catalog.ts` are pinned. Deleting or renaming one of
+    those tests gives `missing test`, so edit the catalog's `tests`,
+    `plannedTests` and, where it describes older data, `expected` in the same
+    change.
+  - Other `[rules.X]` tags in test titles are labels only.
+  - Case IDs are fingerprinted in `tests/rules/case-inventory.json`. Removing a
+    case needs a reviewed inventory update; only B6 might need one.
+- **Keep corpus notes.** `docs/ai/ironfang-militia/militia-rules.md` records the
+  departures made under Ruleset Versions 6, 7 and 8. Those sections are
+  fingerprinted, and the notes stay true.
+- **Never reuse a Ruleset Version number.** `CANONICAL_WEEKLY_RULESET_VERSION`
+  stays 8 even after the named constants for 6 and 7 go. The corpus notes, and
+  any records in dev, refer to the older numbers.
+- **Ruleset Version bumps.** Several removals delete a resolution branch for
+  input that can no longer be expressed (A4, B1, B2). No reachable week changes
+  its result, so by the `CONTEXT.md` definition no new Ruleset Version is
+  needed. Each such change should still say so, and its reviewer should confirm
+  it.
+- **Keep forward-compatibility tolerance.** Once released weeks are confirmed,
+  format-2 records at Ruleset Version 8 will accumulate and never change. Later
+  Ruleset Versions will need version-aware readers again, like
+  `isBlankHitDiceLevel`. `describeRecordedChange`, the `sectionChips` catch and
+  generic fact text therefore stay (see C8).
+
+## Summary
+
+| ID    | Path                                                                             | Ticket(s)        | Group  | Rough size (source / tests)      |
+| ----- | -------------------------------------------------------------------------------- | ---------------- | ------ | -------------------------------- |
+| A1    | Dead leftovers (legacy officers map, old action cap, context preparation schema) | #64, #66, #91    | A      | ~230 / ~80                       |
+| A2    | Legacy dice arrays beside dice totals                                            | #154, #155       | A      | ~130 / ~1,300 plus fixture churn |
+| A3    | Actor-bearing treasury transfers                                                 | #158             | A      | ~45 / ~400                       |
+| A4    | Legacy Upkeep Remove decisions                                                   | #156             | A      | ~90 / ~150                       |
+| A5    | Older Resolution Record formats and missing source snapshots                     | #194, #185, #197 | A      | ~190 / ~650                      |
+| A6    | Pre-Version-8 blank Hit Dice ("Hit Dice not recorded")                           | #196, #185       | A      | ~20 / ~40                        |
+| A7    | Named Ruleset Version constants 6 and 7, pre-v8 record tests                     | #158, #191, #196 | A      | ~15 / ~200                       |
+| A8    | Off-list rank-boon feat text                                                     | #157             | A      | ~25 / ~20                        |
+| B1    | Older Event and check-decision fields                                            | #164–#168        | B (W1) | ~260 / ~500 plus fixtures        |
+| B2    | Candidate Roll Twice expansions and replacement-child rerolls                    | #191, #163       | B (W2) | ~70 / ~250                       |
+| B3    | `officer_npc` and `other_npc` character kinds                                    | #179, #180       | B      | ~40 / ~500                       |
+| B4    | Absent record kind                                                               | #179             | B      | ~10 / ~20                        |
+| B5    | Pre-canonical character fields and `dataMigration` table                         | #16, #17         | B      | ~30 / —                          |
+| B6    | #91 rejection endpoint names                                                     | #91              | B      | ~290 / ~30                       |
+| C1–C8 | Look-alikes and deliberate compatibility                                         | various          | C      | —                                |
+
+Sizes are rough, from reading the code, not from a trial removal. Test figures
+count whole tests or fixtures that would go or be rewritten.
+
+The biggest wins are A2 (dice arrays: a schema union, branches in about ten
+readers, and the largest block of compatibility tests plus one e2e scenario),
+A5 (the loose-format record readers) and B1 (the nested Event fallbacks, once
+W1 is gone).
+
+---
+
+## A. Safe to remove now
+
+### A1. Dead compatibility leftovers
+
+- **Old shape:** none stored. These are helpers left behind by removed writers.
+  - `mapLegacyOfficers` mapped the pre-canonical single-holder officer fields.
+  - `getMaxActionsForRank` and `getMaxActionsForMilitia` served "Legacy
+    compatibility until its truncating writer is retired (#66)", and that
+    writer is gone.
+  - The campaign-context preparation document (#64) fed the migration preflight
+    that #91 deleted, together with its storage and editors.
+- **Where:**
+  - `src/lib/canonical-roster.ts`: `mapLegacyOfficers`. Only
+    `src/lib/canonical-roster.test.ts` calls it.
+  - `src/lib/militia-progression-rules.ts`: `getMaxActionsForRank` and
+    `getMaxActionsForMilitia`. Nothing calls them.
+  - `src/lib/canonical-campaign-context.ts`: `campaignContextDataSchema`,
+    `campaignContextSchema`, `emptyCampaignContext`, `campaignContextWarnings`,
+    `contextEventSchema`, `contextOrderSchema` (its `receiptStatus: 'unknown'`
+    is "unknown legacy delivery") and `contextCacheSchema`.
+    - Keep `contextSettlementSchema` and `contextBonusSchema`, which
+      `src/lib/canonical-weekly-source.ts` uses.
+    - Replace the `CampaignContext` type used in `src/lib/rules-foundations.ts`
+      and `src/lib/rules-settlements.ts` with the inferred settlement, bonus and
+      queued-effect types.
+  - Optional: in `convex/lib/canonicalDraftTargets.ts`, the opaque-target branch
+    of `ancestors` ("A legacy opaque target has no parent paths"). Production
+    edits send JSON paths, and only `convex/canonicalDraftStorage.integration.test.ts`
+    and `convex/persistentEventProjection.integration.test.ts` send flat
+    targets such as `'slot:left'`.
+- **Tests and tags:**
+  - `src/lib/canonical-roster.test.ts`: the `mapLegacyOfficers` assertion.
+  - `src/lib/canonical-campaign-context.test.ts`, 73 lines. Its
+    `[context.absence]` is pinned by cases `F09.context-money` and
+    `U01.context-first-use`, and `[context.delivery]` by `A21.context-orders`.
+    Retarget those catalog entries to the `setup.*` and `ledger.*` tests
+    already listed beside them.
+    Otherwise `rules:check` reports them missing.
+- **Order:** none.
+- **Risk:** none for data. This is catalog work only.
+- **Size:** about 230 source lines and 80 test lines.
+
+### A2. Legacy dice arrays beside dice totals (#154, #155)
+
+- **Old shape:** a `RawRoll` with individual `dice: number[]`. #154 taught
+  readers the `{ diceTotal, diceCount }` form. #155 made every editor write
+  totals (`totalRoll` in `roll-facts.ts`), so no page writes an array now.
+- **Where:**
+  - Schema: the first member of the `rawRollSchema` union in
+    `src/lib/weekly-draft-facts.ts`. It reaches every stored roll: upkeep,
+    activity, event, persistent, draft edits and records.
+  - Normalizer: `normalizeRawRoll` and `rollRangeWarning` in
+    `src/lib/raw-roll.ts`, which include the `'legacy-die'` range warning.
+  - View facts (`src/components/weekly-draft-workspace/`):
+    - `roll-facts.ts`: `LegacyRawRoll`, `isLegacyRoll`, `recordedDiceCount`,
+      the array branches of `recordedRollExplanation` and `rangeAdvisory`, and
+      `legacyDiceSlots`.
+    - `legacyDiceSlots` feeds `RollFact.dice` (`types.ts`) through
+      `phase-view.ts`, and no view reads that field.
+  - Readers and editors:
+    - `structured-choice-field.tsx`: the legacy member found by `rollUnion`,
+      `isRawRollValue` and the "Recorded dice" read-only branch of `RollFields`.
+    - `roll-total-field.tsx`: its comment about partial legacy dice.
+    - `upkeep-warnings.ts`: the per-die wording of `rangeMessage`.
+    - `persistent-check-facts.ts`: `rollText`.
+    - `src/components/week-review/review-text.ts`: the `rollText` array
+      branch.
+- **Writers of the old shape still in the tree, to convert first:**
+  - The test helper `roll(sides, ...dice)` in `tests/rules/upkeep-fixture.ts`.
+    About 540 `roll(` calls in about 75 test files build rolls with it.
+    Emitting `{ diceTotal: sum, diceCount: dice.length }` keeps them valid.
+  - Dice-array literals in about 30 test and fixture files, including
+    `src/components/weekly-draft-workspace/workspace-test-fixture.ts`,
+    `tests/persistence/contracts.ts` and
+    `tests/persistence/confirmation-contracts.ts`.
+  - The deployed e2e seeding mutation in
+    `convex/canonicalPersistenceFixtures.ts` (three literals).
+  - `e2e/canonical-confirmation.spec.ts`.
+- **Tests and tags:**
+  - Delete the array-only cases in these files:
+    - `src/lib/raw-roll.test.ts`
+    - `src/lib/rules-roll-compatibility.test.ts` (the legacy outlier and
+      mixed-form cases)
+    - `src/lib/weekly-draft-roll-schema.test.ts`
+    - in `src/components/weekly-draft-workspace/`:
+      `upkeep-roll-compatibility.test.tsx` (`WEEK-15.upkeep-partial`,
+      `upkeep-legacy-equivalence`), `activity-roll-compatibility.test.tsx`
+      (`ACT-13.legacy-check`, `ACT-12.modifier-only-legacy`, `ACT-12.partial`),
+      `nested-roll-compatibility.test.tsx` (`EVT-07.legacy-nested`,
+      `EVT-11.invalid-explicit-clear`) and `roll-total-field.test.tsx`
+      (`WEEK-15.total-incomplete`)
+    - `src/components/historical-week/record-roll-compatibility.test.tsx`
+      (`HIST-05.old-source`)
+  - The total-form cases in those files test current behavior and stay.
+  - Convex tests: "mixed roll forms…" in
+    `convex/canonicalDraftPersistence.integration.test.ts`, "storage retains
+    mixed…" in `convex/canonicalDraftStorage.integration.test.ts` and "mixed
+    confirmed history…" in `convex/canonicalHistory.integration.test.ts`.
+  - Browser: `exerciseRollCompatibility` in `e2e/support/roll-compatibility.ts`,
+    called from `e2e/canonical-workspace.spec.ts`. It re-enters "legacy dice"
+    after reading totals. A comment there still says no page writes totals,
+    which has been untrue since #155. `connectAs` in the same file is shared with
+    `e2e/support/team-conditions.ts` and must stay.
+  - None of the array-only test IDs is catalog-pinned. Pinned tests that merely
+    build arrays through `roll()` stay valid once the helper emits totals,
+    including `rules.U02.dice-boundaries`. Re-run `rules:check`: per-die
+    `'legacy-die'` warnings become whole-range `'total'` warnings, which could
+    move a range assertion.
+- **Order:** convert the helper and fixtures, then check dev and previews for
+  stored arrays. Then narrow `rawRollSchema` and delete the readers in one
+  deploy.
+- **Risk and preconditions:** production has no rolls, so this is safe now. Dev
+  and e2e preview data seeded by `canonicalPersistenceFixtures` may hold
+  arrays. Clear it, or migrate it to totals, before the schema push.
+- **Size:** about 130 source lines across about 12 files. About 1,300 test lines
+  go or are rewritten, including the 348-line e2e helper and its unit test. The
+  literal fixtures churn as well.
+
+### A3. Actor-bearing treasury transfers (#158)
+
+- **Old shape:** a transfer with a `characterId`, from before Ruleset Version 6
+  made transfers characterless. It also covers the officer named in older
+  treasury plan entries, and recorded `upkeep-transfer-officer` exceptions,
+  which no code creates or requires any more.
+- **Where:**
+  - `src/lib/weekly-draft-contract.ts`: `characterId: id.optional()` on
+    `treasuryTransfers` in `upkeepSchema`. The `upkeep_transfer` edit reuses it.
+  - `src/lib/weekly-draft-consistency.ts`: `hasNewTransferCharacterOutsideCampaign`
+    and its call in `acceptDraftOperation`.
+  - In `src/components/weekly-draft-workspace/`: `legacyCharacterName` in
+    `upkeep-sections.ts`, `types.ts` and `staged-transfer.tsx`.
+  - `src/components/historical-week/record-review.ts`: `findTransferActor` and
+    the actor suffix in `transferItems`.
+  - Optional: the always-null `characterId` on the `treasury` entry of
+    `UpkeepChange` and in `treasury()`, both in `src/lib/rules-upkeep.ts`.
+    Dropping it changes the plan shape new records store, which is harmless
+    before the first record. Expected plans in tests change with it.
+- **Writers:** none. `upkeep-transfer-edits.ts` sends
+  `{ transferId, direction, copper }`.
+- **Tests and tags:**
+  - Catalog case `U05.order` pins `rules.U05.transfer-schema`,
+    `rules.U05.legacy-actor`, `rules.U05.old-record`, `rules.U05.actor-scope`
+    and `rules.U05.ruleset-version` in `src/lib/characterless-transfers.test.ts`,
+    and `rules.U05.persistence` in
+    `convex/characterlessTransfers.integration.test.ts`.
+  - Delete the actor-specific ones and drop them from the case, or rewrite
+    them to actorless only. Keep `rules.U05.characterless`, `U05.order`,
+    `U05.overdraft` and `U05.officer-exception`.
+  - Also affected:
+    - `src/components/weekly-draft-workspace/upkeep-transfer-sections.test.ts`:
+      "a legacy row keeps its recorded name" in `UPK-10.rows`.
+    - `src/components/historical-week/record-roll-compatibility.test.tsx`:
+      `HIST-05.old-source`.
+    - The transfer actor in `tests/history/resolution-record-fixtures.ts`.
+- **Order:** the schema narrows `canonicalWeeklyDraft`, operations and records
+  together. Production holds no transfers.
+- **Risk:** low. Behavior is unchanged, because the actor was already
+  metadata only.
+- **Size:** about 45 source lines and about 400 test lines.
+
+### A4. Legacy Upkeep Remove decisions (#156)
+
+- **Old shape:** an Upkeep team decision `'remove'` with an
+  `upkeep-team-removal` Rules Exception. Since #156 removing a team is a Militia
+  Correction, and Upkeep offers only Recover or Leave disabled.
+- **Where:**
+  - Schema: `'remove'` in the `teamDecisions` enum in
+    `src/lib/weekly-draft-contract.ts`.
+  - Engine: `removeWithException` and its call in `src/lib/rules-upkeep.ts`,
+    with the `upkeep-removal` warning and `removal-exception` requirement.
+    `removeTeam` stays, because the missing-team natural-1 loss uses it.
+  - UI (`src/components/weekly-draft-workspace/`):
+    - `legacyRemoval` in `upkeep-sections.ts`
+    - `UpkeepLegacyRemoval` and the `legacyRemoval` fields in `types.ts`
+    - `LegacyRemoval` in `upkeep-teams.tsx`
+    - the `removal` parameter of `clearTeamDecision` in `upkeep-edits.ts`
+    - `'removal-exception'` in `summary-messages.ts`
+    - `:upkeep-removal` in `upkeep-warnings.ts`
+- **Writers:** none in the UI. `e2e/support/team-conditions.ts`
+  (`exerciseTeamConditionRows`) sends a `'remove'` decision through the
+  transport on purpose, to show the repair row.
+- **Tests and tags:**
+  - `[rules.U04.recovery-inputs]` in `src/lib/rules-upkeep.test.ts` is pinned
+    twice in the catalog. Keep the ID and delete its Remove half.
+  - In `src/components/weekly-draft-workspace/`:
+    - `upkeep-view.test.tsx`: "a retained Remove choice is cleared with its
+      ruling…"
+    - `upkeep-sections.test.ts`: "a retained Remove choice from an older page…"
+    - the Remove fixtures in `phase-readiness.test.ts`
+  - The Remove step in the e2e helper above.
+- **Order:** the schema narrows drafts and operations. There is no record
+  impact.
+- **Risk:** low. The engine loses a branch only unreachable input could use
+  (see the Ruleset Version rule above).
+- **Size:** about 90 source lines and about 150 test lines.
+
+### A5. Older Resolution Record formats and missing source snapshots (#194, #185, #197)
+
+- **Old shape:** records written before canonical Weekly Resolution (#78) made
+  every record format 2 with `sourceMilitiaSnapshot`. Those older records hold:
+  - loose extraction facts under `formatVersion` 1, which may be keyed by
+    phase, put the militia under `outcome` or record flat militia values;
+  - no source snapshot;
+  - written warning messages in place of codes;
+  - no Activity plan.
+
+  Confirmation has written only format 2 with a snapshot since #78, and
+  production has no records at all.
+
+- **Where:**
+  - Schema: `src/lib/canonical-resolution-record.ts`.
+    - `sourceMilitiaSnapshot` is `.optional()`; it could be required.
+    - `resolutionArtifactSchema.formatVersion` is `int.min(1)`; it could be
+      `z.literal(2)`. Typed plan schemas would be an optional further step.
+  - `src/components/historical-week/record-artifacts.ts`:
+    - the format test in `parseTypedPlan`, and `looseState`, `looseFinal` and
+      the loose branches of `finalState` and `readRecordedWeek`;
+    - the `baselinePlan.before` fallback for a missing snapshot.
+  - `src/components/historical-week/record-review.ts`:
+    - the no-Activity-plan fallback in `guaranteedChoices`;
+    - the written-message branch of `findWarningCode` and `placeWarnings`;
+    - `notRecordedText` and the `incomplete` status in `sectionStatus`;
+    - `historicalMessages` (the old buyoff warning, see B1d).
+  - `src/components/week-review/review-comparison.ts`: `recordedFacts`, the
+    `recorded` part of `ComparedState`, and the "Not recorded" cells a complete
+    format-2 record never needs. Keep `unrecorded` if C8's tolerance keeps
+    using it.
+  - `src/lib/finished-week-headlines.ts`: the `outcome` and flat-fact branches
+    of `readFinalMilitia`, and the plan fallback of `readBeforeMilitia`. These
+    feed `projectHeadlineFacts`, which `convex/canonicalHistory.ts` serves
+    (#197).
+- **Tests and tags:**
+  - `tests/history/resolution-record-fixtures.ts`: `legacyRecord` and
+    `legacySource`, about 200 of its 283 lines.
+  - `src/components/historical-week/record-review.test.ts`:
+    `HIST-05.frozen-legacy` and `HIST-05.frozen-rolls`. The rolls test belongs
+    with A2.
+  - `src/components/historical-week/record-review-view.test.tsx`:
+    `HIST-05.frozen-view-legacy`.
+  - `src/components/week-review/review-comparison.test.ts`: "a state that did
+    not record its militia…".
+  - `src/lib/finished-week-headlines.test.ts`: `P86.headline-legacy`.
+  - None of these is catalog-pinned. The catalog does pin `rules.P86.display`
+    and `rules.P86.labels` (`record-view.test.tsx`), whose record fixture holds
+    `formatVersion: 1` loose facts. Rewrite that fixture as a format-2 record,
+    for example from `confirmedWeek`, and keep both IDs.
+- **Order:** the reader deletions need no schema change. Making the record
+  schema stricter validates every stored record, so check dev history first
+  (see A7).
+- **Risk:** none in production today. The first release Confirmation writes
+  format 2 at version 8, which this change keeps reading.
+- **Size:** about 190 source lines and about 650 test lines.
+
+### A6. Pre-Version-8 blank Hit Dice: "Hit Dice not recorded" (#196, #185)
+
+- **Old shape:** a Resolution Record confirmed before Ruleset Version 8, when a
+  blank roster Hit Dice override meant unknown rather than the character's
+  level.
+- **Not legacy:** the nullable `hitDice` override itself (`rosterPersonSchema`
+  in `src/lib/canonical-roster.ts`). A blank means "use level" today, and
+  `getEffectiveHitDice` reads it. See C3.
+- **Where:**
+  - `isBlankHitDiceLevel` in `src/lib/ruleset-versions.ts`, and its call in
+    `recordWeekReview` (`src/components/historical-week/record-review.ts`).
+  - `StateReading.isBlankHitDiceLevel` and the "not recorded" variant in
+    `hitDiceText`, in `src/components/week-review/review-comparison.ts`.
+- **Tests and tags:** `[rules.HIST-05.record-hit-dice]`
+  (`record-review.test.ts`) is pinned in the Commandant case (`O03.success`).
+  Rewrite it to assert blank as level, or drop it from the case.
+  `HIST-05.record-kinds` (`record-view.test.tsx`, not pinned) asserts "Hit Dice
+  not recorded".
+- **Order:** none.
+- **Risk:** safe once no record older than Version 8 exists, which is true in
+  production now.
+- **Size:** about 20 source lines and about 40 test lines.
+
+### A7. Named Ruleset Version constants and pre-v8 record tests (#158, #191, #196)
+
+- **Old shape:** none. No resolver branches on version: there is one Weekly
+  Resolution, and records only store the number.
+  - The constants `CHARACTERLESS_TRANSFERS_RULESET_VERSION` (6) and
+    `CANDIDATE_REROLL_RULESET_VERSION` (7) exist to define 8 and to let tests
+    build older records.
+  - `ROLE_AWARE_OFFICERS_RULESET_VERSION` (8) is used by `isBlankHitDiceLevel`
+    (A6).
+- **Where:**
+  - `src/lib/ruleset-versions.ts`.
+  - The re-exports in `src/lib/canonical-weekly-resolution.ts`.
+- **Tests and tags:** these catalog-pinned tests build or assert pre-v8
+  records:
+  - `rules.U05.ruleset-version` (`src/lib/characterless-transfers.test.ts`)
+  - `rules.A10.reroll-version` (`src/lib/candidate-roll-twice.test.ts`)
+  - `rules.HIST-05.manager-limit-version` and
+    `rules.HIST-05.candidate-expansion` (`record-review.test.ts`)
+
+  Others use an arbitrary small `rulesetVersion` as display data, for example
+  `record-view.test.tsx` and `finished-week-index.test.ts`. They can stay.
+
+- **Order:** after A6. Keep `CANONICAL_WEEKLY_RULESET_VERSION = 8`.
+- **Risk:** none for data. Collapsing the constants must not reset the number.
+- **Size:** about 15 source lines and about 200 test lines.
+
+### A8. Off-list rank-boon feat text (#157)
+
+- **Old shape:** a rank-boon acknowledgement (`upkeep:boon:<rank>:<characterId>`)
+  whose outcome is free text rather than one of the offered feats, written by
+  the open text field used before #157's feat cards. Feat boons now write only
+  the chosen card.
+  Open boons (Skilled, Gift, XP, Champion) still use free text, and that stays.
+- **Where:** `feats.legacyOutcome` in
+  `src/components/weekly-draft-workspace/upkeep-rank.ts`, and its block in
+  `upkeep-rank-view.tsx` (the `OutcomeEditor` reuse for feat boons).
+- **Tests and tags:** "a chosen feat card … off-list text stays a legacy
+  outcome" (`upkeep-rank.test.ts`, not pinned).
+- **Risk:** production has no acknowledgements. Confirm first that no other
+  `acknowledge` writer targets `upkeep:boon:` subjects.
+  - Writers today: `upkeep-rank.ts`, `use-event-edits.ts`, `sabotage-edits.ts`
+    and `event-occurrence-editors.tsx`.
+  - Only `upkeep-rank.ts` writes boon subjects.
+- **Size:** about 25 source lines and about 20 test lines.
+
+---
+
+## B. Safe once a condition holds
+
+### B1. Older Event and check-decision fields (#164–#168)
+
+**Condition: W1 is retired or narrowed.** The per-family Event controls and the
+Persistent page never write these fields. The generic Event details editor
+still can, because it edits the full `eventOccurrenceSchema`, including
+`occurrence.persistentDecision`. Production holds none of them today. Once W1
+stops offering them, each part below is safe.
+
+**B1a. Event-level mitigation on Raid and Cache Discovered (#164, #165)**
+
+- **Old shape:** `occurrence.mitigation` and `occurrence.rolls.check` standing
+  in for every hidden person or cache. Current controls write per-target
+  `targetChecks[]`. Event-level mitigation remains current for Theft.
+- **Where:**
+  - Engine:
+    - the `?? event.mitigation` and `?? event.rolls?.check` fallbacks in
+      `checkThreatMitigation` (`src/lib/rules-threat-events.ts`);
+    - the target fallback in `eventMitigationInput`
+      (`src/lib/rules-event-checks.ts`).
+  - UI (`src/components/weekly-draft-workspace/`):
+    - `legacyMitigation` and `legacyCheckRoll` in `event-target-facts.ts`,
+      `event-resource-facts.ts` (with `legacyRoll`) and `types.ts`;
+    - the notes in `event-raid-inputs.tsx` and `event-resource-inputs.tsx`;
+    - `clearEventMitigation` in `use-event-edits.ts`.
+- **Tests:**
+  - Catalog-pinned `rules.EV03.mitigate` and `rules.EV03.inputs`
+    (`src/lib/rules-threat-events.test.ts`) use event-level cache mitigation as
+    their scenario. Rewrite them to `targetChecks` and keep their IDs.
+  - `EVT-08.raid-legacy` (`event-target-facts.test.ts`) and
+    `EVT-07.cache-retained` (`event-resource-facts.test.ts`) are not pinned.
+
+**B1b. Overseer support on a target, reaction or same-week decision (#164, #166)**
+
+- **Old shape:** `targetChecks[].overseerCharacterId`,
+  `sabotage.overseerCharacterId` and a same-week
+  `persistentDecision.overseerCharacterId`. Current support lives only on the
+  occurrence's own `overseerCharacterId` or on a carried event's mitigation
+  decision.
+- **Where:**
+  - `eventOverseerSelection` in `src/lib/rules-overseer-event.ts`.
+  - In `src/lib/overseer-support.ts`: the `target`, `reaction` and
+    `same-week-decision` locations in `occurrenceSelections`,
+    `withoutSupport` and `assignOverseerSupportEdit`.
+  - `LegacyOverseerNote` (`event-legacy-overseer-note.tsx`) and its uses in
+    `event-check-row.tsx`, `event-cache-target.tsx` and `event-raid-person.tsx`.
+  - The `overseer: null` patch in `use-event-edits.ts`, and the related field
+    in `types.ts`.
+- **Tests:**
+  - Catalog-pinned `rules.O04.event-scope` (`rules-threat-events.test.ts`)
+    selects support on a reaction and a later target. Reduce it to the
+    occurrence selection and keep its ID.
+  - `rules.EVT-10.overseer-holders` (`src/lib/overseer-support.test.ts`) and
+    `EVT-10.overseer-legacy` (`overseer-support-view.test.tsx`) are not pinned.
+
+**B1c. Acknowledgements nested in a Sabotage reaction (#166)**
+
+- **Old shape:** `sabotage.acknowledgements`. Current notes are draft-level
+  acknowledgements with subject `sabotage:<event>:<choice>`.
+- **Where:**
+  - `recordSabotageOutcome` in `src/lib/rules-event-shaping.ts`.
+  - `nestedAcknowledgement` in `event-sabotage-facts.ts`, and its two
+    branches in `sabotage-edits.ts`.
+  - The `occurrence.sabotage.acknowledgements` read in `recordedOutcomes`
+    (`record-review.ts`).
+  - The schema field in `src/lib/weekly-draft-facts.ts`.
+- **Tests:** the shared fixture `tests/rules/event-action-fixture.ts` nests one.
+  Move it to `draft.acknowledgements`, which many pinned event tests use. Also
+  `rules-threat-events.test.ts` (`O04.event-scope`), `rules-event-actions.test.ts`,
+  `event-sabotage.test.tsx` and `event-view.test.tsx`.
+
+**B1d. Stored buyoff amounts: `costCopper` (#167)**
+
+- **Old shape:** a `buyoff` Persistent decision with `costCopper`. Since #167
+  Buy off is amount-free at the rules cost. The same-week
+  `occurrence.persistentDecision` reaches the same engine
+  (`rules-persistent-events.ts` collects both), which is why W1 still matters.
+- **Where:**
+  - `costCopper` on the `buyoff` member of `persistentDecisionSchema`
+    (`src/lib/weekly-draft-facts.ts`).
+  - The `buyoff-cost-recomputed` warning in `applyPersistentBuyoff`
+    (`src/lib/rules-persistent-events.ts`).
+  - `removedLiveWarnings` in `persistent-sections.ts`.
+  - `historicalMessages` and the "Recorded buyoff amount" line of
+    `decisionDetails` in `record-review.ts`.
+- **Tests:**
+  - `[PER-05.legacy] [rules.P84.legacy-amount]` in `persistent-view.test.tsx`
+    is pinned by case `P04.persistent-preparation` in both `plannedTests` and
+    `tests`. Remove it there, next to the comment "P84.copper retired by #167".
+  - `PER-05.legacy` in `persistent-facts.test.ts`.
+  - The warning in `tests/history/resolution-record-fixtures.ts`.
+
+**B1e. Unused fields on check decisions and occurrences (#168, #164)**
+
+- **Old shape:**
+  - `strategistCharacterId` on occurrences and mitigation decisions. No rule
+    reads it; only the reference check in `src/lib/weekly-draft-references.ts`
+    does.
+  - `targets` on a carried mitigation decision.
+  - A `mitigate` decision on a carried event without a check, such as Low
+    Morale.
+- **Where:**
+  - `retainedFields` in `persistent-check-facts.ts`, and `RetainedDetails` in
+    `persistent-retained-details.tsx`.
+  - The "This saved check isn't available" message in `persistent-view.tsx`.
+  - The two schema fields.
+- **Tests:** `PER-03.legacy` (`persistent-view.test.tsx`, not pinned), and
+  seven test lines that set `strategistCharacterId`.
+
+**B1, all parts**
+
+- **Order:** retire or narrow W1, then re-check drafts, then narrow the schema
+  fields and delete the fallbacks in one deploy. The fields sit in
+  `eventOccurrenceSchema` and `persistentDecisionSchema`, which records also
+  embed.
+- **Size:** about 260 source lines and about 500 test lines, plus the shared
+  fixture changes.
+
+### B2. Candidate Roll Twice expansions and replacement-child rerolls (#191, #163)
+
+**Condition: W2 (the Activity candidate-tree editor) is retired.** It can still
+write candidate trees with any `origin`.
+
+- **Old shape:** two kinds of child in Activity candidate sets:
+  - `roll_twice` children, from before Ruleset Version 7. Since then a
+    candidate's Roll Twice is rerolled in its own die. These children show as
+    **No longer used**.
+  - `replacement` children recorded as a Roll Twice reroll (`reroll: true`
+    groups), including on automatic events. This is "an older client's
+    representation of that reroll".
+- **Not legacy:** replacement children for an event that cannot occur. They are
+  current.
+- **Where:**
+  - `isLegacyCandidateExpansion`, and its use in `isSurplusEventOccurrence`, in
+    `src/lib/event-occurrence-preparation.ts`.
+  - In `src/lib/rules-event-selection.ts`: child matching for reroll groups in
+    `selectOccurrence` and `validateCandidate`, and the
+    `EventPositionGroup.reroll` comment.
+  - In `src/components/weekly-draft-workspace/`:
+    - `event-tree-facts.ts`: the `legacy` status and label and `nested.legacy`
+    - `EventBlock.legacy` in `types.ts`
+    - the "…no longer used" disclosure in `event-block.tsx`
+    - `nestedCount` in `activity-candidate-facts.ts`
+    - the `block.legacy` walk in `use-event-edits.ts`
+    - `event-view-test-fixture.ts`
+- **Tests:**
+  - Pinned in catalog case `A10.roll-twice`, whose `expected` also says
+    "earlier expansions stay recorded and unused":
+    - `rules.A10.reroll-before-after` and `rules.A10.reroll-representation`
+      (`src/lib/candidate-roll-twice.test.ts`);
+    - `rules.A10.roll-twice` (`src/lib/rules-event-actions.test.ts`), which
+      should keep its ID and drop the "older expansion children" half;
+    - `rules.HIST-05.candidate-expansion` (A7).
+  - Not pinned: `EVT-13.candidate-legacy` (`event-occurrence-preparation.test.ts`)
+    and `EVT-13.candidate-legacy-view` (`event-facts.test.ts`).
+- **Order:** W2 first, then check drafts, then the engine and UI deletion.
+- **Risk:** low. The surplus machinery itself stays (C1).
+- **Size:** about 70 source lines and about 250 test lines.
+
+### B3. `officer_npc` and `other_npc` character kinds (#179, #180)
+
+**Condition: #180 ships.** These are not yet legacy.
+
+- **What the current writers do:**
+  - The character dialog writes `pc | officer_npc` (`writtenKinds` in
+    `src/components/character-manager/character-form-card.tsx`).
+  - Setup and the roster correction write `pc | officer_npc | other_npc`
+    (`writtenKinds` in `src/components/militia-setup/roster.tsx`).
+  - The e2e seed `convex/e2eFixtures.ts` stores `officer_npc`.
+  - #179 only widened the readers to accept the approved `npc`.
+
+  #180 moves the writers to `pc | npc`. Production is already migration-free,
+  since all six records and roster entries are `pc`.
+
+- **Where:**
+  - `CHARACTER_RECORD_KINDS`, `ROSTER_KINDS`, `normalizeCharacterKind`,
+    `mirrorRosterKinds` (not yet wired to writers), `listEditableKinds` and
+    `formatCharacterKind`, in `src/lib/character-kind.ts`.
+  - `characterKindValidator` in `convex/schema.ts`.
+  - `rosterPersonSchema.kind` in `src/lib/canonical-roster.ts`, which reaches
+    drafts, snapshots and records.
+  - `getTeamManagerLimit` in `src/lib/team-manager-rules.ts`.
+  - `personKinds` in `src/components/week-review/review-comparison.ts`.
+- **Tests:**
+  - `src/lib/character-kind.test.ts`, `src/lib/character-kind-compatibility.test.ts`,
+    `convex/characterKindCompatibility.integration.test.ts`,
+    `tests/rules/character-kind-fixture.ts` and
+    `src/components/character-manager.test.tsx` ("still writes only legacy
+    kinds…").
+  - `people-fallback.test.tsx`.
+  - Catalog-pinned `rules.O06.role-aware-parity`
+    (`convex/canonicalResolutionPreview.integration.test.ts`) iterates every
+    stored NPC kind. Reduce it to `npc`.
+- **Order:**
+  1. #180 writers, the Setup envelope v2 (C5) and a record migration where data
+     exists.
+  2. Wait until no old tab sends legacy kinds.
+  3. Narrow the Convex and zod enums.
+- **Risk:** medium. This path involves writers, a schema and browser-stored
+  Setup envelopes.
+- **Size:** about 40 source lines and about 500 test lines.
+
+### B4. Absent character record kind (#179)
+
+**Condition: every character document in the kept deployments has a `kind`.**
+Production does.
+
+- **Old shape:** a `character` document without `kind`, read as PC.
+- **Where:**
+  - `kind: v.optional(characterKindValidator)` in `characterValidator`
+    (`convex/schema.ts`).
+  - The `undefined` branches of `normalizeCharacterKind` and
+    `formatCharacterKind`.
+  - The `character.kind ?? p.kind` mirror in `convex/lib/canonicalCharacters.ts`.
+- **Writers of the old shape:** `convex/lib/acceptedCampaignFixture.ts` inserts
+  a character without `kind`, which convex-test uses. Add one.
+- **Size:** about 10 source lines and about 20 test lines. This can ship with B3
+  or before it.
+
+### B5. Pre-canonical character fields and the `dataMigration` table (#16, #17)
+
+**Condition: a read-only check of the documents in every kept deployment.** The
+2026-09-28 production check did not report these.
+
+- **Old shape:**
+  - `ownerId` stored as a number. The comment says: "Widened during ownerId
+    migration. Narrow back to v.string() after backfill."
+  - `isActive` absent, read as active by `isActive !== false` in
+    `convex/character.ts`, `convex/canonicalSetup.ts`,
+    `convex/lib/canonicalCharacters.ts`, `src/components/character-manager.tsx`
+    and `src/components/use-canonical-ledger.ts`. Every writer sets it.
+  - The `dataMigration` table and `dataMigrationValidator`. Nothing reads or
+    writes them.
+- **Where:** `characterValidator` and `dataMigration` in `convex/schema.ts`.
+- **Order:** backfill or confirm, then narrow. Clear the `dataMigration` table
+  in each deployment before dropping it from the schema, as #91 cleared its
+  tables before narrowing.
+- **Size:** about 30 lines.
+
+### B6. #91 rejection endpoint names
+
+**Condition: no pre-cutover browser bundle or operator script can still call
+them.** Cutover was 2026-09-24. Old-backup recovery uses release `b249911`, not
+this release, so the backup retention window through 2026-10-08 does not depend
+on these names.
+
+- **Old shape:** calls to the retired board and migration functions.
+- **Where:**
+  - Every export of `convex/militia.ts`, `convex/weekBoard.ts`,
+    `convex/migrations.ts` and `convex/legacyRetirement.ts`.
+  - The internal functions of `convex/cutover.ts`.
+  - `rejectRetiredWorkflow` in `convex/lib/retiredWorkflow.ts`.
+- **Keep:** `cutover.status`, which `maintenance-banner.tsx` uses, the
+  `readCutover` write gate in `convex/lib/campaignRuntime.ts` and the
+  `campaignCutover` and initialization receipt tables. They are the maintenance
+  gate and the audit evidence.
+- **Tests and tags:**
+  - `[retirement.reject]` (`convex/legacyRetirement.integration.test.ts`) and
+    `[retirement.preserve]` (`convex/acceptedCampaign.integration.test.ts`) are
+    mapped by case `P11.legacy` with `serviceTests: ['live.cutover']`.
+  - Retiring the names changes that case. Its `expected` text and the
+    fingerprinted case inventory need a reviewed update, and the e2e cutover
+    journey's retired-path checks change too.
+- **Size:** about 290 source lines and about 30 test lines.
+
+---
+
+## C. Keep
+
+### C1. Surplus positions and "Needs repair" (#163)
+
+Surplus positions are over-full groups and automatic events whose source is not
+due. They show as **Needs repair** and can be removed once empty through
+`isSurplusEventOccurrence` and `removableEventOccurrence`
+(`src/lib/event-occurrence-preparation.ts`) and `tree.block`
+(`event-tree-facts.ts`).
+
+- **Why keep:** current play still produces them. Preparation only fills
+  (`d550d47`), so changing a chance roll, table roll or queued effect after
+  positions exist leaves extras behind.
+- The "legacy roots" left by the removed manual add buttons use the same path.
+- Tests: `EVT-13.legacy` and `EVT-13.repair`.
+- Only B2's candidate-expansion branch is removable.
+
+### C2. Retained unused fields in Activity and Event; the candidate-tree editor
+
+- **Why keep:** values a mode or type change leaves unused stay visible and
+  removable, and the current editors create them:
+  - Activity: `RetainedClear` (`activity-mission-fields.tsx`), and
+    `retainedPlace` and `retainedItem` (`activity-economy-detail.ts`).
+  - Event: `retainedFields` and `EventRetainedInputs`.
+  - Persistent: retained targets, except B1e.
+- Recorded modifiers of unknown source can be removed by position
+  (`removeModifierEdit` in `activity-board.ts`, `ActivityModifierList`). They
+  come from the generic modifier editor in `activity-details.tsx`.
+- The Activity host lists any choice acknowledgement that no per-action editor
+  owns ("older notes still listed by the host", #190, in `ActivityDetails`).
+  Required acknowledgements use the same list, so it stays.
+- The **Recorded candidate details** editor (W2) is being retired separately.
+  Its retirement unblocks B2 and removes one writer of B1's nested shapes.
+
+### C3. Current look-alikes
+
+Each of these looks like old data but is written today.
+
+- **Nullable `hitDice`:** blank means the level (`getEffectiveHitDice`). It is
+  not legacy.
+- **Recovery `costCopper` on Upkeep team decisions:** `recoverTeam` in
+  `upkeep-edits.ts` writes the rules cost.
+- **Activity `costCopper`:** the editable cost field in
+  `activity-detail-parts.tsx`; Special requires it. The `calculated-cost` and
+  `recovery-cost-baseline` warnings for a differing cost are current too.
+- **`upkeep_team` rolls on `leave` decisions:** the missing-team return check.
+
+### C4. The `blocked` team status
+
+`TEAM_STATUSES` (`src/lib/militia-domain.ts`) includes `blocked`, and Setup's
+roster (`src/components/militia-setup/roster.tsx`) still offers it. It is
+current data. The summary adjustment form keeps offering it only to an
+adjustment that already records it (`summary-adjustment-form.ts`), and that
+behavior should follow any future decision about the status itself.
+
+### C5. Setup envelope version 1 (#173)
+
+- `SETUP_ENVELOPE_VERSION = 1` in `src/lib/setup-envelope.ts` is the current
+  browser-resume format, so nothing is removable.
+- #180 must bump it and read version 1 in `parseSetupEnvelope`, as the file
+  header and `docs/canonical-militia-setup.md` require.
+- Envelopes live in each player's `localStorage`, so the production check
+  cannot see them. Production's only campaign already has a militia, so an
+  unfinished production Setup is unlikely. #180 could reasonably choose to
+  discard version-1 envelopes rather than migrate them, if the user agrees.
+
+### C6. Legacy addresses and week links
+
+- **Why keep:** these are bookmarks, not stored data, and they cost little.
+  - `legacyRedirectTarget` (`src/components/campaign-shell/legacy-redirect.ts`)
+    and `legacyCampaignPath` (`src/lib/campaign-routes.ts`).
+  - The `/canonical-workspace`, `/canonical-setup` and `/canonical-history`
+    pages.
+  - The `legacy-addresses` and `legacy-week-links` journeys.
+- If they are ever removed, move `decodeCampaignId` out of `legacy-redirect.ts`
+  first, because current routes import it.
+
+### C7. Ruleset Version numbers in the corpus and history
+
+The version notes in `docs/ai/ironfang-militia/militia-rules.md` (versions 6, 7
+and 8) and the stored number 8 stay. See the rules at the top.
+
+### C8. Frozen-record tolerance for unfamiliar entries
+
+`describeRecordedChange` (`src/components/week-review/review-changes.ts`), the
+`try` in `sectionChips` and the `generic` fact text keep a record readable when
+a plan entry has a shape the current readers do not know.
+
+- **Why keep:** after release, every future change to a plan entry's shape
+  meets immutable version-8 records.
+- Remove only the format-1 and missing-snapshot paths (A5).
+
+---
+
+## Documentation to update with each removal
+
+- `docs/ui-capability-inventory.md` rows describe the older-data behavior:
+  - NAV-03 and NAV-17 (C6)
+  - WEEK-15 and WEEK-16 (A2)
+  - UPK-08 (A8) and UPK-10 (A3)
+  - ACT-14 (C2)
+  - EVT-04, EVT-08, EVT-10 and EVT-13 (B1, B2)
+  - PER-05 (B1d)
+  - SUM-08 (C4)
+  - HIST-05 (A5, A6)
+- The entry notes above that table, for #179, #194 and #185, name the fixtures.
+- `docs/canonical-militia-setup.md`: the envelope paragraph (C5, B3).
+- `tests/rules/README.md`, "Upkeep extraction": the transfer-actor paragraph
+  (A3).
+- `docs/canonical-weekly-resolution.md` still says Confirmation "stays isolated
+  until the approved cutover" and that format 2 uses "ruleset version 2". Both
+  are stale. Correct them when A5 lands.
