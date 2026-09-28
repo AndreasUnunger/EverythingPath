@@ -8,6 +8,30 @@ import { connectAs } from './roll-compatibility';
 
 type DraftKey = z.infer<typeof draftKeySchema>;
 
+/**
+ * Stages the Remove choice an older client could still send for the
+ * disabled Scouts, which Upkeep no longer offers (#156).
+ */
+export async function stageLegacyRemove(page: Page, run: Run, key: DraftKey) {
+  const client = await connectAs(page, run.fixture!.convexUrl);
+  try {
+    const transport = createConvexDraftTransport(client, key);
+    const observed = await transport.read();
+    await transport.send({
+      draftId: key.draftId,
+      operationId: randomUUID(),
+      baseRevision: observed.revision,
+      edit: {
+        kind: 'upkeep_team',
+        teamId: 'upkeep-scouts',
+        decision: { teamId: 'upkeep-scouts', decision: 'remove' },
+      },
+    });
+  } finally {
+    await client.close();
+  }
+}
+
 // Upkeep team rows on a fresh week with the disabled Scouts and the missing
 // Riders (#156): the missing team only rolls to return, shared on both
 // devices, and a Remove choice staged by an older client stays visible and
@@ -45,23 +69,7 @@ export async function exerciseTeamConditionRows(
   for (const page of [first, second])
     await expect(riders(page)).toContainText('Returns at the end of the week');
 
-  const client = await connectAs(second, run.fixture!.convexUrl);
-  try {
-    const transport = createConvexDraftTransport(client, key);
-    const observed = await transport.read();
-    await transport.send({
-      draftId: key.draftId,
-      operationId: randomUUID(),
-      baseRevision: observed.revision,
-      edit: {
-        kind: 'upkeep_team',
-        teamId: 'upkeep-scouts',
-        decision: { teamId: 'upkeep-scouts', decision: 'remove' },
-      },
-    });
-  } finally {
-    await client.close();
-  }
+  await stageLegacyRemove(second, run, key);
   for (const page of [first, second]) {
     await expect(
       scouts(page).getByText(

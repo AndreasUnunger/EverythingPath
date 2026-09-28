@@ -21,6 +21,8 @@ import {
 } from '../tests/persistence/confirmation-contracts';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import type { Page } from '@playwright/test';
+import type { z } from 'zod';
+import { reviewFinishedWeeks } from './support/finished-weeks';
 
 // The finished week's six sections, in rules order, then its Result row for
 // one "Group · Label" fact (a table row from tablet width up).
@@ -55,6 +57,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
   const anonymous = new ConvexClient(url, { logger: false });
   try {
     let activeCampaign: string | undefined;
+    let activeKey: z.infer<typeof draftKeySchema> | undefined;
     const confirmationHarness = async (
       verifyConfirmationAuthorization = false,
     ): Promise<ConfirmationContractHarness> => {
@@ -66,6 +69,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         }),
       );
       activeCampaign = scope.campaignId;
+      activeKey = scope;
       const firstTransport = createConvexDraftTransport(first, scope);
       const inspect = async () =>
         confirmationInspectionSchema.parse(
@@ -506,6 +510,19 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       await expect(
         historyRow(players.player, 'Militia · Treasury'),
       ).toContainText('0.87 gp');
+      // More history than one entry (#146): week 1 gains six corrections,
+      // and week 3 (past the open week 2) a reconstruction.
+      await canonicalPersistenceFixtureCall(run, 'appendHistory', {
+        ...activeKey!,
+        scope: ownedCase.scope,
+        corrections: 6,
+        reconstructWeek: 3,
+      });
+      await reviewFinishedWeeks(
+        players.player,
+        record.recordId,
+        run.artifactDirectory,
+      );
     } finally {
       await literal.dispose();
     }

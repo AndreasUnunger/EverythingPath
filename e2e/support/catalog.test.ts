@@ -27,7 +27,7 @@ it('gives each Workspace journey its own canonical case', () => {
     .filter(([file]) => file === 'canonical-workspace.spec.ts')
     .map(([, , title]) => title!);
   const cases = titles.map(workspaceCaseKey);
-  expect(new Set(cases).size).toBe(5);
+  expect(new Set(cases).size).toBe(6);
   for (const caseKey of cases) expect(canonicalCaseKeys).toContain(caseKey);
   expect(() => workspaceCaseKey('an undeclared journey')).toThrow();
 });

@@ -723,3 +723,64 @@ test('an earlier entry deep in a chain of more than ten is located through the e
   ).resolves.toBeNull();
   expect(pages).toEqual([undefined, 8, 3]);
 });
+
+test('the finished-weeks browser fixture appends a correction chain and a non-adjacent reconstructed week', async () => {
+  const harness = await setup();
+  const { t, player, key, record } = harness;
+  const appendHistory = (args: {
+    corrections: number;
+    reconstructWeek: number;
+  }) =>
+    t.mutation(internal.canonicalPersistenceFixtures.appendHistory, {
+      ...key,
+      scope,
+      ...args,
+    });
+  // The open week 2 cannot be reconstructed.
+  await expect(
+    appendHistory({ corrections: 1, reconstructWeek: 2 }),
+  ).rejects.toThrow('The reconstructed week must be free');
+  await appendHistory({ corrections: 6, reconstructWeek: 3 });
+  const listed = await listFor(harness);
+  expect(listed.weeks.map((row) => [row.week, row.entryCount])).toEqual([
+    [3, 1],
+    [1, 7],
+  ]);
+  expect(listed.weeks[0]?.provenance).toBe('historical_reconstruction');
+  expect(listed.weeks[1]?.provenance).toBe('historical_correction');
+  const first = await player.query(api.canonicalHistory.read, {
+    campaignId: key.campaignId,
+    week: 1,
+  });
+  expect(first).toMatchObject({
+    effectiveRecordId: `${record.recordId}-correction-6`,
+    previousWeek: null,
+    nextWeek: 3,
+  });
+  expect(first?.audit.map((entry) => entry.sequence)).toEqual([6, 5, 4, 3, 2]);
+  const older = await player.query(api.canonicalHistory.read, {
+    campaignId: key.campaignId,
+    week: 1,
+    beforeSequence: first!.earlierSequence!,
+  });
+  expect(older?.audit.map((entry) => entry.recordId)).toEqual([
+    `${record.recordId}-correction-1`,
+    record.recordId,
+  ]);
+  const original = await player.query(api.canonicalHistory.read, {
+    campaignId: key.campaignId,
+    week: 1,
+    recordId: record.recordId,
+  });
+  expect(original?.record).toEqual(record);
+  expect(
+    await player.query(api.canonicalHistory.read, {
+      campaignId: key.campaignId,
+      week: 3,
+    }),
+  ).toMatchObject({ previousWeek: 1, nextWeek: null });
+  // The reconstructed week cannot be written twice.
+  await expect(
+    appendHistory({ corrections: 1, reconstructWeek: 3 }),
+  ).rejects.toThrow('The reconstructed week must be free');
+});

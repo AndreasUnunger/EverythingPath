@@ -131,8 +131,8 @@ ended the attempt inside the step, so `duration` is null and `start` shows how
 long it ran). At most 100 steps are kept per attempt. Step errors, locations,
 parameters, fixtures and Playwright actions are not recorded. `access`, its
 three shell parts (see [Access split](#access-split)) and the nightly extension
-use steps; the other journeys, including campaign home, do not yet, so they
-record none. `stages.log` records stage outcomes;
+use steps, as do campaign home (since the area checks); the other journeys do
+not yet, so they record none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
@@ -757,6 +757,7 @@ race part uses only fresh pages with their own controls, as before.
 | players recover a team at an adjusted cost and confirm a week through Activity and Event | `workspaceRecovery` | `resetCase`, then `initializeUpkeep` with choices |
 | players review and buy off carried persistent events before confirming the week | `workspacePersistent` | `resetCase`, then `initializeUpkeep` with persistent events |
 | racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
+| settlement and rank cards and team repairs stay reachable on phone and desktop | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:
@@ -770,6 +771,12 @@ The only lost coverage is one GM and player session surviving all five parts. Th
 first part keeps setup, both campaign states and the full Upkeep journey in one
 session. The 420 s test deadline is split in proportion to the measured parts
 (130, 30, 125, 80 and 55 s), and no part gets more than its share.
+
+A sixth journey, `workspaceUpkeepLayout`, was added later (#140) rather than
+split: it repeats the settlement/rank fixture on one page and checks its
+settlement cards, missing-team row, Remove repair and rank feat cards at
+390×844 and 1440×900. The settlement/rank journey runs about 21 s of its 30 s
+limit, so the checks got their own case and a 60 s limit instead of growing it.
 
 ### Provision and declare the cohorts
 
@@ -919,3 +926,29 @@ reached it, and its state is equivalent:
 Lost coverage: one player session no longer survives all four parts. Each
 part repeats the list-to-week opening, which adds about two page loads. No
 limit changed: every part keeps the 60 s test limit.
+
+### Area completion checks
+
+The area review of #140, #144, #146, #147 and #139 found browser layout gaps.
+They are closed without raising a limit or adding a page load to a journey
+near its limit:
+
+- **Upkeep (#140).** `workspaceUpkeepLayout` (above) checks the settlement
+  cards, missing-team row, Remove repair and rank feat cards at 390×844 and
+  1440×900 (`support/upkeep-layout.ts`).
+- **Persistent (#144).** `persistent-qa.ts` adds 844×390 and 1180×820 with the
+  reference panel closed to its resize loop; no page load.
+- **Finished weeks (#146).** The Confirmation contract's history step (300 s
+  limit, about 121 s) appends history through the guarded `appendHistory`
+  fixture and checks paging, gap-aware arrows, keyboard use and the three
+  layouts (`support/finished-weeks.ts`); one reload.
+- **Campaign home (#147).** `home` (60 s limit, 12–15 s) checks the home,
+  editor and create form at three sizes and opens one extra page whose Convex
+  responses are held to record the list skeleton
+  (`support/campaign-home-layout.ts`).
+- **Militia corrections (#139).** The sections part of access (60 s limit,
+  16–19 s) opens Values and a three-item Items correction at 390×844 on the
+  Militia page it already ends on; no page load (`support/militia-phone.ts`).
+
+Screenshots from these checks are named by project where a journey runs on
+several projects.
