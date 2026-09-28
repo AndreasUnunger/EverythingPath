@@ -2,7 +2,7 @@ import type { CanonicalWeekState } from './canonical-weekly-source';
 import { getEffectiveHitDice } from './canonical-roster';
 import { formatCharacterKind } from './character-kind';
 import type { MilitiaEntryKey } from './militia-correction-sections';
-import { BOARD_ROLES, ROLE_LABELS } from './officer-board';
+import { BOARD_ROLES, heldRoles, ROLE_LABELS } from './officer-board';
 
 // Read-only presentation of the accepted militia facts, one Militia page
 // entry at a time. Values are displayed only; nothing here derives a rule.
@@ -597,12 +597,9 @@ export function rosterFacts(
     const character = snapshot.characters.find(
       (entry) => entry.characterId === person.characterId,
     );
-    const roles = BOARD_ROLES.filter((role) =>
-      snapshot.roster.officers.some(
-        (officer) =>
-          officer.role === role && officer.characterId === person.characterId,
-      ),
-    ).map((role) => ROLE_LABELS[role]);
+    const roles = heldRoles(snapshot.roster.officers, person.characterId).map(
+      (role) => ROLE_LABELS[role],
+    );
     const teams = snapshot.roster.teams
       .filter((team) => team.managerCharacterId === person.characterId)
       .map((team) => team.name);

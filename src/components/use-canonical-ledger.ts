@@ -10,11 +10,34 @@ import {
 } from '~/lib/character-kind';
 import type { SetupCharacter } from '~/lib/setup-characters';
 
+type Snapshot = CanonicalWeekState['militiaSnapshot'];
+
 // The accepted militia and its only write: a reasoned correction bound to
 // the revision it was prepared against. Every write carries the campaign and
 // militia this hook was mounted for, so a later scope change never
-// retargets it, and sends roster kinds as the current records' PC or NPC;
-// the server mirrors them again from the records it reads.
+// retargets it.
+export function useLedgerCorrection({
+  campaignId,
+  militiaId,
+}: {
+  campaignId: Id<'campaign'>;
+  militiaId: Id<'militia'>;
+}) {
+  const ledger = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
+  const saveCorrection = useMutation(api.canonicalLedger.save);
+  return {
+    ledger,
+    write: (correction: {
+      expectedRevision: number;
+      snapshot: Snapshot;
+      reason: string;
+    }) => saveCorrection({ campaignId, militiaId, ...correction }),
+  };
+}
+
+// The Militia page's ledger: the correction write, sending roster kinds as
+// the current records' PC or NPC; the server mirrors them again from the
+// records it reads.
 export function useCanonicalLedger({
   campaignId,
   militiaId,
@@ -24,8 +47,7 @@ export function useCanonicalLedger({
   militiaId: Id<'militia'>;
   organizationId: string;
 }) {
-  const ledger = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
-  const saveCorrection = useMutation(api.canonicalLedger.save);
+  const { ledger, write } = useLedgerCorrection({ campaignId, militiaId });
   const { data: records = [] } = characterLedgerQuery(
     campaignId,
     organizationId,
@@ -50,12 +72,10 @@ export function useCanonicalLedger({
     characters,
     save: (correction: {
       expectedRevision: number;
-      snapshot: CanonicalWeekState['militiaSnapshot'];
+      snapshot: Snapshot;
       reason: string;
     }) =>
-      saveCorrection({
-        campaignId,
-        militiaId,
+      write({
         ...correction,
         snapshot: {
           ...correction.snapshot,

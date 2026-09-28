@@ -558,7 +558,7 @@ describe('Correct roster', () => {
     const summary = within(bar('Correct roster')).getByRole('alert');
     fireEvent.click(
       within(summary).getByRole('button', {
-        name: "Enter a valid whole number for Sera of Phaendar's Hit Dice.",
+        name: "Enter a whole number of 0 or more for Sera of Phaendar's Hit Dice.",
       }),
     );
     expect(hitDice('Sera of Phaendar')).toHaveFocus();

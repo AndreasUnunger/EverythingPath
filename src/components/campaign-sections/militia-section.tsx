@@ -32,7 +32,7 @@ export function MilitiaSection({
 }: {
   campaignId: Id<'campaign'>;
   organizationId: string;
-  /** The entry the address selects, e.g. People & officers. */
+  /** The entry the address selects, e.g. Teams. */
   initialEntry?: MilitiaEntryKey;
 }) {
   const source = useQuery(api.canonicalDraftPersistence.workspace, {

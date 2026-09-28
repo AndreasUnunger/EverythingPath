@@ -34,6 +34,18 @@ export const HIT_DICE_INVALID = 'Enter a whole number of 0 or more.';
 /** The Hit Dice override's label, for its input and the error summary. */
 export const hitDiceLabel = (name: string) => `${name}'s Hit Dice`;
 
+/** The error summary's link to a malformed Hit Dice override. */
+export const hitDiceSummary = (name: string) =>
+  `Enter a whole number of 0 or more for ${hitDiceLabel(name)}.`;
+
+/**
+ * The corrected roster fails the militia's integrity checks (a person
+ * without their character's facts, a duplicate): never expected from these
+ * controls, and never sent.
+ */
+export const INVALID_CORRECTION =
+  'This correction leaves the roster incomplete. Start again from the latest values.';
+
 /** Why a record whose rules facts the militia lacks cannot join yet. */
 export const cannotJoinMessage = (name: string) =>
   `Open ${name}'s record and save it before adding them to the roster.`;

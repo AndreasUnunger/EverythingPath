@@ -9,16 +9,20 @@ import {
   type CharacterRecordKind,
 } from './character-kind';
 import {
+  ABILITY_LABELS,
   BOARD_ROLES,
+  heldRoles,
+  MISSING_NAME,
   officerBoard,
+  ROLE_CHECKS,
   ROLE_LABELS,
+  signed,
   type OfficerRole,
   type RoleCard,
 } from './officer-board';
 import {
   officerAbilitySource,
   type FoundationCharacter,
-  type OrganizationCheck,
 } from './rules-officers';
 import { countManagedTeams, getTeamManagerLimit } from './team-manager-rules';
 
@@ -173,7 +177,6 @@ function listed(values: readonly string[]) {
     ? values.join(' and ')
     : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`;
 }
-const MISSING_NAME = 'Missing character';
 const nameOf = (names: ReadonlyMap<string, string>, id: string) =>
   names.get(id) ?? MISSING_NAME;
 
@@ -190,11 +193,9 @@ export function rosterRemovalWarnings(
   const staying = new Set(candidate.roster.people.map((p) => p.characterId));
   return latest.roster.people.flatMap(({ characterId }) => {
     if (staying.has(characterId)) return [];
-    const roles = BOARD_ROLES.filter((role) =>
-      latest.roster.officers.some((officer) =>
-        holds(officer, role, characterId),
-      ),
-    ).map((role) => ROLE_LABELS[role]);
+    const roles = heldRoles(latest.roster.officers, characterId).map(
+      (role) => ROLE_LABELS[role],
+    );
     const teams = latest.roster.teams
       .filter((team) => team.managerCharacterId === characterId)
       .map((team) => team.name);
@@ -276,22 +277,6 @@ export function pcAssignmentHints(
   );
 }
 
-const CHECK_OF: Partial<Record<OfficerRole, OrganizationCheck>> = {
-  marshal: 'security',
-  ambassador: 'loyalty',
-  spymaster: 'secrecy',
-};
-const ABILITY_SHORT: Record<string, string> = {
-  strength: 'Str',
-  dexterity: 'Dex',
-  constitution: 'Con',
-  intelligence: 'Int',
-  wisdom: 'Wis',
-  charisma: 'Cha',
-};
-const signed = (value: number) =>
-  value < 0 ? `−${Math.abs(value)}` : `+${value}`;
-
 /** A roster person offered by Assign, with what they would bring. */
 export type AssignCandidate = {
   characterId: string;
@@ -345,7 +330,8 @@ export function assignCandidates({
     }).find((entry) => entry.role === role)!;
   const now = card(roster);
   const facts = new Map(characters.map((c) => [c.characterId, c]));
-  const check = CHECK_OF[role];
+  const check =
+    role in ROLE_CHECKS ? ROLE_CHECKS[role as keyof typeof ROLE_CHECKS] : null;
   return roster.people
     .filter(
       ({ characterId }) =>
@@ -364,7 +350,7 @@ export function assignCandidates({
       const own = check
         ? (() => {
             const source = officerAbilitySource(character, check);
-            return `${ABILITY_SHORT[source.ability]} ${signed(source.modifier)}`;
+            return `${ABILITY_LABELS[source.ability]} ${signed(source.modifier)}`;
           })()
         : (holder?.contribution ?? holder?.nonStacking ?? '');
       const detail =
@@ -380,11 +366,7 @@ export function assignCandidates({
           name: nameOf(names, person.characterId),
           kind: normalizeCharacterKind(person.kind),
           archived: !character.isActive,
-          holds: BOARD_ROLES.filter((other) =>
-            roster.officers.some((officer) =>
-              holds(officer, other, person.characterId),
-            ),
-          ),
+          holds: heldRoles(roster.officers, person.characterId),
           detail,
         },
       ];

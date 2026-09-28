@@ -3,15 +3,12 @@ import { useMemo, useReducer, useRef, useState } from 'react';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { CharacterRecord } from '~/components/character-manager/types';
-import {
-  describeChoice,
-  identityNames,
-  type AffectedChoice,
-} from '~/components/militia-corrections/affected-choice-copy';
+import { useLedgerCorrection } from '~/components/use-canonical-ledger';
+import type { AffectedChoice } from '~/components/militia-corrections/affected-choice-copy';
 import {
   closedCorrection,
   correctionReducer,
@@ -20,7 +17,6 @@ import {
   sendCorrection,
   type AcceptedMilitia,
   type CorrectionView,
-  type CorrectionWrite,
   type SaveAttempt,
   type SavePlan,
 } from '~/components/militia-corrections/correction-lifecycle';
@@ -40,49 +36,40 @@ import {
   weeklySourceKey,
   type CanonicalWeekState,
 } from '~/lib/canonical-weekly-source';
-import { correctionImpact } from '~/lib/correction-staged-choices';
 import {
   officerFacts,
   rosterFacts,
   type EntryFacts,
 } from '~/lib/militia-section-facts';
 import { ROLE_LABELS, type OfficerRole } from '~/lib/officer-board';
-import { noCapturedFacts } from '~/lib/reference-restoration';
 import {
   applyOfficerCorrection,
   applyRosterCorrection,
   assignCandidates,
   assignOfficer,
-  managerLimitWarnings,
   moveOfficer,
   moveTargets,
-  pcAssignmentHints,
   removeOfficer,
-  rosterRemovalWarnings,
   type AssignCandidate,
   type Officer,
   type RosterEntry,
 } from '~/lib/roster-corrections';
-import {
-  allowancePreview,
-  projectRosterWeek,
-  rosterChoiceIssues,
-  type ChoiceIssueReason,
-  type RosterWeek,
-} from '~/lib/roster-week-impact';
+import { projectRosterWeek, type RosterWeek } from '~/lib/roster-week-impact';
 import {
   weeklyDraftSchema,
   type WeeklyDraft,
 } from '~/lib/weekly-draft-contract';
 import {
   cannotJoinMessage,
-  describeIssue,
   HIT_DICE_INVALID,
   hitDiceLabel,
+  hitDiceSummary,
+  INVALID_CORRECTION,
   MODE_HEADINGS,
   QUICK_REASONS,
   type CorrectionMode,
 } from './correction-copy';
+import { savePoint } from './correction-save-point';
 
 export type { CorrectionMode };
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
@@ -273,9 +260,6 @@ export type CharacterCorrections =
       correction: OpenCorrection | null;
     };
 
-const reasonsBy = (issue: { reason: ChoiceIssueReason }) =>
-  issue.reason !== 'other' && issue.reason !== 'exception';
-
 // Characters & officers' corrections for one campaign, militia and
 // organization: mount keyed by them, so a scope change discards the open
 // correction and any late result of its Save.
@@ -292,17 +276,12 @@ export function useCharacterCorrections({
   /** Every character record of the campaign, archived included. */
   records: CharacterRecord[];
 }): CharacterCorrections {
-  const ledger = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
+  const { ledger, write } = useLedgerCorrection({ campaignId, militiaId });
   const observation = useQuery(api.canonicalDraftPersistence.observe, {
     campaignId,
     militiaId,
     draftId,
   });
-  const saveCorrection = useMutation(api.canonicalLedger.save);
-  // Every write carries the campaign and militia this hook was mounted for,
-  // so a later scope change never retargets it.
-  const write: CorrectionWrite = (value) =>
-    saveCorrection({ campaignId, militiaId, ...value });
   const [correction, dispatch] = useReducer(
     correctionReducer,
     closedCorrection,
@@ -430,11 +409,9 @@ export function useCharacterCorrections({
         }
         const parsed = militiaSnapshotSchema.safeParse(plan.snapshot);
         if (!parsed.success) {
-          setCandidateErrors(
-            [...new Set(parsed.error.issues.map((issue) => issue.message))].map(
-              (message) => ({ field: null, kind: 'other' as const, message }),
-            ),
-          );
+          setCandidateErrors([
+            { field: null, kind: 'other', message: INVALID_CORRECTION },
+          ]);
           release();
           return;
         }
@@ -518,29 +495,6 @@ export function useCharacterCorrections({
     };
   }
 
-  // The open week: choices this correction newly affects, and those
-  // already needing a roster or officer repair that it leaves in place.
-  const newIssues =
-    draft && before && after ? rosterChoiceIssues(draft, before, after) : [];
-  const empty: RosterWeek = { allowance: null, findings: new Set() };
-  const already =
-    draft && before && after
-      ? rosterChoiceIssues(draft, empty, before)
-          .filter(reasonsBy)
-          .filter(
-            (issue) =>
-              rosterChoiceIssues(draft, empty, after).some(
-                (still) => still.key === issue.key,
-              ) && !newIssues.some((fresh) => fresh.key === issue.key),
-          )
-      : [];
-  const identities = identityNames(latest, noCapturedFacts, names);
-  const missing = draft
-    ? correctionImpact(draft, latest, corrected).added.map((reference) =>
-        describeChoice(reference, campaignId, identities),
-      )
-    : [];
-
   const reasonMessage = reasonError(
     values.reason,
     form.formState.errors.reason?.message,
@@ -562,13 +516,27 @@ export function useCharacterCorrections({
             {
               field: `roster.${index}.hitDice`,
               kind: 'invalid',
-              message: `Enter a valid whole number for ${hitDiceLabel(names.get(entry.characterId) ?? 'this character')}.`,
+              message: hitDiceSummary(
+                names.get(entry.characterId) ?? 'this character',
+              ),
             },
           ]
         : [],
     ),
   ];
   const facts = mode === 'officers' ? officerFacts : rosterFacts;
+  const point =
+    before && after
+      ? savePoint({
+          campaignId,
+          latest,
+          corrected,
+          names,
+          draft,
+          before,
+          after,
+        })
+      : { allowance: null, warnings: [], hints: [], affectsWeek: [] };
 
   return {
     status: 'ready',
@@ -618,18 +586,8 @@ export function useCharacterCorrections({
         );
       },
       rosterRow,
-      allowance: before && after ? allowancePreview(before, after) : null,
-      warnings: [
-        ...rosterRemovalWarnings(latest, corrected, names),
-        ...managerLimitWarnings(latest, corrected, names),
-      ],
-      hints: pcAssignmentHints(latest, corrected, names),
+      ...point,
       activityHref: weekPath(campaignId, 'activity'),
-      affectsWeek: [
-        ...missing,
-        ...newIssues.map((issue) => describeIssue(issue, campaignId)),
-        ...already.map((issue) => describeIssue(issue, campaignId, true)),
-      ],
       errors:
         Object.keys(form.formState.errors).length > 0
           ? fieldErrors
