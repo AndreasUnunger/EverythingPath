@@ -41,6 +41,74 @@ async function readinessLine(page: Page) {
   return line;
 }
 
+type ConfirmName = 'Confirm week' | 'Confirming…';
+
+/** The review block's Confirm week at the top of Review & confirm. */
+export function reviewConfirm(page: Page, name: ConfirmName = 'Confirm week') {
+  return page
+    .getByRole('region', { name: 'Review the week', exact: true })
+    .getByRole('button', { name, exact: true });
+}
+
+/**
+ * The frame's pinned Confirm week on Review & confirm: at the footer's next
+ * position from 768px, at the phone strip's next end below it. The two
+ * "Week actions" regions are never shown together.
+ */
+export function pinnedConfirm(page: Page, name: ConfirmName = 'Confirm week') {
+  return page
+    .getByRole('region', { name: 'Week actions', exact: true })
+    .getByRole('button', { name, exact: true });
+}
+
+/**
+ * Scrolled down to Table Adjustments, the pinned Confirm stays whole in
+ * the viewport, shows the same control as the review block's, and counts
+ * the review block's own Warnings list (visible beside its label and in
+ * its description; the count never disables it). Returns that count.
+ */
+export async function expectPinnedConfirm(page: Page) {
+  const adjustments = page.getByRole('region', {
+    name: 'Table Adjustments',
+    exact: true,
+  });
+  await adjustments.evaluate((element) =>
+    element.scrollIntoView({ block: 'end' }),
+  );
+  await expect(adjustments).toBeInViewport();
+  const pinned = pinnedConfirm(page);
+  await expect(pinned).toBeVisible();
+  await expect(pinned).toBeInViewport({ ratio: 1 });
+  const box = (await pinned.boundingBox())!;
+  expect(box.height, 'pinned Confirm tap target').toBeGreaterThanOrEqual(44);
+  expect(box.width, 'pinned Confirm tap target').toBeGreaterThanOrEqual(44);
+  const enabled = await reviewConfirm(page).isEnabled();
+  if (enabled) await expect(pinned).toBeEnabled();
+  else await expect(pinned).toBeDisabled();
+  const review = page.getByRole('region', {
+    name: 'Review the week',
+    exact: true,
+  });
+  const warnings = await review
+    .getByRole('region', { name: 'Warnings', exact: true })
+    .getByRole('listitem')
+    .count();
+  const counted = `${warnings} warning${warnings === 1 ? '' : 's'}`;
+  const wide = page.viewportSize()!.width >= 768;
+  if (warnings) {
+    await expect(pinned).toHaveAccessibleDescription(
+      new RegExp(`^${counted}\\b`),
+    );
+    await expect(pinned).toHaveText(
+      wide ? `Confirm week · ${counted}` : `Confirm · ${warnings}`,
+    );
+  } else {
+    await expect(pinned).not.toHaveAccessibleDescription(/warning/);
+    await expect(pinned).toHaveText(wide ? 'Confirm week' : 'Confirm');
+  }
+  return warnings;
+}
+
 /**
  * Tablet and desktop (from 768px): stepper positions, descriptions, the
  * locked Persistent, and footer previous/next skipping and endpoints. Ends
@@ -97,22 +165,34 @@ export async function exerciseWeekFrame(page: Page) {
     nav.getByRole('button', { name: 'Review & confirm', exact: true }),
   ).toHaveAttribute('aria-current', 'step');
   await expect(page).toHaveURL(/phase=summary/);
-  // The last position: no wrap forward and no dead Next control, only a
-  // disabled-Confirmation reason (or nothing) in the footer; never a
-  // ready/needs-attention line.
+  // The last position: no wrap forward and no Next control; the footer's
+  // next position holds the pinned Confirm week, the same control as the
+  // review block's, beside a disabled-Confirmation reason (or nothing);
+  // never a ready/needs-attention line.
   await expect(page.getByRole('button', { name: /^Next\b/ })).toHaveCount(0);
   const line = await readinessLine(page);
   const reason = (await line.textContent())!.trim();
-  const confirmable = await page
-    .getByRole('button', { name: 'Confirm week', exact: true })
-    .isEnabled();
-  // Confirmable: nothing at all. Otherwise exactly one disabled reason;
-  // never the removed ready/needs-attention sentence.
-  if (confirmable) expect(reason, 'no caption when confirmable').toBe('');
-  else
+  const confirmable = await reviewConfirm(page).isEnabled();
+  const pinned = pinnedConfirm(page);
+  await expect(pinned).toBeVisible();
+  await expect(
+    page.locator('[data-week-footer]:visible [data-week-endpoint="next"]'),
+  ).toHaveCount(0);
+  // Confirmable: nothing at all. Otherwise exactly one disabled reason,
+  // which also describes the pinned Confirm; never the removed
+  // ready/needs-attention sentence.
+  if (confirmable) {
+    expect(reason, 'no caption when confirmable').toBe('');
+    await expect(pinned).toBeEnabled();
+  } else {
     expect(reason, 'only the disabled-Confirmation reason').toMatch(
       /^(\d+ decisions? left|Review .*|Confirming the week…|Opening the next week…)$/,
     );
+    await expect(pinned).toBeDisabled();
+    await expect(pinned).toHaveAccessibleDescription(
+      new RegExp(`${reason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+    );
+  }
   expect(reason).not.toMatch(/ready for confirmation|attention/i);
   await previous(locked ? 'Event' : 'Persistent').click();
   await nav.getByRole('button', { name: 'Upkeep', exact: true }).click();

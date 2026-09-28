@@ -388,10 +388,13 @@ export function ReferencePanelToggle({ panel }: { panel: ReferencePanel }) {
 export function PhoneReferenceSheet({
   phase,
   confirmationDisabledReason,
+  readinessId,
   ...props
 }: ReferenceProps & {
   phase: Phase;
   confirmationDisabledReason: string | null;
+  /** Names the readiness span so the strip's pinned Confirm can cite it. */
+  readinessId?: string;
 }) {
   const { panel, facts, step } = props;
   const readiness = stripReadiness(step, confirmationDisabledReason);
@@ -416,6 +419,7 @@ export function PhoneReferenceSheet({
             ))}
           </span>
           <span
+            id={readinessId}
             data-week-readiness
             className={cn(
               'max-w-full truncate text-xs',

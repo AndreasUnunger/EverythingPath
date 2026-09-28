@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
-import { saveStatus } from './week-frame';
+import { expectPinnedConfirm, reviewConfirm, saveStatus } from './week-frame';
 import {
   resultCell,
   showAllResultValues,
@@ -42,8 +42,7 @@ async function save(page: Page, peer: Page, form: Locator, reason: string) {
   await expect(adjustmentReason(peer).last()).toHaveValue(reason);
   await expect(saveStatus(page)).toHaveText('Changes saved.');
 }
-const confirmButton = (page: Page) =>
-  page.getByRole('button', { name: 'Confirm week', exact: true });
+const confirmButton = (page: Page) => reviewConfirm(page);
 const requiredDecisions = (page: Page) =>
   page.getByRole('region', { name: 'Required decisions', exact: true });
 /**
@@ -198,6 +197,8 @@ export async function reviewSummaryWorkspace(
   ] as const) {
     await page.setViewportSize({ width, height });
     await expectNoHorizontalOverflow(page);
+    // Down at the four adjustments, Confirm week is still at hand.
+    await expectPinnedConfirm(page);
     for (const control of await page.locator('main button, main input').all()) {
       if (!(await control.isVisible())) continue;
       const bounds = await control.boundingBox();

@@ -5,6 +5,7 @@ import {
   expectReachable,
 } from './support/responsive-shell';
 import {
+  confirmedWeekNotice,
   exercisePhoneReference,
   exercisePhoneSteps,
   exerciseReferenceHistoryFailure,
@@ -14,9 +15,9 @@ import {
   expectConfirmedWeek,
   expectSaveFailed,
   expectWideStatus,
-  confirmedWeekNotice,
   referencePanel,
   remoteChangeNote,
+  reviewConfirm,
   saveStatus,
 } from './support/week-frame';
 import {
@@ -321,9 +322,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await gm
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(gm)).toBeDisabled();
     const dialog = gm.waitForEvent('dialog');
     const reload = gm.reload({ timeout: 10_000 }).catch(() => null);
     const warning = await dialog;
@@ -356,18 +355,14 @@ test('players prepare shared Upkeep with independent navigation and save recover
       else await expectWideStatus(gm, true);
     }
     await gm.setViewportSize({ width: 1194, height: 834 });
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(gm)).toBeDisabled();
     const updatedReview = gm.getByRole('button', {
       name: 'Review updated week',
       exact: true,
     });
     await expect(updatedReview).toBeEnabled();
     await updatedReview.click();
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(gm)).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await expect(die(gm)).toHaveValue('14');
     await die(gm).fill('16');
@@ -376,9 +371,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await gm
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(gm)).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await exerciseWeekFrame(gm);
     await exerciseReferencePanel(gm);
@@ -437,12 +430,8 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
-    await player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await expect(reviewConfirm(player)).toBeEnabled();
+    await reviewConfirm(player).click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
   } finally {
@@ -695,9 +684,7 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
       await expect(await resultCell(page, 'Treasury', 'Final')).toHaveText(
         '35 gp',
       );
-      await expect(
-        page.getByRole('button', { name: 'Confirm week', exact: true }),
-      ).toBeEnabled();
+      await expect(reviewConfirm(page)).toBeEnabled();
     }
     await savePrivate(
       join(run.artifactDirectory, 'canonical-recovery-summary-tablet.png'),
@@ -746,9 +733,7 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
     await player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(player)).toBeEnabled();
     // A Confirmation arriving while another player's action picker is open
     // closes it with the week; nothing is placed in either week.
     await gm.getByRole('button', { name: 'Activity', exact: true }).click();
@@ -759,9 +744,7 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
       })
       .click();
     await expect(gm.getByRole('dialog')).toBeVisible();
-    await player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await reviewConfirm(player).click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     await expect(gm.getByRole('dialog')).toHaveCount(0);
     await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
@@ -841,12 +824,8 @@ test('players review and buy off carried persistent events before confirming the
     await player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
-    await player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await expect(reviewConfirm(player)).toBeEnabled();
+    await reviewConfirm(player).click();
     for (const page of [gm, player]) {
       await expect(page.getByRole('heading', { name: /Week 5/ })).toBeVisible();
       await expect(
@@ -907,10 +886,8 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
   const releases: (() => void)[] = [];
   const summary = (page: Page) =>
     page.getByRole('button', { name: 'Review & confirm', exact: true }).click();
-  const confirm = (page: Page) =>
-    page.getByRole('button', { name: 'Confirm week', exact: true });
-  const confirming = (page: Page) =>
-    page.getByRole('button', { name: 'Confirming…', exact: true });
+  const confirm = (page: Page) => reviewConfirm(page);
+  const confirming = (page: Page) => reviewConfirm(page, 'Confirming…');
   try {
     await Promise.all([
       first.goto(summaryRoute),

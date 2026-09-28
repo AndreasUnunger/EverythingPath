@@ -15,6 +15,10 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WorkspaceGateway } from './gateway';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { WeeklyWorkspaceBoard } from './board';
+import {
+  pinnedConfirm,
+  expectSameConfirm,
+} from './confirm-control-test-helpers';
 
 // The real store, persistence client and memory authority behind the live
 // Summary: this device's open adjustment form holds its own Confirm, the
@@ -92,8 +96,8 @@ function confirmableWeek() {
   return { gateway, authority, source };
 }
 
-const confirmButton = () =>
-  screen.getByRole('button', { name: 'Confirm week' });
+// The review block's Confirm, checked against the frame's pinned one.
+const confirmButton = () => expectSameConfirm();
 
 test('[rules.P85.local-confirm-guard] an open or invalid adjustment form disables this device’s Confirm until Save, and a Save keeps another device’s adjustment', async () => {
   const week = confirmableWeek();
@@ -189,4 +193,77 @@ test('[rules.P85.local-confirm-guard] an open or invalid adjustment form disable
   expect(week.authority.inspect().openDrafts[0]!.tableAdjustments).toEqual(
     sent,
   );
+});
+
+// The footer's pinned Confirm is the same control as the review block's:
+// it waits for this device's save like the top one, and pressing both in a
+// burst still sends exactly one Confirmation.
+test('[SUM.pinned-confirm] the pinned Confirm waits for a pending save and a double press confirms once', async () => {
+  const week = confirmableWeek();
+  let holding: Promise<void> | null = null;
+  const confirms = vi.fn();
+  factory.mockImplementation(() => ({
+    ...week.gateway,
+    transport: (source: Parameters<WorkspaceGateway['transport']>[0]) => {
+      const transport = week.gateway.transport(source);
+      return {
+        ...transport,
+        async send(operation: Parameters<typeof transport.send>[0]) {
+          if (holding) await holding;
+          return transport.send(operation);
+        },
+        confirm(operation: Parameters<typeof transport.confirm>[0]) {
+          confirms();
+          return transport.confirm(operation);
+        },
+      };
+    },
+  }));
+  render(
+    <CampaignWorkspaceProvider
+      campaignId="campaign"
+      active
+      openingPhase="summary"
+    >
+      <WeeklyWorkspaceBoard campaignId="campaign" phase="summary" />
+    </CampaignWorkspaceProvider>,
+  );
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  await waitFor(() => expect(confirmButton()).toBeEnabled());
+  expect(pinnedConfirm()).not.toHaveAttribute('aria-describedby');
+
+  let release!: () => void;
+  holding = new Promise<void>((resolve) => {
+    release = () => {
+      holding = null;
+      resolve();
+    };
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Militia value' }));
+  const form = within(
+    screen.getByRole('form', { name: 'New Militia value adjustment' }),
+  );
+  fireEvent.change(form.getByRole('textbox', { name: 'Amount' }), {
+    target: { value: '-0.07' },
+  });
+  fireEvent.change(form.getByRole('textbox', { name: 'Reason' }), {
+    target: { value: 'Seven copper for supplies' },
+  });
+  await act(async () => {
+    fireEvent.click(form.getByRole('button', { name: 'Save adjustment' }));
+  });
+  await waitFor(() => expect(confirmButton()).toBeDisabled());
+  expect(pinnedConfirm()).toHaveAccessibleDescription(
+    'Review will be ready when your changes are saved.',
+  );
+  await act(async () => release());
+  await waitFor(() => expect(confirmButton()).toBeEnabled());
+
+  await act(async () => {
+    fireEvent.click(pinnedConfirm());
+    fireEvent.click(pinnedConfirm());
+    fireEvent.click(confirmButton());
+  });
+  await waitFor(() => expect(week.authority.inspect().records).toHaveLength(1));
+  expect(confirms).toHaveBeenCalledTimes(1);
 });

@@ -12,6 +12,7 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 import type { LocalFormGuard } from './use-summary-forms';
 afterEach(cleanup);
@@ -129,10 +130,9 @@ function setup(view: Summary, edit = vi.fn().mockResolvedValue('accepted')) {
   const props = {
     edit,
     disabled: false,
-    canConfirm: true,
+    confirmation: confirmControlFixture(),
     forecastPending: false,
     reviewRequired: false,
-    confirm: vi.fn(),
     review: vi.fn(),
     localFormGuard: guard,
   };
@@ -209,10 +209,9 @@ test('[rules.P85.adjustment-edit] editing keeps identity and saves against the l
       view={summary([first, second])}
       edit={edit}
       disabled={false}
-      canConfirm
+      confirmation={confirmControlFixture()}
       forecastPending={false}
       reviewRequired={false}
-      confirm={vi.fn()}
       review={vi.fn()}
       localFormGuard={guard}
       // Accepted since this form opened; not yet rendered here.
@@ -608,10 +607,9 @@ test('[rules.P85.local-decisions] local decisions are listed with Go to form, wh
       view={summary([first])}
       edit={vi.fn()}
       disabled={false}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
       forecastPending={false}
       reviewRequired={false}
-      confirm={vi.fn()}
       review={vi.fn()}
       localFormGuard={guard}
       localForms={[

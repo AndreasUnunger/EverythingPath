@@ -16,6 +16,7 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 afterEach(cleanup);
 function section(
@@ -116,10 +117,9 @@ function withAdjustments(
 }
 const controls = {
   disabled: false,
-  canConfirm: true,
+  confirmation: confirmControlFixture(),
   forecastPending: false,
   reviewRequired: false,
-  confirm: vi.fn(),
   review: vi.fn(),
 };
 test('[rules.P85.adjustment] signed gp adjustment requires a reason and stages the complete ordered list', async () => {
@@ -184,7 +184,7 @@ test('[rules.P85.review] a rejected review requires an explicit fresh review and
       view={view}
       edit={vi.fn()}
       {...controls}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
       reviewRequired
       forecastPending
     />,
@@ -203,11 +203,13 @@ test('[SUM-05.explicit] a rejected Confirmation shows its alert and reason, and 
       view={view}
       edit={vi.fn()}
       {...controls}
-      confirm={confirm}
+      confirmation={confirmControlFixture({
+        disabled: true,
+        reason: 'Review the updated week before confirming.',
+        confirm,
+      })}
       review={review}
-      canConfirm={false}
       reviewRequired
-      disabledReason="Review the updated week before confirming."
     />,
   );
   const block = screen.getByRole('region', { name: 'Review the week' });
@@ -264,8 +266,10 @@ test('[SUM-01.block] the review block keeps decisions, warnings and the disabled
       }}
       edit={vi.fn()}
       {...controls}
-      canConfirm={false}
-      disabledReason="2 decisions left"
+      confirmation={confirmControlFixture({
+        disabled: true,
+        reason: '2 decisions left',
+      })}
     />,
   );
   const block = screen.getByRole('region', { name: 'Review the week' });
@@ -295,14 +299,7 @@ test('[SUM-01.block] the review block keeps decisions, warnings and the disabled
     /remain a preview/i,
   ])
     expect(document.body).not.toHaveTextContent(removed);
-  rerender(
-    <SummaryView
-      view={view}
-      edit={vi.fn()}
-      {...controls}
-      disabledReason={null}
-    />,
-  );
+  rerender(<SummaryView view={view} edit={vi.fn()} {...controls} />);
   expect(screen.getByRole('button', { name: 'Confirm week' })).toBeEnabled();
   expect(
     screen.queryByRole('region', { name: 'Required decisions' }),
@@ -344,8 +341,10 @@ test('[SUM-02.go] each Required decision goes to its source phase or Review form
       }}
       edit={vi.fn()}
       {...controls}
-      canConfirm={false}
-      disabledReason="3 decisions left"
+      confirmation={confirmControlFixture({
+        disabled: true,
+        reason: '3 decisions left',
+      })}
       goTo={goTo}
     />,
   );
@@ -569,7 +568,7 @@ test('[rules.P85.readiness] readiness names the required decisions and warnings 
       }}
       edit={vi.fn()}
       {...controls}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
     />,
   );
   expect(
@@ -633,7 +632,7 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
       }}
       edit={edit}
       {...controls}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
     />,
   );
   expect(screen.getByText('An extra day was once allowed')).toBeVisible();
@@ -664,8 +663,11 @@ test('[confirming] the existing Confirm control reads Confirming… while this d
       edit={vi.fn()}
       {...controls}
       disabled
-      confirming
-      canConfirm={false}
+      confirmation={confirmControlFixture({
+        confirming: true,
+        disabled: true,
+        reason: 'Confirming the week…',
+      })}
     />,
   );
   const button = screen.getByRole('button', { name: 'Confirming…' });

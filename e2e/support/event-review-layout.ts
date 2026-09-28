@@ -7,7 +7,7 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
-import { referencePanel, saveStatus } from './week-frame';
+import { expectPinnedConfirm, referencePanel, saveStatus } from './week-frame';
 
 // The Event blocks (#143 §7) and Review & confirm (#145 §6) at the sizes the
 // other journeys do not reach: phone landscape and the 1180×820 tablet with
@@ -172,6 +172,8 @@ export async function reviewSummaryLayout(
     await expectBoundedWeekHost(page);
     for (const target of [confirm, listed, placed, outcome])
       await expectReachable(page, target);
+    // The pinned Confirm counts the warning listed above.
+    expect(await expectPinnedConfirm(page)).toBeGreaterThanOrEqual(1);
     await expectControlsFit(
       page.locator('main').locator('button, input, textarea'),
       name,

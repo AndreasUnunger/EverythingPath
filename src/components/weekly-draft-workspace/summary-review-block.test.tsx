@@ -14,6 +14,10 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WorkspaceGateway } from './gateway';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { WeeklyWorkspaceBoard } from './board';
+import {
+  pinnedConfirm,
+  expectSameConfirm,
+} from './confirm-control-test-helpers';
 
 // The live review block over the real store, persistence client and memory
 // authority: Go links move only this player's Phase View to the source, and
@@ -111,8 +115,8 @@ function renderReview() {
     </CampaignWorkspaceProvider>,
   );
 }
-const confirmButton = () =>
-  screen.getByRole('button', { name: 'Confirm week' });
+// The review block's Confirm, checked against the frame's pinned one.
+const confirmButton = () => expectSameConfirm();
 const nextFrame = () =>
   act(
     () =>
@@ -188,8 +192,9 @@ test('[SUM-05.board] a rejected Confirmation waits for an explicit review of the
   await nextFrame();
   expect(confirmButton()).toHaveFocus();
   expect(fixture.authority.inspect().records).toHaveLength(0);
+  // The footer's pinned Confirm commits the same reviewed week.
   await act(async () => {
-    fireEvent.click(confirmButton());
+    fireEvent.click(pinnedConfirm());
   });
   await waitFor(() =>
     expect(fixture.authority.inspect().records).toHaveLength(1),
