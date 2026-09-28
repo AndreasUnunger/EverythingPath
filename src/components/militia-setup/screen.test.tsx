@@ -434,7 +434,7 @@ test('[setup.characters.inline] Add character keeps its values on failure and th
   fill('Rank', '4');
   openStep('People & officers');
   click('Add character');
-  const dialog = await screen.findByRole('dialog', { name: 'New Character' });
+  const dialog = await screen.findByRole('dialog', { name: 'Add character' });
   fireEvent.change(within(dialog).getByRole('textbox', { name: 'Name' }), {
     target: { value: 'Mira' },
   });
@@ -475,7 +475,7 @@ test('[setup.characters.dialog-survives] the Add character dialog keeps its valu
   openStep('People & officers');
   click('Add character');
   const name = () =>
-    within(screen.getByRole('dialog', { name: 'New Character' })).getByRole(
+    within(screen.getByRole('dialog', { name: 'Add character' })).getByRole(
       'textbox',
       { name: 'Name' },
     );

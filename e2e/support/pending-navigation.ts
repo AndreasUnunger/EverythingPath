@@ -7,7 +7,7 @@ import { saveStatus } from './week-frame';
 export async function prepareWeekHistory(page: Page) {
   await openCampaignSection(page, 'characters');
   await expect(
-    page.getByRole('region', { name: 'Character Ledger', exact: true }),
+    page.getByRole('region', { name: 'Characters', exact: true }),
   ).toBeVisible();
   const charactersUrl = page.url();
   await openCampaignSection(page, 'week');
@@ -54,7 +54,7 @@ export async function leavePendingWeek(
   await expect(warning).toBeHidden();
   await expect(page).toHaveURL(charactersUrl);
   await expect(
-    page.getByRole('region', { name: 'Character Ledger', exact: true }),
+    page.getByRole('region', { name: 'Characters', exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Week \d+ · / })).toHaveCount(
     0,

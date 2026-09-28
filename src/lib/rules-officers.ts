@@ -18,13 +18,27 @@ const abilities = {
   secrecy: ['dexterity', 'intelligence'],
   security: ['strength', 'wisdom'],
 } as const;
+export type OfficerAbility = (typeof abilities)[OrganizationCheck][number];
+/**
+ * The ability an officer adds to a check and its modifier: the better of
+ * the two the rules allow, the first on a tie.
+ */
+export function officerAbilitySource(
+  character: FoundationCharacter,
+  check: OrganizationCheck,
+): { ability: OfficerAbility; modifier: number } {
+  const [first, second] = abilities[check];
+  const one = abilityModifier(character[first]);
+  const two = abilityModifier(character[second]);
+  return two > one
+    ? { ability: second, modifier: two }
+    : { ability: first, modifier: one };
+}
 export function officerAbility(
   character: FoundationCharacter,
   check: OrganizationCheck,
 ) {
-  return Math.max(
-    ...abilities[check].map((key) => abilityModifier(character[key])),
-  );
+  return officerAbilitySource(character, check).modifier;
 }
 export function projectOfficers(
   roster: CanonicalRoster,

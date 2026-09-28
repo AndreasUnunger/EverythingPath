@@ -190,10 +190,19 @@ test('[roster.warning-targets] structured warnings name their roster list and th
       list: 'teams',
       message: 'A manages 2 teams; the normal limit is 1.',
       path: ['teams', 2, 'managerCharacterId'],
+      characterId: 'a',
     },
     // A commandant's blank Hit Dice follow their level: no warning.
-    { list: 'people', message: 'B holds more than one officer role.' },
-    { list: 'people', message: 'B is archived but still assigned.' },
+    {
+      list: 'people',
+      message: 'B holds more than one officer role.',
+      characterId: 'b',
+    },
+    {
+      list: 'people',
+      message: 'B is archived but still assigned.',
+      characterId: 'b',
+    },
   ]);
   expect(rosterWarnings(roster, characters, 3)).toEqual(
     warnings.map((warning) => warning.message),

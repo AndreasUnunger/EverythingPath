@@ -109,6 +109,8 @@ export type RosterWarning = {
   list: 'people' | 'teams';
   message: string;
   path?: ['teams', number, 'managerCharacterId'];
+  /** The roster person a per-person warning concerns. */
+  characterId?: string;
 };
 export function rosterWarnings(
   roster: CanonicalRoster,
@@ -154,16 +156,19 @@ export function rosterWarningDescriptors(
         list: 'teams',
         message: `${character.name} manages ${managed.length} teams; the normal limit is ${limit}.`,
         path: ['teams', firstBeyondLimit, 'managerCharacterId'],
+        characterId: person.characterId,
       });
     if (roles.length > 1)
       warnings.push({
         list: 'people',
         message: `${character.name} holds more than one officer role.`,
+        characterId: person.characterId,
       });
     if (!character.isActive && (roles.length || managed.length))
       warnings.push({
         list: 'people',
         message: `${character.name} is archived but still assigned.`,
+        characterId: person.characterId,
       });
   });
   return warnings;

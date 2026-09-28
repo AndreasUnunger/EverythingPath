@@ -1,11 +1,13 @@
 'use client';
 import type { Id } from '@convex/_generated/dataModel';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
-import { CharacterManager } from '~/components/character-manager';
-import { militiaPath } from '~/lib/campaign-routes';
+import { CharacterRecordDialog } from '~/components/character-manager/character-record-dialog';
+import { CharactersOfficersView } from '~/components/characters-officers/characters-officers-view';
+import { CharactersSkeleton } from '~/components/characters-officers/characters-skeleton';
+import { useCharactersPage } from '~/components/characters-officers/use-characters-page';
 
-// Temporary host for the existing character records. Officer roles, roster
-// people and team managers are still corrected through the Militia editor.
+// Characters & officers: the officer board over the character table, with
+// the record dialog. Roster and officer corrections still happen on the
+// Militia page's People & officers fallback.
 export function CharactersSection({
   campaignId,
   organizationId,
@@ -13,23 +15,26 @@ export function CharactersSection({
   campaignId: Id<'campaign'>;
   organizationId: string;
 }) {
+  const page = useCharactersPage({ campaignId, organizationId });
+  if (page.status === 'loading') return <CharactersSkeleton />;
+  const { dialog } = page;
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">
-        Officer roles and roster people are corrected under{' '}
-        <GuardedLink
-          href={militiaPath(campaignId, 'people')}
-          className="text-primary underline underline-offset-4"
-        >
-          People &amp; officers
-        </GuardedLink>{' '}
-        on Militia, and team managers under Teams.
-      </p>
-      <CharacterManager
-        selectedCampaignId={campaignId}
-        organizationId={organizationId}
-        canQuery
-      />
-    </div>
+    <>
+      <CharactersOfficersView page={page} />
+      {dialog.target && (dialog.target.kind === 'add' || dialog.record) ? (
+        // One dialog per target: an edit starts from the record's values.
+        <CharacterRecordDialog
+          key={dialog.target.kind === 'add' ? 'add' : dialog.target.id}
+          campaignId={campaignId}
+          organizationId={organizationId}
+          record={dialog.record}
+          open
+          onOpenChange={(open) => {
+            if (!open) dialog.close();
+          }}
+          archiveWarning={dialog.archiveWarning}
+        />
+      ) : null}
+    </>
   );
 }

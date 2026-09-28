@@ -46,7 +46,7 @@ test('existing militia state survives reload within its campaign', async ({
     .getByRole('button', { name: 'Add character', exact: true })
     .click();
   const dialog = page.getByRole('dialog', {
-    name: 'New Character',
+    name: 'Add character',
     exact: true,
   });
   await dialog
