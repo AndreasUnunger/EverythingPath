@@ -214,7 +214,8 @@ export function AddAdjustment({
         role="group"
         aria-label="New Table Adjustment"
         data-adjustment-kinds
-        className="grid grid-cols-2 gap-2 @2xl:grid-cols-4"
+        // Short viewports stack so a whole card fits the scroll column.
+        className="short:grid-cols-1 not-short:@2xl:grid-cols-4 grid grid-cols-2 gap-2"
       >
         {adjustmentKinds.map((kind) => {
           const isOpen = open?.kind === kind.value;
@@ -240,7 +241,7 @@ export function AddAdjustment({
               className={cn(
                 // Words wrap between each other, never inside one: the label
                 // shrinks on a phone instead of splitting "Settlement".
-                'bg-background flex h-auto min-h-16 max-w-full min-w-0 flex-col items-start gap-1 rounded-lg border-2 p-2.5 text-left break-normal whitespace-normal transition-transform select-none sm:p-3',
+                'bg-background short:min-h-0 short:p-2 not-short:sm:p-3 flex h-auto min-h-16 max-w-full min-w-0 flex-col items-start gap-1 rounded-lg border-2 p-2.5 text-left break-normal whitespace-normal transition-transform select-none',
                 'hover:border-primary/60 hover:-translate-y-1 focus-visible:-translate-y-1 motion-reduce:transform-none',
                 'focus-visible:border-ring focus-visible:ring-ring/50 outline-none focus-visible:ring-[3px]',
                 'disabled:pointer-events-none disabled:opacity-50',

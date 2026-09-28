@@ -209,9 +209,9 @@ function DecisionCard({
       disabled={disabled}
       onClick={onChoose}
       // Hover only lifts and tints the border so it never resembles the
-      // selected card's fill.
+      // selected card's fill. Short viewports drop the height floor.
       className={cn(
-        'bg-background flex h-auto min-h-24 max-w-full min-w-0 flex-col items-start gap-1.5 rounded-lg border-2 p-3 text-left [overflow-wrap:anywhere] whitespace-normal transition-transform select-none',
+        'bg-background short:min-h-0 short:gap-1 short:p-2 flex h-auto min-h-24 max-w-full min-w-0 flex-col items-start gap-1.5 rounded-lg border-2 p-3 text-left [overflow-wrap:anywhere] whitespace-normal transition-transform select-none',
         'hover:border-primary/60 hover:-translate-y-1 focus-visible:-translate-y-1 motion-reduce:transform-none',
         'focus-visible:border-ring focus-visible:ring-ring/50 outline-none focus-visible:ring-[3px]',
         'disabled:pointer-events-none disabled:opacity-50',

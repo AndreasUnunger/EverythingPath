@@ -172,16 +172,17 @@ function SlotCard({
         }
         aria-pressed={occupied ? selected : undefined}
         onClick={() => board.activateSlot(slot.slotId)}
-        // Short viewports: a whole slot fits the scroll column.
+        // Short viewports: the card is two wrapping lines with no height floor
+        // so a whole slot fits the scroll column.
         className={cn(
-          'focus-visible:ring-ring/50 short:min-h-24 flex min-h-36 w-full min-w-0 touch-manipulation flex-col gap-1.5 rounded-lg border-2 p-2.5 text-left transition-transform outline-none focus-visible:ring-[3px] motion-safe:hover:-translate-y-0.5 motion-reduce:transform-none',
+          'focus-visible:ring-ring/50 short:min-h-0 short:flex-row short:flex-wrap short:items-center short:gap-x-3 short:gap-y-0.5 short:p-2 flex min-h-36 w-full min-w-0 touch-manipulation flex-col gap-1.5 rounded-lg border-2 p-2.5 text-left transition-transform outline-none focus-visible:ring-[3px] motion-safe:hover:-translate-y-0.5 motion-reduce:transform-none',
           occupied ? 'bg-card' : 'border-dashed',
           beyond ? 'border-amber-500' : 'border-foreground/25',
           selected && 'border-primary ring-primary/40 ring-2',
           !occupied && disabled && 'opacity-60',
         )}
       >
-        <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
+        <span className="short:basis-full short:justify-start short:gap-x-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
           <span className="text-muted-foreground font-mono">
             Slot {slot.number}
           </span>
@@ -207,12 +208,12 @@ function SlotCard({
             <SlotTeam slot={slot} />
           </>
         ) : (
-          <span className="text-muted-foreground mt-auto text-sm">
+          <span className="text-muted-foreground short:mt-0 mt-auto text-sm">
             Tap to choose an action
           </span>
         )}
         {beyond && (
-          <span className="mt-auto text-xs text-amber-300">
+          <span className="short:mt-0 mt-auto text-xs text-amber-300">
             Beyond the allowance
           </span>
         )}
@@ -299,7 +300,8 @@ export function ActivitySlotBoard({
         />
       </div>
       <div className="-mx-1 overflow-x-auto px-3 pt-3 pb-2">
-        <div className="grid grid-cols-2 gap-3 md:flex md:items-stretch md:gap-2">
+        {/* Short viewports stack the slots full width, like the phone grid. */}
+        <div className="short:grid-cols-1 not-short:md:flex not-short:md:items-stretch grid grid-cols-2 gap-3 md:gap-2">
           {view.slots.map((slot, index) => {
             const previous = view.slots[index - 1];
             const boundary =
@@ -323,8 +325,8 @@ export function ActivitySlotBoard({
 }
 
 // The allowance boundary: a vertical amber rule before the first slot beyond
-// it on the one-row board; the phone grid relies on each card's own amber
-// border and "Beyond the allowance" text.
+// it on the one-row board; the phone and short-viewport grids rely on each
+// card's own amber border and "Beyond the allowance" text.
 function SlotCardWithDivider({
   slot,
   boundary,
@@ -341,7 +343,7 @@ function SlotCardWithDivider({
       {boundary && (
         <span
           aria-hidden
-          className="hidden w-0.5 shrink-0 self-stretch rounded bg-amber-500 md:block"
+          className="not-short:md:block hidden w-0.5 shrink-0 self-stretch rounded bg-amber-500"
         />
       )}
       <SlotCard slot={slot} board={board} disabled={disabled} />

@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '~/components/ui/button';
-import { EventChoiceCard } from './event-choice-card';
+import { EventChoiceCard, eventChoiceGridClass } from './event-choice-card';
 import { EventNote } from './event-note';
 import { pressTeamPair, teamPairWithout } from './event-recurring-facts';
 import type { EventTeamPairChoice } from './types';
@@ -41,7 +41,7 @@ export function EventTeamPairCards({
         </p>
       )}
       {pair.choices.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={eventChoiceGridClass}>
           {pair.choices.map((card) => (
             <EventChoiceCard
               key={card.value}
