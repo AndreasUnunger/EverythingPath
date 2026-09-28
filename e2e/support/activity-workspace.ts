@@ -376,7 +376,11 @@ async function exerciseGuaranteeEvent(
       exact: true,
     }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await gm.getByRole('button', { name: 'Activity', exact: true }).click();
+  // Both devices return to Activity, where the later checks look.
+  await Promise.all([
+    gm.getByRole('button', { name: 'Activity', exact: true }).click(),
+    player.getByRole('button', { name: 'Activity', exact: true }).click(),
+  ]);
   const candidates = (await open(gm, 1, action)).getByRole('list', {
     name: 'Event candidates for this choice',
     exact: true,
