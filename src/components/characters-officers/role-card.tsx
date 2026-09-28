@@ -1,21 +1,9 @@
 import { useId } from 'react';
-import { Badge } from '~/components/ui/badge';
 import type { RoleCard } from '~/lib/officer-board';
 import { cn } from '~/lib/utils';
-import { roleCardId } from './use-characters-page';
+import { ArchivedBadge, roleCardId, Warnings } from './parts';
 
 const card = 'border-foreground/20 bg-card min-w-0 border p-3';
-
-export function ArchivedBadge() {
-  return (
-    <Badge
-      variant="outline"
-      className="border-amber-500/60 font-mono text-[11px] font-normal text-amber-300"
-    >
-      archived
-    </Badge>
-  );
-}
 
 // A role before the militia exists: its name and nothing to show yet.
 export function UnassignedRoleCard({ label }: { label: string }) {
@@ -93,6 +81,7 @@ export function RoleCardView({ card: role }: { card: RoleCard }) {
         {role.effect}
         {role.source !== null && ` (${role.source})`}
       </p>
+      <Warnings warnings={role.warnings} />
       {role.pending.map((change) => (
         <p
           key={change.key}

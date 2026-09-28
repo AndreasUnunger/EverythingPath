@@ -80,7 +80,7 @@ function Characters({ page }: { page: Page }) {
   const headingId = useId();
   const showArchivedId = useId();
   const wide = useWideLayout();
-  const rows = {
+  const rowProps = {
     rows: page.rows,
     hasBoard: page.officers !== null,
     teamsHref: page.links.teams,
@@ -131,7 +131,11 @@ function Characters({ page }: { page: Page }) {
       </p>
       <PendingBar page={page} />
       {page.rows.length > 0 &&
-        (wide ? <CharacterTable {...rows} /> : <CharacterCards {...rows} />)}
+        (wide ? (
+          <CharacterTable {...rowProps} />
+        ) : (
+          <CharacterCards {...rowProps} />
+        ))}
       {page.emptyMessage !== null && (
         <p className="text-muted-foreground text-sm">{page.emptyMessage}</p>
       )}

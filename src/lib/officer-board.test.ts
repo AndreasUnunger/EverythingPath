@@ -92,10 +92,14 @@ describe('officerBoard', () => {
       expect(value.rule).not.toBe('');
       expect(value.source).toBeNull();
     }
-    expect(card(cards, 'spymaster').effect).toBe('No Secrecy bonus');
-    expect(card(cards, 'strategist').effect).toBe('No extra action');
-    expect(card(cards, 'commandant').effect).toBe('No Drill training bonus');
-    expect(card(cards, 'overseer').effect).toBe('No secondary-check bonus');
+    expect(card(cards, 'spymaster').effect).toBe('Vacant: no Secrecy bonus');
+    expect(card(cards, 'strategist').effect).toBe('Vacant: no extra action');
+    expect(card(cards, 'commandant').effect).toBe(
+      'Vacant: no Drill training bonus',
+    );
+    expect(card(cards, 'overseer').effect).toBe(
+      'Vacant: no secondary-check bonus',
+    );
   });
 
   it('adds the better allowed ability and names its holder and ability as the source', () => {
@@ -196,6 +200,10 @@ describe('officerBoard', () => {
     expect(
       projectOfficers(value, characters, 'Loyalty').commandantTrainingBonus,
     ).toBe(9);
+    // The card keeps the warning even when the archived row is hidden.
+    expect(commandant.warnings).toEqual([
+      'Dalla Rook is archived but still assigned.',
+    ]);
   });
 
   it('shows the strategist allowance and the Overseer secondary checks from the focus', () => {

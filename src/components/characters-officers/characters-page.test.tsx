@@ -47,6 +47,7 @@ vi.mock('@convex/_generated/api', () => ({
       listByCampaign: 'listByCampaign',
       createCharacter: 'createCharacter',
       updateCharacter: 'updateCharacter',
+      archiveCharacter: 'archiveCharacter',
     },
     canonicalDraftPersistence: { workspace: 'workspace', observe: 'observe' },
   },
@@ -315,10 +316,14 @@ describe('officer board', () => {
       '+9 training on a successful Drill (Bren Ironhand 5 HD + Dalla Rook 4 HD)',
     );
     expect(within(commandant).getByText('archived')).toBeVisible();
-    expect(roleCard('Strategist')).toHaveTextContent('No extra action');
+    // Dalla's row is hidden, but her card keeps the warning.
+    expect(commandant).toHaveTextContent(
+      'Dalla Rook is archived but still assigned.',
+    );
+    expect(roleCard('Strategist')).toHaveTextContent('Vacant: no extra action');
     // A pending change shows on both roles, and is not applied.
     const spymaster = roleCard('Spymaster');
-    expect(spymaster).toHaveTextContent('No Secrecy bonus');
+    expect(spymaster).toHaveTextContent('Vacant: no Secrecy bonus');
     expect(spymaster).toHaveTextContent(
       'Pending this week: Bren Ironhand: Marshal → Spymaster (Activity, slot 2)',
     );
@@ -466,10 +471,15 @@ describe('record dialog', () => {
       within(dialog()).getByText('Character name is required'),
     ).toBeVisible();
     expect(within(dialog()).getByText('CHA is required')).toBeVisible();
+    // The save summary links each invalid field to its control.
+    const summary = within(dialog()).getByRole('alert');
+    expect(summary).toHaveTextContent('Fix these before saving');
+    fireEvent.click(within(summary).getByRole('button', { name: 'CHA' }));
+    await waitFor(() => expect(field('CHA')).toHaveFocus());
     expect(calls).toEqual([]);
   });
 
-  test('edits every field of a record and keeps its archive state', async () => {
+  test('edits a record, sending only changed fields and keeping its archive state', async () => {
     render(page());
     fireEvent.click(screen.getByRole('checkbox', { name: 'Show archived' }));
     await openEdit('Dalla Rook');
@@ -483,18 +493,7 @@ describe('record dialog', () => {
     expect(calls[0]!.args).toEqual({
       organizationId: 'org',
       characterId: 'dalla',
-      patch: {
-        name: 'Dalla Rook',
-        description: 'Back from the war',
-        kind: 'npc',
-        level: 5,
-        strength: 10,
-        dexterity: 10,
-        constitution: 10,
-        intelligence: 10,
-        wisdom: 10,
-        charisma: 10,
-      },
+      patch: { description: 'Back from the war', kind: 'npc', level: 5 },
     });
     expect(
       within(dialog()).getByRole('button', { name: 'Saving…' }),
@@ -512,13 +511,10 @@ describe('record dialog', () => {
     type('Notes', 'Left for Phaendar');
     await press('Archive');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.args).toMatchObject({
+    expect(calls[0]!.args).toEqual({
+      organizationId: 'org',
       characterId: 'sera',
-      patch: {
-        description: 'Left for Phaendar',
-        kind: 'npc',
-        isActive: false,
-      },
+      patch: { description: 'Left for Phaendar', isActive: false },
     });
     // A refused archive keeps the dialog, its values and says why.
     await act(async () =>
@@ -554,10 +550,32 @@ describe('record dialog', () => {
     expect(
       within(dialog()).queryByRole('button', { name: 'Archive' }),
     ).toBeNull();
+    // Without edits, only the archive state changes.
     await press('Un-archive');
-    expect(calls[0]!.args).toMatchObject({
-      characterId: 'dalla',
-      patch: { isActive: true },
+    expect(calls[0]).toMatchObject({
+      name: 'archiveCharacter',
+      args: { organizationId: 'org', characterId: 'dalla', isActive: true },
+    });
+    await act(async () => calls[0]!.reject(new Error('')));
+    expect(within(dialog()).getByRole('alert')).toHaveTextContent(
+      'Failed to un-archive character.',
+    );
+  });
+
+  test("an edit keeps another player's change to a field this player left alone", async () => {
+    const { rerender } = render(page());
+    await openEdit('Bren Ironhand');
+    // Another player raises Bren's Charisma while the dialog is open.
+    const list = records();
+    list[1]!.charisma = 14;
+    setQueries(list, militia(list));
+    rerender(page());
+    type('Notes', 'Drillmaster');
+    await press('Save');
+    expect(calls[0]!.args).toEqual({
+      organizationId: 'org',
+      characterId: 'bren',
+      patch: { description: 'Drillmaster' },
     });
   });
 

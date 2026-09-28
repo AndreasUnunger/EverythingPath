@@ -1,4 +1,4 @@
-import { Check, Minus, Pencil, TriangleAlert } from 'lucide-react';
+import { Check, Minus, Pencil } from 'lucide-react';
 import { useId } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { Button } from '~/components/ui/button';
@@ -9,8 +9,7 @@ import {
   type OfficerRole,
 } from '~/lib/officer-board';
 import { cn } from '~/lib/utils';
-import { ArchivedBadge } from './role-card';
-import { roleCardId } from './use-characters-page';
+import { ArchivedBadge, roleCardId, Warnings } from './parts';
 
 export type RowsProps = {
   rows: CharacterRow[];
@@ -103,18 +102,6 @@ function Teams({
       {managesText(manages)}
     </GuardedLink>
   );
-}
-
-function Warnings({ warnings }: { warnings: string[] }) {
-  return warnings.map((warning) => (
-    <p
-      key={warning}
-      className="flex items-start gap-1.5 text-sm text-amber-300"
-    >
-      <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{warning}</span>
-    </p>
-  ));
 }
 
 function EditButton({

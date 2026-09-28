@@ -11,7 +11,6 @@ import {
   officerBoard,
   pendingRoleChanges,
   type CharacterRow,
-  type OfficerRole,
   type PendingRoleChange,
   type RoleCard,
 } from '~/lib/officer-board';
@@ -76,7 +75,10 @@ export function useCharactersPage({
   const [target, setTarget] = useState<RecordDialogTarget | null>(null);
 
   const derived = useMemo(() => {
+    // With a militia, wait for the open week too, so pending changes never
+    // appear late.
     if (!records || source === undefined) return null;
+    if (source && observation === undefined) return null;
     const snapshot = source?.snapshot ?? null;
     const names = new Map(records.map((record) => [record._id, record.name]));
     const pending =
@@ -153,9 +155,4 @@ export function useCharactersPage({
       close: () => setTarget(null),
     },
   };
-}
-
-/** The DOM id of a role card, so a role chip can move focus to it. */
-export function roleCardId(role: OfficerRole) {
-  return `role-${role}`;
 }

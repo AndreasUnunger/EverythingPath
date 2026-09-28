@@ -38,6 +38,44 @@ const SCORE_FIELDS = [
   ['charisma', 'CHA'],
 ] as const satisfies readonly (readonly [keyof CharacterFormValues, string])[];
 
+// Every field in form order with its label, for the save summary.
+const FIELD_LABELS = [
+  ['name', 'Name'],
+  ['level', 'Hit Dice'],
+  ['kind', 'Kind'],
+  ...SCORE_FIELDS,
+  ['description', 'Notes'],
+] as const satisfies readonly (readonly [keyof CharacterFormValues, string])[];
+
+// After a Save or Archive found errors: each invalid field, linked to its
+// control. The field's own message says what is wrong.
+function SaveSummary({ form }: { form: CharacterRecordForm['form'] }) {
+  const { errors, submitCount } = form.formState;
+  const invalid = FIELD_LABELS.filter(([name]) => errors[name]);
+  if (submitCount === 0 || invalid.length === 0) return null;
+  return (
+    <div
+      role="alert"
+      className="border-destructive/60 text-destructive space-y-1 border p-2 text-sm"
+    >
+      <p className="font-semibold">Fix these before saving</p>
+      <ul className="flex flex-wrap gap-x-3 gap-y-1">
+        {invalid.map(([name, text]) => (
+          <li key={name}>
+            <button
+              type="button"
+              className="focus-visible:ring-ring/50 min-h-11 underline underline-offset-4 outline-none focus-visible:ring-[3px] md:min-h-0"
+              onClick={() => form.setFocus(name)}
+            >
+              {text}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const label = 'font-mono text-sm';
 const control = 'border-primary bg-card border-2 font-mono';
 const action = 'min-h-11 md:min-h-9';
@@ -94,6 +132,7 @@ export function CharacterRecordDialogView({
                 {submitError}
               </div>
             )}
+            <SaveSummary form={form} />
 
             <div className="grid grid-cols-2 items-start gap-3 md:grid-cols-4">
               <FormField

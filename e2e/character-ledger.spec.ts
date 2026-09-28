@@ -43,6 +43,19 @@ test('players share character and officer assignment changes', async ({
   await expect(
     gmCharacters.getByRole('row').filter({ hasText: 'Nara' }),
   ).toContainText(/Not on roster.*Nara.*4 HD/);
+  // The GM's record dialog opens with the player's scores.
+  await gmCharacters
+    .getByRole('button', { name: 'Edit Nara', exact: true })
+    .click();
+  const gmRecord = players.gm.getByRole('dialog', {
+    name: 'Edit character',
+    exact: true,
+  });
+  await expect(
+    gmRecord.getByRole('textbox', { name: 'STR', exact: true }),
+  ).toHaveValue('16');
+  await gmRecord.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(gmRecord).toBeHidden();
   // Characters & officers links straight to the People & officers fallback.
   await player
     .getByRole('link', { name: 'People & officers', exact: true })

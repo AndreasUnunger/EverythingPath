@@ -54,11 +54,6 @@ const ROLE_RULES: Record<OfficerRole, string> = {
   overseer: '+1 to both secondary checks; adds to one chosen event',
 };
 
-const CHECK_ROLES: Partial<Record<OfficerRole, OrganizationCheck>> = {
-  marshal: 'security',
-  ambassador: 'loyalty',
-  spymaster: 'secrecy',
-};
 const CHECK_LABELS: Record<OrganizationCheck, Focus> = {
   loyalty: 'Loyalty',
   security: 'Security',
@@ -112,6 +107,8 @@ export type RoleCard = {
   effect: string;
   /** Whose value the effect comes from; null when nobody's does. */
   source: string | null;
+  /** Advisory warnings about the holders, e.g. an archived one. */
+  warnings: string[];
   pending: PendingRoleChange[];
 };
 
@@ -143,68 +140,124 @@ export function pendingRoleChanges(
 type Holder = {
   characterId: string;
   name: string;
+  /** The holder's rules facts; absent when the record is missing. */
   facts?: FoundationCharacter;
 };
+type PresentHolder = Holder & { facts: FoundationCharacter };
 
-function missingHolder({ characterId, name }: Holder): RoleHolder {
-  return {
-    characterId,
-    name,
-    archived: false,
-    counts: false,
-    contribution: null,
-    nonStacking: null,
-  };
-}
+// What a role's builder derives: the effect, whose value it is and how each
+// holder contributes.
+type RoleEffect = Pick<RoleCard, 'effect' | 'source' | 'holders'>;
+type RoleContext = {
+  holders: Holder[];
+  present: PresentHolder[];
+  officers: ReturnType<typeof projectOfficers>;
+  /** A present holder's effective Hit Dice on the roster. */
+  hitDice: (holder: PresentHolder) => number;
+  /** The checks other than the focus: Overseer's secondary checks. */
+  secondary: Focus[];
+};
 
-// One holder counts; the others are told whose bonus applies instead.
-function nonStackingHolders(
-  holders: Holder[],
+// A holder of a role: `counting` is the holder whose value the rules use
+// (each commandant for the one stacking role); the others are told whose
+// applies instead. A holder without a record adds nothing.
+function holderView(
+  holder: Holder,
   counting: Holder | undefined,
-  contribution: string,
-): RoleHolder[] {
-  return holders.map((holder) =>
-    holder.facts
-      ? {
-          characterId: holder.characterId,
-          name: holder.name,
-          archived: !holder.facts.isActive,
-          counts: holder === counting,
-          contribution: holder === counting ? contribution : null,
-          nonStacking:
-            holder === counting || !counting
-              ? null
-              : `Doesn't stack with ${counting.name}`,
-        }
-      : missingHolder(holder),
-  );
-}
-
-function checkRoleCard(holders: Holder[], check: OrganizationCheck) {
-  const label = CHECK_LABELS[check];
-  let best: {
-    holder: Holder;
-    ability: OfficerAbility;
-    modifier: number;
-  } | null = null;
-  for (const holder of holders) {
-    if (!holder.facts) continue;
-    const source = officerAbilitySource(holder.facts, check);
-    if (!best || source.modifier > best.modifier) best = { holder, ...source };
-  }
-  if (!best)
-    return {
-      effect: `No ${label} bonus`,
-      source: null,
-      holders: holders.map(missingHolder),
-    };
-  const effect = `${label} ${signed(best.modifier)}`;
+  contribution: string | null,
+): RoleHolder {
+  const counts = holder.facts !== undefined && holder === counting;
   return {
-    effect,
-    source: `${best.holder.name}, ${ABILITY_LABELS[best.ability]}`,
-    holders: nonStackingHolders(holders, best.holder, effect),
+    characterId: holder.characterId,
+    name: holder.name,
+    archived: holder.facts?.isActive === false,
+    counts,
+    contribution: counts ? contribution : null,
+    nonStacking:
+      holder.facts && counting && !counts
+        ? `Doesn't stack with ${counting.name}`
+        : null,
   };
 }
+
+function checkRoleEffect(check: OrganizationCheck) {
+  return ({ present, holders }: RoleContext): RoleEffect => {
+    const label = CHECK_LABELS[check];
+    // The better allowed ability counts; the first assigned on a tie.
+    let best: {
+      holder: PresentHolder;
+      ability: OfficerAbility;
+      modifier: number;
+    } | null = null;
+    for (const holder of present) {
+      const source = officerAbilitySource(holder.facts, check);
+      if (!best || source.modifier > best.modifier)
+        best = { holder, ...source };
+    }
+    const effect = best ? `${label} ${signed(best.modifier)}` : null;
+    return {
+      effect: effect ?? `No ${label} bonus`,
+      source: best
+        ? `${best.holder.name}, ${ABILITY_LABELS[best.ability]}`
+        : null,
+      holders: holders.map((holder) =>
+        holderView(holder, best?.holder, effect),
+      ),
+    };
+  };
+}
+
+const ROLE_EFFECTS: Record<OfficerRole, (context: RoleContext) => RoleEffect> =
+  {
+    marshal: checkRoleEffect('security'),
+    ambassador: checkRoleEffect('loyalty'),
+    spymaster: checkRoleEffect('secrecy'),
+    // Commandants stack: every distinct holder counts.
+    commandant: ({ holders, present, officers, hitDice }) => ({
+      effect: present.length
+        ? `+${officers.commandantTrainingBonus} training on a successful Drill`
+        : 'No Drill training bonus',
+      source: present.length
+        ? present
+            .map((holder) => `${holder.name} ${hitDice(holder)} HD`)
+            .join(' + ')
+        : null,
+      holders: holders.map((holder) => {
+        const counted = present.find((x) => x === holder);
+        return holderView(
+          holder,
+          counted,
+          counted ? `${hitDice(counted)} HD` : null,
+        );
+      }),
+    }),
+    strategist: ({ holders, present, officers }) => ({
+      effect: officers.strategistAssigned
+        ? ROLE_RULES.strategist
+        : 'No extra action',
+      source: present[0]?.name ?? null,
+      holders: holders.map((holder) =>
+        holderView(holder, present[0], '+1 action, +2 on it'),
+      ),
+    }),
+    overseer: ({ holders, present, secondary }) => ({
+      effect: !present.length
+        ? 'No secondary-check bonus'
+        : secondary.length
+          ? `+1 to ${secondary.join(' and ')}; supports one chosen event's checks`
+          : "Supports one chosen event's checks",
+      source: present[0]?.name ?? null,
+      holders: holders.map((holder) =>
+        holderView(
+          holder,
+          present[0],
+          secondary.length
+            ? `+1 ${secondary.join(', ')}`
+            : 'Supports one event',
+        ),
+      ),
+    }),
+  };
 
 /** The six role cards for the accepted roster and the open week's changes. */
 export function officerBoard({
@@ -223,10 +276,9 @@ export function officerBoard({
 }): RoleCard[] {
   const officers = projectOfficers(roster, characters, focus);
   const byId = new Map(characters.map((x) => [x.characterId, x]));
-  const hitDice = (holder: Holder & { facts: FoundationCharacter }) => {
-    const person = roster.people.find(
-      (x) => x.characterId === holder.characterId,
-    );
+  const people = new Map(roster.people.map((x) => [x.characterId, x]));
+  const hitDice = (holder: PresentHolder) => {
+    const person = people.get(holder.characterId);
     return person ? getEffectiveHitDice(person, holder.facts) : 0;
   };
   const secondary = focus
@@ -244,69 +296,30 @@ export function officerBoard({
         facts: byId.get(characterId),
       }));
     const present = holders.filter(
-      (holder): holder is Holder & { facts: FoundationCharacter } =>
-        holder.facts !== undefined,
+      (holder): holder is PresentHolder => holder.facts !== undefined,
     );
-    const check = CHECK_ROLES[role];
-    const shown = check
-      ? checkRoleCard(holders, check)
-      : role === 'commandant'
-        ? {
-            effect: present.length
-              ? `+${officers.commandantTrainingBonus} training on a successful Drill`
-              : 'No Drill training bonus',
-            source: present.length
-              ? present
-                  .map((holder) => `${holder.name} ${hitDice(holder)} HD`)
-                  .join(' + ')
-              : null,
-            // Commandants stack: every distinct holder counts.
-            holders: holders.map((holder) =>
-              holder.facts
-                ? {
-                    characterId: holder.characterId,
-                    name: holder.name,
-                    archived: !holder.facts.isActive,
-                    counts: true,
-                    contribution: `${hitDice({ ...holder, facts: holder.facts })} HD`,
-                    nonStacking: null,
-                  }
-                : missingHolder(holder),
-            ),
-          }
-        : role === 'strategist'
-          ? {
-              effect: officers.strategistAssigned
-                ? ROLE_RULES.strategist
-                : 'No extra action',
-              source: present[0]?.name ?? null,
-              holders: nonStackingHolders(
-                holders,
-                present[0],
-                '+1 action, +2 on it',
-              ),
-            }
-          : {
-              effect: !present.length
-                ? 'No secondary-check bonus'
-                : secondary.length
-                  ? `+1 to ${secondary.join(' and ')}; supports one chosen event's checks`
-                  : "Supports one chosen event's checks",
-              source: present[0]?.name ?? null,
-              holders: nonStackingHolders(
-                holders,
-                present[0],
-                secondary.length
-                  ? `+1 ${secondary.join(', ')}`
-                  : 'Supports one event',
-              ),
-            };
+    const shown = ROLE_EFFECTS[role]({
+      holders,
+      present,
+      officers,
+      hitDice,
+      secondary,
+    });
+    const vacant = holders.length === 0;
     return {
       role,
       label: ROLE_LABELS[role],
       rule: ROLE_RULES[role],
-      vacant: holders.length === 0,
+      vacant,
       ...shown,
+      // "Vacant: no Secrecy bonus", so vacancy never rests on styling alone.
+      effect: vacant
+        ? `Vacant: ${shown.effect.charAt(0).toLowerCase()}${shown.effect.slice(1)}`
+        : shown.effect,
+      // Shown on the card even while Show archived hides the holder's row.
+      warnings: present
+        .filter((holder) => !holder.facts.isActive)
+        .map((holder) => `${holder.name} is archived but still assigned.`),
       pending: pending.filter(
         (change) => change.fromRole === role || change.toRole === role,
       ),
