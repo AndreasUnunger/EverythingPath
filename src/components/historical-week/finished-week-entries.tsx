@@ -28,7 +28,8 @@ function RulesetText({ ruleset }: { ruleset: RulesetView }) {
 
 // One audit entry. A failed Ruleset gets its own retry beside the entry
 // button, so no control nests inside another. The shown entry always carries
-// the "showing" chip, so selection is never marked by colour alone.
+// the "showing" chip, so selection is never marked by colour alone; it is
+// amber only when the shown entry is not the effective record.
 function AuditEntry({ entry }: { entry: AuditEntryView }) {
   return (
     <li className="flex items-center gap-2 pr-2">
@@ -56,7 +57,10 @@ function AuditEntry({ entry }: { entry: AuditEntryView }) {
           </Badge>
         ) : null}
         {entry.isSelected ? (
-          <Badge variant="outline" className={amberBadgeClass}>
+          <Badge
+            variant="outline"
+            className={entry.isEffective ? monoBadgeClass : amberBadgeClass}
+          >
             showing
           </Badge>
         ) : null}

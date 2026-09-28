@@ -19,7 +19,7 @@ import {
   confirmedWeekNotice,
   expectConfirmedWeek,
   reviewConfirm,
-  saveStatus,
+  saveState,
 } from './week-frame';
 import type { FixtureScope } from '../fixtures/catalog';
 
@@ -55,7 +55,7 @@ const allowance = (page: Page, text: string) =>
     .getByRole('region', { name: 'Activity choices', exact: true })
     .getByText(text, { exact: true });
 const saved = (page: Page) =>
-  expect(saveStatus(page)).toHaveText('Changes saved.');
+  expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
 
 // The picker's cards: every button in its action groups.
 const pickerCards = (sheet: Locator) =>

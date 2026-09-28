@@ -9,7 +9,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Children, isValidElement, type ReactNode } from 'react';
 import { CampaignShell } from './campaign-shell';
-import { PhoneStatusStrip, TopBarStatus } from './shell-slots';
+import { PhoneStatusStrip } from './shell-slots';
 import { useCampaign } from './campaign-context';
 import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
 import {
@@ -658,7 +658,7 @@ test('More stays open while the departure decision is pending and closes on Leav
   release();
 });
 
-// The Week frame later fills these positions; the shell only reserves them.
+// The Week frame later fills this position; the shell only reserves it.
 function StripPage() {
   return (
     <>
@@ -666,14 +666,11 @@ function StripPage() {
       <PhoneStatusStrip>
         <span>Training 3 → 4</span>
       </PhoneStatusStrip>
-      <TopBarStatus>
-        <span>Saved</span>
-      </TopBarStatus>
     </>
   );
 }
 
-test('the week page can fill the phone status strip above the bottom bar and the top-bar status position', () => {
+test('the week page can fill the phone status strip above the bottom bar; the top bar reserves no status position', () => {
   pathname.mockReturnValue('/campaigns/alpha/week');
   render(shell('alpha', <StripPage />));
   const strip = screen.getByText('Training 3 → 4');
@@ -683,9 +680,10 @@ test('the week page can fill the phone status strip above the bottom bar and the
   const tabs = bar!.parentElement!.querySelector('nav');
   expect(tabs).toHaveAccessibleName('Campaign sections');
   expect(bar!.nextElementSibling).toBe(tabs);
-  const status = screen.getByText('Saved');
-  expect(status.closest('[data-shell-slot="top-bar-status"]')).not.toBeNull();
-  expect(status.closest('header')).not.toBeNull();
+  // The top-bar save status was removed (2026-09-28, amending #137).
+  expect(
+    document.querySelector('[data-shell-slot="top-bar-status"]'),
+  ).toBeNull();
 });
 
 test('only the week route gets the bounded desktop host; other sections keep document scrolling', () => {
@@ -715,8 +713,9 @@ test('the phone bottom bar reserves its measured height as document scroll paddi
   );
   let height = 0;
   const view = render(shell('alpha'));
-  const bar = document.querySelector('[data-shell-slot="phone-status-strip"]')!
-    .parentElement!;
+  const bar = document.querySelector(
+    '[data-shell-slot="phone-status-strip"]',
+  )!.parentElement!;
   Object.defineProperty(bar, 'offsetHeight', { get: () => height });
   expect(observed.map((entry) => entry.target)).toEqual([bar]);
   const resize = (to: number) => {

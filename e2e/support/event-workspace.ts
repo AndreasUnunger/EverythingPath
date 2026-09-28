@@ -3,7 +3,7 @@ import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
-import { expectSaveFailed, saveStatus } from './week-frame';
+import { expectSaveFailed, saveState } from './week-frame';
 export async function exerciseEventWorkspace(
   gm: Page,
   player: Page,
@@ -205,7 +205,10 @@ export async function exerciseEventWorkspace(
     const held = network.hold();
     await table(gm, '1.1').fill('46');
     await held;
-    await expect(saveStatus(gm)).toHaveText('Saving changes…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'pending',
+    );
     await phase(gm, 'Review & confirm');
     await table(player, '1.1').fill('47');
     // A third read-only tab proves the competing mutation was accepted before releasing the stale edit.

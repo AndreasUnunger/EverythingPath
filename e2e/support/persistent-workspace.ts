@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import type { controlNextDraftEdit } from './held-mutation';
-import { expectSaveFailed, saveStatus } from './week-frame';
+import { expectSaveFailed, saveState } from './week-frame';
 import { reviewSummaryExceptionReason } from './summary-qa';
 
 const phase = (page: Page, name: string) =>
@@ -140,7 +140,10 @@ export async function exercisePersistentWorkspace(
     const held = network.hold();
     await button(old(gm), 'Leave it').click();
     await held;
-    await expect(saveStatus(gm)).toHaveText('Saving changes…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'pending',
+    );
     await phase(gm, 'Event');
     await expect(
       player.getByRole('heading', { name: /· Persistent$/ }),

@@ -7,7 +7,7 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
-import { expectPinnedConfirm, referencePanel, saveStatus } from './week-frame';
+import { expectPinnedConfirm, referencePanel, saveState } from './week-frame';
 
 // The Event blocks (#143 §7) and Review & confirm (#145 §6) at the sizes the
 // other journeys do not reach: phone landscape and the 1180×820 tablet with
@@ -73,7 +73,7 @@ export async function prepareInvasion(page: Page) {
   ).toHaveText(
     '›The GM runs a combat encounter at CR 5 (Average Party Level 4 + 1).',
   );
-  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
 }
 
 /** Event at 844×390 with the panel open and at 1180×820 with it closed. */

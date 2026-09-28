@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './support/fixtures';
 import { openCampaignSection } from './support/interactions';
-import { saveStatus } from './support/week-frame';
+import { saveState } from './support/week-frame';
 
 // Teams corrections on the Militia page (#176): the fixture militia starts
 // without teams.
@@ -81,7 +81,10 @@ test('players share a Staged Action Choice', async ({ players }) => {
     .click();
   await player.getByRole('combobox', { name: 'Team', exact: true }).click();
   await player.getByRole('option', { name: /^Scouts · / }).click();
-  await expect(saveStatus(player)).toHaveText('Changes saved.');
+  await expect(saveState(player)).toHaveAttribute(
+    'data-week-feedback',
+    'saved',
+  );
 
   // Removing it names the slot before saving and leaves the choice without
   // its team.

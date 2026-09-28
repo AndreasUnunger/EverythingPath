@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
-import { expectSaveFailed, reviewConfirm, saveStatus } from './week-frame';
+import { expectSaveFailed, reviewConfirm, saveState } from './week-frame';
 
 // The fixture week is rank 2 (two actions) with slots 1–2 inside the
 // allowance, an empty extra slot 3, and the recovered Patrons team Scouts.
@@ -32,7 +32,7 @@ export async function exerciseActivityWorkspace(
       exact: true,
     });
   const saved = (page: Page) =>
-    expect(saveStatus(page)).toHaveText('Changes saved.');
+    expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
   async function pick(page: Page, action: string) {
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();

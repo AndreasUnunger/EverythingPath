@@ -3,6 +3,7 @@ import {
   expectBoundedWeekHost,
   expectNoHorizontalOverflow,
   expectReachable,
+  expectTopBarOneRow,
 } from './support/responsive-shell';
 import {
   confirmedWeekNotice,
@@ -10,15 +11,16 @@ import {
   exercisePhoneSteps,
   exerciseReferenceHistoryFailure,
   exerciseReferencePanel,
-  exerciseStatusDetails,
   exerciseWeekFrame,
   expectConfirmedWeek,
   expectSaveFailed,
-  expectWideStatus,
+  expectPanelToggleBesideStepper,
+  expectVisibleFailure,
   referencePanel,
   remoteChangeNote,
   reviewConfirm,
-  saveStatus,
+  saveFailure,
+  saveState,
 } from './support/week-frame';
 import {
   prepareWeekHistory,
@@ -140,7 +142,8 @@ test('players prepare shared Upkeep with independent navigation and save recover
   );
   const gm = players.gm,
     player = players.player;
-  const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
+  const saved = () =>
+    expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   try {
     await Promise.all([
       gm.goto(route),
@@ -279,7 +282,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const heldBack = network.hold();
     await die(gm).fill('11');
     await heldBack;
-    await stayOnPendingWeek(gm, 'back', 'Saving changes…');
+    await stayOnPendingWeek(gm, 'back', 'pending');
     await expect(die(gm)).toHaveValue('11');
     await expect(die(player)).toHaveValue('10');
     await leavePendingWeek(gm, 'back', charactersUrl);
@@ -299,7 +302,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const heldForward = network.hold();
     await die(gm).fill('13');
     await heldForward;
-    await stayOnPendingWeek(gm, 'forward', 'Saving changes…');
+    await stayOnPendingWeek(gm, 'forward', 'pending');
     await expect(die(gm)).toHaveValue('13');
     await expect(die(player)).toHaveValue('11');
     await leavePendingWeek(gm, 'forward', charactersUrl);
@@ -311,7 +314,10 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const captured = network.hold();
     await die(gm).fill('12');
     await captured;
-    await expect(saveStatus(gm)).toHaveText('Saving changes…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'pending',
+    );
     await gm.getByRole('button', { name: 'Activity', exact: true }).tap();
     await expect(
       gm.getByRole('heading', { name: 'Week 4 · Activity', exact: true }),
@@ -330,29 +336,32 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await warning.dismiss();
     await reload;
     await die(player).fill('14');
-    await expect(saveStatus(player)).toHaveText('Changes saved.');
+    await expect(saveState(player)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     network.release();
-    await expect(saveStatus(gm)).toHaveText(
+    await expect(saveFailure(gm)).toHaveText(
       'Changes could not be saved. The latest saved values are shown.',
     );
     await expectSaveFailed(gm);
-    // The failure sits in the top bar beside the campaign and section
-    // controls without widening it. Below 768px (portrait and landscape
-    // phones) it is the "Not saved" details button that opens the full
-    // text; a wide short viewport keeps the visible sentence and offers no
-    // phone trigger.
+    // The failure is visible text in the frame's own row at every size,
+    // phones included, without widening the page; the top bar carries no
+    // save status (removed 2026-09-28) and keeps one row at tablet width.
     await expectNoHorizontalOverflow(gm);
-    await expectWideStatus(gm, true);
+    await expectVisibleFailure(gm);
     for (const [width, height] of [
       [390, 844],
       [740, 360],
       [844, 390],
+      [1180, 820],
+      [1194, 834],
     ] as const) {
       await gm.setViewportSize({ width, height });
       await expectNoHorizontalOverflow(gm);
       await expectSaveFailed(gm);
-      if (width < 768) await exerciseStatusDetails(gm, true);
-      else await expectWideStatus(gm, true);
+      await expectVisibleFailure(gm);
+      if (width >= 1180) await expectTopBarOneRow(gm);
     }
     await gm.setViewportSize({ width: 1194, height: 834 });
     await expect(reviewConfirm(gm)).toBeDisabled();
@@ -396,9 +405,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
         await expect(referencePanel(gm)).toBeVisible();
         await expectNoHorizontalOverflow(gm);
         await expectBoundedWeekHost(gm);
+        await expectPanelToggleBesideStepper(gm);
+        if (name !== 'desktop') await expectTopBarOneRow(gm);
         await gm.getByRole('button', { name: 'Hide reference panel' }).click();
         await expect(referencePanel(gm)).toBeHidden();
         await expectBoundedWeekHost(gm);
+        await expectPanelToggleBesideStepper(gm);
         await gm.getByRole('button', { name: 'Show reference panel' }).click();
         await expect(referencePanel(gm)).toBeVisible();
       }
@@ -576,7 +588,8 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
   );
   const gm = players.gm,
     player = players.player;
-  const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
+  const saved = () =>
+    expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   try {
     await fixtureCall(run, 'resetCase', {
       ...ownedCase.scope,
@@ -927,8 +940,11 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     releases.push(stale.release);
     await confirm(first).click();
     await expect.poll(stale.observed).toBe(true);
-    await expect(saveStatus(first)).toHaveText('Confirming the week…');
-    await stayOnPendingWeek(first, 'back', 'Confirming the week…');
+    await expect(saveState(first)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
+    await stayOnPendingWeek(first, 'back', 'confirming');
     // The initiating control itself reads Confirming… while held; the
     // ready label must not exist meanwhile.
     await expect(confirming(first)).toBeDisabled();
@@ -1015,7 +1031,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     // returns to a fresh page, which must not invent an old-week notice.
     await expectConfirmedWeek(second, 4);
     await expectConfirmedWeek(late, 4);
-    await expect(saveStatus(second)).not.toHaveText('Confirming the week…');
+    await expect(saveState(second)).not.toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     await expect(confirming(second)).toHaveCount(0);
     await first.goForward();
 
@@ -1060,7 +1079,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     // reachable on a phone beside the pinned chrome, and is dismissed
     // from inside itself.
     await die(second).fill('3');
-    await expect(saveStatus(second)).toHaveText('Changes saved.');
+    await expect(saveState(second)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     await expect(die(late)).toHaveValue('3');
     await expect(confirmedWeekNotice(second)).toHaveCount(1);
     await expect(
@@ -1097,7 +1119,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(confirmedWeekNotice(second)).toBeEmpty();
     await expect(confirmedWeekNotice(late)).toHaveCount(1);
     await die(second).fill('');
-    await expect(saveStatus(second)).toHaveText('Changes saved.');
+    await expect(saveState(second)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     await expect(confirmedWeekNotice(second)).toBeEmpty();
     for (const page of [first, second, late]) {
       await summary(page);

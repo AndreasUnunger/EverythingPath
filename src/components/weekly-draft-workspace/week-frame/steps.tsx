@@ -1,5 +1,5 @@
 'use client';
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, Flag, Lock } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import {
@@ -101,6 +101,9 @@ function StepButton({
 /**
  * Tablet stepper under the top bar; from 1280px the same list stands as the
  * rail on the left. One element serves both so no position renders twice.
+ * `end` (the reference panel toggle) sits outside the nav: at the row's end
+ * on tablet, on the rail's "Week N" line on desktop, where the list wraps
+ * under both.
  */
 export function Stepper({
   week,
@@ -108,37 +111,50 @@ export function Stepper({
   phase,
   choose,
   className,
+  end,
 }: {
   week: number;
   phases: PhaseReadiness[];
   phase: Phase;
   choose: (phase: Phase) => void;
   className?: string;
+  end?: ReactNode;
 }) {
   return (
-    <nav aria-label="Week phases" className={cn('hidden md:block', className)}>
+    <div
+      className={cn(
+        'hidden md:flex md:items-center md:gap-1 xl:flex-wrap xl:content-start',
+        className,
+      )}
+    >
       <p
         aria-hidden
-        className="text-muted-foreground hidden px-1 pb-1 text-xs tracking-widest uppercase xl:block"
+        className="text-muted-foreground hidden min-w-0 flex-1 px-1 text-xs tracking-widest uppercase xl:block"
       >
         Week {week}
       </p>
-      <ol className="flex items-stretch gap-1 xl:flex-col">
-        {phases.map((step) => (
-          <li
-            key={step.phase}
-            className="flex flex-1 items-center xl:flex-none"
-          >
-            <StepButton
-              step={step}
-              current={step.phase === phase}
-              choose={choose}
-              layout="row"
-            />
-          </li>
-        ))}
-      </ol>
-    </nav>
+      <nav
+        aria-label="Week phases"
+        className="min-w-0 flex-1 xl:order-last xl:basis-full"
+      >
+        <ol className="flex items-stretch gap-1 xl:flex-col">
+          {phases.map((step) => (
+            <li
+              key={step.phase}
+              className="flex flex-1 items-center xl:flex-none"
+            >
+              <StepButton
+                step={step}
+                current={step.phase === phase}
+                choose={choose}
+                layout="row"
+              />
+            </li>
+          ))}
+        </ol>
+      </nav>
+      {end}
+    </div>
   );
 }
 
@@ -170,9 +186,10 @@ export function PhoneSteps({
             type="button"
             className="short:min-h-9 short:py-0.5 h-auto min-h-11 w-full justify-start rounded-none px-3 py-1.5 font-normal whitespace-normal"
           >
+            {/* Round here so it reads as a step marker, not a checkbox. */}
             <StepGlyph
               step={current}
-              className="border-primary-foreground/60"
+              className="border-primary-foreground/60 rounded-full"
             />
             <span className="min-w-0 flex-1 leading-tight">
               <span className="block text-sm">

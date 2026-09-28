@@ -114,7 +114,7 @@ function frame(
         facts: referenceFactsFixture(),
         panel: referencePanelFixture({ open: options.open ?? true }),
       }}
-      status={<p role="status">Prepare the week together.</p>}
+      status={<p role="status" aria-live="polite" data-week-remote-note />}
     >
       <button type="button">Editor control</button>
     </WeekFrame>
@@ -212,7 +212,7 @@ test('Review & confirm shows only the disabled-Confirmation reason, nothing when
   expect(
     screen.queryByText(/ready for confirmation|need attention|decisions left/i),
   ).not.toBeInTheDocument();
-  // The single announced status is the save status, not any readiness text.
+  // The single announced status is the other-player note, not any readiness text.
   expect(screen.getAllByRole('status')).toHaveLength(1);
 });
 
