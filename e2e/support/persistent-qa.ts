@@ -3,6 +3,7 @@ import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import {
   expectBoundedWeekHost,
+  expectControlsFit,
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
@@ -114,27 +115,7 @@ export async function reviewPersistentWorkspace(
       join(artifactDirectory, `reviewer-persistent-${name}.png`),
       await page.screenshot({ fullPage: true }),
     );
-    for (const control of await section.locator('button, input').all()) {
-      if (!(await control.isVisible())) continue;
-      const details = await control.evaluate((element) => ({
-        tag: element.tagName,
-        label:
-          element.getAttribute('aria-label') ??
-          (element instanceof HTMLInputElement
-            ? element.labels?.[0]?.textContent
-            : element.textContent) ??
-          'Unlabelled control',
-        contentFits: element.scrollWidth <= element.clientWidth,
-      }));
-      const description = `${name}: ${details.tag} ${details.label}`;
-      const bounds = await control.boundingBox();
-      expect(bounds, description).not.toBeNull();
-      expect(bounds!.x, description).toBeGreaterThanOrEqual(0);
-      expect(bounds!.x + bounds!.width, description).toBeLessThanOrEqual(width);
-      // Text inputs intentionally scroll long entered values inside their bounds.
-      if (details.tag === 'BUTTON')
-        expect(details.contentFits, description).toBe(true);
-    }
+    await expectControlsFit(section.locator('button, input'), name, width);
     if (closesPanel) {
       await page.getByRole('button', { name: 'Show reference panel' }).click();
       await expect(referencePanel(page)).toBeVisible();

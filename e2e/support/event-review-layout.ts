@@ -1,8 +1,9 @@
 import { join } from 'node:path';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import {
   expectBoundedWeekHost,
+  expectControlsFit,
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
@@ -36,31 +37,6 @@ async function setPanel(page: Page, open: boolean) {
   if (await toggle.isVisible()) await toggle.click();
   if (open) await expect(referencePanel(page)).toBeVisible();
   else await expect(referencePanel(page)).toBeHidden();
-}
-
-/** Every visible button and field of `scope` fits the width; button labels fit their box. */
-async function expectControlsFit(scope: Locator, size: string, width: number) {
-  for (const control of await scope.locator('button, input, textarea').all()) {
-    if (!(await control.isVisible())) continue;
-    const details = await control.evaluate((element) => ({
-      tag: element.tagName,
-      label:
-        element.getAttribute('aria-label') ??
-        (element instanceof HTMLInputElement
-          ? element.labels?.[0]?.textContent
-          : element.textContent) ??
-        'Unlabelled control',
-      contentFits: element.scrollWidth <= element.clientWidth,
-    }));
-    const description = `${size}: ${details.tag} ${details.label}`;
-    const bounds = await control.boundingBox();
-    expect(bounds, description).not.toBeNull();
-    expect(bounds!.x, description).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width, description).toBeLessThanOrEqual(width);
-    // Text fields intentionally scroll long entered values inside their bounds.
-    if (details.tag === 'BUTTON')
-      expect(details.contentFits, description).toBe(true);
-  }
 }
 
 /**
@@ -122,7 +98,11 @@ export async function reviewEventLayout(page: Page, artifactDirectory: string) {
       occurrenceField(page, 'What happened'),
     ])
       await expectReachable(page, control);
-    await expectControlsFit(section, name, width);
+    await expectControlsFit(
+      section.locator('button, input, textarea'),
+      name,
+      width,
+    );
     await savePrivate(
       join(artifactDirectory, `canonical-event-${name}.png`),
       await page.screenshot({ fullPage: true }),
@@ -192,7 +172,11 @@ export async function reviewSummaryLayout(
     await expectBoundedWeekHost(page);
     for (const target of [confirm, listed, placed, outcome])
       await expectReachable(page, target);
-    await expectControlsFit(page.locator('main'), name, width);
+    await expectControlsFit(
+      page.locator('main').locator('button, input, textarea'),
+      name,
+      width,
+    );
     await savePrivate(
       join(artifactDirectory, `reviewer-summary-${name}.png`),
       await page.screenshot({ fullPage: true }),
