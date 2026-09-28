@@ -13,7 +13,6 @@ import {
   acceptingEdit,
   activityFacts,
   activitySlot,
-  openRecordedCandidates,
   selectSlot,
 } from './activity-view-fixture';
 import type { ActivityView as Facts } from './types';
@@ -400,12 +399,11 @@ describe('event candidates', () => {
     fireEvent.click(button('Roll and choose in Event'));
     expect(openEvent).toHaveBeenCalledTimes(1);
     expect(edit).not.toHaveBeenCalled();
-    // The recorded trees keep their collapsed structured editor, which
-    // still opens while edits are disabled.
-    openRecordedCandidates();
-    expect(
-      screen.getByRole('region', { name: 'Recorded candidate details' }),
-    ).toBeVisible();
+    // Event builds and edits the candidates: Activity keeps no candidate
+    // editor of its own.
+    expect(screen.queryByText('Recorded candidate details')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Candidates' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /candidates$/i })).toBeNull();
     expect(button('Save what happened')).toBeDisabled();
   });
 

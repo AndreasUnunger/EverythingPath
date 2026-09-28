@@ -25,6 +25,7 @@ import type {
   EventBlockStatus,
   EventIssue,
   EventOccurrenceFacts,
+  EventTraceFacts,
 } from './types';
 
 type Event = WeeklyDraft['event']['occurrences'][number];
@@ -323,7 +324,42 @@ export function eventOccurrenceLabels(
   );
 }
 
-export function eventTreeBlocks({
+/** What the engine's trace says of one occurrence, for its block status. */
+export function eventTraceFacts(
+  projection: EventOutcomeProjection | undefined,
+  event: Event,
+): Omit<EventTraceFacts, 'label'> {
+  const resolved = projection?.tree.find(
+    (entry) => entry.eventId === event.eventId,
+  );
+  const prefixes = [event.eventId, event.sabotage?.choiceId].filter(Boolean);
+  return {
+    resolvedType: resolved?.eventType ?? null,
+    mode:
+      projection?.dispatch.find(
+        (entry) => entry.event.eventId === event.eventId,
+      )?.mode ?? null,
+    selected:
+      projection?.selected.some((entry) => entry.eventId === event.eventId) ??
+      false,
+    negated: projection?.negatedEventIds.includes(event.eventId) ?? false,
+    requirements:
+      projection?.requirements.filter((key) =>
+        prefixes.some((id) => key.startsWith(`${id}:`)),
+      ) ?? [],
+    warnings:
+      projection?.warnings.filter((key) =>
+        prefixes.some((id) => key.startsWith(`${id}:`)),
+      ) ?? [],
+  };
+}
+
+export function eventTreeBlocks<
+  Facts extends Omit<EventTraceFacts, 'label'> = Omit<
+    EventOccurrenceFacts,
+    'label'
+  >,
+>({
   draft,
   projection,
   plan,
@@ -335,12 +371,10 @@ export function eventTreeBlocks({
   projection: EventOutcomeProjection | undefined;
   plan: EventTopologyPlan;
   accepted: ReadonlySet<string> | null;
-  facts: (
-    located: LocatedEvent,
-    label: string,
-  ) => Omit<EventOccurrenceFacts, 'label'> & { label?: string };
+  facts: (located: LocatedEvent, label: string) => Facts;
   issues: (codes: string[]) => EventIssue[];
 }) {
+  type Item = Facts & { label: string };
   const positions = uniquePositions(projection?.positions ?? []);
   const {
     located,
@@ -355,12 +389,12 @@ export function eventTreeBlocks({
     labelOf,
   } = eventTreeLayout(draft, positions, plan);
 
-  const occurrences = order.map((entry) => ({
+  const occurrences: Item[] = order.map((entry) => ({
     ...facts(entry, labelOf(entry.event.eventId)),
     label: labelOf(entry.event.eventId),
   }));
   const factsById = new Map(
-    occurrences.map((item) => [item.occurrence.eventId, item]),
+    order.map((entry, index) => [entry.event.eventId, occurrences[index]!]),
   );
 
   function status(entry: LocatedEvent, surplus: boolean): EventBlockStatus {
@@ -420,7 +454,7 @@ export function eventTreeBlocks({
       ? `Candidate · ${activityLabel(entry.owner.choice.actionId)}`
       : 'Rolled';
   }
-  function block(entry: LocatedEvent, repair: Repair): EventBlock {
+  function block(entry: LocatedEvent, repair: Repair): EventBlock<Item> {
     const id = entry.event.eventId;
     const item = factsById.get(id)!;
     const isSurplus = repair.surplus(id);
@@ -428,7 +462,7 @@ export function eventTreeBlocks({
     const children = childrenOf(entry).map((child) => byId.get(child.eventId)!);
     // Active children, restorable inactive ones, and an older candidate
     // expansion the rules never use again.
-    const nested: Pick<EventBlock, 'children' | 'hidden' | 'legacy'> = {
+    const nested: Pick<EventBlock<Item>, 'children' | 'hidden' | 'legacy'> = {
       children: [],
       hidden: [],
       legacy: [],

@@ -884,10 +884,23 @@ export type EventBlockRules = {
   text: string[];
   twice: string | null;
 };
-export type EventBlock = {
+// What a block's status, rules and issues read from its occurrence facts.
+export type EventTraceFacts = Pick<
+  EventOccurrenceFacts,
+  | 'label'
+  | 'resolvedType'
+  | 'mode'
+  | 'selected'
+  | 'negated'
+  | 'requirements'
+  | 'warnings'
+>;
+// `Item` is the full occurrence facts, except for readers (Activity's
+// candidate summary) that need only the traced status.
+export type EventBlock<Item extends EventTraceFacts = EventOccurrenceFacts> = {
   eventId: string;
   label: string;
-  item: EventOccurrenceFacts;
+  item: Item;
   // False until the occurrence exists in the accepted draft: its inputs wait.
   saved: boolean;
   status: EventBlockStatus;
@@ -906,12 +919,12 @@ export type EventBlock = {
   rules: EventBlockRules | null;
   candidate: { slotId: string; choiceId: string; chosen: boolean } | null;
   // Active nested events (Roll Twice children, a replacement) in order.
-  children: EventBlock[];
+  children: EventBlock<Item>[];
   // Recorded children the current roll does not use; restored if it returns.
-  hidden: EventBlock[];
+  hidden: EventBlock<Item>[];
   // A candidate's recorded Roll Twice children, which the rules never use
   // again now that its Roll Twice is rerolled in place; kept until cleared.
-  legacy: EventBlock[];
+  legacy: EventBlock<Item>[];
   // A position the rules do not ask for: clearing its last input removes it.
   surplus: boolean;
   // The existing tree/candidate edit removing this surplus position once its
