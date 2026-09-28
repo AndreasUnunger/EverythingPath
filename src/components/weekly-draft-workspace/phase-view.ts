@@ -25,9 +25,7 @@ export function phaseView(
   if (phase === 'activity')
     return {
       ...activityView(draft, source, preview),
-      candidateSets: activityCandidateSets(
-        eventView(draft, source, preview, event),
-      ),
+      candidateSets: activityCandidateSets(draft, source, preview, event),
     };
   if (phase === 'event') return eventView(draft, source, preview, event);
   if (phase === 'persistent') return persistentView(draft, source, preview);

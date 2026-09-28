@@ -122,11 +122,6 @@ export function selectSlot(action: string, number = 1) {
   );
 }
 
-// Expands a candidate choice's collapsed structured candidate editor.
-export function openRecordedCandidates() {
-  fireEvent.click(screen.getByText('Recorded candidate details'));
-}
-
 // A Workspace edit that the (fake) persistence accepts.
 export function acceptingEdit() {
   return vi.fn<(edit: WeeklyDraftEdit) => Promise<'accepted' | 'failed'>>(() =>

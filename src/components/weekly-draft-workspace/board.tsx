@@ -130,7 +130,8 @@ function latestAdjustments(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView.adjustments
     : null;
 }
-// This device's Confirm guard for Review's local forms, from the one store.
+// This device's Confirm guard for local forms (Review's adjustments and
+// reasons, Persistent's table endings), from the one store.
 function useLocalFormGuard(store: WorkspaceController['store'] | undefined) {
   return useMemo(
     () =>
@@ -301,6 +302,7 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             openSource={openSource}
             latestOverseer={() => latestOverseer(controller?.store)}
+            localFormGuard={localFormGuard}
           />
         ) : view.phase === 'summary' ? (
           <SummaryView
@@ -316,7 +318,7 @@ export function WeeklyWorkspaceBoard({
             confirm={() => {
               void workspace.confirm();
             }}
-            review={() => choosePhase('summary')}
+            review={workspace.reviewUpdatedWeek}
             localForms={workspace.localForms}
             localFormGuard={localFormGuard}
             latestAdjustments={() =>

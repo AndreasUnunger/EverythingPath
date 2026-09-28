@@ -1,7 +1,12 @@
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
-import { expectNoHorizontalOverflow } from './responsive-shell';
+import {
+  expectBoundedWeekHost,
+  expectNoHorizontalOverflow,
+  expectReachable,
+} from './responsive-shell';
+import { referencePanel } from './week-frame';
 import { RIVALRY_ENDED } from './persistent-workspace';
 
 /** Independent review of the carried-event controls on the authenticated page. */
@@ -69,17 +74,39 @@ export async function reviewPersistentWorkspace(
     .getByRole('textbox', { name: 'Loyalty check', exact: true })
     .fill('20');
   await expect(theft).toContainText('Success ·');
+  // Tablet, phone and desktop, then (#144 §6) phone landscape and the
+  // narrower tablet with the reference panel closed.
   for (const [name, width, height] of [
     ['tablet', 1194, 834],
     ['phone', 390, 844],
     ['desktop', 1440, 900],
+    ['phone-landscape', 844, 390],
+    ['tablet-narrow-closed', 1180, 820],
   ] as const) {
     await page.setViewportSize({ width, height });
     const section = page.getByRole('region', {
       name: 'Persistent preparation',
     });
     await expect(section).toBeVisible();
+    const closesPanel = name === 'tablet-narrow-closed';
+    if (closesPanel) {
+      await page.getByRole('button', { name: 'Hide reference panel' }).click();
+      await expect(referencePanel(page)).toBeHidden();
+    }
     await expectNoHorizontalOverflow(page);
+    await expectBoundedWeekHost(page);
+    if (name === 'phone-landscape' || closesPanel) {
+      // The short viewport and the widened editor still reach the check and
+      // the buyoff above the pinned week footer.
+      await expectReachable(
+        page,
+        theft.getByRole('textbox', { name: 'Loyalty check', exact: true }),
+      );
+      await expectReachable(
+        page,
+        theft.getByRole('button', { name: 'Buy off · 40 gp', exact: true }),
+      );
+    }
     await savePrivate(
       join(artifactDirectory, `reviewer-persistent-${name}.png`),
       await page.screenshot({ fullPage: true }),
@@ -104,6 +131,10 @@ export async function reviewPersistentWorkspace(
       // Text inputs intentionally scroll long entered values inside their bounds.
       if (details.tag === 'BUTTON')
         expect(details.contentFits, description).toBe(true);
+    }
+    if (closesPanel) {
+      await page.getByRole('button', { name: 'Show reference panel' }).click();
+      await expect(referencePanel(page)).toBeVisible();
     }
   }
   // Replace the check with the previously reviewed buyoff.

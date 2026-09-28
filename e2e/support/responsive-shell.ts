@@ -132,6 +132,13 @@ async function expectMoreClosed(page: Page) {
   await expect(page.getByRole('button', { name: 'More' })).toBeFocused();
 }
 
+// The page's first heading a sighted player sees. A visually hidden page
+// title (sr-only: 1x1 px and clipped) is for screen readers; it never
+// receives a pointer, so a trial click on it would wait forever.
+function shownHeading(page: Page) {
+  return page.getByRole('heading').and(page.locator(':not(.sr-only)')).first();
+}
+
 function sectionNames(nav: Locator) {
   return Promise.all([
     ...['Finished weeks', 'Militia', 'Characters & officers'].map((name) =>
@@ -153,8 +160,7 @@ export async function exercisePhoneShell(page: Page) {
   await expect(nav.getByRole('button', { name: 'More' })).toBeVisible();
   await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
-  const heading = page.getByRole('heading').first();
-  await expectReachable(page, heading);
+  await expectReachable(page, shownHeading(page));
   const switcher = page.getByRole('combobox', { name: 'Active campaign' });
   await expectReachable(page, switcher);
 
@@ -226,7 +232,7 @@ export async function exerciseTopBarShell(page: Page) {
   await expect(page.getByRole('button', { name: 'More' })).toBeHidden();
   await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
-  await expectReachable(page, page.getByRole('heading').first());
+  await expectReachable(page, shownHeading(page));
   await expectReachable(
     page,
     page.getByRole('combobox', { name: 'Active campaign' }),

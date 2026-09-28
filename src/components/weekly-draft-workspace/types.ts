@@ -884,10 +884,23 @@ export type EventBlockRules = {
   text: string[];
   twice: string | null;
 };
-export type EventBlock = {
+// What a block's status, rules and issues read from its occurrence facts.
+export type EventTraceFacts = Pick<
+  EventOccurrenceFacts,
+  | 'label'
+  | 'resolvedType'
+  | 'mode'
+  | 'selected'
+  | 'negated'
+  | 'requirements'
+  | 'warnings'
+>;
+// `Item` is the full occurrence facts, except for readers (Activity's
+// candidate summary) that need only the traced status.
+export type EventBlock<Item extends EventTraceFacts = EventOccurrenceFacts> = {
   eventId: string;
   label: string;
-  item: EventOccurrenceFacts;
+  item: Item;
   // False until the occurrence exists in the accepted draft: its inputs wait.
   saved: boolean;
   status: EventBlockStatus;
@@ -906,12 +919,12 @@ export type EventBlock = {
   rules: EventBlockRules | null;
   candidate: { slotId: string; choiceId: string; chosen: boolean } | null;
   // Active nested events (Roll Twice children, a replacement) in order.
-  children: EventBlock[];
+  children: EventBlock<Item>[];
   // Recorded children the current roll does not use; restored if it returns.
-  hidden: EventBlock[];
+  hidden: EventBlock<Item>[];
   // A candidate's recorded Roll Twice children, which the rules never use
   // again now that its Roll Twice is rerolled in place; kept until cleared.
-  legacy: EventBlock[];
+  legacy: EventBlock<Item>[];
   // A position the rules do not ask for: clearing its last input removes it.
   surplus: boolean;
   // The existing tree/candidate edit removing this surplus position once its
@@ -989,6 +1002,16 @@ export type EventView = {
 };
 // A phase and, where it can be named, the DOM id of the item within it.
 export type SourceLink = { phase: Phase; anchor: string | null };
+/**
+ * One of this device's held local forms: the Required decision's message,
+ * the phase showing the form when not Review & confirm, and what the form
+ * was typed against (a Persistent ending's saved decision).
+ */
+export type LocalFormRegistration = {
+  message: string;
+  phase?: Phase;
+  basis?: string;
+};
 // Where an Activity or Event result that ended a carried event is edited.
 export type PersistentSourceLink = SourceLink & {
   phase: 'activity' | 'event';
@@ -1189,9 +1212,11 @@ export type WeeklyDraftWorkspace =
        * This device's open or locally invalid Summary forms, each also a
        * local Required decision; while any is open, Confirm is disabled here.
        */
-      localForms: { id: string; message: string }[];
+      localForms: ({ id: string } & LocalFormRegistration)[];
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;
       viewPhase(this: void, phase: Phase): void;
+      /** Review updated week: the explicit review after a rejected request. */
+      reviewUpdatedWeek(this: void): void;
       confirm(this: void): Promise<'accepted' | 'failed'>;
       // Preparing the Event positions the rules ask for, shared by every phase.
       eventPreparation?: {

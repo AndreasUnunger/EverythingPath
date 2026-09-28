@@ -1006,6 +1006,7 @@ export async function runPersistenceContract(
       'Delayed occurrence edits conflict with owner movement',
     );
   });
+  await transferScenarios(scenario);
   await removeSlotScenarios(scenario);
 }
 
@@ -1130,5 +1131,50 @@ async function removeSlotScenarios(scenario: Scenario) {
     } finally {
       adapter.dispose();
     }
+  });
+}
+
+// Both treasury transfer forms (#158): the actorless form current clients
+// send, and the legacy form that names a character. The shared fixture's
+// week-start snapshot has no characters, so a legacy actor is refused there
+// without changing the draft; an accepted legacy actor is covered in
+// `convex/characterlessTransfers.integration.test.ts`.
+async function transferScenarios(scenario: Scenario) {
+  await scenario(async ({ first, second }, op) => {
+    const deposit = {
+      transferId: 'deposit',
+      direction: 'deposit' as const,
+      copper: 7,
+    };
+    const add = op(0, { kind: 'upkeep_transfer', transfer: deposit });
+    check(
+      (await first.send(add)).acceptedRevision === 1,
+      'An actorless transfer is accepted',
+    );
+    check(
+      (await second.send(structuredClone(add))).acceptedRevision === 1,
+      'A repeated transfer operation returns its original revision',
+    );
+    await rejects(
+      second.send(
+        op(1, {
+          kind: 'upkeep_transfer',
+          transfer: {
+            transferId: 'legacy',
+            characterId: 'outside-the-week',
+            direction: 'withdraw',
+            copper: 250,
+          },
+        }),
+      ),
+      'A legacy transfer names a character of the week-start militia',
+    );
+    const after = await first.read();
+    check(
+      after.revision === 1 &&
+        weeklySourceKey(after.draft?.upkeep.treasuryTransfers) ===
+          weeklySourceKey([deposit]),
+      'Only the actorless transfer is stored, exactly as sent',
+    );
   });
 }

@@ -15,6 +15,7 @@ import { AddAdjustment } from './summary-adjustments';
 import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
 import type {
+  LocalFormRegistration,
   Phase,
   PhaseView,
   SourceLink,
@@ -27,6 +28,7 @@ import {
   useForgetGoneExceptions,
   type LocalFormGuard,
 } from './use-summary-forms';
+import { localFormElementId } from './source-anchors';
 import { phaseLabels } from './week-frame/labels';
 type Summary = Extract<PhaseView, { phase: 'summary' }>;
 
@@ -70,7 +72,7 @@ export function SummaryView({
   /** Shows a Required decision's source on this device only. */
   goTo?: (link: SourceLink) => void;
   /** This device's open or invalid local forms, each a Required decision. */
-  localForms?: { id: string; message: string }[];
+  localForms?: ({ id: string } & LocalFormRegistration)[];
   /** The Workspace's Confirm guard for this device's local forms. */
   localFormGuard?: LocalFormGuard;
   /** The latest ordered Table Adjustments this device knows, read at Save time. */
@@ -173,7 +175,15 @@ export function SummaryView({
                         size="sm"
                         aria-describedby={messageId}
                         className={goLink}
-                        onClick={() => focusLocalForm(form.id)}
+                        onClick={() =>
+                          // A form in another phase is shown there first.
+                          form.phase && form.phase !== 'summary' && goTo
+                            ? goTo({
+                                phase: form.phase,
+                                anchor: localFormElementId(form.id),
+                              })
+                            : focusLocalForm(form.id)
+                        }
                       >
                         Go to form
                         <span aria-hidden> →</span>

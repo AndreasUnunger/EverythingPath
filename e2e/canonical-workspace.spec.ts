@@ -36,6 +36,7 @@ import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { exerciseTeamConditionRows } from './support/team-conditions';
+import { reviewUpkeepChoiceLayout } from './support/upkeep-layout';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Page } from '@playwright/test';
@@ -91,7 +92,7 @@ function observeEditRejection(page: Page) {
   return () => rejected;
 }
 
-// Each journey resets and seeds its own catalog case, so the five journeys are
+// Each journey resets and seeds its own catalog case, so the six journeys are
 // independent and may run on different worker cohorts at the same time.
 test.describe.configure({ mode: 'parallel' });
 test.use({
@@ -978,6 +979,13 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(await resultCell(first, 'Treasury', 'Final')).toHaveText(
       '50.07 gp',
     );
+    // Leaving Review & confirm and returning is not the explicit review.
+    await first.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    await summary(first);
+    await expect(review.getByRole('alert')).toContainText(
+      'The week could not be confirmed as reviewed.',
+    );
+    await expect(confirm(first)).toBeDisabled();
     await first
       .getByRole('button', { name: 'Review updated week', exact: true })
       .click();
@@ -1113,4 +1121,31 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     for (const release of releases) release();
     await Promise.all([first.close(), second.close(), late.close()]);
   }
+});
+
+// The settlement/rank journey's fixture, on one page: its cards and repairs
+// at phone and desktop sizes (#140). Its own case keeps that journey well
+// under its limit.
+test('settlement and rank cards and team repairs stay reachable on phone and desktop', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(60_000);
+  const run = await loadRun();
+  await fixtureCall(run, 'resetCase', {
+    ...ownedCase.scope,
+    now: 1_700_000_000_000,
+  });
+  const scope = draftKeySchema.parse(
+    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+      scope: ownedCase.scope,
+      draftId: randomUUID(),
+      choices: true,
+      maximumNotoriety: true,
+      missingTeam: true,
+      rankGain: true,
+    }),
+  );
+  await players.gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
+  await reviewUpkeepChoiceLayout(players.gm, run, scope);
 });

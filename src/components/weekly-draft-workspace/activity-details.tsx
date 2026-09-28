@@ -13,11 +13,8 @@ import {
   type ActivityRollField,
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
-import { activityRollSpec, eventRollSpec } from '~/lib/rules-roll-spec';
-import { rawRollSchema } from '~/lib/weekly-draft-facts';
+import { activityRollSpec } from '~/lib/rules-roll-spec';
 import { RollTotalField } from './roll-total-field';
-import type { RollSpecResolver } from './roll-facts';
-import { eventTypeForTableRoll } from '~/lib/rules-event-selection';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { WholeNumberField } from './whole-number-field';
@@ -37,7 +34,6 @@ import {
   missionDetail,
 } from './activity-mission-detail';
 import { isMissionChoice } from './activity-mission-actions';
-import { isCandidateChoice } from '~/lib/event-occurrence-preparation';
 import { missionFieldEdits } from './activity-mission-edits';
 import { ActivityMissionFields } from './activity-mission-fields';
 import { ChoiceCards } from './choice-cards';
@@ -47,29 +43,6 @@ import {
 } from './structured-choice-field';
 import { activityLabel } from './activity-labels';
 import type { ActivityView } from './types';
-// Candidate paths are [index, ...occurrence-relative path]. The candidate's
-// event type is the engine's reading of its current table roll (including
-// modifiers); an incomplete or missing table roll leaves only type-independent
-// specifications. Explicit `eventType` text never overrides the table.
-const candidateRollSpec: RollSpecResolver = (path, root) => {
-  const [index, ...rest] = path;
-  const candidate: unknown =
-    Array.isArray(root) && typeof index === 'number' ? root[index] : undefined;
-  if (!candidate || typeof candidate !== 'object') return null;
-  const tableRoll = rawRollSchema.safeParse(
-    (candidate as { tableRoll?: unknown }).tableRoll,
-  );
-  return eventRollSpec(
-    {
-      kind: 'occurrence',
-      eventType: eventTypeForTableRoll(
-        tableRoll.success ? tableRoll.data : null,
-      ),
-    },
-    rest,
-  );
-};
-const CANDIDATE_FIELDS = ['candidates', 'selectedEventId'] as const;
 function ChoiceFields({
   choice,
   view,
@@ -78,7 +51,6 @@ function ChoiceFields({
   calculatedCostCopper,
   detailError,
   hosted,
-  only,
 }: {
   choice: StagedActionChoice;
   view: ActivityView;
@@ -87,8 +59,6 @@ function ChoiceFields({
   calculatedCostCopper: number | null;
   detailError: { field: string; message: string } | null;
   hosted: boolean;
-  // Only these fields, when an action's own editor shows the rest.
-  only?: readonly string[];
 }) {
   const shape = stagedActionChoiceSchema.options.find(
     (option) => option.shape.actionId.value === choice.actionId,
@@ -102,12 +72,15 @@ function ChoiceFields({
     'acknowledgements',
     'orderId',
     'receipt',
+    // Event builds, rolls and chooses a choice's event candidates.
+    'candidates',
+    'selectedEventId',
     // The Activity board's own team dropdown edits the acting team.
     ...(hosted ? ['teamId'] : []),
   ]);
   return Object.entries(shape)
     .flatMap(([field, wrapped]) => {
-      if (hidden.has(field) || (only && !only.includes(field))) return [];
+      if (hidden.has(field)) return [];
       const schema =
         wrapped instanceof z.ZodOptional
           ? (wrapped.unwrap() as z.ZodType)
@@ -183,10 +156,6 @@ function ChoiceFields({
           disabled={disabled}
           onValue={(value) => change(field, value)}
           options={activityReferenceOptions(choice, view)}
-          // A candidate occurrence's numeric context follows its CURRENT local
-          // table roll through the engine's own table interpretation, so an
-          // unsaved table change updates its nested specifications at once.
-          rollSpec={field === 'candidates' ? candidateRollSpec : undefined}
         />,
       ];
     })
@@ -403,31 +372,6 @@ export function ActivityDetails({
           disabled={disabled}
           hosted={hosted}
         />
-      )}
-      {mission && isCandidateChoice(choice) && (
-        // The recorded candidate trees and selection keep their structured
-        // editor, collapsed, until Event's per-family controls replace it;
-        // Event prepares, rolls and chooses the candidates.
-        <details className="space-y-3 border-t pt-3">
-          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">
-            Recorded candidate details
-          </summary>
-          <section
-            aria-label="Recorded candidate details"
-            className="space-y-3"
-          >
-            <ChoiceFields
-              choice={choice}
-              calculatedCostCopper={slot.calculatedCostCopper}
-              detailError={detailError}
-              view={view}
-              change={change}
-              disabled={disabled}
-              hosted={hosted}
-              only={CANDIDATE_FIELDS}
-            />
-          </section>
-        </details>
       )}
       {!detail && slot.calculatedCostCopper !== null && (
         <p className="text-sm">

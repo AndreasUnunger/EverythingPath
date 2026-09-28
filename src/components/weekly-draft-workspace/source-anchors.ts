@@ -20,7 +20,10 @@ export type UpkeepStep =
 export function upkeepStepAnchor(step: UpkeepStep) {
   return `upkeep-step-${step}`;
 }
-/** A Review & confirm local form (Table Adjustment or exception reason). */
+/**
+ * A local form a Required decision's Go to form focuses: a Review & confirm
+ * Table Adjustment or exception reason, or a Persistent table ending.
+ */
 export const localFormElementId = (id: string) => `review-form-${id}`;
 /** The phase editor itself: the fallback when no item can be named. */
 export const weekEditorAnchor = 'week-phase-editor';

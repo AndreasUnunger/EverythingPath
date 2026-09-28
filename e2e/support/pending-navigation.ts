@@ -53,8 +53,15 @@ export async function leavePendingWeek(
     .click();
   await expect(warning).toBeHidden();
   await expect(page).toHaveURL(charactersUrl);
+  // The page's own title, not its Characters region: that region needs the
+  // page's data, which a transport still holding the week's write (racing
+  // Confirmations) keeps back until release, so the page shows its skeleton.
   await expect(
-    page.getByRole('region', { name: 'Characters', exact: true }),
+    page.getByRole('heading', {
+      name: 'Characters & officers',
+      level: 1,
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Week \d+ · / })).toHaveCount(
     0,
