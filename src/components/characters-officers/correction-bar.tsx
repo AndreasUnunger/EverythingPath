@@ -158,7 +158,9 @@ function SavePoint({ correction }: { correction: OpenCorrection }) {
 }
 
 // The reason, its quick picks and Save/Cancel. Inline under the save-point
-// content from 768px; on the phone in the shell's strip above the tabs.
+// content from 768px, stacked below it on narrower screens; in the phone
+// strip above the tabs it is a two-column grid (label beside Cancel, input
+// beside Save, the chips sharing a row) so the strip stays short.
 function ReasonBar({
   correction,
   inStrip,
@@ -170,86 +172,126 @@ function ReasonBar({
   const errorId = `${id}-error`;
   const { view, reason } = correction;
   const editing = view.kind === 'editing';
+  // The pieces are the same in both layouts; only their arrangement differs.
+  const reasonInput = (className?: string) => (
+    <Input
+      {...reason.register}
+      id={id}
+      disabled={!editing}
+      aria-invalid={reason.error ? true : undefined}
+      aria-describedby={reason.error ? errorId : undefined}
+      className={cn('h-11 md:h-9', className)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        correction.save();
+      }}
+    />
+  );
+  const errorMessage = (className?: string) =>
+    reason.error && (
+      <p
+        id={errorId}
+        className={cn(
+          'text-destructive flex items-start gap-1.5 text-sm',
+          className,
+        )}
+      >
+        <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span className="min-w-0 [overflow-wrap:anywhere]">{reason.error}</span>
+      </p>
+    );
+  const quickReasons = (className: string, chipClassName?: string) => (
+    <div
+      role="group"
+      aria-label="Quick reasons"
+      className={cn('flex flex-wrap gap-1', className)}
+    >
+      {reason.chips.map((text) => (
+        <button
+          key={text}
+          type="button"
+          disabled={!editing}
+          className={cn(
+            chip,
+            'focus-visible:ring-ring/50 hover:bg-foreground/5 min-h-11 outline-none focus-visible:ring-[3px] disabled:opacity-50 md:min-h-7',
+            chipClassName,
+          )}
+          onClick={() => reason.choose(text)}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+  const saveButton = (className?: string) => (
+    <Button
+      type="button"
+      className={cn(action, className)}
+      disabled={!editing}
+      onClick={correction.save}
+    >
+      {view.kind === 'saving' ? SAVING_MESSAGE : 'Save correction'}
+    </Button>
+  );
+  const cancelButton = (className?: string) => (
+    <Button
+      type="button"
+      variant="outline"
+      className={cn(action, className)}
+      disabled={!editing}
+      onClick={correction.cancel}
+    >
+      Cancel
+    </Button>
+  );
+  const savingStatus = view.kind === 'saving' && (
+    <p role="status" className="sr-only">
+      {SAVING_MESSAGE}
+    </p>
+  );
+  if (inStrip) {
+    // The DOM keeps the wide layout's reading and tab order; the grid places
+    // Cancel and Save on the right of the label and input. The error and the
+    // chips auto-place below them, spanning both columns, so the long message
+    // rarely wraps and the chips share a row, wrapping text inside instead.
+    return (
+      <div
+        data-reason-bar
+        className="bg-background grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 px-3 py-2"
+      >
+        <Label htmlFor={id} className="col-start-1 row-start-1 self-center">
+          {reason.label}
+        </Label>
+        {reasonInput('col-start-1 row-start-2')}
+        {errorMessage('col-span-2')}
+        {quickReasons(
+          'col-span-2',
+          'flex-1 basis-16 justify-center text-center',
+        )}
+        {saveButton('col-start-2 row-start-2 self-start')}
+        {cancelButton('col-start-2 row-start-1')}
+        {savingStatus}
+      </div>
+    );
+  }
   return (
     <div
       data-reason-bar
-      className={cn(
-        'grid gap-2 md:flex md:flex-wrap md:items-start md:gap-x-3',
-        inStrip && 'bg-background px-3 py-2',
-      )}
+      className="grid gap-2 md:flex md:flex-wrap md:items-start md:gap-x-3"
     >
       <Label htmlFor={id} className="shrink-0 md:min-h-9">
         {reason.label}
       </Label>
       <div className="grid gap-1 md:max-w-md md:min-w-56 md:flex-1">
-        <Input
-          {...reason.register}
-          id={id}
-          disabled={!editing}
-          aria-invalid={reason.error ? true : undefined}
-          aria-describedby={reason.error ? errorId : undefined}
-          className="h-11 md:h-9"
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            correction.save();
-          }}
-        />
-        {reason.error && (
-          <p
-            id={errorId}
-            className="text-destructive flex items-start gap-1.5 text-sm"
-          >
-            <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-            <span className="min-w-0 [overflow-wrap:anywhere]">
-              {reason.error}
-            </span>
-          </p>
-        )}
+        {reasonInput()}
+        {errorMessage()}
       </div>
-      <div
-        role="group"
-        aria-label="Quick reasons"
-        className="flex flex-wrap gap-1 md:min-h-9 md:items-center"
-      >
-        {reason.chips.map((text) => (
-          <button
-            key={text}
-            type="button"
-            disabled={!editing}
-            className={cn(
-              chip,
-              'focus-visible:ring-ring/50 hover:bg-foreground/5 min-h-11 outline-none focus-visible:ring-[3px] disabled:opacity-50 md:min-h-7',
-            )}
-            onClick={() => reason.choose(text)}
-          >
-            {text}
-          </button>
-        ))}
-      </div>
+      {quickReasons('md:min-h-9 md:items-center')}
       <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-        <Button
-          type="button"
-          className={action}
-          disabled={!editing}
-          onClick={correction.save}
-        >
-          {view.kind === 'saving' ? SAVING_MESSAGE : 'Save correction'}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className={action}
-          disabled={!editing}
-          onClick={correction.cancel}
-        >
-          Cancel
-        </Button>
-        {view.kind === 'saving' && (
-          <p role="status" className="sr-only">
-            {SAVING_MESSAGE}
-          </p>
-        )}
+        {saveButton()}
+        {cancelButton()}
+        {savingStatus}
       </div>
     </div>
   );

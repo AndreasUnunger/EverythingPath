@@ -11,6 +11,10 @@ import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
 import { CharactersSection } from '~/components/campaign-sections/characters-section';
+import {
+  ShellSlotHost,
+  ShellSlotProvider,
+} from '~/components/campaign-shell/shell-slots';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { CharacterRecordKind } from '~/lib/character-kind';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
@@ -797,5 +801,72 @@ describe('an open correction keeps its controls and focus through a resize acros
     await settle();
     expect(picker()).toBeNull();
     expect(button('Assign Spymaster', roleCard('Spymaster'))).toHaveFocus();
+  });
+
+  // The phone strip holds the compact reason bar (#198); the reason stays
+  // required with its message, the quick picks fill it, and the entry moves
+  // with the bar into the save point and back.
+  test('in the phone strip the reason stays required, quick picks fill it and it survives a resize', async () => {
+    width = 390;
+    render(
+      <ShellSlotProvider>
+        {page()}
+        <ShellSlotHost name="phone-status-strip" />
+      </ShellSlotProvider>,
+    );
+    const strip = () =>
+      document.querySelector<HTMLElement>(
+        '[data-shell-slot="phone-status-strip"]',
+      )!;
+    const correction = openRoster();
+    expect(within(correction).queryByRole('textbox')).toBeNull();
+    const inStrip = () =>
+      within(strip()).getByRole('textbox', { name: 'Reason for correction' });
+    // Reading and tab order as from 768px: reason, quick picks, Save, Cancel.
+    expect(
+      [...strip().querySelectorAll('input, button')].map((control) =>
+        control instanceof HTMLInputElement
+          ? control.labels?.[0]?.textContent
+          : control.textContent,
+      ),
+    ).toEqual([
+      'Reason for correction',
+      'Story change',
+      'Fixing a mistake',
+      'New officer joined',
+      'Character left',
+      'Save correction',
+      'Cancel',
+    ]);
+
+    await click(button('Save correction', strip()));
+    expect(calls).toHaveLength(0);
+    expect(inStrip()).toHaveAttribute('aria-invalid', 'true');
+    expect(inStrip()).toHaveAccessibleDescription(
+      'Reason for correction is required.',
+    );
+
+    fireEvent.click(
+      within(
+        within(strip()).getByRole('group', { name: 'Quick reasons' }),
+      ).getByRole('button', { name: 'Character left' }),
+    );
+    expect(inStrip()).toHaveValue('Character left');
+    fireEvent.change(inStrip(), {
+      target: { value: 'Character left: Bren retires' },
+    });
+
+    resizeTo(1440);
+    expect(strip()).toBeEmptyDOMElement();
+    expect(within(bar('Correct roster')).getByRole('textbox')).toHaveValue(
+      'Character left: Bren retires',
+    );
+    resizeTo(390);
+    expect(inStrip()).toHaveValue('Character left: Bren retires');
+
+    fireEvent.click(button('Cancel', strip()));
+    expect(screen.queryByRole('region', { name: 'Correct roster' })).toBeNull();
+    expect(strip()).toBeEmptyDOMElement();
+    expect(calls).toHaveLength(0);
   });
 });

@@ -12,10 +12,11 @@ import {
 // correction open: no horizontal overflow, and every control of the edited
 // section, its save point and its reason bar is reachable (inside the
 // viewport, page content above the phone bottom bar). On the phone the
-// reason bar sits in the strip above the tabs; from 768px it is in the save
-// point. Officers also opens the Assign picker (an inline panel on the
-// phone, a floating dialog from 1280px) and a holder's ⋯ menu with its
-// Move to list. Both corrections are cancelled, so nothing changes.
+// reason bar sits in the strip above the tabs, which with the tabs takes at
+// most a third of the screen; from 768px it is in the save point. Officers
+// also opens the Assign picker (an inline panel on the phone, a floating
+// dialog from 1280px) and a holder's ⋯ menu with its Move to list. Both
+// corrections are cancelled, so nothing changes.
 
 /** On the roster, holding `role`; `vacant` is a role nobody holds. */
 type Holder = { name: string; role: string; vacant: string };
@@ -31,11 +32,18 @@ async function expectReasonBar(page: Page, size: Size, savePoint: Locator) {
   const bar = page.locator('[data-reason-bar]');
   await expect(bar).toHaveCount(1);
   await expect(bar).toBeVisible();
-  if (size === 'phone')
-    await expect(
-      page.locator('[data-shell-slot="phone-status-strip"] [data-reason-bar]'),
-    ).toHaveCount(1);
-  else await expect(savePoint.locator('[data-reason-bar]')).toHaveCount(1);
+  if (size === 'phone') {
+    const strip = page.locator('[data-shell-slot="phone-status-strip"]');
+    await expect(strip.locator('[data-reason-bar]')).toHaveCount(1);
+    // The pinned strip and tabs leave at least two thirds of the screen to
+    // the page (#198: they took 38% when the reason bar stacked every row).
+    const pinned = (await strip.locator('..').boundingBox())!;
+    const { height } = page.viewportSize()!;
+    expect(
+      pinned.height,
+      'the pinned reason bar and tabs leave room for the page',
+    ).toBeLessThanOrEqual(height / 3);
+  } else await expect(savePoint.locator('[data-reason-bar]')).toHaveCount(1);
   await expectControlsReachable(page, bar, `${size} reason bar`);
   return bar;
 }
