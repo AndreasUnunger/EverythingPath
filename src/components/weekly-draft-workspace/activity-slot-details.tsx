@@ -167,6 +167,7 @@ export function ActivitySlotDetails({
   edit,
   disabled,
   correctionsHref,
+  openEvent,
 }: {
   slot: Slot;
   view: ActivityView;
@@ -174,6 +175,7 @@ export function ActivitySlotDetails({
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   correctionsHref?: string;
+  openEvent?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const choice = slot.choice;
@@ -292,11 +294,16 @@ export function ActivitySlotDetails({
         </div>
       )}
       <ActivityDetails
+        // A replaced or moved choice never inherits another choice's
+        // unsaved local entries.
+        key={choice.choiceId}
         slot={slot}
         view={view}
         edit={edit}
         disabled={disabled}
         hosted
+        correctionsHref={correctionsHref}
+        openEvent={openEvent}
       />
       <Button
         type="button"

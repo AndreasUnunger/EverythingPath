@@ -196,6 +196,29 @@ function applyPersistentBuyoff(
   endPersistentEvent(context, id, 'buyoff');
 }
 
+type OfficerCheck = NonNullable<
+  Extract<Decision, { kind: 'mitigate' }>['officerCheck']
+>;
+/**
+ * The entered modifiers a Rivalry officer check adds to its skill bonus. It
+ * is the chosen character's own skill check, so no organization or officer
+ * bonus applies. A recorded copy of the skill, its bonus or the character
+ * adds nothing, and a repeated source counts once, at its latest value.
+ */
+export function officerCheckExtras(input: OfficerCheck) {
+  const extras = new Map(
+    (input.roll?.modifiers ?? [])
+      .filter(
+        (modifier) =>
+          !['skill', 'skill-bonus', 'charisma', input.characterId].includes(
+            modifier.sourceId,
+          ),
+      )
+      .map((modifier) => [modifier.sourceId, modifier.value]),
+  );
+  return [...extras].map(([source, value]) => ({ source, value }));
+}
+
 function mitigatePersistentRivalry(
   context: PersistentResolutionContext,
   decision: Extract<Decision, { kind: 'mitigate' }>,
@@ -232,20 +255,10 @@ function mitigatePersistentRivalry(
   if (input.skillBonus === undefined)
     requirePersistentInput(context, id, 'skill-bonus');
   if (die === null || input.skillBonus === undefined) return;
-  const extras = new Map(
-    (input.roll?.modifiers ?? [])
-      .filter(
-        (modifier) =>
-          !['skill', 'skill-bonus', 'charisma', input.characterId].includes(
-            modifier.sourceId,
-          ),
-      )
-      .map((modifier) => [modifier.sourceId, modifier.value]),
-  );
   const total =
     die +
     input.skillBonus +
-    [...extras.values()].reduce((sum, value) => sum + value, 0);
+    officerCheckExtras(input).reduce((sum, extra) => sum + extra.value, 0);
   plan.push({
     kind: 'persistent_officer_check',
     eventId: id,

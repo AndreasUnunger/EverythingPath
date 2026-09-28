@@ -5,6 +5,7 @@ import {
   closedCorrection,
   correctionReducer,
   correctionView,
+  planPeopleSave,
   planSectionSave,
   type AcceptedMilitia,
   type Correction,
@@ -64,7 +65,7 @@ describe('opening and cancelling', () => {
     expect(open.kind).toBe('open');
     const second = correctionReducer(open, {
       type: 'open',
-      target: { kind: 'full', entry: 'teams' },
+      target: { kind: 'people' },
       accepted: base,
     });
     expect(second).toBe(open);
@@ -314,32 +315,138 @@ describe('failures and reconciliation', () => {
   });
 });
 
-describe('the temporary full editor', () => {
+// The People & officers fallback keeps the old editor's revision-bound save:
+// its whole snapshot is sent against the revision it opened from, never
+// merged onto a newer militia (#139 §5).
+const openPeople = (from = accepted()) =>
+  run([{ type: 'open', target: { kind: 'people' }, accepted: from }]);
+type Snapshot = AcceptedMilitia['state']['militiaSnapshot'];
+const withMarshal = (from = accepted()): Snapshot => {
+  const snapshot = from.state.militiaSnapshot;
+  return {
+    ...snapshot,
+    roster: {
+      ...snapshot.roster,
+      officers: [
+        ...snapshot.roster.officers.filter(
+          (officer) => officer.role !== 'marshal',
+        ),
+        { role: 'marshal', characterId: 'officer' },
+      ],
+    },
+  };
+};
+function sendPeople(state: Correction, snapshot = withMarshal()) {
+  const plan = planPeopleSave(state, snapshot);
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  return plan;
+}
+
+describe('the People & officers fallback', () => {
   test('is exclusive with section editing and closes with feedback when saved', () => {
     const base = accepted();
-    const full = run([
-      {
-        type: 'open',
-        target: { kind: 'full', entry: 'people' },
-        accepted: base,
-      },
-      {
-        type: 'open',
-        target: { kind: 'section', section: 'values' },
-        accepted: base,
-      },
-    ]);
-    expect(full).toMatchObject({
-      kind: 'open',
-      target: { kind: 'full', entry: 'people' },
-    });
-    expect(planSectionSave(full, base, 'values', yours(base))).toEqual({
+    const people = run(
+      [
+        {
+          type: 'open',
+          target: { kind: 'section', section: 'values' },
+          accepted: base,
+        },
+      ],
+      openPeople(base),
+    );
+    expect(people).toMatchObject({ kind: 'open', target: { kind: 'people' } });
+    expect(planSectionSave(people, base, 'values', yours(base))).toEqual({
       kind: 'busy',
     });
-    expect(correctionReducer(full, { type: 'fullSaved' })).toEqual({
+    const { attempt } = sendPeople(people);
+    expect(
+      run(
+        [
+          { type: 'submit', attempt },
+          { type: 'accepted', attempt },
+        ],
+        people,
+      ),
+    ).toEqual({
       kind: 'closed',
       feedback: { kind: 'saved', entry: 'people' },
     });
+  });
+
+  test('sends its whole snapshot at the revision it opened from; an unchanged roster is not sent', () => {
+    const base = accepted();
+    const people = openPeople(base);
+    const snapshot = withMarshal(base);
+    expect(planPeopleSave(people, snapshot)).toEqual({
+      kind: 'send',
+      attempt: { expectedRevision: 3, candidate: expect.any(String) },
+      snapshot,
+    });
+    expect(planPeopleSave(people, base.state.militiaSnapshot)).toEqual({
+      kind: 'unchanged',
+    });
+    expect(planPeopleSave(openValues(base), snapshot)).toEqual({
+      kind: 'busy',
+    });
+  });
+
+  test('a refused Save keeps the entries and says why, even once the militia moved on', () => {
+    const base = accepted();
+    const people = openPeople(base);
+    const { attempt } = sendPeople(people);
+    const refused = run(
+      [
+        { type: 'submit', attempt },
+        { type: 'rejected', attempt, message: 'Militia changed.' },
+      ],
+      people,
+    );
+    expect(correctionView(refused, base)).toEqual({
+      kind: 'editing',
+      notice: 'rejected',
+      message: 'Militia changed.',
+    });
+    const moved = withSnapshot(base, (snapshot) => ({
+      ...snapshot,
+      notoriety: 30,
+    }));
+    expect(correctionView(refused, moved)).toMatchObject({
+      kind: 'editing',
+      notice: 'rejected',
+    });
+  });
+
+  test('an unconfirmed Save the militia now shows closes as matched; otherwise it stays open', () => {
+    const base = accepted();
+    const people = openPeople(base);
+    const { attempt, snapshot } = sendPeople(people);
+    const unknown = run(
+      [
+        { type: 'submit', attempt },
+        { type: 'unknown', attempt },
+      ],
+      people,
+    );
+    expect(correctionView(unknown, base)).toMatchObject({
+      kind: 'editing',
+      notice: 'unconfirmed',
+    });
+    expect(
+      correctionView(
+        unknown,
+        withSnapshot(base, () => snapshot),
+      ),
+    ).toEqual({
+      kind: 'closed',
+      feedback: { kind: 'matched', entry: 'people' },
+    });
+    expect(
+      correctionView(
+        unknown,
+        withSnapshot(base, (latest) => ({ ...latest, notoriety: 30 })),
+      ),
+    ).toMatchObject({ kind: 'editing', notice: 'unconfirmed' });
   });
 });
 
@@ -394,7 +501,7 @@ describe('settling an unconfirmed Save', () => {
     expect(
       correctionReducer(reconciled, {
         type: 'open',
-        target: { kind: 'full', entry: 'people' },
+        target: { kind: 'people' },
         accepted: base,
       }),
     ).toMatchObject({ kind: 'open' });

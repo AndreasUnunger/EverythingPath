@@ -25,6 +25,21 @@ import { ActivityText } from './activity-text';
 import { actionDetail, isPeopleTeamChoice } from './activity-action-detail';
 import { actionFieldEdits } from './activity-action-edits';
 import { ActivityActionFields } from './activity-action-fields';
+import {
+  economyAcknowledgementSubjects,
+  economyDetail,
+  isEconomyChoice,
+} from './activity-economy-detail';
+import { economyFieldEdits } from './activity-economy-edits';
+import { ActivityEconomyFields } from './activity-economy-fields';
+import {
+  missionAcknowledgementSubjects,
+  missionDetail,
+} from './activity-mission-detail';
+import { isMissionChoice } from './activity-mission-actions';
+import { isCandidateChoice } from '~/lib/event-occurrence-preparation';
+import { missionFieldEdits } from './activity-mission-edits';
+import { ActivityMissionFields } from './activity-mission-fields';
 import { ChoiceCards } from './choice-cards';
 import {
   choiceFieldLabel as label,
@@ -54,6 +69,7 @@ const candidateRollSpec: RollSpecResolver = (path, root) => {
     rest,
   );
 };
+const CANDIDATE_FIELDS = ['candidates', 'selectedEventId'] as const;
 function ChoiceFields({
   choice,
   view,
@@ -62,6 +78,7 @@ function ChoiceFields({
   calculatedCostCopper,
   detailError,
   hosted,
+  only,
 }: {
   choice: StagedActionChoice;
   view: ActivityView;
@@ -70,6 +87,8 @@ function ChoiceFields({
   calculatedCostCopper: number | null;
   detailError: { field: string; message: string } | null;
   hosted: boolean;
+  // Only these fields, when an action's own editor shows the rest.
+  only?: readonly string[];
 }) {
   const shape = stagedActionChoiceSchema.options.find(
     (option) => option.shape.actionId.value === choice.actionId,
@@ -88,7 +107,7 @@ function ChoiceFields({
   ]);
   return Object.entries(shape)
     .flatMap(([field, wrapped]) => {
-      if (hidden.has(field)) return [];
+      if (hidden.has(field) || (only && !only.includes(field))) return [];
       const schema =
         wrapped instanceof z.ZodOptional
           ? (wrapped.unwrap() as z.ZodType)
@@ -278,27 +297,37 @@ export function ActivityDetails({
   edit,
   disabled,
   hosted = false,
+  correctionsHref,
+  openEvent,
 }: {
   slot: ActivityView['slots'][number];
   view: ActivityView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   hosted?: boolean;
+  // Where missing items, caches and settlements are repaired.
+  correctionsHref?: string;
+  // Shows the Event phase, where a choice's event candidates are rolled.
+  openEvent?: () => void;
 }) {
   const choice = slot.choice!;
   const [detailError, setDetailError] = useState<{
     field: string;
     message: string;
   } | null>(null);
-  function change(field: string, value: unknown) {
+  // Writes several fields as one detail edit; `undefined` omits a field.
+  function changeFields(fields: Record<string, unknown>, field: string) {
     return saveChoice(
       field,
       Object.fromEntries(
-        Object.entries({ ...choice, [field]: value }).filter(
+        Object.entries({ ...choice, ...fields }).filter(
           ([, value]) => value !== undefined,
         ),
       ),
     );
+  }
+  function change(field: string, value: unknown) {
+    return changeFields({ [field]: value }, field);
   }
   function saveChoice(field: string, next: unknown) {
     const parsed = stagedActionChoiceSchema.safeParse(next);
@@ -319,18 +348,50 @@ export function ActivityDetails({
     return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
-  // People and team actions have their own detail editor in the board.
-  const detail = hosted ? actionDetail(view, slot) : null;
+  // People and team, market, cache and Special Order, and information,
+  // mission and event-influence actions have their own detail editors in
+  // the board.
+  const people = hosted ? actionDetail(view, slot) : null;
+  const economy = hosted ? economyDetail(view, slot) : null;
+  const mission = hosted ? missionDetail(view, slot) : null;
+  const detail = people ?? economy ?? mission;
+  // Acknowledgements the economy editor shows beside their purchase or
+  // order, and the one a mission editor shows as its What happened.
+  const shown =
+    economy && isEconomyChoice(choice)
+      ? economyAcknowledgementSubjects(choice)
+      : missionAcknowledgementSubjects(mission);
   return (
     <div className="space-y-3">
-      {detail && isPeopleTeamChoice(choice) ? (
+      {people && isPeopleTeamChoice(choice) ? (
         <ActivityActionFields
           choice={choice}
-          detail={detail}
+          detail={people}
           calculatedCostCopper={slot.calculatedCostCopper}
           disabled={disabled}
           edits={actionFieldEdits(choice, change)}
           fieldError={detailError}
+        />
+      ) : economy && isEconomyChoice(choice) ? (
+        <ActivityEconomyFields
+          choice={choice}
+          detail={economy}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={economyFieldEdits(choice, changeFields)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+        />
+      ) : mission && isMissionChoice(choice) ? (
+        <ActivityMissionFields
+          choice={choice}
+          detail={mission}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={missionFieldEdits(choice, change)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+          openEvent={openEvent}
         />
       ) : (
         <ChoiceFields
@@ -342,6 +403,31 @@ export function ActivityDetails({
           disabled={disabled}
           hosted={hosted}
         />
+      )}
+      {mission && isCandidateChoice(choice) && (
+        // The recorded candidate trees and selection keep their structured
+        // editor, collapsed, until Event's per-family controls replace it;
+        // Event prepares, rolls and chooses the candidates.
+        <details className="space-y-3 border-t pt-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">
+            Recorded candidate details
+          </summary>
+          <section
+            aria-label="Recorded candidate details"
+            className="space-y-3"
+          >
+            <ChoiceFields
+              choice={choice}
+              calculatedCostCopper={slot.calculatedCostCopper}
+              detailError={detailError}
+              view={view}
+              change={change}
+              disabled={disabled}
+              hosted={hosted}
+              only={CANDIDATE_FIELDS}
+            />
+          </section>
+        </details>
       )}
       {!detail && slot.calculatedCostCopper !== null && (
         <p className="text-sm">
@@ -406,33 +492,35 @@ export function ActivityDetails({
             }),
           ...(choice.acknowledgements ?? []).map((item) => item.subjectId),
         ]),
-      ].map((subjectId, index) => {
-        const existing = choice.acknowledgements?.find(
-          (item) => item.subjectId === subjectId,
-        );
-        return (
-          <ActivityText
-            key={subjectId}
-            name={`Outcome acknowledgement ${index + 1}`}
-            value={existing?.outcome ?? ''}
-            required
-            disabled={disabled}
-            onValue={(outcome) =>
-              change('acknowledgements', [
-                ...(choice.acknowledgements ?? []).filter(
-                  (item) => item.subjectId !== subjectId,
-                ),
-                {
-                  acknowledgementId:
-                    existing?.acknowledgementId ?? crypto.randomUUID(),
-                  subjectId,
-                  outcome,
-                },
-              ])
-            }
-          />
-        );
-      })}
+      ]
+        .filter((subjectId) => !shown.has(subjectId))
+        .map((subjectId, index) => {
+          const existing = choice.acknowledgements?.find(
+            (item) => item.subjectId === subjectId,
+          );
+          return (
+            <ActivityText
+              key={subjectId}
+              name={`Outcome acknowledgement ${index + 1}`}
+              value={existing?.outcome ?? ''}
+              required
+              disabled={disabled}
+              onValue={(outcome) =>
+                change('acknowledgements', [
+                  ...(choice.acknowledgements ?? []).filter(
+                    (item) => item.subjectId !== subjectId,
+                  ),
+                  {
+                    acknowledgementId:
+                      existing?.acknowledgementId ?? crypto.randomUUID(),
+                    subjectId,
+                    outcome,
+                  },
+                ])
+              }
+            />
+          );
+        })}
       {slot.exceptions.map((exception) => (
         <div
           key={exception.exceptionId}

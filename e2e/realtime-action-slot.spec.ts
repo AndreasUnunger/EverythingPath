@@ -128,8 +128,12 @@ test('players share a Staged Action Choice', async ({ players }) => {
   ).toHaveCount(0);
   await player.reload();
   await player.getByRole('button', { name: /^Teams/ }).click();
+  // The index row's preview repeats the name but is hidden below xl.
   await expect(
-    player.getByText('Scouts', { exact: true }).first(),
+    player
+      .getByText('Scouts', { exact: true })
+      .filter({ visible: true })
+      .first(),
   ).toBeVisible();
   await expect(
     player.getByRole('region', { name: 'Missing from the militia' }),

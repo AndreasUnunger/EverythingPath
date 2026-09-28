@@ -151,6 +151,58 @@ test('existing militia state survives reload within its campaign', async ({
       page.getByRole('textbox', { name: name!, exact: true }),
     ).toHaveValue(value!);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  // Items are corrected on their own too, keeping a decimal weight.
+  await page.getByRole('button', { name: /^Items/ }).click();
+  await page
+    .getByRole('button', { name: 'Correct items', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Add item', exact: true }).click();
+  const item = page.getByRole('group', { name: 'Item 1', exact: true });
+  for (const [name, value] of [
+    ['Item name', 'Captured wand'],
+    ['Item value (copper)', '7500'],
+    ['Item weight', '0.5'],
+  ])
+    await item.getByRole('textbox', { name: name!, exact: true }).fill(value!);
+  await page
+    .getByRole('textbox', { name: 'Reason for correction', exact: true })
+    .fill('Kept a captured wand');
+  await page
+    .getByRole('button', { name: 'Save correction', exact: true })
+    .click();
+  await expect(page.getByText('Items corrected.').first()).toBeVisible();
+  await expect(page.getByText('0.5 lb')).toBeVisible();
+  // Carried benefits are corrected on their own too (#178).
+  await page.getByRole('button', { name: /^Carried benefits/ }).click();
+  await page
+    .getByRole('button', { name: 'Correct carried benefits', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Add skill benefit', exact: true })
+    .click();
+  const benefit = page.getByRole('group', {
+    name: 'Skill benefit 1',
+    exact: true,
+  });
+  await benefit
+    .getByRole('group', { name: 'Affected skills', exact: true })
+    .getByRole('button', { name: 'stealth', exact: true })
+    .click();
+  await benefit
+    .getByRole('textbox', { name: 'Skill bonus', exact: true })
+    .fill('2');
+  await page
+    .getByRole('textbox', { name: 'Reason for correction', exact: true })
+    .fill('Festival favour');
+  await page
+    .getByRole('button', { name: 'Save correction', exact: true })
+    .click();
+  await expect(
+    page.getByText('Carried benefits corrected.').first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '+2 bonus on Stealth', exact: true }),
+  ).toBeVisible();
   await selectCampaign(page, comparisonCase!.campaignName);
   // Continue week: the comparison's first week skips Upkeep (#189).
   await openCampaignSection(page, 'week');

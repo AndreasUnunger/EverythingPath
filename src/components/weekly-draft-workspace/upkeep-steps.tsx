@@ -1,5 +1,6 @@
 'use client';
 import { rollNotation } from './roll-facts';
+import { upkeepStepAnchor } from './source-anchors';
 import type { UpkeepEdit } from './upkeep-edits';
 import { ChoiceCards } from './choice-cards';
 import { RollTotalField } from './roll-total-field';
@@ -138,6 +139,7 @@ export function Attrition({
     <Step
       number={1}
       title="Training attrition"
+      anchor={upkeepStepAnchor('attrition')}
       status={attrition.status}
       effect={trainingEffect(attrition.trainingDelta)}
     >
@@ -180,6 +182,7 @@ export function Notoriety({
     <Step
       number={2}
       title="Maximum notoriety"
+      anchor={upkeepStepAnchor('notoriety')}
       status={notoriety.status}
       effect={
         notoriety.status === 'inapplicable'
@@ -256,6 +259,7 @@ export function Shortage({
     <Step
       number={3}
       title="Treasury shortage"
+      anchor={upkeepStepAnchor('shortage')}
       status={shortage.status}
       effect={
         shortage.status === 'inapplicable'

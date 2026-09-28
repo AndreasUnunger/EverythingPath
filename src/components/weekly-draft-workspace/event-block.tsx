@@ -49,6 +49,7 @@ export function EventBlock({
   disabled,
   edits,
   preparation,
+  openActivitySlot,
   depth = 0,
 }: {
   block: EventBlockFacts;
@@ -57,13 +58,22 @@ export function EventBlock({
   disabled: boolean;
   edits: ReturnType<typeof useEventEdits>;
   preparation?: EventPreparation;
+  openActivitySlot?: (slotId: string | null) => void;
   depth?: number;
 }) {
   const locked = disabled || !block.saved;
   const failed = isPreparationFailed(view, preparation);
   const table = block.table;
   const applied = table.modifiers.filter((modifier) => !modifier.ignored);
-  const nested = { view, edit, disabled, edits, preparation, depth: depth + 1 };
+  const nested = {
+    view,
+    edit,
+    disabled,
+    edits,
+    preparation,
+    openActivitySlot,
+    depth: depth + 1,
+  };
   const sabotage = view.sabotage?.[block.eventId];
   return (
     <div
@@ -188,6 +198,7 @@ export function EventBlock({
           edit={edit}
           disabled={locked}
           edits={edits}
+          openActivitySlot={openActivitySlot}
         />
       )}
       {block.saved && sabotage && (

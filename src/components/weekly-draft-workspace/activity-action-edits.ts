@@ -23,7 +23,12 @@ type Modifier = RawRoll['modifiers'][number];
 // shows why beside the field.
 export type ChangeField = (field: string, value: unknown) => boolean;
 
-export function actionFieldEdits(choice: Choice, change: ChangeField) {
+// The field edits every detail editor shares: plain set/clear, the dice
+// rolls with their table modifiers, and consumables.
+export function commonFieldEdits(
+  choice: StagedActionChoice,
+  change: ChangeField,
+) {
   const rolls = actionChoiceRolls(choice);
   // A blank total clears the roll through the existing omission.
   function setRoll(field: DetailRollField, roll: RawRoll | null) {
@@ -70,6 +75,13 @@ export function actionFieldEdits(choice: Choice, change: ChangeField) {
     removeConsumable(bonusId: string) {
       return writeConsumables(consumables.filter((id) => id !== bonusId));
     },
+  };
+}
+export type CommonFieldEdits = ReturnType<typeof commonFieldEdits>;
+
+export function actionFieldEdits(choice: Choice, change: ChangeField) {
+  return {
+    ...commonFieldEdits(choice, change),
     // Rescue: headquarters, or `refuge:<settlementId>`; null clears.
     setDestination(value: string | null) {
       return change(

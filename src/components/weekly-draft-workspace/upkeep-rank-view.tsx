@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { UpkeepRankBoon, UpkeepRankGain, UpkeepSections } from './types';
+import { upkeepStepAnchor } from './source-anchors';
 import { IssueNotes, ReasonedDecision, Step } from './upkeep-parts';
 import {
   boonDescription,
@@ -60,6 +61,7 @@ export function Rank({
     <Step
       number={4}
       title="Rank"
+      anchor={upkeepStepAnchor('rank')}
       status={rank.status}
       effect={rankEffect(rank)}
     >

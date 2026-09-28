@@ -25,6 +25,8 @@ type EventViewProps = {
   disabled: boolean;
   preparation?: EventPreparation;
   openActivity?: () => void;
+  // Opens Activity at one choice's slot, or at its top for null.
+  openActivitySlot?: (slotId: string | null) => void;
   // The newest Overseer support facts, read between the edits of a move.
   latestOverseer?: LatestOverseerSupport;
 };
@@ -49,9 +51,17 @@ function EventSteps({
   disabled,
   preparation,
   openActivity,
+  openActivitySlot,
 }: EventViewProps) {
   const edits = useEventEdits(view, edit);
-  const blockProps = { view, edit, disabled, edits, preparation };
+  const blockProps = {
+    view,
+    edit,
+    disabled,
+    edits,
+    preparation,
+    openActivitySlot,
+  };
   const activeSets = view.candidates.filter((set) => set.active);
   const keptSets = view.candidates.filter(
     (set) => !set.active && set.blocks.length > 0,
@@ -85,7 +95,7 @@ function EventSteps({
           effect={view.automatic.sources
             .map(
               (source) =>
-                `${source.label} · ${source.count} automatic ${source.count === 1 ? 'event' : 'events'}`,
+                `${source.label} (week ${source.week}) · ${source.count} automatic ${source.count === 1 ? 'event' : 'events'}`,
             )
             .join(' · ')}
         >
@@ -94,9 +104,9 @@ function EventSteps({
               key={source.sourceId}
               className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]"
             >
-              {source.label} brings {source.count} automatic{' '}
-              {source.count === 1 ? 'event' : 'events'} before the normal roll.
-              A Roll Twice here is rerolled.
+              {source.label} (week {source.week}) brings {source.count}{' '}
+              automatic {source.count === 1 ? 'event' : 'events'} before the
+              normal roll. A Roll Twice here is rerolled.
             </p>
           ))}
           <div className="space-y-3">

@@ -6,6 +6,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import { cn } from '~/lib/utils';
 import type { ReferenceFacts } from '../reference-facts';
+import { weekEditorAnchor } from '../source-anchors';
 import type { Phase, PhaseReadiness } from '../types';
 import { phaseLabels, weekHeading } from './labels';
 import { readinessLine } from './readiness-copy';
@@ -198,7 +199,9 @@ export function WeekFrame({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <main
               data-week-editor
-              className="short:py-2 min-h-0 flex-1 overflow-y-auto px-3 py-3 md:px-5"
+              id={weekEditorAnchor}
+              tabIndex={-1}
+              className="short:py-2 focus-visible:ring-ring/50 min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-inset md:px-5"
             >
               <div className="mx-auto w-full max-w-6xl">{children}</div>
             </main>

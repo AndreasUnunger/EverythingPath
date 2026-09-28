@@ -193,6 +193,67 @@ test('[EVT-10.overseer-move-view] tapping the toggle moves support from Persiste
   await waitFor(() => expect(holders(store.draft())).toEqual([]));
 });
 
+test('[PER-04.overseer-from-event] the Theft check takes support back from an Event occurrence, keeping that occurrence’s inputs', async () => {
+  const { draft, snapshot } = week();
+  const second = draft.event.occurrences.find(
+    (entry) => entry.eventId === 'second',
+  )!;
+  second.overseerCharacterId = 'pc';
+  draft.persistent.decisions = [
+    { kind: 'mitigate', eventId: 'carried', rolls: { check: roll(20, 12) } },
+  ];
+  const before = structuredClone(second);
+  const store = workspace(draft, snapshot);
+  render(<store.Persistent />);
+  const theft = () => screen.getByRole('group', { name: 'Theft · Event 1' });
+  expect(within(theft()).getByRole('switch')).toHaveAccessibleDescription(
+    /^Now on Event 1\.2/,
+  );
+  fireEvent.click(within(theft()).getByRole('switch'));
+  await waitFor(() => expect(holders(store.draft())).toEqual(['carried']));
+  const { overseerCharacterId: _support, ...rest } = before;
+  expect(
+    store.draft().event.occurrences.find((entry) => entry.eventId === 'second'),
+  ).toEqual(rest);
+  await waitFor(() => expect(theft()).toHaveTextContent('Overseer +3'));
+  // Counted once, on the carried Theft only.
+  const phases = preview(store.draft(), snapshot).phases!;
+  expect(
+    phases.persistent.checks
+      .filter((check) =>
+        check.modifiers.some((entry) => entry.source === 'overseer-support'),
+      )
+      .map((check) => check.checkId),
+  ).toEqual(['carried:mitigation']);
+});
+
+test('[PER-04.overseer-clear-refused] a refused first clear leaves support where it was and says so', async () => {
+  const { draft, snapshot } = week();
+  const second = draft.event.occurrences.find(
+    (entry) => entry.eventId === 'second',
+  )!;
+  second.overseerCharacterId = 'pc';
+  draft.persistent.decisions = [{ kind: 'mitigate', eventId: 'carried' }];
+  const store = workspace(
+    draft,
+    snapshot,
+    (edit) => edit.kind === 'event_occurrence',
+  );
+  render(<store.Persistent />);
+  fireEvent.click(
+    within(screen.getByRole('group', { name: 'Theft · Event 1' })).getByRole(
+      'switch',
+    ),
+  );
+  expect(
+    await screen.findByText(
+      /^Overseer support could not be moved to Theft \(week 39\)\. It is now on Event 1\.2/,
+    ),
+  ).toBeVisible();
+  expect(holders(store.draft())).toEqual(['second']);
+  expect(store.sent).toHaveLength(1);
+});
+
 test('[EVT-10.overseer-partial-view] a move stopped between edits says where support is now and retries to finish', async () => {
   const { draft, snapshot } = week();
   let refuseAssign = true;
@@ -266,7 +327,7 @@ test('[EVT-10.overseer-legacy] a legacy target-level selection reads as this eve
   ]);
 });
 
-test('[PER-04.overseer-form] the Theft form no longer offers an Overseer field, and saving it keeps the recorded support', async () => {
+test('[PER-04.overseer-form] the Theft check offers no Overseer field, and entering its roll keeps the recorded support', async () => {
   const { draft, snapshot } = week();
   const store = workspace(draft, snapshot);
   render(<store.Persistent />);
@@ -278,8 +339,9 @@ test('[PER-04.overseer-form] the Theft form no longer offers an Overseer field, 
     'aria-checked',
     'true',
   );
-  fireEvent.click(
-    within(theft).getByRole('button', { name: 'Save persistent decision' }),
+  fireEvent.change(
+    within(theft).getByRole('textbox', { name: 'Loyalty check' }),
+    { target: { value: '14' } },
   );
   await waitFor(() => expect(store.sent).toHaveLength(1));
   expect(store.sent[0]).toEqual({
@@ -287,7 +349,15 @@ test('[PER-04.overseer-form] the Theft form no longer offers an Overseer field, 
     decision: {
       kind: 'mitigate',
       eventId: 'carried',
-      rolls: { check: roll(20, 12) },
+      rolls: {
+        check: {
+          diceTotal: 14,
+          diceCount: 1,
+          sides: 20,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      },
       overseerCharacterId: 'pc',
     },
   });

@@ -3,6 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import type { controlNextDraftEdit } from './held-mutation';
 import { expectSaveFailed, saveStatus } from './week-frame';
+import { reviewSummaryExceptionReason } from './summary-qa';
 
 const phase = (page: Page, name: string) =>
   page.getByRole('button', { name, exact: true }).click();
@@ -14,6 +15,8 @@ const editor = (page: Page) => page.locator('[data-week-editor]');
 // The rules cost for this fixture's rank: 2 × the 20 gp minimum treasury.
 const BUY_OFF = 'Buy off · 40 gp';
 const BUYOFF_STAGED = 'Ends · buyoff 40 gp';
+const THEFT_CHECKED = 'Success · This Theft keeps 90%';
+export const RIVALRY_ENDED = 'Success · Ends the Rivalry for good.';
 const reason = (group: Locator) =>
   group.getByRole('textbox', { name: 'Rules Exception reason', exact: true });
 
@@ -53,6 +56,7 @@ export async function exercisePersistentWorkspace(
   await reason(recent(gm)).fill('The table permits both buyoffs this week.');
   await button(recent(gm), 'Save reason').click();
   await expect(recent(player)).toContainText(BUYOFF_STAGED);
+  await reviewSummaryExceptionReason(gm, player, reason(recent(player)));
   // Leave it is the deliberate reset; the shared cooldown exception stays.
   await button(recent(player), 'Leave it').click();
   await expect(recent(gm)).not.toContainText(BUYOFF_STAGED);
@@ -91,46 +95,42 @@ export async function exercisePersistentWorkspace(
     'No Overseer is assigned, so no Overseer support this week.',
   );
   await expect(old(gm).getByRole('switch')).toHaveCount(0);
-  await button(old(gm), 'Add rolls').click();
-  // The Theft Loyalty check is one 1d20 dice total: no dice list or sides.
+  // The Theft Loyalty check is its own 1d20 dice total field: no generic
+  // roll builder, dice list or sides.
   await expect(
     old(gm).getByText('1d20 · total of the dice only'),
   ).toBeVisible();
+  await expect(button(old(gm), 'Add rolls')).toHaveCount(0);
   await expect(
     old(gm).getByRole('button', { name: 'Add dice entry', exact: true }),
   ).toHaveCount(0);
-  const die = old(gm).getByRole('textbox', { name: 'Check roll', exact: true });
-  await die.fill('20');
-  await die.pressSequentially('x');
-  await expect(die).toHaveValue('20');
-  // The field's own announced error, distinct from the enclosing form's
-  // issue for the same path after a blocked Save.
-  await expect(die).toHaveAttribute('aria-invalid', 'true');
-  await expect(die).toHaveAccessibleDescription(/Use digits only\./);
-  // Malformed local text blocks the enclosing Save instead of saving the
-  // prior number: leaving the field keeps its error and the other device
-  // never sees a mitigation result.
-  await button(old(gm), 'Save persistent decision').click();
-  await expect(die).toHaveAttribute('aria-invalid', 'true');
-  await expect(die).toHaveAccessibleDescription(/Use digits only\./);
-  await expect(old(player)).not.toContainText(
-    'retains 90% of this week’s income.',
-  );
+  const die = old(gm).getByRole('textbox', {
+    name: 'Loyalty check',
+    exact: true,
+  });
+  // Zero is a recorded total with an advisory; blank clears it.
   await die.fill('0');
-  await expect(die).toHaveValue('0');
+  await expect(old(player)).toContainText('Failure · Half of this week’s');
   await die.fill('');
+  await expect(old(player)).not.toContainText('Failure ·');
+  // Malformed text is refused in the field and never sent.
+  await die.pressSequentially('x');
   await expect(die).toHaveValue('');
+  await expect(die).toHaveAttribute('aria-invalid', 'true');
+  await expect(die).toHaveAccessibleDescription(/Use digits only\./);
+  await expect(old(player)).not.toContainText('Success ·');
   await die.fill('20');
-  await button(old(gm), 'Save persistent decision').click();
-  await expect(old(player)).toContainText('retains 90% of this week’s income.');
+  // The other Theft still takes half of this week's gains.
+  await expect(old(player)).toContainText(THEFT_CHECKED);
+  await expect(old(player)).toContainText(
+    'Stays · check succeeded · another Theft still halves gains',
+  );
 
   const observer = await gm.context().newPage();
   try {
     await observer.goto(gm.url());
     await phase(observer, 'Persistent');
-    await expect(old(observer)).toContainText(
-      'retains 90% of this week’s income.',
-    );
+    await expect(old(observer)).toContainText(THEFT_CHECKED);
     const held = network.hold();
     await button(old(gm), 'Leave it').click();
     await held;
@@ -160,21 +160,30 @@ export async function exercisePersistentWorkspace(
   await expect(recent(player)).toContainText(BUYOFF_STAGED);
 
   await button(rivalry(player), 'Officer check to end it').click();
-  await button(rivalry(player), 'Add officer check').click();
+  // An officer's own skill check: character with role context, one skill,
+  // a signed skill bonus and one d20 total. No skill is preselected.
+  const skill = rivalry(player).getByRole('combobox', {
+    name: 'Skill',
+    exact: true,
+  });
+  await expect(skill).toContainText('Choose a skill');
   await rivalry(player)
-    .getByRole('group', { name: 'Character', exact: true })
-    .getByRole('button')
-    .last()
+    .getByRole('combobox', { name: 'Character', exact: true })
     .click();
-  await button(rivalry(player), 'Diplomacy').click();
+  await player
+    .getByRole('option')
+    .filter({ hasNotText: 'not an officer' })
+    .first()
+    .click();
+  await skill.click();
+  await player.getByRole('option', { name: 'Diplomacy', exact: true }).click();
   await rivalry(player)
-    .getByRole('textbox', { name: 'Skill Bonus', exact: true })
+    .getByRole('textbox', { name: 'Skill bonus', exact: true })
     .fill('0');
   await rivalry(player)
-    .getByRole('textbox', { name: 'Roll', exact: true })
+    .getByRole('textbox', { name: 'Officer check roll', exact: true })
     .fill('20');
-  await button(rivalry(player), 'Save persistent decision').click();
-  await expect(rivalry(gm)).toContainText('ends the event.');
+  await expect(rivalry(gm)).toContainText(RIVALRY_ENDED);
   for (const page of [gm, player]) {
     await phase(page, 'Event');
     await phase(page, 'Persistent');

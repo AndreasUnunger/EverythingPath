@@ -7,8 +7,13 @@ import type {
   MissingReference,
   StagedReference,
 } from '~/lib/correction-staged-choices';
-import type { CapturedFacts } from '~/lib/reference-restoration';
+import { MILITIA_SECTIONS } from '~/lib/militia-correction-sections';
+import {
+  restoringSection,
+  type CapturedFacts,
+} from '~/lib/reference-restoration';
 import type { ReferenceKind } from '~/lib/weekly-draft-references';
+import type { SetupErrorDescriptor } from '~/lib/setup-validation';
 
 // User-facing names for the open week's choices a correction affects and the
 // identities they use. Opaque identities are never shown: an identity with
@@ -45,12 +50,13 @@ export function identityNames(
       case 'item':
         return (
           snapshot.economy?.items.find((item) => item.itemId === id)?.name ??
+          captured.item.get(id)?.name ??
           null
         );
       case 'cache': {
-        const cache = snapshot.economy?.caches.find(
-          (entry) => entry.cacheId === id,
-        );
+        const cache =
+          snapshot.economy?.caches.find((entry) => entry.cacheId === id) ??
+          captured.cache.get(id);
         return cache ? `Cache at ${cache.location}` : null;
       }
       case 'character':
@@ -110,9 +116,29 @@ export function restoreLabel(
   return first ? `${missing} for ${choiceLabel(first.location)}` : missing;
 }
 
-/** "Needed by Activity slot 2 and Upkeep team decision". */
-export function neededByNote(neededBy: readonly StagedReference[]) {
-  return `Needed by ${listed(neededBy.map((reference) => choiceLabel(reference.location)))}`;
+/** "Needed by Activity slot 2 and Cache at Old Mill", from their labels. */
+export function neededByNote(labels: readonly string[]) {
+  return `Needed by ${listed([...labels])}`;
+}
+
+/**
+ * "Restore Ring in Items first.": what a restoration needs restored before
+ * it, in the section that restores it.
+ */
+export function restoreFirstNote(
+  requires: readonly MissingReference[],
+  names: IdentityNames,
+) {
+  const sections = [
+    ...new Set(
+      requires.flatMap(({ kind }) => {
+        const section = restoringSection(kind);
+        return section ? [MILITIA_SECTIONS[section]] : [];
+      }),
+    ),
+  ];
+  const subjects = listed(requires.map((item) => missingName(item, names)));
+  return `Restore ${subjects} in ${listed(sections)} first.`;
 }
 
 /** "A", "A and B", "A, B and C". */
@@ -170,6 +196,28 @@ export type AffectedChoice = {
   /** The phase that repairs it; null for read-only carried context. */
   href: string | null;
 };
+
+/**
+ * What needs a missing identity: a staged choice, linked to the phase that
+ * repairs it, or another restoration (a cache holding a missing item).
+ */
+export type NeededBy = Pick<
+  AffectedChoice,
+  'key' | 'label' | 'action' | 'href'
+>;
+
+/** "Cache at Old Mill": a restoration that needs a missing identity first. */
+export function restorationNeed(
+  reference: MissingReference,
+  names: IdentityNames,
+): NeededBy {
+  return {
+    key: `${reference.kind}:${reference.id}`,
+    label: missingTitle(reference, names),
+    action: null,
+    href: null,
+  };
+}
 
 // "a team", "2 teams", "a team and an item".
 function without(missing: readonly MissingReference[]) {
@@ -232,4 +280,219 @@ function carriedPhrase(location: ChoiceLocation) {
     default:
       return choiceLabel(location);
   }
+}
+
+const heldItemPath =
+  /^state\.militiaSnapshot\.economy\.(caches|orders)\.(\d+)\.(itemIds\.(\d+)|itemId)$/;
+
+type HeldItem = { itemId: string; holder: string; orderId: string | null };
+
+// The item a cache holds or an order is for at a form field path, and a
+// phrase naming what holds it; null for any other field.
+function heldItemAt(
+  field: string,
+  snapshot: Snapshot,
+  names: IdentityNames,
+): HeldItem | null {
+  const match = heldItemPath.exec(field);
+  if (!match) return null;
+  const [, list, row, , content] = match;
+  if (list === 'caches') {
+    const cache = snapshot.economy?.caches[Number(row)];
+    const itemId = cache?.itemIds[Number(content)];
+    if (!cache || itemId === undefined) return null;
+    return { itemId, holder: `Cache at ${cache.location}`, orderId: null };
+  }
+  const order = snapshot.economy?.orders[Number(row)];
+  if (!order || content !== undefined) return null;
+  const town = knownName({ kind: 'settlement', id: order.settlementId }, names);
+  return {
+    itemId: order.itemId,
+    holder: `an order${town ? ` from ${town}` : ''}`,
+    orderId: order.orderId,
+  };
+}
+
+const capitalized = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * Names the integrity errors for items a cache holds or an order is for
+ * that the militia lacks, in place of the general reference error: "Keep
+ * Ring: Cache at Old Mill holds it." when this correction removes the item
+ * (`removing`), else "Cache at Old Mill holds Ring, which is no longer in
+ * the militia." Orders carried into the week (`carriedOrders`) are named as
+ * carried context instead. `snapshot` holds the rows the fields locate.
+ */
+export function namedItemReferences(
+  descriptors: readonly SetupErrorDescriptor[],
+  snapshot: Snapshot,
+  {
+    removing,
+    carriedOrders,
+    names,
+  }: {
+    removing: boolean;
+    carriedOrders: ReadonlySet<string>;
+    names: IdentityNames;
+  },
+): SetupErrorDescriptor[] {
+  return descriptors.flatMap((descriptor) => {
+    const held = descriptor.field
+      ? heldItemAt(descriptor.field, snapshot, names)
+      : null;
+    if (!held) return [descriptor];
+    if (held.orderId !== null && carriedOrders.has(held.orderId)) return [];
+    const item = missingName({ kind: 'item', id: held.itemId }, names);
+    if (removing)
+      return [
+        {
+          message: `Keep ${item}: ${held.holder} ${held.orderId === null ? 'holds it' : 'still needs it'}.`,
+          kind: 'refinement' as const,
+        },
+      ];
+    const has = held.orderId === null ? 'holds' : 'is for';
+    return [
+      {
+        ...descriptor,
+        message: `${capitalized(held.holder)} ${has} ${item}, which is no longer in the militia.`,
+      },
+    ];
+  });
+}
+
+const sourcePath = 'state.militiaSnapshot';
+const conditionField = new RegExp(
+  `^${sourcePath}\\.characterActions\\.people\\.(\\d+)\\.(characterId|location)$`,
+);
+const skillSettlementField = new RegExp(
+  `^${sourcePath}\\.eventBenefits\\.skills\\.(\\d+)\\.settlementId$`,
+);
+// A choice list's element; the list itself is the control that fixes it.
+const skillCharacterField = new RegExp(
+  `^(${sourcePath}\\.eventBenefits\\.skills\\.(\\d+)\\.characterIds)\\.(\\d+)$`,
+);
+const marketSettlementField = new RegExp(
+  `^(${sourcePath}\\.eventBenefits\\.markets\\.(\\d+)\\.settlementIds)\\.(\\d+)$`,
+);
+const conditionsField = `${sourcePath}.characterActions.people`;
+
+type NamedReference = {
+  /** The control that fixes it: the row's field, or its whole choice list. */
+  field: string;
+  /** The row as its editor labels it: "Skill benefit 1". */
+  rowLabel: string;
+  missing: MissingReference;
+};
+
+// The character or refuge settlement a character condition names.
+function findConditionReference(
+  field: string,
+  snapshot: Snapshot,
+): NamedReference | null {
+  const match = conditionField.exec(field);
+  if (!match) return null;
+  const [, row, key] = match;
+  const person = snapshot.characterActions?.people[Number(row)];
+  if (!person) return null;
+  const rowLabel = `Character condition ${Number(row) + 1}`;
+  if (key === 'characterId')
+    return {
+      field,
+      rowLabel,
+      missing: { kind: 'character', id: person.characterId },
+    };
+  if (person.location.kind !== 'refuge') return null;
+  return {
+    field,
+    rowLabel,
+    missing: { kind: 'settlement', id: person.location.settlementId },
+  };
+}
+
+// The settlement or character a carried skill or Market Day benefit names.
+function findBenefitReference(
+  field: string,
+  snapshot: Snapshot,
+): NamedReference | null {
+  const skills = snapshot.eventBenefits?.skills ?? [];
+  const markets = snapshot.eventBenefits?.markets ?? [];
+  const settlement = skillSettlementField.exec(field);
+  if (settlement) {
+    const row = Number(settlement[1]);
+    const id = skills[row]?.settlementId;
+    if (!id) return null;
+    return {
+      field,
+      rowLabel: `Skill benefit ${row + 1}`,
+      missing: { kind: 'settlement', id },
+    };
+  }
+  const character = skillCharacterField.exec(field);
+  if (character) {
+    const [, list = field, row, position] = character;
+    const id = skills[Number(row)]?.characterIds[Number(position)];
+    if (!id) return null;
+    return {
+      field: list,
+      rowLabel: `Skill benefit ${Number(row) + 1}`,
+      missing: { kind: 'character', id },
+    };
+  }
+  const market = marketSettlementField.exec(field);
+  if (!market) return null;
+  const [, list = field, row, position] = market;
+  const id = markets[Number(row)]?.settlementIds[Number(position)];
+  if (!id) return null;
+  return {
+    field: list,
+    rowLabel: `Market Day benefit ${Number(row) + 1}`,
+    missing: { kind: 'settlement', id },
+  };
+}
+
+// "Ada has more than one character condition.", or null when no character
+// is recorded twice.
+function duplicateConditionsMessage(snapshot: Snapshot, names: IdentityNames) {
+  const ids = (snapshot.characterActions?.people ?? []).map(
+    (person) => person.characterId,
+  );
+  const repeated = [
+    ...new Set(ids.filter((id, index) => ids.indexOf(id) !== index)),
+  ];
+  if (repeated.length === 0) return null;
+  const characters = listed(
+    repeated.map((id) => missingName({ kind: 'character', id }, names)),
+  );
+  return `${capitalized(characters)} ${repeated.length === 1 ? 'has' : 'have'} more than one character condition.`;
+}
+
+/**
+ * Names the reference errors of Character conditions and Carried benefits
+ * in place of the general message ("Skill benefit 1 names Old Mill, which
+ * is no longer in the militia."), located at the control that fixes them,
+ * and names the character with more than one condition. Others pass
+ * through. `snapshot` holds the rows the fields locate.
+ */
+export function namedSourceReferences(
+  descriptors: readonly SetupErrorDescriptor[],
+  snapshot: Snapshot,
+  names: IdentityNames,
+): SetupErrorDescriptor[] {
+  return descriptors.map((descriptor) => {
+    if (!descriptor.field) return descriptor;
+    if (descriptor.field === conditionsField) {
+      const message = duplicateConditionsMessage(snapshot, names);
+      return message ? { ...descriptor, message } : descriptor;
+    }
+    const reference =
+      findConditionReference(descriptor.field, snapshot) ??
+      findBenefitReference(descriptor.field, snapshot);
+    if (!reference) return descriptor;
+    return {
+      ...descriptor,
+      field: reference.field,
+      message: `${reference.rowLabel} names ${missingName(reference.missing, names)}, which is no longer in the militia.`,
+    };
+  });
 }

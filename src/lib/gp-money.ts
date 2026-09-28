@@ -27,6 +27,31 @@ export function parseGpInput(text: string): GpInput {
   return { kind: 'valid', copper };
 }
 
+// Signed gp, for amounts that may take treasury away (Table Adjustments).
+// A leading minus (ASCII or typographic) or plus applies to the whole amount:
+// "-0.07" is −7 copper. A sign on its own is malformed, not empty.
+export function parseSignedGpInput(text: string): GpInput {
+  const trimmed = text.trim();
+  const sign = /^[-−+]/.exec(trimmed)?.[0];
+  if (!sign) return parseGpInput(trimmed);
+  const amount = parseGpInput(trimmed.slice(1));
+  if (amount.kind === 'invalid') return amount;
+  if (amount.kind === 'empty')
+    return {
+      kind: 'invalid',
+      message: 'Enter an amount in gp, such as -3 or 0.07.',
+    };
+  return {
+    kind: 'valid',
+    copper:
+      sign === '+' || amount.copper === 0 ? amount.copper : -amount.copper,
+  };
+}
+
+export function signedCopperToGpInput(copper: number): string {
+  return copper < 0 ? `-${copperToGpInput(-copper)}` : copperToGpInput(copper);
+}
+
 export function copperToGpInput(copper: number): string {
   const whole = Math.floor(copper / 100);
   const fraction = String(copper % 100)

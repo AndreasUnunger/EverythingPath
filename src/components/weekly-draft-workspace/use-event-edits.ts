@@ -4,14 +4,18 @@ import {
   eventOccurrenceSchema,
   eventTreeSchema,
   rawRollModifiersSchema,
+  rulesExceptionSchema,
   type RawRoll,
 } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { isCandidateChoice } from '~/lib/event-occurrence-preparation';
-import type { EventBlock, EventView } from './types';
+import type { EventBlock, EventRetainedField, EventView } from './types';
 
 type Occurrence = EventView['occurrences'][number]['occurrence'];
 type TargetCheck = NonNullable<Occurrence['targetChecks']>[number];
+type Target = NonNullable<Occurrence['targets']>[number];
+export type EventRewardInput = NonNullable<Occurrence['rewards']>[number];
+type RulesException = EventView['exceptions'][number];
 export type TargetCheckPatch = {
   mitigation?: 'attempted' | 'unattempted';
   // A die, or null to clear it.
@@ -21,6 +25,19 @@ export type TargetCheckPatch = {
   overseer?: null;
 };
 export type TableModifier = EventBlock['table']['modifiers'][number];
+type OfficerCheck = NonNullable<Occurrence['officerCheck']>;
+// What clearing retained targets or rolls keeps: the ones the event reads.
+export type RetainedKeep = {
+  targets?: readonly Target['kind'][];
+  rolls?: readonly string[];
+};
+export type OfficerCheckPatch = {
+  characterId?: string;
+  skill?: OfficerCheck['skill'];
+  // Null clears the field.
+  skillBonus?: number | null;
+  roll?: RawRoll | null;
+};
 
 /**
  * The Event view's edits. Every occurrence edit waits for its occurrence to
@@ -74,6 +91,21 @@ export function useEventEdits(
     function current(eventId: string) {
       return blocks.get(eventId)?.item.occurrence ?? null;
     }
+    // One named die of the occurrence, set or cleared; other rolls stay.
+    function setRoll(
+      eventId: string,
+      name: 'check' | 'loss',
+      roll: RawRoll | null,
+    ) {
+      const occurrence = current(eventId);
+      if (!occurrence) return 'This event is not ready for its roll yet.';
+      const { rolls, ...rest } = occurrence;
+      const { [name]: _previous, ...others } = rolls ?? {};
+      const next = roll ? { ...others, [name]: roll } : others;
+      return saveOccurrence(
+        Object.keys(next).length ? { ...rest, rolls: next } : rest,
+      );
+    }
     // One target's recorded check on the occurrence, patched in place; an
     // entry left naming only its target is removed.
     function patchTargetCheck(
@@ -106,35 +138,110 @@ export function useEventEdits(
     }
     return {
       saveOccurrence,
-      /** Replaces the occurrence's targets of one kind; other kinds stay. */
+      /**
+       * Replaces the occurrence's targets of one kind (High Morale's ended
+       * carried events are `event` targets); other kinds stay.
+       */
       setTargets(
         eventId: string,
-        kind: 'team' | 'settlement',
+        kind: 'team' | 'settlement' | 'event' | 'item' | 'cache',
         ids: readonly string[],
       ) {
         const occurrence = current(eventId);
         if (!occurrence) return 'This event is not ready for its roll yet.';
-        const targets = [
+        const targets: Target[] = [
           ...(occurrence.targets ?? []).filter(
             (target) => target.kind !== kind,
           ),
-          ...ids.map((id) =>
-            kind === 'team' ? { kind, teamId: id } : { kind, settlementId: id },
-          ),
+          ...ids.map((id): Target => {
+            if (kind === 'team') return { kind, teamId: id };
+            if (kind === 'settlement') return { kind, settlementId: id };
+            if (kind === 'item') return { kind, itemId: id };
+            if (kind === 'cache') return { kind, cacheId: id };
+            return { kind, eventId: id };
+          }),
         ];
         const { targets: _previous, ...rest } = occurrence;
         return saveOccurrence(targets.length ? { ...rest, targets } : rest);
       },
-      /** The occurrence's own check die (for example Sickness's save). */
-      setCheckRoll(eventId: string, roll: RawRoll | null) {
+      /** Invasion's Average Party Level, or null to clear it. */
+      setAveragePartyLevel(eventId: string, level: number | null) {
         const occurrence = current(eventId);
         if (!occurrence) return 'This event is not ready for its roll yet.';
-        const { rolls, ...rest } = occurrence;
-        const { check: _previous, ...others } = rolls ?? {};
-        const next = roll ? { ...others, check: roll } : others;
+        const { averagePartyLevel: _previous, ...rest } = occurrence;
         return saveOccurrence(
-          Object.keys(next).length ? { ...rest, rolls: next } : rest,
+          level === null ? rest : { ...rest, averagePartyLevel: level },
         );
+      },
+      /**
+       * Clears a recorded input the resolved event does not use. Clearing
+       * `targets` or `rolls` keeps the target kinds and named rolls the
+       * event reads (High Morale's ended events, Theft's check).
+       */
+      clearRetained(
+        eventId: string,
+        field: EventRetainedField['field'],
+        keep: RetainedKeep = {},
+      ) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const { [field]: _previous, ...rest } = occurrence;
+        const kept =
+          field === 'targets'
+            ? (occurrence.targets ?? []).filter((target) =>
+                (keep.targets ?? []).includes(target.kind),
+              )
+            : [];
+        const rolls =
+          field === 'rolls'
+            ? Object.fromEntries(
+                Object.entries(occurrence.rolls ?? {}).filter(([name]) =>
+                  (keep.rolls ?? []).includes(name),
+                ),
+              )
+            : {};
+        return saveOccurrence({
+          ...rest,
+          ...(kept.length ? { targets: kept } : {}),
+          ...(Object.keys(rolls).length ? { rolls } : {}),
+        });
+      },
+      /** The occurrence's own check die (for example Sickness's save). */
+      setCheckRoll(eventId: string, roll: RawRoll | null) {
+        return setRoll(eventId, 'check', roll);
+      },
+      /** Turncoat's raw training loss die. */
+      setLossRoll(eventId: string, roll: RawRoll | null) {
+        return setRoll(eventId, 'loss', roll);
+      },
+      /** The occurrence's own Attempt it / Let it happen (Theft). */
+      setMitigation(eventId: string, mitigation: 'attempted' | 'unattempted') {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        return saveOccurrence({ ...occurrence, mitigation });
+      },
+      /**
+       * One or more officer-check fields (Rivalry and Turncoat Twice). The
+       * stored check names its character and skill, so the first write
+       * carries both; a null skill bonus or roll is cleared, never zeroed.
+       */
+      patchOfficerCheck(eventId: string, patch: OfficerCheckPatch) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const next: Partial<OfficerCheck> = { ...occurrence.officerCheck };
+        for (const [key, value] of Object.entries(patch) as [
+          keyof OfficerCheckPatch,
+          unknown,
+        ][])
+          if (value === null) delete next[key];
+          else if (value !== undefined) Object.assign(next, { [key]: value });
+        const { characterId, skill } = next;
+        if (!characterId || !skill)
+          return 'Choose the character and skill first.';
+        return saveOccurrence({
+          ...occurrence,
+          officerCheck: { ...next, characterId, skill },
+        });
       },
       /** Attempt it / Let it happen, or a die, for one target's check. */
       setTargetCheck: patchTargetCheck,
@@ -163,6 +270,58 @@ export function useEventEdits(
         return saveOccurrence(
           Object.keys(others).length ? { ...rest, rolls: others } : rest,
         );
+      },
+      /**
+       * One Found Fire reward, added last or replaced in place by its item
+       * identity. The rest of the occurrence is the latest this device
+       * knows, so an edit built on an older one is refused, never merged.
+       */
+      saveReward(eventId: string, reward: EventRewardInput) {
+        const occurrence = current(eventId);
+        if (!occurrence) return 'This event is not ready for its roll yet.';
+        const rewards = occurrence.rewards ?? [];
+        return saveOccurrence({
+          ...occurrence,
+          rewards: rewards.some((entry) => entry.itemId === reward.itemId)
+            ? rewards.map((entry) =>
+                entry.itemId === reward.itemId ? reward : entry,
+              )
+            : [...rewards, reward],
+        });
+      },
+      /**
+       * Removes one reward. Its Rules Exception is cleared first, so a
+       * failed removal leaves the reward asking for one again rather than an
+       * exception nobody can see.
+       */
+      removeReward(eventId: string, itemId: string) {
+        const occurrence = current(eventId);
+        if (!occurrence?.rewards?.some((entry) => entry.itemId === itemId))
+          return 'This reward is no longer recorded.';
+        for (const exception of view.exceptions)
+          if (exception.subjectId === itemId)
+            edit({
+              kind: 'clear_rules_exception',
+              exceptionId: exception.exceptionId,
+            });
+        const rewards = occurrence.rewards.filter(
+          (entry) => entry.itemId !== itemId,
+        );
+        const { rewards: _previous, ...rest } = occurrence;
+        return saveOccurrence(rewards.length ? { ...rest, rewards } : rest);
+      },
+      /** A Rules Exception reason beside its subject (a reward). */
+      saveException(exception: RulesException) {
+        const parsed = rulesExceptionSchema.safeParse(exception);
+        if (!parsed.success)
+          return parsed.error.issues[0]!.path[0] === 'reason'
+            ? 'A reason is required.'
+            : parsed.error.issues[0]!.message;
+        edit({ kind: 'rules_exception', exception: parsed.data });
+        return null;
+      },
+      clearException(exceptionId: string) {
+        edit({ kind: 'clear_rules_exception', exceptionId });
       },
       /** What happened: the occurrence's acknowledgement, saved or cleared. */
       saveWhatHappened(eventId: string, outcome: string) {

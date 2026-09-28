@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -22,6 +22,7 @@ import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
 import { useSourceFocus } from './use-source-focus';
+import { activitySlotAnchor } from './source-anchors';
 import { SetupNotesButton } from './week-frame/setup-notes';
 import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
@@ -121,6 +122,26 @@ function latestActivity(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView
     : null;
 }
+// The store's current Table Adjustments (accepted plus this device's pending
+// edits), read at Save time so a form never sends a list it captured earlier.
+function latestAdjustments(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' && current.phaseView.phase === 'summary'
+    ? current.phaseView.adjustments
+    : null;
+}
+// This device's Confirm guard for Review's local forms, from the one store.
+function useLocalFormGuard(store: WorkspaceController['store'] | undefined) {
+  return useMemo(
+    () =>
+      store && {
+        set: store.setLocalForm,
+        keep: store.keepLocalValues,
+        read: store.readLocalValues,
+      },
+    [store],
+  );
+}
 // The store's current Overseer support facts (Event or Persistent), read
 // between the edits of a support move so each step plans from the newest
 // accepted and pending draft.
@@ -185,6 +206,7 @@ export function WeeklyWorkspaceBoard({
     choosePhase,
   );
   const panel = useReferencePanel(campaignId);
+  const localFormGuard = useLocalFormGuard(controller?.store);
   const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
   if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
@@ -255,6 +277,7 @@ export function WeeklyWorkspaceBoard({
             correctionsHref={
               campaignId ? campaignPath(campaignId, 'militia') : undefined
             }
+            openEvent={() => choosePhase('event')}
           />
         ) : view.phase === 'event' ? (
           <EventView
@@ -263,6 +286,12 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             preparation={workspace.eventPreparation}
             openActivity={() => choosePhase('activity')}
+            openActivitySlot={(slotId) =>
+              openSource({
+                phase: 'activity',
+                anchor: slotId ? activitySlotAnchor(slotId) : null,
+              })
+            }
             latestOverseer={() => latestOverseer(controller?.store)}
           />
         ) : view.phase === 'persistent' ? (
@@ -280,12 +309,19 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             confirming={workspace.feedback === 'confirming'}
             canConfirm={workspace.canConfirm}
+            disabledReason={workspace.confirmationDisabledReason}
+            goTo={openSource}
             forecastPending={workspace.forecastPending}
             reviewRequired={workspace.reviewRequired}
             confirm={() => {
               void workspace.confirm();
             }}
             review={() => choosePhase('summary')}
+            localForms={workspace.localForms}
+            localFormGuard={localFormGuard}
+            latestAdjustments={() =>
+              latestAdjustments(controller?.store) ?? view.adjustments
+            }
           />
         ) : null}
       </WeekFrame>

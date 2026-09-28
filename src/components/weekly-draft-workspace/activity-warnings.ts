@@ -1,6 +1,14 @@
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
+import { missionCodeMessage } from './activity-mission-messages';
 import { ruleMessage } from './summary-messages';
-export function activityWarning(warning: string, choiceId: string): string {
+export function activityWarning(
+  warning: string,
+  choiceId: string,
+  actionId?: StagedActionChoice['actionId'],
+): string {
   const code = warning.slice(choiceId.length + 1);
+  const mission = missionCodeMessage(code, actionId, true);
+  if (mission) return mission;
   if (code.endsWith('roll-range'))
     return 'The roll is outside its usual range. The recorded value is retained for the table.';
   if (code === 'calculated-cost')

@@ -6,16 +6,19 @@ import type { EventTargetChoice } from './types';
 
 // The team, settlement or person an event targets, chosen from cards. A
 // recorded target the current choices no longer include stays as a note
-// until it is cleared on purpose.
+// until it is cleared on purpose. `subject`, when given, adds the event block
+// label to every button name so two blocks never share one.
 export function EventTargetCards({
   choice,
   disabled,
   onSelect,
   onClear,
   onClearRetained,
+  subject,
 }: {
   choice: EventTargetChoice;
   disabled: boolean;
+  subject?: string;
   onSelect: (value: string) => void;
   onClear: () => void;
   onClearRetained: (value: string) => void;
@@ -42,7 +45,7 @@ export function EventTargetCards({
             <EventChoiceCard
               key={card.value}
               label={card.label}
-              ariaLabel={card.label}
+              ariaLabel={subject ? `${card.label} · ${subject}` : card.label}
               description={card.description}
               pressed={card.value === choice.selected}
               disabled={disabled}
@@ -59,6 +62,11 @@ export function EventTargetCards({
           variant="outline"
           size="sm"
           disabled={disabled}
+          aria-label={
+            subject
+              ? `Clear ${choice.label.toLowerCase()} for ${subject}`
+              : undefined
+          }
           onClick={onClear}
         >
           Clear {choice.label.toLowerCase()}
@@ -68,7 +76,7 @@ export function EventTargetCards({
         <EventNote
           key={entry.value}
           action="Clear"
-          actionLabel={`Clear ${entry.label} from ${choice.label}`}
+          actionLabel={`Clear ${entry.label} from ${choice.label}${subject ? ` for ${subject}` : ''}`}
           disabled={disabled}
           onAction={() => onClearRetained(entry.value)}
         >

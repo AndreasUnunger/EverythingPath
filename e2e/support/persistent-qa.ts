@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
+import { RIVALRY_ENDED } from './persistent-workspace';
 
 /** Independent review of the carried-event controls on the authenticated page. */
 export async function reviewPersistentWorkspace(
@@ -17,7 +18,7 @@ export async function reviewPersistentWorkspace(
     exact: true,
   });
   await expect(theft).toContainText('Ends · buyoff 40 gp');
-  await expect(rivalry).toContainText('ends the event.');
+  await expect(rivalry).toContainText(RIVALRY_ENDED);
   await expect(
     rivalry.getByRole('button', { name: 'Add rolls', exact: true }),
   ).toHaveCount(0);
@@ -38,11 +39,13 @@ export async function reviewPersistentWorkspace(
       exact: true,
     })
     .click();
-  await theft.getByRole('button', { name: 'Add rolls', exact: true }).click();
   // Only the rule-supported Theft check exists, as one dice total.
   await expect(
-    theft.getByRole('textbox', { name: 'Check roll', exact: true }),
+    theft.getByRole('textbox', { name: 'Loyalty check', exact: true }),
   ).toBeVisible();
+  await expect(
+    theft.getByRole('combobox', { name: 'Character', exact: true }),
+  ).toHaveCount(0);
   await expect(theft.getByText('1d20 · total of the dice only')).toBeVisible();
   for (const name of [
     'check',
@@ -63,8 +66,9 @@ export async function reviewPersistentWorkspace(
     theft.getByRole('textbox', { name: 'Sides', exact: true }),
   ).toHaveCount(0);
   await theft
-    .getByRole('textbox', { name: 'Check roll', exact: true })
+    .getByRole('textbox', { name: 'Loyalty check', exact: true })
     .fill('20');
+  await expect(theft).toContainText('Success ·');
   for (const [name, width, height] of [
     ['tablet', 1194, 834],
     ['phone', 390, 844],
@@ -102,7 +106,7 @@ export async function reviewPersistentWorkspace(
         expect(details.contentFits, description).toBe(true);
     }
   }
-  // Discard the unsaved roll and restore the previously reviewed buyoff.
+  // Replace the check with the previously reviewed buyoff.
   await theft
     .getByRole('button', { name: 'Buy off · 40 gp', exact: true })
     .click();
@@ -115,6 +119,6 @@ export async function reviewPersistentWorkspace(
   ).toBeVisible();
   await page.getByRole('button', { name: 'Persistent', exact: true }).click();
   await expect(theft).toContainText('Ends · buyoff 40 gp');
-  await expect(rivalry).toContainText('ends the event.');
+  await expect(rivalry).toContainText(RIVALRY_ENDED);
   await page.setViewportSize({ width: 1194, height: 834 });
 }

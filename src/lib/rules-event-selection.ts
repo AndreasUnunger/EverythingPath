@@ -3,6 +3,7 @@ import type { EventType } from './militia-domain';
 import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import { normalizeRawRoll } from './raw-roll';
 import { operatedSettlementIds } from './rules-event-context';
+import { isDiscoverableCache } from './rules-threat-events';
 import { projectSettlements } from './rules-settlements';
 import type { ActivityProjection } from './rules-activity';
 import type { WeeklyDraft } from './weekly-draft-contract';
@@ -175,11 +176,7 @@ function canEventOccur({ draft, activity }: SelectionContext, event: Event) {
   const state = activity.outcome;
   switch (event.eventType) {
     case 'cache_discovered':
-      return (
-        state.economy?.caches.some(
-          (cache) => cache.status === 'hidden' || cache.status === 'returning',
-        ) ?? false
-      );
+      return state.economy?.caches.some(isDiscoverableCache) ?? false;
     case 'raid':
       return state.settlements.some(
         (town) =>
@@ -579,10 +576,47 @@ export function projectEventSelection(
   finalizeEventSelection(result);
   if (result.ready)
     result.nextUneventfulCarry =
-      !draft.context.firstMilitiaWeek &&
-      !forcedCalm &&
-      automaticSources.length === 0 &&
-      result.selected.length < 2 &&
-      result.selected.every((event) => event.eventType === 'all_is_calm');
+      uneventfulCarryBlockers({
+        firstMilitiaWeek: draft.context.firstMilitiaWeek,
+        forcedCalm,
+        hasAutomaticEvents: automaticSources.length > 0,
+        selected: result.selected,
+      }).length === 0;
   return result;
+}
+
+/** Why a week does not build the uneventful chance carry. */
+export type UneventfulCarryBlocker =
+  | 'first_week'
+  | 'forced_calm'
+  | 'automatic_events'
+  | 'several_events'
+  | 'other_event';
+
+/**
+ * The reasons a week is not uneventful for next week's chance carry; none
+ * means it counts. Only a week with no event or a single All Is Calm builds
+ * the carry, and never the first week, a forced calm or a week with
+ * automatic events.
+ */
+export function uneventfulCarryBlockers({
+  firstMilitiaWeek,
+  forcedCalm,
+  hasAutomaticEvents,
+  selected,
+}: {
+  firstMilitiaWeek: boolean;
+  forcedCalm: boolean;
+  hasAutomaticEvents: boolean;
+  selected: readonly Pick<Event, 'eventType'>[];
+}): UneventfulCarryBlocker[] {
+  return [
+    ...(firstMilitiaWeek ? (['first_week'] as const) : []),
+    ...(forcedCalm ? (['forced_calm'] as const) : []),
+    ...(hasAutomaticEvents ? (['automatic_events'] as const) : []),
+    ...(selected.length >= 2 ? (['several_events'] as const) : []),
+    ...(selected.some((event) => event.eventType !== 'all_is_calm')
+      ? (['other_event'] as const)
+      : []),
+  ];
 }

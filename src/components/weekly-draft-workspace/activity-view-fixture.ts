@@ -89,6 +89,7 @@ export function activityFacts(
     },
     slots,
     teamRoster: [],
+    candidateSets: [],
     helpful: null,
     operating: { selected: null, missing: false, choices: [] },
     blockedActions: [],
@@ -119,6 +120,11 @@ export function selectSlot(action: string, number = 1) {
   fireEvent.click(
     screen.getByRole('button', { name: `Action Slot ${number} · ${action}` }),
   );
+}
+
+// Expands a candidate choice's collapsed structured candidate editor.
+export function openRecordedCandidates() {
+  fireEvent.click(screen.getByText('Recorded candidate details'));
 }
 
 // A Workspace edit that the (fake) persistence accepts.
