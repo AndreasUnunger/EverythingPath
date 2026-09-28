@@ -106,6 +106,14 @@ type UpkeepProjection = {
   outcome: UpkeepSnapshot;
   plan: UpkeepChange[];
   boons: ReturnType<typeof projectProgression>['boons'];
+  // Step 4's inputs once the earlier steps are settled: the training it
+  // judged, the highest active PC level capping rank and the rank training
+  // alone would reach. Null while an earlier step is open or Upkeep skipped.
+  progression: {
+    training: number;
+    highestPcLevel: number | null;
+    trainingRank: number;
+  } | null;
   requirements: string[];
   warnings: string[];
   checkUsage: ReturnType<typeof projectRulesFoundations>['checkUsage'];
@@ -514,6 +522,11 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
   result.requirements.push(...progression.requirements);
   result.warnings.push(...progression.warnings);
   result.boons = progression.boons;
+  result.progression = {
+    training: state.training,
+    highestPcLevel: progression.highestPcLevel,
+    trainingRank: progression.trainingRank,
+  };
   if (progression.eligibleRank !== state.rank) {
     result.plan.push({
       kind: 'rank',
@@ -620,6 +633,7 @@ export function projectUpkeep(
     },
     plan: [],
     boons: [],
+    progression: null,
     requirements: [],
     warnings: [],
     checks: [],

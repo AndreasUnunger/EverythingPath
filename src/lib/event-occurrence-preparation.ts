@@ -268,14 +268,40 @@ function referenced(draft: WeeklyDraft, ids: Set<string>) {
 }
 
 /**
+ * Whether an occurrence is, or descends from, a Roll Twice expansion inside
+ * an Activity candidate set. Since the candidate reroll Ruleset Version a
+ * candidate's Roll Twice is rerolled in its own die, so the rules never ask
+ * for these positions again: they stay recorded and unused until cleared.
+ */
+export function isLegacyCandidateExpansion(
+  draft: WeeklyDraft,
+  eventId: string,
+) {
+  for (const slot of draft.activity.slots) {
+    if (!isCandidateChoice(slot.choice)) continue;
+    const tree = slot.choice.candidates ?? [];
+    // Parents precede their children, so walking up always ends.
+    let event = tree.find((entry) => entry.eventId === eventId);
+    while (event && 'parentEventId' in event.origin) {
+      if (event.origin.kind === 'roll_twice') return true;
+      const parentId = event.origin.parentEventId;
+      event = tree.find((entry) => entry.eventId === parentId);
+    }
+  }
+  return false;
+}
+
+/**
  * Whether an occurrence is a position the rules do not ask for: part of an
- * over-full group, or an automatic event whose source is not due.
+ * over-full group, an automatic event whose source is not due, or part of an
+ * older candidate expansion.
  */
 export function isSurplusEventOccurrence(
   draft: WeeklyDraft,
   positions: readonly EventPositionGroup[],
   eventId: string,
 ) {
+  if (isLegacyCandidateExpansion(draft, eventId)) return true;
   const groups = uniquePositions(positions);
   if (
     groups.some(

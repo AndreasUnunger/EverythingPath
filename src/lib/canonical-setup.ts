@@ -29,6 +29,9 @@ export type SetupReferenceIssue = {
   target: (string | number)[];
 };
 
+export const CARRIED_REFERENCE_MESSAGE =
+  'A carried event, order or queued effect refers to an entity missing from this setup. Restore it or choose another target.';
+
 // Cross-reference validation: facts that a started week needs across sections.
 export function militiaSetupReferenceIssues(
   setup: SetupFields,
@@ -72,28 +75,11 @@ export function militiaSetupReferenceIssues(
         target: path,
       });
   });
-  snapshot.roster.people.forEach((person, index) => {
-    const path = ['state', 'militiaSnapshot', 'roster', 'people', index];
-    if (
-      person.hitDice === null &&
-      snapshot.roster.officers.some(
-        (officer) =>
-          officer.characterId === person.characterId &&
-          officer.role === 'commandant',
-      )
-    )
-      issues.push({
-        path: [...path, 'hitDice'],
-        message: 'Commandant Hit Dice are required before starting the week.',
-        target: [...path, 'hitDice'],
-      });
-  });
   const [missing] = draftReferenceRequirements(draft, snapshot, snapshot);
   if (missing !== undefined)
     issues.push({
       path: ['state', 'context'],
-      message:
-        'A carried event, order or queued effect refers to an entity missing from this setup. Restore it or choose another target.',
+      message: CARRIED_REFERENCE_MESSAGE,
       target: referringEntry(setup.state.context, missing),
     });
   return issues;
@@ -180,12 +166,23 @@ export function prepareMilitiaSetup(input: MilitiaSetup, draftId: string) {
   };
 }
 // The same rules warnings as `prepareMilitiaSetup`, in the same order, with the
-// Setup step and field each one concerns.
-export function militiaSetupWarnings(input: MilitiaSetup) {
-  return planMilitiaSetup(militiaSetupSchema.parse(input), 'setup-review')
-    .warnings;
+// Setup step and field each one concerns. Warnings about a character use its
+// name from `names` when known, else its position among the characters.
+export function militiaSetupWarnings(
+  input: MilitiaSetup,
+  names?: ReadonlyMap<string, string>,
+) {
+  return planMilitiaSetup(
+    militiaSetupSchema.parse(input),
+    'setup-review',
+    names,
+  ).warnings;
 }
-function planMilitiaSetup(setup: MilitiaSetup, draftId: string) {
+function planMilitiaSetup(
+  setup: MilitiaSetup,
+  draftId: string,
+  names?: ReadonlyMap<string, string>,
+) {
   const { militiaSnapshot: snapshot, context, week } = setup.state;
   const draft = createWeeklyDraft({
     draftId,
@@ -202,7 +199,7 @@ function planMilitiaSetup(setup: MilitiaSetup, draftId: string) {
       snapshot.roster,
       snapshot.characters.map((character, index) => ({
         ...character,
-        name: `Character ${index + 1}`,
+        name: names?.get(character.characterId) ?? `Character ${index + 1}`,
       })),
       getMaxTeamsForRank(snapshot.rank),
     ).map(({ list, message, path }) => ({

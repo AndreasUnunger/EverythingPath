@@ -11,7 +11,9 @@ import {
   ShellSlotHost,
   ShellSlotProvider,
 } from '~/components/campaign-shell/shell-slots';
+import type { ConfirmControl } from '../confirm-control';
 import type { Phase, PhaseReadiness } from '../types';
+import { confirmControlFixture } from '../confirm-control-test-helpers';
 import {
   referenceFactsFixture,
   referencePanelFixture,
@@ -33,7 +35,11 @@ vi.mock('next/link', () => ({
 afterEach(cleanup);
 
 const item = (id: string) => ({ id, message: id });
-function phases(eligible: boolean): PhaseReadiness[] {
+const summaryWarnings = [item('w'), item('x')];
+function phases(
+  eligible: boolean,
+  warnings = summaryWarnings,
+): PhaseReadiness[] {
   return [
     {
       phase: 'upkeep',
@@ -68,7 +74,7 @@ function phases(eligible: boolean): PhaseReadiness[] {
       available: true,
       ready: false,
       requirements: [item('a'), item('b'), item('p')],
-      warnings: [item('w'), item('x')],
+      warnings,
     },
   ];
 }
@@ -86,6 +92,9 @@ function frame(
     reason?: string | null;
     choose?: (phase: Phase) => void;
     open?: boolean;
+    confirmation?: Partial<ConfirmControl>;
+    /** Review & confirm's warning count; the fixture's two by default. */
+    warnings?: number;
   } = {},
 ) {
   const eligible = options.eligible ?? false;
@@ -93,15 +102,19 @@ function frame(
     <WeekFrame
       week={4}
       phase={phase}
-      phases={phases(eligible)}
+      phases={phases(eligible, summaryWarnings.slice(0, options.warnings))}
       navigation={navigationFor(phase, eligible)}
-      confirmationDisabledReason={options.reason ?? null}
+      confirmation={confirmControlFixture({
+        disabled: Boolean(options.reason),
+        reason: options.reason ?? null,
+        ...options.confirmation,
+      })}
       choose={options.choose ?? (() => undefined)}
       reference={{
         facts: referenceFactsFixture(),
         panel: referencePanelFixture({ open: options.open ?? true }),
       }}
-      status={<p role="status">Prepare the week together.</p>}
+      status={<p role="status" aria-live="polite" data-week-remote-note />}
     >
       <button type="button">Editor control</button>
     </WeekFrame>
@@ -109,6 +122,9 @@ function frame(
 }
 function stepper() {
   return within(screen.getByRole('navigation', { name: 'Week phases' }));
+}
+function actions() {
+  return within(screen.getByRole('region', { name: 'Week actions' }));
 }
 
 test('five positions stay in rules order with exact names, readiness descriptions and a locked Persistent', () => {
@@ -157,7 +173,14 @@ test('the footer skips a locked Persistent, never wraps and shows the current re
   expect(choose).toHaveBeenLastCalledWith('summary');
   expect(screen.getByText('Event is ready. 1 warning.')).toBeInTheDocument();
   view.rerender(frame('upkeep', { choose }));
-  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+  // An endpoint has no control, only an invisible, hidden placeholder.
+  expect(screen.queryByRole('button', { name: /^Previous\b/ })).toBeNull();
+  const starts = document.querySelectorAll('[data-week-endpoint="previous"]');
+  expect(starts.length).toBeGreaterThan(0);
+  for (const endpoint of starts) {
+    expect(endpoint).toHaveAttribute('aria-hidden', 'true');
+    expect(endpoint).toHaveClass('invisible');
+  }
   expect(screen.getByRole('button', { name: 'Next: Activity' })).toBeEnabled();
   expect(screen.getByText('Upkeep is ready.')).toBeInTheDocument();
   view.rerender(frame('event', { choose, eligible: true }));
@@ -172,7 +195,12 @@ test('the footer skips a locked Persistent, never wraps and shows the current re
 
 test('Review & confirm shows only the disabled-Confirmation reason, nothing when ready', () => {
   const view = render(frame('summary', { reason: '3 decisions left' }));
-  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: /^Next\b/ })).toBeNull();
+  // The next position holds the pinned Confirm, not a placeholder.
+  expect(document.querySelector('[data-week-endpoint="next"]')).toBeNull();
+  expect(
+    actions().getByRole('button', { name: 'Confirm week' }),
+  ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Previous: Event' })).toBeEnabled();
   const lines = () =>
     Array.from(document.querySelectorAll('[data-week-readiness]'));
@@ -184,8 +212,95 @@ test('Review & confirm shows only the disabled-Confirmation reason, nothing when
   expect(
     screen.queryByText(/ready for confirmation|need attention|decisions left/i),
   ).not.toBeInTheDocument();
-  // The single announced status is the save status, not any readiness text.
+  // The single announced status is the other-player note, not any readiness text.
   expect(screen.getAllByRole('status')).toHaveLength(1);
+});
+
+test('the footer pins Confirm week at the next position with the same control as the review block', () => {
+  const confirm = vi.fn();
+  const view = render(frame('summary', { confirmation: { confirm } }));
+  const button = actions().getByRole('button', { name: 'Confirm week' });
+  expect(button).toBeEnabled();
+  expect(button).not.toHaveAttribute('aria-busy');
+  fireEvent.click(button);
+  expect(confirm).toHaveBeenCalledTimes(1);
+  view.rerender(frame('summary', { reason: '3 decisions left' }));
+  const disabled = actions().getByRole('button', { name: 'Confirm week' });
+  expect(disabled).toBeDisabled();
+  expect(disabled).toHaveAccessibleDescription(/3 decisions left/);
+  expect(actions().getByText('3 decisions left')).toBeVisible();
+  // In flight the store disables every weekly write; the frame derives
+  // nothing itself, it shows the control as given.
+  view.rerender(
+    frame('summary', { confirmation: { confirming: true, disabled: true } }),
+  );
+  const pending = actions().getByRole('button', { name: 'Confirming…' });
+  expect(pending).toBeDisabled();
+  expect(pending).toHaveAttribute('aria-busy', 'true');
+  expect(pending).toHaveTextContent(/^Confirming…$/);
+  expect(pending).not.toHaveAttribute('aria-describedby');
+});
+
+test('the pinned Confirm shows the warning count beside its label, described but never named', () => {
+  const view = render(frame('summary', { warnings: 0 }));
+  const none = actions().getByRole('button', { name: 'Confirm week' });
+  expect(none).toHaveTextContent(/^Confirm week$/);
+  expect(none).not.toHaveAttribute('aria-describedby');
+  expect(none).toBeEnabled();
+  view.rerender(frame('summary', { warnings: 1 }));
+  const one = actions().getByRole('button', { name: 'Confirm week' });
+  expect(one).toHaveTextContent(/^Confirm week · 1 warning$/);
+  expect(one).toHaveAccessibleDescription('1 warning');
+  expect(one).toBeEnabled();
+  view.rerender(frame('summary', { warnings: 2, reason: '3 decisions left' }));
+  const two = actions().getByRole('button', { name: 'Confirm week' });
+  expect(two).toHaveTextContent(/^Confirm week · 2 warnings$/);
+  expect(two).toHaveAccessibleDescription('2 warnings 3 decisions left');
+  expect(two).toBeDisabled();
+});
+
+test('no pinned Confirm outside Review & confirm', () => {
+  render(frame('activity'));
+  expect(screen.queryByRole('button', { name: 'Confirm week' })).toBeNull();
+  expect(
+    actions().getByRole('button', { name: 'Next: Event' }),
+  ).toBeInTheDocument();
+});
+
+test('the phone strip pins the compact Confirm at the next end on Review & confirm', () => {
+  const confirm = vi.fn();
+  const view = render(
+    <ShellSlotProvider>
+      {frame('summary', { confirmation: { confirm } })}
+      <div data-testid="bottom">
+        <ShellSlotHost name="phone-status-strip" />
+      </div>
+    </ShellSlotProvider>,
+  );
+  const bottom = screen.getByTestId('bottom');
+  const strip = within(
+    within(bottom).getByRole('region', { name: 'Week actions' }),
+  );
+  expect(bottom.querySelector('[data-week-endpoint="next"]')).toBeNull();
+  const button = strip.getByRole('button', { name: 'Confirm week' });
+  expect(button).toHaveTextContent('Confirm');
+  expect(button).toHaveAccessibleDescription('2 warnings');
+  fireEvent.click(button);
+  expect(confirm).toHaveBeenCalledTimes(1);
+  view.rerender(
+    <ShellSlotProvider>
+      {frame('summary', { reason: '3 decisions left' })}
+      <div data-testid="bottom">
+        <ShellSlotHost name="phone-status-strip" />
+      </div>
+    </ShellSlotProvider>,
+  );
+  const disabled = strip.getByRole('button', { name: 'Confirm week' });
+  expect(disabled).toBeDisabled();
+  expect(disabled).toHaveAccessibleDescription('2 warnings 3 decisions left');
+  expect(strip.getByRole('button', { name: /^Reference:/ })).toHaveTextContent(
+    '3 decisions left',
+  );
 });
 
 test('the phone step button opens a sheet listing every position, chooses one and returns focus', async () => {
@@ -311,3 +426,48 @@ test('the loading skeleton keeps a readable status without a heading', () => {
   expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
+
+// #143 §7, #144 §8 and #145 §8: Event, Persistent and Review & confirm load
+// with placeholders shaped like their own editor, inside the same frame
+// skeleton; Upkeep, Activity and an unknown phase keep the generic body.
+test.each([
+  ['event', 'event', { '[data-skeleton-step]': 3 }],
+  [
+    'persistent',
+    'persistent',
+    { '[data-skeleton-overview]': 1, '[data-skeleton-section]': 2 },
+  ],
+  [
+    'summary',
+    'summary',
+    { '[data-skeleton-review-block]': 1, '[data-skeleton-section]': 6 },
+  ],
+  ['upkeep', 'week', {}],
+  ['activity', 'week', {}],
+  [undefined, 'week', {}],
+] as const)(
+  'the %s address loads with the %s-shaped skeleton',
+  (phase, shape, parts: Record<string, number>) => {
+    const { container } = render(<WeekSkeleton phase={phase} />);
+    const skeleton = container.querySelector('[data-week-skeleton]');
+    expect(skeleton).toHaveAttribute('data-week-skeleton', shape);
+    // One announced status; the placeholders themselves are hidden from
+    // assistive technology and offer nothing to press or read as a heading.
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    const body = container.querySelector('[data-week-skeleton-body]');
+    expect(body).toHaveAttribute('data-week-skeleton-body', shape);
+    expect(body!.closest('[aria-hidden="true"]')).not.toBeNull();
+    for (const [selector, count] of Object.entries(parts))
+      expect(
+        body!.querySelectorAll(selector).length,
+        selector,
+      ).toBeGreaterThanOrEqual(count);
+    // The frame's own placeholders (phone steps, stepper, panel, footer)
+    // stay the same for every phase.
+    expect(
+      container.querySelectorAll('[data-skeleton-frame]').length,
+    ).toBeGreaterThan(0);
+  },
+);

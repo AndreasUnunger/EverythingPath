@@ -3,7 +3,7 @@ import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
-import { expectSaveFailed, saveStatus } from './week-frame';
+import { expectSaveFailed, saveState } from './week-frame';
 export async function exerciseEventWorkspace(
   gm: Page,
   player: Page,
@@ -63,42 +63,45 @@ export async function exerciseEventWorkspace(
   await table(gm, '1').fill('50');
   await expect(table(player, '1.1')).toHaveValue('45');
   await expect(table(player, '1.2')).toHaveValue('82');
-  await occurrence(gm, '1.2')
-    .getByText('Edit Event 1.2 details', { exact: true })
-    .click();
-  await occurrence(gm, '1.2')
-    .getByRole('textbox', { name: 'Average Party Level', exact: true })
-    .fill('4');
-  await occurrence(gm, '1.2')
-    .getByRole('button', { name: 'Save occurrence', exact: true })
-    .click();
-  await occurrence(player, '1.2')
-    .getByText('Edit Event 1.2 details', { exact: true })
-    .click();
+  // All Is Calm (45–48) asks for nothing; beside Invasion it has no effect.
+  const outcomes = (page: Page, path: string) =>
+    occurrence(page, path).getByRole('list', {
+      name: `Event ${path} outcomes`,
+      exact: true,
+    });
+  await expect(outcomes(player, '1.1')).toHaveText(
+    '›No effect: another event happens this week.',
+  );
   await expect(
-    occurrence(player, '1.2').getByRole('textbox', {
+    occurrence(player, '1.1').getByRole('textbox', {
+      name: 'What happened',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  // Invasion's own controls: the Average Party Level and a required What
+  // happened, each entered on one device and shown on the other.
+  const partyLevel = (page: Page) =>
+    occurrence(page, '1.2').getByRole('textbox', {
       name: 'Average Party Level',
       exact: true,
-    }),
-  ).toHaveValue('4');
-  await occurrence(player, '1.2')
-    .getByRole('textbox', {
-      name: 'Event outcome acknowledgement',
+    });
+  const invasionNote = (page: Page) =>
+    occurrence(page, '1.2').getByRole('textbox', {
+      name: 'What happened',
       exact: true,
-    })
-    .fill('The table drove the invaders away.');
+    });
+  await partyLevel(gm).fill('4');
+  await expect(partyLevel(player)).toHaveValue('4');
+  await invasionNote(player).fill('The table drove the invaders away.');
   await occurrence(player, '1.2')
-    .getByRole('button', {
-      name: 'Save event outcome acknowledgement',
-      exact: true,
-    })
+    .getByRole('button', { name: 'Save what happened', exact: true })
     .click();
-  await expect(
-    occurrence(gm, '1.2').getByRole('textbox', {
-      name: 'Event outcome acknowledgement',
-      exact: true,
-    }),
-  ).toHaveValue('The table drove the invaders away.');
+  await expect(invasionNote(gm)).toHaveValue(
+    'The table drove the invaders away.',
+  );
+  await expect(outcomes(gm, '1.2')).toHaveText(
+    '›The GM runs a combat encounter at CR 5 (Average Party Level 4 + 1).',
+  );
   await table(gm, '1.1').fill('0');
   await expect(table(player, '1.1')).toHaveValue('0');
   await table(gm, '1.1').fill('');
@@ -117,6 +120,13 @@ export async function exerciseEventWorkspace(
   await expect(
     sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
+  // Sabotage is offered only when a Saboteurs team exists; this militia has
+  // none, so the happening Sickness offers no reaction.
+  await expect(
+    occurrence(gm, '1.1').getByRole('button', {
+      name: /^Sabotage this event · Event 1\.1/,
+    }),
+  ).toHaveCount(0);
   const happened = (page: Page) =>
     occurrence(page, '1.1').getByRole('textbox', {
       name: 'What happened',
@@ -134,6 +144,57 @@ export async function exerciseEventWorkspace(
     .getByRole('button', { name: 'Clear team that falls sick', exact: true })
     .click();
   await expect(happened(gm)).toHaveValue('');
+  // The GM's next roll saves the whole occurrence it sees. Built before the
+  // cleared team arrives, it would be refused as stale (#143 §5), so the GM
+  // first sees the player's clear.
+  await expect(
+    sickTeam(gm).getByRole('button', { name: teamName!, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
+  // Found Fire (21–24): a reward for the militia's PC, entered in gp to the
+  // copper on one device, appears on the other. The GM's next roll waits for
+  // it, as it would otherwise save the occurrence without the reward.
+  await table(gm, '1.1').fill('22');
+  const rewards = (page: Page) =>
+    occurrence(page, '1.1').getByRole('group', {
+      name: /^Rewards for .+ · Event 1\.1$/,
+    });
+  await rewards(player)
+    .getByRole('button', { name: /^Add reward for .+ · Event 1\.1$/ })
+    .click();
+  const reward = rewards(player).getByRole('group', {
+    name: /^New reward for .+ · Event 1\.1$/,
+  });
+  await reward
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Tanglefoot bag');
+  await reward
+    .getByRole('textbox', { name: 'Value (gp)', exact: true })
+    .fill('0.07');
+  await reward
+    .getByRole('textbox', { name: 'Weight (lb)', exact: true })
+    .fill('4');
+  await reward
+    .getByRole('button', { name: 'Save reward · Event 1.1', exact: true })
+    .click();
+  await expect(
+    rewards(gm).getByText('0.07 gp · 4 lb · alchemical', { exact: true }),
+  ).toBeVisible();
+  // Theft (73–76): its optional mitigation is chosen on one device and its
+  // Loyalty check appears on the other. The GM's next roll waits for it, as
+  // it would otherwise save the occurrence without the choice.
+  await table(gm, '1.1').fill('74');
+  const attemptTheft = occurrence(player, '1.1').getByRole('button', {
+    name: 'Attempt it for Event 1.1',
+    exact: true,
+  });
+  await expect(attemptTheft).toHaveAttribute('aria-pressed', 'false');
+  await attemptTheft.click();
+  await expect(
+    occurrence(gm, '1.1').getByRole('textbox', {
+      name: 'Loyalty check',
+      exact: true,
+    }),
+  ).toBeEnabled();
   await table(gm, '1.1').fill('45');
   await expect(table(player, '1.1')).toHaveValue('45');
   const observer = await gm.context().newPage();
@@ -144,7 +205,10 @@ export async function exerciseEventWorkspace(
     const held = network.hold();
     await table(gm, '1.1').fill('46');
     await held;
-    await expect(saveStatus(gm)).toHaveText('Saving changes…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'pending',
+    );
     await phase(gm, 'Review & confirm');
     await table(player, '1.1').fill('47');
     // A third read-only tab proves the competing mutation was accepted before releasing the stale edit.
@@ -190,14 +254,9 @@ export async function exerciseEventWorkspace(
     );
   }
   await occurrence(gm, '1.2')
-    .getByRole('button', { name: 'Clear event acknowledgement', exact: true })
+    .getByRole('button', { name: 'Clear what happened', exact: true })
     .click();
-  await expect(
-    occurrence(player, '1.2').getByRole('textbox', {
-      name: 'Event outcome acknowledgement',
-      exact: true,
-    }),
-  ).toHaveValue('');
+  await expect(invasionNote(player)).toHaveValue('');
   // Restore the supported journey's quiet week so its exact Confirmation
   // assertions remain meaningful. The recorded events stay on record, unused.
   await chance(gm).fill(previousChance);

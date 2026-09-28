@@ -57,6 +57,7 @@ export function eventFacts(input: EventFactsInput): EventView {
       candidate,
       children: [],
       hidden: [],
+      legacy: [],
       surplus: false,
       removal: null,
       issues: [],

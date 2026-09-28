@@ -1,13 +1,13 @@
 import { expect, type Page } from '@playwright/test';
 import { openCampaignSection } from './interactions';
-import { saveStatus } from './week-frame';
+import { saveState } from './week-frame';
 
 // Build real same-document history through the shell, so a native
 // beforeunload warning cannot accidentally satisfy the departure contract.
 export async function prepareWeekHistory(page: Page) {
   await openCampaignSection(page, 'characters');
   await expect(
-    page.getByRole('region', { name: 'Character Ledger', exact: true }),
+    page.getByRole('region', { name: 'Characters', exact: true }),
   ).toBeVisible();
   const charactersUrl = page.url();
   await openCampaignSection(page, 'week');
@@ -17,7 +17,7 @@ export async function prepareWeekHistory(page: Page) {
 export async function stayOnPendingWeek(
   page: Page,
   direction: 'back' | 'forward',
-  feedback: 'Saving changes…' | 'Confirming the week…',
+  feedback: 'pending' | 'confirming',
 ) {
   const weekUrl = page.url();
   if (direction === 'back') await page.goBack();
@@ -30,7 +30,7 @@ export async function stayOnPendingWeek(
   await warning.getByRole('button', { name: 'Stay', exact: true }).click();
   await expect(warning).toBeHidden();
   await expect(page).toHaveURL(weekUrl);
-  await expect(saveStatus(page)).toHaveText(feedback);
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', feedback);
   await expect(page.getByRole('heading', { name: /^Week \d+ · / })).toHaveCount(
     1,
   );
@@ -53,8 +53,15 @@ export async function leavePendingWeek(
     .click();
   await expect(warning).toBeHidden();
   await expect(page).toHaveURL(charactersUrl);
+  // The page's own title, not its Characters region: that region needs the
+  // page's data, which a transport still holding the week's write (racing
+  // Confirmations) keeps back until release, so the page shows its skeleton.
   await expect(
-    page.getByRole('region', { name: 'Character Ledger', exact: true }),
+    page.getByRole('heading', {
+      name: 'Characters & officers',
+      level: 1,
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Week \d+ · / })).toHaveCount(
     0,

@@ -15,6 +15,7 @@ import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import { MilitiaSection } from '~/components/campaign-sections/militia-section';
 import { stableControl } from '../../../tests/stable-control';
+import { REASON_LABEL } from './correction-copy';
 
 type Call = {
   args: Record<string, unknown>;
@@ -148,7 +149,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('read view', () => {
-  test('lists the nine sections, the read-only week view and the fallback with counts and warnings', () => {
+  test('lists the nine sections and the read-only week view with counts and warnings', () => {
     mount();
     const names = within(index())
       .getAllByRole('button')
@@ -164,7 +165,6 @@ describe('read view', () => {
       expect.stringMatching(/^Marketplaces.*0/),
       expect.stringMatching(/^Carried benefits.*0/),
       expect.stringMatching(/^Week & carried effects.*3 entries/),
-      expect.stringMatching(/^People & officers.*1 entry/),
     ]);
     expect(entry(/^Values/)).toHaveAttribute('aria-current', 'true');
     expect(screen.getByText('123.45 gp (12,345 cp)')).toBeVisible();
@@ -444,43 +444,34 @@ describe('concurrent changes', () => {
   });
 });
 
-describe('temporary full editor', () => {
-  test('an unsplit section opens the full editor, exclusive with section editing, and Cancel writes nothing', () => {
+describe('in-place corrections', () => {
+  // The retired full editor's fields are all reachable: each section opens
+  // its own editor here; roster people, Hit Dice and officer roles are
+  // corrected on Characters & officers (characters-corrections.test.tsx).
+  test.each([
+    ['Values', 'Treasury (copper)'],
+    ['Teams', 'Team name'],
+    ['Settlements', 'Settlement name'],
+    ['Character conditions', 'Add character condition'],
+    ['Items', 'Add item'],
+    ['Caches', 'Add cache'],
+    ['Orders', 'Add order'],
+    ['Marketplaces', 'Add marketplace'],
+    ['Carried benefits', 'Add Market Day benefit'],
+  ])('%s opens its own correction with its fields', (label, control) => {
     mount();
-    fireEvent.click(entry(/^Teams/));
-    fireEvent.click(screen.getByRole('button', { name: 'Correct teams' }));
-    expect(
-      screen.getByRole('heading', { name: 'Correct teams' }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: 'Characters and officers' }),
-    ).toBeVisible();
-    // The full editor keeps the section captions until #178 retires it.
-    expect(
-      screen.getByText(
-        'Choose people from the campaign ledger. Record Hit Dice separately from level.',
-      ),
-    ).toBeVisible();
-    for (const button of within(index()).getAllByRole('button'))
-      if (!(button.textContent ?? '').startsWith('Teams'))
-        expect(button).toBeDisabled();
-    fireEvent.click(screen.getByText('Cancel correction'));
-    expect(entry(/^Values/)).toBeEnabled();
-    expect(calls).toHaveLength(0);
-  });
-
-  test('People & officers opens the full editor with the roster and officers', () => {
-    mount();
-    fireEvent.click(entry(/^People & officers/));
+    fireEvent.click(entry(new RegExp(`^${label}`)));
     fireEvent.click(
-      screen.getByRole('button', { name: 'Correct people & officers' }),
+      screen.getByRole('button', { name: `Correct ${label.toLowerCase()}` }),
     );
-    expect(
-      screen.getByRole('heading', { name: 'Correct people & officers' }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: 'Characters and officers' }),
-    ).toBeVisible();
+    const editor = within(
+      screen
+        .getByRole('heading', { name: `Correct ${label.toLowerCase()}` })
+        .closest<HTMLElement>('section')!,
+    );
+    expect(editor.getAllByText(control).length).toBeGreaterThan(0);
+    expect(editor.getByRole('textbox', { name: REASON_LABEL })).toBeVisible();
+    fireEvent.click(editor.getByRole('button', { name: 'Cancel' }));
     expect(calls).toHaveLength(0);
   });
 });

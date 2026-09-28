@@ -11,7 +11,6 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
 import { SetupAssets } from './assets';
 import { SetupCarriedEffects } from './carry';
-import { MilitiaCorrectionForm } from './form';
 import { GuidedMilitiaSetup } from './guided';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
 import { SetupMilitiaValues, SetupModeChoice } from './starting-point';
@@ -20,6 +19,7 @@ afterEach(cleanup);
 const hero: SetupCharacter = {
   characterId: 'hero',
   name: 'Hero',
+  kind: 'pc',
   level: 3,
   strength: 10,
   dexterity: 10,
@@ -88,7 +88,9 @@ test('[setup.editors.subsections] Assets and Carried effects show only the selec
   ]);
 });
 
-test('[setup.editors.rehost] Setup steps and the full correction form keep their sections and order', () => {
+// Militia corrections re-host these editors one section at a time; their
+// tests cover each correction's fields (src/components/militia-corrections).
+test('[setup.editors.rehost] Setup steps keep their sections and order', () => {
   render(<GuidedMilitiaSetup characters={[hero]} onSave={vi.fn()} />);
   const steps = within(
     screen.getByRole('navigation', { name: 'Setup steps' }),
@@ -116,33 +118,6 @@ test('[setup.editors.rehost] Setup steps and the full correction form keep their
     ],
     ['Review & start', 'Warnings by step'],
   ]);
-  cleanup();
-  render(
-    <MilitiaCorrectionForm
-      characters={[hero]}
-      onSave={vi.fn()}
-      initialValues={{ ...newMilitiaSetup('Loyalty'), mode: 'existing' }}
-    />,
-  );
-  expect(headings()).toEqual([
-    'Militia values',
-    'Characters and officers',
-    'Teams',
-    'Character conditions',
-    'Settlements',
-    'Items',
-    'Caches',
-    'Orders',
-    'Marketplaces',
-    'Carried skill benefits',
-    'Carried Market Day benefits',
-  ]);
-  expect(
-    screen.queryByRole('group', { name: 'Campaign progress' }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole('textbox', { name: 'Reason for correction' }),
-  ).toBeVisible();
 });
 
 function Steps() {

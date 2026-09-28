@@ -15,22 +15,28 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import { activityView, checkModifierLabel } from './activity-facts';
 import { withoutDuplicateRollCodes } from './roll-requirements';
-import {
-  eventPanel,
-  eventPanelMessage,
-  type EventPanelContext,
-} from './event-target-facts';
+import { eventSabotageFacts } from './event-sabotage-facts';
+import { overseerSupportFacts } from './overseer-support-facts';
+import { eventPanel, eventPanelMessage } from './event-target-facts';
+import type { EventPanelContext } from './event-panel-context';
 import { activityReferenceOptions } from './activity-input-options';
+import { uneventfulCarryText } from './event-outcome-facts';
 import { activityLabel } from './activity-labels';
 import { eventRequirement, eventTopologyMessage } from './event-messages';
 import {
   eventName,
   eventTableFacts,
+  eventTraceFacts,
   eventTreeBlocks,
   type LocatedEvent,
   type Repair,
 } from './event-tree-facts';
-import type { EventCandidateSet, EventChanceStep, EventView } from './types';
+import type {
+  EventCandidateSet,
+  EventChanceStep,
+  EventOccurrenceFacts,
+  EventView,
+} from './types';
 
 type Event = WeeklyDraft['event']['occurrences'][number];
 
@@ -60,34 +66,26 @@ export function eventView(
     { choiceId: '', actionId: 'lie_low' },
     activityFacts,
   );
-  const slotNumber = (slotId: string) =>
-    draft.activity.slots.findIndex((slot) => slot.slotId === slotId) + 1;
-  const teamName = (teamId: string | undefined) =>
-    source.snapshot.roster.teams.find((team) => team.teamId === teamId)?.name;
-  const candidateLabel = (slotId: string) => {
-    const choice = draft.activity.slots.find(
-      (slot) => slot.slotId === slotId,
-    )?.choice;
-    const team = teamName(choice?.teamId);
-    return `${activityLabel(choice?.actionId ?? 'event')} · Action Slot ${slotNumber(slotId)}${team ? ` · ${team}` : ''}`;
-  };
+  const candidateLabel = (slotId: string) =>
+    candidateSetLabel(draft, source, slotId);
   // Due automatic sources and their counts come from the engine's trace.
-  const automaticSources = positions.flatMap((group) =>
-    group.kind === 'automatic'
-      ? [
-          {
-            sourceId: group.sourceId,
-            label:
-              eventName(
-                draft.context.queuedEffects.find(
-                  (effect) => effect.sourceId === group.sourceId,
-                )?.eventType,
-              ) ?? 'An earlier event',
-            count: group.count,
-          },
-        ]
-      : [],
-  );
+  // The source's week is the one before its automatic events are due.
+  const automaticSources = positions.flatMap((group) => {
+    if (group.kind !== 'automatic') return [];
+    const queued = draft.context.queuedEffects.find(
+      (effect) =>
+        effect.sourceId === group.sourceId &&
+        effect.effect.kind === 'automatic_events',
+    );
+    return [
+      {
+        sourceId: group.sourceId,
+        label: eventName(queued?.eventType) ?? 'An earlier event',
+        week: (queued?.startsWeek ?? draft.week) - 1,
+        count: group.count,
+      },
+    ];
+  });
   const sourceLabel = (sourceId: string) =>
     automaticSources.find((entry) => entry.sourceId === sourceId)?.label ??
     'An earlier event';
@@ -105,21 +103,20 @@ export function eventView(
         message: messages[code] ?? eventRequirement(code),
       })),
   });
-  function occurrenceFacts({ event, owner }: LocatedEvent, label: string) {
+  function occurrenceFacts(
+    { event, owner }: LocatedEvent,
+    label: string,
+  ): EventOccurrenceFacts {
+    const trace = eventTraceFacts(projection, event);
     const resolved = projection?.tree.find(
       (entry) => entry.eventId === event.eventId,
     );
-    const mode =
-      projection?.dispatch.find(
-        (entry) => entry.event.eventId === event.eventId,
-      )?.mode ?? null;
-    const prefixes = [event.eventId, event.sabotage?.choiceId].filter(Boolean);
     return {
+      ...trace,
       occurrence: structuredClone(event),
       label,
       owner: structuredClone(owner),
-      resolvedType: resolved?.eventType ?? null,
-      optionalMitigation: eventMitigationInput(resolved ?? event, mode),
+      optionalMitigation: eventMitigationInput(resolved ?? event, trace.mode),
       exceptionChoices: eventExceptions(
         event,
         draft,
@@ -129,20 +126,7 @@ export function eventView(
       changes:
         projection?.plan.filter((change) => change.eventId === event.eventId) ??
         [],
-      mode,
-      selected:
-        projection?.selected.some((entry) => entry.eventId === event.eventId) ??
-        false,
-      negated: projection?.negatedEventIds.includes(event.eventId) ?? false,
       panel: null,
-      requirements:
-        projection?.requirements.filter((key) =>
-          prefixes.some((id) => key.startsWith(`${id}:`)),
-        ) ?? [],
-      warnings:
-        projection?.warnings.filter((key) =>
-          prefixes.some((id) => key.startsWith(`${id}:`)),
-        ) ?? [],
     };
   }
 
@@ -163,6 +147,7 @@ export function eventView(
     projection,
     activity,
     teams: activityFacts.teamRoster,
+    activitySlots: activityFacts.slots,
     personName: (characterId) =>
       source.people.find((person) => person.characterId === characterId)
         ?.name ?? null,
@@ -207,12 +192,8 @@ export function eventView(
         sabotageId: item.occurrence.sabotage?.choiceId ?? null,
         label: label(item.occurrence.eventId),
       })),
-      candidateLabel: (choiceId) => {
-        const slot = draft.activity.slots.find(
-          (entry) => entry.choice?.choiceId === choiceId,
-        );
-        return slot ? candidateLabel(slot.slotId) : null;
-      },
+      candidateLabel: (choiceId) =>
+        candidateChoiceLabel(draft, source, choiceId),
       sourceLabel,
       settlementName,
       preparationFailed: context.preparationFailed,
@@ -436,9 +417,10 @@ export function eventView(
           ...(projection?.negatedEventIds ?? []).map(
             (eventId) => `${label(eventId)} was sabotaged and does not happen.`,
           ),
-          projection?.nextUneventfulCarry
-            ? `Uneventful: next week's event chance rises by ${activity?.outcome.rank ?? source.snapshot.rank}.`
-            : 'Not an uneventful week: no chance bonus next week.',
+          uneventfulCarryText(
+            { draft, projection },
+            activity?.outcome.rank ?? source.snapshot.rank,
+          ),
         ]
       : [],
   };
@@ -500,9 +482,50 @@ export function eventView(
         label: label(occurrence.eventId),
       })),
     },
+    sabotage: Object.fromEntries(
+      tree.occurrences.map((item) => [
+        item.occurrence.eventId,
+        eventSabotageFacts(item, panelContext),
+      ]),
+    ),
+    overseer: overseerSupportFacts({
+      draft,
+      outcome: activity?.outcome ?? source.snapshot,
+      eventLabel: label,
+      unused: tree.occurrences
+        .filter((item) => !item.selected)
+        .map((item) => item.occurrence.eventId),
+    }),
     requirements: withoutDuplicateRollCodes(projection?.requirements ?? []),
     warnings: projection?.warnings ?? [],
   };
+}
+
+// Names an Activity choice's candidate set by its action, slot and team.
+export function candidateSetLabel(
+  draft: WeeklyDraft,
+  source: WorkspaceSource,
+  slotId: string,
+) {
+  const index = draft.activity.slots.findIndex(
+    (slot) => slot.slotId === slotId,
+  );
+  const choice = draft.activity.slots[index]?.choice;
+  const team = source.snapshot.roster.teams.find(
+    (entry) => entry.teamId === choice?.teamId,
+  )?.name;
+  return `${activityLabel(choice?.actionId ?? 'event')} · Action Slot ${index + 1}${team ? ` · ${team}` : ''}`;
+}
+/** The candidate set label of the choice with this identity, if staged. */
+export function candidateChoiceLabel(
+  draft: WeeklyDraft,
+  source: WorkspaceSource,
+  choiceId: string,
+) {
+  const slot = draft.activity.slots.find(
+    (entry) => entry.choice?.choiceId === choiceId,
+  );
+  return slot ? candidateSetLabel(draft, source, slot.slotId) : null;
 }
 
 function eventExceptions(

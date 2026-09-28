@@ -2,16 +2,38 @@ import type { Project } from '@playwright/test';
 import type { CaseKey } from '../fixtures/catalog';
 
 export type SuiteMode = 'mandatory' | 'nightly';
+// Access and the journeys split from it (#187 and the load timeouts in
+// XxSqla, rUyJDK and qnkZrD): each owns a case seeded like `smoke` and runs on
+// every browser project that runs access.
+export const accessJourneyFiles = [
+  'access.spec.ts',
+  'campaign-home.spec.ts',
+  'campaign-sections.spec.ts',
+  'legacy-addresses.spec.ts',
+  'legacy-week-links.spec.ts',
+] as const;
 export const criticalJourneys = [
   [
     'access.spec.ts',
     'organization members can open their campaign and outsiders cannot',
   ],
-  // Split from access (#187), which runs on every browser project: this runs
-  // wherever access runs.
+  // Split from access, which runs on every browser project: these run
+  // wherever access runs (`accessJourneyFiles`).
   [
     'campaign-home.spec.ts',
     'members choose and edit their campaign home and outsiders never see it',
+  ],
+  [
+    'campaign-sections.spec.ts',
+    'members move between campaign sections at every width and through browser history',
+  ],
+  [
+    'legacy-addresses.spec.ts',
+    'unknown campaigns stay unavailable and legacy addresses lead members to their campaign',
+  ],
+  [
+    'legacy-week-links.spec.ts',
+    'legacy week links open their phase in a bounded week without moving other members',
   ],
   [
     'existing-militia.spec.ts',
@@ -66,6 +88,26 @@ const workspaceJourneys = [
     'racing Confirmations commit one reviewed week and reject stale and delayed changes',
     'workspaceConfirmation',
   ],
+  // The settlement/rank content at phone and desktop sizes (#140), split so
+  // the settlement/rank journey stays well under its limit.
+  [
+    'settlement and rank cards and team repairs stay reachable on phone and desktop',
+    'workspaceUpkeepLayout',
+  ],
+  // Event and Review & confirm at phone landscape and the narrow tablet, with
+  // Review's warnings and recorded outcomes (#143, #145), split so the
+  // Activity-and-Event and persistent journeys keep their margins.
+  [
+    'Event blocks and the week review stay reachable at phone landscape and on a narrow tablet',
+    'workspaceEventReview',
+  ],
+  // Activity at phone landscape and 1180x820, touch, and changes from
+  // another device (#142 §6), split so the recovery journey that runs the
+  // tablet Activity checks stays well under its limit.
+  [
+    'Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device',
+    'workspaceActivity',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {
@@ -92,7 +134,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   };
   const phone: Project = {
     name: 'chromium-phone',
-    testMatch: ['access.spec.ts', 'campaign-home.spec.ts'],
+    testMatch: [...accessJourneyFiles],
     dependencies: ['authentication'],
     use: {
       browserName: 'chromium',
@@ -104,8 +146,7 @@ export function browserProjects(mode: SuiteMode): Project[] {
   const firefox: Project = {
     name: 'firefox-desktop',
     testMatch: [
-      'access.spec.ts',
-      'campaign-home.spec.ts',
+      ...accessJourneyFiles,
       'existing-militia.spec.ts',
       'complete-week.spec.ts',
     ],

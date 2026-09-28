@@ -31,7 +31,7 @@ export function SetupModeChoice() {
   return (
     <Field
       name="mode"
-      label="Campaign progress"
+      label="New or existing militia"
       onChoice={(mode) => {
         if (mode === 'existing')
           setValue('state.context.firstMilitiaWeek', false, {

@@ -106,15 +106,20 @@ export function EventIssueNotes({ issues }: { issues: EventIssue[] }) {
 export function InlineAction({
   onClick,
   children,
+  ariaLabel,
 }: {
   onClick: () => void;
   children: ReactNode;
+  // The accessible name when the visible words need context, e.g. the block.
+  ariaLabel?: string;
 }) {
   return (
     <Button
       type="button"
       variant="link"
-      className="h-auto justify-start p-0 text-left text-sm"
+      aria-label={ariaLabel}
+      // Wraps like text: the button base is nowrap, which overflows a phone.
+      className="h-auto max-w-full min-w-0 justify-start p-0 text-left text-sm [overflow-wrap:anywhere] whitespace-normal"
       onClick={onClick}
     >
       {children}

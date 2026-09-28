@@ -99,6 +99,13 @@ window is not an instruction to delete a backup or discard post-cutover work.
 Use the compatible pre-retirement release for old-backup recovery; this release
 intentionally cannot resume legacy gameplay.
 
+## Later compatibility paths
+
+This record is closed. Compatibility code the canonical application added
+after this retirement, and the rejection endpoint names above, are
+inventoried for later removal in the
+[legacy compatibility inventory](legacy-compatibility-inventory.md).
+
 ## Standards review
 
 No outstanding documented-standard violations or blocking findings. The narrowing

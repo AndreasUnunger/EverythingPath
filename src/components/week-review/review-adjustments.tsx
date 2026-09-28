@@ -29,9 +29,13 @@ function AdjustmentArticle({
         <Chip>{adjustment.effect}</Chip>
         <span className="text-muted-foreground text-xs">{adjustment.kind}</span>
       </p>
-      <Quoted text={adjustment.reason} />
+      {capabilities?.adjustment ? (
+        // The live editor owns the reason, so the renderer does not repeat it.
+        capabilities.adjustment(adjustment, index)
+      ) : (
+        <Quoted text={adjustment.reason} />
+      )}
       <Notes notes={adjustment.notes} capabilities={capabilities} />
-      {capabilities?.adjustment?.(adjustment, index)}
     </article>
   );
 }

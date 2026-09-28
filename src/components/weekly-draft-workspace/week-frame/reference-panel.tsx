@@ -354,14 +354,15 @@ export function DockedReferencePanel(props: ReferenceProps) {
     <aside
       data-week-reference
       aria-label="Reference panel"
-      className="bg-sidebar border-foreground/15 short:p-2 hidden w-72 shrink-0 overflow-x-hidden overflow-y-auto border-l p-3 md:block xl:w-80"
+      // relative: its visually hidden text stays in its own scroller.
+      className="bg-sidebar border-foreground/15 short:p-2 relative hidden w-72 shrink-0 overflow-x-hidden overflow-y-auto border-l p-3 md:block xl:w-80"
     >
       <ReferenceBody {...props} />
     </aside>
   );
 }
 
-/** The top-row toggle; hidden on phone, where the strip opens the sheet. */
+/** The stepper's end toggle; hidden on phone, where the strip opens the sheet. */
 export function ReferencePanelToggle({ panel }: { panel: ReferencePanel }) {
   const Icon = panel.open ? PanelRightClose : PanelRightOpen;
   return (
@@ -387,37 +388,44 @@ export function ReferencePanelToggle({ panel }: { panel: ReferencePanel }) {
 export function PhoneReferenceSheet({
   phase,
   confirmationDisabledReason,
+  readinessId,
   ...props
 }: ReferenceProps & {
   phase: Phase;
   confirmationDisabledReason: string | null;
+  /** Names the readiness span so the strip's pinned Confirm can cite it. */
+  readinessId?: string;
 }) {
   const { panel, facts, step } = props;
   const readiness = stripReadiness(step, confirmationDisabledReason);
   return (
     <Sheet open={panel.sheetOpen} onOpenChange={panel.setSheetOpen}>
       <SheetTrigger asChild>
-        {/* The shared Button, laid out as two stacked lines that fill the
-            strip's middle; the ghost variant keeps the strip's background. */}
+        {/* The shared Button, laid out as stacked lines (Training, Treasury,
+            readiness) that fill the strip's middle; the ghost variant keeps
+            the strip's background. Each value stays on one line; truncate is
+            only the guard against a pathological width. */}
         <Button
           type="button"
           variant="ghost"
           data-week-strip-trigger
-          className="short:min-h-9 h-auto min-h-11 min-w-0 flex-1 flex-col gap-0 rounded-sm px-1 py-0.5 text-center font-normal whitespace-normal"
+          className="short:min-h-9 h-auto min-h-11 min-w-0 flex-1 flex-col gap-0 rounded-sm px-1 py-0.5 text-center text-xs leading-tight font-normal whitespace-normal"
         >
           <span className="sr-only">Reference: </span>
-          <span className="flex max-w-full min-w-0 items-center gap-x-2 text-xs">
-            {stripValues(facts).map((item) => (
-              <span key={item.label} className="min-w-0 truncate">
-                <span className="text-muted-foreground">{item.label} </span>
-                <span className="font-mono">{item.value}</span>
-              </span>
-            ))}
-          </span>
+          {stripValues(facts).map((item) => (
+            <span
+              key={item.label}
+              className="block max-w-full truncate whitespace-nowrap"
+            >
+              <span className="text-muted-foreground">{item.label} </span>
+              <span className="font-mono">{item.value}</span>
+            </span>
+          ))}
           <span
+            id={readinessId}
             data-week-readiness
             className={cn(
-              'max-w-full truncate text-xs',
+              'block max-w-full truncate empty:hidden',
               step.requirements.length && step.phase !== 'summary'
                 ? 'text-primary'
                 : 'text-muted-foreground',

@@ -41,6 +41,74 @@ async function readinessLine(page: Page) {
   return line;
 }
 
+type ConfirmName = 'Confirm week' | 'Confirming…';
+
+/** The review block's Confirm week at the top of Review & confirm. */
+export function reviewConfirm(page: Page, name: ConfirmName = 'Confirm week') {
+  return page
+    .getByRole('region', { name: 'Review the week', exact: true })
+    .getByRole('button', { name, exact: true });
+}
+
+/**
+ * The frame's pinned Confirm week on Review & confirm: at the footer's next
+ * position from 768px, at the phone strip's next end below it. The two
+ * "Week actions" regions are never shown together.
+ */
+export function pinnedConfirm(page: Page, name: ConfirmName = 'Confirm week') {
+  return page
+    .getByRole('region', { name: 'Week actions', exact: true })
+    .getByRole('button', { name, exact: true });
+}
+
+/**
+ * Scrolled down to Table Adjustments, the pinned Confirm stays whole in
+ * the viewport, shows the same control as the review block's, and counts
+ * the review block's own Warnings list (visible beside its label and in
+ * its description; the count never disables it). Returns that count.
+ */
+export async function expectPinnedConfirm(page: Page) {
+  const adjustments = page.getByRole('region', {
+    name: 'Table Adjustments',
+    exact: true,
+  });
+  await adjustments.evaluate((element) =>
+    element.scrollIntoView({ block: 'end' }),
+  );
+  await expect(adjustments).toBeInViewport();
+  const pinned = pinnedConfirm(page);
+  await expect(pinned).toBeVisible();
+  await expect(pinned).toBeInViewport({ ratio: 1 });
+  const box = (await pinned.boundingBox())!;
+  expect(box.height, 'pinned Confirm tap target').toBeGreaterThanOrEqual(44);
+  expect(box.width, 'pinned Confirm tap target').toBeGreaterThanOrEqual(44);
+  const enabled = await reviewConfirm(page).isEnabled();
+  if (enabled) await expect(pinned).toBeEnabled();
+  else await expect(pinned).toBeDisabled();
+  const review = page.getByRole('region', {
+    name: 'Review the week',
+    exact: true,
+  });
+  const warnings = await review
+    .getByRole('region', { name: 'Warnings', exact: true })
+    .getByRole('listitem')
+    .count();
+  const counted = `${warnings} warning${warnings === 1 ? '' : 's'}`;
+  const wide = page.viewportSize()!.width >= 768;
+  if (warnings) {
+    await expect(pinned).toHaveAccessibleDescription(
+      new RegExp(`^${counted}\\b`),
+    );
+    await expect(pinned).toHaveText(
+      wide ? `Confirm week · ${counted}` : `Confirm · ${warnings}`,
+    );
+  } else {
+    await expect(pinned).not.toHaveAccessibleDescription(/warning/);
+    await expect(pinned).toHaveText(wide ? 'Confirm week' : 'Confirm');
+  }
+  return warnings;
+}
+
 /**
  * Tablet and desktop (from 768px): stepper positions, descriptions, the
  * locked Persistent, and footer previous/next skipping and endpoints. Ends
@@ -97,29 +165,40 @@ export async function exerciseWeekFrame(page: Page) {
     nav.getByRole('button', { name: 'Review & confirm', exact: true }),
   ).toHaveAttribute('aria-current', 'step');
   await expect(page).toHaveURL(/phase=summary/);
-  // The last position: no wrap forward, and only a disabled-Confirmation
-  // reason (or nothing) in the footer; never a ready/needs-attention line.
-  await expect(
-    page.getByRole('button', { name: 'Next', exact: true }),
-  ).toBeDisabled();
+  // The last position: no wrap forward and no Next control; the footer's
+  // next position holds the pinned Confirm week, the same control as the
+  // review block's, beside a disabled-Confirmation reason (or nothing);
+  // never a ready/needs-attention line.
+  await expect(page.getByRole('button', { name: /^Next\b/ })).toHaveCount(0);
   const line = await readinessLine(page);
   const reason = (await line.textContent())!.trim();
-  const confirmable = await page
-    .getByRole('button', { name: 'Confirm week', exact: true })
-    .isEnabled();
-  // Confirmable: nothing at all. Otherwise exactly one disabled reason;
-  // never the removed ready/needs-attention sentence.
-  if (confirmable) expect(reason, 'no caption when confirmable').toBe('');
-  else
+  const confirmable = await reviewConfirm(page).isEnabled();
+  const pinned = pinnedConfirm(page);
+  await expect(pinned).toBeVisible();
+  await expect(
+    page.locator('[data-week-footer]:visible [data-week-endpoint="next"]'),
+  ).toHaveCount(0);
+  // Confirmable: nothing at all. Otherwise exactly one disabled reason,
+  // which also describes the pinned Confirm; never the removed
+  // ready/needs-attention sentence.
+  if (confirmable) {
+    expect(reason, 'no caption when confirmable').toBe('');
+    await expect(pinned).toBeEnabled();
+  } else {
     expect(reason, 'only the disabled-Confirmation reason').toMatch(
       /^(\d+ decisions? left|Review .*|Confirming the week…|Opening the next week…)$/,
     );
+    await expect(pinned).toBeDisabled();
+    await expect(pinned).toHaveAccessibleDescription(
+      new RegExp(`${reason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+    );
+  }
   expect(reason).not.toMatch(/ready for confirmation|attention/i);
   await previous(locked ? 'Event' : 'Persistent').click();
   await nav.getByRole('button', { name: 'Upkeep', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Previous', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Previous\b/ })).toHaveCount(
+    0,
+  );
   await expect(next('Activity')).toBeEnabled();
   await expect(await readinessLine(page)).toHaveText(
     /^(Upkeep is ready\.|Complete the required rolls and decisions to finish Upkeep\.)/,
@@ -201,17 +280,21 @@ export async function exercisePhoneSteps(page: Page) {
 // After columns, an honest After, link targets and local visibility.
 
 /**
- * The one save/confirmation status of the Week. Other polite statuses can
- * legitimately exist beside it (the History tab's loading line, the
- * other-player note), so save feedback is always read from this element
- * rather than any status. It is a polite status ordinarily and an alert
- * while a save has failed (#153), so it is selected by its hook alone.
+ * The store's save state (idle, pending, saved, failed, confirming), read
+ * from the board's invisible `data-week-feedback` hook. The top-bar save
+ * status was removed at the user's request (2026-09-28, amending #137), so
+ * no sentence shows it; tests wait on this instead of on visible text.
  */
-export function saveStatus(page: Page) {
-  return page.locator('[data-week-status]');
+export function saveState(page: Page) {
+  return page.locator('[data-week-feedback]');
 }
 
-/** "Another player changed …" beside the save status (#153). */
+/** The failed-save alert in the frame's status row: always mounted, empty unless a save failed. */
+export function saveFailure(page: Page) {
+  return page.locator('[data-week-save-failure]');
+}
+
+/** "Another player changed …" in the frame's status row (#153). */
 export function remoteChangeNote(page: Page) {
   return page.locator('[data-week-remote-note]');
 }
@@ -446,17 +529,17 @@ export async function exerciseReferenceHistoryFailure(
   await expect(
     panel.getByRole('link', { name: 'All finished weeks', exact: true }),
   ).toHaveAttribute('href', `/campaigns/${campaignId}/history`);
-  // Editing is unaffected: the input accepts a value and the Week's own
-  // status reports the save.
+  // Editing is unaffected: the input accepts a value and the store
+  // reports the save.
   await editInput.fill(values[0]);
   await expect(editInput).toHaveValue(values[0]);
-  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
   await expect(failure).toHaveCount(1);
   network.failHistory(false);
   await failure.getByRole('button', { name: 'Try again', exact: true }).click();
   await expectHealthyHistory(panel, campaignId);
   await editInput.fill(values[1]);
-  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
   await panel.getByRole('tab', { name: 'Militia' }).click();
 }
 
@@ -473,6 +556,7 @@ export async function exercisePhoneReference(page: Page) {
   await expect(trigger).toBeVisible();
   await expect(trigger).toHaveAccessibleName(/^Reference:.*Training.*Treasury/);
   await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+  await expectStripValuesWhole(page);
   await trigger.focus();
   await page.keyboard.press('Enter');
   const sheet = page.getByRole('dialog', { name: 'Reference', exact: true });
@@ -500,78 +584,127 @@ export async function exercisePhoneReference(page: Page) {
   await expect(trigger).toBeFocused();
 }
 
-/** The one save status must report a failed save as an alert with the exact text. */
+/** A failed save is one visible alert with the exact text, and nothing else says so. */
 export async function expectSaveFailed(page: Page) {
-  const status = saveStatus(page);
-  await expect(status).toHaveCount(1);
-  await expect(status).toHaveText(
+  const failure = saveFailure(page);
+  await expect(failure).toHaveCount(1);
+  await expect(failure).toHaveText(
     /^Changes could not be saved\. The latest saved values are shown\./,
   );
-  await expect(status).toHaveAttribute('role', 'alert');
-  await expect(status).toHaveAttribute('data-week-status-failed', '');
+  await expect(failure).toHaveAttribute('role', 'alert');
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'failed');
 }
 
 /**
- * Below 768px the status and note are glyphs; the Status details button
- * (reading "Not saved" while a save has failed) opens a dialog with the
- * full status and the other-player note as plain text, closes on Escape
- * and returns focus. `failed` selects which button name is expected.
+ * The failure (and any other-player note) is visible text at every size in
+ * the frame's own row, inside the viewport and outside the top bar. No top-
+ * bar save status, phone glyph or Status details button remains, and the
+ * normal save sentences are never shown.
  */
-export async function exerciseStatusDetails(page: Page, failed: boolean) {
-  expect(page.viewportSize()!.width).toBeLessThan(768);
-  const trigger = page.getByRole('button', {
-    name: failed ? 'Not saved. Show status details' : 'Show status details',
-    exact: true,
-  });
-  await expect(trigger).toBeVisible();
-  const statusText = (await saveStatus(page).textContent())!.trim();
-  const noteText = (await remoteChangeNote(page).textContent())!.trim();
-  await trigger.focus();
-  await page.keyboard.press('Enter');
-  const dialog = page.getByRole('dialog', { name: 'Status', exact: true });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator('[data-week-status-detail]')).toHaveText(
-    statusText,
+export async function expectVisibleFailure(page: Page) {
+  const { width } = page.viewportSize()!;
+  const failure = saveFailure(page);
+  await expect(failure).toBeVisible();
+  const box = (await failure.boundingBox())!;
+  expect(box.width, 'failure has visible width').toBeGreaterThan(24);
+  expect(box.height, 'failure has visible height').toBeGreaterThan(8);
+  expect(box.x, 'failure starts inside the viewport').toBeGreaterThanOrEqual(
+    -1,
   );
-  if (noteText)
-    await expect(dialog.locator('[data-week-remote-detail]')).toHaveText(
-      noteText,
-    );
-  else await expect(dialog.locator('[data-week-remote-detail]')).toHaveCount(0);
-  // Plain text only: the dialog adds no live region of its own.
-  await expect(dialog.locator('[role="status"], [role="alert"]')).toHaveCount(
+  expect(box.x + box.width, 'failure fits the viewport').toBeLessThanOrEqual(
+    width + 1,
+  );
+  await expect(page.locator('header [data-week-save-failure]')).toHaveCount(0);
+  const note = remoteChangeNote(page);
+  if ((await note.textContent())!.trim()) await expect(note).toBeVisible();
+  await expectNoSaveStatus(page);
+}
+
+/** The removed top-bar save status stays gone at this size. */
+export async function expectNoSaveStatus(page: Page) {
+  await expect(page.locator('[data-shell-slot="top-bar-status"]')).toHaveCount(
     0,
   );
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: /Show status details$/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      /^(Prepare the week together\.|Saving changes…|Changes saved\.)$/,
+    ),
+  ).toHaveCount(0);
 }
 
 /**
- * From 768px the status sentences themselves are visible in the top bar
- * (including a failure and any other-player note) and the phone-only
- * Status details trigger is not offered. `failed` selects the expected
- * status semantics.
+ * The phone strip exists to show Training and Treasury now → after, so
+ * neither value line may be cut off: each fits its own line in full,
+ * including beside the compact Confirm on Review & confirm.
  */
-export async function expectWideStatus(page: Page, failed: boolean) {
-  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(768);
-  const status = saveStatus(page);
-  await expect(status).toHaveCount(1);
-  await expect(status).toBeVisible();
-  if (failed) await expectSaveFailed(page);
-  else await expect(status).toHaveAttribute('role', 'status');
-  // The sentence is rendered as visible text, not screen-reader-only.
-  const sentence = status.locator('span').last();
-  await expect(sentence).toBeVisible();
-  const box = (await sentence.boundingBox())!;
-  expect(box.width, 'status sentence has visible width').toBeGreaterThan(24);
-  expect(box.height, 'status sentence has visible height').toBeGreaterThan(8);
-  const note = remoteChangeNote(page);
-  if ((await note.textContent())!.trim()) {
-    await expect(note).toBeVisible();
-    await expect(note.locator('span').last()).toBeVisible();
+export async function expectStripValuesWhole(page: Page) {
+  // "→ …" is the honest after value while decisions are open, so the check
+  // is geometric: no line is narrower than its own text.
+  const lines = await page
+    .locator('[data-week-strip-trigger]')
+    .evaluate((trigger) =>
+      Array.from(trigger.children)
+        .filter((line) => /^(Training|Treasury) /.test(line.textContent ?? ''))
+        .map((line) => ({
+          label: line.textContent.split(' ')[0],
+          clipped: line.scrollWidth > line.clientWidth + 1,
+          height: line.getBoundingClientRect().height,
+        })),
+    );
+  expect(lines.map((line) => line.label)).toEqual(['Training', 'Treasury']);
+  for (const line of lines) {
+    expect(line.clipped, `${line.label} is shown in full`).toBe(false);
+    expect(line.height, `${line.label} is visible`).toBeGreaterThan(4);
   }
-  await expect(
-    page.getByRole('button', { name: /Show status details$/ }),
-  ).toBeHidden();
+}
+
+/**
+ * From 768px the reference panel toggle has no row of its own: on tablet it
+ * ends the stepper row, on desktop it shares the rail's "Week N" line above
+ * the steps. The frame's status row above the stepper takes no space while
+ * it has nothing to show (no failure, other-player note, notice or notes).
+ */
+export async function expectPanelToggleBesideStepper(page: Page) {
+  const { width } = page.viewportSize()!;
+  expect(width).toBeGreaterThanOrEqual(768);
+  const toggle = page.getByRole('button', {
+    name: /^(Show|Hide) reference panel$/,
+  });
+  await expect(toggle).toHaveCount(1);
+  await expect(toggle).toBeVisible();
+  const toggleBox = (await toggle.boundingBox())!;
+  const steps = stepper(page).getByRole('button');
+  const first = (await steps.first().boundingBox())!;
+  const last = (await steps.last().boundingBox())!;
+  if (width < 1280) {
+    // One band: the toggle overlaps the step buttons vertically, after them.
+    expect(toggleBox.y, 'toggle within the stepper row').toBeLessThan(
+      first.y + first.height,
+    );
+    expect(toggleBox.y + toggleBox.height).toBeGreaterThan(first.y);
+    expect(toggleBox.x, 'toggle ends the stepper row').toBeGreaterThanOrEqual(
+      last.x + last.width - 1,
+    );
+  } else {
+    // Above the rail's first step, within the rail's width.
+    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(first.y + 1);
+    expect(toggleBox.x + toggleBox.width).toBeLessThanOrEqual(
+      first.x + first.width + 1,
+    );
+  }
+  const row = page.locator(':has(> [data-week-status-row-group])');
+  await expect(row).toHaveCount(1);
+  const empty = await row.evaluate(
+    (element) =>
+      !Array.from(element.querySelectorAll('*')).some(
+        (child) =>
+          !child.hasAttribute('data-week-status-row-group') &&
+          child.childNodes.length > 0,
+      ),
+  );
+  if (empty) await expect(row).toBeHidden();
+  else await expect(row).toBeVisible();
 }

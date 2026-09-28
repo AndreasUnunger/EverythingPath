@@ -140,7 +140,7 @@ export function carriedEventLine(
   return `${event.name} · ${event.ageWeeks} weeks · ${targets}`;
 }
 
-function plural(value: number, noun: string) {
+export function plural(value: number, noun: string) {
   return `${value} ${noun}${value === 1 ? '' : 's'}`;
 }
 

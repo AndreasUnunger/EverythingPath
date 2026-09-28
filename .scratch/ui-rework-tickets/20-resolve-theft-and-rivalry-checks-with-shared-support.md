@@ -1,0 +1,58 @@
+# T20: Resolve Theft and Rivalry checks with shared support
+
+**Published:** [#168](https://github.com/AndreasUnunger/EverythingPath/issues/168) · **Label:** `ready-for-agent`
+
+<!-- everythingpath-ui-rework-148:T20 -->
+
+Approved implementation ticket **T20**.
+
+## Parent
+
+Owning area spec: [#144: Implement carried Persistent events and shared support decisions](https://github.com/AndreasUnunger/EverythingPath/issues/144). Implementation parent: [#148](https://github.com/AndreasUnunger/EverythingPath/issues/148#source-traceability-and-future-tickets).
+
+## What to build
+
+Players make this-week Theft mitigation or Rivalry ending checks and move Overseer support without duplicating its benefit.
+
+## Acceptance criteria
+
+- [ ] Implement Theft Loyalty DC 20 temporary mitigation and Rivalry character/skill/bonus/d20 with the existing non-officer exception and correct skill-versus-organization bonuses.
+- [ ] Preserve every supported retained mitigation field, targets and custom modifiers; use Event’s ordered support-move service with truthful failure/conflict recovery.
+- [ ] Verify whole-week treasury/buyoff consequences, repeated instances and cross-week Rivalry behavior; keep #31 separate and preserve historical cost warnings and immutable outcomes.
+- [ ] Include the slice’s applicable tablet, phone and desktop behavior, accessibility, structural validation, membership/campaign isolation, multi-device save/failure/reload and Confirmation safeguards; retain working existing controls for unsplit capabilities. No prototype merge or unapproved contract change.
+- [ ] Run `pnpm -s typecheck`, `pnpm -s lint` and relevant meaningful unit/integration/browser scenarios from the owning spec. Record actual results and environment limits; update capability inventory locations and evidence only for shipped work.
+
+## Spec and capability coverage
+
+Acceptance anchors: **§5 Checks and adjudication; Overseer allocation and changes elsewhere; canonical Rivalry coverage** in [owning spec #144](https://github.com/AndreasUnunger/EverythingPath/issues/144). These criteria partition that contract; they do not replace its detailed field lists, compatibility requirements or validation cases.
+
+Implemented or compatibility-covered portions: `PER-03`, `PER-04`, `PER-07`, `PER-08`, `PER-10`. Where a capability spans slices, this ticket owns only the behavior described above; all owning-area tickets must complete before the area is shipped.
+
+Preserve the owning spec’s cross-area handoffs for `ACT-10`, `ACT-13`, `ACT-17`, `EVT-07`, `EVT-10`, `EVT-11`, `EVT-12`, `EVT-14`, `NAV-15`, `STATE-01`, `STATE-02`, `STATE-03`, `STATE-05`, `STATE-06`, `STATE-07`, `SUM-01`, `SUM-02`, `SUM-03`, `SUM-04`, `SUM-05`, `SUM-06`, `SUM-07`, `SUM-08`, `SUM-09`, `SUM-10`, `SUM-11`, `WEEK-01`, `WEEK-02`, `WEEK-03`, `WEEK-04`, `WEEK-05`, `WEEK-06`, `WEEK-07`, `WEEK-08`, `WEEK-09`, `WEEK-10`, `WEEK-11`, `WEEK-12`, `WEEK-13`, `WEEK-14`, `WEEK-15`, `WEEK-16`, `WEEK-17`, `WEEK-18`. These are regression obligations where touched, not authorization to implement another area early.
+
+Consumed contracts (not extra blockers unless listed below): [#143](https://github.com/AndreasUnunger/EverythingPath/issues/143), [#140](https://github.com/AndreasUnunger/EverythingPath/issues/140), [#137](https://github.com/AndreasUnunger/EverythingPath/issues/137). Later-owner references are ownership handoffs; retain their existing editors until delivery.
+
+## Blocked by
+
+- [T19 / #167: Choose carried-event endings and rules-priced buyoffs](https://github.com/AndreasUnunger/EverythingPath/issues/167)
+
+## Sources and decisions
+
+- [Authoring task #128](https://github.com/AndreasUnunger/EverythingPath/issues/128).
+- [Original planning map #99](https://github.com/AndreasUnunger/EverythingPath/issues/99).
+- [Capability inventory decision](https://github.com/AndreasUnunger/EverythingPath/issues/100#issuecomment-5828004121), [baseline inventory PR #105](https://github.com/AndreasUnunger/EverythingPath/pull/105), and [ownership/accounting PR #136](https://github.com/AndreasUnunger/EverythingPath/pull/136).
+- [Persistent rules-order resolution](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837423122): variant A, carried-event sections, four decisions, checks, source endings and one-event Overseer support.
+- [Persistent second-review amendment](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837634317): explicit removal of PER-09 Clear decision and PER-05 recorded buyoff cost plus its differing-amount warning; new buyoff writes omit `costCopper`.
+- [Persistent final approval and copy](https://github.com/AndreasUnunger/EverythingPath/issues/109#issuecomment-5837957108): source names in modifier breakdowns, **Use Overseer support · +N · one event a week** without a person or ability, **Next buyoff week N**, and **Buyoff cost N gp (2 × minimum treasury) · taken from the treasury at Confirmation**. This supersedes the earlier named-holder/Constitution prototype copy, including that copy quoted in Event's original cross-link/spec. Share the final copy with Event's toggle.
+- [Shared Event/Persistent Overseer support](https://github.com/AndreasUnunger/EverythingPath/issues/108#issuecomment-5837427038) and [Event implementation contract](https://github.com/AndreasUnunger/EverythingPath/issues/143): shared allocation, legacy nested values and recoverable moves through existing edits.
+- [Shared week layout](https://github.com/AndreasUnunger/EverythingPath/issues/101#issuecomment-5831260876), [responsive shell and phase layouts](https://github.com/AndreasUnunger/EverythingPath/issues/120#issuecomment-5846493929), and [shared loading/access/maintenance states](https://github.com/AndreasUnunger/EverythingPath/issues/119#issuecomment-5846266381).
+- [Roll format approval](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035) as concretized by [Upkeep's compatibility contract](https://github.com/AndreasUnunger/EverythingPath/issues/140).
+- [Twelve-spec rollout, ownership and completion gate](https://github.com/AndreasUnunger/EverythingPath/issues/122#issuecomment-5846600504), map Notes in [Rework the militia UI for ease of use](https://github.com/AndreasUnunger/EverythingPath/issues/99), `AGENTS.md`, `CONTEXT.md`, and `docs/ui-capability-inventory.md`.
+
+Pinned area prototypes (use the relevant surfaces for this slice; later explicit amendments govern behavior):
+
+- [Persistent](https://github.com/AndreasUnunger/EverythingPath/tree/f6d5426439cfa16d3ff189a476005eff3d3664fe), branch `prototype/persistent` — A, rules order; `/prototype/persistent?variant=A` — `f6d5426439cfa16d3ff189a476005eff3d3664fe`
+- [Week layout](https://github.com/AndreasUnunger/EverythingPath/tree/14659d7dc6dc9062098055e29508fa3327912402), branch `prototype/week-layout` — A; `/prototype/week-layout?variant=A` — `14659d7dc6dc9062098055e29508fa3327912402`
+- [Responsive shell](https://github.com/AndreasUnunger/EverythingPath/tree/de10f4208904ca583d0fbc143bfc6314f0b9c0e7), branch `prototype/responsive-shell` — B; `/prototype/responsive-shell?variant=B`; direct `/prototype/responsive-shell/screen?variant=B&phase=persistent` — `de10f4208904ca583d0fbc143bfc6314f0b9c0e7`
+
+Read the owning spec and original discussions before implementation. If an ambiguity appears, cite conflicting exact sources and resolve it before changing agreed behavior. Prototype mock data is not a rules contract.

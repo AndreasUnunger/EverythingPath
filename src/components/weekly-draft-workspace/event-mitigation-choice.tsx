@@ -1,5 +1,5 @@
 'use client';
-import { EventChoiceCard } from './event-choice-card';
+import { EventChoiceCard, eventChoicePairGridClass } from './event-choice-card';
 
 type Mitigation = 'attempted' | 'unattempted';
 
@@ -45,7 +45,7 @@ export function EventMitigationChoice({
           · optional
         </span>
       </p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className={eventChoicePairGridClass}>
         {cards.map((card) => (
           <EventChoiceCard
             key={card.value}

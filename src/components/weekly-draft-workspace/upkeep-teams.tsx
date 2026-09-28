@@ -20,6 +20,7 @@ import type {
   UpkeepMissingTeam,
   UpkeepSections,
 } from './types';
+import { upkeepStepAnchor } from './source-anchors';
 import {
   clearRulesException,
   clearTeamDecision,
@@ -37,6 +38,7 @@ import {
   signedGold,
   Step,
 } from './upkeep-parts';
+import { omitRollRangeIssues } from './upkeep-warnings';
 import { useRecoveryCost } from './use-recovery-cost';
 import { formatGold } from './week-frame/reference-copy';
 
@@ -118,7 +120,12 @@ function LegacyRemoval({
           Clear Remove choice
         </Button>
         {correctionsHref && (
-          <Button asChild variant="link">
+          // Wraps like text: the button base is nowrap, which overflows a phone.
+          <Button
+            asChild
+            variant="link"
+            className="h-auto min-h-9 max-w-full min-w-0 justify-start text-left [overflow-wrap:anywhere] whitespace-normal"
+          >
             <GuardedLink href={correctionsHref}>
               Remove the team in Militia corrections
             </GuardedLink>
@@ -366,7 +373,13 @@ function MissingTeam({
           No return check this week.
         </p>
       )}
-      <IssueNotes issues={team.issues} />
+      <IssueNotes
+        issues={
+          returning?.kind === 'check'
+            ? omitRollRangeIssues(team.issues)
+            : team.issues
+        }
+      />
     </div>
   );
 }
@@ -386,6 +399,7 @@ export function TeamConditions({
     <Step
       number={0}
       title="Team conditions"
+      anchor={upkeepStepAnchor('teams')}
       status={teams.status}
       effect={
         teams.status === 'inapplicable'

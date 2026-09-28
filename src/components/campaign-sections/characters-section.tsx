@@ -1,11 +1,43 @@
 'use client';
 import type { Id } from '@convex/_generated/dataModel';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
-import { CharacterManager } from '~/components/character-manager';
-import { campaignPath } from '~/lib/campaign-routes';
+import { CharacterRecordDialog } from '~/components/character-manager/character-record-dialog';
+import { CharactersOfficersView } from '~/components/characters-officers/characters-officers-view';
+import { CharactersSkeleton } from '~/components/characters-officers/characters-skeleton';
+import { useCharacterCorrections } from '~/components/characters-officers/use-character-corrections';
+import {
+  useCharactersPage,
+  type CharactersPage,
+} from '~/components/characters-officers/use-characters-page';
 
-// Temporary host for the existing character records. Officer roles, roster
-// people and team managers are still corrected through the Militia editor.
+// The page with its two corrections, for one campaign, militia and
+// organization. While a correction is open, the board and rows show its
+// result over the newest militia.
+function CorrectableCharacters({
+  campaignId,
+  page,
+  militia,
+}: {
+  campaignId: Id<'campaign'>;
+  page: CharactersPage;
+  militia: NonNullable<CharactersPage['militia']>;
+}) {
+  const corrections = useCharacterCorrections({
+    campaignId,
+    militiaId: militia.militiaId,
+    draftId: militia.draftId,
+    records: page.records,
+  });
+  const ready = corrections.status === 'ready' ? corrections : null;
+  return (
+    <CharactersOfficersView
+      page={ready?.candidate ? page.present(ready.candidate) : page}
+      corrections={ready}
+    />
+  );
+}
+
+// Characters & officers: the officer board over the character table, with
+// the record dialog and the reasoned roster and officer corrections.
 export function CharactersSection({
   campaignId,
   organizationId,
@@ -13,24 +45,37 @@ export function CharactersSection({
   campaignId: Id<'campaign'>;
   organizationId: string;
 }) {
+  const page = useCharactersPage({ campaignId, organizationId });
+  if (page.status === 'loading') return <CharactersSkeleton />;
+  const { dialog } = page;
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">
-        Officer roles and roster people are corrected under People &amp;
-        officers, and team managers under Teams, on{' '}
-        <GuardedLink
-          href={campaignPath(campaignId, 'militia')}
-          className="text-primary underline underline-offset-4"
-        >
-          Militia
-        </GuardedLink>
-        .
-      </p>
-      <CharacterManager
-        selectedCampaignId={campaignId}
-        organizationId={organizationId}
-        canQuery
-      />
-    </div>
+    <>
+      {page.militia ? (
+        // A campaign, militia or organization change discards the open
+        // correction and any late result of its Save.
+        <CorrectableCharacters
+          key={`${organizationId}:${campaignId}:${page.militia.militiaId}`}
+          campaignId={campaignId}
+          page={page}
+          militia={page.militia}
+        />
+      ) : (
+        <CharactersOfficersView page={page} corrections={null} />
+      )}
+      {dialog.target && (dialog.target.kind === 'add' || dialog.record) ? (
+        // One dialog per target: an edit starts from the record's values.
+        <CharacterRecordDialog
+          key={dialog.target.kind === 'add' ? 'add' : dialog.target.id}
+          campaignId={campaignId}
+          organizationId={organizationId}
+          record={dialog.record}
+          open
+          onOpenChange={(open) => {
+            if (!open) dialog.close();
+          }}
+          archiveWarning={dialog.archiveWarning}
+        />
+      ) : null}
+    </>
   );
 }

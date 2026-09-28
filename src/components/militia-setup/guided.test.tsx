@@ -21,6 +21,7 @@ afterEach(() => {
 const hero: SetupCharacter = {
   characterId: 'hero',
   name: 'Hero',
+  kind: 'pc',
   level: 4,
   strength: 10,
   dexterity: 10,
@@ -546,21 +547,21 @@ test('[setup.guided.navigation] steps navigate freely with invalid input, keep e
     'Carried effects: Done',
     'Review & start: 1 to fix',
   ]);
-  // Checks across steps run once every field is well formed: the
-  // commandant's Hit Dice are required before starting.
+  // Once every field is well formed nothing blocks the start: the
+  // commandant's blank Hit Dice follow the character's level.
   openStep('Starting point');
-  fill('Rank', '2');
+  fill('Rank', '1');
   expect(statuses().slice(0, 3)).toEqual([
     'Starting point: Done',
     'Week: Done',
-    'People & officers: 1 to fix',
+    'People & officers: Done',
   ]);
-  expect(statuses()[8]).toBe('Review & start: 1 to fix');
+  expect(statuses()[8]).toBe('Review & start: Ready to start');
   // Switching to an existing militia keeps every entry and ends the optional
   // grouping.
   click('Existing militia');
   expect(statuses()[5]).toBe('Character conditions: ');
-  expect(screen.getByRole('textbox', { name: 'Rank' })).toHaveValue('2');
+  expect(screen.getByRole('textbox', { name: 'Rank' })).toHaveValue('1');
   openStep('People & officers');
   expect(screen.getByRole('group', { name: 'Hero' })).toBeVisible();
   expect(save).not.toHaveBeenCalled();

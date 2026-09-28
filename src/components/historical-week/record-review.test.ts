@@ -4,14 +4,27 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import {
   confirmedWeek,
+  deepFreeze,
   legacyRecord,
 } from '../../../tests/history/resolution-record-fixtures';
+import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
+import { occurrence } from '../../../tests/rules/event-selection-fixture';
+import { roll } from '../../../tests/rules/upkeep-fixture';
+import { managerWeek } from '../../../tests/rules/role-aware-officers-fixture';
+import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import type {
   ResultCell,
   ReviewItem,
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
-import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
+import {
+  CANDIDATE_REROLL_RULESET_VERSION,
+  CHARACTERLESS_TRANSFERS_RULESET_VERSION,
+  prepareCanonicalResolutionRecord,
+  projectWeeklyDraft,
+  resolveCanonicalWeeklyDraft,
+  ROLE_AWARE_OFFICERS_RULESET_VERSION,
+} from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
@@ -150,8 +163,14 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
         ),
       );
     expect(messages(frozen)).toEqual(messages(live));
-    expect(messages(frozen)).toEqual([
-      'Table Adjustment: The officer was rescued',
+    // The record keeps the applied adjustment's code; like live, it is shown
+    // by the adjustment's quoted reason, not repeated as a warning.
+    expect(record.warnings.map((warning) => warning.code)).toContain(
+      'adjustment',
+    );
+    expect(messages(frozen)).toEqual([]);
+    expect(frozen.adjustments.map((entry) => entry.reason)).toEqual([
+      'The officer was rescued',
     ]);
     // The same Result: rows, and every column's recorded value.
     const columns = (facts: WeekReviewFacts) =>
@@ -382,6 +401,166 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
   });
 });
 
+// A week confirmed before the candidate reroll Ruleset Version: its chosen
+// candidate's Roll Twice expanded into War Games and All Is Calm. Resolved
+// through today's engine as the equivalent chance-rolled expansion, then
+// recorded with the candidate tree and version that week actually had.
+function candidateExpansionRecord() {
+  const { draft, snapshot } = persistentEventFixture('low_morale');
+  snapshot.training = 15;
+  const expansion = [
+    occurrence('pick', 50),
+    occurrence('pick/twice/1', 10, {
+      kind: 'roll_twice',
+      parentEventId: 'pick',
+    }),
+    occurrence('pick/twice/2', 46, {
+      kind: 'roll_twice',
+      parentEventId: 'pick',
+    }),
+  ];
+  draft.event.occurrences = expansion;
+  const record = prepareCanonicalResolutionRecord(
+    resolveCanonicalWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }),
+    'earlier-record',
+  );
+  const source = structuredClone(record.source);
+  source.event.occurrences = [];
+  source.activity.slots = [
+    {
+      slotId: 'one',
+      choice: {
+        choiceId: 'guarantee',
+        actionId: 'guarantee_event',
+        rolls: { notoriety: roll(6, 3) },
+        candidates: [
+          expansion[0]!,
+          occurrence('other', 74),
+          ...expansion.slice(1),
+        ],
+        selectedEventId: 'pick',
+      },
+    },
+  ];
+  return deepFreeze(
+    canonicalResolutionRecordSchema.parse({
+      ...record,
+      source,
+      rulesetVersion: CHARACTERLESS_TRANSFERS_RULESET_VERSION,
+    }),
+  );
+}
+
+test('[rules.HIST-05.candidate-expansion] a record whose chosen candidate expanded keeps its version, its two events and their outcomes', () => {
+  const record = candidateExpansionRecord();
+  expect(record.rulesetVersion).toBeLessThan(CANDIDATE_REROLL_RULESET_VERSION);
+  const before = structuredClone(record);
+  const facts = recordWeekReview(record);
+  expect(record).toEqual(before);
+  const titles = items(facts, 2).map((entry) => entry.title);
+  expect(titles).toEqual(
+    expect.arrayContaining([
+      'Event 1A',
+      'Event 1B',
+      'Event 1A.1',
+      'Event 1A.2',
+    ]),
+  );
+  for (const title of ['Event 1A.1', 'Event 1A.2'])
+    expect(item(facts, 2, title).details).toContain(
+      'Rolled twice from Event 1A',
+    );
+  // The recorded War Games training gain stays with its recorded event.
+  expect(
+    item(facts, 2, 'Event 1A.1').effects.map((effect) => effect.text),
+  ).toEqual(['Training +3']);
+  expect(row(facts, 'Militia', 'Training')).toMatchObject({
+    now: { text: '15' },
+    final: { text: '17' },
+  });
+});
+
+// A week confirmed before role-aware manager limits: its Marshal, stored as an
+// Other NPC, managed two teams over that version's limit of one. Resolved
+// through today's engine, then recorded with the version and warning it had.
+test('[rules.HIST-05.manager-limit-version] a record confirmed before role-aware limits keeps its version, its recorded manager warning and its outcomes', () => {
+  const resolved = resolveCanonicalWeeklyDraft(
+    managerWeek('other_npc', true, 16),
+  );
+  const current = prepareCanonicalResolutionRecord(resolved, 'earlier-record');
+  const warning = 'manager:ally:capacity';
+  expect(current.warnings.map((entry) => entry.message)).not.toContain(warning);
+  const record = deepFreeze(
+    canonicalResolutionRecordSchema.parse({
+      ...current,
+      rulesetVersion: CANDIDATE_REROLL_RULESET_VERSION,
+      warnings: [...current.warnings, { code: 'manager', message: warning }],
+    }),
+  );
+  expect(record.rulesetVersion).toBeLessThan(
+    ROLE_AWARE_OFFICERS_RULESET_VERSION,
+  );
+  const before = structuredClone(record);
+  const facts = recordWeekReview(record);
+  expect(record).toEqual(before);
+  const shown = [
+    ...facts.sections.flatMap((section) =>
+      section.items.flatMap((entry) => entry.notes),
+    ),
+    ...facts.unassociated,
+  ].filter((note) => note.kind === 'warning');
+  expect(shown).toHaveLength(record.warnings.length);
+  expect(row(facts, 'Militia', 'Training')).toMatchObject({
+    final: {
+      text: String(resolved.outcome!.militiaSnapshot.training),
+    },
+  });
+});
+
+// The roster Result rows of a record whose `ally` (level 4) has the given
+// Hit Dice override and whose PC keeps an explicit 10, confirmed under the
+// given Ruleset Version.
+function recordedHitDice(rulesetVersion: number, allyHitDice: number | null) {
+  const input = managerWeek('npc', true, 16);
+  input.militiaSnapshot.roster.people[1]!.hitDice = allyHitDice;
+  input.militiaSnapshot.characters[1]!.level = 4;
+  const record = canonicalResolutionRecordSchema.parse({
+    ...prepareCanonicalResolutionRecord(
+      resolveCanonicalWeeklyDraft(input),
+      'hit-dice-record',
+    ),
+    rulesetVersion,
+  });
+  return recordWeekReview(record)
+    .result.rows.filter((entry) => entry.group === 'Roster')
+    .flatMap((entry) =>
+      entry.now.kind === 'value' && entry.now.text.includes('Hit Dice')
+        ? [entry.now.text]
+        : [],
+    );
+}
+
+test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the record’s own level from the role-aware version on, and as not recorded before it', () => {
+  const earlier = ROLE_AWARE_OFFICERS_RULESET_VERSION - 1;
+  expect(recordedHitDice(earlier, null)).toEqual([
+    'Player character · 10 Hit Dice',
+    'NPC · Hit Dice not recorded',
+  ]);
+  for (const version of [
+    ROLE_AWARE_OFFICERS_RULESET_VERSION,
+    ROLE_AWARE_OFFICERS_RULESET_VERSION + 1,
+  ])
+    expect(recordedHitDice(version, null)).toEqual([
+      'Player character · 10 Hit Dice',
+      'NPC · 4 Hit Dice',
+    ]);
+  // An explicit override always wins, and zero stays zero.
+  for (const version of [earlier, ROLE_AWARE_OFFICERS_RULESET_VERSION]) {
+    expect(recordedHitDice(version, 7)).toContain('NPC · 7 Hit Dice');
+    expect(recordedHitDice(version, 0)).toContain('NPC · 0 Hit Dice');
+  }
+});
+
 test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, backend, React or rules resolver', () => {
   const directory = path.dirname(fileURLToPath(import.meta.url));
   const files = [
@@ -396,6 +575,7 @@ test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, 
     '~/lib/canonical-weekly-source',
     '~/lib/weekly-draft-contract',
     '~/lib/militia-event-table',
+    '~/lib/ruleset-versions',
     '../weekly-draft-workspace/activity-labels',
     '../weekly-draft-workspace/summary-messages',
   ]);

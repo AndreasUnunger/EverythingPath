@@ -89,6 +89,7 @@ export function activityFacts(
     },
     slots,
     teamRoster: [],
+    candidateSets: [],
     helpful: null,
     operating: { selected: null, missing: false, choices: [] },
     blockedActions: [],

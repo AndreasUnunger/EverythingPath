@@ -1,8 +1,5 @@
 'use client';
-import { eventRollSpec } from '~/lib/rules-roll-spec';
-import { persistentDecisionSchema } from '~/lib/weekly-draft-facts';
 import { Button } from '~/components/ui/button';
-import { StructuredChoiceField } from './structured-choice-field';
 import { eventRequirement } from './event-messages';
 import {
   decisionCards,
@@ -13,15 +10,26 @@ import {
   ProjectedResult,
   SectionMarker,
 } from './persistent-parts';
-import { persistentMessage, PersistentOutcomes } from './persistent-outcomes';
+import { RivalryCheckInputs, TheftCheckInputs } from './persistent-checks';
+import { persistentMessage } from './persistent-outcomes';
 import { endingNeedsReason, exceptionInUse } from './persistent-sections';
+import { persistentEventAnchor } from './source-anchors';
 import type { PersistentSourceLink, PersistentView as Facts } from './types';
 import {
   usePersistentChoice,
   type PersistentEdit,
 } from './use-persistent-choice';
+import {
+  usePersistentCheck,
+  type LatestPersistentDecision,
+} from './use-persistent-check';
 import { phaseLabels } from './week-frame/labels';
+import type { LatestOverseerSupport } from './overseer-support-facts';
+import { OverseerSupportProvider } from './use-overseer-support';
 import { formatGold } from './week-frame/reference-copy';
+import { useEndingForm, type EndingResult } from './use-ending-form';
+import { endingFormBasis } from './persistent-ending-guard';
+import type { LocalFormGuard } from './use-summary-forms';
 
 // Persistent as one numbered section per carried event, in the order the
 // rules resolve them. Each section reads its facts from the view and sends
@@ -33,41 +41,95 @@ type Props = {
   edit: PersistentEdit;
   disabled: boolean;
   openSource?: (link: PersistentSourceLink) => void;
+  // The newest Overseer support facts, read between the edits of a move.
+  latestOverseer?: LatestOverseerSupport;
+  // This device's Confirm guard, which keeps an unsaved table ending.
+  localFormGuard?: LocalFormGuard;
 };
 type Event = Facts['events'][number];
-const mitigation = persistentDecisionSchema.options[1];
-const officerDecision = mitigation.omit({
-  overseerCharacterId: true,
-  rolls: true,
-  targets: true,
-  strategistCharacterId: true,
-});
-const theftDecision = mitigation.omit({
-  officerCheck: true,
-  targets: true,
-  strategistCharacterId: true,
-});
 
-export function PersistentView({ view, edit, disabled, openSource }: Props) {
+export function PersistentView({
+  view,
+  edit,
+  disabled,
+  openSource,
+  latestOverseer,
+  localFormGuard,
+}: Props) {
+  // Check fields build their edits from the newest decision, so one never
+  // replays a decision captured before a support move or a peer's edit.
+  const latest: LatestPersistentDecision | undefined = latestOverseer
+    ? (eventId) => {
+        const facts = latestOverseer();
+        if (!facts) return undefined;
+        return (
+          facts.source.decisions.find(
+            (decision) => decision.eventId === eventId,
+          ) ?? null
+        );
+      }
+    : undefined;
   return (
-    <section
-      aria-label="Persistent preparation"
-      className="min-w-0 space-y-6 [&_button]:h-auto [&_button]:max-w-full [&_button]:[overflow-wrap:anywhere] [&_button]:whitespace-normal"
+    <OverseerSupportProvider
+      facts={view.overseer}
+      edit={edit}
+      latest={latestOverseer}
+      disabled={disabled}
     >
-      <Overview view={view} />
-      {view.events.map((event, index) => (
-        <PersistentEvent
-          key={event.eventId}
-          number={index + 1}
-          event={event}
-          view={view}
-          edit={edit}
-          disabled={disabled}
-          openSource={openSource}
-        />
-      ))}
-    </section>
+      <section
+        aria-label="Persistent preparation"
+        className="min-w-0 space-y-6 [&_button]:h-auto [&_button]:max-w-full [&_button]:[overflow-wrap:anywhere] [&_button]:whitespace-normal"
+      >
+        <Overview view={view} />
+        {view.events.map((event, index) => (
+          <PersistentEvent
+            key={event.eventId}
+            number={index + 1}
+            event={event}
+            view={view}
+            edit={edit}
+            disabled={disabled}
+            openSource={openSource}
+            latest={latest}
+            guard={localFormGuard}
+          />
+        ))}
+      </section>
+    </OverseerSupportProvider>
   );
+}
+
+// The Ended at the table form, mounted only while that card is chosen.
+function Ending({
+  event,
+  saved,
+  notice,
+  isNew,
+  needsReason,
+  disabled,
+  guard,
+  onSave,
+}: {
+  event: Event;
+  saved: string;
+  notice: string | null;
+  isNew: boolean;
+  needsReason: boolean;
+  disabled: boolean;
+  guard?: LocalFormGuard;
+  onSave: (outcome: string, reason?: string) => Promise<EndingResult>;
+}) {
+  const ending = useEndingForm({
+    eventId: event.eventId,
+    subject: event.name,
+    saved,
+    isNew,
+    needsReason,
+    basis: endingFormBasis(event.decision),
+    guard,
+    onSave,
+  });
+  return <EndingForm notice={notice} disabled={disabled} ending={ending} />;
 }
 
 function savedLabel(saved: string, event: Event) {
@@ -84,22 +146,39 @@ function PersistentEvent({
   edit,
   disabled,
   openSource,
-}: Props & { number: number; event: Event }) {
-  const choice = usePersistentChoice(event, edit);
+  latest,
+  guard,
+}: Omit<Props, 'latestOverseer' | 'localFormGuard'> & {
+  number: number;
+  event: Event;
+  latest?: LatestPersistentDecision;
+  guard?: LocalFormGuard;
+}) {
+  const choice = usePersistentChoice(event, edit, guard);
+  const check = usePersistentCheck(event, edit, latest);
   const decision = event.decision;
   const cost = view.buyoffCostCopper;
   const targets = event.targetNames.length
     ? event.targetNames.join(' & ')
     : 'Militia';
   const unsupportedCheck = choice.saved === 'mitigate' && event.check === null;
+  // A warning its Rules Exception block already explains is not repeated.
+  const warnings = event.warnings.filter(
+    (key) =>
+      !event.exceptions.some(
+        (exception) => key === `${event.eventId}:${exception.ruleId}`,
+      ),
+  );
   const requirements = event.requirements.filter(
     (key) => !key.endsWith(':exception'),
   );
   return (
     <section
       role="group"
+      id={persistentEventAnchor(event.eventId)}
+      tabIndex={-1}
       aria-label={event.name}
-      className="border-foreground/20 relative min-w-0 border-l-2 pl-6"
+      className="border-foreground/20 focus-visible:ring-ring/50 relative min-w-0 rounded-sm border-l-2 pl-6 outline-none focus-visible:ring-[3px]"
     >
       <SectionMarker number={number} ended={event.ended} />
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -154,52 +233,26 @@ function PersistentEvent({
                 · taken from the treasury at Confirmation
               </p>
             )}
-            {choice.selected === 'mitigate' &&
-              decision?.kind === 'mitigate' &&
-              event.check && (
-                <>
-                  <p className="text-sm">
-                    {event.eventType === 'rivalry'
-                      ? 'An officer’s Diplomacy, Bluff or Intimidate check against DC 20 can end this Rivalry permanently.'
-                      : 'A Loyalty check against DC 20 can reduce this week’s Theft loss to 10%. The event remains.'}
-                  </p>
-                  <StructuredChoiceField
-                    name="persistentDecision"
-                    schema={
-                      event.eventType === 'rivalry'
-                        ? officerDecision
-                        : theftDecision
-                    }
-                    value={decision}
-                    options={view.options}
-                    rollSpec={(path) =>
-                      eventRollSpec(
-                        { kind: 'persistent', eventType: event.eventType },
-                        path,
-                      )
-                    }
-                    disabled={disabled}
-                    onValue={(value) => {
-                      if (value === undefined) {
-                        void edit({
-                          kind: 'clear_persistent_decision',
-                          eventId: event.eventId,
-                        });
-                        return;
-                      }
-                      const parsed = persistentDecisionSchema.safeParse(value);
-                      if (!parsed.success) return false;
-                      void edit({
-                        kind: 'persistent_decision',
-                        decision: { ...parsed.data, eventId: event.eventId },
-                      });
-                    }}
-                  />
-                </>
-              )}
+            {choice.selected === 'mitigate' && event.theftCheck && (
+              <TheftCheckInputs
+                event={event}
+                check={event.theftCheck}
+                actions={check}
+                disabled={disabled}
+              />
+            )}
+            {choice.selected === 'mitigate' && event.rivalryCheck && (
+              <RivalryCheckInputs
+                event={event}
+                check={event.rivalryCheck}
+                actions={check}
+                disabled={disabled}
+              />
+            )}
             {choice.selected === 'end' && (
-              <EndingForm
+              <Ending
                 key={event.eventId}
+                event={event}
                 saved={
                   decision?.kind === 'end'
                     ? decision.acknowledgement.outcome
@@ -210,15 +263,16 @@ function PersistentEvent({
                     ? `Not saved yet. ${savedLabel(choice.saved, event)} still applies until you save how it ended.`
                     : null
                 }
+                isNew={choice.endingUnsaved}
                 needsReason={choice.endingUnsaved && endingNeedsReason(event)}
                 disabled={disabled}
+                guard={guard}
                 onSave={choice.saveEnding}
               />
             )}
           </>
         )}
-        <PersistentOutcomes event={event} options={view.options} />
-        {event.warnings.map((key) => (
+        {warnings.map((key) => (
           <p key={key} role="note" className="text-sm text-amber-300">
             {persistentMessage(key)}
           </p>

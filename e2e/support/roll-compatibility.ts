@@ -13,7 +13,7 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
-import { saveStatus } from './week-frame';
+import { reviewConfirm, saveState } from './week-frame';
 
 type DraftKey = z.infer<typeof draftKeySchema>;
 // Test-only construction of the approved dice-total form. No page writes this
@@ -136,15 +136,23 @@ export async function exerciseRollCompatibility(
       await expect(
         page.getByRole('alert').filter({ hasText: 'A value is required.' }),
       ).toHaveCount(0);
+      // One range advisory under the field; the step's notes do not repeat
+      // it. Review & confirm below still lists the warning.
+      const attrition = page.getByRole('region', {
+        name: 'Training attrition',
+        exact: true,
+      });
       await expect(
-        page.getByText(
-          /Attrition Loyalty total 0 is outside the usual 1–20 range/,
+        attrition.getByText(
+          'The usual range for 1d20 is 1–20. Your entered total is retained for the table.',
+          { exact: true },
         ),
       ).toBeVisible();
-      // The calculated check still resolves from the recorded total.
       await expect(
-        page.getByRole('region', { name: 'Training attrition', exact: true }),
-      ).toContainText(/bonus [+−]\d+ = total \d+/);
+        attrition.getByText(/outside the usual 1–20 range/),
+      ).toHaveCount(0);
+      // The calculated check still resolves from the recorded total.
+      await expect(attrition).toContainText(/bonus [+−]\d+ = total \d+/);
     }
     await phase(first, 'Event');
     await expect(field(first, 'Event chance roll')).toHaveValue('100');
@@ -152,9 +160,7 @@ export async function exerciseRollCompatibility(
       first.getByText('1d100 · total of the dice only').first(),
     ).toBeVisible();
     await phase(first, 'Review & confirm');
-    await expect(
-      first.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(first)).toBeEnabled();
     await expect(first.getByRole('main')).toContainText(
       /outside its usual range/,
     );
@@ -176,9 +182,7 @@ export async function exerciseRollCompatibility(
       ).toBeVisible();
     }
     await phase(second, 'Review & confirm');
-    await expect(
-      second.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(second)).toBeDisabled();
     await expect(
       second
         .getByRole('region', { name: 'Required decisions', exact: true })
@@ -194,7 +198,10 @@ export async function exerciseRollCompatibility(
         exact: true,
       })
       .click();
-    await expect(saveStatus(first)).toHaveText('Changes saved.');
+    await expect(saveState(first)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     for (const page of [first, second]) {
       await expect(field(page, 'Attrition training roll')).toHaveValue('');
       await expect(
@@ -204,12 +211,13 @@ export async function exerciseRollCompatibility(
     // Deliberate re-entry writes one 2d4 total; the other device mirrors it.
     await field(first, 'Attrition training roll').fill('7');
     await expect(field(second, 'Attrition training roll')).toHaveValue('7');
-    await expect(saveStatus(first)).toHaveText('Changes saved.');
+    await expect(saveState(first)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     await expect(field(second, 'Attrition Loyalty roll')).toHaveValue('0');
     await phase(second, 'Review & confirm');
-    await expect(
-      second.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(second)).toBeEnabled();
     await phase(second, 'Upkeep');
     // The other device shows the re-entered total beside the untouched
     // recorded totals; storage-shape equality belongs to the persistence

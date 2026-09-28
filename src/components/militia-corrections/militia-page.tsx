@@ -17,12 +17,14 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { Button } from '~/components/ui/button';
-import { Separator } from '~/components/ui/separator';
 import type { MilitiaEntryKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
 import { FactsView } from './facts-view';
-import { FullCorrectionView } from './full-correction';
-import { RulesWarnings, SectionCorrectionView } from './section-correction';
+import {
+  MissingReferences,
+  RulesWarnings,
+  SectionCorrectionView,
+} from './section-correction';
 import type {
   MilitiaCorrections,
   MilitiaEntryView,
@@ -59,7 +61,8 @@ function RowContent({
   trailing?: ReactNode;
 }) {
   const { count, preview } = entry.facts;
-  const warnings = entry.warnings.length;
+  // Rules warnings and identities the open week still needs both warn.
+  const warnings = entry.warnings.length + entry.missing.length;
   return (
     <>
       <span className="min-w-0 flex-1">
@@ -156,11 +159,7 @@ function Detail({
     return (
       <div className="space-y-4">
         <Feedback feedback={page.feedback} />
-        {correction.kind === 'section' ? (
-          <SectionCorrectionView correction={correction} wide={wide} />
-        ) : (
-          <FullCorrectionView correction={correction} />
-        )}
+        <SectionCorrectionView correction={correction} wide={wide} />
       </div>
     );
   return (
@@ -183,6 +182,7 @@ function Detail({
         </div>
       )}
       <RulesWarnings warnings={entry.warnings} />
+      <MissingReferences entries={entry.missing} disabled={page.locked} />
       <FactsView facts={entry.facts} />
       {!wide && <CorrectButton page={page} entry={entry} />}
     </section>
@@ -226,7 +226,6 @@ function IndexList({
 function WideLayout({ page }: { page: Page }) {
   const sections = page.entries.filter((entry) => entry.group === 'sections');
   const week = page.entries.filter((entry) => entry.group === 'week');
-  const fallback = page.entries.filter((entry) => entry.group === 'fallback');
   const selected = entryOf(page, page.selected);
   return (
     <div className="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)] xl:mx-auto xl:max-w-6xl xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -239,12 +238,6 @@ function WideLayout({ page }: { page: Page }) {
           <>
             <WeekGroupLabel />
             <IndexList page={page} entries={week} />
-          </>
-        )}
-        {fallback.length > 0 && (
-          <>
-            <Separator className="my-2" />
-            <IndexList page={page} entries={fallback} />
           </>
         )}
       </nav>
@@ -309,7 +302,6 @@ function AccordionRow({
 function NarrowLayout({ page }: { page: Page }) {
   const sections = page.entries.filter((entry) => entry.group === 'sections');
   const week = page.entries.filter((entry) => entry.group === 'week');
-  const fallback = page.entries.filter((entry) => entry.group === 'fallback');
   return (
     <div className="border-foreground/15 -mx-4 border-t">
       {sections.map((entry) => (
@@ -317,10 +309,6 @@ function NarrowLayout({ page }: { page: Page }) {
       ))}
       {week.length > 0 && <WeekGroupLabel />}
       {week.map((entry) => (
-        <AccordionRow key={entry.key} page={page} entry={entry} />
-      ))}
-      {fallback.length > 0 && <Separator className="my-2" />}
-      {fallback.map((entry) => (
         <AccordionRow key={entry.key} page={page} entry={entry} />
       ))}
     </div>

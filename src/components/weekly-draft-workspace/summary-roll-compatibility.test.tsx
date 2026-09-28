@@ -6,6 +6,7 @@ import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { phaseView } from './phase-view';
 import { SummaryView } from './summary-view';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 afterEach(cleanup);
 
 // Test-only representation; the app never writes totals in this delivery.
@@ -20,10 +21,9 @@ function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
 }
 const controls = {
   disabled: false,
-  canConfirm: false,
+  confirmation: confirmControlFixture({ disabled: true }),
   forecastPending: false,
   reviewRequired: false,
-  confirm: vi.fn(),
   review: vi.fn(),
 };
 function summary(
@@ -61,9 +61,18 @@ test('[rules.SUM-02.total-readiness] the current Summary treats an incoming comp
   expect(ready.preview.status).toBe('ready');
   expect(ready.view.ready).toBe(true);
   render(
-    <SummaryView view={ready.view} {...controls} edit={vi.fn()} canConfirm />,
+    <SummaryView
+      view={ready.view}
+      {...controls}
+      edit={vi.fn()}
+      confirmation={confirmControlFixture()}
+    />,
   );
-  expect(screen.getByText('The week is ready for confirmation.')).toBeVisible();
+  // Ready: Confirm is available with no decision or readiness sentence (#110).
+  expect(screen.getByRole('button', { name: 'Confirm week' })).toBeEnabled();
+  expect(
+    screen.queryByRole('region', { name: 'Required decisions' }),
+  ).not.toBeInTheDocument();
   cleanup();
   const stale = summary({ check: total(20, 1, 4), training: total(6, 1, 5) });
   expect(stale.preview.status).toBe('incomplete');
@@ -80,7 +89,12 @@ test('[rules.SUM-09.total-range] an out-of-range total warns in the current Summ
   expect(totals.preview.status).toBe('ready');
   expect(totals.view.warnings).toContain('upkeep:attrition:roll-range');
   render(
-    <SummaryView view={totals.view} {...controls} edit={vi.fn()} canConfirm />,
+    <SummaryView
+      view={totals.view}
+      {...controls}
+      edit={vi.fn()}
+      confirmation={confirmControlFixture()}
+    />,
   );
   // Named in the Warnings card and again as the Upkeep item's warning note.
   expect(

@@ -1,7 +1,14 @@
+import { createContext, useContext, useId } from 'react';
+import { UserPlus } from 'lucide-react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
-import { listEditableKinds } from '~/lib/character-kind';
+import { formatCharacterKind } from '~/lib/character-kind';
+import {
+  MISSING_CHARACTER_MESSAGE,
+  setupCharacterFacts,
+  type SetupCharacter,
+} from '~/lib/setup-characters';
 import { TEAM_IDS, TEAM_STATUSES } from '~/lib/militia-domain';
 import type { MilitiaSetup } from '~/lib/canonical-setup';
 import {
@@ -11,11 +18,7 @@ import {
   choices,
   yesNo,
 } from './fields';
-const writtenKinds = ['pc', 'officer_npc', 'other_npc'] as const;
-export type SetupCharacter =
-  MilitiaSetup['state']['militiaSnapshot']['characters'][number] & {
-    name: string;
-  };
+export type { SetupCharacter };
 // The campaign characters that are on this roster.
 function useRosterCharacters(characters: SetupCharacter[]) {
   const { watch } = useFormContext<MilitiaSetup>();
@@ -24,13 +27,12 @@ function useRosterCharacters(characters: SetupCharacter[]) {
     people.some((person) => person.characterId === character.characterId),
   );
 }
-export function SetupPeople({
-  characters,
-  preserveCharacters = false,
-}: {
-  characters: SetupCharacter[];
-  preserveCharacters?: boolean;
-}) {
+// Opens character creation. Guided Setup supplies it; the dialog lives above
+// the step layouts so a breakpoint or step change never closes it. Roster
+// inclusion stays a separate choice.
+export const SetupAddCharacter = createContext<(() => void) | null>(null);
+export function SetupPeople({ characters }: { characters: SetupCharacter[] }) {
+  const addCharacter = useContext(SetupAddCharacter);
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const people = useFieldArray({
     control,
@@ -40,6 +42,19 @@ export function SetupPeople({
   const selected = useRosterCharacters(characters);
   return (
     <SetupSection title="Characters and officers">
+      {addCharacter ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addCharacter}
+          >
+            <UserPlus aria-hidden />
+            Add character
+          </Button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {characters
           .filter((character) => !selected.includes(character))
@@ -50,17 +65,16 @@ export function SetupPeople({
               variant="outline"
               className="h-auto min-h-16 border-2 transition-transform hover:-translate-y-1"
               onClick={() => {
+                // Joining takes the record's kind; only the record sets it.
                 people.append({
                   characterId: character.characterId,
-                  kind: 'pc',
+                  kind: character.kind,
                   hitDice: null,
                 });
-                const { name: _name, ...facts } = character;
-                if (!preserveCharacters)
-                  setValue('state.militiaSnapshot.characters', [
-                    ...watch('state.militiaSnapshot.characters'),
-                    facts,
-                  ]);
+                setValue('state.militiaSnapshot.characters', [
+                  ...watch('state.militiaSnapshot.characters'),
+                  setupCharacterFacts(character),
+                ]);
               }}
             >
               Add {character.name}
@@ -77,13 +91,12 @@ export function SetupPeople({
           }
           onRemove={() => {
             people.remove(index);
-            if (!preserveCharacters)
-              setValue(
-                'state.militiaSnapshot.characters',
-                watch('state.militiaSnapshot.characters').filter(
-                  (character) => character.characterId !== person.characterId,
-                ),
-              );
+            setValue(
+              'state.militiaSnapshot.characters',
+              watch('state.militiaSnapshot.characters').filter(
+                (character) => character.characterId !== person.characterId,
+              ),
+            );
             setValue(
               'state.militiaSnapshot.roster.officers',
               roster.officers.filter(
@@ -100,10 +113,11 @@ export function SetupPeople({
             );
           }}
         >
-          <Field
-            name={`state.militiaSnapshot.roster.people.${index}.kind`}
-            label="Character kind"
-            options={choices(listEditableKinds(writtenKinds, person.kind))}
+          <SetupPersonKind
+            index={index}
+            character={characters.find(
+              (character) => character.characterId === person.characterId,
+            )}
           />
           <Field
             name={`state.militiaSnapshot.roster.people.${index}.hitDice`}
@@ -152,7 +166,50 @@ export function SetupPeople({
     </SetupSection>
   );
 }
-export function SetupTeams({ characters }: { characters: SetupCharacter[] }) {
+// The kind a roster person's record owns, shown read-only: it changes only
+// in the character dialog. A person whose record is not in this campaign
+// shows why they must be removed.
+function SetupPersonKind({
+  index,
+  character,
+}: {
+  index: number;
+  character: SetupCharacter | undefined;
+}) {
+  const id = useId();
+  return (
+    <div
+      role="group"
+      aria-labelledby={`${id}-label`}
+      data-setup-path={`state.militiaSnapshot.roster.people.${index}.characterId`}
+      className="min-w-0 space-y-1"
+    >
+      <p id={`${id}-label`} className="text-sm font-medium">
+        Kind
+      </p>
+      {character ? (
+        <p className="border-input text-muted-foreground flex min-h-9 items-center border border-dashed px-3 py-1 text-base md:text-sm">
+          {formatCharacterKind(character.kind)}
+        </p>
+      ) : (
+        <p
+          role="alert"
+          className="text-destructive flex min-h-9 items-center text-sm [overflow-wrap:anywhere]"
+        >
+          {MISSING_CHARACTER_MESSAGE}
+        </p>
+      )}
+    </div>
+  );
+}
+export function SetupTeams({
+  characters,
+  rowNotes,
+}: {
+  characters: SetupCharacter[];
+  /** A note under a team's title, by its identity. */
+  rowNotes?: ReadonlyMap<string, string>;
+}) {
   const { control } = useFormContext<MilitiaSetup>();
   const teams = useFieldArray({
     control,
@@ -179,6 +236,7 @@ export function SetupTeams({ characters }: { characters: SetupCharacter[] }) {
         <SetupEntry
           key={team.id}
           label={`Team ${index + 1}`}
+          note={rowNotes?.get(team.teamId)}
           onRemove={() => teams.remove(index)}
         >
           <Field

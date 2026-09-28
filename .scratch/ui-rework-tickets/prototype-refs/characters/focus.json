@@ -1,0 +1,32 @@
+{
+  "179": {
+    "prototype": "characters-officers",
+    "focus": "No prototype surface. This is compatibility work: widened validators and parsers for legacy, absent and new kinds, separate live and historical adapters, and mixed-format fixtures. The prototype mock only models `pc | npc` and has no legacy `officer_npc`/`other_npc` data, Weekly Drafts or history.",
+    "screenshot": null
+  },
+  "180": {
+    "prototype": "characters-officers",
+    "focus": "Open `/prototype/characters-officers?variant=B`, leave the yellow PROTOTYPE STATE panel's *kind lives on* set to *the character record* (the default), and tap the pencil on Sera of Phaendar. The dialog's PC/NPC *Kind* select is the only place kind is written, and the table's Kind column stays read-only. In *Correct roster*, switching Wren's *On roster* on joins her with the record's kind without asking. Live normalization, atomic roster-mirror writes, the Setup options composition and the browser-envelope migration have no prototype surface.",
+    "screenshot": "180-focus.png"
+  },
+  "181": {
+    "prototype": "characters-officers",
+    "focus": "No prototype surface. This is migration work: bounded, resumable and idempotent internal batches over live character rows and roster mirrors. The prototype has no persistence, legacy data or migration path.",
+    "screenshot": null
+  },
+  "182": {
+    "prototype": "characters-officers",
+    "focus": "Open `/prototype/characters-officers?variant=B` (the state panel already defaults to *kind lives on the character record*) and tick *Show archived*. The reference is the Officers 3×2 board: rule, holders, effect with its source, the dashed Vacant Spymaster, non-stacking holders, and the archived Dalla still on Commandant. Below it are the *Pending this week … Go to Activity* line, role chips that scroll to their card, and the read-only *Manages N of M teams* links. Tap a row's pencil or *Add character* for the record dialog (Name, Hit Dice, Kind, six scores, Notes, Archive/Un-archive). Phone, desktop, loading, failed and empty states come from `/prototype/responsive-pages?variant=C&page=characters`, not from this prototype.",
+    "screenshot": "182-focus.png"
+  },
+  "183": {
+    "prototype": "characters-officers",
+    "focus": "Open `/prototype/characters-officers?variant=B` and tap *Correct officers*: the Characters section dims and each card gets *Assign* and holder ⋯ menus (Move to…/Remove). The screenshot shows the state after removing Aria from Strategist, picking the *Story change* chip and tapping *Assign* on Spymaster. That brings up the PC/NPC-grouped picker with each candidate's contribution, plus a reason bar with the strategist preview (\"Activity actions this week: 5 → 4\") and warnings. For roster mode, tap *Correct roster* and toggle *On roster* or type a Hit Dice override. Ticking *another player saves first* in the state panel shows the conflict message. The merge, conflict wording and cascade-warning behaviour must follow the spec, not the prototype; see deviations-characters.md.",
+    "screenshot": "183-focus.png"
+  },
+  "196": {
+    "prototype": "characters-officers",
+    "focus": "Open `/prototype/characters-officers?variant=B`. The Commandant card sums an explicit override (Bren, level 7, override 5 HD) with a level fallback (Dalla, 4 HD) into \"+9 training on a successful Drill\". The Teams column shows role-aware limits, for example Sera, an NPC holding a role at Cha 17, reads \"Manages 2 of 3\". Tap *Correct officers*, then choose ⋯ → *Remove* on Sera in Ambassador: her limit drops to 1 and the over-limit warning appears under her row and in the reason bar. The Ruleset Version, preview/Confirmation equality, Drill outcomes and the Setup/Activity/Week consumers have no prototype surface, and the mock's arithmetic is not the rules contract.",
+    "screenshot": "196-focus.png"
+  }
+}

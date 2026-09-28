@@ -21,18 +21,23 @@ const schema = z.object({
 
 // The table's own account of an event's outcome, one line with Save. The
 // owner validates the saved text against the draft and hands back a message,
-// shown at the field like any other field error.
+// shown at the field like any other field error. `subject` distinguishes a
+// second line in the same block (a reaction's account) for assistive
+// technology; the visible label stays "What happened".
 export function EventWhatHappenedLine({
   facts,
   disabled,
   onSave,
   onClear,
+  subject,
 }: {
   facts: EventWhatHappened;
   disabled: boolean;
   onSave: (outcome: string) => string | null;
   onClear: () => void;
+  subject?: string;
 }) {
+  const named = (label: string) => (subject ? `${label} · ${subject}` : label);
   const form = useForm({
     values: { outcome: facts.acknowledgement?.outcome ?? '' },
     resolver: zodResolver(schema),
@@ -61,7 +66,7 @@ export function EventWhatHappenedLine({
               <FormControl>
                 <Input
                   {...field}
-                  aria-label="What happened"
+                  aria-label={named('What happened')}
                   disabled={disabled}
                 />
               </FormControl>
@@ -76,7 +81,7 @@ export function EventWhatHappenedLine({
         <div className="flex flex-wrap gap-2 sm:pt-6">
           <Button
             type="submit"
-            aria-label="Save what happened"
+            aria-label={named('Save what happened')}
             disabled={disabled}
           >
             Save
@@ -85,6 +90,7 @@ export function EventWhatHappenedLine({
             <Button
               type="button"
               variant="outline"
+              aria-label={subject ? named('Clear what happened') : undefined}
               disabled={disabled}
               onClick={onClear}
             >

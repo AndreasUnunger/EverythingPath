@@ -51,7 +51,7 @@ export type DetailOption = {
   // The recorded reference no longer matches anything this Activity knows.
   missing: boolean;
 };
-export type DetailRollField = 'notoriety' | 'training';
+export type DetailRollField = 'notoriety' | 'training' | 'delivery';
 export type DetailRoll = {
   field: DetailRollField;
   label: string;
@@ -64,7 +64,7 @@ export type DetailConsumables = {
   selected: { value: string; label: string; missing: boolean }[];
   available: { value: string; label: string }[];
 };
-type Common = {
+export type DetailCommon = {
   rolls: DetailRoll[];
   // Null when the action has no check and nothing is recorded.
   consumables: DetailConsumables | null;
@@ -115,9 +115,9 @@ type Specific =
       ruleLevel: number | null;
     }
   | { actionId: 'drill_militia' | 'earn_gold' | 'lie_low' };
-export type ActionDetail = Common & Specific;
+export type ActionDetail = DetailCommon & Specific;
 
-function option(
+export function option(
   value: string,
   label: string,
   description: string | null,
@@ -125,7 +125,7 @@ function option(
 ): DetailOption {
   return { value, label, description, eligible, missing: false };
 }
-function withMissing(
+export function withMissing(
   options: DetailOption[],
   recorded: string | undefined,
   label: string,
@@ -139,7 +139,7 @@ function withMissing(
   ];
 }
 // Eligible options first, keeping each group's order.
-function ordered(options: DetailOption[]) {
+export function ordered(options: DetailOption[]) {
   return [
     ...options.filter((entry) => entry.eligible),
     ...options.filter((entry) => !entry.eligible),
@@ -268,24 +268,31 @@ const rollWhen: Partial<
     notoriety: 'Rolled on a natural 1: Notoriety rises by the roll.',
   },
 };
-function detailRolls(choice: Choice<PeopleTeamActionId>, slot: Slot) {
-  return (['training', 'notoriety'] as const).flatMap<DetailRoll>((field) => {
-    const spec = activityRollSpec(choice.actionId, field);
-    if (!spec) return [];
-    return [
-      {
-        field,
-        label: activityLabel(field),
-        spec,
-        when: rollWhen[choice.actionId]?.[field] ?? '',
-        required: slot.requirements.includes(
-          `${choice.choiceId}:${field}:${spec.count}d${spec.sides}`,
-        ),
-      },
-    ];
-  });
+// The action's dice rolls other than its check, with when the rules use them.
+export function detailRolls(
+  choice: StagedActionChoice,
+  slot: Slot,
+  when: Partial<Record<DetailRollField, string>> = {},
+) {
+  return (['training', 'notoriety', 'delivery'] as const).flatMap<DetailRoll>(
+    (field) => {
+      const spec = activityRollSpec(choice.actionId, field);
+      if (!spec) return [];
+      return [
+        {
+          field,
+          label: activityLabel(field),
+          spec,
+          when: when[field] ?? '',
+          required: slot.requirements.includes(
+            `${choice.choiceId}:${field}:${spec.count}d${spec.sides}`,
+          ),
+        },
+      ];
+    },
+  );
 }
-function consumables(
+export function consumables(
   choice: StagedActionChoice,
   slot: Slot,
   view: ActivityView,
@@ -553,7 +560,7 @@ export function actionDetail(
   if (!choice || !isPeopleTeamChoice(choice)) return null;
   return {
     ...specific(choice, slot, view),
-    rolls: detailRolls(choice, slot),
+    rolls: detailRolls(choice, slot, rollWhen[choice.actionId]),
     consumables: consumables(choice, slot, view),
   };
 }

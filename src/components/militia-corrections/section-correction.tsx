@@ -1,10 +1,10 @@
 'use client';
 import {
+  Fragment,
   useEffect,
   useId,
   useRef,
   type ComponentType,
-  type RefObject,
 } from 'react';
 import { Controller, FormProvider } from 'react-hook-form';
 import { CircleAlert, TriangleAlert } from 'lucide-react';
@@ -13,27 +13,137 @@ import {
   PhoneStatusStrip,
   useShellSlotHost,
 } from '~/components/campaign-shell/shell-slots';
+import {
+  SetupCaches,
+  SetupItems,
+  SetupMarketplaces,
+  SetupOrders,
+} from '~/components/militia-setup/assets';
+import {
+  SetupCharacterConditions,
+  SetupMarketDayBenefits,
+  SetupSkillBenefits,
+} from '~/components/militia-setup/effects';
+import { SetupSectionHeading } from '~/components/militia-setup/fields';
+import {
+  SetupTeams,
+  type SetupCharacter,
+} from '~/components/militia-setup/roster';
 import { SetupMilitiaValues } from '~/components/militia-setup/starting-point';
+import { SetupSettlements } from '~/components/militia-setup/world';
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
-import type { MilitiaSectionKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
+import type { AffectedChoice, NeededBy } from './affected-choice-copy';
 import {
   AFFECTS_WEEK_HEADING,
   CONFLICT_HEADING,
+  MISSING_HEADING,
+  NEEDED_BY_LABEL,
   RESTART_FROM_THEIRS,
   RESTART_FROM_WEEK,
   SAVING_MESSAGE,
   WEEK_CHANGED_MESSAGE,
 } from './correction-copy';
 import { FactsView } from './facts-view';
-import type { SectionCorrection } from './use-militia-corrections';
+import type { CorrectableEntry } from './section-fields';
+import type {
+  MissingEntry,
+  SectionCorrection,
+} from './use-militia-corrections';
 
-// The editor of each section with its own isolated correction. Sections
-// missing here still open the temporary full editor.
-export const sectionEditors: Partial<Record<MilitiaSectionKey, ComponentType>> =
-  { values: SetupMilitiaValues };
+export type SectionEditorProps = {
+  characters: SetupCharacter[];
+  /** Why a restored row is needed, by its identity. */
+  rowNotes: ReadonlyMap<string, string>;
+};
+
+// The list editors render under the pane's own "Correct teams" heading, so
+// Setup's section title is dropped.
+function TeamsEditor({ characters, rowNotes }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupTeams characters={characters} rowNotes={rowNotes} />
+    </SetupSectionHeading>
+  );
+}
+
+function SettlementsEditor({ rowNotes }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupSettlements rowNotes={rowNotes} />
+    </SetupSectionHeading>
+  );
+}
+
+function ItemsEditor({ characters, rowNotes }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupItems characters={characters} rowNotes={rowNotes} />
+    </SetupSectionHeading>
+  );
+}
+
+function CachesEditor({ rowNotes }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupCaches rowNotes={rowNotes} />
+    </SetupSectionHeading>
+  );
+}
+
+function OrdersEditor() {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupOrders />
+    </SetupSectionHeading>
+  );
+}
+
+function MarketplacesEditor() {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupMarketplaces />
+    </SetupSectionHeading>
+  );
+}
+
+function CharacterConditionsEditor({ characters }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="none">
+      <SetupCharacterConditions characters={characters} />
+    </SetupSectionHeading>
+  );
+}
+
+// Two subsections under the pane's heading, each keeping Setup's own title.
+function CarriedBenefitsEditor({ characters }: SectionEditorProps) {
+  return (
+    <SetupSectionHeading value="h3">
+      <div className="space-y-6">
+        <SetupSkillBenefits characters={characters} />
+        <SetupMarketDayBenefits />
+      </div>
+    </SetupSectionHeading>
+  );
+}
+
+// The editor of every entry the page corrects in place.
+export const sectionEditors: Record<
+  CorrectableEntry,
+  ComponentType<SectionEditorProps>
+> = {
+  values: SetupMilitiaValues,
+  teams: TeamsEditor,
+  settlements: SettlementsEditor,
+  characterConditions: CharacterConditionsEditor,
+  items: ItemsEditor,
+  caches: CachesEditor,
+  orders: OrdersEditor,
+  marketplaces: MarketplacesEditor,
+  carriedBenefits: CarriedBenefitsEditor,
+};
 
 const action = 'min-h-11 md:min-h-9';
 const advisory = 'border-primary/40 bg-primary/10 space-y-1 border p-3';
@@ -48,31 +158,6 @@ export function useFocusOnMount<T extends HTMLElement>() {
     ref.current?.focus();
   }, []);
   return ref;
-}
-
-// Below the phone strip, focused fields must scroll above the sticky reason
-// bar: reserve the bar's height as scroll padding while it is mounted.
-function useScrollPaddingFor(
-  ref: RefObject<HTMLElement | null>,
-  active: boolean,
-) {
-  useEffect(() => {
-    const bar = ref.current;
-    if (!active || !bar || typeof ResizeObserver === 'undefined') return;
-    // The whole sticky bottom area covers the page: this bar and the
-    // shell's tabs below it.
-    const cover = bar.closest('[data-shell-slot]')?.parentElement ?? bar;
-    const style = document.documentElement.style;
-    const previous = style.scrollPaddingBottom;
-    const observer = new ResizeObserver(() => {
-      style.scrollPaddingBottom = `${cover.offsetHeight + 16}px`;
-    });
-    observer.observe(cover);
-    return () => {
-      observer.disconnect();
-      style.scrollPaddingBottom = previous;
-    };
-  }, [ref, active]);
 }
 
 /** Advisory rules warnings, on the read view and on an open correction. */
@@ -91,25 +176,113 @@ export function RulesWarnings({ warnings }: { warnings: string[] }) {
   );
 }
 
-function AffectsWeek({ phases }: { phases: SectionCorrection['affectsWeek'] }) {
-  if (phases.length === 0) return null;
+// The choice's name, linked to the phase that repairs it; plain text for
+// read-only carried context.
+function ChoiceName({ choice }: { choice: NeededBy }) {
+  if (choice.href === null) return <>{choice.label}</>;
+  return (
+    <GuardedLink href={choice.href} className="underline underline-offset-4">
+      {choice.label}
+    </GuardedLink>
+  );
+}
+
+// The open week's choices this correction would leave without their
+// subject, one sentence each: "Removing Scouts leaves Activity slot 2
+// (Drill Militia) without a team."
+export function AffectsWeek({ choices }: { choices: AffectedChoice[] }) {
+  if (choices.length === 0) return null;
   return (
     <aside aria-label={AFFECTS_WEEK_HEADING} className={advisory}>
       <h3 className="text-sm font-semibold">{AFFECTS_WEEK_HEADING}</h3>
       <ul role="list" className="space-y-1 text-sm">
-        {phases.map((phase) => (
-          <li key={phase.phase}>
-            <GuardedLink
-              href={phase.href}
-              className="underline underline-offset-4"
-            >
-              {phase.label}
-            </GuardedLink>{' '}
-            ({phase.count} {phase.count === 1 ? 'choice' : 'choices'})
+        {choices.map((choice) => (
+          <li key={choice.key} className="flex items-start gap-2">
+            <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {choice.before} <ChoiceName choice={choice} /> {choice.after}
+            </span>
           </li>
         ))}
       </ul>
     </aside>
+  );
+}
+
+// One missing identity: what needs it, and its Restore button. While its
+// restoration is blocked, the reason is read out with the disabled button.
+function MissingReferenceItem({
+  entry,
+  disabled,
+}: {
+  entry: MissingEntry;
+  disabled: boolean;
+}) {
+  const id = useId();
+  const blockedId = `${id}-blocked`;
+  return (
+    <li className="min-w-0 space-y-1.5 [overflow-wrap:anywhere]">
+      <p className="font-medium">{entry.name}</p>
+      <p className="text-sm">
+        {NEEDED_BY_LABEL}:{' '}
+        {entry.neededBy.map((choice, index) => (
+          <Fragment key={choice.key}>
+            {index > 0 && ', '}
+            <ChoiceName choice={choice} />
+            {choice.action !== null && ` · ${choice.action}`}
+          </Fragment>
+        ))}
+      </p>
+      {entry.blocked !== null && (
+        <p id={blockedId} className="text-muted-foreground text-sm">
+          {entry.blocked}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className={action}
+          disabled={disabled || entry.blocked !== null}
+          aria-describedby={entry.blocked !== null ? blockedId : undefined}
+          onClick={entry.restore}
+        >
+          {entry.restoreLabel}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Identities the open week still uses but the militia lacks, each with the
+ * choices that need it and a button that adds it back to this section. On
+ * the read view and on an open correction.
+ */
+export function MissingReferences({
+  entries,
+  disabled,
+}: {
+  entries: MissingEntry[];
+  disabled: boolean;
+}) {
+  const id = useId();
+  if (entries.length === 0) return null;
+  return (
+    <section aria-labelledby={id} className="min-w-0 space-y-2">
+      <h3 id={id} className="text-sm font-semibold">
+        {MISSING_HEADING}
+      </h3>
+      <ul role="list" className="space-y-3">
+        {entries.map((entry) => (
+          <MissingReferenceItem
+            key={entry.key}
+            entry={entry}
+            disabled={disabled}
+          />
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -205,11 +378,8 @@ function ReasonBar({
   const errorId = `${id}-error`;
   const { view, reason } = correction;
   const editing = view.kind === 'editing';
-  const bar = useRef<HTMLDivElement>(null);
-  useScrollPaddingFor(bar, inStrip);
   return (
     <div
-      ref={bar}
       data-reason-bar
       className={cn('grid gap-3', inStrip && 'bg-background px-3 py-2')}
     >
@@ -300,10 +470,17 @@ function Editor({
           disabled={view.kind !== 'editing'}
           className="min-w-0 space-y-4"
         >
-          {SectionEditor && <SectionEditor />}
+          <SectionEditor
+            characters={correction.characters}
+            rowNotes={correction.rowNotes}
+          />
         </fieldset>
+        <MissingReferences
+          entries={correction.restorable}
+          disabled={view.kind !== 'editing'}
+        />
         <RulesWarnings warnings={correction.warnings} />
-        <AffectsWeek phases={correction.affectsWeek} />
+        <AffectsWeek choices={correction.affectsWeek} />
         <ErrorSummary correction={correction} />
         <Notice correction={correction} />
         {!inStrip && (

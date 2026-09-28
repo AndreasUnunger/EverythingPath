@@ -3,6 +3,7 @@ import { StagedTransfer } from './staged-transfer';
 import { TransferForm } from './transfer-form';
 import type { UpkeepSections } from './types';
 import type { UpkeepEdit } from './upkeep-edits';
+import { upkeepStepAnchor } from './source-anchors';
 import { IssueNotes, signedGold, Step } from './upkeep-parts';
 import { formatGold } from './week-frame/reference-copy';
 
@@ -22,6 +23,7 @@ export function Deposits({
     <Step
       number={5}
       title="Deposits and withdrawals"
+      anchor={upkeepStepAnchor('transfers')}
       status={transfers.status}
       effect={
         transfers.beforeCopper === null || transfers.afterCopper === null

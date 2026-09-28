@@ -1,6 +1,8 @@
 import type { CanonicalWeekState } from './canonical-weekly-source';
+import { getEffectiveHitDice } from './canonical-roster';
 import { formatCharacterKind } from './character-kind';
 import type { MilitiaEntryKey } from './militia-correction-sections';
+import { BOARD_ROLES, heldRoles, ROLE_LABELS } from './officer-board';
 
 // Read-only presentation of the accepted militia facts, one Militia page
 // entry at a time. Values are displayed only; nothing here derives a rule.
@@ -554,25 +556,71 @@ function weekCarried(state: CanonicalWeekState, names: Names): EntryFacts {
   };
 }
 
-function people(snapshot: Snapshot, names: Names): EntryFacts {
-  const roles = (id: string) =>
-    snapshot.roster.officers
-      .filter((officer) => officer.characterId === id)
-      .map((officer) => words(officer.role));
-  const entries = snapshot.roster.people.map((person) => ({
-    key: person.characterId,
-    title: names.character(person.characterId),
-    rows: [
-      { label: 'Kind', value: formatCharacterKind(person.kind) },
-      {
-        label: 'Hit Dice',
-        value:
-          person.hitDice === null ? 'Not recorded' : String(person.hitDice),
-      },
-      { label: 'Officer roles', value: list(roles(person.characterId)) },
+/**
+ * The facts Correct officers changes, for each side of its conflict: every
+ * role's holders.
+ */
+export function officerFacts(
+  snapshot: Snapshot,
+  characters: CharacterNames,
+): EntryFacts {
+  const names = namer(snapshot, characters);
+  return {
+    groups: [
+      group('officers', '', {
+        rows: BOARD_ROLES.map((role) => ({
+          label: ROLE_LABELS[role],
+          value: list(
+            snapshot.roster.officers
+              .filter((officer) => officer.role === role)
+              .map((officer) => names.character(officer.characterId)),
+            'Vacant',
+          ),
+        })),
+      }),
     ],
-  }));
-  return listFacts('people', 'No people on the roster', entries);
+    count: null,
+    preview: '',
+  };
+}
+
+/**
+ * The facts Correct roster changes, for each side of its conflict: each
+ * roster person's Hit Dice, roles and managed teams.
+ */
+export function rosterFacts(
+  snapshot: Snapshot,
+  characters: CharacterNames,
+): EntryFacts {
+  const names = namer(snapshot, characters);
+  const entries = snapshot.roster.people.map((person) => {
+    const character = snapshot.characters.find(
+      (entry) => entry.characterId === person.characterId,
+    );
+    const roles = heldRoles(snapshot.roster.officers, person.characterId).map(
+      (role) => ROLE_LABELS[role],
+    );
+    const teams = snapshot.roster.teams
+      .filter((team) => team.managerCharacterId === person.characterId)
+      .map((team) => team.name);
+    const hitDice = character
+      ? String(getEffectiveHitDice(person, character))
+      : 'Not recorded';
+    return {
+      key: person.characterId,
+      title: names.character(person.characterId),
+      rows: [
+        { label: 'Kind', value: formatCharacterKind(person.kind) },
+        {
+          label: 'Hit Dice',
+          value: person.hitDice === null ? hitDice : `${hitDice} (override)`,
+        },
+        { label: 'Officer roles', value: list(roles) },
+        { label: 'Manages', value: list(teams) },
+      ],
+    };
+  });
+  return listFacts('roster', 'No people on the roster', entries);
 }
 
 // The readable facts, count and preview line for one Militia page entry.
@@ -604,7 +652,5 @@ export function militiaEntryFacts(
       return benefits(snapshot, names);
     case 'weekCarried':
       return weekCarried(state, names);
-    case 'people':
-      return people(snapshot, names);
   }
 }

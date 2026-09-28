@@ -18,7 +18,13 @@ export const caseKeys = [
   'workspaceRecovery',
   'workspacePersistent',
   'workspaceConfirmation',
+  'workspaceUpkeepLayout',
+  'workspaceEventReview',
+  'workspaceActivity',
   'campaignHome',
+  'campaignSections',
+  'legacyAddresses',
+  'legacyWeekLinks',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
 // These cases start with a bare militia; canonical fixtures install the source.
@@ -29,6 +35,9 @@ export const canonicalCaseKeys = [
   'workspaceRecovery',
   'workspacePersistent',
   'workspaceConfirmation',
+  'workspaceUpkeepLayout',
+  'workspaceEventReview',
+  'workspaceActivity',
 ] as const satisfies readonly CaseKey[];
 export function isCanonicalCase(caseKey: CaseKey) {
   return (canonicalCaseKeys as readonly CaseKey[]).includes(caseKey);
@@ -56,10 +65,16 @@ export const fixtureCatalog = {
   workspaceRecovery: canonicalDomain,
   workspacePersistent: canonicalDomain,
   workspaceConfirmation: canonicalDomain,
+  workspaceUpkeepLayout: canonicalDomain,
+  workspaceEventReview: canonicalDomain,
+  workspaceActivity: canonicalDomain,
   smoke: harnessDomain,
-  // The campaign-home journey, split from access (smoke), keeps its names so
-  // the list, header and overflow checks measure text of the same length.
+  // The journeys split from access (smoke) keep its names so the list,
+  // header and overflow checks measure text of the same length.
   campaignHome: harnessDomain,
+  campaignSections: harnessDomain,
+  legacyAddresses: harnessDomain,
+  legacyWeekLinks: harnessDomain,
   existingMilitia: {
     campaign: 'existing-militia-campaign',
     militia: 'existing-militia',
@@ -179,7 +194,13 @@ export const deploymentFixtureSchema = z
                 workspaceRecovery: z.string().length(64),
                 workspacePersistent: z.string().length(64),
                 workspaceConfirmation: z.string().length(64),
+                workspaceUpkeepLayout: z.string().length(64),
+                workspaceEventReview: z.string().length(64),
+                workspaceActivity: z.string().length(64),
                 campaignHome: z.string().length(64),
+                campaignSections: z.string().length(64),
+                legacyAddresses: z.string().length(64),
+                legacyWeekLinks: z.string().length(64),
               })
               .strict(),
           })

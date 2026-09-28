@@ -20,6 +20,17 @@ const digits = z
     (value) => value === '' || Number.isSafeInteger(Number(value)),
     'Enter a smaller whole number.',
   );
+// A signed whole number, such as a skill bonus. A lone minus sign is typing
+// in progress: it is kept locally and never sent as a value.
+const SIGNED = 'Use a whole number such as 4 or -3.';
+const signedDigits = z
+  .string()
+  .regex(/^-?[0-9]*$/, SIGNED)
+  .refine(
+    (value) =>
+      value === '-' || value === '' || Number.isSafeInteger(Number(value)),
+    'Enter a smaller whole number.',
+  );
 export function WholeNumberField({
   label,
   value,
@@ -28,11 +39,14 @@ export function WholeNumberField({
   onValue,
   onInvalid,
   description,
+  signed = false,
 }: {
   label: string;
   value: number | null;
   required?: boolean;
   disabled?: boolean;
+  // Accept a leading minus sign (a bonus, not a dice total).
+  signed?: boolean;
   onValue: (value: number | null) => void;
   // Reports rejected local text so an enclosing form can refuse to save.
   onInvalid?: (message: string | null) => void;
@@ -45,15 +59,15 @@ export function WholeNumberField({
   // the enclosing form still refuses to save. Remember the rejection so leaving
   // the field keeps that error until valid input replaces it.
   const rejected = useRef<string | null>(null);
+  const schema = signed ? signedDigits : digits;
   const form = useForm({
     values: { value: value === null ? '' : String(value) },
     mode: 'onBlur',
     resolver: zodResolver(
       z.object({
-        value: digits.refine(
-          (value) => !required || value !== '',
-          'A value is required.',
-        ),
+        value: schema
+          .refine((value) => value !== '-', SIGNED)
+          .refine((value) => !required || value !== '', 'A value is required.'),
       }),
     ),
     resetOptions: { keepErrors: true },
@@ -79,8 +93,8 @@ export function WholeNumberField({
                   else form.setError('value', { message: rejected.current });
                 }}
                 onChange={(event) => {
-                  const text = event.target.value;
-                  const parsed = digits.safeParse(text);
+                  const entered = event.target.value;
+                  const parsed = schema.safeParse(entered);
                   if (!parsed.success) {
                     const message = parsed.error.issues[0]!.message;
                     rejected.current = message;
@@ -91,8 +105,10 @@ export function WholeNumberField({
                   rejected.current = null;
                   form.clearErrors('value');
                   onInvalid?.(null);
-                  field.onChange(text);
-                  onValue(text === '' ? null : Number(text));
+                  field.onChange(entered);
+                  if (entered === '-') return;
+                  // "-0" would otherwise record a negative zero.
+                  onValue(entered === '' ? null : Number(entered) || 0);
                 }}
               />
             </FormControl>

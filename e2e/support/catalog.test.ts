@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import {
   canonicalCaseKeys,
@@ -6,7 +8,12 @@ import {
   deploymentFixtureSchema,
   fixtureCatalog,
 } from '../fixtures/catalog';
-import { browserProjects, requiredTests, workspaceCaseKey } from './matrix';
+import {
+  accessJourneyFiles,
+  browserProjects,
+  requiredTests,
+  workspaceCaseKey,
+} from './matrix';
 
 it('declares a capability and domain for every catalog case', () => {
   const cases = deploymentFixtureSchema.shape.workers.element.shape.cases;
@@ -20,25 +27,57 @@ it('gives each Workspace journey its own canonical case', () => {
     .filter(([file]) => file === 'canonical-workspace.spec.ts')
     .map(([, , title]) => title!);
   const cases = titles.map(workspaceCaseKey);
-  expect(new Set(cases).size).toBe(5);
+  expect(new Set(cases).size).toBe(8);
   for (const caseKey of cases) expect(canonicalCaseKeys).toContain(caseKey);
   expect(() => workspaceCaseKey('an undeclared journey')).toThrow();
 });
 
-it('gives the campaign home its own case, seeded like access, wherever access runs', () => {
-  expect(caseKeys).toContain('campaignHome');
-  expect(fixtureCatalog.campaignHome).toEqual(fixtureCatalog.smoke);
-  expect(canonicalCaseKeys).not.toContain('campaignHome');
-  for (const mode of ['mandatory', 'nightly'] as const) {
-    const projects = (file: string) =>
-      requiredTests(mode)
-        .filter(([candidate]) => candidate === file)
-        .map(([, project]) => project);
-    expect(projects('campaign-home.spec.ts')).toEqual(
-      projects('access.spec.ts'),
-    );
-  }
+// Each required journey file's `test.use({ caseKey })` selections.
+const journeyCases = [
+  ...new Set(requiredTests('nightly').map(([name]) => name!)),
+]
+  .filter((name) => name.endsWith('.spec.ts'))
+  .flatMap((name) =>
+    [
+      ...readFileSync(join(process.cwd(), 'e2e', name), 'utf8').matchAll(
+        /test\.use\(\{ caseKey: '([A-Za-z]+)' \}\)/g,
+      ),
+    ].map(([, key]) => [name, key] as const),
+  );
+
+const accessSplits = [
+  ['campaign-home.spec.ts', 'campaignHome'],
+  ['campaign-sections.spec.ts', 'campaignSections'],
+  ['legacy-addresses.spec.ts', 'legacyAddresses'],
+  ['legacy-week-links.spec.ts', 'legacyWeekLinks'],
+] as const;
+
+it('lists every journey split from access with its case', () => {
+  expect([...accessJourneyFiles].sort()).toEqual(
+    ['access.spec.ts', ...accessSplits.map(([file]) => file)].sort(),
+  );
 });
+
+it.each(accessSplits)(
+  'gives %s, split from access, its own case seeded like access, wherever access runs',
+  (file, caseKey) => {
+    expect(caseKeys).toContain(caseKey);
+    expect(fixtureCatalog[caseKey]).toEqual(fixtureCatalog.smoke);
+    expect(canonicalCaseKeys).not.toContain(caseKey);
+    expect(accessJourneyFiles).toContain(file);
+    // The journey selects exactly this case, which no other journey uses.
+    expect(journeyCases.filter(([, key]) => key === caseKey)).toEqual([
+      [file, caseKey],
+    ]);
+    for (const mode of ['mandatory', 'nightly'] as const) {
+      const projects = (name: string) =>
+        requiredTests(mode)
+          .filter(([candidate]) => candidate === name)
+          .map(([, project]) => project);
+      expect(projects(file)).toEqual(projects('access.spec.ts'));
+    }
+  },
+);
 
 it('schedules the longest projects first and cutover last', () => {
   for (const mode of ['mandatory', 'nightly'] as const) {

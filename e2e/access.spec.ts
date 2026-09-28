@@ -1,8 +1,10 @@
-import { openCampaignSection } from './support/interactions';
-import { exerciseShellNavigation } from './support/shell-navigation';
+import {
+  expectOutsiderShutOut,
+  openWeekFromList,
+} from './support/shell-navigation';
 import { loadRun } from './support/process';
 import { navigationAndPersistence } from './support/nightly-flows';
-import { test, expect } from './support/fixtures';
+import { test } from './support/fixtures';
 
 test.use({ caseKey: 'smoke' });
 test('organization members can open their campaign and outsiders cannot', async ({
@@ -11,24 +13,16 @@ test('organization members can open their campaign and outsiders cannot', async 
 }, info) => {
   // Members open their campaign from the list. The list and home themselves
   // (landing, selection, header edits, outsider view) are the campaign-home
-  // journey.
-  await Promise.all(
-    [players.gm, players.player].map(async (page) => {
-      await page.goto('/campaigns');
-      await openCampaignSection(page, 'week');
-      await expect(
-        page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
-      ).toBeVisible();
-    }),
-  );
-  await exerciseShellNavigation(
-    players.player,
-    players.outsider,
-    ownedCase.campaignName,
-  );
-  await expect(
-    players.gm.getByRole('heading', { name: 'Week 1 · Upkeep' }),
-  ).toBeVisible();
+  // journey; section navigation, legacy addresses and legacy week links are
+  // their own journeys, split from this one.
+  await test.step('members open the week from the campaign list', () =>
+    Promise.all([players.gm, players.player].map(openWeekFromList)));
+  await test.step('the outsider cannot open any section of the campaign', () =>
+    expectOutsiderShutOut(
+      players.player,
+      players.outsider,
+      ownedCase.campaignName,
+    ));
   if (
     (await loadRun()).mode === 'nightly' &&
     ['chromium-tablet', 'chromium-phone'].includes(info.project.name)

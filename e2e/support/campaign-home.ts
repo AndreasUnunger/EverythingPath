@@ -11,8 +11,10 @@ import {
 
 // Campaign list/home (#187): URL-backed selection, the full description and
 // in-game date header, and its two independent saves observed by a second
-// member without reload. Creating campaigns is covered below the browser
-// (the fixture harness cannot clean up UI-created campaigns).
+// member without reload. Its content (#189): Continue week's target, the
+// militia line and the empty finished-weeks preview. Creating campaigns is
+// covered below the browser (the fixture harness cannot clean up UI-created
+// campaigns).
 
 // The selected campaign's home is a region named by the campaign.
 function pane(page: Page, campaignName: string) {
@@ -37,6 +39,23 @@ export async function exerciseCampaignHome(
       page.getByRole('heading', { name: 'Week 1 · Upkeep' }),
     ).toHaveCount(0);
   }
+  // The selected home continues the week from current facts (#189): the
+  // fixture's first week skips Upkeep and Activity needs nothing, so Continue
+  // targets Event; no week has finished yet, All finished weeks stays linked.
+  const selected = pane(editor, campaignName);
+  await expect(
+    selected.getByRole('link', { name: 'Continue week 1', exact: true }),
+  ).toHaveAttribute('href', /\/week\?phase=event$/);
+  await expect(selected.getByRole('region', { name: 'Militia' })).toContainText(
+    'Rank 1 · Loyalty · No teams · 0 of 6 officer roles · No settlements',
+  );
+  await expect(selected.getByText('No finished weeks yet.')).toBeVisible();
+  await expect(
+    selected.getByRole('link', { name: 'All finished weeks', exact: true }),
+  ).toHaveAttribute('href', /\/history$/);
+  await expect(
+    selected.getByRole('link', { name: 'Set up militia' }),
+  ).toHaveCount(0);
   // Outsiders see their own empty organization and no trace of this campaign.
   await outsider.goto('/campaigns');
   await expect(

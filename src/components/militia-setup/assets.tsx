@@ -34,7 +34,14 @@ export function SetupAssets({
     </>
   );
 }
-export function SetupItems({ characters }: { characters: SetupCharacter[] }) {
+export function SetupItems({
+  characters,
+  rowNotes,
+}: {
+  characters: SetupCharacter[];
+  /** A note under an item's title, by its identity. */
+  rowNotes?: ReadonlyMap<string, string>;
+}) {
   const { control, watch } = useFormContext<MilitiaSetup>();
   const items = useFieldArray({
     control,
@@ -59,6 +66,7 @@ export function SetupItems({ characters }: { characters: SetupCharacter[] }) {
         <SetupEntry
           key={row.id}
           label={`Item ${i + 1}`}
+          note={rowNotes?.get(row.itemId)}
           onRemove={() => items.remove(i)}
         >
           <Field
@@ -116,7 +124,12 @@ export function SetupItems({ characters }: { characters: SetupCharacter[] }) {
     </SetupSection>
   );
 }
-export function SetupCaches() {
+export function SetupCaches({
+  rowNotes,
+}: {
+  /** A note under a cache's title, by its identity. */
+  rowNotes?: ReadonlyMap<string, string>;
+} = {}) {
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const caches = useFieldArray({
     control,
@@ -144,6 +157,7 @@ export function SetupCaches() {
         <SetupEntry
           key={row.id}
           label={`Cache ${i + 1}`}
+          note={rowNotes?.get(row.cacheId)}
           onRemove={() => caches.remove(i)}
         >
           <Field

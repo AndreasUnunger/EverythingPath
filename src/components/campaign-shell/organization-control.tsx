@@ -105,11 +105,15 @@ export function OrganizationControl({
         <Select value={value} onValueChange={choose} disabled={busy}>
           <SelectTrigger
             aria-label="Organization"
+            title={organization?.name ?? 'Personal account'}
             className={cn(
-              'min-h-8 min-w-0 border-0 bg-transparent px-1 text-sm shadow-none dark:bg-transparent [&>span]:truncate',
+              'min-h-8 min-w-0 border-0 bg-transparent px-1 text-sm shadow-none *:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate dark:bg-transparent',
+              // 8rem from 768px keeps a section page's top bar on one row
+              // at tablet landscape (1180 and 1194px) beside the full
+              // section labels; from 1280px there is room again.
               fill
                 ? 'w-full flex-1'
-                : 'max-w-[10rem] md:max-w-[11rem] xl:max-w-[14rem]',
+                : 'max-w-[10rem] md:max-w-[8rem] xl:max-w-[14rem]',
             )}
           >
             <SelectValue placeholder="Organization" />

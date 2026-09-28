@@ -1,4 +1,5 @@
-import type { PersistentView } from './types';
+// The words for a carried event's rules codes: its warnings and the Rules
+// Exceptions its decision needs.
 export function persistentMessage(key: string) {
   const messages: Record<string, string> = {
     'buyoff-cooldown':
@@ -17,77 +18,5 @@ export function persistentMessage(key: string) {
   return (
     messages[key.split(':').at(-1)!] ??
     'Review this event’s decision with the table.'
-  );
-}
-export function PersistentOutcomes({
-  event,
-  options,
-}: {
-  event: PersistentView['events'][number];
-  options: PersistentView['options'];
-}) {
-  const inputs = event.decision?.kind === 'mitigate' ? event.decision : null;
-  const modifiers = [
-    ...(inputs?.officerCheck?.roll?.modifiers ?? []),
-    ...Object.values(inputs?.rolls ?? {}).flatMap(
-      (roll) => roll?.modifiers ?? [],
-    ),
-  ];
-  const names: Record<string, string> = {
-    'rank-focus': 'Rank and focus',
-    officers: 'Officers',
-    'overseer-support': 'Overseer support',
-    strategist: 'Strategist',
-    helpful: 'Helpful settlement support',
-  };
-  return (
-    <div className="space-y-2 text-sm">
-      {event.checks.map((check) => (
-        <div key={check.checkId}>
-          <p>
-            Calculated bonus: {check.modifier >= 0 ? '+' : ''}
-            {check.modifier} · Total: {check.total ?? 'Awaiting roll'} · DC 20
-          </p>
-          <ul
-            aria-label="Persistent check modifiers"
-            className="text-muted-foreground text-xs"
-          >
-            {check.modifiers.map((modifier) => (
-              <li key={modifier.source}>
-                {modifiers.find((input) => input.sourceId === modifier.source)
-                  ?.reason ??
-                  options.modifierSources?.find(
-                    (option) => option.value === modifier.source,
-                  )?.label ??
-                  names[modifier.source] ??
-                  'Calculated modifier'}
-                : {modifier.value >= 0 ? '+' : ''}
-                {modifier.value}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-      {/* A staged buyoff is already the header's result and the cost line. */}
-      {event.changes.map((change) => {
-        if (change.kind === 'persistent_officer_check')
-          return (
-            <p key={change.kind}>
-              Officer check: {change.total} / DC {change.dc} —{' '}
-              {change.succeeded ? 'ends the event.' : 'the event remains.'}
-            </p>
-          );
-        if (change.kind === 'persistent_mitigation')
-          return (
-            <p key={change.kind}>
-              Temporary mitigation: {change.total} / DC {change.dc} —{' '}
-              {change.succeeded
-                ? 'retains 90% of this week’s income.'
-                : 'the usual loss applies.'}
-            </p>
-          );
-        return null;
-      })}
-    </div>
   );
 }

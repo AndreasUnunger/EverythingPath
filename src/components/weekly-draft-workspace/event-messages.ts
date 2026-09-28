@@ -13,6 +13,36 @@ type TopologyContext = {
   detail?: (eventId: string, tail: string, warning: boolean) => string | null;
 };
 
+/**
+ * Wording for a candidate set's own codes (both candidates, the choice of
+ * one), or null for any other code or a choice no longer staged.
+ */
+export function candidateSetMessage(
+  code: string,
+  context: Pick<
+    TopologyContext,
+    'positions' | 'candidateLabel' | 'preparationFailed'
+  >,
+): string | null {
+  for (const suffix of ['candidates:2', 'selected-event'] as const) {
+    if (!code.endsWith(`:${suffix}`)) continue;
+    const choiceId = code.slice(0, -suffix.length - 1);
+    const label = context.candidateLabel(choiceId);
+    if (!label) continue;
+    if (suffix === 'selected-event')
+      return `${label}: choose which event happens.`;
+    return context.positions.some(
+      (group) =>
+        group.kind === 'candidates' &&
+        group.choiceId === choiceId &&
+        group.eventIds.length > group.count,
+    )
+      ? `${label}: more than two candidates are recorded. Clear the extra one to remove it.`
+      : `${label}: both event candidates ${context.preparationFailed ? 'could not be prepared. Use Retry in Event.' : 'are being prepared.'}`;
+  }
+  return null;
+}
+
 // Wording for one Event requirement or warning that names its event, source
 // or Activity choice, so This phase and each block identify what is open.
 // Returns null for codes Event does not own.
@@ -31,6 +61,8 @@ export function eventTopologyMessage(
     return 'Event chance: enter the chance roll (d100).';
   if (code === 'event:chance:roll-range')
     return 'Event chance: the roll is outside 1–100. The recorded value is kept for the table.';
+  if (code === 'event:hidden-agenda-cycle')
+    return 'Hidden Agenda: the recalculated Activity keeps changing whether the event happens. Review the Activity checks with the table.';
   if (code === 'event:operating-settlement')
     return `Event chance: record ${context.settlementName ?? 'the operating settlement'}’s reputation, or choose another operating settlement in Activity.`;
   if (code === 'event:root:1')
@@ -46,19 +78,8 @@ export function eventTopologyMessage(
       ? `Automatic events from ${label}: more are recorded than the rules ask for. Clear the extra one to remove it.`
       : `Automatic events from ${label}: the ${automatic[2] === '1' ? 'event' : `${automatic[2]} events`} ${preparing}`;
   }
-  for (const suffix of ['candidates:2', 'selected-event'] as const) {
-    if (!code.endsWith(`:${suffix}`)) continue;
-    const choiceId = code.slice(0, -suffix.length - 1);
-    const label = context.candidateLabel(choiceId);
-    if (!label) continue;
-    if (suffix === 'selected-event')
-      return `${label}: choose which event happens.`;
-    return overfull(
-      (group) => group.kind === 'candidates' && group.choiceId === choiceId,
-    )
-      ? `${label}: more than two candidates are recorded. Clear the extra one to remove it.`
-      : `${label}: both event candidates ${preparing.replace('is ', 'are ')}`;
-  }
+  const candidates = candidateSetMessage(code, context);
+  if (candidates) return candidates;
   // The longest matching identity owns the code: an event or its Sabotage.
   const owner = context.events
     .flatMap((event) =>
@@ -70,6 +91,8 @@ export function eventTopologyMessage(
   if (!owner) return null;
   const tail = code.slice(owner.id.length + 1);
   const prefix = `${owner.event.label}: `;
+  if (owner.id === owner.event.sabotageId)
+    return `${prefix}${sabotageMessage(tail, context.warning)}`;
   if (tail === 'table:1d100') return `${prefix}enter the table roll (d100).`;
   if (tail === 'roll_twice:2')
     return overfull(
@@ -120,6 +143,18 @@ export function eventRequirement(value: string) {
     return `${labels[dice[1]!] ?? 'Required roll'}: enter ${dice[2]}d${dice[3]}.`;
   }
   const messages: [string, string][] = [
+    [
+      'overseer-already-used',
+      'Overseer support is already used on another event this week. Move it here or remove it.',
+    ],
+    [
+      'overseer-conflict',
+      'Different Overseers are recorded for this event. Turn support off and on again to keep one.',
+    ],
+    [
+      'overseer-ineligible',
+      'The recorded Overseer no longer holds the role. Remove the support.',
+    ],
     ['roll_twice', 'Roll Twice needs two independent child events.'],
     ['replacement', 'A replacement event roll is required.'],
     ['acknowledgement', 'Record the table’s outcome acknowledgement.'],
@@ -202,4 +237,25 @@ export function eventChange(
   return (
     labels[change.kind] ?? 'The event outcome is included in the week preview.'
   );
+}
+
+// Sabotage wording for one code of an event's reaction (`tail` follows the
+// reaction's identity).
+export function sabotageMessage(tail: string, warning = false) {
+  if (tail === 'team') return 'Sabotage: choose the Saboteurs team.';
+  if (tail === 'check-type')
+    return 'Sabotage: choose the check (Loyalty, Secrecy or Security).';
+  if (tail === 'check:1d20') return 'Sabotage: enter the check roll (d20).';
+  if (tail === 'notoriety:1d6')
+    return 'Sabotage: enter the notoriety roll (d6).';
+  if (tail === 'acknowledgement') return 'Sabotage: record what happened.';
+  if (tail === 'no-event')
+    return 'Sabotage: a calm week has no event to negate. Cancel it.';
+  if (tail.endsWith(':roll-range'))
+    return 'Sabotage: the roll is outside its usual range. The recorded value is kept for the table.';
+  if (tail.endsWith(':exception'))
+    return 'Sabotage: record a Rules Exception reason for this team, or choose another team.';
+  return warning
+    ? 'Sabotage: this team cannot normally sabotage now.'
+    : `Sabotage: ${eventRequirement(tail)}`;
 }

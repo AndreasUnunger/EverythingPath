@@ -52,7 +52,7 @@ This document reorganizes the militia subsystem into searchable sections and nor
 
 - Starts at 10 gp.
 - Used for actions, recruitment, upgrades, event costs.
-- Officers can deposit/withdraw during Upkeep step 5.
+- Officers can deposit/withdraw during Upkeep step 5. The application stages deposits and withdrawals without choosing an officer; see the application departure under [Step 5: Deposits and Withdrawals](#step-5-deposits-and-withdrawals).
 
 ### Minimum Treasury
 
@@ -90,6 +90,7 @@ This document reorganizes the militia subsystem into searchable sections and nor
   - PC or officer NPC: up to Charisma modifier teams (minimum 1).
   - Non-officer: one team.
 - Team actions add manager Charisma bonus to required organization checks.
+- Application note (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): an NPC counts as an officer exactly while holding at least one officer role in the roster the rules evaluate, including earlier officer changes that week; a stored character kind never decides it. Going over a lowered limit during the week needs a reasoned Rules Exception. Weeks confirmed under earlier Ruleset Versions keep their recorded limits and warnings.
 
 ### Maximum Teams
 
@@ -122,6 +123,7 @@ Multiple officers can fill the same role, but their bonuses do not stack (except
 ### Commandant
 
 - On successful Drill Militia Loyalty check, training gained increases by commandant Hit Dice.
+- Application departure (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): a commandant's Hit Dice are the roster's explicit Hit Dice override, zero included, or else the character's level; Hit Dice are no longer required before the week. Weeks confirmed under earlier Ruleset Versions keep their recorded training.
 
 ### Marshal
 
@@ -319,6 +321,7 @@ If treasury is below minimum:
 - Cost: minimum treasury value.
 - Also increase Notoriety by `+1d6`.
 - Effect: event guaranteed this week; GM rolls twice and PCs choose event.
+- Application departure (approved in [#108](https://github.com/AndreasUnunger/EverythingPath/issues/108#issuecomment-5837858373), Ruleset Version 7): a Roll Twice on either rolled event, chosen or not, is rerolled in its own die and never expands, even as the phase's first Roll Twice. The `Event: Roll Twice` text is unchanged; weeks confirmed under earlier Ruleset Versions keep their recorded expansion.
 
 ## Action: Knowledge Check
 
@@ -339,6 +342,7 @@ If treasury is below minimum:
 - Guarantees an event this week.
 - GM rolls twice on event table.
 - Any player chooses which of the two rolled events occurs (review decision A13.chooser).
+- Application departure (Ruleset Version 7): as for Guarantee Event, a Roll Twice on either rolled event is rerolled in its own die and never expands.
 
 ## Action: Recruit Team
 

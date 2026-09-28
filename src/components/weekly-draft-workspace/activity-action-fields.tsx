@@ -1,7 +1,5 @@
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '~/components/ui/button';
 import {
@@ -20,16 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import {
-  actionChoiceRolls,
-  type StagedActionChoice,
-} from '~/lib/weekly-draft-facts';
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import {
   destinationValue,
   type ActionDetail,
-  type DetailConsumables,
   type DetailOption,
-  type DetailRoll,
   type PeopleTeamActionId,
 } from './activity-action-detail';
 import {
@@ -38,12 +31,17 @@ import {
   type ActionFieldEdits,
   type RecruitmentCheckForm,
 } from './activity-action-edits';
-import { signed } from './activity-check-row';
+import {
+  CommonFields,
+  Field,
+  Muted,
+  Note,
+  OptionField,
+  type FieldContext as SharedContext,
+  type FieldError,
+} from './activity-detail-parts';
 import { activityLabel } from './activity-labels';
-import { ActivityModifierForm } from './activity-modifier-form';
-import { ActivityOptionCards } from './activity-option-cards';
 import { ActivityText } from './activity-text';
-import { RollTotalField } from './roll-total-field';
 import { WholeNumberField } from './whole-number-field';
 
 // The detail editor for the people and team actions: the action's own
@@ -59,12 +57,7 @@ type Detail<Id extends PeopleTeamActionId> = Extract<
   ActionDetail,
   { actionId: Id }
 >;
-type FieldError = { field: string; message: string } | null;
-type FieldContext = {
-  edits: ActionFieldEdits;
-  disabled: boolean;
-  fieldError: FieldError;
-};
+type FieldContext = SharedContext<ActionFieldEdits>;
 // A choice paired with the detail facts of the same action, so one
 // discriminant narrows both.
 type ActionFields<Id extends PeopleTeamActionId = PeopleTeamActionId> =
@@ -84,77 +77,6 @@ function isMatchedAction(fields: {
 }
 
 const CHECK_KINDS = ['loyalty', 'secrecy', 'security'] as const;
-
-function Field({
-  name,
-  context,
-  children,
-}: {
-  name: string;
-  context: FieldContext;
-  children: ReactNode;
-}) {
-  return (
-    <div className="min-w-0 space-y-1">
-      {children}
-      {context.fieldError?.field === name && (
-        <p role="alert" className="text-destructive text-sm">
-          {context.fieldError.message}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function OptionField({
-  context,
-  field,
-  label,
-  options,
-  value,
-  otherLabel,
-  description,
-  onSelect,
-  onClear,
-}: {
-  context: FieldContext;
-  field: string;
-  label: string;
-  options: DetailOption[];
-  value: string | null;
-  otherLabel: string;
-  description?: ReactNode;
-  // Default to the plain field edit of `field`.
-  onSelect?: (value: string) => void;
-  onClear?: () => void;
-}) {
-  return (
-    <Field name={field} context={context}>
-      <ActivityOptionCards
-        label={label}
-        options={options}
-        value={value}
-        otherLabel={otherLabel}
-        description={description}
-        disabled={context.disabled}
-        onSelect={onSelect ?? ((next) => context.edits.set(field, next))}
-        onClear={onClear ?? (() => context.edits.clear(field))}
-      />
-    </Field>
-  );
-}
-
-function Note({ children }: { children: ReactNode }) {
-  return (
-    <p role="note" className="text-sm text-amber-300">
-      {children}
-    </p>
-  );
-}
-
-function Muted({ children }: { children: ReactNode }) {
-  return <p className="text-muted-foreground text-sm">{children}</p>;
-}
 
 function levelDescription(level: number | undefined, ruleLevel: number | null) {
   if (ruleLevel === null) return 'Level not recorded for this character.';
@@ -669,185 +591,6 @@ function Specific({
   }
 }
 
-function RollBlock({
-  roll,
-  choice,
-  context,
-}: {
-  roll: DetailRoll;
-  choice: Choice;
-  context: FieldContext;
-}) {
-  const [isAdding, setAdding] = useState(false);
-  const recorded = actionChoiceRolls(choice)[roll.field];
-  // Each entry is removed by its recorded position, so repeated or legacy
-  // modifiers clear one at a time.
-  const positioned = (recorded?.modifiers ?? []).map((modifier, index) => ({
-    modifier,
-    index,
-  }));
-  const name = roll.label.toLowerCase();
-  return (
-    <fieldset className="min-w-0 space-y-2">
-      <legend className="text-sm font-semibold">
-        {`${roll.label} · ${roll.spec.count}d${roll.spec.sides}`}
-      </legend>
-      {roll.when && (
-        <p className="text-muted-foreground text-xs">{roll.when}</p>
-      )}
-      <RollTotalField
-        label={`${roll.label} roll`}
-        spec={roll.spec}
-        recorded={recorded}
-        required={roll.required}
-        disabled={context.disabled}
-        onRoll={(next) => context.edits.setRoll(roll.field, next)}
-      />
-      {recorded && (
-        <div className="space-y-2">
-          {recorded.modifiers.length > 0 && (
-            <ul
-              aria-label={`${roll.label} roll modifiers`}
-              className="max-w-xl divide-y rounded-md border text-sm"
-            >
-              {positioned.map(({ modifier, index }) => (
-                <li
-                  key={index}
-                  className="flex min-h-11 items-center gap-3 px-3 py-1.5"
-                >
-                  <span className="w-8 shrink-0 font-mono">
-                    {signed(modifier.value)}
-                  </span>
-                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                    {modifier.reason}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove ${name} roll modifier ${modifier.reason}`}
-                    disabled={context.disabled}
-                    onClick={() =>
-                      context.edits.removeRollModifier(roll.field, index)
-                    }
-                  >
-                    <X aria-hidden className="size-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-muted-foreground text-xs">
-            The rules use the dice total; these modifiers are kept with the roll
-            for the table.
-          </p>
-          {isAdding ? (
-            <ActivityModifierForm
-              bonusChoices={[]}
-              disabled={context.disabled}
-              onAdd={(modifier) => {
-                context.edits.addRollModifier(roll.field, modifier);
-                setAdding(false);
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground -ml-2"
-              disabled={context.disabled}
-              onClick={() => setAdding(true)}
-            >
-              <Plus aria-hidden />
-              Add {name} roll modifier
-            </Button>
-          )}
-        </div>
-      )}
-    </fieldset>
-  );
-}
-
-function Consumables({
-  consumables,
-  context,
-}: {
-  consumables: DetailConsumables;
-  context: FieldContext;
-}) {
-  if (consumables.selected.length === 0 && consumables.available.length === 0)
-    return null;
-  return (
-    <Field name="consumableIds" context={context}>
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Consumables</h3>
-        <p className="text-muted-foreground text-xs">
-          A consumable bonus is used by this choice’s check.
-        </p>
-        {consumables.selected.length > 0 && (
-          <ul
-            aria-label="Selected consumables"
-            className="max-w-xl divide-y rounded-md border text-sm"
-          >
-            {consumables.selected.map((entry) => (
-              <li
-                key={entry.value}
-                className="flex min-h-11 items-center gap-3 px-3 py-1.5"
-              >
-                <span className="min-w-0 flex-1 space-y-0.5 [overflow-wrap:anywhere]">
-                  <span className="block">{entry.label}</span>
-                  {entry.missing && (
-                    <span role="note" className="block text-xs text-amber-300">
-                      Missing
-                    </span>
-                  )}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remove consumable ${entry.label}`}
-                  disabled={context.disabled}
-                  onClick={() => context.edits.removeConsumable(entry.value)}
-                >
-                  <X aria-hidden className="size-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {consumables.available.length > 0 && (
-          <Select
-            value=""
-            disabled={context.disabled}
-            onValueChange={(value) => context.edits.addConsumable(value)}
-          >
-            <SelectTrigger
-              aria-label="Add consumable"
-              className="w-full max-w-xl"
-            >
-              <SelectValue placeholder="Add consumable…" />
-            </SelectTrigger>
-            <SelectContent>
-              {consumables.available.map((entry) => (
-                <SelectItem
-                  key={entry.value}
-                  value={entry.value}
-                  className="min-h-10"
-                >
-                  {entry.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-    </Field>
-  );
-}
-
 export function ActivityActionFields({
   choice,
   detail,
@@ -868,36 +611,12 @@ export function ActivityActionFields({
   return (
     <div className="min-w-0 space-y-4">
       <Specific choice={choice} detail={detail} context={context} />
-      <Field name="costCopper" context={context}>
-        <WholeNumberField
-          label="Cost (copper)"
-          value={choice.costCopper ?? calculatedCostCopper}
-          disabled={disabled}
-          onValue={(next) => edits.set('costCopper', next ?? undefined)}
-          description={
-            calculatedCostCopper !== null
-              ? `Calculated: ${calculatedCostCopper} cp`
-              : 'The rules calculate no cost for this action.'
-          }
-        />
-      </Field>
-      {detail.rolls.length > 0 && (
-        <Field name="rolls" context={context}>
-          <div className="space-y-4">
-            {detail.rolls.map((roll) => (
-              <RollBlock
-                key={roll.field}
-                roll={roll}
-                choice={choice}
-                context={context}
-              />
-            ))}
-          </div>
-        </Field>
-      )}
-      {detail.consumables && (
-        <Consumables consumables={detail.consumables} context={context} />
-      )}
+      <CommonFields
+        choice={choice}
+        detail={detail}
+        calculatedCostCopper={calculatedCostCopper}
+        context={context}
+      />
     </div>
   );
 }

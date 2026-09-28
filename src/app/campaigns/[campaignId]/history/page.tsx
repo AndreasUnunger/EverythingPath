@@ -3,6 +3,7 @@ import { Suspense, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
 import { useCampaignWeek } from '~/components/campaign-home/use-campaign-week';
+import { FinishedWeeksSkeleton } from '~/components/historical-week/finished-weeks-view';
 import { CanonicalHistoryScreen } from '~/components/historical-week/screen';
 import {
   historyPath,
@@ -36,13 +37,7 @@ function HistoryHost() {
 
 export default function HistoryPage() {
   return (
-    <Suspense
-      fallback={
-        <p role="status" className="p-6">
-          Loading history…
-        </p>
-      }
-    >
+    <Suspense fallback={<FinishedWeeksSkeleton />}>
       <HistoryHost />
     </Suspense>
   );

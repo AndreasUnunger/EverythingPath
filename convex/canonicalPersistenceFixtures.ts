@@ -19,6 +19,10 @@ import {
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
+import {
+  canonicalResolutionRecordSchema,
+  type CanonicalResolutionRecord,
+} from '../src/lib/canonical-resolution-record';
 
 type Scope = z.infer<typeof fixtureScopeSchema>;
 async function ownedCampaign(ctx: MutationCtx, scope: Scope) {
@@ -274,6 +278,9 @@ export const initializeUpkeep = internalMutation({
     maximumNotoriety: v.optional(v.boolean()),
     // Adds a missing team that rolls to return during Upkeep.
     missingTeam: v.optional(v.boolean()),
+    // Rank 8 with enough training, treasury and PC level that settling every
+    // earlier Upkeep step gains rank 9 (Captain) and its feat choice.
+    rankGain: v.optional(v.boolean()),
     persistent: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
@@ -293,12 +300,18 @@ export const initializeUpkeep = internalMutation({
     if (!character) throw new Error('Missing fixture officer');
     const snapshot = militiaSnapshotSchema.parse({
       ...state.snapshot,
-      rank: 2,
-      training: 14,
-      treasuryCopper: 5000,
+      rank: args.rankGain ? 8 : 2,
+      training: args.rankGain ? 130 : 14,
+      treasuryCopper: args.rankGain ? 20000 : 5000,
       notoriety: args.maximumNotoriety ? 100 : state.snapshot.notoriety,
       roster: {
-        people: [{ characterId: character._id, kind: 'pc', hitDice: 2 }],
+        people: [
+          {
+            characterId: character._id,
+            kind: 'pc',
+            hitDice: args.rankGain ? 9 : 2,
+          },
+        ],
         teams: args.choices
           ? [
               {
@@ -354,7 +367,7 @@ export const initializeUpkeep = internalMutation({
       characters: [
         {
           characterId: character._id,
-          level: 2,
+          level: args.rankGain ? 9 : 2,
           strength: 10,
           dexterity: 10,
           constitution: 10,
@@ -472,6 +485,98 @@ export const installAcceptanceSource = internalMutation({
       draft,
       initialDraft: draft,
     });
+    return null;
+  },
+});
+
+// Finished-weeks history beyond one confirmed week (#146): after the source
+// draft was confirmed, `corrections` historical corrections of its week and
+// a historical reconstruction of `reconstructWeek`, each a copy of the
+// confirmed record. Written as append-only storage would write them, without
+// a signed-in caller; no application path creates such records yet.
+export const appendHistory = internalMutation({
+  args: zodOutputToConvex(
+    lifecycleArgs.extend({
+      corrections: z.number().int().min(1).max(10),
+      reconstructWeek: z.number().int().nonnegative(),
+    }),
+  ),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { row } = await ownedSource(ctx, args);
+    if (row.status !== 'closed')
+      throw new Error('Append history after the source week is confirmed');
+    const confirmed = await ctx.db
+      .query('canonicalResolutionRecord')
+      .withIndex('by_sourceDraftId', (q) =>
+        q.eq('record.source.draftId', args.draftId),
+      )
+      .first();
+    if (confirmed?.militiaId !== args.militiaId || confirmed.sequence !== 0)
+      throw new Error('Missing the confirmed fixture record');
+    const weekRecords = (week: number) =>
+      ctx.db
+        .query('canonicalResolutionRecord')
+        .withIndex('by_campaignId_and_week_and_sequence', (q) =>
+          q.eq('campaignId', args.campaignId).eq('week', week),
+        )
+        .order('desc');
+    const open = await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_campaignId_and_status', (q) =>
+        q.eq('campaignId', args.campaignId).eq('status', 'open'),
+      )
+      .first();
+    if (
+      open?.draft?.week === args.reconstructWeek ||
+      (await weekRecords(args.reconstructWeek).first())
+    )
+      throw new Error('The reconstructed week must be free');
+    const base = canonicalResolutionRecordSchema.parse(confirmed.record);
+    const append = async (
+      record: CanonicalResolutionRecord,
+      sequence: number,
+    ) => {
+      const parsed = canonicalResolutionRecordSchema.parse(record);
+      await ctx.db.insert('canonicalResolutionRecord', {
+        campaignId: args.campaignId,
+        militiaId: args.militiaId,
+        recordId: parsed.recordId,
+        week: parsed.source.week,
+        sequence,
+        record: parsed,
+      });
+    };
+    // Each correction supersedes the week's then effective record.
+    const latest = (await weekRecords(confirmed.week).first()) ?? confirmed;
+    let effective = { recordId: latest.recordId, sequence: latest.sequence };
+    for (let i = 1; i <= args.corrections; i++) {
+      const recordId = `${base.recordId}-correction-${i}`;
+      await append(
+        {
+          ...base,
+          recordId,
+          provenance: 'historical_correction',
+          supersedesRecordId: effective.recordId,
+        },
+        effective.sequence + 1,
+      );
+      effective = { recordId, sequence: effective.sequence + 1 };
+    }
+    await append(
+      {
+        ...base,
+        recordId: `${base.recordId}-week-${args.reconstructWeek}`,
+        provenance: 'historical_reconstruction',
+        supersedesRecordId: null,
+        source: {
+          ...base.source,
+          week: args.reconstructWeek,
+          draftId: `${base.source.draftId}-week-${args.reconstructWeek}`,
+        },
+      },
+      0,
+    );
     return null;
   },
 });

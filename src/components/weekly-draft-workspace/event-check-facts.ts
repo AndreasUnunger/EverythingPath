@@ -6,7 +6,7 @@ import type { EventCheckFacts, EventView } from './types';
 type ProjectedCheck = EventView['checks'][number];
 export type OrganizationCheck = 'loyalty' | 'secrecy' | 'security';
 
-const checkNames: Record<OrganizationCheck, string> = {
+export const checkNames: Record<OrganizationCheck, string> = {
   loyalty: 'Loyalty',
   secrecy: 'Secrecy',
   security: 'Security',

@@ -1,6 +1,11 @@
 import { expect, test } from 'vitest';
 import type { PhaseReadiness } from '../types';
-import { readinessLine, stepCaption, stepState } from './readiness-copy';
+import {
+  confirmWarnings,
+  readinessLine,
+  stepCaption,
+  stepState,
+} from './readiness-copy';
 
 function step(
   phase: PhaseReadiness['phase'],
@@ -91,4 +96,14 @@ test('a skipped first-week Upkeep says so instead of reporting readiness', () =>
   expect(readinessLine(skipped, null)).toBe(
     'Upkeep is skipped for the militia’s first week.',
   );
+});
+
+test('the pinned Confirm counts Review’s warnings: none, one, several', () => {
+  expect(confirmWarnings(step('summary'))).toBeNull();
+  expect(confirmWarnings(step('summary', { warnings: [item('a')] }))).toBe(
+    '1 warning',
+  );
+  expect(
+    confirmWarnings(step('summary', { warnings: [item('a'), item('b')] })),
+  ).toBe('2 warnings');
 });

@@ -9,7 +9,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Children, isValidElement, type ReactNode } from 'react';
 import { CampaignShell } from './campaign-shell';
-import { PhoneStatusStrip, TopBarStatus } from './shell-slots';
+import { PhoneStatusStrip } from './shell-slots';
 import { useCampaign } from './campaign-context';
 import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
 import {
@@ -114,12 +114,16 @@ vi.mock('~/components/ui/select', () => {
       const trigger = Children.toArray(children).find(
         (child) => isValidElement(child) && child.type === SelectTrigger,
       );
-      const label = isValidElement<{ 'aria-label'?: string }>(trigger)
-        ? trigger.props['aria-label']
-        : undefined;
+      const { 'aria-label': label, title } = isValidElement<{
+        'aria-label'?: string;
+        title?: string;
+      }>(trigger)
+        ? trigger.props
+        : {};
       return (
         <select
           aria-label={label}
+          title={title}
           value={value}
           disabled={disabled}
           onChange={(event) => onValueChange?.(event.target.value)}
@@ -143,6 +147,7 @@ vi.mock('~/components/ui/select', () => {
 });
 
 afterEach(cleanup);
+afterEach(() => vi.unstubAllGlobals());
 
 const alpha = { _id: 'alpha', name: 'Alpha' };
 const beta = { _id: 'beta', name: 'Beta' };
@@ -264,6 +269,12 @@ test('a member campaign renders its page with the switcher, section links and th
   expect(screen.getByText('Page for Alpha')).toBeVisible();
   const switcher = screen.getByRole('combobox', { name: 'Active campaign' });
   expect(switcher).toHaveValue('alpha');
+  // A truncated name stays readable in full.
+  expect(switcher).toHaveAttribute('title', 'Alpha');
+  for (const control of screen.getAllByRole('combobox', {
+    name: 'Organization',
+  }))
+    expect(control).toHaveAttribute('title', 'Thursday table');
   expect(
     Array.from(switcher.querySelectorAll('option')).map(
       (option) => option.textContent,
@@ -647,7 +658,7 @@ test('More stays open while the departure decision is pending and closes on Leav
   release();
 });
 
-// The Week frame later fills these positions; the shell only reserves them.
+// The Week frame later fills this position; the shell only reserves it.
 function StripPage() {
   return (
     <>
@@ -655,14 +666,11 @@ function StripPage() {
       <PhoneStatusStrip>
         <span>Training 3 → 4</span>
       </PhoneStatusStrip>
-      <TopBarStatus>
-        <span>Saved</span>
-      </TopBarStatus>
     </>
   );
 }
 
-test('the week page can fill the phone status strip above the bottom bar and the top-bar status position', () => {
+test('the week page can fill the phone status strip above the bottom bar; the top bar reserves no status position', () => {
   pathname.mockReturnValue('/campaigns/alpha/week');
   render(shell('alpha', <StripPage />));
   const strip = screen.getByText('Training 3 → 4');
@@ -672,9 +680,10 @@ test('the week page can fill the phone status strip above the bottom bar and the
   const tabs = bar!.parentElement!.querySelector('nav');
   expect(tabs).toHaveAccessibleName('Campaign sections');
   expect(bar!.nextElementSibling).toBe(tabs);
-  const status = screen.getByText('Saved');
-  expect(status.closest('[data-shell-slot="top-bar-status"]')).not.toBeNull();
-  expect(status.closest('header')).not.toBeNull();
+  // The top-bar save status was removed (2026-09-28, amending #137).
+  expect(
+    document.querySelector('[data-shell-slot="top-bar-status"]'),
+  ).toBeNull();
 });
 
 test('only the week route gets the bounded desktop host; other sections keep document scrolling', () => {
@@ -684,6 +693,47 @@ test('only the week route gets the bounded desktop host; other sections keep doc
   pathname.mockReturnValue('/campaigns/alpha/militia');
   view.rerender(shell('alpha'));
   expect(document.querySelector('[data-week-host]')).toBeNull();
+});
+
+test('the phone bottom bar reserves its measured height as document scroll padding, follows resizes, and clears it once hidden or gone', () => {
+  // jsdom has no ResizeObserver and no layout: stand in for both so the
+  // bar can report a height, grow with its strip and collapse to hidden.
+  const observed: { target: Element; notify: () => void }[] = [];
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(private readonly callback: () => void) {}
+      observe(target: Element) {
+        observed.push({ target, notify: this.callback });
+      }
+      disconnect() {
+        observed.length = 0;
+      }
+    },
+  );
+  let height = 0;
+  const view = render(shell('alpha'));
+  const bar = document.querySelector(
+    '[data-shell-slot="phone-status-strip"]',
+  )!.parentElement!;
+  Object.defineProperty(bar, 'offsetHeight', { get: () => height });
+  expect(observed.map((entry) => entry.target)).toEqual([bar]);
+  const resize = (to: number) => {
+    height = to;
+    for (const entry of observed) entry.notify();
+  };
+  const root = document.documentElement.style;
+  resize(49);
+  expect(root.scrollPaddingBottom).toBe('65px');
+  resize(120);
+  expect(root.scrollPaddingBottom).toBe('136px');
+  resize(0);
+  expect(root.scrollPaddingBottom).toBe('');
+  resize(49);
+  expect(root.scrollPaddingBottom).toBe('65px');
+  view.unmount();
+  expect(root.scrollPaddingBottom).toBe('');
+  expect(observed).toHaveLength(0);
 });
 
 test('organization creation and management stay reachable through Clerk, and creation is offered without an organization', () => {

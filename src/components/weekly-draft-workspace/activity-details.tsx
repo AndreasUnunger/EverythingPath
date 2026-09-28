@@ -13,11 +13,8 @@ import {
   type ActivityRollField,
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
-import { activityRollSpec, eventRollSpec } from '~/lib/rules-roll-spec';
-import { rawRollSchema } from '~/lib/weekly-draft-facts';
+import { activityRollSpec } from '~/lib/rules-roll-spec';
 import { RollTotalField } from './roll-total-field';
-import type { RollSpecResolver } from './roll-facts';
-import { eventTypeForTableRoll } from '~/lib/rules-event-selection';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { WholeNumberField } from './whole-number-field';
@@ -25,6 +22,20 @@ import { ActivityText } from './activity-text';
 import { actionDetail, isPeopleTeamChoice } from './activity-action-detail';
 import { actionFieldEdits } from './activity-action-edits';
 import { ActivityActionFields } from './activity-action-fields';
+import {
+  economyAcknowledgementSubjects,
+  economyDetail,
+  isEconomyChoice,
+} from './activity-economy-detail';
+import { economyFieldEdits } from './activity-economy-edits';
+import { ActivityEconomyFields } from './activity-economy-fields';
+import {
+  missionAcknowledgementSubjects,
+  missionDetail,
+} from './activity-mission-detail';
+import { isMissionChoice } from './activity-mission-actions';
+import { missionFieldEdits } from './activity-mission-edits';
+import { ActivityMissionFields } from './activity-mission-fields';
 import { ChoiceCards } from './choice-cards';
 import {
   choiceFieldLabel as label,
@@ -32,28 +43,6 @@ import {
 } from './structured-choice-field';
 import { activityLabel } from './activity-labels';
 import type { ActivityView } from './types';
-// Candidate paths are [index, ...occurrence-relative path]. The candidate's
-// event type is the engine's reading of its current table roll (including
-// modifiers); an incomplete or missing table roll leaves only type-independent
-// specifications. Explicit `eventType` text never overrides the table.
-const candidateRollSpec: RollSpecResolver = (path, root) => {
-  const [index, ...rest] = path;
-  const candidate: unknown =
-    Array.isArray(root) && typeof index === 'number' ? root[index] : undefined;
-  if (!candidate || typeof candidate !== 'object') return null;
-  const tableRoll = rawRollSchema.safeParse(
-    (candidate as { tableRoll?: unknown }).tableRoll,
-  );
-  return eventRollSpec(
-    {
-      kind: 'occurrence',
-      eventType: eventTypeForTableRoll(
-        tableRoll.success ? tableRoll.data : null,
-      ),
-    },
-    rest,
-  );
-};
 function ChoiceFields({
   choice,
   view,
@@ -83,6 +72,9 @@ function ChoiceFields({
     'acknowledgements',
     'orderId',
     'receipt',
+    // Event builds, rolls and chooses a choice's event candidates.
+    'candidates',
+    'selectedEventId',
     // The Activity board's own team dropdown edits the acting team.
     ...(hosted ? ['teamId'] : []),
   ]);
@@ -164,10 +156,6 @@ function ChoiceFields({
           disabled={disabled}
           onValue={(value) => change(field, value)}
           options={activityReferenceOptions(choice, view)}
-          // A candidate occurrence's numeric context follows its CURRENT local
-          // table roll through the engine's own table interpretation, so an
-          // unsaved table change updates its nested specifications at once.
-          rollSpec={field === 'candidates' ? candidateRollSpec : undefined}
         />,
       ];
     })
@@ -278,27 +266,37 @@ export function ActivityDetails({
   edit,
   disabled,
   hosted = false,
+  correctionsHref,
+  openEvent,
 }: {
   slot: ActivityView['slots'][number];
   view: ActivityView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
   hosted?: boolean;
+  // Where missing items, caches and settlements are repaired.
+  correctionsHref?: string;
+  // Shows the Event phase, where a choice's event candidates are rolled.
+  openEvent?: () => void;
 }) {
   const choice = slot.choice!;
   const [detailError, setDetailError] = useState<{
     field: string;
     message: string;
   } | null>(null);
-  function change(field: string, value: unknown) {
+  // Writes several fields as one detail edit; `undefined` omits a field.
+  function changeFields(fields: Record<string, unknown>, field: string) {
     return saveChoice(
       field,
       Object.fromEntries(
-        Object.entries({ ...choice, [field]: value }).filter(
+        Object.entries({ ...choice, ...fields }).filter(
           ([, value]) => value !== undefined,
         ),
       ),
     );
+  }
+  function change(field: string, value: unknown) {
+    return changeFields({ [field]: value }, field);
   }
   function saveChoice(field: string, next: unknown) {
     const parsed = stagedActionChoiceSchema.safeParse(next);
@@ -319,18 +317,50 @@ export function ActivityDetails({
     return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
-  // People and team actions have their own detail editor in the board.
-  const detail = hosted ? actionDetail(view, slot) : null;
+  // People and team, market, cache and Special Order, and information,
+  // mission and event-influence actions have their own detail editors in
+  // the board.
+  const people = hosted ? actionDetail(view, slot) : null;
+  const economy = hosted ? economyDetail(view, slot) : null;
+  const mission = hosted ? missionDetail(view, slot) : null;
+  const detail = people ?? economy ?? mission;
+  // Acknowledgements the economy editor shows beside their purchase or
+  // order, and the one a mission editor shows as its What happened.
+  const shown =
+    economy && isEconomyChoice(choice)
+      ? economyAcknowledgementSubjects(choice)
+      : missionAcknowledgementSubjects(mission);
   return (
     <div className="space-y-3">
-      {detail && isPeopleTeamChoice(choice) ? (
+      {people && isPeopleTeamChoice(choice) ? (
         <ActivityActionFields
           choice={choice}
-          detail={detail}
+          detail={people}
           calculatedCostCopper={slot.calculatedCostCopper}
           disabled={disabled}
           edits={actionFieldEdits(choice, change)}
           fieldError={detailError}
+        />
+      ) : economy && isEconomyChoice(choice) ? (
+        <ActivityEconomyFields
+          choice={choice}
+          detail={economy}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={economyFieldEdits(choice, changeFields)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+        />
+      ) : mission && isMissionChoice(choice) ? (
+        <ActivityMissionFields
+          choice={choice}
+          detail={mission}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={missionFieldEdits(choice, change)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+          openEvent={openEvent}
         />
       ) : (
         <ChoiceFields
@@ -406,33 +436,35 @@ export function ActivityDetails({
             }),
           ...(choice.acknowledgements ?? []).map((item) => item.subjectId),
         ]),
-      ].map((subjectId, index) => {
-        const existing = choice.acknowledgements?.find(
-          (item) => item.subjectId === subjectId,
-        );
-        return (
-          <ActivityText
-            key={subjectId}
-            name={`Outcome acknowledgement ${index + 1}`}
-            value={existing?.outcome ?? ''}
-            required
-            disabled={disabled}
-            onValue={(outcome) =>
-              change('acknowledgements', [
-                ...(choice.acknowledgements ?? []).filter(
-                  (item) => item.subjectId !== subjectId,
-                ),
-                {
-                  acknowledgementId:
-                    existing?.acknowledgementId ?? crypto.randomUUID(),
-                  subjectId,
-                  outcome,
-                },
-              ])
-            }
-          />
-        );
-      })}
+      ]
+        .filter((subjectId) => !shown.has(subjectId))
+        .map((subjectId, index) => {
+          const existing = choice.acknowledgements?.find(
+            (item) => item.subjectId === subjectId,
+          );
+          return (
+            <ActivityText
+              key={subjectId}
+              name={`Outcome acknowledgement ${index + 1}`}
+              value={existing?.outcome ?? ''}
+              required
+              disabled={disabled}
+              onValue={(outcome) =>
+                change('acknowledgements', [
+                  ...(choice.acknowledgements ?? []).filter(
+                    (item) => item.subjectId !== subjectId,
+                  ),
+                  {
+                    acknowledgementId:
+                      existing?.acknowledgementId ?? crypto.randomUUID(),
+                    subjectId,
+                    outcome,
+                  },
+                ])
+              }
+            />
+          );
+        })}
       {slot.exceptions.map((exception) => (
         <div
           key={exception.exceptionId}

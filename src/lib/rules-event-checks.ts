@@ -120,6 +120,22 @@ export function eventCheck(
     : projected.total;
 }
 
+/**
+ * The entered modifiers an Event officer check adds to its skill bonus
+ * (Rivalry and Turncoat Twice): every source except a recorded copy of the
+ * skill, its bonus or Charisma, each counted once at its latest value.
+ */
+export function eventOfficerCheckExtras(roll: Raw) {
+  const extras = new Map<string, { value: number; reason: string }>();
+  for (const modifier of roll?.modifiers ?? [])
+    if (!['skill', 'skill-bonus', 'charisma'].includes(modifier.sourceId))
+      extras.set(modifier.sourceId, {
+        value: modifier.value,
+        reason: modifier.reason,
+      });
+  return [...extras].map(([source, entry]) => ({ source, ...entry }));
+}
+
 export function eventMitigationAttempted(
   mitigation: Event['mitigation'],
   roll: Raw,

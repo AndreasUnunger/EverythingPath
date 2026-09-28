@@ -113,11 +113,6 @@ export function SetupField({
 // How section titles render: a guided Setup step names its single section in
 // its own heading, and nests the titles of several sections below it.
 export const SetupSectionHeading = createContext<'h2' | 'h3' | 'none'>('h2');
-// Explanatory captions under section titles, keyed by title. Guided Setup's
-// approved design drops them; the correction form supplies its own.
-export const SetupSectionCaptions = createContext<
-  Readonly<Record<string, string>>
->({});
 export function SetupSection({
   title,
   children,
@@ -130,15 +125,11 @@ export function SetupSection({
   onAdd?: () => void;
 }) {
   const Heading = useContext(SetupSectionHeading);
-  const caption = useContext(SetupSectionCaptions)[title];
   return (
     <section className="space-y-3">
       {Heading === 'none' ? null : (
         <Heading className="text-xl font-bold">{title}</Heading>
       )}
-      {caption ? (
-        <p className="text-muted-foreground text-sm">{caption}</p>
-      ) : null}
       {children}
       {onAdd && (
         <Button type="button" variant="outline" onClick={onAdd}>
@@ -150,10 +141,13 @@ export function SetupSection({
 }
 export function SetupEntry({
   label,
+  note,
   children,
   onRemove,
 }: {
   label: string;
+  /** Why this row matters here, e.g. which open-week choices need it. */
+  note?: string;
   children: ReactNode;
   onRemove: () => void;
 }) {
@@ -162,6 +156,11 @@ export function SetupEntry({
       <legend className="max-w-full px-1 font-semibold wrap-break-word">
         {label}
       </legend>
+      {note && (
+        <p className="text-primary min-w-0 text-sm font-medium [overflow-wrap:anywhere]">
+          {note}
+        </p>
+      )}
       <div className="grid items-start gap-3 md:grid-cols-2">{children}</div>
       <Button type="button" variant="outline" onClick={onRemove}>
         Remove {label}

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   History,
@@ -43,6 +43,7 @@ import {
   useNavigationGuard,
 } from './navigation-guard';
 import { AccountActions } from './account-actions';
+import { useScrollPaddingFor } from './scroll-padding';
 import { ShellSlotHost, ShellSlotProvider } from './shell-slots';
 import {
   AccountControl,
@@ -128,7 +129,8 @@ function CampaignSwitcher({
     >
       <SelectTrigger
         aria-label="Active campaign"
-        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none md:text-base xl:max-w-[16rem] dark:bg-transparent [&>span]:truncate"
+        title={campaign.name}
+        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none *:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate md:text-base xl:max-w-[16rem] dark:bg-transparent"
       >
         <SelectValue />
       </SelectTrigger>
@@ -282,15 +284,22 @@ function MoreSheet() {
   );
 }
 
-// Phone: four section tabs plus More. Sticky at the column's end so content,
-// alerts and save buttons stay reachable above it, including above the
-// on-screen keyboard (the viewport resizes its content) and the home
-// indicator (safe-area padding). The Week frame fills the status-strip host
-// immediately above the tabs.
+// Phone: four section tabs plus More, pinned to the viewport's bottom edge
+// on every section while the page scrolls (the body clips rather than
+// scrolls, see globals.css). Its height is reserved as scroll padding so
+// content, alerts and save buttons stay reachable above it, including above
+// the on-screen keyboard (the viewport resizes its content) and the home
+// indicator (safe-area padding). The Week frame and correction reason bars
+// fill the status-strip host immediately above the tabs.
 function BottomBar({ sections }: { sections: SectionLink[] }) {
   const pathname = usePathname();
+  const bar = useRef<HTMLDivElement>(null);
+  useScrollPaddingFor(bar);
   return (
-    <div className="bg-background/95 border-foreground/15 sticky bottom-0 z-40 shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <div
+      ref={bar}
+      className="bg-background/95 border-foreground/15 sticky bottom-0 z-40 shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
       <ShellSlotHost
         name="phone-status-strip"
         className="border-foreground/15 border-b"
@@ -306,9 +315,9 @@ function BottomBar({ sections }: { sections: SectionLink[] }) {
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset',
+                'focus-visible:ring-ring/50 relative flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset',
                 active
-                  ? 'text-primary'
+                  ? 'bg-primary/10 text-primary before:bg-primary before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:content-[""]'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -421,15 +430,7 @@ function CampaignTopBar({
         <Skeleton aria-hidden className="h-5 w-32" />
       ) : null}
       {ready && <SectionLinks sections={sections} />}
-      {/* The status host may shrink so long feedback wraps inside the row
-          instead of widening it; the controls beside it keep their size. */}
       <div className="ml-auto flex min-w-0 items-center gap-2 md:gap-3">
-        {ready && (
-          <ShellSlotHost
-            name="top-bar-status"
-            className="flex min-w-0 flex-wrap items-center gap-2"
-          />
-        )}
         <span
           className={cn(
             'shrink-0',

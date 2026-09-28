@@ -482,6 +482,32 @@ test('[rules.PER-04.total] a Persistent Rivalry officer check is one 1d20 total 
     check: { label: 'Officer check to end it', note: 'Officer check.' },
     changes: [],
     checks: [],
+    theftCheck: null,
+    rivalryCheck: {
+      characterId: 'pc',
+      characters: [
+        {
+          value: 'pc',
+          label: 'Aubrin · Ambassador',
+          officer: true,
+          available: true,
+        },
+      ],
+      skill: 'diplomacy',
+      skillBonus: 2,
+      recorded: { ...total(20, 1, 20), provenance: generated },
+      spec: { count: 1, sides: 20 },
+      modifier: 2,
+      total: 22,
+      breakdown: [],
+      succeeded: true,
+      resultText: 'Ends the Rivalry for good.',
+      required: { character: false, skillBonus: false, roll: false },
+      unavailable: false,
+      notOfficer: false,
+      modifiers: [],
+    },
+    retained: [],
     exceptions: [],
     requirements: [],
     warnings: [],
@@ -505,25 +531,11 @@ test('[rules.PER-04.total] a Persistent Rivalry officer check is one 1d20 total 
       disabled={false}
     />,
   );
-  expect(textbox('Roll')).toHaveValue('20');
-  expect(screen.getByRole('button', { name: 'Aubrin' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  expect(textbox('Skill Bonus')).toHaveValue('2');
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Save persistent decision' }),
-  );
-  await waitFor(() =>
-    expect(edit).toHaveBeenLastCalledWith({
-      kind: 'persistent_decision',
-      decision: event.decision,
-    }),
-  );
-  fireEvent.change(textbox('Roll'), { target: { value: '19' } });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Save persistent decision' }),
-  );
+  expect(textbox('Officer check roll')).toHaveValue('20');
+  expect(textbox('Skill bonus')).toHaveValue('2');
+  // A new total replaces only the dice, keeping the roll's provenance and
+  // every officer field.
+  fireEvent.change(textbox('Officer check roll'), { target: { value: '19' } });
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'persistent_decision',

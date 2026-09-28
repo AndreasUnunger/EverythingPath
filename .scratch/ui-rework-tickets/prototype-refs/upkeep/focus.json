@@ -1,0 +1,17 @@
+{
+  "156": {
+    "prototype": "upkeep",
+    "focus": "Open `/prototype/upkeep?variant=A`; in the yellow PROTOTYPE STATE panel tick *notoriety at 100* and *treasury 60 gp (below minimum)* (disabled and missing teams are on by default), then tap *Recover* on Quiet Hands, change its cost to 60, enter 12 as the Night Runners return die, 3 as the attrition training roll and 4 as the Notoriety Loyalty check. Sections 0-3 are the reference: recover/leave cards, cost with Table Adjustment, reason and *Use rules cost*, recovery-beyond-funds warning with inline Rules Exception, the compact missing-team return row, conditional attrition roll, maximum-notoriety rolls with required Nearest settlement cards, and the shortage roll stated against treasury after recovery. Untick *a disabled team*/*a missing team* for the collapsed Team conditions line and tick *first week* for the skipped notice. There is no surface for legacy Remove repair or scheduled returns.",
+    "screenshot": "156-focus.png"
+  },
+  "157": {
+    "prototype": "upkeep",
+    "focus": "Open `/prototype/upkeep?variant=A`, tap *Leave disabled* on Quiet Hands, enter 12 as the Night Runners return die and 3 as the attrition training roll. Section 4 then shows \"Rank 8 → 9\" with one row of Captain feat cards per PC; tap a card to select it and tap it again to clear it. Before those inputs the header reads \"waiting for the steps above\". The prototype only models Captain at rank 9, so it has no surface for open-text boons (Gift/Skilled/XP), legacy off-list text or multiple rank gains.",
+    "screenshot": "157-focus.png"
+  },
+  "158": {
+    "prototype": "upkeep",
+    "focus": "Open `/prototype/upkeep?variant=A` and go to section 5 *Deposits and withdrawals*: the seeded +25 gp deposit row with its × remove control, then the Deposit | Withdraw toggle, gp amount and *Add*. Choose *Withdraw*, enter 500 and tap *Add* to see the withdrawal-beyond-funds warning and inline Rules Exception under that row, with the header showing treasury before → after. Ruleset Version, copper parsing, legacy actor-bearing transfers and Theft ordering have no prototype surface.",
+    "screenshot": "158-focus.png"
+  }
+}

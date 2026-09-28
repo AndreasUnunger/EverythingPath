@@ -80,3 +80,18 @@ test('[styles.transition] no emitted rule transitions filter', async () => {
     /\.corner-brackets::before[\s\S]*?transition:\s*background-size/,
   );
 });
+
+// The document scrolls on <html>, so a body that hides its overflow becomes
+// a scroll container as tall as the page: every sticky bar inside (the phone
+// bottom bar, Setup's footer) then sticks to the end of the page instead of
+// the viewport (#198). The body clips instead, also while Radix's scroll
+// lock is on, which would otherwise set it to hidden.
+test('[styles.sticky] the body clips its overflow and never becomes a scroll container', async () => {
+  const css = await compiledStyles();
+  const body = /body\.scanlines\s*\{([^}]*)\}/.exec(css)?.[1];
+  expect(body).toMatch(/overflow:\s*clip/);
+  expect(css).toMatch(
+    /html body\[data-scroll-locked\]\s*\{\s*overflow:\s*clip\s*!important/,
+  );
+  expect(css).toMatch(/html\s*\{[^}]*overflow-y:\s*scroll/);
+});

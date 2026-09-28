@@ -8,6 +8,7 @@ import {
   closedCorrection,
   correctionReducer,
   correctionView,
+  planRosterSave,
   planSectionSave,
   type AcceptedMilitia,
 } from '../src/components/militia-corrections/correction-lifecycle';
@@ -16,6 +17,11 @@ import {
   type MilitiaSectionKey,
   type SectionValue,
 } from '../src/lib/militia-correction-sections';
+import {
+  applyOfficerCorrection,
+  applyRosterCorrection,
+  assignOfficer,
+} from '../src/lib/roster-corrections';
 const modules = import.meta.glob('./**/*.ts');
 
 async function fixture() {
@@ -254,4 +260,222 @@ test('a corrected section is still refused when it removes what carried effects 
   expect((await player.query(api.canonicalLedger.read, scope)).revision).toBe(
     values.opened.revision,
   );
+});
+
+test('character conditions and carried benefits corrected on two devices keep each other and the character records; an officer correction opened before them keeps them too', async () => {
+  const { t, player, gm, scope, key, characterId } = await fixture();
+  const conditions = await openCorrection(
+    player,
+    scope,
+    key.draftId,
+    'characterConditions',
+  );
+  const benefits = await openCorrection(
+    gm,
+    scope,
+    key.draftId,
+    'carriedBenefits',
+  );
+  const officers = correctionReducer(closedCorrection, {
+    type: 'open',
+    target: { kind: 'officers' },
+    accepted: conditions.opened,
+  });
+
+  const carried = {
+    skills: [
+      {
+        benefitId: 'festival-benefit',
+        sourceEventIds: ['festival'],
+        characterIds: [characterId],
+        skills: ['diplomacy' as const],
+        bonusType: 'morale' as const,
+        value: 2,
+        settlementId: 'town',
+        afterDark: true,
+        startsWeek: 9,
+        endsWeek: 10,
+      },
+    ],
+    markets: [
+      {
+        benefitId: 'market-benefit',
+        sourceEventIds: ['market'],
+        settlementIds: ['town'],
+        discountPercent: 5 as const,
+        startsWeek: 9,
+        endsWeek: 9,
+      },
+    ],
+  };
+  await saveSection(
+    gm,
+    scope,
+    benefits,
+    benefits.opened,
+    'carriedBenefits',
+    carried,
+    'Festival rewards',
+  );
+  await player.mutation(api.character.updateCharacter, {
+    organizationId: 'org',
+    characterId,
+    patch: { charisma: 20 },
+  });
+
+  const hidden = [
+    {
+      characterId,
+      status: 'hidden' as const,
+      location: { kind: 'refuge' as const, settlementId: 'town' },
+      directRescueRequired: true,
+      capture: { source: 'raid' as const, week: 8 },
+      rescuedWeek: 9,
+    },
+  ];
+  // Sent against the revision this device opened from: refused.
+  await expect(
+    saveSection(
+      player,
+      scope,
+      conditions,
+      conditions.opened,
+      'characterConditions',
+      hidden,
+      'Hid in town',
+    ),
+  ).rejects.toThrow('Militia changed');
+  // Refreshed, Character conditions merge onto the newest militia.
+  const refreshed = await conditions.read();
+  expect(
+    (
+      await saveSection(
+        player,
+        scope,
+        conditions,
+        refreshed,
+        'characterConditions',
+        hidden,
+        'Hid in town',
+      )
+    ).kind,
+  ).toBe('send');
+
+  const final = await player.query(api.canonicalLedger.read, scope);
+  const snapshot = final.state.militiaSnapshot;
+  expect(snapshot.characterActions).toEqual({ people: hidden });
+  expect(snapshot.eventBenefits).toEqual(carried);
+  expect(snapshot.characters[0]?.charisma).toBe(20);
+  expect(snapshot.roster).toEqual(
+    conditions.opened.state.militiaSnapshot.roster,
+  );
+  expect(snapshot.economy).toEqual(
+    conditions.opened.state.militiaSnapshot.economy,
+  );
+  expect(final.state.context).toEqual(conditions.opened.state.context);
+
+  // Characters & officers' officer correction opened before both: only the
+  // assignments are replaced on the newest militia, so neither correction,
+  // nor the new Charisma, is undone.
+  const plan = planRosterSave(
+    officers,
+    {
+      ...(await player.query(api.canonicalLedger.read, scope)),
+      draftId: key.draftId,
+    },
+    (latest) =>
+      applyOfficerCorrection(
+        latest,
+        assignOfficer(latest.roster.officers, 'overseer', characterId),
+      ),
+  );
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  expect(plan.attempt.expectedRevision).toBe(final.revision);
+  await player.mutation(api.canonicalLedger.save, {
+    ...scope,
+    expectedRevision: plan.attempt.expectedRevision,
+    snapshot: plan.snapshot,
+    reason: 'Ada oversees the camp',
+  });
+  const corrected = (await player.query(api.canonicalLedger.read, scope)).state
+    .militiaSnapshot;
+  expect(corrected.characterActions).toEqual({ people: hidden });
+  expect(corrected.eventBenefits).toEqual(carried);
+  expect(corrected.characters[0]?.charisma).toBe(20);
+  expect(corrected.roster.officers).toContainEqual({
+    role: 'overseer',
+    characterId,
+  });
+  const reasons = await t.run((ctx) =>
+    ctx.db
+      .query('canonicalSourceCorrection')
+      .collect()
+      .then((rows) => rows.map((row) => row.reason)),
+  );
+  expect(reasons).toEqual([
+    'Festival rewards',
+    'Hid in town',
+    'Ada oversees the camp',
+  ]);
+});
+
+test('a roster correction clears the removed person’s roles and managers in one save, and an officer correction opened before it conflicts', async () => {
+  const { t, player, gm, scope, key, characterId } = await fixture();
+  const read = async (client: Client): Promise<AcceptedMilitia> => ({
+    ...(await client.query(api.canonicalLedger.read, scope)),
+    draftId: key.draftId,
+  });
+  const opened = await read(gm);
+  const officers = correctionReducer(closedCorrection, {
+    type: 'open',
+    target: { kind: 'officers' },
+    accepted: opened,
+  });
+  const roster = correctionReducer(closedCorrection, {
+    type: 'open',
+    target: { kind: 'roster' },
+    accepted: opened,
+  });
+  const before = opened.state.militiaSnapshot;
+  expect(before.roster.officers.length).toBeGreaterThan(0);
+  expect(before.roster.teams.length).toBeGreaterThan(0);
+
+  const plan = planRosterSave(roster, await read(player), (latest) =>
+    applyRosterCorrection(latest, [], [{ characterId, kind: 'pc' }]),
+  );
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  await player.mutation(api.canonicalLedger.save, {
+    ...scope,
+    expectedRevision: plan.attempt.expectedRevision,
+    snapshot: plan.snapshot,
+    reason: 'Character left',
+  });
+  const after = (await read(player)).state.militiaSnapshot;
+  expect(after.roster.people).toEqual([]);
+  expect(after.roster.officers).toEqual([]);
+  expect(after.roster.teams).toEqual(
+    before.roster.teams.map((team) => ({ ...team, managerCharacterId: null })),
+  );
+  // The record and its rules facts remain.
+  expect(after.characters).toEqual(before.characters);
+
+  // The GM's officer correction captured the old roster: it conflicts.
+  const latest = await read(gm);
+  expect(
+    planRosterSave(officers, latest, (value) =>
+      applyOfficerCorrection(value, before.roster.officers),
+    ),
+  ).toEqual({ kind: 'conflict' });
+  expect(correctionView(officers, latest)).toEqual({
+    kind: 'editing',
+    notice: null,
+    message: null,
+  });
+  const reasons = await t.run((ctx) =>
+    ctx.db
+      .query('canonicalSourceCorrection')
+      .collect()
+      .then((rows) => rows.map((row) => row.reason)),
+  );
+  expect(reasons).toEqual(['Character left']);
 });

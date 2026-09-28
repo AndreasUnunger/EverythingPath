@@ -27,7 +27,10 @@ import type {
   ReviewSection,
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
-import { findOwner } from '~/components/week-review/review-notes';
+import {
+  findOwner,
+  isAppliedAdjustment,
+} from '~/components/week-review/review-notes';
 import {
   gp,
   rollText,
@@ -35,6 +38,7 @@ import {
   type ReviewNames,
 } from '~/components/week-review/review-text';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
+import { isBlankHitDiceLevel } from '~/lib/ruleset-versions';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { activityLabel } from '../weekly-draft-workspace/activity-labels';
 import { summaryMessage } from '../weekly-draft-workspace/summary-messages';
@@ -644,13 +648,18 @@ function warningText(review: Review, code: string) {
   );
 }
 
-/** Every recorded warning appears once: under its item, adjustment or phase. */
+/**
+ * Every recorded warning appears once: under its item, adjustment or phase.
+ * An applied adjustment's own code is not a warning; its row quotes it.
+ */
 function placeWarnings(review: Review) {
   const byAdjustment = new Map<string, ReviewNote[]>();
   const general: Partial<Record<ReviewPhase, Item>> = {};
   const all = allItems(review);
   review.record.warnings.forEach((warning, index) => {
     const code = findWarningCode(warning);
+    const adjustments = review.record.adjudication.tableAdjustments;
+    if (code && isAppliedAdjustment(code, adjustments)) return;
     // Older records keep a written message; it is shown exactly as recorded.
     const note: ReviewNote = {
       kind: 'warning',
@@ -793,6 +802,7 @@ export function recordWeekReview(
         final: week.final,
         names,
         unrecorded: 'Not recorded',
+        isBlankHitDiceLevel: isBlankHitDiceLevel(record.rulesetVersion),
       }),
     },
   };

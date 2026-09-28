@@ -1,14 +1,10 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
-import {
-  TopBarStatus,
-  useShellSlotHost,
-} from '~/components/campaign-shell/shell-slots';
 import { campaignPath } from '~/lib/campaign-routes';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import {
@@ -17,19 +13,20 @@ import {
   type WorkspaceController,
 } from './use-weekly-draft-workspace';
 import { SummaryView } from './summary-view';
+import { readConfirmControl } from './confirm-control';
 import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
 import { UpkeepView } from './upkeep-view';
 import { useSourceFocus } from './use-source-focus';
+import { activitySlotAnchor } from './source-anchors';
 import { SetupNotesButton } from './week-frame/setup-notes';
 import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
 import {
   ConfirmedWeekNotice,
-  FeedbackDetails,
   RemoteChangeNote,
-  SaveStatus,
+  SaveFailureAlert,
 } from './week-frame/week-status';
 import type { Phase, WeeklyDraftWorkspace } from './types';
 // Real document departures (reload, close, typed address) get the browser's
@@ -121,32 +118,54 @@ function latestActivity(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView
     : null;
 }
-// The one save/confirmation status with the other-player note beside it and
-// the phone-only details button. Inside the campaign shell it fills the
-// top-bar position; the standalone screen shows the same elements in the
-// frame's status row. Never both.
+// The store's current Table Adjustments (accepted plus this device's pending
+// edits), read at Save time so a form never sends a list it captured earlier.
+function latestAdjustments(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' && current.phaseView.phase === 'summary'
+    ? current.phaseView.adjustments
+    : null;
+}
+// This device's Confirm guard for local forms (Review's adjustments and
+// reasons, Persistent's table endings), from the one store.
+function useLocalFormGuard(store: WorkspaceController['store'] | undefined) {
+  return useMemo(
+    () =>
+      store && {
+        set: store.setLocalForm,
+        keep: store.keepLocalValues,
+        read: store.readLocalValues,
+      },
+    [store],
+  );
+}
+// The store's current Overseer support facts (Event or Persistent), read
+// between the edits of a support move so each step plans from the newest
+// accepted and pending draft.
+function latestOverseer(store: WorkspaceController['store'] | undefined) {
+  const current = store?.getSnapshot();
+  return current?.status === 'ready' &&
+    (current.phaseView.phase === 'event' ||
+      current.phaseView.phase === 'persistent')
+    ? current.phaseView.overseer
+    : null;
+}
+// The frame's status row: a failed save and the other-player note, nothing
+// in the normal state. Saving itself is shown where it happens.
 function WorkspaceFeedback({
   workspace,
-  inShell,
 }: {
   workspace: Extract<WeeklyDraftWorkspace, { status: 'ready' }>;
-  inShell: boolean;
 }) {
-  const content = (
+  return (
     <>
-      <SaveStatus
+      <SaveFailureAlert
         feedback={workspace.feedback}
         failureReason={workspace.failureReason}
       />
       <RemoteChangeNote change={workspace.remoteChange} />
-      <FeedbackDetails
-        feedback={workspace.feedback}
-        failureReason={workspace.failureReason}
-        change={workspace.remoteChange}
-      />
     </>
   );
-  return inShell ? <TopBarStatus>{content}</TopBarStatus> : content;
 }
 // `campaignId` scopes every reference link (Militia, Characters & officers,
 // Finished weeks, Setup) to this campaign; without it the links stay off.
@@ -174,9 +193,10 @@ export function WeeklyWorkspaceBoard({
     choosePhase,
   );
   const panel = useReferencePanel(campaignId);
-  const inShell = useShellSlotHost('top-bar-status');
+  const localFormGuard = useLocalFormGuard(controller?.store);
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
-  if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
+  if (auth.isLoading || workspace.status === 'loading')
+    return <WeekSkeleton phase={phase} />;
   if (workspace.status !== 'ready')
     return (
       <main className="mx-auto w-full max-w-6xl p-4">
@@ -202,21 +222,22 @@ export function WeeklyWorkspaceBoard({
   // is in flight and while a closed week is retained read-only until its
   // successor is usable (WEEK-10); the store rejects those writes as well.
   const disabled = workspace.editingDisabled;
-  const feedback = (
-    <WorkspaceFeedback workspace={workspace} inShell={inShell} />
-  );
+  // One Confirmation control, shown in the review block and pinned in the
+  // frame's footer and phone strip on Review & confirm.
+  const confirmation = readConfirmControl(workspace);
   return (
-    <>
-      {inShell && feedback}
+    // A test/diagnostic hook, not UI: `display: contents` leaves the frame's
+    // flex layout untouched while the save state stays readable.
+    <div className="contents" data-week-feedback={workspace.feedback}>
       <WeekFrame
         week={workspace.week}
         phase={view.phase}
         phases={workspace.phases}
         navigation={workspace.navigation}
-        confirmationDisabledReason={workspace.confirmationDisabledReason}
+        confirmation={confirmation}
         choose={choosePhase}
         reference={{ facts: workspace.referenceFacts, panel }}
-        status={inShell ? undefined : feedback}
+        status={<WorkspaceFeedback workspace={workspace} />}
         notice={
           <ConfirmedWeekNotice
             notice={workspace.confirmedWeek}
@@ -244,6 +265,7 @@ export function WeeklyWorkspaceBoard({
             correctionsHref={
               campaignId ? campaignPath(campaignId, 'militia') : undefined
             }
+            openEvent={() => choosePhase('event')}
           />
         ) : view.phase === 'event' ? (
           <EventView
@@ -252,6 +274,13 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             preparation={workspace.eventPreparation}
             openActivity={() => choosePhase('activity')}
+            openActivitySlot={(slotId) =>
+              openSource({
+                phase: 'activity',
+                anchor: slotId ? activitySlotAnchor(slotId) : null,
+              })
+            }
+            latestOverseer={() => latestOverseer(controller?.store)}
           />
         ) : view.phase === 'persistent' ? (
           <PersistentView
@@ -259,24 +288,28 @@ export function WeeklyWorkspaceBoard({
             edit={workspace.edit}
             disabled={disabled}
             openSource={openSource}
+            latestOverseer={() => latestOverseer(controller?.store)}
+            localFormGuard={localFormGuard}
           />
         ) : view.phase === 'summary' ? (
           <SummaryView
             view={view}
             edit={workspace.edit}
             disabled={disabled}
-            confirming={workspace.feedback === 'confirming'}
-            canConfirm={workspace.canConfirm}
+            confirmation={confirmation}
+            goTo={openSource}
             forecastPending={workspace.forecastPending}
             reviewRequired={workspace.reviewRequired}
-            confirm={() => {
-              void workspace.confirm();
-            }}
-            review={() => choosePhase('summary')}
+            review={workspace.reviewUpdatedWeek}
+            localForms={workspace.localForms}
+            localFormGuard={localFormGuard}
+            latestAdjustments={() =>
+              latestAdjustments(controller?.store) ?? view.adjustments
+            }
           />
         ) : null}
       </WeekFrame>
-    </>
+    </div>
   );
 }
 // Standalone host: the environment owner plus the board. The campaign shell

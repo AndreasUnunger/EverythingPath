@@ -283,13 +283,12 @@ test('[setup.sections.errors] field errors route by path and cross-reference err
   commandant.state.militiaSnapshot.roster.officers = [
     { role: 'commandant', characterId: 'hero' },
   ];
+  // A commandant's blank Hit Dice follow their level, but the character's
+  // own facts stay required.
+  expect(setupErrorDescriptors(commandant)).toEqual([]);
+  commandant.state.militiaSnapshot.characters = [];
   expect(setupErrorDescriptors(commandant)).toEqual([
-    {
-      section: 'people',
-      field: 'state.militiaSnapshot.roster.people.0.hitDice',
-      kind: 'refinement',
-      message: 'Commandant Hit Dice are required before starting the week.',
-    },
+    expect.objectContaining({ section: 'people', kind: 'refinement' }),
   ]);
 
   expect(setupErrorDescriptors(newMilitiaSetup('Loyalty'))).toEqual([]);

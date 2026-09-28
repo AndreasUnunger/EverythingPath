@@ -3,7 +3,12 @@ import { z } from 'zod';
 import { expect, type Page } from '@playwright/test';
 import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
-import { saveStatus } from './week-frame';
+import { reviewConfirm, saveState } from './week-frame';
+import {
+  expectControlsReachable,
+  expectNoHorizontalOverflow,
+  expectReachable,
+} from './responsive-shell';
 
 // Opens a guided Setup step from the step index (tablet and wider).
 export async function openSetupStep(page: Page, step: string) {
@@ -14,6 +19,54 @@ export async function openSetupStep(page: Page, step: string) {
   await expect(
     page.getByRole('heading', { level: 2, name: step, exact: true }),
   ).toBeVisible();
+}
+
+// Every enabled control Setup shows, and Next, can be reached (#138 §8
+// bullet 4): inside the viewport, and on the phone above the bottom bar and
+// its status strip. Below 768px Next sits at the end of the open step's row;
+// from 768px in the detail pane's sticky footer, which stays pinned to the
+// bottom of the viewport while the page is scrolled to its top (#138 §3,
+// "the sticky tablet footer"); focus scrolls each of the detail pane's
+// controls clear of it (see expectReachable). Headless browsers open no
+// on-screen keyboard (see responsive-shell.ts), so the layout with the
+// keyboard open needs a real device.
+async function expectSetupReachable(
+  page: Page,
+  layout: 'tablet' | 'phone' | 'desktop',
+) {
+  const root = page.locator('[data-setup-layout]');
+  await expect(root).toHaveAttribute(
+    'data-setup-layout',
+    layout === 'phone' ? 'phone' : 'wide',
+  );
+  await expectNoHorizontalOverflow(page);
+  const next = root.getByRole('button', { name: /^Next: / });
+  await expect(next).toHaveCount(1);
+  if (layout === 'phone') {
+    // The open row holds its own Next; there is no footer.
+    await expect(root.locator('footer')).toHaveCount(0);
+    await expect(
+      root.getByRole('region').getByRole('button', { name: /^Next: / }),
+    ).toHaveCount(1);
+  } else {
+    const footer = root.locator('footer');
+    await expect(footer.getByRole('button', { name: /^Next: / })).toHaveCount(
+      1,
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const pinned = (await footer.boundingBox())!;
+    const { height } = page.viewportSize()!;
+    expect(
+      pinned.y + pinned.height,
+      `${layout}: the sticky footer is in view from the top of the page`,
+    ).toBeLessThanOrEqual(height + 1);
+    expect(
+      pinned.y,
+      `${layout}: the sticky footer starts in view`,
+    ).toBeGreaterThanOrEqual(0);
+  }
+  await expectControlsReachable(page, root, `${layout} Setup`);
+  await expectReachable(page, next);
 }
 
 // Uses the same owned campaign, auth contexts, reset and cleanup as #26/#27.
@@ -30,7 +83,12 @@ export async function exerciseMilitiaSetup(
       }),
     );
     const route = `/canonical-setup?campaign=${campaignId}`;
-    await Promise.all([players.gm.goto(route), players.outsider.goto(route)]);
+    // Both members open Setup; each form keeps its own unfinished input.
+    await Promise.all([
+      players.gm.goto(route),
+      players.player.goto(route),
+      players.outsider.goto(route),
+    ]);
     await expect(
       players.outsider.getByText("This campaign isn't available"),
     ).toBeVisible();
@@ -38,9 +96,15 @@ export async function exerciseMilitiaSetup(
       new RegExp(`/campaigns/${campaignId}/setup$`),
     );
     const gm = players.gm;
+    await players.player
+      .getByRole('textbox', { name: 'Rank', exact: true })
+      .fill('9');
     await expect(
       gm.getByRole('textbox', { name: 'Treasury (copper)', exact: true }),
     ).toHaveValue('1000');
+    await expect(
+      gm.getByRole('textbox', { name: 'Rank', exact: true }),
+    ).toHaveValue('1');
     await gm
       .getByRole('group', { name: 'Focus', exact: true })
       .getByRole('button', { name: 'Security', exact: true })
@@ -83,8 +147,15 @@ export async function exerciseMilitiaSetup(
       await openSetupStep(gm, 'People & officers');
       await gm
         .getByRole('main')
-        .getByRole('button', { name: /^Add / })
+        // The character's own "Add <name>", not the inline "Add character".
+        .getByRole('button', { name: /^Add (?!character$)/ })
         .first()
+        .click();
+      // A commandant's blank Hit Dice follow the character's level (#196):
+      // nothing below enters them, and the week still starts.
+      await gm
+        .getByRole('main')
+        .getByRole('button', { name: 'commandant', exact: true })
         .click();
       await openSetupStep(gm, 'Character conditions');
       await gm
@@ -123,6 +194,7 @@ export async function exerciseMilitiaSetup(
       for (const [layout, width, height] of [
         ['tablet', 1194, 834],
         ['phone', 390, 844],
+        ['desktop', 1440, 900],
       ] as const) {
         await gm.setViewportSize({ width, height });
         await savePrivate(
@@ -142,6 +214,7 @@ export async function exerciseMilitiaSetup(
             width,
           );
         }
+        await expectSetupReachable(gm, layout);
       }
       await gm.setViewportSize({ width: 1194, height: 834 });
     }
@@ -182,7 +255,7 @@ export async function exerciseMilitiaSetup(
     await expect(gm).toHaveURL(
       new RegExp(`/campaigns/${campaignId}/week\\?phase=event$`),
     );
-    await players.player.goto(`/canonical-workspace?campaign=${campaignId}`);
+    // The other member's open form follows the accepted setup to its week.
     await expect(players.player).toHaveURL(
       new RegExp(`/campaigns/${campaignId}/week(?:\\?|$)`),
     );
@@ -239,7 +312,10 @@ export async function exerciseMilitiaSetup(
       });
       await training.fill('1');
       await training.blur();
-      await expect(saveStatus(players.player)).toHaveText('Changes saved.');
+      await expect(saveState(players.player)).toHaveAttribute(
+        'data-week-feedback',
+        'saved',
+      );
       // A natural 20 gains the 1d6 training roll.
       await expect(
         players.player.getByRole('region', {
@@ -266,12 +342,8 @@ export async function exerciseMilitiaSetup(
     await players.player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      players.player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
-    await players.player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await expect(reviewConfirm(players.player)).toBeEnabled();
+    await reviewConfirm(players.player).click();
     await expect(
       players.player.getByRole('heading', {
         name: `Week ${existing ? 13 : 2} · Upkeep`,

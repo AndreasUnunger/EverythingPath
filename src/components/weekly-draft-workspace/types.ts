@@ -9,7 +9,7 @@ import type {
   EventTableArithmetic,
 } from '~/lib/rules-event-selection';
 import type { ActivityProjection } from '~/lib/rules-activity';
-import type { projectUpkeep } from '~/lib/rules-upkeep';
+import type { EconomyState } from '~/lib/rules-economy-state';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -17,6 +17,9 @@ import type { RollReadFacts } from './roll-facts';
 import type { RollSpec } from '~/lib/raw-roll';
 import type { OFFICER_ROLES } from '~/lib/canonical-roster';
 import type { TrackedCharacter } from '~/lib/rules-character-state';
+import type { ProgressionBoon } from '~/lib/rules-progression';
+import type { EventSabotageFacts } from './event-sabotage-facts';
+import type { OverseerSupportFacts } from './overseer-support-facts';
 export type OfficerRole = (typeof OFFICER_ROLES)[number];
 type CharacterStatus = TrackedCharacter['status'];
 export type Phase = 'upkeep' | 'activity' | 'event' | 'persistent' | 'summary';
@@ -60,10 +63,6 @@ export type UpkeepView = {
     roles: CanonicalRoster['officers'][number]['role'][];
   }[];
   transfers: WeeklyDraft['upkeep']['treasuryTransfers'];
-  boons: Extract<
-    ReturnType<typeof projectUpkeep>['plan'][number],
-    { kind: 'boon' }
-  >[];
   exceptions: {
     subjectId: string;
     ruleId: string;
@@ -160,6 +159,53 @@ export type UpkeepTransfer = {
   } | null;
   issues: UpkeepIssue[];
 };
+// One PC's boon for one gained rank, recorded as the text acknowledgement
+// of `subjectId` (`upkeep:boon:<rank>:<characterId>`).
+export type UpkeepRankBoon = {
+  subjectId: string;
+  characterId: string;
+  name: string;
+  // The recorded acknowledgement's identity, or the one a first record uses.
+  acknowledgementId: string;
+  // Null until the boon's outcome is recorded.
+  outcome: string | null;
+  // The feat cards of a title with a fixed feat package; null for open
+  // outcomes (Skilled, Gift, XP, Champion), which are recorded as text.
+  feats: {
+    options: string[];
+    selected: string | null;
+    // Recorded text that is none of the options, kept until replaced or
+    // cleared.
+    legacyOutcome: string | null;
+  } | null;
+  // Still unrecorded, so the week cannot be confirmed yet.
+  required: boolean;
+};
+// A rank gained this week, its Table 6-1 training threshold and the boon
+// every eligible PC gains with it.
+export type UpkeepRankGain = {
+  rank: number;
+  minimumTraining: number;
+  reward: ProgressionBoon;
+  boons: UpkeepRankBoon[];
+};
+export type UpkeepRank = {
+  status: UpkeepSectionStatus;
+  before: number;
+  // Null while waiting or while no active PC level can cap the rank.
+  after: number | null;
+  // The training Step 4 judged, after the earlier steps; null while waiting.
+  training: number | null;
+  // The next rank above `after` and its minimum training; null at the top
+  // rank or while `after` is unknown.
+  next: { rank: number; minimumTraining: number } | null;
+  // Set when the highest active PC level, not training, keeps the militia
+  // from its next rank; `trainingRank` is the rank training alone reaches.
+  capped: { trainingRank: number; highestPcLevel: number } | null;
+  // Every rank gained this week in order, each with its boons.
+  gains: UpkeepRankGain[];
+  issues: UpkeepIssue[];
+};
 export type UpkeepSections = {
   teams: {
     status: UpkeepSectionStatus;
@@ -208,12 +254,7 @@ export type UpkeepSections = {
     trainingDelta: number | null;
     loss: UpkeepLoss | null;
   };
-  rank: {
-    status: UpkeepSectionStatus;
-    before: number;
-    after: number | null;
-    issues: UpkeepIssue[];
-  };
+  rank: UpkeepRank;
   transfers: {
     status: UpkeepSectionStatus;
     // Treasury before and after the ordered transfers (and any Theft on
@@ -281,13 +322,52 @@ export type ActivityBonusChoice = {
   value: number;
 };
 // What the ordered Activity fold has done before one slot: officer changes,
-// refuges activated and characters rescued or restored by earlier choices.
+// refuges activated, characters rescued or restored, and items and caches
+// moved by earlier choices.
 export type ActivityPositionFacts = {
   officers: { characterId: string; role: OfficerRole }[];
   // Settlements whose refuge is active at this position.
   refugeSettlementIds: string[];
+  // Each settlement as the ordered fold sees it at this position: its
+  // reputation with every current shift (null while unknown), whether a
+  // refuge may be activated there, and its recorded occupation and security.
+  settlements: {
+    settlementId: string;
+    reputation: string | null;
+    refugeAllowed: boolean;
+    occupied: boolean | null;
+    secured: boolean | null;
+  }[];
+  // Settlements an earlier choice already tried to sway with propaganda,
+  // with that choice's identity.
+  propaganda: { settlementId: string; choiceId: string }[];
   // Tracked character conditions at this position; absent when untracked.
   characterStatus: { characterId: string; status: CharacterStatus }[];
+  // The militia's items and caches at this position; null while the militia
+  // records no economy.
+  economy: Pick<EconomyState, 'items' | 'caches'> | null;
+};
+// One Guarantee Event or Manipulate Events choice's event candidates, read
+// from the Event phase's own facts. Event rolls and chooses them; Activity
+// only shows where they stand.
+export type ActivityCandidateSet = {
+  choiceId: string;
+  // False when the choice guarantees nothing this week (a calm week).
+  active: boolean;
+  candidates: {
+    eventId: string;
+    // "Event 2A"; never an identity.
+    label: string;
+    // The rolled event's name, or null before its table roll resolves.
+    name: string | null;
+    // Event's status wording, such as "Awaiting roll" or "Not chosen".
+    status: string;
+    chosen: boolean;
+    // Recorded nested events under this candidate, used or not.
+    nested: number;
+  }[];
+  // Event's wording for what the set still needs.
+  issues: { code: string; message: string }[];
 };
 export type ActivitySlotStatus =
   | { kind: 'empty' }
@@ -333,6 +413,8 @@ export type ActivityView = {
     position: ActivityPositionFacts | null;
   })[];
   teamRoster: ActivityTeamFact[];
+  // Every candidate-owning choice's event candidates, by choice.
+  candidateSets: ActivityCandidateSet[];
   // Campaign characters with the level the rules use; null when unknown.
   characters: { characterId: string; name: string; level: number | null }[];
   // Present while the operating settlement is Helpful.
@@ -450,7 +532,221 @@ export type EventRaidPerson = {
     required: boolean;
   };
 };
+// A recorded occurrence input the resolved event does not use, kept until
+// cleared on purpose. `field` names the occurrence field; for `targets` only
+// the kinds the event does not use are listed and cleared.
+export type EventRetainedField = {
+  field:
+    | 'targets'
+    | 'averagePartyLevel'
+    | 'mitigation'
+    | 'rolls'
+    | 'officerCheck'
+    | 'targetChecks'
+    | 'rewards'
+    | 'persistent'
+    | 'persistentDecision'
+    | 'strategistCharacterId'
+    | 'overseerCharacterId';
+  label: string;
+  value: string;
+};
+// High Morale's carried events that end here, oldest first.
+export type EventEndingChoice = {
+  // "Persistent event that ends"
+  label: string;
+  hint: string | null;
+  required: boolean;
+  // How many this occurrence ends: fewer than the rules name when fewer
+  // carried events remain.
+  count: number;
+  // The recorded choice, or false while the rules end the oldest.
+  chosen: boolean;
+  selected: string[];
+  choices: EventTargetCard[];
+  retained: EventRetainedTarget[];
+};
+// Rivalry's two rival teams, chosen on cards. `selected` holds at most two
+// known teams; any other recorded team stays until cleared.
+export type EventTeamPairChoice = {
+  // "Rival teams"
+  label: string;
+  hint: string | null;
+  required: boolean;
+  selected: string[];
+  choices: EventTargetCard[];
+  retained: EventRetainedTarget[];
+};
+// One officer's own skill check made during the Event: Rivalry Twice's
+// optional Bluff, Diplomacy or Intimidate check that ends it, and Turncoat
+// Twice's mandatory Diplomacy check against the defection. It is the
+// character's skill check, so only the entered skill bonus and custom
+// modifiers count.
+export type EventOfficerCheckFacts = {
+  // "Officer check" or "Diplomacy check"
+  label: string;
+  // "Bluff, Diplomacy or Intimidate DC 20 · 1d20"
+  legend: string;
+  mandatory: boolean;
+  dc: number;
+  characterId: string | null;
+  // Officers first, each labelled with their roles. A character the check
+  // cannot use (not an officer for Rivalry) is not offered.
+  characters: (EventTargetCard & { officer: boolean })[];
+  // A recorded character the choices do not include, kept until replaced.
+  retainedCharacter: EventRetainedTarget | null;
+  skill: RivalrySkill | null;
+  // The skill the rules name first; a Turncoat skill other than Diplomacy
+  // needs a Rules Exception.
+  expectedSkill: RivalrySkill | null;
+  skillBonus: number | null;
+  recorded: RawRoll | undefined;
+  spec: RollSpec;
+  // Skill bonus plus counted modifiers; null without a skill bonus.
+  modifier: number | null;
+  // The engine's recorded result; null until every input it needs is in.
+  total: number | null;
+  breakdown: { source: string; label: string; value: number }[];
+  succeeded: boolean | null;
+  resultText: string | null;
+  // Why a complete entry has no result yet, or null.
+  waiting: string | null;
+  required: { character: boolean; skillBonus: boolean; roll: boolean };
+  notes: string[];
+};
+// A same-week persistent decision recorded on the occurrence that became
+// persistent: Persistent resolves it, Event keeps it with its occurrence.
+export type EventSameWeekDecision = {
+  // "Check · Loyalty check roll recorded", "Ending · <what happened>"
+  value: string;
+  // Whether this occurrence's event is persistent this week, so Persistent
+  // reads the decision.
+  used: boolean;
+};
+export type EventRecurringFamily =
+  | 'rivalry'
+  | 'turncoat'
+  | 'theft'
+  | 'double_agent'
+  | 'low_morale';
+export type EventOutcomeFamily =
+  | 'all_is_calm'
+  | 'calm_before_the_storm'
+  | 'high_morale'
+  | 'invasion'
+  | 'night_ops'
+  | 'war_games'
+  | 'week_of_pain'
+  | 'week_of_serenity';
+export type EventResourceFamily =
+  | 'broke_the_code'
+  | 'cache_discovered'
+  | 'festival'
+  | 'market_day'
+  | 'found_fire'
+  | 'hidden_agenda';
+// One cache Cache Discovered finds: its own Attempt it / Let it happen and
+// Secrecy check, like a Raid's hidden person.
+export type EventCacheTarget = {
+  cacheId: string;
+  // "Minor cache at Bridge"
+  name: string;
+  // "Hidden · Supplies, Rope"
+  description: string;
+  // Contents the campaign no longer records, by item identity.
+  missingItems: string[];
+  mitigation: 'attempted' | 'unattempted';
+  // The choice is recorded on the cache, not read from the event or a roll.
+  explicit: boolean;
+  check: EventCheckFacts;
+  checkRoll: RawRoll | undefined;
+};
+// A recorded Rules Exception, or the blank one a reward can take.
+export type EventRewardException = {
+  exceptionId: string;
+  subjectId: string;
+  ruleId: string;
+  reason: string;
+};
+// One Found Fire reward: an item a player character receives.
+export type EventReward = {
+  itemId: string;
+  characterId: string;
+  // The recipient's name, or words for one no longer an active PC.
+  recipient: string;
+  name: string;
+  valueCopper: number;
+  weight: number;
+  alchemical: boolean;
+  poison: boolean;
+  // "100 gp · 1 lb · alchemical"
+  description: string;
+  // A non-poison alchemical item worth 100 gp or less, as the rules allow.
+  permitted: boolean;
+  // Present when the reward is not permitted or an exception is recorded.
+  exception: EventRewardException | null;
+  exceptionRequired: boolean;
+  // What else the rules ask of this reward, worded.
+  issues: string[];
+};
+export type EventRewardFacts = {
+  // Each active PC and the rewards recorded for them; the rules ask for
+  // exactly one each.
+  recipients: {
+    characterId: string;
+    name: string;
+    required: boolean;
+    // "Record one reward." / "Only one reward counts. Remove the others."
+    issue: string | null;
+    rewards: EventReward[];
+  }[];
+  // Rewards recorded for someone who is not an active PC.
+  others: EventReward[];
+  // The PCs a reward can go to, for the reward form.
+  choices: { value: string; label: string }[];
+};
+// One Activity check Hidden Agenda recalculates.
+export type EventActivityCheck = {
+  slotId: string;
+  // "Action Slot 2 · Recruit Team · Scouts"
+  label: string;
+  // "Loyalty check 19 vs DC 15 (Hidden Agenda +2): success"
+  result: string;
+  // The outcome turns on this bonus: without it the check fails.
+  decided: boolean;
+  // The choice's missing inputs, worded by Activity.
+  issues: string[];
+};
+export type EventActivityRecalculation = {
+  bonus: number;
+  checks: EventActivityCheck[];
+  // Activity is not ready: its outcome is not final yet.
+  pending: boolean;
+  cycle: boolean;
+};
 export type EventPanel =
+  | {
+      // Calm, morale, narrative and training events: their outcome lines,
+      // with High Morale's endings and Invasion's party level as the only
+      // inputs besides What happened.
+      family: 'outcome';
+      eventType: EventOutcomeFamily;
+      endings: EventEndingChoice | null;
+      partyLevel: {
+        value: number | null;
+        required: boolean;
+        // The encounter's CR from the rules, once the level is in.
+        challengeRating: number | null;
+      } | null;
+      // Rules facts beside the outcome: uneventful carry, Twice, independence.
+      notes: string[];
+      // Null for events that record no account of their own (and have none).
+      whatHappened: EventWhatHappened | null;
+      outcomes: string[];
+      // Inputs are still missing, so the outcome lines are not final.
+      partial: boolean;
+      retained: EventRetainedField[];
+    }
   | {
       family: 'team';
       eventType: 'missing_in_action' | 'sickness' | 'turn_around';
@@ -463,6 +759,89 @@ export type EventPanel =
       retainedCheck: boolean;
       whatHappened: EventWhatHappened;
       outcomes: string[];
+    }
+  | {
+      // Officer-check and persistent-producing events: Rivalry, Turncoat,
+      // Theft, Double Agent and Low Morale. Each part is null where the
+      // event and its mode do not use it.
+      family: 'recurring';
+      eventType: EventRecurringFamily;
+      // Rivalry's two teams, base and Twice.
+      teams: EventTeamPairChoice | null;
+      // Turncoat Twice's defecting team (GM choice).
+      team: EventTargetChoice | null;
+      // Turncoat's raw 1d6 training loss; the rank is added by the rules.
+      lossRoll: {
+        label: string;
+        legend: string;
+        spec: RollSpec;
+        recorded: RawRoll | undefined;
+        required: boolean;
+      } | null;
+      // Attempt it / Let it happen: Theft's Loyalty check and Rivalry Twice's
+      // officer check. `explicit` when the choice is recorded rather than
+      // read from a roll or the default.
+      mitigation: {
+        value: 'attempted' | 'unattempted';
+        explicit: boolean;
+        attemptDescription: string;
+        letDescription: string;
+      } | null;
+      // Theft's optional Loyalty check (base mode only).
+      check: EventCheckFacts | null;
+      checkRoll: RawRoll | undefined;
+      // A Theft check roll kept while Let it happen applies.
+      unusedCheckRoll: boolean;
+      officer: EventOfficerCheckFacts | null;
+      sameWeek: EventSameWeekDecision | null;
+      notes: string[];
+      whatHappened: EventWhatHappened | null;
+      outcomes: string[];
+      partial: boolean;
+      retained: EventRetainedField[];
+      // What clearing retained targets or rolls keeps: the target kinds and
+      // named rolls this event reads.
+      keep: {
+        targets: NonNullable<
+          WeeklyDraft['event']['occurrences'][number]['targets']
+        >[number]['kind'][];
+        rolls: string[];
+      };
+    }
+  | {
+      // Item, cache, settlement, reward and Activity-recalculation events:
+      // Broke the Code, Cache Discovered, Festival, Market Day, Found Fire
+      // and Hidden Agenda. Each part is null where the event and its mode do
+      // not use it.
+      family: 'resource';
+      eventType: EventResourceFamily;
+      // Broke the Code's identified item.
+      item: EventTargetChoice | null;
+      // Festival's and Market Day's town.
+      settlement: EventTargetChoice | null;
+      // Market Day Twice: every operated town the discount reaches.
+      towns: EventTargetCard[] | null;
+      // Cache Discovered's cache (base mode), then each cache found.
+      cache: EventTargetChoice | null;
+      caches: EventCacheTarget[];
+      // Recorded per-cache checks for caches this event does not find.
+      retainedCacheChecks: (EventRetainedTarget & { index: number })[];
+      // An event-level mitigation or check roll from an older editor.
+      legacyMitigation: 'attempted' | 'unattempted' | null;
+      legacyCheckRoll: boolean;
+      rewards: EventRewardFacts | null;
+      activity: EventActivityRecalculation | null;
+      notes: string[];
+      whatHappened: EventWhatHappened | null;
+      outcomes: string[];
+      partial: boolean;
+      retained: EventRetainedField[];
+      keep: {
+        targets: NonNullable<
+          WeeklyDraft['event']['occurrences'][number]['targets']
+        >[number]['kind'][];
+        rolls: string[];
+      };
     }
   | {
       family: 'raid';
@@ -495,7 +874,9 @@ export type EventBlockStatus =
   | 'candidate'
   | 'not_chosen'
   | 'not_used'
-  | 'needs_repair';
+  | 'needs_repair'
+  // Part of a candidate's Roll Twice expansion, which the rules no longer make.
+  | 'legacy';
 export type EventIssue = { code: string; message: string };
 // An event's corpus rules for one block; `twice` only when it applies there.
 export type EventBlockRules = {
@@ -503,10 +884,23 @@ export type EventBlockRules = {
   text: string[];
   twice: string | null;
 };
-export type EventBlock = {
+// What a block's status, rules and issues read from its occurrence facts.
+export type EventTraceFacts = Pick<
+  EventOccurrenceFacts,
+  | 'label'
+  | 'resolvedType'
+  | 'mode'
+  | 'selected'
+  | 'negated'
+  | 'requirements'
+  | 'warnings'
+>;
+// `Item` is the full occurrence facts, except for readers (Activity's
+// candidate summary) that need only the traced status.
+export type EventBlock<Item extends EventTraceFacts = EventOccurrenceFacts> = {
   eventId: string;
   label: string;
-  item: EventOccurrenceFacts;
+  item: Item;
   // False until the occurrence exists in the accepted draft: its inputs wait.
   saved: boolean;
   status: EventBlockStatus;
@@ -525,9 +919,12 @@ export type EventBlock = {
   rules: EventBlockRules | null;
   candidate: { slotId: string; choiceId: string; chosen: boolean } | null;
   // Active nested events (Roll Twice children, a replacement) in order.
-  children: EventBlock[];
+  children: EventBlock<Item>[];
   // Recorded children the current roll does not use; restored if it returns.
-  hidden: EventBlock[];
+  hidden: EventBlock<Item>[];
+  // A candidate's recorded Roll Twice children, which the rules never use
+  // again now that its Roll Twice is rerolled in place; kept until cleared.
+  legacy: EventBlock<Item>[];
   // A position the rules do not ask for: clearing its last input removes it.
   surplus: boolean;
   // The existing tree/candidate edit removing this surplus position once its
@@ -572,7 +969,8 @@ export type EventView = {
   guaranteed: boolean;
   chanceStep: EventChanceStep;
   automatic: {
-    sources: { sourceId: string; label: string; count: number }[];
+    // "Calm before the Storm" from `week`, bringing `count` events now.
+    sources: { sourceId: string; label: string; week: number; count: number }[];
     blocks: EventBlock[];
     issues: EventIssue[];
   } | null;
@@ -595,14 +993,28 @@ export type EventView = {
   exceptions: WeeklyDraft['rulesExceptions'];
   checks: ActivityView['checks'];
   options: Record<string, { value: string; label: string }[]>;
+  // Sabotage per occurrence, by event identity, and the week's one Overseer
+  // support shared with Persistent. Hand-built test views may omit them.
+  sabotage?: Record<string, EventSabotageFacts>;
+  overseer?: OverseerSupportFacts;
   requirements: string[];
   warnings: string[];
 };
+// A phase and, where it can be named, the DOM id of the item within it.
+export type SourceLink = { phase: Phase; anchor: string | null };
+/**
+ * One of this device's held local forms: the Required decision's message,
+ * the phase showing the form when not Review & confirm, and what the form
+ * was typed against (a Persistent ending's saved decision).
+ */
+export type LocalFormRegistration = {
+  message: string;
+  phase?: Phase;
+  basis?: string;
+};
 // Where an Activity or Event result that ended a carried event is edited.
-// `anchor` is the DOM id of its slot or occurrence, when it can be found.
-export type PersistentSourceLink = {
+export type PersistentSourceLink = SourceLink & {
   phase: 'activity' | 'event';
-  anchor: string | null;
 };
 export type PersistentView = {
   phase: 'persistent';
@@ -618,6 +1030,7 @@ export type PersistentView = {
   // Earlier phases whose open requirements hold Persistent back.
   earlierPhases: Phase[];
   options: EventView['options'];
+  overseer?: OverseerSupportFacts;
   events: (WeeklyDraft['context']['carriedEvents'][number] & {
     name: string;
     // The event type's display name, e.g. "Low Morale".
@@ -637,12 +1050,104 @@ export type PersistentView = {
     check: { label: string; note: string } | null;
     changes: PersistentChange[];
     checks: ActivityView['checks'];
+    // The saved check's own inputs and result, when the decision is a
+    // Theft or Rivalry check; null otherwise.
+    theftCheck: PersistentTheftCheck | null;
+    rivalryCheck: PersistentRivalryCheck | null;
+    // Recorded check fields this event's check does not use.
+    retained: PersistentRetained[];
     exceptions: WeeklyDraft['rulesExceptions'];
     requirements: string[];
     warnings: string[];
   })[];
   requirements: string[];
   warnings: string[];
+};
+// One modifier recorded on a Persistent check roll, by list position.
+export type PersistentRecordedModifier = {
+  index: number;
+  sourceId: string;
+  value: number;
+  reason: string;
+  // A one-use bonus by its source name; otherwise the entered reason.
+  label: string;
+  // Custom and other entered modifiers can be edited; a bonus only removed.
+  kind: 'custom' | 'bonus' | 'other';
+  // Why the rules add nothing for this entry, or null when it counts.
+  note: string | null;
+};
+// A one-use rules bonus this check can still take.
+export type PersistentBonusChoice = {
+  sourceId: string;
+  label: string;
+  value: number;
+};
+// Theft's Loyalty check for this week's temporary mitigation.
+export type PersistentTheftCheck = {
+  row: EventCheckFacts;
+  recorded: RawRoll | undefined;
+  modifiers: PersistentRecordedModifier[];
+  bonusChoices: PersistentBonusChoice[];
+};
+export type RivalrySkill = NonNullable<
+  Extract<
+    WeeklyDraft['persistent']['decisions'][number],
+    { kind: 'mitigate' }
+  >['officerCheck']
+>['skill'];
+// Rivalry's officer check: one character's skill check against DC 20.
+export type PersistentRivalryCheck = {
+  characterId: string | null;
+  // Every militia character, labelled with their officer roles ("Aubrin ·
+  // Ambassador", "Pell · not an officer"); a recorded character no longer
+  // in the militia is listed as unavailable.
+  characters: {
+    value: string;
+    label: string;
+    officer: boolean;
+    available: boolean;
+  }[];
+  skill: RivalrySkill | null;
+  // Null when blank, which leaves the check incomplete; zero is valid.
+  skillBonus: number | null;
+  recorded: RawRoll | undefined;
+  spec: RollSpec;
+  // Skill bonus plus counted modifiers; null without a skill bonus.
+  modifier: number | null;
+  total: number | null;
+  breakdown: { source: string; label: string; value: number }[];
+  succeeded: boolean | null;
+  resultText: string | null;
+  required: { character: boolean; skillBonus: boolean; roll: boolean };
+  // The chosen character is no longer in the militia.
+  unavailable: boolean;
+  // The chosen character holds no officer role: the check needs the
+  // officer-assignment Rules Exception.
+  notOfficer: boolean;
+  modifiers: PersistentRecordedModifier[];
+};
+// Check fields an older editor recorded that this check does not use.
+export type PersistentRetainedField =
+  | 'targets'
+  | 'strategistCharacterId'
+  | 'officerCheck'
+  | 'rolls'
+  | 'overseerCharacterId';
+// One retained field as shown: its name and recorded value, or its targets.
+export type PersistentRetained = {
+  field: PersistentRetainedField;
+  label: string;
+  // The recorded value in words; targets list each target instead.
+  value: string;
+  targets: {
+    name: string;
+    target: NonNullable<
+      Extract<
+        WeeklyDraft['persistent']['decisions'][number],
+        { kind: 'mitigate' }
+      >['targets']
+    >[number];
+  }[];
 };
 export type PhaseView =
   | UpkeepView
@@ -666,6 +1171,8 @@ export type PhaseView =
       outcome: CanonicalWeekState | null;
       requirements: string[];
       warnings: string[];
+      /** Where each requirement or warning code comes from, when known. */
+      sources?: Record<string, SourceLink>;
       /** The six-section presentation facts from the live adapter. */
       review: WeekReviewFacts;
     };
@@ -701,8 +1208,15 @@ export type WeeklyDraftWorkspace =
       reviewRequired: boolean;
       forecastPending: boolean;
       pendingWork: boolean;
+      /**
+       * This device's open or locally invalid Summary forms, each also a
+       * local Required decision; while any is open, Confirm is disabled here.
+       */
+      localForms: ({ id: string } & LocalFormRegistration)[];
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;
       viewPhase(this: void, phase: Phase): void;
+      /** Review updated week: the explicit review after a rejected request. */
+      reviewUpdatedWeek(this: void): void;
       confirm(this: void): Promise<'accepted' | 'failed'>;
       // Preparing the Event positions the rules ask for, shared by every phase.
       eventPreparation?: {

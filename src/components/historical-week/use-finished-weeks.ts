@@ -5,12 +5,8 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { CampaignWeek } from '~/components/campaign-home/use-campaign-week';
 import { historyPath, type HistorySelection } from '~/lib/campaign-routes';
-import {
-  provenanceLabels,
-  recordDate,
-  rowHeadlines,
-  rowMarker,
-} from './finished-week-index';
+import { rowHeadlines } from './finished-week-headline-text';
+import { provenanceLabels, recordDate, rowMarker } from './finished-week-index';
 import type {
   FinishedWeeksView,
   IndexItemView,

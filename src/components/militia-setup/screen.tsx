@@ -1,56 +1,90 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
-import { zid } from 'convex-helpers/server/zod4';
-import { api } from '../../../convex/_generated/api';
-import type { Id } from '../../../convex/_generated/dataModel';
-import { Button } from '~/components/ui/button';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
-import { weekPath } from '~/lib/campaign-routes';
+import type { Id } from '@convex/_generated/dataModel';
+import { CharacterRecordDialog } from '~/components/character-manager/character-record-dialog';
+import type { SetupStorage } from '~/lib/setup-envelope';
 import { GuidedMilitiaSetup } from './guided';
-function SetupCampaign({ campaignId }: { campaignId: Id<'campaign'> }) {
-  const options = useQuery(api.canonicalSetup.options, { campaignId });
-  const initialize = useMutation(api.canonicalSetup.initialize);
-  const [initializationId] = useState(() => crypto.randomUUID());
-  const router = useRouter();
-  if (options === undefined) return <p role="status">Loading militia setup…</p>;
-  if (!options)
-    return <p role="status">Militia setup is unavailable for this campaign.</p>;
-  if (options.started)
-    return (
-      <>
-        <p role="status">Militia setup is complete.</p>
-        <Button asChild>
-          <GuardedLink href={weekPath(campaignId)}>
-            Open current week
-          </GuardedLink>
-        </Button>
-      </>
-    );
-  return (
-    <GuidedMilitiaSetup
-      characters={options.characters}
-      onSave={async (setup) => {
-        await initialize({ campaignId, initializationId, setup });
-        router.push(weekPath(campaignId, setup.phase));
-      }}
-    />
-  );
-}
-export function MilitiaSetupScreen({ campaign }: { campaign: string | null }) {
-  const auth = useConvexAuth();
-  const parsed = zid('campaign').safeParse(campaign);
-  return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6 xl:max-w-7xl">
-      <h1 className="text-2xl font-bold">Set up militia</h1>
-      {auth.isLoading ? (
-        <p role="status">Loading militia setup…</p>
-      ) : auth.isAuthenticated && parsed.success ? (
-        <SetupCampaign campaignId={parsed.data} />
-      ) : (
+import {
+  SetupOpening,
+  SetupPageFrame,
+  SetupSkeleton,
+  SetupStarted,
+  SetupStorageNotice,
+} from './setup-states';
+import { useSetupSession, type SetupSessionScope } from './use-setup-session';
+
+function SetupSession(
+  props: SetupSessionScope & { storage?: SetupStorage | null },
+) {
+  const session = useSetupSession(props);
+  const [addingCharacter, setAddingCharacter] = useState(false);
+  switch (session.kind) {
+    case 'loading':
+      return <SetupSkeleton />;
+    case 'unavailable':
+      return (
         <p role="status">Militia setup is unavailable for this campaign.</p>
+      );
+    case 'started':
+      return (
+        <SetupStarted
+          week={session.week}
+          weekHref={session.weekHref}
+          militiaHref={session.militiaHref}
+        />
+      );
+    case 'opening':
+      return <SetupOpening />;
+    case 'form':
+      return (
+        <>
+          {session.notice ? (
+            <SetupStorageNotice notice={session.notice} />
+          ) : null}
+          <GuidedMilitiaSetup
+            {...session.guided}
+            onAddCharacter={() => setAddingCharacter(true)}
+          />
+          {/* Outside the step layouts, so its values survive any change. */}
+          <CharacterRecordDialog
+            campaignId={props.campaignId}
+            organizationId={props.organizationId}
+            open={addingCharacter}
+            onOpenChange={setAddingCharacter}
+          />
+        </>
+      );
+  }
+}
+
+// Setup for one campaign, inside the shell's verified campaign access. Each
+// account, organization and campaign has its own session, so a switch never
+// shows or retargets another scope's unfinished setup.
+export function MilitiaSetupScreen({
+  accountId,
+  organizationId,
+  campaignId,
+  storage,
+}: {
+  accountId: string | null | undefined;
+  organizationId: string;
+  campaignId: Id<'campaign'>;
+  /** This browser's storage by default. */
+  storage?: SetupStorage | null;
+}) {
+  return (
+    <SetupPageFrame>
+      {accountId ? (
+        <SetupSession
+          key={[accountId, organizationId, campaignId].join(':')}
+          accountId={accountId}
+          organizationId={organizationId}
+          campaignId={campaignId}
+          storage={storage}
+        />
+      ) : (
+        <SetupSkeleton />
       )}
-    </main>
+    </SetupPageFrame>
   );
 }

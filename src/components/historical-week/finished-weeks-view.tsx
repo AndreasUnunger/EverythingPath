@@ -55,6 +55,23 @@ function NoWeeksPage({ action }: { action: ReactNode }) {
   );
 }
 
+// The page's shape while the finished weeks load; also the section's route
+// fallback, so the grid is already in place when the page arrives.
+export function FinishedWeeksSkeleton() {
+  return (
+    <PageGrid indexRows={1 + skeletonRowCount}>
+      <p role="status" className="sr-only">
+        Loading history…
+      </p>
+      <IndexHeading />
+      <IndexSkeleton />
+      <div className={paneSlotClass}>
+        <PaneSkeleton announce={false} />
+      </div>
+    </PageGrid>
+  );
+}
+
 export function FinishedWeeksLayout({
   view,
   returnHref,
@@ -68,18 +85,7 @@ export function FinishedWeeksLayout({
 }) {
   switch (view.status) {
     case 'loading':
-      return (
-        <PageGrid indexRows={1 + skeletonRowCount}>
-          <p role="status" className="sr-only">
-            Loading history…
-          </p>
-          <IndexHeading />
-          <IndexSkeleton />
-          <div className={paneSlotClass}>
-            <PaneSkeleton announce={false} />
-          </div>
-        </PageGrid>
-      );
+      return <FinishedWeeksSkeleton />;
     case 'failed':
       return (
         <PageGrid indexRows={2}>

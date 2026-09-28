@@ -1,11 +1,18 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
 import { phaseLabels } from './week-frame/labels';
+import {
+  economyCodeMessage,
+  economyMessages,
+} from './activity-economy-messages';
+import { missionCodeMessage } from './activity-mission-messages';
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 type Summary = Pick<
   Extract<PhaseView, { phase: 'summary' }>,
   'adjustments' | 'options' | 'eventMessages'
 >;
 const messages: Record<string, string> = {
+  ...economyMessages,
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
   'upkeep:attrition-training:roll': 'Enter the attrition training roll.',
   'upkeep:notoriety-training:roll': 'Enter the Notoriety training loss roll.',
@@ -43,6 +50,8 @@ const messages: Record<string, string> = {
   character: 'Choose an available character.',
   'officer-pc': 'Officer roles normally go to player characters.',
   'officer-role-limit': 'This character would hold more than one officer role.',
+  'manager-limit':
+    'Leaving this role would leave the character managing more teams than their normal limit.',
   'recruit-tier':
     'This team type has no recruitment rules; it is normally reached by upgrading.',
   'team-upgrade-limit': 'This team has already been upgraded this Activity.',
@@ -160,7 +169,13 @@ function earlierPhasesMessage(code: string) {
   return `Earlier phases still need preparation: ${names.join(', ')}.`;
 }
 
-export function summaryMessage(code: string, view: Summary, warning = false) {
+// `actionId` names the Activity action that owns `code`, when it is known.
+export function summaryMessage(
+  code: string,
+  view: Summary,
+  warning = false,
+  actionId?: StagedActionChoice['actionId'],
+) {
   const event = view.eventMessages?.[code];
   if (event) return event;
   const earlier = earlierPhasesMessage(code);
@@ -178,10 +193,17 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
   const tail = owner
     ? code.slice(code.indexOf(owner.value) + owner.value.length + 1)
     : code;
+  const mission = missionCodeMessage(tail, actionId, warning);
+  if (mission) return prefix + mission;
   const key = tail.replace(/:exception$/, '');
+  // A rank boon names its rank; the owner prefix names the PC.
+  const boonRank = /^upkeep:boon:(\d+):.+:acknowledgement$/.exec(code)?.[1];
+  if (boonRank) return `${prefix}Record the rank ${boonRank} boon.`;
   if (/reference|Unknown|revision/.test(code))
     return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
-  const known = ruleMessage(key, warning);
+  const known =
+    ruleMessage(key, warning) ??
+    (warning ? null : economyCodeMessage(key, actionId));
   if (known)
     return (
       prefix +
@@ -212,6 +234,7 @@ export function subjectMessage(
   code: string,
   subjectId: string,
   warning = false,
+  actionId?: StagedActionChoice['actionId'],
 ) {
   return summaryMessage(
     code,
@@ -220,5 +243,6 @@ export function subjectMessage(
       options: { subjectId: [{ value: subjectId, label: '' }] },
     },
     warning,
+    actionId,
   ).replace(/^: /, '');
 }

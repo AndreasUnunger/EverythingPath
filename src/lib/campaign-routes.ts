@@ -1,3 +1,5 @@
+import type { MilitiaEntryKey } from './militia-correction-sections';
+
 export type CampaignSection =
   | 'home'
   | 'week'
@@ -12,6 +14,15 @@ export function campaignPath(
 ): string {
   const base = `/campaigns/${encodeURIComponent(campaignId)}`;
   return section === 'home' ? base : `${base}/${section}`;
+}
+
+/** Militia, optionally with one page entry selected (`?section=teams`). */
+export function militiaPath(
+  campaignId: string,
+  entry?: MilitiaEntryKey,
+): string {
+  const path = campaignPath(campaignId, 'militia');
+  return entry ? `${path}?section=${encodeURIComponent(entry)}` : path;
 }
 
 export type PhaseView =

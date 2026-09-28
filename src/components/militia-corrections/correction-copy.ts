@@ -1,11 +1,16 @@
 import {
   MILITIA_ENTRY_LABELS,
+  MILITIA_SECTIONS,
   militiaEntryForLocation,
   type MilitiaEntryKey,
 } from '~/lib/militia-correction-sections';
 import type { SetupErrorDescriptor } from '~/lib/setup-validation';
 import { refusalReason } from '~/lib/write-outcome';
-import type { CorrectionView, Feedback } from './correction-lifecycle';
+import type {
+  CorrectionSubject,
+  CorrectionView,
+  Feedback,
+} from './correction-lifecycle';
 
 // User-facing wording for Militia corrections. Nothing here names storage,
 // revisions or synchronization: only what the player sees and can do.
@@ -17,11 +22,16 @@ export function correctLabel(entry: MilitiaEntryKey) {
   return `Correct ${MILITIA_ENTRY_LABELS[entry].toLowerCase()}`;
 }
 
+const SUBJECT_LABELS: Record<CorrectionSubject, string> = {
+  ...MILITIA_SECTIONS,
+  officers: 'Officers',
+  roster: 'Roster',
+};
+
 export function feedbackMessage(feedback: Feedback) {
-  const label = MILITIA_ENTRY_LABELS[feedback.entry];
-  return feedback.kind === 'saved'
-    ? `${label} corrected.`
-    : `${label} now show your correction.`;
+  const label = SUBJECT_LABELS[feedback.entry];
+  if (feedback.kind === 'saved') return `${label} corrected.`;
+  return `${label} now ${feedback.entry === 'roster' ? 'shows' : 'show'} your correction.`;
 }
 
 export function editingNotice(
@@ -48,6 +58,8 @@ export const WEEK_CHANGED_MESSAGE =
   'The week changed while you were correcting. Start again from the new week’s values.';
 export const RESTART_FROM_WEEK = 'Start again';
 export const AFFECTS_WEEK_HEADING = 'This affects the open week';
+export const MISSING_HEADING = 'Missing from the militia';
+export const NEEDED_BY_LABEL = 'Needed by';
 
 /** The reason field's own message, or null. */
 export function reasonError(value: unknown, error: string | undefined) {
@@ -88,7 +100,10 @@ const blank = (value: unknown) =>
 export function errorSummary(
   descriptors: SetupErrorDescriptor[],
   values: unknown,
-  labels: Record<string, { label: string; numeric?: boolean }>,
+  labels: Record<
+    string,
+    { label: string; numeric?: boolean; decimal?: boolean }
+  >,
 ): ErrorSummaryItem[] {
   const seen = new Set<string>();
   const items: ErrorSummaryItem[] = [];
@@ -114,7 +129,7 @@ export function errorSummary(
         item = {
           field,
           kind: 'invalid',
-          message: `Enter a valid whole number for ${control.label}.`,
+          message: `Enter a valid ${control.decimal ? 'number' : 'whole number'} for ${control.label}.`,
         };
       else item = { field, kind: 'other', message: descriptor.message };
     } else {

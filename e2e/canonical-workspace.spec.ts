@@ -3,21 +3,24 @@ import {
   expectBoundedWeekHost,
   expectNoHorizontalOverflow,
   expectReachable,
+  expectTopBarOneRow,
 } from './support/responsive-shell';
 import {
+  confirmedWeekNotice,
   exercisePhoneReference,
   exercisePhoneSteps,
   exerciseReferenceHistoryFailure,
   exerciseReferencePanel,
-  exerciseStatusDetails,
   exerciseWeekFrame,
   expectConfirmedWeek,
   expectSaveFailed,
-  expectWideStatus,
-  confirmedWeekNotice,
+  expectPanelToggleBesideStepper,
+  expectVisibleFailure,
   referencePanel,
   remoteChangeNote,
-  saveStatus,
+  reviewConfirm,
+  saveFailure,
+  saveState,
 } from './support/week-frame';
 import {
   prepareWeekHistory,
@@ -32,10 +35,26 @@ import {
 import { resultCell } from './support/summary-result';
 import { reviewPersistentWorkspace } from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
+import {
+  prepareInvasion,
+  reviewEventLayout,
+  reviewSummaryLayout,
+} from './support/event-review-layout';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { exerciseTeamConditionRows } from './support/team-conditions';
+import {
+  panAndTapSettlementCards,
+  reviewUpkeepChoiceLayout,
+} from './support/upkeep-layout';
+import {
+  confirmWithOpenPicker,
+  followAllowanceCorrections,
+  openActivity,
+  panAndTapPicker,
+  reviewActivityLandscapes,
+} from './support/activity-layout';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Page } from '@playwright/test';
@@ -43,6 +62,7 @@ import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
 import { test, expect } from './support/fixtures';
+import { exerciseRankBoon } from './support/rank-boons';
 import { workspaceCaseKey } from './support/matrix';
 import {
   canonicalPersistenceFixtureCall,
@@ -90,7 +110,7 @@ function observeEditRejection(page: Page) {
   return () => rejected;
 }
 
-// Each journey resets and seeds its own catalog case, so the five journeys are
+// Each journey resets and seeds its own catalog case, so the seven journeys are
 // independent and may run on different worker cohorts at the same time.
 test.describe.configure({ mode: 'parallel' });
 test.use({
@@ -122,7 +142,8 @@ test('players prepare shared Upkeep with independent navigation and save recover
   );
   const gm = players.gm,
     player = players.player;
-  const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
+  const saved = () =>
+    expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   try {
     await Promise.all([
       gm.goto(route),
@@ -261,7 +282,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const heldBack = network.hold();
     await die(gm).fill('11');
     await heldBack;
-    await stayOnPendingWeek(gm, 'back', 'Saving changes…');
+    await stayOnPendingWeek(gm, 'back', 'pending');
     await expect(die(gm)).toHaveValue('11');
     await expect(die(player)).toHaveValue('10');
     await leavePendingWeek(gm, 'back', charactersUrl);
@@ -281,7 +302,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const heldForward = network.hold();
     await die(gm).fill('13');
     await heldForward;
-    await stayOnPendingWeek(gm, 'forward', 'Saving changes…');
+    await stayOnPendingWeek(gm, 'forward', 'pending');
     await expect(die(gm)).toHaveValue('13');
     await expect(die(player)).toHaveValue('11');
     await leavePendingWeek(gm, 'forward', charactersUrl);
@@ -293,7 +314,10 @@ test('players prepare shared Upkeep with independent navigation and save recover
     const captured = network.hold();
     await die(gm).fill('12');
     await captured;
-    await expect(saveStatus(gm)).toHaveText('Saving changes…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'pending',
+    );
     await gm.getByRole('button', { name: 'Activity', exact: true }).tap();
     await expect(
       gm.getByRole('heading', { name: 'Week 4 · Activity', exact: true }),
@@ -304,9 +328,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await gm
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(gm)).toBeDisabled();
     const dialog = gm.waitForEvent('dialog');
     const reload = gm.reload({ timeout: 10_000 }).catch(() => null);
     const warning = await dialog;
@@ -314,43 +336,42 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await warning.dismiss();
     await reload;
     await die(player).fill('14');
-    await expect(saveStatus(player)).toHaveText('Changes saved.');
+    await expect(saveState(player)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     network.release();
-    await expect(saveStatus(gm)).toHaveText(
+    await expect(saveFailure(gm)).toHaveText(
       'Changes could not be saved. The latest saved values are shown.',
     );
     await expectSaveFailed(gm);
-    // The failure sits in the top bar beside the campaign and section
-    // controls without widening it. Below 768px (portrait and landscape
-    // phones) it is the "Not saved" details button that opens the full
-    // text; a wide short viewport keeps the visible sentence and offers no
-    // phone trigger.
+    // The failure is visible text in the frame's own row at every size,
+    // phones included, without widening the page; the top bar carries no
+    // save status (removed 2026-09-28) and keeps one row at tablet width.
     await expectNoHorizontalOverflow(gm);
-    await expectWideStatus(gm, true);
+    await expectVisibleFailure(gm);
     for (const [width, height] of [
       [390, 844],
       [740, 360],
       [844, 390],
+      [1180, 820],
+      [1194, 834],
     ] as const) {
       await gm.setViewportSize({ width, height });
       await expectNoHorizontalOverflow(gm);
       await expectSaveFailed(gm);
-      if (width < 768) await exerciseStatusDetails(gm, true);
-      else await expectWideStatus(gm, true);
+      await expectVisibleFailure(gm);
+      if (width >= 1180) await expectTopBarOneRow(gm);
     }
     await gm.setViewportSize({ width: 1194, height: 834 });
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(gm)).toBeDisabled();
     const updatedReview = gm.getByRole('button', {
       name: 'Review updated week',
       exact: true,
     });
     await expect(updatedReview).toBeEnabled();
     await updatedReview.click();
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(gm)).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await expect(die(gm)).toHaveValue('14');
     await die(gm).fill('16');
@@ -359,9 +380,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await gm
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      gm.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(gm)).toBeEnabled();
     await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
     await exerciseWeekFrame(gm);
     await exerciseReferencePanel(gm);
@@ -386,9 +405,12 @@ test('players prepare shared Upkeep with independent navigation and save recover
         await expect(referencePanel(gm)).toBeVisible();
         await expectNoHorizontalOverflow(gm);
         await expectBoundedWeekHost(gm);
+        await expectPanelToggleBesideStepper(gm);
+        if (name !== 'desktop') await expectTopBarOneRow(gm);
         await gm.getByRole('button', { name: 'Hide reference panel' }).click();
         await expect(referencePanel(gm)).toBeHidden();
         await expectBoundedWeekHost(gm);
+        await expectPanelToggleBesideStepper(gm);
         await gm.getByRole('button', { name: 'Show reference panel' }).click();
         await expect(referencePanel(gm)).toBeVisible();
       }
@@ -420,12 +442,8 @@ test('players prepare shared Upkeep with independent navigation and save recover
     await player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
-    await player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await expect(reviewConfirm(player)).toBeEnabled();
+    await reviewConfirm(player).click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
   } finally {
@@ -461,6 +479,7 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
         choices: true,
         maximumNotoriety: true,
         missingTeam: true,
+        rankGain: true,
       }),
     );
     const notorietyRoute = `/canonical-workspace?campaign=${notorietyScope.campaignId}`;
@@ -549,7 +568,9 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
     ).toBeVisible();
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
+    await panAndTapSettlementCards(gm, player, 'Phaendar', 'Misthome');
     await exerciseTeamConditionRows(gm, player, run, notorietyScope);
+    await exerciseRankBoon(gm, player);
   } finally {
     network.release();
   }
@@ -567,7 +588,8 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
   );
   const gm = players.gm,
     player = players.player;
-  const saved = () => expect(saveStatus(gm)).toHaveText('Changes saved.');
+  const saved = () =>
+    expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   try {
     await fixtureCall(run, 'resetCase', {
       ...ownedCase.scope,
@@ -675,9 +697,7 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
       await expect(await resultCell(page, 'Treasury', 'Final')).toHaveText(
         '35 gp',
       );
-      await expect(
-        page.getByRole('button', { name: 'Confirm week', exact: true }),
-      ).toBeEnabled();
+      await expect(reviewConfirm(page)).toBeEnabled();
     }
     await savePrivate(
       join(run.artifactDirectory, 'canonical-recovery-summary-tablet.png'),
@@ -726,9 +746,7 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
     await player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(player)).toBeEnabled();
     // A Confirmation arriving while another player's action picker is open
     // closes it with the week; nothing is placed in either week.
     await gm.getByRole('button', { name: 'Activity', exact: true }).click();
@@ -739,9 +757,7 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
       })
       .click();
     await expect(gm.getByRole('dialog')).toBeVisible();
-    await player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await reviewConfirm(player).click();
     await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
     await expect(gm.getByRole('dialog')).toHaveCount(0);
     await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
@@ -821,12 +837,8 @@ test('players review and buy off carried persistent events before confirming the
     await player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
-    await player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await expect(reviewConfirm(player)).toBeEnabled();
+    await reviewConfirm(player).click();
     for (const page of [gm, player]) {
       await expect(page.getByRole('heading', { name: /Week 5/ })).toBeVisible();
       await expect(
@@ -887,10 +899,8 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
   const releases: (() => void)[] = [];
   const summary = (page: Page) =>
     page.getByRole('button', { name: 'Review & confirm', exact: true }).click();
-  const confirm = (page: Page) =>
-    page.getByRole('button', { name: 'Confirm week', exact: true });
-  const confirming = (page: Page) =>
-    page.getByRole('button', { name: 'Confirming…', exact: true });
+  const confirm = (page: Page) => reviewConfirm(page);
+  const confirming = (page: Page) => reviewConfirm(page, 'Confirming…');
   try {
     await Promise.all([
       first.goto(summaryRoute),
@@ -901,6 +911,24 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     // week before its original inputs are restored for the Confirmation race.
     await exerciseRollCompatibility(first, second, run, summaryScope, [late]);
     const confirmationCharactersUrl = await prepareWeekHistory(first);
+    // Review lists what is missing with only its disabled reason beside
+    // Confirm, and a Go link leads this device to the source step.
+    await summary(first);
+    const review = first.getByRole('region', {
+      name: 'Review the week',
+      exact: true,
+    });
+    await expect(review.getByText(/^\d+ decisions? left$/)).toBeVisible();
+    await expect(review).not.toContainText(/ready for confirmation|attention/);
+    await review
+      .getByRole('region', { name: 'Required decisions', exact: true })
+      .getByRole('listitem')
+      .filter({ hasText: /^Upkeep: Enter the attrition Loyalty roll\b/ })
+      .getByRole('button', { name: 'Go to Upkeep', exact: true })
+      .click();
+    await expect(
+      first.getByRole('region', { name: 'Training attrition', exact: true }),
+    ).toBeFocused();
     await die(first).fill('20');
     await expect(die(second)).toHaveValue('20');
     await training(first).fill('1');
@@ -912,8 +940,11 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     releases.push(stale.release);
     await confirm(first).click();
     await expect.poll(stale.observed).toBe(true);
-    await expect(saveStatus(first)).toHaveText('Confirming the week…');
-    await stayOnPendingWeek(first, 'back', 'Confirming the week…');
+    await expect(saveState(first)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
+    await stayOnPendingWeek(first, 'back', 'confirming');
     // The initiating control itself reads Confirming… while held; the
     // ready label must not exist meanwhile.
     await expect(confirming(first)).toBeDisabled();
@@ -938,8 +969,14 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(
       first.getByRole('button', { name: 'Review updated week', exact: true }),
     ).toBeEnabled();
-    // Rejected as stale: back to the ready label, disabled, no success.
+    // Rejected as stale: back to the ready label, disabled with its reason
+    // beside it, no success.
     await expect(confirm(first)).toBeDisabled();
+    await expect(
+      review.getByText('Review the updated week before confirming.', {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(confirming(first)).toHaveCount(0);
     await expect(confirmedWeekNotice(first)).toBeEmpty();
     await expect(
@@ -951,10 +988,19 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(await resultCell(first, 'Treasury', 'Final')).toHaveText(
       '50.07 gp',
     );
+    // Leaving Review & confirm and returning is not the explicit review.
+    await first.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    await summary(first);
+    await expect(review.getByRole('alert')).toContainText(
+      'The week could not be confirmed as reviewed.',
+    );
+    await expect(confirm(first)).toBeDisabled();
     await first
       .getByRole('button', { name: 'Review updated week', exact: true })
       .click();
     await expect(confirm(first)).toBeEnabled();
+    await expect(confirm(first)).toBeFocused();
+    await expect(review.getByRole('alert')).toHaveCount(0);
     await expect(confirm(second)).toBeEnabled();
     const delayed = lateTransport.hold();
     releases.push(() => lateTransport.release());
@@ -985,7 +1031,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     // returns to a fresh page, which must not invent an old-week notice.
     await expectConfirmedWeek(second, 4);
     await expectConfirmedWeek(late, 4);
-    await expect(saveStatus(second)).not.toHaveText('Confirming the week…');
+    await expect(saveState(second)).not.toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     await expect(confirming(second)).toHaveCount(0);
     await first.goForward();
 
@@ -1030,7 +1079,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     // reachable on a phone beside the pinned chrome, and is dismissed
     // from inside itself.
     await die(second).fill('3');
-    await expect(saveStatus(second)).toHaveText('Changes saved.');
+    await expect(saveState(second)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     await expect(die(late)).toHaveValue('3');
     await expect(confirmedWeekNotice(second)).toHaveCount(1);
     await expect(
@@ -1067,7 +1119,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(confirmedWeekNotice(second)).toBeEmpty();
     await expect(confirmedWeekNotice(late)).toHaveCount(1);
     await die(second).fill('');
-    await expect(saveStatus(second)).toHaveText('Changes saved.');
+    await expect(saveState(second)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     await expect(confirmedWeekNotice(second)).toBeEmpty();
     for (const page of [first, second, late]) {
       await summary(page);
@@ -1084,4 +1139,110 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     for (const release of releases) release();
     await Promise.all([first.close(), second.close(), late.close()]);
   }
+});
+
+// The settlement/rank journey's fixture, on one page: its cards and repairs
+// at phone and desktop sizes (#140). Its own case keeps that journey well
+// under its limit.
+test('settlement and rank cards and team repairs stay reachable on phone and desktop', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(60_000);
+  const run = await loadRun();
+  await fixtureCall(run, 'resetCase', {
+    ...ownedCase.scope,
+    now: 1_700_000_000_000,
+  });
+  const scope = draftKeySchema.parse(
+    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+      scope: ownedCase.scope,
+      draftId: randomUUID(),
+      choices: true,
+      maximumNotoriety: true,
+      missingTeam: true,
+      rankGain: true,
+    }),
+  );
+  await players.gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
+  await reviewUpkeepChoiceLayout(players.gm, run, scope);
+});
+
+// The Event blocks and Review & confirm at phone landscape and on the narrow
+// tablet with the reference panel open and closed, and Review's warnings and
+// recorded outcomes in place (#143, #145). Its own case keeps the Activity
+// and Event journey and the persistent journey clear of their limits.
+test('Event blocks and the week review stay reachable at phone landscape and on a narrow tablet', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(60_000);
+  const run = await loadRun();
+  await fixtureCall(run, 'resetCase', {
+    ...ownedCase.scope,
+    now: 1_700_000_000_000,
+  });
+  const scope = draftKeySchema.parse(
+    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+      scope: ownedCase.scope,
+      draftId: randomUUID(),
+      persistent: true,
+    }),
+  );
+  const gm = players.gm;
+  await gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
+  await test.step('an Invasion is recorded after an out-of-range chance roll', () =>
+    prepareInvasion(gm));
+  await test.step('the Event blocks fit phone landscape and the narrow tablet', () =>
+    reviewEventLayout(gm, run.artifactDirectory));
+  await test.step('Review lists the warning and the outcome in place at every size', () =>
+    reviewSummaryLayout(gm, run.artifactDirectory));
+});
+
+// Activity checks #142 §6 names beyond the tablet journey, on their own
+// case: the board, details and picker at phone landscape and 1180x820, a
+// touch pan on the picker, an allowance lowered by another device's Militia
+// correction, and a Confirmation arriving while the picker is open.
+test('Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(90_000);
+  const run = await loadRun();
+  const gm = players.gm,
+    player = players.player;
+  const gmTransport = await controlTransport(gm, run.fixture!.convexUrl);
+  const scope = await test.step('seed the week and open Activity', async () => {
+    await fixtureCall(run, 'resetCase', {
+      ...ownedCase.scope,
+      now: 1_700_000_000_000,
+    });
+    const key = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+        scope: ownedCase.scope,
+        draftId: randomUUID(),
+      }),
+    );
+    await openActivity(
+      gm,
+      player,
+      `/canonical-workspace?campaign=${key.campaignId}`,
+    );
+    return key;
+  });
+  await test.step('a touch pan scrolls the picker and places nothing; a tap places', () =>
+    panAndTapPicker(gm, player));
+  await test.step('the board, details and picker fit phone landscape and 1180x820', () =>
+    reviewActivityLandscapes(gm, run));
+  await test.step("another device's Militia correction moves a slot beyond the allowance", () =>
+    followAllowanceCorrections(gm, player, scope.campaignId));
+  await test.step('a Confirmation locks the open picker and moves to the next week', () =>
+    confirmWithOpenPicker(
+      gm,
+      player,
+      gmTransport,
+      run,
+      ownedCase.scope,
+      scope,
+    ));
 });

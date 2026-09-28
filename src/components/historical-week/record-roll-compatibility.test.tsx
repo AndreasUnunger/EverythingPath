@@ -69,6 +69,13 @@ function record(
   });
 }
 
+const region = (name: string) => within(screen.getByRole('region', { name }));
+/** One consequence line of a section, as the player reads it. */
+const line = (section: string, title: string) =>
+  region(section)
+    .getAllByRole('listitem')
+    .find((item) => item.textContent?.startsWith(title))?.textContent;
+
 test('[rules.HIST-05.old-source] an older record shows its recorded individual dice and transfer actor exactly, with no editable control', () => {
   const old = record(
     {
@@ -93,16 +100,16 @@ test('[rules.HIST-05.old-source] an older record shows its recorded individual d
     },
   );
   const { container } = render(<HistoricalRecordView record={old} />);
-  const source = screen.getByRole('region', {
-    name: 'Recorded choices and week context',
-  });
-  expect(within(source).getAllByText('Dice').length).toBeGreaterThan(0);
-  expect(within(source).getAllByText('3').length).toBeGreaterThan(0);
-  expect(within(source).getAllByText('4').length).toBeGreaterThan(0);
-  expect(within(source).queryByText('Dice total')).not.toBeInTheDocument();
-  expect(within(source).getAllByText('Character 1').length).toBeGreaterThan(0);
-  expect(within(source).getByText('700')).toBeInTheDocument();
-  expect(container.querySelector('input, textarea, select, button')).toBeNull();
+  expect(line('1 Upkeep', 'Training attrition')).toBe(
+    'Training attrition · Loyalty check roll: dice 20 (1d20) · Training loss roll: dice 3, 4 (2d4)',
+  );
+  // The actor an older transfer recorded, by its record-local label.
+  expect(line('1 Upkeep', 'Treasury deposit')).toBe(
+    'Treasury deposit · Character 1 · Recorded amount 7 gp',
+  );
+  expect(line('3 Event', 'Event 1')).toContain('Table roll: dice 20 (1d20)');
+  expect(container.textContent).not.toContain('dice total');
+  expect(container.querySelector('input, textarea, select')).toBeNull();
   expect(container.textContent).not.toContain('history-draft');
 });
 
@@ -117,16 +124,14 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
     },
   );
   const { container } = render(<HistoricalRecordView record={recent} />);
-  const source = screen.getByRole('region', {
-    name: 'Recorded choices and week context',
-  });
-  expect(within(source).getAllByText('Dice total').length).toBeGreaterThan(0);
-  expect(within(source).getAllByText('Dice count').length).toBeGreaterThan(0);
-  expect(within(source).getAllByText('0').length).toBeGreaterThan(0);
-  expect(within(source).getAllByText('7').length).toBeGreaterThan(0);
-  expect(within(source).queryByText('Dice')).not.toBeInTheDocument();
-  expect(within(source).getByText('250')).toBeInTheDocument();
-  expect(container.querySelector('input, textarea, select, button')).toBeNull();
+  expect(line('1 Upkeep', 'Training attrition')).toBe(
+    'Training attrition · Loyalty check roll: dice total 0 (1d20) · Training loss roll: dice total 7 (2d4)',
+  );
+  expect(line('1 Upkeep', 'Treasury withdrawal')).toBe(
+    'Treasury withdrawal · Character 1 · Recorded amount 2.5 gp',
+  );
+  expect(container.textContent).not.toMatch(/dice \d/);
+  expect(container.querySelector('input, textarea, select')).toBeNull();
   expect(container.textContent).not.toContain('diceTotal');
 });
 
@@ -139,11 +144,9 @@ test('[rules.HIST-05.characterless-transfer] a Ruleset Version 6 record shows it
     rulesetVersion: 6,
   };
   const { container } = render(<HistoricalRecordView record={recent} />);
-  const source = screen.getByRole('region', {
-    name: 'Recorded choices and week context',
-  });
-  expect(within(source).getByText('7')).toBeInTheDocument();
-  expect(within(source).queryByText('Character')).not.toBeInTheDocument();
-  expect(within(source).queryByText('Character 1')).not.toBeInTheDocument();
-  expect(container.querySelector('input, textarea, select, button')).toBeNull();
+  expect(line('1 Upkeep', 'Treasury deposit')).toBe(
+    'Treasury deposit · Recorded amount 0.07 gp',
+  );
+  expect(container.textContent).not.toContain('Character');
+  expect(container.querySelector('input, textarea, select')).toBeNull();
 });

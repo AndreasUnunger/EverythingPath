@@ -1,0 +1,27 @@
+{
+  "169": {
+    "prototype": "summary",
+    "focus": "Open `/prototype/summary?variant=B`, open PROTOTYPE STATE and tick *an obsolete action-allowance exception*. Sections 1–4 (expanded, phase chips, check detail, effect chip per line), section 5 and section 6 (Now / Rules Baseline / Final, changed-only by default, *Show all 13 values* toggle) are the reference. 'Slot 5 · Sabotage' under 2 Activity shows an exception whose item no longer exists staying in its phase. Chips and rows are hardcoded mock data, so take the layout only.",
+    "screenshot": "169-focus.png"
+  },
+  "170": {
+    "prototype": "summary",
+    "focus": "Open `/prototype/summary?variant=B`, click *another player adds a Table Adjustment* in PROTOTYPE STATE so that ▲▼ reorder appears, clear adjustment 1's reason (amber field plus a Required decision), then click the *Militia value* kind card to open its form (Value/Operation segments, number, reason, Save/Cancel). The inline exception reasons with × in sections 2 and 3 are the reason-edit reference. Tick *an obsolete action-allowance exception* for **Remove obsolete exception**. The prototype's save-per-keystroke, blank-saves and '|| 0' coercion are not the contract (see deviations-145.md).",
+    "screenshot": "170-focus.png"
+  },
+  "171": {
+    "prototype": "summary",
+    "focus": "Open `/prototype/summary?variant=B` and tick *two decisions still open* and *stale review (confirm rejected)* in PROTOTYPE STATE. The top **Review the week** block is the reference: Required decisions with *Go to <phase> →*, Warnings, the stale alert with **Review updated week**, and disabled **Confirm week** with its reason ('2 decisions left'), repeated in the footer. There is no Summary step caption and no readiness sentence. Tick *changes not yet saved* for 'Review will be ready when your changes are saved.' and *confirming the week* for the disabled/Confirming… state.",
+    "screenshot": "171-focus.png"
+  },
+  "194": {
+    "prototype": "summary",
+    "focus": "The prototype has no read-only or frozen-record mode. Use `/prototype/summary?variant=B` with *no exceptions, adjustments or outcomes* ticked and *Show all 13 values* clicked only as the structural reference for the shared six sections, the empty section 5 line and the Show all context (roster/officers, queued next week). Replace all live labels and controls with the historical ones from #145 §5: At confirmation, 'week N+1 began', 'Final outcome equals', quoted text, and no edit/clear/reorder/kind cards/Confirm. The adapter, fixtures and Not recorded fallbacks have no prototype surface.",
+    "screenshot": "194-focus.png"
+  },
+  "185": {
+    "prototype": "summary",
+    "focus": "For history, the summary prototype contributes only the six-section body. Open `/prototype/summary?variant=B` and click *Show all 13 values*: sections 1–6 below the review block show item-inline exceptions and quoted recorded outcomes, the ordered adjustment list and the full Result with roster/queued context. Render them read-only with history labels (At confirmation, 'week N+1 began'). Ignore the review block, Militia side panel, stepper and footer (all live frame chrome). The page, list and audit layout come from the finished-weeks prototype.",
+    "screenshot": "185-focus.png"
+  }
+}

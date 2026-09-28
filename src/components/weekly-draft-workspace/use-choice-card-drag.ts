@@ -18,6 +18,8 @@ type Drag = {
 };
 // Pointer geometry and click suppression belong to the browser boundary. Only
 // a successfully placed semantic choice reaches the Workspace or form adapter.
+// Only a mouse drags: a finger or pen that moves over a card scrolls the page,
+// and its tap arrives as an ordinary click that chooses the card.
 export function useChoiceCardDrag({
   disabled,
   onChoose,
@@ -55,14 +57,18 @@ export function useChoiceCardDrag({
     update(null);
   }
   function down(event: PointerEvent<HTMLButtonElement>, value: string) {
+    // Only the click that ends a drag is suppressed. A browser may not send
+    // it (a card dropped outside glides away under the pointer), so any new
+    // press, a finger's included, starts without a stale suppression.
+    if (!activeRef.current) suppressClick.current = false;
     if (
       disabled ||
+      event.pointerType !== 'mouse' ||
       event.button !== 0 ||
       event.isPrimary === false ||
       activeRef.current
     )
       return;
-    suppressClick.current = false;
     setFeedback(null);
     event.currentTarget.setPointerCapture?.(event.pointerId);
     update({

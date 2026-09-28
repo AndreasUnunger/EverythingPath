@@ -40,6 +40,7 @@ import {
   getMinimumTreasuryForRank,
 } from './militia-progression-rules';
 import { projectOfficers } from './rules-officers';
+import { countManagedTeams, getTeamManagerLimit } from './team-manager-rules';
 import type { CheckUsage } from './rules-checks';
 
 type Choice = StagedActionChoice;
@@ -405,7 +406,7 @@ function drill(draft: WeeklyDraft, result: ActivityProjection, choice: Choice) {
         : [],
     ),
   );
-  if (gain !== null && officers.commandantTrainingBonus !== null)
+  if (gain !== null)
     value(
       result,
       choice,
@@ -560,12 +561,12 @@ function changeOfficer(
   const person = result.outcome.roster.people.find(
     (person) => person.characterId === choice.characterId,
   );
-  if (
-    !person ||
-    !result.outcome.characters.some(
+  const character =
+    person &&
+    result.outcome.characters.find(
       (character) => character.characterId === person.characterId,
-    )
-  ) {
+    );
+  if (!person || !character) {
     result.requirements.push(`${choice.choiceId}:character`);
     return;
   }
@@ -612,6 +613,11 @@ function changeOfficer(
       return;
     after.push({ characterId: person.characterId, role: choice.toRole });
   }
+  if (
+    exceedsLoweredManagerLimit(result, person, character.charisma, after) &&
+    !exception(draft, result, choice, 'manager-limit')
+  )
+    return;
   result.outcome.roster.officers = after;
   result.plan.push({
     kind: 'officers',
@@ -619,6 +625,23 @@ function changeOfficer(
     before: structuredClone(before),
     after: structuredClone(after),
   });
+}
+// Leaving an NPC's last role lowers their manager limit; going over it is a
+// departure the table records, never a silent unassignment.
+function exceedsLoweredManagerLimit(
+  result: ActivityProjection,
+  person: UpkeepSnapshot['roster']['people'][number],
+  charisma: number,
+  officersAfter: UpkeepSnapshot['roster']['officers'],
+) {
+  const { roster } = result.outcome;
+  const getLimit = (officers: UpkeepSnapshot['roster']['officers']) =>
+    getTeamManagerLimit({ officers, person, charisma });
+  const limitAfter = getLimit(officersAfter);
+  return (
+    limitAfter < getLimit(roster.officers) &&
+    countManagedTeams(roster.teams, person.characterId) > limitAfter
+  );
 }
 export function activityCheckEffects(
   draft: WeeklyDraft,

@@ -129,8 +129,18 @@ blockers after the reconstructed-source identity fix.
 `canonical-roster.ts` defines individual teams, roster people and officer
 assignments. Team identity is separate from team type; repeated types retain
 independent names, conditions, reward-cap exemptions, notes and manager references.
-People reference existing character records, retaining an explicit kind for manager
-limits and nullable Hit Dice. Unknown Hit Dice remain unknown, regardless of level.
+People reference existing character records, retaining a mirror of the record's
+kind and a nullable Hit Dice override. Since #196 a blank override means the rules
+use the record's level, and manager limits follow held officer roles, not the kind.
+Since #180 the mirror is kept in step atomically: every character write, Setup
+initialization and Militia correction resolves each person's kind from the
+campaign's current record (`withCurrentRecordKinds` in
+`convex/lib/canonicalCharacters.ts`), storing `pc` or `npc`; an absent record
+kind is PC. Relabelling `officer_npc`/`other_npc` as `npc` changes no rule
+result. Where a stored mirror disagreed with its record, including an NPC
+mirror of a record with no kind, the record wins on its next write, and PC-only
+rules then read the corrected kind. Weekly Confirmation commits its resolved outcome unchanged, and
+immutable records keep whatever kinds they were confirmed with.
 Officer assignments are a collection of role/character pairs; removing or moving
 an assignment never deletes its character. Multiple holders are retained for later
 Rules Projection, which still owns non-stacking and Commandant training arithmetic.

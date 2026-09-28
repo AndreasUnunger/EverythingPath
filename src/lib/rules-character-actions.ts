@@ -40,6 +40,31 @@ const scrollCosts = {
   restoration: 170000,
   stone_to_flesh: 165000,
 };
+/**
+ * What a Strike Team's support gives each PC during the following week at
+ * its location: for half the militia rank in rounds, rounded down, and at
+ * least one round.
+ */
+export function strikeSupport(rank: number) {
+  return {
+    kind: 'strike_support' as const,
+    recipients: 'each_pc' as const,
+    bonusType: 'competence' as const,
+    attackBonus: 2 as const,
+    damageBonus: 2 as const,
+    saveBonus: 2 as const,
+    rounds: Math.max(1, Math.floor(rank / 2)),
+  };
+}
+/** What a Strike Team's emergency casualty extraction does. */
+export function strikeExtraction() {
+  return {
+    kind: 'strike_extraction' as const,
+    stabilizeBleeding: true as const,
+    gentleReposeCasterLevel: 12 as const,
+    extractBodiesTo: 'headquarters' as const,
+  };
+}
 /** Rescue Character's DC in the Activity right after a Raid capture. */
 export function raidRescueDc(rank: number) {
   return 5 + rank;
@@ -197,26 +222,12 @@ export function resolveCharacterChoice(
       uses: 1 as const,
       acknowledgement: receipt,
     };
-    result.plan.push(
-      choice.mode === 'support'
-        ? {
-            ...common,
-            kind: 'strike_support',
-            recipients: 'each_pc',
-            bonusType: 'competence',
-            attackBonus: 2,
-            damageBonus: 2,
-            saveBonus: 2,
-            rounds: Math.max(1, Math.floor(result.outcome.rank / 2)),
-          }
-        : {
-            ...common,
-            kind: 'strike_extraction',
-            stabilizeBleeding: true,
-            gentleReposeCasterLevel: 12,
-            extractBodiesTo: 'headquarters',
-          },
-    );
+    result.plan.push({
+      ...common,
+      ...(choice.mode === 'support'
+        ? strikeSupport(result.outcome.rank)
+        : strikeExtraction()),
+    });
     return true;
   }
   if (choice.actionId === 'rescue_character') {

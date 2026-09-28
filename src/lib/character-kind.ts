@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { TeamManagerKind } from './team-manager-rules';
 
 // Stored kinds are what records, rosters, drafts and immutable history may
 // contain: the legacy values old clients still send plus the approved `npc`.
@@ -12,7 +11,10 @@ export type RosterKind = (typeof ROSTER_KINDS)[number];
 export const characterRecordKindSchema = z.enum(CHARACTER_RECORD_KINDS);
 export const rosterKindSchema = z.enum(ROSTER_KINDS);
 
-export type CharacterKind = 'pc' | 'npc';
+// The only kinds current forms offer and live writes store.
+export const CHARACTER_KINDS = ['pc', 'npc'] as const;
+export type CharacterKind = (typeof CHARACTER_KINDS)[number];
+export const characterKindSchema = z.enum(CHARACTER_KINDS);
 
 // A missing record kind keeps the existing PC default; held roles never decide.
 export function normalizeCharacterKind(
@@ -46,27 +48,9 @@ export function mirrorRosterKinds<
   };
 }
 
-// Until role-aware manager limits replace the legacy distinction (#196), `npc`
-// keeps the limit of the officer NPC record kind it replaces.
-export function toCurrentRulesManagerKind(kind: RosterKind): TeamManagerKind {
-  return kind === 'npc' ? 'officer_npc' : kind;
-}
-
-// Legacy editors still write only their legacy kinds, but a stored `npc`
-// stays offered and selected so it round-trips unchanged.
-export function listEditableKinds<Kind extends RosterKind>(
-  writtenKinds: readonly Kind[],
-  current: RosterKind | undefined,
-): (Kind | 'npc')[] {
-  return current === 'npc' ? [...writtenKinds, 'npc'] : [...writtenKinds];
-}
-
-const kindLabels: Record<RosterKind, string> = {
-  pc: 'PC',
-  officer_npc: 'Officer NPC',
-  other_npc: 'Other NPC',
-  npc: 'NPC',
-};
+// Live views name every stored kind PC or NPC. Recorded history keeps its own
+// wording for the legacy labels.
+const kindLabels: Record<CharacterKind, string> = { pc: 'PC', npc: 'NPC' };
 export function formatCharacterKind(kind: RosterKind | undefined) {
-  return kindLabels[kind ?? 'pc'];
+  return kindLabels[normalizeCharacterKind(kind)];
 }

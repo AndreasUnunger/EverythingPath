@@ -1,9 +1,11 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import type {
@@ -14,6 +16,7 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 afterEach(cleanup);
 function section(
@@ -89,33 +92,71 @@ function withException(
     ],
   };
 }
+/** A Summary whose accepted list and review facts hold these adjustments. */
+function withAdjustments(
+  adjustments: typeof view.adjustments,
+  extra: Partial<typeof view> = {},
+): typeof view {
+  return {
+    ...view,
+    ...extra,
+    adjustments,
+    review: {
+      ...review,
+      adjustments: adjustments.map((adjustment, index) => ({
+        key: `adjustment:${adjustment.adjustmentId}`,
+        adjustmentId: adjustment.adjustmentId,
+        number: index + 1,
+        kind: 'Militia value',
+        effect: `Effect ${adjustment.adjustmentId}`,
+        reason: adjustment.reason,
+        notes: [],
+      })),
+    },
+  };
+}
 const controls = {
   disabled: false,
-  canConfirm: true,
+  confirmation: confirmControlFixture(),
   forecastPending: false,
   reviewRequired: false,
-  confirm: vi.fn(),
   review: vi.fn(),
 };
-test('[rules.P85.adjustment] signed copper adjustment requires a reason and stages the complete ordered list', async () => {
+test('[rules.P85.adjustment] signed gp adjustment requires a reason and stages the complete ordered list', async () => {
   const edit = vi.fn().mockResolvedValue('accepted');
   render(<SummaryView view={view} edit={edit} {...controls} />);
   fireEvent.click(screen.getByRole('button', { name: 'Militia value' }));
-  expect(
-    screen.getByRole('button', { name: 'Treasury (copper)' }),
-  ).toBeInTheDocument();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Value' }), {
-    target: { value: '-125' },
+  const form = within(
+    screen.getByRole('form', { name: 'New Militia value adjustment' }),
+  );
+  // The new Militia value form defaults to Treasury / Add.
+  expect(form.getByRole('button', { name: 'Treasury' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(form.getByRole('button', { name: 'Add' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  fireEvent.change(form.getByRole('textbox', { name: 'Amount' }), {
+    target: { value: '-1.25' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save adjustment' }));
+  fireEvent.change(form.getByRole('textbox', { name: 'Reason' }), {
+    target: { value: '   ' },
+  });
+  fireEvent.click(form.getByRole('button', { name: 'Save adjustment' }));
   await waitFor(() =>
-    expect(screen.getByText('A value is required.')).toBeInTheDocument(),
+    expect(form.getByText('A reason is required.')).toBeInTheDocument(),
+  );
+  expect(form.getByRole('textbox', { name: 'Reason' })).toHaveAttribute(
+    'aria-invalid',
+    'true',
   );
   expect(edit).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Reason' }), {
+  fireEvent.change(form.getByRole('textbox', { name: 'Reason' }), {
     target: { value: 'Copper correction' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save adjustment' }));
+  fireEvent.click(form.getByRole('button', { name: 'Save adjustment' }));
   await waitFor(() =>
     expect(edit).toHaveBeenCalledWith({
       kind: 'table_adjustments',
@@ -131,6 +172,11 @@ test('[rules.P85.adjustment] signed copper adjustment requires a reason and stag
       ],
     }),
   );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('form', { name: 'New Militia value adjustment' }),
+    ).not.toBeInTheDocument(),
+  );
 });
 test('[rules.P85.review] a rejected review requires an explicit fresh review and cannot confirm pending forecasts', () => {
   render(
@@ -138,7 +184,7 @@ test('[rules.P85.review] a rejected review requires an explicit fresh review and
       view={view}
       edit={vi.fn()}
       {...controls}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
       reviewRequired
       forecastPending
     />,
@@ -149,7 +195,185 @@ test('[rules.P85.review] a rejected review requires an explicit fresh review and
   ).toBeDisabled();
 });
 
-test('[rules.P85.order] moving and clearing adjudication retains complete other adjustments', async () => {
+test('[SUM-05.explicit] a rejected Confirmation shows its alert and reason, and only the explicit review is requested', async () => {
+  const confirm = vi.fn();
+  const review = vi.fn();
+  render(
+    <SummaryView
+      view={view}
+      edit={vi.fn()}
+      {...controls}
+      confirmation={confirmControlFixture({
+        disabled: true,
+        reason: 'Review the updated week before confirming.',
+        confirm,
+      })}
+      review={review}
+      reviewRequired
+    />,
+  );
+  const block = screen.getByRole('region', { name: 'Review the week' });
+  expect(within(block).getByRole('alert')).toHaveTextContent(
+    'The week could not be confirmed as reviewed.',
+  );
+  const confirmButton = within(block).getByRole('button', {
+    name: 'Confirm week',
+  });
+  expect(confirmButton).toBeDisabled();
+  expect(confirmButton).toHaveAccessibleDescription(
+    'Review the updated week before confirming.',
+  );
+  fireEvent.click(
+    within(block).getByRole('button', { name: 'Review updated week' }),
+  );
+  expect(review).toHaveBeenCalledTimes(1);
+  expect(confirm).not.toHaveBeenCalled();
+  // Confirm is still held here, so focus stays in the block's heading.
+  await act(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+  expect(
+    within(block).getByRole('heading', { name: 'Review the week' }),
+  ).toHaveFocus();
+});
+
+test('[SUM-01.block] the review block keeps decisions, warnings and the disabled reason without readiness sentences', () => {
+  const { rerender } = render(
+    <SummaryView
+      view={{
+        ...view,
+        ready: false,
+        requirements: ['upkeep:attrition:roll', 'choice:team-type'],
+        warnings: ['choice:team-used', 'mystery:departure'],
+        options: {
+          subjectId: [{ value: 'choice', label: 'Recruit Team · Slot 1' }],
+        },
+        sources: {
+          'upkeep:attrition:roll': {
+            phase: 'upkeep',
+            anchor: 'upkeep-step-attrition',
+          },
+          'choice:team-type': {
+            phase: 'activity',
+            anchor: 'activity-slot-left',
+          },
+          'choice:team-used': {
+            phase: 'activity',
+            anchor: 'activity-slot-left',
+          },
+        },
+      }}
+      edit={vi.fn()}
+      {...controls}
+      confirmation={confirmControlFixture({
+        disabled: true,
+        reason: '2 decisions left',
+      })}
+    />,
+  );
+  const block = screen.getByRole('region', { name: 'Review the week' });
+  expect(
+    within(block).getByRole('heading', { name: 'Review the week' }),
+  ).toBeVisible();
+  const warnings = within(block).getByRole('region', { name: 'Warnings' });
+  expect(warnings).toHaveTextContent(
+    'Recruit Team · Slot 1: This team has already acted this Activity.',
+  );
+  // The source phase names each warning; an unknown source gets none.
+  expect(warnings).toHaveTextContent('Activity');
+  expect(
+    within(warnings).getByText(
+      'Review this rules departure in the affected phase with the table.',
+    ),
+  ).toBeVisible();
+  expect(
+    within(block).getByRole('button', { name: 'Confirm week' }),
+  ).toHaveAccessibleDescription('2 decisions left');
+  expect(within(block).getByText('2 decisions left')).toBeVisible();
+  // Signed-off removals (#110): no readiness sentence or whole-week note.
+  for (const removed of [
+    /ready for confirmation/i,
+    /need attention/i,
+    /applies the entire/i,
+    /remain a preview/i,
+  ])
+    expect(document.body).not.toHaveTextContent(removed);
+  rerender(<SummaryView view={view} edit={vi.fn()} {...controls} />);
+  expect(screen.getByRole('button', { name: 'Confirm week' })).toBeEnabled();
+  expect(
+    screen.queryByRole('region', { name: 'Required decisions' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText('No rules warnings.')).toBeVisible();
+  expect(document.body).not.toHaveTextContent(/ready for confirmation/i);
+});
+
+test('[SUM-02.go] each Required decision goes to its source phase or Review form, locally', () => {
+  const goTo = vi.fn();
+  render(
+    <SummaryView
+      view={{
+        ...withAdjustments([
+          {
+            kind: 'team_status',
+            adjustmentId: 'gone',
+            teamId: 'missing-team',
+            status: 'active',
+            reason: 'Returned from the woods',
+          },
+        ]),
+        ready: false,
+        requirements: [
+          'upkeep:attrition:roll',
+          'adjustment:gone:team',
+          'mystery:code',
+        ],
+        sources: {
+          'upkeep:attrition:roll': {
+            phase: 'upkeep',
+            anchor: 'upkeep-step-attrition',
+          },
+          'adjustment:gone:team': {
+            phase: 'summary',
+            anchor: 'review-form-adjustment:gone',
+          },
+        },
+      }}
+      edit={vi.fn()}
+      {...controls}
+      confirmation={confirmControlFixture({
+        disabled: true,
+        reason: '3 decisions left',
+      })}
+      goTo={goTo}
+    />,
+  );
+  const decisions = screen.getByRole('region', { name: 'Required decisions' });
+  const upkeep = within(decisions).getByRole('button', {
+    name: 'Go to Upkeep',
+  });
+  expect(upkeep).toHaveAccessibleDescription(
+    'Upkeep: Enter the attrition Loyalty roll.',
+  );
+  fireEvent.click(upkeep);
+  expect(goTo).toHaveBeenLastCalledWith({
+    phase: 'upkeep',
+    anchor: 'upkeep-step-attrition',
+  });
+  fireEvent.click(
+    within(decisions).getByRole('button', {
+      name: 'Go to Table Adjustments',
+    }),
+  );
+  expect(goTo).toHaveBeenLastCalledWith({
+    phase: 'summary',
+    anchor: 'review-form-adjustment:gone',
+  });
+  // A decision with no known source is listed without a link.
+  expect(within(decisions).getAllByRole('button')).toHaveLength(2);
+});
+
+test('[rules.P85.order] moving and removing adjudication retains complete other adjustments', async () => {
   const edit = vi.fn().mockResolvedValue('accepted');
   const adjustments: typeof view.adjustments = [
     {
@@ -169,37 +393,20 @@ test('[rules.P85.order] moving and clearing adjudication retains complete other 
       reason: 'Correction',
     },
   ];
-  const facts: WeekReviewFacts = {
-    ...review,
-    adjustments: [
-      {
-        key: 'adjustment:first',
-        adjustmentId: 'first',
-        number: 1,
-        kind: 'Militia value',
-        effect: 'Treasury +1.25 gp',
-        reason: 'Reward',
-        notes: [],
-      },
-      {
-        key: 'adjustment:second',
-        adjustmentId: 'second',
-        number: 2,
-        kind: 'Militia value',
-        effect: 'Treasury → 10 gp',
-        reason: 'Correction',
-        notes: [],
-      },
-    ],
-  };
   render(
     <SummaryView
-      view={{ ...view, adjustments, review: facts }}
+      view={withAdjustments(adjustments)}
       edit={edit}
       {...controls}
     />,
   );
   expect(screen.getAllByRole('article')).toHaveLength(2);
+  expect(
+    screen.getByRole('button', { name: 'Move adjustment 1 earlier' }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Move adjustment 2 later' }),
+  ).toBeDisabled();
   fireEvent.click(
     screen.getByRole('button', { name: 'Move adjustment 2 earlier' }),
   );
@@ -209,9 +416,7 @@ test('[rules.P85.order] moving and clearing adjudication retains complete other 
       adjustments: [adjustments[1], adjustments[0]],
     }),
   );
-  fireEvent.click(
-    screen.getAllByRole('button', { name: 'Clear adjustment' })[0]!,
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Remove adjustment 1' }));
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
       kind: 'table_adjustments',
@@ -254,11 +459,12 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
     />,
   );
   expect(screen.getByText('Recruitment')).toBeInTheDocument();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Exception Reason' }), {
-    target: { value: 'Narrative reinforcements' },
-  });
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Reason for Team capacity exception' }),
+    { target: { value: ' Narrative reinforcements ' } },
+  );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Save exception reason' }),
+    screen.getByRole('button', { name: 'Save Team capacity reason' }),
   );
   await waitFor(() =>
     expect(edit).toHaveBeenLastCalledWith({
@@ -272,7 +478,7 @@ test('[rules.P85.exception] reasoned shared exception preserves its subject and 
     }),
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Clear exception reason' }),
+    screen.getByRole('button', { name: 'Clear Team capacity exception' }),
   );
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'clear_rules_exception',
@@ -362,7 +568,7 @@ test('[rules.P85.readiness] readiness names the required decisions and warnings 
       }}
       edit={vi.fn()}
       {...controls}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
     />,
   );
   expect(
@@ -426,7 +632,7 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
       }}
       edit={edit}
       {...controls}
-      canConfirm={false}
+      confirmation={confirmControlFixture({ disabled: true })}
     />,
   );
   expect(screen.getByText('An extra day was once allowed')).toBeVisible();
@@ -439,7 +645,7 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
   ).toBeVisible();
   expect(screen.getByRole('button', { name: 'Confirm week' })).toBeDisabled();
   expect(
-    screen.queryByRole('textbox', { name: 'Exception Reason' }),
+    screen.queryByRole('textbox', { name: /Reason for/ }),
   ).not.toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('button', { name: 'Remove obsolete exception' }),
@@ -457,8 +663,11 @@ test('[confirming] the existing Confirm control reads Confirming… while this d
       edit={vi.fn()}
       {...controls}
       disabled
-      confirming
-      canConfirm={false}
+      confirmation={confirmControlFixture({
+        confirming: true,
+        disabled: true,
+        reason: 'Confirming the week…',
+      })}
     />,
   );
   const button = screen.getByRole('button', { name: 'Confirming…' });

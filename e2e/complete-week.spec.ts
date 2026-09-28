@@ -7,9 +7,11 @@ import { controlTransport } from './support/transport';
 import {
   confirmedWeekNotice,
   expectConfirmedWeek,
+  pinnedConfirm,
   referencePanel,
   remoteChangeNote,
-  saveStatus,
+  reviewConfirm,
+  saveState,
 } from './support/week-frame';
 
 const heading = (page: Page, name: string) =>
@@ -60,8 +62,9 @@ test('a player confirms a complete week, every device moves to the next week onc
   const draftKey = observeDraftKey(gm);
   for (const page of [gm, player]) {
     await page.goto('/campaigns');
+    // Continue week: the first week skips Upkeep; Event is first unready.
     await openCampaignSection(page, 'week');
-    await expect(heading(page, 'Week 1 · Upkeep')).toBeVisible();
+    await expect(heading(page, 'Week 1 · Event')).toBeVisible();
     // Initial load announces nothing: no other-player note, no notice.
     await expect(remoteChangeNote(page)).toBeEmpty();
     await expect(confirmedWeekNotice(page)).toBeEmpty();
@@ -78,7 +81,7 @@ test('a player confirms a complete week, every device moves to the next week onc
   await step(gm, 'Event');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
-  await expect(saveStatus(gm)).toHaveText('Changes saved.');
+  await expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   await step(player, 'Event');
   await expect(chanceRoll(player)).toHaveValue('100');
   await expect(remoteChangeNote(player)).toHaveText(
@@ -90,9 +93,7 @@ test('a player confirms a complete week, every device moves to the next week onc
   await expect(heading(player, 'Week 1 · Activity')).toBeVisible();
   const oldValues = (await militiaValues(player).textContent())!;
   await step(gm, 'Review & confirm');
-  await expect(
-    gm.getByRole('button', { name: 'Confirm week', exact: true }),
-  ).toBeEnabled();
+  await expect(reviewConfirm(gm)).toBeEnabled();
   // Hold each device's hydration of the successor draft independently while
   // the Confirmation, its receipt and the server's source updates flow: the
   // reviewed week must stay on screen read-only on both devices, with no
@@ -103,28 +104,39 @@ test('a player confirms a complete week, every device moves to the next week onc
   const gmSkeletons = await watchSkeletons(gm);
   const playerSkeletons = await watchSkeletons(player);
   try {
-    await gm.getByRole('button', { name: 'Confirm week', exact: true }).click();
-    await expect(saveStatus(gm)).toHaveText('Confirming the week…');
-    const confirming = gm.getByRole('button', {
-      name: 'Confirming…',
-      exact: true,
-    });
-    await expect(confirming).toBeDisabled();
-    await expect(confirming).toHaveAttribute('aria-busy', 'true');
+    // This Confirmation goes through the footer's pinned Confirm week; the
+    // review block's shows the same pending control.
+    await expect(pinnedConfirm(gm)).toBeEnabled();
+    await pinnedConfirm(gm).click();
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
+    const confirming = [
+      reviewConfirm(gm, 'Confirming…'),
+      pinnedConfirm(gm, 'Confirming…'),
+    ];
+    for (const control of confirming) {
+      await expect(control).toBeDisabled();
+      await expect(control).toHaveAttribute('aria-busy', 'true');
+    }
     await expect.poll(gmHold.observed, { timeout: 20_000 }).toBe(true);
     await expect.poll(playerHold.observed, { timeout: 20_000 }).toBe(true);
     expect(gmHold.failure()).toBeNull();
     expect(playerHold.failure()).toBeNull();
     // Caller: the old week stays, navigable and read-only, still Confirming.
     await expect(heading(gm, 'Week 1 · Review & confirm')).toBeVisible();
-    await expect(confirming).toBeDisabled();
+    for (const control of confirming) await expect(control).toBeDisabled();
     await expect(confirmedWeekNotice(gm)).toBeEmpty();
     await step(gm, 'Event');
     await expect(heading(gm, 'Week 1 · Event')).toBeVisible();
     await expect(chanceRoll(gm)).toBeDisabled();
     await expect(chanceRoll(gm)).toHaveValue('100');
     await expect(militiaValues(gm)).toBeVisible();
-    await expect(saveStatus(gm)).toHaveText('Confirming the week…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     // Observer: same old facts, its own phase, every weekly write disabled,
     // Summary explains the wait; no notice, no skeleton.
     await expect(heading(player, 'Week 1 · Activity')).toBeVisible();
@@ -136,13 +148,18 @@ test('a player confirms a complete week, every device moves to the next week onc
     expect(await militiaValues(player).textContent()).toBe(oldValues);
     await step(player, 'Review & confirm');
     await expect(heading(player, 'Week 1 · Review & confirm')).toBeVisible();
-    await expect(
-      player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(player)).toBeDisabled();
     await expect(
       player.locator('[data-week-footer]:visible [data-week-readiness]'),
     ).toHaveText('Opening the next week…');
-    await expect(saveStatus(player)).not.toHaveText('Confirming the week…');
+    await expect(pinnedConfirm(player)).toBeDisabled();
+    await expect(pinnedConfirm(player)).toHaveAccessibleDescription(
+      /Opening the next week…$/,
+    );
+    await expect(saveState(player)).not.toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     for (const page of [gm, player])
       await expect(page.locator('[data-week-skeleton]')).toHaveCount(0);
     // The unheld watcher simply observes the successor: Week 2 on Upkeep,
@@ -156,7 +173,10 @@ test('a player confirms a complete week, every device moves to the next week onc
     await expectConfirmedWeek(player, 1);
     await expect(heading(gm, 'Week 1 · Event')).toBeVisible();
     await expect(confirmedWeekNotice(gm)).toBeEmpty();
-    await expect(saveStatus(gm)).toHaveText('Confirming the week…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     await expect(chanceRoll(gm)).toBeDisabled();
     gmHold.release();
     await expectConfirmedWeek(gm, 1);
@@ -174,7 +194,10 @@ test('a player confirms a complete week, every device moves to the next week onc
   await watcher.close();
   expect(await gmSkeletons(), 'no skeleton on the caller').toBe(0);
   expect(await playerSkeletons(), 'no skeleton on the observer').toBe(0);
-  await expect(saveStatus(gm)).not.toHaveText('Confirming the week…');
+  await expect(saveState(gm)).not.toHaveAttribute(
+    'data-week-feedback',
+    'confirming',
+  );
   await expect(
     gm.getByRole('button', { name: 'Confirming…', exact: true }),
   ).toHaveCount(0);
@@ -192,7 +215,7 @@ test('a player confirms a complete week, every device moves to the next week onc
   await expect(chanceRoll(gm)).toHaveValue('');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
-  await expect(saveStatus(gm)).toHaveText('Changes saved.');
+  await expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   await expect(remoteChangeNote(player)).toHaveText(
     'Another player changed Event.',
   );

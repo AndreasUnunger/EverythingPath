@@ -1,5 +1,6 @@
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
+import { actionChoiceEvents } from '~/lib/weekly-draft-facts';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import { phaseView } from './phase-view';
 import { withoutDuplicateRollCodes } from './roll-requirements';
@@ -14,6 +15,18 @@ const phaseOrder: Phase[] = [
   'persistent',
   'summary',
 ];
+
+/** The Event occurrences an accepted draft already holds, by identity. */
+export function acceptedEventIds(accepted: WeeklyDraft): Set<string> {
+  return new Set(
+    [
+      ...accepted.event.occurrences,
+      ...accepted.activity.slots.flatMap((slot) =>
+        actionChoiceEvents(slot.choice),
+      ),
+    ].map((event) => event.eventId),
+  );
+}
 
 export function derivePhaseReadiness(
   draft: WeeklyDraft,
@@ -62,6 +75,7 @@ export function confirmationDisabledReason({
   forecastPending,
   pendingWork,
   decisions,
+  localForms = 0,
 }: {
   canConfirm: boolean;
   confirming: boolean;
@@ -69,11 +83,17 @@ export function confirmationDisabledReason({
   forecastPending: boolean;
   pendingWork: boolean;
   decisions: number;
+  /** This device's open or invalid Summary forms; never shared state. */
+  localForms?: number;
 }) {
   if (confirming) return 'Confirming the week…';
   if (reviewRequired) return 'Review the updated week before confirming.';
   if (forecastPending || pendingWork)
     return 'Review will be ready when your changes are saved.';
+  if (localForms)
+    return localForms === 1
+      ? 'Save or cancel your unsaved change first.'
+      : `Save or cancel your ${localForms} unsaved changes first.`;
   if (canConfirm) return null;
   if (decisions)
     return `${decisions} ${decisions === 1 ? 'decision' : 'decisions'} left`;

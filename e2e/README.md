@@ -66,7 +66,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the six Chromium tablet journeys at 1194×834 with
+creates fresh ignored role storage and runs the nine Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
 unless `--workers N` asks for up to the declared number; a single cohort runs
 exactly serially. Local runs acquire an
@@ -124,7 +124,16 @@ reporter keeps safe assertion messages, test outcomes and timings; auth setup
 errors are replaced with a fixed diagnostic. Each completed attempt is atomically
 checkpointed in `progress.json`, so an outer deadline retains the first failure
 even if `onEnd` cannot write the final report. Its status remains `running` and
-can never satisfy the aggregate gate. `stages.log` records stage outcomes;
+can never satisfy the aggregate gate. Each attempt's `steps` time the
+journey's own `test.step` phases: the sanitized title path, `start` and
+`duration` in milliseconds, and `passed`, `failed` or `interrupted` (a timeout
+ended the attempt inside the step, so `duration` is null and `start` shows how
+long it ran). At most 100 steps are kept per attempt. Step errors, locations,
+parameters, fixtures and Playwright actions are not recorded. `access`, its
+three shell parts (see [Access split](#access-split)) and the nightly extension
+use steps, as do campaign home (since the area checks), `workspaceActivity`
+and the correction layout step of `ledger`; the other journeys do not yet, so
+they record none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
@@ -352,14 +361,17 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 ## Nightly compatibility matrix (#30)
 
 Run the same isolated harness with `--nightly`. The default command and **E2E
-required** retain the six mandatory Chromium tablet journeys. Nightly selects:
+required** retain the nine mandatory Chromium tablet journeys. Nightly selects:
 
-| Project         | Viewport | Journeys                                                                   |
-| --------------- | -------- | -------------------------------------------------------------------------- |
-| Chromium tablet | 1194×834 | All six, plus navigation/form/persistence and reconnect steps              |
-| WebKit tablet   | 1194×834 | All six critical journeys                                                  |
-| Firefox desktop | 1440×900 | Access, campaign home, existing-militia initialization, complete week      |
-| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; campaign home |
+| Project         | Viewport | Journeys                                                                                            |
+| --------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| Chromium tablet | 1194×834 | All nine, plus navigation/form/persistence and reconnect steps                                      |
+| WebKit tablet   | 1194×834 | All nine critical journeys                                                                          |
+| Firefox desktop | 1440×900 | Access and the four journeys split from it, existing-militia initialization, complete week          |
+| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; the four split journeys |
+
+The journeys split from access are campaign home, campaign sections, legacy
+addresses and legacy week links (see [Access split](#access-split)).
 
 The access journey's nightly extension creates a character, checks that form
 controls fit the viewport, reloads the saved record, edits at the alternate
@@ -746,6 +758,9 @@ race part uses only fresh pages with their own controls, as before.
 | players recover a team at an adjusted cost and confirm a week through Activity and Event | `workspaceRecovery` | `resetCase`, then `initializeUpkeep` with choices |
 | players review and buy off carried persistent events before confirming the week | `workspacePersistent` | `resetCase`, then `initializeUpkeep` with persistent events |
 | racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
+| settlement and rank cards and team repairs stay reachable on phone and desktop | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only |
+| Event blocks and the week review stay reachable at phone landscape and on a narrow tablet | `workspaceEventReview` | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only |
+| Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device | `workspaceActivity` | `resetCase`, then plain `initializeUpkeep` like `workspaceConfirmation` |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:
@@ -759,6 +774,32 @@ The only lost coverage is one GM and player session surviving all five parts. Th
 first part keeps setup, both campaign states and the full Upkeep journey in one
 session. The 420 s test deadline is split in proportion to the measured parts
 (130, 30, 125, 80 and 55 s), and no part gets more than its share.
+
+A sixth journey, `workspaceUpkeepLayout`, was added later (#140) rather than
+split: it repeats the settlement/rank fixture on one page and checks its
+settlement cards, missing-team row, Remove repair and rank feat cards at
+390×844 and 1440×900. The settlement/rank journey runs about 21 s of its 30 s
+limit, so the checks got their own case and a 60 s limit instead of growing it.
+
+A seventh journey, `workspaceEventReview` (#143, #145), is also added rather
+than grown into another. The Activity-and-Event journey (89 s of 125 s) and the
+persistent journey (54 s of 80 s) keep their margins. On the GM page only, it
+rolls an Invasion after an out-of-range chance roll of 0 and records what
+happened. It checks the Event blocks at 844×390 and at 1180×820 with the
+reference panel closed. Review & confirm is checked at 844×390 and at 1180×820
+with the panel open and closed. Review must list the chance warning once in
+its Warnings with its phase and place it under the Event chance consequence
+(SUM-09). The Invasion's recorded outcome must be quoted under that event
+(SUM-11). It has a 60 s limit (`support/event-review-layout.ts`).
+An eighth journey, `workspaceActivity`, was added the same way (#142). The
+recovery journey that runs the tablet Activity checks takes about 89 s of its
+125 s limit, so the Activity checks §6 names got their own case, a 90 s limit
+and `test.step` timings: the board, details and picker at 844×390 and
+1180×820; a touch pan on the picker (a Chromium touch scroll gesture) that
+places nothing, then a tap that places; a Militia correction on the player's
+device lowering the allowance under the GM's staged slots; and a Confirmation
+arriving while the GM's picker is open, with the GM's successor held so the
+locked picker can be observed.
 
 ### Provision and declare the cohorts
 
@@ -862,3 +903,96 @@ unchanged, and the GM, player and outsider are still three separate signed-in
 sessions. `access` now opens the list with a plain page load before choosing
 the week; its landing assertions belong to the new journey. No limit changed:
 both journeys keep the 60 s test limit.
+
+### Access split
+
+The access journey still took 42–62 s against its 60 s limit, and under
+machine load it timed out on WebKit and Firefox (`XxSqla`, `rUyJDK`, and
+`qnkZrD` in its legacy week-link checks). It made about 25 page loads one after another, and
+no app regression was found. The journey and its shell checks
+(`support/shell-navigation.ts`) are now four parts. Each part runs as its own
+test with its own case, on every project that runs `access`
+(`accessJourneyFiles` in `support/matrix.ts`), including the mandatory
+Chromium tablet run.
+
+| Journey                                                                                | File                        | Case               | Checks                                                                                                                                                    |
+| -------------------------------------------------------------------------------------- | --------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| organization members can open their campaign and outsiders cannot                      | `access.spec.ts`            | `smoke`            | GM and player open the week from the list; the outsider is shut out of all five sections of the member campaign; the nightly extension and forced failure |
+| members move between campaign sections at every width and through browser history      | `campaign-sections.spec.ts` | `campaignSections` | Characters at phone, phone-landscape and short top-bar widths; Militia as a document; Back, Forward and reload                                            |
+| unknown campaigns stay unavailable and legacy addresses lead members to their campaign | `legacy-addresses.spec.ts`  | `legacyAddresses`  | Unknown id; `/canonical-*`, `/` and `/militia/correct` redirects                                                                                          |
+| legacy week links open their phase in a bounded week without moving other members      | `legacy-week-links.spec.ts` | `legacyWeekLinks`  | Legacy `?phase=` links, reload, home, Continue week, the bounded week host at two sizes; the GM stays on Event                                            |
+
+Every assertion moved unchanged; each part's phases are wrapped in `test.step`
+only so the evidence times them. Each part starts where the single journey
+reached it, and its state is equivalent:
+
+- **Database.** Each case is seeded exactly like `smoke` by `resetCase`: the
+  same names, a rank-1 militia with one officer and an open first-week draft.
+  It is alone in the cohort's member organization, so the bare list still
+  selects it. The moved checks only navigate and read; the nightly extension,
+  which writes a character, stays in `access`.
+- **Browser.** Each part's members open the week from the list with Continue
+  week (`openWeekFromList`), as access always did. So each part starts on
+  Week 1 · Event at the project viewport. Each part reads the campaign's
+  address from that page, as the single journey did. The sections part
+  started on exactly that page. The address and week-link parts began with a
+  full page load, so the page they came from never mattered.
+- **Sessions.** GM, player and outsider are still separate signed-in sessions.
+  The outsider is still shut out of a real member campaign, the one the player
+  has just opened.
+- **Moved check.** "The GM stays on Event" was checked after all of the
+  player's navigation. It now closes the week-link part, after the player
+  follows the `?phase=` links, the only navigation that selects a phase. The
+  sections and address parts still open GM and outsider sessions (the
+  `players` fixture) but make no assertion with them.
+
+Lost coverage: one player session no longer survives all four parts. Each
+part repeats the list-to-week opening, which adds about two page loads. No
+limit changed: every part keeps the 60 s test limit.
+
+### Area completion checks
+
+The area review of #140, #144, #146, #147 and #139 found browser layout gaps.
+They are closed without raising a limit or adding a page load to a journey
+near its limit:
+
+- **Upkeep (#140).** `workspaceUpkeepLayout` (above) checks the settlement
+  cards, missing-team row, Remove repair and rank feat cards at 390×844 and
+  1440×900 (`support/upkeep-layout.ts`).
+- **Persistent (#144).** `persistent-qa.ts` adds 844×390 and 1180×820 with the
+  reference panel closed to its resize loop; no page load.
+- **Event (#143) and Review & confirm (#145).** `workspaceEventReview` (above)
+  checks both phases at phone landscape and on the narrow tablet, and checks
+  Review's warnings and recorded outcomes in place. The phase-shaped loading
+  skeletons are checked at component level only. The campaign shell waits for
+  the same Convex connection before the week mounts, so holding every
+  response shows the shell's skeleton, not the week's.
+- **Finished weeks (#146).** The Confirmation contract's history step (300 s
+  limit, about 121 s) appends history through the guarded `appendHistory`
+  fixture and checks paging, gap-aware arrows, keyboard use and the three
+  layouts (`support/finished-weeks.ts`); one reload.
+- **Campaign home (#147).** `home` (60 s limit, 12–15 s) checks the home,
+  editor and create form at three sizes and opens one extra page whose Convex
+  responses are held to record the list skeleton
+  (`support/campaign-home-layout.ts`).
+- **Militia corrections (#139).** The sections part of access (60 s limit,
+  16–19 s) opens Values and a three-item Items correction at 390×844 on the
+  Militia page it already ends on; no page load (`support/militia-phone.ts`).
+
+The final area review of #138, #141 and #142 found three more:
+
+- **Setup (#138).** The Upkeep part's Setup layout loop (130 s limit, about
+  71 s) adds 1440×900 and, at each size, reaches every enabled Setup control
+  and **Next**; from 768px Next is in the sticky footer, which must be in view
+  from the top of the page, and each focused control of the detail pane must
+  sit above it. No page load. Headless browsers open no
+  on-screen keyboard, so the keyboard-open layout is not covered.
+- **Characters & officers (#141).** `ledger` (60 s limit, 15–18 s) opens
+  Correct officers (the Assign picker and a holder's ⋯ menu) and Correct
+  roster at 390×844 and 1440×900 and cancels both; no page load
+  (`support/character-corrections-layout.ts`).
+- **Activity (#142).** `workspaceActivity` (above,
+  `support/activity-layout.ts`).
+
+Screenshots from these checks are named by project where a journey runs on
+several projects.

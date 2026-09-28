@@ -179,18 +179,29 @@ test('[rules.A10.choice] both raw rolls and a root selection are mandatory and c
     selected: [],
   });
 });
-test('[rules.A10.roll-twice] selected Roll Twice expands once and repeats require independent replacement rolls', () => {
+// Since the candidate reroll Ruleset Version (#191) a candidate's Roll Twice
+// is rerolled in its own die; before it, a chosen one expanded.
+test('[rules.A10.roll-twice] a chosen candidate rerolls Roll Twice in its own die and older expansion children take no part', () => {
   const { draft, snapshot, choice } = eventActionFixture();
   if (choice.actionId !== 'guarantee_event') throw Error('fixture');
   choice.candidates![0]!.tableRoll = roll(100, 50);
-  expect(project(draft, snapshot).event.requirements).toContain(
-    'raid:roll_twice:2',
-  );
+  let event = project(draft, snapshot).event;
+  expect(event.ready).toBe(false);
+  expect(event.requirements).toContain('raid:replacement:1');
+  expect(event.requirements).not.toContain('raid:roll_twice:2');
+  expect(event.positions).toContainEqual({
+    kind: 'replacement',
+    parentEventId: 'raid',
+    count: 1,
+    eventIds: [],
+    reroll: true,
+  });
+  // Children an earlier version added stay recorded but take no part.
   choice.candidates!.push(
     {
       eventId: 'child-one',
       origin: { kind: 'roll_twice', parentEventId: 'raid' },
-      tableRoll: roll(100, 50),
+      tableRoll: roll(100, 74),
     },
     {
       eventId: 'child-two',
@@ -198,22 +209,24 @@ test('[rules.A10.roll-twice] selected Roll Twice expands once and repeats requir
       tableRoll: roll(100, 78),
     },
   );
-  expect(project(draft, snapshot).event.requirements).toContain(
-    'child-one:replacement:1',
-  );
-  choice.candidates!.push({
-    eventId: 'replacement',
-    origin: { kind: 'replacement', parentEventId: 'child-one' },
-    tableRoll: roll(100, 74),
-  });
   expect(weeklyDraftSchema.safeParse(draft).success).toBe(true);
+  event = project(draft, snapshot).event;
+  expect(event.ready).toBe(false);
+  expect(event.requirements).toContain('raid:replacement:1');
+  expect(event.selected).toEqual([]);
+  expect(event.tree.map((entry) => entry.eventId)).not.toContain('child-one');
+  // The reroll is entered in the same die.
+  choice.candidates![0]!.tableRoll = roll(100, 74);
   expect(project(draft, snapshot).event).toMatchObject({
     ready: true,
-    selected: [
-      { eventId: 'replacement', eventType: 'theft' },
-      { eventId: 'child-two', eventType: 'raid' },
-    ],
+    selected: [{ eventId: 'raid', eventType: 'theft' }],
   });
+  expect(choice.candidates!.map((entry) => entry.eventId)).toEqual([
+    'raid',
+    'theft',
+    'child-one',
+    'child-two',
+  ]);
 });
 test('[rules.A10.precedence] forced All Is Calm suppresses selections while keeping Activity expenditure', () => {
   const { draft, snapshot } = eventActionFixture();

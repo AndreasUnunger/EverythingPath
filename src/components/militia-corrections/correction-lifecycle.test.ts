@@ -2,9 +2,14 @@ import { describe, expect, test } from 'vitest';
 import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import { mergeSection, sectionValue } from '~/lib/militia-correction-sections';
 import {
+  applyOfficerCorrection,
+  applyRosterCorrection,
+} from '~/lib/roster-corrections';
+import {
   closedCorrection,
   correctionReducer,
   correctionView,
+  planRosterSave,
   planSectionSave,
   type AcceptedMilitia,
   type Correction,
@@ -64,7 +69,7 @@ describe('opening and cancelling', () => {
     expect(open.kind).toBe('open');
     const second = correctionReducer(open, {
       type: 'open',
-      target: { kind: 'full', entry: 'teams' },
+      target: { kind: 'officers' },
       accepted: base,
     });
     expect(second).toBe(open);
@@ -314,32 +319,171 @@ describe('failures and reconciliation', () => {
   });
 });
 
-describe('the temporary full editor', () => {
-  test('is exclusive with section editing and closes with feedback when saved', () => {
+// Characters & officers' corrections (#183): Correct officers replaces
+// only the assignments, Correct roster membership and overrides; both
+// compare the whole roster baseline and merge everything else.
+type Snapshot = AcceptedMilitia['state']['militiaSnapshot'];
+const openRoster = (kind: 'officers' | 'roster', from = accepted()) =>
+  run([{ type: 'open', target: { kind }, accepted: from }]);
+const withMarshal = (latest: Snapshot) =>
+  applyOfficerCorrection(latest, [
+    ...latest.roster.officers.filter((officer) => officer.role !== 'marshal'),
+    { role: 'marshal', characterId: 'officer' },
+  ]);
+function sendOfficers(state: Correction, from: AcceptedMilitia) {
+  const plan = planRosterSave(state, from, withMarshal);
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  return plan;
+}
+
+describe('officer and roster corrections', () => {
+  test('are exclusive with section editing and close with feedback when saved', () => {
     const base = accepted();
-    const full = run([
-      {
-        type: 'open',
-        target: { kind: 'full', entry: 'people' },
-        accepted: base,
-      },
-      {
-        type: 'open',
-        target: { kind: 'section', section: 'values' },
-        accepted: base,
-      },
-    ]);
-    expect(full).toMatchObject({
+    const officers = run(
+      [
+        {
+          type: 'open',
+          target: { kind: 'section', section: 'values' },
+          accepted: base,
+        },
+      ],
+      openRoster('officers', base),
+    );
+    expect(officers).toMatchObject({
       kind: 'open',
-      target: { kind: 'full', entry: 'people' },
+      target: { kind: 'officers' },
     });
-    expect(planSectionSave(full, base, 'values', yours(base))).toEqual({
+    expect(planSectionSave(officers, base, 'values', yours(base))).toEqual({
       kind: 'busy',
     });
-    expect(correctionReducer(full, { type: 'fullSaved' })).toEqual({
-      kind: 'closed',
-      feedback: { kind: 'saved', entry: 'people' },
+    expect(planRosterSave(openValues(base), base, withMarshal)).toEqual({
+      kind: 'busy',
     });
+    const { attempt } = sendOfficers(officers, base);
+    expect(
+      run(
+        [
+          { type: 'submit', attempt },
+          { type: 'accepted', attempt },
+        ],
+        officers,
+      ),
+    ).toEqual({
+      kind: 'closed',
+      feedback: { kind: 'saved', entry: 'officers' },
+    });
+  });
+
+  test('merge onto the newest militia when only other facts changed; an unchanged roster is not sent', () => {
+    const base = accepted();
+    const officers = openRoster('officers', base);
+    const moved = withSnapshot(base, (snapshot) => ({
+      ...snapshot,
+      notoriety: 30,
+      characters: snapshot.characters.map((c) => ({ ...c, charisma: 20 })),
+      roster: {
+        ...snapshot.roster,
+        teams: snapshot.roster.teams.map((team) => ({
+          ...team,
+          name: `${team.name} (renamed)`,
+        })),
+      },
+    }));
+    const plan = sendOfficers(officers, moved);
+    expect(plan.attempt.expectedRevision).toBe(4);
+    expect(plan.snapshot).toEqual(withMarshal(moved.state.militiaSnapshot));
+    expect(planRosterSave(officers, moved, (latest) => latest)).toEqual({
+      kind: 'unchanged',
+    });
+  });
+
+  test('another player’s roster, assignment, manager or kind change is a conflict', () => {
+    const base = accepted();
+    const changes: ((snapshot: Snapshot) => Snapshot)[] = [
+      (snapshot) => applyRosterCorrection(snapshot, [], []),
+      (snapshot) => applyOfficerCorrection(snapshot, []),
+      (snapshot) => ({
+        ...snapshot,
+        roster: {
+          ...snapshot.roster,
+          teams: snapshot.roster.teams.map((team) => ({
+            ...team,
+            managerCharacterId: null,
+          })),
+        },
+      }),
+      (snapshot) => ({
+        ...snapshot,
+        roster: {
+          ...snapshot.roster,
+          people: snapshot.roster.people.map((person) => ({
+            ...person,
+            kind: person.kind === 'pc' ? ('npc' as const) : ('pc' as const),
+          })),
+        },
+      }),
+    ];
+    for (const change of changes)
+      for (const kind of ['officers', 'roster'] as const) {
+        const open = openRoster(kind, base);
+        expect(
+          planRosterSave(open, withSnapshot(base, change), withMarshal),
+        ).toEqual({ kind: 'conflict' });
+      }
+  });
+
+  test('a refusal raced by another section’s write retries against the rebuilt candidate', () => {
+    const base = accepted();
+    const roster = openRoster('roster', base);
+    const { attempt } = sendOfficers(roster, base);
+    const refused = run(
+      [
+        { type: 'submit', attempt },
+        { type: 'rejected', attempt, message: 'Militia changed.' },
+      ],
+      roster,
+    );
+    const moved = withSnapshot(base, (snapshot) => ({
+      ...snapshot,
+      notoriety: 30,
+    }));
+    expect(correctionView(refused, moved)).toMatchObject({
+      kind: 'editing',
+      notice: 'retry',
+    });
+    expect(sendOfficers(refused, moved).attempt.expectedRevision).toBe(4);
+  });
+
+  test('an unconfirmed Save the militia now shows closes as matched; otherwise it stays open', () => {
+    const base = accepted();
+    const roster = openRoster('roster', base);
+    const { attempt, snapshot } = sendOfficers(roster, base);
+    const unknown = run(
+      [
+        { type: 'submit', attempt },
+        { type: 'unknown', attempt },
+      ],
+      roster,
+    );
+    expect(correctionView(unknown, base)).toMatchObject({
+      kind: 'editing',
+      notice: 'unconfirmed',
+    });
+    expect(
+      correctionView(
+        unknown,
+        withSnapshot(base, () => snapshot),
+      ),
+    ).toEqual({
+      kind: 'closed',
+      feedback: { kind: 'matched', entry: 'roster' },
+    });
+    expect(
+      correctionView(
+        unknown,
+        withSnapshot(base, (latest) => ({ ...latest, notoriety: 30 })),
+      ),
+    ).toMatchObject({ kind: 'editing', notice: 'unconfirmed' });
   });
 });
 
@@ -394,7 +538,7 @@ describe('settling an unconfirmed Save', () => {
     expect(
       correctionReducer(reconciled, {
         type: 'open',
-        target: { kind: 'full', entry: 'people' },
+        target: { kind: 'roster' },
         accepted: base,
       }),
     ).toMatchObject({ kind: 'open' });

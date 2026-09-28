@@ -169,6 +169,43 @@ describe('[SUM-06] Result comparison', () => {
     );
   });
 
+  test('a blank Hit Dice override reads as the level in a live review, "not set" without a character, and "not recorded" in a frozen record', () => {
+    const live = JSON.stringify(
+      compareWeekStates({
+        now: state(),
+        baseline: state(),
+        final: state(),
+        names,
+      }),
+    );
+    expect(live).toContain('Player character · 5 Hit Dice');
+    expect(live).not.toContain('Hit Dice not');
+    const orphan = state();
+    orphan.militiaSnapshot.characters =
+      orphan.militiaSnapshot.characters.filter(
+        (character) => character.characterId !== 'ilsa',
+      );
+    const unknown = JSON.stringify(
+      compareWeekStates({
+        now: orphan,
+        baseline: orphan,
+        final: orphan,
+        names,
+      }),
+    );
+    expect(unknown).toContain('Player character · Hit Dice not set');
+    const frozen = JSON.stringify(
+      compareWeekStates({
+        now: state(),
+        baseline: state(),
+        final: state(),
+        names,
+        unrecorded: 'Not recorded',
+      }),
+    );
+    expect(frozen).toContain('Player character · Hit Dice not recorded');
+  });
+
   test('an incomplete preview leaves Rules Baseline and Final unavailable, never zero or unchanged', () => {
     const rows = compareWeekStates({
       now: state(),

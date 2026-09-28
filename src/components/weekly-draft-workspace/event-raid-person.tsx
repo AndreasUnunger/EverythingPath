@@ -5,6 +5,7 @@ import type { EventEditResult, EventEdits } from './event-family-inputs';
 import { LegacyOverseerNote } from './event-legacy-overseer-note';
 import { EventMitigationChoice } from './event-mitigation-choice';
 import { EventNote } from './event-note';
+import { OverseerSupportControl } from './overseer-support-control';
 import { RollTotalField } from './roll-total-field';
 import type { EventRaidPerson as EventRaidPersonFacts } from './types';
 
@@ -55,7 +56,15 @@ export function EventRaidPerson({
           recorded={person.checkRoll}
           disabled={disabled}
           onRoll={(check) => patch({ check })}
-          onClearOverseer={() => patch({ overseer: null })}
+          // The shared toggle owns a selection recorded on this person too.
+          support={
+            <OverseerSupportControl
+              eventId={id}
+              check="security"
+              subject={person.check.label}
+              breakdown={person.check.breakdown}
+            />
+          }
         />
       ) : (
         <>

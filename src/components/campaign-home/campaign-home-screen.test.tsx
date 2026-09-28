@@ -11,6 +11,7 @@ import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Doc } from '@convex/_generated/dataModel';
 import type { CampaignWeek } from './use-campaign-week';
+import type { CampaignHomeContentState } from './use-campaign-home-content';
 import { CampaignHomeScreen } from './campaign-home-screen';
 
 type Call = {
@@ -25,6 +26,7 @@ const refetch = vi.fn();
 const params = vi.fn();
 const navigate = vi.fn();
 const weeks = new Map<string, CampaignWeek>();
+const contents = new Map<string, CampaignHomeContentState>();
 
 vi.mock('@convex/_generated/api', () => ({
   api: {
@@ -51,6 +53,10 @@ vi.mock('~/lib/sharedQueries', () => ({
 }));
 vi.mock('./use-campaign-week', () => ({
   useCampaignWeek: (id: string) => weeks.get(id) ?? { kind: 'loading' },
+}));
+vi.mock('./use-campaign-home-content', () => ({
+  useCampaignHomeContent: (id: string) =>
+    contents.get(id) ?? { kind: 'no_militia' },
 }));
 vi.mock('~/components/campaign-shell/navigation-guard', () => ({
   useNavigationGuard: () => ({ navigate }),
@@ -112,6 +118,18 @@ beforeEach(() => {
   weeks.set('ironfang', { kind: 'week', week: 14 });
   weeks.set('second', { kind: 'failed' });
   weeks.set('wardens', { kind: 'not_set_up' });
+  contents.clear();
+  contents.set('ironfang', {
+    kind: 'militia',
+    summary: ['Rank 3', 'Secrecy'],
+    continueWeek: {
+      kind: 'ready',
+      week: 14,
+      phase: 'activity',
+      href: '/campaigns/ironfang/week?phase=activity',
+    },
+    recent: { kind: 'ready', weeks: [] },
+  });
 });
 afterEach(cleanup);
 
@@ -186,13 +204,19 @@ test('the home header shows the full description and the Golarion date; the name
   );
   expect(home).toHaveTextContent('12 Pharast 4717');
   expect(
-    within(home).getByRole('link', { name: 'Set up militia' }),
-  ).toHaveAttribute('href', '/campaigns/ironfang/setup');
+    within(home).getByRole('link', { name: 'Continue week 14' }),
+  ).toHaveAttribute('href', '/campaigns/ironfang/week?phase=activity');
+  expect(
+    within(home).queryByRole('link', { name: 'Set up militia' }),
+  ).toBeNull();
   // No date recorded is an ordinary empty value.
   cleanup();
   show('wardens');
   const other = screen.getByRole('region', { name: 'Wardens of Longshadow' });
   expect(other).not.toHaveTextContent(/Pharast|Abadius/);
+  expect(
+    within(other).getByRole('link', { name: 'Set up militia' }),
+  ).toHaveAttribute('href', '/campaigns/wardens/setup');
 });
 
 test('an explicit unavailable id never falls back to another campaign', () => {

@@ -74,6 +74,39 @@ test('[setup.lifecycle] initialization is retryable and enters ordinary shared e
   });
 });
 
+test('[setup.retry-source] a changed source retried under an accepted identity is refused without replacing the setup or advancing the week', async () => {
+  const { gm, campaignId } = await setup();
+  const accepted = {
+    campaignId,
+    initializationId: 'resumed-setup',
+    setup: newMilitiaSetup('Security'),
+  };
+  const key = await gm.mutation(api.canonicalSetup.initialize, accepted);
+  const changed = newMilitiaSetup('Secrecy');
+  changed.state.militiaSnapshot.rank = 3;
+  await expect(
+    gm.mutation(api.canonicalSetup.initialize, {
+      ...accepted,
+      setup: changed,
+    }),
+  ).rejects.toThrow('Militia setup is already complete');
+  // The unacknowledged original, resent, is still recognised as accepted.
+  expect(await gm.mutation(api.canonicalSetup.initialize, accepted)).toEqual(
+    key,
+  );
+  const workspace = await gm.query(api.canonicalDraftPersistence.workspace, {
+    campaignId,
+  });
+  expect(workspace).toMatchObject({
+    key,
+    week: 1,
+    snapshot: { rank: 1, focus: 'Security' },
+  });
+  expect(
+    await gm.query(api.canonicalDraftPersistence.observe, key),
+  ).toMatchObject({ status: 'open', revision: 0, draft: { week: 1 } });
+});
+
 test('[setup.import] current values, identities, carry and orders remain intact on entry', async () => {
   const { gm, campaignId } = await setup();
   const input = newMilitiaSetup('Security');

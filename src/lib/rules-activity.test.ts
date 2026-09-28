@@ -463,6 +463,100 @@ test('[rules.A04.pc] NPC role changes require exceptions; unassigning preserves 
   expect(result.outcome.characters).toEqual(snapshot.characters);
 });
 
+test('[rules.A04.manager-limit] leaving an NPC’s last role mid-week needs a Rules Exception when it leaves them over their new manager limit', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.people[0]!.kind = 'npc';
+  snapshot.characters[0]!.charisma = 16;
+  snapshot.roster.teams = ['one', 'two'].map((teamId) => ({
+    teamId,
+    teamType: 'patrons' as const,
+    name: teamId,
+    status: 'active' as const,
+    managerCharacterId: 'pc',
+    rewardCapExempt: false,
+    notes: '',
+  }));
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'ambassador',
+  };
+  const officerPc = {
+    exceptionId: 'npc',
+    subjectId: 'role',
+    ruleId: 'officer-pc',
+    reason: 'Ally agrees',
+  };
+  draft.rulesExceptions = [officerPc];
+  const blocked = projectActivity(draft, snapshot);
+  expect(blocked.requirements).toContain('role:manager-limit:exception');
+  expect(blocked.outcome.roster.officers).toEqual(snapshot.roster.officers);
+  draft.rulesExceptions = [
+    officerPc,
+    {
+      exceptionId: 'limit',
+      subjectId: 'role',
+      ruleId: 'manager-limit',
+      reason: 'The table keeps both teams with her',
+    },
+  ];
+  const allowed = projectActivity(draft, snapshot);
+  expect(allowed.requirements).toEqual([]);
+  expect(allowed.outcome.roster.officers).toEqual([]);
+  // Her teams and managers stay; the later roster warns about her new limit.
+  expect(allowed.outcome.roster.teams).toEqual(snapshot.roster.teams);
+  expect(allowed.warnings).toContain('role:manager-limit');
+  // A later team check sees her lowered limit; an earlier one does not.
+  const earn = {
+    choiceId: 'earn',
+    actionId: 'earn_gold' as const,
+    teamId: 'one',
+    rolls: { check: roll(20, 10) },
+  };
+  draft.activity.slots[1]!.choice = earn;
+  expect(projectActivity(draft, snapshot).warnings).toContain(
+    'manager:pc:capacity',
+  );
+  const change = draft.activity.slots[0]!.choice;
+  draft.activity.slots[0]!.choice = earn;
+  draft.activity.slots[1]!.choice = change;
+  expect(projectActivity(draft, snapshot).warnings).not.toContain(
+    'manager:pc:capacity',
+  );
+  draft.activity.slots[0]!.choice = change;
+  draft.activity.slots[1]!.choice = null;
+  // Moving to another role keeps her an Officer, so her limit is unchanged.
+  draft.activity.slots[0]!.choice.toRole = 'marshal';
+  draft.rulesExceptions = [officerPc];
+  expect(projectActivity(draft, snapshot).requirements).toEqual([]);
+  // A PC's limit never depends on roles.
+  snapshot.roster.people[0]!.kind = 'pc';
+  delete draft.activity.slots[0]!.choice.toRole;
+  draft.rulesExceptions = [];
+  expect(projectActivity(draft, snapshot).requirements).toEqual([]);
+});
+
+test('[rules.A07.hit-dice-fallback] a successful Drill adds each commandant’s Hit Dice override, zero included, or else their level', () => {
+  for (const [hitDice, expected] of [
+    [null, 47],
+    [0, 37],
+    [4, 41],
+  ] as const) {
+    const { draft, snapshot } = upkeepFixture();
+    snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });
+    snapshot.roster.people[0]!.hitDice = hitDice;
+    draft.activity.slots[0]!.choice = {
+      choiceId: 'drill',
+      actionId: 'drill_militia',
+      rolls: { check: roll(20, 10), training: roll(6, 2, 5) },
+    };
+    const result = projectActivity(draft, snapshot);
+    expect(result.outcome.training, String(hitDice)).toBe(expected);
+    expect(result.ready).toBe(true);
+  }
+});
+
 test('[rules.A07.cost] failed Drill costs treasury but never adds Commandant training or needs its gain dice', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });

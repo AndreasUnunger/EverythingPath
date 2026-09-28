@@ -3,6 +3,7 @@ import { Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
 import { WeeklyWorkspaceBoard } from '~/components/weekly-draft-workspace/board';
+import { WeekSkeleton } from '~/components/weekly-draft-workspace/week-frame/week-frame';
 import {
   normalizePhase,
   weekPath,
@@ -35,13 +36,7 @@ function WeekHost() {
 export default function WeekPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Suspense
-        fallback={
-          <p role="status" className="p-6">
-            Loading the week…
-          </p>
-        }
-      >
+      <Suspense fallback={<WeekSkeleton />}>
         <WeekHost />
       </Suspense>
     </div>

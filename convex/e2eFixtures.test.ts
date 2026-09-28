@@ -242,7 +242,13 @@ describe('internal fixture boundary', () => {
         workspaceRecovery: 'k'.repeat(64),
         workspacePersistent: 'l'.repeat(64),
         workspaceConfirmation: 'm'.repeat(64),
+        workspaceUpkeepLayout: 'r'.repeat(64),
+        workspaceEventReview: 's'.repeat(64),
+        workspaceActivity: 's'.repeat(64),
         campaignHome: 'n'.repeat(64),
+        campaignSections: 'o'.repeat(64),
+        legacyAddresses: 'p'.repeat(64),
+        legacyWeekLinks: 'q'.repeat(64),
       },
     };
     vi.stubEnv(

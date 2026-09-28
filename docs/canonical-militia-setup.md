@@ -26,6 +26,61 @@ desktops a wider index with previews. The step statuses, previews and summary
 lines are derived in `src/lib/setup-steps.ts`; the form controller is
 `src/components/militia-setup/use-guided-setup.ts`.
 
+Unfinished setup resumes in the same browser (#173). A versioned envelope in
+`localStorage` (`src/lib/setup-envelope.ts`) holds the raw form values,
+including empty and malformed numbers, the open step, the visited steps and
+the start attempt's `initializationId`. It is keyed and checked by the signed-
+in account, the organization and the campaign, and it is read only after
+`canonicalSetup.options` resolves. A stored envelope is restored only when its
+lists and choices still fit the form; anything else is discarded with a short
+notice. Restored roster characters take the ledger's current facts, so a
+reload recovers from a stale-character rejection. When storage is refused,
+Setup still works and says entries won't be kept. Nothing is saved to Convex
+and there is no shared or mirrored setup draft.
+
+`src/components/militia-setup/use-setup-session.ts` decides the page from the
+first `options` result. A militia that had already started shows "This
+militia is already set up." with **Open week N** (from
+`canonicalDraftPersistence.workspace`) and **Open militia**, and retires any
+stale envelope. If another member starts the militia while the form is open,
+the envelope is retired and the page opens the current week. This player's own
+start disables Start while pending, ignores the racing `started` observation
+and opens the requested phase exactly once, then retires the envelope. Every
+attempt, including one after a reload, reuses the envelope's
+`initializationId`, so the server's same-ID/same-source idempotence and its
+rejection of any other source keep an accepted setup from being replaced. The
+envelope also keeps the source of a start whose result never arrived (a
+reload while starting). If the militia then starts while the form is open,
+that source is resent under the same identity: acceptance opens its requested
+phase, refusal means another player won and the page follows their week. A
+failed start keeps all entries; if `options` then reports the militia started,
+the page follows it. Leaving the page during a start never navigates the next
+page. **Add character** in People & officers opens the shared character dialog
+(`character.createCharacter`); the new record arrives through `options` and
+joins the roster only when chosen.
+
+A character is a PC or an NPC, and its record owns that kind (#180). Setup
+composes `canonicalSetup.options` (which has no kind) with the authorized
+`character.listByCampaign` read in `src/lib/setup-characters.ts`, and waits
+for both before opening the form. A person joins the roster with their
+record's kind, People & officers shows it read-only, and warnings and a start
+use each record's current kind, so a start sends only `pc` or `npc`. The
+server mirrors every roster kind from the campaign's records again before
+storing the live source, so a stale or old-client payload cannot restore an
+earlier kind. A roster person whose record is not in the campaign keeps their
+entry and shows a field error until removed; Start is blocked meanwhile.
+
+Envelope version 2 stores PC or NPC roster kinds. A version 1 envelope (#173,
+legacy `officer_npc`/`other_npc` roster kinds) is migrated on read: both
+legacy labels become `npc`, and every other value, including raw invalid
+input, the open step, visited steps, explicit and blank Hit Dice overrides and
+the attempt identity, is kept. The next write stores version 2. A start that
+was sent but never acknowledged stays verbatim, so resending it under the same
+identity still matches a source the server accepted. After the records load,
+restored roster people take their record's current kind and facts. Nothing is
+submitted automatically. Since #196 a blank Hit Dice override uses the
+record's level, which needs no new envelope shape.
+
 Setup carries the roster and individual team conditions, character Hit Dice,
 officer assignments and managers, settlements, assets and orders, persistent
 event targets/order, queued effects, bonuses, buyoff bookkeeping and explicit
