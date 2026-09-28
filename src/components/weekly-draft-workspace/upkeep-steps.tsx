@@ -12,7 +12,7 @@ import {
   signed,
   Step,
 } from './upkeep-parts';
-import { withoutRollRange } from './upkeep-warnings';
+import { omitRollRangeIssues } from './upkeep-warnings';
 import { formatGold } from './week-frame/reference-copy';
 
 // Steps 1–3: the training checks and losses, one roll row each. The field
@@ -71,7 +71,7 @@ function CheckRow<Result extends string>({
           />
         }
       />
-      <IssueNotes issues={withoutRollRange(check.issues)} />
+      <IssueNotes issues={omitRollRangeIssues(check.issues)} />
     </div>
   );
 }
@@ -120,7 +120,7 @@ function LossRow({
           </div>
         }
       />
-      <IssueNotes issues={withoutRollRange(loss.issues)} />
+      <IssueNotes issues={omitRollRangeIssues(loss.issues)} />
     </div>
   );
 }

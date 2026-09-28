@@ -66,10 +66,11 @@ export function upkeepWarningMessage(code: string, facts: UpkeepWarningFacts) {
     );
   return 'An Upkeep rule needs review. Check the affected roll or decision with the table before confirming.';
 }
+
 // A roll field already shows its own range advisory under the input, so the
 // notes beside that field leave out the roll's range warning instead of
 // repeating it. The code still reaches readiness, This phase and the Summary.
-export function withoutRollRange<Issue extends { code: string }>(
+export function omitRollRangeIssues<Issue extends { code: string }>(
   issues: Issue[],
 ) {
   return issues.filter((issue) => !issue.code.endsWith(':roll-range'));

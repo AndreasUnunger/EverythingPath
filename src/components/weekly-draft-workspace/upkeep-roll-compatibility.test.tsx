@@ -19,6 +19,14 @@ import type { UpkeepView as UpkeepFacts } from './types';
 
 afterEach(cleanup);
 
+// The warning identities Upkeep reports to readiness and This phase.
+function upkeepWarningIds(...facts: Parameters<typeof derivePhaseReadiness>) {
+  const upkeep = derivePhaseReadiness(...facts).phases.find(
+    (phase) => phase.phase === 'upkeep',
+  );
+  return upkeep?.warnings.map((warning) => warning.id) ?? [];
+}
+
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
     sides,
@@ -182,11 +190,9 @@ test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its r
   expect(
     screen.queryByText(/outside the usual 1–20 range/),
   ).not.toBeInTheDocument();
-  expect(
-    derivePhaseReadiness(draft, source, preview)
-      .phases.find((phase) => phase.phase === 'upkeep')!
-      .warnings.map((warning) => warning.id),
-  ).toContain('upkeep:attrition:roll-range');
+  expect(upkeepWarningIds(draft, source, preview)).toContain(
+    'upkeep:attrition:roll-range',
+  );
   expect(screen.queryByText(/dice include a value/)).not.toBeInTheDocument();
 });
 
@@ -349,11 +355,9 @@ test('a missing team’s out-of-range return total shows one advisory in its car
   expect(
     within(card).queryByText(/outside the usual 1–20 range/),
   ).not.toBeInTheDocument();
-  expect(
-    derivePhaseReadiness(draft, source, preview)
-      .phases.find((phase) => phase.phase === 'upkeep')!
-      .warnings.map((warning) => warning.id),
-  ).toContain('team:scouts:return:roll-range');
+  expect(upkeepWarningIds(draft, source, preview)).toContain(
+    'team:scouts:return:roll-range',
+  );
 });
 
 test.each([

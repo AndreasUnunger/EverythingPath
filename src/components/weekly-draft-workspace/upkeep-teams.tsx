@@ -38,7 +38,7 @@ import {
   signedGold,
   Step,
 } from './upkeep-parts';
-import { withoutRollRange } from './upkeep-warnings';
+import { omitRollRangeIssues } from './upkeep-warnings';
 import { useRecoveryCost } from './use-recovery-cost';
 import { formatGold } from './week-frame/reference-copy';
 
@@ -376,7 +376,7 @@ function MissingTeam({
       <IssueNotes
         issues={
           returning?.kind === 'check'
-            ? withoutRollRange(team.issues)
+            ? omitRollRangeIssues(team.issues)
             : team.issues
         }
       />

@@ -129,20 +129,22 @@ export async function reviewUpkeepChoiceLayout(
   await reviewControls(page, 'rank', [feats], run.artifactDirectory);
 }
 
-// The scrolling ancestor of a card: the page's own scroller when no inner
-// column scrolls.
-function scrollerOf(card: Locator) {
+// How far the card's scrolling ancestor (the page's own scroller when no
+// inner column scrolls) is scrolled, and how much room it has left below.
+function readScroll(card: Locator) {
   return card.evaluate((element) => {
+    let scroller = document.scrollingElement ?? document.documentElement;
     for (let node = element.parentElement; node; node = node.parentElement)
       if (
         ['auto', 'scroll'].includes(getComputedStyle(node).overflowY) &&
         node.scrollHeight > node.clientHeight + 1
-      )
-        return { found: true, scrollTop: node.scrollTop };
+      ) {
+        scroller = node;
+        break;
+      }
     return {
-      found: false,
-      scrollTop: (document.scrollingElement ?? document.documentElement)
-        .scrollTop,
+      top: scroller.scrollTop,
+      below: scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
     };
   });
 }
@@ -164,20 +166,20 @@ export async function panAndTapSettlementCards(
     page
       .getByRole('group', { name: 'Nearest settlement', exact: true })
       .getByRole('button', { name, exact: true });
-  const pressed = async (name: string, value: 'true' | 'false') => {
+  const expectPressed = async (name: string, value: 'true' | 'false') => {
     for (const page of [gm, player])
       await expect(card(page, name)).toHaveAttribute('aria-pressed', value);
   };
-  await pressed(selected, 'true');
-  await pressed(other, 'false');
+  await expectPressed(selected, 'true');
+  await expectPressed(other, 'false');
   const start = await card(gm, other).boundingBox();
-  expect(start, 'a card under the pan').not.toBeNull();
-  const before = await scrollerOf(card(gm, other));
-  const x = Math.round(start!.x + start!.width / 2);
-  const y = Math.round(start!.y + start!.height / 2);
-  // With room above, the finger moves down and the week scrolls back up;
-  // otherwise it moves up and the week scrolls on.
-  const distance = before.scrollTop > 160 ? 160 : -160;
+  if (!start) throw new Error('No settlement card under the pan');
+  const before = await readScroll(card(gm, other));
+  const x = Math.round(start.x + start.width / 2);
+  const y = Math.round(start.y + start.height / 2);
+  // The finger moves up to scroll on, or down to scroll back when there is
+  // more room above than below.
+  const distance = before.top > before.below ? 160 : -160;
   // A finger's own touch events: headless Chromium's synthesized touch
   // scroll gesture sends only touchstart and touchend.
   const cdp = await gm.context().newCDPSession(gm);
@@ -200,18 +202,18 @@ export async function panAndTapSettlementCards(
   }
   await expect
     .poll(
-      async () => (await scrollerOf(card(gm, other))).scrollTop,
+      async () => (await readScroll(card(gm, other))).top,
       'the pan scrolled the week',
     )
-    .not.toBe(before.scrollTop);
+    .not.toBe(before.top);
   await expect(card(gm, other)).not.toHaveAttribute('style', /translate/);
-  await pressed(selected, 'true');
-  await pressed(other, 'false');
+  await expectPressed(selected, 'true');
+  await expectPressed(other, 'false');
 
   await card(gm, other).tap();
-  await pressed(other, 'true');
-  await pressed(selected, 'false');
+  await expectPressed(other, 'true');
+  await expectPressed(selected, 'false');
   await card(gm, selected).tap();
-  await pressed(selected, 'true');
-  await pressed(other, 'false');
+  await expectPressed(selected, 'true');
+  await expectPressed(other, 'false');
 }
