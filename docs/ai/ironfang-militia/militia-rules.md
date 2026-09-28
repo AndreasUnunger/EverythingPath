@@ -52,7 +52,7 @@ This document reorganizes the militia subsystem into searchable sections and nor
 
 - Starts at 10 gp.
 - Used for actions, recruitment, upgrades, event costs.
-- Officers can deposit/withdraw during Upkeep step 5.
+- Officers can deposit/withdraw during Upkeep step 5. The application stages deposits and withdrawals without choosing an officer; see the application departure under [Step 5: Deposits and Withdrawals](#step-5-deposits-and-withdrawals).
 
 ### Minimum Treasury
 

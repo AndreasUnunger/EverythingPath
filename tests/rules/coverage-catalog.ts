@@ -180,7 +180,7 @@ export const coverageCatalog = {
       heading: '### Treasury',
       parentHeading: '## Militia Terminology',
       fingerprint:
-        '9405cb8aa785c1ca652dc3daee91b41367c1fccd36d5f0601c9c9b71341c1538',
+        '704aa4515fb964ae9aeb1c18ccf6e14f9b56ddf0b9ce6efb9a98b95fe64c834a',
       reviewGap: null,
     },
     {
