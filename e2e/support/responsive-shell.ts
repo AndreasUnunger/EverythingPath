@@ -88,12 +88,27 @@ export async function expectReachable(page: Page, control: Locator) {
   // The footer is pinned under the editor column only; the reference panel
   // beside it legitimately occupies the same vertical band.
   const footer = page.locator('[data-week-footer]:visible');
-  if ((await footer.count()) > 0 && (await isEditorContent(control))) {
+  const editorContent = await isEditorContent(control);
+  if ((await footer.count()) > 0 && editorContent) {
     const pinned = (await footer.first().boundingBox())!;
     expect(
       bounds!.y + bounds!.height,
       'editor content sits above the pinned week footer',
     ).toBeLessThanOrEqual(pinned.y + 1);
+  }
+  // The editor column clips what it scrolls: a control above its top edge
+  // sits behind the pinned stepper, and one taller than the column can never
+  // be seen whole. Long text is read by scrolling, so only controls count.
+  if (editorContent && (await isControl(control))) {
+    const column = (await page.locator('[data-week-editor]').boundingBox())!;
+    expect(
+      bounds!.y,
+      'editor content starts inside its scroll column',
+    ).toBeGreaterThanOrEqual(column.y - 1);
+    expect(
+      bounds!.y + bounds!.height,
+      'editor content ends inside its scroll column',
+    ).toBeLessThanOrEqual(column.y + column.height + 1);
   }
   await control.click({ trial: true });
 }
@@ -101,6 +116,14 @@ export async function expectReachable(page: Page, control: Locator) {
 function isEditorContent(control: Locator) {
   return control.evaluate(
     (element) => element.closest('[data-week-editor]') !== null,
+  );
+}
+
+function isControl(control: Locator) {
+  return control.evaluate((element) =>
+    element.matches(
+      'button, input, select, textarea, a[href], summary, [role="button"], [role="combobox"]',
+    ),
   );
 }
 

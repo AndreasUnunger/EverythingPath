@@ -102,10 +102,14 @@ export async function reviewPersistentWorkspace(
         page,
         theft.getByRole('textbox', { name: 'Loyalty check', exact: true }),
       );
-      await expectReachable(
-        page,
-        theft.getByRole('button', { name: 'Buy off · 40 gp', exact: true }),
-      );
+      // Every decision card, not only Buy off, is seen whole in the short
+      // scroll column: cards sized by the viewport instead of the editor
+      // once stood 586px tall there.
+      for (const card of await theft
+        .getByRole('group', { name: 'Theft · Event 1 decision', exact: true })
+        .getByRole('button')
+        .all())
+        await expectReachable(page, card);
     }
     await savePrivate(
       join(artifactDirectory, `reviewer-persistent-${name}.png`),

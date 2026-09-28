@@ -60,7 +60,8 @@ export function LinkButton({
       type="button"
       variant="link"
       onClick={onClick}
-      className="h-auto justify-start p-0 text-left font-normal text-current underline decoration-current/60 hover:decoration-current"
+      // Wraps like text: the button base is nowrap, which overflows a phone.
+      className="h-auto max-w-full min-w-0 justify-start p-0 text-left font-normal [overflow-wrap:anywhere] whitespace-normal text-current underline decoration-current/60 hover:decoration-current"
     >
       {children}
     </Button>

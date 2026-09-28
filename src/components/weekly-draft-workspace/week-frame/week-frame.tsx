@@ -203,7 +203,12 @@ export function WeekFrame({
               tabIndex={-1}
               className="short:py-2 focus-visible:ring-ring/50 min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-inset md:px-5"
             >
-              <div className="mx-auto w-full max-w-6xl">{children}</div>
+              {/* A container so phase editors size their card grids by the
+                  editor's own width, which is narrower than the viewport
+                  beside the docked panel. */}
+              <div className="@container mx-auto w-full max-w-6xl">
+                {children}
+              </div>
             </main>
             <Footer {...frame} />
           </div>

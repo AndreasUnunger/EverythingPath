@@ -118,7 +118,8 @@ export function InlineAction({
       type="button"
       variant="link"
       aria-label={ariaLabel}
-      className="h-auto justify-start p-0 text-left text-sm"
+      // Wraps like text: the button base is nowrap, which overflows a phone.
+      className="h-auto max-w-full min-w-0 justify-start p-0 text-left text-sm [overflow-wrap:anywhere] whitespace-normal"
       onClick={onClick}
     >
       {children}

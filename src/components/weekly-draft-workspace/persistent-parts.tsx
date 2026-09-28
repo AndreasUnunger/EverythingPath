@@ -165,9 +165,14 @@ export function DecisionCards({
     <div
       role="group"
       aria-label={label}
+      // Columns follow the editor's width (a container: beside the docked
+      // panel it is narrower than the viewport); short viewports stack so a
+      // whole card fits the scroll column.
       className={cn(
-        'grid min-w-0 grid-cols-2 items-stretch gap-3',
-        cards.length >= 4 ? 'md:grid-cols-4' : 'md:grid-cols-3',
+        'short:grid-cols-1 grid min-w-0 grid-cols-2 items-stretch gap-3',
+        cards.length >= 4
+          ? 'not-short:@2xl:grid-cols-4'
+          : 'not-short:@xl:grid-cols-3',
       )}
     >
       {cards.map((card) => (

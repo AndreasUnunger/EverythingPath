@@ -119,7 +119,12 @@ function LegacyRemoval({
           Clear Remove choice
         </Button>
         {correctionsHref && (
-          <Button asChild variant="link">
+          // Wraps like text: the button base is nowrap, which overflows a phone.
+          <Button
+            asChild
+            variant="link"
+            className="h-auto min-h-9 max-w-full min-w-0 justify-start text-left [overflow-wrap:anywhere] whitespace-normal"
+          >
             <GuardedLink href={correctionsHref}>
               Remove the team in Militia corrections
             </GuardedLink>

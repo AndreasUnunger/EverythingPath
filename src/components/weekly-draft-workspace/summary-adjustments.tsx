@@ -214,7 +214,7 @@ export function AddAdjustment({
         role="group"
         aria-label="New Table Adjustment"
         data-adjustment-kinds
-        className="grid grid-cols-2 gap-2 md:grid-cols-4"
+        className="grid grid-cols-2 gap-2 @2xl:grid-cols-4"
       >
         {adjustmentKinds.map((kind) => {
           const isOpen = open?.kind === kind.value;

@@ -172,8 +172,9 @@ function SlotCard({
         }
         aria-pressed={occupied ? selected : undefined}
         onClick={() => board.activateSlot(slot.slotId)}
+        // Short viewports: a whole slot fits the scroll column.
         className={cn(
-          'focus-visible:ring-ring/50 flex min-h-36 w-full min-w-0 touch-manipulation flex-col gap-1.5 rounded-lg border-2 p-2.5 text-left transition-transform outline-none focus-visible:ring-[3px] motion-safe:hover:-translate-y-0.5 motion-reduce:transform-none',
+          'focus-visible:ring-ring/50 short:min-h-24 flex min-h-36 w-full min-w-0 touch-manipulation flex-col gap-1.5 rounded-lg border-2 p-2.5 text-left transition-transform outline-none focus-visible:ring-[3px] motion-safe:hover:-translate-y-0.5 motion-reduce:transform-none',
           occupied ? 'bg-card' : 'border-dashed',
           beyond ? 'border-amber-500' : 'border-foreground/25',
           selected && 'border-primary ring-primary/40 ring-2',
