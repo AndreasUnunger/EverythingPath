@@ -129,7 +129,8 @@ function CampaignSwitcher({
     >
       <SelectTrigger
         aria-label="Active campaign"
-        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none md:text-base xl:max-w-[16rem] dark:bg-transparent [&>span]:truncate"
+        title={campaign.name}
+        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none md:text-base xl:max-w-[16rem] dark:bg-transparent *:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate"
       >
         <SelectValue />
       </SelectTrigger>
@@ -314,9 +315,9 @@ function BottomBar({ sections }: { sections: SectionLink[] }) {
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'focus-visible:ring-ring/50 flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset',
+                'focus-visible:ring-ring/50 relative flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset',
                 active
-                  ? 'text-primary'
+                  ? 'bg-primary/10 text-primary before:bg-primary before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:content-[""]'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >

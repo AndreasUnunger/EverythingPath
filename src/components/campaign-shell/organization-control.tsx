@@ -105,11 +105,12 @@ export function OrganizationControl({
         <Select value={value} onValueChange={choose} disabled={busy}>
           <SelectTrigger
             aria-label="Organization"
+            title={organization?.name ?? 'Personal account'}
             className={cn(
-              'min-h-8 min-w-0 border-0 bg-transparent px-1 text-sm shadow-none dark:bg-transparent [&>span]:truncate',
+              'min-h-8 min-w-0 border-0 bg-transparent px-1 text-sm shadow-none dark:bg-transparent *:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate',
               fill
                 ? 'w-full flex-1'
-                : 'max-w-[10rem] md:max-w-[11rem] xl:max-w-[14rem]',
+                : 'max-w-[10rem] md:max-w-[8rem] xl:max-w-[14rem]',
             )}
           >
             <SelectValue placeholder="Organization" />

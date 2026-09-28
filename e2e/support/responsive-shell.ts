@@ -44,6 +44,27 @@ export async function expectNoHorizontalOverflow(page: Page) {
   }
 }
 
+/**
+ * The top bar keeps one row: every visible control shares a horizontal
+ * band. At tablet landscape (1180 and 1194px) a section page without the
+ * week's status fits one slim row (#135 §1, #198).
+ */
+export async function expectTopBarOneRow(page: Page) {
+  const boxes = await page
+    .locator('header :is(a, button, [role="combobox"]):visible')
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const { top, bottom } = element.getBoundingClientRect();
+        return { top, bottom };
+      }),
+    );
+  expect(boxes.length, 'the top bar shows controls').toBeGreaterThan(0);
+  expect(
+    Math.max(...boxes.map((box) => box.top)),
+    'the top bar keeps one row',
+  ).toBeLessThan(Math.min(...boxes.map((box) => box.bottom)));
+}
+
 // The phone bar is the visible sections navigation that carries More.
 function bottomNavigation(page: Page) {
   return page
@@ -283,6 +304,14 @@ export async function exercisePhoneShell(page: Page) {
   await expect(nav).toHaveCount(1);
   await expect(nav.getByRole('button', { name: 'More' })).toBeVisible();
   await sectionNames(nav);
+  // The active tab carries a bar along its top edge, not only a colour.
+  expect(
+    await nav.locator('[aria-current="page"]').evaluate((tab) => {
+      const bar = getComputedStyle(tab, '::before');
+      return bar.content !== 'none' && parseFloat(bar.height) > 0;
+    }),
+    'the active tab shows an indicator bar',
+  ).toBe(true);
   await expectNoHorizontalOverflow(page);
   // A short viewport always has more page than screen.
   await expectBottomBarPinned(page, height < 520);
@@ -363,10 +392,10 @@ export async function exerciseTopBarShell(page: Page) {
   await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
   await expectReachable(page, shownHeading(page));
-  await expectReachable(
-    page,
-    page.getByRole('combobox', { name: 'Active campaign' }),
-  );
+  const switcher = page.getByRole('combobox', { name: 'Active campaign' });
+  await expectReachable(page, switcher);
+  // A truncated campaign name stays readable in full.
+  await expect(switcher).toHaveAttribute('title', /\S/);
   await expectReachable(
     page,
     nav.getByRole('link', { name: 'Characters & officers', exact: true }),
