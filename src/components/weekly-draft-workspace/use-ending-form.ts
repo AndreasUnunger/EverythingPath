@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { endingFormId } from './persistent-ending-guard';
 import { localFormElementId } from './source-anchors';
 import {
   useGuardRegistration,
@@ -18,9 +19,6 @@ import {
 
 export type EndingResult = 'accepted' | 'failed' | 'reason-failed';
 type Values = { outcome: string; reason: string };
-
-/** The guard identity of one carried event's ending form. */
-export const endingFormId = (eventId: string) => `ending:${eventId}`;
 
 const outcomeSchema = z.string().trim().min(1, 'Describe how it ended.');
 const endingSchema = z.object({ outcome: outcomeSchema, reason: z.string() });
@@ -65,10 +63,13 @@ export function useEndingForm({
   saved,
   isNew,
   needsReason,
+  basis,
   guard,
   onSave,
 }: {
   eventId: string;
+  /** The saved decision this ending is typed against (endingFormBasis). */
+  basis: string;
   /** The event's name in the player's words, e.g. "Theft · Event 1". */
   subject: string;
   /** The saved outcome; empty while no ending is saved. */
@@ -93,7 +94,10 @@ export function useEndingForm({
     isNew,
     needsReason,
   });
-  useGuardRegistration(guard, formId, message, form, isRestoring, 'persistent');
+  useGuardRegistration(guard, formId, message, form, isRestoring, {
+    phase: 'persistent',
+    basis,
+  });
   const submit = form.handleSubmit(async (values) => {
     setAlert('accepted');
     const result = needsReason

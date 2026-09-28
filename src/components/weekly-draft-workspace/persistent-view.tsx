@@ -28,6 +28,7 @@ import type { LatestOverseerSupport } from './overseer-support-facts';
 import { OverseerSupportProvider } from './use-overseer-support';
 import { formatGold } from './week-frame/reference-copy';
 import { useEndingForm, type EndingResult } from './use-ending-form';
+import { endingFormBasis } from './persistent-ending-guard';
 import type { LocalFormGuard } from './use-summary-forms';
 
 // Persistent as one numbered section per carried event, in the order the
@@ -124,6 +125,7 @@ function Ending({
     saved,
     isNew,
     needsReason,
+    basis: endingFormBasis(event.decision),
     guard,
     onSave,
   });

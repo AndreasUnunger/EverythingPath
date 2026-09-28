@@ -16,7 +16,13 @@ import {
   phaseNavigation,
   confirmationDisabledReason,
 } from './phase-readiness';
-import type { Phase, PhaseView, WeeklyDraftWorkspace } from './types';
+import type {
+  LocalFormRegistration,
+  Phase,
+  PhaseView,
+  WeeklyDraftWorkspace,
+} from './types';
+import { isStaleEndingForm } from './persistent-ending-guard';
 
 type Persistence = ReturnType<typeof createDraftPersistence>;
 type PersistenceSnapshot = ReturnType<Persistence['getSnapshot']>;
@@ -62,7 +68,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   // leaving Review & confirm and coming back.
   const localForms = new Map<
     string,
-    { draftId: string; message: string; phase?: Phase }
+    { draftId: string } & LocalFormRegistration
   >();
   const localValues = new Map<string, { draftId: string; values: unknown }>();
   function getPendingWork() {
@@ -85,10 +91,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     localForms.clear();
     localValues.clear();
   }
-  function setLocalForm(
-    id: string,
-    form: { message: string; phase?: Phase } | null,
-  ) {
+  function setLocalForm(id: string, form: LocalFormRegistration | null) {
     const current = localForms.get(id);
     const draftId = source?.key.draftId;
     if (!form) localValues.delete(id);
@@ -99,25 +102,29 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       if (
         current?.draftId === draftId &&
         current.message === form.message &&
-        current.phase === form.phase
+        current.phase === form.phase &&
+        current.basis === form.basis
       )
         return;
-      localForms.set(id, {
-        draftId,
-        message: form.message,
-        ...(form.phase ? { phase: form.phase } : {}),
-      });
+      localForms.set(id, { draftId, ...form });
     }
     rebuild();
   }
   function listLocalForms(draftId: string) {
     return [...localForms]
       .filter(([, form]) => form.draftId === draftId)
-      .map(([id, form]) => ({
-        id,
-        message: form.message,
-        ...(form.phase ? { phase: form.phase } : {}),
-      }));
+      .map(([id, { draftId: _draftId, ...form }]) => ({ id, ...form }));
+  }
+  // Drops held Persistent endings whose decision no longer applies in the
+  // latest Persistent facts, with their kept input.
+  function dropStaleEndings(views: PhaseView[]) {
+    const persistent = views.find((view) => view.phase === 'persistent');
+    if (persistent?.phase !== 'persistent') return;
+    for (const [id, form] of localForms)
+      if (isStaleEndingForm(id, form.basis, persistent)) {
+        localForms.delete(id);
+        localValues.delete(id);
+      }
   }
   function publish(next: WeeklyDraftWorkspace) {
     state = next;
@@ -243,6 +250,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       preparationFailed: preparation.failed,
     });
     const { views } = readiness;
+    dropStaleEndings(views);
     const local = listLocalForms(source.key.draftId);
     // Each open or invalid local form is also a local Required decision of
     // Review; the backend readiness and accepted review are unchanged.

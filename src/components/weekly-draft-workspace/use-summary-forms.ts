@@ -10,7 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ReviewException } from '~/components/week-review/review-facts';
-import type { Phase } from './types';
+import type { LocalFormRegistration } from './types';
 import { moveAdjustmentById } from './adjustment-order';
 import { focusTargetWithin, localFormElementId } from './source-anchors';
 import {
@@ -44,7 +44,7 @@ export type Edit = (edit: WeeklyDraftEdit) => Promise<'accepted' | 'failed'>;
  * hold its raw input for the open draft without publishing anything. A form
  * outside Review & confirm names its `phase`, so Go to form shows it there.
  */
-export type LocalFormRegistration = { message: string; phase?: Phase };
+export type { LocalFormRegistration };
 export type LocalFormGuard = {
   set: (id: string, form: LocalFormRegistration | null) => void;
   keep: (id: string, values: unknown) => void;
@@ -68,18 +68,23 @@ export function useGuardRegistration<Values extends FieldValues>(
   message: string | null,
   form: UseFormReturn<Values, unknown, unknown>,
   isRestoring: boolean,
-  phase?: Phase,
+  where: Omit<LocalFormRegistration, 'message'> = {},
 ) {
+  const { phase, basis } = where;
   useEffect(() => {
     if (isRestoring || !guard) return;
     if (message === null) {
       guard.set(formId, null);
       return;
     }
-    guard.set(formId, phase ? { message, phase } : { message });
+    guard.set(formId, {
+      message,
+      ...(phase ? { phase } : {}),
+      ...(basis !== undefined ? { basis } : {}),
+    });
     // Input that was never typed is kept too, so the form comes back.
     guard.keep(formId, form.getValues());
-  }, [guard, formId, message, isRestoring, phase, form]);
+  }, [guard, formId, message, isRestoring, phase, basis, form]);
   useEffect(() => {
     if (!guard) return;
     const subscription = form.watch((values) => guard.keep(formId, values));

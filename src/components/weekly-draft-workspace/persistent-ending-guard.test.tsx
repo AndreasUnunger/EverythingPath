@@ -247,6 +247,8 @@ test('[PER-06.guard-states] choosing the ending registers it at once, a saved en
       message:
         'Theft · Event 1 ending needs how it ended and a reason. Save how it ended, or choose another decision.',
       phase: 'persistent',
+      // Typed against no saved decision.
+      basis: 'null',
     }),
   );
   // Leave it is the deliberate reset: nothing stays registered.

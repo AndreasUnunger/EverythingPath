@@ -15,6 +15,7 @@ import { AddAdjustment } from './summary-adjustments';
 import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
 import type {
+  LocalFormRegistration,
   Phase,
   PhaseView,
   SourceLink,
@@ -71,7 +72,7 @@ export function SummaryView({
   /** Shows a Required decision's source on this device only. */
   goTo?: (link: SourceLink) => void;
   /** This device's open or invalid local forms, each a Required decision. */
-  localForms?: { id: string; message: string; phase?: Phase }[];
+  localForms?: ({ id: string } & LocalFormRegistration)[];
   /** The Workspace's Confirm guard for this device's local forms. */
   localFormGuard?: LocalFormGuard;
   /** The latest ordered Table Adjustments this device knows, read at Save time. */

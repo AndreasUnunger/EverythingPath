@@ -1002,6 +1002,16 @@ export type EventView = {
 };
 // A phase and, where it can be named, the DOM id of the item within it.
 export type SourceLink = { phase: Phase; anchor: string | null };
+/**
+ * One of this device's held local forms: the Required decision's message,
+ * the phase showing the form when not Review & confirm, and what the form
+ * was typed against (a Persistent ending's saved decision).
+ */
+export type LocalFormRegistration = {
+  message: string;
+  phase?: Phase;
+  basis?: string;
+};
 // Where an Activity or Event result that ended a carried event is edited.
 export type PersistentSourceLink = SourceLink & {
   phase: 'activity' | 'event';
@@ -1202,7 +1212,7 @@ export type WeeklyDraftWorkspace =
        * This device's open or locally invalid Summary forms, each also a
        * local Required decision; while any is open, Confirm is disabled here.
        */
-      localForms: { id: string; message: string; phase?: Phase }[];
+      localForms: ({ id: string } & LocalFormRegistration)[];
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;
       viewPhase(this: void, phase: Phase): void;
       /** Review updated week: the explicit review after a rejected request. */

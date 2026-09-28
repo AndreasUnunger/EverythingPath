@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import {
   decisionEdit,
@@ -8,7 +8,7 @@ import {
   type PersistentCard,
 } from './persistent-sections';
 import type { PersistentView } from './types';
-import { endingFormId } from './use-ending-form';
+import { endingFormBasis, endingFormId } from './persistent-ending-guard';
 import type { LocalFormGuard } from './use-summary-forms';
 
 type Event = PersistentView['events'][number];
@@ -30,28 +30,27 @@ export function usePersistentChoice(
 ) {
   const formId = endingFormId(event.eventId);
   const saved: PersistentCard = event.decision?.kind ?? 'unattempted';
-  const [endingIntent, setEndingIntent] = useState(
-    () => saved !== 'end' && guard?.read(formId) !== undefined,
+  const basis = endingFormBasis(event.decision);
+  // The saved decision the ending was chosen against, or null for none.
+  const [endingIntent, setEndingIntent] = useState<string | null>(() =>
+    saved !== 'end' && guard?.read(formId) !== undefined ? basis : null,
   );
-  // An event ended in Activity or Event offers no decision here, so any
-  // ending kept for it has nothing left to save to.
-  const isEndedElsewhere = event.endedBy !== null;
-  useEffect(() => {
-    if (isEndedElsewhere) guard?.set(formId, null);
-  }, [isEndedElsewhere, guard, formId]);
-  // Once an ending is saved (here or on another device) the intent is spent.
-  if (endingIntent && saved === 'end') setEndingIntent(false);
-  const endingUnsaved = endingIntent && saved !== 'end';
+  // Once an ending is saved, or another player saves a different decision,
+  // the intent is spent (the store drops its held form the same way).
+  if (endingIntent !== null && (saved === 'end' || endingIntent !== basis))
+    setEndingIntent(null);
+  const endingUnsaved =
+    endingIntent !== null && endingIntent === basis && saved !== 'end';
   return {
     saved,
     selected: endingUnsaved ? 'end' : saved,
     endingUnsaved,
     choose: (card: PersistentCard) => {
       if (card === 'end') {
-        if (saved !== 'end') setEndingIntent(true);
+        if (saved !== 'end') setEndingIntent(basis);
         return;
       }
-      setEndingIntent(false);
+      setEndingIntent(null);
       guard?.set(formId, null);
       const next = decisionEdit(event, card);
       if (next) void edit(next);
@@ -65,7 +64,7 @@ export function usePersistentChoice(
     ): Promise<'accepted' | 'failed' | 'reason-failed'> => {
       const result = await edit(endingEdit(event, outcome));
       if (result !== 'accepted') return result;
-      setEndingIntent(false);
+      setEndingIntent(null);
       if (!reason?.trim()) return result;
       const recorded = await edit(endingExceptionEdit(event, reason));
       return recorded === 'accepted' ? recorded : 'reason-failed';
