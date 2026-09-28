@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import {
   decisionEdit,
@@ -8,6 +8,8 @@ import {
   type PersistentCard,
 } from './persistent-sections';
 import type { PersistentView } from './types';
+import { endingFormId } from './use-ending-form';
+import type { LocalFormGuard } from './use-summary-forms';
 
 type Event = PersistentView['events'][number];
 type Exception = Event['exceptions'][number];
@@ -19,9 +21,24 @@ export type PersistentEdit = (
 // writes at once through the shared store. Ended at the table is only local
 // intent until a nonempty outcome is saved: the saved decision keeps
 // applying meanwhile, and a failed save keeps the form open to retry.
-export function usePersistentChoice(event: Event, edit: PersistentEdit) {
-  const [endingIntent, setEndingIntent] = useState(false);
+// An ending kept by this device's Confirm guard (typed, then Persistent was
+// left) comes back as the chosen card; another card abandons it.
+export function usePersistentChoice(
+  event: Event,
+  edit: PersistentEdit,
+  guard?: LocalFormGuard,
+) {
+  const formId = endingFormId(event.eventId);
   const saved: PersistentCard = event.decision?.kind ?? 'unattempted';
+  const [endingIntent, setEndingIntent] = useState(
+    () => saved !== 'end' && guard?.read(formId) !== undefined,
+  );
+  // An event ended in Activity or Event offers no decision here, so any
+  // ending kept for it has nothing left to save to.
+  const isEndedElsewhere = event.endedBy !== null;
+  useEffect(() => {
+    if (isEndedElsewhere) guard?.set(formId, null);
+  }, [isEndedElsewhere, guard, formId]);
   // Once an ending is saved (here or on another device) the intent is spent.
   if (endingIntent && saved === 'end') setEndingIntent(false);
   const endingUnsaved = endingIntent && saved !== 'end';
@@ -35,6 +52,7 @@ export function usePersistentChoice(event: Event, edit: PersistentEdit) {
         return;
       }
       setEndingIntent(false);
+      guard?.set(formId, null);
       const next = decisionEdit(event, card);
       if (next) void edit(next);
     },

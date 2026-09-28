@@ -16,6 +16,7 @@ import {
 } from '~/components/ui/form';
 import { cn } from '~/lib/utils';
 import type { PersistentCard } from './persistent-sections';
+import type { EndingResult, useEndingForm } from './use-ending-form';
 import type { PersistentView } from './types';
 import { phaseLabels } from './week-frame/labels';
 import { formatGold } from './week-frame/reference-copy';
@@ -28,7 +29,9 @@ import { formatGold } from './week-frame/reference-copy';
 type Event = PersistentView['events'][number];
 type Exception = Event['exceptions'][number];
 type SaveResult = 'accepted' | 'failed';
-type EndingResult = SaveResult | 'reason-failed';
+type EndingFormState = ReturnType<typeof useEndingForm> & {
+  needsReason: boolean;
+};
 
 export function Overview({ view }: { view: PersistentView }) {
   const items = [
@@ -228,13 +231,7 @@ function DecisionCard({
   );
 }
 
-const outcomeSchema = z.string().trim().min(1, 'Describe how it ended.');
 const reasonText = z.string().trim().min(1, 'A reason is required.');
-const endingSchema = z.object({ outcome: outcomeSchema, reason: z.string() });
-const reasonedEndingSchema = z.object({
-  outcome: outcomeSchema,
-  reason: reasonText,
-});
 const endingAlerts: Record<Exclude<EndingResult, 'accepted'>, string> = {
   failed: 'This ending wasn’t saved. Try again.',
   'reason-failed':
@@ -242,38 +239,28 @@ const endingAlerts: Record<Exclude<EndingResult, 'accepted'>, string> = {
 };
 
 // How an event ended at the table. The saved outcome prefills the field;
-// typed text survives re-renders and a failed save keeps it for a retry.
-// An unsaved ending that still lacks its Rules Exception reason asks for
-// both at once; a saved ending's reason lives in the exception block below.
+// typed text survives re-renders, leaving Persistent (the form hook keeps
+// it with the Confirm guard) and a failed save. An unsaved ending that
+// still lacks its Rules Exception reason asks for both at once; a saved
+// ending's reason lives in the exception block below.
 export function EndingForm({
-  saved,
   notice,
-  needsReason,
   disabled,
-  onSave,
+  ending,
 }: {
-  saved: string;
   notice: string | null;
-  needsReason: boolean;
   disabled: boolean;
-  onSave: (outcome: string, reason?: string) => Promise<EndingResult>;
+  ending: EndingFormState;
 }) {
-  const [alert, setAlert] = useState<EndingResult>('accepted');
-  const form = useForm({
-    values: { outcome: saved, reason: '' },
-    resolver: zodResolver(needsReason ? reasonedEndingSchema : endingSchema),
-  });
-  const saving = form.formState.isSubmitting;
-  const submit = form.handleSubmit(async (values) => {
-    setAlert('accepted');
-    const result = needsReason
-      ? await onSave(values.outcome, values.reason)
-      : await onSave(values.outcome);
-    setAlert(result);
-  });
+  const { form, submit, alert, isSaving, needsReason } = ending;
   return (
     <Form {...form}>
-      <form noValidate onSubmit={submit} className="space-y-2">
+      <form
+        id={ending.elementId}
+        noValidate
+        onSubmit={submit}
+        className="space-y-2"
+      >
         {notice && (
           <p role="status" className="text-sm text-amber-300">
             {notice}
@@ -314,9 +301,9 @@ export function EndingForm({
           <Button
             type="submit"
             aria-label="Save how it ended"
-            disabled={disabled || saving}
+            disabled={disabled || isSaving}
           >
-            {saving ? 'Saving…' : 'Save how it ended'}
+            {isSaving ? 'Saving…' : 'Save how it ended'}
           </Button>
           {alert !== 'accepted' && (
             <p role="alert" className="text-destructive text-sm">

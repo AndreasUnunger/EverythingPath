@@ -56,7 +56,10 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   // never saved and belong to the draft that was open when they registered.
   // Their raw input is kept beside them (without publishing) so it survives
   // leaving Review & confirm and coming back.
-  const localForms = new Map<string, { draftId: string; message: string }>();
+  const localForms = new Map<
+    string,
+    { draftId: string; message: string; phase?: Phase }
+  >();
   const localValues = new Map<string, { draftId: string; values: unknown }>();
   function getPendingWork() {
     return operations.size > 0;
@@ -78,7 +81,10 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     localForms.clear();
     localValues.clear();
   }
-  function setLocalForm(id: string, form: { message: string } | null) {
+  function setLocalForm(
+    id: string,
+    form: { message: string; phase?: Phase } | null,
+  ) {
     const current = localForms.get(id);
     const draftId = source?.key.draftId;
     if (!form) localValues.delete(id);
@@ -86,16 +92,28 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       if (!current) return;
       localForms.delete(id);
     } else {
-      if (current?.draftId === draftId && current.message === form.message)
+      if (
+        current?.draftId === draftId &&
+        current.message === form.message &&
+        current.phase === form.phase
+      )
         return;
-      localForms.set(id, { draftId, message: form.message });
+      localForms.set(id, {
+        draftId,
+        message: form.message,
+        ...(form.phase ? { phase: form.phase } : {}),
+      });
     }
     rebuild();
   }
   function listLocalForms(draftId: string) {
     return [...localForms]
       .filter(([, form]) => form.draftId === draftId)
-      .map(([id, form]) => ({ id, message: form.message }));
+      .map(([id, form]) => ({
+        id,
+        message: form.message,
+        ...(form.phase ? { phase: form.phase } : {}),
+      }));
   }
   function publish(next: WeeklyDraftWorkspace) {
     state = next;

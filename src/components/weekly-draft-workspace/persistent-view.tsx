@@ -27,6 +27,8 @@ import { phaseLabels } from './week-frame/labels';
 import type { LatestOverseerSupport } from './overseer-support-facts';
 import { OverseerSupportProvider } from './use-overseer-support';
 import { formatGold } from './week-frame/reference-copy';
+import { useEndingForm, type EndingResult } from './use-ending-form';
+import type { LocalFormGuard } from './use-summary-forms';
 
 // Persistent as one numbered section per carried event, in the order the
 // rules resolve them. Each section reads its facts from the view and sends
@@ -40,6 +42,8 @@ type Props = {
   openSource?: (link: PersistentSourceLink) => void;
   // The newest Overseer support facts, read between the edits of a move.
   latestOverseer?: LatestOverseerSupport;
+  // This device's Confirm guard, which keeps an unsaved table ending.
+  localFormGuard?: LocalFormGuard;
 };
 type Event = Facts['events'][number];
 
@@ -49,6 +53,7 @@ export function PersistentView({
   disabled,
   openSource,
   latestOverseer,
+  localFormGuard,
 }: Props) {
   // Check fields build their edits from the newest decision, so one never
   // replays a decision captured before a support move or a peer's edit.
@@ -85,10 +90,49 @@ export function PersistentView({
             disabled={disabled}
             openSource={openSource}
             latest={latest}
+            guard={localFormGuard}
           />
         ))}
       </section>
     </OverseerSupportProvider>
+  );
+}
+
+// The Ended at the table form, mounted only while that card is chosen.
+function Ending({
+  event,
+  saved,
+  notice,
+  isNew,
+  needsReason,
+  disabled,
+  guard,
+  onSave,
+}: {
+  event: Event;
+  saved: string;
+  notice: string | null;
+  isNew: boolean;
+  needsReason: boolean;
+  disabled: boolean;
+  guard?: LocalFormGuard;
+  onSave: (outcome: string, reason?: string) => Promise<EndingResult>;
+}) {
+  const ending = useEndingForm({
+    eventId: event.eventId,
+    subject: event.name,
+    saved,
+    isNew,
+    needsReason,
+    guard,
+    onSave,
+  });
+  return (
+    <EndingForm
+      notice={notice}
+      disabled={disabled}
+      ending={{ ...ending, needsReason }}
+    />
   );
 }
 
@@ -107,12 +151,14 @@ function PersistentEvent({
   disabled,
   openSource,
   latest,
-}: Omit<Props, 'latestOverseer'> & {
+  guard,
+}: Omit<Props, 'latestOverseer' | 'localFormGuard'> & {
   number: number;
   event: Event;
   latest?: LatestPersistentDecision;
+  guard?: LocalFormGuard;
 }) {
-  const choice = usePersistentChoice(event, edit);
+  const choice = usePersistentChoice(event, edit, guard);
   const check = usePersistentCheck(event, edit, latest);
   const decision = event.decision;
   const cost = view.buyoffCostCopper;
@@ -208,8 +254,9 @@ function PersistentEvent({
               />
             )}
             {choice.selected === 'end' && (
-              <EndingForm
+              <Ending
                 key={event.eventId}
+                event={event}
                 saved={
                   decision?.kind === 'end'
                     ? decision.acknowledgement.outcome
@@ -220,8 +267,10 @@ function PersistentEvent({
                     ? `Not saved yet. ${savedLabel(choice.saved, event)} still applies until you save how it ended.`
                     : null
                 }
+                isNew={choice.endingUnsaved}
                 needsReason={choice.endingUnsaved && endingNeedsReason(event)}
                 disabled={disabled}
+                guard={guard}
                 onSave={choice.saveEnding}
               />
             )}
