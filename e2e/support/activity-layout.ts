@@ -12,7 +12,6 @@ import {
   expectBoundedWeekHost,
   expectControlsReachable,
   expectNoHorizontalOverflow,
-  expectReachable,
   settleAnimations,
 } from './responsive-shell';
 import type { controlTransport } from './transport';
