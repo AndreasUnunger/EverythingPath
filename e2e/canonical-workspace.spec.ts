@@ -41,7 +41,10 @@ import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { exerciseTeamConditionRows } from './support/team-conditions';
-import { reviewUpkeepChoiceLayout } from './support/upkeep-layout';
+import {
+  panAndTapSettlementCards,
+  reviewUpkeepChoiceLayout,
+} from './support/upkeep-layout';
 import {
   confirmWithOpenPicker,
   followAllowanceCorrections,
@@ -564,6 +567,8 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
     ).toBeVisible();
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
+    // Only a mouse drags: a finger on a card scrolls, and a tap chooses.
+    await panAndTapSettlementCards(gm, player, 'Phaendar', 'Misthome');
     await exerciseTeamConditionRows(gm, player, run, notorietyScope);
     await exerciseRankBoon(gm, player);
   } finally {

@@ -128,3 +128,90 @@ export async function reviewUpkeepChoiceLayout(
   ).toBeVisible();
   await reviewControls(page, 'rank', [feats], run.artifactDirectory);
 }
+
+// The scrolling ancestor of a card: the page's own scroller when no inner
+// column scrolls.
+function scrollerOf(card: Locator) {
+  return card.evaluate((element) => {
+    for (let node = element.parentElement; node; node = node.parentElement)
+      if (
+        ['auto', 'scroll'].includes(getComputedStyle(node).overflowY) &&
+        node.scrollHeight > node.clientHeight + 1
+      )
+        return { found: true, scrollTop: node.scrollTop };
+    return {
+      found: false,
+      scrollTop: (document.scrollingElement ?? document.documentElement)
+        .scrollTop,
+    };
+  });
+}
+
+/**
+ * Touch at the tablet size (touch is enabled in this project): a finger pan
+ * that starts on a nearest-settlement card scrolls the week instead of
+ * dragging the card, and changes no selection on either device; a tap then
+ * chooses a card and a tap on the previous card restores it. Starts with
+ * `selected` chosen and `other` not.
+ */
+export async function panAndTapSettlementCards(
+  gm: Page,
+  player: Page,
+  selected: string,
+  other: string,
+) {
+  const card = (page: Page, name: string) =>
+    page
+      .getByRole('group', { name: 'Nearest settlement', exact: true })
+      .getByRole('button', { name, exact: true });
+  const pressed = async (name: string, value: 'true' | 'false') => {
+    for (const page of [gm, player])
+      await expect(card(page, name)).toHaveAttribute('aria-pressed', value);
+  };
+  await pressed(selected, 'true');
+  await pressed(other, 'false');
+  const start = await card(gm, other).boundingBox();
+  expect(start, 'a card under the pan').not.toBeNull();
+  const before = await scrollerOf(card(gm, other));
+  const x = Math.round(start!.x + start!.width / 2);
+  const y = Math.round(start!.y + start!.height / 2);
+  // With room above, the finger moves down and the week scrolls back up;
+  // otherwise it moves up and the week scrolls on.
+  const distance = before.scrollTop > 160 ? 160 : -160;
+  // A finger's own touch events: headless Chromium's synthesized touch
+  // scroll gesture sends only touchstart and touchend.
+  const cdp = await gm.context().newCDPSession(gm);
+  try {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x, y }],
+    });
+    for (let step = 1; step <= 20; step++)
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y: Math.round(y + (distance * step) / 20) }],
+      });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+  } finally {
+    await cdp.detach();
+  }
+  await expect
+    .poll(
+      async () => (await scrollerOf(card(gm, other))).scrollTop,
+      'the pan scrolled the week',
+    )
+    .not.toBe(before.scrollTop);
+  await expect(card(gm, other)).not.toHaveAttribute('style', /translate/);
+  await pressed(selected, 'true');
+  await pressed(other, 'false');
+
+  await card(gm, other).tap();
+  await pressed(other, 'true');
+  await pressed(selected, 'false');
+  await card(gm, selected).tap();
+  await pressed(selected, 'true');
+  await pressed(other, 'false');
+}
