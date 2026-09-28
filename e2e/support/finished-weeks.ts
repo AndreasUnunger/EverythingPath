@@ -45,31 +45,47 @@ export async function reviewFinishedWeeks(
     page.getByRole('button', { name: 'Previous week', exact: true }),
   ).toBeDisabled();
 
-  // Seven entries, five per page, newest first; opened from the keyboard.
+  // Seven entries, five per page, newest first, all reached with Tab. The
+  // tab order runs from the index rows into the record header (the disabled
+  // Previous week is skipped) and on through the open entries. Navigation
+  // may move focus, so the walk starts from week 1's row again.
   const toggle = page.getByRole('button', { name: '7 entries', exact: true });
+  const next = page.getByRole('link', { name: 'Next week', exact: true });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await toggle.focus();
+  await row(1).focus();
+  await page.keyboard.press('Tab');
+  await expect(row(3)).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(toggle).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggle).toBeFocused();
   const entries = page.getByRole('list', { name: 'Entries for week 1' });
   const entry = (ordinal: number) =>
     entries.getByRole('button', { name: new RegExp(`^Entry ${ordinal}\\b`) });
   await expect(entries.getByRole('listitem')).toHaveCount(5);
   await expect(entry(7)).toHaveAttribute('aria-current', 'true');
   await expect(entry(7)).toContainText('effective');
-  await expect(entry(3)).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(next).toBeFocused();
+  for (const ordinal of [7, 6, 5, 4, 3]) {
+    await page.keyboard.press('Tab');
+    await expect(entry(ordinal)).toBeFocused();
+  }
   const earlier = page.getByRole('button', {
     name: 'Earlier entries',
     exact: true,
   });
-  await earlier.focus();
+  await page.keyboard.press('Tab');
+  await expect(earlier).toBeFocused();
   await page.keyboard.press('Enter');
   await expect.poll(() => selection('beforeSequence')).not.toBeNull();
   await expect(entries.getByRole('listitem')).toHaveCount(2);
   await expect(earlier).toHaveCount(0);
 
-  // The original confirmation, chosen from the keyboard, is shown as an
-  // earlier entry; the selection is in the address and survives reload.
+  // The original confirmation, chosen from the keyboard (paging replaced
+  // the focused control), is shown as an earlier entry; the selection is in
+  // the address and survives reload.
   await entry(1).focus();
   await page.keyboard.press('Enter');
   await expect.poll(() => selection('recordId')).toBe(originalRecordId);
