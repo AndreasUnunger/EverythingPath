@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { Button } from '~/components/ui/button';
@@ -10,6 +11,17 @@ import { cn } from '~/lib/utils';
 import type { SetupNotice } from './use-setup-session';
 
 // The states the guided Setup page shows around, or instead of, the form.
+
+// The page's outer frame, shared with the section's route fallback so the
+// skeleton and the form sit in the same box.
+export function SetupPageFrame({ children }: { children: ReactNode }) {
+  return (
+    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6 xl:max-w-7xl">
+      <h1 className="text-2xl font-bold">Set up militia</h1>
+      {children}
+    </main>
+  );
+}
 
 // Stands in for SetupModeChoice: its label and the two choice buttons.
 function ModeChoiceSkeleton() {

@@ -1,4 +1,5 @@
 import {
+  exerciseImmediateSectionNavigation,
   exerciseSectionNavigation,
   openWeekFromList,
 } from './support/shell-navigation';
@@ -16,6 +17,8 @@ test('members move between campaign sections at every width and through browser 
 }, info) => {
   await test.step('the player opens the week from the campaign list', () =>
     openWeekFromList(players.player));
+  await test.step("a section link shows the section's skeleton before its page arrives", () =>
+    exerciseImmediateSectionNavigation(players.player));
   await test.step('the player moves between sections at every width and through browser history', () =>
     exerciseSectionNavigation(players.player));
   // Section navigation ends on the Militia page (#139): an open correction
