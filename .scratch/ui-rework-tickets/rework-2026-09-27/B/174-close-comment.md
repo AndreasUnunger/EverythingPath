@@ -1,0 +1,3 @@
+Merged into [T25 / #173: Resume unfinished Setup, add characters inline and start safely when another player finishes first](https://github.com/AndreasUnunger/EverythingPath/issues/173) under the [parallel-work and right-sizing amendment]({{AMENDMENT_URL}}).
+
+Browser resume and the start/race state machine are one lifecycle: an authoritatively started militia retires the unfinished envelope and wins over a stale one. #173 now carries all of this ticket's acceptance criteria and its `SETUP-19`, `SETUP-20`, `SETUP-21`, `SETUP-22`, `SETUP-23`, `SETUP-27`, `NAV-13` and `NAV-14` coverage. Closing as not planned; track the work on #173.

@@ -1,0 +1,544 @@
+{
+  "status": "published-verified",
+  "tickets": {
+    "1": {
+      "title": "Open campaign-scoped sections without losing existing editors",
+      "parent": 135,
+      "dependencies": [],
+      "creation_started": true,
+      "number": 149,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/149",
+      "id": 5595005487,
+      "attached": true,
+      "published": true
+    },
+    "2": {
+      "title": "Use the campaign shell on phone and desktop",
+      "parent": 135,
+      "dependencies": [
+        149
+      ],
+      "creation_started": true,
+      "number": 150,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/150",
+      "id": 5595005852,
+      "attached": true,
+      "published": true
+    },
+    "3": {
+      "title": "Navigate the week using shared Phase Readiness",
+      "parent": 137,
+      "dependencies": [
+        135
+      ],
+      "creation_started": true,
+      "number": 151,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/151",
+      "id": 5595006436,
+      "attached": true,
+      "published": true
+    },
+    "4": {
+      "title": "Consult the week reference panel and setup notes",
+      "parent": 137,
+      "dependencies": [
+        151
+      ],
+      "creation_started": true,
+      "number": 152,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/152",
+      "id": 5595007033,
+      "attached": true,
+      "published": true
+    },
+    "5": {
+      "title": "Preserve shared-save feedback and the next-week handoff",
+      "parent": 137,
+      "dependencies": [
+        152
+      ],
+      "creation_started": true,
+      "number": 153,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/153",
+      "id": 5595007564,
+      "attached": true,
+      "published": true
+    },
+    "6": {
+      "title": "Accept legacy dice arrays and dice totals throughout the week",
+      "parent": 140,
+      "dependencies": [
+        137
+      ],
+      "creation_started": true,
+      "number": 154,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/154",
+      "id": 5595008126,
+      "attached": true,
+      "published": true
+    },
+    "7": {
+      "title": "Enter dice totals in every existing weekly roll control",
+      "parent": 140,
+      "dependencies": [
+        154
+      ],
+      "creation_started": true,
+      "number": 155,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/155",
+      "id": 5595008658,
+      "attached": true,
+      "published": true
+    },
+    "8": {
+      "title": "Resolve team conditions and ordered Upkeep checks",
+      "parent": 140,
+      "dependencies": [
+        155
+      ],
+      "creation_started": true,
+      "number": 156,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/156",
+      "id": 5595009180,
+      "attached": true,
+      "published": true
+    },
+    "9": {
+      "title": "Choose and acknowledge every rank boon",
+      "parent": 140,
+      "dependencies": [
+        156
+      ],
+      "creation_started": true,
+      "number": 157,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/157",
+      "id": 5595009670,
+      "attached": true,
+      "published": true
+    },
+    "10": {
+      "title": "Stage characterless treasury transfers",
+      "parent": 140,
+      "dependencies": [
+        156
+      ],
+      "creation_started": true,
+      "number": 158,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/158",
+      "id": 5595010230,
+      "attached": true,
+      "published": true
+    },
+    "11": {
+      "title": "Choose, move and remove shared Action Slots",
+      "parent": 142,
+      "dependencies": [
+        140
+      ],
+      "creation_started": true,
+      "number": 159,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/159",
+      "id": 5595010858,
+      "attached": true,
+      "published": true
+    },
+    "12": {
+      "title": "Choose teams and allocate Activity check bonuses",
+      "parent": 142,
+      "dependencies": [
+        159
+      ],
+      "creation_started": true,
+      "number": 160,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/160",
+      "id": 5595011374,
+      "attached": true,
+      "published": true
+    },
+    "13": {
+      "title": "Complete people, team and mission action details",
+      "parent": 142,
+      "dependencies": [
+        160
+      ],
+      "creation_started": true,
+      "number": 161,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/161",
+      "id": 5595011895,
+      "attached": true,
+      "published": true
+    },
+    "14": {
+      "title": "Complete market, cache and Special Order details",
+      "parent": 142,
+      "dependencies": [
+        160
+      ],
+      "creation_started": true,
+      "number": 162,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/162",
+      "id": 5595012404,
+      "attached": true,
+      "published": true
+    },
+    "15": {
+      "title": "Prepare Event occurrences and candidate branches safely",
+      "parent": 143,
+      "dependencies": [
+        142
+      ],
+      "creation_started": true,
+      "number": 163,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/163",
+      "id": 5595012929,
+      "attached": true,
+      "published": true
+    },
+    "16": {
+      "title": "Resolve team, person and persistent-producing events",
+      "parent": 143,
+      "dependencies": [
+        163
+      ],
+      "creation_started": true,
+      "number": 164,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/164",
+      "id": 5595013424,
+      "attached": true,
+      "published": true
+    },
+    "17": {
+      "title": "Resolve economy, settlement and narrative event outcomes",
+      "parent": 143,
+      "dependencies": [
+        163
+      ],
+      "creation_started": true,
+      "number": 165,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/165",
+      "id": 5595013898,
+      "attached": true,
+      "published": true
+    },
+    "18": {
+      "title": "React with Sabotage and share Overseer support",
+      "parent": 143,
+      "dependencies": [
+        164
+      ],
+      "creation_started": true,
+      "number": 166,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/166",
+      "id": 5595014418,
+      "attached": true,
+      "published": true
+    },
+    "19": {
+      "title": "Choose carried-event endings and rules-priced buyoffs",
+      "parent": 144,
+      "dependencies": [
+        143
+      ],
+      "creation_started": true,
+      "number": 167,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/167",
+      "id": 5595014973,
+      "attached": true,
+      "published": true
+    },
+    "20": {
+      "title": "Resolve Theft and Rivalry checks with shared support",
+      "parent": 144,
+      "dependencies": [
+        167
+      ],
+      "creation_started": true,
+      "number": 168,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/168",
+      "id": 5595015623,
+      "attached": true,
+      "published": true
+    },
+    "21": {
+      "title": "Review ordered consequences and complete result comparisons",
+      "parent": 145,
+      "dependencies": [
+        144
+      ],
+      "creation_started": true,
+      "number": 169,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/169",
+      "id": 5595016159,
+      "attached": true,
+      "published": true
+    },
+    "22": {
+      "title": "Edit ordered Table Adjustments and exception reasons",
+      "parent": 145,
+      "dependencies": [
+        169
+      ],
+      "creation_started": true,
+      "number": 170,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/170",
+      "id": 5595016700,
+      "attached": true,
+      "published": true
+    },
+    "23": {
+      "title": "Confirm exactly the saved and reviewed week",
+      "parent": 145,
+      "dependencies": [
+        170
+      ],
+      "creation_started": true,
+      "number": 171,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/171",
+      "id": 5595017301,
+      "attached": true,
+      "published": true
+    },
+    "24": {
+      "title": "Set up a militia through nine complete guided steps",
+      "parent": 138,
+      "dependencies": [
+        145
+      ],
+      "creation_started": true,
+      "number": 172,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/172",
+      "id": 5595017803,
+      "attached": true,
+      "published": true
+    },
+    "25": {
+      "title": "Resume unfinished Setup and add characters inline",
+      "parent": 138,
+      "dependencies": [
+        172
+      ],
+      "creation_started": true,
+      "number": 173,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/173",
+      "id": 5595018295,
+      "attached": true,
+      "published": true
+    },
+    "26": {
+      "title": "Start Setup safely when another player finishes first",
+      "parent": 138,
+      "dependencies": [
+        173
+      ],
+      "creation_started": true,
+      "number": 174,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/174",
+      "id": 5595018750,
+      "attached": true,
+      "published": true
+    },
+    "27": {
+      "title": "Correct militia Values safely and inspect carried state",
+      "parent": 139,
+      "dependencies": [
+        138
+      ],
+      "creation_started": true,
+      "number": 175,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/175",
+      "id": 5595019260,
+      "attached": true,
+      "published": true
+    },
+    "28": {
+      "title": "Correct teams and settlements with reference restoration",
+      "parent": 139,
+      "dependencies": [
+        175
+      ],
+      "creation_started": true,
+      "number": 176,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/176",
+      "id": 5595019765,
+      "attached": true,
+      "published": true
+    },
+    "29": {
+      "title": "Correct assets and restore item/cache references",
+      "parent": 139,
+      "dependencies": [
+        176
+      ],
+      "creation_started": true,
+      "number": 177,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/177",
+      "id": 5595020215,
+      "attached": true,
+      "published": true
+    },
+    "30": {
+      "title": "Correct character conditions and carried benefits",
+      "parent": 139,
+      "dependencies": [
+        175
+      ],
+      "creation_started": true,
+      "number": 178,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/178",
+      "id": 5595020782,
+      "attached": true,
+      "published": true
+    },
+    "31": {
+      "title": "Expand character-kind compatibility without changing live rules",
+      "parent": 141,
+      "dependencies": [
+        139
+      ],
+      "creation_started": true,
+      "number": 179,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/179",
+      "id": 5595021278,
+      "attached": true,
+      "published": true
+    },
+    "32": {
+      "title": "Apply record-owned kind and shared officer mechanics everywhere",
+      "parent": 141,
+      "dependencies": [
+        179
+      ],
+      "creation_started": true,
+      "number": 180,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/180",
+      "id": 5595021734,
+      "attached": true,
+      "published": true
+    },
+    "33": {
+      "title": "Migrate live character rows and roster mirrors resumably",
+      "parent": 141,
+      "dependencies": [
+        180
+      ],
+      "creation_started": true,
+      "number": 181,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/181",
+      "id": 5595022241,
+      "attached": true,
+      "published": true
+    },
+    "34": {
+      "title": "Browse officer effects and edit complete character records",
+      "parent": 141,
+      "dependencies": [
+        180
+      ],
+      "creation_started": true,
+      "number": 182,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/182",
+      "id": 5595022725,
+      "attached": true,
+      "published": true
+    },
+    "35": {
+      "title": "Correct roster and officer assignments with safe cascades",
+      "parent": 141,
+      "dependencies": [
+        182
+      ],
+      "creation_started": true,
+      "number": 183,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/183",
+      "id": 5595023259,
+      "attached": true,
+      "published": true
+    },
+    "36": {
+      "title": "Browse distinct finished weeks with bounded record metadata",
+      "parent": 146,
+      "dependencies": [
+        141
+      ],
+      "creation_started": true,
+      "number": 184,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/184",
+      "id": 5595023786,
+      "attached": true,
+      "published": true
+    },
+    "37": {
+      "title": "Read finished-week consequences only from the selected record",
+      "parent": 146,
+      "dependencies": [
+        141
+      ],
+      "creation_started": true,
+      "number": 185,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/185",
+      "id": 5595024264,
+      "attached": true,
+      "published": true
+    },
+    "38": {
+      "title": "Inspect dated audit entries without changing selected history",
+      "parent": 146,
+      "dependencies": [
+        184,
+        185
+      ],
+      "creation_started": true,
+      "number": 186,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/186",
+      "id": 5595024834,
+      "attached": true,
+      "published": true
+    },
+    "39": {
+      "title": "Select and create campaigns in the home pane",
+      "parent": 147,
+      "dependencies": [
+        146
+      ],
+      "creation_started": true,
+      "number": 187,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/187",
+      "id": 5595025471,
+      "attached": true,
+      "published": true
+    },
+    "40": {
+      "title": "Edit campaign description and fantasy date truthfully",
+      "parent": 147,
+      "dependencies": [
+        187
+      ],
+      "creation_started": true,
+      "number": 188,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/188",
+      "id": 5595025999,
+      "attached": true,
+      "published": true
+    },
+    "41": {
+      "title": "Continue the week from current militia facts and recent history",
+      "parent": 147,
+      "dependencies": [
+        187
+      ],
+      "creation_started": true,
+      "number": 189,
+      "url": "https://github.com/AndreasUnunger/EverythingPath/issues/189",
+      "id": 5595026501,
+      "attached": true,
+      "published": true
+    }
+  },
+  "verification": {
+    "issues": 41,
+    "native_subissues": 41,
+    "native_blocking_edges": 41,
+    "unchanged_parent_bodies_and_states": 13,
+    "owned_capability_ids": 182
+  }
+}

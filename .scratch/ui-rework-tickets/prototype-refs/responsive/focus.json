@@ -1,0 +1,82 @@
+{
+  "138": {
+    "prototype": "responsive-pages",
+    "focus": "Open `/prototype/responsive-pages?variant=C&page=setup` (or state panel: setup). Phone: New/Existing above nine accordion rows with Starting point open and Next inside the row; desktop: centred two panes with wider step index. Default state panel (status ready). Full-page screenshots: the prototype renders inside a fixed overflow container, so for capture that container was made static and the yellow state panel and variant switcher were hidden; nothing else was changed.",
+    "screenshots": [
+      "setup-pages-phone.png",
+      "setup-pages-desktop.png"
+    ]
+  },
+  "139": {
+    "prototype": "responsive-pages",
+    "focus": "Open `/prototype/responsive-pages?variant=C&page=militia` (state panel: militia). Phone: section rows with counts/warning icon, Values open with Correct values, Week & carried effects under 'Changes through the week'; desktop: index with preview lines. Click Correct values to see the in-row editor and reason bar. Default state panel (status ready). Full-page screenshots: the prototype renders inside a fixed overflow container, so for capture that container was made static and the yellow state panel and variant switcher were hidden; nothing else was changed.",
+    "screenshots": [
+      "militia-pages-phone.png",
+      "militia-pages-desktop.png"
+    ]
+  },
+  "140": {
+    "prototype": "responsive-shell",
+    "focus": "Open `/prototype/responsive-shell/screen?variant=B&phase=upkeep`. Phone: Step 1 of 5 button + progress line, numbered sections, status strip and bottom tabs; desktop: rail, scrolling middle column with footer, docked panel. Default STATE knobs (all off). Viewport screenshots: variant B's week screen never scrolls the page (the phase body scrolls inside its own column), so the image is exactly one 390x844 / 1440x900 screen; the yellow STATE toggle top-right is prototype chrome and on phone covers the header's save/remote icons.",
+    "screenshots": [
+      "upkeep-shell-phone.png",
+      "upkeep-shell-desktop.png"
+    ]
+  },
+  "141": {
+    "prototype": "responsive-pages",
+    "focus": "Open `/prototype/responsive-pages?variant=C&page=characters` (state panel: characters). Phone: role cards two across, character cards with kind/HD/roster/role chips/teams; desktop: centred 3x2 board over the table. Click Assign on a role card (in Correct officers) for the inline phone picker / desktop floating panel. Default state panel (status ready). Full-page screenshots: the prototype renders inside a fixed overflow container, so for capture that container was made static and the yellow state panel and variant switcher were hidden; nothing else was changed.",
+    "screenshots": [
+      "characters-pages-phone.png",
+      "characters-pages-desktop.png"
+    ]
+  },
+  "142": {
+    "prototype": "responsive-shell",
+    "focus": "Open `/prototype/responsive-shell/screen?variant=B&phase=activity`. Phone: 2-column slot grid, Operating from under the allowance; desktop: slot row plus Earn Gold details in the middle column. Default STATE knobs (all off). Viewport screenshots: variant B's week screen never scrolls the page (the phase body scrolls inside its own column), so the image is exactly one 390x844 / 1440x900 screen; the yellow STATE toggle top-right is prototype chrome and on phone covers the header's save/remote icons.",
+    "screenshots": [
+      "activity-shell-phone.png",
+      "activity-shell-desktop.png"
+    ]
+  },
+  "143": {
+    "prototype": "responsive-shell",
+    "focus": "Open `/prototype/responsive-shell/screen?variant=B&phase=event`. Chance roll, then Roll Twice with nested Event 2 and its target candidates (stacked on phone). Default STATE knobs (all off). Viewport screenshots: variant B's week screen never scrolls the page (the phase body scrolls inside its own column), so the image is exactly one 390x844 / 1440x900 screen; the yellow STATE toggle top-right is prototype chrome and on phone covers the header's save/remote icons.",
+    "screenshots": [
+      "event-shell-phone.png",
+      "event-shell-desktop.png"
+    ]
+  },
+  "144": {
+    "prototype": "responsive-shell",
+    "focus": "Open `/prototype/responsive-shell/screen?variant=B&phase=persistent`. Phone: four choice cards 2x2; desktop: cards in one row. Tick 'no carried events (Persistent locked)' in STATE to see the disabled step (not captured). Default STATE knobs (all off). Viewport screenshots: variant B's week screen never scrolls the page (the phase body scrolls inside its own column), so the image is exactly one 390x844 / 1440x900 screen; the yellow STATE toggle top-right is prototype chrome and on phone covers the header's save/remote icons.",
+    "screenshots": [
+      "persistent-shell-phone.png",
+      "persistent-shell-desktop.png"
+    ]
+  },
+  "145": {
+    "prototype": "responsive-shell",
+    "focus": "Open `/prototype/responsive-shell/screen?variant=B&phase=summary`. Review block with warnings and disabled Confirm, then ordered phase sections; phone status strip keeps values; desktop footer shows only the disabled reason. Note the step caption shown here is a deviation (see deviations-responsive.md). Default STATE knobs (all off). Viewport screenshots: variant B's week screen never scrolls the page (the phase body scrolls inside its own column), so the image is exactly one 390x844 / 1440x900 screen; the yellow STATE toggle top-right is prototype chrome and on phone covers the header's save/remote icons.",
+    "screenshots": [
+      "summary-shell-phone.png",
+      "summary-shell-desktop.png"
+    ]
+  },
+  "146": {
+    "prototype": "responsive-pages",
+    "focus": "Open `/prototype/responsive-pages?variant=C&page=history` (state panel: history). Phone: oldest-first week rows with Week 14 open (provenance, entries toggle, six sections); desktop: preview-line index plus record pane. The phone Result table overflow is a prototype defect, not the reference. Default state panel (status ready). Full-page screenshots: the prototype renders inside a fixed overflow container, so for capture that container was made static and the yellow state panel and variant switcher were hidden; nothing else was changed.",
+    "screenshots": [
+      "history-pages-phone.png",
+      "history-pages-desktop.png"
+    ]
+  },
+  "147": {
+    "prototype": "responsive-pages",
+    "focus": "Open `/prototype/responsive-pages?variant=C&page=campaigns` (state panel: campaigns; also the default page). Phone: campaign rows with Ironfang Invasion open as the home pane and full-width Continue, New at top; desktop: index with description previews and centred home pane. Click New for the create row/form. Default state panel (status ready). Full-page screenshots: the prototype renders inside a fixed overflow container, so for capture that container was made static and the yellow state panel and variant switcher were hidden; nothing else was changed.",
+    "screenshots": [
+      "campaign-home-pages-phone.png",
+      "campaign-home-pages-desktop.png"
+    ]
+  }
+}

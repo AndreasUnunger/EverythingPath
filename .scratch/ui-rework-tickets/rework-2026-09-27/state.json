@@ -1,0 +1,32 @@
+{
+  "new": {
+    "T13b": 190,
+    "T15b": 191,
+    "T16b": 192,
+    "T17b": 193,
+    "T21b": 194,
+    "T24b": 195,
+    "T32b": 196,
+    "T36b": 197
+  },
+  "amendment_url": "https://github.com/AndreasUnunger/EverythingPath/issues/148#issuecomment-5855238252",
+  "closed": [
+    "160",
+    "174",
+    "186",
+    "188"
+  ],
+  "area_commented": [
+    "140",
+    "142",
+    "143",
+    "144",
+    "145",
+    "138",
+    "139",
+    "141",
+    "146",
+    "147"
+  ],
+  "parent_noted": true
+}
