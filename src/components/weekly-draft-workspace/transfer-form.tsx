@@ -68,8 +68,10 @@ export function TransferForm({
         <FormField
           name="amount"
           render={({ field }) => (
-            <FormItem className="w-full sm:w-40">
-              <FormLabel>Transfer amount (gp)</FormLabel>
+            <FormItem className="w-full sm:w-52">
+              <FormLabel className="sm:whitespace-nowrap">
+                Transfer amount (gp)
+              </FormLabel>
               <FormControl>
                 <Input
                   inputMode="decimal"
