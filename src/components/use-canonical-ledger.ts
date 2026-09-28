@@ -30,14 +30,16 @@ export function useLedgerCorrection({
   militiaId: Id<'militia'>;
 }) {
   const result = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
-  const scope = `${campaignId}:${militiaId}`;
   const [kept, keep] = useState<{
-    scope: string;
+    campaignId: Id<'campaign'>;
+    militiaId: Id<'militia'>;
     ledger: NonNullable<typeof result>;
   } | null>(null);
-  if (result !== undefined && (kept?.ledger !== result || kept.scope !== scope))
-    keep({ scope, ledger: result });
-  const ledger = result ?? (kept?.scope === scope ? kept.ledger : undefined);
+  const sameScope =
+    kept?.campaignId === campaignId && kept.militiaId === militiaId;
+  if (result !== undefined && (!sameScope || kept.ledger !== result))
+    keep({ campaignId, militiaId, ledger: result });
+  const ledger = result ?? (sameScope ? kept.ledger : undefined);
   const saveCorrection = useMutation(api.canonicalLedger.save);
   return {
     ledger,

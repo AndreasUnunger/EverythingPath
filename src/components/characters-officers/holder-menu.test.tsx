@@ -80,6 +80,18 @@ test('Escape closes the list and returns focus to ⋯ when focus has left it for
   expect(options).toHaveFocus();
 });
 
+test('Escape in another control never pulls focus back to ⋯', () => {
+  const options = renderMenu([{ role: 'spymaster', label: 'Spymaster' }]);
+  const elsewhere = document.createElement('button');
+  document.body.append(elsewhere);
+  fireEvent.click(options);
+  (document.activeElement as HTMLElement).blur();
+  elsewhere.focus();
+  fireEvent.keyDown(elsewhere, { key: 'Escape' });
+  expect(elsewhere).toHaveFocus();
+  elsewhere.remove();
+});
+
 test('with no role to move to, focus stays in the list and Escape returns it to ⋯', () => {
   const options = renderMenu();
   fireEvent.click(options);

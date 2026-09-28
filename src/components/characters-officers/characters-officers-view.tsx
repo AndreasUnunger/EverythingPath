@@ -44,7 +44,7 @@ function EditableBoard({
 }) {
   const [assigning, setAssigning] = useState<OfficerRole | null>(null);
   // Once the picker has closed, focus returns to its role's Assign, found
-  // by the role: the card may have re-rendered while it was open.
+  // by the role rather than held, so a remounted card's button still gets it.
   const returnTo = useRef<OfficerRole | null>(null);
   useEffect(() => {
     if (assigning !== null || returnTo.current === null) return;

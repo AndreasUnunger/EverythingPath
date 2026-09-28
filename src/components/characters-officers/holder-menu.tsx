@@ -61,9 +61,9 @@ export function HolderMenu({
   }, [expanded]);
 
   // Set by Escape: ⋯ takes focus back once the list has closed.
-  const returnFocus = useRef(false);
+  const shouldReturnFocus = useRef(false);
   const close = (refocus: boolean) => {
-    returnFocus.current = refocus;
+    shouldReturnFocus.current = refocus;
     setOpen('closed');
   };
 
@@ -73,34 +73,36 @@ export function HolderMenu({
       if (!root.current?.contains(event.target as Node)) setOpen('closed');
     };
     // Escape from inside is handled below. This catches it when focus has
-    // dropped to the page, as when the focused role stops being offered.
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+    // dropped to the page, as when the focused role stops being offered;
+    // never while another control has it.
+    const onPageEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (document.activeElement !== document.body) return;
       event.preventDefault();
-      returnFocus.current = true;
-      setOpen('closed');
+      close(true);
     };
     document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onPageEscape);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onPageEscape);
     };
   }, [expanded]);
 
   // The first item takes focus when the list opens or shows the targets
-  // (the list itself when there are none). Once the list has closed, ⋯
-  // takes it back if Escape closed it.
+  // (the list itself when there are none).
   useEffect(() => {
-    if (open !== 'closed') {
-      (
-        root.current?.querySelector<HTMLElement>('[data-menu-item]') ??
-        list.current
-      )?.focus();
-      return;
-    }
-    if (!returnFocus.current) return;
-    returnFocus.current = false;
+    if (open === 'closed') return;
+    (
+      root.current?.querySelector<HTMLElement>('[data-menu-item]') ??
+      list.current
+    )?.focus();
+  }, [open]);
+
+  // Once the list has closed, ⋯ takes focus back if Escape closed it.
+  useEffect(() => {
+    if (open !== 'closed' || !shouldReturnFocus.current) return;
+    shouldReturnFocus.current = false;
     trigger.current?.focus();
   }, [open]);
   const choose = (act: () => void) => {
