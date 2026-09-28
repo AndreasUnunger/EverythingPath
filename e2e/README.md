@@ -758,6 +758,7 @@ race part uses only fresh pages with their own controls, as before.
 | players review and buy off carried persistent events before confirming the week | `workspacePersistent` | `resetCase`, then `initializeUpkeep` with persistent events |
 | racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
 | settlement and rank cards and team repairs stay reachable on phone and desktop | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only |
+| Event blocks and the week review stay reachable at phone landscape and on a narrow tablet | `workspaceEventReview` | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:
@@ -777,6 +778,17 @@ split: it repeats the settlement/rank fixture on one page and checks its
 settlement cards, missing-team row, Remove repair and rank feat cards at
 390×844 and 1440×900. The settlement/rank journey runs about 21 s of its 30 s
 limit, so the checks got their own case and a 60 s limit instead of growing it.
+
+A seventh journey, `workspaceEventReview` (#143, #145), is also added rather
+than grown into another. The Activity-and-Event journey (89 s of 125 s) and the
+persistent journey (54 s of 80 s) keep their margins. On the GM page only, it
+rolls an Invasion after an out-of-range chance roll of 0 and records what
+happened. It checks the Event blocks at 844×390 and at 1180×820 with the
+reference panel closed. Review & confirm is checked at 844×390 and at 1180×820
+with the panel open and closed. Review must list the chance warning once in
+its Warnings with its phase and place it under the Event chance consequence
+(SUM-09). The Invasion's recorded outcome must be quoted under that event
+(SUM-11). It has a 60 s limit (`support/event-review-layout.ts`).
 
 ### Provision and declare the cohorts
 
@@ -938,6 +950,12 @@ near its limit:
   1440×900 (`support/upkeep-layout.ts`).
 - **Persistent (#144).** `persistent-qa.ts` adds 844×390 and 1180×820 with the
   reference panel closed to its resize loop; no page load.
+- **Event (#143) and Review & confirm (#145).** `workspaceEventReview` (above)
+  checks both phases at phone landscape and on the narrow tablet, and checks
+  Review's warnings and recorded outcomes in place. The phase-shaped loading
+  skeletons are checked at component level only. The campaign shell waits for
+  the same Convex connection before the week mounts, so holding every
+  response shows the shell's skeleton, not the week's.
 - **Finished weeks (#146).** The Confirmation contract's history step (300 s
   limit, about 121 s) appends history through the guarded `appendHistory`
   fixture and checks paging, gap-aware arrows, keyboard use and the three

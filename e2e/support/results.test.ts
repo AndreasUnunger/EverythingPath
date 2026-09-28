@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(40);
+  expect(required).toHaveLength(41);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -318,8 +318,8 @@ it('rejects a missing canonical Workspace UI journey', () => {
   expect(evaluateResults(report)).toBe(false);
 });
 
-it('requires each of the six independent Workspace journeys', () => {
-  expect(workspaceTitles).toHaveLength(6);
+it('requires each of the seven independent Workspace journeys', () => {
+  expect(workspaceTitles).toHaveLength(7);
   for (const title of workspaceTitles) {
     const report = passing();
     report.tests = report.tests.filter((test) => test.title !== title);

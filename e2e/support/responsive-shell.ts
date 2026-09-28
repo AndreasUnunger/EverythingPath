@@ -452,3 +452,35 @@ export async function expectDocumentScrolledPage(page: Page) {
   expect(scrolled, 'a tall page scrolls as a document').toBe(true);
   await expectReachable(page, page.locator('main button:visible').last());
 }
+
+/**
+ * Every visible one of `controls` lies within the viewport width, and each
+ * button's label fits its own box. `size` names the viewport in messages.
+ */
+export async function expectControlsFit(
+  controls: Locator,
+  size: string,
+  width: number,
+) {
+  for (const control of await controls.all()) {
+    if (!(await control.isVisible())) continue;
+    const details = await control.evaluate((element) => ({
+      tag: element.tagName,
+      label:
+        element.getAttribute('aria-label') ??
+        (element instanceof HTMLInputElement
+          ? element.labels?.[0]?.textContent
+          : element.textContent) ??
+        'Unlabelled control',
+      contentFits: element.scrollWidth <= element.clientWidth,
+    }));
+    const description = `${size}: ${details.tag} ${details.label}`;
+    const bounds = await control.boundingBox();
+    expect(bounds, description).not.toBeNull();
+    expect(bounds!.x, description).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width, description).toBeLessThanOrEqual(width);
+    // Text fields intentionally scroll long entered values inside their bounds.
+    if (details.tag === 'BUTTON')
+      expect(details.contentFits, description).toBe(true);
+  }
+}

@@ -9,6 +9,7 @@ import type { ReferenceFacts } from '../reference-facts';
 import { weekEditorAnchor } from '../source-anchors';
 import type { Phase, PhaseReadiness } from '../types';
 import { phaseLabels, weekHeading } from './labels';
+import { PhaseSkeletonBody, skeletonShape } from './phase-skeletons';
 import { readinessLine } from './readiness-copy';
 import {
   DockedReferencePanel,
@@ -226,36 +227,54 @@ export function WeekFrame({
   );
 }
 
-/** Loading: the frame's shape inside the already-rendered shell. */
-export function WeekSkeleton() {
+/**
+ * Loading: the frame's shape inside the already-rendered shell. The frame
+ * placeholders (phone step button, stepper row, desktop rail, docked panel,
+ * footer) are the same for every phase; the editor column takes the shape
+ * of the editor the address names, or the generic two blocks.
+ */
+export function WeekSkeleton({ phase }: { phase?: Phase }) {
+  const shape = skeletonShape(phase);
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-week-skeleton>
+    <div className="flex min-h-0 flex-1 flex-col" data-week-skeleton={shape}>
       <p role="status" className="sr-only">
         Loading the week…
       </p>
-      <div aria-hidden className="flex flex-col gap-3 px-3 pt-3 md:px-4">
-        <Skeleton className="h-11 w-full md:hidden" />
-        <div className="hidden gap-1 md:flex xl:hidden">
+      <div
+        aria-hidden
+        className="flex min-h-0 flex-1 flex-col gap-3 px-3 pt-3 md:px-4"
+      >
+        <Skeleton data-skeleton-frame className="h-11 w-full md:hidden" />
+        <div data-skeleton-frame className="hidden gap-1 md:flex xl:hidden">
           {Array.from({ length: 5 }, (_, index) => (
             <Skeleton key={index} className="h-12 flex-1" />
           ))}
         </div>
-        <div className="md:grid md:grid-cols-[minmax(0,1fr)_20rem] md:gap-4 xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
-          <div className="hidden flex-col gap-1 xl:flex">
+        {/* The columns are bounded like the real frame's so a long body clips
+            inside its column instead of growing the page. */}
+        <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_20rem] md:grid-rows-[minmax(0,1fr)] md:gap-4 xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
+          <div data-skeleton-frame className="hidden flex-col gap-1 xl:flex">
             {Array.from({ length: 5 }, (_, index) => (
               <Skeleton key={index} className="h-12 w-full" />
             ))}
           </div>
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-40 w-full" />
-            <Skeleton className="h-40 w-full" />
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div
+              data-week-skeleton-body={shape}
+              className="@container mx-auto w-full max-w-6xl"
+            >
+              <PhaseSkeletonBody shape={shape} />
+            </div>
           </div>
-          <div className="hidden flex-col gap-3 md:flex">
+          <div data-skeleton-frame className="hidden flex-col gap-3 md:flex">
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-56 w-full" />
           </div>
         </div>
-        <Skeleton className="hidden h-12 w-full md:block" />
+        <Skeleton
+          data-skeleton-frame
+          className="hidden h-12 w-full shrink-0 md:block"
+        />
       </div>
     </div>
   );

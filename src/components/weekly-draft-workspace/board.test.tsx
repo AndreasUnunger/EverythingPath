@@ -499,6 +499,11 @@ test('[shell.opening] a non-Upkeep address phase opens once the delayed initial 
   const onPhaseChange = vi.fn();
   render(shellHost({ phase: 'event', onPhaseChange }));
   expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
+  // The address phase shapes the placeholders while the week loads.
+  expect(document.querySelector('[data-week-skeleton]')).toHaveAttribute(
+    'data-week-skeleton',
+    'event',
+  );
   await act(async () => release());
   await screen.findByRole('heading', { name: 'Week 4 · Event' });
   expect(onPhaseChange).not.toHaveBeenCalled();
@@ -515,6 +520,16 @@ test('[shell.opening-change] an address phase change while loading wins over the
   const view = render(shellHost({ phase: 'event', onPhaseChange }));
   view.rerender(shellHost({ phase: 'summary', onPhaseChange }));
   expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
+  expect(document.querySelector('[data-week-skeleton]')).toHaveAttribute(
+    'data-week-skeleton',
+    'summary',
+  );
+  view.rerender(shellHost({ phase: 'persistent', onPhaseChange }));
+  expect(document.querySelector('[data-week-skeleton]')).toHaveAttribute(
+    'data-week-skeleton',
+    'persistent',
+  );
+  view.rerender(shellHost({ phase: 'summary', onPhaseChange }));
   await act(async () => release());
   await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
   expect(onPhaseChange).not.toHaveBeenCalled();

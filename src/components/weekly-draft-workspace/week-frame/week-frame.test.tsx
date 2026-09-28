@@ -311,3 +311,48 @@ test('the loading skeleton keeps a readable status without a heading', () => {
   expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
+
+// #143 §7, #144 §8 and #145 §8: Event, Persistent and Review & confirm load
+// with placeholders shaped like their own editor, inside the same frame
+// skeleton; Upkeep, Activity and an unknown phase keep the generic body.
+test.each([
+  ['event', 'event', { '[data-skeleton-step]': 3 }],
+  [
+    'persistent',
+    'persistent',
+    { '[data-skeleton-overview]': 1, '[data-skeleton-section]': 2 },
+  ],
+  [
+    'summary',
+    'summary',
+    { '[data-skeleton-review-block]': 1, '[data-skeleton-section]': 6 },
+  ],
+  ['upkeep', 'week', {}],
+  ['activity', 'week', {}],
+  [undefined, 'week', {}],
+] as const)(
+  'the %s address loads with the %s-shaped skeleton',
+  (phase, shape, parts: Record<string, number>) => {
+    const { container } = render(<WeekSkeleton phase={phase} />);
+    const skeleton = container.querySelector('[data-week-skeleton]');
+    expect(skeleton).toHaveAttribute('data-week-skeleton', shape);
+    // One announced status; the placeholders themselves are hidden from
+    // assistive technology and offer nothing to press or read as a heading.
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the week…');
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    const body = container.querySelector('[data-week-skeleton-body]');
+    expect(body).toHaveAttribute('data-week-skeleton-body', shape);
+    expect(body!.closest('[aria-hidden="true"]')).not.toBeNull();
+    for (const [selector, count] of Object.entries(parts))
+      expect(
+        body!.querySelectorAll(selector).length,
+        selector,
+      ).toBeGreaterThanOrEqual(count);
+    // The frame's own placeholders (phone steps, stepper, panel, footer)
+    // stay the same for every phase.
+    expect(
+      container.querySelectorAll('[data-skeleton-frame]').length,
+    ).toBeGreaterThan(0);
+  },
+);

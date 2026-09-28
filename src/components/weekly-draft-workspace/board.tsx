@@ -210,7 +210,8 @@ export function WeeklyWorkspaceBoard({
   const localFormGuard = useLocalFormGuard(controller?.store);
   const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
-  if (auth.isLoading || workspace.status === 'loading') return <WeekSkeleton />;
+  if (auth.isLoading || workspace.status === 'loading')
+    return <WeekSkeleton phase={phase} />;
   if (workspace.status !== 'ready')
     return (
       <main className="mx-auto w-full max-w-6xl p-4">

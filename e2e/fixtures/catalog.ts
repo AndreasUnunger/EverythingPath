@@ -19,6 +19,7 @@ export const caseKeys = [
   'workspacePersistent',
   'workspaceConfirmation',
   'workspaceUpkeepLayout',
+  'workspaceEventReview',
   'campaignHome',
   'campaignSections',
   'legacyAddresses',
@@ -34,6 +35,7 @@ export const canonicalCaseKeys = [
   'workspacePersistent',
   'workspaceConfirmation',
   'workspaceUpkeepLayout',
+  'workspaceEventReview',
 ] as const satisfies readonly CaseKey[];
 export function isCanonicalCase(caseKey: CaseKey) {
   return (canonicalCaseKeys as readonly CaseKey[]).includes(caseKey);
@@ -62,6 +64,7 @@ export const fixtureCatalog = {
   workspacePersistent: canonicalDomain,
   workspaceConfirmation: canonicalDomain,
   workspaceUpkeepLayout: canonicalDomain,
+  workspaceEventReview: canonicalDomain,
   smoke: harnessDomain,
   // The journeys split from access (smoke) keep its names so the list,
   // header and overflow checks measure text of the same length.
@@ -189,6 +192,7 @@ export const deploymentFixtureSchema = z
                 workspacePersistent: z.string().length(64),
                 workspaceConfirmation: z.string().length(64),
                 workspaceUpkeepLayout: z.string().length(64),
+                workspaceEventReview: z.string().length(64),
                 campaignHome: z.string().length(64),
                 campaignSections: z.string().length(64),
                 legacyAddresses: z.string().length(64),
