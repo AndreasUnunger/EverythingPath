@@ -4,12 +4,17 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import { characterLedgerQuery } from '~/lib/sharedQueries';
-import type { SetupCharacter } from './militia-setup/roster';
+import {
+  mirrorRosterKinds,
+  normalizeCharacterKind,
+} from '~/lib/character-kind';
+import type { SetupCharacter } from '~/lib/setup-characters';
 
 // The accepted militia and its only write: a reasoned correction bound to
 // the revision it was prepared against. Every write carries the campaign and
 // militia this hook was mounted for, so a later scope change never
-// retargets it.
+// retargets it, and sends roster kinds as the current records' PC or NPC;
+// the server mirrors them again from the records it reads.
 export function useCanonicalLedger({
   campaignId,
   militiaId,
@@ -38,6 +43,7 @@ export function useCanonicalLedger({
     wisdom: c.wisdom,
     charisma: c.charisma,
     isActive: c.isActive !== false,
+    kind: normalizeCharacterKind(c.kind),
   }));
   return {
     ledger,
@@ -46,6 +52,15 @@ export function useCanonicalLedger({
       expectedRevision: number;
       snapshot: CanonicalWeekState['militiaSnapshot'];
       reason: string;
-    }) => saveCorrection({ campaignId, militiaId, ...correction }),
+    }) =>
+      saveCorrection({
+        campaignId,
+        militiaId,
+        ...correction,
+        snapshot: {
+          ...correction.snapshot,
+          roster: mirrorRosterKinds(correction.snapshot.roster, characters),
+        },
+      }),
   };
 }

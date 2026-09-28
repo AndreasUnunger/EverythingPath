@@ -10,7 +10,8 @@ import {
 import { ConvexError } from 'convex/values';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
-import type { MilitiaSetup } from '~/lib/canonical-setup';
+import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
+import { MISSING_CHARACTER_MESSAGE } from '~/lib/setup-characters';
 import {
   readSetupEnvelope,
   setupEnvelopeKey,
@@ -26,6 +27,9 @@ type Options = {
 } | null;
 const backend = vi.hoisted(() => ({
   options: undefined as unknown,
+  // The authorized character read; by default the options' characters with
+  // their records' kinds.
+  records: undefined as unknown,
   workspace: undefined as unknown,
   initialize: (() => undefined) as (args: unknown) => unknown,
   createCharacter: (() => undefined) as (args: unknown) => unknown,
@@ -35,7 +39,10 @@ vi.mock('@convex/_generated/api', () => ({
   api: {
     canonicalSetup: { options: 'options', initialize: 'initialize' },
     canonicalDraftPersistence: { workspace: 'workspace' },
-    character: { createCharacter: 'createCharacter' },
+    character: {
+      createCharacter: 'createCharacter',
+      listByCampaign: 'records',
+    },
   },
 }));
 vi.mock('convex/react', () => ({
@@ -44,13 +51,23 @@ vi.mock('convex/react', () => ({
       ? undefined
       : ref === 'options'
         ? backend.options
-        : backend.workspace,
+        : ref === 'records'
+          ? backend.records === 'loading'
+            ? undefined
+            : (backend.records ?? recordsOf(backend.options))
+          : backend.workspace,
   useMutation: (ref: string) =>
     ref === 'initialize'
       ? (args: unknown) => backend.initialize(args)
       : (args: unknown) => backend.createCharacter(args),
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => backend.router }));
+function recordsOf(options: unknown) {
+  return (options as Options | undefined)?.characters.map((character) => ({
+    _id: character.characterId,
+    kind: character.kind,
+  }));
+}
 
 const campaignId = 'campaign_a' as Id<'campaign'>;
 const scope: SetupScope = {
@@ -61,6 +78,7 @@ const scope: SetupScope = {
 const mira: SetupCharacter = {
   characterId: 'mira',
   name: 'Mira',
+  kind: 'pc',
   level: 3,
   strength: 10,
   dexterity: 12,
@@ -80,6 +98,7 @@ function setOptions(options: Options | undefined) {
 beforeEach(() => {
   window.localStorage.clear();
   setOptions({ name: 'Ironfang', started: false, characters: [] });
+  backend.records = undefined;
   backend.workspace = undefined;
   backend.initialize = initialize;
   backend.createCharacter = createCharacter;
@@ -555,4 +574,195 @@ test('[setup.start.changed-source] a changed retry after an unacknowledged start
   );
   expect(initialize).toHaveBeenCalledTimes(2);
   expect(push).not.toHaveBeenCalled();
+});
+
+// An unfinished setup #173 stored before PC/NPC kinds: legacy roster kinds,
+// one disagreeing with its record, a malformed rank, zero and explicit Hit
+// Dice overrides, and a person whose character is not in this campaign.
+const ostler: SetupCharacter = {
+  ...mira,
+  characterId: 'ostler',
+  name: 'Ostler',
+  kind: 'npc',
+};
+const facts = ({ name: _name, kind: _kind, ...rest }: SetupCharacter) => rest;
+function storeVersionOne(submitted: MilitiaSetup | null = null) {
+  const values = newMilitiaSetup('Loyalty');
+  (values.state.militiaSnapshot as { rank: unknown }).rank = 'four';
+  values.state.militiaSnapshot.characters.push(facts(mira), facts(ostler), {
+    ...facts(mira),
+    characterId: 'gone',
+  });
+  values.state.militiaSnapshot.roster.people.push(
+    { characterId: 'mira', kind: 'other_npc', hitDice: 0 },
+    { characterId: 'ostler', kind: 'officer_npc', hitDice: 5 },
+    { characterId: 'gone', kind: 'other_npc', hitDice: null },
+  );
+  values.state.militiaSnapshot.roster.officers.push({
+    role: 'commandant',
+    characterId: 'ostler',
+  });
+  window.localStorage.setItem(
+    setupEnvelopeKey(scope),
+    JSON.stringify({
+      version: 1,
+      scope,
+      values,
+      step: 'people',
+      visited: ['startingPoint', 'people'],
+      initializationId: 'attempt-v1',
+      submitted,
+    }),
+  );
+}
+const kinds = () =>
+  screen
+    .getAllByRole('group', { name: 'Kind' })
+    .map((group) => group.textContent?.replace(/^Kind/, ''));
+
+test('[setup.resume.migrate] a version 1 envelope resumes with its records’ PC or NPC kinds, raw input and open step, without submitting', async () => {
+  setOptions({ name: 'Ironfang', started: false, characters: [mira, ostler] });
+  // Ostler's record still stores the legacy kind; Mira's record is a PC.
+  backend.records = [
+    { _id: 'mira', kind: 'pc' },
+    { _id: 'ostler', kind: 'officer_npc' },
+  ];
+  storeVersionOne();
+  render(screenFor());
+  expect(
+    screen.getByRole('heading', { level: 2, name: 'People & officers' }),
+  ).toBeVisible();
+  expect(kinds()).toEqual(['PC', 'NPC', MISSING_CHARACTER_MESSAGE]);
+  expect(
+    within(screen.getByRole('group', { name: 'Person 3' })).getByRole('alert'),
+  ).toHaveTextContent(MISSING_CHARACTER_MESSAGE);
+  expect(
+    screen
+      .getAllByRole('textbox', { name: 'Hit Dice' })
+      .map((input) => (input as HTMLInputElement).value),
+  ).toEqual(['0', '5', '']);
+  expect(
+    within(screen.getByRole('group', { name: 'Ostler' })).getByRole('button', {
+      name: 'commandant',
+    }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  openStep('Starting point');
+  expect(textbox('Rank')).toHaveValue('four');
+  expect(initialize).not.toHaveBeenCalled();
+
+  // The next change stores version 2 under the same attempt identity.
+  fill('Rank', '1');
+  const restored = stored();
+  if (restored.kind !== 'restored') throw new Error('not restored');
+  expect(
+    JSON.parse(window.localStorage.getItem(setupEnvelopeKey(scope))!).version,
+  ).toBe(2);
+  expect(restored.envelope.initializationId).toBe('attempt-v1');
+  expect(
+    restored.envelope.values.state.militiaSnapshot.roster.people.map(
+      (person) => person.kind,
+    ),
+  ).toEqual(['pc', 'npc', 'npc']);
+
+  // The missing record blocks a start until the player removes that person.
+  start();
+  expect(
+    await screen.findByText('1 thing to fix before starting'),
+  ).toBeVisible();
+  expect(initialize).not.toHaveBeenCalled();
+  // The linked error opens that person's row.
+  click(MISSING_CHARACTER_MESSAGE);
+  await waitFor(() =>
+    expect(screen.getByRole('group', { name: 'Person 3' })).toContainElement(
+      document.activeElement as HTMLElement,
+    ),
+  );
+  click('Remove Person 3');
+  initialize.mockResolvedValueOnce(key);
+  start();
+  await waitFor(() => expect(initialize).toHaveBeenCalledOnce());
+  const [[sent]] = initialize.mock.calls as [
+    [{ initializationId: string; setup: MilitiaSetup }],
+  ];
+  expect(sent.initializationId).toBe('attempt-v1');
+  expect(sent.setup.state.militiaSnapshot.roster.people).toEqual([
+    { characterId: 'mira', kind: 'pc', hitDice: 0 },
+    { characterId: 'ostler', kind: 'npc', hitDice: 5 },
+  ]);
+});
+
+test('[setup.resume.migrate-wait] a resumed setup waits for the character records before restoring', () => {
+  setOptions({ name: 'Ironfang', started: false, characters: [mira, ostler] });
+  const records = [
+    { _id: 'mira', kind: 'pc' },
+    { _id: 'ostler', kind: 'officer_npc' },
+  ];
+  storeVersionOne();
+  backend.records = 'loading';
+  const { rerender } = render(screenFor());
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Loading militia setup…',
+  );
+  expect(screen.queryByRole('group', { name: 'Kind' })).toBeNull();
+  backend.records = records;
+  rerender(screenFor());
+  expect(kinds()).toEqual(['PC', 'NPC', MISSING_CHARACTER_MESSAGE]);
+});
+
+test('[setup.kind.record] a person joins with their record’s kind, follows a record change and a start sends only PC or NPC', async () => {
+  setOptions({ name: 'Ironfang', started: false, characters: [mira, ostler] });
+  backend.records = [
+    { _id: 'mira', kind: undefined },
+    { _id: 'ostler', kind: 'officer_npc' },
+  ];
+  const { rerender } = render(screenFor());
+  openStep('People & officers');
+  click('Add Mira');
+  click('Add Ostler');
+  expect(kinds()).toEqual(['PC', 'NPC']);
+  // No kind can be chosen here: only the character record sets it.
+  expect(screen.queryByRole('group', { name: 'Character kind' })).toBeNull();
+  // Another player makes Mira an NPC while this form is open.
+  backend.records = [
+    { _id: 'mira', kind: 'npc' },
+    { _id: 'ostler', kind: 'officer_npc' },
+  ];
+  rerender(screenFor());
+  expect(kinds()).toEqual(['NPC', 'NPC']);
+  initialize.mockResolvedValueOnce(key);
+  start();
+  await waitFor(() => expect(initialize).toHaveBeenCalledOnce());
+  const [[sent]] = initialize.mock.calls as [[{ setup: MilitiaSetup }]];
+  expect(
+    sent.setup.state.militiaSnapshot.roster.people.map((p) => p.kind),
+  ).toEqual(['npc', 'npc']);
+});
+
+test('[setup.resume.migrate-unacknowledged] a version 1 start sent before the upgrade is resent verbatim and opens the militia it started', async () => {
+  const submitted = newMilitiaSetup('Loyalty');
+  submitted.phase = 'event';
+  submitted.state.militiaSnapshot.characters.push(facts(ostler));
+  submitted.state.militiaSnapshot.roster.people.push({
+    characterId: 'ostler',
+    kind: 'officer_npc',
+    hitDice: 5,
+  });
+  setOptions({ name: 'Ironfang', started: false, characters: [mira, ostler] });
+  storeVersionOne(submitted);
+  initialize.mockResolvedValueOnce(key);
+  const { rerender } = render(screenFor());
+  expect(initialize).not.toHaveBeenCalled();
+  // It had been accepted: the same identity and source find out.
+  setOptions({ name: 'Ironfang', started: true, characters: [mira, ostler] });
+  rerender(screenFor());
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledExactlyOnceWith(
+      '/campaigns/campaign_a/week?phase=event',
+    ),
+  );
+  expect(initialize).toHaveBeenCalledExactlyOnceWith({
+    campaignId,
+    initializationId: 'attempt-v1',
+    setup: submitted,
+  });
 });

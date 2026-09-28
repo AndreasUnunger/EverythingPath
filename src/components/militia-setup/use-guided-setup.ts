@@ -5,17 +5,18 @@ import {
   useEffect,
   useEffectEvent,
   useId,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
   type FocusEvent,
 } from 'react';
 import { useForm } from 'react-hook-form';
+import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
 import {
-  militiaSetupSchema,
-  newMilitiaSetup,
-  type MilitiaSetup,
-} from '~/lib/canonical-setup';
+  setupSchemaForCharacters,
+  withRecordKinds,
+} from '~/lib/setup-characters';
 import type { SetupProgress } from '~/lib/setup-envelope';
 import type { SetupSectionMessage } from '~/lib/setup-sections';
 import {
@@ -149,8 +150,14 @@ export function useGuidedSetup({
   onProgress,
   starting = false,
 }: Omit<GuidedSetupProps, 'onAddCharacter'>) {
+  // Every roster person needs a record in this campaign; the kind each one
+  // has is always its record's, for warnings and for what a start sends.
+  const schema = useMemo(
+    () => setupSchemaForCharacters(characters),
+    [characters],
+  );
   const form = useForm<MilitiaSetup>({
-    resolver: zodResolver(militiaSetupSchema),
+    resolver: zodResolver(schema),
     defaultValues: initialValues ?? newMilitiaSetup('Loyalty'),
     // Validating as values change, not on blur, keeps rows below a field from
     // moving under a pointer that is leaving it.
@@ -174,11 +181,11 @@ export function useGuidedSetup({
   const [submitError, setSubmitError] = useState<string>();
 
   const values = form.watch();
-  const errors = setupErrorDescriptors(values);
+  const errors = setupErrorDescriptors(values, schema);
   const steps = setupSteps({
     values,
     errors,
-    warnings: setupWarningDescriptors(values),
+    warnings: setupWarningDescriptors(withRecordKinds(values, characters)),
     visited,
     attempted,
   });
@@ -239,7 +246,7 @@ export function useGuidedSetup({
     async (setup) => {
       setSubmitError(undefined);
       try {
-        await onSave(setup);
+        await onSave(withRecordKinds(setup, characters));
       } catch (error) {
         setSubmitError(
           error instanceof ConvexError && typeof error.data === 'string'

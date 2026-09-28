@@ -266,24 +266,20 @@ describe('CharacterManager', () => {
       ].map((option) => option.value);
     }
 
-    it('labels legacy, absent and new kinds', () => {
+    it('labels every stored kind PC or NPC', () => {
       renderLedger();
       expect(row('Aubrin')).toHaveTextContent('PC');
       expect(row('Mara')).toHaveTextContent('PC');
-      expect(row('Ostler')).toHaveTextContent('Officer NPC');
+      expect(row('Ostler')).toHaveTextContent('NPC');
+      expect(row('Ostler')).not.toHaveTextContent('Officer');
       expect(row('Vessa')).toHaveTextContent('NPC');
-      expect(row('Vessa')).not.toHaveTextContent('Officer NPC');
     });
 
-    it('keeps a stored npc kind when an unrelated field is edited', async () => {
+    it('offers only PC and NPC and keeps a stored npc when an unrelated field is edited', async () => {
       renderLedger();
       edit('Vessa');
       expect(screen.getByTestId('mock-select')).toHaveValue('npc');
-      expect(kindOptions()).toEqual(['pc', 'officer_npc', 'npc']);
-      const select = screen.getByTestId('mock-select');
-      fireEvent.change(select, { target: { value: 'pc' } });
-      expect(kindOptions()).toEqual(['pc', 'officer_npc', 'npc']);
-      fireEvent.change(select, { target: { value: 'npc' } });
+      expect(kindOptions()).toEqual(['pc', 'npc']);
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() =>
         expect(mutationFns.updateCharacter).toHaveBeenCalledWith({
@@ -297,22 +293,37 @@ describe('CharacterManager', () => {
       );
     });
 
-    it('still writes only legacy kinds from new and legacy records', async () => {
+    it('writes only PC or NPC from new, absent-kind and legacy records', async () => {
       renderLedger();
       edit('Ostler');
-      expect(screen.getByTestId('mock-select')).toHaveValue('officer_npc');
-      expect(kindOptions()).toEqual(['pc', 'officer_npc']);
+      expect(screen.getByTestId('mock-select')).toHaveValue('npc');
+      expect(kindOptions()).toEqual(['pc', 'npc']);
       fireEvent.click(screen.getByText('Save'));
       await waitFor(() =>
-        expect(mutationFns.updateCharacter).toHaveBeenCalledWith(
+        expect(mutationFns.updateCharacter).toHaveBeenLastCalledWith(
           expect.objectContaining({
-            patch: expect.objectContaining({ kind: 'officer_npc' }),
+            characterId: 'officer',
+            patch: expect.objectContaining({ kind: 'npc' }),
+          }),
+        ),
+      );
+      edit('Aubrin');
+      expect(screen.getByTestId('mock-select')).toHaveValue('pc');
+      fireEvent.change(screen.getByTestId('mock-select'), {
+        target: { value: 'npc' },
+      });
+      fireEvent.click(screen.getByText('Save'));
+      await waitFor(() =>
+        expect(mutationFns.updateCharacter).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            characterId: 'absent',
+            patch: expect.objectContaining({ kind: 'npc' }),
           }),
         ),
       );
       fireEvent.click(screen.getByText('Add Character'));
       expect(screen.getByTestId('mock-select')).toHaveValue('pc');
-      expect(kindOptions()).toEqual(['pc', 'officer_npc']);
+      expect(kindOptions()).toEqual(['pc', 'npc']);
     });
   });
 

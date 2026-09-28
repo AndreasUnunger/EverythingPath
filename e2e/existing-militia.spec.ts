@@ -54,9 +54,17 @@ test('existing militia state survives reload within its campaign', async ({
     .fill('Setup Recruit');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).toBeHidden();
+  await page
+    .getByRole('button', { name: 'Add Setup Recruit', exact: true })
+    .click();
+  // The record owns the kind: the recruit joins as the PC the dialog saved,
+  // shown read-only, with no kind choice on the roster (#180).
+  const recruit = page.getByRole('group', { name: 'Setup Recruit' });
+  const kind = recruit.getByRole('group', { name: 'Kind', exact: true });
+  await expect(kind).toHaveText(/^Kind\s*PC$/);
   await expect(
-    page.getByRole('button', { name: 'Add Setup Recruit', exact: true }),
-  ).toBeVisible();
+    recruit.getByRole('group', { name: 'Character kind' }),
+  ).toHaveCount(0);
   // Reloading resumes the unfinished setup, invalid input included.
   await page.reload();
   await expect(
@@ -66,6 +74,7 @@ test('existing militia state survives reload within its campaign', async ({
       exact: true,
     }),
   ).toBeVisible();
+  await expect(kind).toHaveText(/^Kind\s*PC$/);
   await openSetupStep(page, 'Starting point');
   await expect(
     page.getByRole('button', { name: 'Existing militia', exact: true }),

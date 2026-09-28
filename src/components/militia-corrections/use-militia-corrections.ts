@@ -49,6 +49,7 @@ import {
   setupWarningDescriptors,
   type SetupErrorDescriptor,
 } from '~/lib/setup-validation';
+import { withRecordKinds } from '~/lib/setup-characters';
 import { weeklyDraftSchema } from '~/lib/weekly-draft-contract';
 import { classifyWriteFailure } from '~/lib/write-outcome';
 import {
@@ -557,7 +558,11 @@ export function useMilitiaCorrections({
       characters,
       view,
       notice: view.kind === 'editing' ? editingNotice(view) : null,
-      warnings: setupWarningDescriptors(values, names)
+      // Warnings read each person's current record kind, as the save sends.
+      warnings: setupWarningDescriptors(
+        withRecordKinds(values, characters),
+        names,
+      )
         .filter((warning) => {
           const entry = militiaEntryForLocation(warning);
           return entry === 'people' || entry === 'teams';

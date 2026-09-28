@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { LedgerShell } from '~/components/ledger-shell';
+import { normalizeCharacterKind } from '~/lib/character-kind';
 import { characterLedgerQuery } from '~/lib/sharedQueries';
 import { ArchivedCharactersCard } from './character-manager/archived-characters-card';
 import { CharacterDialog } from './character-manager/character-dialog';
@@ -101,7 +102,7 @@ export function CharacterManager({
     form.reset({
       name: character.name,
       description: character.description,
-      kind: character.kind ?? 'pc',
+      kind: normalizeCharacterKind(character.kind),
       level: String(character.level),
       strength: String(character.strength),
       dexterity: String(character.dexterity),
