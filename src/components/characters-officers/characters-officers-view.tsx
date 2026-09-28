@@ -289,8 +289,8 @@ function Characters({
 // Characters & officers: the officer board over the character rows, with
 // the Correct officers and Correct roster corrections. While one is open,
 // the other section is dimmed and inert, and the save point follows: from
-// 768px sticky at the end of the page, on the phone under the edited
-// section with the reason in the shell's strip.
+// 768px after both sections, pinned to the viewport's bottom edge, on the
+// phone under the edited section with the reason in the shell's strip.
 export function CharactersOfficersView({
   page,
   corrections,

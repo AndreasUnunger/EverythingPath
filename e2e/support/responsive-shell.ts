@@ -51,6 +51,62 @@ function bottomNavigation(page: Page) {
     .filter({ has: page.getByRole('button', { name: 'More' }) });
 }
 
+// The bar's bottom edge against the layout viewport's (headless browsers
+// report no safe-area inset, so the bar's padding below the tabs is 0). The
+// bar is found by its status-strip host rather than by role: an open sheet
+// hides everything outside it from the accessibility tree.
+async function expectBarAtViewportBottom(page: Page, when: string) {
+  const bar = (await page
+    .locator('[data-shell-slot="phone-status-strip"]')
+    .locator('..')
+    .boundingBox({ timeout: 5_000 }))!;
+  const viewport = await page.evaluate(
+    () => document.documentElement.clientHeight,
+  );
+  expect(
+    Math.abs(bar.y + bar.height - viewport),
+    `the bottom bar is pinned to the viewport's bottom edge ${when}`,
+  ).toBeLessThanOrEqual(1);
+}
+
+/**
+ * Below 768px the bottom bar stays pinned to the viewport's bottom edge
+ * wherever the document is scrolled: at the top, midway and at the end. The
+ * body must never become a scroll container of its own, or the sticky bar
+ * would stick to the end of the page instead (#198). Restores the scroll.
+ */
+export async function expectBottomBarPinned(page: Page) {
+  await expect(bottomNavigation(page)).toHaveCount(1);
+  expect(
+    await page.evaluate(() => {
+      const body = document.body;
+      body.scrollTop = 1;
+      const scrolled = body.scrollTop !== 0;
+      body.scrollTop = 0;
+      return scrolled;
+    }),
+    'the body never scrolls on its own',
+  ).toBe(false);
+  const start = await page.evaluate(() => window.scrollY);
+  const end = await page.evaluate(
+    () =>
+      document.documentElement.scrollHeight -
+      document.documentElement.clientHeight,
+  );
+  try {
+    for (const [when, y] of [
+      ['at the top', 0],
+      ['midway down the page', Math.floor(end / 2)],
+      ['at the end of the page', end],
+    ] as const) {
+      await page.evaluate((to) => window.scrollTo(0, to), y);
+      await expectBarAtViewportBottom(page, when);
+    }
+  } finally {
+    await page.evaluate((to) => window.scrollTo(0, to), start);
+  }
+}
+
 /**
  * The control is inside the visual viewport on both axes and accepts a
  * pointer without force. Page content (not part of the bottom bar, not in a
@@ -227,16 +283,21 @@ export async function exercisePhoneShell(page: Page) {
   await expect(nav.getByRole('button', { name: 'More' })).toBeVisible();
   await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
+  await expectBottomBarPinned(page);
   await expectReachable(page, shownHeading(page));
   const switcher = page.getByRole('combobox', { name: 'Active campaign' });
   await expectReachable(page, switcher);
 
   const more = page.getByRole('button', { name: 'More' });
   await expectReachable(page, more);
+  // From the top of the page, so a bar that let go of the viewport while
+  // the sheet locks scrolling would drop to the end of the page.
+  await page.evaluate(() => window.scrollTo(0, 0));
   await more.focus();
   await page.keyboard.press('Enter');
   const sheet = page.getByRole('dialog', { name: 'More' });
   await expect(sheet).toBeVisible();
+  await expectBarAtViewportBottom(page, 'while the More sheet is open');
   const organizationGroup = sheet.getByRole('group', {
     name: 'Organization',
     exact: true,
@@ -499,7 +560,8 @@ export async function expectBoundedWeekHost(page: Page) {
 
 /**
  * Every non-week page: the page scrolls as a document and its last control
- * is reachable that way. The bounded Week host never appears here.
+ * is reachable that way, with the phone bottom bar pinned throughout. The
+ * bounded Week host never appears here.
  */
 export async function expectDocumentScrolledPage(page: Page) {
   await expect(page.locator('[data-week-host]')).toHaveCount(0);
@@ -511,6 +573,8 @@ export async function expectDocumentScrolledPage(page: Page) {
     return !tall || window.scrollY > 0;
   });
   expect(scrolled, 'a tall page scrolls as a document').toBe(true);
+  if ((await bottomNavigation(page).count()) > 0)
+    await expectBottomBarPinned(page);
   await expectReachable(page, page.locator('main button:visible').last());
 }
 

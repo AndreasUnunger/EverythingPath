@@ -2,6 +2,7 @@
 import { ArrowRight, Check, CircleAlert } from 'lucide-react';
 import { useEffect, useId, useRef, type RefObject } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
+import { useScrollPaddingFor } from '~/components/campaign-shell/scroll-padding';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import {
   CONFLICT_HEADING,
@@ -337,8 +338,10 @@ function WeekChanged({ correction }: { correction: OpenCorrection }) {
 /**
  * The open correction's save point: its heading, what Save would do, and
  * the reason with Save/Cancel; or the conflict comparison or week-changed
- * notice when the militia moved. From 768px it sticks to the bottom of the
- * page; on the phone the reason moves to the shell's strip when offered.
+ * notice when the militia moved. From 768px it is pinned to the viewport's
+ * bottom edge until the page's end, with its height reserved as scroll
+ * padding so focus scrolls the board and rows clear of it; on the phone the
+ * reason moves to the shell's strip when offered.
  */
 export function CorrectionBar({
   correction,
@@ -358,6 +361,8 @@ export function CorrectionBar({
 }) {
   const id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  const pinned = useRef<HTMLElement>(null);
+  useScrollPaddingFor(pinned);
   useEffect(() => {
     if (!focusHeading.current) return;
     focusHeading.current = false;
@@ -368,6 +373,7 @@ export function CorrectionBar({
   return (
     <>
       <section
+        ref={wide ? pinned : undefined}
         aria-labelledby={id}
         className={cn(
           'flex min-w-0 flex-col gap-3',
