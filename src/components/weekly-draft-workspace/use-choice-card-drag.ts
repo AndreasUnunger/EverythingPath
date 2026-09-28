@@ -57,6 +57,10 @@ export function useChoiceCardDrag({
     update(null);
   }
   function down(event: PointerEvent<HTMLButtonElement>, value: string) {
+    // Only the click that ends a drag is suppressed. A browser may not send
+    // it (a card dropped outside glides away under the pointer), so any new
+    // press, a finger's included, starts without a stale suppression.
+    if (!activeRef.current) suppressClick.current = false;
     if (
       disabled ||
       event.pointerType !== 'mouse' ||
@@ -65,7 +69,6 @@ export function useChoiceCardDrag({
       activeRef.current
     )
       return;
-    suppressClick.current = false;
     setFeedback(null);
     event.currentTarget.setPointerCapture?.(event.pointerId);
     update({

@@ -107,6 +107,24 @@ test('a finger or pen moving over a card never drags it, so the page can scroll,
   expect(change).toHaveBeenCalledExactlyOnceWith('new');
 });
 
+test('a tap still chooses the card when a mouse drag ended without its click', () => {
+  const { card, change } = fixture();
+  // A drop outside the selection area whose click the browser never sends,
+  // as when the card glides back from under the pointer.
+  fireEvent.pointerDown(card, { button: 0, clientX: 20, clientY: 20 });
+  fireEvent.pointerMove(card, { clientX: 40, clientY: 45 });
+  fireEvent.pointerUp(card, { clientX: 40, clientY: 45 });
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.pointerDown(card, {
+    pointerType: 'touch',
+    clientX: 20,
+    clientY: 20,
+  });
+  fireEvent.pointerUp(card, { pointerType: 'touch', clientX: 20, clientY: 20 });
+  fireEvent.click(card, { detail: 1 });
+  expect(change).toHaveBeenCalledExactlyOnceWith('new');
+});
+
 test('hovering a card never swaps its fill or text colour, so it cannot dim or imitate the selection', () => {
   fixture();
   for (const name of ['Old town', 'New town']) {
