@@ -1,14 +1,12 @@
-import {
-  weeklySourceKey,
-  type CanonicalWeekState,
-} from '~/lib/canonical-weekly-source';
+import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import {
   mergeSection,
   sectionKey,
-  type MilitiaEntryKey,
   type MilitiaSectionKey,
   type SectionValue,
 } from '~/lib/militia-correction-sections';
+import { rosterBaselineKey } from '~/lib/roster-corrections';
+import { classifyWriteFailure } from '~/lib/write-outcome';
 
 // One local Militia Correction on this device: which section is open, the
 // accepted section it started from, and what became of its last Save. The
@@ -26,17 +24,20 @@ export type AcceptedMilitia = {
 
 export type CorrectionTarget =
   | { kind: 'section'; section: MilitiaSectionKey }
-  // The temporary People & officers fallback (roster and officer roles)
-  // until Characters & officers replaces it. It keeps the old editor's
-  // revision-bound save: its whole snapshot is sent against the revision it
-  // opened from and is refused if the militia changed, never merged.
-  | { kind: 'people' };
+  // Characters & officers' two corrections. Both depend on the whole roster
+  // baseline (people, officer assignments and team managers), so any change
+  // to it by another player is a conflict; other facts are merged.
+  | { kind: 'officers' }
+  | { kind: 'roster' };
+
+/** What a correction corrects: a Militia section, the officers or roster. */
+export type CorrectionSubject = MilitiaSectionKey | 'officers' | 'roster';
 
 type Captured = {
   revision: number;
   draftId: string;
   week: number;
-  /** Structural identity of the section when Correct was pressed. */
+  /** Structural identity of the corrected facts when Correct was pressed. */
   section: string;
 };
 
@@ -50,7 +51,7 @@ type Status =
   | { kind: 'rejected'; attempt: SaveAttempt; message: string | null }
   | { kind: 'unknown'; attempt: SaveAttempt };
 
-export type Feedback = { kind: 'saved' | 'matched'; entry: MilitiaEntryKey };
+export type Feedback = { kind: 'saved' | 'matched'; entry: CorrectionSubject };
 
 export type Correction =
   | { kind: 'closed'; feedback: Feedback | null }
@@ -77,13 +78,10 @@ export type CorrectionAction =
 export const closedCorrection: Correction = { kind: 'closed', feedback: null };
 
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
-// Everything the People & officers fallback edits: roster people, officer
-// roles and the team managers a roster removal clears.
-const rosterKey = (snapshot: Snapshot) => weeklySourceKey(snapshot.roster);
 const targetKey = (target: CorrectionTarget, snapshot: Snapshot) =>
   target.kind === 'section'
     ? sectionKey(target.section, snapshot)
-    : rosterKey(snapshot);
+    : rosterBaselineKey(snapshot);
 
 function capture(
   target: CorrectionTarget,
@@ -97,8 +95,8 @@ function capture(
   };
 }
 
-const entryOf = (target: CorrectionTarget): MilitiaEntryKey =>
-  target.kind === 'section' ? target.section : 'people';
+const entryOf = (target: CorrectionTarget): CorrectionSubject =>
+  target.kind === 'section' ? target.section : target.kind;
 
 const sameAttempt = (status: Status, attempt: SaveAttempt) =>
   'attempt' in status &&
@@ -190,26 +188,6 @@ const editing = (
   message: string | null = null,
 ): CorrectionView => ({ kind: 'editing', notice, message });
 
-// The People & officers fallback against the newest militia. Its Save is
-// bound to the revision it opened from, so a stale one is refused by the
-// server rather than merged or detected here as a conflict. An unconfirmed
-// Save the militia now shows is settled; nothing is replayed.
-function peopleView(
-  status: Exclude<Status, { kind: 'saving' }>,
-  accepted: AcceptedMilitia,
-): CorrectionView {
-  if (status.kind === 'editing') return editing(status.notice);
-  if (status.kind === 'conflict') return editing();
-  if (
-    accepted.revision !== status.attempt.expectedRevision &&
-    rosterKey(accepted.state.militiaSnapshot) === status.attempt.candidate
-  )
-    return { kind: 'closed', feedback: { kind: 'matched', entry: 'people' } };
-  return status.kind === 'rejected'
-    ? editing('rejected', status.message)
-    : editing('unconfirmed');
-}
-
 // What the open correction means against the newest accepted militia.
 export function correctionView(
   state: Correction,
@@ -218,13 +196,12 @@ export function correctionView(
   if (state.kind === 'closed') return state;
   const { status, captured, target } = state;
   if (status.kind === 'saving') return { kind: 'saving' };
-  if (target.kind === 'people') return peopleView(status, accepted);
   if (
     accepted.draftId !== captured.draftId ||
     accepted.state.week !== captured.week
   )
     return { kind: 'weekChanged' };
-  const latest = sectionKey(target.section, accepted.state.militiaSnapshot);
+  const latest = targetKey(target, accepted.state.militiaSnapshot);
   const changed = latest !== captured.section;
   if (status.kind === 'editing') return editing(status.notice);
   if (status.kind === 'conflict') return { kind: 'conflict' };
@@ -241,7 +218,7 @@ export function correctionView(
   if (latest === status.attempt.candidate)
     return {
       kind: 'closed',
-      feedback: { kind: 'matched', entry: target.section },
+      feedback: { kind: 'matched', entry: entryOf(target) },
     };
   if (changed) return { kind: 'conflict' };
   // A refusal against an older revision was a race with another section's
@@ -259,31 +236,32 @@ export type SavePlan =
       snapshot: CanonicalWeekState['militiaSnapshot'];
     };
 
-// The People & officers fallback sends the whole snapshot it edited against
-// the revision it opened from, as the old full editor did: a militia changed
-// meanwhile refuses it, and it is never merged onto newer facts.
-export function planPeopleSave(
-  state: Correction,
-  snapshot: Snapshot,
+// Save applies the player's correction to the newest accepted militia and
+// sends it against the newest revision, unless another player changed what
+// it corrects since Correct (even another row of it), which is a conflict.
+function planSave(
+  state: Extract<Correction, { kind: 'open' }>,
+  accepted: AcceptedMilitia,
+  apply: (latest: Snapshot) => Snapshot,
 ): SavePlan {
-  if (
-    state.kind !== 'open' ||
-    state.target.kind !== 'people' ||
-    state.status.kind === 'saving'
-  )
+  const view = correctionView(state, accepted);
+  if (view.kind !== 'editing' && view.kind !== 'conflict')
     return { kind: 'busy' };
-  const candidate = rosterKey(snapshot);
-  if (candidate === state.captured.section) return { kind: 'unchanged' };
+  const latest = accepted.state.militiaSnapshot;
+  const current = targetKey(state.target, latest);
+  if (view.kind === 'conflict' || current !== state.captured.section)
+    return { kind: 'conflict' };
+  const snapshot = apply(latest);
+  const candidate = targetKey(state.target, snapshot);
+  if (candidate === current) return { kind: 'unchanged' };
   return {
     kind: 'send',
-    attempt: { expectedRevision: state.captured.revision, candidate },
+    attempt: { expectedRevision: accepted.revision, candidate },
     snapshot,
   };
 }
 
-// Save merges the player's section onto the newest accepted militia and
-// sends it against the newest revision, unless another player changed this
-// section since Correct (even another row of it), which is a conflict.
+/** A section correction's Save: only that section is merged. */
 export function planSectionSave<K extends MilitiaSectionKey>(
   state: Correction,
   accepted: AcceptedMilitia,
@@ -292,19 +270,57 @@ export function planSectionSave<K extends MilitiaSectionKey>(
 ): SavePlan {
   if (state.kind !== 'open' || state.target.kind !== 'section')
     return { kind: 'busy' };
-  const view = correctionView(state, accepted);
-  if (view.kind !== 'editing' && view.kind !== 'conflict')
+  return planSave(state, accepted, (latest) =>
+    mergeSection(section, latest, yours),
+  );
+}
+
+/**
+ * An officer or roster correction's Save: `apply` makes the correction on
+ * the newest militia (only the assignments, or membership and overrides
+ * with their cascades).
+ */
+export function planRosterSave(
+  state: Correction,
+  accepted: AcceptedMilitia,
+  apply: (latest: Snapshot) => Snapshot,
+): SavePlan {
+  if (state.kind !== 'open' || state.target.kind === 'section')
     return { kind: 'busy' };
-  const latest = accepted.state.militiaSnapshot;
-  const current = sectionKey(section, latest);
-  if (view.kind === 'conflict' || current !== state.captured.section)
-    return { kind: 'conflict' };
-  const snapshot = mergeSection(section, latest, yours);
-  const candidate = sectionKey(section, snapshot);
-  if (candidate === current) return { kind: 'unchanged' };
-  return {
-    kind: 'send',
-    attempt: { expectedRevision: accepted.revision, candidate },
-    snapshot,
-  };
+  return planSave(state, accepted, apply);
+}
+
+/** A correction as the militia's only write accepts it. */
+export type CorrectionWrite = (correction: {
+  expectedRevision: number;
+  snapshot: Snapshot;
+  reason: string;
+}) => Promise<unknown>;
+
+// Sends one planned correction and reports its outcome to the lifecycle.
+// Only a ConvexError is a definite refusal; anything else may or may not
+// have been applied and is reconciled from the observed militia.
+export function sendCorrection(
+  plan: Extract<SavePlan, { kind: 'send' }>,
+  reason: string,
+  save: CorrectionWrite,
+  dispatch: (action: CorrectionAction) => void,
+) {
+  const { attempt } = plan;
+  dispatch({ type: 'submit', attempt });
+  return save({
+    expectedRevision: attempt.expectedRevision,
+    snapshot: plan.snapshot,
+    reason,
+  }).then(
+    () => dispatch({ type: 'accepted', attempt }),
+    (error: unknown) => {
+      const failure = classifyWriteFailure(error);
+      dispatch(
+        failure.kind === 'rejected'
+          ? { type: 'rejected', attempt, message: failure.message }
+          : { type: 'unknown', attempt },
+      );
+    },
+  );
 }

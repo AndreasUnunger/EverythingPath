@@ -7,7 +7,7 @@ import { MilitiaSkeleton } from '~/components/militia-corrections/militia-skelet
 import { parseMilitiaEntry } from '~/lib/militia-correction-sections';
 
 // Thin address adapter: the entry to open lives in the address
-// (`?section=people`), so a link can land straight on one correction.
+// (`?section=teams`), so a link can land straight on one correction.
 function MilitiaHost() {
   const { campaign, organizationId } = useCampaign();
   const params = useSearchParams();

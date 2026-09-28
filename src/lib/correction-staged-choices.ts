@@ -67,6 +67,11 @@ const phaseOf: Record<ChoiceLocation['kind'], StagedChoicePhase | null> = {
   operatedSettlements: null,
 };
 
+/** The phase that repairs a choice; null for read-only carried context. */
+export function choicePhase(location: ChoiceLocation): StagedChoicePhase | null {
+  return phaseOf[location.kind];
+}
+
 function locationKey(location: ChoiceLocation) {
   switch (location.kind) {
     case 'upkeepTeam':

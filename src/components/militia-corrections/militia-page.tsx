@@ -17,7 +17,6 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { Button } from '~/components/ui/button';
-import { Separator } from '~/components/ui/separator';
 import type { MilitiaEntryKey } from '~/lib/militia-correction-sections';
 import { cn } from '~/lib/utils';
 import { FactsView } from './facts-view';
@@ -227,7 +226,6 @@ function IndexList({
 function WideLayout({ page }: { page: Page }) {
   const sections = page.entries.filter((entry) => entry.group === 'sections');
   const week = page.entries.filter((entry) => entry.group === 'week');
-  const fallback = page.entries.filter((entry) => entry.group === 'fallback');
   const selected = entryOf(page, page.selected);
   return (
     <div className="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)] xl:mx-auto xl:max-w-6xl xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -240,12 +238,6 @@ function WideLayout({ page }: { page: Page }) {
           <>
             <WeekGroupLabel />
             <IndexList page={page} entries={week} />
-          </>
-        )}
-        {fallback.length > 0 && (
-          <>
-            <Separator className="my-2" />
-            <IndexList page={page} entries={fallback} />
           </>
         )}
       </nav>
@@ -310,7 +302,6 @@ function AccordionRow({
 function NarrowLayout({ page }: { page: Page }) {
   const sections = page.entries.filter((entry) => entry.group === 'sections');
   const week = page.entries.filter((entry) => entry.group === 'week');
-  const fallback = page.entries.filter((entry) => entry.group === 'fallback');
   return (
     <div className="border-foreground/15 -mx-4 border-t">
       {sections.map((entry) => (
@@ -318,10 +309,6 @@ function NarrowLayout({ page }: { page: Page }) {
       ))}
       {week.length > 0 && <WeekGroupLabel />}
       {week.map((entry) => (
-        <AccordionRow key={entry.key} page={page} entry={entry} />
-      ))}
-      {fallback.length > 0 && <Separator className="my-2" />}
-      {fallback.map((entry) => (
         <AccordionRow key={entry.key} page={page} entry={entry} />
       ))}
     </div>

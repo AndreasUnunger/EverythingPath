@@ -1,9 +1,19 @@
-import { useId } from 'react';
-import type { RoleCard } from '~/lib/officer-board';
+import { Plus } from 'lucide-react';
+import { useId, useRef } from 'react';
+import { Button } from '~/components/ui/button';
+import type { OfficerRole, RoleCard } from '~/lib/officer-board';
 import { cn } from '~/lib/utils';
+import { HolderMenu, type HolderActions } from './holder-menu';
 import { ArchivedBadge, roleCardId, Warnings } from './parts';
 
 const card = 'border-foreground/20 bg-card min-w-0 border p-3';
+
+/** Correct officers' controls on a card: Assign, and each holder's menu. */
+export type RoleCardEditing = {
+  /** Opens the Assign picker; `trigger` gets focus back when it closes. */
+  onAssign: (role: OfficerRole, trigger: HTMLElement) => void;
+  holders: HolderActions;
+};
 
 // A role before the militia exists: its name and nothing to show yet.
 export function UnassignedRoleCard({ label }: { label: string }) {
@@ -22,11 +32,20 @@ export function UnassignedRoleCard({ label }: { label: string }) {
 
 // One role on the board: its rule, who holds it, what the rules take from
 // them, and the open week's staged changes to it. Focusable so a role chip
-// in the table can bring it into view.
-export function RoleCardView({ card: role }: { card: RoleCard }) {
+// in the table can bring it into view, and so focus has somewhere to land
+// when a holder's menu removes them.
+export function RoleCardView({
+  card: role,
+  editing = null,
+}: {
+  card: RoleCard;
+  editing?: RoleCardEditing | null;
+}) {
   const headingId = useId();
+  const section = useRef<HTMLElement>(null);
   return (
     <section
+      ref={section}
       id={roleCardId(role.role)}
       tabIndex={-1}
       aria-labelledby={headingId}
@@ -36,11 +55,31 @@ export function RoleCardView({ card: role }: { card: RoleCard }) {
         role.vacant && 'border-dashed',
       )}
     >
-      <div>
-        <h3 id={headingId} className="font-sans text-lg leading-tight">
-          {role.label}
-        </h3>
-        <p className="text-muted-foreground text-xs">{role.rule}</p>
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-[7.5rem] flex-1">
+          <h3
+            id={headingId}
+            className="font-sans text-base leading-tight [overflow-wrap:anywhere] md:text-lg"
+          >
+            {role.label}
+          </h3>
+          <p className="text-muted-foreground text-xs">{role.rule}</p>
+        </div>
+        {editing && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="-mt-0.5 -mr-0.5 min-h-11 shrink-0 max-sm:size-11 max-sm:px-0 md:min-h-8"
+            aria-label={`Assign ${role.label}`}
+            onClick={(event) =>
+              editing.onAssign(role.role, event.currentTarget)
+            }
+          >
+            <Plus aria-hidden />
+            <span className="max-sm:sr-only">Assign</span>
+          </Button>
+        )}
       </div>
       {role.holders.length > 0 && (
         <ul className="space-y-1">
@@ -68,6 +107,15 @@ export function RoleCardView({ card: role }: { card: RoleCard }) {
                 </span>
               )}
               {holder.archived && <ArchivedBadge />}
+              {editing && (
+                <HolderMenu
+                  holder={holder}
+                  role={role.role}
+                  roleLabel={role.label}
+                  actions={editing.holders}
+                  onDone={() => section.current?.focus()}
+                />
+              )}
             </li>
           ))}
         </ul>

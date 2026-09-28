@@ -16,7 +16,7 @@ export function campaignPath(
   return section === 'home' ? base : `${base}/${section}`;
 }
 
-/** Militia, optionally with one page entry selected (`?section=people`). */
+/** Militia, optionally with one page entry selected (`?section=teams`). */
 export function militiaPath(
   campaignId: string,
   entry?: MilitiaEntryKey,

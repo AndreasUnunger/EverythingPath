@@ -503,8 +503,7 @@ W1 is gone).
     submission and "history keeps the recorded kinds" cases. Keep its mirror
     tests, with `pc`/`npc` data.
   - `HIST-05.record-kinds`
-    (`src/components/historical-week/record-view.test.tsx`) and
-    `people-fallback.test.tsx`.
+    (`src/components/historical-week/record-view.test.tsx`).
   - Catalog-pinned `rules.O06.role-aware-parity`
     (`convex/canonicalResolutionPreview.integration.test.ts`) iterates `pc`,
     `officer_npc`, `other_npc` and `npc`. Reduce it to `pc` and `npc` and keep

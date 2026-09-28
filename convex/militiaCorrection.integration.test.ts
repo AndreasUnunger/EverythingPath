@@ -8,7 +8,7 @@ import {
   closedCorrection,
   correctionReducer,
   correctionView,
-  planPeopleSave,
+  planRosterSave,
   planSectionSave,
   type AcceptedMilitia,
 } from '../src/components/militia-corrections/correction-lifecycle';
@@ -17,6 +17,11 @@ import {
   type MilitiaSectionKey,
   type SectionValue,
 } from '../src/lib/militia-correction-sections';
+import {
+  applyOfficerCorrection,
+  applyRosterCorrection,
+  assignOfficer,
+} from '../src/lib/roster-corrections';
 const modules = import.meta.glob('./**/*.ts');
 
 async function fixture() {
@@ -257,7 +262,7 @@ test('a corrected section is still refused when it removes what carried effects 
   );
 });
 
-test('character conditions and carried benefits corrected on two devices keep each other and the character records; the People & officers fallback never overwrites them', async () => {
+test('character conditions and carried benefits corrected on two devices keep each other and the character records; an officer correction opened before them keeps them too', async () => {
   const { t, player, gm, scope, key, characterId } = await fixture();
   const conditions = await openCorrection(
     player,
@@ -271,9 +276,9 @@ test('character conditions and carried benefits corrected on two devices keep ea
     key.draftId,
     'carriedBenefits',
   );
-  const people = correctionReducer(closedCorrection, {
+  const officers = correctionReducer(closedCorrection, {
     type: 'open',
-    target: { kind: 'people' },
+    target: { kind: 'officers' },
     accepted: conditions.opened,
   });
 
@@ -369,34 +374,108 @@ test('character conditions and carried benefits corrected on two devices keep ea
   );
   expect(final.state.context).toEqual(conditions.opened.state.context);
 
-  // The fallback opened before both corrections sends its whole snapshot at
-  // that revision, so the server refuses it rather than undoing them.
-  const opened = conditions.opened.state.militiaSnapshot;
-  const plan = planPeopleSave(people, {
-    ...opened,
-    roster: {
-      ...opened.roster,
-      officers: [...opened.roster.officers, { role: 'marshal', characterId }],
+  // Characters & officers' officer correction opened before both: only the
+  // assignments are replaced on the newest militia, so neither correction,
+  // nor the new Charisma, is undone.
+  const plan = planRosterSave(
+    officers,
+    {
+      ...(await player.query(api.canonicalLedger.read, scope)),
+      draftId: key.draftId,
     },
-  });
-  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
-  expect(plan.attempt.expectedRevision).toBe(conditions.opened.revision);
-  await expect(
-    player.mutation(api.canonicalLedger.save, {
-      ...scope,
-      expectedRevision: plan.attempt.expectedRevision,
-      snapshot: plan.snapshot,
-      reason: 'Ada leads the drills',
-    }),
-  ).rejects.toThrow('Militia changed');
-  expect((await player.query(api.canonicalLedger.read, scope)).revision).toBe(
-    final.revision,
+    (latest) =>
+      applyOfficerCorrection(
+        latest,
+        assignOfficer(latest.roster.officers, 'overseer', characterId),
+      ),
   );
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  expect(plan.attempt.expectedRevision).toBe(final.revision);
+  await player.mutation(api.canonicalLedger.save, {
+    ...scope,
+    expectedRevision: plan.attempt.expectedRevision,
+    snapshot: plan.snapshot,
+    reason: 'Ada oversees the camp',
+  });
+  const corrected = (await player.query(api.canonicalLedger.read, scope)).state
+    .militiaSnapshot;
+  expect(corrected.characterActions).toEqual({ people: hidden });
+  expect(corrected.eventBenefits).toEqual(carried);
+  expect(corrected.characters[0]?.charisma).toBe(20);
+  expect(corrected.roster.officers).toContainEqual({
+    role: 'overseer',
+    characterId,
+  });
   const reasons = await t.run((ctx) =>
     ctx.db
       .query('canonicalSourceCorrection')
       .collect()
       .then((rows) => rows.map((row) => row.reason)),
   );
-  expect(reasons).toEqual(['Festival rewards', 'Hid in town']);
+  expect(reasons).toEqual([
+    'Festival rewards',
+    'Hid in town',
+    'Ada oversees the camp',
+  ]);
+});
+
+test('a roster correction clears the removed person’s roles and managers in one save, and an officer correction opened before it conflicts', async () => {
+  const { t, player, gm, scope, key, characterId } = await fixture();
+  const read = async (client: Client): Promise<AcceptedMilitia> => ({
+    ...(await client.query(api.canonicalLedger.read, scope)),
+    draftId: key.draftId,
+  });
+  const opened = await read(gm);
+  const officers = correctionReducer(closedCorrection, {
+    type: 'open',
+    target: { kind: 'officers' },
+    accepted: opened,
+  });
+  const roster = correctionReducer(closedCorrection, {
+    type: 'open',
+    target: { kind: 'roster' },
+    accepted: opened,
+  });
+  const before = opened.state.militiaSnapshot;
+  expect(before.roster.officers.length).toBeGreaterThan(0);
+  expect(before.roster.teams.length).toBeGreaterThan(0);
+
+  const plan = planRosterSave(roster, await read(player), (latest) =>
+    applyRosterCorrection(latest, [], [{ characterId, kind: 'pc' }]),
+  );
+  if (plan.kind !== 'send') throw new Error(`expected send, got ${plan.kind}`);
+  await player.mutation(api.canonicalLedger.save, {
+    ...scope,
+    expectedRevision: plan.attempt.expectedRevision,
+    snapshot: plan.snapshot,
+    reason: 'Character left',
+  });
+  const after = (await read(player)).state.militiaSnapshot;
+  expect(after.roster.people).toEqual([]);
+  expect(after.roster.officers).toEqual([]);
+  expect(after.roster.teams).toEqual(
+    before.roster.teams.map((team) => ({ ...team, managerCharacterId: null })),
+  );
+  // The record and its rules facts remain.
+  expect(after.characters).toEqual(before.characters);
+
+  // The GM's officer correction captured the old roster: it conflicts.
+  const latest = await read(gm);
+  expect(
+    planRosterSave(officers, latest, (value) =>
+      applyOfficerCorrection(value, before.roster.officers),
+    ),
+  ).toEqual({ kind: 'conflict' });
+  expect(correctionView(officers, latest)).toEqual({
+    kind: 'editing',
+    notice: null,
+    message: null,
+  });
+  const reasons = await t.run((ctx) =>
+    ctx.db
+      .query('canonicalSourceCorrection')
+      .collect()
+      .then((rows) => rows.map((row) => row.reason)),
+  );
+  expect(reasons).toEqual(['Character left']);
 });
