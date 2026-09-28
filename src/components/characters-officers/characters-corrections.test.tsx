@@ -638,3 +638,66 @@ describe('Correct roster', () => {
     });
   });
 });
+
+// The accepted militia can briefly have no result while its subscription is
+// re-established (#141). The open correction must not unmount and remount
+// then: that closed a holder's ⋯ menu that had focus, and the save point's
+// heading took focus, so Escape no longer reached ⋯.
+describe('an open correction keeps its controls and focus while the accepted militia is briefly missing', () => {
+  function blink(view: ReturnType<typeof render>) {
+    const loaded = queries;
+    queries = { ...loaded, read: undefined };
+    view.rerender(page());
+    queries = loaded;
+    view.rerender(page());
+  }
+  const escape = () =>
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  const moveTargets = (card: HTMLElement) =>
+    within(card).getAllByRole('button', { name: /^Move to [^…]/ });
+
+  test('a holder’s Move to list stays open with focus, and Escape returns focus to ⋯', () => {
+    const view = render(page());
+    openOfficers();
+    const card = roleCard('Marshal');
+    fireEvent.click(button('Options for Bren Ironhand', card));
+    fireEvent.click(button('Move to…', card));
+    expect(moveTargets(card)[0]).toHaveFocus();
+    blink(view);
+    const options = button('Options for Bren Ironhand', roleCard('Marshal'));
+    expect(options).toHaveAttribute('aria-expanded', 'true');
+    expect(moveTargets(roleCard('Marshal'))[0]).toHaveFocus();
+    escape();
+    expect(options).toHaveAttribute('aria-expanded', 'false');
+    expect(options).toHaveFocus();
+  });
+
+  test('the Assign picker stays open with focus, and Escape returns focus to Assign', () => {
+    const view = render(page());
+    openOfficers();
+    fireEvent.click(button('Assign Spymaster', roleCard('Spymaster')));
+    const picker = () =>
+      screen.queryByRole('dialog', { name: 'Assign Spymaster' });
+    // The tablet sheet (jsdom has no media queries) focuses its first
+    // candidate.
+    const focused = document.activeElement;
+    expect(picker()).toContainElement(focused as HTMLElement);
+    blink(view);
+    expect(focused).toHaveFocus();
+    escape();
+    expect(picker()).toBeNull();
+    expect(button('Assign Spymaster', roleCard('Spymaster'))).toHaveFocus();
+  });
+
+  test('Correct roster: the On-roster switch keeps focus', () => {
+    const view = render(page());
+    openRoster();
+    const toggle = () =>
+      within(rowOf('Kess')).getByRole('switch', { name: 'Kess on roster' });
+    toggle().focus();
+    fireEvent.click(toggle());
+    blink(view);
+    expect(toggle()).toHaveFocus();
+    expect(toggle()).not.toBeChecked();
+  });
+});

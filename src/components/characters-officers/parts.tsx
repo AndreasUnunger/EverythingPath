@@ -8,6 +8,11 @@ export function roleCardId(role: OfficerRole) {
   return `role-${role}`;
 }
 
+/** The role card's Assign button, found again after its picker closes. */
+export function assignButtonId(role: OfficerRole) {
+  return `${roleCardId(role)}-assign`;
+}
+
 /** Touch-sized on the phone, compact from 768px; every button here. */
 export const action = 'min-h-11 md:min-h-9';
 
