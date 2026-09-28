@@ -978,6 +978,13 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(await resultCell(first, 'Treasury', 'Final')).toHaveText(
       '50.07 gp',
     );
+    // Leaving Review & confirm and returning is not the explicit review.
+    await first.getByRole('button', { name: 'Upkeep', exact: true }).click();
+    await summary(first);
+    await expect(review.getByRole('alert')).toContainText(
+      'The week could not be confirmed as reviewed.',
+    );
+    await expect(confirm(first)).toBeDisabled();
     await first
       .getByRole('button', { name: 'Review updated week', exact: true })
       .click();

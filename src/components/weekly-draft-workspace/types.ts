@@ -1205,6 +1205,8 @@ export type WeeklyDraftWorkspace =
       localForms: { id: string; message: string; phase?: Phase }[];
       edit(this: void, edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'>;
       viewPhase(this: void, phase: Phase): void;
+      /** Review updated week: the explicit review after a rejected request. */
+      reviewUpdatedWeek(this: void): void;
       confirm(this: void): Promise<'accepted' | 'failed'>;
       // Preparing the Event positions the rules ask for, shared by every phase.
       eventPreparation?: {

@@ -254,7 +254,11 @@ test('[rules.P85.rereview] rejected Confirmation requires an explicit review of 
     phase: 'summary',
     outcome: { militiaSnapshot: { treasuryCopper: 5007 } },
   });
+  // Showing Review & confirm again is not the explicit review.
+  act(() => current().viewPhase('upkeep'));
   act(() => current().viewPhase('summary'));
+  expect(current()).toMatchObject({ reviewRequired: true, canConfirm: false });
+  act(() => current().reviewUpdatedWeek());
   expect(current()).toMatchObject({ reviewRequired: false, canConfirm: true });
   await act(async () => expect(await current().confirm()).toBe('accepted'));
   screen.unmount();

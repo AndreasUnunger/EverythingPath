@@ -318,7 +318,7 @@ export function WeeklyWorkspaceBoard({
             confirm={() => {
               void workspace.confirm();
             }}
-            review={() => choosePhase('summary')}
+            review={workspace.reviewUpdatedWeek}
             localForms={workspace.localForms}
             localFormGuard={localFormGuard}
             latestAdjustments={() =>

@@ -199,3 +199,54 @@ test('[SUM-05.board] a rejected Confirmation waits for an explicit review of the
   expect(inspected.openDrafts).toHaveLength(1);
   expect(inspected.openDrafts[0]!.week).toBe(5);
 });
+
+test('[SUM-05.persist] the stale-review alert and its Confirm block survive leaving Review & confirm until Review updated week is pressed', async () => {
+  const fixture = week(true);
+  factory.mockImplementation(() => fixture.gateway);
+  renderReview();
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  await waitFor(() => expect(confirmButton()).toBeEnabled());
+  fixture.authority.changeSource('treasury');
+  await act(async () => {
+    fireEvent.click(confirmButton());
+  });
+  const alert = await within(
+    screen.getByRole('region', { name: 'Review the week' }),
+  ).findByRole('alert');
+  expect(alert).toHaveTextContent(
+    'The week could not be confirmed as reviewed.',
+  );
+  act(() =>
+    fixture.deliver({
+      ...fixture.source,
+      sourceRevision: 1,
+      snapshot: { ...fixture.source.snapshot, treasuryCopper: 5007 },
+    }),
+  );
+  // Leaving Review & confirm and coming back is not a review.
+  const stepper = () =>
+    within(screen.getByRole('navigation', { name: 'Week phases' }));
+  fireEvent.click(stepper().getByRole('button', { name: 'Upkeep' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  fireEvent.click(stepper().getByRole('button', { name: 'Review & confirm' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
+  const block = screen.getByRole('region', { name: 'Review the week' });
+  const review = within(block).getByRole('button', {
+    name: 'Review updated week',
+  });
+  await waitFor(() => expect(review).toBeEnabled());
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(within(block).getByRole('alert')).toHaveTextContent(
+    'The week could not be confirmed as reviewed.',
+  );
+  expect(confirmButton()).toBeDisabled();
+  expect(confirmButton()).toHaveAccessibleDescription(
+    'Review the updated week before confirming.',
+  );
+  fireEvent.click(review);
+  await waitFor(() => expect(confirmButton()).toBeEnabled());
+  expect(within(block).queryByRole('alert')).not.toBeInTheDocument();
+  expect(fixture.authority.inspect().records).toHaveLength(0);
+});
