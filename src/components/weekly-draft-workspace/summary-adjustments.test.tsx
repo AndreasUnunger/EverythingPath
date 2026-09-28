@@ -12,7 +12,7 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
-import { confirmControlFixture } from './workspace-test-fixture';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 import type { LocalFormGuard } from './use-summary-forms';
 afterEach(cleanup);

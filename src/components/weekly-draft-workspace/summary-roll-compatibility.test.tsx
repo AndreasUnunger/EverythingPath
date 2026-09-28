@@ -6,7 +6,7 @@ import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { phaseView } from './phase-view';
 import { SummaryView } from './summary-view';
-import { confirmControlFixture } from './workspace-test-fixture';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 afterEach(cleanup);
 
 // Test-only representation; the app never writes totals in this delivery.
@@ -61,7 +61,9 @@ test('[rules.SUM-02.total-readiness] the current Summary treats an incoming comp
   expect(ready.preview.status).toBe('ready');
   expect(ready.view.ready).toBe(true);
   render(
-    <SummaryView view={ready.view} {...controls}
+    <SummaryView
+      view={ready.view}
+      {...controls}
       edit={vi.fn()}
       confirmation={confirmControlFixture()}
     />,
@@ -87,7 +89,9 @@ test('[rules.SUM-09.total-range] an out-of-range total warns in the current Summ
   expect(totals.preview.status).toBe('ready');
   expect(totals.view.warnings).toContain('upkeep:attrition:roll-range');
   render(
-    <SummaryView view={totals.view} {...controls}
+    <SummaryView
+      view={totals.view}
+      {...controls}
       edit={vi.fn()}
       confirmation={confirmControlFixture()}
     />,

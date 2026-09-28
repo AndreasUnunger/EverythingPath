@@ -16,7 +16,7 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { SummaryView } from './summary-view';
-import { confirmControlFixture } from './workspace-test-fixture';
+import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 afterEach(cleanup);
 function section(
@@ -299,13 +299,7 @@ test('[SUM-01.block] the review block keeps decisions, warnings and the disabled
     /remain a preview/i,
   ])
     expect(document.body).not.toHaveTextContent(removed);
-  rerender(
-    <SummaryView
-      view={view}
-      edit={vi.fn()}
-      {...controls}
-    />,
-  );
+  rerender(<SummaryView view={view} edit={vi.fn()} {...controls} />);
   expect(screen.getByRole('button', { name: 'Confirm week' })).toBeEnabled();
   expect(
     screen.queryByRole('region', { name: 'Required decisions' }),

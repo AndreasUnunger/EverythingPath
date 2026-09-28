@@ -1,7 +1,6 @@
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { createMemoryDraftAuthority } from '~/lib/memory-draft-persistence';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
-import type { ConfirmControl } from './confirm-control';
 import type { WorkspaceGateway } from './gateway';
 
 // A memory-backed Workspace environment for UI tests: real store, real
@@ -85,18 +84,5 @@ export function upkeepRoll(field: 'check' | 'training', value: number) {
       provenance: { kind: 'table' as const },
       modifiers: [],
     },
-  };
-}
-
-/** A Confirmation control for views rendered without the store. */
-export function confirmControlFixture(
-  overrides: Partial<ConfirmControl> = {},
-): ConfirmControl {
-  return {
-    confirming: false,
-    disabled: false,
-    reason: null,
-    confirm: () => undefined,
-    ...overrides,
   };
 }

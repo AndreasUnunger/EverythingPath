@@ -1,6 +1,13 @@
 'use client';
-import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useId, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Flag,
+} from 'lucide-react';
 import { Button, buttonVariants } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
@@ -11,7 +18,7 @@ import { weekEditorAnchor } from '../source-anchors';
 import type { Phase, PhaseReadiness } from '../types';
 import { phaseLabels, weekHeading } from './labels';
 import { PhaseSkeletonBody, skeletonShape } from './phase-skeletons';
-import { readinessLine } from './readiness-copy';
+import { confirmWarnings, readinessLine } from './readiness-copy';
 import {
   DockedReferencePanel,
   PhoneReferenceSheet,
@@ -36,9 +43,10 @@ type Frame = {
 
 // Previous/next never wrap: at an endpoint there is no control, only an
 // invisible placeholder of the same size so the footer and strip keep their
-// shape. Names carry the direction so they never collide with the stepper's
-// own phase buttons. The footer shows the target's label beside an arrow;
-// the phone strip shows only a chevron.
+// shape; the one exception is Review & confirm, whose next position holds
+// the pinned Confirm week instead. Names carry the direction so they never
+// collide with the stepper's own phase buttons. The footer shows the
+// target's label beside an arrow; the phone strip shows only a chevron.
 const directions = {
   previous: { word: 'Previous', arrow: ArrowLeft, chevron: ChevronLeft },
   next: { word: 'Next', arrow: ArrowRight, chevron: ChevronRight },
@@ -101,14 +109,83 @@ function currentStep(frame: Frame) {
   return frame.phases.find((step) => step.phase === frame.phase);
 }
 
+// The pinned Confirm week at Review & confirm's next position: the same
+// ConfirmControl as the review block's button, so the same name, enabled
+// state and pending label. The warning count is visible beside the label
+// but described, never named, so both buttons stay "Confirm week"; the
+// disabled reason (the readiness line, `reasonId`) is described too.
+function PinnedConfirm({
+  confirmation,
+  step,
+  compact,
+  reasonId,
+}: {
+  confirmation: ConfirmControl;
+  step: PhaseReadiness;
+  compact?: boolean;
+  reasonId: string;
+}) {
+  const countId = useId();
+  const { confirming, disabled, reason, confirm } = confirmation;
+  const warnings = confirming ? null : confirmWarnings(step);
+  const name = confirming ? 'Confirming…' : 'Confirm week';
+  const describedBy =
+    [warnings && countId, disabled && reason && reasonId]
+      .filter(Boolean)
+      .join(' ') || undefined;
+  return (
+    <>
+      <Button
+        size={compact ? undefined : 'lg'}
+        aria-label={compact ? name : undefined}
+        aria-describedby={describedBy}
+        aria-busy={confirming || undefined}
+        disabled={disabled}
+        onClick={confirm}
+        className={cn(
+          'shrink-0',
+          compact
+            ? 'h-10 min-w-10 gap-1 px-2 text-xs has-[>svg]:px-2'
+            : 'short:h-8 short:px-3',
+        )}
+      >
+        <Flag aria-hidden />
+        {compact ? (confirming ? name : 'Confirm') : name}
+        {warnings && (
+          <span aria-hidden className="inline-flex items-center gap-1">
+            {compact ? (
+              <>
+                {' '}
+                · {step.warnings.length}
+                <AlertTriangle className="size-3" />
+              </>
+            ) : (
+              ` · ${warnings}`
+            )}
+          </span>
+        )}
+      </Button>
+      {warnings && (
+        <span id={countId} className="sr-only">
+          {warnings}
+        </span>
+      )}
+    </>
+  );
+}
+
 // Tablet and desktop: pinned under the phase content. The readiness line is
 // plain text (not a live region) so the shell's single save status stays the
 // only announced status; counts change too often to announce while typing.
 function Footer(frame: Frame) {
   const step = currentStep(frame);
+  const reasonId = useId();
+  const summary = frame.phase === 'summary';
   return (
     <footer
       data-week-footer
+      role="region"
+      aria-label="Week actions"
       className="bg-background/95 border-foreground/15 short:py-1 hidden shrink-0 items-center gap-3 border-t px-4 py-2.5 md:flex"
     >
       <DirectionButton
@@ -116,29 +193,50 @@ function Footer(frame: Frame) {
         target={frame.navigation.previous}
         choose={frame.choose}
       />
+      {/* On Review & confirm the line is the disabled reason, so it sits
+          beside the pinned Confirm and shrinks before the button does. */}
       <p
+        id={reasonId}
         data-week-readiness
-        className="text-muted-foreground short:text-xs min-w-0 flex-1 text-center text-sm"
+        className={cn(
+          'text-muted-foreground short:text-xs min-w-0 flex-1 text-sm',
+          summary ? 'text-right' : 'text-center',
+        )}
       >
         {step ? readinessLine(step, frame.confirmation.reason) : ''}
       </p>
-      <DirectionButton
-        direction="next"
-        target={frame.navigation.next}
-        choose={frame.choose}
-      />
+      {summary && step ? (
+        <PinnedConfirm
+          confirmation={frame.confirmation}
+          step={step}
+          reasonId={reasonId}
+        />
+      ) : (
+        <DirectionButton
+          direction="next"
+          target={frame.navigation.next}
+          choose={frame.choose}
+        />
+      )}
     </footer>
   );
 }
 
 // Phone: fills the shell's strip host immediately above the bottom tabs.
 // The middle shows Training and Treasury now → after with the short
-// readiness and opens the reference sheet; previous/next sit on its ends.
+// readiness and opens the reference sheet; previous/next sit on its ends,
+// the compact pinned Confirm at the next end on Review & confirm.
 function Strip(frame: Frame) {
   const step = currentStep(frame);
+  const reasonId = useId();
   return (
     <PhoneStatusStrip>
-      <div data-week-strip className="flex items-center gap-1 px-1 py-1">
+      <div
+        data-week-strip
+        role="region"
+        aria-label="Week actions"
+        className="flex items-center gap-1 px-1 py-1"
+      >
         <DirectionButton
           direction="previous"
           target={frame.navigation.previous}
@@ -149,17 +247,27 @@ function Strip(frame: Frame) {
           <PhoneReferenceSheet
             phase={frame.phase}
             confirmationDisabledReason={frame.confirmation.reason}
+            readinessId={reasonId}
             facts={frame.reference.facts}
             step={step}
             panel={frame.reference.panel}
           />
         )}
-        <DirectionButton
-          direction="next"
-          target={frame.navigation.next}
-          choose={frame.choose}
-          compact
-        />
+        {frame.phase === 'summary' && step ? (
+          <PinnedConfirm
+            confirmation={frame.confirmation}
+            step={step}
+            reasonId={reasonId}
+            compact
+          />
+        ) : (
+          <DirectionButton
+            direction="next"
+            target={frame.navigation.next}
+            choose={frame.choose}
+            compact
+          />
+        )}
       </div>
     </PhoneStatusStrip>
   );
