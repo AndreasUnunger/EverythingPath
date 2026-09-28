@@ -32,6 +32,11 @@ import {
 import { resultCell } from './support/summary-result';
 import { reviewPersistentWorkspace } from './support/persistent-qa';
 import { exerciseEventWorkspace } from './support/event-workspace';
+import {
+  prepareInvasion,
+  reviewEventLayout,
+  reviewSummaryLayout,
+} from './support/event-review-layout';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
@@ -92,7 +97,7 @@ function observeEditRejection(page: Page) {
   return () => rejected;
 }
 
-// Each journey resets and seeds its own catalog case, so the six journeys are
+// Each journey resets and seeds its own catalog case, so the seven journeys are
 // independent and may run on different worker cohorts at the same time.
 test.describe.configure({ mode: 'parallel' });
 test.use({
@@ -1148,4 +1153,35 @@ test('settlement and rank cards and team repairs stay reachable on phone and des
   );
   await players.gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
   await reviewUpkeepChoiceLayout(players.gm, run, scope);
+});
+
+// The Event blocks and Review & confirm at phone landscape and on the narrow
+// tablet with the reference panel open and closed, and Review's warnings and
+// recorded outcomes in place (#143, #145). Its own case keeps the Activity
+// and Event journey and the persistent journey clear of their limits.
+test('Event blocks and the week review stay reachable at phone landscape and on a narrow tablet', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(60_000);
+  const run = await loadRun();
+  await fixtureCall(run, 'resetCase', {
+    ...ownedCase.scope,
+    now: 1_700_000_000_000,
+  });
+  const scope = draftKeySchema.parse(
+    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+      scope: ownedCase.scope,
+      draftId: randomUUID(),
+      persistent: true,
+    }),
+  );
+  const gm = players.gm;
+  await gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
+  await test.step('an Invasion is recorded after an out-of-range chance roll', () =>
+    prepareInvasion(gm));
+  await test.step('the Event blocks fit phone landscape and the narrow tablet', () =>
+    reviewEventLayout(gm, run.artifactDirectory));
+  await test.step('Review lists the warning and the outcome in place at every size', () =>
+    reviewSummaryLayout(gm, run.artifactDirectory));
 });

@@ -32,6 +32,7 @@ const caseKey = v.union(
   v.literal('workspacePersistent'),
   v.literal('workspaceConfirmation'),
   v.literal('workspaceUpkeepLayout'),
+  v.literal('workspaceEventReview'),
   v.literal('campaignHome'),
   v.literal('campaignSections'),
   v.literal('legacyAddresses'),

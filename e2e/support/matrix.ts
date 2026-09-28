@@ -94,6 +94,13 @@ const workspaceJourneys = [
     'settlement and rank cards and team repairs stay reachable on phone and desktop',
     'workspaceUpkeepLayout',
   ],
+  // Event and Review & confirm at phone landscape and the narrow tablet, with
+  // Review's warnings and recorded outcomes (#143, #145), split so the
+  // Activity-and-Event and persistent journeys keep their margins.
+  [
+    'Event blocks and the week review stay reachable at phone landscape and on a narrow tablet',
+    'workspaceEventReview',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {
