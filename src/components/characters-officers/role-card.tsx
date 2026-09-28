@@ -4,14 +4,14 @@ import { Button } from '~/components/ui/button';
 import type { OfficerRole, RoleCard } from '~/lib/officer-board';
 import { cn } from '~/lib/utils';
 import { HolderMenu, type HolderActions } from './holder-menu';
-import { ArchivedBadge, roleCardId, Warnings } from './parts';
+import { ArchivedBadge, assignButtonId, roleCardId, Warnings } from './parts';
 
 const card = 'border-foreground/20 bg-card min-w-0 border p-3';
 
 /** Correct officers' controls on a card: Assign, and each holder's menu. */
 export type RoleCardEditing = {
-  /** Opens the Assign picker; `trigger` gets focus back when it closes. */
-  onAssign: (role: OfficerRole, trigger: HTMLElement) => void;
+  /** Opens the Assign picker; the role's Assign gets focus back after. */
+  onAssign: (role: OfficerRole) => void;
   holders: HolderActions;
 };
 
@@ -71,10 +71,9 @@ export function RoleCardView({
             variant="outline"
             size="sm"
             className="-mt-0.5 -mr-0.5 min-h-11 shrink-0 max-sm:size-11 max-sm:px-0 md:min-h-8"
+            id={assignButtonId(role.role)}
             aria-label={`Assign ${role.label}`}
-            onClick={(event) =>
-              editing.onAssign(role.role, event.currentTarget)
-            }
+            onClick={() => editing.onAssign(role.role)}
           >
             <Plus aria-hidden />
             <span className="max-sm:sr-only">Assign</span>

@@ -1,5 +1,6 @@
 'use client';
 import { useMutation, useQuery } from 'convex/react';
+import { useState } from 'react';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -16,6 +17,11 @@ type Snapshot = CanonicalWeekState['militiaSnapshot'];
 // the revision it was prepared against. Every write carries the campaign and
 // militia this hook was mounted for, so a later scope change never
 // retargets it.
+//
+// Once loaded, a scope's militia never goes back to loading. A moment
+// without a result (while the subscription is re-established) would unmount
+// an open correction and mount it again: its menus and pickers would close,
+// and its heading would take focus from the control in use (#141).
 export function useLedgerCorrection({
   campaignId,
   militiaId,
@@ -23,7 +29,17 @@ export function useLedgerCorrection({
   campaignId: Id<'campaign'>;
   militiaId: Id<'militia'>;
 }) {
-  const ledger = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
+  const result = useQuery(api.canonicalLedger.read, { campaignId, militiaId });
+  const [kept, keep] = useState<{
+    campaignId: Id<'campaign'>;
+    militiaId: Id<'militia'>;
+    ledger: NonNullable<typeof result>;
+  } | null>(null);
+  const sameScope =
+    kept?.campaignId === campaignId && kept.militiaId === militiaId;
+  if (result !== undefined && (!sameScope || kept.ledger !== result))
+    keep({ campaignId, militiaId, ledger: result });
+  const ledger = result ?? (sameScope ? kept.ledger : undefined);
   const saveCorrection = useMutation(api.canonicalLedger.save);
   return {
     ledger,

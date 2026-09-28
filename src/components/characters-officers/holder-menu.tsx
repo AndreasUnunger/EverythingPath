@@ -25,8 +25,9 @@ const item =
   'focus-visible:ring-ring/50 hover:bg-foreground/10 flex min-h-11 w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-inset md:min-h-9';
 
 // A holder's "⋯" options: a disclosure whose list offers Move to… (which
-// swaps the list for the roles they do not hold) and Remove. Escape and a
-// press outside close it; a choice closes it and hands focus to the card.
+// swaps the list for the roles they do not hold) and Remove. Escape closes
+// it and returns focus to ⋯; a press outside or tabbing away closes it; a
+// choice closes it and hands focus to the card.
 export function HolderMenu({
   holder,
   role,
@@ -59,25 +60,51 @@ export function HolderMenu({
     setOpensRight(right - list.current.offsetWidth < 0);
   }, [expanded]);
 
+  // Set by Escape: ⋯ takes focus back once the list has closed.
+  const shouldReturnFocus = useRef(false);
+  const close = (refocus: boolean) => {
+    shouldReturnFocus.current = refocus;
+    setOpen('closed');
+  };
+
   useEffect(() => {
     if (!expanded) return;
     const onPointerDown = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen('closed');
     };
+    // Escape from inside is handled below. This catches it when focus has
+    // dropped to the page, as when the focused role stops being offered;
+    // never while another control has it.
+    const onPageEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (document.activeElement !== document.body) return;
+      event.preventDefault();
+      close(true);
+    };
     document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onPageEscape);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onPageEscape);
+    };
   }, [expanded]);
 
-  // The first item takes focus when the list opens or shows the targets.
+  // The first item takes focus when the list opens or shows the targets
+  // (the list itself when there are none).
   useEffect(() => {
     if (open === 'closed') return;
-    root.current?.querySelector<HTMLElement>('[data-menu-item]')?.focus();
+    (
+      root.current?.querySelector<HTMLElement>('[data-menu-item]') ??
+      list.current
+    )?.focus();
   }, [open]);
 
-  const close = (refocus: boolean) => {
-    setOpen('closed');
-    if (refocus) trigger.current?.focus();
-  };
+  // Once the list has closed, ⋯ takes focus back if Escape closed it.
+  useEffect(() => {
+    if (open !== 'closed' || !shouldReturnFocus.current) return;
+    shouldReturnFocus.current = false;
+    trigger.current?.focus();
+  }, [open]);
   const choose = (act: () => void) => {
     setOpen('closed');
     act();
@@ -137,8 +164,9 @@ export function HolderMenu({
         <div
           ref={list}
           id={menuId}
+          tabIndex={-1}
           className={cn(
-            'border-foreground/30 bg-popover text-popover-foreground absolute top-full z-30 mt-1 w-44 border py-1 shadow-lg',
+            'border-foreground/30 bg-popover text-popover-foreground absolute top-full z-30 mt-1 w-44 border py-1 shadow-lg outline-none',
             opensRight ? 'left-0' : 'right-0',
           )}
         >

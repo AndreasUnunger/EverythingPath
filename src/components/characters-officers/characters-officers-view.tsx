@@ -1,6 +1,6 @@
 'use client';
 import { ArrowRight, Pencil, Plus } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { useShellSlotHost } from '~/components/campaign-shell/shell-slots';
 import { useWideLayout } from '~/components/militia-corrections/use-wide-layout';
@@ -15,7 +15,7 @@ import { cn } from '~/lib/utils';
 import { AssignPicker, type PickerLayout } from './assign-picker';
 import { CharacterCards, CharacterTable } from './character-rows';
 import { CorrectionBar, Feedback } from './correction-bar';
-import { action } from './parts';
+import { action, assignButtonId } from './parts';
 import { RoleCardView, UnassignedRoleCard } from './role-card';
 import type {
   CharacterCorrections,
@@ -42,27 +42,28 @@ function EditableBoard({
   correction: OpenCorrection;
   layout: PickerLayout;
 }) {
-  const [assigning, setAssigning] = useState<{
-    role: OfficerRole;
-    trigger: HTMLElement;
-  } | null>(null);
+  const [assigning, setAssigning] = useState<OfficerRole | null>(null);
+  // Once the picker has closed, focus returns to its role's Assign, found
+  // by the role rather than held, so a remounted card's button still gets it.
+  const returnTo = useRef<OfficerRole | null>(null);
+  useEffect(() => {
+    if (assigning !== null || returnTo.current === null) return;
+    document.getElementById(assignButtonId(returnTo.current))?.focus();
+    returnTo.current = null;
+  }, [assigning]);
   const close = () => {
+    returnTo.current = assigning;
     setAssigning(null);
-    assigning?.trigger.focus();
   };
-  const editing = {
-    onAssign: (role: OfficerRole, trigger: HTMLElement) =>
-      setAssigning({ role, trigger }),
-    holders: correction,
-  };
+  const editing = { onAssign: setAssigning, holders: correction };
   const picker = assigning && (
     <AssignPicker
-      key={assigning.role}
+      key={assigning}
       layout={layout}
-      label={ROLE_LABELS[assigning.role]}
-      offer={correction.candidates(assigning.role)}
+      label={ROLE_LABELS[assigning]}
+      offer={correction.candidates(assigning)}
       onAssign={(characterId) => {
-        correction.assign(assigning.role, characterId);
+        correction.assign(assigning, characterId);
         close();
       }}
       onClose={close}
