@@ -11,6 +11,7 @@ import { eventSubjectLabel } from './event-tree-facts';
 import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';
 import { summaryMessage } from './summary-messages';
+import { liveReviewSources } from './summary-sources';
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -134,6 +135,15 @@ export function summaryView(
         ).values(),
       ];
   }
+  // One line per missing die, as the Event phase shows it (#164).
+  const requirements = withoutDuplicateRollCodes(preview.requirements);
+  const warnings = liveWarnings(preview.warnings);
+  const sources = liveReviewSources({
+    draft,
+    source,
+    codes: [...requirements, ...warnings],
+    views: { upkeep, activity, event: events, persistent },
+  });
   const view: Omit<Extract<PhaseView, { phase: 'summary' }>, 'review'> = {
     phase: 'summary',
     ready: preview.status === 'ready',
@@ -162,9 +172,9 @@ export function summaryView(
           persistent: preview.phases.persistent.plan,
         }
       : null,
-    // One line per missing die, as the Event phase shows it (#164).
-    requirements: withoutDuplicateRollCodes(preview.requirements),
-    warnings: liveWarnings(preview.warnings),
+    requirements,
+    warnings,
+    sources,
   };
   return {
     ...view,

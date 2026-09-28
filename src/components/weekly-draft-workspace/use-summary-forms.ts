@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ReviewException } from '~/components/week-review/review-facts';
 import { moveAdjustmentById } from './adjustment-order';
+import { focusTargetWithin, localFormElementId } from './source-anchors';
 import {
   adjustmentChoices,
   adjustmentFormSchema,
@@ -47,17 +48,10 @@ export type LocalFormGuard = {
   read: (id: string) => unknown;
 };
 
-export const localFormElementId = (id: string) => `review-form-${id}`;
-
 /** Focuses a registered local form: its first invalid field, else its first control. */
 export function focusLocalForm(id: string) {
   const form = document.getElementById(localFormElementId(id));
-  const target =
-    form?.querySelector<HTMLElement>('[aria-invalid="true"]') ??
-    form?.querySelector<HTMLElement>(
-      'input:not(:disabled), textarea:not(:disabled), button:not(:disabled)',
-    );
-  target?.focus();
+  if (form) focusTargetWithin(form).focus();
 }
 
 /**

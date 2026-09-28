@@ -44,20 +44,25 @@ export function Step({
   title,
   status,
   effect,
+  anchor,
   children,
 }: {
   number: number;
   title: string;
   status: UpkeepSectionStatus;
   effect: string;
+  /** The DOM id a link from another phase brings into view and focus. */
+  anchor?: string;
   children?: ReactNode;
 }) {
   const inapplicable = status === 'inapplicable';
   return (
     <section
       aria-label={title}
+      id={anchor}
+      tabIndex={anchor ? -1 : undefined}
       className={cn(
-        'border-l-2 pl-4',
+        'focus-visible:ring-ring/50 rounded-sm border-l-2 pl-4 outline-none focus-visible:ring-[3px]',
         inapplicable ? 'border-border opacity-70' : 'border-foreground/20',
       )}
     >
