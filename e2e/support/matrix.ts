@@ -88,6 +88,12 @@ const workspaceJourneys = [
     'racing Confirmations commit one reviewed week and reject stale and delayed changes',
     'workspaceConfirmation',
   ],
+  // The settlement/rank content at phone and desktop sizes (#140), split so
+  // the settlement/rank journey stays well under its limit.
+  [
+    'settlement and rank cards and team repairs stay reachable on phone and desktop',
+    'workspaceUpkeepLayout',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {

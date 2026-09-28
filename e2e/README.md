@@ -757,6 +757,7 @@ race part uses only fresh pages with their own controls, as before.
 | players recover a team at an adjusted cost and confirm a week through Activity and Event | `workspaceRecovery` | `resetCase`, then `initializeUpkeep` with choices |
 | players review and buy off carried persistent events before confirming the week | `workspacePersistent` | `resetCase`, then `initializeUpkeep` with persistent events |
 | racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
+| settlement and rank cards and team repairs stay reachable on phone and desktop | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:
@@ -770,6 +771,12 @@ The only lost coverage is one GM and player session surviving all five parts. Th
 first part keeps setup, both campaign states and the full Upkeep journey in one
 session. The 420 s test deadline is split in proportion to the measured parts
 (130, 30, 125, 80 and 55 s), and no part gets more than its share.
+
+A sixth journey, `workspaceUpkeepLayout`, was added later (#140) rather than
+split: it repeats the settlement/rank fixture on one page and checks its
+settlement cards, missing-team row, Remove repair and rank feat cards at
+390×844 and 1440×900. The settlement/rank journey runs about 21 s of its 30 s
+limit, so the checks got their own case and a 60 s limit instead of growing it.
 
 ### Provision and declare the cohorts
 
