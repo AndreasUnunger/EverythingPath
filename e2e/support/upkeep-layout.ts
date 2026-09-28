@@ -7,6 +7,7 @@ import {
   expectBoundedWeekHost,
   expectNoHorizontalOverflow,
   expectReachable,
+  settleAnimations,
 } from './responsive-shell';
 import { stageLegacyRemove } from './team-conditions';
 
@@ -172,11 +173,22 @@ export async function panAndTapSettlementCards(
   };
   await expectPressed(selected, 'true');
   await expectPressed(other, 'false');
+  // A card dropped outside the selection area glides back to its place, so
+  // its box is read once it has settled and the finger lands on the card.
+  await settleAnimations(gm);
   const start = await card(gm, other).boundingBox();
   if (!start) throw new Error('No settlement card under the pan');
   const before = await readScroll(card(gm, other));
   const x = Math.round(start.x + start.width / 2);
   const y = Math.round(start.y + start.height / 2);
+  expect(
+    await card(gm, other).evaluate(
+      (element, point) =>
+        element.contains(document.elementFromPoint(point.x, point.y)),
+      { x, y },
+    ),
+    'the pan starts on the card',
+  ).toBe(true);
   // The finger moves up to scroll on, or down to scroll back when there is
   // more room above than below.
   const distance = before.top > before.below ? 160 : -160;
