@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCampaign } from '~/components/campaign-shell/campaign-context';
 import { MilitiaSection } from '~/components/campaign-sections/militia-section';
+import { MilitiaPageFrame } from '~/components/campaign-sections/page-frames';
 import { MilitiaSkeleton } from '~/components/militia-corrections/militia-skeleton';
 import { parseMilitiaEntry } from '~/lib/militia-correction-sections';
 
@@ -22,11 +23,10 @@ function MilitiaHost() {
 
 export default function MilitiaPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
-      <h1 className="text-2xl">Militia</h1>
+    <MilitiaPageFrame>
       <Suspense fallback={<MilitiaSkeleton />}>
         <MilitiaHost />
       </Suspense>
-    </main>
+    </MilitiaPageFrame>
   );
 }

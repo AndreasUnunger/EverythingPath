@@ -6,6 +6,7 @@ import type { SetupStorage } from '~/lib/setup-envelope';
 import { GuidedMilitiaSetup } from './guided';
 import {
   SetupOpening,
+  SetupPageFrame,
   SetupSkeleton,
   SetupStarted,
   SetupStorageNotice,
@@ -72,8 +73,7 @@ export function MilitiaSetupScreen({
   storage?: SetupStorage | null;
 }) {
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-6 xl:max-w-7xl">
-      <h1 className="text-2xl font-bold">Set up militia</h1>
+    <SetupPageFrame>
       {accountId ? (
         <SetupSession
           key={[accountId, organizationId, campaignId].join(':')}
@@ -85,6 +85,6 @@ export function MilitiaSetupScreen({
       ) : (
         <SetupSkeleton />
       )}
-    </main>
+    </SetupPageFrame>
   );
 }

@@ -186,24 +186,29 @@
   overflow: hidden;
 }
 
-/* On the bounded Week nothing may scroll the body (hidden is still a scroll
-   container that focus can scroll, moving the top bar and pinned chrome);
-   only there, because clip makes sticky bars stick to the viewport, which
-   document pages don't expect. */
-body:has([data-shell-frame='bounded']) {
+/* The body clips; it never hides. The document scrolls on <html>
+   (overflow-y: scroll below), so the body's overflow is not handed to the
+   viewport: `hidden` would make the body its own scroll container, one as
+   tall as the page that never scrolls. Every sticky bar inside (the phone
+   bottom bar, Setup's footer from 768px) would then stick to the end of
+   the page instead of the viewport, and focus could scroll the body itself,
+   moving the top bar and the Week's pinned chrome with no way back. `clip`
+   crops the same overflow without a scroll container. */
+body.scanlines {
   overflow: clip;
+}
+
+/* Radix's scroll lock sets the body's overflow to hidden !important while a
+   dialog, sheet or chooser is open, which would drop the sticky bars to the
+   end of the page behind it. The lock's overflow never stopped scrolling
+   here (the document scrolls on <html>); its event blocking does. */
+html body[data-scroll-locked] {
+  overflow: clip !important;
 }
 
 /* From 768px Setup's footer (Next, Start militia week) sticks to the bottom
-   of the viewport (#138 §3), so there the body must clip rather than hide:
-   hidden makes it the footer's never-scrolling scroll container, and the
-   footer would sit at the end of the step instead. The phone bottom bar is
-   hidden at these widths, so nothing else starts sticking. Focus scrolls
-   the detail pane's controls clear of the pinned footer. */
-body:has([data-setup-layout='wide']) {
-  overflow: clip;
-}
-
+   of the viewport (#138 §3). Focus scrolls the detail pane's controls clear
+   of it. */
 html:has([data-setup-layout='wide']) {
   scroll-padding-bottom: 5rem;
 }
