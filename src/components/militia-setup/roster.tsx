@@ -188,7 +188,7 @@ function SetupPersonKind({
         Kind
       </p>
       {character ? (
-        <p className="border-input bg-muted text-muted-foreground flex min-h-9 items-center border px-3 py-1 text-base md:text-sm">
+        <p className="border-input text-muted-foreground flex min-h-9 items-center border border-dashed px-3 py-1 text-base md:text-sm">
           {formatCharacterKind(character.kind)}
         </p>
       ) : (

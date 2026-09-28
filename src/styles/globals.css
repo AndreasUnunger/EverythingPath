@@ -65,7 +65,14 @@
   --base-light-gray: oklch(0.95 0.02 240);
   --base-dark-gray: oklch(0.11 0 0);
   --base-mid-gray: oklch(0.15 0 0);
-  --base-border-gray: --base-gray;
+  --base-border-gray: var(--base-gray);
+  /* Editable fields sit on surfaces from oklch 0.05 (page) to 0.15 (muted
+     panels). Their boundary must read at 3:1 or better against every one of
+     them (WCAG 1.4.11), and their well is lighter than any surface so a field
+     is recognizable as editable before it is focused. Measured: border
+     4.8:1 on the page, 4.7:1 on a card, 4.5:1 on a muted panel. */
+  --base-field-border: oklch(0.58 0.01 200);
+  --base-field: oklch(0.2 0 0);
   --base-destructive: oklch(0.55 0.22 20);
 
   /* Design tokens using base colors */
@@ -86,7 +93,8 @@
   --destructive: var(--base-destructive);
   --destructive-foreground: oklch(0.95 0 0);
   --border: var(--base-border-gray);
-  --input: var(--base-mid-gray);
+  --input: var(--base-field-border);
+  --field: var(--base-field);
   --ring: var(--base-gray);
   --chart-1: var(--base-gray);
   --chart-2: var(--base-light-gray);
@@ -126,6 +134,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-field: var(--field);
   --color-ring: var(--ring);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
