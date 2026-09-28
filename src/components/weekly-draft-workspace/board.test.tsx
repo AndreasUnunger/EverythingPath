@@ -623,7 +623,7 @@ test('[frame.readiness] every position shows readiness from one optimistic snaps
     screen.getByRole('button', { name: 'Next: Review & confirm' }),
   );
   await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
-  expect(screen.queryByRole('button', { name: /^Next/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Next\b/ })).toBeNull();
   expect(screen.getByRole('button', { name: 'Previous: Event' })).toBeEnabled();
   const lines = document.querySelectorAll('[data-week-readiness]');
   for (const line of lines)

@@ -145,9 +145,11 @@ describe('[SUM-10] live six-section consequences', () => {
       input.revision,
       input.militiaSnapshot,
     );
-    const [adjustment] = input.revision.tableAdjustments;
-    const applied = `adjustment:${adjustment!.adjustmentId}:The officer was rescued`;
-    expect(preview.warnings).toContain(applied);
+    const applied = input.revision.tableAdjustments.map(
+      (entry) => `adjustment:${entry.adjustmentId}:${entry.reason}`,
+    );
+    expect(applied).toHaveLength(1);
+    expect(preview.warnings).toEqual(expect.arrayContaining(applied));
     expect(facts.adjustments).toEqual([
       expect.objectContaining({
         number: 1,
@@ -159,7 +161,7 @@ describe('[SUM-10] live six-section consequences', () => {
         notes: [],
       }),
     ]);
-    expect(view.warnings).not.toContain(applied);
+    expect(view.warnings).not.toEqual(expect.arrayContaining(applied));
     expect(facts.result.complete).toBe(true);
     expect(facts.result.nextWeek).toBe(3);
     const training = facts.result.rows.find((row) => row.label === 'Training')!;

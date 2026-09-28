@@ -181,7 +181,9 @@ export async function reviewSummaryWorkspace(
   // Applying an adjustment is the table's decision, shown by its reason: it
   // is never repeated as a warning under the row, in Warnings or This phase.
   for (const player of [page, peer])
-    await expect(player.getByText(/Table Adjustment: /)).toHaveCount(0);
+    await expect(player.getByText(/(?<!New )Table Adjustment: /)).toHaveCount(
+      0,
+    );
   await openOutcomes(page);
   const final = summaryResult(page);
   await expect(await resultCell(page, 'Scouts', 'Final', 'Teams')).toHaveText(

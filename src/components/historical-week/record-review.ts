@@ -648,19 +648,18 @@ function warningText(review: Review, code: string) {
   );
 }
 
-/** Every recorded warning appears once: under its item, adjustment or phase. */
+/**
+ * Every recorded warning appears once: under its item, adjustment or phase.
+ * An applied adjustment's own code is not a warning; its row quotes it.
+ */
 function placeWarnings(review: Review) {
   const byAdjustment = new Map<string, ReviewNote[]>();
   const general: Partial<Record<ReviewPhase, Item>> = {};
   const all = allItems(review);
   review.record.warnings.forEach((warning, index) => {
     const code = findWarningCode(warning);
-    // The row already quotes an applied adjustment's reason (as live).
-    if (
-      code &&
-      isAppliedAdjustment(code, review.record.adjudication.tableAdjustments)
-    )
-      return;
+    const adjustments = review.record.adjudication.tableAdjustments;
+    if (code && isAppliedAdjustment(code, adjustments)) return;
     // Older records keep a written message; it is shown exactly as recorded.
     const note: ReviewNote = {
       kind: 'warning',

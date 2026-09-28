@@ -158,10 +158,13 @@ test('the footer skips a locked Persistent, never wraps and shows the current re
   expect(screen.getByText('Event is ready. 1 warning.')).toBeInTheDocument();
   view.rerender(frame('upkeep', { choose }));
   // An endpoint has no control, only an invisible, hidden placeholder.
-  expect(screen.queryByRole('button', { name: /^Previous/ })).toBeNull();
-  expect(
-    document.querySelectorAll('[data-week-endpoint="previous"]').length,
-  ).toBeGreaterThan(0);
+  expect(screen.queryByRole('button', { name: /^Previous\b/ })).toBeNull();
+  const starts = document.querySelectorAll('[data-week-endpoint="previous"]');
+  expect(starts.length).toBeGreaterThan(0);
+  for (const endpoint of starts) {
+    expect(endpoint).toHaveAttribute('aria-hidden', 'true');
+    expect(endpoint).toHaveClass('invisible');
+  }
   expect(screen.getByRole('button', { name: 'Next: Activity' })).toBeEnabled();
   expect(screen.getByText('Upkeep is ready.')).toBeInTheDocument();
   view.rerender(frame('event', { choose, eligible: true }));
@@ -176,7 +179,7 @@ test('the footer skips a locked Persistent, never wraps and shows the current re
 
 test('Review & confirm shows only the disabled-Confirmation reason, nothing when ready', () => {
   const view = render(frame('summary', { reason: '3 decisions left' }));
-  expect(screen.queryByRole('button', { name: /^Next/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Next\b/ })).toBeNull();
   // The footer keeps an invisible placeholder (the strip has no host here).
   const endpoints = document.querySelectorAll('[data-week-endpoint="next"]');
   expect(endpoints.length).toBeGreaterThan(0);

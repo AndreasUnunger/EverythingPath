@@ -55,7 +55,9 @@ function DirectionButton({
   const { word, arrow, chevron } = directions[direction];
   const Icon = compact ? chevron : arrow;
   const size = compact ? 'icon-lg' : 'lg';
-  const className = cn(!compact && 'short:h-8 short:px-3 max-w-[40%] shrink');
+  const footerSizing = cn(
+    !compact && 'short:h-8 short:px-3 max-w-[40%] shrink',
+  );
   if (!target) {
     return (
       <span
@@ -64,7 +66,7 @@ function DirectionButton({
         className={cn(
           buttonVariants({ variant: 'outline', size }),
           'invisible',
-          className,
+          footerSizing,
         )}
       >
         <Icon />
@@ -86,7 +88,7 @@ function DirectionButton({
       size={size}
       aria-label={`${word}: ${label}`}
       onClick={() => choose(target)}
-      className={className}
+      className={footerSizing}
     >
       {direction === 'next' ? content.reverse() : content}
     </Button>
