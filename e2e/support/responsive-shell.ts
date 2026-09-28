@@ -113,6 +113,28 @@ export async function expectReachable(page: Page, control: Locator) {
   await control.click({ trial: true });
 }
 
+/**
+ * Every enabled control shown in `scope` is reachable (see
+ * `expectReachable`). Each is focused first, as a keyboard or a tap would,
+ * so the page scrolls it clear of pinned chrome the way a player's focus
+ * does. Visually hidden and aria-hidden elements (such as a native select
+ * mirroring a custom one) are not controls a player reaches.
+ */
+export async function expectControlsReachable(
+  page: Page,
+  scope: Locator,
+  what: string,
+) {
+  const controls = scope.locator(
+    ':is(button, input, textarea, a[href], [role="combobox"]):visible:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]):not(.sr-only)',
+  );
+  expect(await controls.count(), `${what}: controls`).toBeGreaterThan(0);
+  for (const control of await controls.all()) {
+    await control.focus();
+    await expectReachable(page, control);
+  }
+}
+
 function isEditorContent(control: Locator) {
   return control.evaluate(
     (element) => element.closest('[data-week-editor]') !== null,

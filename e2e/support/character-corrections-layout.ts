@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import {
+  expectControlsReachable,
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
@@ -16,21 +17,14 @@ import {
 // phone, a floating dialog from 1280px) and a holder's ⋯ menu with its
 // Move to list. Both corrections are cancelled, so nothing changes.
 
+/** On the roster, holding `role`; `vacant` is a role nobody holds. */
+type Holder = { name: string; role: string; vacant: string };
+
 const sizes = [
   ['phone', 390, 844],
   ['desktop', 1440, 900],
 ] as const;
 type Size = (typeof sizes)[number][0];
-
-const enabled =
-  ':is(button, input, textarea, a[href], [role="combobox"]):visible:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]):not(.sr-only)';
-
-async function expectAllReachable(page: Page, scope: Locator, what: string) {
-  const controls = scope.locator(enabled);
-  expect(await controls.count(), `${what}: controls`).toBeGreaterThan(0);
-  for (const control of await controls.all())
-    await expectReachable(page, control);
-}
 
 // The one reason bar: in the phone strip, or inside the sticky save point.
 async function expectReasonBar(page: Page, size: Size, savePoint: Locator) {
@@ -42,7 +36,7 @@ async function expectReasonBar(page: Page, size: Size, savePoint: Locator) {
       page.locator('[data-shell-slot="phone-status-strip"] [data-reason-bar]'),
     ).toHaveCount(1);
   else await expect(savePoint.locator('[data-reason-bar]')).toHaveCount(1);
-  await expectAllReachable(page, bar, `${size} reason bar`);
+  await expectControlsReachable(page, bar, `${size} reason bar`);
   return bar;
 }
 
@@ -73,7 +67,7 @@ async function screenshot(
 async function reviewOfficers(
   page: Page,
   size: Size,
-  holder: { name: string; role: string },
+  holder: Holder,
   shot: (name: string) => Promise<void>,
 ) {
   await page
@@ -88,37 +82,38 @@ async function reviewOfficers(
   const officers = page.getByRole('region', { name: 'Officers', exact: true });
   // On the phone the save point sits under the board, its reason bar in
   // the strip; from 768px the sticky save point holds the reason bar.
-  await expectAllReachable(page, officers, `${size} officer board`);
+  await expectControlsReachable(page, officers, `${size} officer board`);
   const bar = await expectReasonBar(page, size, savePoint);
   if (size === 'desktop')
-    await expectAllReachable(page, savePoint, `${size} save point`);
+    await expectControlsReachable(page, savePoint, `${size} save point`);
 
-  // The Assign picker for the holder's role.
+  // The Assign picker for a vacant role, which offers the holder: Assign
+  // lists everyone on the roster not already holding that role.
   const assign = officers.getByRole('button', {
-    name: `Assign ${holder.role}`,
+    name: `Assign ${holder.vacant}`,
     exact: true,
   });
   await assign.click();
   const picker =
     size === 'phone'
       ? officers.getByRole('region', {
-          name: `Assign ${holder.role}`,
+          name: `Assign ${holder.vacant}`,
           exact: true,
         })
       : page.getByRole('dialog', {
-          name: `Assign ${holder.role}`,
+          name: `Assign ${holder.vacant}`,
           exact: true,
         });
   await expect(picker).toBeVisible();
   await expect(
-    picker.getByRole('heading', { name: `Assign ${holder.role}` }),
+    picker.getByRole('heading', { name: `Assign ${holder.vacant}` }),
   ).toBeFocused();
   await expectNoHorizontalOverflow(page);
   await expectInsideViewport(page, picker, `${size} Assign picker`);
   await expect(
     picker.getByRole('button', { name: new RegExp(`^${holder.name}`) }),
   ).toBeVisible();
-  await expectAllReachable(page, picker, `${size} Assign picker`);
+  await expectControlsReachable(page, picker, `${size} Assign picker`);
   await shot(`assign-${size}`);
   await page.keyboard.press('Escape');
   await expect(picker).toHaveCount(0);
@@ -187,10 +182,10 @@ async function reviewRoster(
     name: 'Characters',
     exact: true,
   });
-  await expectAllReachable(page, characters, `${size} roster rows`);
+  await expectControlsReachable(page, characters, `${size} roster rows`);
   const bar = await expectReasonBar(page, size, savePoint);
   if (size === 'desktop')
-    await expectAllReachable(page, savePoint, `${size} save point`);
+    await expectControlsReachable(page, savePoint, `${size} save point`);
   await shot(`roster-${size}`);
   await bar.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(savePoint).toHaveCount(0);
@@ -198,12 +193,13 @@ async function reviewRoster(
 }
 
 /**
- * On Characters & officers, with `holder` on the roster and holding `role`.
+ * On Characters & officers, with `holder` on the roster and holding its
+ * role.
  * Returns to the project's size.
  */
 export async function reviewCharacterCorrectionLayouts(
   page: Page,
-  holder: { name: string; role: string },
+  holder: Holder,
   artifactDirectory: string,
   project: string,
 ) {

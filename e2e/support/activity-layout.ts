@@ -10,6 +10,7 @@ import {
 } from './process';
 import {
   expectBoundedWeekHost,
+  expectControlsReachable,
   expectNoHorizontalOverflow,
   expectReachable,
   settleAnimations,
@@ -55,19 +56,10 @@ const allowance = (page: Page, text: string) =>
     .getByText(text, { exact: true });
 const saved = (page: Page) =>
   expect(saveStatus(page)).toHaveText('Changes saved.');
-const enabled =
-  ':is(button, input, textarea, a[href], [role="combobox"]):visible:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]):not(.sr-only)';
 
 // The picker's cards: every button in its action groups.
 const pickerCards = (sheet: Locator) =>
   sheet.getByRole('region').getByRole('button');
-
-async function expectAllReachable(page: Page, scope: Locator, what: string) {
-  const controls = scope.locator(enabled);
-  expect(await controls.count(), `${what}: controls`).toBeGreaterThan(0);
-  for (const control of await controls.all())
-    await expectReachable(page, control);
-}
 
 /** Opens the Week on both devices, settles Upkeep and shows Activity. */
 export async function openActivity(gm: Page, player: Page, route: string) {
@@ -86,7 +78,7 @@ export async function openActivity(gm: Page, player: Page, route: string) {
 }
 
 // The picker's scrolling list: the sheet's one vertically scrolling part.
-function pickerList(sheet: Locator) {
+function pickerScroller(sheet: Locator) {
   return sheet.evaluate((dialog) => {
     const list = [dialog, ...dialog.querySelectorAll<HTMLElement>('*')].find(
       (node) =>
@@ -120,7 +112,7 @@ export async function panAndTapPicker(gm: Page, player: Page) {
   await expect(sheet).toBeVisible();
   // Measure the list only once the sheet has finished sliding in.
   await settleAnimations(gm);
-  const list = await pickerList(sheet);
+  const list = await pickerScroller(sheet);
   expect(list, 'the picker list scrolls at the tablet size').not.toBeNull();
   // The lowest point in the list's visible part that is on a card.
   const start = await sheet.evaluate((_, box) => {
@@ -152,7 +144,7 @@ export async function panAndTapPicker(gm: Page, player: Page) {
   await expect(sheet).toBeVisible();
   await expect
     .poll(
-      async () => (await pickerList(sheet))?.scrollTop ?? 0,
+      async () => (await pickerScroller(sheet))?.scrollTop ?? 0,
       'the pan scrolled the picker',
     )
     .toBeGreaterThan(list!.scrollTop);
@@ -192,7 +184,7 @@ export async function reviewActivityLandscapes(gm: Page, run: Run) {
     await expect(details(gm, 1)).toBeVisible();
     await expectNoHorizontalOverflow(gm);
     await expectBoundedWeekHost(gm);
-    await expectAllReachable(
+    await expectControlsReachable(
       gm,
       gm.getByRole('region', { name: 'Activity choices', exact: true }),
       `${name} board and details`,
@@ -223,7 +215,7 @@ export async function reviewActivityLandscapes(gm: Page, run: Run) {
       `${name}: picker ends in view`,
     ).toBeLessThanOrEqual(height + 1);
     expect(await pickerCards(sheet).count()).toBeGreaterThan(0);
-    await expectAllReachable(gm, sheet, `${name} picker`);
+    await expectControlsReachable(gm, sheet, `${name} picker`);
     await savePrivate(
       join(run.artifactDirectory, `canonical-activity-picker-${name}.png`),
       await gm.screenshot(),

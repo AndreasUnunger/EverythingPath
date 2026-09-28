@@ -145,7 +145,7 @@ test('players share character and officer assignment changes', async ({
   await test.step('both corrections stay reachable on phone and desktop', async () =>
     reviewCharacterCorrectionLayouts(
       gm,
-      { name: 'Nara', role: 'Marshal' },
+      { name: 'Nara', role: 'Marshal', vacant: 'Spymaster' },
       (await loadRun()).artifactDirectory,
       info.project.name,
     ));

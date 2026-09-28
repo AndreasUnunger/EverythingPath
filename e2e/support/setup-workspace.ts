@@ -5,6 +5,7 @@ import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
 import { saveStatus } from './week-frame';
 import {
+  expectControlsReachable,
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
@@ -62,14 +63,7 @@ async function expectSetupReachable(
       `${layout}: the sticky footer starts in view`,
     ).toBeGreaterThanOrEqual(0);
   }
-  const controls = root.locator(
-    ':is(button, input, textarea, a[href], [role="combobox"]):visible:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]):not(.sr-only)',
-  );
-  expect(await controls.count(), `${layout}: Setup controls`).toBeGreaterThan(
-    0,
-  );
-  for (const control of await controls.all())
-    await expectReachable(page, control);
+  await expectControlsReachable(page, root, `${layout} Setup`);
   await expectReachable(page, next);
 }
 
