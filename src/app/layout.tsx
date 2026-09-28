@@ -46,6 +46,11 @@ export const viewport: Viewport = {
   interactiveWidget: 'resizes-content',
 };
 
+// Every route renders per request. ClerkProvider needs a publishable key to
+// render, so a statically prerendered page (even `/_not-found`) would fail a
+// build without one; the build must compile with only a Convex URL.
+export const dynamic = 'force-dynamic';
+
 // Each route renders its own top bar: the campaign list keeps the
 // organization switcher in the breadcrumb, campaign pages the campaign switcher.
 export default function RootLayout({
