@@ -1,5 +1,12 @@
 'use client';
-import { useCallback, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { usePathname } from 'next/navigation';
 import {
   History,
@@ -282,15 +289,42 @@ function MoreSheet() {
   );
 }
 
+// The sticky bar covers the end of every document-scrolled page, and the
+// browser counts a control under it as in view, so focus never scrolls it
+// clear. Reserve the bar's measured height (strip included, as it grows and
+// shrinks) as document scroll padding while it is shown; from 768px it is
+// display:none, measures 0 and reserves nothing.
+function useScrollPaddingFor(bar: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const cover = bar.current;
+    if (!cover || typeof ResizeObserver === 'undefined') return;
+    const style = document.documentElement.style;
+    const observer = new ResizeObserver(() => {
+      const height = cover.offsetHeight;
+      style.scrollPaddingBottom = height > 0 ? `${height + 16}px` : '';
+    });
+    observer.observe(cover);
+    return () => {
+      observer.disconnect();
+      style.scrollPaddingBottom = '';
+    };
+  }, [bar]);
+}
+
 // Phone: four section tabs plus More. Sticky at the column's end so content,
 // alerts and save buttons stay reachable above it, including above the
 // on-screen keyboard (the viewport resizes its content) and the home
-// indicator (safe-area padding). The Week frame fills the status-strip host
-// immediately above the tabs.
+// indicator (safe-area padding). The Week frame and correction reason bars
+// fill the status-strip host immediately above the tabs.
 function BottomBar({ sections }: { sections: SectionLink[] }) {
   const pathname = usePathname();
+  const bar = useRef<HTMLDivElement>(null);
+  useScrollPaddingFor(bar);
   return (
-    <div className="bg-background/95 border-foreground/15 sticky bottom-0 z-40 shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <div
+      ref={bar}
+      className="bg-background/95 border-foreground/15 sticky bottom-0 z-40 shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
       <ShellSlotHost
         name="phone-status-strip"
         className="border-foreground/15 border-b"

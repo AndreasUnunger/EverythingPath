@@ -5,7 +5,6 @@ import {
   useId,
   useRef,
   type ComponentType,
-  type RefObject,
 } from 'react';
 import { Controller, FormProvider } from 'react-hook-form';
 import { CircleAlert, TriangleAlert } from 'lucide-react';
@@ -159,31 +158,6 @@ export function useFocusOnMount<T extends HTMLElement>() {
     ref.current?.focus();
   }, []);
   return ref;
-}
-
-// Below the phone strip, focused fields must scroll above the sticky reason
-// bar: reserve the bar's height as scroll padding while it is mounted.
-export function useScrollPaddingFor(
-  ref: RefObject<HTMLElement | null>,
-  active: boolean,
-) {
-  useEffect(() => {
-    const bar = ref.current;
-    if (!active || !bar || typeof ResizeObserver === 'undefined') return;
-    // The whole sticky bottom area covers the page: this bar and the
-    // shell's tabs below it.
-    const cover = bar.closest('[data-shell-slot]')?.parentElement ?? bar;
-    const style = document.documentElement.style;
-    const previous = style.scrollPaddingBottom;
-    const observer = new ResizeObserver(() => {
-      style.scrollPaddingBottom = `${cover.offsetHeight + 16}px`;
-    });
-    observer.observe(cover);
-    return () => {
-      observer.disconnect();
-      style.scrollPaddingBottom = previous;
-    };
-  }, [ref, active]);
 }
 
 /** Advisory rules warnings, on the read view and on an open correction. */
@@ -404,11 +378,8 @@ function ReasonBar({
   const errorId = `${id}-error`;
   const { view, reason } = correction;
   const editing = view.kind === 'editing';
-  const bar = useRef<HTMLDivElement>(null);
-  useScrollPaddingFor(bar, inStrip);
   return (
     <div
-      ref={bar}
       data-reason-bar
       className={cn('grid gap-3', inStrip && 'bg-background px-3 py-2')}
     >
