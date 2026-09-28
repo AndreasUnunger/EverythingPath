@@ -94,6 +94,13 @@ const workspaceJourneys = [
     'settlement and rank cards and team repairs stay reachable on phone and desktop',
     'workspaceUpkeepLayout',
   ],
+  // Activity at phone landscape and 1180x820, touch, and changes from
+  // another device (#142 §6), split so the recovery journey that runs the
+  // tablet Activity checks stays well under its limit.
+  [
+    'Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device',
+    'workspaceActivity',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {
