@@ -12,6 +12,7 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import { derivePhaseReadiness } from './phase-readiness';
 import { phaseView } from './phase-view';
 import { UpkeepView } from './upkeep-view';
 import type { UpkeepView as UpkeepFacts } from './types';
@@ -162,7 +163,7 @@ test('[rules.WEEK-15.upkeep-writer] editing a number writes the strict total aga
 });
 
 test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its range warning and stays complete', () => {
-  const { view, preview } = fixture((draft) => {
+  const { draft, source, view, preview } = fixture((draft) => {
     draft.upkeep.rolls = { check: total(20, 1, 0) };
   });
   const check = view.rolls.find((fact) => fact.field === 'check')!;
@@ -175,12 +176,17 @@ test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its r
   expect(preview.warnings).toContain('upkeep:attrition:roll-range');
   render(<UpkeepView view={view} edit={vi.fn()} disabled={false} />);
   expect(textbox('Attrition Loyalty roll')).toHaveValue('0');
+  // One inline advisory under the field; the step's notes do not repeat it.
+  // The warning itself still reaches This phase and the Summary.
   expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
   expect(
-    screen.getByText(
-      /Attrition Loyalty total 0 is outside the usual 1–20 range/,
-    ),
-  ).toBeVisible();
+    screen.queryByText(/outside the usual 1–20 range/),
+  ).not.toBeInTheDocument();
+  expect(
+    derivePhaseReadiness(draft, source, preview)
+      .phases.find((phase) => phase.phase === 'upkeep')!
+      .warnings.map((warning) => warning.id),
+  ).toContain('upkeep:attrition:roll-range');
   expect(screen.queryByText(/dice include a value/)).not.toBeInTheDocument();
 });
 
@@ -326,6 +332,28 @@ test('[rules.WEEK-15.upkeep-team-roll] a missing team’s recorded return total 
     teamId: 'scouts',
     decision: { teamId: 'scouts', decision: 'leave' },
   });
+});
+
+test('a missing team’s out-of-range return total shows one advisory in its card, under the field', () => {
+  const { draft, source, view, preview } = fixture((draft, snapshot) => {
+    missingScouts(snapshot);
+    draft.upkeep.rolls = { check: roll(20, 10), training: roll(6, 3) };
+    draft.upkeep.teamDecisions = [
+      { teamId: 'scouts', decision: 'leave', roll: total(20, 1, 0) },
+    ];
+  });
+  expect(preview.warnings).toContain('team:scouts:return:roll-range');
+  render(<UpkeepView view={view} edit={vi.fn()} disabled={false} />);
+  const card = screen.getByRole('group', { name: 'Scouts return check' });
+  expect(within(card).getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
+  expect(
+    within(card).queryByText(/outside the usual 1–20 range/),
+  ).not.toBeInTheDocument();
+  expect(
+    derivePhaseReadiness(draft, source, preview)
+      .phases.find((phase) => phase.phase === 'upkeep')!
+      .warnings.map((warning) => warning.id),
+  ).toContain('team:scouts:return:roll-range');
 });
 
 test.each([

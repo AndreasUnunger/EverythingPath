@@ -136,15 +136,23 @@ export async function exerciseRollCompatibility(
       await expect(
         page.getByRole('alert').filter({ hasText: 'A value is required.' }),
       ).toHaveCount(0);
+      // One range advisory under the field; the step's notes do not repeat
+      // it. Review & confirm below still lists the warning.
+      const attrition = page.getByRole('region', {
+        name: 'Training attrition',
+        exact: true,
+      });
       await expect(
-        page.getByText(
-          /Attrition Loyalty total 0 is outside the usual 1–20 range/,
+        attrition.getByText(
+          'The usual range for 1d20 is 1–20. Your entered total is retained for the table.',
+          { exact: true },
         ),
       ).toBeVisible();
-      // The calculated check still resolves from the recorded total.
       await expect(
-        page.getByRole('region', { name: 'Training attrition', exact: true }),
-      ).toContainText(/bonus [+−]\d+ = total \d+/);
+        attrition.getByText(/outside the usual 1–20 range/),
+      ).toHaveCount(0);
+      // The calculated check still resolves from the recorded total.
+      await expect(attrition).toContainText(/bonus [+−]\d+ = total \d+/);
     }
     await phase(first, 'Event');
     await expect(field(first, 'Event chance roll')).toHaveValue('100');
