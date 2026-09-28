@@ -41,7 +41,7 @@ export function sameConfirm() {
     .map((region) => within(region).getByRole('button', { name: confirmName }));
   expect(pinned.length).toBeGreaterThan(0);
   for (const button of pinned) {
-    expect(button).toHaveAccessibleName(top.textContent!.trim());
+    expect(button).toHaveAccessibleName(top.textContent.trim());
     expect((button as HTMLButtonElement).disabled).toBe(
       (top as HTMLButtonElement).disabled,
     );
