@@ -4,6 +4,10 @@ import { expect, type Page } from '@playwright/test';
 import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
 import { saveStatus } from './week-frame';
+import {
+  expectNoHorizontalOverflow,
+  expectReachable,
+} from './responsive-shell';
 
 // Opens a guided Setup step from the step index (tablet and wider).
 export async function openSetupStep(page: Page, step: string) {
@@ -14,6 +18,59 @@ export async function openSetupStep(page: Page, step: string) {
   await expect(
     page.getByRole('heading', { level: 2, name: step, exact: true }),
   ).toBeVisible();
+}
+
+// Every enabled control Setup shows, and Next, can be reached (#138 §8
+// bullet 4): inside the viewport, and on the phone above the bottom bar and
+// its status strip. Below 768px Next sits at the end of the open step's row;
+// from 768px in the detail pane's sticky footer, which stays pinned to the
+// bottom of the viewport while the page is scrolled to its top. Headless
+// browsers open no on-screen keyboard (see responsive-shell.ts), so the
+// layout with the keyboard open needs a real device.
+async function expectSetupReachable(
+  page: Page,
+  layout: 'tablet' | 'phone' | 'desktop',
+) {
+  const root = page.locator('[data-setup-layout]');
+  await expect(root).toHaveAttribute(
+    'data-setup-layout',
+    layout === 'phone' ? 'phone' : 'wide',
+  );
+  await expectNoHorizontalOverflow(page);
+  const next = root.getByRole('button', { name: /^Next: / });
+  await expect(next).toHaveCount(1);
+  if (layout === 'phone') {
+    // The open row holds its own Next; there is no footer.
+    await expect(root.locator('footer')).toHaveCount(0);
+    await expect(
+      root.getByRole('region').getByRole('button', { name: /^Next: / }),
+    ).toHaveCount(1);
+  } else {
+    const footer = root.locator('footer');
+    await expect(footer.getByRole('button', { name: /^Next: / })).toHaveCount(
+      1,
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const pinned = (await footer.boundingBox())!;
+    const { height } = page.viewportSize()!;
+    expect(
+      pinned.y + pinned.height,
+      `${layout}: the sticky footer is in view from the top of the page`,
+    ).toBeLessThanOrEqual(height + 1);
+    expect(
+      pinned.y,
+      `${layout}: the sticky footer starts in view`,
+    ).toBeGreaterThanOrEqual(0);
+  }
+  const controls = root.locator(
+    ':is(button, input, textarea, a[href], [role="combobox"]):visible:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]):not(.sr-only)',
+  );
+  expect(await controls.count(), `${layout}: Setup controls`).toBeGreaterThan(
+    0,
+  );
+  for (const control of await controls.all())
+    await expectReachable(page, control);
+  await expectReachable(page, next);
 }
 
 // Uses the same owned campaign, auth contexts, reset and cleanup as #26/#27.
@@ -141,6 +198,7 @@ export async function exerciseMilitiaSetup(
       for (const [layout, width, height] of [
         ['tablet', 1194, 834],
         ['phone', 390, 844],
+        ['desktop', 1440, 900],
       ] as const) {
         await gm.setViewportSize({ width, height });
         await savePrivate(
@@ -160,6 +218,7 @@ export async function exerciseMilitiaSetup(
             width,
           );
         }
+        await expectSetupReachable(gm, layout);
       }
       await gm.setViewportSize({ width: 1194, height: 834 });
     }
