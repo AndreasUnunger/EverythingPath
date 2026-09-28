@@ -701,3 +701,101 @@ describe('an open correction keeps its controls and focus while the accepted mil
     expect(toggle()).not.toBeChecked();
   });
 });
+
+// A resize across the layouts moves the save point (under the edited section
+// on the phone, at the end of the page from 768px) and mounts it again, as
+// when a tablet rotates or a window is resized. Only opening a correction
+// takes focus to its heading: a resize must not take it from a holder's ⋯
+// menu or the Assign picker, which Escape then no longer reached (#141).
+describe('an open correction keeps its controls and focus through a resize across the layouts', () => {
+  let width = 1440;
+  const listeners = new Set<() => void>();
+  beforeEach(() => {
+    width = 1440;
+    listeners.clear();
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      get matches() {
+        return width >= Number(/min-width: (\d+)px/.exec(query)![1]);
+      },
+      addEventListener: (_: 'change', listener: () => void) =>
+        listeners.add(listener),
+      removeEventListener: (_: 'change', listener: () => void) =>
+        listeners.delete(listener),
+    }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+  function resizeTo(next: number) {
+    act(() => {
+      width = next;
+      for (const listener of [...listeners]) listener();
+    });
+  }
+  // To a phone and back, as a full-page capture briefly does.
+  function resizeThroughPhone() {
+    resizeTo(390);
+    resizeTo(1440);
+  }
+  const escape = () =>
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+  test('opening a correction takes focus to its heading', () => {
+    render(page());
+    openOfficers();
+    expect(
+      screen.getByRole('heading', { name: 'Correct officers' }),
+    ).toHaveFocus();
+  });
+
+  test('a holder’s Move to list stays open with focus, and Escape returns focus to ⋯', () => {
+    render(page());
+    openOfficers();
+    fireEvent.click(button('Options for Bren Ironhand', roleCard('Marshal')));
+    fireEvent.click(button('Move to…', roleCard('Marshal')));
+    const target = within(roleCard('Marshal')).getAllByRole('button', {
+      name: /^Move to [^…]/,
+    })[0]!;
+    expect(target).toHaveFocus();
+    resizeThroughPhone();
+    const options = button('Options for Bren Ironhand', roleCard('Marshal'));
+    expect(options).toHaveAttribute('aria-expanded', 'true');
+    expect(target).toHaveFocus();
+    escape();
+    expect(options).toHaveAttribute('aria-expanded', 'false');
+    expect(options).toHaveFocus();
+  });
+
+  test('the floating Assign picker keeps focus, and Escape closes it and returns focus to Assign', () => {
+    render(page());
+    openOfficers();
+    fireEvent.click(button('Assign Spymaster', roleCard('Spymaster')));
+    const picker = () =>
+      screen.queryByRole('dialog', { name: 'Assign Spymaster' });
+    expect(picker()).not.toBeNull();
+    resizeThroughPhone();
+    expect(picker()).toContainElement(document.activeElement as HTMLElement);
+    escape();
+    expect(picker()).toBeNull();
+    expect(button('Assign Spymaster', roleCard('Spymaster'))).toHaveFocus();
+  });
+
+  test('the Assign picker keeps focus as it moves between floating, sheet and inline', async () => {
+    render(page());
+    openOfficers();
+    fireEvent.click(button('Assign Spymaster', roleCard('Spymaster')));
+    const picker = () =>
+      screen.queryByRole('dialog', { name: 'Assign Spymaster' }) ??
+      screen.queryByRole('region', { name: 'Assign Spymaster' });
+    // The sheet, once gone, hands focus back only after a task.
+    const settle = () =>
+      act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    for (const next of [1000, 1440, 1000, 390, 1000]) {
+      resizeTo(next);
+      await settle();
+      expect(picker()).toContainElement(document.activeElement as HTMLElement);
+    }
+    escape();
+    await settle();
+    expect(picker()).toBeNull();
+    expect(button('Assign Spymaster', roleCard('Spymaster'))).toHaveFocus();
+  });
+});

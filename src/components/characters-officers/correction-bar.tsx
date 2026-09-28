@@ -1,6 +1,6 @@
 'use client';
 import { ArrowRight, Check, CircleAlert } from 'lucide-react';
-import { useId } from 'react';
+import { useEffect, useId, useRef, type RefObject } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import {
@@ -344,14 +344,25 @@ export function CorrectionBar({
   correction,
   wide,
   inStrip,
+  focusHeading,
 }: {
   correction: OpenCorrection;
   wide: boolean;
   /** The phone strip holds the reason bar; nothing else moves. */
   inStrip: boolean;
+  /**
+   * Set when the correction opened: the heading takes focus on mount and
+   * clears it, so mounting again after a resize leaves focus where it is.
+   */
+  focusHeading: RefObject<boolean>;
 }) {
   const id = useId();
-  const heading = useFocusOnMount<HTMLHeadingElement>();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!focusHeading.current) return;
+    focusHeading.current = false;
+    heading.current?.focus();
+  }, [focusHeading]);
   const { view } = correction;
   const settled = view.kind !== 'conflict' && view.kind !== 'weekChanged';
   return (

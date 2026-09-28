@@ -169,8 +169,19 @@ function AssignPanel({
     event.preventDefault();
     onClose();
   }
-  const content = (
-    <>
+  // One element for both, so a resize across 1280px keeps the panel, and
+  // the focus inside it, while its role and placement change (#141).
+  return (
+    <section
+      role={floating ? 'dialog' : undefined}
+      aria-labelledby={id}
+      onKeyDown={onKeyDown}
+      className={
+        floating
+          ? 'border-foreground/30 bg-popover text-popover-foreground absolute top-0 right-0 z-30 max-h-[80vh] w-96 space-y-3 overflow-y-auto border p-4 shadow-lg'
+          : 'border-foreground/20 bg-card min-w-0 space-y-3 border p-3'
+      }
+    >
       <div className="flex items-start gap-2">
         <h3
           ref={heading}
@@ -192,26 +203,6 @@ function AssignPanel({
         </Button>
       </div>
       <Groups offer={offer} onAssign={onAssign} heading="h4" />
-    </>
-  );
-  if (floating)
-    return (
-      <div
-        role="dialog"
-        aria-labelledby={id}
-        onKeyDown={onKeyDown}
-        className="border-foreground/30 bg-popover text-popover-foreground absolute top-0 right-0 z-30 max-h-[80vh] w-96 space-y-3 overflow-y-auto border p-4 shadow-lg"
-      >
-        {content}
-      </div>
-    );
-  return (
-    <section
-      aria-labelledby={id}
-      onKeyDown={onKeyDown}
-      className="border-foreground/20 bg-card min-w-0 space-y-3 border p-3"
-    >
-      {content}
     </section>
   );
 }

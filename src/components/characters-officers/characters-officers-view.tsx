@@ -19,6 +19,7 @@ import { action, assignButtonId } from './parts';
 import { RoleCardView, UnassignedRoleCard } from './role-card';
 import type {
   CharacterCorrections,
+  CorrectionMode,
   OpenCorrection,
 } from './use-character-corrections';
 import { useDesktopLayout } from './use-desktop-layout';
@@ -300,6 +301,18 @@ export function CharactersOfficersView({
 }) {
   const wide = useWideLayout();
   const strip = useShellSlotHost('phone-status-strip');
+  // Set when a correction opens: its save point's heading takes focus once.
+  // A resize across 768px moves the save point and mounts it again (a
+  // rotated tablet, a resized window); focus then stays on the control in
+  // use, such as a holder's ⋯ menu or the Assign picker (#141).
+  const focusHeading = useRef(false);
+  const opening = corrections && {
+    ...corrections,
+    open: (mode: CorrectionMode) => {
+      focusHeading.current = true;
+      corrections.open(mode);
+    },
+  };
   const correction = corrections?.correction ?? null;
   const mode = correction?.mode ?? null;
   const savePoint = correction && (
@@ -307,19 +320,16 @@ export function CharactersOfficersView({
       correction={correction}
       wide={wide}
       inStrip={!wide && strip}
+      focusHeading={focusHeading}
     />
   );
   return (
     <div className="min-w-0 space-y-8">
       <Feedback feedback={corrections?.feedback ?? null} />
-      <Officers page={page} corrections={corrections} inert={mode === 'roster'}>
+      <Officers page={page} corrections={opening} inert={mode === 'roster'}>
         {!wide && mode === 'officers' && savePoint}
       </Officers>
-      <Characters
-        page={page}
-        corrections={corrections}
-        inert={mode === 'officers'}
-      >
+      <Characters page={page} corrections={opening} inert={mode === 'officers'}>
         {!wide && mode === 'roster' && savePoint}
       </Characters>
       {wide && savePoint}
