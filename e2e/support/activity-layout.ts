@@ -352,8 +352,14 @@ export async function confirmWithOpenPicker(
     await expect.poll(hold.observed, { timeout: 20_000 }).toBe(true);
     expect(hold.failure()).toBeNull();
     // Still the confirmed week, read-only, with the picker open and locked.
+    // The modal picker hides the page from assistive technology, so the
+    // heading is found among hidden elements but must still be on screen.
     await expect(
-      gm.getByRole('heading', { name: 'Week 4 · Activity', exact: true }),
+      gm.getByRole('heading', {
+        name: 'Week 4 · Activity',
+        exact: true,
+        includeHidden: true,
+      }),
     ).toBeVisible();
     await expect(confirmedWeekNotice(gm)).toBeEmpty();
     await expect(sheet).toBeVisible();
