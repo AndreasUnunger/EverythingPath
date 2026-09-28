@@ -4,6 +4,7 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { query } from './_generated/server';
 import { campaignMutation } from './lib/campaignRuntime';
 import { requireScope, readOpenDraft } from './lib/canonicalDraftStorage';
+import { withCurrentRecordKinds } from './lib/canonicalCharacters';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weekStartFactsSchema } from '../src/lib/weekly-draft-contract';
 import { draftReferenceRequirements } from '../src/lib/weekly-draft-references';
@@ -92,7 +93,7 @@ export const save = campaignMutation({
       );
     const revision = source.revision + 1;
     await ctx.db.patch('canonicalMilitiaState', source._id, {
-      snapshot,
+      snapshot: await withCurrentRecordKinds(ctx, args.campaignId, snapshot),
       revision,
     });
     await ctx.db.insert('canonicalSourceCorrection', {

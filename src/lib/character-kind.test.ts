@@ -1,8 +1,9 @@
 import { expect, test } from 'vitest';
 import {
+  CHARACTER_KINDS,
   formatCharacterKind,
+  characterKindSchema,
   characterRecordKindSchema,
-  listEditableKinds,
   mirrorRosterKinds,
   normalizeCharacterKind,
   rosterKindSchema,
@@ -70,21 +71,18 @@ test('the live roster mirror never infers kind from roles or invents a missing r
   ]);
 });
 
-test('every stored kind has a readable label', () => {
+test('live views label every stored kind PC or NPC', () => {
   expect(
     (['pc', 'officer_npc', 'other_npc', 'npc', undefined] as const).map(
       formatCharacterKind,
     ),
-  ).toEqual(['PC', 'Officer NPC', 'Other NPC', 'NPC', 'PC']);
+  ).toEqual(['PC', 'NPC', 'NPC', 'NPC', 'PC']);
 });
 
-test('legacy editors keep offering a stored npc so it round-trips', () => {
-  const written = ['pc', 'officer_npc'] as const;
-  expect(listEditableKinds(written, 'npc')).toEqual([
-    'pc',
-    'officer_npc',
-    'npc',
-  ]);
-  for (const stored of ['pc', 'officer_npc', 'other_npc', undefined] as const)
-    expect(listEditableKinds(written, stored)).toEqual(['pc', 'officer_npc']);
+test('new writes offer only PC and NPC', () => {
+  expect(CHARACTER_KINDS).toEqual(['pc', 'npc']);
+  for (const kind of ['pc', 'npc'])
+    expect(characterKindSchema.parse(kind)).toBe(kind);
+  for (const kind of ['officer_npc', 'other_npc', undefined])
+    expect(characterKindSchema.safeParse(kind).success).toBe(false);
 });

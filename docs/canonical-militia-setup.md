@@ -59,14 +59,27 @@ page. **Add character** in People & officers opens the shared character dialog
 (`character.createCharacter`); the new record arrives through `options` and
 joins the roster only when chosen.
 
-Envelope version 1 stores this stage's character-record kinds
-(`pc | officer_npc`), roster kinds (`pc | officer_npc | other_npc`) and
-nullable Hit Dice overrides. Since #196 a commandant's blank override uses
-their level and manager warnings follow held roles; neither needs a new
-envelope shape. The Characters & officers kind migration (#180) must bump
-`SETUP_ENVELOPE_VERSION` and migrate version-1 envelopes in
-`parseSetupEnvelope`, alongside the Setup schema, roster kinds, character
-options and the inline dialog.
+A character is a PC or an NPC, and its record owns that kind (#180). Setup
+composes `canonicalSetup.options` (which has no kind) with the authorized
+`character.listByCampaign` read in `src/lib/setup-characters.ts`, and waits
+for both before opening the form. A person joins the roster with their
+record's kind, People & officers shows it read-only, and warnings and a start
+use each record's current kind, so a start sends only `pc` or `npc`. The
+server mirrors every roster kind from the campaign's records again before
+storing the live source, so a stale or old-client payload cannot restore an
+earlier kind. A roster person whose record is not in the campaign keeps their
+entry and shows a field error until removed; Start is blocked meanwhile.
+
+Envelope version 2 stores PC or NPC roster kinds. A version 1 envelope (#173,
+legacy `officer_npc`/`other_npc` roster kinds) is migrated on read: both
+legacy labels become `npc`, and every other value, including raw invalid
+input, the open step, visited steps, explicit and blank Hit Dice overrides and
+the attempt identity, is kept. The next write stores version 2. A start that
+was sent but never acknowledged stays verbatim, so resending it under the same
+identity still matches a source the server accepted. After the records load,
+restored roster people take their record's current kind and facts. Nothing is
+submitted automatically. Since #196 a blank Hit Dice override uses the
+record's level, which needs no new envelope shape.
 
 Setup carries the roster and individual team conditions, character Hit Dice,
 officer assignments and managers, settlements, assets and orders, persistent

@@ -21,6 +21,7 @@ import {
   type CanonicalWeekState,
 } from '~/lib/canonical-weekly-source';
 import type { MilitiaEntryKey } from '~/lib/militia-correction-sections';
+import type { CharacterRecordKind } from '~/lib/character-kind';
 import { MilitiaSection } from '~/components/campaign-sections/militia-section';
 import { stableControl } from '../../../tests/stable-control';
 
@@ -36,7 +37,12 @@ type Call = {
 };
 let calls: Call[] = [];
 let queries: Record<string, unknown> = {};
-type CharacterRecord = { _id: string; name: string; charisma: number };
+type CharacterRecord = {
+  _id: string;
+  name: string;
+  charisma: number;
+  kind?: CharacterRecordKind;
+};
 let records: CharacterRecord[] = [];
 
 vi.mock('@convex/_generated/api', () => ({
@@ -243,11 +249,12 @@ describe('People & officers fallback', () => {
     ).toBeGreaterThan(0);
   });
 
-  test('mixed legacy and new character kinds and Hit Dice stay unchanged', async () => {
+  test('each record’s PC or NPC kind shows read-only and a save sends record kinds with Hit Dice unchanged', async () => {
     records = mixedKindRecords.map((record) => ({
       _id: record.characterId,
       name: record.name,
       charisma: record.charisma,
+      ...(record.kind && { kind: record.kind }),
     }));
     const setup = newMilitiaSetup('Loyalty');
     const snapshot = militiaSnapshotSchema.parse(mixedKindSnapshot());
@@ -264,35 +271,26 @@ describe('People & officers fallback', () => {
     setMilitia(3, mixed);
     render(page('people'));
     const { editor, reason, save } = openPeople();
-    const pressed = editor
-      .getAllByRole('group', { name: 'Character kind' })
-      .map((group) =>
-        within(group)
-          .getAllByRole('button')
-          .map(
-            (button) =>
-              `${button.textContent}${button.getAttribute('aria-pressed') === 'true' ? '*' : ''}`,
-          ),
-      );
-    expect(pressed).toEqual([
-      ['pc*', 'officer npc', 'other npc'],
-      ['pc*', 'officer npc', 'other npc'],
-      ['pc', 'officer npc*', 'other npc'],
-      ['pc', 'officer npc', 'other npc*'],
-      ['pc', 'officer npc', 'other npc', 'npc*'],
-    ]);
-    const vessa = within(editor.getByRole('group', { name: 'Vessa' }));
-    fireEvent.click(vessa.getByRole('button', { name: 'pc' }));
-    fireEvent.click(vessa.getByRole('button', { name: 'npc' }));
-    expect(vessa.getByRole('button', { name: 'npc' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    // The record owns the kind (#180): Rook's stale other_npc mirror reads as
+    // his record's PC default, and no kind can be chosen here.
+    expect(
+      editor
+        .getAllByRole('group', { name: 'Kind' })
+        .map((group) => group.textContent),
+    ).toEqual(['KindPC', 'KindPC', 'KindNPC', 'KindPC', 'KindNPC']);
+    expect(editor.queryByRole('group', { name: 'Character kind' })).toBeNull();
     fireEvent.click(role(editor, 'spymaster', 'Aubrin'));
     fireEvent.change(reason(), { target: { value: 'Aubrin spies' } });
     await press(save());
     expect(calls).toHaveLength(1);
-    expect(sent().roster.people).toEqual(snapshot.roster.people);
+    // Membership, order and Hit Dice stay; kinds are the records' PC or NPC.
+    expect(sent().roster.people).toEqual([
+      { characterId: 'aubrin', kind: 'pc', hitDice: null },
+      { characterId: 'mara', kind: 'pc', hitDice: 0 },
+      { characterId: 'ostler', kind: 'npc', hitDice: 5 },
+      { characterId: 'rook', kind: 'pc', hitDice: null },
+      { characterId: 'vessa', kind: 'npc', hitDice: 3 },
+    ]);
     expect(sent().roster.officers).toEqual([
       ...snapshot.roster.officers,
       { role: 'spymaster', characterId: 'aubrin' },

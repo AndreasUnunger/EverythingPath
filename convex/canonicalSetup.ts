@@ -6,6 +6,7 @@ import { query, type MutationCtx, type QueryCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { openDraft } from './lib/canonicalDraftStorage';
 import { draftKeySchema } from './lib/canonicalStorageValidators';
+import { withCurrentRecordKinds } from './lib/canonicalCharacters';
 import {
   militiaSetupSchema,
   prepareMilitiaSetup,
@@ -158,11 +159,17 @@ export const initialize = mutation({
       militiaId,
       draft: plan.draft,
     });
+    // The receipt keeps the submitted source for same-source retries; the
+    // live roster mirrors each person's current record kind.
     await ctx.db.insert('canonicalMilitiaState', {
       campaignId: args.campaignId,
       militiaId,
       revision: 0,
-      snapshot: plan.snapshot,
+      snapshot: await withCurrentRecordKinds(
+        ctx,
+        args.campaignId,
+        plan.snapshot,
+      ),
     });
     await ctx.db.insert('canonicalCampaignInitialization', {
       campaignId: args.campaignId,
