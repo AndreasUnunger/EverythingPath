@@ -20,19 +20,33 @@ export function ChoiceCards({
   return (
     <fieldset className="min-w-0 space-y-2" disabled={disabled}>
       <legend className="text-sm font-semibold">{label}</legend>
+      {/* Coarse pointers choose by tap only (a finger swipe scrolls), so the
+          hint and the empty selection area stop offering drag there. */}
       <p className="text-muted-foreground text-xs">
-        Tap a card, or drag it into the selection area.
+        <span className="pointer-coarse:hidden">
+          Tap a card, or drag it into the selection area.
+        </span>
+        <span className="hidden pointer-coarse:inline">
+          Tap a card to choose it.
+        </span>
       </p>
       <div
         ref={pointer.targetRef}
         role="group"
         aria-label={`${label} selection`}
         data-drop-active={pointer.drag?.overTarget ?? false}
-        className="data-[drop-active=true]:border-primary data-[drop-active=true]:bg-primary/15 data-[drop-active=true]:ring-primary/40 short:min-h-0 short:p-2 min-h-20 rounded-lg border-2 border-dashed p-3 text-sm transition-colors data-[drop-active=true]:ring-2"
+        className="data-[drop-active=true]:border-primary data-[drop-active=true]:bg-primary/15 data-[drop-active=true]:ring-primary/40 short:min-h-0 short:p-2 min-h-20 rounded-lg border-2 border-dashed p-3 text-sm transition-colors data-[drop-active=true]:ring-2 pointer-coarse:min-h-0 pointer-coarse:p-2"
       >
         <p className="text-muted-foreground text-xs">Selected choice</p>
         <p className="min-w-0 font-semibold [overflow-wrap:anywhere]">
-          {selected?.label ?? 'Drop a card here'}
+          {selected?.label ?? (
+            <>
+              <span className="pointer-coarse:hidden">Drop a card here</span>
+              <span className="hidden pointer-coarse:inline">
+                None selected
+              </span>
+            </>
+          )}
         </p>
       </div>
       {/* Short viewports stack the cards and lay each out as two lines (grip
@@ -65,11 +79,11 @@ export function ChoiceCards({
                   }
                 : undefined
             }
-            className="hover:border-primary/60 aria-pressed:border-primary aria-pressed:bg-primary/15 aria-pressed:hover:border-primary aria-pressed:hover:bg-primary/15 hover:bg-background hover:text-foreground short:min-h-0 short:flex-row short:flex-wrap short:items-center short:gap-x-2 short:gap-y-0.5 short:p-2 h-auto min-h-24 min-w-0 cursor-grab touch-none flex-col items-start justify-start gap-2 rounded-lg border-2 p-3 text-left whitespace-normal transition-transform select-none hover:-translate-y-1 focus-visible:-translate-y-1 active:cursor-grabbing motion-reduce:transform-none"
+            className="hover:border-primary/60 aria-pressed:border-primary aria-pressed:bg-primary/15 aria-pressed:hover:border-primary aria-pressed:hover:bg-primary/15 hover:bg-background hover:text-foreground short:min-h-0 short:flex-row short:flex-wrap short:items-center short:gap-x-2 short:gap-y-0.5 short:p-2 h-auto min-h-24 min-w-0 cursor-grab touch-manipulation flex-col items-start justify-start gap-2 rounded-lg border-2 p-3 text-left whitespace-normal transition-transform select-none hover:-translate-y-1 focus-visible:-translate-y-1 active:cursor-grabbing motion-reduce:transform-none"
           >
             <GripVertical
               aria-hidden
-              className="text-muted-foreground size-4"
+              className="text-muted-foreground size-4 pointer-coarse:hidden"
             />
             <span className="short:w-auto short:flex-1 flex w-full min-w-0 items-start justify-between gap-2">
               <span className="min-w-0 [overflow-wrap:anywhere] break-words">

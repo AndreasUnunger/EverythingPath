@@ -38,6 +38,7 @@ import {
   signedGold,
   Step,
 } from './upkeep-parts';
+import { omitRollRangeIssues } from './upkeep-warnings';
 import { useRecoveryCost } from './use-recovery-cost';
 import { formatGold } from './week-frame/reference-copy';
 
@@ -372,7 +373,13 @@ function MissingTeam({
           No return check this week.
         </p>
       )}
-      <IssueNotes issues={team.issues} />
+      <IssueNotes
+        issues={
+          returning?.kind === 'check'
+            ? omitRollRangeIssues(team.issues)
+            : team.issues
+        }
+      />
     </div>
   );
 }
