@@ -1,10 +1,12 @@
 import { openCampaignSection } from './support/interactions';
 import { test, expect } from './support/fixtures';
+import { reviewCharacterCorrectionLayouts } from './support/character-corrections-layout';
+import { loadRun } from './support/process';
 
 test.use({ caseKey: 'characterLedger' });
 test('players share character and officer assignment changes', async ({
   players,
-}) => {
+}, info) => {
   for (const page of [players.gm, players.player]) {
     await page.goto('/campaigns');
     await openCampaignSection(page, 'week');
@@ -136,6 +138,17 @@ test('players share character and officer assignment changes', async ({
   await expect(naraRow).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
   // The accepted role survives a reload.
   await gm.reload();
+  await expect(marshal).toContainText('Nara');
+  await expect(naraRow).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
+  // Both corrections at phone and desktop sizes (#141): the Assign picker,
+  // Nara's ⋯ menu and the reason bar stay reachable; both are cancelled.
+  await test.step('both corrections stay reachable on phone and desktop', async () =>
+    reviewCharacterCorrectionLayouts(
+      gm,
+      { name: 'Nara', role: 'Marshal', vacant: 'Spymaster' },
+      (await loadRun()).artifactDirectory,
+      info.project.name,
+    ));
   await expect(marshal).toContainText('Nara');
   await expect(naraRow).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
 });

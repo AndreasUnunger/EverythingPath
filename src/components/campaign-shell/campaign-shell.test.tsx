@@ -143,6 +143,7 @@ vi.mock('~/components/ui/select', () => {
 });
 
 afterEach(cleanup);
+afterEach(() => vi.unstubAllGlobals());
 
 const alpha = { _id: 'alpha', name: 'Alpha' };
 const beta = { _id: 'beta', name: 'Beta' };
@@ -684,6 +685,46 @@ test('only the week route gets the bounded desktop host; other sections keep doc
   pathname.mockReturnValue('/campaigns/alpha/militia');
   view.rerender(shell('alpha'));
   expect(document.querySelector('[data-week-host]')).toBeNull();
+});
+
+test('the phone bottom bar reserves its measured height as document scroll padding, follows resizes, and clears it once hidden or gone', () => {
+  // jsdom has no ResizeObserver and no layout: stand in for both so the
+  // bar can report a height, grow with its strip and collapse to hidden.
+  const observed: { target: Element; notify: () => void }[] = [];
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(private readonly callback: () => void) {}
+      observe(target: Element) {
+        observed.push({ target, notify: this.callback });
+      }
+      disconnect() {
+        observed.length = 0;
+      }
+    },
+  );
+  let height = 0;
+  const view = render(shell('alpha'));
+  const bar = document.querySelector('[data-shell-slot="phone-status-strip"]')!
+    .parentElement!;
+  Object.defineProperty(bar, 'offsetHeight', { get: () => height });
+  expect(observed.map((entry) => entry.target)).toEqual([bar]);
+  const resize = (to: number) => {
+    height = to;
+    for (const entry of observed) entry.notify();
+  };
+  const root = document.documentElement.style;
+  resize(49);
+  expect(root.scrollPaddingBottom).toBe('65px');
+  resize(120);
+  expect(root.scrollPaddingBottom).toBe('136px');
+  resize(0);
+  expect(root.scrollPaddingBottom).toBe('');
+  resize(49);
+  expect(root.scrollPaddingBottom).toBe('65px');
+  view.unmount();
+  expect(root.scrollPaddingBottom).toBe('');
+  expect(observed).toHaveLength(0);
 });
 
 test('organization creation and management stay reachable through Clerk, and creation is offered without an organization', () => {

@@ -131,8 +131,9 @@ ended the attempt inside the step, so `duration` is null and `start` shows how
 long it ran). At most 100 steps are kept per attempt. Step errors, locations,
 parameters, fixtures and Playwright actions are not recorded. `access`, its
 three shell parts (see [Access split](#access-split)) and the nightly extension
-use steps, as do campaign home (since the area checks); the other journeys do
-not yet, so they record none. `stages.log` records stage outcomes;
+use steps, as do campaign home (since the area checks), `workspaceActivity`
+and the correction layout step of `ledger`; the other journeys do not yet, so
+they record none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
@@ -759,6 +760,7 @@ race part uses only fresh pages with their own controls, as before.
 | racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
 | settlement and rank cards and team repairs stay reachable on phone and desktop | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only |
 | Event blocks and the week review stay reachable at phone landscape and on a narrow tablet | `workspaceEventReview` | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only |
+| Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device | `workspaceActivity` | `resetCase`, then plain `initializeUpkeep` like `workspaceConfirmation` |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:
@@ -789,6 +791,15 @@ with the panel open and closed. Review must list the chance warning once in
 its Warnings with its phase and place it under the Event chance consequence
 (SUM-09). The Invasion's recorded outcome must be quoted under that event
 (SUM-11). It has a 60 s limit (`support/event-review-layout.ts`).
+An eighth journey, `workspaceActivity`, was added the same way (#142). The
+recovery journey that runs the tablet Activity checks takes about 89 s of its
+125 s limit, so the Activity checks §6 names got their own case, a 90 s limit
+and `test.step` timings: the board, details and picker at 844×390 and
+1180×820; a touch pan on the picker (a Chromium touch scroll gesture) that
+places nothing, then a tap that places; a Militia correction on the player's
+device lowering the allowance under the GM's staged slots; and a Confirmation
+arriving while the GM's picker is open, with the GM's successor held so the
+locked picker can be observed.
 
 ### Provision and declare the cohorts
 
@@ -967,6 +978,20 @@ near its limit:
 - **Militia corrections (#139).** The sections part of access (60 s limit,
   16–19 s) opens Values and a three-item Items correction at 390×844 on the
   Militia page it already ends on; no page load (`support/militia-phone.ts`).
+
+The final area review of #138, #141 and #142 found three more:
+
+- **Setup (#138).** The Upkeep part's Setup layout loop (130 s limit, about
+  71 s) adds 1440×900 and, at each size, reaches every enabled Setup control
+  and **Next**; from 768px Next is in the sticky footer, which must be in view
+  from the top of the page. No page load. Headless browsers open no
+  on-screen keyboard, so the keyboard-open layout is not covered.
+- **Characters & officers (#141).** `ledger` (60 s limit, 15–18 s) opens
+  Correct officers (the Assign picker and a holder's ⋯ menu) and Correct
+  roster at 390×844 and 1440×900 and cancels both; no page load
+  (`support/character-corrections-layout.ts`).
+- **Activity (#142).** `workspaceActivity` (above,
+  `support/activity-layout.ts`).
 
 Screenshots from these checks are named by project where a journey runs on
 several projects.

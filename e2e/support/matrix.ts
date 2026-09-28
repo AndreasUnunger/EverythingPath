@@ -101,6 +101,13 @@ const workspaceJourneys = [
     'Event blocks and the week review stay reachable at phone landscape and on a narrow tablet',
     'workspaceEventReview',
   ],
+  // Activity at phone landscape and 1180x820, touch, and changes from
+  // another device (#142 §6), split so the recovery journey that runs the
+  // tablet Activity checks stays well under its limit.
+  [
+    'Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device',
+    'workspaceActivity',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {

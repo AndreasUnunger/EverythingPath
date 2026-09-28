@@ -244,6 +244,7 @@ describe('internal fixture boundary', () => {
         workspaceConfirmation: 'm'.repeat(64),
         workspaceUpkeepLayout: 'r'.repeat(64),
         workspaceEventReview: 's'.repeat(64),
+        workspaceActivity: 's'.repeat(64),
         campaignHome: 'n'.repeat(64),
         campaignSections: 'o'.repeat(64),
         legacyAddresses: 'p'.repeat(64),

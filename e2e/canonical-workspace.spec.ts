@@ -42,6 +42,13 @@ import { exerciseActivityWorkspace } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { exerciseTeamConditionRows } from './support/team-conditions';
 import { reviewUpkeepChoiceLayout } from './support/upkeep-layout';
+import {
+  confirmWithOpenPicker,
+  followAllowanceCorrections,
+  openActivity,
+  panAndTapPicker,
+  reviewActivityLandscapes,
+} from './support/activity-layout';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Page } from '@playwright/test';
@@ -1184,4 +1191,52 @@ test('Event blocks and the week review stay reachable at phone landscape and on 
     reviewEventLayout(gm, run.artifactDirectory));
   await test.step('Review lists the warning and the outcome in place at every size', () =>
     reviewSummaryLayout(gm, run.artifactDirectory));
+});
+
+// Activity checks #142 §6 names beyond the tablet journey, on their own
+// case: the board, details and picker at phone landscape and 1180x820, a
+// touch pan on the picker, an allowance lowered by another device's Militia
+// correction, and a Confirmation arriving while the picker is open.
+test('Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(90_000);
+  const run = await loadRun();
+  const gm = players.gm,
+    player = players.player;
+  const gmTransport = await controlTransport(gm, run.fixture!.convexUrl);
+  const scope = await test.step('seed the week and open Activity', async () => {
+    await fixtureCall(run, 'resetCase', {
+      ...ownedCase.scope,
+      now: 1_700_000_000_000,
+    });
+    const key = draftKeySchema.parse(
+      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
+        scope: ownedCase.scope,
+        draftId: randomUUID(),
+      }),
+    );
+    await openActivity(
+      gm,
+      player,
+      `/canonical-workspace?campaign=${key.campaignId}`,
+    );
+    return key;
+  });
+  await test.step('a touch pan scrolls the picker and places nothing; a tap places', () =>
+    panAndTapPicker(gm, player));
+  await test.step('the board, details and picker fit phone landscape and 1180x820', () =>
+    reviewActivityLandscapes(gm, run));
+  await test.step("another device's Militia correction moves a slot beyond the allowance", () =>
+    followAllowanceCorrections(gm, player, scope.campaignId));
+  await test.step('a Confirmation locks the open picker and moves to the next week', () =>
+    confirmWithOpenPicker(
+      gm,
+      player,
+      gmTransport,
+      run,
+      ownedCase.scope,
+      scope,
+    ));
 });

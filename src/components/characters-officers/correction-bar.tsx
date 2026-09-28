@@ -1,6 +1,6 @@
 'use client';
 import { ArrowRight, Check, CircleAlert } from 'lucide-react';
-import { useId, useRef } from 'react';
+import { useId } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import {
@@ -15,7 +15,6 @@ import { FactsView } from '~/components/militia-corrections/facts-view';
 import {
   AffectsWeek,
   useFocusOnMount,
-  useScrollPaddingFor,
 } from '~/components/militia-corrections/section-correction';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -170,11 +169,8 @@ function ReasonBar({
   const errorId = `${id}-error`;
   const { view, reason } = correction;
   const editing = view.kind === 'editing';
-  const bar = useRef<HTMLDivElement>(null);
-  useScrollPaddingFor(bar, inStrip);
   return (
     <div
-      ref={bar}
       data-reason-bar
       className={cn(
         'grid gap-2 md:flex md:flex-wrap md:items-start md:gap-x-3',
