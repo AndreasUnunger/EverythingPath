@@ -13,23 +13,49 @@ test('players share character and officer assignment changes', async ({
       page.getByRole('heading', { name: 'Week 1 · Event' }),
     ).toBeVisible();
     await openCampaignSection(page, 'characters');
-    await page.getByRole('button', { name: /Character Ledger/ }).click();
   }
   const player = players.player;
   await player
-    .getByRole('button', { name: 'Add Character', exact: true })
+    .getByRole('region', { name: 'Characters', exact: true })
+    .getByRole('button', { name: 'Add character', exact: true })
     .click();
   const dialog = player.getByRole('dialog', {
-    name: 'New Character',
+    name: 'Add character',
     exact: true,
   });
   await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Nara');
-  await dialog.getByRole('textbox', { name: 'CHA', exact: true }).fill('16');
+  // A cleared Hit Dice is refused in place, never saved as zero.
+  const hitDice = dialog.getByRole('textbox', {
+    name: 'Hit Dice',
+    exact: true,
+  });
+  await hitDice.fill('');
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(dialog.getByText('Hit Dice is required')).toBeVisible();
+  await hitDice.fill('4');
+  await dialog.getByRole('textbox', { name: 'STR', exact: true }).fill('16');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).toBeHidden();
+  const gmCharacters = players.gm.getByRole('region', {
+    name: 'Characters',
+    exact: true,
+  });
   await expect(
-    players.gm.getByRole('row').filter({ hasText: 'Nara' }),
-  ).toContainText('CHA 16');
+    gmCharacters.getByRole('row').filter({ hasText: 'Nara' }),
+  ).toContainText(/Not on roster.*Nara.*4 HD/);
+  // The GM's record dialog opens with the player's scores.
+  await gmCharacters
+    .getByRole('button', { name: 'Edit Nara', exact: true })
+    .click();
+  const gmRecord = players.gm.getByRole('dialog', {
+    name: 'Edit character',
+    exact: true,
+  });
+  await expect(
+    gmRecord.getByRole('textbox', { name: 'STR', exact: true }),
+  ).toHaveValue('16');
+  await gmRecord.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(gmRecord).toBeHidden();
   // Characters & officers links straight to the People & officers fallback.
   await player
     .getByRole('link', { name: 'People & officers', exact: true })
@@ -52,6 +78,16 @@ test('players share character and officer assignment changes', async ({
   await expect(
     player.getByRole('button', { name: 'Save correction', exact: true }),
   ).toBeHidden();
+  // The GM's Characters & officers shows the accepted role on its card and
+  // row as soon as the correction is saved.
+  await expect(
+    players.gm
+      .getByRole('region', { name: 'Officers', exact: true })
+      .getByRole('region', { name: 'Marshal', exact: true }),
+  ).toContainText('Nara');
+  await expect(
+    gmCharacters.getByRole('row').filter({ hasText: 'Nara' }),
+  ).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
   await openCampaignSection(players.gm, 'militia');
   await players.gm.reload();
   await expect(players.gm).toHaveURL(/\/campaigns\/[^/]+\/militia$/);

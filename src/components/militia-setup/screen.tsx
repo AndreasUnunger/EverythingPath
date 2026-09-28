@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { Id } from '@convex/_generated/dataModel';
-import { AddCharacterDialog } from '~/components/character-manager/add-character-dialog';
+import { CharacterRecordDialog } from '~/components/character-manager/character-record-dialog';
 import type { SetupStorage } from '~/lib/setup-envelope';
 import { GuidedMilitiaSetup } from './guided';
 import {
@@ -45,7 +45,7 @@ function SetupSession(
             onAddCharacter={() => setAddingCharacter(true)}
           />
           {/* Outside the step layouts, so its values survive any change. */}
-          <AddCharacterDialog
+          <CharacterRecordDialog
             campaignId={props.campaignId}
             organizationId={props.organizationId}
             open={addingCharacter}

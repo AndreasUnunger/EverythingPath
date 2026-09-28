@@ -37,7 +37,7 @@ export async function exerciseSectionNavigation(page: Page) {
 
   await openCampaignSection(page, 'characters');
   await expect(
-    page.getByRole('region', { name: 'Character Ledger', exact: true }),
+    page.getByRole('region', { name: 'Characters', exact: true }),
   ).toBeVisible();
   // Phone portrait, a short phone-landscape viewport below the 768px
   // breakpoint, and a short viewport at tablet width with the top-bar
@@ -94,7 +94,7 @@ export async function expectOutsiderShutOut(
       0,
     );
     await expect(
-      outsider.getByRole('region', { name: 'Character Ledger', exact: true }),
+      outsider.getByRole('region', { name: 'Characters', exact: true }),
     ).toHaveCount(0);
     await expect(outsider.getByText(campaignName, { exact: true })).toHaveCount(
       0,
