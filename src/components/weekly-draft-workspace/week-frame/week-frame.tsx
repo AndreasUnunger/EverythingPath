@@ -320,14 +320,19 @@ export function WeekFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <h1 className="sr-only">{weekHeading(frame.week, frame.phase)}</h1>
-      {/* Collapses, padding included, while nothing in it has content: the
-          failure alert is not rendered unless a save failed, the remote-note
-          and notice regions stay mounted but empty, and notes renders nothing
-          without setup notes. */}
-      <div className="short:pt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 not-has-[:not(:empty):not([data-week-status-row-group])]:hidden md:px-4">
+      {/* The three live regions (failure alert, remote note, notice) stay
+          mounted and empty when silent; a region only announces content
+          added while it is already in the accessibility tree, so the row is
+          never display:none. While every descendant but the group wrapper is
+          `:empty` (notes renders nothing without setup notes) the row
+          collapses to zero height with no padding; overflow-hidden applies
+          only then, so focus rings are not clipped when it has content.
+          Spacing inside the group sits on non-empty children only, so an
+          empty region adds no gap. */}
+      <div className="short:pt-1 flex shrink-0 flex-wrap items-center gap-x-3 px-3 pt-2 not-has-[:not(:empty):not([data-week-status-row-group])]:h-0 not-has-[:not(:empty):not([data-week-status-row-group])]:overflow-hidden not-has-[:not(:empty):not([data-week-status-row-group])]:pt-0 md:px-4">
         <div
           data-week-status-row-group
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1"
+          className="flex min-w-0 flex-1 flex-wrap items-center [&>:not(:empty)]:my-0.5 [&>:not(:empty)~:not(:empty)]:ml-3"
         >
           {status}
           {notice}

@@ -330,6 +330,7 @@ test.each(['event', 'summary'] as const)(
         ? screen.getByRole('textbox', { name: 'Event chance roll' })
         : expectSameConfirm();
     expect(notice()).toBeEmptyDOMElement();
+    const region = notice();
     let release!: () => void;
     act(() => {
       release = gateway.advance();
@@ -364,6 +365,8 @@ test.each(['event', 'summary'] as const)(
       screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
     ).toBeEnabled();
     expect(document.querySelectorAll('[data-week-confirmed]')).toHaveLength(1);
+    // The notice lands in the region mounted before the transition.
+    expect(notice()).toBe(region);
     expect(notice()).toHaveTextContent('Week 4 confirmed.');
     expect(
       within(notice()).getByRole('link', { name: 'Open in Finished weeks' }),
@@ -670,12 +673,38 @@ test('[feedback.placement] no save status is shown; the other-player note sits i
   ).not.toBeInTheDocument();
   expect(remoteNote().closest('[data-shell-slot]')).toBeNull();
   expect(remoteNote().closest('[data-week-editor]')).toBeNull();
-  expect(failure()).toBeNull();
+  expect(failure()).toBeEmptyDOMElement();
   view.unmount();
   render(host({ phase: 'upkeep' }));
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
   expect(screen.queryByText('Prepare the week together.')).toBeNull();
   expect(document.querySelectorAll('[data-week-remote-note]')).toHaveLength(1);
+});
+
+// The three live regions exist, empty, from the frame's first render, and
+// none is hidden with display:none (an element class of `hidden` or
+// `empty:hidden`), so their first content is announced (#198).
+test('[feedback.regions] the failure alert, remote note and confirmed-week notice are mounted empty from the first render', async () => {
+  const gateway = fixture();
+  factory.mockImplementation(() => gateway);
+  render(host({ phase: 'upkeep' }));
+  await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  const regions = [failure(), remoteNote(), notice()];
+  expect(regions.map((region) => region?.getAttribute('role'))).toEqual([
+    'alert',
+    'status',
+    'status',
+  ]);
+  for (const region of regions) {
+    expect(region).toBeEmptyDOMElement();
+    expect(region!.className).not.toMatch(/(^|\s)(empty:)?hidden(\s|$)/);
+    let node: HTMLElement | null = region;
+    while (node) {
+      expect(node).not.toHaveAttribute('aria-hidden', 'true');
+      expect(node.className).not.toMatch(/(^|\s|:)hidden(\s|$)/);
+      node = node.parentElement;
+    }
+  }
 });
 
 // Holds this device's draft observations so several remote writes arrive as
@@ -728,6 +757,7 @@ test('[feedback.remote] a remote change names its phases without moving phase or
   });
   await waitFor(() => expect(feedback()).toBe('saved'));
   expect(remoteNote()).toBeEmptyDOMElement();
+  const note = remoteNote();
   const training = screen.getByRole('textbox', {
     name: 'Attrition training roll',
   });
@@ -765,9 +795,7 @@ test('[feedback.remote] a remote change names its phases without moving phase or
   expect(remoteNote()).toBeEmptyDOMElement();
   act(() => wire.release());
   await waitFor(() =>
-    expect(remoteNote()).toHaveTextContent(
-      'Another player changed Upkeep and Event.',
-    ),
+    expect(note).toHaveTextContent('Another player changed Upkeep and Event.'),
   );
   expect(die).toHaveValue('12');
   expect(training).toHaveFocus();
@@ -791,12 +819,16 @@ test('[feedback.failed] a rejected save is a red alert carrying only the safe se
   }));
   render(host({ phase: 'upkeep' }));
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
+  const alert = failure();
+  expect(alert).toBeEmptyDOMElement();
   const die = screen.getByRole('textbox', { name: 'Attrition Loyalty roll' });
   await act(async () => {
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
   });
-  await waitFor(() => expect(failure()).not.toBeNull());
+  await waitFor(() => expect(failure()).not.toBeEmptyDOMElement());
+  // The text lands in the alert that was already mounted.
+  expect(failure()).toBe(alert);
   expect(failure()!.textContent).toBe(
     'Changes could not be saved. The latest saved values are shown. Campaign editing is paused for maintenance. Please try again later.',
   );

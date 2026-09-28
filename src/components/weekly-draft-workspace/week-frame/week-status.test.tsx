@@ -25,30 +25,35 @@ function failure() {
 }
 
 test.each(['idle', 'pending', 'saved', 'confirming'] as const)(
-  '[status.%s] nothing is shown while a save has not failed',
+  '[status.%s] the failure alert is mounted but empty while a save has not failed',
   (feedback) => {
-    const view = render(
+    render(
       <SaveFailureAlert feedback={feedback} failureReason="stale reason" />,
     );
-    expect(view.container).toBeEmptyDOMElement();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBe(failure());
+    expect(failure()).toBeEmptyDOMElement();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   },
 );
 
-test('[status.failed] a failed save is one red alert with the exact visible text; recovery removes it', () => {
+test('[status.failed] a failed save fills the already-mounted alert with the exact visible text; recovery empties the same element', () => {
   const view = render(
     <SaveFailureAlert feedback="saved" failureReason={null} />,
   );
+  const alert = failure();
+  expect(alert).toBeEmptyDOMElement();
   view.rerender(<SaveFailureAlert feedback="failed" failureReason={null} />);
-  expect(screen.getByRole('alert')).toBe(failure());
-  expect(failure()!.textContent).toBe(
+  // The same node: a live region announces text added after it exists.
+  expect(failure()).toBe(alert);
+  expect(screen.getByRole('alert')).toBe(alert);
+  expect(alert!.textContent).toBe(
     'Changes could not be saved. The latest saved values are shown.',
   );
-  expect(failure()).toHaveClass('text-destructive');
-  expect(failure()).not.toHaveClass('sr-only');
+  expect(alert).toHaveClass('text-destructive');
+  expect(alert).not.toHaveClass('sr-only');
   view.rerender(<SaveFailureAlert feedback="pending" failureReason={null} />);
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(failure()).toBe(alert);
+  expect(alert).toBeEmptyDOMElement();
 });
 
 test('[status.reason] a safe server reason follows the failure text inside the same alert', () => {

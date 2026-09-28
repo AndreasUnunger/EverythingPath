@@ -289,7 +289,7 @@ export function saveState(page: Page) {
   return page.locator('[data-week-feedback]');
 }
 
-/** The failed-save alert in the frame's status row, rendered only on failure. */
+/** The failed-save alert in the frame's status row: always mounted, empty unless a save failed. */
 export function saveFailure(page: Page) {
   return page.locator('[data-week-save-failure]');
 }
