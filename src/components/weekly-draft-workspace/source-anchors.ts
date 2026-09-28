@@ -24,3 +24,18 @@ export function upkeepStepAnchor(step: UpkeepStep) {
 export const localFormElementId = (id: string) => `review-form-${id}`;
 /** The phase editor itself: the fallback when no item can be named. */
 export const weekEditorAnchor = 'week-phase-editor';
+
+/**
+ * What takes focus for an anchor: a focusable anchor itself; a form wrapper
+ * passes it to its first invalid field, else its first enabled control.
+ */
+export function focusTargetWithin(anchor: HTMLElement): HTMLElement {
+  if (anchor.hasAttribute('tabindex')) return anchor;
+  return (
+    anchor.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+    anchor.querySelector<HTMLElement>(
+      'input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)',
+    ) ??
+    anchor
+  );
+}

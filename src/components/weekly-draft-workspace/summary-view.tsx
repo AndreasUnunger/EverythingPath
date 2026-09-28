@@ -14,8 +14,13 @@ import { AdjustmentRow } from './summary-adjustment-row';
 import { AddAdjustment } from './summary-adjustments';
 import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
-import type { Phase, PhaseView, WeeklyDraftWorkspace } from './types';
-import type { SourceLink } from './use-source-focus';
+import type {
+  Phase,
+  PhaseView,
+  SourceLink,
+  WeeklyDraftWorkspace,
+} from './types';
+
 import {
   focusLocalForm,
   removedAdjustmentDrafts,
@@ -83,17 +88,24 @@ export function SummaryView({
   const subjectOf = (exceptionId: string) =>
     view.exceptions.find((exception) => exception.exceptionId === exceptionId)
       ?.name ?? 'Rules Exception';
-  const ids = useId();
-  const requirementId = (index: number) => `${ids}-requirement-${index}`;
-  const localFormId = (index: number) => `${ids}-${index}`;
-  const reasonId = `${ids}-reason`;
+  const idPrefix = useId();
+  const requirementId = (index: number) => `${idPrefix}-requirement-${index}`;
+  const localFormId = (index: number) => `${idPrefix}-${index}`;
+  const reasonId = `${idPrefix}-reason`;
   const confirmButton = useRef<HTMLButtonElement>(null);
-  const confirmDisabled = !canConfirm || disabled;
-  const showReason = disabledReason !== null && !confirming && confirmDisabled;
+  const heading = useRef<HTMLHeadingElement>(null);
+  const isConfirmDisabled = !canConfirm || disabled;
+  const isReasonShown =
+    disabledReason !== null && !confirming && isConfirmDisabled;
   const reviewUpdatedWeek = () => {
     review();
-    // The alert unmounts with the review; keep focus in the block.
-    requestAnimationFrame(() => confirmButton.current?.focus());
+    // The alert unmounts with the review; focus moves on to Confirm, or to
+    // the block's heading while something still holds Confirm.
+    requestAnimationFrame(() => {
+      const target = confirmButton.current;
+      if (target && !target.disabled) target.focus();
+      else heading.current?.focus();
+    });
   };
   const count = view.review.adjustments.length;
   return (
@@ -103,7 +115,13 @@ export function SummaryView({
         aria-label="Review the week"
         className="min-w-0 gap-3 p-5"
       >
-        <h2 className="text-lg font-semibold">Review the week</h2>
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="text-lg font-semibold outline-none"
+        >
+          Review the week
+        </h2>
         {(view.requirements.length > 0 || localForms.length > 0) && (
           <section aria-label="Required decisions">
             <h3 className={subheading}>Required decisions</h3>
@@ -220,15 +238,15 @@ export function SummaryView({
             ref={confirmButton}
             type="button"
             size="lg"
-            disabled={confirmDisabled}
+            disabled={isConfirmDisabled}
             aria-busy={confirming || undefined}
-            aria-describedby={showReason ? reasonId : undefined}
+            aria-describedby={isReasonShown ? reasonId : undefined}
             onClick={confirm}
           >
             <Flag aria-hidden />
             {confirming ? 'Confirming…' : 'Confirm week'}
           </Button>
-          {showReason && (
+          {isReasonShown && (
             <p id={reasonId} className="text-muted-foreground text-sm">
               {disabledReason}
             </p>

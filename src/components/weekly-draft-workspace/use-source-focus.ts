@@ -1,33 +1,17 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { weekEditorAnchor } from './source-anchors';
-import type { Phase } from './types';
-
-/** A link to a phase and, where it can be named, the item within it. */
-export type SourceLink = { phase: Phase; anchor: string | null };
-
-// A focusable target takes focus itself; a form wrapper passes it to its
-// first invalid field, else its first enabled control.
-function focusTarget(target: HTMLElement) {
-  if (target.hasAttribute('tabindex')) return target;
-  return (
-    target.querySelector<HTMLElement>('[aria-invalid="true"]') ??
-    target.querySelector<HTMLElement>(
-      'input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)',
-    ) ??
-    target
-  );
-}
+import { focusTargetWithin, weekEditorAnchor } from './source-anchors';
+import type { Phase, SourceLink } from './types';
 
 function bringIntoView(anchor: string | null) {
   const item = anchor ? document.getElementById(anchor) : null;
-  const reduced = window.matchMedia?.(
+  const isReducedMotion = window.matchMedia?.(
     '(prefers-reduced-motion: reduce)',
   ).matches;
-  const behavior = reduced ? 'auto' : 'smooth';
+  const behavior = isReducedMotion ? 'auto' : 'smooth';
   if (item) {
     item.scrollIntoView({ block: 'start', behavior });
-    focusTarget(item).focus({ preventScroll: true });
+    focusTargetWithin(item).focus({ preventScroll: true });
     return;
   }
   // A phase-wide decision, or an item no longer shown: the phase itself.
@@ -50,7 +34,8 @@ export function useSourceFocus(
   const pending = useRef<SourceLink | null>(null);
   useEffect(() => {
     const link = pending.current;
-    if (link?.phase !== shown || !link) return;
+    if (!link) return;
+    if (link.phase !== shown) return;
     pending.current = null;
     const frame = requestAnimationFrame(() => bringIntoView(link.anchor));
     return () => cancelAnimationFrame(frame);

@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -194,7 +195,7 @@ test('[rules.P85.review] a rejected review requires an explicit fresh review and
   ).toBeDisabled();
 });
 
-test('[SUM-05.explicit] a rejected Confirmation shows its alert and reason, and only the explicit review is requested', () => {
+test('[SUM-05.explicit] a rejected Confirmation shows its alert and reason, and only the explicit review is requested', async () => {
   const confirm = vi.fn();
   const review = vi.fn();
   render(
@@ -225,6 +226,14 @@ test('[SUM-05.explicit] a rejected Confirmation shows its alert and reason, and 
   );
   expect(review).toHaveBeenCalledTimes(1);
   expect(confirm).not.toHaveBeenCalled();
+  // Confirm is still held here, so focus stays in the block's heading.
+  await act(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+  expect(
+    within(block).getByRole('heading', { name: 'Review the week' }),
+  ).toHaveFocus();
 });
 
 test('[SUM-01.block] the review block keeps decisions, warnings and the disabled reason without readiness sentences', () => {

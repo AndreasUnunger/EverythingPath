@@ -1,5 +1,4 @@
 import type { WeekReviewFacts } from '../week-review/review-facts';
-import type { ReviewSource } from './summary-sources';
 import type { CanonicalRoster } from '~/lib/canonical-roster';
 import type { ReferenceFacts } from './reference-facts';
 import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
@@ -830,11 +829,11 @@ export type EventView = {
   requirements: string[];
   warnings: string[];
 };
+// A phase and, where it can be named, the DOM id of the item within it.
+export type SourceLink = { phase: Phase; anchor: string | null };
 // Where an Activity or Event result that ended a carried event is edited.
-// `anchor` is the DOM id of its slot or occurrence, when it can be found.
-export type PersistentSourceLink = {
+export type PersistentSourceLink = SourceLink & {
   phase: 'activity' | 'event';
-  anchor: string | null;
 };
 export type PersistentView = {
   phase: 'persistent';
@@ -992,7 +991,7 @@ export type PhaseView =
       requirements: string[];
       warnings: string[];
       /** Where each requirement or warning code comes from, when known. */
-      sources?: Record<string, ReviewSource>;
+      sources?: Record<string, SourceLink>;
       /** The six-section presentation facts from the live adapter. */
       review: WeekReviewFacts;
     };

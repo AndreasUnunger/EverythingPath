@@ -201,7 +201,7 @@ export function WeekFrame({
               data-week-editor
               id={weekEditorAnchor}
               tabIndex={-1}
-              className="short:py-2 min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none md:px-5"
+              className="short:py-2 focus-visible:ring-ring/50 min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-inset md:px-5"
             >
               <div className="mx-auto w-full max-w-6xl">{children}</div>
             </main>
