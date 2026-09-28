@@ -97,11 +97,10 @@ export async function exerciseWeekFrame(page: Page) {
     nav.getByRole('button', { name: 'Review & confirm', exact: true }),
   ).toHaveAttribute('aria-current', 'step');
   await expect(page).toHaveURL(/phase=summary/);
-  // The last position: no wrap forward, and only a disabled-Confirmation
-  // reason (or nothing) in the footer; never a ready/needs-attention line.
-  await expect(
-    page.getByRole('button', { name: 'Next', exact: true }),
-  ).toBeDisabled();
+  // The last position: no wrap forward and no dead Next control, only a
+  // disabled-Confirmation reason (or nothing) in the footer; never a
+  // ready/needs-attention line.
+  await expect(page.getByRole('button', { name: /^Next\b/ })).toHaveCount(0);
   const line = await readinessLine(page);
   const reason = (await line.textContent())!.trim();
   const confirmable = await page
@@ -117,9 +116,9 @@ export async function exerciseWeekFrame(page: Page) {
   expect(reason).not.toMatch(/ready for confirmation|attention/i);
   await previous(locked ? 'Event' : 'Persistent').click();
   await nav.getByRole('button', { name: 'Upkeep', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Previous', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Previous\b/ })).toHaveCount(
+    0,
+  );
   await expect(next('Activity')).toBeEnabled();
   await expect(await readinessLine(page)).toHaveText(
     /^(Upkeep is ready\.|Complete the required rolls and decisions to finish Upkeep\.)/,
