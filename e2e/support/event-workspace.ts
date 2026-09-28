@@ -63,13 +63,15 @@ export async function exerciseEventWorkspace(
   await table(gm, '1').fill('50');
   await expect(table(player, '1.1')).toHaveValue('45');
   await expect(table(player, '1.2')).toHaveValue('82');
-  // All Is Calm (45–48) shows its outcome line and asks for nothing.
+  // All Is Calm (45–48) asks for nothing; beside Invasion it has no effect.
   const outcomes = (page: Page, path: string) =>
     occurrence(page, path).getByRole('list', {
       name: `Event ${path} outcomes`,
       exact: true,
     });
-  await expect(outcomes(player, '1.1')).toHaveText('›No event this week.');
+  await expect(outcomes(player, '1.1')).toHaveText(
+    '›No effect: another event happens this week.',
+  );
   await expect(
     occurrence(player, '1.1').getByRole('textbox', {
       name: 'What happened',

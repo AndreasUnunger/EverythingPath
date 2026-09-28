@@ -398,6 +398,16 @@ function independenceNote(
   ];
 }
 
+// All Is Calm's own line. Beside another event (a Roll Twice pair or an
+// automatic event) the week is not quiet, so the calm simply has no effect.
+function calmOutcome(context: EventPanelContext) {
+  return context.projection?.selected.some(
+    (event) => event.eventType !== 'all_is_calm',
+  )
+    ? 'No effect: another event happens this week.'
+    : 'No event this week.';
+}
+
 // What happened: required where the engine asks (Invasion, Night Ops),
 // offered on War Games and High Morale. The calm events and the Weeks record
 // no account; one recorded earlier stays editable and clearable.
@@ -467,7 +477,7 @@ export function outcomePanel(
     whatHappened: account(item, eventType, context),
     outcomes:
       eventType === 'all_is_calm' && item.mode === 'base'
-        ? ['No event this week.', ...lines]
+        ? [calmOutcome(context), ...lines]
         : lines,
     partial: item.requirements.some((code) => code.startsWith(`${id}:`)),
     retained: retainedFields(
