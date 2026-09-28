@@ -5,6 +5,7 @@ import { Button, buttonVariants } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import { cn } from '~/lib/utils';
+import type { ConfirmControl } from '../confirm-control';
 import type { ReferenceFacts } from '../reference-facts';
 import { weekEditorAnchor } from '../source-anchors';
 import type { Phase, PhaseReadiness } from '../types';
@@ -26,7 +27,8 @@ type Frame = {
   phase: Phase;
   phases: PhaseReadiness[];
   navigation: WeekNavigation;
-  confirmationDisabledReason: string | null;
+  /** The one Confirmation control; pinned at the next position on Review & confirm. */
+  confirmation: ConfirmControl;
   choose: (phase: Phase) => void;
   /** The read-only reference facts and the surfaces' shared state. */
   reference: { facts: ReferenceFacts; panel: ReferencePanel };
@@ -118,7 +120,7 @@ function Footer(frame: Frame) {
         data-week-readiness
         className="text-muted-foreground short:text-xs min-w-0 flex-1 text-center text-sm"
       >
-        {step ? readinessLine(step, frame.confirmationDisabledReason) : ''}
+        {step ? readinessLine(step, frame.confirmation.reason) : ''}
       </p>
       <DirectionButton
         direction="next"
@@ -146,7 +148,7 @@ function Strip(frame: Frame) {
         {step && (
           <PhoneReferenceSheet
             phase={frame.phase}
-            confirmationDisabledReason={frame.confirmationDisabledReason}
+            confirmationDisabledReason={frame.confirmation.reason}
             facts={frame.reference.facts}
             step={step}
             panel={frame.reference.panel}

@@ -43,6 +43,15 @@ export function readinessLine(
     : line;
 }
 
+/**
+ * The warning count beside the pinned Confirm week: the review block's own
+ * Warnings list, which the footer and strip otherwise leave off-screen.
+ * Advisory only, never a reason Confirm is unavailable. Null without any.
+ */
+export function confirmWarnings(step: PhaseReadiness): string | null {
+  return step.warnings.length ? count(step.warnings.length, 'warning') : null;
+}
+
 /** Progress segment state for the phone indicator. */
 export function stepState(
   step: PhaseReadiness,

@@ -17,6 +17,7 @@ import {
   type WorkspaceController,
 } from './use-weekly-draft-workspace';
 import { SummaryView } from './summary-view';
+import { confirmControl } from './confirm-control';
 import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
@@ -237,6 +238,9 @@ export function WeeklyWorkspaceBoard({
   // is in flight and while a closed week is retained read-only until its
   // successor is usable (WEEK-10); the store rejects those writes as well.
   const disabled = workspace.editingDisabled;
+  // One Confirmation control, shown in the review block and pinned in the
+  // frame's footer and phone strip on Review & confirm.
+  const confirmation = confirmControl(workspace);
   const feedback = (
     <WorkspaceFeedback workspace={workspace} inShell={inShell} />
   );
@@ -248,7 +252,7 @@ export function WeeklyWorkspaceBoard({
         phase={view.phase}
         phases={workspace.phases}
         navigation={workspace.navigation}
-        confirmationDisabledReason={workspace.confirmationDisabledReason}
+        confirmation={confirmation}
         choose={choosePhase}
         reference={{ facts: workspace.referenceFacts, panel }}
         status={inShell ? undefined : feedback}
@@ -310,15 +314,10 @@ export function WeeklyWorkspaceBoard({
             view={view}
             edit={workspace.edit}
             disabled={disabled}
-            confirming={workspace.feedback === 'confirming'}
-            canConfirm={workspace.canConfirm}
-            disabledReason={workspace.confirmationDisabledReason}
+            confirmation={confirmation}
             goTo={openSource}
             forecastPending={workspace.forecastPending}
             reviewRequired={workspace.reviewRequired}
-            confirm={() => {
-              void workspace.confirm();
-            }}
             review={workspace.reviewUpdatedWeek}
             localForms={workspace.localForms}
             localFormGuard={localFormGuard}

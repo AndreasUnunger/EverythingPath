@@ -12,6 +12,7 @@ import {
 } from './summary-adjustment-form';
 import { AdjustmentRow } from './summary-adjustment-row';
 import { AddAdjustment } from './summary-adjustments';
+import type { ConfirmControl } from './confirm-control';
 import { ExceptionControl } from './summary-exception-control';
 import { summaryMessage } from './summary-messages';
 import type {
@@ -45,13 +46,10 @@ export function SummaryView({
   view,
   edit,
   disabled,
-  confirming = false,
-  canConfirm,
+  confirmation,
   forecastPending,
   reviewRequired,
-  confirm,
   review,
-  disabledReason = null,
   goTo,
   localForms = [],
   localFormGuard,
@@ -60,15 +58,11 @@ export function SummaryView({
   view: Summary;
   edit: Extract<WeeklyDraftWorkspace, { status: 'ready' }>['edit'];
   disabled: boolean;
-  /** This device's Confirmation is in flight until the next week is usable. */
-  confirming?: boolean;
-  canConfirm: boolean;
+  /** The one Confirmation control, shared with the frame's pinned Confirm. */
+  confirmation: ConfirmControl;
   forecastPending: boolean;
   reviewRequired: boolean;
-  confirm: () => void;
   review: () => void;
-  /** Why Confirmation is unavailable right now, in the footer's words. */
-  disabledReason?: string | null;
   /** Shows a Required decision's source on this device only. */
   goTo?: (link: SourceLink) => void;
   /** This device's open or invalid local forms, each a Required decision. */
@@ -96,9 +90,9 @@ export function SummaryView({
   const reasonId = `${idPrefix}-reason`;
   const confirmButton = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const isConfirmDisabled = !canConfirm || disabled;
+  const { confirming, reason: disabledReason } = confirmation;
   const isReasonShown =
-    disabledReason !== null && !confirming && isConfirmDisabled;
+    disabledReason !== null && !confirming && confirmation.disabled;
   const reviewUpdatedWeek = () => {
     review();
     // The alert unmounts with the review; focus moves on to Confirm, or to
@@ -248,10 +242,10 @@ export function SummaryView({
             ref={confirmButton}
             type="button"
             size="lg"
-            disabled={isConfirmDisabled}
+            disabled={confirmation.disabled}
             aria-busy={confirming || undefined}
             aria-describedby={isReasonShown ? reasonId : undefined}
-            onClick={confirm}
+            onClick={confirmation.confirm}
           >
             <Flag aria-hidden />
             {confirming ? 'Confirming…' : 'Confirm week'}

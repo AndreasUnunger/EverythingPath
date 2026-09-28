@@ -11,7 +11,9 @@ import {
   ShellSlotHost,
   ShellSlotProvider,
 } from '~/components/campaign-shell/shell-slots';
+import type { ConfirmControl } from '../confirm-control';
 import type { Phase, PhaseReadiness } from '../types';
+import { confirmControlFixture } from '../workspace-test-fixture';
 import {
   referenceFactsFixture,
   referencePanelFixture,
@@ -86,6 +88,7 @@ function frame(
     reason?: string | null;
     choose?: (phase: Phase) => void;
     open?: boolean;
+    confirmation?: Partial<ConfirmControl>;
   } = {},
 ) {
   const eligible = options.eligible ?? false;
@@ -95,7 +98,11 @@ function frame(
       phase={phase}
       phases={phases(eligible)}
       navigation={navigationFor(phase, eligible)}
-      confirmationDisabledReason={options.reason ?? null}
+      confirmation={confirmControlFixture({
+        disabled: Boolean(options.reason),
+        reason: options.reason ?? null,
+        ...options.confirmation,
+      })}
       choose={options.choose ?? (() => undefined)}
       reference={{
         facts: referenceFactsFixture(),
