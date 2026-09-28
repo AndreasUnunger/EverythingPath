@@ -96,6 +96,16 @@ export async function expectReachable(page: Page, control: Locator) {
       'editor content sits above the pinned week footer',
     ).toBeLessThanOrEqual(pinned.y + 1);
   }
+  // From 768px Setup's footer is pinned under its detail pane only (#138
+  // §3); the step index beside it legitimately shares its vertical band.
+  const setupFooter = page.locator('[data-setup-layout="wide"] footer');
+  if ((await setupFooter.count()) > 0 && (await isAboveSetupFooter(control))) {
+    const pinned = (await setupFooter.boundingBox())!;
+    expect(
+      bounds!.y + bounds!.height,
+      'Setup content sits above the pinned Setup footer',
+    ).toBeLessThanOrEqual(pinned.y + 1);
+  }
   // The editor column clips what it scrolls: a control above its top edge
   // sits behind the pinned stepper, and one taller than the column can never
   // be seen whole. Long text is read by scrolling, so only controls count.
@@ -139,6 +149,18 @@ function isEditorContent(control: Locator) {
   return control.evaluate(
     (element) => element.closest('[data-week-editor]') !== null,
   );
+}
+
+// In Setup's detail pane (the footer's column) but not in the footer.
+function isAboveSetupFooter(control: Locator) {
+  return control.evaluate((element) => {
+    const pinned = document.querySelector('[data-setup-layout="wide"] footer');
+    return (
+      pinned !== null &&
+      !pinned.contains(element) &&
+      pinned.parentElement!.contains(element)
+    );
+  });
 }
 
 function isControl(control: Locator) {
