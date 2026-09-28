@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '~/components/ui/button';
-import { EventChoiceCard } from './event-choice-card';
+import { EventChoiceCard, eventChoiceGridClass } from './event-choice-card';
 import type { EventFamilyInputsProps } from './event-family-inputs';
 import { EventNote } from './event-note';
 import { endingsWithout, pressEnding } from './event-outcome-facts';
@@ -42,7 +42,7 @@ export function EventOutcomeInputs({
             </p>
           )}
           {endings.choices.length > 0 && (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={eventChoiceGridClass}>
               {endings.choices.map((card) => (
                 <EventChoiceCard
                   key={card.value}

@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import { EventChoiceCard } from './event-choice-card';
+import { EventChoiceCard, eventChoiceGridClass } from './event-choice-card';
 import type { EventEditResult } from './event-family-inputs';
 import { rivalrySkillLabels } from './persistent-check-facts';
 import { RollTotalField } from './roll-total-field';
@@ -101,7 +101,7 @@ export function EventOfficerCheck({
           )}
         </p>
         {facts.characters.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={eventChoiceGridClass}>
             {facts.characters.map((card) => (
               <EventChoiceCard
                 key={card.value}

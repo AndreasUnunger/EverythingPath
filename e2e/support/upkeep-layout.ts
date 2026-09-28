@@ -15,9 +15,12 @@ type DraftKey = z.infer<typeof draftKeySchema>;
 // Upkeep's card and repair content at phone and desktop sizes (#140 §8
 // bullet 5): the nearest-settlement cards, the missing team's return row,
 // the staged-Remove repair and the rank feat cards. The settlement/rank
-// journey exercises the same content at the tablet size only.
+// journey exercises the same content at the tablet size only. Phone
+// landscape leaves the editor column about 100px tall, so every choice card
+// must still fit it whole.
 const sizes = [
   ['phone', 390, 844],
+  ['phone-landscape', 844, 390],
   ['desktop', 1440, 900],
 ] as const;
 

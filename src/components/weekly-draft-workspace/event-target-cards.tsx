@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '~/components/ui/button';
-import { EventChoiceCard } from './event-choice-card';
+import { EventChoiceCard, eventChoiceGridClass } from './event-choice-card';
 import { EventNote } from './event-note';
 import type { EventTargetChoice } from './types';
 
@@ -40,7 +40,7 @@ export function EventTargetCards({
         </p>
       )}
       {choice.choices.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={eventChoiceGridClass}>
           {choice.choices.map((card) => (
             <EventChoiceCard
               key={card.value}
