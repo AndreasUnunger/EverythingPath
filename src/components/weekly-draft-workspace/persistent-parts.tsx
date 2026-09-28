@@ -29,9 +29,7 @@ import { formatGold } from './week-frame/reference-copy';
 type Event = PersistentView['events'][number];
 type Exception = Event['exceptions'][number];
 type SaveResult = 'accepted' | 'failed';
-type EndingFormState = ReturnType<typeof useEndingForm> & {
-  needsReason: boolean;
-};
+type EndingFormState = ReturnType<typeof useEndingForm>;
 
 export function Overview({ view }: { view: PersistentView }) {
   const items = [

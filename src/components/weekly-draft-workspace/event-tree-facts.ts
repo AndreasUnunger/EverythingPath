@@ -389,13 +389,15 @@ export function eventTreeBlocks<
     labelOf,
   } = eventTreeLayout(draft, positions, plan);
 
-  const occurrences: Item[] = order.map((entry) => ({
-    ...facts(entry, labelOf(entry.event.eventId)),
-    label: labelOf(entry.event.eventId),
-  }));
-  const factsById = new Map(
-    order.map((entry, index) => [entry.event.eventId, occurrences[index]!]),
-  );
+  const itemsById = order.map((entry): [string, Item] => [
+    entry.event.eventId,
+    {
+      ...facts(entry, labelOf(entry.event.eventId)),
+      label: labelOf(entry.event.eventId),
+    },
+  ]);
+  const occurrences = itemsById.map(([, item]) => item);
+  const factsById = new Map(itemsById);
 
   function status(entry: LocatedEvent, surplus: boolean): EventBlockStatus {
     const id = entry.event.eventId;

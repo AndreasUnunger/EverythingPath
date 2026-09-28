@@ -127,13 +127,7 @@ function Ending({
     guard,
     onSave,
   });
-  return (
-    <EndingForm
-      notice={notice}
-      disabled={disabled}
-      ending={{ ...ending, needsReason }}
-    />
-  );
+  return <EndingForm notice={notice} disabled={disabled} ending={ending} />;
 }
 
 function savedLabel(saved: string, event: Event) {

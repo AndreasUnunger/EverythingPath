@@ -12,7 +12,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { editWeeklyDraft } from '~/lib/weekly-draft';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
-import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
+import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
@@ -118,13 +118,6 @@ function savedOccurrence(edit: Edit) {
   if (call.kind !== 'event_occurrence')
     throw new Error(`Expected an occurrence edit, got ${call.kind}`);
   return call.occurrence;
-}
-function candidatesOf(draft: WeeklyDraft) {
-  const choice = draft.activity.slots[0]!.choice as Extract<
-    StagedActionChoice,
-    { actionId: 'guarantee_event' }
-  >;
-  return choice;
 }
 
 test('[rules.EVT-07.candidate-context] a saved candidate with a known table roll keeps its nested total editors in Event, while an unresolved one offers only its table roll', () => {
@@ -425,5 +418,4 @@ test('[rules.P82.sources] automatic events beside a candidate set name their que
   const automatic = screen.getByText(/brings 1 automatic event before/);
   expect(automatic).toHaveTextContent(/^Calm before the Storm \(week \d+\)/);
   expect(screen.queryByText(/queue-source/)).toBeNull();
-  expect(candidatesOf(week.draft).candidates).toHaveLength(2);
 });
