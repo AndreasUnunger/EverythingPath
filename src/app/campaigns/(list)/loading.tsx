@@ -1,7 +1,10 @@
 import { CampaignHomeSkeleton } from '~/components/campaign-home/campaign-home-status';
 import { Skeleton } from '~/components/ui/skeleton';
 
-// Route fallback while the campaigns segment streams in: the list shell's
+// Route fallback for the campaign list and home only. It sits in this
+// `(list)` group, above the `(home)` layout it stands in for, so campaign
+// section pages (`[campaignId]/…`) keep their own shell and loading and never
+// flash this list shape. While the list streams in: the list shell's
 // frame and top bar as static placeholders (Keep icon, organization switcher,
 // account control) above the same skeleton the home screen shows while it
 // resolves, so nothing jumps when the real shell mounts. The frame and row
