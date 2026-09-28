@@ -88,8 +88,8 @@ export async function expectReachable(page: Page, control: Locator) {
   // The footer is pinned under the editor column only; the reference panel
   // beside it legitimately occupies the same vertical band.
   const footer = page.locator('[data-week-footer]:visible');
-  const editorContent = await isEditorContent(control);
-  if ((await footer.count()) > 0 && editorContent) {
+  const isInEditor = await isEditorContent(control);
+  if ((await footer.count()) > 0 && isInEditor) {
     const pinned = (await footer.first().boundingBox())!;
     expect(
       bounds!.y + bounds!.height,
@@ -99,7 +99,7 @@ export async function expectReachable(page: Page, control: Locator) {
   // The editor column clips what it scrolls: a control above its top edge
   // sits behind the pinned stepper, and one taller than the column can never
   // be seen whole. Long text is read by scrolling, so only controls count.
-  if (editorContent && (await isControl(control))) {
+  if (isInEditor && (await isControl(control))) {
     const column = (await page.locator('[data-week-editor]').boundingBox())!;
     expect(
       bounds!.y,
@@ -347,6 +347,23 @@ export async function expectBoundedWeekHost(page: Page) {
     ),
     'the document does not scroll on the week',
   ).toBe(true);
+  // Neither the body nor the bounded frame may be a scroll container: a
+  // clipped-but-scrollable ancestor lets focus or scrolling into view move
+  // the top bar and the pinned chrome off screen with no way back.
+  expect(
+    await page.evaluate(() =>
+      [document.body, document.querySelector('[data-shell-frame]')]
+        .filter((element): element is HTMLElement => element !== null)
+        .filter((element) => {
+          element.scrollTop = 1;
+          const scrolled = element.scrollTop !== 0;
+          element.scrollTop = 0;
+          return scrolled;
+        })
+        .map((element) => element.tagName.toLowerCase()),
+    ),
+    'the shell around the week never scrolls',
+  ).toEqual([]);
   const chrome = await pinnedWeekChrome(page);
   expect(chrome.length, 'some week chrome is pinned').toBeGreaterThan(0);
   for (const { name, box: pinned } of chrome)

@@ -17,7 +17,8 @@ export { OrganizationControl } from './organization-control';
 // `bounded` (the Week route at every width) caps the frame at the viewport:
 // the top bar, banner and bottom bar keep their natural heights and the
 // Week frame scrolls its editor inside the remaining space, so its stepper,
-// footer and phone strip stay pinned. Every other page keeps document
+// footer and phone strip stay pinned. It is clipped, not hidden, so focus
+// can never scroll the frame itself. Every other page keeps document
 // scrolling for its current forms. The maintenance banner sits above the
 // top bar on phone and below it from tablet width.
 export function ShellFrame({
@@ -36,7 +37,7 @@ export function ShellFrame({
       data-shell-frame={bounded ? 'bounded' : 'document'}
       className={cn(
         'flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]',
-        bounded && 'h-dvh overflow-hidden',
+        bounded && 'h-dvh overflow-clip',
       )}
     >
       <header className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]">

@@ -186,6 +186,14 @@
   overflow: hidden;
 }
 
+/* On the bounded Week nothing may scroll the body (hidden is still a scroll
+   container that focus can scroll, moving the top bar and pinned chrome);
+   only there, because clip makes sticky bars stick to the viewport, which
+   document pages don't expect. */
+body:has([data-shell-frame='bounded']) {
+  overflow: clip;
+}
+
 .scanlines::before {
   content: '';
   position: absolute;

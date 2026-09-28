@@ -354,7 +354,8 @@ export function DockedReferencePanel(props: ReferenceProps) {
     <aside
       data-week-reference
       aria-label="Reference panel"
-      className="bg-sidebar border-foreground/15 short:p-2 hidden w-72 shrink-0 overflow-x-hidden overflow-y-auto border-l p-3 md:block xl:w-80"
+      // relative: its visually hidden text stays in its own scroller.
+      className="bg-sidebar border-foreground/15 short:p-2 relative hidden w-72 shrink-0 overflow-x-hidden overflow-y-auto border-l p-3 md:block xl:w-80"
     >
       <ReferenceBody {...props} />
     </aside>

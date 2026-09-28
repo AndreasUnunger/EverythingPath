@@ -103,8 +103,7 @@ export async function reviewPersistentWorkspace(
         theft.getByRole('textbox', { name: 'Loyalty check', exact: true }),
       );
       // Every decision card, not only Buy off, is seen whole in the short
-      // scroll column: cards sized by the viewport instead of the editor
-      // once stood 586px tall there.
+      // scroll column.
       for (const card of await theft
         .getByRole('group', { name: 'Theft · Event 1 decision', exact: true })
         .getByRole('button')
