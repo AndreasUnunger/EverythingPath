@@ -361,8 +361,8 @@ export function CorrectionBar({
 }) {
   const id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
-  const pinned = useRef<HTMLElement>(null);
-  useScrollPaddingFor(pinned);
+  const stickyBar = useRef<HTMLElement>(null);
+  useScrollPaddingFor(stickyBar);
   useEffect(() => {
     if (!focusHeading.current) return;
     focusHeading.current = false;
@@ -373,7 +373,7 @@ export function CorrectionBar({
   return (
     <>
       <section
-        ref={wide ? pinned : undefined}
+        ref={wide ? stickyBar : undefined}
         aria-labelledby={id}
         className={cn(
           'flex min-w-0 flex-col gap-3',

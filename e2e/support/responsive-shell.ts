@@ -72,27 +72,28 @@ async function expectBarAtViewportBottom(page: Page, when: string) {
 /**
  * Below 768px the bottom bar stays pinned to the viewport's bottom edge
  * wherever the document is scrolled: at the top, midway and at the end. The
- * body must never become a scroll container of its own, or the sticky bar
- * would stick to the end of the page instead (#198). Restores the scroll.
+ * body must never become a scroll container of its own (only visible or
+ * clipped overflow), or the sticky bar would stick to the end of the page
+ * instead (#198). With `tall`, the page must actually scroll, so the check
+ * cannot pass on a page the bar would end anyway. Restores the scroll.
  */
-export async function expectBottomBarPinned(page: Page) {
+export async function expectBottomBarPinned(page: Page, tall = false) {
   await expect(bottomNavigation(page)).toHaveCount(1);
-  expect(
-    await page.evaluate(() => {
-      const body = document.body;
-      body.scrollTop = 1;
-      const scrolled = body.scrollTop !== 0;
-      body.scrollTop = 0;
-      return scrolled;
-    }),
-    'the body never scrolls on its own',
-  ).toBe(false);
+  for (const overflow of await page.evaluate(() => {
+    const { overflowX, overflowY } = getComputedStyle(document.body);
+    return [overflowX, overflowY];
+  }))
+    expect(
+      ['visible', 'clip'],
+      'the body is never a scroll container',
+    ).toContain(overflow);
   const start = await page.evaluate(() => window.scrollY);
   const end = await page.evaluate(
     () =>
       document.documentElement.scrollHeight -
       document.documentElement.clientHeight,
   );
+  if (tall) expect(end, 'the page scrolls as a document').toBeGreaterThan(0);
   try {
     for (const [when, y] of [
       ['at the top', 0],
@@ -283,7 +284,8 @@ export async function exercisePhoneShell(page: Page) {
   await expect(nav.getByRole('button', { name: 'More' })).toBeVisible();
   await sectionNames(nav);
   await expectNoHorizontalOverflow(page);
-  await expectBottomBarPinned(page);
+  // A short viewport always has more page than screen.
+  await expectBottomBarPinned(page, height < 520);
   await expectReachable(page, shownHeading(page));
   const switcher = page.getByRole('combobox', { name: 'Active campaign' });
   await expectReachable(page, switcher);

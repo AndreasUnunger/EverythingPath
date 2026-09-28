@@ -181,16 +181,20 @@
     );
 }
 
-/* The body (which carries .scanlines) clips; it never hides. The document
-   scrolls on <html> (overflow-y: scroll below), so the body's overflow is
-   not handed to the viewport: `hidden` would make the body its own scroll
-   container, one as tall as the page that never scrolls. Every sticky bar
-   inside (the phone bottom bar, Setup's footer from 768px) would then stick
-   to the end of the page instead of the viewport, and focus could scroll
-   the body itself, moving the top bar and the Week's pinned chrome with no
-   way back. `clip` crops the same overflow without a scroll container. */
 .scanlines {
   position: relative;
+  overflow: hidden;
+}
+
+/* The body clips; it never hides. The document scrolls on <html>
+   (overflow-y: scroll below), so the body's overflow is not handed to the
+   viewport: `hidden` would make the body its own scroll container, one as
+   tall as the page that never scrolls. Every sticky bar inside (the phone
+   bottom bar, Setup's footer from 768px) would then stick to the end of
+   the page instead of the viewport, and focus could scroll the body itself,
+   moving the top bar and the Week's pinned chrome with no way back. `clip`
+   crops the same overflow without a scroll container. */
+body.scanlines {
   overflow: clip;
 }
 

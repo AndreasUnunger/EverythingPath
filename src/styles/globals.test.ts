@@ -88,9 +88,8 @@ test('[styles.transition] no emitted rule transitions filter', async () => {
 // lock is on, which would otherwise set it to hidden.
 test('[styles.sticky] the body clips its overflow and never becomes a scroll container', async () => {
   const css = await compiledStyles();
-  const scanlines = /\.scanlines\s*\{([^}]*)\}/.exec(css)![1]!;
-  expect(scanlines).toMatch(/overflow:\s*clip/);
-  expect(scanlines).not.toMatch(/overflow:\s*(hidden|auto|scroll)/);
+  const body = /body\.scanlines\s*\{([^}]*)\}/.exec(css)?.[1];
+  expect(body).toMatch(/overflow:\s*clip/);
   expect(css).toMatch(
     /html body\[data-scroll-locked\]\s*\{\s*overflow:\s*clip\s*!important/,
   );
