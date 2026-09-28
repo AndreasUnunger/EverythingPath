@@ -395,6 +395,23 @@ export async function expectBoundedWeekHost(page: Page) {
     ).toBeLessThanOrEqual(height + 1);
   const editor = host.locator('[data-week-editor]');
   await expect(editor).toHaveCount(1);
+  // Positioned content, such as a warning's visually hidden prefix, is laid
+  // out by the column: one positioned by an ancestor outside it never
+  // scrolls with the column and hangs below the clipped frame, unreachable.
+  // (An element that is not rendered has no offset parent.)
+  expect(
+    await editor.evaluate((column) =>
+      Array.from(column.querySelectorAll<HTMLElement>('*'))
+        .filter(
+          (element) =>
+            getComputedStyle(element).position === 'absolute' &&
+            element.offsetParent !== null &&
+            !column.contains(element.offsetParent),
+        )
+        .map((element) => element.outerHTML.slice(0, 80)),
+    ),
+    'positioned editor content scrolls with the editor column',
+  ).toEqual([]);
   const controls = editor.locator(
     ':is(button, input, select, textarea, a[href], summary, [role="button"], [role="combobox"], [contenteditable="true"]):visible:not(:disabled):not([aria-disabled="true"])',
   );

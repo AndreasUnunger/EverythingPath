@@ -198,11 +198,15 @@ export function WeekFrame({
             Desktop: the same two become the grid's middle and right columns. */}
         <div className="flex min-h-0 flex-1 xl:contents">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {/* relative: the editors' visually hidden text (a warning's
+                prefix, an empty status line) is positioned by this column,
+                so it scrolls with it instead of hanging below the clipped
+                frame where nothing can scroll it into view. */}
             <main
               data-week-editor
               id={weekEditorAnchor}
               tabIndex={-1}
-              className="short:py-2 focus-visible:ring-ring/50 min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-inset md:px-5"
+              className="short:py-2 focus-visible:ring-ring/50 relative min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-inset md:px-5"
             >
               {/* A container so phase editors size their card grids by the
                   editor's own width, which is narrower than the viewport
