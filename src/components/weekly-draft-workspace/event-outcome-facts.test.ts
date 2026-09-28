@@ -146,6 +146,17 @@ test('[EVT-12.all-is-calm] All Is Calm asks for nothing and says whether the wee
     'Not an uneventful week: the militia’s first week never counts.',
   ]);
 
+  // Beside another event the calm has no effect; it never claims a quiet week.
+  const mixed = resourceEventFixture(46, true);
+  mixed.draft.event.occurrences[2] = occurrence('second', 82, {
+    kind: 'roll_twice',
+    parentEventId: 'root',
+  });
+  ({ view } = facts(mixed.draft, mixed.snapshot));
+  expect(panel(view, 'first').outcomes).toEqual([
+    'No effect: another event happens this week.',
+  ]);
+
   // Twice: next week is calm, and two events never build the carry.
   const twice = resourceEventFixture(46, true);
   ({ view } = facts(twice.draft, twice.snapshot));
