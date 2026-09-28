@@ -126,16 +126,25 @@ export async function panAndTapPicker(gm: Page, player: Page) {
     return null;
   }, list!);
   expect(start, 'a card under the pan').not.toBeNull();
+  // A finger's own touch events, moving up to near the list's top so the
+  // list scrolls down. Headless Chromium's synthesized touch scroll gesture
+  // sends only touchstart and touchend, which scroll nothing on any page.
   const cdp = await gm.context().newCDPSession(gm);
+  const finger = (y: number) => [{ x: Math.round(start!.x), y: Math.round(y) }];
+  const top = list!.y + 16;
   try {
-    await cdp.send('Input.synthesizeScrollGesture', {
-      x: Math.round(start!.x),
-      y: Math.round(start!.y),
-      xDistance: 0,
-      // Negative: the finger moves up and the list scrolls down.
-      yDistance: -Math.round(start!.y - list!.y - 16),
-      gestureSourceType: 'touch',
-      speed: 600,
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: finger(start!.y),
+    });
+    for (let step = 1; step <= 20; step++)
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: finger(start!.y + ((top - start!.y) * step) / 20),
+      });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
     });
   } finally {
     await cdp.detach();
