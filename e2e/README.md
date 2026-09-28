@@ -131,8 +131,8 @@ ended the attempt inside the step, so `duration` is null and `start` shows how
 long it ran). At most 100 steps are kept per attempt. Step errors, locations,
 parameters, fixtures and Playwright actions are not recorded. `access`, its
 three shell parts (see [Access split](#access-split)) and the nightly extension
-use steps; the other journeys, including campaign home, do not yet, so they
-record none. `stages.log` records stage outcomes;
+use steps, as do campaign home (since the area checks); the other journeys do
+not yet, so they record none. `stages.log` records stage outcomes;
 `timings.jsonl` adds command correlation IDs, timestamps and elapsed milliseconds
 without command arguments, environment values or provider output;
 `diagnostics.log` retains allowlisted application/service error categories (such
