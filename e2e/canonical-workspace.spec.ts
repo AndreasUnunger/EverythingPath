@@ -904,6 +904,24 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     // week before its original inputs are restored for the Confirmation race.
     await exerciseRollCompatibility(first, second, run, summaryScope, [late]);
     const confirmationCharactersUrl = await prepareWeekHistory(first);
+    // Review lists what is missing with only its disabled reason beside
+    // Confirm, and a Go link leads this device to the source step.
+    await summary(first);
+    const review = first.getByRole('region', {
+      name: 'Review the week',
+      exact: true,
+    });
+    await expect(review.getByText(/^\d+ decisions? left$/)).toBeVisible();
+    await expect(review).not.toContainText(/ready for confirmation|attention/);
+    await review
+      .getByRole('region', { name: 'Required decisions', exact: true })
+      .getByRole('listitem')
+      .filter({ hasText: /^Upkeep: Enter the attrition Loyalty roll\b/ })
+      .getByRole('button', { name: 'Go to Upkeep', exact: true })
+      .click();
+    await expect(
+      first.getByRole('region', { name: 'Training attrition', exact: true }),
+    ).toBeFocused();
     await die(first).fill('20');
     await expect(die(second)).toHaveValue('20');
     await training(first).fill('1');
@@ -941,8 +959,14 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
     await expect(
       first.getByRole('button', { name: 'Review updated week', exact: true }),
     ).toBeEnabled();
-    // Rejected as stale: back to the ready label, disabled, no success.
+    // Rejected as stale: back to the ready label, disabled with its reason
+    // beside it, no success.
     await expect(confirm(first)).toBeDisabled();
+    await expect(
+      review.getByText('Review the updated week before confirming.', {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(confirming(first)).toHaveCount(0);
     await expect(confirmedWeekNotice(first)).toBeEmpty();
     await expect(
@@ -958,6 +982,8 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
       .getByRole('button', { name: 'Review updated week', exact: true })
       .click();
     await expect(confirm(first)).toBeEnabled();
+    await expect(confirm(first)).toBeFocused();
+    await expect(review.getByRole('alert')).toHaveCount(0);
     await expect(confirm(second)).toBeEnabled();
     const delayed = lateTransport.hold();
     releases.push(() => lateTransport.release());

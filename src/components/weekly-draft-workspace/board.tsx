@@ -301,6 +301,8 @@ export function WeeklyWorkspaceBoard({
             disabled={disabled}
             confirming={workspace.feedback === 'confirming'}
             canConfirm={workspace.canConfirm}
+            disabledReason={workspace.confirmationDisabledReason}
+            goTo={openSource}
             forecastPending={workspace.forecastPending}
             reviewRequired={workspace.reviewRequired}
             confirm={() => {

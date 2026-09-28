@@ -13,6 +13,7 @@ import {
 import { RivalryCheckInputs, TheftCheckInputs } from './persistent-checks';
 import { persistentMessage } from './persistent-outcomes';
 import { endingNeedsReason, exceptionInUse } from './persistent-sections';
+import { persistentEventAnchor } from './source-anchors';
 import type { PersistentSourceLink, PersistentView as Facts } from './types';
 import {
   usePersistentChoice,
@@ -132,8 +133,10 @@ function PersistentEvent({
   return (
     <section
       role="group"
+      id={persistentEventAnchor(event.eventId)}
+      tabIndex={-1}
       aria-label={event.name}
-      className="border-foreground/20 relative min-w-0 border-l-2 pl-6"
+      className="border-foreground/20 focus-visible:ring-ring/50 relative min-w-0 rounded-sm border-l-2 pl-6 outline-none focus-visible:ring-[3px]"
     >
       <SectionMarker number={number} ended={event.ended} />
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

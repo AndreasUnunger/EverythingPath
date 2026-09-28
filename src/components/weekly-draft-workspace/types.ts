@@ -1,4 +1,5 @@
 import type { WeekReviewFacts } from '../week-review/review-facts';
+import type { ReviewSource } from './summary-sources';
 import type { CanonicalRoster } from '~/lib/canonical-roster';
 import type { ReferenceFacts } from './reference-facts';
 import type { CanonicalResolutionEffects } from '~/lib/canonical-weekly-resolution';
@@ -990,6 +991,8 @@ export type PhaseView =
       outcome: CanonicalWeekState | null;
       requirements: string[];
       warnings: string[];
+      /** Where each requirement or warning code comes from, when known. */
+      sources?: Record<string, ReviewSource>;
       /** The six-section presentation facts from the live adapter. */
       review: WeekReviewFacts;
     };

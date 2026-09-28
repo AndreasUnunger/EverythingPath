@@ -11,6 +11,7 @@ import { eventSubjectLabel } from './event-tree-facts';
 import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';
 import { summaryMessage } from './summary-messages';
+import { reviewSources } from './summary-sources';
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -134,6 +135,31 @@ export function summaryView(
         ).values(),
       ];
   }
+  // One line per missing die, as the Event phase shows it (#164).
+  const requirements = withoutDuplicateRollCodes(preview.requirements);
+  const warnings = liveWarnings(preview.warnings);
+  const own = (phase: { requirements: string[]; warnings: string[] }) => [
+    ...phase.requirements,
+    ...phase.warnings,
+  ];
+  const sources = reviewSources({
+    codes: [...requirements, ...warnings],
+    owners: {
+      upkeep: own(upkeep),
+      activity: own(activity),
+      event: own(events),
+      persistent: own(persistent),
+    },
+    slots: activity.slots.map((slot) => ({
+      slotId: slot.slotId,
+      choiceId: slot.choice?.choiceId ?? null,
+    })),
+    eventIds: events.occurrences.map((event) => event.occurrence.eventId),
+    persistentEventIds: persistent.events.map((event) => event.eventId),
+    teamIds: source.snapshot.roster.teams.map((team) => team.teamId),
+    transferIds: draft.upkeep.treasuryTransfers.map((item) => item.transferId),
+    adjustmentIds: draft.tableAdjustments.map((item) => item.adjustmentId),
+  });
   const view: Omit<Extract<PhaseView, { phase: 'summary' }>, 'review'> = {
     phase: 'summary',
     ready: preview.status === 'ready',
@@ -162,9 +188,9 @@ export function summaryView(
           persistent: preview.phases.persistent.plan,
         }
       : null,
-    // One line per missing die, as the Event phase shows it (#164).
-    requirements: withoutDuplicateRollCodes(preview.requirements),
-    warnings: liveWarnings(preview.warnings),
+    requirements,
+    warnings,
+    sources,
   };
   return {
     ...view,

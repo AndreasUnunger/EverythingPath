@@ -20,6 +20,7 @@ import type {
   UpkeepMissingTeam,
   UpkeepSections,
 } from './types';
+import { upkeepStepAnchor } from './source-anchors';
 import {
   clearRulesException,
   clearTeamDecision,
@@ -386,6 +387,7 @@ export function TeamConditions({
     <Step
       number={0}
       title="Team conditions"
+      anchor={upkeepStepAnchor('teams')}
       status={teams.status}
       effect={
         teams.status === 'inapplicable'

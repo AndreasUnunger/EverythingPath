@@ -63,7 +63,11 @@ test('[rules.SUM-02.total-readiness] the current Summary treats an incoming comp
   render(
     <SummaryView view={ready.view} {...controls} edit={vi.fn()} canConfirm />,
   );
-  expect(screen.getByText('The week is ready for confirmation.')).toBeVisible();
+  // Ready: Confirm is available with no decision or readiness sentence (#110).
+  expect(screen.getByRole('button', { name: 'Confirm week' })).toBeEnabled();
+  expect(
+    screen.queryByRole('region', { name: 'Required decisions' }),
+  ).not.toBeInTheDocument();
   cleanup();
   const stale = summary({ check: total(20, 1, 4), training: total(6, 1, 5) });
   expect(stale.preview.status).toBe('incomplete');

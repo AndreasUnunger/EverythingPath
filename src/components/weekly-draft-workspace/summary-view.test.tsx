@@ -194,6 +194,177 @@ test('[rules.P85.review] a rejected review requires an explicit fresh review and
   ).toBeDisabled();
 });
 
+test('[SUM-05.explicit] a rejected Confirmation shows its alert and reason, and only the explicit review is requested', () => {
+  const confirm = vi.fn();
+  const review = vi.fn();
+  render(
+    <SummaryView
+      view={view}
+      edit={vi.fn()}
+      {...controls}
+      confirm={confirm}
+      review={review}
+      canConfirm={false}
+      reviewRequired
+      disabledReason="Review the updated week before confirming."
+    />,
+  );
+  const block = screen.getByRole('region', { name: 'Review the week' });
+  expect(within(block).getByRole('alert')).toHaveTextContent(
+    'The week could not be confirmed as reviewed.',
+  );
+  const confirmButton = within(block).getByRole('button', {
+    name: 'Confirm week',
+  });
+  expect(confirmButton).toBeDisabled();
+  expect(confirmButton).toHaveAccessibleDescription(
+    'Review the updated week before confirming.',
+  );
+  fireEvent.click(
+    within(block).getByRole('button', { name: 'Review updated week' }),
+  );
+  expect(review).toHaveBeenCalledTimes(1);
+  expect(confirm).not.toHaveBeenCalled();
+});
+
+test('[SUM-01.block] the review block keeps decisions, warnings and the disabled reason without readiness sentences', () => {
+  const { rerender } = render(
+    <SummaryView
+      view={{
+        ...view,
+        ready: false,
+        requirements: ['upkeep:attrition:roll', 'choice:team-type'],
+        warnings: ['choice:team-used', 'mystery:departure'],
+        options: {
+          subjectId: [{ value: 'choice', label: 'Recruit Team · Slot 1' }],
+        },
+        sources: {
+          'upkeep:attrition:roll': {
+            phase: 'upkeep',
+            anchor: 'upkeep-step-attrition',
+          },
+          'choice:team-type': {
+            phase: 'activity',
+            anchor: 'activity-slot-left',
+          },
+          'choice:team-used': {
+            phase: 'activity',
+            anchor: 'activity-slot-left',
+          },
+        },
+      }}
+      edit={vi.fn()}
+      {...controls}
+      canConfirm={false}
+      disabledReason="2 decisions left"
+    />,
+  );
+  const block = screen.getByRole('region', { name: 'Review the week' });
+  expect(
+    within(block).getByRole('heading', { name: 'Review the week' }),
+  ).toBeVisible();
+  const warnings = within(block).getByRole('region', { name: 'Warnings' });
+  expect(warnings).toHaveTextContent(
+    'Recruit Team · Slot 1: This team has already acted this Activity.',
+  );
+  // The source phase names each warning; an unknown source gets none.
+  expect(warnings).toHaveTextContent('Activity');
+  expect(
+    within(warnings).getByText(
+      'Review this rules departure in the affected phase with the table.',
+    ),
+  ).toBeVisible();
+  expect(
+    within(block).getByRole('button', { name: 'Confirm week' }),
+  ).toHaveAccessibleDescription('2 decisions left');
+  expect(within(block).getByText('2 decisions left')).toBeVisible();
+  // Signed-off removals (#110): no readiness sentence or whole-week note.
+  for (const removed of [
+    /ready for confirmation/i,
+    /need attention/i,
+    /applies the entire/i,
+    /remain a preview/i,
+  ])
+    expect(document.body).not.toHaveTextContent(removed);
+  rerender(
+    <SummaryView
+      view={view}
+      edit={vi.fn()}
+      {...controls}
+      disabledReason={null}
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Confirm week' })).toBeEnabled();
+  expect(
+    screen.queryByRole('region', { name: 'Required decisions' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText('No rules warnings.')).toBeVisible();
+  expect(document.body).not.toHaveTextContent(/ready for confirmation/i);
+});
+
+test('[SUM-02.go] each Required decision goes to its source phase or Review form, locally', () => {
+  const goTo = vi.fn();
+  render(
+    <SummaryView
+      view={{
+        ...withAdjustments([
+          {
+            kind: 'team_status',
+            adjustmentId: 'gone',
+            teamId: 'missing-team',
+            status: 'active',
+            reason: 'Returned from the woods',
+          },
+        ]),
+        ready: false,
+        requirements: [
+          'upkeep:attrition:roll',
+          'adjustment:gone:team',
+          'mystery:code',
+        ],
+        sources: {
+          'upkeep:attrition:roll': {
+            phase: 'upkeep',
+            anchor: 'upkeep-step-attrition',
+          },
+          'adjustment:gone:team': {
+            phase: 'summary',
+            anchor: 'review-form-adjustment:gone',
+          },
+        },
+      }}
+      edit={vi.fn()}
+      {...controls}
+      canConfirm={false}
+      disabledReason="3 decisions left"
+      goTo={goTo}
+    />,
+  );
+  const decisions = screen.getByRole('region', { name: 'Required decisions' });
+  const upkeep = within(decisions).getByRole('button', {
+    name: 'Go to Upkeep',
+  });
+  expect(upkeep).toHaveAccessibleDescription(
+    'Upkeep: Enter the attrition Loyalty roll.',
+  );
+  fireEvent.click(upkeep);
+  expect(goTo).toHaveBeenLastCalledWith({
+    phase: 'upkeep',
+    anchor: 'upkeep-step-attrition',
+  });
+  fireEvent.click(
+    within(decisions).getByRole('button', {
+      name: 'Go to Table Adjustments',
+    }),
+  );
+  expect(goTo).toHaveBeenLastCalledWith({
+    phase: 'summary',
+    anchor: 'review-form-adjustment:gone',
+  });
+  // A decision with no known source is listed without a link.
+  expect(within(decisions).getAllByRole('button')).toHaveLength(2);
+});
+
 test('[rules.P85.order] moving and removing adjudication retains complete other adjustments', async () => {
   const edit = vi.fn().mockResolvedValue('accepted');
   const adjustments: typeof view.adjustments = [

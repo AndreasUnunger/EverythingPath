@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ReviewException } from '~/components/week-review/review-facts';
 import { moveAdjustmentById } from './adjustment-order';
+import { localFormElementId } from './source-anchors';
 import {
   adjustmentChoices,
   adjustmentFormSchema,
@@ -47,7 +48,7 @@ export type LocalFormGuard = {
   read: (id: string) => unknown;
 };
 
-export const localFormElementId = (id: string) => `review-form-${id}`;
+export { localFormElementId };
 
 /** Focuses a registered local form: its first invalid field, else its first control. */
 export function focusLocalForm(id: string) {

@@ -40,3 +40,54 @@ test('[PER-02.link] a source link shows its phase locally, then focuses the name
   expect(document.activeElement).not.toBe(target);
   target.remove();
 });
+
+test('[SUM-02.go-local] a Review link to its own form focuses the form without re-choosing Review', async () => {
+  const form = document.createElement('div');
+  form.id = 'review-form-adjustment:bonus';
+  const edit = document.createElement('button');
+  const reason = document.createElement('textarea');
+  reason.setAttribute('aria-invalid', 'true');
+  form.append(edit, reason);
+  form.scrollIntoView = vi.fn();
+  document.body.append(form);
+  const choose = vi.fn();
+  const { result } = renderHook(() => useSourceFocus('summary', choose));
+  act(() =>
+    result.current({
+      phase: 'summary',
+      anchor: 'review-form-adjustment:bonus',
+    }),
+  );
+  await nextFrame();
+  // Choosing Review again would count as reviewing the updated week.
+  expect(choose).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(reason);
+  form.remove();
+});
+
+test('[SUM-02.go-phase] a phase-wide or vanished item falls back to the phase editor', async () => {
+  const editor = document.createElement('main');
+  editor.id = 'week-phase-editor';
+  editor.tabIndex = -1;
+  editor.scrollTo = vi.fn();
+  document.body.append(editor);
+  const choose = vi.fn();
+  const { result, rerender } = renderHook(
+    ({ shown }: { shown: Phase }) => useSourceFocus(shown, choose),
+    { initialProps: { shown: 'summary' as Phase } },
+  );
+  act(() => result.current({ phase: 'event', anchor: null }));
+  expect(choose).toHaveBeenCalledWith('event');
+  rerender({ shown: 'event' });
+  await nextFrame();
+  expect(document.activeElement).toBe(editor);
+  editor.blur();
+  rerender({ shown: 'summary' });
+  act(() =>
+    result.current({ phase: 'upkeep', anchor: 'upkeep-step-attrition' }),
+  );
+  rerender({ shown: 'upkeep' });
+  await nextFrame();
+  expect(document.activeElement).toBe(editor);
+  editor.remove();
+});
