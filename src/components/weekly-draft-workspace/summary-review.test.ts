@@ -141,22 +141,27 @@ describe('[SUM-10] live six-section consequences', () => {
 
   test('Table Adjustments are listed in order and the Result compares Now, Rules Baseline and Final from one preview', () => {
     const { input } = compoundAcceptanceFixture();
-    const { facts } = review(input.revision, input.militiaSnapshot);
+    const { facts, view, preview } = review(
+      input.revision,
+      input.militiaSnapshot,
+    );
+    const applied = input.revision.tableAdjustments.map(
+      (entry) => `adjustment:${entry.adjustmentId}:${entry.reason}`,
+    );
+    expect(applied).toHaveLength(1);
+    expect(preview.warnings).toEqual(expect.arrayContaining(applied));
     expect(facts.adjustments).toEqual([
       expect.objectContaining({
         number: 1,
         kind: 'Settlement reputation',
         effect: expect.stringMatching(/ → Friendly$/),
         reason: 'The officer was rescued',
-        // The preview's reason warning is listed here as in top Warnings.
-        notes: [
-          expect.objectContaining({
-            kind: 'warning',
-            message: 'Table Adjustment: The officer was rescued',
-          }),
-        ],
+        // Applying it is the table's decision, shown by its reason: the
+        // preview's applied code is no warning under it or in Warnings.
+        notes: [],
       }),
     ]);
+    expect(view.warnings).not.toEqual(expect.arrayContaining(applied));
     expect(facts.result.complete).toBe(true);
     expect(facts.result.nextWeek).toBe(3);
     const training = facts.result.rows.find((row) => row.label === 'Training')!;

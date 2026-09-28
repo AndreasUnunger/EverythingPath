@@ -12,6 +12,7 @@ import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';
 import { summaryMessage } from './summary-messages';
 import { liveReviewSources } from './summary-sources';
+import { isAppliedAdjustment } from '~/components/week-review/review-notes';
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
@@ -137,7 +138,10 @@ export function summaryView(
   }
   // One line per missing die, as the Event phase shows it (#164).
   const requirements = withoutDuplicateRollCodes(preview.requirements);
-  const warnings = liveWarnings(preview.warnings);
+  // An applied Table Adjustment is the table's decision, not a warning.
+  const warnings = liveWarnings(preview.warnings).filter(
+    (code) => !isAppliedAdjustment(code, draft.tableAdjustments),
+  );
   const sources = liveReviewSources({
     draft,
     source,

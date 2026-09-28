@@ -1,7 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '~/components/ui/button';
+import { Button, buttonVariants } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { PhoneStatusStrip } from '~/components/campaign-shell/shell-slots';
 import { cn } from '~/lib/utils';
@@ -32,10 +32,11 @@ type Frame = {
   reference: { facts: ReferenceFacts; panel: ReferencePanel };
 };
 
-// Previous/next never wrap: an endpoint keeps a disabled control so the
-// footer keeps its shape. Names carry the direction so they never collide
-// with the stepper's own phase buttons. The footer shows the target's label
-// beside an arrow; the phone strip shows only a chevron.
+// Previous/next never wrap: at an endpoint there is no control, only an
+// invisible placeholder of the same size so the footer and strip keep their
+// shape. Names carry the direction so they never collide with the stepper's
+// own phase buttons. The footer shows the target's label beside an arrow;
+// the phone strip shows only a chevron.
 const directions = {
   previous: { word: 'Previous', arrow: ArrowLeft, chevron: ChevronLeft },
   next: { word: 'Next', arrow: ArrowRight, chevron: ChevronRight },
@@ -53,10 +54,29 @@ function DirectionButton({
 }) {
   const { word, arrow, chevron } = directions[direction];
   const Icon = compact ? chevron : arrow;
-  const label = target ? phaseLabels[target] : null;
+  const size = compact ? 'icon-lg' : 'lg';
+  const footerSizing = cn(
+    !compact && 'short:h-8 short:px-3 max-w-[40%] shrink',
+  );
+  if (!target) {
+    return (
+      <span
+        aria-hidden
+        data-week-endpoint={direction}
+        className={cn(
+          buttonVariants({ variant: 'outline', size }),
+          'invisible',
+          footerSizing,
+        )}
+      >
+        <Icon />
+      </span>
+    );
+  }
+  const label = phaseLabels[target];
   const content = [
     <Icon key="icon" aria-hidden />,
-    !compact && label && (
+    !compact && (
       <span key="label" className="truncate">
         {label}
       </span>
@@ -64,12 +84,11 @@ function DirectionButton({
   ];
   return (
     <Button
-      variant={direction === 'next' && target ? 'default' : 'outline'}
-      size={compact ? 'icon-lg' : 'lg'}
-      aria-label={label ? `${word}: ${label}` : word}
-      disabled={!target}
-      onClick={() => target && choose(target)}
-      className={cn(!compact && 'short:h-8 short:px-3 max-w-[40%] shrink')}
+      variant={direction === 'next' ? 'default' : 'outline'}
+      size={size}
+      aria-label={`${word}: ${label}`}
+      onClick={() => choose(target)}
+      className={footerSizing}
     >
       {direction === 'next' ? content.reverse() : content}
     </Button>
