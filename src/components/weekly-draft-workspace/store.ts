@@ -16,7 +16,13 @@ import {
   phaseNavigation,
   confirmationDisabledReason,
 } from './phase-readiness';
-import type { Phase, PhaseView, WeeklyDraftWorkspace } from './types';
+import type {
+  LocalFormRegistration,
+  Phase,
+  PhaseView,
+  WeeklyDraftWorkspace,
+} from './types';
+import { isStaleEndingForm } from './persistent-ending-guard';
 
 type Persistence = ReturnType<typeof createDraftPersistence>;
 type PersistenceSnapshot = ReturnType<Persistence['getSnapshot']>;
@@ -44,7 +50,11 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   let sequence = 0;
   let active = false;
   let reviewed: AcceptedWeeklyPreview | null = null;
+  // A failed save asks for a fresh review, which showing Review & confirm
+  // gives. A rejected Confirmation asks for more: it holds until the player
+  // presses Review updated week, wherever they went meanwhile.
   let reviewRequired = false;
+  let confirmationRejected = false;
   let previewRequest = '';
   let previewGeneration = 0;
   const operations = new Set<{ draftId: string }>();
@@ -56,7 +66,10 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
   // never saved and belong to the draft that was open when they registered.
   // Their raw input is kept beside them (without publishing) so it survives
   // leaving Review & confirm and coming back.
-  const localForms = new Map<string, { draftId: string; message: string }>();
+  const localForms = new Map<
+    string,
+    { draftId: string } & LocalFormRegistration
+  >();
   const localValues = new Map<string, { draftId: string; values: unknown }>();
   function getPendingWork() {
     return operations.size > 0;
@@ -78,7 +91,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     localForms.clear();
     localValues.clear();
   }
-  function setLocalForm(id: string, form: { message: string } | null) {
+  function setLocalForm(id: string, form: LocalFormRegistration | null) {
     const current = localForms.get(id);
     const draftId = source?.key.draftId;
     if (!form) localValues.delete(id);
@@ -86,16 +99,32 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       if (!current) return;
       localForms.delete(id);
     } else {
-      if (current?.draftId === draftId && current.message === form.message)
+      if (
+        current?.draftId === draftId &&
+        current.message === form.message &&
+        current.phase === form.phase &&
+        current.basis === form.basis
+      )
         return;
-      localForms.set(id, { draftId, message: form.message });
+      localForms.set(id, { draftId, ...form });
     }
     rebuild();
   }
   function listLocalForms(draftId: string) {
     return [...localForms]
       .filter(([, form]) => form.draftId === draftId)
-      .map(([id, form]) => ({ id, message: form.message }));
+      .map(([id, { draftId: _draftId, ...form }]) => ({ id, ...form }));
+  }
+  // Drops held Persistent endings whose decision no longer applies in the
+  // latest Persistent facts, with their kept input.
+  function dropStaleEndings(views: PhaseView[]) {
+    const persistent = views.find((view) => view.phase === 'persistent');
+    if (persistent?.phase !== 'persistent') return;
+    for (const [id, form] of localForms)
+      if (isStaleEndingForm(id, form.basis, persistent)) {
+        localForms.delete(id);
+        localValues.delete(id);
+      }
   }
   function publish(next: WeeklyDraftWorkspace) {
     state = next;
@@ -221,6 +250,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       preparationFailed: preparation.failed,
     });
     const { views } = readiness;
+    dropStaleEndings(views);
     const local = listLocalForms(source.key.draftId);
     // Each open or invalid local form is also a local Required decision of
     // Review; the backend readiness and accepted review are unchanged.
@@ -239,9 +269,10 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
           }
         : item,
     );
+    const isReviewRequired = reviewRequired || confirmationRejected;
     const canConfirm = Boolean(
       !confirming &&
-      !reviewRequired &&
+      !isReviewRequired &&
       matching &&
       reviewed?.status === 'ready' &&
       !getPendingWork() &&
@@ -260,7 +291,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       confirmationDisabledReason: confirmationDisabledReason({
         canConfirm,
         confirming: confirming || observed.confirming,
-        reviewRequired,
+        reviewRequired: isReviewRequired,
         forecastPending,
         pendingWork: getPendingWork(),
         decisions: phases.find((item) => item.phase === 'summary')!.requirements
@@ -279,13 +310,14 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
       dismissConfirmedWeek,
       failureReason: feedback === 'failed' ? observed.failureReason : null,
       canConfirm,
-      reviewRequired,
+      reviewRequired: isReviewRequired,
       forecastPending,
       pendingWork: getPendingWork(),
       localForms: local,
       edit: (value) =>
         persistence === owner ? edit(value) : Promise.resolve('failed'),
       viewPhase,
+      reviewUpdatedWeek,
       confirm: () =>
         persistence === owner ? confirm() : Promise.resolve('failed'),
       eventPreparation: {
@@ -398,6 +430,21 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     phase = next;
     rebuild();
   }
+  // The explicit review after a stale or rejected request: the refreshed
+  // week shown in Review & confirm becomes the one this device confirms.
+  function reviewUpdatedWeek() {
+    if (
+      state.status !== 'ready' ||
+      state.forecastPending ||
+      state.pendingWork ||
+      !state.phases.some((item) => item.phase === 'summary' && item.available)
+    )
+      return;
+    reviewRequired = false;
+    confirmationRejected = false;
+    phase = 'summary';
+    rebuild();
+  }
   async function confirm(): Promise<'accepted' | 'failed'> {
     const owner = persistence;
     const review = reviewed;
@@ -418,7 +465,8 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     if (active && owner === persistence) {
       if (result === 'failed') confirming = false;
       feedback = result === 'accepted' ? 'saved' : 'failed';
-      reviewRequired = result === 'failed';
+      confirmationRejected = result === 'failed';
+      if (result === 'accepted') reviewRequired = false;
       reviewed = null;
       previewRequest = '';
       rebuild();
@@ -483,6 +531,7 @@ export function createWorkspace(gateway: WorkspaceGateway | null) {
     preparing = false;
     reviewed = null;
     reviewRequired = false;
+    confirmationRejected = false;
     previewRequest = '';
     previewGeneration++;
     const owner = createDraftPersistence(gateway!.transport(next));

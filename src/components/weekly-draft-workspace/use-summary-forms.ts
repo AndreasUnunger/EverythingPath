@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { ReviewException } from '~/components/week-review/review-facts';
+import type { LocalFormRegistration } from './types';
 import { moveAdjustmentById } from './adjustment-order';
 import { focusTargetWithin, localFormElementId } from './source-anchors';
 import {
@@ -40,10 +41,12 @@ export type Edit = (edit: WeeklyDraftEdit) => Promise<'accepted' | 'failed'>;
 /**
  * The Workspace's Confirm guard for this device's local forms: `set`
  * registers a form (null withdraws it and its kept input); `keep` and `read`
- * hold its raw input for the open draft without publishing anything.
+ * hold its raw input for the open draft without publishing anything. A form
+ * outside Review & confirm names its `phase`, so Go to form shows it there.
  */
+export type { LocalFormRegistration };
 export type LocalFormGuard = {
-  set: (id: string, form: { message: string } | null) => void;
+  set: (id: string, form: LocalFormRegistration | null) => void;
   keep: (id: string, values: unknown) => void;
   read: (id: string) => unknown;
 };
@@ -56,19 +59,32 @@ export function focusLocalForm(id: string) {
 
 /**
  * Registers a form with the guard while it has a message and keeps its raw
- * input there. Unmounting (leaving Review & confirm) keeps both; only a
- * clean form, Save, Cancel or removal withdraws them.
+ * input there. Unmounting (leaving the phase that shows it) keeps both; only
+ * a clean form, Save, Cancel or removal withdraws them.
  */
-function useGuardRegistration<Values extends FieldValues>(
+export function useGuardRegistration<Values extends FieldValues>(
   guard: LocalFormGuard | undefined,
   formId: string,
   message: string | null,
   form: UseFormReturn<Values, unknown, unknown>,
   isRestoring: boolean,
+  where: Omit<LocalFormRegistration, 'message'> = {},
 ) {
+  const { phase, basis } = where;
   useEffect(() => {
-    if (!isRestoring) guard?.set(formId, message === null ? null : { message });
-  }, [guard, formId, message, isRestoring]);
+    if (isRestoring || !guard) return;
+    if (message === null) {
+      guard.set(formId, null);
+      return;
+    }
+    guard.set(formId, {
+      message,
+      ...(phase ? { phase } : {}),
+      ...(basis !== undefined ? { basis } : {}),
+    });
+    // Input that was never typed is kept too, so the form comes back.
+    guard.keep(formId, form.getValues());
+  }, [guard, formId, message, isRestoring, phase, basis, form]);
   useEffect(() => {
     if (!guard) return;
     const subscription = form.watch((values) => guard.keep(formId, values));
@@ -80,7 +96,7 @@ function useGuardRegistration<Values extends FieldValues>(
  * Input kept for this form by the guard, applied once over the accepted
  * values so the form comes back dirty exactly as it was left.
  */
-function useRestoredInput<Values extends FieldValues>(
+export function useRestoredInput<Values extends FieldValues>(
   guard: LocalFormGuard | undefined,
   formId: string,
   form: UseFormReturn<Values, unknown, unknown>,

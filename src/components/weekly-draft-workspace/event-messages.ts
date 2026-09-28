@@ -13,6 +13,36 @@ type TopologyContext = {
   detail?: (eventId: string, tail: string, warning: boolean) => string | null;
 };
 
+/**
+ * Wording for a candidate set's own codes (both candidates, the choice of
+ * one), or null for any other code or a choice no longer staged.
+ */
+export function candidateSetMessage(
+  code: string,
+  context: Pick<
+    TopologyContext,
+    'positions' | 'candidateLabel' | 'preparationFailed'
+  >,
+): string | null {
+  for (const suffix of ['candidates:2', 'selected-event'] as const) {
+    if (!code.endsWith(`:${suffix}`)) continue;
+    const choiceId = code.slice(0, -suffix.length - 1);
+    const label = context.candidateLabel(choiceId);
+    if (!label) continue;
+    if (suffix === 'selected-event')
+      return `${label}: choose which event happens.`;
+    return context.positions.some(
+      (group) =>
+        group.kind === 'candidates' &&
+        group.choiceId === choiceId &&
+        group.eventIds.length > group.count,
+    )
+      ? `${label}: more than two candidates are recorded. Clear the extra one to remove it.`
+      : `${label}: both event candidates ${context.preparationFailed ? 'could not be prepared. Use Retry in Event.' : 'are being prepared.'}`;
+  }
+  return null;
+}
+
 // Wording for one Event requirement or warning that names its event, source
 // or Activity choice, so This phase and each block identify what is open.
 // Returns null for codes Event does not own.
@@ -48,19 +78,8 @@ export function eventTopologyMessage(
       ? `Automatic events from ${label}: more are recorded than the rules ask for. Clear the extra one to remove it.`
       : `Automatic events from ${label}: the ${automatic[2] === '1' ? 'event' : `${automatic[2]} events`} ${preparing}`;
   }
-  for (const suffix of ['candidates:2', 'selected-event'] as const) {
-    if (!code.endsWith(`:${suffix}`)) continue;
-    const choiceId = code.slice(0, -suffix.length - 1);
-    const label = context.candidateLabel(choiceId);
-    if (!label) continue;
-    if (suffix === 'selected-event')
-      return `${label}: choose which event happens.`;
-    return overfull(
-      (group) => group.kind === 'candidates' && group.choiceId === choiceId,
-    )
-      ? `${label}: more than two candidates are recorded. Clear the extra one to remove it.`
-      : `${label}: both event candidates ${preparing.replace('is ', 'are ')}`;
-  }
+  const candidates = candidateSetMessage(code, context);
+  if (candidates) return candidates;
   // The longest matching identity owns the code: an event or its Sabotage.
   const owner = context.events
     .flatMap((event) =>

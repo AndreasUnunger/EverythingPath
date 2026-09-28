@@ -76,6 +76,12 @@ export async function exercisePersistentWorkspace(
   await old(gm)
     .getByRole('textbox', { name: 'How it ended', exact: true })
     .fill('The table recovered the stolen goods.');
+  // The half-typed ending is kept when this player leaves Persistent.
+  await phase(gm, 'Review & confirm');
+  await phase(gm, 'Persistent');
+  await expect(
+    old(gm).getByRole('textbox', { name: 'How it ended', exact: true }),
+  ).toHaveValue('The table recovered the stolen goods.');
   // The ending asks for its Rules Exception reason in the same step.
   await reason(old(gm)).fill('The thieves agreed to leave the militia alone.');
   await button(old(gm), 'Save how it ended').click();
