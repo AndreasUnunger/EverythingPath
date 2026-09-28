@@ -5,8 +5,9 @@ or migrate data shapes older than the current writers produce. It is a removal
 plan, not a removal: every path below is reviewed, tested and gated, so each is
 retired deliberately in its own change.
 
-Surveyed at `72f94c3` on `implement/148-ui-rework`, 2026-09-28. Each file,
-function and test ID cited here existed at that commit.
+Surveyed at `72f94c3` on `implement/148-ui-rework`, 2026-09-28, and revised at
+`76a7b23` after #180 (record-owned PC/NPC kinds, Setup envelope version 2)
+merged. Each file, function and test ID cited here exists at `76a7b23`.
 
 ## Relation to the legacy retirement record
 
@@ -15,7 +16,7 @@ pre-cutover board, tables and migration readers it removed, the backups it
 retained and the evidence behind it. That record is closed, so this forward
 plan is a separate document. It covers what the canonical application has
 since accumulated for its own older shapes. The #91 rejection endpoints that
-remain are listed once here (B6) so every removable path is in one place.
+remain are listed once here (B5) so every removable path is in one place.
 
 ## Production facts this plan relies on
 
@@ -68,9 +69,9 @@ draft is at revision 0, production also holds no accepted
     `eventOccurrenceSchema` except `origin`, `tableRoll` and `eventType`.
   - **W2: Activity's "Recorded candidate details" disclosure.** This is
     `CANDIDATE_FIELDS` in `activity-details.tsx`. It edits whole candidate
-    trees, including each occurrence's `origin`. This old candidate-tree
-    editor is being retired separately. The entries that depend on it only
-    note the dependency.
+    trees, including each occurrence's `origin`. A fixes batch running in
+    parallel with this inventory retires it. That had not landed at
+    `76a7b23`: check that `CANDIDATE_FIELDS` is gone before relying on it.
 
   Entries that depend on retiring or narrowing W1 or W2 are in group B.
 
@@ -82,7 +83,7 @@ draft is at revision 0, production also holds no accepted
     change.
   - Other `[rules.X]` tags in test titles are labels only.
   - Case IDs are fingerprinted in `tests/rules/case-inventory.json`. Removing a
-    case needs a reviewed inventory update; only B6 might need one.
+    case needs a reviewed inventory update; only B5 might need one.
 - **Keep corpus notes.** `docs/ai/ironfang-militia/militia-rules.md` records the
   departures made under Ruleset Versions 6, 7 and 8. Those sections are
   fingerprinted, and the notes stay true.
@@ -98,7 +99,7 @@ draft is at revision 0, production also holds no accepted
   format-2 records at Ruleset Version 8 will accumulate and never change. Later
   Ruleset Versions will need version-aware readers again, like
   `isBlankHitDiceLevel`. `describeRecordedChange`, the `sectionChips` catch and
-  generic fact text therefore stay (see C8).
+  generic fact text therefore stay (see C7).
 
 ## Summary
 
@@ -112,13 +113,14 @@ draft is at revision 0, production also holds no accepted
 | A6    | Pre-Version-8 blank Hit Dice ("Hit Dice not recorded")                           | #196, #185       | A      | ~20 / ~40                        |
 | A7    | Named Ruleset Version constants 6 and 7, pre-v8 record tests                     | #158, #191, #196 | A      | ~15 / ~200                       |
 | A8    | Off-list rank-boon feat text                                                     | #157             | A      | ~25 / ~20                        |
+| A9    | Legacy and absent character kinds in stored data                                 | #179, #180       | A      | ~40 / ~600                       |
+| A10   | Setup envelope version 1 migration                                               | #173, #180       | A      | ~35 / ~250                       |
 | B1    | Older Event and check-decision fields                                            | #164–#168        | B (W1) | ~260 / ~500 plus fixtures        |
 | B2    | Candidate Roll Twice expansions and replacement-child rerolls                    | #191, #163       | B (W2) | ~70 / ~250                       |
-| B3    | `officer_npc` and `other_npc` character kinds                                    | #179, #180       | B      | ~40 / ~500                       |
-| B4    | Absent record kind                                                               | #179             | B      | ~10 / ~20                        |
-| B5    | Pre-canonical character fields and `dataMigration` table                         | #16, #17         | B      | ~30 / —                          |
-| B6    | #91 rejection endpoint names                                                     | #91              | B      | ~290 / ~30                       |
-| C1–C8 | Look-alikes and deliberate compatibility                                         | various          | C      | —                                |
+| B3    | Old-client kind submissions                                                      | #180             | B      | ~15 / ~100                       |
+| B4    | Pre-canonical character fields and `dataMigration` table                         | #16, #17         | B      | ~30 / —                          |
+| B5    | #91 rejection endpoint names                                                     | #91              | B      | ~290 / ~30                       |
+| C1–C7 | Look-alikes and deliberate compatibility                                         | various          | C      | —                                |
 
 Sizes are rough, from reading the code, not from a trial removal. Test figures
 count whole tests or fixtures that would go or be rewritten.
@@ -355,7 +357,7 @@ W1 is gone).
     - `historicalMessages` (the old buyoff warning, see B1d).
   - `src/components/week-review/review-comparison.ts`: `recordedFacts`, the
     `recorded` part of `ComparedState`, and the "Not recorded" cells a complete
-    format-2 record never needs. Keep `unrecorded` if C8's tolerance keeps
+    format-2 record never needs. Keep `unrecorded` if C7's tolerance keeps
     using it.
   - `src/lib/finished-week-headlines.ts`: the `outcome` and flat-fact branches
     of `readFinalMilitia`, and the plan fallback of `readBeforeMilitia`. These
@@ -450,6 +452,96 @@ W1 is gone).
     and `event-occurrence-editors.tsx`.
   - Only `upkeep-rank.ts` writes boon subjects.
 - **Size:** about 25 source lines and about 20 test lines.
+
+### A9. Legacy and absent character kinds in stored data (#179, #180)
+
+- **Old shape:** a character record with `kind: 'officer_npc'` or no `kind`,
+  and a roster person with `officer_npc` or `other_npc`. #179 widened readers
+  to accept them. Since #180 every writer stores only `pc` or `npc`:
+  - the character dialog offers `CHARACTER_KINDS`
+    (`src/components/character-manager/character-form-card.tsx`);
+  - `createCharacter` and `updateCharacter` (`convex/character.ts`) store
+    `normalizeCharacterKind` of what they receive;
+  - Setup and Militia corrections take each person's kind from their record
+    (`src/lib/setup-characters.ts`, `src/components/militia-setup/roster.tsx`),
+    and the server re-mirrors every roster kind from the campaign's records
+    before storing a live source (`withCurrentRecordKinds` and
+    `updateCanonicalCharacter` in `convex/lib/canonicalCharacters.ts`, called
+    from `convex/canonicalSetup.ts` and `convex/canonicalLedger.ts`);
+  - the e2e seed `convex/e2eFixtures.ts` writes `pc` or `npc`.
+
+  The legacy values are now read-only. Production holds none: all six records
+  and roster entries are `pc`, and there are no Resolution Records. So no
+  live-row migration is needed, and none is planned (#181 was closed as not
+  planned).
+
+- **Where:**
+  - `CHARACTER_RECORD_KINDS` and `ROSTER_KINDS` in `src/lib/character-kind.ts`
+    could become `CHARACTER_KINDS`. The legacy and `undefined` branches of
+    `normalizeCharacterKind`, `mirrorRosterKinds` and `formatCharacterKind`
+    would then reduce to identity, and `getTeamManagerLimit`
+    (`src/lib/team-manager-rules.ts`) could read `kind` directly.
+  - `characterKindValidator` in `convex/schema.ts`, and
+    `kind: v.optional(characterKindValidator)` in `characterValidator`, which
+    could be required.
+  - `rosterPersonSchema.kind` in `src/lib/canonical-roster.ts`. It reaches
+    `canonicalMilitiaState` snapshots and every record's
+    `sourceMilitiaSnapshot` and stored states.
+  - `personKinds` in `src/components/week-review/review-comparison.ts`, which
+    keeps "Officer NPC" and "Other NPC" wording for recorded history.
+- **Writers of the old shape still in the tree:**
+  `convex/lib/acceptedCampaignFixture.ts` inserts a character with no `kind`.
+  `tests/rules/foundation-acceptance-fixtures.ts`,
+  `tests/rules/character-kind-fixture.ts` and
+  `tests/rules/compound-acceptance-fixture.ts` use legacy kinds. About 20 test
+  files mention one.
+- **Tests and tags:**
+  - `src/lib/character-kind.test.ts`: "stored kind schemas accept legacy…" and
+    "live normalization maps both legacy NPC labels…".
+  - `src/lib/character-kind-compatibility.test.ts`: most of its seven tests.
+  - `convex/characterKindCompatibility.integration.test.ts`: the legacy
+    submission and "history keeps the recorded kinds" cases. Keep its mirror
+    tests, with `pc`/`npc` data.
+  - `HIST-05.record-kinds`
+    (`src/components/historical-week/record-view.test.tsx`) and
+    `people-fallback.test.tsx`.
+  - Catalog-pinned `rules.O06.role-aware-parity`
+    (`convex/canonicalResolutionPreview.integration.test.ts`) iterates `pc`,
+    `officer_npc`, `other_npc` and `npc`. Reduce it to `pc` and `npc` and keep
+    its ID.
+- **Order:** check dev and kept previews for legacy or absent kinds in
+  `character`, `canonicalMilitiaState` and `canonicalResolutionRecord`. Then
+  narrow the enums and delete the branches in one deploy. The same validators
+  check write arguments; see B3 for browsers still on a pre-#180 bundle.
+- **Risk:** low. Production needs no rewrite, only narrowing.
+- **Size:** about 40 source lines and about 600 test lines.
+
+### A10. Setup envelope version 1 migration (#173, #180)
+
+- **Old shape:** an unfinished Setup stored in a browser at envelope version 1,
+  with legacy roster kinds. Since #180 `SETUP_ENVELOPE_VERSION` is 2, and
+  `parseSetupEnvelope` still reads version 1:
+  - `withNormalizedKinds` maps both legacy labels to `npc`;
+  - an unacknowledged version-1 start (`submitted`) is kept verbatim, so a
+    same-identity retry still matches what the server accepted.
+- **Where:** `src/lib/setup-envelope.ts`: `z.literal(1)` in the `version`
+  union of `envelopeSchema`, `withNormalizedKinds`, and the version-1 notes in
+  the file header. `docs/canonical-militia-setup.md` describes the migration.
+- **Tests and tags:**
+  - `[setup.resume.migrate-kinds]` and `[setup.resume.migrate-records]` in
+    `src/lib/setup-envelope.test.ts`.
+  - `[setup.resume.migrate]` and `[setup.resume.migrate-unacknowledged]` in
+    `src/components/militia-setup/screen.test.tsx`.
+  - None is catalog-pinned. `[setup.resume.migrate-wait]` tests restoring
+    after records load, which is not specific to version 1, and stays.
+- **Order:** none of it reaches the server. Removing it with A9 keeps the
+  parser and the kinds consistent.
+- **Risk:** envelopes live in each player's `localStorage`, so no production
+  check can see them. Production's only campaign already has its militia, and
+  starting Setup retires its envelope, so no production Setup can be
+  unfinished. At worst a version-1 envelope in some browser is discarded
+  instead of migrated.
+- **Size:** about 35 source lines and about 250 test lines.
 
 ---
 
@@ -575,7 +667,9 @@ stops offering them, each part below is safe.
 ### B2. Candidate Roll Twice expansions and replacement-child rerolls (#191, #163)
 
 **Condition: W2 (the Activity candidate-tree editor) is retired.** It can still
-write candidate trees with any `origin`.
+write candidate trees with any `origin`. The parallel fixes batch retires it;
+once that lands, this entry is safe given the production facts (no stored
+choices), and needs only the draft re-check below.
 
 - **Old shape:** two kinds of child in Activity candidate sets:
   - `roll_twice` children, from before Ruleset Version 7. Since then a
@@ -613,67 +707,35 @@ write candidate trees with any `origin`.
 - **Risk:** low. The surplus machinery itself stays (C1).
 - **Size:** about 70 source lines and about 250 test lines.
 
-### B3. `officer_npc` and `other_npc` character kinds (#179, #180)
+### B3. Old-client kind submissions (#180)
 
-**Condition: #180 ships.** These are not yet legacy.
+**Condition: no browser still runs a bundle from before #180.** This is the
+write side of A9. The production release that carries #180 replaces a bundle
+whose forms still send `officer_npc`, and a tab left open across that release
+keeps sending it until reloaded.
 
-- **What the current writers do:**
-  - The character dialog writes `pc | officer_npc` (`writtenKinds` in
-    `src/components/character-manager/character-form-card.tsx`).
-  - Setup and the roster correction write `pc | officer_npc | other_npc`
-    (`writtenKinds` in `src/components/militia-setup/roster.tsx`).
-  - The e2e seed `convex/e2eFixtures.ts` stores `officer_npc`.
-  - #179 only widened the readers to accept the approved `npc`.
+- **Old shape:** a write argument that carries a legacy kind:
+  - `createCharacter` or `updateCharacter` with `officer_npc`;
+  - a Setup start or Militia correction whose roster holds `officer_npc` or
+    `other_npc`, including a version-1 Setup envelope's unacknowledged start,
+    which A10 resends verbatim.
+- **Where:** the arguments reuse the stored validators, so they accept legacy
+  kinds today and normalize them:
+  - `characterKindValidator` in the argument objects of `convex/character.ts`,
+    next to the "Old clients may still send officer_npc" normalization;
+  - the `militiaSetupSchema` roster kinds accepted by `convex/canonicalSetup.ts`
+    and `convex/canonicalLedger.ts`, which `withCurrentRecordKinds` then
+    re-mirrors.
+- **Tests:** "record APIs store PC or NPC for legacy submissions…" in
+  `convex/characterKindCompatibility.integration.test.ts`.
+- **Order:** narrow with A9. If a stale tab's write should be normalized rather
+  than refused, keep the argument validators wide for one release after #180
+  reaches production, and narrow only storage first.
+- **Risk:** low. A refused write shows the ordinary save failure, and reloading
+  fixes it.
+- **Size:** about 15 source lines and about 100 test lines.
 
-  #180 moves the writers to `pc | npc`. Production is already migration-free,
-  since all six records and roster entries are `pc`.
-
-- **Where:**
-  - `CHARACTER_RECORD_KINDS`, `ROSTER_KINDS`, `normalizeCharacterKind`,
-    `mirrorRosterKinds` (not yet wired to writers), `listEditableKinds` and
-    `formatCharacterKind`, in `src/lib/character-kind.ts`.
-  - `characterKindValidator` in `convex/schema.ts`.
-  - `rosterPersonSchema.kind` in `src/lib/canonical-roster.ts`, which reaches
-    drafts, snapshots and records.
-  - `getTeamManagerLimit` in `src/lib/team-manager-rules.ts`.
-  - `personKinds` in `src/components/week-review/review-comparison.ts`.
-- **Tests:**
-  - `src/lib/character-kind.test.ts`, `src/lib/character-kind-compatibility.test.ts`,
-    `convex/characterKindCompatibility.integration.test.ts`,
-    `tests/rules/character-kind-fixture.ts` and
-    `src/components/character-manager.test.tsx` ("still writes only legacy
-    kinds…").
-  - `people-fallback.test.tsx`.
-  - Catalog-pinned `rules.O06.role-aware-parity`
-    (`convex/canonicalResolutionPreview.integration.test.ts`) iterates every
-    stored NPC kind. Reduce it to `npc`.
-- **Order:**
-  1. #180 writers, the Setup envelope v2 (C5) and a record migration where data
-     exists.
-  2. Wait until no old tab sends legacy kinds.
-  3. Narrow the Convex and zod enums.
-- **Risk:** medium. This path involves writers, a schema and browser-stored
-  Setup envelopes.
-- **Size:** about 40 source lines and about 500 test lines.
-
-### B4. Absent character record kind (#179)
-
-**Condition: every character document in the kept deployments has a `kind`.**
-Production does.
-
-- **Old shape:** a `character` document without `kind`, read as PC.
-- **Where:**
-  - `kind: v.optional(characterKindValidator)` in `characterValidator`
-    (`convex/schema.ts`).
-  - The `undefined` branches of `normalizeCharacterKind` and
-    `formatCharacterKind`.
-  - The `character.kind ?? p.kind` mirror in `convex/lib/canonicalCharacters.ts`.
-- **Writers of the old shape:** `convex/lib/acceptedCampaignFixture.ts` inserts
-  a character without `kind`, which convex-test uses. Add one.
-- **Size:** about 10 source lines and about 20 test lines. This can ship with B3
-  or before it.
-
-### B5. Pre-canonical character fields and the `dataMigration` table (#16, #17)
+### B4. Pre-canonical character fields and the `dataMigration` table (#16, #17)
 
 **Condition: a read-only check of the documents in every kept deployment.** The
 2026-09-28 production check did not report these.
@@ -693,7 +755,7 @@ Production does.
   tables before narrowing.
 - **Size:** about 30 lines.
 
-### B6. #91 rejection endpoint names
+### B5. #91 rejection endpoint names
 
 **Condition: no pre-cutover browser bundle or operator script can still call
 them.** Cutover was 2026-09-24. Old-backup recovery uses release `b249911`, not
@@ -752,8 +814,10 @@ due. They show as **Needs repair** and can be removed once empty through
 - The Activity host lists any choice acknowledgement that no per-action editor
   owns ("older notes still listed by the host", #190, in `ActivityDetails`).
   Required acknowledgements use the same list, so it stays.
-- The **Recorded candidate details** editor (W2) is being retired separately.
-  Its retirement unblocks B2 and removes one writer of B1's nested shapes.
+- The **Recorded candidate details** editor (W2) is being retired by the
+  parallel fixes batch, which had not landed at `76a7b23`. Its retirement
+  unblocks B2 and removes one writer of B1's nested shapes. B1 still waits on
+  W1, the Event details editor.
 
 ### C3. Current look-alikes
 
@@ -776,18 +840,7 @@ current data. The summary adjustment form keeps offering it only to an
 adjustment that already records it (`summary-adjustment-form.ts`), and that
 behavior should follow any future decision about the status itself.
 
-### C5. Setup envelope version 1 (#173)
-
-- `SETUP_ENVELOPE_VERSION = 1` in `src/lib/setup-envelope.ts` is the current
-  browser-resume format, so nothing is removable.
-- #180 must bump it and read version 1 in `parseSetupEnvelope`, as the file
-  header and `docs/canonical-militia-setup.md` require.
-- Envelopes live in each player's `localStorage`, so the production check
-  cannot see them. Production's only campaign already has a militia, so an
-  unfinished production Setup is unlikely. #180 could reasonably choose to
-  discard version-1 envelopes rather than migrate them, if the user agrees.
-
-### C6. Legacy addresses and week links
+### C5. Legacy addresses and week links
 
 - **Why keep:** these are bookmarks, not stored data, and they cost little.
   - `legacyRedirectTarget` (`src/components/campaign-shell/legacy-redirect.ts`)
@@ -798,12 +851,12 @@ behavior should follow any future decision about the status itself.
 - If they are ever removed, move `decodeCampaignId` out of `legacy-redirect.ts`
   first, because current routes import it.
 
-### C7. Ruleset Version numbers in the corpus and history
+### C6. Ruleset Version numbers in the corpus and history
 
 The version notes in `docs/ai/ironfang-militia/militia-rules.md` (versions 6, 7
 and 8) and the stored number 8 stay. See the rules at the top.
 
-### C8. Frozen-record tolerance for unfamiliar entries
+### C7. Frozen-record tolerance for unfamiliar entries
 
 `describeRecordedChange` (`src/components/week-review/review-changes.ts`), the
 `try` in `sectionChips` and the `generic` fact text keep a record readable when
@@ -818,7 +871,7 @@ a plan entry has a shape the current readers do not know.
 ## Documentation to update with each removal
 
 - `docs/ui-capability-inventory.md` rows describe the older-data behavior:
-  - NAV-03 and NAV-17 (C6)
+  - NAV-03 and NAV-17 (C5)
   - WEEK-15 and WEEK-16 (A2)
   - UPK-08 (A8) and UPK-10 (A3)
   - ACT-14 (C2)
@@ -826,8 +879,12 @@ a plan entry has a shape the current readers do not know.
   - PER-05 (B1d)
   - SUM-08 (C4)
   - HIST-05 (A5, A6)
-- The entry notes above that table, for #179, #194 and #185, name the fixtures.
-- `docs/canonical-militia-setup.md`: the envelope paragraph (C5, B3).
+- The entry notes above that table, for #179, #180, #194 and #185, name the
+  fixtures.
+- `docs/canonical-militia-setup.md`: the kind and envelope paragraphs (A9,
+  A10).
+- `docs/weekly-draft-contract.md`: the #180 paragraph on relabelled kinds
+  (A9).
 - `tests/rules/README.md`, "Upkeep extraction": the transfer-actor paragraph
   (A3).
 - `docs/canonical-weekly-resolution.md` still says Confirmation "stays isolated
