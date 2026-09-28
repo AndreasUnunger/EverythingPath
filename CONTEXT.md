@@ -72,7 +72,7 @@ A shared position in the weekly Activity phase that contains zero or one Staged 
 The uncommitted militia action occupying an Action Slot, including its assigned team and action-specific details. It is visible and editable by all players until Weekly Confirmation.
 
 **Officer**:
-A roster person who holds at least one officer role. An NPC is an Officer exactly while holding a role, which decides their team-manager limit; a stored character kind never makes one.
+A character holding a militia officer role: a roster person with at least one role. An NPC is an Officer exactly while holding a role, independent of its NPC kind, which decides their team-manager limit; a stored character kind never makes one. Removing the last role changes that status, not the character's kind.
 
 ## Related documents
 

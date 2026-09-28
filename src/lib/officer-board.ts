@@ -59,7 +59,7 @@ const CHECK_LABELS: Record<OrganizationCheck, Focus> = {
   security: 'Security',
   secrecy: 'Secrecy',
 };
-const ABILITY_LABELS: Record<OfficerAbility, string> = {
+export const ABILITY_LABELS: Record<OfficerAbility, string> = {
   strength: 'Str',
   dexterity: 'Dex',
   constitution: 'Con',
@@ -67,10 +67,30 @@ const ABILITY_LABELS: Record<OfficerAbility, string> = {
   wisdom: 'Wis',
   charisma: 'Cha',
 };
-const MISSING_NAME = 'Missing character';
+export const MISSING_NAME = 'Missing character';
 
-function signed(value: number) {
+/** "+3" or "−1", as the board shows modifiers. */
+export function signed(value: number) {
   return value < 0 ? `−${Math.abs(value)}` : `+${value}`;
+}
+
+/** The organization check each check role adds to. */
+export const ROLE_CHECKS = {
+  marshal: 'security',
+  ambassador: 'loyalty',
+  spymaster: 'secrecy',
+} as const satisfies Partial<Record<OfficerRole, OrganizationCheck>>;
+
+/** The roles a person holds, in board order. */
+export function heldRoles(
+  officers: readonly CanonicalRoster['officers'][number][],
+  characterId: string,
+): OfficerRole[] {
+  return BOARD_ROLES.filter((role) =>
+    officers.some(
+      (officer) => officer.role === role && officer.characterId === characterId,
+    ),
+  );
 }
 
 /** A Change Officer Role staged in the open week's Activity. */
@@ -209,9 +229,9 @@ function checkRoleEffect(check: OrganizationCheck) {
 
 const ROLE_EFFECTS: Record<OfficerRole, (context: RoleContext) => RoleEffect> =
   {
-    marshal: checkRoleEffect('security'),
-    ambassador: checkRoleEffect('loyalty'),
-    spymaster: checkRoleEffect('secrecy'),
+    marshal: checkRoleEffect(ROLE_CHECKS.marshal),
+    ambassador: checkRoleEffect(ROLE_CHECKS.ambassador),
+    spymaster: checkRoleEffect(ROLE_CHECKS.spymaster),
     // Commandants stack: every distinct holder counts.
     commandant: ({ holders, present, officers, hitDice }) => ({
       effect: present.length
@@ -396,14 +416,7 @@ export function characterRows({
         archived: record.isActive === false,
         onRoster: person !== undefined,
         hitDice: person ? getEffectiveHitDice(person, rules) : record.level,
-        roles: roster
-          ? BOARD_ROLES.filter((role) =>
-              roster.officers.some(
-                (officer) =>
-                  officer.role === role && officer.characterId === record._id,
-              ),
-            )
-          : [],
+        roles: roster ? heldRoles(roster.officers, record._id) : [],
         manages:
           roster && person
             ? {

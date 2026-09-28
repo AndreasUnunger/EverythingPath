@@ -26,16 +26,16 @@ export const MILITIA_SECTION_KEYS = Object.keys(
   MILITIA_SECTIONS,
 ) as MilitiaSectionKey[];
 
-// Every Militia page entry: the nine sections, the read-only Week & carried
-// effects view and the temporary People & officers fallback.
-export type MilitiaEntryKey = MilitiaSectionKey | 'weekCarried' | 'people';
+// Every Militia page entry: the nine sections and the read-only Week &
+// carried effects view. Roster people and officer roles are corrected on
+// Characters & officers.
+export type MilitiaEntryKey = MilitiaSectionKey | 'weekCarried';
 export const MILITIA_ENTRY_LABELS: Record<MilitiaEntryKey, string> = {
   ...MILITIA_SECTIONS,
   weekCarried: 'Week & carried effects',
-  people: 'People & officers',
 };
 
-/** The page entry an address names (`?section=people`), if any. */
+/** The page entry an address names (`?section=teams`), if any. */
 export function parseMilitiaEntry(
   value: string | null | undefined,
 ): MilitiaEntryKey | undefined {
@@ -191,8 +191,8 @@ const valueFields = new Set([
 
 // The Militia page entry that owns a Setup location, so Setup's typed rules
 // warnings and validation errors land on the right section. People and
-// officers belong to the fallback; week context, carried events, queued
-// effects and one-use bonuses are read-only here.
+// officers are corrected on Characters & officers; week context, carried
+// events, queued effects and one-use bonuses are read-only here.
 export function militiaEntryForLocation(
   message: Pick<SetupSectionMessage, 'section' | 'field'> & {
     subsection?: string;
@@ -207,8 +207,6 @@ export function militiaEntryForLocation(
     case 'settlements':
     case 'characterConditions':
       return message.section;
-    case 'people':
-      return 'people';
     case 'week':
       return 'weekCarried';
     case 'assets':

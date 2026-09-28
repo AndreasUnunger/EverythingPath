@@ -1,4 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Badge } from '~/components/ui/badge';
 import type { OfficerRole } from '~/lib/officer-board';
 
@@ -7,15 +8,27 @@ export function roleCardId(role: OfficerRole) {
   return `role-${role}`;
 }
 
-export function ArchivedBadge() {
+/** Touch-sized on the phone, compact from 768px; every button here. */
+export const action = 'min-h-11 md:min-h-9';
+
+/** A small monospace chip: kinds, roles and quick reasons. */
+export const chip =
+  'border-foreground/40 inline-flex items-center border px-1.5 py-0.5 font-mono text-xs leading-tight';
+
+/** An amber note on a name: "archived", "already Marshal". */
+export function NoteBadge({ children }: { children: ReactNode }) {
   return (
     <Badge
       variant="outline"
-      className="border-amber-500/60 font-mono text-[11px] font-normal text-amber-300"
+      className="border-amber-500/60 font-mono text-[11px] font-normal whitespace-normal text-amber-300"
     >
-      archived
+      {children}
     </Badge>
   );
+}
+
+export function ArchivedBadge() {
+  return <NoteBadge>archived</NoteBadge>;
 }
 
 /** Advisory warnings, one line each. */

@@ -1,11 +1,16 @@
 import {
   MILITIA_ENTRY_LABELS,
+  MILITIA_SECTIONS,
   militiaEntryForLocation,
   type MilitiaEntryKey,
 } from '~/lib/militia-correction-sections';
 import type { SetupErrorDescriptor } from '~/lib/setup-validation';
 import { refusalReason } from '~/lib/write-outcome';
-import type { CorrectionView, Feedback } from './correction-lifecycle';
+import type {
+  CorrectionSubject,
+  CorrectionView,
+  Feedback,
+} from './correction-lifecycle';
 
 // User-facing wording for Militia corrections. Nothing here names storage,
 // revisions or synchronization: only what the player sees and can do.
@@ -17,11 +22,16 @@ export function correctLabel(entry: MilitiaEntryKey) {
   return `Correct ${MILITIA_ENTRY_LABELS[entry].toLowerCase()}`;
 }
 
+const SUBJECT_LABELS: Record<CorrectionSubject, string> = {
+  ...MILITIA_SECTIONS,
+  officers: 'Officers',
+  roster: 'Roster',
+};
+
 export function feedbackMessage(feedback: Feedback) {
-  const label = MILITIA_ENTRY_LABELS[feedback.entry];
-  return feedback.kind === 'saved'
-    ? `${label} corrected.`
-    : `${label} now show your correction.`;
+  const label = SUBJECT_LABELS[feedback.entry];
+  if (feedback.kind === 'saved') return `${label} corrected.`;
+  return `${label} now ${feedback.entry === 'roster' ? 'shows' : 'show'} your correction.`;
 }
 
 export function editingNotice(

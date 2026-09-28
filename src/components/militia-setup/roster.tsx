@@ -31,13 +31,7 @@ function useRosterCharacters(characters: SetupCharacter[]) {
 // the step layouts so a breakpoint or step change never closes it. Roster
 // inclusion stays a separate choice.
 export const SetupAddCharacter = createContext<(() => void) | null>(null);
-export function SetupPeople({
-  characters,
-  preserveCharacters = false,
-}: {
-  characters: SetupCharacter[];
-  preserveCharacters?: boolean;
-}) {
+export function SetupPeople({ characters }: { characters: SetupCharacter[] }) {
   const addCharacter = useContext(SetupAddCharacter);
   const { control, watch, setValue } = useFormContext<MilitiaSetup>();
   const people = useFieldArray({
@@ -77,11 +71,10 @@ export function SetupPeople({
                   kind: character.kind,
                   hitDice: null,
                 });
-                if (!preserveCharacters)
-                  setValue('state.militiaSnapshot.characters', [
-                    ...watch('state.militiaSnapshot.characters'),
-                    setupCharacterFacts(character),
-                  ]);
+                setValue('state.militiaSnapshot.characters', [
+                  ...watch('state.militiaSnapshot.characters'),
+                  setupCharacterFacts(character),
+                ]);
               }}
             >
               Add {character.name}
@@ -98,13 +91,12 @@ export function SetupPeople({
           }
           onRemove={() => {
             people.remove(index);
-            if (!preserveCharacters)
-              setValue(
-                'state.militiaSnapshot.characters',
-                watch('state.militiaSnapshot.characters').filter(
-                  (character) => character.characterId !== person.characterId,
-                ),
-              );
+            setValue(
+              'state.militiaSnapshot.characters',
+              watch('state.militiaSnapshot.characters').filter(
+                (character) => character.characterId !== person.characterId,
+              ),
+            );
             setValue(
               'state.militiaSnapshot.roster.officers',
               roster.officers.filter(

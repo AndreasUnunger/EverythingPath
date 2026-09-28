@@ -7,7 +7,7 @@ import type {
 } from '~/lib/militia-correction-sections';
 
 // The controls of each correction by form path, for the linked error
-// summary: the nine sections and the People & officers fallback.
+// summary: the nine sections.
 
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
 /** A Militia page entry with a correction: all but the read-only week. */
@@ -53,7 +53,7 @@ const snapshotRows = (
 
 const sectionFields: Record<
   CorrectableEntry,
-  (snapshot: Snapshot, names: ReadonlyMap<string, string>) => FieldLabels
+  (snapshot: Snapshot) => FieldLabels
 > = {
   values: () => ({
     [`${snapshotPath}.focus`]: { label: 'Focus' },
@@ -224,26 +224,14 @@ const sectionFields: Record<
       },
     ),
   }),
-  // Each roster person is named, as their entry in the fallback is.
-  people: (snapshot, names) => {
-    const labels: FieldLabels = {};
-    snapshot.roster.people.forEach((person, index) => {
-      const name = names.get(person.characterId) ?? `Person ${index + 1}`;
-      const path = `${snapshotPath}.roster.people.${index}`;
-      labels[`${path}.kind`] = { label: `${name} character kind` };
-      labels[`${path}.hitDice`] = { label: `${name} Hit Dice`, numeric: true };
-    });
-    return labels;
-  },
 };
 
 /** The correction's controls in the form, labelled for the error summary. */
 export function sectionFieldLabels(
   entry: CorrectableEntry,
   snapshot: Snapshot,
-  names: ReadonlyMap<string, string> = new Map(),
 ): FieldLabels {
-  return sectionFields[entry](snapshot, names);
+  return sectionFields[entry](snapshot);
 }
 
 /** The form path of a list section's rows. */

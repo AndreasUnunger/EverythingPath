@@ -149,7 +149,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('read view', () => {
-  test('lists the nine sections, the read-only week view and the fallback with counts and warnings', () => {
+  test('lists the nine sections and the read-only week view with counts and warnings', () => {
     mount();
     const names = within(index())
       .getAllByRole('button')
@@ -165,7 +165,6 @@ describe('read view', () => {
       expect.stringMatching(/^Marketplaces.*0/),
       expect.stringMatching(/^Carried benefits.*0/),
       expect.stringMatching(/^Week & carried effects.*3 entries/),
-      expect.stringMatching(/^People & officers.*1 entry/),
     ]);
     expect(entry(/^Values/)).toHaveAttribute('aria-current', 'true');
     expect(screen.getByText('123.45 gp (12,345 cp)')).toBeVisible();
@@ -446,9 +445,9 @@ describe('concurrent changes', () => {
 });
 
 describe('in-place corrections', () => {
-  // The retired full editor's fields are all reachable here: each section
-  // opens its own editor, and the People & officers fallback the roster and
-  // officers (people-fallback.test.tsx).
+  // The retired full editor's fields are all reachable: each section opens
+  // its own editor here; roster people, Hit Dice and officer roles are
+  // corrected on Characters & officers (characters-corrections.test.tsx).
   test.each([
     ['Values', 'Treasury (copper)'],
     ['Teams', 'Team name'],
@@ -459,7 +458,6 @@ describe('in-place corrections', () => {
     ['Orders', 'Add order'],
     ['Marketplaces', 'Add marketplace'],
     ['Carried benefits', 'Add Market Day benefit'],
-    ['People & officers', 'Hit Dice'],
   ])('%s opens its own correction with its fields', (label, control) => {
     mount();
     fireEvent.click(entry(new RegExp(`^${label}`)));

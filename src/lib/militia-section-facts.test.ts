@@ -4,7 +4,12 @@ import {
   MILITIA_ENTRY_LABELS,
   type MilitiaEntryKey,
 } from './militia-correction-sections';
-import { militiaEntryFacts, type EntryFacts } from './militia-section-facts';
+import {
+  militiaEntryFacts,
+  officerFacts,
+  rosterFacts,
+  type EntryFacts,
+} from './militia-section-facts';
 
 const names = new Map([['officer', 'Ada']]);
 const text = (facts: EntryFacts) =>
@@ -86,15 +91,22 @@ test('Week & carried effects shows the week, persistent events with age, targets
   expect(facts.count).toBe(1 + state().context.queuedEffects.length + 1);
 });
 
-test('People show each effective Hit Dice: the override, zero included, or else the level', () => {
+test('the roster conflict view shows each effective Hit Dice: the override, zero included, or else the level', () => {
   const hitDice = (value: number | null) => {
     const current = state();
     current.militiaSnapshot.roster.people[0]!.hitDice = value;
-    return text(militiaEntryFacts('people', current, names)).filter((row) =>
+    return text(rosterFacts(current.militiaSnapshot, names)).filter((row) =>
       row?.startsWith('Hit Dice'),
     );
   };
-  expect(hitDice(8)).toEqual(['Hit Dice: 8']);
-  expect(hitDice(0)).toEqual(['Hit Dice: 0']);
+  expect(hitDice(8)).toEqual(['Hit Dice: 8 (override)']);
+  expect(hitDice(0)).toEqual(['Hit Dice: 0 (override)']);
   expect(hitDice(null)).toEqual(['Hit Dice: 12']);
+});
+
+test('the officer conflict view lists every role, vacant ones included', () => {
+  const current = state().militiaSnapshot;
+  const rows = text(officerFacts(current, names));
+  expect(rows).toHaveLength(6);
+  expect(rows).toContain('Strategist: Vacant');
 });

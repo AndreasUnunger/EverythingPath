@@ -49,9 +49,7 @@ import {
   setupWarningDescriptors,
   type SetupErrorDescriptor,
 } from '~/lib/setup-validation';
-import { withRecordKinds } from '~/lib/setup-characters';
 import { weeklyDraftSchema } from '~/lib/weekly-draft-contract';
-import { classifyWriteFailure } from '~/lib/write-outcome';
 import {
   carriedDependencyError,
   describeChoice,
@@ -71,10 +69,9 @@ import {
   closedCorrection,
   correctionReducer,
   correctionView,
-  planPeopleSave,
   planSectionSave,
+  sendCorrection,
   type AcceptedMilitia,
-  type CorrectionAction,
   type CorrectionView,
   type SaveAttempt,
   type SavePlan,
@@ -88,17 +85,13 @@ import {
   reasonError,
   type ErrorSummaryItem,
 } from './correction-copy';
-import {
-  sectionFieldLabels,
-  sectionRowsPath,
-  type CorrectableEntry,
-} from './section-fields';
+import { sectionFieldLabels, sectionRowsPath } from './section-fields';
 
 export type MilitiaEntryView = {
   key: MilitiaEntryKey;
   label: string;
-  /** Correctable sections, the read-only week view, or the temporary fallback. */
-  group: 'sections' | 'week' | 'fallback';
+  /** Correctable sections, or the read-only week view. */
+  group: 'sections' | 'week';
   facts: EntryFacts;
   /** Advisory rules warnings for the accepted facts. */
   warnings: string[];
@@ -132,12 +125,9 @@ export type MissingEntry = {
   restore: () => void;
 };
 
-/**
- * The one open correction: a section's, or the People & officers fallback
- * (which has no conflict, restoration or open-week impact of its own).
- */
+/** The one open correction: a section's. */
 export type SectionCorrection = {
-  entry: CorrectableEntry;
+  entry: MilitiaSectionKey;
   heading: string;
   form: UseFormReturn<MilitiaSetup>;
   /** Campaign characters, for manager choices. */
@@ -216,34 +206,6 @@ function groupedWarnings(
   return grouped;
 }
 
-// Sends one planned correction and reports its outcome to the lifecycle.
-// Only a ConvexError is a definite refusal; anything else may or may not
-// have been applied and is reconciled from the observed militia.
-function sendCorrection(
-  plan: Extract<SavePlan, { kind: 'send' }>,
-  reason: string,
-  save: ReturnType<typeof useCanonicalLedger>['save'],
-  dispatch: (action: CorrectionAction) => void,
-) {
-  const { attempt } = plan;
-  dispatch({ type: 'submit', attempt });
-  return save({
-    expectedRevision: attempt.expectedRevision,
-    snapshot: plan.snapshot,
-    reason,
-  }).then(
-    () => dispatch({ type: 'accepted', attempt }),
-    (error: unknown) => {
-      const failure = classifyWriteFailure(error);
-      dispatch(
-        failure.kind === 'rejected'
-          ? { type: 'rejected', attempt, message: failure.message }
-          : { type: 'unknown', attempt },
-      );
-    },
-  );
-}
-
 // Carried context the candidate would break is an integrity error. Name what
 // must stay in place of Setup's general message.
 function namedErrors(
@@ -266,7 +228,7 @@ function namedErrors(
 }
 
 const entryGroups: Partial<Record<MilitiaEntryKey, MilitiaEntryView['group']>> =
-  { weekCarried: 'week', people: 'fallback' };
+  { weekCarried: 'week' };
 
 // The Militia page: accepted facts by section, the one local correction and
 // its lifecycle. Mount per campaign, militia and organization (keyed), so a
@@ -283,7 +245,7 @@ export function useMilitiaCorrections({
   /** The open week's draft, as currently observed. */
   draftId: string;
   organizationId: string;
-  /** The entry selected first, e.g. People & officers from its link. */
+  /** The entry selected first, e.g. Teams from its link. */
   initialEntry?: MilitiaEntryKey;
 }): MilitiaCorrections {
   const { ledger, characters, save } = useCanonicalLedger({
@@ -400,7 +362,7 @@ export function useMilitiaCorrections({
   };
 
   const entries: MilitiaEntryView[] = (
-    [...MILITIA_SECTION_KEYS, 'weekCarried', 'people'] as MilitiaEntryKey[]
+    [...MILITIA_SECTION_KEYS, 'weekCarried'] as MilitiaEntryKey[]
   ).map((key) => ({
     key,
     label: MILITIA_ENTRY_LABELS[key],
@@ -409,28 +371,20 @@ export function useMilitiaCorrections({
     warnings: warnings.get(key) ?? [],
     correctLabel: key === 'weekCarried' ? null : correctLabel(key),
     missing:
-      key === 'weekCarried' || key === 'people'
+      key === 'weekCarried'
         ? []
         : missingOf(key).map((identity) => missingEntry(key, identity)),
   }));
 
-  // A section edits its own facts from the newest militia; the People &
-  // officers fallback sends the whole snapshot it opened from, so an absent
-  // economy stays absent.
-  const startingValuesFor = (entry: CorrectableEntry) =>
-    entry === 'people' ? setupFrom(accepted.state) : editorFrom(accepted.state);
-
+  // A section edits its own facts from the newest militia.
   function open(entry: MilitiaEntryKey) {
     if (locked || entry === 'weekCarried') return;
     setSelected(entry);
     setCandidateErrors([]);
-    form.reset(startingValuesFor(entry));
+    form.reset(editorFrom(accepted.state));
     dispatch({
       type: 'open',
-      target:
-        entry === 'people'
-          ? { kind: 'people' }
-          : { kind: 'section', section: entry },
+      target: { kind: 'section', section: entry },
       accepted,
     });
   }
@@ -510,15 +464,6 @@ export function useMilitiaCorrections({
       return invalid.length ? null : plan;
     });
 
-  // The fallback's whole snapshot, validated as a whole by the form, at the
-  // revision it opened from.
-  const savePeople = () =>
-    submit((setup) =>
-      reportUnlessSendable(
-        planPeopleSave(correction, setup.state.militiaSnapshot),
-      ),
-    );
-
   // A choice field (Focus) has no input for the form to focus: find its
   // first choice the way guided Setup does.
   function focusField(field: string) {
@@ -539,55 +484,10 @@ export function useMilitiaCorrections({
 
   // A new correction from the newest facts: fields and the reason are
   // cleared, so it must be reviewed again.
-  function restart(entry: CorrectableEntry) {
-    form.reset(startingValuesFor(entry));
+  function restart() {
+    form.reset(editorFrom(accepted.state));
     setCandidateErrors([]);
     dispatch({ type: 'restart', accepted });
-  }
-
-  // The People & officers fallback: the roster and officer roles, with the
-  // rules warnings of the roster and the teams whose managers it clears.
-  function peopleCorrection(
-    view: Exclude<CorrectionView, { kind: 'closed' }>,
-  ): SectionCorrection {
-    const hasFormErrors = Object.keys(form.formState.errors).length > 0;
-    return {
-      entry: 'people',
-      heading: correctLabel('people'),
-      form,
-      characters,
-      view,
-      notice: view.kind === 'editing' ? editingNotice(view) : null,
-      // Warnings read each person's current record kind, as the save sends.
-      warnings: setupWarningDescriptors(
-        withRecordKinds(values, characters),
-        names,
-      )
-        .filter((warning) => {
-          const entry = militiaEntryForLocation(warning);
-          return entry === 'people' || entry === 'teams';
-        })
-        .map((warning) => warning.message),
-      affectsWeek: [],
-      restorable: [],
-      rowNotes: new Map(),
-      errors: errorSummary(
-        hasFormErrors
-          ? setupErrorDescriptors(values, militiaCorrectionSchema)
-          : [],
-        values,
-        {
-          ...sectionFieldLabels('people', values.state.militiaSnapshot, names),
-          notes: { label: REASON_LABEL },
-        },
-      ),
-      reason: describeReason(),
-      comparison: null,
-      focusField,
-      save: savePeople,
-      cancel,
-      restart: () => restart('people'),
-    };
   }
 
   function sectionCorrection(
@@ -676,7 +576,7 @@ export function useMilitiaCorrections({
       focusField,
       save: () => saveSection(section),
       cancel,
-      restart: () => restart(section),
+      restart,
     };
   }
 
@@ -685,7 +585,7 @@ export function useMilitiaCorrections({
     const { target } = correction;
     return target.kind === 'section'
       ? sectionCorrection(target.section, view)
-      : peopleCorrection(view);
+      : null;
   }
 
   const feedback =

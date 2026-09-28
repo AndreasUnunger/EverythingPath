@@ -50,6 +50,7 @@ vi.mock('@convex/_generated/api', () => ({
       archiveCharacter: 'archiveCharacter',
     },
     canonicalDraftPersistence: { workspace: 'workspace', observe: 'observe' },
+    canonicalLedger: { read: 'read', save: 'save' },
   },
 }));
 vi.mock('convex/react', () => ({
@@ -200,12 +201,35 @@ const openDraft = {
     },
   },
 };
+// The accepted militia as the corrections read it, from the same facts.
+const weekContext = {
+  firstMilitiaWeek: false,
+  startDay: 14,
+  uneventfulCarry: false,
+  carriedEvents: [],
+  queuedEffects: [],
+  orders: [],
+  lastBuyoffWeek: null,
+};
+function ledgerOf(workspace: unknown, revision = 1) {
+  if (!workspace) return undefined;
+  const { week, snapshot } = workspace as ReturnType<typeof militia>;
+  return {
+    revision,
+    state: { week, context: weekContext, militiaSnapshot: snapshot },
+  };
+}
 function setQueries(
   list: StoredCharacter[] | undefined = records(),
   workspace: unknown = militia(list),
   observe: unknown = openDraft,
 ) {
-  queries = { listByCampaign: list, workspace, observe };
+  queries = {
+    listByCampaign: list,
+    workspace,
+    observe,
+    read: ledgerOf(workspace),
+  };
 }
 const page = () => (
   <CharactersSection campaignId={campaignId} organizationId="org" />
@@ -401,10 +425,11 @@ describe('character table', () => {
     );
     expect(rowOf('Bren Ironhand')).toHaveTextContent('5 HD');
     expect(rowOf('aria Vell')).toHaveTextContent('Not on roster');
-    // The temporary roster and officer editor stays reachable.
+    // Roster and officers are corrected here: the retired Militia fallback
+    // is no longer linked.
     expect(
-      screen.getByRole('link', { name: 'People & officers' }),
-    ).toHaveAttribute('href', '/campaigns/campaign/militia?section=people');
+      screen.queryByRole('link', { name: 'People & officers' }),
+    ).toBeNull();
   });
 
   test('phones get one card per character with the same facts and operations', () => {

@@ -1,24 +1,113 @@
 'use client';
-import { ArrowRight, Plus } from 'lucide-react';
-import { useId } from 'react';
+import { ArrowRight, Pencil, Plus } from 'lucide-react';
+import { useId, useState, type ReactNode } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
-import { Button } from '~/components/ui/button';
+import { useShellSlotHost } from '~/components/campaign-shell/shell-slots';
 import { useWideLayout } from '~/components/militia-corrections/use-wide-layout';
-import { BOARD_ROLES, ROLE_LABELS } from '~/lib/officer-board';
+import { Button } from '~/components/ui/button';
+import {
+  BOARD_ROLES,
+  ROLE_LABELS,
+  type OfficerRole,
+  type RoleCard,
+} from '~/lib/officer-board';
+import { cn } from '~/lib/utils';
+import { AssignPicker, type PickerLayout } from './assign-picker';
 import { CharacterCards, CharacterTable } from './character-rows';
+import { CorrectionBar, Feedback } from './correction-bar';
+import { action } from './parts';
 import { RoleCardView, UnassignedRoleCard } from './role-card';
-import type { CharactersPageView } from './use-characters-page';
+import type {
+  CharacterCorrections,
+  OpenCorrection,
+} from './use-character-corrections';
+import { useDesktopLayout } from './use-desktop-layout';
+import type { CharactersPage as Page } from './use-characters-page';
 
-type Page = Extract<CharactersPageView, { status: 'ready' }>;
+type Corrections = Extract<CharacterCorrections, { status: 'ready' }>;
 
-const action = 'min-h-11 md:min-h-9';
 const board = 'grid grid-cols-2 gap-3 md:grid-cols-3';
+// The section a correction does not edit: visibly dimmed and inert.
+const dimmed = 'opacity-50';
 
-function Officers({ page }: { page: Page }) {
-  const headingId = useId();
-  const { officers } = page;
+// The board while Correct officers is open: cards with Assign and holder
+// menus, and the Assign picker for one role in the viewport's layout.
+// Unmounted with the correction, so no picker outlives it.
+function EditableBoard({
+  cards,
+  correction,
+  layout,
+}: {
+  cards: RoleCard[];
+  correction: OpenCorrection;
+  layout: PickerLayout;
+}) {
+  const [assigning, setAssigning] = useState<{
+    role: OfficerRole;
+    trigger: HTMLElement;
+  } | null>(null);
+  const close = () => {
+    setAssigning(null);
+    assigning?.trigger.focus();
+  };
+  const editing = {
+    onAssign: (role: OfficerRole, trigger: HTMLElement) =>
+      setAssigning({ role, trigger }),
+    holders: correction,
+  };
+  const picker = assigning && (
+    <AssignPicker
+      key={assigning.role}
+      layout={layout}
+      label={ROLE_LABELS[assigning.role]}
+      offer={correction.candidates(assigning.role)}
+      onAssign={(characterId) => {
+        correction.assign(assigning.role, characterId);
+        close();
+      }}
+      onClose={close}
+    />
+  );
   return (
-    <section aria-labelledby={headingId} className="space-y-3">
+    <div className="relative space-y-3">
+      <div className={board}>
+        {cards.map((card) => (
+          <RoleCardView key={card.role} card={card} editing={editing} />
+        ))}
+      </div>
+      {picker}
+    </div>
+  );
+}
+
+function Officers({
+  page,
+  corrections,
+  inert,
+  children,
+}: {
+  page: Page;
+  corrections: Corrections | null;
+  inert: boolean;
+  /** The save point, on the phone, directly under the board. */
+  children?: ReactNode;
+}) {
+  const headingId = useId();
+  const wide = useWideLayout();
+  const desktop = useDesktopLayout();
+  const { officers } = page;
+  const correction =
+    corrections?.correction?.mode === 'officers'
+      ? corrections.correction
+      : null;
+  const canOpen =
+    corrections !== null && corrections.mode === null && officers !== null;
+  return (
+    <section
+      aria-labelledby={headingId}
+      inert={inert || undefined}
+      className={cn('space-y-3', inert && dimmed)}
+    >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
         <h2 id={headingId} className="font-sans text-2xl">
           Officers
@@ -33,6 +122,16 @@ function Officers({ page }: { page: Page }) {
             <GuardedLink href={page.links.setup}>Set up militia</GuardedLink>
           </Button>
         )}
+        {canOpen && (
+          <Button
+            type="button"
+            variant="outline"
+            className={`${action} ml-auto`}
+            onClick={() => corrections.open('officers')}
+          >
+            <Pencil /> Correct officers
+          </Button>
+        )}
       </div>
       {officers === null ? (
         <div className={board}>
@@ -40,6 +139,12 @@ function Officers({ page }: { page: Page }) {
             <UnassignedRoleCard key={role} label={ROLE_LABELS[role]} />
           ))}
         </div>
+      ) : correction ? (
+        <EditableBoard
+          cards={officers.cards}
+          correction={correction}
+          layout={desktop ? 'floating' : wide ? 'sheet' : 'inline'}
+        />
       ) : (
         <div className={board}>
           {officers.cards.map((card) => (
@@ -47,6 +152,7 @@ function Officers({ page }: { page: Page }) {
           ))}
         </div>
       )}
+      {children}
     </section>
   );
 }
@@ -76,18 +182,45 @@ function PendingBar({ page }: { page: Page }) {
   );
 }
 
-function Characters({ page }: { page: Page }) {
+function Characters({
+  page,
+  corrections,
+  inert,
+  children,
+}: {
+  page: Page;
+  corrections: Corrections | null;
+  inert: boolean;
+  /** The save point, on the phone, directly under the rows. */
+  children?: ReactNode;
+}) {
   const headingId = useId();
   const showArchivedId = useId();
   const wide = useWideLayout();
+  const correction =
+    corrections?.correction?.mode === 'roster' ? corrections.correction : null;
+  const canOpen =
+    corrections !== null && corrections.mode === null && page.officers !== null;
   const rowProps = {
     rows: page.rows,
     hasBoard: page.officers !== null,
     teamsHref: page.links.teams,
     onEdit: page.dialog.openEdit,
+    rosterRow: correction?.rosterRow ?? null,
   };
+  const rows =
+    page.rows.length > 0 &&
+    (wide ? (
+      <CharacterTable {...rowProps} />
+    ) : (
+      <CharacterCards {...rowProps} />
+    ));
   return (
-    <section aria-labelledby={headingId} className="space-y-3">
+    <section
+      aria-labelledby={headingId}
+      inert={inert || undefined}
+      className={cn('space-y-3', inert && dimmed)}
+    >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 id={headingId} className="font-sans text-2xl">
           Characters
@@ -110,46 +243,85 @@ function Characters({ page }: { page: Page }) {
           />
           Show archived
         </label>
-        <Button
-          type="button"
-          variant="outline"
-          className={`${action} ml-auto`}
-          onClick={page.dialog.openAdd}
-        >
-          <Plus /> Add character
-        </Button>
+        <div className="ml-auto flex flex-wrap gap-2">
+          {canOpen && (
+            <Button
+              type="button"
+              variant="outline"
+              className={action}
+              onClick={() => corrections.open('roster')}
+            >
+              <Pencil /> Correct roster
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className={action}
+            onClick={page.dialog.openAdd}
+          >
+            <Plus /> Add character
+          </Button>
+        </div>
       </div>
-      <p className="text-muted-foreground text-sm">
-        Officer roles and roster membership are corrected under{' '}
-        <GuardedLink
-          href={page.links.people}
-          className="text-foreground underline underline-offset-4"
-        >
-          People &amp; officers
-        </GuardedLink>{' '}
-        on Militia.
-      </p>
       <PendingBar page={page} />
-      {page.rows.length > 0 &&
-        (wide ? (
-          <CharacterTable {...rowProps} />
-        ) : (
-          <CharacterCards {...rowProps} />
-        ))}
+      {correction ? (
+        // Every row control follows the correction's state.
+        <fieldset
+          disabled={correction.view.kind !== 'editing'}
+          className="min-w-0"
+        >
+          {rows}
+        </fieldset>
+      ) : (
+        rows
+      )}
       {page.emptyMessage !== null && (
         <p className="text-muted-foreground text-sm">{page.emptyMessage}</p>
       )}
+      {children}
     </section>
   );
 }
 
-// Characters & officers: the officer board over the character rows. Roster
-// and officer corrections are on Militia; here records are added and edited.
-export function CharactersOfficersView({ page }: { page: Page }) {
+// Characters & officers: the officer board over the character rows, with
+// the Correct officers and Correct roster corrections. While one is open,
+// the other section is dimmed and inert, and the save point follows: from
+// 768px sticky at the end of the page, on the phone under the edited
+// section with the reason in the shell's strip.
+export function CharactersOfficersView({
+  page,
+  corrections,
+}: {
+  page: Page;
+  /** The two corrections; null before Setup or while loading. */
+  corrections: Corrections | null;
+}) {
+  const wide = useWideLayout();
+  const strip = useShellSlotHost('phone-status-strip');
+  const correction = corrections?.correction ?? null;
+  const mode = correction?.mode ?? null;
+  const savePoint = correction && (
+    <CorrectionBar
+      correction={correction}
+      wide={wide}
+      inStrip={!wide && strip}
+    />
+  );
   return (
     <div className="min-w-0 space-y-8">
-      <Officers page={page} />
-      <Characters page={page} />
+      <Feedback feedback={corrections?.feedback ?? null} />
+      <Officers page={page} corrections={corrections} inert={mode === 'roster'}>
+        {!wide && mode === 'officers' && savePoint}
+      </Officers>
+      <Characters
+        page={page}
+        corrections={corrections}
+        inert={mode === 'officers'}
+      >
+        {!wide && mode === 'roster' && savePoint}
+      </Characters>
+      {wide && savePoint}
     </div>
   );
 }

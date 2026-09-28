@@ -56,19 +56,46 @@ test('players share character and officer assignment changes', async ({
   ).toHaveValue('16');
   await gmRecord.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(gmRecord).toBeHidden();
-  // Characters & officers links straight to the People & officers fallback.
+  // Correct roster: Nara joins with her record's kind and a quick-pick
+  // reason; the GM sees her on the roster at once.
   await player
-    .getByRole('link', { name: 'People & officers', exact: true })
+    .getByRole('button', { name: 'Correct roster', exact: true })
     .click();
-  await expect(player).toHaveURL(/\/militia\?section=people$/);
   await player
-    .getByRole('button', { name: 'Correct people & officers', exact: true })
+    .getByRole('switch', { name: 'Nara on roster', exact: true })
     .click();
-  const officers = player
-    .getByRole('heading', { name: 'Characters and officers', exact: true })
-    .locator('..');
-  await officers.getByRole('button', { name: /Nara/ }).click();
-  await player.getByRole('button', { name: 'marshal', exact: true }).click();
+  await player
+    .getByRole('button', { name: 'New officer joined', exact: true })
+    .click();
+  await player
+    .getByRole('button', { name: 'Save correction', exact: true })
+    .click();
+  await expect(
+    player.getByRole('region', { name: 'Correct roster', exact: true }),
+  ).toBeHidden();
+  const naraRow = gmCharacters.getByRole('row').filter({ hasText: 'Nara' });
+  await expect(naraRow).toContainText(/On roster.*Nara.*4 HD/);
+
+  // Both open Correct officers on their own device. The player assigns Nara
+  // as Marshal and saves first; the GM's later Save is refused as a
+  // conflict, never merged over the player's assignment.
+  const gm = players.gm;
+  await gm
+    .getByRole('button', { name: 'Correct officers', exact: true })
+    .click();
+  await player
+    .getByRole('button', { name: 'Correct officers', exact: true })
+    .click();
+  const assign = async (page: typeof player, role: string) => {
+    await page
+      .getByRole('button', { name: `Assign ${role}`, exact: true })
+      .click();
+    await page
+      .getByRole('dialog', { name: `Assign ${role}`, exact: true })
+      .getByRole('button', { name: /^Nara/ })
+      .click();
+  };
+  await assign(player, 'Marshal');
   await player
     .getByRole('textbox', { name: 'Reason for correction', exact: true })
     .fill('Assign Nara as marshal');
@@ -76,31 +103,39 @@ test('players share character and officer assignment changes', async ({
     .getByRole('button', { name: 'Save correction', exact: true })
     .click();
   await expect(
-    player.getByRole('button', { name: 'Save correction', exact: true }),
+    player.getByRole('region', { name: 'Correct officers', exact: true }),
   ).toBeHidden();
-  // The GM's Characters & officers shows the accepted role on its card and
-  // row as soon as the correction is saved.
-  await expect(
-    players.gm
-      .getByRole('region', { name: 'Officers', exact: true })
-      .getByRole('region', { name: 'Marshal', exact: true }),
-  ).toContainText('Nara');
-  await expect(
-    gmCharacters.getByRole('row').filter({ hasText: 'Nara' }),
-  ).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
-  await openCampaignSection(players.gm, 'militia');
-  await players.gm.reload();
-  await expect(players.gm).toHaveURL(/\/campaigns\/[^/]+\/militia$/);
-  await players.gm.getByRole('button', { name: /^People & officers/ }).click();
-  await expect(
-    players.gm.getByRole('listitem').filter({
-      has: players.gm.getByRole('heading', { name: 'Nara', exact: true }),
-    }),
-  ).toContainText('Marshal');
-  await players.gm
-    .getByRole('button', { name: 'Correct people & officers', exact: true })
+  await assign(gm, 'Spymaster');
+  await gm.getByRole('button', { name: 'Story change', exact: true }).click();
+  await gm
+    .getByRole('button', { name: 'Save correction', exact: true })
+    .click();
+  const gmCorrection = gm.getByRole('region', {
+    name: 'Correct officers',
+    exact: true,
+  });
+  await expect(gmCorrection.getByRole('alert')).toContainText(
+    'Another player changed this section',
+  );
+  await gmCorrection
+    .getByRole('button', { name: 'Start again from their values', exact: true })
     .click();
   await expect(
-    players.gm.getByRole('button', { name: 'marshal', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true');
+    gmCorrection.getByRole('textbox', {
+      name: 'Reason for correction',
+      exact: true,
+    }),
+  ).toHaveValue('');
+  const marshal = gm
+    .getByRole('region', { name: 'Officers', exact: true })
+    .getByRole('region', { name: 'Marshal', exact: true });
+  await expect(marshal).toContainText('Nara');
+  await gmCorrection
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .click();
+  await expect(naraRow).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
+  // The accepted role survives a reload.
+  await gm.reload();
+  await expect(marshal).toContainText('Nara');
+  await expect(naraRow).toContainText(/On roster.*Nara.*4 HD.*Marshal/);
 });

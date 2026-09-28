@@ -27,7 +27,6 @@ import {
 } from '~/components/militia-setup/effects';
 import { SetupSectionHeading } from '~/components/militia-setup/fields';
 import {
-  SetupPeople,
   SetupTeams,
   type SetupCharacter,
 } from '~/components/militia-setup/roster';
@@ -131,16 +130,6 @@ function CarriedBenefitsEditor({ characters }: SectionEditorProps) {
   );
 }
 
-// The temporary People & officers fallback: roster people, kind, Hit Dice
-// and officer roles, under Setup's own "Characters and officers" title.
-function PeopleEditor({ characters }: SectionEditorProps) {
-  return (
-    <SetupSectionHeading value="h3">
-      <SetupPeople characters={characters} preserveCharacters />
-    </SetupSectionHeading>
-  );
-}
-
 // The editor of every entry the page corrects in place.
 export const sectionEditors: Record<
   CorrectableEntry,
@@ -155,7 +144,6 @@ export const sectionEditors: Record<
   orders: OrdersEditor,
   marketplaces: MarketplacesEditor,
   carriedBenefits: CarriedBenefitsEditor,
-  people: PeopleEditor,
 };
 
 const action = 'min-h-11 md:min-h-9';
@@ -165,7 +153,7 @@ const advisory = 'border-primary/40 bg-primary/10 space-y-1 border p-3';
 const focusTarget = 'outline-none';
 
 /** Moves focus to the element on mount: the heading of a state that opened. */
-function useFocusOnMount<T extends HTMLElement>() {
+export function useFocusOnMount<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   useEffect(() => {
     ref.current?.focus();
@@ -175,7 +163,7 @@ function useFocusOnMount<T extends HTMLElement>() {
 
 // Below the phone strip, focused fields must scroll above the sticky reason
 // bar: reserve the bar's height as scroll padding while it is mounted.
-function useScrollPaddingFor(
+export function useScrollPaddingFor(
   ref: RefObject<HTMLElement | null>,
   active: boolean,
 ) {
@@ -228,7 +216,7 @@ function ChoiceName({ choice }: { choice: NeededBy }) {
 // The open week's choices this correction would leave without their
 // subject, one sentence each: "Removing Scouts leaves Activity slot 2
 // (Drill Militia) without a team."
-function AffectsWeek({ choices }: { choices: AffectedChoice[] }) {
+export function AffectsWeek({ choices }: { choices: AffectedChoice[] }) {
   if (choices.length === 0) return null;
   return (
     <aside aria-label={AFFECTS_WEEK_HEADING} className={advisory}>

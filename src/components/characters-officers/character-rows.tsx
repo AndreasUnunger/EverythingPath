@@ -1,7 +1,8 @@
-import { Check, Minus, Pencil } from 'lucide-react';
+import { Check, CircleAlert, Minus, Pencil } from 'lucide-react';
 import { useId } from 'react';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { Button } from '~/components/ui/button';
+import { Input } from '~/components/ui/input';
 import {
   managesText,
   ROLE_LABELS,
@@ -9,7 +10,8 @@ import {
   type OfficerRole,
 } from '~/lib/officer-board';
 import { cn } from '~/lib/utils';
-import { ArchivedBadge, roleCardId, Warnings } from './parts';
+import { ArchivedBadge, chip, roleCardId, Warnings } from './parts';
+import type { RosterRowControl } from './use-character-corrections';
 
 export type RowsProps = {
   rows: CharacterRow[];
@@ -20,11 +22,13 @@ export type RowsProps = {
   hasBoard: boolean;
   teamsHref: string;
   onEdit: (characterId: string) => void;
+  /** A row's controls while Correct roster is open; null otherwise. */
+  rosterRow: ((characterId: string) => RosterRowControl | null) | null;
 };
 
-const chip =
-  'border-foreground/40 inline-flex items-center border px-1.5 py-0.5 font-mono text-xs leading-tight';
 const dash = <span className="text-muted-foreground">—</span>;
+const switchControl =
+  'border-foreground/40 bg-foreground/10 before:bg-foreground checked:border-primary checked:bg-primary checked:before:bg-primary-foreground focus-visible:ring-ring/50 relative h-6 w-10 shrink-0 cursor-pointer appearance-none rounded-full border outline-none transition-colors before:absolute before:top-0.5 before:left-0.5 before:size-4.5 before:rounded-full before:transition-transform checked:before:translate-x-4 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50';
 
 // Brings the role's card into view and moves focus to it.
 function showRoleCard(role: OfficerRole) {
@@ -53,6 +57,91 @@ function OnRoster({ onRoster }: { onRoster: boolean }) {
       {onRoster ? 'On roster' : 'Not on roster'}
     </span>
   );
+}
+
+// Correct roster: the membership switch, with why a record cannot join yet.
+function RosterSwitch({
+  name,
+  control,
+}: {
+  name: string;
+  control: RosterRowControl;
+}) {
+  const id = useId();
+  const noteId = `${id}-note`;
+  const blocked = control.cannotJoin !== null;
+  return (
+    <div className="grid gap-1">
+      <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm select-none md:min-h-0">
+        <input
+          type="checkbox"
+          role="switch"
+          className={switchControl}
+          aria-label={`${name} on roster`}
+          checked={control.onRoster}
+          disabled={blocked}
+          aria-describedby={blocked ? noteId : undefined}
+          onChange={(event) => control.setOnRoster(event.target.checked)}
+        />
+        {control.onRoster ? 'On roster' : 'Not on roster'}
+      </label>
+      {blocked && (
+        <p
+          id={noteId}
+          className="text-muted-foreground max-w-56 text-xs [overflow-wrap:anywhere] whitespace-normal"
+        >
+          {control.cannotJoin}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Correct roster: the Hit Dice override, its error kept within the cell.
+function HitDiceField({
+  field,
+}: {
+  field: NonNullable<RosterRowControl['hitDice']>;
+}) {
+  const id = useId();
+  const errorId = `${id}-error`;
+  return (
+    <div className="grid gap-1">
+      <span className="inline-flex items-center gap-1.5">
+        <Input
+          {...field.register}
+          id={id}
+          inputMode="numeric"
+          placeholder={field.placeholder}
+          aria-label={field.label}
+          aria-invalid={field.error ? true : undefined}
+          aria-describedby={field.error ? errorId : undefined}
+          className="h-11 w-16 font-mono md:h-9"
+        />
+        <span className="font-mono text-sm">HD</span>
+      </span>
+      {field.error && (
+        <p
+          id={errorId}
+          className="text-destructive flex max-w-48 items-start gap-1 text-xs [overflow-wrap:anywhere] whitespace-normal"
+        >
+          <CircleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span>{field.error}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function HitDice({
+  row,
+  control,
+}: {
+  row: CharacterRow;
+  control: RosterRowControl | null;
+}) {
+  if (control?.hitDice) return <HitDiceField field={control.hitDice} />;
+  return <span className="font-mono whitespace-nowrap">{row.hitDice} HD</span>;
 }
 
 function RoleChips({
@@ -135,6 +224,7 @@ export function CharacterTable({
   hasBoard,
   teamsHref,
   onEdit,
+  rosterRow,
 }: RowsProps) {
   return (
     <table className="w-full border-collapse text-sm">
@@ -166,45 +256,52 @@ export function CharacterTable({
         </tr>
       </thead>
       <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.characterId}
-            className={cn(
-              'border-foreground/10 border-b',
-              row.archived && 'opacity-60',
-            )}
-          >
-            {hasBoard && (
-              <td className={cn(td, 'whitespace-nowrap')}>
-                <OnRoster onRoster={row.onRoster} />
-              </td>
-            )}
-            <th scope="row" className={cn(td, 'text-left font-normal')}>
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="font-sans text-base font-semibold [overflow-wrap:anywhere]">
-                  {row.name}
+        {rows.map((row) => {
+          const control = rosterRow?.(row.characterId) ?? null;
+          return (
+            <tr
+              key={row.characterId}
+              className={cn(
+                'border-foreground/10 border-b',
+                row.archived && 'opacity-60',
+              )}
+            >
+              {hasBoard && (
+                <td className={cn(td, 'whitespace-nowrap')}>
+                  {control ? (
+                    <RosterSwitch name={row.name} control={control} />
+                  ) : (
+                    <OnRoster onRoster={row.onRoster} />
+                  )}
+                </td>
+              )}
+              <th scope="row" className={cn(td, 'text-left font-normal')}>
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-sans text-base font-semibold [overflow-wrap:anywhere]">
+                    {row.name}
+                  </span>
+                  {row.archived && <ArchivedBadge />}
                 </span>
-                {row.archived && <ArchivedBadge />}
-              </span>
-              <Warnings warnings={row.warnings} />
-            </th>
-            <td className={td}>
-              <KindChip kind={row.kind} />
-            </td>
-            <td className={cn(td, 'font-mono whitespace-nowrap')}>
-              {row.hitDice} HD
-            </td>
-            <td className={td}>
-              <RoleChips roles={row.roles} hasBoard={hasBoard} />
-            </td>
-            <td className={cn(td, 'whitespace-nowrap')}>
-              <Teams manages={row.manages} href={teamsHref} />
-            </td>
-            <td className={cn(td, 'py-1 text-right')}>
-              <EditButton row={row} onEdit={onEdit} />
-            </td>
-          </tr>
-        ))}
+                <Warnings warnings={row.warnings} />
+              </th>
+              <td className={td}>
+                <KindChip kind={row.kind} />
+              </td>
+              <td className={td}>
+                <HitDice row={row} control={control} />
+              </td>
+              <td className={td}>
+                <RoleChips roles={row.roles} hasBoard={hasBoard} />
+              </td>
+              <td className={cn(td, 'whitespace-nowrap')}>
+                <Teams manages={row.manages} href={teamsHref} />
+              </td>
+              <td className={cn(td, 'py-1 text-right')}>
+                <EditButton row={row} onEdit={onEdit} />
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -215,8 +312,10 @@ function CharacterCard({
   hasBoard,
   teamsHref,
   onEdit,
+  rosterRow,
 }: { row: CharacterRow } & Omit<RowsProps, 'rows'>) {
   const headingId = useId();
+  const control = rosterRow?.(row.characterId) ?? null;
   return (
     <li
       aria-labelledby={headingId}
@@ -233,16 +332,24 @@ function CharacterCard({
           {row.name}
         </h3>
         <KindChip kind={row.kind} />
-        <span className="font-mono text-sm whitespace-nowrap">
-          {row.hitDice} HD
-        </span>
+        {!control && (
+          <span className="font-mono text-sm whitespace-nowrap">
+            {row.hitDice} HD
+          </span>
+        )}
         <div className="-mt-2 -mr-2">
           <EditButton row={row} onEdit={onEdit} />
         </div>
       </div>
+      {control && (
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+          <RosterSwitch name={row.name} control={control} />
+          <HitDice row={row} control={control} />
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {row.archived && <ArchivedBadge />}
-        {hasBoard && <OnRoster onRoster={row.onRoster} />}
+        {hasBoard && !control && <OnRoster onRoster={row.onRoster} />}
         <RoleChips roles={row.roles} hasBoard={hasBoard} />
         <Teams manages={row.manages} href={teamsHref} />
       </div>

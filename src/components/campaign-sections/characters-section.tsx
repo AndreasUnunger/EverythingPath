@@ -3,11 +3,41 @@ import type { Id } from '@convex/_generated/dataModel';
 import { CharacterRecordDialog } from '~/components/character-manager/character-record-dialog';
 import { CharactersOfficersView } from '~/components/characters-officers/characters-officers-view';
 import { CharactersSkeleton } from '~/components/characters-officers/characters-skeleton';
-import { useCharactersPage } from '~/components/characters-officers/use-characters-page';
+import { useCharacterCorrections } from '~/components/characters-officers/use-character-corrections';
+import {
+  useCharactersPage,
+  type CharactersPage,
+} from '~/components/characters-officers/use-characters-page';
+
+// The page with its two corrections, for one campaign, militia and
+// organization. While a correction is open, the board and rows show its
+// result over the newest militia.
+function CorrectableCharacters({
+  campaignId,
+  page,
+  militia,
+}: {
+  campaignId: Id<'campaign'>;
+  page: CharactersPage;
+  militia: NonNullable<CharactersPage['militia']>;
+}) {
+  const corrections = useCharacterCorrections({
+    campaignId,
+    militiaId: militia.militiaId,
+    draftId: militia.draftId,
+    records: page.records,
+  });
+  const ready = corrections.status === 'ready' ? corrections : null;
+  return (
+    <CharactersOfficersView
+      page={ready?.candidate ? page.present(ready.candidate) : page}
+      corrections={ready}
+    />
+  );
+}
 
 // Characters & officers: the officer board over the character table, with
-// the record dialog. Roster and officer corrections still happen on the
-// Militia page's People & officers fallback.
+// the record dialog and the reasoned roster and officer corrections.
 export function CharactersSection({
   campaignId,
   organizationId,
@@ -20,7 +50,18 @@ export function CharactersSection({
   const { dialog } = page;
   return (
     <>
-      <CharactersOfficersView page={page} />
+      {page.militia ? (
+        // A campaign, militia or organization change discards the open
+        // correction and any late result of its Save.
+        <CorrectableCharacters
+          key={`${organizationId}:${campaignId}:${page.militia.militiaId}`}
+          campaignId={campaignId}
+          page={page}
+          militia={page.militia}
+        />
+      ) : (
+        <CharactersOfficersView page={page} corrections={null} />
+      )}
       {dialog.target && (dialog.target.kind === 'add' || dialog.record) ? (
         // One dialog per target: an edit starts from the record's values.
         <CharacterRecordDialog

@@ -13,11 +13,14 @@ import {
 import { militiaPath } from './campaign-routes';
 
 test('a Militia address selects a page entry by its key; anything else selects none', () => {
-  expect(militiaPath('c 1', 'people')).toBe(
-    '/campaigns/c%201/militia?section=people',
+  expect(militiaPath('c 1', 'teams')).toBe(
+    '/campaigns/c%201/militia?section=teams',
   );
   expect(militiaPath('c1')).toBe('/campaigns/c1/militia');
-  expect(parseMilitiaEntry('people')).toBe('people');
+  expect(parseMilitiaEntry('teams')).toBe('teams');
+  // The retired People & officers fallback's address opens the page's
+  // default entry: roster and officers are corrected on Characters & officers.
+  expect(parseMilitiaEntry('people')).toBeUndefined();
   expect(parseMilitiaEntry('carriedBenefits')).toBe('carriedBenefits');
   for (const value of [null, '', 'toString', 'ledger'])
     expect(parseMilitiaEntry(value)).toBeUndefined();
@@ -178,7 +181,7 @@ describe('warning locations', () => {
     ],
     [{ section: 'startingPoint', field: 'mode' }, null],
     [{ section: 'teams' }, 'teams'],
-    [{ section: 'people' }, 'people'],
+    [{ section: 'people' }, null],
     [{ section: 'week', field: 'phase' }, 'weekCarried'],
     [{ section: 'assets', subsection: 'caches' }, 'caches'],
     [{ section: 'assets', subsection: 'marketplaces' }, 'marketplaces'],

@@ -5,6 +5,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import { useMemo, useState } from 'react';
 import type { CharacterRecord } from '~/components/character-manager/types';
 import { campaignPath, militiaPath, weekPath } from '~/lib/campaign-routes';
+import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import {
   archiveKeeps,
   characterRows,
@@ -15,6 +16,8 @@ import {
   type RoleCard,
 } from '~/lib/officer-board';
 
+type Snapshot = CanonicalWeekState['militiaSnapshot'];
+
 /** Which record dialog is open: a new record, or an existing one by id. */
 export type RecordDialogTarget = { kind: 'add' } | { kind: 'edit'; id: string };
 
@@ -22,6 +25,10 @@ export type CharactersPageView =
   | { status: 'loading' }
   | {
       status: 'ready';
+      /** The accepted militia and its open week; null before Setup. */
+      militia: { militiaId: Id<'militia'>; draftId: string } | null;
+      /** Every character record of the campaign, archived included. */
+      records: CharacterRecord[];
       /** The accepted militia's officers; null before Setup. */
       officers: {
         focus: string | null;
@@ -36,7 +43,7 @@ export type CharactersPageView =
       emptyMessage: string | null;
       showArchived: boolean;
       setShowArchived: (show: boolean) => void;
-      links: { activity: string; teams: string; setup: string; people: string };
+      links: { activity: string; teams: string; setup: string };
       dialog: {
         target: RecordDialogTarget | null;
         /** The record being edited, as currently stored. */
@@ -47,7 +54,13 @@ export type CharactersPageView =
         openEdit: (characterId: string) => void;
         close: () => void;
       };
+      /**
+       * The same page over another militia: an open correction's result,
+       * shown in place of the accepted board and rows.
+       */
+      present: (snapshot: Snapshot) => CharactersPage;
     };
+export type CharactersPage = Extract<CharactersPageView, { status: 'ready' }>;
 
 // Characters & officers: the campaign's character records with the accepted
 // roster's officer effects and the open week's pending officer changes.
@@ -74,25 +87,45 @@ export function useCharactersPage({
   const [showArchived, setShowArchived] = useState(false);
   const [target, setTarget] = useState<RecordDialogTarget | null>(null);
 
-  const derived = useMemo(() => {
-    // With a militia, wait for the open week too, so pending changes never
-    // appear late.
-    if (!records || source === undefined) return null;
-    if (source && observation === undefined) return null;
-    const snapshot = source?.snapshot ?? null;
+  const pending = useMemo(() => {
+    if (!records) return [];
     const names = new Map(records.map((record) => [record._id, record.name]));
-    const pending =
-      observation?.status === 'open' && observation.draft
-        ? pendingRoleChanges(observation.draft.activity.slots, names)
-        : [];
+    return observation?.status === 'open' && observation.draft
+      ? pendingRoleChanges(observation.draft.activity.slots, names)
+      : [];
+  }, [records, observation]);
+
+  // With a militia, wait for the open week too, so pending changes never
+  // appear late.
+  if (!records || source === undefined) return { status: 'loading' };
+  if (source && observation === undefined) return { status: 'loading' };
+
+  const names = new Map(records.map((record) => [record._id, record.name]));
+  const militia = source
+    ? { militiaId: source.key.militiaId, draftId: source.key.draftId }
+    : null;
+
+  function present(snapshot: Snapshot | null): CharactersPage {
     const rows = characterRows({
-      records,
+      records: records!,
       roster: snapshot?.roster ?? null,
       characters: snapshot?.characters ?? [],
     });
+    const visible = showArchived ? rows : rows.filter((row) => !row.archived);
+    const activeCount = rows.filter((row) => !row.archived).length;
+    const archivedCount = rows.length - activeCount;
+    const record =
+      target?.kind === 'edit'
+        ? records!.find((value) => value._id === target.id)
+        : undefined;
+    const editedRow =
+      target?.kind === 'edit'
+        ? rows.find((row) => row.characterId === target.id)
+        : undefined;
     return {
-      pending,
-      rows,
+      status: 'ready',
+      militia,
+      records: records!,
       officers: snapshot
         ? {
             focus: snapshot.focus,
@@ -105,54 +138,38 @@ export function useCharactersPage({
             }),
           }
         : null,
+      pending,
+      rows: visible,
+      counts: {
+        onRoster: rows.filter((row) => row.onRoster).length,
+        notOnRoster: rows.filter((row) => !row.onRoster && !row.archived)
+          .length,
+      },
+      emptyMessage:
+        showArchived && archivedCount === 0
+          ? 'No archived characters.'
+          : !showArchived && activeCount === 0
+            ? 'No active characters.'
+            : null,
+      showArchived,
+      setShowArchived,
+      links: {
+        activity: weekPath(campaignId, 'activity'),
+        teams: militiaPath(campaignId, 'teams'),
+        setup: campaignPath(campaignId, 'setup'),
+      },
+      dialog: {
+        target,
+        record,
+        archiveWarning:
+          editedRow && !editedRow.archived ? archiveKeeps(editedRow) : null,
+        openAdd: () => setTarget({ kind: 'add' }),
+        openEdit: (id) => setTarget({ kind: 'edit', id }),
+        close: () => setTarget(null),
+      },
+      present,
     };
-  }, [records, source, observation]);
+  }
 
-  if (!records || !derived) return { status: 'loading' };
-  const { rows } = derived;
-  const visible = showArchived ? rows : rows.filter((row) => !row.archived);
-  const activeCount = rows.filter((row) => !row.archived).length;
-  const archivedCount = rows.length - activeCount;
-  const record =
-    target?.kind === 'edit'
-      ? records.find((value) => value._id === target.id)
-      : undefined;
-  const editedRow =
-    target?.kind === 'edit'
-      ? rows.find((row) => row.characterId === target.id)
-      : undefined;
-
-  return {
-    status: 'ready',
-    officers: derived.officers,
-    pending: derived.pending,
-    rows: visible,
-    counts: {
-      onRoster: rows.filter((row) => row.onRoster).length,
-      notOnRoster: rows.filter((row) => !row.onRoster && !row.archived).length,
-    },
-    emptyMessage:
-      showArchived && archivedCount === 0
-        ? 'No archived characters.'
-        : !showArchived && activeCount === 0
-          ? 'No active characters.'
-          : null,
-    showArchived,
-    setShowArchived,
-    links: {
-      activity: weekPath(campaignId, 'activity'),
-      teams: militiaPath(campaignId, 'teams'),
-      setup: campaignPath(campaignId, 'setup'),
-      people: militiaPath(campaignId, 'people'),
-    },
-    dialog: {
-      target,
-      record,
-      archiveWarning:
-        editedRow && !editedRow.archived ? archiveKeeps(editedRow) : null,
-      openAdd: () => setTarget({ kind: 'add' }),
-      openEdit: (id) => setTarget({ kind: 'edit', id }),
-      close: () => setTarget(null),
-    },
-  };
+  return present(source?.snapshot ?? null);
 }
