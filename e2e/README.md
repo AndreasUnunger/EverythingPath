@@ -926,3 +926,29 @@ reached it, and its state is equivalent:
 Lost coverage: one player session no longer survives all four parts. Each
 part repeats the list-to-week opening, which adds about two page loads. No
 limit changed: every part keeps the 60 s test limit.
+
+### Area completion checks
+
+The area review of #140, #144, #146, #147 and #139 found browser layout gaps.
+They are closed without raising a limit or adding a page load to a journey
+near its limit:
+
+- **Upkeep (#140).** `workspaceUpkeepLayout` (above) checks the settlement
+  cards, missing-team row, Remove repair and rank feat cards at 390×844 and
+  1440×900 (`support/upkeep-layout.ts`).
+- **Persistent (#144).** `persistent-qa.ts` adds 844×390 and 1180×820 with the
+  reference panel closed to its resize loop; no page load.
+- **Finished weeks (#146).** The Confirmation contract's history step (300 s
+  limit, about 121 s) appends history through the guarded `appendHistory`
+  fixture and checks paging, gap-aware arrows, keyboard use and the three
+  layouts (`support/finished-weeks.ts`); one reload.
+- **Campaign home (#147).** `home` (60 s limit, 12–15 s) checks the home,
+  editor and create form at three sizes and opens one extra page whose Convex
+  responses are held to record the list skeleton
+  (`support/campaign-home-layout.ts`).
+- **Militia corrections (#139).** The sections part of access (60 s limit,
+  16–19 s) opens Values and a three-item Items correction at 390×844 on the
+  Militia page it already ends on; no page load (`support/militia-phone.ts`).
+
+Screenshots from these checks are named by project where a journey runs on
+several projects.
