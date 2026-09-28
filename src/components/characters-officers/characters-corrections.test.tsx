@@ -822,6 +822,22 @@ describe('an open correction keeps its controls and focus through a resize acros
     expect(within(correction).queryByRole('textbox')).toBeNull();
     const inStrip = () =>
       within(strip()).getByRole('textbox', { name: 'Reason for correction' });
+    // Reading and tab order as from 768px: reason, quick picks, Save, Cancel.
+    expect(
+      [...strip().querySelectorAll('input, button')].map((control) =>
+        control instanceof HTMLInputElement
+          ? control.labels?.[0]?.textContent
+          : control.textContent,
+      ),
+    ).toEqual([
+      'Reason for correction',
+      'Story change',
+      'Fixing a mistake',
+      'New officer joined',
+      'Character left',
+      'Save correction',
+      'Cancel',
+    ]);
 
     await click(button('Save correction', strip()));
     expect(calls).toHaveLength(0);

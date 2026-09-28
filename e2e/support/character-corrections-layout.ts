@@ -13,9 +13,10 @@ import {
 // section, its save point and its reason bar is reachable (inside the
 // viewport, page content above the phone bottom bar). On the phone the
 // reason bar sits in the strip above the tabs, which with the tabs takes at
-// most a third of the screen; from 768px it is in the save point. Officers also opens the Assign picker (an inline panel on the
-// phone, a floating dialog from 1280px) and a holder's ⋯ menu with its
-// Move to list. Both corrections are cancelled, so nothing changes.
+// most a third of the screen; from 768px it is in the save point. Officers
+// also opens the Assign picker (an inline panel on the phone, a floating
+// dialog from 1280px) and a holder's ⋯ menu with its Move to list. Both
+// corrections are cancelled, so nothing changes.
 
 /** On the roster, holding `role`; `vacant` is a role nobody holds. */
 type Holder = { name: string; role: string; vacant: string };

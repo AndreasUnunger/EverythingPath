@@ -173,14 +173,14 @@ function ReasonBar({
   const { view, reason } = correction;
   const editing = view.kind === 'editing';
   // The pieces are the same in both layouts; only their arrangement differs.
-  const input = (
+  const reasonInput = (className?: string) => (
     <Input
       {...reason.register}
       id={id}
       disabled={!editing}
       aria-invalid={reason.error ? true : undefined}
       aria-describedby={reason.error ? errorId : undefined}
-      className="h-11 md:h-9"
+      className={cn('h-11 md:h-9', className)}
       onKeyDown={(event) => {
         if (event.key !== 'Enter') return;
         event.preventDefault();
@@ -188,7 +188,7 @@ function ReasonBar({
       }}
     />
   );
-  const error = (className?: string) =>
+  const errorMessage = (className?: string) =>
     reason.error && (
       <p
         id={errorId}
@@ -201,7 +201,7 @@ function ReasonBar({
         <span className="min-w-0 [overflow-wrap:anywhere]">{reason.error}</span>
       </p>
     );
-  const chips = (className: string, chipClassName?: string) => (
+  const quickReasons = (className: string, chipClassName?: string) => (
     <div
       role="group"
       aria-label="Quick reasons"
@@ -224,7 +224,7 @@ function ReasonBar({
       ))}
     </div>
   );
-  const save = (className?: string) => (
+  const saveButton = (className?: string) => (
     <Button
       type="button"
       className={cn(action, className)}
@@ -234,39 +234,44 @@ function ReasonBar({
       {view.kind === 'saving' ? SAVING_MESSAGE : 'Save correction'}
     </Button>
   );
-  const cancel = (
+  const cancelButton = (className?: string) => (
     <Button
       type="button"
       variant="outline"
-      className={action}
+      className={cn(action, className)}
       disabled={!editing}
       onClick={correction.cancel}
     >
       Cancel
     </Button>
   );
-  const saving = view.kind === 'saving' && (
+  const savingStatus = view.kind === 'saving' && (
     <p role="status" className="sr-only">
       {SAVING_MESSAGE}
     </p>
   );
   if (inStrip) {
+    // The DOM keeps the wide layout's reading and tab order; the grid places
+    // Cancel and Save on the right of the label and input. The error and the
+    // chips auto-place below them, spanning both columns, so the long message
+    // rarely wraps and the chips share a row, wrapping text inside instead.
     return (
       <div
         data-reason-bar
         className="bg-background grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 px-3 py-2"
       >
-        <Label htmlFor={id} className="self-center">
+        <Label htmlFor={id} className="col-start-1 row-start-1 self-center">
           {reason.label}
         </Label>
-        {cancel}
-        {input}
-        {save('self-start')}
-        {/* The error takes a full row so the long message rarely wraps. */}
-        {error('col-span-2')}
-        {/* Chips share the row where they fit, wrapping text inside instead. */}
-        {chips('col-span-2', 'flex-1 basis-16 justify-center text-center')}
-        {saving}
+        {reasonInput('col-start-1 row-start-2')}
+        {errorMessage('col-span-2')}
+        {quickReasons(
+          'col-span-2',
+          'flex-1 basis-16 justify-center text-center',
+        )}
+        {saveButton('col-start-2 row-start-2 self-start')}
+        {cancelButton('col-start-2 row-start-1')}
+        {savingStatus}
       </div>
     );
   }
@@ -279,14 +284,14 @@ function ReasonBar({
         {reason.label}
       </Label>
       <div className="grid gap-1 md:max-w-md md:min-w-56 md:flex-1">
-        {input}
-        {error()}
+        {reasonInput()}
+        {errorMessage()}
       </div>
-      {chips('md:min-h-9 md:items-center')}
+      {quickReasons('md:min-h-9 md:items-center')}
       <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-        {save()}
-        {cancel}
-        {saving}
+        {saveButton()}
+        {cancelButton()}
+        {savingStatus}
       </div>
     </div>
   );
