@@ -114,12 +114,16 @@ vi.mock('~/components/ui/select', () => {
       const trigger = Children.toArray(children).find(
         (child) => isValidElement(child) && child.type === SelectTrigger,
       );
-      const label = isValidElement<{ 'aria-label'?: string }>(trigger)
-        ? trigger.props['aria-label']
-        : undefined;
+      const { 'aria-label': label, title } = isValidElement<{
+        'aria-label'?: string;
+        title?: string;
+      }>(trigger)
+        ? trigger.props
+        : {};
       return (
         <select
           aria-label={label}
+          title={title}
           value={value}
           disabled={disabled}
           onChange={(event) => onValueChange?.(event.target.value)}
@@ -265,6 +269,12 @@ test('a member campaign renders its page with the switcher, section links and th
   expect(screen.getByText('Page for Alpha')).toBeVisible();
   const switcher = screen.getByRole('combobox', { name: 'Active campaign' });
   expect(switcher).toHaveValue('alpha');
+  // A truncated name stays readable in full.
+  expect(switcher).toHaveAttribute('title', 'Alpha');
+  for (const control of screen.getAllByRole('combobox', {
+    name: 'Organization',
+  }))
+    expect(control).toHaveAttribute('title', 'Thursday table');
   expect(
     Array.from(switcher.querySelectorAll('option')).map(
       (option) => option.textContent,

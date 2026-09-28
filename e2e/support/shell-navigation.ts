@@ -13,6 +13,7 @@ import {
   expectDocumentScrolledPage,
   expectNoHorizontalOverflow,
   expectReachable,
+  expectTopBarOneRow,
 } from './responsive-shell';
 
 // The access journey's shell checks, split into parts that each start where
@@ -146,6 +147,8 @@ export async function exerciseImmediateSectionNavigation(page: Page) {
         : page.getByRole('button', { name: 'Correct values', exact: true }),
     ).toBeVisible();
     await expect(page.getByRole('status', { name: loading })).toHaveCount(0);
+    // Tablet landscape keeps the slim one-row top bar on a section page.
+    if (size.width >= 768) await expectTopBarOneRow(page);
   }
   await page.setViewportSize(original);
   await page.goto(week.href);
