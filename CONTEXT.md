@@ -73,3 +73,7 @@ The uncommitted militia action occupying an Action Slot, including its assigned 
 
 **Officer**:
 A roster person who holds at least one officer role. An NPC is an Officer exactly while holding a role, which decides their team-manager limit; a stored character kind never makes one.
+
+## Related documents
+
+- [Legacy compatibility inventory](docs/legacy-compatibility-inventory.md): code kept only for data shapes older than the current writers produce, and when each path can be removed.
