@@ -14,7 +14,7 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WorkspaceGateway } from './gateway';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { WeeklyWorkspaceBoard } from './board';
-import { sameConfirm } from './confirm-control-test-helpers';
+import { expectSameConfirm } from './confirm-control-test-helpers';
 import { PersistentView } from './persistent-view';
 import type {
   LocalFormGuard,
@@ -136,7 +136,7 @@ test('[PER-06.guard] a half-typed table ending survives leaving Persistent and h
   const message = decisions.getByText(
     'Theft · Event 1 ending needs a reason. Save how it ended, or choose another decision.',
   );
-  expect(sameConfirm()).toBeDisabled();
+  expect(expectSameConfirm()).toBeDisabled();
   expect(
     screen.getAllByText('Save or cancel your unsaved change first.').length,
   ).toBeGreaterThan(0);

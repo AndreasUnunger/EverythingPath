@@ -16,7 +16,10 @@ import type { Phase } from './types';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { useWeeklyDraftWorkspace } from './use-weekly-draft-workspace';
 import { CanonicalWorkspaceScreen, WeeklyWorkspaceBoard } from './board';
-import { pinnedConfirm, sameConfirm } from './confirm-control-test-helpers';
+import {
+  pinnedConfirm,
+  expectSameConfirm,
+} from './confirm-control-test-helpers';
 import { createDraftPersistence } from '~/lib/weekly-draft-persistence';
 import {
   DraftRejected,
@@ -318,7 +321,7 @@ test.each(['event', 'summary'] as const)(
     const writeControl = () =>
       opening === 'event'
         ? screen.getByRole('textbox', { name: 'Event chance roll' })
-        : sameConfirm();
+        : expectSameConfirm();
     expect(notice()).toBeEmptyDOMElement();
     let release!: () => void;
     act(() => {
@@ -629,7 +632,7 @@ test('[frame.readiness] every position shows readiness from one optimistic snaps
   const lines = document.querySelectorAll('[data-week-readiness]');
   for (const line of lines)
     expect(line).toHaveTextContent(/^(\d+ decisions? left|Review .*)$/);
-  expect(sameConfirm()).toBeDisabled();
+  expect(expectSameConfirm()).toBeDisabled();
 });
 
 // The status and the other-player note fill the shell's top-bar position
@@ -805,7 +808,7 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   factory.mockImplementation(() => gateway);
   render(host({ phase: 'summary' }));
   await screen.findByRole('heading', { name: 'Week 4 · Review & confirm' });
-  await waitFor(() => expect(sameConfirm()).toBeEnabled());
+  await waitFor(() => expect(expectSameConfirm()).toBeEnabled());
   // The footer's pinned Confirm starts it; both then read Confirming….
   await act(async () => {
     fireEvent.click(pinnedConfirm());
@@ -813,7 +816,7 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   await waitFor(() =>
     expect(status()).toHaveTextContent('Confirming the week…'),
   );
-  const confirming = sameConfirm();
+  const confirming = expectSameConfirm();
   expect(confirming).toHaveAccessibleName('Confirming…');
   expect(confirming).toBeDisabled();
   expect(pinnedConfirm()).toHaveAccessibleName('Confirming…');
@@ -826,8 +829,8 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
   });
-  expect(sameConfirm()).toHaveAccessibleName('Confirming…');
-  expect(sameConfirm()).toBeDisabled();
+  expect(expectSameConfirm()).toHaveAccessibleName('Confirming…');
+  expect(expectSameConfirm()).toBeDisabled();
   expect(status()).toHaveTextContent('Confirming the week…');
   fireEvent.click(screen.getByRole('button', { name: 'Event' }));
   expect(

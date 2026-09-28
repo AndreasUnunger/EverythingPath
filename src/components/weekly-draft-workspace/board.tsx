@@ -17,7 +17,7 @@ import {
   type WorkspaceController,
 } from './use-weekly-draft-workspace';
 import { SummaryView } from './summary-view';
-import { confirmControl } from './confirm-control';
+import { readConfirmControl } from './confirm-control';
 import { PersistentView } from './persistent-view';
 import { EventView } from './event-view';
 import { ActivityView } from './activity-view';
@@ -240,7 +240,7 @@ export function WeeklyWorkspaceBoard({
   const disabled = workspace.editingDisabled;
   // One Confirmation control, shown in the review block and pinned in the
   // frame's footer and phone strip on Review & confirm.
-  const confirmation = confirmControl(workspace);
+  const confirmation = readConfirmControl(workspace);
   const feedback = (
     <WorkspaceFeedback workspace={workspace} inShell={inShell} />
   );

@@ -15,7 +15,10 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WorkspaceGateway } from './gateway';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { WeeklyWorkspaceBoard } from './board';
-import { pinnedConfirm, sameConfirm } from './confirm-control-test-helpers';
+import {
+  pinnedConfirm,
+  expectSameConfirm,
+} from './confirm-control-test-helpers';
 
 // The real store, persistence client and memory authority behind the live
 // Summary: this device's open adjustment form holds its own Confirm, the
@@ -94,7 +97,7 @@ function confirmableWeek() {
 }
 
 // The review block's Confirm, checked against the frame's pinned one.
-const confirmButton = () => sameConfirm();
+const confirmButton = () => expectSameConfirm();
 
 test('[rules.P85.local-confirm-guard] an open or invalid adjustment form disables this device’s Confirm until Save, and a Save keeps another device’s adjustment', async () => {
   const week = confirmableWeek();

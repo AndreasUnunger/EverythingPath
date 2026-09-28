@@ -14,7 +14,10 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { WorkspaceGateway } from './gateway';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import { WeeklyWorkspaceBoard } from './board';
-import { pinnedConfirm, sameConfirm } from './confirm-control-test-helpers';
+import {
+  pinnedConfirm,
+  expectSameConfirm,
+} from './confirm-control-test-helpers';
 
 // The live review block over the real store, persistence client and memory
 // authority: Go links move only this player's Phase View to the source, and
@@ -113,7 +116,7 @@ function renderReview() {
   );
 }
 // The review block's Confirm, checked against the frame's pinned one.
-const confirmButton = () => sameConfirm();
+const confirmButton = () => expectSameConfirm();
 const nextFrame = () =>
   act(
     () =>

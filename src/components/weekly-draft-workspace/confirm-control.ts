@@ -16,7 +16,7 @@ export type ConfirmControl = {
   confirm: () => void;
 };
 
-export function confirmControl(
+export function readConfirmControl(
   workspace: Extract<WeeklyDraftWorkspace, { status: 'ready' }>,
 ): ConfirmControl {
   return {

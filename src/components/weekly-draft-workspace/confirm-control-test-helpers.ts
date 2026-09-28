@@ -32,7 +32,7 @@ export function pinnedConfirm() {
  * The review block's Confirm week, after checking that every pinned Confirm
  * shows the same control: the same name, enabled state and pending flag.
  */
-export function sameConfirm() {
+export function expectSameConfirm() {
   const top = within(
     screen.getByRole('region', { name: 'Review the week' }),
   ).getByRole('button', { name: confirmName });

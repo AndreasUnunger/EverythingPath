@@ -142,34 +142,54 @@ function PinnedConfirm({
         aria-busy={confirming || undefined}
         disabled={disabled}
         onClick={confirm}
+        // At least 44px at every size, short viewports included: a landscape
+        // phone still shows the footer and is still touched.
         className={cn(
           'shrink-0',
-          compact
-            ? 'h-10 min-w-10 gap-1 px-2 text-xs has-[>svg]:px-2'
-            : 'short:h-8 short:px-3',
+          compact ? 'h-10 min-w-10 gap-1 px-2 text-xs' : 'short:px-3',
         )}
       >
-        <Flag aria-hidden />
-        {compact ? (confirming ? name : 'Confirm') : name}
-        {warnings && (
-          <span aria-hidden className="inline-flex items-center gap-1">
-            {compact ? (
-              <>
-                {' '}
-                · {step.warnings.length}
-                <AlertTriangle className="size-3" />
-              </>
-            ) : (
-              ` · ${warnings}`
-            )}
-          </span>
+        {compact ? (
+          <CompactConfirmLabel
+            confirming={confirming}
+            warnings={warnings ? step.warnings.length : 0}
+          />
+        ) : (
+          <>
+            <Flag aria-hidden />
+            {name}
+            {warnings ? <span aria-hidden>{` · ${warnings}`}</span> : null}
+          </>
         )}
       </Button>
-      {warnings && (
+      {warnings ? (
         <span id={countId} className="sr-only">
           {warnings}
         </span>
-      )}
+      ) : null}
+    </>
+  );
+}
+
+// The strip's short form leaves Training and Treasury their room: no icon
+// before the label, the count as a number beside a warning glyph.
+function CompactConfirmLabel({
+  confirming,
+  warnings,
+}: {
+  confirming: boolean;
+  warnings: number;
+}) {
+  if (confirming) return 'Confirming…';
+  return (
+    <>
+      Confirm
+      {warnings > 0 ? (
+        <span aria-hidden className="inline-flex items-center gap-1">
+          {` · ${warnings}`}
+          <AlertTriangle className="size-3" />
+        </span>
+      ) : null}
     </>
   );
 }
@@ -180,7 +200,7 @@ function PinnedConfirm({
 function Footer(frame: Frame) {
   const step = currentStep(frame);
   const reasonId = useId();
-  const summary = frame.phase === 'summary';
+  const isSummary = frame.phase === 'summary';
   return (
     <footer
       data-week-footer
@@ -200,12 +220,12 @@ function Footer(frame: Frame) {
         data-week-readiness
         className={cn(
           'text-muted-foreground short:text-xs min-w-0 flex-1 text-sm',
-          summary ? 'text-right' : 'text-center',
+          isSummary ? 'text-right' : 'text-center',
         )}
       >
         {step ? readinessLine(step, frame.confirmation.reason) : ''}
       </p>
-      {summary && step ? (
+      {isSummary && step ? (
         <PinnedConfirm
           confirmation={frame.confirmation}
           step={step}
