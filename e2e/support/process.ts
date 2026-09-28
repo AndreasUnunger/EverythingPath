@@ -241,6 +241,7 @@ export async function canonicalPersistenceFixtureCall(
     | 'close'
     | 'changeSource'
     | 'blockSuccessor'
+    | 'appendHistory'
     | 'inspect',
   args: Record<string, unknown>,
 ): Promise<unknown> {
@@ -265,6 +266,7 @@ export async function canonicalPersistenceFixtureCall(
       'changeSource',
       'blockSuccessor',
       'installAcceptanceSource',
+      'appendHistory',
     ].includes(operation) &&
     !output.trim()
   )
