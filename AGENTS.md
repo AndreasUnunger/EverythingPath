@@ -71,7 +71,7 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 - Militia state updates must sync to all connected players in real time through Convex.
 - Collaboration is fully shared: any player can make allowed changes.
 - Action slots are shared: any player may edit any slot until the week is confirmed, and the latest change wins.
-- Clients should show immediate visual acknowledgement when changes are saved, fail to save, or arrive from other players.
+- Clients should show immediate visual acknowledgement when changes fail to save or arrive from other players; saving is acknowledged where it happens.
 
 ### Card Selection Interaction Model
 
