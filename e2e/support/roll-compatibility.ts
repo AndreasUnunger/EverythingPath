@@ -13,7 +13,7 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
-import { saveStatus } from './week-frame';
+import { reviewConfirm, saveStatus } from './week-frame';
 
 type DraftKey = z.infer<typeof draftKeySchema>;
 // Test-only construction of the approved dice-total form. No page writes this
@@ -160,9 +160,7 @@ export async function exerciseRollCompatibility(
       first.getByText('1d100 · total of the dice only').first(),
     ).toBeVisible();
     await phase(first, 'Review & confirm');
-    await expect(
-      first.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(first)).toBeEnabled();
     await expect(first.getByRole('main')).toContainText(
       /outside its usual range/,
     );
@@ -184,9 +182,7 @@ export async function exerciseRollCompatibility(
       ).toBeVisible();
     }
     await phase(second, 'Review & confirm');
-    await expect(
-      second.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeDisabled();
+    await expect(reviewConfirm(second)).toBeDisabled();
     await expect(
       second
         .getByRole('region', { name: 'Required decisions', exact: true })
@@ -215,9 +211,7 @@ export async function exerciseRollCompatibility(
     await expect(saveStatus(first)).toHaveText('Changes saved.');
     await expect(field(second, 'Attrition Loyalty roll')).toHaveValue('0');
     await phase(second, 'Review & confirm');
-    await expect(
-      second.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
+    await expect(reviewConfirm(second)).toBeEnabled();
     await phase(second, 'Upkeep');
     // The other device shows the re-entered total beside the untouched
     // recorded totals; storage-shape equality belongs to the persistence

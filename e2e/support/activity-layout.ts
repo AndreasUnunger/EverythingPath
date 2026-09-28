@@ -18,6 +18,7 @@ import type { controlTransport } from './transport';
 import {
   confirmedWeekNotice,
   expectConfirmedWeek,
+  reviewConfirm,
   saveStatus,
 } from './week-frame';
 import type { FixtureScope } from '../fixtures/catalog';
@@ -330,10 +331,7 @@ export async function confirmWithOpenPicker(
   await player
     .getByRole('button', { name: 'Review & confirm', exact: true })
     .click();
-  const confirm = player.getByRole('button', {
-    name: 'Confirm week',
-    exact: true,
-  });
+  const confirm = reviewConfirm(player);
   await expect(confirm).toBeEnabled();
   await empty(gm, 1).click();
   const sheet = gm.getByRole('dialog', {

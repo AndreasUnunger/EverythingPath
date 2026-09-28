@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { expect, type Page } from '@playwright/test';
 import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
-import { saveStatus } from './week-frame';
+import { reviewConfirm, saveStatus } from './week-frame';
 import {
   expectControlsReachable,
   expectNoHorizontalOverflow,
@@ -339,12 +339,8 @@ export async function exerciseMilitiaSetup(
     await players.player
       .getByRole('button', { name: 'Review & confirm', exact: true })
       .click();
-    await expect(
-      players.player.getByRole('button', { name: 'Confirm week', exact: true }),
-    ).toBeEnabled();
-    await players.player
-      .getByRole('button', { name: 'Confirm week', exact: true })
-      .click();
+    await expect(reviewConfirm(players.player)).toBeEnabled();
+    await reviewConfirm(players.player).click();
     await expect(
       players.player.getByRole('heading', {
         name: `Week ${existing ? 13 : 2} · Upkeep`,

@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
-import { expectSaveFailed, saveStatus } from './week-frame';
+import { expectSaveFailed, reviewConfirm, saveStatus } from './week-frame';
 
 // The fixture week is rank 2 (two actions) with slots 1–2 inside the
 // allowance, an empty extra slot 3, and the recovered Patrons team Scouts.
@@ -164,9 +164,7 @@ export async function exerciseActivityWorkspace(
   await gm
     .getByRole('button', { name: 'Review & confirm', exact: true })
     .click();
-  await expect(
-    gm.getByRole('button', { name: 'Confirm week', exact: true }),
-  ).toBeDisabled();
+  await expect(reviewConfirm(gm)).toBeDisabled();
   await expect(
     gm
       .getByRole('region', { name: 'Required decisions' })
