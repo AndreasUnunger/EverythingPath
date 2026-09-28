@@ -10,15 +10,15 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 // The document, and on the bounded Week route also the frame that clips it,
 // the editor column that scrolls, the docked reference panel and any open
-// dialog or sheet, all fit their own width. The top bar and its status
-// position (#153) are checked by their boxes too: a header that clips its
-// own overflow would hide controls without any document overflow.
+// dialog or sheet, all fit their own width. The top bar's controls are
+// checked by their boxes too: a header that clips its own overflow would
+// hide controls without any document overflow.
 export async function expectNoHorizontalOverflow(page: Page) {
   const overflowing = await page.evaluate(() => {
     const boxes = [
       document.documentElement,
       ...document.querySelectorAll(
-        'header, [data-shell-slot="top-bar-status"], [data-shell-frame="bounded"], [data-week-host], [data-week-editor], [data-week-reference], [role="dialog"]',
+        'header, [data-shell-frame="bounded"], [data-week-host], [data-week-editor], [data-week-reference], [role="dialog"]',
       ),
     ];
     return boxes
@@ -28,9 +28,7 @@ export async function expectNoHorizontalOverflow(page: Page) {
   expect(overflowing, 'no horizontal overflow').toEqual([]);
   const { width } = page.viewportSize()!;
   for (const box of await page
-    .locator(
-      'header :is(a, button, [role="combobox"], [data-week-status], [data-week-remote-note]):visible',
-    )
+    .locator('header :is(a, button, [role="combobox"]):visible')
     .all()) {
     const bounds = (await box.boundingBox())!;
     expect(
@@ -46,8 +44,9 @@ export async function expectNoHorizontalOverflow(page: Page) {
 
 /**
  * The top bar's own row stays one line: every visible control in it shares
- * a horizontal band. At the 1194px tablet size a section page without the
- * week's status fits one slim row (#135 §1, #198). The maintenance banner
+ * a horizontal band. At tablet landscape (1180 and 1194px) every page,
+ * the Week included now that the top bar carries no save status, fits one
+ * slim row (#135 §1, #198). The maintenance banner
  * above it is not part of the row.
  */
 export async function expectTopBarOneRow(page: Page) {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { expect, type Page } from '@playwright/test';
 import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
-import { reviewConfirm, saveStatus } from './week-frame';
+import { reviewConfirm, saveState } from './week-frame';
 import {
   expectControlsReachable,
   expectNoHorizontalOverflow,
@@ -312,7 +312,10 @@ export async function exerciseMilitiaSetup(
       });
       await training.fill('1');
       await training.blur();
-      await expect(saveStatus(players.player)).toHaveText('Changes saved.');
+      await expect(saveState(players.player)).toHaveAttribute(
+        'data-week-feedback',
+        'saved',
+      );
       // A natural 20 gains the 1d6 training roll.
       await expect(
         players.player.getByRole('region', {

@@ -195,8 +195,8 @@ function CompactConfirmLabel({
 }
 
 // Tablet and desktop: pinned under the phase content. The readiness line is
-// plain text (not a live region) so the shell's single save status stays the
-// only announced status; counts change too often to announce while typing.
+// plain text (not a live region): counts change too often to announce while
+// typing, and only the failure alert and other-player note are announced.
 function Footer(frame: Frame) {
   const step = currentStep(frame);
   const reasonId = useId();
@@ -296,14 +296,13 @@ function Strip(frame: Frame) {
 /**
  * The shared frame around one mounted phase editor: an accessible heading
  * (the visible week and step live in the shell tab and the stepper), the
- * status row with the setup-notes button and the panel toggle, the stepper
- * (tablet row / desktop rail / phone step button and sheet), the scrolling
- * editor with its footer, the docked reference panel beside them from
- * tablet width (a third column on desktop), and the phone strip.
+ * status row with the setup-notes button, the stepper (tablet row / desktop
+ * rail / phone step button and sheet) with the panel toggle at its end,
+ * the scrolling editor with its footer, the docked reference panel beside
+ * them from tablet width (a third column on desktop), and the phone strip.
  *
- * `status` is the save status when the shell offers no top-bar position
- * (the standalone screen); inside the shell it is portalled there instead
- * and this row shows only the confirmed-week `notice`, when there is one.
+ * `status` is the failed-save alert and the other-player note, both empty
+ * in the normal state; the row also holds the confirmed-week `notice`.
  */
 export function WeekFrame({
   status,
@@ -321,13 +320,19 @@ export function WeekFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <h1 className="sr-only">{weekHeading(frame.week, frame.phase)}</h1>
-      <div className="short:pt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 md:px-4">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+      {/* Collapses, padding included, while nothing in it has content: the
+          failure alert is not rendered unless a save failed, the remote-note
+          and notice regions stay mounted but empty, and notes renders nothing
+          without setup notes. */}
+      <div className="short:pt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 not-has-[:not(:empty):not([data-week-status-row-group])]:hidden md:px-4">
+        <div
+          data-week-status-row-group
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1"
+        >
           {status}
           {notice}
         </div>
         {notes}
-        <ReferencePanelToggle panel={frame.reference.panel} />
       </div>
       <PhoneSteps
         week={frame.week}
@@ -342,6 +347,7 @@ export function WeekFrame({
           phase={frame.phase}
           choose={frame.choose}
           className="xl:border-foreground/15 short:pt-1 shrink-0 px-3 pt-2 md:px-4 xl:min-h-0 xl:overflow-y-auto xl:border-r xl:p-3"
+          end={<ReferencePanelToggle panel={frame.reference.panel} />}
         />
         {/* Tablet: editor column and panel side by side under the stepper.
             Desktop: the same two become the grid's middle and right columns. */}

@@ -11,7 +11,7 @@ import {
   referencePanel,
   remoteChangeNote,
   reviewConfirm,
-  saveStatus,
+  saveState,
 } from './support/week-frame';
 
 const heading = (page: Page, name: string) =>
@@ -81,7 +81,7 @@ test('a player confirms a complete week, every device moves to the next week onc
   await step(gm, 'Event');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
-  await expect(saveStatus(gm)).toHaveText('Changes saved.');
+  await expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   await step(player, 'Event');
   await expect(chanceRoll(player)).toHaveValue('100');
   await expect(remoteChangeNote(player)).toHaveText(
@@ -108,7 +108,10 @@ test('a player confirms a complete week, every device moves to the next week onc
     // review block's shows the same pending control.
     await expect(pinnedConfirm(gm)).toBeEnabled();
     await pinnedConfirm(gm).click();
-    await expect(saveStatus(gm)).toHaveText('Confirming the week…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     const confirming = [
       reviewConfirm(gm, 'Confirming…'),
       pinnedConfirm(gm, 'Confirming…'),
@@ -130,7 +133,10 @@ test('a player confirms a complete week, every device moves to the next week onc
     await expect(chanceRoll(gm)).toBeDisabled();
     await expect(chanceRoll(gm)).toHaveValue('100');
     await expect(militiaValues(gm)).toBeVisible();
-    await expect(saveStatus(gm)).toHaveText('Confirming the week…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     // Observer: same old facts, its own phase, every weekly write disabled,
     // Summary explains the wait; no notice, no skeleton.
     await expect(heading(player, 'Week 1 · Activity')).toBeVisible();
@@ -150,7 +156,10 @@ test('a player confirms a complete week, every device moves to the next week onc
     await expect(pinnedConfirm(player)).toHaveAccessibleDescription(
       /Opening the next week…$/,
     );
-    await expect(saveStatus(player)).not.toHaveText('Confirming the week…');
+    await expect(saveState(player)).not.toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     for (const page of [gm, player])
       await expect(page.locator('[data-week-skeleton]')).toHaveCount(0);
     // The unheld watcher simply observes the successor: Week 2 on Upkeep,
@@ -164,7 +173,10 @@ test('a player confirms a complete week, every device moves to the next week onc
     await expectConfirmedWeek(player, 1);
     await expect(heading(gm, 'Week 1 · Event')).toBeVisible();
     await expect(confirmedWeekNotice(gm)).toBeEmpty();
-    await expect(saveStatus(gm)).toHaveText('Confirming the week…');
+    await expect(saveState(gm)).toHaveAttribute(
+      'data-week-feedback',
+      'confirming',
+    );
     await expect(chanceRoll(gm)).toBeDisabled();
     gmHold.release();
     await expectConfirmedWeek(gm, 1);
@@ -182,7 +194,10 @@ test('a player confirms a complete week, every device moves to the next week onc
   await watcher.close();
   expect(await gmSkeletons(), 'no skeleton on the caller').toBe(0);
   expect(await playerSkeletons(), 'no skeleton on the observer').toBe(0);
-  await expect(saveStatus(gm)).not.toHaveText('Confirming the week…');
+  await expect(saveState(gm)).not.toHaveAttribute(
+    'data-week-feedback',
+    'confirming',
+  );
   await expect(
     gm.getByRole('button', { name: 'Confirming…', exact: true }),
   ).toHaveCount(0);
@@ -200,7 +215,7 @@ test('a player confirms a complete week, every device moves to the next week onc
   await expect(chanceRoll(gm)).toHaveValue('');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
-  await expect(saveStatus(gm)).toHaveText('Changes saved.');
+  await expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   await expect(remoteChangeNote(player)).toHaveText(
     'Another player changed Event.',
   );

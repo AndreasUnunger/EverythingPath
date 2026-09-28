@@ -13,7 +13,7 @@ import {
   expectNoHorizontalOverflow,
   expectReachable,
 } from './responsive-shell';
-import { reviewConfirm, saveStatus } from './week-frame';
+import { reviewConfirm, saveState } from './week-frame';
 
 type DraftKey = z.infer<typeof draftKeySchema>;
 // Test-only construction of the approved dice-total form. No page writes this
@@ -198,7 +198,10 @@ export async function exerciseRollCompatibility(
         exact: true,
       })
       .click();
-    await expect(saveStatus(first)).toHaveText('Changes saved.');
+    await expect(saveState(first)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     for (const page of [first, second]) {
       await expect(field(page, 'Attrition training roll')).toHaveValue('');
       await expect(
@@ -208,7 +211,10 @@ export async function exerciseRollCompatibility(
     // Deliberate re-entry writes one 2d4 total; the other device mirrors it.
     await field(first, 'Attrition training roll').fill('7');
     await expect(field(second, 'Attrition training roll')).toHaveValue('7');
-    await expect(saveStatus(first)).toHaveText('Changes saved.');
+    await expect(saveState(first)).toHaveAttribute(
+      'data-week-feedback',
+      'saved',
+    );
     await expect(field(second, 'Attrition Loyalty roll')).toHaveValue('0');
     await phase(second, 'Review & confirm');
     await expect(reviewConfirm(second)).toBeEnabled();

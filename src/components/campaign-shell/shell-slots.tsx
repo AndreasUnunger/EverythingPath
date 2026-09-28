@@ -9,11 +9,11 @@ import {
 import { createPortal } from 'react-dom';
 import { cn } from '~/lib/utils';
 
-// Positions the shell reserves for the Week frame (#137): the phone status
-// strip immediately above the bottom bar, and the save/other-player note in
-// the top bar. The shell renders the hosts; the week page fills them through
-// portals, so the shell holds none of the week's state.
-type SlotName = 'phone-status-strip' | 'top-bar-status';
+// The position the shell reserves for the Week frame (#137): the phone status
+// strip immediately above the bottom bar. The shell renders the host; the
+// week page fills it through a portal, so the shell holds none of the week's
+// state.
+type SlotName = 'phone-status-strip';
 type Hosts = Partial<Record<SlotName, HTMLElement | null>>;
 type Register = (name: SlotName, host: HTMLElement | null) => void;
 // Two contexts: the registrar is stable so host refs attach once; the hosts
@@ -79,9 +79,4 @@ export function useShellSlotHost(name: SlotName) {
 /** Phone only: rendered immediately above the bottom bar, below the page. */
 export function PhoneStatusStrip({ children }: { children: ReactNode }) {
   return <ShellSlot name="phone-status-strip">{children}</ShellSlot>;
-}
-
-/** Top bar, right of the section links at every width. */
-export function TopBarStatus({ children }: { children: ReactNode }) {
-  return <ShellSlot name="top-bar-status">{children}</ShellSlot>;
 }

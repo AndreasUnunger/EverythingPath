@@ -299,8 +299,15 @@ test('[shell.no-militia] a campaign without a militia keeps setup reachable with
 function notice() {
   return document.querySelector<HTMLElement>('[data-week-confirmed]')!;
 }
-function status() {
-  return document.querySelector<HTMLElement>('[data-week-status]')!;
+// The store's save state, read from the board's invisible hook: the
+// top-bar save status was removed (2026-09-28), so nothing shows it.
+function feedback() {
+  return document
+    .querySelector<HTMLElement>('[data-week-feedback]')
+    ?.getAttribute('data-week-feedback');
+}
+function failure() {
+  return document.querySelector<HTMLElement>('[data-week-save-failure]');
 }
 function remoteNote() {
   return document.querySelector<HTMLElement>('[data-week-remote-note]')!;
@@ -333,7 +340,7 @@ test.each(['event', 'summary'] as const)(
     expect(writeControl()).toBeDisabled();
     expect(screen.getByText('Shell week: 4')).toBeInTheDocument();
     expect(screen.getByRole('table', { name: 'Militia values' })).toBeVisible();
-    expect(status()).toHaveTextContent('Prepare the week together.');
+    expect(feedback()).toBe('idle');
     expect(notice()).toBeEmptyDOMElement();
     fireEvent.click(screen.getByRole('button', { name: 'Upkeep' }));
     expect(
@@ -434,7 +441,7 @@ test('[shell.successor-implicit] an observer already on Upkeep publishes phase=u
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
   });
-  await waitFor(() => expect(status()).toHaveTextContent('Changes saved.'));
+  await waitFor(() => expect(feedback()).toBe('saved'));
   fireEvent.click(within(notice()).getByRole('button', { name: 'Dismiss' }));
   expect(notice()).toBeEmptyDOMElement();
   view.rerender(host({ phase: 'upkeep', onPhaseChange }));
@@ -635,31 +642,40 @@ test('[frame.readiness] every position shows readiness from one optimistic snaps
   expect(expectSameConfirm()).toBeDisabled();
 });
 
-// The status and the other-player note fill the shell's top-bar position
-// when it exists and the frame's own row otherwise; there is exactly one
-// status element either way.
-test('[feedback.placement] the status fills the shell position when offered, otherwise the frame row, never both', async () => {
+// The top-bar save status was removed at the user's request (2026-09-28,
+// amending #137): nothing shows idle, saving, saved or confirming, in the
+// shell or standalone. The other-player note stays in the frame's own row.
+test('[feedback.placement] no save status is shown; the other-player note sits in the frame row, never the top bar', async () => {
   const gateway = fixture();
   factory.mockImplementation(() => gateway);
   const view = render(
     <ShellSlotProvider>
       <header>
-        <ShellSlotHost name="top-bar-status" />
+        <ShellSlotHost name="phone-status-strip" />
       </header>
       {host({ phase: 'upkeep' })}
     </ShellSlotProvider>,
   );
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
-  expect(document.querySelectorAll('[data-week-status]')).toHaveLength(1);
-  expect(status().closest('header')).not.toBeNull();
-  expect(remoteNote().closest('header')).not.toBeNull();
-  expect(status()).toHaveTextContent('Prepare the week together.');
+  for (const text of [
+    'Prepare the week together.',
+    'Saving changes…',
+    'Changes saved.',
+    'Confirming the week…',
+  ])
+    expect(screen.queryByText(text)).not.toBeInTheDocument();
+  expect(document.querySelector('[data-week-status]')).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: /Show status details$/ }),
+  ).not.toBeInTheDocument();
+  expect(remoteNote().closest('[data-shell-slot]')).toBeNull();
+  expect(remoteNote().closest('[data-week-editor]')).toBeNull();
+  expect(failure()).toBeNull();
   view.unmount();
   render(host({ phase: 'upkeep' }));
   await screen.findByRole('heading', { name: 'Week 4 · Upkeep' });
-  expect(document.querySelectorAll('[data-week-status]')).toHaveLength(1);
-  expect(status().closest('header')).toBeNull();
-  expect(status().closest('[data-week-editor]')).toBeNull();
+  expect(screen.queryByText('Prepare the week together.')).toBeNull();
+  expect(document.querySelectorAll('[data-week-remote-note]')).toHaveLength(1);
 });
 
 // Holds this device's draft observations so several remote writes arrive as
@@ -710,7 +726,7 @@ test('[feedback.remote] a remote change names its phases without moving phase or
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
   });
-  await waitFor(() => expect(status()).toHaveTextContent('Changes saved.'));
+  await waitFor(() => expect(feedback()).toBe('saved'));
   expect(remoteNote()).toBeEmptyDOMElement();
   const training = screen.getByRole('textbox', {
     name: 'Attrition training roll',
@@ -780,22 +796,19 @@ test('[feedback.failed] a rejected save is a red alert carrying only the safe se
     fireEvent.change(die, { target: { value: '7' } });
     fireEvent.blur(die);
   });
-  await waitFor(() =>
-    expect(status()).toHaveAttribute('data-week-status-failed'),
-  );
-  expect(status().textContent).toBe(
+  await waitFor(() => expect(failure()).not.toBeNull());
+  expect(failure()!.textContent).toBe(
     'Changes could not be saved. The latest saved values are shown. Campaign editing is paused for maintenance. Please try again later.',
   );
-  // Failure is an alert (field validation alerts are separate); the
-  // ordinary polite status is silent then.
-  expect(status()).toHaveAttribute('role', 'alert');
-  expect(screen.getAllByRole('alert')).toContain(status());
-  expect(screen.getAllByRole('status')).not.toContain(status());
-  expect(document.querySelectorAll('[data-week-status]')).toHaveLength(1);
-  expect(status()).toHaveClass('text-destructive');
-  expect(
-    screen.getByRole('button', { name: 'Not saved. Show status details' }),
-  ).toBeVisible();
+  // Failure is a visible red alert (field validation alerts are separate),
+  // at every size: no phone-only details button stands in for it.
+  expect(failure()).toHaveAttribute('role', 'alert');
+  expect(screen.getAllByRole('alert')).toContain(failure());
+  expect(document.querySelectorAll('[data-week-save-failure]')).toHaveLength(1);
+  expect(failure()).toHaveClass('text-destructive');
+  expect(failure()).toBeVisible();
+  expect(failure()!.closest('[data-week-editor]')).toBeNull();
+  expect(feedback()).toBe('failed');
   expect(die).toHaveValue('');
   expect(remoteNote()).toBeEmptyDOMElement();
 });
@@ -813,9 +826,7 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   await act(async () => {
     fireEvent.click(pinnedConfirm());
   });
-  await waitFor(() =>
-    expect(status()).toHaveTextContent('Confirming the week…'),
-  );
+  await waitFor(() => expect(feedback()).toBe('confirming'));
   const confirming = expectSameConfirm();
   expect(confirming).toHaveAccessibleName('Confirming…');
   expect(confirming).toBeDisabled();
@@ -831,7 +842,7 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   });
   expect(expectSameConfirm()).toHaveAccessibleName('Confirming…');
   expect(expectSameConfirm()).toBeDisabled();
-  expect(status()).toHaveTextContent('Confirming the week…');
+  expect(feedback()).toBe('confirming');
   fireEvent.click(screen.getByRole('button', { name: 'Event' }));
   expect(
     screen.getByRole('textbox', { name: 'Event chance roll' }),
@@ -844,7 +855,7 @@ test('[feedback.confirming] the initiator stays on Confirming… with the old we
   expect(screen.queryByText('Loading the week…')).not.toBeInTheDocument();
   await act(async () => release());
   await screen.findByRole('heading', { name: 'Week 5 · Upkeep' });
-  expect(status()).not.toHaveTextContent('Confirming the week…');
+  expect(feedback()).not.toBe('confirming');
   expect(
     screen.getByRole('textbox', { name: 'Attrition Loyalty roll' }),
   ).toBeEnabled();

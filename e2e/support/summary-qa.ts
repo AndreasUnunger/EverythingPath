@@ -2,7 +2,12 @@ import { join } from 'node:path';
 import { expect, type Page, type Locator } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
-import { expectPinnedConfirm, reviewConfirm, saveStatus } from './week-frame';
+import {
+  expectPinnedConfirm,
+  expectStripValuesWhole,
+  reviewConfirm,
+  saveState,
+} from './week-frame';
 import {
   resultCell,
   showAllResultValues,
@@ -40,7 +45,7 @@ async function save(page: Page, peer: Page, form: Locator, reason: string) {
   await button(form, 'Save adjustment').click();
   await expect(form).toHaveCount(0);
   await expect(adjustmentReason(peer).last()).toHaveValue(reason);
-  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
 }
 const confirmButton = (page: Page) => reviewConfirm(page);
 const requiredDecisions = (page: Page) =>
@@ -199,6 +204,8 @@ export async function reviewSummaryWorkspace(
     await expectNoHorizontalOverflow(page);
     // Down at the four adjustments, Confirm week is still at hand.
     await expectPinnedConfirm(page);
+    // Beside the strip's compact Confirm, Training and Treasury stay whole.
+    if (name === 'phone') await expectStripValuesWhole(page);
     for (const control of await page.locator('main button, main input').all()) {
       if (!(await control.isVisible())) continue;
       const bounds = await control.boundingBox();
@@ -268,7 +275,7 @@ export async function reviewSummaryWorkspace(
     await button(region(page), `Remove adjustment ${count}`).click();
     await expect(region(peer).locator('article')).toHaveCount(count - 1);
   }
-  await expect(saveStatus(page)).toHaveText('Changes saved.');
+  await expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
   // Compare the displayed pre-adjustment Result with the restored one, back
   // on the default changed-only presentation.
   await showAllResultValues(page, false);

@@ -430,15 +430,7 @@ function CampaignTopBar({
         <Skeleton aria-hidden className="h-5 w-32" />
       ) : null}
       {ready && <SectionLinks sections={sections} />}
-      {/* The status host may shrink so long feedback wraps inside the row
-          instead of widening it; the controls beside it keep their size. */}
       <div className="ml-auto flex min-w-0 items-center gap-2 md:gap-3">
-        {ready && (
-          <ShellSlotHost
-            name="top-bar-status"
-            className="flex min-w-0 flex-wrap items-center gap-2"
-          />
-        )}
         <span
           className={cn(
             'shrink-0',

@@ -5,10 +5,6 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
 import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
-import {
-  TopBarStatus,
-  useShellSlotHost,
-} from '~/components/campaign-shell/shell-slots';
 import { campaignPath } from '~/lib/campaign-routes';
 import { CampaignWorkspaceProvider } from './campaign-workspace-provider';
 import {
@@ -29,9 +25,8 @@ import { useReferencePanel } from './week-frame/use-reference-panel';
 import { WeekFrame, WeekSkeleton } from './week-frame/week-frame';
 import {
   ConfirmedWeekNotice,
-  FeedbackDetails,
   RemoteChangeNote,
-  SaveStatus,
+  SaveFailureAlert,
 } from './week-frame/week-status';
 import type { Phase, WeeklyDraftWorkspace } from './types';
 // Real document departures (reload, close, typed address) get the browser's
@@ -155,32 +150,22 @@ function latestOverseer(store: WorkspaceController['store'] | undefined) {
     ? current.phaseView.overseer
     : null;
 }
-// The one save/confirmation status with the other-player note beside it and
-// the phone-only details button. Inside the campaign shell it fills the
-// top-bar position; the standalone screen shows the same elements in the
-// frame's status row. Never both.
+// The frame's status row: a failed save and the other-player note, nothing
+// in the normal state. Saving itself is shown where it happens.
 function WorkspaceFeedback({
   workspace,
-  inShell,
 }: {
   workspace: Extract<WeeklyDraftWorkspace, { status: 'ready' }>;
-  inShell: boolean;
 }) {
-  const content = (
+  return (
     <>
-      <SaveStatus
+      <SaveFailureAlert
         feedback={workspace.feedback}
         failureReason={workspace.failureReason}
       />
       <RemoteChangeNote change={workspace.remoteChange} />
-      <FeedbackDetails
-        feedback={workspace.feedback}
-        failureReason={workspace.failureReason}
-        change={workspace.remoteChange}
-      />
     </>
   );
-  return inShell ? <TopBarStatus>{content}</TopBarStatus> : content;
 }
 // `campaignId` scopes every reference link (Militia, Characters & officers,
 // Finished weeks, Setup) to this campaign; without it the links stay off.
@@ -209,7 +194,6 @@ export function WeeklyWorkspaceBoard({
   );
   const panel = useReferencePanel(campaignId);
   const localFormGuard = useLocalFormGuard(controller?.store);
-  const inShell = useShellSlotHost('top-bar-status');
   const setupHref = campaignId ? campaignPath(campaignId, 'setup') : undefined;
   if (auth.isLoading || workspace.status === 'loading')
     return <WeekSkeleton phase={phase} />;
@@ -241,12 +225,10 @@ export function WeeklyWorkspaceBoard({
   // One Confirmation control, shown in the review block and pinned in the
   // frame's footer and phone strip on Review & confirm.
   const confirmation = readConfirmControl(workspace);
-  const feedback = (
-    <WorkspaceFeedback workspace={workspace} inShell={inShell} />
-  );
   return (
-    <>
-      {inShell && feedback}
+    // A test/diagnostic hook, not UI: `display: contents` leaves the frame's
+    // flex layout untouched while the save state stays readable.
+    <div className="contents" data-week-feedback={workspace.feedback}>
       <WeekFrame
         week={workspace.week}
         phase={view.phase}
@@ -255,7 +237,7 @@ export function WeeklyWorkspaceBoard({
         confirmation={confirmation}
         choose={choosePhase}
         reference={{ facts: workspace.referenceFacts, panel }}
-        status={inShell ? undefined : feedback}
+        status={<WorkspaceFeedback workspace={workspace} />}
         notice={
           <ConfirmedWeekNotice
             notice={workspace.confirmedWeek}
@@ -327,7 +309,7 @@ export function WeeklyWorkspaceBoard({
           />
         ) : null}
       </WeekFrame>
-    </>
+    </div>
   );
 }
 // Standalone host: the environment owner plus the board. The campaign shell
