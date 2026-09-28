@@ -45,24 +45,34 @@ export async function expectNoHorizontalOverflow(page: Page) {
 }
 
 /**
- * The top bar keeps one row: every visible control shares a horizontal
- * band. At tablet landscape (1180 and 1194px) a section page without the
- * week's status fits one slim row (#135 §1, #198).
+ * The top bar's own row stays one line: every visible control in it shares
+ * a horizontal band. At the 1194px tablet size a section page without the
+ * week's status fits one slim row (#135 §1, #198). The maintenance banner
+ * above it is not part of the row.
  */
 export async function expectTopBarOneRow(page: Page) {
-  const boxes = await page
-    .locator('header :is(a, button, [role="combobox"]):visible')
-    .evaluateAll((elements) =>
-      elements.map((element) => {
-        const { top, bottom } = element.getBoundingClientRect();
-        return { top, bottom };
-      }),
-    );
-  expect(boxes.length, 'the top bar shows controls').toBeGreaterThan(0);
-  expect(
-    Math.max(...boxes.map((box) => box.top)),
-    'the top bar keeps one row',
-  ).toBeLessThan(Math.min(...boxes.map((box) => box.bottom)));
+  const bands = () =>
+    page
+      .locator('[data-top-bar-row] :is(a, button, [role="combobox"]):visible')
+      .evaluateAll((elements) =>
+        elements.map((element) => {
+          const { top, bottom } = element.getBoundingClientRect();
+          return { top, bottom };
+        }),
+      );
+  await expect
+    .poll(
+      async () => {
+        const boxes = await bands();
+        return (
+          boxes.length > 0 &&
+          Math.max(...boxes.map((box) => box.top)) <
+            Math.min(...boxes.map((box) => box.bottom))
+        );
+      },
+      { message: 'the top bar keeps one row' },
+    )
+    .toBe(true);
 }
 
 // The phone bar is the visible sections navigation that carries More.

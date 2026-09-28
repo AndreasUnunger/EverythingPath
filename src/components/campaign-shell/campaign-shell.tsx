@@ -130,7 +130,7 @@ function CampaignSwitcher({
       <SelectTrigger
         aria-label="Active campaign"
         title={campaign.name}
-        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none md:text-base xl:max-w-[16rem] dark:bg-transparent *:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate"
+        className="min-h-9 max-w-[11rem] min-w-0 border-0 bg-transparent px-1 text-sm shadow-none *:data-[slot=select-value]:line-clamp-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate md:text-base xl:max-w-[16rem] dark:bg-transparent"
       >
         <SelectValue />
       </SelectTrigger>
