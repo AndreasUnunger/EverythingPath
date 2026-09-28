@@ -27,7 +27,10 @@ import type {
   ReviewSection,
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
-import { findOwner } from '~/components/week-review/review-notes';
+import {
+  findOwner,
+  isAppliedAdjustment,
+} from '~/components/week-review/review-notes';
 import {
   gp,
   rollText,
@@ -652,6 +655,12 @@ function placeWarnings(review: Review) {
   const all = allItems(review);
   review.record.warnings.forEach((warning, index) => {
     const code = findWarningCode(warning);
+    // The row already quotes an applied adjustment's reason (as live).
+    if (
+      code &&
+      isAppliedAdjustment(code, review.record.adjudication.tableAdjustments)
+    )
+      return;
     // Older records keep a written message; it is shown exactly as recorded.
     const note: ReviewNote = {
       kind: 'warning',

@@ -163,8 +163,14 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
         ),
       );
     expect(messages(frozen)).toEqual(messages(live));
-    expect(messages(frozen)).toEqual([
-      'Table Adjustment: The officer was rescued',
+    // The record keeps the applied adjustment's code; like live, it is shown
+    // by the adjustment's quoted reason, not repeated as a warning.
+    expect(record.warnings.map((warning) => warning.code)).toContain(
+      'adjustment',
+    );
+    expect(messages(frozen)).toEqual([]);
+    expect(frozen.adjustments.map((entry) => entry.reason)).toEqual([
+      'The officer was rescued',
     ]);
     // The same Result: rows, and every column's recorded value.
     const columns = (facts: WeekReviewFacts) =>
