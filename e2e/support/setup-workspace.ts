@@ -25,9 +25,11 @@ export async function openSetupStep(page: Page, step: string) {
 // bullet 4): inside the viewport, and on the phone above the bottom bar and
 // its status strip. Below 768px Next sits at the end of the open step's row;
 // from 768px in the detail pane's sticky footer, which stays pinned to the
-// bottom of the viewport while the page is scrolled to its top. Headless
-// browsers open no on-screen keyboard (see responsive-shell.ts), so the
-// layout with the keyboard open needs a real device.
+// bottom of the viewport while the page is scrolled to its top (#138 §3,
+// "the sticky tablet footer"); focus scrolls each of the detail pane's
+// controls clear of it (see expectReachable). Headless browsers open no
+// on-screen keyboard (see responsive-shell.ts), so the layout with the
+// keyboard open needs a real device.
 async function expectSetupReachable(
   page: Page,
   layout: 'tablet' | 'phone' | 'desktop',

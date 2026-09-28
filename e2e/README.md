@@ -984,7 +984,8 @@ The final area review of #138, #141 and #142 found three more:
 - **Setup (#138).** The Upkeep part's Setup layout loop (130 s limit, about
   71 s) adds 1440×900 and, at each size, reaches every enabled Setup control
   and **Next**; from 768px Next is in the sticky footer, which must be in view
-  from the top of the page. No page load. Headless browsers open no
+  from the top of the page, and each focused control of the detail pane must
+  sit above it. No page load. Headless browsers open no
   on-screen keyboard, so the keyboard-open layout is not covered.
 - **Characters & officers (#141).** `ledger` (60 s limit, 15–18 s) opens
   Correct officers (the Assign picker and a holder's ⋯ menu) and Correct

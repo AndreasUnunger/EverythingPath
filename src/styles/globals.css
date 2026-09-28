@@ -194,6 +194,20 @@ body:has([data-shell-frame='bounded']) {
   overflow: clip;
 }
 
+/* From 768px Setup's footer (Next, Start militia week) sticks to the bottom
+   of the viewport (#138 §3), so there the body must clip rather than hide:
+   hidden makes it the footer's never-scrolling scroll container, and the
+   footer would sit at the end of the step instead. The phone bottom bar is
+   hidden at these widths, so nothing else starts sticking. Focus scrolls
+   the detail pane's controls clear of the pinned footer. */
+body:has([data-setup-layout='wide']) {
+  overflow: clip;
+}
+
+html:has([data-setup-layout='wide']) {
+  scroll-padding-bottom: 5rem;
+}
+
 .scanlines::before {
   content: '';
   position: absolute;
