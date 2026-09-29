@@ -191,15 +191,15 @@ test('[rules.P80.review-integrity] a caller-mutated forecast cannot alter the re
   expect(workspace.getSnapshot().observation?.status).toBe('open');
   const review = (await workspace.preview())!;
   expect(await workspace.confirm(review)).toBe('accepted');
-  workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot!.treasuryCopper = 999;
+  workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot.treasuryCopper = 999;
   expect(
-    workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot!
+    workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot
       .treasuryCopper,
   ).toBe(100);
   const stored = server.inspect();
-  stored.records[0]!.sourceMilitiaSnapshot!.treasuryCopper = 888;
+  stored.records[0]!.sourceMilitiaSnapshot.treasuryCopper = 888;
   expect(
-    server.inspect().records[0]!.sourceMilitiaSnapshot!.treasuryCopper,
+    server.inspect().records[0]!.sourceMilitiaSnapshot.treasuryCopper,
   ).toBe(100);
   workspace.dispose();
 });
