@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { openCampaignSection } from './support/interactions';
 import { test, expect } from './support/fixtures';
 import { loadRun } from './support/process';
-import { observeDraftKey } from './support/draft-key';
+import { observeDraftIds, observeDraftKey } from './support/draft-key';
 import { controlTransport } from './support/transport';
 import {
   confirmedWeekNotice,
@@ -23,26 +23,26 @@ const chanceRoll = (page: Page) =>
 const militiaValues = (page: Page) =>
   referencePanel(page).getByRole('table', { name: 'Militia values' });
 
-// Counts loading skeletons inserted from now on: a genuine handoff must never
-// show one, and a final absence check alone would miss a transient flash.
-async function watchSkeletons(page: Page) {
-  await page.evaluate(() => {
-    const window_ = window as Window & { __weekSkeletons?: number };
-    window_.__weekSkeletons = 0;
+// Counts loading skeletons (the week's by default) inserted from now on: a
+// genuine handoff must never show one, and a final absence check alone would
+// miss a transient flash.
+async function watchSkeletons(page: Page, selector = '[data-week-skeleton]') {
+  await page.evaluate((selector) => {
+    const window_ = window as Window & { __skeletons?: number };
+    window_.__skeletons = 0;
     new MutationObserver((records) => {
       for (const record of records)
         for (const node of record.addedNodes)
           if (
             node instanceof Element &&
-            (node.matches('[data-week-skeleton]') ||
-              node.querySelector('[data-week-skeleton]'))
+            (node.matches(selector) || node.querySelector(selector))
           )
-            window_.__weekSkeletons! += 1;
+            window_.__skeletons! += 1;
     }).observe(document.body, { childList: true, subtree: true });
-  });
+  }, selector);
   return () =>
     page.evaluate(
-      () => (window as Window & { __weekSkeletons?: number }).__weekSkeletons,
+      () => (window as Window & { __skeletons?: number }).__skeletons,
     );
 }
 
@@ -78,6 +78,29 @@ test('a player confirms a complete week, every device moves to the next week onc
   await expect(heading(watcher, 'Week 1 · Upkeep')).toBeVisible();
   expect(new URL(watcher.url()).searchParams.get('phase')).toBeNull();
   await expect(confirmedWeekNotice(watcher)).toBeEmpty();
+  // The player's other device edits a character record, unsaved, while the
+  // week is confirmed: the page never falls back to its skeleton and the
+  // dialog keeps the typed name through the new week's draft (#198).
+  const records = await player.context().newPage();
+  const recordDrafts = observeDraftIds(records);
+  await records.goto(`/campaigns/${campaignId}/characters`);
+  await records
+    .getByRole('region', { name: 'Characters', exact: true })
+    .getByRole('button', { name: /^Edit / })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const record = records.getByRole('dialog', {
+    name: 'Edit character',
+    exact: true,
+  });
+  const recordName = record.getByRole('textbox', { name: 'Name', exact: true });
+  await recordName.fill('Unsaved new name');
+  const recordSkeletons = await watchSkeletons(
+    records,
+    '[aria-label="Loading characters…"]',
+  );
+  expect(recordDrafts()).toHaveLength(1);
   await step(gm, 'Event');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
@@ -192,6 +215,15 @@ test('a player confirms a complete week, every device moves to the next week onc
   ]);
   await expect(confirmedWeekNotice(watcher)).toHaveCount(1);
   await watcher.close();
+  // The records page observed the new week's draft, with no skeleton.
+  await expect.poll(() => recordDrafts().length).toBe(2);
+  await expect(record).toBeVisible();
+  await expect(recordName).toHaveValue('Unsaved new name');
+  expect(
+    await recordSkeletons(),
+    'no characters skeleton across the week change',
+  ).toBe(0);
+  await records.close();
   expect(await gmSkeletons(), 'no skeleton on the caller').toBe(0);
   expect(await playerSkeletons(), 'no skeleton on the observer').toBe(0);
   await expect(saveState(gm)).not.toHaveAttribute(
