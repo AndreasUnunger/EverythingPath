@@ -247,9 +247,27 @@ export async function exerciseActivityWorkspace(
   await drillCheck.fill('20');
   await expect(drillNotoriety).toHaveCount(0);
   await saved(gm);
-  await drill
-    .getByRole('textbox', { name: 'Training roll', exact: true })
-    .fill('7');
+  // The fixture militia is rank 2 with a level-2 PC, already at its maximum
+  // rank, so Drill resolves only with a reasoned exception. Until then the
+  // check has no result and the Training roll stays hidden; with it, 20 plus
+  // the non-negative Loyalty bonus meets DC 12 (10 + rank) and it appears.
+  const drillTraining = drill.getByRole('textbox', {
+    name: 'Training roll',
+    exact: true,
+  });
+  await expect(drillTraining).toHaveCount(0);
+  const maximumRank = drill.getByRole('group', {
+    name: 'Maximum Rank exception',
+    exact: true,
+  });
+  await maximumRank
+    .getByRole('textbox', { name: 'Exception reason', exact: true })
+    .fill('The table drills beyond the rank cap');
+  await maximumRank
+    .getByRole('button', { name: 'Save exception reason', exact: true })
+    .click();
+  await saved(gm);
+  await drillTraining.fill('7');
   await saved(gm);
   await expect(
     (await open(player, 1, 'Drill Militia')).getByRole('textbox', {
@@ -316,6 +334,11 @@ export async function exerciseActivityWorkspace(
   // Leave the Activity empty for the later phases.
   await (await open(gm, 2, 'Gather Information'))
     .getByRole('group', { name: 'Team Action Limit exception', exact: true })
+    .getByRole('button', { name: 'Remove exception', exact: true })
+    .click();
+  await saved(gm);
+  await (await open(gm, 1, 'Drill Militia'))
+    .getByRole('group', { name: 'Maximum Rank exception', exact: true })
     .getByRole('button', { name: 'Remove exception', exact: true })
     .click();
   await saved(gm);
