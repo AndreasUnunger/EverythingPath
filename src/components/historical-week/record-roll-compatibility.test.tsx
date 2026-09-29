@@ -7,6 +7,10 @@ import {
 import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import {
+  formatTwoArtifacts,
+  recordSnapshot,
+} from '../../../tests/history/resolution-record-fixtures';
 import { HistoricalRecordView } from './record-view';
 
 // Test-only representation of a newer record; history never rewrites either.
@@ -49,14 +53,14 @@ function record(
     },
   ];
   const { persistentPhaseEligible: _eligible, ...context } = source.context;
+  const militiaSnapshot = recordSnapshot();
   return canonicalResolutionRecordSchema.parse({
     recordId: 'record',
     source,
+    sourceMilitiaSnapshot: militiaSnapshot,
     rulesetVersion: 5,
     provenance: 'confirmation',
-    baselinePlan: { formatVersion: 1, data: { training: 16 } },
-    finalPlan: { formatVersion: 1, data: { training: 16 } },
-    finalOutcome: { formatVersion: 1, data: { training: 16 } },
+    ...formatTwoArtifacts({ before: { week: 9, militiaSnapshot, context } }),
     warnings: [],
     adjudication: {
       tableAdjustments: [],

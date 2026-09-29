@@ -15,6 +15,8 @@ import { militiaSnapshotSchema } from '~/lib/canonical-weekly-source';
 import {
   confirmedWeek,
   deepFreeze,
+  formatTwoArtifacts,
+  recordSnapshot,
 } from '../../../tests/history/resolution-record-fixtures';
 import { mixedKindSnapshot } from '../../../tests/rules/character-kind-fixture';
 import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
@@ -61,23 +63,45 @@ source.acknowledgements = [
     outcome: 'The road is clear',
   },
 ];
+const { persistentPhaseEligible: _eligible, ...weekContext } = source.context;
+const successorContext = { ...weekContext, startDay: 77 };
+/** The week's militia at confirmation, and after it with `change` applied. */
+function weekStates(
+  change: (after: ReturnType<typeof recordSnapshot>) => void,
+) {
+  const militiaSnapshot = { ...recordSnapshot(), treasuryCopper: 75 };
+  const after = structuredClone(militiaSnapshot);
+  change(after);
+  return {
+    militiaSnapshot,
+    before: { week: 11, militiaSnapshot, context: weekContext },
+    after: { week: 12, militiaSnapshot: after, context: successorContext },
+  };
+}
+const week = weekStates((after) => {
+  after.treasuryCopper = 80;
+});
 const record: CanonicalResolutionRecord = {
   recordId: 'private-record',
   source,
+  sourceMilitiaSnapshot: week.militiaSnapshot,
   rulesetVersion: 3,
   provenance: 'confirmation',
-  baselinePlan: { formatVersion: 1, data: { treasuryCopper: 80 } },
-  finalPlan: { formatVersion: 1, data: { treasuryCopper: 87 } },
-  finalOutcome: { formatVersion: 1, data: { treasuryCopper: 87 } },
-  warnings: [
-    { code: 'team-capacity', message: 'The team allowance was exceeded.' },
-  ],
+  ...formatTwoArtifacts({
+    before: week.before,
+    baseline: week.after,
+    final: {
+      ...week.after,
+      militiaSnapshot: { ...week.after.militiaSnapshot, treasuryCopper: 87 },
+    },
+  }),
+  warnings: [{ code: 'team-capacity', message: 'team-capacity' }],
   adjudication: {
     tableAdjustments: source.tableAdjustments,
     rulesExceptions: source.rulesExceptions,
     acknowledgements: source.acknowledgements,
   },
-  successorContext: { ...source.context, startDay: 77 },
+  successorContext,
   supersedesRecordId: null,
 };
 
@@ -114,11 +138,11 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
     '5Table Adjustments',
     '6Result · week 12 began',
   ]);
-  // The recorded Rules Baseline and Final, copper-exact; the militia at
-  // confirmation was not part of this older record, so it is not a zero.
+  // The recorded militia at confirmation, Rules Baseline and Final,
+  // copper-exact.
   expect(resultRow('Militia · Treasury')).toEqual([
     expect.stringContaining('Treasury'),
-    'Not recorded',
+    '0.75 gp',
     '0.8 gp',
     '0.87 gp',
   ]);
@@ -136,19 +160,23 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
   const unlinked = region('Unlinked facts');
   expect(unlinked.getByText('Allies joined for this week')).toBeVisible();
   expect(unlinked.getByText('Table outcome: The road is clear')).toBeVisible();
-  expect(unlinked.getByText('The team allowance was exceeded.')).toBeVisible();
+  expect(
+    unlinked.getByText(
+      'Recruitment leaves the roster above the team allowance after this week’s actions.',
+    ),
+  ).toBeVisible();
   // Show all reveals the recorded next-week context.
   showAll();
   expect(resultRow('Next week · Start day')).toEqual([
     expect.stringContaining('Start day'),
     '70',
-    'Not recorded',
+    '77',
     '77',
   ]);
   expect(resultRow('Next week · Uneventful-week benefit')).toEqual([
     expect.stringContaining('Uneventful-week benefit'),
     'Yes',
-    'Not recorded',
+    'Yes',
     'Yes',
   ]);
   expect(container.textContent).not.toContain('private-');
@@ -165,9 +193,15 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
         recordId: 'correction',
         provenance: 'historical_correction',
         supersedesRecordId: record.recordId,
-        baselinePlan: { formatVersion: 1, data: { training: 10 } },
-        finalPlan: { formatVersion: 1, data: { training: 12 } },
-        finalOutcome: { formatVersion: 1, data: { training: 12 } },
+        ...formatTwoArtifacts({
+          before: week.before,
+          baseline: weekStates((after) => {
+            after.training = 10;
+          }).after,
+          final: weekStates((after) => {
+            after.training = 12;
+          }).after,
+        }),
         adjudication: {
           ...record.adjudication,
           tableAdjustments: [
@@ -186,7 +220,7 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
   );
   expect(resultRow('Militia · Training')).toEqual([
     expect.stringContaining('Training'),
-    'Not recorded',
+    '30',
     '10',
     '12',
   ]);
@@ -215,17 +249,18 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
         ],
       },
     },
-    finalOutcome: {
-      formatVersion: 1,
-      data: {
-        note: 'a',
-        actionId: 'earn_gold',
-        operatedSettlementIds: ['opaque-settlement'],
+    ...formatTwoArtifacts({
+      before: week.before,
+      baseline: week.after,
+      final: {
+        ...week.after,
+        context: {
+          ...successorContext,
+          operatedSettlementIds: ['opaque-settlement'],
+        },
       },
-    },
-    warnings: [
-      { code: 'recorded-warning', message: 'This is a recorded warning.' },
-    ],
+    }),
+    warnings: [{ code: 'team-used', message: 'team-used' }],
   };
   const { container } = render(<HistoricalRecordView record={annotated} />);
   showAll();
@@ -236,13 +271,12 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
     region('2 Activity').getByText('Slot 1 · Earn Gold', { exact: false }),
   ).toBeVisible();
   expect(
-    region('Unlinked facts').getByText('This is a recorded warning.'),
+    region('Unlinked facts').getByText(
+      'This team has already acted this Activity.',
+    ),
   ).toBeVisible();
-  // Loose recorded facts keep their exact words under readable labels.
-  expect(resultRow('Recorded facts · Note').at(-1)).toBe('a');
-  expect(resultRow('Recorded facts · Operated settlement').at(-1)).toBe(
-    'Settlement 1',
-  );
+  // A recorded settlement reads by its record-local label.
+  expect(resultRow('Next week · Operating from').at(-1)).toBe('Settlement 1');
 });
 
 // A confirmed week whose roster holds every stored character kind and Hit

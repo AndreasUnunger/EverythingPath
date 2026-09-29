@@ -1,12 +1,6 @@
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import type { ResultCell, ResultRow } from './review-facts';
-import {
-  describeValue,
-  fieldLabel,
-  gp,
-  words,
-  type ReviewNames,
-} from './review-text';
+import { describeValue, gp, words, type ReviewNames } from './review-text';
 
 // Now / Rules Baseline / Final comparison over the union of facts in the
 // three states. Values are compared semantically (by their stable
@@ -22,18 +16,16 @@ type DeepReadonly<T> = T extends (infer E)[]
     : T;
 type WeekState = DeepReadonly<CanonicalWeekState>;
 /**
- * Any of the three compared states; only read, never mutated. A frozen record
- * may lack its militia facts or week context (`null`), and an older artifact
- * format may hold only loose `recorded` facts by field name.
+ * Any of the three compared states; only read, never mutated. A part a frozen
+ * record stores in a shape today's readers do not know is `null`.
  */
 export type ComparedState = {
   militiaSnapshot: WeekState['militiaSnapshot'] | null;
   context: WeekState['context'] | null;
-  recorded?: Readonly<Record<string, unknown>>;
 };
 
 /** Which part of a state records a fact, and so decides its availability. */
-type Part = 'militia' | 'context' | 'recorded';
+type Part = 'militia' | 'context';
 type Fact = {
   key: string;
   group: string;
@@ -115,8 +107,7 @@ function entityFacts<T extends object>(
   );
 }
 
-// Militia values by their stored field. Older artifacts may record any of
-// them loosely; they share the row of the complete snapshot's value.
+// Militia values by their stored field.
 const militiaValues = {
   rank: { key: 'rank', label: 'Rank', text: String },
   training: { key: 'training', label: 'Training', text: String },
@@ -125,36 +116,26 @@ const militiaValues = {
 } as const;
 type MilitiaValue = keyof typeof militiaValues;
 
-function militiaValueFact(field: MilitiaValue, value: number, part: Part) {
-  const spec = militiaValues[field];
-  return fact(
-    `militia:${spec.key}`,
-    'Militia',
-    spec.label,
-    value,
-    spec.text(value),
-    'None',
-    part,
-  );
-}
-function focusFact(focus: string | null, part: Part) {
-  return fact(
-    'militia:focus',
-    'Militia',
-    'Focus',
-    focus,
-    focus ?? 'None',
-    'None',
-    part,
-  );
-}
-
 function militiaFacts(snapshot: Snapshot): Fact[] {
   return [
-    ...(Object.keys(militiaValues) as MilitiaValue[]).map((field) =>
-      militiaValueFact(field, snapshot[field], 'militia'),
+    ...(Object.keys(militiaValues) as MilitiaValue[]).map((field) => {
+      const spec = militiaValues[field];
+      const value = snapshot[field];
+      return fact(
+        `militia:${spec.key}`,
+        'Militia',
+        spec.label,
+        value,
+        spec.text(value),
+      );
+    }),
+    fact(
+      'militia:focus',
+      'Militia',
+      'Focus',
+      snapshot.focus,
+      snapshot.focus ?? 'None',
     ),
-    focusFact(snapshot.focus, 'militia'),
   ];
 }
 
@@ -488,31 +469,6 @@ function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
   ];
 }
 
-/**
- * Loose facts of an older artifact format. Militia values join their usual
- * row; anything else stays readable under its own field label.
- */
-function recordedFacts(
-  recorded: Readonly<Record<string, unknown>>,
-  names: ReviewNames,
-): Fact[] {
-  return Object.entries(recorded).map(([field, value]) => {
-    if (field in militiaValues && typeof value === 'number')
-      return militiaValueFact(field as MilitiaValue, value, 'recorded');
-    if (field === 'focus' && (typeof value === 'string' || value === null))
-      return focusFact(value, 'recorded');
-    return fact(
-      `recorded:${field}`,
-      'Recorded facts',
-      fieldLabel(field),
-      value,
-      describeValue(value, names, field),
-      'Not recorded',
-      'recorded',
-    );
-  });
-}
-
 // How to read a compared state: a frozen record, and whether a blank Hit Dice
 // override meant the level under the rules it was confirmed with.
 type StateReading = { isFrozen: boolean; isBlankHitDiceLevel: boolean };
@@ -543,7 +499,6 @@ function stateFacts(
           ...carriedForwardFacts(context, names),
         ]
       : []),
-    ...(state.recorded ? recordedFacts(state.recorded, names) : []),
   ];
 }
 
@@ -563,16 +518,14 @@ const groupOrder = [
   'Persistent events',
   'Queued effects',
   'Orders',
-  'Recorded facts',
 ];
 
 /**
  * Whether a state records the part of the week a fact belongs to, so that
- * the fact's absence there is itself a fact. Loose older facts never are.
+ * the fact's absence there is itself a fact.
  */
 function records(state: ComparedState, row: Fact) {
   if (row.part === 'context') return state.context !== null;
-  if (row.part === 'recorded') return false;
   return state.militiaSnapshot !== null;
 }
 

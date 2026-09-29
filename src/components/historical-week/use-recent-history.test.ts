@@ -7,6 +7,10 @@ import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-reco
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { useRecentHistory } from './use-recent-history';
 import {
+  formatTwoArtifacts,
+  recordSnapshot,
+} from '../../../tests/history/resolution-record-fixtures';
+import {
   useCanonicalHistory,
   type CanonicalHistory,
 } from './use-canonical-history';
@@ -72,11 +76,12 @@ function history(week: number, previousWeek: number | null): CanonicalHistory {
         slotIds: [],
         context,
       }),
+      sourceMilitiaSnapshot: recordSnapshot(),
       provenance: 'historical_correction',
       rulesetVersion: 1,
-      baselinePlan: { formatVersion: 1, data: {} },
-      finalPlan: { formatVersion: 1, data: {} },
-      finalOutcome: { formatVersion: 1, data: {} },
+      ...formatTwoArtifacts({
+        before: { week, militiaSnapshot: recordSnapshot(), context },
+      }),
       adjudication: {
         acknowledgements: [],
         rulesExceptions: [],
