@@ -513,8 +513,16 @@ test('resolved attrition reports its own training change with the failure notati
   });
   renderView(view);
   const attrition = section('Training attrition');
-  expect(attrition).toHaveTextContent('Failure: training −(2d4 + rank 3)');
-  expect(within(attrition).getByText('2d4 + rank 3')).toBeVisible();
+  expect(attrition).toHaveTextContent(
+    'Failure: training drops by the training roll + rank 3',
+  );
+  // The dice are stated once, on the loss field; the rank sits beside it.
+  expect(
+    within(attrition).getByText('2d4 · total of the dice only'),
+  ).toBeVisible();
+  expect(
+    within(attrition).getByText('Rank 3 is added by the rules'),
+  ).toBeVisible();
   expect(within(attrition).getAllByText('Training −8')).toHaveLength(2);
   expect(section('Rank')).toHaveTextContent('Stays rank 3');
   expect(section('Deposits and withdrawals')).toHaveTextContent(
@@ -544,7 +552,9 @@ test('maximum notoriety asks for the nearest settlement after a failed check and
   const edit = renderView(view);
   const notoriety = section('Maximum notoriety');
   expect(notoriety).toHaveTextContent('Training −8');
-  expect(within(notoriety).getByText('1d20 + rank 3')).toBeVisible();
+  expect(
+    within(notoriety).getByText('Rank 3 is added by the rules'),
+  ).toBeVisible();
   expect(notoriety).toHaveTextContent('Loyalty DC 15');
   expect(notoriety).toHaveTextContent('Failure');
   expect(

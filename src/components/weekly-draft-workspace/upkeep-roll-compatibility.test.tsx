@@ -183,7 +183,7 @@ test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its r
   expect(textbox('Attrition Loyalty roll')).toHaveValue('0');
   // One inline advisory under the field; the step's notes do not repeat it.
   // The warning itself still reaches This phase and the Summary.
-  expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
+  expect(screen.getByText(/usual range is 1–20/)).toBeVisible();
   expect(
     screen.queryByText(/outside the usual 1–20 range/),
   ).not.toBeInTheDocument();
@@ -348,7 +348,7 @@ test('a missing team’s out-of-range return total shows one advisory in its car
   expect(preview.warnings).toContain('team:scouts:return:roll-range');
   render(<UpkeepView view={view} edit={vi.fn()} disabled={false} />);
   const card = screen.getByRole('group', { name: 'Scouts return check' });
-  expect(within(card).getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
+  expect(within(card).getByText(/usual range is 1–20/)).toBeVisible();
   expect(
     within(card).queryByText(/outside the usual 1–20 range/),
   ).not.toBeInTheDocument();

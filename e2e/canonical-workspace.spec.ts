@@ -231,7 +231,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
     // The advisory names the roll's usual range; zero is kept, not blocked.
     await expect(
       editor.getByText(
-        'The usual range for 1d20 is 1–20. Your entered total is retained for the table.',
+        'The usual range is 1–20. Your entered total is retained for the table.',
         { exact: true },
       ),
     ).toBeVisible();

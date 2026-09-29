@@ -109,7 +109,7 @@ export function rangeAdvisory(
 ): string | null {
   if (normalized.status !== 'complete') return null;
   if (normalized.rangeWarning === 'total')
-    return `The usual range for ${rollNotation(spec)} is ${spec.count}–${spec.count * spec.sides}. Your entered total is retained for the table.`;
+    return `The usual range is ${spec.count}–${spec.count * spec.sides}. Your entered total is retained for the table.`;
   if (normalized.rangeWarning === 'legacy-die')
     return `The recorded dice include a value outside 1–${spec.sides}. They are retained for the table until you enter a new total.`;
   return null;

@@ -144,7 +144,7 @@ export async function exerciseRollCompatibility(
       });
       await expect(
         attrition.getByText(
-          'The usual range for 1d20 is 1–20. Your entered total is retained for the table.',
+          'The usual range is 1–20. Your entered total is retained for the table.',
           { exact: true },
         ),
       ).toBeVisible();

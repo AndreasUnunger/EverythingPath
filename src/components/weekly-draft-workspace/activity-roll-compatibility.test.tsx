@@ -58,7 +58,7 @@ test('[rules.ACT-12.total] Drill training (2d6) shows a recorded total in its on
   );
   open();
   expect(textbox('Training roll')).toHaveValue('9');
-  expect(screen.getByText(/Training · 2d6/)).toBeVisible();
+  expect(screen.getByText(/2d6 · total of the dice only/)).toBeVisible();
   expect(textbox('Check roll')).toHaveValue('10');
   expect(
     screen.queryByRole('textbox', { name: /die/ }),
@@ -112,7 +112,7 @@ test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserve
   );
   open();
   expect(textbox('Check roll')).toHaveValue('0');
-  expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
+  expect(screen.getByText(/usual range is 1–20/)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
   fireEvent.change(textbox('Value'), { target: { value: '2' } });
   fireEvent.change(textbox('Reason'), {
@@ -182,7 +182,7 @@ test('[rules.ACT-12.wrong-count] a total recorded for another specification stay
       /Recorded total 4 was entered for 1d6, but this step needs 2d6/,
     ),
   ).toBeVisible();
-  expect(screen.getByText(/Training · 2d6/)).toBeVisible();
+  expect(screen.getByText(/2d6 · total of the dice only/)).toBeVisible();
   fireEvent.change(textbox('Training roll'), { target: { value: '8' } });
   expect(lastChoice(edit)).toEqual(
     drill({ check: legacyCheck, training: total(6, 2, 8) }),
@@ -231,7 +231,7 @@ test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriet
     />,
   );
   open('Special Order');
-  expect(screen.getByText(/Delivery · 2d6/)).toBeVisible();
+  expect(screen.getByText(/2d6 · total of the dice only/)).toBeVisible();
   fireEvent.change(textbox('Delivery roll'), { target: { value: '7' } });
   expect(lastChoice(edit)).toMatchObject({
     actionId: 'special_order',
@@ -250,7 +250,7 @@ test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriet
     />,
   );
   open('Reduce Danger');
-  expect(screen.getByText(/Notoriety · 1d4/)).toBeVisible();
+  expect(screen.getByText(/1d4 · total of the dice only/)).toBeVisible();
   expect(textbox('Notoriety roll')).toHaveValue('3');
   rerender(
     <ActivityView

@@ -184,7 +184,7 @@ function rivalryParts(
       },
       officer: officerCheckFacts(item, context, {
         label: 'Officer check',
-        legend: `Bluff, Diplomacy or Intimidate DC ${RIVALRY_OFFICER_DC} · 1d20`,
+        legend: `Bluff, Diplomacy or Intimidate DC ${RIVALRY_OFFICER_DC}`,
         dc: RIVALRY_OFFICER_DC,
         mandatory: false,
         officersOnly: true,
@@ -211,7 +211,7 @@ function turncoatParts(item: Item, context: EventPanelContext): Parts {
     inputs: {
       lossRoll: {
         label: 'Training loss roll',
-        legend: `1d6 + rank ${rank(context)}`,
+        legend: `Rank ${rank(context)} is added by the rules`,
         spec: RULE_ROLL_SPECS.singleD6,
         recorded: item.occurrence.rolls?.loss,
         required: has('loss:1d6'),
@@ -239,7 +239,7 @@ function turncoatTwiceParts(item: Item, context: EventPanelContext): Parts {
       team,
       officer: officerCheckFacts(item, context, {
         label: 'Diplomacy check',
-        legend: `Diplomacy DC ${dc} · 1d20`,
+        legend: `Diplomacy DC ${dc}`,
         dc,
         mandatory: true,
         officersOnly: false,

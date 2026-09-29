@@ -76,7 +76,7 @@ test('[rules.WEEK-14.total-input] malformed text is blocked before any write, ze
     />,
   );
   expect(input).toHaveValue('0');
-  expect(screen.getByText(/usual range for 1d20 is 1–20/)).toBeVisible();
+  expect(screen.getByText(/usual range is 1–20/)).toBeVisible();
   fireEvent.change(input, { target: { value: '' } });
   expect(onRoll).toHaveBeenLastCalledWith(null);
 });

@@ -142,7 +142,7 @@ test('[EVT-12.rivalry-twice] Rivalry Twice becomes persistent under its own bloc
   });
   expect(twice.officer).toMatchObject({
     label: 'Officer check',
-    legend: 'Bluff, Diplomacy or Intimidate DC 20 · 1d20',
+    legend: 'Bluff, Diplomacy or Intimidate DC 20',
     mandatory: false,
     characterId: null,
     // Only an officer can end a Rivalry.
@@ -241,7 +241,7 @@ test('[EVT-12.turncoat-base] Turncoat asks for its raw d6 loss roll; the rules a
   expect(turncoat.eventType).toBe('turncoat');
   expect(turncoat.lossRoll).toMatchObject({
     label: 'Training loss roll',
-    legend: `1d6 + rank ${snapshot.rank}`,
+    legend: `Rank ${snapshot.rank} is added by the rules`,
     spec: { count: 1, sides: 6 },
     required: true,
   });
@@ -290,7 +290,7 @@ test('[EVT-10.turncoat-twice] Turncoat Twice asks for the defecting team and a m
   expect(twice.whatHappened?.required).toBe(true);
   expect(twice.officer).toMatchObject({
     label: 'Diplomacy check',
-    legend: `Diplomacy DC ${dc} · 1d20`,
+    legend: `Diplomacy DC ${dc}`,
     mandatory: true,
     expectedSkill: 'diplomacy',
   });
@@ -383,7 +383,7 @@ test('[EVT-08.theft-mitigation] Theft mitigation is optional: unattempted halves
   expect(theft.check).toMatchObject({
     checkId: 'event:theft',
     label: 'Loyalty check',
-    legend: 'Loyalty DC 20 · 1d20',
+    legend: 'Loyalty DC 20',
     mandatory: false,
     required: true,
   });

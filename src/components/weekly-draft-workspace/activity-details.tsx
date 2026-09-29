@@ -211,7 +211,7 @@ function ChoiceRolls({
     return (
       <fieldset key={field} className="space-y-2">
         <legend className="text-sm font-semibold">
-          {activityLabel(field)} · {spec.count}d{spec.sides}
+          {activityLabel(field)}
         </legend>
         <RollTotalField
           label={`${activityLabel(field)} roll`}

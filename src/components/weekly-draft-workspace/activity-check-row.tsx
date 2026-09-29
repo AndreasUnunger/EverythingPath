@@ -31,6 +31,7 @@ function list(numbers: number[]) {
     : `${numbers.slice(0, -1).join(', ')} and ${numbers.at(-1)}`;
 }
 
+// "Check · Loyalty DC 15"; the dice are stated once, on the field itself.
 export function checkLegend(check: ActivityCheck) {
   const kind = [
     check.organizationCheck ? capitalise(check.organizationCheck) : null,
@@ -38,9 +39,7 @@ export function checkLegend(check: ActivityCheck) {
   ]
     .filter(Boolean)
     .join(' ');
-  return ['Check', kind || null, `${check.spec.count}d${check.spec.sides}`]
-    .filter(Boolean)
-    .join(' · ');
+  return ['Check', kind || null].filter(Boolean).join(' · ');
 }
 
 export function ActivityCheckRow({

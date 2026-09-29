@@ -109,7 +109,7 @@ export function EventSabotagePanel({
           <span className="font-semibold">Sabotage</span>
           <span className="text-muted-foreground">
             {' '}
-            · reactive action · {dc} · adds 1d6 notoriety
+            · reactive action · {dc} · adds notoriety
           </span>
         </p>
         <Button

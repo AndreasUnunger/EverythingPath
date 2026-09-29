@@ -1,5 +1,4 @@
 'use client';
-import { rollNotation } from './roll-facts';
 import { upkeepStepAnchor } from './source-anchors';
 import type { UpkeepEdit } from './upkeep-edits';
 import { ChoiceCards } from './choice-cards';
@@ -16,12 +15,13 @@ import { omitRollRangeIssues } from './upkeep-warnings';
 import { formatGold } from './week-frame/reference-copy';
 
 // Steps 1–3: the training checks and losses, one roll row each. The field
-// takes only the dice total; the rules add the bonus and rank.
+// takes only the dice total; the rules add the bonus and rank. Each roll's
+// dice are stated once, in its own field; the copy around it names the roll.
 
 const attritionResults = (rank: number) => ({
-  'natural-20': 'Natural 20: training +1d6',
-  success: 'Success: training −1d6',
-  failure: `Failure: training −(2d4 + rank ${rank})`,
+  'natural-20': 'Natural 20: training rises by the training roll',
+  success: 'Success: training drops by the training roll',
+  failure: `Failure: training drops by the training roll + rank ${rank}`,
 });
 
 const notorietyResults = {
@@ -76,8 +76,8 @@ function CheckRow<Result extends string>({
   );
 }
 
-// A training loss (or the natural-20 gain): dice notation with the rank the
-// rules add, and this step's training change once the total is in.
+// A training loss (or the natural-20 gain): the rank the rules add to the
+// field's dice, and this step's training change once the total is in.
 function LossRow({
   label,
   loss,
@@ -89,10 +89,6 @@ function LossRow({
   edit: UpkeepEdit;
   disabled: boolean;
 }) {
-  const notation =
-    loss.rank === null
-      ? rollNotation(loss)
-      : `${rollNotation(loss)} + rank ${loss.rank}`;
   return (
     <div className="space-y-1">
       <RollRow
@@ -110,7 +106,11 @@ function LossRow({
         }
         summary={
           <div className="space-y-1 text-sm">
-            <p className="text-muted-foreground">{notation}</p>
+            {loss.rank !== null && (
+              <p className="text-muted-foreground">
+                Rank {loss.rank} is added by the rules
+              </p>
+            )}
             <p>{trainingEffect(loss.trainingDelta)}</p>
             {loss.multiplier > 1 && (
               <p className="text-muted-foreground">

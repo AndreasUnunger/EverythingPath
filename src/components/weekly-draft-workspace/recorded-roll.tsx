@@ -50,8 +50,8 @@ export function RecordedRollTotal({
       {normalized?.status === 'complete' &&
         normalized.rangeWarning === 'total' && (
           <p role="note" className="text-amber-300">
-            The usual range for {rollNotation(normalized)} is {normalized.count}
-            –{normalized.count * normalized.sides}. The recorded total is
+            The usual range is {normalized.count}–
+            {normalized.count * normalized.sides}. The recorded total is
             retained for the table.
           </p>
         )}

@@ -338,7 +338,7 @@ describe('team actions', () => {
     );
     fireEvent.click(card('Team to dismiss', 'Tunnel rats'));
     expect(lastChoice(edit)).toEqual({ ...choice, targetTeamId: 'moles' });
-    expect(screen.getByText(/Notoriety · 1d6/)).toBeVisible();
+    expect(screen.getByText(/1d6 · total of the dice only/)).toBeVisible();
     expect(screen.getByText(/Rolled if the check fails/)).toBeVisible();
     fireEvent.change(screen.getByRole('textbox', { name: 'Notoriety roll' }), {
       target: { value: '4' },
@@ -390,7 +390,7 @@ describe('shared fields', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Add training roll modifier' }),
     );
-    const roll = within(screen.getByRole('group', { name: /Training · 2d6/ }));
+    const roll = within(screen.getByRole('group', { name: 'Training' }));
     fireEvent.change(roll.getByRole('textbox', { name: 'Value' }), {
       target: { value: '-1' },
     });

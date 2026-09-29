@@ -63,7 +63,8 @@ export function eventCheckFacts({
   return {
     checkId,
     label: target ? `${name} check for ${target}` : `${name} check`,
-    legend: `${name} DC ${dc} · ${spec.count}d${spec.sides}`,
+    // The dice are stated once, on the roll field itself.
+    legend: `${name} DC ${dc}`,
     spec,
     dc,
     mandatory,

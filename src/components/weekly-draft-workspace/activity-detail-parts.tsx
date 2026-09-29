@@ -128,9 +128,7 @@ function RollBlock({
   const name = roll.label.toLowerCase();
   return (
     <fieldset className="min-w-0 space-y-2">
-      <legend className="text-sm font-semibold">
-        {`${roll.label} · ${roll.spec.count}d${roll.spec.sides}`}
-      </legend>
+      <legend className="text-sm font-semibold">{roll.label}</legend>
       {roll.when && (
         <p className="text-muted-foreground text-xs">{roll.when}</p>
       )}

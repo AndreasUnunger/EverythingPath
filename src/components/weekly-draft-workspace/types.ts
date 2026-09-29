@@ -471,7 +471,7 @@ export type EventCheckFacts = {
   checkId: string;
   // Names the check and its target, e.g. "Security check for Wren Ashby".
   label: string;
-  // "Security DC 20 · 1d20"
+  // "Security DC 20"; the dice are stated once, on the roll field.
   legend: string;
   spec: RollSpec;
   dc: number;
@@ -585,7 +585,7 @@ export type EventTeamPairChoice = {
 export type EventOfficerCheckFacts = {
   // "Officer check" or "Diplomacy check"
   label: string;
-  // "Bluff, Diplomacy or Intimidate DC 20 · 1d20"
+  // "Bluff, Diplomacy or Intimidate DC 20"; the dice are stated once, on the roll field.
   legend: string;
   mandatory: boolean;
   dc: number;

@@ -118,7 +118,7 @@ test('[EVT-10.sickness-twice] the Twice Sickness save is a mandatory Loyalty che
   expect(twice.check).toMatchObject({
     checkId: 'second:sickness',
     label: 'Loyalty check',
-    legend: 'Loyalty DC 20 · 1d20',
+    legend: 'Loyalty DC 20',
     mandatory: true,
     total: 20,
     succeeded: true,
@@ -280,7 +280,7 @@ test('[EVT-08.raid] Raid has one settlement, and every hidden person their own m
     explicit: true,
     check: {
       label: 'Security check for Wren Ashby',
-      legend: 'Security DC 20 · 1d20',
+      legend: 'Security DC 20',
       mandatory: false,
       succeeded: true,
       resultText: 'Capture chance falls to 50%.',

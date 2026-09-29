@@ -156,7 +156,7 @@ test('[EVT-10.sickness-view] the Twice Sickness save is a mandatory check with n
   );
   const twice = screen.getByRole('group', { name: 'Event 1.2' });
   expect(within(twice).getByText('Mandatory')).toBeVisible();
-  expect(within(twice).getByText('Loyalty DC 20 · 1d20')).toBeVisible();
+  expect(within(twice).getByText('Loyalty DC 20')).toBeVisible();
   expect(
     within(twice).queryByRole('button', { name: /Attempt it|Let it happen/ }),
   ).not.toBeInTheDocument();

@@ -201,7 +201,7 @@ test('[EVT-07.sabotage-open] the quiet button opens the reaction locally; the fi
     name: 'Sabotage of Event 1 · Sickness',
   });
   expect(panel).toHaveTextContent(
-    `Sabotage · reactive action · DC ${15 + snapshot.rank} · adds 1d6 notoriety`,
+    `Sabotage · reactive action · DC ${15 + snapshot.rank} · adds notoriety`,
   );
   // Nothing is asked for before a choice is made.
   expect(screen.queryByText(/Sabotage: choose/)).not.toBeInTheDocument();
