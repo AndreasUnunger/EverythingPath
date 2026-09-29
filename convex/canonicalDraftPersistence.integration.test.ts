@@ -78,7 +78,8 @@ test('[rules.P79.provenance] actual mutation derives stale field intent from sto
         ...choice,
         rolls: {
           check: {
-            dice: [12],
+            diceTotal: 12,
+            diceCount: 1,
             sides: 20,
             provenance: { kind: 'table' },
             modifiers: [],
@@ -91,7 +92,7 @@ test('[rules.P79.provenance] actual mutation derives stale field intent from sto
   expect(accepted.revision).toBe(3);
   expect(accepted.draft?.activity.slots[0]?.choice).toMatchObject({
     costCopper: 10,
-    rolls: { check: { dice: [12] } },
+    rolls: { check: { diceTotal: 12, diceCount: 1 } },
   });
   await expect(
     send(
@@ -385,7 +386,8 @@ test('[rules.P80.atomic] reviewed Confirmation atomically advances once and reje
     operation(0, 'roll', {
       kind: 'event_chance',
       roll: {
-        dice: [100],
+        diceTotal: 100,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -450,7 +452,8 @@ test('[rules.P80.rollback] final successor write failure rolls back all changes;
     operation(36, 'chance', {
       kind: 'event_chance',
       roll: {
-        dice: [100],
+        diceTotal: 100,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -507,7 +510,8 @@ test('[rules.P80.rollback] final successor write failure rolls back all changes;
       operation(36, 'chance', {
         kind: 'event_chance',
         roll: {
-          dice: [100],
+          diceTotal: 100,
+          diceCount: 1,
           sides: 100,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -533,7 +537,8 @@ test('[rules.P80.authority] ready Confirmation requires campaign authority and r
     operation(0, 'chance', {
       kind: 'event_chance',
       roll: {
-        dice: [100],
+        diceTotal: 100,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -610,7 +615,8 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
       kind: 'upkeep_roll' as const,
       field: 'check' as const,
       roll: {
-        dice: [10],
+        diceTotal: 10,
+        diceCount: 1,
         sides: 20,
         provenance: { kind: 'table' as const },
         modifiers: [],
@@ -620,7 +626,8 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
       kind: 'upkeep_roll' as const,
       field: 'training' as const,
       roll: {
-        dice: [3],
+        diceTotal: 3,
+        diceCount: 1,
         sides: 6,
         provenance: { kind: 'table' as const },
         modifiers: [],
@@ -806,117 +813,6 @@ test('combined contract setup starts a fresh case and rolls back an invalid init
       scope: fixtureScope,
     }),
   ).toEqual(inspection);
-});
-
-test('mixed roll forms survive public stale replay and retain exact operation identity', async () => {
-  const { key, member, send, operation } = await setup();
-  const legacy = {
-    dice: [12],
-    sides: 20,
-    provenance: { kind: 'table' as const },
-    modifiers: [],
-  };
-  const total = {
-    diceTotal: 7,
-    diceCount: 2,
-    sides: 6,
-    provenance: { kind: 'table' as const },
-    modifiers: [{ sourceId: 'weather', value: -2, reason: 'Rain' }],
-  };
-  const choice = {
-    choiceId: 'mixed',
-    actionId: 'drill_militia' as const,
-    rolls: { check: legacy },
-  };
-  await send(
-    operation(0, 'mixed-stage', { kind: 'stage', slotId: 'left', choice }),
-  );
-  await send(
-    operation(1, 'mixed-cost', {
-      kind: 'detail',
-      slotId: 'left',
-      choiceId: choice.choiceId,
-      choice: { ...choice, costCopper: 10 },
-    }),
-  );
-  const request = operation(1, 'mixed-total', {
-    kind: 'detail',
-    slotId: 'left',
-    choiceId: choice.choiceId,
-    choice: { ...choice, rolls: { ...choice.rolls, training: total } },
-  });
-  const receipt = await send(request);
-  expect(receipt.acceptedRevision).toBe(3);
-  expect((await send(request)).acceptedRevision).toBe(3);
-  const accepted = await member.query(observe, key);
-  expect(accepted.draft?.activity.slots[0]?.choice).toEqual({
-    ...choice,
-    costCopper: 10,
-    rolls: { check: legacy, training: total },
-  });
-  await expect(
-    send({
-      ...request,
-      edit: {
-        ...request.edit,
-        kind: 'detail',
-        slotId: 'left',
-        choiceId: choice.choiceId,
-        choice: {
-          ...choice,
-          rolls: {
-            check: legacy,
-            training: {
-              dice: [3, 4],
-              sides: 6,
-              provenance: total.provenance,
-              modifiers: total.modifiers,
-            },
-          },
-        },
-      },
-    }),
-  ).rejects.toThrow('Operation identity');
-  await send(
-    operation(0, 'from-initial', {
-      kind: 'event_chance',
-      roll: {
-        diceTotal: 100,
-        diceCount: 1,
-        sides: 100,
-        provenance: { kind: 'table' },
-        modifiers: [],
-      },
-    }),
-  );
-  const merged = await member.query(observe, key);
-  expect(merged.revision).toBe(4);
-  expect(merged.draft?.activity).toEqual(accepted.draft?.activity);
-  expect(merged.draft?.event.chanceRoll).toMatchObject({
-    diceTotal: 100,
-    diceCount: 1,
-  });
-  expect(await member.query(observe, key)).toEqual(merged);
-  await send(
-    operation(3, 'from-accepted-total', {
-      kind: 'detail',
-      slotId: 'left',
-      choiceId: choice.choiceId,
-      choice: {
-        ...choice,
-        costCopper: 20,
-        rolls: { check: legacy, training: total },
-      },
-    }),
-  );
-  const replayed = await member.query(observe, key);
-  expect(replayed.revision).toBe(5);
-  expect(replayed.draft?.event).toEqual(merged.draft?.event);
-  expect(replayed.draft?.activity.slots[0]?.choice).toEqual({
-    ...choice,
-    costCopper: 20,
-    rolls: { check: legacy, training: total },
-  });
 });
 
 test('public nested roll validation rejects malformed totals atomically without relaxing campaign authority', async () => {
@@ -1201,13 +1097,15 @@ test('[rules.ACT-19.server] remove_slot checks the latest draft and current sour
 test('stale whole-occurrence saves of different fields are refused in either order', async () => {
   const { key, member, send, operation } = await setup();
   const percentile = (value: number) => ({
-    dice: [value],
+    diceTotal: value,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' as const },
     modifiers: [],
   });
   const checkRoll = {
-    dice: [5],
+    diceTotal: 5,
+    diceCount: 1,
     sides: 20,
     provenance: { kind: 'table' as const },
     modifiers: [],

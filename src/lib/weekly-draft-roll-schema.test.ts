@@ -5,8 +5,9 @@ import {
 } from './weekly-draft-contract';
 import { createWeeklyDraft } from './weekly-draft';
 
-const legacy = {
-  dice: [12],
+const roll = {
+  diceTotal: 12,
+  diceCount: 1,
   sides: 20,
   provenance: { kind: 'table' },
   modifiers: [],
@@ -14,9 +15,9 @@ const legacy = {
 
 test('Activity edits reject unsupported rolls instead of silently stripping them', () => {
   for (const choice of [
-    { choiceId: 'gold', actionId: 'earn_gold', rolls: { reward: legacy } },
-    { choiceId: 'quiet', actionId: 'lie_low', rolls: { check: legacy } },
-    { choiceId: 'special', actionId: 'special', rolls: { check: legacy } },
+    { choiceId: 'gold', actionId: 'earn_gold', rolls: { reward: roll } },
+    { choiceId: 'quiet', actionId: 'lie_low', rolls: { check: roll } },
+    { choiceId: 'special', actionId: 'special', rolls: { check: roll } },
   ]) {
     expect(
       weeklyDraftEditSchema.safeParse({ kind: 'stage', slotId: 'slot', choice })
@@ -28,23 +29,23 @@ test('Activity edits reject unsupported rolls instead of silently stripping them
 test('nested Event edits reject rolls unsupported in their structural context', () => {
   const occurrence = { eventId: 'event', origin: { kind: 'rolled' } };
   for (const details of [
-    { rolls: { reward: legacy } },
-    { rolls: { notoriety: legacy } },
+    { rolls: { reward: roll } },
+    { rolls: { notoriety: roll } },
     {
       targetChecks: [
         {
           target: { kind: 'character', characterId: 'pc' },
-          rolls: { training: legacy },
+          rolls: { training: roll },
         },
       ],
     },
-    { sabotage: { choiceId: 'reaction', rolls: { loss: legacy } } },
+    { sabotage: { choiceId: 'reaction', rolls: { loss: roll } } },
     {
       persistent: true,
       persistentDecision: {
         kind: 'mitigate',
         eventId: 'event',
-        rolls: { delivery: legacy },
+        rolls: { delivery: roll },
       },
     },
   ]) {
@@ -70,7 +71,7 @@ test('Upkeep and carried Persistent edits reject unused backing keys', () => {
   expect(
     weeklyDraftEditSchema.safeParse({
       kind: 'upkeep',
-      inputs: { rolls: { reward: legacy } },
+      inputs: { rolls: { reward: roll } },
     }).success,
   ).toBe(false);
   expect(
@@ -79,7 +80,7 @@ test('Upkeep and carried Persistent edits reject unused backing keys', () => {
       decision: {
         kind: 'mitigate',
         eventId: 'event',
-        rolls: { training: legacy },
+        rolls: { training: roll },
       },
     }).success,
   ).toBe(false);
@@ -111,7 +112,7 @@ test.each([
   '%s preserves every rule-supported conditional roll without normalizing it',
   (actionId, keys) => {
     const rolls = Object.fromEntries(
-      keys.map((key, index) => [key, index % 2 ? total : legacy]),
+      keys.map((key, index) => [key, index % 2 ? total : roll]),
     );
     const edit = {
       kind: 'stage',
@@ -134,7 +135,7 @@ test.each([
       expect(
         weeklyDraftEditSchema.safeParse({
           ...edit,
-          choice: { ...edit.choice, rolls: { ...rolls, [key]: legacy } },
+          choice: { ...edit.choice, rolls: { ...rolls, [key]: roll } },
         }).success,
       ).toBe(false);
   },
@@ -169,23 +170,23 @@ test('nested edits retain supported raw facts, officers, targets and conditional
   const officerCheck = {
     characterId: 'officer',
     skill: 'diplomacy',
-    roll: legacy,
+    roll: roll,
   };
   const event = {
     eventId: 'event',
     origin: { kind: 'rolled' },
-    tableRoll: { ...legacy, sides: 100 },
-    rolls: { check: legacy, loss: total },
+    tableRoll: { ...roll, sides: 100 },
+    rolls: { check: roll, loss: total },
     officerCheck,
     targetChecks: [
       {
         target: { kind: 'character', characterId: 'pc' },
-        rolls: { check: legacy, loss: { ...total, diceCount: 1, sides: 100 } },
+        rolls: { check: roll, loss: { ...total, diceCount: 1, sides: 100 } },
       },
     ],
     sabotage: {
       choiceId: 'reaction',
-      rolls: { check: legacy, notoriety: total },
+      rolls: { check: roll, notoriety: total },
     },
     persistent: true,
     persistentDecision: {
@@ -252,8 +253,8 @@ test('draft parsing preserves supported partial and stale rolls but rejects remo
     upkeep: {
       ...draft.upkeep,
       rolls: {
-        check: legacy,
-        training: { ...legacy, dice: [3], sides: 4 },
+        check: roll,
+        training: { ...roll, diceTotal: 3, sides: 4 },
         notoriety: total,
         loss: total,
       },
@@ -267,7 +268,7 @@ test('draft parsing preserves supported partial and stale rolls but rejects remo
             choiceId: 'order',
             actionId: 'special_order',
             expedited: true,
-            rolls: { delivery: { ...legacy, dice: [2], sides: 6 } },
+            rolls: { delivery: { ...roll, diceTotal: 2, sides: 6 } },
           },
         },
       ],
@@ -279,7 +280,7 @@ test('draft parsing preserves supported partial and stale rolls but rejects remo
       ...source,
       upkeep: {
         ...source.upkeep,
-        rolls: { ...source.upkeep.rolls, [key]: legacy },
+        rolls: { ...source.upkeep.rolls, [key]: roll },
       },
     };
     expect(weeklyDraftSchema.safeParse(invalid).success).toBe(false);
@@ -293,7 +294,7 @@ test('draft parsing preserves supported partial and stale rolls but rejects remo
           choice: {
             choiceId: 'order',
             actionId: 'special_order',
-            rolls: { delivery: total, check: legacy },
+            rolls: { delivery: total, check: roll },
           },
         },
       ],
@@ -307,7 +308,7 @@ test('draft parsing preserves supported partial and stale rolls but rejects remo
         {
           eventId: 'event',
           origin: { kind: 'rolled' },
-          rolls: { duration: legacy },
+          rolls: { duration: roll },
         },
       ],
     },

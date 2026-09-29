@@ -8,7 +8,7 @@ import type { WeeklyDraft } from '~/lib/weekly-draft-contract';
 import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { Phase, PhaseView } from './types';
-import { legacyDiceSlots, rollReadFacts } from './roll-facts';
+import { rollReadFacts } from './roll-facts';
 import { upkeepSections } from './upkeep-sections';
 export function phaseView(
   phase: Phase,
@@ -49,7 +49,6 @@ export function phaseView(
       field: fact.field,
       ...spec,
       ...rollReadFacts(raw, spec),
-      dice: legacyDiceSlots(raw, spec),
       modifier: fact.check?.modifier ?? null,
       total: fact.check?.total ?? null,
       dc: fact.dc,

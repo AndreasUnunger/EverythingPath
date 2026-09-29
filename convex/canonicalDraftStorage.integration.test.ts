@@ -480,7 +480,8 @@ test('[storage.source] confirmed history round-trips raw facts, copper precision
               costCopper: 0,
               rolls: {
                 check: {
-                  dice: [12],
+                  diceTotal: 12,
+                  diceCount: 1,
                   sides: 20,
                   provenance: { kind: 'table' },
                   modifiers: [
@@ -566,66 +567,6 @@ test('[storage.source] confirmed history round-trips raw facts, copper precision
   ).toEqual(complete);
 });
 
-test('storage retains mixed complete and partial raw forms without rewriting reads or historical results', async () => {
-  const { t, player, scope } = await fixture();
-  const draft = fresh();
-  const total = {
-    diceTotal: 7,
-    diceCount: 2,
-    sides: 6,
-    provenance: { kind: 'generated' as const, sourceId: 'table-dice' },
-    modifiers: [{ sourceId: 'weather', value: -2, reason: 'Rain' }],
-  };
-  draft.upkeep.rolls.training = total;
-  draft.upkeep.rolls.loss = {
-    dice: [3],
-    sides: 4,
-    provenance: { kind: 'table' },
-    modifiers: [],
-  };
-  draft.event.occurrences = [
-    {
-      eventId: 'nested',
-      origin: { kind: 'rolled' },
-      eventType: 'theft',
-      persistent: true,
-      persistentDecision: {
-        kind: 'mitigate',
-        eventId: 'nested',
-        rolls: { check: total },
-      },
-    },
-  ];
-  await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
-  expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
-  expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
-  expect(
-    await player.run((ctx) =>
-      readDraftMetadata(ctx, { ...scope, draftId: draft.draftId }),
-    ),
-  ).toEqual({ status: 'open', revision: 0 });
-  const historical = canonicalResolutionRecordSchema.parse({
-    ...record(),
-    source: draft,
-  });
-  await player.run((ctx) =>
-    appendResolutionRecord(ctx, { ...scope, record: historical }),
-  );
-  await t.run((ctx) =>
-    ctx.db.patch('militia', scope.militiaId, { name: 'Changed now' }),
-  );
-  expect(
-    await player.run((ctx) =>
-      readResolutionRecord(ctx, { ...scope, recordId: historical.recordId }),
-    ),
-  ).toEqual(historical);
-  expect(
-    await player.run((ctx) => readEffectiveRecord(ctx, { ...scope, week: 11 })),
-  ).toEqual(historical);
-  expect(historical.rulesetVersion).toBe(1);
-  expect(historical.finalOutcome.data).toEqual({ treasuryCopper: 10001 });
-});
-
 test('storage rejects retired rolls in open and historical sources without writing partial records', async () => {
   const { player, scope } = await fixture();
   const draft = fresh();
@@ -635,7 +576,8 @@ test('storage rejects retired rolls in open and historical sources without writi
       ...draft.upkeep,
       rolls: {
         reward: {
-          dice: [4],
+          diceTotal: 4,
+          diceCount: 1,
           sides: 6,
           provenance: { kind: 'table' },
           modifiers: [],

@@ -63,7 +63,8 @@ function week(confirmable: boolean) {
   if (confirmable)
     draft.event.chanceRoll = {
       sides: 100,
-      dice: [100],
+      diceTotal: 100,
+      diceCount: 1,
       provenance: { kind: 'table' },
       modifiers: [],
     };

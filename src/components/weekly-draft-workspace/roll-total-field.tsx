@@ -13,12 +13,12 @@ import {
   totalRoll,
 } from './roll-facts';
 
-// The one dice-only total control for every supported roll. It reads either
-// recorded form through the shared normalizer and writes only the strict total
-// form against the rule's expected specification. A blank clears through the
-// owning operation supplied by the caller; incomplete recorded data (partial
-// legacy dice, another specification) stays untouched and visible until the
-// player types a replacement or clears it deliberately.
+// The one dice-only total control for every supported roll. It reads the
+// recorded total through the shared normalizer and writes a total against the
+// rule's expected specification. A blank clears through the owning operation
+// supplied by the caller; a total recorded for another specification stays
+// untouched and visible until the player types a replacement or clears it
+// deliberately.
 export function RollTotalField({
   label,
   spec,

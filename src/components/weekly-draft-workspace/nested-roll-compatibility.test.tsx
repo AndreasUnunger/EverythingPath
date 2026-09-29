@@ -44,7 +44,6 @@ function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
     modifiers: [],
   };
 }
-const table = { kind: 'table' as const };
 function openDetails() {
   screen
     .getByText('Edit Event 1 details')
@@ -97,7 +96,7 @@ function withOccurrence(
 test('[rules.EVT-01.total] the percentile chance field reads a recorded total, blanks through the nullable edit and writes a new total with preserved metadata', () => {
   const edit = vi.fn();
   const generated = { kind: 'generated' as const, sourceId: 'roller' };
-  const { rerender } = render(
+  render(
     <EventView
       view={{
         ...eventFacts,
@@ -124,23 +123,6 @@ test('[rules.EVT-01.total] the percentile chance field reads a recorded total, b
   });
   fireEvent.change(textbox('Event chance roll'), { target: { value: '' } });
   expect(edit).toHaveBeenLastCalledWith({ kind: 'event_chance', roll: null });
-  rerender(
-    <EventView
-      view={{
-        ...eventFacts,
-        chanceRoll: {
-          dice: [55],
-          sides: 100,
-          provenance: table,
-          modifiers: [],
-        },
-      }}
-      edit={edit}
-      disabled={false}
-    />,
-  );
-  // A complete legacy percentile shows without any write.
-  expect(textbox('Event chance roll')).toHaveValue('55');
 });
 
 test('[rules.EVT-04.table-total] an occurrence table total is editable, keeps its modifiers editable and blanks through the existing occurrence save', async () => {
@@ -277,7 +259,7 @@ test('[rules.EVT-07.nested-total] a Theft occurrence’s nested check is one 1d2
   expect(screen.queryByRole('group', { name: 'Loss' })).not.toBeInTheDocument();
 });
 
-test('[rules.EVT-07.legacy-nested] a legacy Theft check shows its sum and a typed number writes the total form preserving metadata; a Turncoat loss is one 1d6 total', async () => {
+test('[rules.EVT-07.nested-metadata] a recorded Theft check shows its total and a typed number writes a new total preserving metadata; a Turncoat loss is one 1d6 total', async () => {
   const edit = vi.fn();
   const generated = { kind: 'generated' as const, sourceId: 'roller' };
   const theft = {
@@ -287,7 +269,7 @@ test('[rules.EVT-07.legacy-nested] a legacy Theft check shows its sum and a type
       eventId: 'root',
       origin: { kind: 'rolled' as const },
       rolls: {
-        check: { dice: [7], sides: 20, provenance: generated, modifiers: [] },
+        check: { ...total(20, 1, 7), provenance: generated },
       },
     },
   };
@@ -765,7 +747,7 @@ test('[rules.EVT-11.invalid-clear] clearing the enclosing details after malforme
   );
 });
 
-test('[rules.EVT-11.invalid-explicit-clear] a partial legacy roll’s explicit Clear releases its malformed-text block', async () => {
+test('[rules.EVT-11.invalid-explicit-clear] a wrong-specification roll’s explicit Clear releases its malformed-text block', async () => {
   const edit = vi.fn();
   render(
     <EventView
@@ -773,9 +755,7 @@ test('[rules.EVT-11.invalid-explicit-clear] a partial legacy roll’s explicit C
         {
           eventId: 'root',
           origin: { kind: 'rolled' },
-          rolls: {
-            check: { dice: [3], sides: 6, provenance: table, modifiers: [] },
-          },
+          rolls: { check: total(6, 1, 3) },
         },
         'theft',
       )}

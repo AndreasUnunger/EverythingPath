@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { RollTotalField } from './roll-total-field';
@@ -10,7 +10,8 @@ const spec = { count: 2, sides: 4 };
 test('[rules.WEEK-15.total-writer] a typed total writes the strict total form against the rule specification while preserving prior metadata', () => {
   const onRoll = vi.fn();
   const prior: RawRoll = {
-    dice: [1, 5],
+    diceTotal: 9,
+    diceCount: 2,
     sides: 4,
     provenance: generated,
     modifiers,
@@ -24,10 +25,10 @@ test('[rules.WEEK-15.total-writer] a typed total writes the strict total form ag
     />,
   );
   const input = screen.getByRole('textbox', { name: 'Training roll' });
-  // A complete legacy array shows its sum through normalization, no write.
-  expect(input).toHaveValue('6');
+  // A recorded total shows without a write, with its range advisory.
+  expect(input).toHaveValue('9');
   expect(onRoll).not.toHaveBeenCalled();
-  expect(screen.getByText(/dice include a value outside 1–4/)).toBeVisible();
+  expect(screen.getByText(/usual range is 2–8/)).toBeVisible();
   fireEvent.change(input, { target: { value: '7' } });
   expect(onRoll).toHaveBeenLastCalledWith({
     diceTotal: 7,
@@ -36,7 +37,6 @@ test('[rules.WEEK-15.total-writer] a typed total writes the strict total form ag
     provenance: generated,
     modifiers,
   });
-  expect(onRoll.mock.lastCall![0]).not.toHaveProperty('dice');
 });
 
 test('[rules.WEEK-14.total-input] malformed text is blocked before any write, zero is accepted with a range advisory, and blank clears through the caller', () => {
@@ -81,36 +81,8 @@ test('[rules.WEEK-14.total-input] malformed text is blocked before any write, ze
   expect(onRoll).toHaveBeenLastCalledWith(null);
 });
 
-test('[rules.WEEK-15.total-incomplete] partial legacy dice and another specification stay recorded, show an empty field with an explanation, and clear explicitly', () => {
+test('[rules.WEEK-15.total-incomplete] a total for another specification stays recorded, shows an empty field with an explanation, and clears explicitly', () => {
   const onRoll = vi.fn();
-  const partial: RawRoll = {
-    dice: [3],
-    sides: 4,
-    provenance: { kind: 'table' },
-    modifiers,
-  };
-  render(
-    <RollTotalField
-      label="Training roll"
-      spec={spec}
-      recorded={partial}
-      onRoll={onRoll}
-    />,
-  );
-  const input = screen.getByRole('textbox', { name: 'Training roll' });
-  expect(input).toHaveValue('');
-  expect(
-    screen.getByText(/Recorded dice 3 are incomplete for 2d4/),
-  ).toBeVisible();
-  fireEvent.change(input, { target: { value: '6' } });
-  expect(onRoll).toHaveBeenLastCalledWith({
-    diceTotal: 6,
-    diceCount: 2,
-    sides: 4,
-    provenance: { kind: 'table' },
-    modifiers,
-  });
-  cleanup();
   const stale: RawRoll = {
     diceTotal: 5,
     diceCount: 1,

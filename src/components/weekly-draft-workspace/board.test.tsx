@@ -73,7 +73,8 @@ function fixture(options: { confirmable?: boolean } = {}): WorkspaceGateway & {
   if (options.confirmable)
     draft.event.chanceRoll = {
       sides: 100,
-      dice: [100],
+      diceTotal: 100,
+      diceCount: 1,
       provenance: { kind: 'table' },
       modifiers: [],
     };
@@ -569,7 +570,8 @@ function EditProbe() {
             kind: 'upkeep_roll',
             field: 'check',
             roll: {
-              dice: [10],
+              diceTotal: 10,
+              diceCount: 1,
               sides: 20,
               provenance: { kind: 'table' },
               modifiers: [],
@@ -771,7 +773,8 @@ test('[feedback.remote] a remote change names its phases without moving phase or
         kind: 'upkeep_roll',
         field: 'check',
         roll: {
-          dice: [12],
+          diceTotal: 12,
+          diceCount: 1,
           sides: 20,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -782,7 +785,8 @@ test('[feedback.remote] a remote change names its phases without moving phase or
       await other.edit({
         kind: 'event_chance',
         roll: {
-          dice: [42],
+          diceTotal: 42,
+          diceCount: 1,
           sides: 100,
           provenance: { kind: 'table' },
           modifiers: [],

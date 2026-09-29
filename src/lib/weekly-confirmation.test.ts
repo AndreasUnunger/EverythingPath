@@ -20,7 +20,8 @@ function authority() {
     },
   });
   draft.event.chanceRoll = {
-    dice: [100],
+    diceTotal: 100,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' },
     modifiers: [],
@@ -113,7 +114,8 @@ test('[rules.P80.barrier] Confirmation waits for an earlier edit, pauses new edi
   const edit = workspace.edit({
     kind: 'event_chance',
     roll: {
-      dice: [99],
+      diceTotal: 99,
+      diceCount: 1,
       sides: 100,
       provenance: { kind: 'table' },
       modifiers: [],

@@ -326,12 +326,7 @@ export const rivalrySkillLabels: Record<RivalrySkill, string> = {
 };
 
 function rollText(roll: RawRoll | undefined) {
-  if (!roll) return 'no roll';
-  const total =
-    'diceTotal' in roll
-      ? roll.diceTotal
-      : roll.dice.reduce((sum, die) => sum + die, 0);
-  return `roll ${total}`;
+  return roll ? `roll ${roll.diceTotal}` : 'no roll';
 }
 
 /**

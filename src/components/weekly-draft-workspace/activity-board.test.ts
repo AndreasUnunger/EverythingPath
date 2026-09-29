@@ -379,7 +379,8 @@ describe('checks and modifiers', () => {
         teamId: 'Coins',
         rolls: {
           check: {
-            dice: [9],
+            diceTotal: 9,
+            diceCount: 1,
             modifiers: [
               {
                 sourceId: 'helpful',
@@ -411,7 +412,9 @@ describe('checks and modifiers', () => {
       choice: { rolls: { check: { modifiers: [legacy, custom] } } },
     });
     expect(removeModifierEdit(slot, 0)).toMatchObject({
-      choice: { rolls: { check: { dice: [10], modifiers: [] } } },
+      choice: {
+        rolls: { check: { diceTotal: 10, diceCount: 1, modifiers: [] } },
+      },
     });
     place(0, { choiceId: 'drill', actionId: 'drill_militia' });
     expect(addModifierEdit(view().slots[0]!, custom)).toBeNull();

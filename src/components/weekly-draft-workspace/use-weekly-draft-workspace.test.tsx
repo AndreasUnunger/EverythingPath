@@ -27,7 +27,8 @@ function fixture(teams: Team[] = []) {
     },
   });
   draft.event.chanceRoll = {
-    dice: [100],
+    diceTotal: 100,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' },
     modifiers: [],
@@ -101,7 +102,8 @@ function roll(field: 'check' | 'training', value: number) {
     kind: 'upkeep_roll' as const,
     field,
     roll: {
-      dice: [value],
+      diceTotal: value,
+      diceCount: 1,
       sides: field === 'check' ? 20 : 6,
       provenance: { kind: 'table' as const },
       modifiers: [],
@@ -120,7 +122,7 @@ test('[rules.P81.workspace] only ready exposes semantic operations and derived U
     throw new Error('Expected Upkeep');
   expect(view.phaseView.rolls[0]).toMatchObject({
     field: 'check',
-    dice: [null],
+    recorded: null,
     modifier: 3,
     dc: 10,
   });
@@ -207,7 +209,9 @@ test('[rules.P81.recovery] players navigate independently while a pending edit f
   const recovered = first.result.current;
   if (recovered.status !== 'ready' || recovered.phaseView.phase !== 'upkeep')
     throw new Error('Expected Upkeep');
-  expect(recovered.phaseView.rolls[0]?.dice).toEqual([12]);
+  expect(recovered.phaseView.rolls[0]?.recorded).toMatchObject({
+    diceTotal: 12,
+  });
   first.unmount();
   second.unmount();
 });
@@ -448,7 +452,8 @@ test('[rules.P82.workspace] Activity exposes complete choices and retained extra
         costCopper: 0,
         rolls: {
           check: {
-            dice: [10],
+            diceTotal: 10,
+            diceCount: 1,
             sides: 20,
             provenance: { kind: 'table' },
             modifiers: [],
@@ -471,7 +476,7 @@ test('[rules.P82.workspace] Activity exposes complete choices and retained extra
     expect(state.phaseView.slots[2]?.choice).toMatchObject({
       choiceId: 'drill',
       costCopper: 0,
-      rolls: { check: { dice: [10] } },
+      rolls: { check: { diceTotal: 10, diceCount: 1 } },
     });
     expect(state.phaseView.slots[2]?.overAllowance).toBe(true);
     expect(
@@ -575,7 +580,8 @@ test('[rules.P83.workspace] Event occurrences and required branches recompute af
     return value;
   };
   const percentile = (value: number) => ({
-    dice: [value],
+    diceTotal: value,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' as const },
     modifiers: [],
@@ -1003,7 +1009,8 @@ test('a stale whole-occurrence save fails on its device and never reverts the ot
     return builder.result.current;
   };
   const percentile = (value: number) => ({
-    dice: [value],
+    diceTotal: value,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' as const },
     modifiers: [],
@@ -1035,7 +1042,7 @@ test('a stale whole-occurrence save fails on its device and never reverts the ot
   act(() => void playerEdits.setTargets(root, 'team', ['scouts']));
   await settled();
   expect(occurrence(gm)).toMatchObject({
-    tableRoll: { dice: [90] },
+    tableRoll: { diceTotal: 90, diceCount: 1 },
     targets: [{ kind: 'team', teamId: 'scouts' }],
   });
 

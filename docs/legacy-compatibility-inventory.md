@@ -177,6 +177,10 @@ W1 is gone).
 
 ### A2. Legacy dice arrays beside dice totals (#154, #155)
 
+**Removed 2026-09-29 (#198).** `rawRollSchema` accepts only totals; the
+per-die readers and array-only tests are gone, and the range advisory and
+wrong-specification note stay for totals.
+
 - **Old shape:** a `RawRoll` with individual `dice: number[]`. #154 taught
   readers the `{ diceTotal, diceCount }` form. #155 made every editor write
   totals (`totalRoll` in `roll-facts.ts`), so no page writes an array now.

@@ -24,7 +24,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.useRealTimers();
 });
-async function setup(mixed = false) {
+async function setup() {
   const t = convexTest(schema, modules);
   await t.mutation(internal.e2eFixtures.seedIdentityProjection, scope);
   await t.mutation(internal.e2eFixtures.resetCase, { ...scope, now: 1 });
@@ -57,7 +57,8 @@ async function setup(mixed = false) {
       edit: {
         kind: 'event_chance',
         roll: {
-          ...(mixed ? { diceTotal: 100, diceCount: 1 } : { dice: [100] }),
+          diceTotal: 100,
+          diceCount: 1,
           sides: 100,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -65,26 +66,6 @@ async function setup(mixed = false) {
       },
     },
   });
-  if (mixed)
-    await player.mutation(api.canonicalDraftPersistence.edit, {
-      campaignId: key.campaignId,
-      militiaId: key.militiaId,
-      operation: {
-        draftId: key.draftId,
-        operationId: 'legacy-training',
-        baseRevision: 1,
-        edit: {
-          kind: 'upkeep_roll',
-          field: 'training',
-          roll: {
-            dice: [3],
-            sides: 6,
-            provenance: { kind: 'generated', sourceId: 'table-dice' },
-            modifiers: [{ sourceId: 'weather', value: -1, reason: 'Rain' }],
-          },
-        },
-      },
-    });
   const preview = await player.query(
     api.canonicalDraftPersistence.preview,
     key,
@@ -283,58 +264,6 @@ test('[rules.P86.navigation] week navigation skips gaps and rejects records from
   await expect(
     player.query(api.canonicalHistory.read, { ...args, recordId: 'foreign' }),
   ).rejects.toThrow('Invalid record reference');
-});
-
-test('mixed confirmed history remains exact across selectors, live changes and denied reads', async () => {
-  const { t, player, key, record } = await setup(true);
-  expect(record.source.event.chanceRoll).toEqual({
-    diceTotal: 100,
-    diceCount: 1,
-    sides: 100,
-    provenance: { kind: 'table' },
-    modifiers: [],
-  });
-  expect(record.source.upkeep.rolls.training).toEqual({
-    dice: [3],
-    sides: 6,
-    provenance: { kind: 'generated', sourceId: 'table-dice' },
-    modifiers: [{ sourceId: 'weather', value: -1, reason: 'Rain' }],
-  });
-  const storedBefore = await t.run((ctx) =>
-    ctx.db.query('canonicalResolutionRecord').take(2),
-  );
-  await t.run(async (ctx) => {
-    const state = await ctx.db.query('canonicalMilitiaState').unique();
-    if (!state) throw Error('Missing state');
-    await ctx.db.patch('canonicalMilitiaState', state._id, {
-      snapshot: { ...state.snapshot, treasuryCopper: 99999, training: 99 },
-    });
-  });
-  for (const selector of [
-    {},
-    { week: record.source.week },
-    { recordId: record.recordId },
-  ]) {
-    expect(
-      (
-        await player.query(api.canonicalHistory.read, {
-          campaignId: key.campaignId,
-          ...selector,
-        })
-      )?.record,
-    ).toEqual(record);
-  }
-  await expect(
-    t
-      .withIdentity({ tokenIdentifier: 'outsider' })
-      .query(api.canonicalHistory.read, {
-        campaignId: key.campaignId,
-        recordId: record.recordId,
-      }),
-  ).rejects.toThrow('Campaign access');
-  expect(
-    await t.run((ctx) => ctx.db.query('canonicalResolutionRecord').take(2)),
-  ).toEqual(storedBefore);
 });
 
 type Harness = Awaited<ReturnType<typeof setup>>;

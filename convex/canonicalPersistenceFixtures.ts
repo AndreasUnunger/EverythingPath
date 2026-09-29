@@ -393,7 +393,8 @@ export const initializeUpkeep = internalMutation({
       },
     });
     draft.event.chanceRoll = {
-      dice: [100],
+      diceTotal: 100,
+      diceCount: 1,
       sides: 100,
       provenance: { kind: 'table' },
       modifiers: [],
@@ -441,13 +442,15 @@ export const initializeUpkeep = internalMutation({
       };
       draft.upkeep.rolls = {
         check: {
-          dice: [20],
+          diceTotal: 20,
+          diceCount: 1,
           sides: 20,
           provenance: { kind: 'table' },
           modifiers: [],
         },
         training: {
-          dice: [1],
+          diceTotal: 1,
+          diceCount: 1,
           sides: 6,
           provenance: { kind: 'table' },
           modifiers: [],
