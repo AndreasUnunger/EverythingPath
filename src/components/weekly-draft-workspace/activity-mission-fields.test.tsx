@@ -158,6 +158,7 @@ describe('information and Special', () => {
         dc: null,
         modifier: 5,
         total: 17,
+        succeeded: true,
         breakdown: [],
       },
     });

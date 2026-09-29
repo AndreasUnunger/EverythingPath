@@ -345,10 +345,30 @@ describe('market details', () => {
       contraband: true,
       activationCopper: 5000,
     });
-    expect(black.rolls).toEqual([
+    // Its notoriety roll shows only once the rules read the check as failed.
+    expect(black.rolls).toEqual([]);
+    const blackCheck = (succeeded: boolean) =>
+      detailFor(
+        { choiceId: 'm', actionId: 'activate_black_market', teamId: 'acting' },
+        {
+          check: {
+            spec: { count: 1, sides: 20 },
+            organizationCheck: 'secrecy',
+            dc: 20,
+            modifier: 3,
+            total: succeeded ? 21 : 19,
+            succeeded,
+            breakdown: [],
+          },
+        },
+        { teamRoster: roster('blackMarketeers', 3) },
+      )!.rolls;
+    expect(blackCheck(true)).toEqual([]);
+    expect(blackCheck(false)).toEqual([
       expect.objectContaining({
         field: 'notoriety',
         when: 'Rolled if the Secrecy check fails: Notoriety rises by the roll.',
+        shownBecause: 'The check fails',
       }),
     ]);
   });

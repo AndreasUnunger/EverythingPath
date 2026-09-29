@@ -149,6 +149,7 @@ export function checkModifierLabel(
 function checkFacts(
   choice: StagedActionChoice,
   projected: ProjectedCheck | undefined,
+  succeeded: boolean | null,
   label: (source: string) => string,
 ): ActivityCheck | null {
   const spec = activityRollSpec(choice.actionId, 'check');
@@ -159,6 +160,7 @@ function checkFacts(
     dc: projected?.dc ?? null,
     modifier: projected?.modifier ?? null,
     total: projected?.total ?? null,
+    succeeded,
     breakdown: (projected?.modifiers ?? []).map((modifier) => ({
       source: modifier.source,
       label: label(modifier.source),
@@ -624,7 +626,15 @@ function slotFacts({
             roster.find((team) => team.teamId === choice.teamId)?.name ?? null,
         }
       : null,
-    check: choice ? checkFacts(choice, projected, label) : null,
+    check: choice
+      ? checkFacts(
+          choice,
+          projected,
+          projection?.actionResults.find((entry) => entry.choiceId === choiceId)
+            ?.succeeded ?? null,
+          label,
+        )
+      : null,
     modifiers: choice
       ? recordedModifiers(choice, requirements, projected, label)
       : [],

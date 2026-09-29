@@ -301,6 +301,9 @@ export type ActivityCheck = {
   // chosen); the entered dice total is never folded into the bonus.
   modifier: number | null;
   total: number | null;
+  // The rules' reading of the total against the DC (true when the check has
+  // no DC); null until the rules decide it.
+  succeeded: boolean | null;
   breakdown: { source: string; label: string; value: number }[];
 };
 // A modifier recorded on the check roll. Helpful and bonus entries select a

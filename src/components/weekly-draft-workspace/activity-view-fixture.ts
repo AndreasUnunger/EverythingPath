@@ -48,6 +48,7 @@ export function activitySlot(
           dc: null,
           modifier: null,
           total: null,
+          succeeded: null,
           breakdown: [],
         }
       : null,

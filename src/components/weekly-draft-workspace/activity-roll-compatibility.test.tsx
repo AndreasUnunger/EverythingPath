@@ -26,8 +26,17 @@ const legacyCheck: RawRoll = {
   provenance: table,
   modifiers: [],
 };
-function facts(choice: StagedActionChoice, requirements: string[] = []): Facts {
-  return activityFacts([activitySlot(choice, { requirements })]);
+// `succeeded` is the rules' reading of the check. It defaults to a success so
+// Drill's Training roll, used only then, shows.
+function facts(
+  choice: StagedActionChoice,
+  requirements: string[] = [],
+  succeeded: boolean | null = true,
+): Facts {
+  const slot = activitySlot(choice, { requirements });
+  return activityFacts([
+    { ...slot, check: slot.check && { ...slot.check, succeeded } },
+  ]);
 }
 const drill = (
   rolls: Extract<StagedActionChoice, { actionId: 'drill_militia' }>['rolls'],
@@ -239,12 +248,17 @@ test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriet
   });
   rerender(
     <ActivityView
-      view={facts({
-        actionId: 'reduce_danger',
-        choiceId: 'danger',
-        settlementId: 'town',
-        rolls: { notoriety: total(4, 1, 3) },
-      } as StagedActionChoice)}
+      view={facts(
+        {
+          actionId: 'reduce_danger',
+          choiceId: 'danger',
+          settlementId: 'town',
+          rolls: { notoriety: total(4, 1, 3) },
+        } as StagedActionChoice,
+        [],
+        // Its notoriety roll is used only when the check fails.
+        false,
+      )}
       edit={edit}
       disabled={false}
     />,
