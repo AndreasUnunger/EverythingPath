@@ -1,11 +1,5 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
@@ -16,8 +10,6 @@ import { eventView } from './event-facts';
 import { EventView } from './event-view';
 
 vi.mock('~/components/ui/select', () => import('./native-select-test-double'));
-
-afterEach(cleanup);
 
 function fixture(value: number, twice = false) {
   const { draft, snapshot } = recurringEventFixture(value, twice);

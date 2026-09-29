@@ -1,10 +1,9 @@
-import { cleanup, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { useRef } from 'react';
 import { useScrollPaddingFor } from './scroll-padding';
 
 afterEach(() => {
-  cleanup();
   vi.unstubAllGlobals();
 });
 

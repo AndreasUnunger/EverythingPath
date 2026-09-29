@@ -7,14 +7,13 @@ import {
   screen,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { newMilitiaSetup, type MilitiaSetup } from '~/lib/canonical-setup';
 import { SetupAssets } from './assets';
 import { SetupCarriedEffects } from './carry';
 import { GuidedMilitiaSetup } from './guided';
 import { SetupPeople, SetupTeams, type SetupCharacter } from './roster';
 import { SetupMilitiaValues, SetupModeChoice } from './starting-point';
-afterEach(cleanup);
 
 const hero: SetupCharacter = {
   characterId: 'hero',

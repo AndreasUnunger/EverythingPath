@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { roll, upkeepFixture } from '../../../tests/rules/upkeep-fixture';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
@@ -14,8 +13,6 @@ import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { phaseView } from './phase-view';
 import { Rank } from './upkeep-rank-view';
-
-afterEach(cleanup);
 
 // Rank 8 with 110 training and plenty of treasury: an ordinary attrition
 // success losing 1 training still reaches rank 9 (105), Captain.

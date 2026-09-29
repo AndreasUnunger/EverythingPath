@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react';
 import { ConvexError } from 'convex/values';
 import type { ComponentProps } from 'react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import type { Doc } from '@convex/_generated/dataModel';
 import type { CampaignWeek } from './use-campaign-week';
 import type { CampaignHomeContentState } from './use-campaign-home-content';
@@ -131,7 +131,6 @@ beforeEach(() => {
     recent: { kind: 'ready', weeks: [] },
   });
 });
-afterEach(cleanup);
 
 test('loading shows a layout-shaped skeleton and reads no list before the session settles', () => {
   session.mockReturnValue({ kind: 'resolving' });

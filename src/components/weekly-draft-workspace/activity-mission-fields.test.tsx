@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
 import {
@@ -18,7 +17,6 @@ import {
 import type { ActivityView as Facts } from './types';
 
 vi.mock('~/components/ui/select', () => import('./native-select-test-double'));
-afterEach(cleanup);
 
 type Slot = Facts['slots'][number];
 const settlements = [

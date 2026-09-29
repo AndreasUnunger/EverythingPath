@@ -1,9 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { FinishedWeekEntries } from './finished-week-entries';
 import type { AuditEntryView } from './finished-weeks-types';
-
-afterEach(cleanup);
 
 function entry(sequence: number, overrides: Partial<AuditEntryView>) {
   return {

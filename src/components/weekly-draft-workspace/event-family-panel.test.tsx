@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
@@ -15,8 +15,6 @@ import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView, type EventPreparationContext } from './event-facts';
 import { EventView } from './event-view';
-
-afterEach(cleanup);
 
 function view(
   draft: WeeklyDraft,

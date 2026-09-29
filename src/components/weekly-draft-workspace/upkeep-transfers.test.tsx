@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { upkeepFixture, roll } from '../../../tests/rules/upkeep-fixture';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
@@ -14,8 +13,6 @@ import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { phaseView } from './phase-view';
 import { UpkeepView } from './upkeep-view';
-
-afterEach(cleanup);
 
 // Rank 3, treasury 30 gp, resolved attrition, and no officers at all: the
 // transfer controls never ask for a character.

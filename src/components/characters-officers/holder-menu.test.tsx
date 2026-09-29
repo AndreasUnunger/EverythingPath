@@ -1,10 +1,9 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import type { RoleHolder } from '~/lib/officer-board';
 import { HolderMenu } from './holder-menu';
 
 afterEach(() => {
-  cleanup();
   vi.restoreAllMocks();
 });
 

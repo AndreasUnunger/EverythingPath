@@ -10,7 +10,7 @@ import {
 import { useState, type ComponentProps } from 'react';
 import { getFunctionName } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { CanonicalHistoryScreen } from './screen';
 import type { CampaignWeek } from '~/components/campaign-home/use-campaign-week';
 import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
@@ -276,7 +276,6 @@ beforeEach(() => {
   opened.length = 0;
   oneShot.length = 0;
 });
-afterEach(cleanup);
 
 const openWeek: CampaignWeek = { kind: 'week', week: 70 };
 

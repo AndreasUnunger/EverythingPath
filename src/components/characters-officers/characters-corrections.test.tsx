@@ -1,11 +1,4 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ConvexError } from 'convex/values';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -254,7 +247,6 @@ beforeEach(() => {
   calls = [];
   setMilitia(3, snapshot());
 });
-afterEach(cleanup);
 
 describe('one correction at a time', () => {
   test('opening one dims the other section and hides both Correct buttons; Cancel writes nothing', () => {

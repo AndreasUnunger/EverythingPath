@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -8,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { stableControl } from '../../../tests/stable-control';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { EventView as RulesOrderedEventView } from './event-view';
 import {
@@ -18,7 +17,6 @@ import {
 import { PersistentView } from './persistent-view';
 import type { PersistentView as PersistentFacts } from './types';
 type EventFacts = EventFactsInput;
-afterEach(cleanup);
 // Old occurrence-level facts, placed into the rules-ordered sections.
 function EventView({
   view,

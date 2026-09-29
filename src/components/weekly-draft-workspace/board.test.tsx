@@ -1,13 +1,12 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { createMemoryDraftAuthority } from '~/lib/memory-draft-persistence';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
@@ -50,7 +49,6 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-afterEach(cleanup);
 
 // `confirmable` starts from a week with nothing left to decide (a first
 // militia week whose event chance roll cannot produce an event).

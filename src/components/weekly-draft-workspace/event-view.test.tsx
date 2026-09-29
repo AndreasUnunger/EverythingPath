@@ -1,14 +1,7 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 import { EventView as RulesOrderedEventView } from './event-view';
 import { eventFacts, type EventFactsInput } from './event-view-test-fixture';
-afterEach(cleanup);
 // Old occurrence-level facts, placed into the rules-ordered sections.
 function EventView({
   view,

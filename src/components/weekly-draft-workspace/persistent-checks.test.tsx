@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -8,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { editWeeklyDraft } from '~/lib/weekly-draft';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
@@ -20,7 +19,6 @@ import { persistentView } from './persistent-facts';
 import { PersistentView } from './persistent-view';
 
 vi.mock('~/components/ui/select', () => import('./native-select-test-double'));
-afterEach(cleanup);
 
 const total = (value: number, modifiers: RawRoll['modifiers'] = []) =>
   ({

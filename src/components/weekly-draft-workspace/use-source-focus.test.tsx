@@ -1,8 +1,7 @@
-import { act, cleanup, renderHook } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 import { useSourceFocus } from './use-source-focus';
 import type { Phase } from './types';
-afterEach(cleanup);
 
 const nextFrame = () =>
   act(

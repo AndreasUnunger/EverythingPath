@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -106,7 +105,6 @@ beforeEach(() => {
 });
 const originalMatchMedia = window.matchMedia;
 afterEach(() => {
-  cleanup();
   window.matchMedia = originalMatchMedia;
 });
 // Tablet width until the returned function narrows or widens the window.

@@ -5,10 +5,8 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { SetupNotesButton } from './setup-notes';
-
-afterEach(cleanup);
 
 test('no button exists without notes', () => {
   render(<SetupNotesButton notes={undefined} />);

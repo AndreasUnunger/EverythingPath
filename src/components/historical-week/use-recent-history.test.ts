@@ -1,5 +1,5 @@
-import { act, cleanup, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, expect, test, vi } from 'vitest';
 import type { FunctionArgs } from 'convex/server';
 import { zid } from 'convex-helpers/server/zod4';
 import { api } from '../../../convex/_generated/api';
@@ -104,7 +104,6 @@ beforeEach(() => {
     },
   }));
 });
-afterEach(cleanup);
 
 test('recent weeks follow canonical gaps and ignore audit entries, stopping after three effective weeks', () => {
   values.set('campaign:latest', history(12, 8));

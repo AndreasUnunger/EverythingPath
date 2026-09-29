@@ -1,13 +1,12 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import type {
   ResultRow,
   ReviewException,
@@ -18,7 +17,6 @@ import type {
 import { SummaryView } from './summary-view';
 import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
-afterEach(cleanup);
 function section(
   phase: ReviewPhase,
   number: ReviewSection['number'],

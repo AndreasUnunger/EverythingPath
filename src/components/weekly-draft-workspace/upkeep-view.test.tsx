@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { upkeepFixture, roll } from '../../../tests/rules/upkeep-fixture';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
@@ -15,8 +15,6 @@ import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { phaseView } from './phase-view';
 import { UpkeepView } from './upkeep-view';
-
-afterEach(cleanup);
 
 type Team = UpkeepSnapshot['roster']['teams'][number];
 function team(teamId: string, status: Team['status']): Team {

@@ -1,5 +1,5 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { upkeepFixture, roll } from '../../../tests/rules/upkeep-fixture';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
@@ -7,7 +7,6 @@ import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { phaseView } from './phase-view';
 import { SummaryView } from './summary-view';
 import { confirmControlFixture } from './confirm-control-test-helpers';
-afterEach(cleanup);
 
 // Test-only representation; the app never writes totals in this delivery.
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {

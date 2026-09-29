@@ -7,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
 import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -188,7 +188,6 @@ beforeEach(() => {
   calls = [];
   setMilitia(3, state());
 });
-afterEach(cleanup);
 
 describe('Character conditions correction', () => {
   test('every condition fact is recorded and only the conditions are saved onto the latest militia', async () => {

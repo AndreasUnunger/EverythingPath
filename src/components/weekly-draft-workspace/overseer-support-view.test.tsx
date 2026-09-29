@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -8,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { overseerSupportHolders } from '~/lib/overseer-support';
 import { editWeeklyDraft } from '~/lib/weekly-draft';
@@ -24,8 +23,6 @@ import { EventView } from './event-view';
 import { overseerToggle } from './overseer-support-facts';
 import { persistentView } from './persistent-facts';
 import { PersistentView } from './persistent-view';
-
-afterEach(cleanup);
 
 // Sickness twice (Event 1.2 has the mandatory Loyalty save) and a carried
 // Theft with a Loyalty mitigation decision. The Overseer's Constitution 16

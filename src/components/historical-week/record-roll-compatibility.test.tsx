@@ -1,5 +1,5 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import { expect, test } from 'vitest';
 import {
   canonicalResolutionRecordSchema,
   type CanonicalResolutionRecord,
@@ -8,7 +8,6 @@ import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { HistoricalRecordView } from './record-view';
-afterEach(cleanup);
 
 // Test-only representation of a newer record; history never rewrites either.
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
