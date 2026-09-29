@@ -41,7 +41,10 @@ import {
   reviewSummaryLayout,
 } from './support/event-review-layout';
 import { exercisePersistentWorkspace } from './support/persistent-workspace';
-import { exerciseActivityWorkspace } from './support/activity-workspace';
+import {
+  exerciseActivityWorkspace,
+  exerciseDrillRolls,
+} from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { exerciseTeamConditionRows } from './support/team-conditions';
 import {
@@ -110,7 +113,7 @@ function observeEditRejection(page: Page) {
   return () => rejected;
 }
 
-// Each journey resets and seeds its own catalog case, so the seven journeys are
+// Each journey resets and seeds its own catalog case, so the journeys are
 // independent and may run on different worker cohorts at the same time.
 test.describe.configure({ mode: 'parallel' });
 test.use({
@@ -563,7 +566,7 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
     ).toBeVisible();
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
-    await panAndTapSettlementCards(gm, player, 'Phaendar', 'Misthome');
+    // The touch pan and tap on these cards have their own journey.
     await exerciseTeamConditionRows(gm, player, run, notorietyScope);
     await exerciseRankBoon(gm, player);
   } finally {
@@ -1185,4 +1188,107 @@ test('Activity fits landscape sizes, pans by touch and follows a correction and 
       ownedCase.scope,
       scope,
     ));
+});
+
+// The nearest-settlement touch pan and tap (#198), moved from the
+// settlement/rank journey so it keeps its margin. Same fixture and rolls; a
+// mouse chooses Phaendar and then misses the selection area with Misthome,
+// which is where the pan began in that journey.
+test('a finger pan over the settlement cards scrolls and chooses nothing, and a tap chooses', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(60_000);
+  const run = await loadRun();
+  // The settlement/rank journey's routed transport, where no edit is held.
+  const network = await controlNextDraftEdit(
+    players.gm,
+    run.fixture!.convexUrl,
+  );
+  const gm = players.gm,
+    player = players.player;
+  try {
+    await test.step('reach the nearest-settlement cards at maximum notoriety', async () => {
+      const { route } = await initialUpkeep(run, ownedCase, {
+        choices: true,
+        maximumNotoriety: true,
+        missingTeam: true,
+        rankGain: true,
+      });
+      await Promise.all([gm.goto(route), player.goto(route)]);
+      await expect(die(gm)).toBeVisible();
+      await die(gm).fill('10');
+      await expect(die(player)).toHaveValue('10');
+      await training(gm).fill('3');
+      await expect(training(player)).toHaveValue('3');
+      await gm
+        .getByRole('textbox', {
+          name: 'Maximum-notoriety training roll',
+          exact: true,
+        })
+        .fill('5');
+      await gm
+        .getByRole('textbox', { name: 'Notoriety Loyalty roll', exact: true })
+        .fill('1');
+      await expect(
+        player.getByRole('textbox', {
+          name: 'Notoriety Loyalty roll',
+          exact: true,
+        }),
+      ).toHaveValue('1');
+    });
+    await test.step('a mouse chooses Phaendar and misses with Misthome', async () => {
+      const settlementCards = gm.getByRole('group', {
+        name: 'Nearest settlement',
+        exact: true,
+      });
+      await settlementCards.scrollIntoViewIfNeeded();
+      await settlementCards
+        .getByRole('button', { name: 'Phaendar', exact: true })
+        .click();
+      const misthome = settlementCards.getByRole('button', {
+        name: 'Misthome',
+        exact: true,
+      });
+      const bounds = await misthome.boundingBox();
+      expect(bounds).not.toBeNull();
+      await gm.mouse.move(
+        bounds!.x + bounds!.width / 2,
+        bounds!.y + bounds!.height / 2,
+      );
+      await gm.mouse.down();
+      await gm.mouse.move(5, 5, { steps: 12 });
+      await gm.mouse.up();
+      await expect(
+        gm.getByText(
+          'Place the card in the highlighted selection area. Your selection is unchanged.',
+          { exact: true },
+        ),
+      ).toBeVisible();
+    });
+    await test.step('a finger pan scrolls and chooses nothing; taps choose', () =>
+      panAndTapSettlementCards(gm, player, 'Phaendar', 'Misthome'));
+  } finally {
+    network.release();
+  }
+});
+
+// Drill's notoriety and Training rolls show only when its check needs them,
+// and at maximum rank it resolves with a reasoned exception (#198). Moved
+// from the Activity-and-Event journey so it keeps its margin; that journey
+// clears Drill before Confirmation, so its outcome never used these rolls.
+test('Drill shows its notoriety and Training rolls only when its check needs them, with a maximum-rank exception', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(60_000);
+  const run = await loadRun();
+  const gm = players.gm,
+    player = players.player;
+  await test.step('seed the week and open Activity', async () => {
+    const { route } = await initialUpkeep(run, ownedCase);
+    await openActivity(gm, player, route);
+  });
+  await test.step('Drill shows each roll only when its check needs it', () =>
+    exerciseDrillRolls(gm, player));
 });

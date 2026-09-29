@@ -108,6 +108,17 @@ const workspaceJourneys = [
     'Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device',
     'workspaceActivity',
   ],
+  // The nearest-settlement touch pan and tap, and Drill's conditional rolls
+  // with its maximum-rank exception (#198), split so the settlement/rank and
+  // recovery journeys keep their margins.
+  [
+    'a finger pan over the settlement cards scrolls and chooses nothing, and a tap chooses',
+    'workspaceSettlementTouch',
+  ],
+  [
+    'Drill shows its notoriety and Training rolls only when its check needs them, with a maximum-rank exception',
+    'workspaceDrillRolls',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {
