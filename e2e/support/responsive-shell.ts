@@ -469,6 +469,18 @@ export async function settleAnimations(page: Page) {
  * no enabled controls must still expose their first and last text content.
  */
 export async function expectBoundedWeekHost(page: Page) {
+  // The top bar sits above the pinned chrome and wraps on a narrow tablet,
+  // so a control that finishes loading there (organizations, the account
+  // avatar) can reflow it and move the chrome by a row. Capture the baseline
+  // once the bar has loaded, so only scrolling can move the chrome. A web
+  // font swapping in would reflow it the same way.
+  await expect(
+    page.locator('header').getByRole('status', { name: /^Loading / }),
+    'the top bar has loaded its controls',
+  ).toHaveCount(0);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
   // Resizing can start finite CSS transitions on the responsive chrome.
   // Capture its baseline only after those settle.
   await settleAnimations(page);

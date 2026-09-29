@@ -84,22 +84,34 @@ export function SignIn() {
   );
 }
 
+function AccountPlaceholder() {
+  return (
+    <Skeleton
+      role="status"
+      aria-label="Loading account"
+      className="size-8 rounded-full"
+    />
+  );
+}
+
+// Clerk renders the avatar button asynchronously after Convex auth settles, so
+// the same placeholder also stands in as the `UserButton` fallback. The slot
+// keeps the placeholder's footprint until Clerk has rendered the avatar, so
+// the top bar never reflows (and, on the Week, never moves the pinned week
+// chrome) when the avatar arrives late. Minimum sizes only: the slot still
+// grows for the wider Sign in button when signed out.
 export function AccountControl() {
   return (
-    <>
+    <span className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center">
       <Authenticated>
-        <UserButton />
+        <UserButton fallback={<AccountPlaceholder />} />
       </Authenticated>
       <Unauthenticated>
         <SignIn />
       </Unauthenticated>
       <AuthLoading>
-        <Skeleton
-          role="status"
-          aria-label="Loading account"
-          className="size-8 rounded-full"
-        />
+        <AccountPlaceholder />
       </AuthLoading>
-    </>
+    </span>
   );
 }
