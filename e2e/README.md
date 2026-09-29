@@ -1161,6 +1161,9 @@ in the document, so another scroller, or an event from a scroll that had ended
 before the pan, could end the wait while the Week was still gliding.
 `watchScrollEnd` is now bound to the card's scrolling ancestor, the same
 element the pan-scrolled check measures (the document for the page's own
-scroller). It is armed just before the first touch, and it counts only that
-element's own `scrollend` once its `scrollTop` differs from the value at
-arming.
+scroller). It arms only once that element has held still for three animation
+frames, just before the first touch, so no earlier scroll is in flight. A
+`scrollend` counts only if it targets that element after its `scrollTop` has
+left the armed value, and the element then holds still for three more frames.
+A stale `scrollend` of its own that arrives while the pan still moves it fails
+that check, and the watch waits for the next one within the same 10 s bound.

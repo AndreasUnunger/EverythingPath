@@ -143,34 +143,61 @@ function readScroll(scroller: ElementHandle<Element>) {
 }
 
 /**
- * Runs in the page, armed just before the pan: `ended` resolves true once
- * `scroller` itself comes to rest, its momentum included, having moved since
- * arming; or false after `timeout` ms. Another scroller's `scrollend`, or one
- * from a scroll that ended before arming, does not count. The page's own
- * scroller reports `scrollend` on the document. The promise is wrapped so
- * `evaluateHandle` returns before it settles.
+ * Runs in the page, just before the pan. `ready` resolves true once
+ * `scroller` has held still for three animation frames, so no earlier scroll
+ * is in flight, and the watch is armed at that position. `ended` then resolves
+ * true once `scroller` itself comes to rest, its momentum included: a
+ * `scrollend` targeting it after it has moved from the armed position,
+ * followed by three animation frames without movement. A `scrollend` while it
+ * still moves (another scroller's, or a stale one of its own) does not count,
+ * and the next one is checked again. Both resolve false after `timeout` ms.
+ * The page's own scroller reports `scrollend` on the document. The promises
+ * are wrapped so `evaluateHandle` returns before they settle.
  */
 export function watchScrollEnd(scroller: Element, timeout: number) {
   const target =
     scroller === (document.scrollingElement ?? document.documentElement)
       ? document
       : scroller;
-  const armedTop = scroller.scrollTop;
-  return {
-    ended: new Promise<boolean>((resolve) => {
-      const settle = (rested: boolean) => {
-        clearTimeout(timer);
-        target.removeEventListener('scrollend', end);
-        resolve(rested);
+  const holdsStill = () =>
+    new Promise<boolean>((resolve) => {
+      const top = scroller.scrollTop;
+      let frames = 3;
+      const check = () => {
+        if (scroller.scrollTop !== top) resolve(false);
+        else if (--frames === 0) resolve(true);
+        else requestAnimationFrame(check);
       };
-      const end = (event: Event) => {
-        if (event.target === target && scroller.scrollTop !== armedTop)
-          settle(true);
-      };
-      const timer = setTimeout(() => settle(false), timeout);
-      target.addEventListener('scrollend', end);
-    }),
+      requestAnimationFrame(check);
+    });
+  let armedTop: number | undefined;
+  let done = false;
+  let finish!: (rested: boolean) => void;
+  const ended = new Promise<boolean>((resolve) => (finish = resolve));
+  const settle = (rested: boolean) => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    target.removeEventListener('scrollend', end);
+    finish(rested);
   };
+  const end = (event: Event) => {
+    if (
+      event.target === target &&
+      armedTop !== undefined &&
+      scroller.scrollTop !== armedTop
+    )
+      void holdsStill().then((still) => still && settle(true));
+  };
+  const timer = setTimeout(() => settle(false), timeout);
+  target.addEventListener('scrollend', end);
+  const ready = (async () => {
+    while (!done && !(await holdsStill()));
+    if (done) return false;
+    armedTop = scroller.scrollTop;
+    return true;
+  })();
+  return { ready, ended };
 }
 
 /**
@@ -224,6 +251,10 @@ export async function panAndTapSettlementCards(
   let scrollEnd;
   try {
     scrollEnd = await scroller.evaluateHandle(watchScrollEnd, 10_000);
+    expect(
+      await scrollEnd.evaluate((watch) => watch.ready),
+      'the week was at rest before the pan',
+    ).toBe(true);
     // A finger's own touch events: headless Chromium's synthesized touch
     // scroll gesture sends only touchstart and touchend.
     await cdp.send('Input.dispatchTouchEvent', {
