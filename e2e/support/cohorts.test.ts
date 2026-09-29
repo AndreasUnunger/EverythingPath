@@ -20,7 +20,7 @@ describe('one Playwright worker per declared cohort', () => {
       safeEnvironment,
       threeCohortResources,
     );
-    expect(cohortWorkers(validated)).toBe(3);
+    expect(cohortWorkers(validated, undefined, 16)).toBe(3);
     // A serial baseline on the same declaration uses only worker-0.
     expect(cohortWorkers(validated, 1)).toBe(1);
   });
@@ -31,7 +31,7 @@ describe('one Playwright worker per declared cohort', () => {
       const declaration = resourceSchema.parse(
         JSON.parse(readFileSync(join(process.cwd(), 'e2e', file), 'utf8')),
       );
-      expect(cohortWorkers(declaration)).toBe(3);
+      expect(cohortWorkers(declaration, undefined, 16)).toBe(3);
     },
   );
 
@@ -55,10 +55,18 @@ describe('one Playwright worker per declared cohort', () => {
       ...threeCohortResources,
       workers: [...threeCohortResources.workers, extra],
     };
-    expect(cohortWorkers(four)).toBe(3);
+    expect(cohortWorkers(four, undefined, 16)).toBe(3);
     expect(cohortWorkers(four, 4)).toBe(4);
     for (const requested of [0, 5, 1.5, Number.NaN])
       expect(() => cohortWorkers(four, requested)).toThrow('E2E workers');
+  });
+
+  it('runs at most one worker per available CPU unless workers are requested', () => {
+    // Three workers on a 2-vCPU runner time out journeys; two fit (#198).
+    expect(cohortWorkers(threeCohortResources, undefined, 2)).toBe(2);
+    expect(cohortWorkers(threeCohortResources, undefined, 1)).toBe(1);
+    expect(cohortWorkers(threeCohortResources, undefined, 0)).toBe(1);
+    expect(cohortWorkers(threeCohortResources, 3, 2)).toBe(3);
   });
 
   it('refuses shared cohorts and keys that do not follow worker order', () => {

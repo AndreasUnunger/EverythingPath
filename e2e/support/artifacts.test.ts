@@ -12,6 +12,10 @@ describe('retained E2E evidence', () => {
       'application or service reported an error',
     );
     expect(safeDiagnostic('Cookie: opaque-session-value')).toBeNull();
+    expect(safeDiagnostic('  "campaignId": "jwtc2k9r3xjwks4n8"')).toBeNull();
+    expect(safeDiagnostic('Failed to verify JWT: bad issuer')).toBe(
+      'authentication token or issuer failure',
+    );
     expect(safeDiagnostic('fetch failed: sk_test_secret')).toBe(
       'service connection failed',
     );
