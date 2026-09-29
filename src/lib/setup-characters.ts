@@ -1,9 +1,4 @@
-import {
-  mirrorRosterKinds,
-  normalizeCharacterKind,
-  type CharacterKind,
-  type CharacterRecordKind,
-} from './character-kind';
+import { mirrorRosterKinds, type CharacterKind } from './character-kind';
 import { militiaSetupSchema, type MilitiaSetup } from './canonical-setup';
 
 type Snapshot = MilitiaSetup['state']['militiaSnapshot'];
@@ -20,19 +15,13 @@ export type SetupCharacter = SetupCharacterFacts & {
 // not arrived yet is left out rather than given an invented kind.
 export function composeSetupCharacters(
   options: readonly (SetupCharacterFacts & { name: string })[],
-  records: readonly { _id: string; kind?: CharacterRecordKind }[],
+  records: readonly { _id: string; kind: CharacterKind }[],
 ): SetupCharacter[] {
   const kinds = new Map(records.map((record) => [record._id, record.kind]));
-  return options.flatMap((character) =>
-    kinds.has(character.characterId)
-      ? [
-          {
-            ...character,
-            kind: normalizeCharacterKind(kinds.get(character.characterId)),
-          },
-        ]
-      : [],
-  );
+  return options.flatMap((character) => {
+    const kind = kinds.get(character.characterId);
+    return kind ? [{ ...character, kind }] : [];
+  });
 }
 
 // The rules facts a snapshot stores for a character: never its name or kind.

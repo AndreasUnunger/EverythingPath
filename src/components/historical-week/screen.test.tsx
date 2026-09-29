@@ -20,6 +20,10 @@ import {
   type HistorySelection,
 } from '~/lib/campaign-routes';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
+import {
+  emptyPlanArtifacts,
+  recordSnapshot,
+} from '../../../tests/history/resolution-record-fixtures';
 
 // ---------- A small in-memory history backend behind the Convex client ----------
 
@@ -73,6 +77,12 @@ function recordFor(week: number, entry: Entry, sequence: number) {
     value: 1,
     reason: `Ruling of week ${week}, entry ${sequence + 1}`,
   } as const;
+  const militiaSnapshot = recordSnapshot();
+  const state = (training: number, startDay: number) => ({
+    week,
+    militiaSnapshot: { ...militiaSnapshot, training },
+    context: context(startDay),
+  });
   return canonicalResolutionRecordSchema.parse({
     recordId: entry.recordId,
     source: {
@@ -84,14 +94,14 @@ function recordFor(week: number, entry: Entry, sequence: number) {
       }),
       tableAdjustments: [ruling],
     },
+    sourceMilitiaSnapshot: militiaSnapshot,
     provenance: entry.provenance,
     rulesetVersion: entry.rulesetVersion,
-    baselinePlan: { formatVersion: 1, data: { training: 1000 } },
-    finalPlan: { formatVersion: 1, data: {} },
-    finalOutcome: {
-      formatVersion: 1,
-      data: { training: 1000 + week * 100 + sequence },
-    },
+    ...emptyPlanArtifacts({
+      before: state(militiaSnapshot.training, week * 7),
+      baseline: state(1000, week * 7 + 7),
+      final: state(1000 + week * 100 + sequence, week * 7 + 7),
+    }),
     adjudication: {
       acknowledgements: [],
       rulesExceptions: [],

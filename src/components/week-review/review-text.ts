@@ -84,7 +84,7 @@ const fieldLabels: Record<string, string> = {
   firstMilitiaWeek: 'Skip first Upkeep',
   uneventfulCarry: 'Uneventful-week benefit',
 };
-export function fieldLabel(field: string) {
+function fieldLabel(field: string) {
   return (
     fieldLabels[field] ??
     words(field.replace(/Copper$/, '').replace(/Ids?$/, ''))

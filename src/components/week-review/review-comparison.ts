@@ -1,12 +1,7 @@
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
+import type { CharacterKind } from '~/lib/character-kind';
 import type { ResultCell, ResultRow } from './review-facts';
-import {
-  describeValue,
-  fieldLabel,
-  gp,
-  words,
-  type ReviewNames,
-} from './review-text';
+import { describeValue, gp, words, type ReviewNames } from './review-text';
 
 // Now / Rules Baseline / Final comparison over the union of facts in the
 // three states. Values are compared semantically (by their stable
@@ -22,18 +17,16 @@ type DeepReadonly<T> = T extends (infer E)[]
     : T;
 type WeekState = DeepReadonly<CanonicalWeekState>;
 /**
- * Any of the three compared states; only read, never mutated. A frozen record
- * may lack its militia facts or week context (`null`), and an older artifact
- * format may hold only loose `recorded` facts by field name.
+ * Any of the three compared states; only read, never mutated. A part a frozen
+ * record stores in a shape today's readers do not know is `null`.
  */
 export type ComparedState = {
   militiaSnapshot: WeekState['militiaSnapshot'] | null;
   context: WeekState['context'] | null;
-  recorded?: Readonly<Record<string, unknown>>;
 };
 
 /** Which part of a state records a fact, and so decides its availability. */
-type Part = 'militia' | 'context' | 'recorded';
+type Part = 'militia' | 'context';
 type Fact = {
   key: string;
   group: string;
@@ -55,10 +48,8 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const personKinds: Record<string, string> = {
+const personKinds: Record<CharacterKind, string> = {
   pc: 'Player character',
-  officer_npc: 'Officer NPC',
-  other_npc: 'Other NPC',
   npc: 'NPC',
 };
 
@@ -115,8 +106,7 @@ function entityFacts<T extends object>(
   );
 }
 
-// Militia values by their stored field. Older artifacts may record any of
-// them loosely; they share the row of the complete snapshot's value.
+// Militia values by their stored field.
 const militiaValues = {
   rank: { key: 'rank', label: 'Rank', text: String },
   training: { key: 'training', label: 'Training', text: String },
@@ -125,36 +115,26 @@ const militiaValues = {
 } as const;
 type MilitiaValue = keyof typeof militiaValues;
 
-function militiaValueFact(field: MilitiaValue, value: number, part: Part) {
-  const spec = militiaValues[field];
-  return fact(
-    `militia:${spec.key}`,
-    'Militia',
-    spec.label,
-    value,
-    spec.text(value),
-    'None',
-    part,
-  );
-}
-function focusFact(focus: string | null, part: Part) {
-  return fact(
-    'militia:focus',
-    'Militia',
-    'Focus',
-    focus,
-    focus ?? 'None',
-    'None',
-    part,
-  );
-}
-
 function militiaFacts(snapshot: Snapshot): Fact[] {
   return [
-    ...(Object.keys(militiaValues) as MilitiaValue[]).map((field) =>
-      militiaValueFact(field, snapshot[field], 'militia'),
+    ...(Object.keys(militiaValues) as MilitiaValue[]).map((field) => {
+      const spec = militiaValues[field];
+      const value = snapshot[field];
+      return fact(
+        `militia:${spec.key}`,
+        'Militia',
+        spec.label,
+        value,
+        spec.text(value),
+      );
+    }),
+    fact(
+      'militia:focus',
+      'Militia',
+      'Focus',
+      snapshot.focus,
+      snapshot.focus ?? 'None',
     ),
-    focusFact(snapshot.focus, 'militia'),
   ];
 }
 
@@ -232,18 +212,14 @@ function settlementFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
   });
 }
 
-function rosterFacts(
-  snapshot: Snapshot,
-  names: ReviewNames,
-  reading: StateReading,
-): Fact[] {
+function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
   const people = snapshot.roster.people.map((person) =>
     fact(
       `person:${person.characterId}`,
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      `${personKinds[person.kind] ?? words(person.kind)} · ${hitDiceText(snapshot, person, reading)}`,
+      `${personKinds[person.kind]} · ${hitDiceText(snapshot, person)}`,
       'Not on roster',
     ),
   );
@@ -261,21 +237,16 @@ function rosterFacts(
 
 // The effective Hit Dice the rules use (`getEffectiveHitDice`, which this
 // renderer may not import): the override, or else the level of the character
-// in this same state, when a blank meant level for it. A record confirmed
-// before that rule shows only what it stored.
+// in this same state.
 function hitDiceText(
   snapshot: Snapshot,
   person: Snapshot['roster']['people'][number],
-  reading: StateReading,
 ) {
   const character = snapshot.characters.find(
     (entry) => entry.characterId === person.characterId,
   );
-  const hitDice =
-    person.hitDice ??
-    (reading.isBlankHitDiceLevel && character ? character.level : null);
-  if (hitDice !== null) return `${hitDice} Hit Dice`;
-  return `Hit Dice ${reading.isFrozen ? 'not recorded' : 'not set'}`;
+  const hitDice = person.hitDice ?? character?.level ?? null;
+  return hitDice === null ? 'Hit Dice not set' : `${hitDice} Hit Dice`;
 }
 
 /** One row per officer role, compared by its sorted holders. */
@@ -488,41 +459,8 @@ function carriedForwardFacts(context: Context, names: ReviewNames): Fact[] {
   ];
 }
 
-/**
- * Loose facts of an older artifact format. Militia values join their usual
- * row; anything else stays readable under its own field label.
- */
-function recordedFacts(
-  recorded: Readonly<Record<string, unknown>>,
-  names: ReviewNames,
-): Fact[] {
-  return Object.entries(recorded).map(([field, value]) => {
-    if (field in militiaValues && typeof value === 'number')
-      return militiaValueFact(field as MilitiaValue, value, 'recorded');
-    if (field === 'focus' && (typeof value === 'string' || value === null))
-      return focusFact(value, 'recorded');
-    return fact(
-      `recorded:${field}`,
-      'Recorded facts',
-      fieldLabel(field),
-      value,
-      describeValue(value, names, field),
-      'Not recorded',
-      'recorded',
-    );
-  });
-}
-
-// How to read a compared state: a frozen record, and whether a blank Hit Dice
-// override meant the level under the rules it was confirmed with.
-type StateReading = { isFrozen: boolean; isBlankHitDiceLevel: boolean };
-
 /** Every comparable fact of one state, in Result row order. */
-function stateFacts(
-  state: ComparedState,
-  names: ReviewNames,
-  reading: StateReading,
-): Fact[] {
+function stateFacts(state: ComparedState, names: ReviewNames): Fact[] {
   const snapshot = state.militiaSnapshot;
   const context = state.context;
   return [
@@ -531,7 +469,7 @@ function stateFacts(
           ...militiaFacts(snapshot),
           ...teamFacts(snapshot, names),
           ...settlementFacts(snapshot, names),
-          ...rosterFacts(snapshot, names, reading),
+          ...rosterFacts(snapshot, names),
           ...bonusFacts(snapshot, names),
           ...economyFacts(snapshot, names),
           ...conditionAndBenefitFacts(snapshot, names),
@@ -543,7 +481,6 @@ function stateFacts(
           ...carriedForwardFacts(context, names),
         ]
       : []),
-    ...(state.recorded ? recordedFacts(state.recorded, names) : []),
   ];
 }
 
@@ -563,16 +500,14 @@ const groupOrder = [
   'Persistent events',
   'Queued effects',
   'Orders',
-  'Recorded facts',
 ];
 
 /**
  * Whether a state records the part of the week a fact belongs to, so that
- * the fact's absence there is itself a fact. Loose older facts never are.
+ * the fact's absence there is itself a fact.
  */
 function records(state: ComparedState, row: Fact) {
   if (row.part === 'context') return state.context !== null;
-  if (row.part === 'recorded') return false;
   return state.militiaSnapshot !== null;
 }
 
@@ -643,7 +578,6 @@ export function compareWeekStates({
   final,
   names,
   unrecorded,
-  isBlankHitDiceLevel = unrecorded === undefined,
 }: {
   now: ComparedState | null;
   baseline: ComparedState | null;
@@ -651,20 +585,13 @@ export function compareWeekStates({
   names: ReviewNames;
   /** Text of an unknown value; a frozen record says it was not recorded. */
   unrecorded?: string;
-  /**
-   * Whether a blank Hit Dice override means the character's level, as it
-   * always does for a live week; a frozen record passes what held under
-   * its own Ruleset Version.
-   */
-  isBlankHitDiceLevel?: boolean;
 }): ResultRow[] {
-  const reading = { isFrozen: unrecorded !== undefined, isBlankHitDiceLevel };
   const columns = [now, baseline, final].map((state) =>
     state
       ? {
           state,
           facts: new Map(
-            stateFacts(state, names, reading).map((fact) => [fact.key, fact]),
+            stateFacts(state, names).map((fact) => [fact.key, fact]),
           ),
         }
       : null,

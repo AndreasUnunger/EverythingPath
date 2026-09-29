@@ -136,7 +136,7 @@ test('[rules.F02.pc-cap] current active PCs cap advancement; no PC does not inve
     roster: {
       people: [
         { characterId: 'pc', kind: 'pc', hitDice: 2 },
-        { characterId: 'npc', kind: 'officer_npc', hitDice: 20 },
+        { characterId: 'npc', kind: 'npc', hitDice: 20 },
       ],
       officers: [],
       teams: [],
@@ -244,7 +244,7 @@ test('[rules.O01.commandants] distinct commandants stack their Hit Dice override
     roster: {
       people: [
         { characterId: 'a', kind: 'pc', hitDice: 3 },
-        { characterId: 'b', kind: 'officer_npc', hitDice: 7 },
+        { characterId: 'b', kind: 'npc', hitDice: 7 },
       ],
       officers: [
         { role: 'commandant', characterId: 'a' },
@@ -526,7 +526,7 @@ test('[rules.F09.xp-rounding] crossed boons list PC recipients and floor each XP
       { characterId: 'a', kind: 'pc', hitDice: 1 },
       { characterId: 'b', kind: 'pc', hitDice: 1 },
       { characterId: 'c', kind: 'pc', hitDice: 1 },
-      { characterId: 'npc', kind: 'officer_npc', hitDice: 20 },
+      { characterId: 'npc', kind: 'npc', hitDice: 20 },
     ],
     officers: [],
     teams: [],
@@ -602,7 +602,7 @@ test('[rules.F09.packages] every crossed boon retains its prescribed package', (
   ]);
 });
 test('[rules.O06.capacity] a PC or an NPC holding a role manages up to their Charisma modifier; an NPC holding none manages one', () => {
-  for (const kind of ['pc', 'officer_npc', 'other_npc', 'npc'] as const)
+  for (const kind of ['pc', 'npc'] as const)
     for (const officers of [
       [],
       [{ role: 'marshal' as const, characterId: 'a' }],

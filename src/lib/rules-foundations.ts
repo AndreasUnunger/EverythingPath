@@ -12,8 +12,11 @@ import {
 } from './rules-officers';
 import { projectChecks, type CheckUsage } from './rules-checks';
 import type { CanonicalRoster } from './canonical-roster';
-import type { CampaignContext } from './canonical-campaign-context';
-import type { StagedActionChoice } from './weekly-draft-facts';
+import type {
+  ContextBonus,
+  ContextSettlement,
+} from './canonical-campaign-context';
+import type { QueuedEffect, StagedActionChoice } from './weekly-draft-facts';
 import {
   getOrganizationCheckBonusesForMilitia,
   getAdvancementForRank,
@@ -45,10 +48,10 @@ export type FoundationInput = {
   checkUsage?: CheckUsage;
   activity?: ActivityTeamUse;
   purchases?: FoundationPurchase[];
-  settlements: CampaignContext['settlements'];
+  settlements: ContextSettlement[];
   operatingSettlementId: string | null;
-  bonuses: CampaignContext['bonuses'];
-  queuedEffects: CampaignContext['queuedEffects'];
+  bonuses: ContextBonus[];
+  queuedEffects: QueuedEffect[];
 };
 
 // Input is the current projected state at this point in the week, not the

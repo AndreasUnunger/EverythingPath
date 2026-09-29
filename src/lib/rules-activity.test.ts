@@ -473,7 +473,7 @@ test('[rules.A24.warning] upgrade exceptions allow insufficient funds and a diff
 
 test('[rules.A04.pc] NPC role changes require exceptions; unassigning preserves people and characters', () => {
   const { draft, snapshot } = upkeepFixture();
-  snapshot.roster.people[0]!.kind = 'officer_npc';
+  snapshot.roster.people[0]!.kind = 'npc';
   draft.activity.slots[0]!.choice = {
     choiceId: 'role',
     actionId: 'change_officer_role',

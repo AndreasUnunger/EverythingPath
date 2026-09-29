@@ -221,14 +221,15 @@ test('[rules.P77.rivalry-mutation] persisted week-two through four keeps targets
       const record = canonicalResolutionRecordSchema.parse({
         recordId: `record-${week}`,
         source,
+        sourceMilitiaSnapshot: snapshot,
         provenance: 'confirmation',
         rulesetVersion: 1,
         baselinePlan: {
-          formatVersion: 1,
+          formatVersion: 2,
           data: { persistent: projection.persistent.plan },
         },
         finalPlan: {
-          formatVersion: 1,
+          formatVersion: 2,
           data: { persistent: projection.persistent.plan },
         },
         adjudication: {
@@ -238,7 +239,7 @@ test('[rules.P77.rivalry-mutation] persisted week-two through four keeps targets
         },
         warnings: [],
         finalOutcome: {
-          formatVersion: 1,
+          formatVersion: 2,
           data: {
             persistentEvents: projection.persistent.persistentEvents,
             outcome: JSON.parse(JSON.stringify(projection.persistent.outcome)),

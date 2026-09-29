@@ -94,30 +94,6 @@ function formatTwo(
   });
 }
 
-function legacy(
-  finalOutcome: Record<string, unknown>,
-  sourceMilitiaSnapshot?: UpkeepSnapshot,
-): CanonicalResolutionRecord {
-  return canonicalResolutionRecordSchema.parse({
-    recordId: 'legacy',
-    source: draft(),
-    ...(sourceMilitiaSnapshot ? { sourceMilitiaSnapshot } : {}),
-    provenance: 'historical_reconstruction',
-    rulesetVersion: 1,
-    baselinePlan: { formatVersion: 1, data: { treasuryCopper: 1 } },
-    finalPlan: { formatVersion: 1, data: {} },
-    finalOutcome: { formatVersion: 1, data: finalOutcome },
-    adjudication: {
-      acknowledgements: [],
-      rulesExceptions: [],
-      tableAdjustments: [],
-    },
-    warnings: [],
-    successorContext: context(),
-    supersedesRecordId: null,
-  });
-}
-
 const known = { beforeRecorded: true, finalRecorded: true };
 
 test('[rules.P86.headline-order] headlines take the first two known changes in family order from stored before and final facts', () => {
@@ -272,84 +248,47 @@ test('[rules.P86.headline-families] settlement reputation precedes persistent-ev
   ]);
 });
 
-test('[rules.P86.headline-unknown-start] known changes lead outcomes whose starting value was not recorded', () => {
-  const { sourceMilitiaSnapshot: _omitted, ...withoutSnapshot } = formatTwo(
-    () => undefined,
-    { before: [event('storm')] },
-  );
-  const record = {
-    ...withoutSnapshot,
-    finalPlan: { formatVersion: 1, data: {} },
-    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 87, rank: 2 } },
-  };
-  expect(projectHeadlineFacts(record).map(({ key }) => key)).toEqual([
-    'event:storm',
-    'treasury',
-  ]);
-});
-
 test('[rules.P86.headline-none] unchanged records and records without comparable facts have no headlines', () => {
   expect(projectHeadlineFacts(formatTwo(() => undefined))).toEqual([]);
-  expect(projectHeadlineFacts(legacy({}))).toEqual([]);
-  expect(projectHeadlineFacts(legacy({ note: 'Recorded by hand' }))).toEqual(
-    [],
-  );
+  const unreadable = formatTwo((after) => {
+    after.training = 20;
+  });
   expect(
-    projectHeadlineFacts(legacy({ treasuryCopper: '87', training: 1.5 })),
+    projectHeadlineFacts({
+      ...unreadable,
+      finalPlan: { formatVersion: 2, data: {} },
+      finalOutcome: { formatVersion: 2, data: { note: 'Recorded by hand' } },
+    }),
   ).toEqual([]);
-});
-
-test('[rules.P86.headline-legacy] legacy outcomes compare with a recorded source snapshot and otherwise mark the starting value unavailable', () => {
-  const { snapshot } = upkeepFixture();
   expect(
-    projectHeadlineFacts(legacy({ training: 12, rank: 3 }, snapshot)),
-  ).toEqual([
-    {
-      key: 'training',
-      label: 'Training',
-      before: 30,
-      final: 12,
-      unit: 'number',
-      ...known,
-    },
-  ]);
-  expect(projectHeadlineFacts(legacy({ treasuryCopper: 87 }))).toEqual([
-    {
-      key: 'treasury',
-      label: 'Treasury',
-      before: null,
-      final: 87,
-      unit: 'gp',
-      beforeRecorded: false,
-      finalRecorded: true,
-    },
-  ]);
-  expect(
-    projectHeadlineFacts(
-      legacy({ persistentEvents: [], outcome: { notoriety: 2 } }),
-    ),
-  ).toEqual([
-    {
-      key: 'notoriety',
-      label: 'Notoriety',
-      before: null,
-      final: 2,
-      unit: 'number',
-      beforeRecorded: false,
-      finalRecorded: true,
-    },
-  ]);
+    projectHeadlineFacts({
+      ...unreadable,
+      finalPlan: { formatVersion: 2, data: {} },
+      finalOutcome: {
+        formatVersion: 2,
+        data: { militiaSnapshot: { treasuryCopper: '87', training: 1.5 } },
+      },
+    }),
+  ).toEqual([]);
 });
 
 test('[rules.P86.headline-final] the final outcome takes precedence over plan-after, which fills in only when the outcome holds no militia facts', () => {
   const changed = formatTwo((after) => {
     after.training = 20;
   });
-  const legacyOutcome = {
+  const outcome = {
     ...changed,
-    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 7 } },
+    finalOutcome: {
+      formatVersion: 2 as const,
+      data: {
+        militiaSnapshot: {
+          ...changed.sourceMilitiaSnapshot,
+          treasuryCopper: 7,
+        },
+      },
+    },
   };
-  expect(projectHeadlineFacts(legacyOutcome)).toEqual([
+  expect(projectHeadlineFacts(outcome)).toEqual([
     {
       key: 'treasury',
       label: 'Treasury',
@@ -361,7 +300,10 @@ test('[rules.P86.headline-final] the final outcome takes precedence over plan-af
   ]);
   const planOnly = {
     ...changed,
-    finalOutcome: { formatVersion: 1, data: { note: 'Recorded by hand' } },
+    finalOutcome: {
+      formatVersion: 2 as const,
+      data: { note: 'Recorded by hand' },
+    },
   };
   expect(projectHeadlineFacts(planOnly)).toEqual([
     {
@@ -373,8 +315,4 @@ test('[rules.P86.headline-final] the final outcome takes precedence over plan-af
       ...known,
     },
   ]);
-  const { sourceMilitiaSnapshot: _omitted, ...planBefore } = planOnly;
-  expect(projectHeadlineFacts(planBefore)).toEqual(
-    projectHeadlineFacts(planOnly),
-  );
 });

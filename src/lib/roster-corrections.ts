@@ -3,11 +3,7 @@ import {
   weeklySourceKey,
   type CanonicalWeekState,
 } from './canonical-weekly-source';
-import {
-  mirrorRosterKinds,
-  normalizeCharacterKind,
-  type CharacterRecordKind,
-} from './character-kind';
+import { mirrorRosterKinds, type CharacterKind } from './character-kind';
 import {
   ABILITY_LABELS,
   BOARD_ROLES,
@@ -119,7 +115,7 @@ export function applyOfficerCorrection(
 
 /** One person on the corrected roster: blank Hit Dice follows the record. */
 export type RosterEntry = { characterId: string; hitDice: number | null };
-export type RecordKind = { characterId: string; kind?: CharacterRecordKind };
+export type RecordKind = { characterId: string; kind: CharacterKind };
 
 /**
  * The latest militia with the corrected roster membership and Hit Dice
@@ -145,7 +141,8 @@ export function applyRosterCorrection(
       .filter((entry) => !current.has(entry.characterId))
       .map((entry) => ({
         characterId: entry.characterId,
-        kind: normalizeCharacterKind(kinds.get(entry.characterId)?.kind),
+        // A joining person without a record keeps the PC default.
+        kind: kinds.get(entry.characterId)?.kind ?? 'pc',
         hitDice: entry.hitDice,
       })),
   ];
@@ -265,7 +262,7 @@ export function pcAssignmentHints(
       .filter(
         (officer) =>
           officer.role === role &&
-          normalizeCharacterKind(kinds.get(officer.characterId)) === 'pc' &&
+          (kinds.get(officer.characterId) ?? 'pc') === 'pc' &&
           !latest.roster.officers.some((old) =>
             holds(old, role, officer.characterId),
           ),
@@ -364,7 +361,7 @@ export function assignCandidates({
         {
           characterId: person.characterId,
           name: nameOf(names, person.characterId),
-          kind: normalizeCharacterKind(person.kind),
+          kind: person.kind,
           archived: !character.isActive,
           holds: heldRoles(roster.officers, person.characterId),
           detail,

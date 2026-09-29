@@ -34,9 +34,6 @@ export function StagedTransfer({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
           {copy.row}
-          {item.legacyCharacterName !== null
-            ? ` · ${item.legacyCharacterName}`
-            : null}
         </span>
         <span className="shrink-0 font-mono text-sm">
           {signedGold(deposit ? item.copper : -item.copper)}

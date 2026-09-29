@@ -83,7 +83,6 @@ test('an undecided disabled team offers the rules recovery cost and leaves the t
         typeName: 'Patrons',
         tier: 1,
         decision: null,
-        legacyRemoval: null,
         rulesCostCopper: 3000,
         enteredCostCopper: 3000,
         adjustment: null,
@@ -216,39 +215,6 @@ test('a scheduled return replaces the missing team check', () => {
   expect(view.requirements.some((key) => key.startsWith('team:'))).toBe(false);
 });
 
-test('a retained Remove choice from an older page stays visible with its reason and blocks until cleared', () => {
-  const view = upkeep((draft, snapshot) => {
-    snapshot.roster.teams.push(
-      team('scouts', 'disabled'),
-      team('riders', 'missing'),
-    );
-    draft.upkeep.teamDecisions = [
-      { teamId: 'scouts', decision: 'remove' },
-      { teamId: 'riders', decision: 'remove' },
-    ];
-    draft.rulesExceptions = [
-      {
-        exceptionId: 'x1',
-        subjectId: 'scouts',
-        ruleId: 'upkeep-team-removal',
-        reason: 'Disbanded in play',
-      },
-    ];
-  });
-  const [scouts] = view.sections.teams.disabled;
-  const [riders] = view.sections.teams.missing;
-  expect(scouts).toMatchObject({
-    decision: null,
-    legacyRemoval: { exceptionId: 'x1', reason: 'Disbanded in play' },
-  });
-  expect(riders).toMatchObject({
-    legacyRemoval: { exceptionId: null, reason: null },
-    return: null,
-  });
-  expect(view.requirements).toContain('team:riders:removal-exception');
-  expect(view.sections.teams.status).toBe('open');
-});
-
 test('attrition shows the natural 20 gain, ordinary success loss and failure loss with rank added by the rules', () => {
   const attrition = (check: number, training?: [number, ...number[]]) =>
     upkeep((draft) => {
@@ -361,7 +327,6 @@ test('rank waits for the earlier steps and then reports the actual transition', 
     draft.upkeep.treasuryTransfers = [
       {
         transferId: 'deposit',
-        characterId: 'pc',
         direction: 'deposit',
         copper: 250,
       },

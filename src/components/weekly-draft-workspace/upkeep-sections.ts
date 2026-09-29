@@ -18,7 +18,6 @@ import type {
   RollFact,
   UpkeepDisabledTeam,
   UpkeepIssue,
-  UpkeepLegacyRemoval,
   UpkeepLoss,
   UpkeepMissingTeam,
   UpkeepSections,
@@ -100,7 +99,7 @@ export function upkeepSections({
       earlierOpen,
       issues: issues('rank'),
     }),
-    transfers: transfersSection(context, earlierOpen, transfers, source.people),
+    transfers: transfersSection(context, earlierOpen, transfers),
     general,
   };
 }
@@ -202,12 +201,8 @@ function teamsSection(context: Context): UpkeepSections['teams'] {
   const rollsOnly =
     orphans.length === 0 &&
     disabled.every(
-      (team) =>
-        team.decision !== null &&
-        team.legacyRemoval === null &&
-        !team.fundsException?.required,
-    ) &&
-    missing.every((team) => team.legacyRemoval === null);
+      (team) => team.decision !== null && !team.fundsException?.required,
+    );
   return {
     status: open ? 'open' : teams.length === 0 ? 'inapplicable' : 'resolved',
     need: open ? (rollsOnly ? 'roll' : 'decision') : null,
@@ -356,10 +351,7 @@ function shortageSection(
     };
   }
   const pending = teams.disabled.reduce(
-    (sum, team) =>
-      team.decision === null && team.legacyRemoval === null
-        ? sum + team.rulesCostCopper
-        : sum,
+    (sum, team) => (team.decision === null ? sum + team.rulesCostCopper : sum),
     0,
   );
   return {
@@ -377,7 +369,6 @@ function transfersSection(
   context: Context,
   earlierOpen: boolean,
   transfers: UpkeepView['transfers'],
-  people: WorkspaceSource['people'],
 ): UpkeepSections['transfers'] {
   const { projection } = context;
   const ids = new Set(transfers.map((item) => item.transferId));
@@ -387,7 +378,6 @@ function transfersSection(
     transferItem(
       context,
       transfer,
-      people,
       sectionIssues.filter((issue) => owner(issue) === transfer.transferId),
     ),
   );
@@ -420,7 +410,6 @@ function transfersSection(
 function transferItem(
   { draft, projection }: Context,
   transfer: UpkeepView['transfers'][number],
-  people: WorkspaceSource['people'],
   issues: UpkeepIssue[],
 ): UpkeepTransfer {
   const theft = projection.plan.find(
@@ -441,11 +430,6 @@ function transferItem(
     transferId: transfer.transferId,
     direction: transfer.direction,
     copper: transfer.copper,
-    legacyCharacterName:
-      transfer.characterId === undefined
-        ? null
-        : (people.find((person) => person.characterId === transfer.characterId)
-            ?.name ?? 'Unnamed character'),
     theftCopper: theft ? theft.after - theft.before : null,
     fundsException:
       exception || required
@@ -498,21 +482,6 @@ function teamKind(team: SnapshotTeam) {
   return { typeName: entry?.name ?? team.teamType, tier: entry?.tier ?? null };
 }
 
-function legacyRemoval(
-  draft: WeeklyDraft,
-  teamId: string,
-): UpkeepLegacyRemoval | null {
-  if (teamDecision(draft, teamId)?.decision !== 'remove') return null;
-  const exception = draft.rulesExceptions.find(
-    (item) =>
-      item.subjectId === teamId && item.ruleId === 'upkeep-team-removal',
-  );
-  return {
-    exceptionId: exception?.exceptionId ?? null,
-    reason: exception?.reason ?? null,
-  };
-}
-
 // The existing recovery-funds exception identity for a team.
 export function recoveryFundsExceptionId(teamId: string) {
   return `upkeep:upkeep-recovery-funds:${teamId}`;
@@ -543,8 +512,7 @@ function disabledTeam(
     teamId: team.teamId,
     name: team.name,
     ...teamKind(team),
-    decision: decision === 'recover' || decision === 'leave' ? decision : null,
-    legacyRemoval: legacyRemoval(draft, team.teamId),
+    decision: decision ?? null,
     rulesCostCopper: minimumTreasuryCopper,
     enteredCostCopper: minimumTreasuryCopper - (adjustment?.deltaCopper ?? 0),
     adjustment,
@@ -563,15 +531,12 @@ function disabledTeam(
 }
 
 function missingTeam(context: Context, team: SnapshotTeam): UpkeepMissingTeam {
-  const { draft, issues } = context;
-  const removal = legacyRemoval(draft, team.teamId);
   return {
     teamId: team.teamId,
     name: team.name,
     ...teamKind(team),
-    legacyRemoval: removal,
-    return: removal ? null : teamReturn(context, team.teamId),
-    issues: issues(`team:${team.teamId}`),
+    return: teamReturn(context, team.teamId),
+    issues: context.issues(`team:${team.teamId}`),
   };
 }
 

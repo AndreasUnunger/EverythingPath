@@ -103,24 +103,3 @@ export function shouldApplyTreasuryShortagePenalty({
     }) < getMinimumTreasuryForRank(rank)
   );
 }
-
-// Legacy compatibility until its truncating writer is retired (#66).
-// Canonical projection uses the corrected Table 6-1 allowance above.
-export function getMaxActionsForRank(rank: number) {
-  if (rank >= 19) return 6;
-  if (rank >= 15) return 5;
-  if (rank >= 11) return 4;
-  if (rank >= 7) return 3;
-  if (rank >= 1) return 2;
-  return 1;
-}
-
-export function getMaxActionsForMilitia({
-  rank,
-  strategistAssigned,
-}: {
-  rank: number;
-  strategistAssigned: boolean;
-}) {
-  return getMaxActionsForRank(rank) + (strategistAssigned ? 1 : 0);
-}

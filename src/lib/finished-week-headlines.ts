@@ -68,11 +68,6 @@ const militiaValueFamilies = [
     schema: z.string().nullable(),
   },
 ] as const;
-const militiaFactFields: string[] = [
-  ...militiaValueFamilies.map(({ field }) => field),
-  'roster',
-  'settlements',
-];
 const entityFamilies: EntityFamily[] = [
   {
     keyPrefix: 'team',
@@ -132,9 +127,9 @@ const entityFamilies: EntityFamily[] = [
 ];
 
 // Compact finished-week comparisons read only this immutable record: its stored
-// before facts (source snapshot or plan-before) and its final facts (final
-// outcome or plan-after). No rules are re-run and no current labels are used.
-// Values the record does not hold are unavailable, never an assumed zero.
+// source snapshot and its final facts (final outcome or plan-after). No rules
+// are re-run and no current labels are used. Values the record does not hold
+// are unavailable, never an assumed zero.
 export function projectHeadlineFacts(
   record: CanonicalResolutionRecord,
 ): FinishedWeekHeadlineFact[] {
@@ -213,31 +208,20 @@ function compareEntities(
   });
 }
 
-function readBeforeMilitia(record: CanonicalResolutionRecord) {
-  const planBefore = readRecordedFacts(
-    readRecordedFacts(record.finalPlan.data)?.before,
-  );
-  return (
-    record.sourceMilitiaSnapshot ??
-    readRecordedFacts(planBefore?.militiaSnapshot)
-  );
+function readBeforeMilitia(
+  record: CanonicalResolutionRecord,
+): RecordedFacts | undefined {
+  return record.sourceMilitiaSnapshot;
 }
 
-// Format 2 stores a complete week state. Supported legacy artifacts store the
-// militia outcome under `outcome` or as flat facts. The final outcome takes
-// precedence; plan-after is used only when the outcome holds no militia facts.
+// The final outcome is a complete week state and takes precedence; plan-after
+// is used only when the outcome holds no militia facts.
 function readFinalMilitia(record: CanonicalResolutionRecord) {
-  const outcome = record.finalOutcome.data;
-  const flatOutcome = militiaFactFields.some((field) => field in outcome)
-    ? outcome
-    : undefined;
   const planAfter = readRecordedFacts(
     readRecordedFacts(record.finalPlan.data)?.after,
   );
   return (
-    readRecordedFacts(outcome.militiaSnapshot) ??
-    readRecordedFacts(outcome.outcome) ??
-    flatOutcome ??
+    readRecordedFacts(record.finalOutcome.data.militiaSnapshot) ??
     readRecordedFacts(planAfter?.militiaSnapshot)
   );
 }

@@ -4,7 +4,11 @@ import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { query } from './_generated/server';
 import { campaignMutation } from './lib/campaignRuntime';
 import { requireScope, readOpenDraft } from './lib/canonicalDraftStorage';
-import { withCurrentRecordKinds } from './lib/canonicalCharacters';
+import {
+  submittedSnapshotValidator,
+  withCurrentRecordKinds,
+  withSubmittedKindsNormalized,
+} from './lib/canonicalCharacters';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weekStartFactsSchema } from '../src/lib/weekly-draft-contract';
 import { draftReferenceRequirements } from '../src/lib/weekly-draft-references';
@@ -45,7 +49,7 @@ export const save = campaignMutation({
   args: {
     ...scope,
     expectedRevision: v.number(),
-    snapshot: zodOutputToConvex(militiaSnapshotSchema),
+    snapshot: submittedSnapshotValidator,
     reason: v.string(),
   },
   returns: v.number(),
@@ -68,7 +72,9 @@ export const save = campaignMutation({
       throw new ConvexError(
         'Militia changed. Review the latest ledger before saving.',
       );
-    const snapshot = militiaSnapshotSchema.parse(args.snapshot);
+    const snapshot = militiaSnapshotSchema.parse(
+      withSubmittedKindsNormalized(args.snapshot),
+    );
     const draft = await readOpenDraft(ctx, args);
     if (!draft) throw new ConvexError('Militia week unavailable');
     const { persistentPhaseEligible: _eligibility, ...context } = draft.context;

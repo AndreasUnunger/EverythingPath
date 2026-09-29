@@ -3,6 +3,7 @@ import { convexTest } from 'convex-test';
 import { expect, test } from 'vitest';
 import schema from './schema';
 import { canonicalResolutionRecordSchema } from '../src/lib/canonical-resolution-record';
+import { recordSnapshot } from '../tests/history/resolution-record-fixtures';
 import { createWeeklyDraft, editWeeklyDraft } from '../src/lib/weekly-draft';
 import {
   openDraft,
@@ -132,11 +133,12 @@ function record(recordId = 'record-11') {
   return canonicalResolutionRecordSchema.parse({
     recordId,
     source: fresh(),
+    sourceMilitiaSnapshot: recordSnapshot(),
     provenance: 'confirmation',
     rulesetVersion: 1,
-    baselinePlan: { formatVersion: 1, data: { treasuryCopper: 10001 } },
-    finalPlan: { formatVersion: 1, data: { treasuryCopper: 10001 } },
-    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 10001 } },
+    baselinePlan: { formatVersion: 2, data: { treasuryCopper: 10001 } },
+    finalPlan: { formatVersion: 2, data: { treasuryCopper: 10001 } },
+    finalOutcome: { formatVersion: 2, data: { treasuryCopper: 10001 } },
     adjudication: {
       acknowledgements: [],
       rulesExceptions: [],
@@ -179,7 +181,10 @@ test('[storage.history] closing preserves complete source and appends immutable 
     ...record('correction-11'),
     provenance: 'historical_correction' as const,
     supersedesRecordId: 'record-11',
-    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 10002 } },
+    finalOutcome: {
+      formatVersion: 2 as const,
+      data: { treasuryCopper: 10002 },
+    },
   };
   await gm.run((ctx) =>
     appendResolutionRecord(ctx, { ...scope, record: correction }),

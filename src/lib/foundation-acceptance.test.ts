@@ -110,7 +110,7 @@ test('[rules.acceptance.foundation-boons] every crossed boon names PCs once, req
   input.militiaSnapshot.training = 5351;
   input.militiaSnapshot.roster.people.push({
     characterId: 'npc',
-    kind: 'officer_npc',
+    kind: 'npc',
     hitDice: 20,
   });
   input.militiaSnapshot.characters.push({
@@ -188,7 +188,7 @@ test('[rules.acceptance.commandants] full-week Drill success, failure and natura
     input.militiaSnapshot.roster.people[0]!.hitDice = 3;
     input.militiaSnapshot.roster.people.push({
       characterId: 'npc',
-      kind: 'officer_npc',
+      kind: 'npc',
       hitDice: 7,
     });
     input.militiaSnapshot.characters.push({
@@ -235,7 +235,7 @@ test('[rules.acceptance.officer-abilities] each allowed ability, negative/tied s
       expect(foundations(input).officers.bonuses[check]).toBe(bonus);
       input.militiaSnapshot.roster.people.push({
         characterId: 'other',
-        kind: 'officer_npc',
+        kind: 'npc',
         hitDice: 1,
       });
       input.militiaSnapshot.characters.push({ ...pc, characterId: 'other' });
@@ -329,7 +329,7 @@ test('[rules.acceptance.strategist] multiple holders provide one bonus slot and 
   ];
   input.militiaSnapshot.roster.people.push({
     characterId: 'other',
-    kind: 'officer_npc',
+    kind: 'npc',
     hitDice: 1,
   });
   input.militiaSnapshot.characters.push({
@@ -370,7 +370,7 @@ test('[rules.acceptance.manager-checks] independent team identities use their cu
   });
   input.militiaSnapshot.roster.people.push({
     characterId: 'other',
-    kind: 'other_npc',
+    kind: 'npc',
     hitDice: 1,
   });
   input.militiaSnapshot.roster.teams = ['one', 'two'].map((teamId, i) => ({
@@ -570,12 +570,7 @@ test('[rules.acceptance.xp-shares] every XP award divides among active PCs with 
   for (const characterId of ['second', 'third', 'npc', 'cohort']) {
     input.militiaSnapshot.roster.people.push({
       characterId,
-      kind:
-        characterId === 'npc'
-          ? 'officer_npc'
-          : characterId === 'cohort'
-            ? 'other_npc'
-            : 'pc',
+      kind: characterId === 'npc' || characterId === 'cohort' ? 'npc' : 'pc',
       hitDice: 20,
     });
     input.militiaSnapshot.characters.push({

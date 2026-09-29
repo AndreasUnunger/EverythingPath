@@ -30,8 +30,6 @@ const messages: Record<string, string> = {
   'recovery-funds': 'Recovery costs exceed the available treasury.',
   'recovery-cost-baseline':
     'The entered recovery cost differs from the calculated cost.',
-  'removal-exception':
-    'A staged Remove choice is no longer offered in Upkeep. Clear it in Upkeep, or remove the team in Militia corrections.',
   'persistent-ending': 'Ending this event requires a reasoned Rules Exception.',
   'ending-acknowledgement': 'Record how this event ended at the table.',
   teams: 'This Rivalry needs its two distinct rival teams.',

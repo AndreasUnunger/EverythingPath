@@ -1,4 +1,4 @@
-import type { CampaignContext } from './canonical-campaign-context';
+import type { ContextSettlement } from './canonical-campaign-context';
 import { REPUTATION_LEVELS } from './militia-domain';
 
 export type FoundationPurchase = {
@@ -40,7 +40,7 @@ const reputationEffects = {
   },
 };
 export function projectSettlements(
-  settlements: CampaignContext['settlements'],
+  settlements: ContextSettlement[],
   week: number,
 ) {
   const requirements: string[] = [];

@@ -2694,8 +2694,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation preserves integer copper values, including zero, separately from unknown money.',
-          plannedTests: ['context.absence', 'setup.import'],
-          tests: ['context.absence', 'setup.import'],
+          plannedTests: ['setup.import'],
+          tests: ['setup.import'],
           gap: null,
         },
         {
@@ -2763,7 +2763,7 @@ export const coverageCatalog = {
           id: 'roster-holders',
           checkpoint: '3-roster',
           expected:
-            'Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments.',
+            'Roster preparation retains multiple holders and character identities during removal or reassignment.',
           plannedTests: ['setup.import', 'setup.carry-form', 'setup.import'],
           tests: ['setup.import', 'setup.carry-form', 'setup.import'],
           gap: null,
@@ -3094,7 +3094,6 @@ export const coverageCatalog = {
           tests: [
             'rules.O06.role-aware',
             'rules.O06.role-aware-parity',
-            'rules.HIST-05.manager-limit-version',
             'rules.A06.capacity',
             'rules.O06.capacity',
             'rules.acceptance.manager-checks',
@@ -3164,8 +3163,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Editing the proposed week records whether the militia is newly founded or resuming play, without executing Upkeep or changing committed state. Previous-week carryover applies only when a previous militia week exists.',
-          plannedTests: ['context.absence', 'ledger.shared'],
-          tests: ['context.absence', 'ledger.shared'],
+          plannedTests: ['ledger.shared'],
+          tests: ['ledger.shared'],
           gap: null,
         },
         {
@@ -3440,11 +3439,7 @@ export const coverageCatalog = {
             'rules.U05.overdraft',
             'rules.U05.officer-exception',
             'rules.U05.characterless',
-            'rules.U05.legacy-actor',
             'rules.U05.transfer-schema',
-            'rules.U05.ruleset-version',
-            'rules.U05.old-record',
-            'rules.U05.actor-scope',
             'rules.GATE.projection-parity',
           ],
           gap: null,
@@ -4611,7 +4606,7 @@ export const coverageCatalog = {
           // #108) a candidate's Roll Twice never expands; see the Guarantee
           // Event note in the corpus.
           expected:
-            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die, and earlier records keep their version.',
+            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die, and the week records the current Ruleset Version.',
           plannedTests: ['rules.A10.roll-twice'],
           tests: [
             'rules.A10.roll-twice',
@@ -4621,7 +4616,6 @@ export const coverageCatalog = {
             'rules.A10.reroll-exception',
             'rules.A10.reroll-dynamic',
             'rules.A10.reroll-parity',
-            'rules.HIST-05.candidate-expansion',
             'rules.A72.projection-parity',
           ],
           gap: null,
@@ -5177,12 +5171,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation retains copper precision, due-day, enchantment duration and explicit receipt separately from next-Activity marketplace timing.',
-          plannedTests: [
-            'setup.import',
-            'context.delivery',
-            'setup.receipt-decimal',
-          ],
-          tests: ['setup.import', 'context.delivery', 'setup.receipt-decimal'],
+          plannedTests: ['setup.import', 'setup.receipt-decimal'],
+          tests: ['setup.import', 'setup.receipt-decimal'],
           gap: null,
         },
         {

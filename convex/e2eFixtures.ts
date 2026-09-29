@@ -1,7 +1,6 @@
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
-import { normalizeCharacterKind } from '../src/lib/character-kind';
 import { v } from 'convex/values';
 import {
   internalMutation,
@@ -310,7 +309,7 @@ export const resetCase = internalMutation({
             ? [
                 {
                   characterId: character._id,
-                  kind: normalizeCharacterKind(character.kind),
+                  kind: character.kind,
                   hitDice: 1,
                 },
               ]

@@ -13,7 +13,6 @@ function team(
     typeName: 'Patrons',
     tier: 1,
     decision: 'recover',
-    legacyRemoval: null,
     rulesCostCopper: 3000,
     enteredCostCopper: 3000 - (adjustment?.deltaCopper ?? 0),
     adjustment,

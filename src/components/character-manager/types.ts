@@ -1,10 +1,7 @@
 import type { Doc, Id } from '@convex/_generated/dataModel';
 import { ConvexError } from 'convex/values';
 import { z } from 'zod';
-import {
-  characterKindSchema,
-  normalizeCharacterKind,
-} from '~/lib/character-kind';
+import { characterKindSchema } from '~/lib/character-kind';
 
 const integerField = (label: string) =>
   z.string().superRefine((raw, ctx) => {
@@ -72,14 +69,14 @@ export function toCharacterPayload(values: CharacterFormValues) {
   };
 }
 
-// A record's current values, with a legacy stored kind as its PC/NPC form.
+// A record's current values.
 export function toCharacterFormValues(
   record: CharacterRecord,
 ): CharacterFormValues {
   return {
     name: record.name,
     description: record.description,
-    kind: normalizeCharacterKind(record.kind),
+    kind: record.kind,
     level: String(record.level),
     strength: String(record.strength),
     dexterity: String(record.dexterity),

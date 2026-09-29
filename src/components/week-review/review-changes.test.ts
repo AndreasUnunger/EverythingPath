@@ -25,7 +25,6 @@ describe('[SUM-10] plan descriptions shared by live and recorded weeks', () => {
         {
           kind: 'treasury',
           sourceId: 'recovery:scouts',
-          characterId: null,
           before: 5000,
           after: 4200,
         },
@@ -96,7 +95,6 @@ describe('[SUM-10] plan descriptions shared by live and recorded weeks', () => {
       {
         kind: 'treasury',
         sourceId: 'recovery:scouts',
-        characterId: null,
         before: 5000,
         after: 4200,
       },

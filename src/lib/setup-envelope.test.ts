@@ -152,6 +152,8 @@ test('[setup.resume.corrupt] corrupt, unknown-version and structurally damaged e
     '{not json',
     'null',
     JSON.stringify({ ...envelope(), version: 99 }),
+    // Version 1 (#173) held legacy roster kinds; it is no longer migrated.
+    JSON.stringify({ ...envelope(), version: 1 }),
     JSON.stringify({ ...envelope(), step: 'elsewhere' }),
     JSON.stringify({ ...envelope(), visited: 'teams' }),
     JSON.stringify({ ...envelope(), initializationId: '' }),
@@ -249,10 +251,9 @@ test('[setup.resume.characters] restored roster characters take the ledger’s c
   expect(refreshed.state.militiaSnapshot.rank).toBe('four');
 });
 
-// A version 1 envelope as #173 stored it: legacy roster kinds beside raw
-// input, zero, explicit and malformed Hit Dice overrides, and an
-// unacknowledged start whose source used a legacy kind too.
-function versionOne() {
+// A version 2 roster beside raw input: zero, explicit and malformed Hit
+// Dice overrides.
+function withPeople() {
   const values = unfinished();
   values.state.militiaSnapshot.characters.push(
     character('hero', 3),
@@ -261,78 +262,35 @@ function versionOne() {
   );
   values.state.militiaSnapshot.roster.people.push(
     { characterId: 'hero', kind: 'pc', hitDice: 0 },
-    { characterId: 'ostler', kind: 'officer_npc', hitDice: 7 },
-    { characterId: 'rook', kind: 'other_npc', hitDice: null },
+    { characterId: 'ostler', kind: 'npc', hitDice: 7 },
+    { characterId: 'rook', kind: 'npc', hitDice: null },
   );
   (
     values.state.militiaSnapshot.roster.people[2] as { hitDice: unknown }
   ).hitDice = '2x';
-  const submitted = newMilitiaSetup('Loyalty');
-  submitted.state.militiaSnapshot.characters.push(character('ostler', 5));
-  submitted.state.militiaSnapshot.roster.people.push({
-    characterId: 'ostler',
-    kind: 'officer_npc',
-    hitDice: 7,
-  });
-  return { ...envelope(values), version: 1, submitted };
+  return envelope(values);
 }
 
-test('[setup.resume.migrate-kinds] a version 1 envelope restores as version 2 with PC or NPC kinds and nothing else changed', () => {
-  const stored = versionOne();
-  const storage = memoryStorage({
-    [setupEnvelopeKey(scope)]: JSON.stringify(stored),
-  });
-  const restored = readSetupEnvelope(storage, scope);
-  if (restored.kind !== 'restored') throw new Error('not restored');
-  const { envelope: migrated } = restored;
-  expect(SETUP_ENVELOPE_VERSION).toBe(2);
-  expect(migrated.version).toBe(SETUP_ENVELOPE_VERSION);
-  expect(migrated.values.state.militiaSnapshot.roster.people).toEqual([
-    { characterId: 'hero', kind: 'pc', hitDice: 0 },
-    { characterId: 'ostler', kind: 'npc', hitDice: 7 },
-    { characterId: 'rook', kind: 'npc', hitDice: '2x' },
-  ]);
-  // Raw input, step, visited steps and the attempt identity are untouched.
-  const { roster: _roster, ...rest } = migrated.values.state.militiaSnapshot;
-  const { roster: _stored, ...storedRest } =
-    stored.values.state.militiaSnapshot;
-  expect(rest).toEqual(storedRest);
-  expect(migrated.values.state.context).toEqual(stored.values.state.context);
-  expect(migrated.values.state.week).toBe('');
-  expect(migrated.values.mode).toBe('existing');
-  expect(migrated.step).toBe(stored.step);
-  expect(migrated.visited).toEqual(stored.visited);
-  expect(migrated.initializationId).toBe(stored.initializationId);
-  // The unacknowledged start is resent verbatim, so its identity still
-  // matches a source the server may already have accepted.
-  expect(migrated.submitted).toEqual(stored.submitted);
-  // Reading never rewrites storage; the next write stores version 2.
-  const storedVersion = () =>
-    (JSON.parse(storage.getItem(setupEnvelopeKey(scope))!) as SetupEnvelope)
-      .version;
-  expect(storedVersion()).toBe(1);
-  writeSetupEnvelope(storage, migrated);
-  expect(storedVersion()).toBe(2);
-  expect(readSetupEnvelope(storage, scope)).toEqual(restored);
-});
-
-test('[setup.resume.migrate-records] a migrated roster mirrors current record kinds; a missing record keeps its entry and reports a field error', () => {
+test('[setup.resume.missing-record] a restored roster mirrors current record kinds; a missing record keeps its entry and reports a field error', () => {
   const restored = readSetupEnvelope(
     memoryStorage({
-      [setupEnvelopeKey(scope)]: JSON.stringify(versionOne()),
+      [setupEnvelopeKey(scope)]: JSON.stringify(withPeople()),
     }),
     scope,
   );
   if (restored.kind !== 'restored') throw new Error('not restored');
   // Options have no kind; the character read supplies it. Rook's record is
-  // gone, and a record without a stored kind is a PC.
+  // gone.
   const characters = composeSetupCharacters(
     [
       { ...character('hero', 3), name: 'Hero' },
       { ...character('ostler', 5), name: 'Ostler' },
       { ...character('late', 1), name: 'Late' },
     ],
-    [{ _id: 'hero', kind: 'npc' }, { _id: 'ostler' }],
+    [
+      { _id: 'hero', kind: 'npc' },
+      { _id: 'ostler', kind: 'pc' },
+    ],
   );
   // A character whose record has not arrived is not offered yet.
   expect(characters.map((entry) => [entry.name, entry.kind])).toEqual([

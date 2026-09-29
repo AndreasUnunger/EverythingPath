@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TEAM_IDS, TEAM_STATUSES } from './militia-domain';
 import { identitySchema } from './weekly-draft-facts';
 import { getTeamManagerLimit } from './team-manager-rules';
-import { rosterKindSchema } from './character-kind';
+import { characterKindSchema } from './character-kind';
 
 export const OFFICER_ROLES = [
   'ambassador',
@@ -14,8 +14,8 @@ export const OFFICER_ROLES = [
 ] as const;
 export const rosterPersonSchema = z.strictObject({
   characterId: identitySchema,
-  // Stored mirror of the record kind: legacy and approved values stay verbatim.
-  kind: rosterKindSchema,
+  // Stored mirror of the record kind.
+  kind: characterKindSchema,
   // An optional override; blank means the rules use the record's level.
   hitDice: z.number().int().nonnegative().nullable(),
 });
@@ -172,12 +172,4 @@ export function rosterWarningDescriptors(
       });
   });
   return warnings;
-}
-
-export function mapLegacyOfficers(
-  holders: Partial<Record<(typeof OFFICER_ROLES)[number], string>>,
-) {
-  return OFFICER_ROLES.flatMap((role) =>
-    holders[role] ? [{ role, characterId: holders[role] }] : [],
-  );
 }

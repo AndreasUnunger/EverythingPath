@@ -151,7 +151,6 @@ test('[rules.P02.weekly] Theft mitigation recomputes current incoming gains, ret
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'income',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1000,
     },

@@ -121,13 +121,7 @@ function rankGain(
           acknowledgementId:
             acknowledgement?.acknowledgementId ?? `ack:${subjectId}`,
           outcome,
-          feats: options
-            ? {
-                options,
-                selected,
-                legacyOutcome: selected === null ? outcome : null,
-              }
-            : null,
+          feats: options ? { options, selected } : null,
           required: projection.requirements.includes(
             `${subjectId}:acknowledgement`,
           ),

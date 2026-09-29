@@ -11,12 +11,10 @@ import {
   FormControl,
   FormMessage,
 } from '~/components/ui/form';
-import { GuardedLink } from '~/components/campaign-shell/navigation-guard';
 import { ChoiceCards } from './choice-cards';
 import { RollTotalField } from './roll-total-field';
 import type {
   UpkeepDisabledTeam,
-  UpkeepLegacyRemoval,
   UpkeepMissingTeam,
   UpkeepSections,
 } from './types';
@@ -78,60 +76,6 @@ function TeamHeading({
         {team.tier !== null && ` · tier ${team.tier}`}
       </span>
       <Badge variant="secondary">{condition}</Badge>
-    </div>
-  );
-}
-
-// A staged Remove choice Upkeep no longer offers; removing a team is a
-// Militia correction now, so the only action here is to clear it.
-function LegacyRemoval({
-  teamId,
-  removal,
-  correctionsHref,
-  edit,
-  disabled,
-}: {
-  teamId: string;
-  removal: UpkeepLegacyRemoval;
-  correctionsHref?: string;
-  edit: UpkeepEdit;
-  disabled: boolean;
-}) {
-  return (
-    <div className="space-y-2 border-l-2 border-amber-500/60 pl-3">
-      <p role="note" className="text-sm text-amber-300">
-        This team still has a staged Remove choice, which Upkeep no longer
-        offers.
-      </p>
-      {removal.reason && (
-        <p className="text-sm [overflow-wrap:anywhere]">
-          Recorded reason: {removal.reason}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          onClick={() => {
-            for (const item of clearTeamDecision(teamId, removal)) edit(item);
-          }}
-        >
-          Clear Remove choice
-        </Button>
-        {correctionsHref && (
-          // Wraps like text: the button base is nowrap, which overflows a phone.
-          <Button
-            asChild
-            variant="link"
-            className="h-auto min-h-9 max-w-full min-w-0 justify-start text-left [overflow-wrap:anywhere] whitespace-normal"
-          >
-            <GuardedLink href={correctionsHref}>
-              Remove the team in Militia corrections
-            </GuardedLink>
-          </Button>
-        )}
-      </div>
     </div>
   );
 }
@@ -234,12 +178,10 @@ function RecoveryCost({
 
 function DisabledTeam({
   team,
-  correctionsHref,
   edit,
   disabled,
 }: {
   team: UpkeepDisabledTeam;
-  correctionsHref?: string;
   edit: UpkeepEdit;
   disabled: boolean;
 }) {
@@ -251,42 +193,30 @@ function DisabledTeam({
       className="space-y-3 p-4"
     >
       <TeamHeading team={team} condition="Disabled" />
-      {team.legacyRemoval ? (
-        <LegacyRemoval
-          teamId={team.teamId}
-          removal={team.legacyRemoval}
-          correctionsHref={correctionsHref}
-          edit={edit}
-          disabled={disabled}
-        />
-      ) : (
-        <>
-          <ChoiceCards
-            label={`${team.name} decision`}
-            value={team.decision}
-            disabled={disabled}
-            choices={[
-              {
-                value: 'recover',
-                label: 'Recover',
-                description: `Pay ${formatGold(team.rulesCostCopper)} now`,
-              },
-              {
-                value: 'leave',
-                label: 'Leave disabled',
-                description: 'Can’t act this week',
-              },
-            ]}
-            onChange={(value) => {
-              if (value === team.decision) return;
-              if (value === 'recover') edit(recoverTeam(team));
-              else for (const item of leaveTeamDisabled(team)) edit(item);
-            }}
-          />
-          {team.decision === 'recover' && (
-            <RecoveryCost team={team} edit={edit} disabled={disabled} />
-          )}
-        </>
+      <ChoiceCards
+        label={`${team.name} decision`}
+        value={team.decision}
+        disabled={disabled}
+        choices={[
+          {
+            value: 'recover',
+            label: 'Recover',
+            description: `Pay ${formatGold(team.rulesCostCopper)} now`,
+          },
+          {
+            value: 'leave',
+            label: 'Leave disabled',
+            description: 'Can’t act this week',
+          },
+        ]}
+        onChange={(value) => {
+          if (value === team.decision) return;
+          if (value === 'recover') edit(recoverTeam(team));
+          else for (const item of leaveTeamDisabled(team)) edit(item);
+        }}
+      />
+      {team.decision === 'recover' && (
+        <RecoveryCost team={team} edit={edit} disabled={disabled} />
       )}
       {fundsException && (
         <div className="space-y-2 border-l-2 border-amber-500/60 pl-3">
@@ -314,12 +244,10 @@ function DisabledTeam({
 
 function MissingTeam({
   team,
-  correctionsHref,
   edit,
   disabled,
 }: {
   team: UpkeepMissingTeam;
-  correctionsHref?: string;
   edit: UpkeepEdit;
   disabled: boolean;
 }) {
@@ -331,15 +259,7 @@ function MissingTeam({
       className="space-y-2 rounded-lg border px-4 py-3"
     >
       <TeamHeading team={team} condition="Missing" />
-      {team.legacyRemoval ? (
-        <LegacyRemoval
-          teamId={team.teamId}
-          removal={team.legacyRemoval}
-          correctionsHref={correctionsHref}
-          edit={edit}
-          disabled={disabled}
-        />
-      ) : returning?.kind === 'scheduled' ? (
+      {returning?.kind === 'scheduled' ? (
         <p className="text-sm">
           Returns at the end of week {returning.week}
           {returning.status === 'disabled' && ' as a disabled team'}
@@ -386,12 +306,10 @@ function MissingTeam({
 
 export function TeamConditions({
   teams,
-  correctionsHref,
   edit,
   disabled,
 }: {
   teams: UpkeepSections['teams'];
-  correctionsHref?: string;
   edit: UpkeepEdit;
   disabled: boolean;
 }) {
@@ -411,7 +329,6 @@ export function TeamConditions({
         <DisabledTeam
           key={team.teamId}
           team={team}
-          correctionsHref={correctionsHref}
           edit={edit}
           disabled={disabled}
         />
@@ -420,7 +337,6 @@ export function TeamConditions({
         <MissingTeam
           key={team.teamId}
           team={team}
-          correctionsHref={correctionsHref}
           edit={edit}
           disabled={disabled}
         />

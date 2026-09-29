@@ -138,7 +138,6 @@ function describeUpkeepTreasury(
     transferSubject(change.sourceId),
     amount >= 0 ? 'Treasury deposit' : 'Treasury withdrawal',
     delta('Treasury', amount, true),
-    change.characterId ? `By ${names.character(change.characterId)}` : null,
   );
 }
 

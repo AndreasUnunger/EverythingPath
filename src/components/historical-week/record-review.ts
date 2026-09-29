@@ -38,7 +38,6 @@ import {
   type ReviewNames,
 } from '~/components/week-review/review-text';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
-import { isBlankHitDiceLevel } from '~/lib/ruleset-versions';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { activityLabel } from '../weekly-draft-workspace/activity-labels';
 import { summaryMessage } from '../weekly-draft-workspace/summary-messages';
@@ -81,8 +80,6 @@ const emptyText: Record<ReviewPhase, string> = {
   event: 'No event consequences this week.',
   persistent: 'No persistent event consequences this week.',
 };
-const notRecordedText =
-  'This record’s format does not list this phase’s consequences.';
 function rollLine(label: string, roll: RawRoll | undefined) {
   return roll ? [`${label}: ${rollText(roll)}`] : [];
 }
@@ -96,7 +93,6 @@ function withDetails(entry: Item, details: string[]) {
 const decisionLines: Record<string, string> = {
   recover: 'Recover',
   leave: 'Left disabled',
-  remove: 'Remove from the roster',
 };
 
 /**
@@ -188,24 +184,13 @@ function rankItem(review: Review) {
   return [entry];
 }
 
-/** A transfer's recorded actor, from records that still name one. */
-function findTransferActor(
-  transfer: Source['upkeep']['treasuryTransfers'][number],
-) {
-  return 'characterId' in transfer && typeof transfer.characterId === 'string'
-    ? transfer.characterId
-    : null;
-}
-
 function transferItems(review: Review) {
   return review.record.source.upkeep.treasuryTransfers.map((transfer) => {
-    const actor = findTransferActor(transfer);
     const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
-    return newItem(
+    return newItem(transferSubject(transfer.transferId), `Treasury ${kind}`, [
+      transfer.transferId,
       transferSubject(transfer.transferId),
-      `Treasury ${kind}${actor ? ` · ${review.names.character(actor)}` : ''}`,
-      [transfer.transferId, transferSubject(transfer.transferId)],
-    );
+    ]);
   });
 }
 
@@ -443,26 +428,16 @@ function persistentItems(review: Review): Item[] {
 
 // ── Assembly and placement ────────────────────────────────────────────────
 
-function guaranteedChoices(record: ResolutionRecord, week: RecordedWeek) {
-  const plan = week.plans.activity;
-  if (plan)
-    return new Set(
-      plan.flatMap((change) =>
-        change.kind === 'event_guarantee' ? [change.choiceId] : [],
-      ),
-    );
-  // An older format without an Activity plan: a recorded chosen candidate.
+function guaranteedChoices(week: RecordedWeek) {
   return new Set(
-    record.source.activity.slots.flatMap(({ choice }) =>
-      choice && 'selectedEventId' in choice && choice.selectedEventId
-        ? [choice.choiceId]
-        : [],
+    (week.plans.activity ?? []).flatMap((change) =>
+      change.kind === 'event_guarantee' ? [change.choiceId] : [],
     ),
   );
 }
 
 function phaseItems(review: Review, outcomes: Outcomes): ItemsByPhase {
-  const isGuaranteed = guaranteedChoices(review.record, review.week).size > 0;
+  const isGuaranteed = guaranteedChoices(review.week).size > 0;
   const skeletons: ItemsByPhase = {
     upkeep: upkeepItems(review),
     activity: activityItems(review),
@@ -594,17 +569,6 @@ function placeExceptions(review: Review) {
   }
 }
 
-/**
- * Newer records store each warning's full code as its message, led by its
- * first segment as the code; older ones kept a written message instead.
- */
-function findWarningCode({
-  code,
-  message,
-}: ResolutionRecord['warnings'][number]) {
-  return message === code || message.startsWith(`${code}:`) ? message : null;
-}
-
 function warningText(review: Review, code: string) {
   const isWarning = true;
   return summaryMessage(
@@ -629,17 +593,16 @@ function placeWarnings(review: Review) {
   const byAdjustment = new Map<string, ReviewNote[]>();
   const general: Partial<Record<ReviewPhase, Item>> = {};
   const all = allItems(review);
-  review.record.warnings.forEach((warning, index) => {
-    const code = findWarningCode(warning);
+  // Each warning's message is its full code; `code` holds only its first
+  // segment.
+  review.record.warnings.forEach(({ message: subject }, index) => {
     const adjustments = review.record.adjudication.tableAdjustments;
-    if (code && isAppliedAdjustment(code, adjustments)) return;
-    // Older records keep a written message; it is shown exactly as recorded.
+    if (isAppliedAdjustment(subject, adjustments)) return;
     const note: ReviewNote = {
       kind: 'warning',
       key: `warning:${index}`,
-      message: code ? warningText(review, code) : warning.message,
+      message: warningText(review, subject),
     };
-    const subject = code ?? warning.code;
     const adjustment = review.record.adjudication.tableAdjustments.find(
       (entry) => subject.startsWith(`adjustment:${entry.adjustmentId}:`),
     );
@@ -703,8 +666,6 @@ function sectionStatus(
       status: 'not-applicable',
       statusText: 'No persistent events carried into this week.',
     };
-  if (review.week.plans[phase] === null)
-    return { status: 'incomplete', statusText: notRecordedText };
   if (count === 0) return { status: 'empty', statusText: emptyText[phase] };
   return { status: 'complete', statusText: null };
 }
@@ -729,10 +690,7 @@ export function recordWeekReview(
   record: CanonicalResolutionRecord,
 ): WeekReviewFacts {
   const week = readRecordedWeek(record);
-  const tree = recordedEventTree(
-    record.source,
-    guaranteedChoices(record, week),
-  );
+  const tree = recordedEventTree(record.source, guaranteedChoices(week));
   const names = recordNames(record, tree);
   const outcomes = createOutcomes();
   const review: Review = {
@@ -775,7 +733,6 @@ export function recordWeekReview(
         final: week.final,
         names,
         unrecorded: 'Not recorded',
-        isBlankHitDiceLevel: isBlankHitDiceLevel(record.rulesetVersion),
       }),
     },
   };
