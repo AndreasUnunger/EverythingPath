@@ -90,14 +90,20 @@ draft is at revision 0, production also holds no accepted
   departures made under Ruleset Versions 6, 7, 8 and 9. Those sections are
   fingerprinted, and the notes stay true.
 - **Never reuse a Ruleset Version number.** `CANONICAL_WEEKLY_RULESET_VERSION`
-  is 9 since #198 (assumed propaganda approval) and keeps its number even after
+  is 9 since #198 (assumed propaganda approval, plus the B1a and B2 edge
+  cases) and keeps its number even after
   the named constants for 6 and 7 go. The corpus notes, and
   any records in dev, refer to the older numbers.
 - **Ruleset Version bumps.** Several removals delete a resolution branch for
-  input that can no longer be expressed (A4, B1, B2). No reachable week changes
-  its result, so by the `CONTEXT.md` definition no new Ruleset Version is
-  needed. Each such change should still say so, and its reviewer should confirm
-  it.
+  input that can no longer be expressed (A4, B1, B2). A week whose result
+  changes needs a new Ruleset Version by the `CONTEXT.md` definition. Two
+  reachable edge cases did change: B1a (a leftover event-level mitigation or
+  check on a Raid or Cache Discovered) and B2 (a replacement under a Roll Twice
+  that rerolls in place). Ruleset Version 9 is unreleased and no Resolution
+  Record exists in any deployment, so by user decision on 2026-09-29 both were
+  folded into Version 9 rather than a Version 10; the corpus notes them under
+  Spread Propaganda. No other removal changes a reachable week. Each such change
+  should still say so, and its reviewer should confirm it.
 - **Keep forward-compatibility tolerance.** Once released weeks are confirmed,
   format-2 records at Ruleset Versions 8 and 9 will accumulate and never
   change. Later Ruleset Versions will need version-aware readers again, like
@@ -575,7 +581,12 @@ Removed 2026-09-29 (#198): a version-1 envelope is discarded.
 ### B1. Older Event and check-decision fields (#164–#168)
 
 **Removed 2026-09-29 (#198)** once W1 was narrowed. Also rewritten:
-`O04.persistent-selection` (it relied on same-week decision support).
+`O04.persistent-selection` (it relied on same-week decision support). One
+reachable edge case changed its result: a Theft or Sickness whose table roll is
+corrected to Raid or Cache Discovered keeps its event-level mitigation or check,
+which the old engine applied to every person or cache. It is now ignored and
+listed as an unused input to clear. By user decision on 2026-09-29 this is
+folded into the unreleased Ruleset Version 9 rather than a Version 10.
 
 **Condition: W1 is retired or narrowed.** The per-family Event controls and the
 Persistent page never write these fields. The generic Event details editor
@@ -696,7 +707,12 @@ stops offering them, each part below is safe.
 
 **Removed 2026-09-29 (#198)**, reroll groups everywhere (rolled tree and
 automatic events too). Also rewritten: `E03.nested`, `E04.reroll`,
-`E04.independent`, `A10.reroll-parity`.
+`E04.independent`, `A10.reroll-parity`. One reachable edge case changed its
+result: a replacement prepared for an event that cannot occur, whose parent's
+die is later corrected to a Roll Twice that rerolls in place, was read as that
+reroll. It now stays unused and the Roll Twice asks for its own new die. By user
+decision on 2026-09-29 this is folded into the unreleased Ruleset Version 9
+rather than a Version 10.
 
 **Condition: W2 (the Activity candidate-tree editor) is retired.** It can still
 write candidate trees with any `origin`. The parallel fixes batch retires it;
@@ -897,8 +913,8 @@ an old address now open the current one.
 
 ### C6. Ruleset Version numbers in the corpus and history
 
-The version notes in `docs/ai/ironfang-militia/militia-rules.md` (versions 6, 7
-and 8) and the stored number 8 stay. See the rules at the top.
+The version notes in `docs/ai/ironfang-militia/militia-rules.md` (versions 6, 7,
+8 and 9) and the stored number 8 stay. See the rules at the top.
 
 ### C7. Frozen-record tolerance for unfamiliar entries
 

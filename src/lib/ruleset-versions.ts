@@ -13,8 +13,11 @@
  */
 export const ROLE_AWARE_OFFICERS_RULESET_VERSION = 8;
 /**
- * Spread Propaganda assumes the GM allows it: no permission answer, and no
- * Rules Exception for an impossible settlement (#198).
+ * Three changes (#198). Spread Propaganda assumes the GM allows it: no
+ * permission answer, and no Rules Exception for an impossible settlement.
+ * Raid and Cache Discovered ignore an event-level mitigation or check and use
+ * only each person's or cache's own. A Roll Twice rerolled in its own die asks
+ * for a new die rather than reading a replacement recorded under it.
  */
 export const ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION =
   ROLE_AWARE_OFFICERS_RULESET_VERSION + 1;

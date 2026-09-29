@@ -427,6 +427,7 @@ If treasury is below minimum:
 - DC increases by 5 in settlements occupied by enemy troops/major organizations (or may be impossible at GM discretion).
 - Settlement can be influenced once per Activity phase.
 - Application departure (user decision 2026-09-28, Ruleset Version 9): the application assumes the GM allows propaganda in every settlement, since players act with the GM's blessing. It asks no permission and needs no Rules Exception for an impossible settlement; a stored "impossible" answer is ignored. The occupation DC increase and the once-per-Activity limit are unchanged. Weeks confirmed under earlier Ruleset Versions keep their recorded rulings, warnings and outcomes.
+- Ruleset Version 9 also changes two Event edge cases (user decision 2026-09-29). A Raid or Cache Discovered reads mitigation and its check only per person or per cache: an event-level mitigation or check roll kept from an earlier table result (Theft or Sickness) is ignored and listed as an unused input to clear, where earlier versions applied it to every person or cache. A replacement prepared for an event that cannot occur is no longer the reroll once its parent's die is corrected to a Roll Twice rerolled in its own die: the replacement stays unused and the Roll Twice asks for its own new die, where earlier versions used the replacement as that reroll. Weeks confirmed under earlier Ruleset Versions keep their recorded outcomes.
 
 ## Action: Strike Team
 

@@ -256,6 +256,7 @@ test('[EVT-13.cache-twice] Cache Discovered Twice discovers every cache left, ea
 test('[EVT-07.cache-retained] a recorded cache already lost stays visible, and an event-level roll is no cache’s attempt but an unused input to clear', () => {
   const { draft, snapshot } = threatEventFixture(62, true);
   snapshot.economy!.caches[0]!.status = 'lost';
+  // Ruleset Version 9: an event-level roll no longer stands in for any cache.
   draft.event.occurrences[1]!.rolls = { check: roll(20, 5) };
   draft.event.occurrences[2]!.rolls = { check: roll(20, 5) };
   const { view } = facts(draft, snapshot);

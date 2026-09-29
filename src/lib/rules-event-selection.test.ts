@@ -190,7 +190,9 @@ test('[rules.E04.reroll] repeated Roll Twice keeps asking for a reroll in its ow
     'first:replacement:1',
     'second:replacement:1',
   ]);
-  // A child recorded under a Roll Twice is not its reroll.
+  // A child recorded under a Roll Twice is not its reroll (Ruleset Version 9),
+  // even a replacement kept from when its parent's die was an event that
+  // could not occur: the Roll Twice still asks for its own new die.
   draft.event.occurrences.push(
     occurrence('child', 10, { kind: 'replacement', parentEventId: 'first' }),
   );

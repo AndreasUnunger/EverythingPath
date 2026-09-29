@@ -304,6 +304,8 @@ test('[EVT-08.raid] Raid has one settlement, and every hidden person their own m
 });
 
 test('[EVT-08.raid-event-level] an event-level mitigation or check is no personâ€™s choice: each person is left to happen, and both are listed as unused inputs to clear', () => {
+  // Ruleset Version 9: a Theft or Sickness corrected to Raid keeps these, and
+  // they no longer stand in for every person as they did before.
   const { draft, snapshot } = threatEventFixture(78);
   hideSecondPerson(snapshot);
   const event = draft.event.occurrences[0]!;
@@ -319,7 +321,8 @@ test('[EVT-08.raid-event-level] an event-level mitigation or check is no personâ
   ]);
   expect(messages(phase)).not.toEqual(
     expect.arrayContaining([expect.stringContaining('Security check')]),
-  );  expect(raid.retained.map((entry) => [entry.field, entry.value])).toEqual([
+  );
+  expect(raid.retained.map((entry) => [entry.field, entry.value])).toEqual([
     ['rolls', 'check roll'],
     ['mitigation', 'Attempt it'],
   ]);

@@ -624,7 +624,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Action: Spread Propaganda',
       fingerprint:
-        '4a7eb356dc4822bcb95def3b93ed920fd5a2ff22e48181a0daffb2d047150391',
+        '8bd22b69752e86829693020a8c1f073a7a1914fea93a34941ec4c9cce7d47581',
       reviewGap: null,
     },
     {
@@ -5807,7 +5807,7 @@ export const coverageCatalog = {
           id: 'reroll',
           checkpoint: '4-events',
           expected:
-            'Phase View / Resolution Preview: Further Roll Twice results require replacement rolls rather than disappearing.',
+            'Phase View / Resolution Preview: Further Roll Twice results are rerolled in their own die rather than disappearing; a replacement recorded under such a Roll Twice is not its reroll (Ruleset Version 9).',
           plannedTests: ['rules.E04.reroll'],
           tests: ['rules.E04.reroll'],
           gap: null,
