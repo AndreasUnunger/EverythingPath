@@ -169,7 +169,7 @@ describe('[SUM-06] Result comparison', () => {
     );
   });
 
-  test('a blank Hit Dice override reads as the level in a live review, "not set" without a character, and "not recorded" in a frozen record', () => {
+  test('a blank Hit Dice override reads as the level in a live review and a frozen record, and "not set" without a character', () => {
     const live = JSON.stringify(
       compareWeekStates({
         now: state(),
@@ -203,7 +203,7 @@ describe('[SUM-06] Result comparison', () => {
         unrecorded: 'Not recorded',
       }),
     );
-    expect(frozen).toContain('Player character · Hit Dice not recorded');
+    expect(frozen).toContain('Player character · 5 Hit Dice');
   });
 
   test('an incomplete preview leaves Rules Baseline and Final unavailable, never zero or unchanged', () => {

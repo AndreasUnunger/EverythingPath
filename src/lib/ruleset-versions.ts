@@ -21,9 +21,3 @@ export const ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION =
   ROLE_AWARE_OFFICERS_RULESET_VERSION + 1;
 export const CANONICAL_WEEKLY_RULESET_VERSION =
   ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION;
-
-// Whether a blank Hit Dice override meant the character's level when a week
-// was confirmed under this version; before it, a blank meant unknown.
-export function isBlankHitDiceLevel(rulesetVersion: number) {
-  return rulesetVersion >= ROLE_AWARE_OFFICERS_RULESET_VERSION;
-}

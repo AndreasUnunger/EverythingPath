@@ -38,7 +38,6 @@ import {
   type ReviewNames,
 } from '~/components/week-review/review-text';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
-import { isBlankHitDiceLevel } from '~/lib/ruleset-versions';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { activityLabel } from '../weekly-draft-workspace/activity-labels';
 import { summaryMessage } from '../weekly-draft-workspace/summary-messages';
@@ -761,7 +760,6 @@ export function recordWeekReview(
         final: week.final,
         names,
         unrecorded: 'Not recorded',
-        isBlankHitDiceLevel: isBlankHitDiceLevel(record.rulesetVersion),
       }),
     },
   };

@@ -470,19 +470,15 @@ test('[rules.HIST-05.propaganda-permission-version] a record confirmed before as
 });
 
 // The roster Result rows of a record whose `ally` (level 4) has the given
-// Hit Dice override and whose PC keeps an explicit 10, confirmed under the
-// given Ruleset Version.
-function recordedHitDice(rulesetVersion: number, allyHitDice: number | null) {
+// Hit Dice override and whose PC keeps an explicit 10.
+function recordedHitDice(allyHitDice: number | null) {
   const input = managerWeek('npc', true, 16);
   input.militiaSnapshot.roster.people[1]!.hitDice = allyHitDice;
   input.militiaSnapshot.characters[1]!.level = 4;
-  const record = canonicalResolutionRecordSchema.parse({
-    ...prepareCanonicalResolutionRecord(
-      resolveCanonicalWeeklyDraft(input),
-      'hit-dice-record',
-    ),
-    rulesetVersion,
-  });
+  const record = prepareCanonicalResolutionRecord(
+    resolveCanonicalWeeklyDraft(input),
+    'hit-dice-record',
+  );
   return recordWeekReview(record)
     .result.rows.filter((entry) => entry.group === 'Roster')
     .flatMap((entry) =>
@@ -492,25 +488,14 @@ function recordedHitDice(rulesetVersion: number, allyHitDice: number | null) {
     );
 }
 
-test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the record’s own level from the role-aware version on, and as not recorded before it', () => {
-  const earlier = ROLE_AWARE_OFFICERS_RULESET_VERSION - 1;
-  expect(recordedHitDice(earlier, null)).toEqual([
+test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the record’s own level, and an explicit override wins', () => {
+  expect(recordedHitDice(null)).toEqual([
     'Player character · 10 Hit Dice',
-    'NPC · Hit Dice not recorded',
+    'NPC · 4 Hit Dice',
   ]);
-  for (const version of [
-    ROLE_AWARE_OFFICERS_RULESET_VERSION,
-    ROLE_AWARE_OFFICERS_RULESET_VERSION + 1,
-  ])
-    expect(recordedHitDice(version, null)).toEqual([
-      'Player character · 10 Hit Dice',
-      'NPC · 4 Hit Dice',
-    ]);
   // An explicit override always wins, and zero stays zero.
-  for (const version of [earlier, ROLE_AWARE_OFFICERS_RULESET_VERSION]) {
-    expect(recordedHitDice(version, 7)).toContain('NPC · 7 Hit Dice');
-    expect(recordedHitDice(version, 0)).toContain('NPC · 0 Hit Dice');
-  }
+  expect(recordedHitDice(7)).toContain('NPC · 7 Hit Dice');
+  expect(recordedHitDice(0)).toContain('NPC · 0 Hit Dice');
 });
 
 test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, backend, React or rules resolver', () => {

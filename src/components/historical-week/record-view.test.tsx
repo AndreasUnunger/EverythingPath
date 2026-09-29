@@ -309,10 +309,10 @@ test('[rules.HIST-05.record-kinds] recorded legacy, new and absent character kin
     .map((row) => within(row).getAllByRole('cell').at(1)?.textContent);
   expect(people).toEqual(
     expect.arrayContaining([
-      'Player character · Hit Dice not recorded',
+      'Player character · 2 Hit Dice',
       'Player character · 0 Hit Dice',
       'Officer NPC · 5 Hit Dice',
-      'Other NPC · Hit Dice not recorded',
+      'Other NPC · 5 Hit Dice',
       'NPC · 3 Hit Dice',
     ]),
   );
