@@ -31,14 +31,12 @@ const chipTone: Record<EventBlockFacts['status'], string> = {
   no_additional_effect: 'border-border text-muted-foreground',
   two_more: 'border-sky-500/60 text-sky-400',
   reroll: 'border-amber-500/60 text-amber-300',
-  rerolled: 'border-amber-500/60 text-amber-300',
   cannot_occur: 'border-amber-500/60 text-amber-300',
   kept: 'border-border text-muted-foreground',
   sabotaged: 'border-border text-muted-foreground',
   candidate: 'border-primary/60 text-primary',
   not_chosen: 'border-border text-muted-foreground',
   not_used: 'border-border text-muted-foreground',
-  legacy: 'border-border text-muted-foreground',
   needs_repair: 'border-amber-500/60 text-amber-300',
 };
 
@@ -107,7 +105,7 @@ export function EventBlock({
           label={`${block.label} table roll`}
           spec={PERCENTILE}
           recorded={block.item.occurrence.tableRoll}
-          required={block.status !== 'not_used' && block.status !== 'legacy'}
+          required={block.status !== 'not_used'}
           disabled={locked}
           onRoll={(roll) => edits.setTableRoll(block.eventId, roll)}
         />
@@ -232,25 +230,6 @@ export function EventBlock({
           </p>
           <div className="border-foreground/20 mt-2 ml-1 min-w-0 space-y-3 border-l-2 pl-2 opacity-70 sm:ml-3 sm:pl-3">
             {block.hidden.map((child) => (
-              <EventBlock key={child.eventId} block={child} {...nested} />
-            ))}
-          </div>
-        </details>
-      )}
-      {block.legacy.length > 0 && (
-        <details className="min-w-0">
-          <summary className="cursor-pointer text-sm font-medium">
-            {block.legacy.length}{' '}
-            {block.legacy.length === 1 ? 'event' : 'events'} from an earlier
-            Roll Twice, no longer used
-          </summary>
-          <p className="text-muted-foreground mt-1 text-xs">
-            A candidate’s Roll Twice is now rerolled in its own die, so these
-            events are kept on record but not used. Clear an event’s roll and
-            inputs to remove it.
-          </p>
-          <div className="border-foreground/20 mt-2 ml-1 min-w-0 space-y-3 border-l-2 pl-2 opacity-70 sm:ml-3 sm:pl-3">
-            {block.legacy.map((child) => (
               <EventBlock key={child.eventId} block={child} {...nested} />
             ))}
           </div>

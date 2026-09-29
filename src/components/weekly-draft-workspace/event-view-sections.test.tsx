@@ -205,27 +205,12 @@ test('[EVT-13.repair] clearing the roll of an otherwise empty surplus root remov
   });
 });
 
-test('[EVT-13.candidate-reroll-view] candidates that roll Roll Twice show Reroll with no children; an earlier expansion is kept apart and cleared away', () => {
+test('[EVT-13.candidate-reroll-view] candidates that roll Roll Twice show Reroll with no children', () => {
   const { draft, snapshot, choice } = eventActionFixture();
   if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
-  choice.candidates = [
-    occurrence('raid', 50),
-    occurrence('theft', 51),
-    occurrence('raid/twice/1', 74, {
-      kind: 'roll_twice',
-      parentEventId: 'raid',
-    }),
-    {
-      ...occurrence('raid/twice/2', 78, {
-        kind: 'roll_twice',
-        parentEventId: 'raid',
-      }),
-      targets: [{ kind: 'settlement', settlementId: 'town' }],
-    },
-  ];
-  const edit = vi.fn();
+  choice.candidates = [occurrence('raid', 50), occurrence('theft', 51)];
   render(
-    <EventView view={facts(draft, snapshot)} edit={edit} disabled={false} />,
+    <EventView view={facts(draft, snapshot)} edit={vi.fn()} disabled={false} />,
   );
   for (const label of ['Event 1A', 'Event 1B']) {
     const block = group(label);
@@ -235,40 +220,10 @@ test('[EVT-13.candidate-reroll-view] candidates that roll Roll Twice show Reroll
         /Roll Twice again: reroll and enter the new die$/,
       ),
     ).toBeVisible();
+    expect(
+      within(block).queryByRole('group', { name: `${label}.1` }),
+    ).toBeNull();
   }
-  // The earlier children sit in their own closed disclosure, not as children.
-  const raid = group('Event 1A');
-  const summary = within(raid).getByText(
-    '2 events from an earlier Roll Twice, no longer used',
-  );
-  expect(
-    within(raid).getByRole('group', { name: 'Event 1A.1' }),
-  ).not.toBeVisible();
-  expect(
-    within(raid).queryByText(/They come back with their rolls/),
-  ).toBeNull();
-  fireEvent.click(summary);
-  const legacy = within(raid).getByRole('group', { name: 'Event 1A.1' });
-  expect(legacy).toBeVisible();
-  expect(within(legacy).getByText('No longer used')).toBeVisible();
-  // Clearing its roll removes an otherwise empty one; the choice stays whole.
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'Event 1A.1 table roll' }),
-    { target: { value: '' } },
-  );
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'detail',
-    slotId: 'one',
-    choiceId: 'shape',
-    choice: {
-      ...choice,
-      candidates: [
-        choice.candidates[0],
-        choice.candidates[1],
-        choice.candidates[3],
-      ],
-    },
-  });
 });
 
 test('[EVT-01.view] the chance line shows the settlement adjustment on the chance roll only', () => {

@@ -16,32 +16,14 @@ import {
 } from './canonical-weekly-resolution';
 import { projectActivityAndEventShaping as select } from './rules-event-shaping';
 import { projectActivityAndEvents } from './rules-event-outcomes';
-import { weeklyDraftSchema, type WeeklyDraft } from './weekly-draft-contract';
 
 // Since the candidate reroll Ruleset Version (#191, approved in #108) a Roll
 // Twice on an Activity event candidate, chosen or not, is rerolled in its own
 // die like a child's or an automatic event's. Under earlier versions a chosen
 // candidate's Roll Twice expanded into two events.
 
-type Event = WeeklyDraft['event']['occurrences'][number];
 const preview = (input: ReturnType<typeof guaranteedWeek>) =>
   projectWeeklyDraft(structuredClone(input));
-// The resolved week without the identities of the events that produced it.
-function resolvedWeek(input: ReturnType<typeof guaranteedWeek>) {
-  const result = projectWeeklyDraft(structuredClone(input));
-  return {
-    status: result.status,
-    rulesetVersion: result.rulesetVersion,
-    outcome: result.outcome,
-    events: result.phases?.event.dispatch.map((entry) => [
-      entry.event.eventType,
-      entry.mode,
-    ]),
-    plan: result.phases?.event.plan.map(
-      ({ eventId: _id, ...change }) => change,
-    ),
-  };
-}
 
 test('[rules.A10.reroll-version] the candidate reroll is the Weekly Resolution change after characterless transfers, and records carry its version', () => {
   expect(CANDIDATE_REROLL_RULESET_VERSION).toBe(
@@ -62,100 +44,6 @@ test('[rules.A10.reroll-version] the candidate reroll is the Weekly Resolution c
   expect(preview(input).rulesetVersion).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
 });
 
-test('[rules.A10.reroll-before-after] a chosen candidate that expanded before now needs its reroll, keeping the older children untouched', () => {
-  // Earlier versions resolved this week as War Games and All Is Calm, the
-  // two events of the chosen candidate's expansion.
-  const earlier = guaranteedWeek(
-    [
-      occurrence('pick', 50),
-      occurrence('other', 46),
-      child('pick/twice/1', 10, 'roll_twice', 'pick'),
-      child('pick/twice/2', 46, 'roll_twice', 'pick'),
-    ],
-    'pick',
-  );
-  expect(weeklyDraftSchema.safeParse(earlier.revision).success).toBe(true);
-  const source = structuredClone(earlier);
-  const now = preview(earlier);
-  expect(now.status).toBe('incomplete');
-  expect(now.requirements).toContain('pick:replacement:1');
-  expect(now.requirements).not.toContain('pick:roll_twice:2');
-  expect(now.phases?.event.selected).toEqual([]);
-  expect(
-    now.phases?.event.positions.filter((group) => group.kind === 'roll_twice'),
-  ).toEqual([]);
-  // Reading the week never rewrites it.
-  expect(earlier).toEqual(source);
-
-  // The reroll goes into the chosen candidate's own die.
-  const rerolled = structuredClone(earlier);
-  const choice = rerolled.revision.activity.slots[0]!.choice!;
-  if (choice.actionId !== 'guarantee_event') throw Error('fixture');
-  choice.candidates![0]!.tableRoll = roll(100, 10);
-  const after = preview(rerolled);
-  expect(after.status).toBe('ready');
-  expect(after.phases?.event.selected.map((event) => event.eventId)).toEqual([
-    'pick',
-  ]);
-  expect(choice.candidates!.map((event) => event.eventId)).toEqual([
-    'pick',
-    'other',
-    'pick/twice/1',
-    'pick/twice/2',
-  ]);
-});
-
-test('[rules.A10.reroll-representation] a reroll recorded as an older replacement child resolves exactly like the same die entered in place', () => {
-  // A candidate's reroll: an older client's replacement child, or its own die.
-  const replaced = resolvedWeek(
-    guaranteedWeek(
-      [
-        occurrence('pick', 50),
-        occurrence('other', 46),
-        child('pick/replacement/1', 10, 'replacement', 'pick'),
-      ],
-      'pick',
-    ),
-  );
-  const inPlace = resolvedWeek(
-    guaranteedWeek([occurrence('pick', 10), occurrence('other', 46)], 'pick'),
-  );
-  expect(replaced.status).toBe('ready');
-  expect(replaced).toEqual(inPlace);
-
-  // An automatic event's reroll, which no version ever expanded.
-  const automatic = (occurrences: Event[]) => {
-    const input = guaranteedWeek(
-      [occurrence('pick', 46), occurrence('other', 46)],
-      'pick',
-    );
-    input.revision.context = {
-      ...input.revision.context,
-      queuedEffects: [
-        {
-          effectId: 'storm',
-          sourceId: 'storm',
-          startsWeek: input.revision.week,
-          endsWeek: input.revision.week,
-          effect: { kind: 'automatic_events', count: 1 },
-        },
-      ],
-    };
-    input.revision.event.occurrences = occurrences;
-    return resolvedWeek(input);
-  };
-  const automaticReplaced = automatic([
-    occurrence('auto', 50, { kind: 'automatic', sourceId: 'storm' }),
-    child('auto/replacement/1', 10, 'replacement', 'auto'),
-  ]);
-  expect(automaticReplaced.status).toBe('ready');
-  expect(automaticReplaced).toEqual(
-    automatic([
-      occurrence('auto', 10, { kind: 'automatic', sourceId: 'storm' }),
-    ]),
-  );
-});
-
 test('[rules.A10.unchosen-reroll] a candidate that is not chosen still needs its Roll Twice rerolled before the week is complete', () => {
   const { draft, snapshot, choice } = eventActionFixture();
   if (choice.actionId !== 'guarantee_event') throw Error('fixture');
@@ -171,11 +59,13 @@ test('[rules.A10.unchosen-reroll] a candidate that is not chosen still needs its
     reroll: true,
   });
   expect(event.selected.map((entry) => entry.eventId)).toEqual(['raid']);
-  // An older client's replacement child is read as that reroll.
+  // A child recorded under it is not that reroll.
   choice.candidates!.push(
     child('theft/replacement/1', 74, 'replacement', 'theft'),
   );
-  expect(select(draft, snapshot).event.ready).toBe(true);
+  expect(select(draft, snapshot).event.requirements).toEqual([
+    'theft:replacement:1',
+  ]);
   choice.candidates!.pop();
   choice.candidates![1]!.tableRoll = roll(100, 74);
   event = select(draft, snapshot).event;

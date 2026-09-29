@@ -261,7 +261,6 @@ test('[EVT-13.candidate-reroll-status] an automatic event and both candidates th
     statusText: 'Roll Twice again: reroll and enter the new die',
     children: [],
     hidden: [],
-    legacy: [],
   };
   expect(view.automatic!.blocks).toMatchObject([
     { label: 'Event 1', ...reroll },
@@ -277,66 +276,6 @@ test('[EVT-13.candidate-reroll-status] an automatic event and both candidates th
       'Event 2B · Roll Twice: Roll Twice again: reroll and enter the new die.',
     ]),
   );
-});
-
-test('[EVT-13.candidate-legacy-view] a candidate expansion from an earlier version shows as events no longer used, removable once cleared', () => {
-  const { draft, snapshot } = eventActionFixture();
-  const choice = draft.activity.slots.find(
-    (slot) => slot.choice?.choiceId === 'shape',
-  )!.choice!;
-  if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
-  choice.candidates = [
-    occurrence('raid', 50),
-    occurrence('theft', 74),
-    {
-      ...occurrence('raid/twice/1', 74, {
-        kind: 'roll_twice',
-        parentEventId: 'raid',
-      }),
-      targets: [{ kind: 'team', teamId: 'team' }],
-    },
-    {
-      eventId: 'raid/twice/2',
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-    },
-  ];
-  const before = structuredClone(draft);
-  const { view, phases } = facts(draft, snapshot);
-  const [raid] = view.candidates[0]!.blocks;
-  expect(raid).toMatchObject({
-    status: 'reroll',
-    children: [],
-    hidden: [],
-    legacy: [
-      {
-        label: 'Event 1A.1',
-        status: 'legacy',
-        statusLabel: 'No longer used',
-        surplus: true,
-        removal: null,
-        table: { raw: 74, name: 'Theft' },
-      },
-      { label: 'Event 1A.2', status: 'legacy', surplus: true },
-    ],
-  });
-  // Clearing the roll removes an otherwise empty one, through the candidate's
-  // own edit; one with other recorded inputs stays until those are cleared.
-  expect(raid!.legacy[1]!.removal).toEqual({
-    kind: 'detail',
-    slotId: 'one',
-    choiceId: 'shape',
-    choice: {
-      ...choice,
-      candidates: choice.candidates.slice(0, 3),
-    },
-  });
-  // They ask for nothing; only the reroll is open.
-  expect(
-    eventPhase(phases).requirements.filter((entry) =>
-      entry.id.startsWith('raid/'),
-    ),
-  ).toEqual([]);
-  expect(draft).toEqual(before);
 });
 
 test('[EVT-03.placeholders] missing positions show as numbered blanks, preparing until the accepted draft holds them', () => {
@@ -528,11 +467,13 @@ test('[EVT-labels.candidates] a candidate pair shares one number with letters, s
 
 test('[EVT-labels.deep] nested events extend their parent label; hidden siblings keep theirs', () => {
   const { draft, snapshot } = eventSelectionFixture();
+  // Sickness cannot occur without a team, so it takes a replacement.
+  snapshot.roster.teams = [];
   draft.event.occurrences = [
     occurrence('root', 50),
-    occurrence('first', 50, { kind: 'roll_twice', parentEventId: 'root' }),
+    occurrence('first', 90, { kind: 'roll_twice', parentEventId: 'root' }),
     occurrence('second', 10, { kind: 'roll_twice', parentEventId: 'root' }),
-    occurrence('again', 30, { kind: 'replacement', parentEventId: 'first' }),
+    occurrence('again', 10, { kind: 'replacement', parentEventId: 'first' }),
   ];
   const expected = {
     root: 'Event 1',
@@ -543,7 +484,7 @@ test('[EVT-labels.deep] nested events extend their parent label; hidden siblings
   const view = facts(draft, snapshot).view;
   expect(labels(view)).toEqual(expected);
   expect(view.rolled.blocks[0]!.children[0]!.children[0]!.origin).toBe(
-    'Recorded reroll of Event 1.1',
+    'Replaces Event 1.1',
   );
   // Moving the root off Roll Twice hides its children without relabelling.
   draft.event.occurrences[0]!.tableRoll = roll(100, 10);

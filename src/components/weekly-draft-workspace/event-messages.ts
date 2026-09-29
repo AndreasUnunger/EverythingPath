@@ -106,7 +106,7 @@ export function eventTopologyMessage(
       (entry) =>
         entry.kind === 'replacement' && entry.parentEventId === owner.id,
     );
-    if (group && 'reroll' in group && group.reroll && !group.eventIds.length)
+    if (group && 'reroll' in group && group.reroll)
       return `${prefix}Roll Twice again: reroll and enter the new die.`;
     return overfull(
       (entry) =>

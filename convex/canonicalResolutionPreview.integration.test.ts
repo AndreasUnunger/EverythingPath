@@ -18,10 +18,7 @@ import {
   prepareCanonicalResolutionRecord,
 } from '../src/lib/canonical-weekly-resolution';
 import { persistentEventFixture } from '../tests/rules/persistent-event-fixture';
-import {
-  childEvent,
-  guaranteedWeek,
-} from '../tests/rules/candidate-reroll-fixture';
+import { guaranteedWeek } from '../tests/rules/candidate-reroll-fixture';
 import { occurrence } from '../tests/rules/event-selection-fixture';
 import { roll } from '../tests/rules/upkeep-fixture';
 import {
@@ -223,14 +220,9 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
 test('[rules.A10.reroll-parity] browser preview and Convex Confirmation agree that a candidate Roll Twice is rerolled in place, under the current Ruleset Version', async () => {
   const browserRules = await loadBrowserRules();
   const scenarios = {
-    // A chosen candidate's Roll Twice, with children an earlier version added.
-    expanded: guaranteedWeek(
-      [
-        occurrence('pick', 50),
-        occurrence('other', 46),
-        childEvent('pick/twice/1', 10, 'roll_twice', 'pick'),
-        childEvent('pick/twice/2', 46, 'roll_twice', 'pick'),
-      ],
+    // A chosen candidate's Roll Twice waits for its reroll.
+    chosen: guaranteedWeek(
+      [occurrence('pick', 50), occurrence('other', 46)],
       'pick',
     ),
     // The candidate not chosen rolls Roll Twice.
@@ -238,14 +230,9 @@ test('[rules.A10.reroll-parity] browser preview and Convex Confirmation agree th
       [occurrence('pick', 10), occurrence('other', 51)],
       'pick',
     ),
-    // Rerolled in its own die; the earlier children stay unused.
+    // Rerolled in its own die.
     rerolled: guaranteedWeek(
-      [
-        occurrence('pick', 10),
-        occurrence('other', 46),
-        childEvent('pick/twice/1', 10, 'roll_twice', 'pick'),
-        childEvent('pick/twice/2', 46, 'roll_twice', 'pick'),
-      ],
+      [occurrence('pick', 10), occurrence('other', 46)],
       'pick',
     ),
   };
@@ -292,7 +279,7 @@ test('[rules.A10.reroll-parity] browser preview and Convex Confirmation agree th
     if (name !== 'rerolled') {
       expect(server.status, name).toBe('incomplete');
       expect(server.requirements, name).toContain(
-        `${name === 'expanded' ? 'pick' : 'other'}:replacement:1`,
+        `${name === 'chosen' ? 'pick' : 'other'}:replacement:1`,
       );
       continue;
     }

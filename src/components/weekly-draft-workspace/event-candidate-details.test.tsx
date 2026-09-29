@@ -174,18 +174,15 @@ test('[rules.EVT-07.candidate-live-context] a table roll change re-resolves the 
 });
 
 test('[rules.EVT-07.candidate-removal] removing an earlier candidate entry keeps the survivor’s own table-roll context, not the removed entry’s', () => {
-  // A candidate expansion from an earlier version sits between the two
-  // candidates; clearing its roll removes it and shifts Theft forward.
+  // A surplus candidate sits between the two; clearing its roll removes it
+  // and shifts Theft forward.
   const week = candidateWeek([
-    rolled('raid', 50),
-    rolled('raid/twice/1', 60, {
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-    }),
+    rolled('raid', 78),
+    rolled('extra', 60),
     rolled('theft', 76, { rolls: { check: total(20, 1, 9) } }),
   ]);
   const edit = show(week);
-  fireEvent.click(within(block('Event 1A')).getByText(/from an earlier Roll/));
-  fireEvent.change(tableRoll('Event 1A.1'), { target: { value: '' } });
+  fireEvent.change(tableRoll('Event 1B'), { target: { value: '' } });
   const removal = edit.mock.lastCall![0];
   if (
     removal.kind !== 'detail' ||
@@ -196,7 +193,7 @@ test('[rules.EVT-07.candidate-removal] removing an earlier candidate entry keeps
     'raid',
     'theft',
   ]);
-  expect(screen.queryByRole('group', { name: 'Event 1A.1' })).toBeNull();
+  expect(screen.queryByRole('group', { name: 'Event 1C' })).toBeNull();
   const survivor = details('Event 1B');
   expect(tableRoll('Event 1B')).toHaveValue('76');
   expect(

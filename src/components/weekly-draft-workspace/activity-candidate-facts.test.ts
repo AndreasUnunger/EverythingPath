@@ -14,7 +14,7 @@ import type { EventBlock } from './types';
 // building the whole Event phase, and says exactly what Event says.
 
 function nestedCount(block: EventBlock): number {
-  return [...block.children, ...block.hidden, ...block.legacy].reduce(
+  return [...block.children, ...block.hidden].reduce(
     (count, child) => count + 1 + nestedCount(child),
     0,
   );
@@ -91,23 +91,20 @@ test('[ACT-10.candidate-summary-open] an unchosen pair, a missing roll and a sur
   expect(set!.issues.length).toBeGreaterThan(0);
 });
 
-test('[ACT-10.candidate-summary-nested] rerolls and an earlier expansion count as nested events', () => {
+test('[ACT-10.candidate-summary-nested] a replacement for a candidate that cannot occur counts as a nested event', () => {
   const { draft, snapshot, choice } = eventActionFixture();
   if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
+  // Rivalry needs two teams; the militia has one.
   choice.candidates = [
     occurrence('raid', 50),
-    occurrence('theft', 51),
-    occurrence('raid/twice/1', 74, {
-      kind: 'roll_twice',
-      parentEventId: 'raid',
-    }),
-    occurrence('theft/reroll', 76, {
+    occurrence('rivalry', 66),
+    occurrence('rivalry/replacement', 74, {
       kind: 'replacement',
-      parentEventId: 'theft',
+      parentEventId: 'rivalry',
     }),
   ];
   const [set] = expectSameAsEvent(draft, snapshot);
-  expect(set!.candidates.map((entry) => entry.nested)).toEqual([1, 1]);
+  expect(set!.candidates.map((entry) => entry.nested)).toEqual([0, 1]);
 });
 
 test('[ACT-10.candidate-summary-preparing] positions still being saved or failing to prepare read as Event reads them', () => {

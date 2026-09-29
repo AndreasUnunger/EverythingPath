@@ -4611,13 +4611,11 @@ export const coverageCatalog = {
           // #108) a candidate's Roll Twice never expands; see the Guarantee
           // Event note in the corpus.
           expected:
-            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die; earlier expansions stay recorded and unused, and earlier records keep their version.',
+            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die, and earlier records keep their version.',
           plannedTests: ['rules.A10.roll-twice'],
           tests: [
             'rules.A10.roll-twice',
             'rules.A10.reroll-version',
-            'rules.A10.reroll-before-after',
-            'rules.A10.reroll-representation',
             'rules.A10.unchosen-reroll',
             'rules.A10.reroll-ineligible-chain',
             'rules.A10.reroll-exception',

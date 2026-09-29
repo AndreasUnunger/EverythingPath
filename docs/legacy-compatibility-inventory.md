@@ -672,6 +672,10 @@ stops offering them, each part below is safe.
 
 ### B2. Candidate Roll Twice expansions and replacement-child rerolls (#191, #163)
 
+**Removed 2026-09-29 (#198)**, reroll groups everywhere (rolled tree and
+automatic events too). Also rewritten: `E03.nested`, `E04.reroll`,
+`E04.independent`, `A10.reroll-parity`.
+
 **Condition: W2 (the Activity candidate-tree editor) is retired.** It can still
 write candidate trees with any `origin`. The parallel fixes batch retires it;
 once that lands, this entry is safe given the production facts (no stored

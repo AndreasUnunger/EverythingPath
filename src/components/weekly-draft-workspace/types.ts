@@ -859,16 +859,13 @@ export type EventBlockStatus =
   | 'no_additional_effect'
   | 'two_more'
   | 'reroll'
-  | 'rerolled'
   | 'cannot_occur'
   | 'kept'
   | 'sabotaged'
   | 'candidate'
   | 'not_chosen'
   | 'not_used'
-  | 'needs_repair'
-  // Part of a candidate's Roll Twice expansion, which the rules no longer make.
-  | 'legacy';
+  | 'needs_repair';
 export type EventIssue = { code: string; message: string };
 // An event's corpus rules for one block; `twice` only when it applies there.
 export type EventBlockRules = {
@@ -914,9 +911,6 @@ export type EventBlock<Item extends EventTraceFacts = EventOccurrenceFacts> = {
   children: EventBlock<Item>[];
   // Recorded children the current roll does not use; restored if it returns.
   hidden: EventBlock<Item>[];
-  // A candidate's recorded Roll Twice children, which the rules never use
-  // again now that its Roll Twice is rerolled in place; kept until cleared.
-  legacy: EventBlock<Item>[];
   // A position the rules do not ask for: clearing its last input removes it.
   surplus: boolean;
   // The existing tree/candidate edit removing this surplus position once its
