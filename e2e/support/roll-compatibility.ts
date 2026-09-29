@@ -16,9 +16,9 @@ import {
 import { reviewConfirm, saveState } from './week-frame';
 
 type DraftKey = z.infer<typeof draftKeySchema>;
-// Test-only construction of the approved dice-total form. No page writes this
-// representation in the current delivery; the scenario proves the current
-// pages read it honestly when a newer editor has recorded it.
+// A recorded dice total, sent through the ordinary authenticated edit so the
+// scenario can record values (an out-of-range total, a total for another
+// specification) that the pages then have to read honestly.
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
     sides,
@@ -65,14 +65,14 @@ export async function connectAs(
   return client;
 }
 
-// Reader compatibility for the shared dice-total format (#154), run inside an
-// existing fresh Upkeep session (both pages already open on the week): the
-// current Upkeep, Event and Summary pages must read an incoming total as
-// recorded data, never as blank required dice, keep readiness honest for a
-// total that does not match the required specification, and let a player
-// clear it through the existing whole-roll edit before re-entering legacy
-// dice. The original week inputs are restored through ordinary edits so the
-// caller's own journey continues with unchanged semantics.
+// Recorded dice totals (#154, #155), run inside an existing fresh Upkeep
+// session (both pages already open on the week): the Upkeep, Event and Summary
+// pages must read an incoming total as recorded data, never as blank required
+// dice, advise on a total outside its usual range, keep readiness honest for
+// a total that does not match the required specification, and let a player
+// clear it through the whole-roll edit before re-entering a total. The
+// original week inputs are restored through ordinary edits so the caller's
+// own journey continues with unchanged semantics.
 export async function exerciseRollCompatibility(
   first: Page,
   second: Page,
@@ -107,7 +107,7 @@ export async function exerciseRollCompatibility(
       await expect(heading(page)).toBeVisible();
     const original = (await transport.read()).draft;
     expect(original?.draftId).toBe(key.draftId);
-    // A newer editor records totals through the ordinary authenticated edit
+    // Another client records totals through the ordinary authenticated edit
     // while both devices watch: a zero d20 check (fails DC 10 with its
     // warning), the failure branch's complete 2d4 training total and a
     // percentile chance total that produces no event.
@@ -166,7 +166,7 @@ export async function exerciseRollCompatibility(
     );
     await phase(first, 'Upkeep');
 
-    // A total for another specification arrives: the old pages show what was
+    // A total for another specification arrives: the pages show what was
     // recorded and what the step needs, and readiness becomes honest again.
     await record({
       kind: 'upkeep_roll',
@@ -265,25 +265,23 @@ export async function exerciseRollCompatibility(
       roll: original!.event.chanceRoll ?? null,
     });
     const originalCheck = original!.upkeep.rolls.check;
-    const originalDie =
-      originalCheck && 'dice' in originalCheck
-        ? String(originalCheck.dice[0] ?? '')
-        : '';
+    const originalCheckTotal = originalCheck
+      ? String(originalCheck.diceTotal)
+      : '';
     const originalChance = original!.event.chanceRoll;
-    const originalChanceDie =
-      originalChance && 'dice' in originalChance
-        ? String(originalChance.dice[0] ?? '')
-        : '';
+    const originalChanceTotal = originalChance
+      ? String(originalChance.diceTotal)
+      : '';
     // Every page shows the original inputs again in the same total fields,
     // and the event chance field carries the original recorded value.
     for (const page of [first, second, ...observers]) {
       await expect(field(page, 'Attrition Loyalty roll')).toHaveValue(
-        originalDie,
+        originalCheckTotal,
       );
       await expect(page.getByText(/Recorded total/)).toHaveCount(0);
       await phase(page, 'Event');
       await expect(field(page, 'Event chance roll')).toHaveValue(
-        originalChanceDie,
+        originalChanceTotal,
       );
       await phase(page, 'Upkeep');
       await expect(heading(page)).toBeVisible();

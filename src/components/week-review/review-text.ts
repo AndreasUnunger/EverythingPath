@@ -41,17 +41,12 @@ export function count(value: number, singular: string, plural: string) {
 }
 
 /**
- * A recorded roll exactly as stored: an older record's individual dice, or a
- * newer record's dice total and count, then its recorded modifiers. It is
- * never converted between the two forms or re-evaluated.
+ * A recorded roll exactly as stored: its dice total and count, then its
+ * recorded modifiers. It is never re-evaluated.
  */
 export function rollText(roll: RawRoll) {
-  const dice =
-    'dice' in roll
-      ? `dice ${roll.dice.join(', ')} (${roll.dice.length}d${roll.sides})`
-      : `dice total ${roll.diceTotal} (${roll.diceCount}d${roll.sides})`;
   return [
-    dice,
+    `dice total ${roll.diceTotal} (${roll.diceCount}d${roll.sides})`,
     ...roll.modifiers.map(
       (modifier) => `${signed(modifier.value)} ${modifier.reason}`,
     ),

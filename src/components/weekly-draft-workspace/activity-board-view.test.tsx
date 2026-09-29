@@ -86,7 +86,8 @@ vi.mock('~/components/ui/select', async () => {
 });
 
 const check = (die: number, modifiers: RawRoll['modifiers'] = []): RawRoll => ({
-  dice: [die],
+  diceTotal: die,
+  diceCount: 1,
   sides: 20,
   provenance: { kind: 'table' },
   modifiers,
@@ -729,7 +730,8 @@ describe('selected details', () => {
       choice: {
         rolls: {
           check: {
-            dice: [10],
+            diceTotal: 10,
+            diceCount: 1,
             modifiers: [
               legacy,
               {
@@ -746,7 +748,9 @@ describe('selected details', () => {
       screen.getByRole('button', { name: 'Remove modifier Old note' }),
     );
     expect(lastEdit(edit)).toMatchObject({
-      choice: { rolls: { check: { dice: [10], modifiers: [] } } },
+      choice: {
+        rolls: { check: { diceTotal: 10, diceCount: 1, modifiers: [] } },
+      },
     });
   });
 });

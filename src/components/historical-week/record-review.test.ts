@@ -214,7 +214,7 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
       'Event 1 · Calm before the Storm',
     ]);
     expect(item(facts, 2, 'Event 1 · Calm before the Storm').details).toEqual([
-      'Table roll: dice 54 (1d100)',
+      'Table roll: dice total 54 (1d100)',
     ]);
     expect(row(facts, 'Officers', 'Ambassador')).toMatchObject({
       now: { kind: 'absent' },
@@ -296,15 +296,15 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
       'Recover · recorded cost 15 gp',
     ]);
     expect(item(facts, 0, 'Training attrition').details).toEqual([
-      'Loyalty check roll: dice 14 (1d20) · +2 Drill bonus',
-      'Training loss roll: dice 3, 4 (2d4)',
+      'Loyalty check roll: dice total 14 (1d20) · +2 Drill bonus',
+      'Training loss roll: dice total 7 (2d4)',
     ]);
     expect(item(facts, 0, 'Treasury deposit · Character 1').details).toEqual([
       'Recorded amount 7 gp',
     ]);
     const gold = item(facts, 1, 'Slot 1 · Earn Gold · Team 1');
     expect(gold.details).toEqual([
-      'Check roll: dice 11 (1d20)',
+      'Check roll: dice total 11 (1d20)',
       'Recorded cost 2.5 gp',
     ]);
     expect(notes(gold)).toEqual(['The scouts worked while recovering']);
@@ -375,13 +375,11 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     expect(visibleText(facts)).not.toContain('id-');
   });
 
-  test('[rules.HIST-05.frozen-rolls] older individual dice and newer dice totals each read exactly as recorded', () => {
-    const dice = recordWeekReview(confirmedWeek().record);
-    const totals = recordWeekReview(confirmedWeek({ rolls: 'totals' }).record);
-    const table = (facts: WeekReviewFacts) =>
-      item(facts, 2, 'Event 1 · Calm before the Storm').details;
-    expect(table(dice)).toEqual(['Table roll: dice 54 (1d100)']);
-    expect(table(totals)).toEqual(['Table roll: dice total 54 (1d100)']);
+  test('[rules.HIST-05.frozen-rolls] recorded dice totals read exactly as recorded', () => {
+    const totals = recordWeekReview(confirmedWeek().record);
+    expect(item(totals, 2, 'Event 1 · Calm before the Storm').details).toEqual([
+      'Table roll: dice total 54 (1d100)',
+    ]);
     expect(
       item(totals, 1, 'Slot 2 · Rescue Character · Rescuers').details[0],
     ).toBe('Check roll: dice total 20 (1d20)');

@@ -153,7 +153,8 @@ test('[draft.action-facts] complete choices own typed targets, raw dice and prov
     orderedDay: 76,
     rolls: {
       delivery: {
-        dice: [2, 5],
+        diceTotal: 7,
+        diceCount: 2,
         sides: 6,
         provenance: { kind: 'table' as const },
         modifiers: [],
@@ -231,7 +232,8 @@ test('[draft.integrity] validates all action variants, absence, dice and local-s
       actionId: 'earn_gold',
       rolls: {
         check: {
-          dice: ['21'],
+          diceTotal: '21',
+          diceCount: 1,
           sides: 20,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -572,7 +574,8 @@ test('[draft.choice-ownership] new orders own same-week receipts and event choic
 
 test('[draft.event-targets] keeps separate Raid person checks and High Morale ending targets', () => {
   const roll = {
-    dice: [1],
+    diceTotal: 1,
+    diceCount: 1,
     sides: 20,
     provenance: { kind: 'table' as const },
     modifiers: [{ sourceId: 'penalty', value: -2, reason: 'Low morale' }],
@@ -602,13 +605,13 @@ test('[draft.event-targets] keeps separate Raid person checks and High Morale en
   expect(
     weeklyDraftEditSchema.safeParse({
       kind: 'event_chance',
-      roll: { ...roll, dice: [0] },
+      roll: { ...roll, diceTotal: 0, diceCount: 1 },
     }).success,
   ).toBe(true);
   expect(
     weeklyDraftEditSchema.safeParse({
       kind: 'event_chance',
-      roll: { ...roll, dice: [101] },
+      roll: { ...roll, diceTotal: 101, diceCount: 1 },
     }).success,
   ).toBe(true);
 });
@@ -668,7 +671,8 @@ test('focused Upkeep edits preserve other facts and distinguish zero from an exp
     kind: 'upkeep_roll',
     field: 'check',
     roll: {
-      dice: [0],
+      diceTotal: 0,
+      diceCount: 1,
       sides: 20,
       provenance: { kind: 'table' },
       modifiers: [],
@@ -676,9 +680,7 @@ test('focused Upkeep edits preserve other facts and distinguish zero from an exp
   });
   if (!set.ok) throw new Error(set.error);
   const savedRoll = set.draft.upkeep.rolls.check;
-  expect(savedRoll && 'dice' in savedRoll ? savedRoll.dice : undefined).toEqual(
-    [0],
-  );
+  expect(savedRoll).toMatchObject({ diceTotal: 0, diceCount: 1 });
   const clear = editWeeklyDraft(set.draft, {
     kind: 'upkeep_roll',
     field: 'check',

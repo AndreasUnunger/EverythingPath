@@ -339,7 +339,8 @@ test('[setup.confirmation] an ordinary player initializes, edits and confirms a 
       edit: {
         kind: 'event_chance',
         roll: {
-          dice: [100],
+          diceTotal: 100,
+          diceCount: 1,
           sides: 100,
           provenance: { kind: 'table' },
           modifiers: [],

@@ -19,13 +19,7 @@ function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
     modifiers: [],
   };
 }
-const table = { kind: 'table' as const };
-const legacyCheck: RawRoll = {
-  dice: [10],
-  sides: 20,
-  provenance: table,
-  modifiers: [],
-};
+const recordedCheck = total(20, 1, 10);
 // `succeeded` is the rules' reading of the check. It defaults to a success so
 // Drill's Training roll, used only then, shows.
 function facts(
@@ -60,7 +54,7 @@ test('[rules.ACT-12.total] Drill training (2d6) shows a recorded total in its on
   const edit = acceptingEdit();
   render(
     <ActivityView
-      view={facts(drill({ check: legacyCheck, training: total(6, 2, 9) }))}
+      view={facts(drill({ check: recordedCheck, training: total(6, 2, 9) }))}
       edit={edit}
       disabled={false}
     />,
@@ -74,20 +68,22 @@ test('[rules.ACT-12.total] Drill training (2d6) shows a recorded total in its on
   ).not.toBeInTheDocument();
   fireEvent.change(textbox('Training roll'), { target: { value: '11' } });
   expect(lastChoice(edit)).toEqual(
-    drill({ check: legacyCheck, training: total(6, 2, 11) }),
+    drill({ check: recordedCheck, training: total(6, 2, 11) }),
   );
   fireEvent.change(textbox('Training roll'), { target: { value: '' } });
-  expect(lastChoice(edit)).toEqual(drill({ check: legacyCheck }));
+  expect(lastChoice(edit)).toEqual(drill({ check: recordedCheck }));
 });
 
-test('[rules.ACT-13.legacy-check] a complete legacy check shows its value without a write and a new number preserves its metadata in the total form', () => {
+test('[rules.ACT-13.check-metadata] a recorded check shows its value without a write and a new number preserves its provenance and modifiers', () => {
   const generated = { kind: 'generated' as const, sourceId: 'roller' };
   const modifiers = [{ sourceId: 'helpful', value: 2, reason: 'Allies' }];
   const edit = acceptingEdit();
   render(
     <ActivityView
       view={facts(
-        drill({ check: { ...legacyCheck, provenance: generated, modifiers } }),
+        drill({
+          check: { ...recordedCheck, provenance: generated, modifiers },
+        }),
       )}
       edit={edit}
       disabled={false}
@@ -141,43 +137,13 @@ test('[rules.ACT-12.modifiers] adding a custom modifier to a total roll preserve
       },
     ],
   });
-  expect(choice.rolls?.check).not.toHaveProperty('dice');
-});
-
-test('[rules.ACT-12.modifier-only-legacy] a modifier-only edit keeps a legacy array in its legacy form', async () => {
-  const edit = acceptingEdit();
-  render(
-    <ActivityView
-      view={facts(drill({ check: legacyCheck }))}
-      edit={edit}
-      disabled={false}
-    />,
-  );
-  open();
-  fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
-  fireEvent.change(textbox('Value'), { target: { value: '1' } });
-  fireEvent.change(textbox('Reason'), { target: { value: 'Allies' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Add modifier' }));
-  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
-  const choice = lastChoice(edit);
-  if (choice.actionId !== 'drill_militia') throw new Error('Expected Drill');
-  expect(choice.rolls?.check).toEqual({
-    ...legacyCheck,
-    modifiers: [
-      {
-        sourceId: expect.stringMatching(/^custom:/),
-        value: 1,
-        reason: 'Allies',
-      },
-    ],
-  });
 });
 
 test('[rules.ACT-12.wrong-count] a total recorded for another specification stays required, explains the mismatch and is replaced only by a deliberate total', () => {
   const edit = acceptingEdit();
   render(
     <ActivityView
-      view={facts(drill({ check: legacyCheck, training: total(6, 1, 4) }), [
+      view={facts(drill({ check: recordedCheck, training: total(6, 1, 4) }), [
         'drill:training:2d6',
       ])}
       edit={edit}
@@ -194,32 +160,8 @@ test('[rules.ACT-12.wrong-count] a total recorded for another specification stay
   expect(screen.getByText(/2d6 · total of the dice only/)).toBeVisible();
   fireEvent.change(textbox('Training roll'), { target: { value: '8' } });
   expect(lastChoice(edit)).toEqual(
-    drill({ check: legacyCheck, training: total(6, 2, 8) }),
+    drill({ check: recordedCheck, training: total(6, 2, 8) }),
   );
-});
-
-test('[rules.ACT-12.partial] a partial legacy training array keeps its recorded die, an empty required total, and an explicit clear', () => {
-  const edit = acceptingEdit();
-  render(
-    <ActivityView
-      view={facts(
-        drill({
-          check: legacyCheck,
-          training: { ...legacyCheck, dice: [5], sides: 6 },
-        }),
-        ['drill:training:2d6'],
-      )}
-      edit={edit}
-      disabled={false}
-    />,
-  );
-  open();
-  expect(textbox('Training roll')).toHaveValue('');
-  expect(
-    screen.getByText(/Recorded dice 5 are incomplete for 2d6/),
-  ).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Clear training roll' }));
-  expect(lastChoice(edit)).toEqual(drill({ check: legacyCheck }));
 });
 
 test('[rules.ACT-12.specs] Special Order delivery is 2d6, Reduce Danger notoriety is 1d4, and roll-less actions render no roll field', () => {

@@ -1,6 +1,6 @@
 import type { RollReadFacts } from './roll-facts';
 import type { RollFact, UpkeepView } from './types';
-import { isTotalRoll, rollNotation } from './roll-facts';
+import { rollNotation } from './roll-facts';
 import { formatGold } from './week-frame/reference-copy';
 const rollNames: Record<string, [string, RollFact['field']]> = {
   'upkeep:attrition': ['Attrition Loyalty', 'check'],
@@ -20,13 +20,12 @@ export type UpkeepWarningFacts = Pick<
     returnRoll: RollReadFacts | null;
   }[];
 };
-// A recorded total warns about its whole range; legacy dice keep their
-// per-die wording because that is what was actually recorded.
+// A recorded total warns about its whole range.
 function rangeMessage(name: string, fact: RollFact | undefined) {
   const recorded = fact?.recorded;
-  if (fact && recorded && isTotalRoll(recorded))
+  if (fact && recorded)
     return `${name} total ${recorded.diceTotal} is outside the usual ${fact.count}–${fact.count * fact.sides} range for ${rollNotation(fact)}. The recorded total is retained for the table.`;
-  return `${name} dice include a value outside the usual die range. Your entered values are retained for the table.`;
+  return `${name} total is outside its usual range. The recorded total is retained for the table.`;
 }
 export function upkeepWarningMessage(code: string, facts: UpkeepWarningFacts) {
   const team = facts.teams.find((team) =>
@@ -40,9 +39,9 @@ export function upkeepWarningMessage(code: string, facts: UpkeepWarningFacts) {
     if (code.endsWith(':upkeep-removal'))
       return `${team.name} has a staged Remove choice, which Upkeep no longer offers. Clear it here, or remove the team in Militia corrections.`;
     if (code.endsWith(':roll-range'))
-      return team.returnRoll?.recorded && isTotalRoll(team.returnRoll.recorded)
+      return team.returnRoll?.recorded
         ? `${team.name}'s return roll total ${team.returnRoll.recorded.diceTotal} is outside the usual 1–20 range. The recorded total is retained.`
-        : `${team.name}'s return die is outside the usual 1–20 range. The entered value is retained.`;
+        : `${team.name}'s return roll total is outside the usual 1–20 range. The recorded total is retained.`;
   }
   const transfer = facts.transfers.find((transfer) =>
     code.startsWith(`transfer:${transfer.transferId}:`),

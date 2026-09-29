@@ -90,7 +90,7 @@ test('[rules.WEEK-15.upkeep-total] a recorded 2d4 total is complete, shows in th
     draft.upkeep.rolls = { check: roll(20, 4), training: total(4, 2, 7) };
   });
   const training = view.rolls.find((fact) => fact.field === 'training')!;
-  expect(training).toMatchObject({ count: 2, sides: 4, dice: null });
+  expect(training).toMatchObject({ count: 2, sides: 4 });
   expect(training.normalized).toMatchObject({
     status: 'complete',
     diceTotal: 7,
@@ -109,7 +109,7 @@ test('[rules.WEEK-15.upkeep-total] a recorded 2d4 total is complete, shows in th
     screen.queryByRole('textbox', { name: /die/ }),
   ).not.toBeInTheDocument();
   expect(screen.queryByText('A value is required.')).not.toBeInTheDocument();
-  // The complete legacy check shows its value the same way, with no write.
+  // The complete check shows its value the same way, with no write.
   expect(textbox('Attrition Loyalty roll')).toHaveValue('4');
   expect(edit).not.toHaveBeenCalled();
   fireEvent.change(textbox('Attrition training roll'), {
@@ -127,13 +127,19 @@ test('[rules.WEEK-15.upkeep-writer] editing a number writes the strict total aga
   const modifiers = [{ sourceId: 'helpful', value: 1, reason: 'Allies' }];
   const { view } = fixture((draft) => {
     draft.upkeep.rolls = {
-      check: { dice: [4], sides: 20, provenance: generated, modifiers },
+      check: {
+        diceTotal: 4,
+        diceCount: 1,
+        sides: 20,
+        provenance: generated,
+        modifiers,
+      },
       training: roll(4, 3, 4),
     };
   });
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(<UpkeepView view={view} edit={edit} disabled={false} />);
-  // Complete legacy arrays display their sum through normalization only.
+  // A recorded total displays without a write.
   expect(textbox('Attrition training roll')).toHaveValue('7');
   expect(edit).not.toHaveBeenCalled();
   fireEvent.change(textbox('Attrition training roll'), {
@@ -164,7 +170,6 @@ test('[rules.WEEK-15.upkeep-writer] editing a number writes the strict total aga
       modifiers,
     },
   });
-  expect(edit.mock.lastCall![0]).not.toHaveProperty('roll.dice');
 });
 
 test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its range warning and stays complete', () => {
@@ -190,7 +195,6 @@ test('[rules.WEEK-15.upkeep-zero] a recorded total of zero is visible with its r
   expect(upkeepWarningIds(draft, source, preview)).toContain(
     'upkeep:attrition:roll-range',
   );
-  expect(screen.queryByText(/dice include a value/)).not.toBeInTheDocument();
 });
 
 test('[rules.WEEK-15.upkeep-wrong-spec] a total recorded for a different specification stays incomplete, shows what the step needs and is replaced only by a deliberate edit', () => {
@@ -223,54 +227,6 @@ test('[rules.WEEK-15.upkeep-wrong-spec] a total recorded for a different specifi
       modifiers: [],
     },
   });
-});
-
-test('[rules.WEEK-15.upkeep-partial] a partial legacy array keeps its real die, stays incomplete, is never summed as complete and clears explicitly', () => {
-  const { view, preview } = fixture((draft) => {
-    draft.upkeep.rolls = { check: roll(20, 4), training: roll(4, 3) };
-  });
-  const training = view.rolls.find((fact) => fact.field === 'training')!;
-  expect(training.dice).toEqual([3, null]);
-  expect(training.normalized).toMatchObject({
-    status: 'incomplete',
-    diceTotal: null,
-  });
-  expect(preview.requirements).toContain('upkeep:attrition-training:dice:2d4');
-  const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
-  render(<UpkeepView view={view} edit={edit} disabled={false} />);
-  expect(textbox('Attrition training roll')).toHaveValue('');
-  expect(
-    screen.getByText(/Recorded dice 3 are incomplete for 2d4/),
-  ).toBeVisible();
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Clear attrition training roll' }),
-  );
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'upkeep_roll',
-    field: 'training',
-    roll: null,
-  });
-});
-
-test('[rules.WEEK-15.upkeep-legacy-equivalence] a complete legacy array and an equal total produce the same Upkeep facts and outcome', () => {
-  const legacy = fixture((draft) => {
-    draft.upkeep.rolls = { check: roll(20, 4), training: roll(4, 3, 4) };
-  });
-  const totals = fixture((draft) => {
-    draft.upkeep.rolls = { check: total(20, 1, 4), training: total(4, 2, 7) };
-  });
-  expect(totals.view.after).toEqual(legacy.view.after);
-  expect(totals.view.ready).toBe(legacy.view.ready);
-  expect(totals.preview.outcome).toEqual(legacy.preview.outcome);
-  const strip = (view: typeof legacy.view) =>
-    view.rolls.map(
-      ({ dice: _dice, recorded: _recorded, normalized, ...rest }) => ({
-        ...rest,
-        diceTotal: normalized.diceTotal,
-        status: normalized.status,
-      }),
-    );
-  expect(strip(totals.view)).toEqual(strip(legacy.view));
 });
 
 test('[rules.WEEK-15.upkeep-natural] a single-die total of 20 keeps natural-20 attrition semantics while a multi-die 20 never does', () => {
@@ -360,7 +316,6 @@ test('a missing team’s out-of-range return total shows one advisory in its car
 test.each([
   ['wrong sides', total(6, 1, 5), 'Recorded total 5 was entered for 1d6'],
   ['wrong count', total(20, 2, 25), 'Recorded total 25 was entered for 2d20'],
-  ['partial legacy', roll(20), 'Recorded dice  are incomplete for 1d20'],
 ])(
   '[rules.WEEK-15.upkeep-team-incompatible] a missing team’s %s return roll stays visible with its explanation, can be cleared, and a deliberate total replaces it',
   (_label, recorded, explanation) => {
@@ -371,12 +326,9 @@ test.each([
         {
           teamId: 'scouts',
           decision: 'leave',
-          roll: 'dice' in recorded ? { ...recorded, dice: [] } : recorded,
+          roll: recorded,
         },
       ];
-      // An empty legacy array is not a valid stored roll; use one die of the
-      // wrong sides for the "partial" case instead.
-      if ('dice' in recorded) draft.upkeep.teamDecisions[0]!.roll = roll(6, 3);
     });
     expect(preview.requirements).toContain('team:scouts:return:dice:1d20');
     // The incompatible roll keeps the return check row open for repair.
@@ -388,11 +340,7 @@ test.each([
       name: 'Scouts return roll',
     });
     expect(field).toHaveValue('');
-    if ('dice' in recorded)
-      expect(
-        within(card).getByText(/Recorded dice 3 were entered for 1d6/),
-      ).toBeVisible();
-    else expect(within(card).getByText(new RegExp(explanation))).toBeVisible();
+    expect(within(card).getByText(new RegExp(explanation))).toBeVisible();
     fireEvent.click(
       within(card).getByRole('button', { name: 'Clear scouts return roll' }),
     );

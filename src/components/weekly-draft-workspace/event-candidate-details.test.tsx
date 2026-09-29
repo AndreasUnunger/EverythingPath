@@ -368,7 +368,8 @@ test('[rules.P82.nested-acknowledgements] event ending and sabotage notes bind t
 
 test('[rules.P82.provenance] a candidate’s recorded roll provenance stays intact without offering incomplete source selection', async () => {
   const generated: RawRoll = {
-    dice: [76],
+    diceTotal: 76,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'generated', sourceId: 'recorded-die' },
     modifiers: [],

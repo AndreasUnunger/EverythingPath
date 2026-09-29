@@ -16,7 +16,6 @@ import { WholeNumberField } from './whole-number-field';
 import { activityLabel } from './activity-labels';
 import { RecordedRollTotal } from './recorded-roll';
 import {
-  isTotalRoll,
   rollNotation,
   rollPathSegments,
   type RollSpecResolver,
@@ -40,31 +39,23 @@ function unwrap(schema: z.ZodType): z.ZodType {
     return unwrap(schema.unwrap() as z.ZodType);
   return schema;
 }
-// The shared raw-roll schema is a strict union of the legacy dice array and
-// the dice-total form. Nested editors recognise it here instead of relying on
-// `.shape`, so neither alternative loses its common fields or list operations.
-function rollUnion(schema: z.ZodType) {
-  if (!(schema instanceof z.ZodUnion)) return null;
-  const options = schema.options.filter(
-    (option): option is z.ZodObject => option instanceof z.ZodObject,
-  );
-  const legacy = options.find(
-    (option) =>
-      'dice' in option.shape &&
-      'sides' in option.shape &&
-      'provenance' in option.shape,
-  );
-  const total = options.find(
-    (option) => 'diceTotal' in option.shape && 'diceCount' in option.shape,
-  );
-  return legacy && total ? { legacy, total } : null;
+// Nested editors recognise the shared raw-roll schema by its shape, so a roll
+// is edited as one dice total rather than as a generic object.
+function findRollSchema(schema: z.ZodType) {
+  return schema instanceof z.ZodObject &&
+    'diceTotal' in schema.shape &&
+    'diceCount' in schema.shape &&
+    'sides' in schema.shape &&
+    'provenance' in schema.shape
+    ? schema
+    : null;
 }
 function initial(schema: z.ZodType, field = ''): unknown {
   if (schema instanceof z.ZodOptional) return undefined;
   const base = unwrap(schema);
   if (base instanceof z.ZodLiteral) return base.value;
   // A roll starts absent: its total is typed directly into the roll field.
-  if (rollUnion(base)) return undefined;
+  if (findRollSchema(base)) return undefined;
   if (base instanceof z.ZodDiscriminatedUnion)
     return initial(base.options[0] as z.ZodType, field);
   if (base instanceof z.ZodArray) return [];
@@ -175,14 +166,14 @@ function nestedField(props: FieldProps) {
   );
 }
 // Structured schemas get an explicit "Add" control while optional and absent;
-// scalars render their input directly. The raw-roll union counts as structured.
+// scalars render their input directly. The raw-roll schema counts as structured.
 type StructuredBase =
-  | { kind: 'roll'; roll: NonNullable<ReturnType<typeof rollUnion>> }
+  | { kind: 'roll'; roll: z.ZodObject }
   | { kind: 'union'; base: z.ZodDiscriminatedUnion }
   | { kind: 'object'; base: z.ZodObject | z.ZodRecord }
   | { kind: 'array'; base: z.ZodArray };
 function classifyStructured(base: z.ZodType): StructuredBase | null {
-  const roll = rollUnion(base);
+  const roll = findRollSchema(base);
   if (roll) return { kind: 'roll', roll };
   if (base instanceof z.ZodDiscriminatedUnion) return { kind: 'union', base };
   if (base instanceof z.ZodObject || base instanceof z.ZodRecord)
@@ -254,20 +245,15 @@ function EditableRollTotal({
   return <RollTotalField {...field} onInvalid={reportInvalid} />;
 }
 // Every supported nested roll is one dice-only total against the rule
-// specification resolved from its path. Recorded data in either form reads
-// through the shared editor; modifiers stay editable beside it; a blank total
+// specification resolved from its path. Recorded data reads through the
+// shared editor; modifiers stay editable beside it; a blank total
 // omits the optional key. Without an authoritative specification (for example
 // an occurrence whose type is not resolved yet) the recorded roll is shown
 // read-only with its metadata and can only be removed, never guessed.
 function isRawRollValue(value: Record<string, unknown>): value is RawRoll {
-  return (
-    typeof value.sides === 'number' &&
-    (Array.isArray(value.dice) || typeof value.diceTotal === 'number')
-  );
+  return typeof value.sides === 'number' && typeof value.diceTotal === 'number';
 }
-function RollFields(
-  props: FieldProps & { roll: NonNullable<ReturnType<typeof rollUnion>> },
-) {
+function RollFields(props: FieldProps & { roll: z.ZodObject }) {
   const { value, change, name, path = '', issues, disabled, roll } = props;
   const object = record(value);
   const recorded = isRawRollValue(object) ? object : null;
@@ -281,7 +267,7 @@ function RollFields(
   const modifiers =
     recorded &&
     nested(
-      roll.total.shape.modifiers as z.ZodType,
+      roll.shape.modifiers as z.ZodType,
       recorded.modifiers,
       'modifiers',
       (next) => change({ ...recorded, modifiers: next ?? [] }),
@@ -301,16 +287,8 @@ function RollFields(
         />
       ) : (
         <>
-          {recorded && isTotalRoll(recorded) ? (
+          {recorded ? (
             <RecordedRollTotal label={label} recorded={recorded} />
-          ) : recorded ? (
-            <p className="text-sm">
-              Recorded dice{' '}
-              <strong className="font-mono">{recorded.dice.join(', ')}</strong>{' '}
-              <span className="text-muted-foreground font-mono text-xs">
-                d{recorded.sides}
-              </span>
-            </p>
           ) : null}
           <p role="note" className="text-muted-foreground text-xs">
             This roll has no rule specification in the current context, so its

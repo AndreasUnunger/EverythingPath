@@ -79,7 +79,8 @@ export function upkeepRoll(field: 'check' | 'training', value: number) {
     kind: 'upkeep_roll' as const,
     field,
     roll: {
-      dice: [value],
+      diceTotal: value,
+      diceCount: 1,
       sides: field === 'check' ? 20 : 6,
       provenance: { kind: 'table' as const },
       modifiers: [],

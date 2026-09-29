@@ -46,9 +46,16 @@ export function upkeepFixture() {
   };
   return { draft, snapshot };
 }
+// A table roll recorded as its dice total: `roll(4, 3, 2)` is 2d4 totalling 5.
 export function roll(
   sides: number,
   ...dice: number[]
 ): WeeklyDraft['upkeep']['rolls']['check'] & {} {
-  return { sides, dice, provenance: { kind: 'table' }, modifiers: [] };
+  return {
+    sides,
+    diceTotal: dice.reduce((sum, die) => sum + die, 0),
+    diceCount: dice.length,
+    provenance: { kind: 'table' },
+    modifiers: [],
+  };
 }

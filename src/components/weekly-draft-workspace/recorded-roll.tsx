@@ -1,7 +1,8 @@
 'use client';
 import { Button } from '~/components/ui/button';
 import type { NormalizedRoll } from '~/lib/raw-roll';
-import { rollNotation, type TotalRawRoll } from './roll-facts';
+import type { RawRoll } from '~/lib/weekly-draft-facts';
+import { rollNotation } from './roll-facts';
 
 // Read-only presentation of a recorded dice total where no rule specification
 // applies in the current context (for example a nested roll on an occurrence
@@ -16,7 +17,7 @@ export function RecordedRollTotal({
   onClear,
 }: {
   label: string;
-  recorded: TotalRawRoll;
+  recorded: RawRoll;
   normalized?: NormalizedRoll | null;
   disabled?: boolean;
   onClear?: () => void;

@@ -87,7 +87,8 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
           edit: {
             kind: 'event_chance',
             roll: {
-              dice: [100],
+              diceTotal: 100,
+              diceCount: 1,
               sides: 100,
               provenance: { kind: 'table' },
               modifiers: [],

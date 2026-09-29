@@ -27,12 +27,9 @@ export type UpkeepRollField = Extract<
   WeeklyDraftEdit,
   { kind: 'upkeep_roll' }
 >['field'];
-// `dice` holds the legacy per-die editor slots and is null when the recorded
-// roll is a dice total, which has no individual dice to show or fabricate.
 export type RollFact = RollReadFacts & {
   field: UpkeepRollField;
   count: number;
-  dice: (number | null)[] | null;
   sides: number;
   modifier: number | null;
   total: number | null;
@@ -132,10 +129,7 @@ export type UpkeepMissingTeam = {
     | { kind: 'scheduled'; week: number; status: 'active' | 'disabled' }
     | {
         kind: 'check';
-        check: Omit<
-          UpkeepCheck<'returns' | 'stays-missing' | 'lost'>,
-          'field' | 'dice'
-        >;
+        check: Omit<UpkeepCheck<'returns' | 'stays-missing' | 'lost'>, 'field'>;
       }
     | null;
   issues: UpkeepIssue[];

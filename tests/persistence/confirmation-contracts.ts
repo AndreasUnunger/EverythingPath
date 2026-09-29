@@ -50,7 +50,8 @@ function deferred() {
 const chance: WeeklyDraftEdit = {
   kind: 'event_chance',
   roll: {
-    dice: [100],
+    diceTotal: 100,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' },
     modifiers: [],
@@ -83,28 +84,31 @@ export async function runConfirmationContract(
     }
   }
   await scenario(async (h, edit) => {
-    const legacy = {
-      dice: [3],
+    const training = {
+      diceTotal: 3,
+      diceCount: 1,
       sides: 6,
       provenance: { kind: 'table' as const },
       modifiers: [],
     };
-    await edit({ kind: 'upkeep_roll', field: 'training', roll: legacy });
+    await edit({ kind: 'upkeep_roll', field: 'training', roll: training });
     await edit(chance);
     const oldReview = await h.first.preview();
-    check(oldReview.status === 'ready', 'Legacy first-week source is ready');
+    check(oldReview.status === 'ready', 'First-week source is ready');
+    // The same total with different provenance: an equal outcome from a
+    // changed raw source.
     const total = {
       diceTotal: 100,
       diceCount: 1,
       sides: 100,
-      provenance: { kind: 'table' as const },
+      provenance: { kind: 'generated' as const, sourceId: 'table-dice' },
       modifiers: [],
     };
     await edit({ kind: 'event_chance', roll: total });
     const before = await h.inspect();
     await rejected(
       h.second.confirm({
-        operationId: 'old-roll-format',
+        operationId: 'stale-roll-review',
         reviewed: oldReview.reviewed,
       }),
       'Equivalent numeric outcome cannot authorize a changed raw source',
@@ -115,62 +119,65 @@ export async function runConfirmationContract(
       'Rejected stale review does not mutate history or successor',
     );
     const review = await h.second.preview();
-    check(review.status === 'ready', 'Mixed raw source is ready');
+    check(review.status === 'ready', 'Changed raw source is ready');
     check(
       review.reviewed.sourceKey !== oldReview.reviewed.sourceKey,
-      'Reviewed source identity includes the roll representation',
+      'Reviewed source identity includes the raw roll',
     );
     equal(
       review.outcome,
       oldReview.outcome,
-      'Legacy and total outcomes remain equivalent',
+      'Both raw sources give equivalent outcomes',
     );
     const accepted = await h.first.read();
-    check(accepted.draft, 'Reviewed mixed draft exists');
-    check(chance.kind === 'event_chance', 'Legacy fixture is an Event chance');
+    check(accepted.draft, 'Reviewed draft exists');
+    check(
+      chance.kind === 'event_chance',
+      'Original fixture is an Event chance',
+    );
     check(
       weeklySourceKey(accepted.draft) !==
         weeklySourceKey({
           ...accepted.draft,
           event: { ...accepted.draft.event, chanceRoll: chance.roll },
         }),
-      'Same-revision fingerprint distinguishes raw representations',
+      'Same-revision fingerprint distinguishes raw rolls',
     );
 
     const operation = {
-      operationId: 'mixed-raw-week',
+      operationId: 'changed-raw-week',
       reviewed: review.reviewed,
     };
     const receipt = await h.first.confirm(operation);
     equal(
       receipt.record.source,
       accepted.draft,
-      'Confirmation retains exact reviewed mixed source',
+      'Confirmation retains exact reviewed source',
     );
     equal(
       receipt.record.source.event.chanceRoll,
       total,
-      'Receipt retains total form',
+      'Receipt retains the reviewed chance roll',
     );
     equal(
       receipt.record.source.upkeep.rolls.training,
-      legacy,
-      'Receipt retains legacy form',
+      training,
+      'Receipt retains the training roll',
     );
     equal(
       await h.second.confirm(operation),
       receipt,
-      'Mixed Confirmation receipt retries exactly',
+      'Confirmation receipt retries exactly',
     );
     const state = await h.inspect();
     check(
       state.records.length === 1 && state.openDrafts.length === 1,
-      'Mixed Confirmation commits once',
+      'Confirmation commits once',
     );
     check(
       receipt.successor.event.chanceRoll === undefined &&
         receipt.successor.upkeep.rolls.training === undefined,
-      'Successor does not inherit either recorded raw form',
+      'Successor does not inherit either recorded roll',
     );
   });
   await scenario(async (h, edit) => {
@@ -443,7 +450,8 @@ export async function runConfirmationContract(
     const pending = workspace.edit({
       kind: 'event_chance',
       roll: {
-        dice: [99],
+        diceTotal: 99,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -542,7 +550,8 @@ export async function runConfirmationContract(
         edit: {
           kind: 'event_chance',
           roll: {
-            dice: [99],
+            diceTotal: 99,
+            diceCount: 1,
             sides: 100,
             provenance: { kind: 'table' },
             modifiers: [],

@@ -20,19 +20,14 @@ export const rawRollProvenanceSchema = z.discriminatedUnion('kind', [
 export const rawRollModifiersSchema = z.array(
   z.strictObject({ sourceId: id, value: signedInteger, reason }),
 );
-const rawRollCommon = {
+// A roll is recorded as the total of its dice, never as individual dice.
+export const rawRollSchema = z.strictObject({
   sides: int.min(2),
   provenance: rawRollProvenanceSchema,
   modifiers: rawRollModifiersSchema,
-};
-export const rawRollSchema = z.union([
-  z.strictObject({ ...rawRollCommon, dice: z.array(int).min(1) }),
-  z.strictObject({
-    ...rawRollCommon,
-    diceTotal: int,
-    diceCount: int.positive(),
-  }),
-]);
+  diceTotal: int,
+  diceCount: int.positive(),
+});
 export type RawRoll = z.infer<typeof rawRollSchema>;
 
 export const upkeepRollsSchema = z.partialRecord(

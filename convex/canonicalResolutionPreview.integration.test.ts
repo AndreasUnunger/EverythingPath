@@ -53,10 +53,7 @@ async function loadBrowserRules() {
   return script.code;
 }
 
-function prepareProjectionFixture(
-  kind: 'low_morale' | 'theft' | 'rivalry',
-  totalForm: boolean,
-) {
+function prepareProjectionFixture(kind: 'low_morale' | 'theft' | 'rivalry') {
   const { draft, snapshot } = persistentEventFixture(kind);
   snapshot.training = 15;
   if (kind === 'low_morale') {
@@ -95,50 +92,17 @@ function prepareProjectionFixture(
       reason: 'Three copper found at the table',
     },
   ];
-  const legacyPreview = projectWeeklyDraft({
+  const localPreview = projectWeeklyDraft({
     revision: draft,
     militiaSnapshot: snapshot,
   });
-  if (totalForm) {
-    draft.upkeep.rolls.check = {
-      diceTotal: 19,
-      diceCount: 1,
-      sides: 20,
-      provenance: { kind: 'table' },
-      modifiers: [],
-    };
-    const drill = draft.activity.slots[0]?.choice;
-    if (kind === 'low_morale' && drill?.actionId === 'drill_militia') {
-      drill.rolls = {
-        ...drill.rolls,
-        training: {
-          diceTotal: 7,
-          diceCount: 2,
-          sides: 6,
-          provenance: { kind: 'table' },
-          modifiers: [],
-        },
-      };
-    }
-  }
-  return { draft, snapshot, legacyPreview };
+  return { draft, snapshot, localPreview };
 }
 
 test('[rules.P78.projection-parity] browser and persisted Convex source yield the same complete preview and immutable source/outcome', async () => {
   const browserRules = await loadBrowserRules();
-  for (const [kind, totalForm] of (
-    ['low_morale', 'theft', 'rivalry'] as const
-  ).flatMap(
-    (kind) =>
-      [
-        [kind, false],
-        [kind, true],
-      ] as const,
-  )) {
-    const { draft, snapshot, legacyPreview } = prepareProjectionFixture(
-      kind,
-      totalForm,
-    );
+  for (const kind of ['low_morale', 'theft', 'rivalry'] as const) {
+    const { draft, snapshot, localPreview } = prepareProjectionFixture(kind);
     const t = convexTest(schema, modules);
     const scope = await t.run(async (ctx) => {
       await ctx.db.insert('user', {
@@ -177,12 +141,11 @@ test('[rules.P78.projection-parity] browser and persisted Convex source yield th
     );
     expect(browser, kind).toEqual(server);
     expect(server.status, kind).toBe('ready');
-    expect(server.outcome, `${kind} preserves legacy outcomes`).toEqual(
-      legacyPreview.outcome,
+    expect(server.outcome, `${kind} matches the local preview`).toEqual(
+      localPreview.outcome,
     );
-    expect(server.requirements).toEqual(legacyPreview.requirements);
-    expect(server.warnings).toEqual(legacyPreview.warnings);
-    if (totalForm) expect(server.sourceKey).not.toBe(legacyPreview.sourceKey);
+    expect(server.requirements).toEqual(localPreview.requirements);
+    expect(server.warnings).toEqual(localPreview.warnings);
 
     expect(server.outcome?.militiaSnapshot.treasuryCopper).toBe(
       kind === 'low_morale' ? 21003 : 24003,

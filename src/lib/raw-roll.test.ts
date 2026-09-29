@@ -7,28 +7,12 @@ const metadata = {
   modifiers: [{ sourceId: 'custom:weather', value: -2, reason: 'Heavy rain' }],
 };
 
-test('legacy dice and dice-only totals round-trip without rewriting provenance or modifiers', () => {
-  const legacy = { ...metadata, sides: 4, dice: [2, 4] };
+test('a dice total round-trips without rewriting provenance or modifiers', () => {
   const total = { ...metadata, sides: 4, diceCount: 2, diceTotal: 6 };
-  expect(rawRollSchema.parse(legacy)).toEqual(legacy);
   expect(rawRollSchema.parse(total)).toEqual(total);
 });
 
-test('complete 2d4 normalizes to the same dice-only result in either representation', () => {
-  const expected = { count: 2, sides: 4 };
-  const result = {
-    ...expected,
-    status: 'complete',
-    diceTotal: 6,
-    naturalValue: null,
-    rangeWarning: null,
-  };
-  expect(
-    normalizeRawRoll(
-      rawRollSchema.parse({ ...metadata, sides: 4, dice: [2, 4] }),
-      expected,
-    ),
-  ).toEqual(result);
+test('a complete 2d4 total normalizes to its dice-only result', () => {
   expect(
     normalizeRawRoll(
       rawRollSchema.parse({
@@ -37,15 +21,19 @@ test('complete 2d4 normalizes to the same dice-only result in either representat
         diceCount: 2,
         diceTotal: 6,
       }),
-      expected,
+      { count: 2, sides: 4 },
     ),
-  ).toEqual(result);
+  ).toEqual({
+    count: 2,
+    sides: 4,
+    status: 'complete',
+    diceTotal: 6,
+    naturalValue: null,
+    rangeWarning: null,
+  });
 });
 
 test.each([
-  { dice: [3], sides: 4 },
-  { dice: [1, 2, 3], sides: 4 },
-  { dice: [2, 4], sides: 6 },
   { diceTotal: 6, diceCount: 1, sides: 4 },
   { diceTotal: 6, diceCount: 2, sides: 6 },
 ])(
@@ -79,21 +67,21 @@ test.each([undefined, null])('an absent roll remains missing (%s)', (raw) => {
 });
 
 test.each([1, 20])(
-  'single-die natural %s excludes custom modifiers in both forms',
+  'single-die natural %s excludes custom modifiers',
   (value) => {
-    for (const recorded of [
-      { dice: [value] },
-      { diceTotal: value, diceCount: 1 },
-    ]) {
-      const raw = rawRollSchema.parse({ ...metadata, sides: 20, ...recorded });
-      expect(normalizeRawRoll(raw, { count: 1, sides: 20 })).toMatchObject({
-        status: 'complete',
-        diceTotal: value,
-        naturalValue: value,
-        rangeWarning: null,
-      });
-      expect(raw.modifiers).toEqual(metadata.modifiers);
-    }
+    const raw = rawRollSchema.parse({
+      ...metadata,
+      sides: 20,
+      diceTotal: value,
+      diceCount: 1,
+    });
+    expect(normalizeRawRoll(raw, { count: 1, sides: 20 })).toMatchObject({
+      status: 'complete',
+      diceTotal: value,
+      naturalValue: value,
+      rangeWarning: null,
+    });
+    expect(raw.modifiers).toEqual(metadata.modifiers);
   },
 );
 
@@ -116,20 +104,22 @@ test('a multidie total of twenty is never a natural twenty', () => {
 });
 
 test.each([
-  { recorded: { dice: [0, 4] }, total: 4, warning: 'legacy-die' },
-  { recorded: { dice: [1, 5] }, total: 6, warning: 'legacy-die' },
-  { recorded: { dice: [2, 4] }, total: 6, warning: null },
-  { recorded: { diceTotal: 0, diceCount: 2 }, total: 0, warning: 'total' },
-  { recorded: { diceTotal: 1, diceCount: 2 }, total: 1, warning: 'total' },
-  { recorded: { diceTotal: 9, diceCount: 2 }, total: 9, warning: 'total' },
-  { recorded: { diceTotal: 2, diceCount: 2 }, total: 2, warning: null },
-  { recorded: { diceTotal: 8, diceCount: 2 }, total: 8, warning: null },
+  { total: 0, warning: 'total' },
+  { total: 1, warning: 'total' },
+  { total: 9, warning: 'total' },
+  { total: 2, warning: null },
+  { total: 8, warning: null },
 ])(
-  '2d4 range diagnostics remain advisory and retain recorded evidence: %j',
-  ({ recorded, total, warning }) => {
+  '2d4 range diagnostics remain advisory and retain the recorded total: %j',
+  ({ total, warning }) => {
     expect(
       normalizeRawRoll(
-        rawRollSchema.parse({ ...metadata, sides: 4, ...recorded }),
+        rawRollSchema.parse({
+          ...metadata,
+          sides: 4,
+          diceTotal: total,
+          diceCount: 2,
+        }),
         { count: 2, sides: 4 },
       ),
     ).toMatchObject({
@@ -142,14 +132,12 @@ test.each([
 );
 
 test.each([
+  { dice: [1] },
   { dice: [1], diceTotal: 1, diceCount: 1 },
-  { dice: [1], diceCount: 1 },
   { diceTotal: 1 },
   { diceCount: 1 },
-  { dice: [] },
-  { dice: [1], extra: true },
   { diceTotal: 1, diceCount: 1, extra: true },
-])('roll alternatives remain strict and unambiguous: %j', (fields) => {
+])('a roll is strictly a dice total and count: %j', (fields) => {
   expect(
     rawRollSchema.safeParse({ ...metadata, sides: 20, ...fields }).success,
   ).toBe(false);
@@ -195,25 +183,30 @@ test.each([
       { sourceId: 'custom', value: 1, reason: 'Weather', extra: true },
     ],
   },
-])('both forms retain common structural constraints: %j', (invalid) => {
-  for (const fields of [{ dice: [2] }, { diceTotal: 2, diceCount: 1 }]) {
-    expect(
-      rawRollSchema.safeParse({ ...metadata, sides: 4, ...fields, ...invalid })
-        .success,
-    ).toBe(false);
-  }
+])('a roll keeps its structural constraints: %j', (invalid) => {
+  expect(
+    rawRollSchema.safeParse({
+      ...metadata,
+      sides: 4,
+      diceTotal: 2,
+      diceCount: 1,
+      ...invalid,
+    }).success,
+  ).toBe(false);
 });
 
-test('normalization never rewrites partial dice, provenance, modifiers or total records', () => {
-  for (const fields of [{ dice: [2] }, { diceTotal: 6, diceCount: 2 }]) {
-    const raw = rawRollSchema.parse({ ...metadata, sides: 4, ...fields });
-    const before = structuredClone(raw);
-    Object.freeze(raw.provenance);
-    raw.modifiers.forEach(Object.freeze);
-    Object.freeze(raw.modifiers);
-    if ('dice' in raw) Object.freeze(raw.dice);
-    Object.freeze(raw);
-    normalizeRawRoll(raw, { count: 2, sides: 4 });
-    expect(raw).toEqual(before);
-  }
+test('normalization never rewrites provenance, modifiers or the recorded total', () => {
+  const raw = rawRollSchema.parse({
+    ...metadata,
+    sides: 4,
+    diceTotal: 6,
+    diceCount: 2,
+  });
+  const before = structuredClone(raw);
+  Object.freeze(raw.provenance);
+  raw.modifiers.forEach(Object.freeze);
+  Object.freeze(raw.modifiers);
+  Object.freeze(raw);
+  normalizeRawRoll(raw, { count: 2, sides: 4 });
+  expect(raw).toEqual(before);
 });

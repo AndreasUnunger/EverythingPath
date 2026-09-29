@@ -8,7 +8,6 @@ import {
 } from '../../src/lib/canonical-resolution-record';
 import { createWeeklyDraft } from '../../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../../src/lib/weekly-draft-contract';
-import type { RawRoll } from '../../src/lib/weekly-draft-facts';
 import { compoundAcceptanceFixture } from '../rules/compound-acceptance-fixture';
 
 // Immutable Resolution Record fixtures for the frozen six-section adapter and
@@ -23,43 +22,18 @@ export function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function total(roll: RawRoll): RawRoll {
-  if (!('dice' in roll)) return roll;
-  const { dice, ...rest } = roll;
-  return {
-    ...rest,
-    diceTotal: dice.reduce((sum, die) => sum + die, 0),
-    diceCount: dice.length,
-  };
-}
-
 /**
  * The compound acceptance week (every phase, an exception, outcomes and an
  * adjustment) resolved and recorded through the real confirmation path.
- * `rolls: 'totals'` records newer dice totals instead of individual dice.
  */
-export function confirmedWeek({
-  rolls = 'dice',
-}: { rolls?: 'dice' | 'totals' } = {}) {
+export function confirmedWeek() {
   const { input } = compoundAcceptanceFixture();
   const draft = input.revision;
-  if (rolls === 'totals') {
-    const upkeep = draft.upkeep.rolls;
-    for (const field of ['check', 'training'] as const)
-      if (upkeep[field]) upkeep[field] = total(upkeep[field]);
-    for (const slot of draft.activity.slots) {
-      const choiceRolls: Partial<Record<string, RawRoll>> | undefined =
-        slot.choice && 'rolls' in slot.choice ? slot.choice.rolls : undefined;
-      if (choiceRolls?.check) choiceRolls.check = total(choiceRolls.check);
-    }
-    for (const occurrence of draft.event.occurrences)
-      if (occurrence.tableRoll)
-        occurrence.tableRoll = total(occurrence.tableRoll);
-  }
   // Retained below the Notoriety threshold: recorded, but never run.
   draft.upkeep.notorietyCheck = {
     sides: 20,
-    dice: [3],
+    diceTotal: 3,
+    diceCount: 1,
     provenance: { kind: 'table' },
     modifiers: [],
   };
@@ -111,13 +85,15 @@ function legacySource() {
     rolls: {
       check: {
         sides: 20,
-        dice: [14],
+        diceTotal: 14,
+        diceCount: 1,
         provenance: { kind: 'table' },
         modifiers: [{ sourceId: 'drill', value: 2, reason: 'Drill bonus' }],
       },
       training: {
         sides: 4,
-        dice: [3, 4],
+        diceTotal: 7,
+        diceCount: 2,
         provenance: { kind: 'table' },
         modifiers: [],
       },
@@ -142,7 +118,8 @@ function legacySource() {
     rolls: {
       check: {
         sides: 20,
-        dice: [11],
+        diceTotal: 11,
+        diceCount: 1,
         provenance: { kind: 'table' },
         modifiers: [],
       },
@@ -157,7 +134,8 @@ function legacySource() {
       eventType: 'roll_twice',
       tableRoll: {
         sides: 100,
-        dice: [51],
+        diceTotal: 51,
+        diceCount: 1,
         provenance: { kind: 'table' },
         modifiers: [],
       },
@@ -218,7 +196,7 @@ function legacySource() {
 
 /**
  * An older record: format 1 artifacts with loose facts and a phase-keyed
- * plan, no source militia snapshot, individual dice with a recorded
+ * plan, no source militia snapshot, a dice total with a recorded
  * modifier, an actor-bearing transfer, recorded costs, an older Event tree,
  * a recorded buyoff amount with its historical warning, a legacy written
  * warning and facts no longer linked to anything in the week.

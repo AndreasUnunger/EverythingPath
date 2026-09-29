@@ -61,7 +61,8 @@ test('[rules.P77.projection-parity] persistent decisions, temporary mitigation a
                   skillBonus: 0,
                   roll: {
                     sides: 20,
-                    dice: [20],
+                    diceTotal: 20,
+                    diceCount: 1,
                     provenance: { kind: 'table' },
                     modifiers: [],
                   },
@@ -73,7 +74,8 @@ test('[rules.P77.projection-parity] persistent decisions, temporary mitigation a
                 rolls: {
                   check: {
                     sides: 20,
-                    dice: [20],
+                    diceTotal: 20,
+                    diceCount: 1,
                     provenance: { kind: 'table' },
                     modifiers: [],
                   },

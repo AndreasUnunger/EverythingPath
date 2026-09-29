@@ -9,7 +9,7 @@ import { createWeeklyDraft } from '~/lib/weekly-draft';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { HistoricalRecordView } from './record-view';
 
-// Test-only representation of a newer record; history never rewrites either.
+// A recorded dice total; history never rewrites it.
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {
     sides,
@@ -74,43 +74,6 @@ const line = (section: string, title: string) =>
   region(section)
     .getAllByRole('listitem')
     .find((item) => item.textContent?.startsWith(title))?.textContent;
-
-test('[rules.HIST-05.old-source] an older record shows its recorded individual dice and transfer actor exactly, with no editable control', () => {
-  const old = record(
-    {
-      check: {
-        dice: [20],
-        sides: 20,
-        provenance: { kind: 'table' },
-        modifiers: [],
-      },
-      training: {
-        dice: [3, 4],
-        sides: 4,
-        provenance: { kind: 'table' },
-        modifiers: [],
-      },
-    },
-    {
-      transferId: 'transfer',
-      characterId: 'officer',
-      direction: 'deposit',
-      copper: 700,
-    },
-  );
-  const { container } = render(<HistoricalRecordView record={old} />);
-  expect(line('1 Upkeep', 'Training attrition')).toBe(
-    'Training attrition · Loyalty check roll: dice 20 (1d20) · Training loss roll: dice 3, 4 (2d4)',
-  );
-  // The actor an older transfer recorded, by its record-local label.
-  expect(line('1 Upkeep', 'Treasury deposit')).toBe(
-    'Treasury deposit · Character 1 · Recorded amount 7 gp',
-  );
-  expect(line('3 Event', 'Event 1')).toContain('Table roll: dice 20 (1d20)');
-  expect(container.textContent).not.toContain('dice total');
-  expect(container.querySelector('input, textarea, select')).toBeNull();
-  expect(container.textContent).not.toContain('history-draft');
-});
 
 test('[rules.HIST-05.new-source] a newer record shows its recorded totals and counts, including zero, without fabricating dice', () => {
   const recent = record(

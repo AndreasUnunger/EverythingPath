@@ -275,7 +275,8 @@ test('[rules.P83.modifiers] Event checks explain each contribution without expos
               ...view.occurrences[0]!.occurrence,
               rolls: {
                 check: {
-                  dice: [10],
+                  diceTotal: 10,
+                  diceCount: 1,
                   sides: 20,
                   provenance: { kind: 'table' },
                   modifiers: [
