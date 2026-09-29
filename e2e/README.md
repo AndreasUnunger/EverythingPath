@@ -1155,3 +1155,12 @@ pan and tap on two pinned CPUs shared with six busy loops, showed it:
   failed, and no scroll ended after a tap.
 
 The pan-scrolled, no-choice and both-device tap assertions are unchanged.
+
+Review follow-up: the first version resolved on the first `scrollend` anywhere
+in the document, so another scroller, or an event from a scroll that had ended
+before the pan, could end the wait while the Week was still gliding.
+`watchScrollEnd` is now bound to the card's scrolling ancestor, the same
+element the pan-scrolled check measures (the document for the page's own
+scroller). It is armed just before the first touch, and it counts only that
+element's own `scrollend` once its `scrollTop` differs from the value at
+arming.

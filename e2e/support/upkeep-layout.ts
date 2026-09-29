@@ -1,5 +1,10 @@
 import { join } from 'node:path';
-import { expect, type Locator, type Page } from '@playwright/test';
+import {
+  expect,
+  type ElementHandle,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { savePrivate, type Run } from './process';
 import {
   expectBoundedWeekHost,
@@ -115,47 +120,55 @@ export async function reviewUpkeepChoiceLayout(page: Page, run: Run) {
   await reviewControls(page, 'rank', [feats], run.artifactDirectory);
 }
 
-// How far the card's scrolling ancestor (the page's own scroller when no
-// inner column scrolls) is scrolled, and how much room it has left below.
-function readScroll(card: Locator) {
-  return card.evaluate((element) => {
-    let scroller = document.scrollingElement ?? document.documentElement;
+// The card's scrolling ancestor: the Week's bounded scroller, or the page's
+// own scroller when no inner column scrolls.
+function scrollerOf(card: Locator) {
+  return card.evaluateHandle((element) => {
     for (let node = element.parentElement; node; node = node.parentElement)
       if (
         ['auto', 'scroll'].includes(getComputedStyle(node).overflowY) &&
         node.scrollHeight > node.clientHeight + 1
-      ) {
-        scroller = node;
-        break;
-      }
-    return {
-      top: scroller.scrollTop,
-      below: scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
-    };
+      )
+        return node;
+    return document.scrollingElement ?? document.documentElement;
   });
 }
 
+// How far the scroller is scrolled, and how much room it has left below.
+function readScroll(scroller: ElementHandle<Element>) {
+  return scroller.evaluate((element) => ({
+    top: element.scrollTop,
+    below: element.scrollHeight - element.clientHeight - element.scrollTop,
+  }));
+}
+
 /**
- * Runs in the page: `ended` resolves true once a scroll comes to rest, its
- * momentum included (the first `scrollend` from the document or any element),
- * or false after `timeout` ms. The promise is wrapped so `evaluateHandle`
- * returns before it settles.
+ * Runs in the page, armed just before the pan: `ended` resolves true once
+ * `scroller` itself comes to rest, its momentum included, having moved since
+ * arming; or false after `timeout` ms. Another scroller's `scrollend`, or one
+ * from a scroll that ended before arming, does not count. The page's own
+ * scroller reports `scrollend` on the document. The promise is wrapped so
+ * `evaluateHandle` returns before it settles.
  */
-export function watchScrollEnd(timeout: number) {
+export function watchScrollEnd(scroller: Element, timeout: number) {
+  const target =
+    scroller === (document.scrollingElement ?? document.documentElement)
+      ? document
+      : scroller;
+  const armedTop = scroller.scrollTop;
   return {
     ended: new Promise<boolean>((resolve) => {
-      const end = () => {
+      const settle = (rested: boolean) => {
         clearTimeout(timer);
-        resolve(true);
+        target.removeEventListener('scrollend', end);
+        resolve(rested);
       };
-      const timer = setTimeout(() => {
-        document.removeEventListener('scrollend', end, true);
-        resolve(false);
-      }, timeout);
-      document.addEventListener('scrollend', end, {
-        capture: true,
-        once: true,
-      });
+      const end = (event: Event) => {
+        if (event.target === target && scroller.scrollTop !== armedTop)
+          settle(true);
+      };
+      const timer = setTimeout(() => settle(false), timeout);
+      target.addEventListener('scrollend', end);
     }),
   };
 }
@@ -188,7 +201,8 @@ export async function panAndTapSettlementCards(
   await settleAnimations(gm);
   const start = await card(gm, other).boundingBox();
   if (!start) throw new Error('No settlement card under the pan');
-  const before = await readScroll(card(gm, other));
+  const scroller = await scrollerOf(card(gm, other));
+  const before = await readScroll(scroller);
   const x = Math.round(start.x + start.width / 2);
   const y = Math.round(start.y + start.height / 2);
   expect(
@@ -204,12 +218,14 @@ export async function panAndTapSettlementCards(
   const distance = before.top > before.below ? 160 : -160;
   // The week keeps gliding after the finger lifts. A tap during the glide
   // only stops it: Chromium, like a phone, sends no click. So the tap waits
-  // until the scroll has come to rest, watched from before the pan starts.
-  const scrollEnd = await gm.evaluateHandle(watchScrollEnd, 10_000);
-  // A finger's own touch events: headless Chromium's synthesized touch
-  // scroll gesture sends only touchstart and touchend.
+  // until the week's scroller has come to rest, watched from just before the
+  // pan starts.
   const cdp = await gm.context().newCDPSession(gm);
+  let scrollEnd;
   try {
+    scrollEnd = await scroller.evaluateHandle(watchScrollEnd, 10_000);
+    // A finger's own touch events: headless Chromium's synthesized touch
+    // scroll gesture sends only touchstart and touchend.
     await cdp.send('Input.dispatchTouchEvent', {
       type: 'touchStart',
       touchPoints: [{ x, y }],
@@ -232,9 +248,10 @@ export async function panAndTapSettlementCards(
   ).toBe(true);
   await scrollEnd.dispose();
   expect(
-    (await readScroll(card(gm, other))).top,
+    (await readScroll(scroller)).top,
     'the pan scrolled the week',
   ).not.toBe(before.top);
+  await scroller.dispose();
   await expect(card(gm, other)).not.toHaveAttribute('style', /translate/);
   await expectPressed(selected, 'true');
   await expectPressed(other, 'false');
