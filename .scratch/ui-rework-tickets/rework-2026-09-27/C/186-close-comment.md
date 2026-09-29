@@ -1,3 +1,0 @@
-Merged into [T36 / #184: Browse finished weeks and page dated audit entries](https://github.com/AndreasUnunger/EverythingPath/issues/184) under the [parallel-work and right-sizing amendment (2026-09-27)]({{AMENDMENT_URL}}).
-
-The five-entry audit paging, effective/earlier markers, bounded Ruleset Version and ordinal lookups, and their tests (`HIST-03`) now sit in #184 with the week index they share. The `createdAt` reader envelope moved to the backend ticket [T36b / #{{T36b}}: Serve the bounded finished-week listing and record creation dates](https://github.com/AndreasUnunger/EverythingPath/issues/{{T36b}}). Nothing was dropped. Closing this ticket so work is tracked in one place.

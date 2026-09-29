@@ -55,3 +55,6 @@ yarn-error.log*
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Local working notes, drafts and screenshots
+.scratch/
