@@ -490,6 +490,23 @@ describe('Correct officers', () => {
       within(bar('Correct officers')).getByRole('alert'),
     ).toHaveTextContent('The week changed while you were correcting.');
   });
+
+  test('a new week still restarts the correction while its draft is briefly unobserved', () => {
+    const view = render(page());
+    openOfficers();
+    fireEvent.change(reason(), { target: { value: 'Bren steps down' } });
+    setMilitia(4, snapshot(), { draftId: 'draft-4', week: 4 });
+    queries.observe = undefined;
+    view.rerender(page());
+    expect(
+      within(bar('Correct officers')).getByRole('alert'),
+    ).toHaveTextContent('The week changed while you were correcting.');
+    setMilitia(4, snapshot(), { draftId: 'draft-4', week: 4 });
+    view.rerender(page());
+    expect(
+      within(bar('Correct officers')).getByRole('alert'),
+    ).toHaveTextContent('The week changed while you were correcting.');
+  });
 });
 
 describe('Correct roster', () => {

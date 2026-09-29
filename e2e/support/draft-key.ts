@@ -25,6 +25,24 @@ export type DraftKey = {
   draftId: string;
 };
 
+// The draft keys a sent protocol frame starts observing.
+function observedKeys(payload: string | Buffer): DraftKey[] {
+  try {
+    const parsed = observeAdd.safeParse(JSON.parse(payload.toString()));
+    if (!parsed.success) return [];
+    return parsed.data.modifications.flatMap((modification) =>
+      'udfPath' in modification &&
+      modification.udfPath.replace(/\.js$/, '') ===
+        'canonicalDraftPersistence:observe'
+        ? [modification.args[0]]
+        : [],
+    );
+  } catch {
+    /* Non-protocol frames are irrelevant. */
+    return [];
+  }
+}
+
 /**
  * Read-only: the key of the open weekly draft this page observes, taken from
  * the page's own first draft-observation subscription. Install before
@@ -35,20 +53,7 @@ export function observeDraftKey(page: Page) {
   let key: DraftKey | undefined;
   page.on('websocket', (socket) => {
     socket.on('framesent', ({ payload }) => {
-      if (key) return;
-      try {
-        const parsed = observeAdd.safeParse(JSON.parse(payload.toString()));
-        if (!parsed.success) return;
-        for (const modification of parsed.data.modifications)
-          if (
-            'udfPath' in modification &&
-            modification.udfPath.replace(/\.js$/, '') ===
-              'canonicalDraftPersistence:observe'
-          )
-            key = modification.args[0];
-      } catch {
-        /* Non-protocol frames are irrelevant. */
-      }
+      key ??= observedKeys(payload)[0];
     });
   });
   return async () => {
@@ -58,4 +63,19 @@ export function observeDraftKey(page: Page) {
     if (!key) throw new Error('The page never observed a weekly draft');
     return key;
   };
+}
+
+/**
+ * Read-only: every distinct weekly draft this page has started observing,
+ * in order. Install before navigating.
+ */
+export function observeDraftIds(page: Page) {
+  const ids: string[] = [];
+  page.on('websocket', (socket) => {
+    socket.on('framesent', ({ payload }) => {
+      for (const key of observedKeys(payload))
+        if (!ids.includes(key.draftId)) ids.push(key.draftId);
+    });
+  });
+  return () => [...ids];
 }

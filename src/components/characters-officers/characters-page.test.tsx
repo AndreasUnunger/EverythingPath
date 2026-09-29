@@ -604,6 +604,75 @@ describe('record dialog', () => {
     });
   });
 
+  test('another player confirming the week keeps the unsaved edit', async () => {
+    const view = render(page());
+    await openEdit('Bren Ironhand');
+    type('Name', 'Unsaved new name');
+    type('STR', '12');
+    type('Notes', 'Drillmaster');
+    // Confirmation opens week 4: its draft is briefly unobserved.
+    const next = { ...militia(), week: 4 };
+    next.key = { ...next.key, draftId: 'draft-4' };
+    setQueries(records(), next);
+    queries.observe = undefined;
+    view.rerender(page());
+    // The page stays behind the modal dialog, without last week's pending
+    // change on the table or the Marshal card.
+    const hidden = { hidden: true };
+    expect(
+      screen.queryByRole('status', { name: 'Loading characters…', ...hidden }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('region', { name: 'Officers', ...hidden }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Pending this week|→ Spymaster/)).toBeNull();
+    expect(field('Name')).toHaveValue('Unsaved new name');
+    setQueries(records(), next, {
+      status: 'open',
+      draft: { activity: { slots: [] } },
+    });
+    view.rerender(page());
+    expect(screen.queryByText(/Pending this week|→ Spymaster/)).toBeNull();
+    expect(field('Name')).toHaveValue('Unsaved new name');
+    expect(field('STR')).toHaveValue('12');
+    expect(field('Notes')).toHaveValue('Drillmaster');
+    await press('Save');
+    expect(calls[0]!.args).toEqual({
+      organizationId: 'org',
+      characterId: 'bren',
+      patch: {
+        name: 'Unsaved new name',
+        strength: 12,
+        description: 'Drillmaster',
+      },
+    });
+  });
+
+  test('a campaign or organization change closes the dialog and loads again', async () => {
+    const view = render(page());
+    for (const [nextCampaign, nextOrganization] of [
+      ['campaign-2', 'org'],
+      ['campaign-2', 'org-2'],
+    ] as const) {
+      await openEdit('Bren Ironhand');
+      type('Name', 'Unsaved new name');
+      const next = () => (
+        <CharactersSection
+          campaignId={nextCampaign as Id<'campaign'>}
+          organizationId={nextOrganization}
+        />
+      );
+      queries = { workspace: undefined };
+      view.rerender(next());
+      expect(
+        screen.getByRole('status', { name: 'Loading characters…' }),
+      ).toBeVisible();
+      setQueries();
+      view.rerender(next());
+      expect(screen.queryByRole('dialog')).toBeNull();
+    }
+  });
+
   test('a refused add keeps the values and a second press never writes twice', async () => {
     render(page());
     await press(

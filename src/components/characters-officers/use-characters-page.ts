@@ -85,7 +85,19 @@ export function useCharactersPage({
     source ? source.key : 'skip',
   );
   const [showArchived, setShowArchived] = useState(false);
-  const [target, setTarget] = useState<RecordDialogTarget | null>(null);
+  // The campaign and organization the page has loaded for, with its open
+  // record dialog: a scope change closes the dialog and loads again.
+  const [loaded, setLoaded] = useState<{
+    campaignId: Id<'campaign'>;
+    organizationId: string;
+    target: RecordDialogTarget | null;
+  } | null>(null);
+  const sameScope =
+    loaded?.campaignId === campaignId &&
+    loaded.organizationId === organizationId;
+  const target = sameScope ? loaded.target : null;
+  const setTarget = (next: RecordDialogTarget | null) =>
+    setLoaded({ campaignId, organizationId, target: next });
 
   const pending = useMemo(() => {
     if (!records) return [];
@@ -95,10 +107,15 @@ export function useCharactersPage({
       : [];
   }, [records, observation]);
 
-  // With a militia, wait for the open week too, so pending changes never
-  // appear late.
+  // With a militia, the first load waits for the open week too, so pending
+  // changes never appear late. Later, a new week's draft (another player
+  // confirmed) is briefly unobserved: the page stays, with no pending
+  // changes until the new week's arrive, so an open record dialog keeps its
+  // unsaved input (#141).
   if (!records || source === undefined) return { status: 'loading' };
-  if (source && observation === undefined) return { status: 'loading' };
+  if (source && observation === undefined && !sameScope)
+    return { status: 'loading' };
+  if (!sameScope) setLoaded({ campaignId, organizationId, target: null });
 
   const names = new Map(records.map((record) => [record._id, record.name]));
   const militia = source

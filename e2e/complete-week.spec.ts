@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { openCampaignSection } from './support/interactions';
 import { test, expect } from './support/fixtures';
 import { loadRun } from './support/process';
-import { observeDraftKey } from './support/draft-key';
+import { observeDraftIds, observeDraftKey } from './support/draft-key';
 import { controlTransport } from './support/transport';
 import {
   confirmedWeekNotice,
@@ -78,6 +78,39 @@ test('a player confirms a complete week, every device moves to the next week onc
   await expect(heading(watcher, 'Week 1 · Upkeep')).toBeVisible();
   expect(new URL(watcher.url()).searchParams.get('phase')).toBeNull();
   await expect(confirmedWeekNotice(watcher)).toBeEmpty();
+  // The player's other device edits a character record, unsaved, while the
+  // week is confirmed: the page never falls back to its skeleton and the
+  // dialog keeps the typed name through the new week's draft (#198).
+  const records = await player.context().newPage();
+  const recordDrafts = observeDraftIds(records);
+  await records.goto(`/campaigns/${campaignId}/characters`);
+  await records
+    .getByRole('region', { name: 'Characters', exact: true })
+    .getByRole('button', { name: /^Edit / })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const record = records.getByRole('dialog', {
+    name: 'Edit character',
+    exact: true,
+  });
+  const recordName = record.getByRole('textbox', { name: 'Name', exact: true });
+  await recordName.fill('Unsaved new name');
+  await records.evaluate(() => {
+    const window_ = window as Window & { __characterSkeletons?: number };
+    window_.__characterSkeletons = 0;
+    const skeleton = '[aria-label="Loading characters…"]';
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations)
+        for (const node of mutation.addedNodes)
+          if (
+            node instanceof Element &&
+            (node.matches(skeleton) || node.querySelector(skeleton))
+          )
+            window_.__characterSkeletons! += 1;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  expect(recordDrafts()).toHaveLength(1);
   await step(gm, 'Event');
   await chanceRoll(gm).fill('100');
   await chanceRoll(gm).blur();
@@ -192,6 +225,19 @@ test('a player confirms a complete week, every device moves to the next week onc
   ]);
   await expect(confirmedWeekNotice(watcher)).toHaveCount(1);
   await watcher.close();
+  // The records page observed the new week's draft, with no skeleton.
+  await expect.poll(() => recordDrafts().length).toBe(2);
+  await expect(record).toBeVisible();
+  await expect(recordName).toHaveValue('Unsaved new name');
+  expect(
+    await records.evaluate(
+      () =>
+        (window as Window & { __characterSkeletons?: number })
+          .__characterSkeletons,
+    ),
+    'no characters skeleton across the week change',
+  ).toBe(0);
+  await records.close();
   expect(await gmSkeletons(), 'no skeleton on the caller').toBe(0);
   expect(await playerSkeletons(), 'no skeleton on the observer').toBe(0);
   await expect(saveState(gm)).not.toHaveAttribute(
