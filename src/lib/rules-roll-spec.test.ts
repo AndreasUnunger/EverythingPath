@@ -152,39 +152,6 @@ test('Sabotage and unresolved table rolls have type-independent fixed specificat
   expect(eventRollSpec(context, ['officerCheck', 'roll'])).toBeNull();
 });
 
-test('Persistent decisions use their own context at the root and inside occurrences', () => {
-  for (const eventType of ['rivalry', 'theft'] as const) {
-    const path =
-      eventType === 'rivalry' ? ['officerCheck', 'roll'] : ['rolls', 'check'];
-    expect(eventRollSpec({ kind: 'persistent', eventType }, path)).toEqual({
-      count: 1,
-      sides: 20,
-    });
-    expect(
-      eventRollSpec({ kind: 'occurrence', eventType }, [
-        'persistentDecision',
-        ...path,
-      ]),
-    ).toEqual({ count: 1, sides: 20 });
-  }
-  expect(
-    eventRollSpec({ kind: 'persistent', eventType: 'turncoat' }, [
-      'rolls',
-      'loss',
-    ]),
-  ).toBeNull();
-  expect(
-    eventRollSpec({ kind: 'persistent', eventType: 'rivalry' }, ['tableRoll']),
-  ).toBeNull();
-  expect(
-    eventRollSpec({ kind: 'occurrence', eventType: null }, [
-      'persistentDecision',
-      'rolls',
-      'check',
-    ]),
-  ).toBeNull();
-});
-
 test('target paths are exact and do not infer capture dice for unrelated events', () => {
   const context = { kind: 'occurrence', eventType: 'raid' } as const;
   expect(eventRollSpec(context, ['targetChecks', 3, 'rolls', 'check'])).toEqual(

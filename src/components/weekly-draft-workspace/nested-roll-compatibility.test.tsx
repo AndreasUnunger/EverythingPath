@@ -667,46 +667,6 @@ test('[rules.EVT-11.invalid-shift] removing an earlier entry keeps a later entry
   );
 });
 
-test('[rules.EVT-11.invalid-branch] switching a nested Persistent decision away from a malformed mitigation roll saves the new branch', async () => {
-  const edit = vi.fn();
-  render(
-    <EventView
-      view={withOccurrence(
-        { eventId: 'root', origin: { kind: 'rolled' }, persistent: true },
-        'theft',
-      )}
-      edit={edit}
-      disabled={false}
-    />,
-  );
-  openDetails();
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add persistent decision' }),
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Mitigate' }));
-  // The occurrence's own rolls come first; the decision's follow.
-  fireEvent.click(screen.getAllByRole('button', { name: 'Add rolls' }).at(-1)!);
-  fireEvent.change(
-    screen.getAllByRole('textbox', { name: 'Check roll' }).at(-1)!,
-    { target: { value: '-3' } },
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
-  await flushSubmit();
-  expect(edit).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getAllByRole('button', { name: 'Unattempted' }).at(-1)!,
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
-  await waitFor(() =>
-    expect(edit).toHaveBeenLastCalledWith({
-      kind: 'event_occurrence',
-      occurrence: expect.objectContaining({
-        persistentDecision: { kind: 'unattempted', eventId: 'root' },
-      }),
-    }),
-  );
-});
-
 test('[rules.EVT-11.invalid-clear] clearing the enclosing details after malformed text lets the next save go through once the cleared occurrence arrives', async () => {
   const edit = vi.fn().mockReturnValue(true);
   const { rerender } = render(

@@ -427,15 +427,9 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
       ? object.eventId
       : props.ownerEventId;
   const acknowledgementSubject =
-    name === 'persistentDecision' &&
-    object.kind === 'end' &&
-    typeof object.eventId === 'string'
-      ? object.eventId
-      : name === 'sabotage' &&
-          typeof object.choiceId === 'string' &&
-          ownerEventId
-        ? `sabotage:${ownerEventId}:${object.choiceId}`
-        : props.acknowledgementSubject;
+    name === 'sabotage' && typeof object.choiceId === 'string' && ownerEventId
+      ? `sabotage:${ownerEventId}:${object.choiceId}`
+      : props.acknowledgementSubject;
   const modifier = props.modifierContext === true || path.includes('modifiers');
   const knownSources = optionsForSource(
     props.options,
@@ -472,10 +466,7 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
             'choiceId',
             'subjectId',
           ].includes(key) &&
-          (key === 'subjectId' ||
-            key === 'choiceId' ||
-            name === 'persistentDecision' ||
-            !('kind' in object))
+          (key === 'subjectId' || key === 'choiceId' || !('kind' in object))
         )
           return null;
         return nested(child, object[key], key, (next) =>
@@ -486,12 +477,7 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
                 ...('acknowledgementId' in object && acknowledgementSubject
                   ? { subjectId: acknowledgementSubject }
                   : {}),
-                [key]:
-                  key === 'persistentDecision' &&
-                  next !== undefined &&
-                  typeof object.eventId === 'string'
-                    ? { ...record(next), eventId: object.eventId }
-                    : next,
+                [key]: next,
               }).filter(([, value]) => value !== undefined),
             ),
           ),

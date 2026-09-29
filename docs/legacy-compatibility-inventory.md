@@ -67,6 +67,8 @@ draft is at revision 0, production also holds no accepted
     `EventOccurrenceEditors` in `event-occurrence-editors.tsx`, rendered for
     every Event block that is not still preparing. It edits the whole
     `eventOccurrenceSchema` except `origin`, `tableRoll` and `eventType`.
+    Narrowed 2026-09-29 (#198): an allowlist of current fields
+    (`event-occurrence-details.ts`), with no B1 field.
   - **W2: Activity's "Recorded candidate details" disclosure.** This is
     `CANDIDATE_FIELDS` in `activity-details.tsx`. It edits whole candidate
     trees, including each occurrence's `origin`. A fixes batch running in

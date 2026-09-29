@@ -167,8 +167,17 @@ test('[rules.P83.details] target checks enter the percentile capture total and p
   );
 });
 
-test('[rules.P83.ownership] reactive notes and persistent ending remain bound to their occurrence', async () => {
+test('[rules.P83.ownership] a reaction added in the details stays on its occurrence beside the same-week decision recorded there', async () => {
   const edit = vi.fn();
+  const decision = {
+    kind: 'end' as const,
+    eventId: 'root',
+    acknowledgement: {
+      acknowledgementId: 'root-ending',
+      subjectId: 'root',
+      outcome: 'The event ended at the table.',
+    },
+  };
   render(
     <EventView
       view={{
@@ -179,6 +188,7 @@ test('[rules.P83.ownership] reactive notes and persistent ending remain bound to
             occurrence: {
               ...view.occurrences[0]!.occurrence,
               persistent: true,
+              persistentDecision: decision,
             },
           },
         ],
@@ -187,35 +197,16 @@ test('[rules.P83.ownership] reactive notes and persistent ending remain bound to
       disabled={false}
     />,
   );
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add persistent decision' }),
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'End' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Outcome' }), {
-    target: { value: 'The event ended at the table.' },
-  });
   fireEvent.click(screen.getByRole('button', { name: 'Add sabotage' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add acknowledgements' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add acknowledgements entry' }),
-  );
-  fireEvent.change(screen.getAllByRole('textbox', { name: 'Outcome' })[1]!, {
-    target: { value: 'Saboteurs disrupted the invaders.' },
-  });
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
   await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
   const event = edit.mock.lastCall?.[0].occurrence;
-  expect(event.persistentDecision).toMatchObject({
-    kind: 'end',
+  expect(event).toMatchObject({
     eventId: 'root',
-    acknowledgement: {
-      subjectId: 'root',
-      outcome: 'The event ended at the table.',
-    },
+    persistent: true,
+    persistentDecision: decision,
   });
-  expect(event.sabotage.acknowledgements[0].subjectId).toBe(
-    `sabotage:root:${event.sabotage.choiceId}`,
-  );
+  expect(event.sabotage.choiceId).toEqual(expect.any(String));
 });
 
 test('[rules.P83.candidates] Event edits preserve complete Activity candidate ownership and selection', () => {

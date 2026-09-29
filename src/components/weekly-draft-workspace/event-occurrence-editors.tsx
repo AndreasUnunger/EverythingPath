@@ -1,12 +1,16 @@
 'use client';
 import { useState } from 'react';
-import { eventOccurrenceSchema } from '~/lib/weekly-draft-facts';
 import { sabotageCheckId } from '~/lib/rules-event-shaping';
 import { eventRollSpec } from '~/lib/rules-roll-spec';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
 import { ActivityText } from './activity-text';
 import { EventChecks } from './event-checks';
+import {
+  eventDetails,
+  eventDetailsSchema,
+  withEventDetails,
+} from './event-occurrence-details';
 import { EventFamilyPanel } from './event-family-panel';
 import { eventChange } from './event-messages';
 import { resolvedEventType } from './roll-facts';
@@ -15,18 +19,14 @@ import type { EventBlock, EventView } from './types';
 import type { useEventEdits } from './use-event-edits';
 
 type Occurrence = EventView['occurrences'][number]['occurrence'];
-const detailsSchema = eventOccurrenceSchema.omit({
-  origin: true,
-  tableRoll: true,
-  eventType: true,
-});
 
-// The event-specific inputs of one occurrence, unchanged from the earlier
-// Event editor: every schema-supported detail, the outcome acknowledgement,
-// checks, Rules Exceptions and outcomes. Family-specific panels replace parts
-// of this body as they ship; the block around it owns identity, the table
-// roll and nesting. `disabled` already includes an occurrence still being
-// prepared, so no edit targets an occurrence the draft does not hold yet.
+// The event-specific inputs of one occurrence: the details the current Event
+// controls also write (see `event-occurrence-details.ts`), the outcome
+// acknowledgement, checks, Rules Exceptions and outcomes. Family-specific
+// panels replace parts of this body as they ship; the block around it owns
+// identity, the table roll and nesting. `disabled` already includes an
+// occurrence still being prepared, so no edit targets an occurrence the
+// draft does not hold yet.
 export function EventOccurrenceEditors({
   block,
   view,
@@ -78,12 +78,8 @@ export function EventOccurrenceEditors({
   const acknowledgement = view.acknowledgements.find(
     (entry) => entry.subjectId === `event:${occurrence.eventId}`,
   );
-  const {
-    origin: _origin,
-    tableRoll: _tableRoll,
-    eventType: _eventType,
-    ...details
-  } = occurrence;
+  const eventType = resolvedEventType(item.resolvedType);
+  const detailsSchema = eventDetailsSchema(eventType);
   function save(next: Occurrence) {
     const message = saveOccurrence(next);
     setError(message ?? '');
@@ -117,37 +113,14 @@ export function EventOccurrenceEditors({
             name="occurrence"
             schema={detailsSchema}
             rollSpec={(path) =>
-              eventRollSpec(
-                {
-                  kind: 'occurrence',
-                  eventType: resolvedEventType(item.resolvedType),
-                },
-                path,
-              )
+              eventRollSpec({ kind: 'occurrence', eventType }, path)
             }
-            value={details}
+            value={eventDetails(occurrence, detailsSchema)}
             options={view.options}
             disabled={disabled}
             onValue={(value) => {
-              if (value === undefined)
-                return save({
-                  eventId: occurrence.eventId,
-                  origin: occurrence.origin,
-                  ...(occurrence.tableRoll
-                    ? { tableRoll: occurrence.tableRoll }
-                    : {}),
-                });
-              const parsed = detailsSchema.safeParse(value);
-              return (
-                parsed.success &&
-                save({
-                  ...parsed.data,
-                  origin: occurrence.origin,
-                  ...(occurrence.tableRoll
-                    ? { tableRoll: occurrence.tableRoll }
-                    : {}),
-                })
-              );
+              const next = withEventDetails(occurrence, detailsSchema, value);
+              return next !== null && save(next);
             }}
           />
         </div>
