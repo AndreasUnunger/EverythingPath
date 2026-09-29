@@ -1,13 +1,13 @@
 import { foundationWeek } from './foundation-acceptance-fixtures';
 import { roll } from './upkeep-fixture';
-import type { RosterKind } from '../../src/lib/character-kind';
+import type { CharacterKind } from '../../src/lib/character-kind';
 
 /**
- * A complete week in which `ally` manages two teams: a PC or an NPC of any
- * stored kind, with or without an officer role, at the given Charisma.
+ * A complete week in which `ally` manages two teams: a PC or an NPC, with or
+ * without an officer role, at the given Charisma.
  */
 export function managerWeek(
-  kind: RosterKind,
+  kind: CharacterKind,
   holdsRole: boolean,
   charisma: number,
 ) {

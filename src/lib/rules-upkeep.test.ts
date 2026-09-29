@@ -243,7 +243,7 @@ test('[rules.U04.boons] every crossed PC boon requires its own recorded reward a
   snapshot.training = 41;
   snapshot.roster.people.push({
     characterId: 'npc',
-    kind: 'officer_npc',
+    kind: 'npc',
     hitDice: 20,
   });
   snapshot.characters.push({

@@ -53,7 +53,7 @@ function rank(
 function secondPc(snapshot: UpkeepSnapshot) {
   snapshot.roster.people.push(
     { characterId: 'pc-2', kind: 'pc', hitDice: 9 },
-    { characterId: 'npc', kind: 'officer_npc', hitDice: 20 },
+    { characterId: 'npc', kind: 'npc', hitDice: 20 },
   );
   snapshot.characters.push(
     { ...snapshot.characters[0]!, characterId: 'pc-2', level: 9 },

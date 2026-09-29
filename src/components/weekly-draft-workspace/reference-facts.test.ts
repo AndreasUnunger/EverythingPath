@@ -136,7 +136,7 @@ test('reference facts preserve exceptional teams, unknown focus, unnamed and una
   });
   input.source.snapshot.roster.people.push({
     characterId: 'unassigned',
-    kind: 'other_npc',
+    kind: 'npc',
     hitDice: null,
   });
   input.source.snapshot.characters.push({

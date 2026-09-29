@@ -26,7 +26,7 @@ function state(week = 4): CanonicalWeekState {
       roster: {
         people: [
           { characterId: 'ilsa', kind: 'pc', hitDice: null },
-          { characterId: 'orin', kind: 'officer_npc', hitDice: 3 },
+          { characterId: 'orin', kind: 'npc', hitDice: 3 },
         ],
         teams: [
           {

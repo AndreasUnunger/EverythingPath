@@ -6,7 +6,11 @@ import { query, type MutationCtx, type QueryCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { openDraft } from './lib/canonicalDraftStorage';
 import { draftKeySchema } from './lib/canonicalStorageValidators';
-import { withCurrentRecordKinds } from './lib/canonicalCharacters';
+import {
+  submittedSetupValidator,
+  withCurrentRecordKinds,
+  withSubmittedKindsNormalized,
+} from './lib/canonicalCharacters';
 import {
   militiaSetupSchema,
   prepareMilitiaSetup,
@@ -90,7 +94,7 @@ export const initialize = mutation({
   args: {
     campaignId: v.id('campaign'),
     initializationId: v.string(),
-    setup: zodOutputToConvex(militiaSetupSchema),
+    setup: submittedSetupValidator,
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args) => {
@@ -101,7 +105,15 @@ export const initialize = mutation({
       .min(1)
       .max(200)
       .parse(args.initializationId);
-    const setup = militiaSetupSchema.parse(args.setup);
+    const setup = militiaSetupSchema.parse({
+      ...args.setup,
+      state: {
+        ...args.setup.state,
+        militiaSnapshot: withSubmittedKindsNormalized(
+          args.setup.state.militiaSnapshot,
+        ),
+      },
+    });
     const sourceToken = weeklySourceKey(setup);
     if (new TextEncoder().encode(sourceToken).length > 750_000)
       throw new ConvexError('Setup is too large to save in one transaction');

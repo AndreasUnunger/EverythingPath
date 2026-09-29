@@ -2,11 +2,7 @@ import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
-import {
-  campaignValidator,
-  characterKindValidator,
-  characterValidator,
-} from './schema';
+import { campaignValidator, characterValidator } from './schema';
 import { hasAccessToOrg } from './user';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
 import type { MutationCtx, QueryCtx } from './_generated/server';
@@ -64,6 +60,14 @@ export const listByCampaign = query({
   },
 });
 
+// B3: a browser still on a bundle from before #180 may submit officer_npc.
+// The record stores PC or NPC. Narrow this with B3.
+const submittedCharacterKindValidator = v.union(
+  v.literal('pc'),
+  v.literal('officer_npc'),
+  v.literal('npc'),
+);
+
 export const createCharacter = mutation({
   args: {
     organizationId: campaignValidator.fields.organizationId,
@@ -71,7 +75,7 @@ export const createCharacter = mutation({
       campaignId: v.id('campaign'),
       name: characterValidator.fields.name,
       description: characterValidator.fields.description,
-      kind: characterKindValidator,
+      kind: submittedCharacterKindValidator,
       level: characterValidator.fields.level,
       strength: characterValidator.fields.strength,
       dexterity: characterValidator.fields.dexterity,
@@ -111,7 +115,7 @@ export const updateCharacter = mutation({
     patch: v.object({
       name: v.optional(characterValidator.fields.name),
       description: v.optional(characterValidator.fields.description),
-      kind: v.optional(characterKindValidator),
+      kind: v.optional(submittedCharacterKindValidator),
       level: v.optional(characterValidator.fields.level),
       strength: v.optional(characterValidator.fields.strength),
       dexterity: v.optional(characterValidator.fields.dexterity),
@@ -136,9 +140,10 @@ export const updateCharacter = mutation({
 
     // A submitted kind is stored as PC or NPC; an unrelated edit leaves the
     // stored kind alone. Either way the roster mirror follows in this write.
+    const { kind, ...patch } = args.patch;
     await ctx.db.patch('character', args.characterId, {
-      ...args.patch,
-      ...(args.patch.kind && { kind: normalizeCharacterKind(args.patch.kind) }),
+      ...patch,
+      ...(kind && { kind: normalizeCharacterKind(kind) }),
     });
     await updateCanonicalCharacter(ctx, args.characterId);
   },

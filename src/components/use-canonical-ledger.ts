@@ -5,10 +5,7 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
 import { characterLedgerQuery } from '~/lib/sharedQueries';
-import {
-  mirrorRosterKinds,
-  normalizeCharacterKind,
-} from '~/lib/character-kind';
+import { mirrorRosterKinds } from '~/lib/character-kind';
 import type { SetupCharacter } from '~/lib/setup-characters';
 
 type Snapshot = CanonicalWeekState['militiaSnapshot'];
@@ -81,7 +78,7 @@ export function useCanonicalLedger({
     wisdom: c.wisdom,
     charisma: c.charisma,
     isActive: c.isActive !== false,
-    kind: normalizeCharacterKind(c.kind),
+    kind: c.kind,
   }));
   return {
     ledger,

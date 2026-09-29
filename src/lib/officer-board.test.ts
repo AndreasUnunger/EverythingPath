@@ -31,13 +31,13 @@ function facts(
 function record(
   fact: FoundationCharacter,
   name: string,
-  kind?: BoardRecord['kind'],
+  kind: BoardRecord['kind'] = 'pc',
 ): BoardRecord {
   return {
     ...fact,
     _id: fact.characterId,
     name,
-    ...(kind && { kind }),
+    kind,
   };
 }
 
@@ -321,7 +321,7 @@ describe('officerBoard', () => {
 
 describe('characterRows', () => {
   const records = [
-    record(sera, 'Sera of Phaendar', 'officer_npc'),
+    record(sera, 'Sera of Phaendar', 'npc'),
     record(bren, 'Bren Ironhand', 'pc'),
     record(facts('wren', { level: 3 }), 'wren', 'npc'),
     record(dalla, 'Dalla Rook'),

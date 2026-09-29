@@ -135,12 +135,12 @@ use the record's level, and manager limits follow held officer roles, not the ki
 Since #180 the mirror is kept in step atomically: every character write, Setup
 initialization and Militia correction resolves each person's kind from the
 campaign's current record (`withCurrentRecordKinds` in
-`convex/lib/canonicalCharacters.ts`), storing `pc` or `npc`; an absent record
-kind is PC. Relabelling `officer_npc`/`other_npc` as `npc` changes no rule
-result. Where a stored mirror disagreed with its record, including an NPC
-mirror of a record with no kind, the record wins on its next write, and PC-only
-rules then read the corrected kind. Weekly Confirmation commits its resolved outcome unchanged, and
-immutable records keep whatever kinds they were confirmed with.
+`convex/lib/canonicalCharacters.ts`), storing `pc` or `npc`. Since #198 records,
+rosters and history store only `pc` or `npc`; only the write arguments still
+accept a pre-#180 client's legacy labels (B3). Where a stored mirror disagreed
+with its record, the record wins on its next write, and PC-only rules then read
+the corrected kind. Weekly Confirmation commits its resolved outcome unchanged,
+and immutable records keep whatever kinds they were confirmed with.
 Officer assignments are a collection of role/character pairs; removing or moving
 an assignment never deletes its character. Multiple holders are retained for later
 Rules Projection, which still owns non-stacking and Commandant training arithmetic.

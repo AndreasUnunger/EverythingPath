@@ -9,7 +9,7 @@ import {
   ShellSlotProvider,
 } from '~/components/campaign-shell/shell-slots';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
-import type { CharacterRecordKind } from '~/lib/character-kind';
+import type { CharacterKind } from '~/lib/character-kind';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 
 // Characters & officers' two reasoned corrections (#183): Correct officers
@@ -65,7 +65,7 @@ type Stored = {
   campaignId: string;
   name: string;
   description: string;
-  kind?: CharacterRecordKind;
+  kind: CharacterKind;
   level: number;
   strength: number;
   dexterity: number;

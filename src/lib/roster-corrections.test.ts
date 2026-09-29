@@ -219,7 +219,7 @@ describe('roster membership', () => {
 
   it('mirrors each person’s current record kind', () => {
     const latest = snapshot();
-    latest.roster.people[1]!.kind = 'officer_npc';
+    latest.roster.people[1]!.kind = 'pc';
     const corrected = applyRosterCorrection(latest, entries(latest), records);
     expect(corrected.roster.people[1]!.kind).toBe('npc');
   });

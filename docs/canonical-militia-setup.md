@@ -67,17 +67,15 @@ record's kind, People & officers shows it read-only, and warnings and a start
 use each record's current kind, so a start sends only `pc` or `npc`. The
 server mirrors every roster kind from the campaign's records again before
 storing the live source, so a stale or old-client payload cannot restore an
-earlier kind. A roster person whose record is not in the campaign keeps their
+earlier kind. Storage accepts only `pc` or `npc`; the Setup and correction
+arguments still accept a pre-#180 client's legacy labels and map them to
+`npc` (B3 in `docs/legacy-compatibility-inventory.md`). A roster person whose record is not in the campaign keeps their
 entry and shows a field error until removed; Start is blocked meanwhile.
 
-Envelope version 2 stores PC or NPC roster kinds. A version 1 envelope (#173,
-legacy `officer_npc`/`other_npc` roster kinds) is migrated on read: both
-legacy labels become `npc`, and every other value, including raw invalid
-input, the open step, visited steps, explicit and blank Hit Dice overrides and
-the attempt identity, is kept. The next write stores version 2. A start that
-was sent but never acknowledged stays verbatim, so resending it under the same
-identity still matches a source the server accepted. After the records load,
-restored roster people take their record's current kind and facts. Nothing is
+Envelope version 2 stores PC or NPC roster kinds. An envelope of any other
+version, including the version 1 of #173, is discarded (#198). After the
+records load, restored roster people take their record's current kind and
+facts. Nothing is
 submitted automatically. Since #196 a blank Hit Dice override uses the
 record's level, which needs no new envelope shape.
 

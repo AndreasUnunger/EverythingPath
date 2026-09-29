@@ -1,4 +1,5 @@
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
+import type { CharacterKind } from '~/lib/character-kind';
 import type { ResultCell, ResultRow } from './review-facts';
 import { describeValue, gp, words, type ReviewNames } from './review-text';
 
@@ -47,10 +48,8 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const personKinds: Record<string, string> = {
+const personKinds: Record<CharacterKind, string> = {
   pc: 'Player character',
-  officer_npc: 'Officer NPC',
-  other_npc: 'Other NPC',
   npc: 'NPC',
 };
 
@@ -220,7 +219,7 @@ function rosterFacts(snapshot: Snapshot, names: ReviewNames): Fact[] {
       'Roster',
       names.character(person.characterId),
       omit(person, 'characterId'),
-      `${personKinds[person.kind] ?? words(person.kind)} · ${hitDiceText(snapshot, person)}`,
+      `${personKinds[person.kind]} · ${hitDiceText(snapshot, person)}`,
       'Not on roster',
     ),
   );

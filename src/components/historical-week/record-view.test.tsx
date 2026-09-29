@@ -5,20 +5,12 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
-import {
-  prepareCanonicalResolutionRecord,
-  resolveCanonicalWeeklyDraft,
-} from '~/lib/canonical-weekly-resolution';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
-import { militiaSnapshotSchema } from '~/lib/canonical-weekly-source';
 import {
   confirmedWeek,
-  deepFreeze,
   formatTwoArtifacts,
   recordSnapshot,
 } from '../../../tests/history/resolution-record-fixtures';
-import { mixedKindSnapshot } from '../../../tests/rules/character-kind-fixture';
-import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
 import { HistoricalRecordView } from './record-view';
 
 const source = weeklyDraftDataSchema.parse(
@@ -276,43 +268,6 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
   ).toBeVisible();
   // A recorded settlement reads by its record-local label.
   expect(resultRow('Next week · Operating from').at(-1)).toBe('Settlement 1');
-});
-
-// A confirmed week whose roster holds every stored character kind and Hit
-// Dice form, recorded through the real confirmation path.
-function mixedKindRecord() {
-  const { draft, snapshot } = persistentEventFixture('low_morale');
-  snapshot.training = 15;
-  const mixed = militiaSnapshotSchema.parse(mixedKindSnapshot());
-  snapshot.characters.push(...mixed.characters);
-  snapshot.roster.people.push(...mixed.roster.people);
-  return deepFreeze(
-    prepareCanonicalResolutionRecord(
-      resolveCanonicalWeeklyDraft({
-        revision: draft,
-        militiaSnapshot: snapshot,
-      }),
-      'mixed-kinds',
-    ),
-  );
-}
-
-test('[rules.HIST-05.record-kinds] recorded legacy, new and absent character kinds and unknown or zero Hit Dice read as recorded', () => {
-  render(<HistoricalRecordView record={mixedKindRecord()} />);
-  showAll();
-  const people = region('Result')
-    .getAllByRole('row')
-    .filter((row) => row.textContent?.startsWith('Roster · '))
-    .map((row) => within(row).getAllByRole('cell').at(1)?.textContent);
-  expect(people).toEqual(
-    expect.arrayContaining([
-      'Player character · 2 Hit Dice',
-      'Player character · 0 Hit Dice',
-      'Officer NPC · 5 Hit Dice',
-      'Other NPC · 5 Hit Dice',
-      'NPC · 3 Hit Dice',
-    ]),
-  );
 });
 
 test('[rules.HIST-05.view-record-only] the history view has only the selected record as input and no live, backend or rules dependency', () => {
