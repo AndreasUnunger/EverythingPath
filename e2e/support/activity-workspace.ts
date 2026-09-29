@@ -229,9 +229,25 @@ export async function exerciseActivityWorkspace(
   await pick(gm, 'Drill Militia');
   await saved(gm);
   await expect(card(player, 1, 'Drill Militia')).toBeVisible();
-  // Drill's training roll is its own shared total input in the details, and
-  // the other player sees the recorded total.
-  await (await open(gm, 1, 'Drill Militia'))
+  // Drill's training roll is its own shared total input in the details,
+  // shown once the check succeeds, and the other player sees the recorded
+  // total. Its notoriety roll shows only on a natural 1.
+  const drill = await open(gm, 1, 'Drill Militia');
+  const drillCheck = drill.getByRole('textbox', {
+    name: 'Check roll',
+    exact: true,
+  });
+  const drillNotoriety = drill.getByRole('textbox', {
+    name: 'Notoriety roll',
+    exact: true,
+  });
+  await expect(drillNotoriety).toHaveCount(0);
+  await drillCheck.fill('1');
+  await expect(drillNotoriety).toBeVisible();
+  await drillCheck.fill('20');
+  await expect(drillNotoriety).toHaveCount(0);
+  await saved(gm);
+  await drill
     .getByRole('textbox', { name: 'Training roll', exact: true })
     .fill('7');
   await saved(gm);

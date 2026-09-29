@@ -403,12 +403,8 @@ describe('information, Special and Strike Team', () => {
     });
     const gather = narrow(detailAt(facts, 1), 'gather_information');
     expect(gather.achievedDc).toBeNull();
-    expect(gather.rolls).toEqual([
-      expect.objectContaining({
-        field: 'notoriety',
-        when: 'Rolled on a natural 1: Notoriety rises by the roll.',
-      }),
-    ]);
+    // Its natural-1 notoriety roll waits for the check.
+    expect(gather.rolls).toEqual([]);
     expect(facts.slots[1]!.issues.map((issue) => issue.message)).toContain(
       'Name what the team gathers information about.',
     );
@@ -446,6 +442,86 @@ describe('information, Special and Strike Team', () => {
       }),
     ]);
     expect(strike.acknowledgement?.subjectId).toBe('strike_team:strike');
+  });
+});
+
+describe('conditional rolls', () => {
+  test('[rules.ACT-12.detail-rolls] a mission notoriety roll shows exactly when the rules read the check as needing it, and a kept value never counts while hidden', () => {
+    const { input, view, place } = week();
+    input.militiaSnapshot.settlements.push(
+      settlement('tamran', { reputation: 'Friendly', secured: true }),
+    );
+    input.militiaSnapshot.roster.teams.push(team('defenders', 'defenders'));
+    const d20 = (diceTotal: number) => ({
+      diceTotal,
+      diceCount: 1,
+      sides: 20,
+      provenance: { kind: 'table' as const },
+      modifiers: [],
+    });
+    const notoriety = (sides: number) => ({
+      ...d20(2),
+      sides,
+    });
+    const stage = (gather: number, danger: number) => {
+      place(0, {
+        choiceId: 'gather',
+        actionId: 'gather_information',
+        teamId: 'informants',
+        subject: 'Ironfang scouts',
+        rolls: { check: d20(gather), notoriety: notoriety(6) },
+      });
+      place(1, {
+        choiceId: 'danger',
+        actionId: 'reduce_danger',
+        teamId: 'defenders',
+        settlementId: 'tamran',
+        rolls: { check: d20(danger), notoriety: notoriety(4) },
+      });
+      const facts = view();
+      return {
+        facts,
+        gather: detailAt(facts, 0).rolls,
+        danger: detailAt(facts, 1).rolls,
+      };
+    };
+    // A natural 1 fails both checks: each roll shows and is required.
+    const low = stage(1, 1);
+    expect(low.facts.slots[1]!.check!.succeeded).toBe(false);
+    expect(low.gather).toEqual([
+      expect.objectContaining({
+        field: 'notoriety',
+        shownBecause: 'The check is a natural 1',
+      }),
+    ]);
+    expect(low.danger).toEqual([
+      expect.objectContaining({
+        field: 'notoriety',
+        shownBecause: 'The check fails',
+      }),
+    ]);
+    // A high roll succeeds: both rolls hide, are not required, and the kept
+    // values change nothing.
+    const high = stage(20, 20);
+    expect(high.facts.slots[1]!.check!.succeeded).toBe(true);
+    expect(high.gather).toEqual([]);
+    expect(high.danger).toEqual([]);
+    for (const slot of high.facts.slots.slice(0, 2))
+      expect(
+        slot.requirements.filter((code) => code.includes(':notoriety:')),
+      ).toEqual([]);
+    const withKept = projectWeeklyDraft(input).phases!.activity.outcome;
+    place(0, {
+      ...input.revision.activity.slots[0]!.choice!,
+      rolls: { check: d20(20) },
+    } as StagedActionChoice);
+    place(1, {
+      ...input.revision.activity.slots[1]!.choice!,
+      rolls: { check: d20(20) },
+    } as StagedActionChoice);
+    expect(projectWeeklyDraft(input).phases!.activity.outcome).toEqual(
+      withKept,
+    );
   });
 });
 

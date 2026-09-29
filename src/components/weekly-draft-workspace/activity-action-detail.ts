@@ -1,6 +1,6 @@
 import { OFFICER_ROLES } from '~/lib/canonical-roster';
 import teamTable from '~/lib/militia-team-table';
-import { teamRecruitmentCheck } from '~/lib/rules-activity';
+import { isNaturalOneCheck, teamRecruitmentCheck } from '~/lib/rules-activity';
 import {
   isPartyRestoration,
   restorationCostCopper,
@@ -58,6 +58,10 @@ export type DetailRoll = {
   spec: RollSpec;
   // When the rules use this roll.
   when: string;
+  // For a roll shown only while the entered check meets its condition, what
+  // the check reads now ("The check is a natural 1"); null for a roll that
+  // is always shown.
+  shownBecause: string | null;
   required: boolean;
 };
 export type DetailConsumables = {
@@ -268,22 +272,64 @@ const rollWhen: Partial<
     notoriety: 'Rolled on a natural 1: Notoriety rises by the roll.',
   },
 };
+type RollCondition = 'natural-one' | 'check-fails' | 'check-succeeds';
+// Rolls the rules use only for one reading of the check, for every action
+// and mission. Each is shown only while the entered check meets that reading
+// as the rules decide it, and hidden while the check is missing or undecided.
+// A hidden roll is never required, and a value entered earlier stays stored
+// but unused until the check meets the condition again.
+const rollConditions: Partial<
+  Record<
+    StagedActionChoice['actionId'],
+    Partial<Record<DetailRollField, RollCondition>>
+  >
+> = {
+  activate_black_market: { notoriety: 'check-fails' },
+  dismiss_team: { notoriety: 'check-fails' },
+  drill_militia: { notoriety: 'natural-one', training: 'check-succeeds' },
+  earn_gold: { notoriety: 'natural-one' },
+  gather_information: { notoriety: 'natural-one' },
+  recruit_team: { notoriety: 'natural-one' },
+  reduce_danger: { notoriety: 'check-fails' },
+};
+// What the entered check reads when it meets the condition, else null.
+function conditionMet(
+  condition: RollCondition,
+  choice: StagedActionChoice,
+  slot: Slot,
+) {
+  switch (condition) {
+    case 'natural-one':
+      return isNaturalOneCheck(choice) ? 'The check is a natural 1' : null;
+    case 'check-fails':
+      return slot.check?.succeeded === false ? 'The check fails' : null;
+    case 'check-succeeds':
+      return slot.check?.succeeded === true ? 'The check succeeds' : null;
+  }
+}
 // The action's dice rolls other than its check, with when the rules use them.
 export function detailRolls(
   choice: StagedActionChoice,
   slot: Slot,
   when: Partial<Record<DetailRollField, string>> = {},
 ) {
+  const conditions = rollConditions[choice.actionId] ?? {};
   return (['training', 'notoriety', 'delivery'] as const).flatMap<DetailRoll>(
     (field) => {
       const spec = activityRollSpec(choice.actionId, field);
       if (!spec) return [];
+      const condition = conditions[field];
+      const shownBecause = condition
+        ? conditionMet(condition, choice, slot)
+        : null;
+      if (condition && !shownBecause) return [];
       return [
         {
           field,
           label: activityLabel(field),
           spec,
           when: when[field] ?? '',
+          shownBecause,
           required: slot.requirements.includes(
             `${choice.choiceId}:${field}:${spec.count}d${spec.sides}`,
           ),

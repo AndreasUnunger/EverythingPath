@@ -360,13 +360,17 @@ function spend(
   value(result, choice, 'treasuryCopper', -cost);
   return true;
 }
-function naturalOne(result: ActivityProjection, choice: Choice) {
+// Whether the choice's recorded check die reads a natural 1. The Activity
+// details show a roll the rules use only on a natural 1 by this same reading.
+export function isNaturalOneCheck(choice: StagedActionChoice) {
   const spec = activityRollSpec(choice.actionId, 'check');
-  if (!spec) return;
-  if (
-    normalizeRawRoll(actionChoiceRolls(choice).check, spec).naturalValue !== 1
-  )
-    return;
+  return (
+    spec !== null &&
+    normalizeRawRoll(actionChoiceRolls(choice).check, spec).naturalValue === 1
+  );
+}
+function naturalOne(result: ActivityProjection, choice: Choice) {
+  if (!isNaturalOneCheck(choice)) return;
   const gain = dice(result, choice, 'notoriety');
   if (gain !== null) value(result, choice, 'notoriety', gain);
 }

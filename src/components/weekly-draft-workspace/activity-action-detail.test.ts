@@ -384,36 +384,195 @@ describe('option lists', () => {
 });
 
 describe('rolls and consumables', () => {
-  test('[rules.ACT-12.detail-rolls] Drill shows its training and notoriety rolls with when the rules use them; Lie Low has none', () => {
-    const drill = actionDetail(
-      activityFacts([]),
-      activitySlot(
-        { choiceId: 'drill', actionId: 'drill_militia' },
-        { requirements: ['drill:training:2d6'] },
-      ),
-    )!;
-    expect(drill.rolls).toEqual([
-      {
-        field: 'training',
-        label: 'Training',
-        spec: { count: 2, sides: 6 },
-        when: expect.stringContaining('check succeeds'),
-        required: true,
+  test('[rules.ACT-12.detail-rolls] each conditional roll shows only while the entered check meets its rules condition, with when the rules use it; Lie Low has none', () => {
+    const d20 = (diceTotal: number) => ({
+      sides: 20,
+      diceCount: 1,
+      diceTotal,
+      provenance: { kind: 'table' as const },
+      modifiers: [],
+    });
+    const d6 = { ...d20(4), sides: 6 };
+    // `succeeded` is the rules' reading of the check: null while undecided.
+    const rolls = (
+      choice: StagedActionChoice,
+      succeeded: boolean | null,
+      requirements: string[] = [],
+    ) =>
+      actionDetail(
+        activityFacts([]),
+        activitySlot(choice, {
+          requirements,
+          check: {
+            spec: { count: 1, sides: 20 },
+            organizationCheck: 'loyalty',
+            dc: 13,
+            modifier: 0,
+            total: succeeded === null ? null : succeeded ? 15 : 1,
+            succeeded,
+            breakdown: [],
+          },
+        }),
+      )!.rolls;
+    const drill = (check?: number): StagedActionChoice => ({
+      choiceId: 'drill',
+      actionId: 'drill_militia',
+      rolls: {
+        ...(check === undefined ? {} : { check: d20(check) }),
+        notoriety: d6,
+        training: { ...d6, diceCount: 2, diceTotal: 7 },
       },
-      {
-        field: 'notoriety',
-        label: 'Notoriety',
-        spec: { count: 1, sides: 6 },
-        when: expect.stringContaining('natural 1'),
-        required: false,
-      },
+    });
+    const training = {
+      field: 'training',
+      label: 'Training',
+      spec: { count: 2, sides: 6 },
+      when: expect.stringContaining('check succeeds'),
+      shownBecause: 'The check succeeds',
+      required: true,
+    };
+    const notoriety = {
+      field: 'notoriety',
+      label: 'Notoriety',
+      spec: { count: 1, sides: 6 },
+      when: expect.stringContaining('natural 1'),
+      shownBecause: 'The check is a natural 1',
+      required: true,
+    };
+    // No check yet: neither roll shows, though both values are kept.
+    expect(rolls(drill(), null)).toEqual([]);
+    // A success shows Training only; the kept notoriety value stays hidden.
+    expect(rolls(drill(15), true, ['drill:training:2d6'])).toEqual([training]);
+    // A natural 1 that still succeeds shows both.
+    expect(
+      rolls(drill(1), true, ['drill:training:2d6', 'drill:notoriety:1d6']),
+    ).toEqual([training, notoriety]);
+    // A natural 1 that fails shows only Notoriety; a failure shows neither.
+    expect(rolls(drill(1), false, ['drill:notoriety:1d6'])).toEqual([
+      notoriety,
     ]);
+    expect(rolls(drill(5), false)).toEqual([]);
+    // A failure-only roll shows on a failed check, never on a success or
+    // before the rules decide.
+    const dismiss: StagedActionChoice = {
+      choiceId: 'dismiss',
+      actionId: 'dismiss_team',
+      rolls: { check: d20(3), notoriety: d6 },
+    };
+    expect(rolls(dismiss, false)).toEqual([
+      expect.objectContaining({
+        field: 'notoriety',
+        when: expect.stringContaining('check fails'),
+        shownBecause: 'The check fails',
+      }),
+    ]);
+    expect(rolls(dismiss, true)).toEqual([]);
+    expect(rolls(dismiss, null)).toEqual([]);
+    // Earn Gold and Recruit Team read the natural 1 from the die itself.
+    for (const actionId of ['earn_gold', 'recruit_team'] as const) {
+      const choice = (check: number) =>
+        ({
+          choiceId: actionId,
+          actionId,
+          rolls: { check: d20(check) },
+        }) as StagedActionChoice;
+      expect(rolls(choice(12), true)).toEqual([]);
+      expect(rolls(choice(1), true)).toEqual([
+        expect.objectContaining({
+          field: 'notoriety',
+          shownBecause: 'The check is a natural 1',
+        }),
+      ]);
+    }
     const lieLow = actionDetail(
       activityFacts([]),
       activitySlot({ choiceId: 'low', actionId: 'lie_low' }),
     )!;
     expect(lieLow.rolls).toEqual([]);
     expect(lieLow.consumables).toBeNull();
+  });
+
+  test('[rules.ACT-12.detail-rolls] against the rules projection, every required roll is shown and a hidden kept roll never changes the outcome', () => {
+    const { input, view, place } = week();
+    input.militiaSnapshot.treasuryCopper = 1_000_000;
+    input.militiaSnapshot.roster.teams.push(
+      team('old', 'patrons'),
+      team('traders', 'merchants'),
+    );
+    const d = (sides: number, diceCount: number, diceTotal: number) => ({
+      sides,
+      diceCount,
+      diceTotal,
+      provenance: { kind: 'table' as const },
+      modifiers: [],
+    });
+    const choices = (check: number): StagedActionChoice[] => [
+      {
+        choiceId: 'drill',
+        actionId: 'drill_militia',
+        rolls: {
+          check: d(20, 1, check),
+          notoriety: d(6, 1, 5),
+          training: d(6, 2, 7),
+        },
+      },
+      {
+        choiceId: 'dismiss',
+        actionId: 'dismiss_team',
+        targetTeamId: 'old',
+        rolls: { check: d(20, 1, check), notoriety: d(6, 1, 5) },
+      },
+      {
+        choiceId: 'earn',
+        actionId: 'earn_gold',
+        teamId: 'traders',
+        rolls: { check: d(20, 1, check), notoriety: d(6, 1, 5) },
+      },
+      {
+        choiceId: 'recruit',
+        actionId: 'recruit_team',
+        teamType: 'scholars',
+        rolls: { check: d(20, 1, check), notoriety: d(6, 1, 5) },
+      },
+    ];
+    const seen = new Set<string>();
+    for (const check of [1, 2, 9, 20])
+      for (const choice of choices(check)) {
+        place(0, choice);
+        const facts = view();
+        const slot = facts.slots[0]!;
+        const shown = detailAt(facts, 0).rolls.map((roll) => roll.field);
+        for (const field of ['training', 'notoriety'] as const)
+          if (
+            slot.requirements.some((code) =>
+              code.startsWith(`${choice.choiceId}:${field}:`),
+            )
+          )
+            expect(shown, `${choice.actionId} ${check} ${field}`).toContain(
+              field,
+            );
+        // Dropping every hidden kept roll leaves the outcome unchanged.
+        const outcome = projectWeeklyDraft(input).phases!.activity.outcome;
+        const rolls = {
+          ...(choice as { rolls: Record<string, unknown> }).rolls,
+        };
+        for (const field of ['training', 'notoriety'])
+          if (!shown.includes(field as 'training')) delete rolls[field];
+        place(0, { ...choice, rolls } as StagedActionChoice);
+        expect(
+          projectWeeklyDraft(input).phases!.activity.outcome,
+          `${choice.actionId} ${check}`,
+        ).toEqual(outcome);
+        for (const field of shown) seen.add(`${choice.actionId}:${field}`);
+      }
+    // Each conditional roll was shown for some check.
+    expect([...seen].sort()).toEqual([
+      'dismiss_team:notoriety',
+      'drill_militia:notoriety',
+      'drill_militia:training',
+      'earn_gold:notoriety',
+      'recruit_team:notoriety',
+    ]);
   });
 
   test('[rules.ACT-12.consumables] consumables list recorded bonuses, keep a missing one visible and offer the rest', () => {

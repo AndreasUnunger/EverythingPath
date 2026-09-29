@@ -66,6 +66,17 @@ const total = (sides: number, count: number, value: number): RawRoll => ({
   provenance: { kind: 'table' },
   modifiers: [],
 });
+// The check as the rules read it: `succeeded` decides the rolls used only on
+// a success or a failure.
+const checked = (succeeded: boolean | null): Slot['check'] => ({
+  spec: { count: 1, sides: 20 },
+  organizationCheck: 'loyalty',
+  dc: 13,
+  modifier: 0,
+  total: succeeded === null ? null : succeeded ? 15 : 5,
+  succeeded,
+  breakdown: [],
+});
 
 describe('people actions', () => {
   test('[rules.ACT-10.officer-edit] Change Officer Role stages character, from-role and to-role from all six roles and clears each explicitly', () => {
@@ -334,7 +345,10 @@ describe('team actions', () => {
       actionId: 'dismiss_team',
     };
     const { edit } = open(
-      facts(choice, { requirements: ['dismiss:notoriety:1d6'] }),
+      facts(choice, {
+        requirements: ['dismiss:notoriety:1d6'],
+        check: checked(false),
+      }),
     );
     fireEvent.click(card('Team to dismiss', 'Tunnel rats'));
     expect(lastChoice(edit)).toEqual({ ...choice, targetTeamId: 'moles' });
@@ -374,10 +388,11 @@ describe('shared fields', () => {
       actionId: 'drill_militia',
       rolls: { check: total(20, 1, 12), training },
     };
-    const { edit } = open(facts(choice));
+    const { edit } = open(facts(choice, { check: checked(true) }));
     expect(
       screen.getAllByRole('button', { name: 'Add modifier' }),
     ).toHaveLength(1);
+    expect(screen.queryByText(/kept with the roll/)).toBeNull();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'Remove training roll modifier Veteran drill',
@@ -414,6 +429,72 @@ describe('shared fields', () => {
         },
       }),
     );
+  });
+
+  test('[rules.ACT-12.detail-rolls] Drill shows its training and notoriety rolls only while the entered check meets their conditions, and announces each as it appears', () => {
+    const choice = (
+      check?: number,
+    ): Extract<StagedActionChoice, { actionId: 'drill_militia' }> => ({
+      choiceId: 'drill',
+      actionId: 'drill_militia',
+      rolls: {
+        ...(check === undefined ? {} : { check: total(20, 1, check) }),
+        notoriety: total(6, 1, 4),
+        training: total(6, 2, 7),
+      },
+    });
+    const { edit, rerender } = open(facts(choice(), { check: checked(null) }));
+    const details = () =>
+      screen.getByRole('region', { name: 'Action Slot 1 details' });
+    const liveRegion = () => details().querySelector('[aria-live="polite"]');
+    const textbox = (name: string) =>
+      within(details()).queryByRole('textbox', { name });
+    const show = (check: number, succeeded: boolean) =>
+      rerender(
+        <ActivityView
+          view={facts(choice(check), { check: checked(succeeded) })}
+          edit={edit}
+          disabled={false}
+        />,
+      );
+    // No check yet: both kept rolls stay hidden and nothing is announced.
+    expect(textbox('Training roll')).toBeNull();
+    expect(textbox('Notoriety roll')).toBeNull();
+    expect(liveRegion()).toBeInTheDocument();
+    expect(liveRegion()).toHaveTextContent('');
+    show(12, true);
+    expect(textbox('Training roll')).toHaveValue('7');
+    expect(textbox('Notoriety roll')).toBeNull();
+    expect(liveRegion()).toHaveTextContent(
+      'The check succeeds: enter the Training roll.',
+    );
+    show(1, false);
+    expect(textbox('Training roll')).toBeNull();
+    const notoriety = textbox('Notoriety roll');
+    expect(notoriety).toHaveValue('4');
+    expect(
+      screen.getByText('Rolled on a natural 1: Notoriety rises by the roll.'),
+    ).toBeVisible();
+    expect(liveRegion()).toHaveTextContent(
+      'The check is a natural 1: enter the Notoriety roll.',
+    );
+    expect(notoriety).not.toHaveFocus();
+    fireEvent.change(notoriety!, { target: { value: '2' } });
+    expect(lastChoice(edit)).toEqual({
+      ...choice(1),
+      rolls: { ...choice(1).rolls, notoriety: total(6, 1, 2) },
+    });
+    // A natural 1 can still succeed: both show, Training first.
+    show(1, true);
+    expect(
+      textbox('Training roll')!.compareDocumentPosition(
+        textbox('Notoriety roll')!,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    show(9, false);
+    expect(textbox('Training roll')).toBeNull();
+    expect(textbox('Notoriety roll')).toBeNull();
+    expect(liveRegion()).toHaveTextContent('');
   });
 
   test('[rules.ACT-12.consumable-edit] a consumable is added from the available bonuses and a missing one is removed on its own', () => {

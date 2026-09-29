@@ -261,6 +261,40 @@ test('[rules.A07.natural-one] natural one can succeed, calculated and entered so
   expect(projectActivity(draft, snapshot).outcome).toEqual(snapshot);
 });
 
+test('[rules.A07.natural-one-only] Drill needs its notoriety roll only on a natural 1 and ignores one kept from an earlier natural 1', () => {
+  const { draft, snapshot } = upkeepFixture();
+  const drill = (check: number, notoriety?: number) => {
+    draft.activity.slots[0]!.choice = {
+      choiceId: 'drill',
+      actionId: 'drill_militia',
+      rolls: {
+        check: roll(20, check),
+        training: roll(6, 2, 5),
+        ...(notoriety === undefined ? {} : { notoriety: roll(6, notoriety) }),
+      },
+    };
+    return projectActivity(draft, snapshot);
+  };
+  const needed = drill(1);
+  expect(needed.requirements).toContain('drill:notoriety:1d6');
+  expect(needed.ready).toBe(false);
+  for (const check of [2, 10, 20]) {
+    const without = drill(check);
+    const stale = drill(check, 6);
+    expect(without.requirements).not.toContain('drill:notoriety:1d6');
+    for (const key of [
+      'outcome',
+      'plan',
+      'requirements',
+      'warnings',
+      'ready',
+    ] as const)
+      expect(stale[key]).toEqual(without[key]);
+    expect(stale.outcome.notoriety).toBe(snapshot.notoriety);
+  }
+  expect(drill(1, 6).outcome.notoriety).toBe(snapshot.notoriety + 6);
+});
+
 test('Activity keeps missing action rolls unready and enforces assigned team usage after upgrades', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.treasuryCopper = 20000;

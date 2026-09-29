@@ -176,10 +176,6 @@ function RollBlock({
               ))}
             </ul>
           )}
-          <p className="text-muted-foreground text-xs">
-            The rules use the dice total; these modifiers are kept with the roll
-            for the table.
-          </p>
           {isAdding ? (
             <ActivityModifierForm
               bonusChoices={[]}
@@ -304,8 +300,17 @@ export function CommonFields({
   // is the table's to set).
   costDescription?: string;
 }) {
+  // Always rendered so a roll that appears once the check meets its condition
+  // is announced; a live region inserted together with its text is not.
+  const appeared = detail.rolls
+    .filter((roll) => roll.shownBecause !== null)
+    .map((roll) => `${roll.shownBecause}: enter the ${roll.label} roll.`)
+    .join(' ');
   return (
     <>
+      <p className="sr-only" aria-live="polite">
+        {appeared}
+      </p>
       <Field name="costCopper" context={context}>
         <WholeNumberField
           label="Cost (copper)"

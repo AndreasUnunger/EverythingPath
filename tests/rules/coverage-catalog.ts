@@ -4438,6 +4438,7 @@ export const coverageCatalog = {
           tests: [
             'rules.A14.natural-one',
             'rules.A07.natural-one',
+            'rules.A07.natural-one-only',
             'rules.GATE.projection-parity',
           ],
           gap: null,
