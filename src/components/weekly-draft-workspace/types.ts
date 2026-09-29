@@ -164,9 +164,6 @@ export type UpkeepRankBoon = {
   feats: {
     options: string[];
     selected: string | null;
-    // Recorded text that is none of the options, kept until replaced or
-    // cleared.
-    legacyOutcome: string | null;
   } | null;
   // Still unrecorded, so the week cannot be confirmed yet.
   required: boolean;

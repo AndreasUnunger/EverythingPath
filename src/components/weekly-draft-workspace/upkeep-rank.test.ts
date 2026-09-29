@@ -105,7 +105,6 @@ test('reaching Captain offers each PC the Captain feat cards from the rules', ()
       feats: {
         options: ['Great Fortitude', 'Iron Will', 'Lightning Reflexes'],
         selected: null,
-        legacyOutcome: null,
       },
       required: true,
     })),
@@ -133,34 +132,21 @@ test('each unrecorded boon is its own named decision in This phase', () => {
   });
 });
 
-test('a chosen feat card resolves the boon and recorded off-list text stays a legacy outcome', () => {
-  const { rank: chosen } = rank((draft, snapshot) => {
-    secondPc(snapshot);
+test('a chosen feat card resolves the boon', () => {
+  const { rank: chosen } = rank((draft) => {
     draft.acknowledgements = [
       {
         acknowledgementId: 'ack-ameiko',
         subjectId: 'upkeep:boon:9:pc',
         outcome: 'Iron Will',
       },
-      {
-        acknowledgementId: 'ack-koya',
-        subjectId: 'upkeep:boon:9:pc-2',
-        outcome: 'Took Toughness with the GM',
-      },
     ];
   });
   expect(chosen.status).toBe('resolved');
-  const [ameiko, koya] = chosen.gains[0]!.boons;
-  expect(ameiko).toMatchObject({
+  expect(chosen.gains[0]!.boons[0]).toMatchObject({
     acknowledgementId: 'ack-ameiko',
     outcome: 'Iron Will',
-    feats: { selected: 'Iron Will', legacyOutcome: null },
-    required: false,
-  });
-  expect(koya).toMatchObject({
-    acknowledgementId: 'ack-koya',
-    outcome: 'Took Toughness with the GM',
-    feats: { selected: null, legacyOutcome: 'Took Toughness with the GM' },
+    feats: { selected: 'Iron Will' },
     required: false,
   });
 });
