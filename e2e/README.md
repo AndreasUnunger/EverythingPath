@@ -769,16 +769,18 @@ where the single journey did. Parts two to four install their own control
 before their first navigation, because their GM page had used that control. The
 race part uses only fresh pages with their own controls, as before.
 
-| Journey                                                                                                      | Case                    | Starting state                                                                          |
-| ------------------------------------------------------------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
-| players prepare shared Upkeep with independent navigation and save recovery                                  | `workspaceUpkeep`       | New and mid-campaign setup through the UI, then `initializeUpkeep` (week 4)             |
-| players choose the nearest settlement at maximum notoriety and resolve team conditions                       | `workspaceNotoriety`    | `resetCase`, then `initializeUpkeep` with choices, maximum notoriety and a missing team |
-| players recover a team at an adjusted cost and confirm a week through Activity and Event                     | `workspaceRecovery`     | `resetCase`, then `initializeUpkeep` with choices                                       |
-| players review and buy off carried persistent events before confirming the week                              | `workspacePersistent`   | `resetCase`, then `initializeUpkeep` with persistent events                             |
-| racing Confirmations commit one reviewed week and reject stale and delayed changes                           | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages                         |
-| settlement and rank cards and team repairs stay reachable on phone and desktop                               | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only     |
-| Event blocks and the week review stay reachable at phone landscape and on a narrow tablet                    | `workspaceEventReview`  | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only        |
-| Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device | `workspaceActivity`     | `resetCase`, then plain `initializeUpkeep` like `workspaceConfirmation`                 |
+| Journey                                                                                                      | Case                       | Starting state                                                                          |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------- | --------------------------------------------------------------------------------------- |
+| players prepare shared Upkeep with independent navigation and save recovery                                  | `workspaceUpkeep`          | New and mid-campaign setup through the UI, then `initializeUpkeep` (week 4)             |
+| players choose the nearest settlement at maximum notoriety and resolve team conditions                       | `workspaceNotoriety`       | `resetCase`, then `initializeUpkeep` with choices, maximum notoriety and a missing team |
+| players recover a team at an adjusted cost and confirm a week through Activity and Event                     | `workspaceRecovery`        | `resetCase`, then `initializeUpkeep` with choices                                       |
+| players review and buy off carried persistent events before confirming the week                              | `workspacePersistent`      | `resetCase`, then `initializeUpkeep` with persistent events                             |
+| racing Confirmations commit one reviewed week and reject stale and delayed changes                           | `workspaceConfirmation`    | `resetCase`, then plain `initializeUpkeep` on three fresh pages                         |
+| settlement and rank cards and team repairs stay reachable on phone and desktop                               | `workspaceUpkeepLayout`    | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only     |
+| Event blocks and the week review stay reachable at phone landscape and on a narrow tablet                    | `workspaceEventReview`     | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only        |
+| Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device | `workspaceActivity`        | `resetCase`, then plain `initializeUpkeep` like `workspaceConfirmation`                 |
+| a finger pan over the settlement cards scrolls and chooses nothing, and a tap chooses                        | `workspaceSettlementTouch` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`                          |
+| Drill shows its notoriety and Training rolls only when its check needs them, with a maximum-rank exception   | `workspaceDrillRolls`      | `resetCase`, then plain `initializeUpkeep` like `workspaceActivity`                     |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:
@@ -818,6 +820,40 @@ places nothing, then a tap that places; a Militia correction on the player's
 device lowering the allowance under the GM's staged slots; and a Confirmation
 arriving while the GM's picker is open, with the GM's successor held so the
 locked picker can be observed.
+
+Two more were split out the same way (#198) after GitHub run `36594934978`
+(4 CPUs, two workers) timed out the settlement/rank journey (30 s limit;
+28.2 s in the last green run, `36561396514`) and the recovery journey (125 s
+limit; 113.9 s when green) on both attempts. Each grew with a #198 check that
+now has its own case, a 60 s limit like the other split-out journeys, and
+`test.step` timings:
+
+- `workspaceSettlementTouch` takes the nearest-settlement touch pan and taps
+  (`panAndTapSettlementCards`) from the settlement/rank journey. It seeds the
+  same fixture and enters the same Upkeep rolls. A mouse then chooses Phaendar
+  and drops Misthome outside the selection area, so the pan starts where it
+  did before: after a missed mouse drop, whose suppressed click a tap must not
+  inherit. The settlement/rank journey keeps its mouse drag and missed drop.
+- `workspaceDrillRolls` takes Drill's conditional rolls from the recovery
+  journey (`exerciseDrillRolls` in `support/activity-workspace.ts`): the
+  notoriety roll appears only on a natural 1, and the Training roll stays
+  hidden until the check succeeds. That needs a reasoned Maximum Rank
+  exception, because the rank-2 militia with a level-2 PC is already at its
+  maximum rank. The other player then sees the Training total. It stages
+  Drill on the plain week that `workspaceActivity` opens. The recovery
+  journey still stages Drill for its rejected stale replacement but enters
+  no rolls. It clears Drill before Event, so the confirmed week never used a
+  Drill Training value and its expected totals (35 gp, the 20 gp recovery and
+  the 5 gp adjustment) are unchanged.
+
+Both are mandatory, like every Workspace journey. The moved checks were
+already in the required gate, and splitting a journey does not make its
+checks optional. They add two required results to each matrix.
+A two-worker run on four pinned CPUs (`PDnriH`) took 20.9 s for the
+settlement/rank journey, 96.9 s for recovery, 19.5 s for the touch journey
+and 13.9 s for the Drill journey. Unchanged journeys ran about 1.2–1.3 times
+as long on GitHub as in that run. At that rate, recovery (about 116–121 s of
+125 s) is back to its green margin, which is still thin.
 
 ### Provision and declare the cohorts
 

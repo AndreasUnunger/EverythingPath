@@ -1,9 +1,64 @@
 import { join } from 'node:path';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { savePrivate } from './process';
 import { expectNoHorizontalOverflow } from './responsive-shell';
 import type { controlNextDraftEdit } from './held-mutation';
 import { expectSaveFailed, reviewConfirm, saveState } from './week-frame';
+
+const slot = (page: Page, position: number) =>
+  page.getByRole('group', { name: `Action Slot ${position}`, exact: true });
+const card = (page: Page, position: number, action: string) =>
+  page.getByRole('button', {
+    name: `Action Slot ${position} · ${action}`,
+    exact: true,
+  });
+const empty = (page: Page, position: number) =>
+  page.getByRole('button', {
+    name: `Choose an action for Action Slot ${position}`,
+    exact: true,
+  });
+const details = (page: Page, position: number) =>
+  page.getByRole('region', {
+    name: `Action Slot ${position} details`,
+    exact: true,
+  });
+const saved = (page: Page) =>
+  expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
+async function pick(page: Page, action: string) {
+  const sheet = page.getByRole('dialog');
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: action, exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+}
+async function choose(page: Page, action: string, position: number) {
+  await empty(page, position).click();
+  await pick(page, action);
+  await saved(page);
+}
+async function open(page: Page, position: number, action: string) {
+  await card(page, position, action).click();
+  await expect(details(page, position)).toBeVisible();
+  return details(page, position);
+}
+async function menu(page: Page, name: string, option: RegExp | string) {
+  await page.getByRole('combobox', { name, exact: true }).click();
+  await page
+    .getByRole('option', {
+      name: option,
+      ...(typeof option === 'string' ? { exact: true } : {}),
+    })
+    .click();
+}
+async function moveTo(
+  page: Page,
+  position: number,
+  action: string,
+  target: string,
+) {
+  await open(page, position, action);
+  await menu(page, `Move Action Slot ${position} to`, target);
+  await saved(page);
+}
 
 // The fixture week is rank 2 (two actions) with slots 1–2 inside the
 // allowance, an empty extra slot 3, and the recovered Patrons team Scouts.
@@ -14,60 +69,6 @@ export async function exerciseActivityWorkspace(
   artifactDirectory: string,
 ) {
   await gm.setViewportSize({ width: 1194, height: 834 });
-  const slot = (page: Page, position: number) =>
-    page.getByRole('group', { name: `Action Slot ${position}`, exact: true });
-  const card = (page: Page, position: number, action: string) =>
-    page.getByRole('button', {
-      name: `Action Slot ${position} · ${action}`,
-      exact: true,
-    });
-  const empty = (page: Page, position: number) =>
-    page.getByRole('button', {
-      name: `Choose an action for Action Slot ${position}`,
-      exact: true,
-    });
-  const details = (page: Page, position: number) =>
-    page.getByRole('region', {
-      name: `Action Slot ${position} details`,
-      exact: true,
-    });
-  const saved = (page: Page) =>
-    expect(saveState(page)).toHaveAttribute('data-week-feedback', 'saved');
-  async function pick(page: Page, action: string) {
-    const sheet = page.getByRole('dialog');
-    await expect(sheet).toBeVisible();
-    await sheet.getByRole('button', { name: action, exact: true }).click();
-    await expect(sheet).toHaveCount(0);
-  }
-  async function choose(page: Page, action: string, position: number) {
-    await empty(page, position).click();
-    await pick(page, action);
-    await saved(page);
-  }
-  async function open(page: Page, position: number, action: string) {
-    await card(page, position, action).click();
-    await expect(details(page, position)).toBeVisible();
-    return details(page, position);
-  }
-  async function menu(page: Page, name: string, option: RegExp | string) {
-    await page.getByRole('combobox', { name, exact: true }).click();
-    await page
-      .getByRole('option', {
-        name: option,
-        ...(typeof option === 'string' ? { exact: true } : {}),
-      })
-      .click();
-  }
-  async function moveTo(
-    page: Page,
-    position: number,
-    action: string,
-    target: string,
-  ) {
-    await open(page, position, action);
-    await menu(page, `Move Action Slot ${position} to`, target);
-    await saved(page);
-  }
 
   await gm.getByRole('button', { name: 'Activity', exact: true }).click();
   await expect(gm.getByText(/^\d+ of 2$/)).toBeVisible();
@@ -229,52 +230,9 @@ export async function exerciseActivityWorkspace(
   await pick(gm, 'Drill Militia');
   await saved(gm);
   await expect(card(player, 1, 'Drill Militia')).toBeVisible();
-  // Drill's training roll is its own shared total input in the details,
-  // shown once the check succeeds, and the other player sees the recorded
-  // total. Its notoriety roll shows only on a natural 1.
-  const drill = await open(gm, 1, 'Drill Militia');
-  const drillCheck = drill.getByRole('textbox', {
-    name: 'Check roll',
-    exact: true,
-  });
-  const drillNotoriety = drill.getByRole('textbox', {
-    name: 'Notoriety roll',
-    exact: true,
-  });
-  await expect(drillNotoriety).toHaveCount(0);
-  await drillCheck.fill('1');
-  await expect(drillNotoriety).toBeVisible();
-  await drillCheck.fill('20');
-  await expect(drillNotoriety).toHaveCount(0);
-  await saved(gm);
-  // The fixture militia is rank 2 with a level-2 PC, already at its maximum
-  // rank, so Drill resolves only with a reasoned exception. Until then the
-  // check has no result and the Training roll stays hidden; with it, 20 plus
-  // the non-negative Loyalty bonus meets DC 12 (10 + rank) and it appears.
-  const drillTraining = drill.getByRole('textbox', {
-    name: 'Training roll',
-    exact: true,
-  });
-  await expect(drillTraining).toHaveCount(0);
-  const maximumRank = drill.getByRole('group', {
-    name: 'Maximum Rank exception',
-    exact: true,
-  });
-  await maximumRank
-    .getByRole('textbox', { name: 'Exception reason', exact: true })
-    .fill('The table drills beyond the rank cap');
-  await maximumRank
-    .getByRole('button', { name: 'Save exception reason', exact: true })
-    .click();
-  await saved(gm);
-  await drillTraining.fill('7');
-  await saved(gm);
-  await expect(
-    (await open(player, 1, 'Drill Militia')).getByRole('textbox', {
-      name: 'Training roll',
-      exact: true,
-    }),
-  ).toHaveValue('7');
+  // Drill stays staged without rolls until it is cleared below, so the
+  // confirmed week does not depend on it. Its conditional rolls have their
+  // own journey (`exerciseDrillRolls`).
 
   // A market purchase is entered in gp, kept to the copper with its decimal
   // weight, and the other player sees it. Its details stay open for the
@@ -337,11 +295,6 @@ export async function exerciseActivityWorkspace(
     .getByRole('button', { name: 'Remove exception', exact: true })
     .click();
   await saved(gm);
-  await (await open(gm, 1, 'Drill Militia'))
-    .getByRole('group', { name: 'Maximum Rank exception', exact: true })
-    .getByRole('button', { name: 'Remove exception', exact: true })
-    .click();
-  await saved(gm);
   for (const [position, action] of [
     [1, 'Drill Militia'],
     [2, 'Gather Information'],
@@ -352,11 +305,67 @@ export async function exerciseActivityWorkspace(
       .click();
     await expect(empty(player, position)).toBeVisible();
   }
-  await exerciseGuaranteeEvent(gm, player, { choose, open, empty, saved });
+  await exerciseGuaranteeEvent(gm, player);
   await Promise.all([
     gm.getByRole('button', { name: 'Upkeep', exact: true }).click(),
     player.getByRole('button', { name: 'Upkeep', exact: true }).click(),
   ]);
+}
+
+/**
+ * Drill's conditional rolls on the plain fixture week, from an empty Action
+ * Slot 1 in Activity on both devices. Moved from the Activity-and-Event
+ * journey (#198) so that journey keeps its margin.
+ */
+export async function exerciseDrillRolls(gm: Page, player: Page) {
+  await choose(gm, 'Drill Militia', 1);
+  await expect(card(player, 1, 'Drill Militia')).toBeVisible();
+  // Drill's training roll is its own shared total input in the details,
+  // shown once the check succeeds, and the other player sees the recorded
+  // total. Its notoriety roll shows only on a natural 1.
+  const drill = await open(gm, 1, 'Drill Militia');
+  const drillCheck = drill.getByRole('textbox', {
+    name: 'Check roll',
+    exact: true,
+  });
+  const drillNotoriety = drill.getByRole('textbox', {
+    name: 'Notoriety roll',
+    exact: true,
+  });
+  await expect(drillNotoriety).toHaveCount(0);
+  await drillCheck.fill('1');
+  await expect(drillNotoriety).toBeVisible();
+  await drillCheck.fill('20');
+  await expect(drillNotoriety).toHaveCount(0);
+  await saved(gm);
+  // The fixture militia is rank 2 with a level-2 PC, already at its maximum
+  // rank, so Drill resolves only with a reasoned exception. Until then the
+  // check has no result and the Training roll stays hidden; with it, 20 plus
+  // the non-negative Loyalty bonus meets DC 12 (10 + rank) and it appears.
+  const drillTraining = drill.getByRole('textbox', {
+    name: 'Training roll',
+    exact: true,
+  });
+  await expect(drillTraining).toHaveCount(0);
+  const maximumRank = drill.getByRole('group', {
+    name: 'Maximum Rank exception',
+    exact: true,
+  });
+  await maximumRank
+    .getByRole('textbox', { name: 'Exception reason', exact: true })
+    .fill('The table drills beyond the rank cap');
+  await maximumRank
+    .getByRole('button', { name: 'Save exception reason', exact: true })
+    .click();
+  await saved(gm);
+  await drillTraining.fill('7');
+  await saved(gm);
+  await expect(
+    (await open(player, 1, 'Drill Militia')).getByRole('textbox', {
+      name: 'Training roll',
+      exact: true,
+    }),
+  ).toHaveValue('7');
 }
 
 // Guarantee Event's candidates: Event prepares both on every device, a
@@ -364,21 +373,7 @@ export async function exerciseActivityWorkspace(
 // and the choice's details show the chosen candidate. Clearing the choice
 // takes its candidates with it, so the later Event steps and the exact
 // Confirmation totals start from the same week as before.
-async function exerciseGuaranteeEvent(
-  gm: Page,
-  player: Page,
-  {
-    choose,
-    open,
-    empty,
-    saved,
-  }: {
-    choose: (page: Page, action: string, position: number) => Promise<void>;
-    open: (page: Page, position: number, action: string) => Promise<Locator>;
-    empty: (page: Page, position: number) => Locator;
-    saved: (page: Page) => Promise<void>;
-  },
-) {
+async function exerciseGuaranteeEvent(gm: Page, player: Page) {
   const action = 'Guarantee Event';
   await choose(gm, action, 1);
   const details = await open(gm, 1, action);
