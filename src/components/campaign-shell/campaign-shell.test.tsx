@@ -29,6 +29,7 @@ const openCreateOrganization = vi.fn();
 const openOrganizationProfile = vi.fn();
 const openUserProfile = vi.fn();
 const signOut = vi.fn();
+let avatarPending = false;
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => auth(),
@@ -60,7 +61,9 @@ vi.mock('@clerk/nextjs', () => ({
     },
   }),
   SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
-  UserButton: () => <button>Account</button>,
+  // Clerk shows `fallback` until it has rendered the avatar button.
+  UserButton: ({ fallback }: { fallback?: ReactNode }) =>
+    avatarPending ? fallback : <button>Account</button>,
 }));
 const convex = {};
 vi.mock('convex/react', () => ({
@@ -145,7 +148,10 @@ vi.mock('~/components/ui/select', () => {
   };
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  avatarPending = false;
+});
 
 const alpha = { _id: 'alpha', name: 'Alpha' };
 const beta = { _id: 'beta', name: 'Beta' };
@@ -205,6 +211,16 @@ test('renders the shell with skeletons while access resolves and mounts no page'
   expect(screen.getByText('Loading campaign…')).toBeInTheDocument();
   expect(screen.queryByText(/Page for/)).not.toBeInTheDocument();
   expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+});
+
+test('the account slot keeps its placeholder until Clerk has rendered the avatar', () => {
+  avatarPending = true;
+  render(shell('alpha'));
+  expect(screen.getByText('Page for Alpha')).toBeVisible();
+  expect(screen.getByRole('status', { name: 'Loading account' })).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'Account' }),
+  ).not.toBeInTheDocument();
 });
 
 test('signed out shows one neutral sign-in state without campaign details', () => {
