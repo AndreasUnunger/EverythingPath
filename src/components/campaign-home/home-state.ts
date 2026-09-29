@@ -13,6 +13,7 @@ type CampaignList = FunctionReturnType<typeof api.campaign.getCampaigns>;
 
 export type HomeList =
   | { kind: 'resolving' }
+  | { kind: 'unreachable' }
   | { kind: 'signed_out' }
   | { kind: 'no_organization' }
   | { kind: 'no_access'; organization: Organization }

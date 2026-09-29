@@ -175,6 +175,24 @@ test('signed-out, no organization, no access and failure are distinct states', (
   expect(refetch).toHaveBeenCalledTimes(1);
 });
 
+test('a session that could not start reads no list and retries with a page reload', () => {
+  session.mockReturnValue({ kind: 'unreachable' });
+  const reload = vi.fn();
+  vi.stubGlobal('location', { ...window.location, reload });
+  try {
+    show();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Campaigns could not be loaded. Check your connection and try again.',
+    );
+    expect(list).toHaveBeenLastCalledWith(undefined, false);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(refetch).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 test('the bare list selects the first campaign and labels each row from its own read', () => {
   show();
   expect(selected().map((link) => link.textContent)).toEqual([

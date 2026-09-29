@@ -3,6 +3,12 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { cn } from '~/lib/utils';
 
+// The retry for a session that never settles: only a new page load starts
+// sign-in again.
+export function reloadPage() {
+  window.location.reload();
+}
+
 // One page-local failure card. The shell and its section links stay usable
 // around it; the retry only reloads this page's data.
 export function FailedLoadCard({

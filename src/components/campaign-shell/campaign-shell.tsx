@@ -35,7 +35,7 @@ import { CampaignWorkspaceProvider } from '~/components/weekly-draft-workspace/c
 import { useWeeklyDraftWorkspace } from '~/components/weekly-draft-workspace/use-weekly-draft-workspace';
 import { CampaignProvider } from './campaign-context';
 import { useSession, type Organization, type Session } from './session';
-import { FailedLoadCard } from './failed-load';
+import { FailedLoadCard, reloadPage } from './failed-load';
 import {
   BeforeDeparture,
   GuardedLink,
@@ -404,6 +404,18 @@ function CampaignState({
           <BackToCampaigns />
         </CampaignStateCard>
       );
+    case 'unreachable':
+      return (
+        <main className="mx-auto w-full max-w-2xl p-4 md:p-6">
+          <FailedLoadCard
+            noun="The campaign"
+            hint="Check your connection and try again."
+            retry={reloadPage}
+          />
+        </main>
+      );
+    default:
+      return access satisfies never;
   }
 }
 

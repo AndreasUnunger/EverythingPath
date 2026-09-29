@@ -1094,3 +1094,36 @@ The final area review of #138, #141 and #142 found three more:
 
 Screenshots from these checks are named by project where a journey runs on
 several projects.
+
+## Outsider stuck on "Loading campaign…" (#198, 2026-09-29)
+
+`pfXKYi` failed the access journey on Chromium phone: the outsider never saw
+"This campaign isn't available". It is the only occurrence of that error in
+the slot-0 evidence (1 of 166 outsider steps; the other runs listed with it
+failed for unrelated reasons). The step took 45.1 s against 4.7–9 s
+everywhere else, and the outsider's screenshot shows the shell before sign-in
+has loaded: no organization control, the account placeholder and the campaign
+skeleton. The member and missing-user paths render later states, so a
+missing outsider user row, an organization switch or an unresolved campaign
+query could not have produced it.
+
+- **Not reproduced by load.** Diagnostic runs `XCq6HZ` (kept contexts) and
+  `zMmvUK` (a fresh outsider context per round) opened about 2,700 outsider
+  pages on three projects in parallel: none stuck, none slower than 1.9 s.
+- **Reproduced by one fault.** Holding Clerk's frontend script
+  (`clerk.accounts.dev/npm/@clerk/clerk-js@…`) for 30 s and then failing it
+  made `goto` take 30.0 s (the script delays the load event) and left the page
+  on the same skeleton for good, identical to the `pfXKYi` screenshot
+  (`k0vSoF`). Clerk's status is then `error` and its auth never loads. Failing
+  or holding Clerk's `/v1/client` instead only delays the page: Clerk runs
+  degraded and the unavailable state appears after about 9 s.
+
+So the trigger was a stalled download of Clerk's script from its CDN, outside
+the app. The product bug was that the app ignored Clerk's `error` status and
+showed a loading skeleton forever; any user whose browser cannot fetch that
+script sees the same. `useSession` now returns `unreachable` for it, and the
+campaign shell and campaign list show "… could not be loaded. Check your
+connection and try again." with a page reload as the retry. The journey's
+assertions are unchanged: an outsider who cannot sign in has not been shown
+the unavailable state, so the journey still fails, now with that message in
+its observations (they include `role=alert` text).

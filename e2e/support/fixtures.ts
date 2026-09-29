@@ -51,7 +51,9 @@ async function closeWithEvidence(
       for (const [index, page] of context.pages().entries()) {
         if (page.url().startsWith(`${run.baseURL}/campaigns`)) {
           const visible = await page
-            .locator('h1, [role=region], [role=group], [role=dialog]')
+            .locator(
+              'h1, [role=region], [role=group], [role=dialog], [role=alert]',
+            )
             .allTextContents()
             .catch(() => []);
           info.annotations.push({

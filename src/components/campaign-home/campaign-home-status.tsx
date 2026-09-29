@@ -1,6 +1,9 @@
 'use client';
 import type { ReactNode } from 'react';
-import { FailedLoadCard } from '~/components/campaign-shell/failed-load';
+import {
+  FailedLoadCard,
+  reloadPage,
+} from '~/components/campaign-shell/failed-load';
 import {
   OrganizationControl,
   SignIn,
@@ -101,5 +104,17 @@ export function CampaignHomeStatus({
           />
         </main>
       );
+    case 'unreachable':
+      return (
+        <main className="mx-auto w-full max-w-2xl p-4 md:p-6">
+          <FailedLoadCard
+            noun="Campaigns"
+            hint="Check your connection and try again."
+            retry={reloadPage}
+          />
+        </main>
+      );
+    default:
+      return list satisfies never;
   }
 }

@@ -30,11 +30,13 @@ const openOrganizationProfile = vi.fn();
 const openUserProfile = vi.fn();
 const signOut = vi.fn();
 let avatarPending = false;
+let clerkStatus: 'loading' | 'ready' | 'degraded' | 'error' = 'ready';
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => auth(),
   useOrganization: () => organization(),
   useClerk: () => ({
+    status: clerkStatus,
     openCreateOrganization,
     openOrganizationProfile,
     openUserProfile,
@@ -169,6 +171,7 @@ function member() {
   });
   pathname.mockReturnValue('/campaigns/alpha/militia');
   setActive.mockResolvedValue(undefined);
+  clerkStatus = 'ready';
 }
 beforeEach(member);
 
@@ -330,6 +333,31 @@ test('a failed campaign list keeps the shell and offers a page-local retry', () 
   expect(
     screen.getByRole('link', { name: 'Keep: all campaigns' }),
   ).toBeVisible();
+});
+
+test('a session that could not start shows one failure with a page reload as its retry', () => {
+  // A failed Clerk load: its status is 'error' and auth stays unloaded.
+  clerkStatus = 'error';
+  auth.mockReturnValue({ isLoaded: false });
+  organization.mockReturnValue({ isLoaded: false });
+  convexAuth.mockReturnValue({ isLoading: true, isAuthenticated: false });
+  campaigns.mockReturnValue({});
+  const reload = vi.fn();
+  vi.stubGlobal('location', { ...window.location, reload });
+  render(shell('alpha'));
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'The campaign could not be loaded. Check your connection and try again.',
+  );
+  expect(screen.queryByText('Loading campaign…')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: /isn't available/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    within(screen.getByRole('main')).queryByRole('button', { name: 'Sign in' }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText(/Page for/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(reload).toHaveBeenCalledTimes(1);
 });
 
 test('maintenance shows a non-blocking banner while the page stays readable', () => {
