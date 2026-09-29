@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import {
   expect,
   type ElementHandle,
@@ -143,61 +144,72 @@ function readScroll(scroller: ElementHandle<Element>) {
 }
 
 /**
- * Runs in the page, just before the pan. `ready` resolves true once
- * `scroller` has held still for three animation frames, so no earlier scroll
- * is in flight, and the watch is armed at that position. `ended` then resolves
- * true once `scroller` itself comes to rest, its momentum included: a
- * `scrollend` targeting it after it has moved from the armed position,
- * followed by three animation frames without movement. A `scrollend` while it
- * still moves (another scroller's, or a stale one of its own) does not count,
- * and the next one is checked again. Both resolve false after `timeout` ms.
- * The page's own scroller reports `scrollend` on the document. The promises
- * are wrapped so `evaluateHandle` returns before they settle.
+ * Runs in the page on the card's scroller; the page's own scroller reports
+ * its scroll events on the document. A scroller is quiet once neither a
+ * `scroll` event of its own nor a change of `scrollTop` has come for 100 ms.
+ * `armed` resolves true once it is quiet, so no earlier scroll is in flight,
+ * and records that position. `rested` resolves true once it has left the
+ * armed position, its own `scrollend` has come since arming, and it is quiet
+ * again. Another scroller's events never count. Each wait resolves false once
+ * its own `timeout` ms have passed, on a timer that does not depend on the
+ * page's animation frames. `rested` needs the `scrollend` as well as the
+ * quiet: a starved page can see an unchanged `scrollTop` while the scroll
+ * still runs off the main thread. A stale `scrollend` followed by a pause of
+ * 100 ms or more and then more movement would still pass; the pan's finger
+ * holds still before it lifts, so no glide follows it to pause and resume.
  */
-export function watchScrollEnd(scroller: Element, timeout: number) {
+export function watchScroll(scroller: Element) {
   const target =
     scroller === (document.scrollingElement ?? document.documentElement)
       ? document
       : scroller;
-  const holdsStill = () =>
-    new Promise<boolean>((resolve) => {
-      const top = scroller.scrollTop;
-      let frames = 3;
-      const check = () => {
-        if (scroller.scrollTop !== top) resolve(false);
-        else if (--frames === 0) resolve(true);
-        else requestAnimationFrame(check);
-      };
-      requestAnimationFrame(check);
-    });
+  let top = scroller.scrollTop;
+  let changedAt = performance.now();
   let armedTop: number | undefined;
-  let done = false;
-  let finish!: (rested: boolean) => void;
-  const ended = new Promise<boolean>((resolve) => (finish = resolve));
-  const settle = (rested: boolean) => {
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    target.removeEventListener('scrollend', end);
-    finish(rested);
+  let ended = false;
+  const scrolled = (event: Event) => {
+    if (event.target === target) changedAt = performance.now();
   };
-  const end = (event: Event) => {
+  const scrollEnded = (event: Event) => {
     if (
       event.target === target &&
       armedTop !== undefined &&
       scroller.scrollTop !== armedTop
     )
-      void holdsStill().then((still) => still && settle(true));
+      ended = true;
   };
-  const timer = setTimeout(() => settle(false), timeout);
-  target.addEventListener('scrollend', end);
-  const ready = (async () => {
-    while (!done && !(await holdsStill()));
-    if (done) return false;
-    armedTop = scroller.scrollTop;
-    return true;
-  })();
-  return { ready, ended };
+  target.addEventListener('scroll', scrolled);
+  target.addEventListener('scrollend', scrollEnded);
+  const quietAnd = (condition: () => boolean, timeout: number) =>
+    new Promise<boolean>((resolve) => {
+      const finish = (result: boolean) => {
+        clearInterval(poll);
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const poll = setInterval(() => {
+        if (scroller.scrollTop !== top) {
+          top = scroller.scrollTop;
+          changedAt = performance.now();
+        }
+        if (performance.now() - changedAt >= 100 && condition()) finish(true);
+      }, 16);
+      const timer = setTimeout(() => finish(false), timeout);
+    });
+  return {
+    armed: (timeout: number) =>
+      quietAnd(() => {
+        armedTop = top;
+        ended = false;
+        return true;
+      }, timeout),
+    rested: (timeout: number) =>
+      quietAnd(() => ended && top !== armedTop, timeout),
+    stop: () => {
+      target.removeEventListener('scroll', scrolled);
+      target.removeEventListener('scrollend', scrollEnded);
+    },
+  };
 }
 
 /**
@@ -243,41 +255,45 @@ export async function panAndTapSettlementCards(
   // The finger moves up to scroll on, or down to scroll back when there is
   // more room above than below.
   const distance = before.top > before.below ? 160 : -160;
-  // The week keeps gliding after the finger lifts. A tap during the glide
-  // only stops it: Chromium, like a phone, sends no click. So the tap waits
-  // until the week's scroller has come to rest, watched from just before the
-  // pan starts.
+  // A finger that lifts while still moving flings the week on, and a tap
+  // during that glide only stops it: Chromium, like a phone, sends no click.
+  // So the finger comes to rest before it lifts, and the tap waits until the
+  // week's scroller is at rest, watched from just before the pan starts.
   const cdp = await gm.context().newCDPSession(gm);
-  let scrollEnd;
+  const touch = (
+    type: 'touchStart' | 'touchMove' | 'touchEnd',
+    touchPoints: { x: number; y: number }[],
+  ) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+  let watch;
   try {
-    scrollEnd = await scroller.evaluateHandle(watchScrollEnd, 10_000);
+    watch = await scroller.evaluateHandle(watchScroll);
     expect(
-      await scrollEnd.evaluate((watch) => watch.ready),
+      await watch.evaluate((scroll) => scroll.armed(5_000)),
       'the week was at rest before the pan',
     ).toBe(true);
     // A finger's own touch events: headless Chromium's synthesized touch
     // scroll gesture sends only touchstart and touchend.
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x, y }],
-    });
+    await touch('touchStart', [{ x, y }]);
     for (let step = 1; step <= 20; step++)
-      await cdp.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x, y: Math.round(y + (distance * step) / 20) }],
-      });
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchEnd',
-      touchPoints: [],
-    });
+      await touch('touchMove', [
+        { x, y: Math.round(y + (distance * step) / 20) },
+      ]);
+    // It holds still at the end for 150 ms, so it lifts with no velocity and
+    // the week does not glide on: its scroll ends as the finger lifts.
+    for (let hold = 0; hold < 3; hold++) {
+      await sleep(50);
+      await touch('touchMove', [{ x, y: Math.round(y + distance) }]);
+    }
+    await touch('touchEnd', []);
   } finally {
     await cdp.detach();
   }
   expect(
-    await scrollEnd.evaluate((watch) => watch.ended),
+    await watch.evaluate((scroll) => scroll.rested(10_000)),
     'the scroll came to rest after the pan',
   ).toBe(true);
-  await scrollEnd.dispose();
+  await watch.evaluate((scroll) => scroll.stop());
+  await watch.dispose();
   expect(
     (await readScroll(scroller)).top,
     'the pan scrolled the week',

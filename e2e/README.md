@@ -1157,13 +1157,29 @@ pan and tap on two pinned CPUs shared with six busy loops, showed it:
 The pan-scrolled, no-choice and both-device tap assertions are unchanged.
 
 Review follow-up: the first version resolved on the first `scrollend` anywhere
-in the document, so another scroller, or an event from a scroll that had ended
-before the pan, could end the wait while the Week was still gliding.
-`watchScrollEnd` is now bound to the card's scrolling ancestor, the same
-element the pan-scrolled check measures (the document for the page's own
-scroller). It arms only once that element has held still for three animation
-frames, just before the first touch, so no earlier scroll is in flight. A
-`scrollend` counts only if it targets that element after its `scrollTop` has
-left the armed value, and the element then holds still for three more frames.
-A stale `scrollend` of its own that arrives while the pan still moves it fails
-that check, and the watch waits for the next one within the same 10 s bound.
+in the document, and sampling a scroller for rest cannot prove no momentum is
+still to come. The glide is now removed at its source. The pan's finger holds
+still at its final point for 150 ms (three more `touchMove`s, 50 ms apart)
+before it lifts, so it lifts with no velocity. The distance and direction are
+unchanged. On the harness page, an unpaced pan glided about 54 px for about
+200 ms after the lift (`scrollend` about 220 ms after it). A held pan did not
+move after the lift, and its `scrollend` came about 10 ms later.
+
+`watchScroll` is bound to the card's scrolling ancestor, the same element the
+pan-scrolled check measures (the document for the page's own scroller). It
+counts only that element's own `scroll` and `scrollend` events. `armed(5 s)`
+waits until the element has been quiet for 100 ms (no `scroll` event, no
+change of `scrollTop`). `rested(10 s)` then needs the element to have left the
+armed position, its own `scrollend` since arming, and 100 ms of quiet again.
+Each wait has its own bound on a timer, not on animation frames, and resolves
+false when that bound expires.
+
+A harness page with the real `ChoiceCards` in a bounded scroller ran on two
+pinned CPUs shared with six busy loops:
+
+- A tap straight after the lift: without the hold, 24 of 60 taps chose
+  nothing; with the hold, 0 of 120.
+- The full helper, with its pan, waits and both taps: 0 of 120 lost. The
+  pre-#198 helper also lost 0 of 120 on this page, because its assertions
+  outlast the page's short glide. So the straight-after-lift taps are the
+  sensitive measure.
