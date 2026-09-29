@@ -1,6 +1,6 @@
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
-import type { UpkeepDisabledTeam, UpkeepLegacyRemoval } from './types';
+import type { UpkeepDisabledTeam } from './types';
 
 // Sends one Weekly Draft edit through the shared ordered store.
 export type UpkeepEdit = (edit: WeeklyDraftEdit) => unknown;
@@ -61,17 +61,9 @@ export function recordReturnRoll(
   };
 }
 
-// Clears a staged decision the page no longer offers (a retained Remove, or
-// one for a team no longer on the roster), with the removal's reasoned
-// exception so no ruling survives for a removal that will not happen.
-export function clearTeamDecision(
-  teamId: string,
-  removal: UpkeepLegacyRemoval | null = null,
-): WeeklyDraftEdit[] {
-  return [
-    { kind: 'upkeep_team', teamId, decision: null },
-    ...(removal?.exceptionId ? [clearRulesException(removal.exceptionId)] : []),
-  ];
+// Clears a staged decision for a team no longer on the roster.
+export function clearTeamDecision(teamId: string): WeeklyDraftEdit[] {
+  return [{ kind: 'upkeep_team', teamId, decision: null }];
 }
 
 export function recordRecoveryFundsException(

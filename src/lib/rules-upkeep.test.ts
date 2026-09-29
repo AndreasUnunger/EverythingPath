@@ -612,40 +612,14 @@ test('[rules.U05.preview] carried persistent Theft withholds half of incoming de
   });
 });
 
-test('[rules.U04.recovery-inputs] unknown teams and unsupported removal cannot silently disappear from readiness', () => {
+test('[rules.U04.recovery-inputs] a decision for an unknown team cannot silently disappear from readiness', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.training = 15;
   draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
   draft.upkeep.teamDecisions = [{ teamId: 'unknown', decision: 'recover' }];
-  expect(projectUpkeep(draft, snapshot).requirements).toContain(
-    'team:unknown:reference',
-  );
-  snapshot.roster.teams = [
-    {
-      teamId: 'disabled',
-      teamType: 'patrons',
-      name: 'Patrons',
-      status: 'disabled',
-      managerCharacterId: null,
-      rewardCapExempt: false,
-      notes: '',
-    },
-  ];
-  draft.upkeep.teamDecisions = [{ teamId: 'disabled', decision: 'remove' }];
-  expect(projectUpkeep(draft, snapshot).requirements).toContain(
-    'team:disabled:removal-exception',
-  );
-  draft.rulesExceptions = [
-    {
-      exceptionId: 'remove',
-      subjectId: 'disabled',
-      ruleId: 'upkeep-team-removal',
-      reason: 'The team retires at the table',
-    },
-  ];
   const result = projectUpkeep(draft, snapshot);
-  expect(result.outcome.roster.teams).toEqual([]);
-  expect(result.ready).toBe(true);
+  expect(result.requirements).toContain('team:unknown:reference');
+  expect(result.ready).toBe(false);
 });
 
 test('[rules.U02.sources] officer and queued annotations cannot reapply an included or expired modifier', () => {

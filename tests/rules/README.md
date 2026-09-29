@@ -144,8 +144,7 @@ than second additions.
 into later phases. Other entered modifiers carry their own source and reason.
 Recovery uses the current minimum treasury; a differing entered cost is flagged
 and leaves the baseline intact for later Table Adjustment. Reasoned exceptions
-for `upkeep-recovery-funds` and `upkeep-team-removal` use the team identity as their
-subject. A boon acknowledgement uses `upkeep:boon:<rank>:<characterId>` and records
+for `upkeep-recovery-funds` use the team identity as their subject. A boon acknowledgement uses `upkeep:boon:<rank>:<characterId>` and records
 the table's actual reward handling; the projection does not modify character
 sheets. Missing-team return changes have `timing: end`; the post-Upkeep roster
 keeps those teams missing so they cannot act early. Missing-team return checks

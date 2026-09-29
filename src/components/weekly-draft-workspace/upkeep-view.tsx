@@ -12,19 +12,14 @@ import { Deposits } from './upkeep-transfers';
 // maximum notoriety, treasury shortage, rank, then deposits and withdrawals.
 // Each section reports only its own effect; the week frame carries readiness
 // and the whole-week totals.
-
-// `correctionsHref` links a retained Remove choice to Militia corrections,
-// where teams are removed now; without it the link stays off.
 export function UpkeepView({
   view,
   edit,
   disabled,
-  correctionsHref,
 }: {
   view: UpkeepFacts;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
-  correctionsHref?: string;
 }) {
   const sections = view.sections;
   if (view.skipped || !sections)
@@ -40,12 +35,7 @@ export function UpkeepView({
     );
   return (
     <section aria-label="Upkeep" className="space-y-6">
-      <TeamConditions
-        teams={sections.teams}
-        correctionsHref={correctionsHref}
-        edit={edit}
-        disabled={disabled}
-      />
+      <TeamConditions teams={sections.teams} edit={edit} disabled={disabled} />
       <Attrition
         attrition={sections.attrition}
         rank={view.before.rank}

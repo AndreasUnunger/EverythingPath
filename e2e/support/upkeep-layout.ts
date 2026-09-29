@@ -1,7 +1,5 @@
 import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
-import type { z } from 'zod';
-import type { draftKeySchema } from '../../convex/lib/canonicalStorageValidators';
 import { savePrivate, type Run } from './process';
 import {
   expectBoundedWeekHost,
@@ -9,13 +7,10 @@ import {
   expectReachable,
   settleAnimations,
 } from './responsive-shell';
-import { stageLegacyRemove } from './team-conditions';
 
-type DraftKey = z.infer<typeof draftKeySchema>;
-
-// Upkeep's card and repair content at phone and desktop sizes (#140 §8
-// bullet 5): the nearest-settlement cards, the missing team's return row,
-// the staged-Remove repair and the rank feat cards. The settlement/rank
+// Upkeep's card content at phone and desktop sizes (#140 §8 bullet 5): the
+// nearest-settlement cards, the missing team's return row, the disabled
+// team's choice cards and the rank feat cards. The settlement/rank
 // journey exercises the same content at the tablet size only. Phone
 // landscape leaves the editor column about 100px tall, so every choice card
 // must still fit it whole.
@@ -65,11 +60,7 @@ async function reviewControls(
  * On the settlement/rank fixture (maximum notoriety, the missing Riders, the
  * disabled Scouts, a rank gain), opened on one page at the tablet size.
  */
-export async function reviewUpkeepChoiceLayout(
-  page: Page,
-  run: Run,
-  key: DraftKey,
-) {
+export async function reviewUpkeepChoiceLayout(page: Page, run: Run) {
   const roll = (name: string) =>
     page.getByRole('textbox', { name, exact: true });
   await expect(roll('Attrition Loyalty roll')).toBeVisible();
@@ -100,22 +91,16 @@ export async function reviewUpkeepChoiceLayout(
     name: 'Scouts team condition',
     exact: true,
   });
-  await stageLegacyRemove(page, run, key);
   await expect(
-    scouts.getByRole('link', {
-      name: 'Remove the team in Militia corrections',
-    }),
+    scouts.getByRole('button', { name: 'Recover', exact: true }),
   ).toBeVisible();
   await reviewControls(
     page,
-    'repair',
+    'teams',
     [settlements, riders, scouts],
     run.artifactDirectory,
   );
 
-  await scouts
-    .getByRole('button', { name: 'Clear Remove choice', exact: true })
-    .click();
   await scouts
     .getByRole('button', { name: 'Leave disabled', exact: true })
     .click();

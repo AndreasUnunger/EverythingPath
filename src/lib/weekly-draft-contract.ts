@@ -69,7 +69,7 @@ const upkeepSchema = z.strictObject({
     .array(
       z.strictObject({
         teamId: id,
-        decision: z.enum(['recover', 'leave', 'remove']),
+        decision: z.enum(['recover', 'leave']),
         costCopper: int.optional(),
         roll: rawRollSchema.optional(),
       }),

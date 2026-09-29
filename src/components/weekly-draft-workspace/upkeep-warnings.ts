@@ -37,8 +37,6 @@ export function upkeepWarningMessage(code: string, facts: UpkeepWarningFacts) {
       return `${team.name} recovery costs more than the available treasury. Record a table ruling to proceed.`;
     if (code.endsWith(':recovery-cost-baseline'))
       return `${team.name} has an entered recovery cost that differs from the rules cost of ${formatGold(team.rulesCostCopper)}. Use a reasoned recovery adjustment to change the final treasury.`;
-    if (code.endsWith(':upkeep-removal'))
-      return `${team.name} has a staged Remove choice, which Upkeep no longer offers. Clear it here, or remove the team in Militia corrections.`;
     if (code.endsWith(':roll-range'))
       return team.returnRoll?.recorded && isTotalRoll(team.returnRoll.recorded)
         ? `${team.name}'s return roll total ${team.returnRoll.recorded.diceTotal} is outside the usual 1–20 range. The recorded total is retained.`

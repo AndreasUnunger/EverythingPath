@@ -99,18 +99,12 @@ export type UpkeepSectionStatus =
   | 'waiting'
   | 'open'
   | 'resolved';
-export type UpkeepLegacyRemoval = {
-  // The reasoned exception recorded with the retired Remove choice, if any.
-  exceptionId: string | null;
-  reason: string | null;
-};
 export type UpkeepDisabledTeam = {
   teamId: string;
   name: string;
   typeName: string;
   tier: number | null;
   decision: 'recover' | 'leave' | null;
-  legacyRemoval: UpkeepLegacyRemoval | null;
   rulesCostCopper: number;
   enteredCostCopper: number;
   adjustment: { deltaCopper: number; reason: string } | null;
@@ -127,7 +121,6 @@ export type UpkeepMissingTeam = {
   name: string;
   typeName: string;
   tier: number | null;
-  legacyRemoval: UpkeepLegacyRemoval | null;
   return:
     | { kind: 'scheduled'; week: number; status: 'active' | 'disabled' }
     | {

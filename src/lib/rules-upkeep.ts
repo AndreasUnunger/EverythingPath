@@ -388,10 +388,6 @@ function recoverTeams(
     const decision = draft.upkeep.teamDecisions.find(
       (decision) => decision.teamId === team.teamId,
     );
-    if (decision?.decision === 'remove') {
-      removeWithException(draft, team.teamId, result);
-      continue;
-    }
     if (team.status === 'missing') {
       missingTeam(draft, state, team.teamId, result);
       continue;
@@ -399,22 +395,6 @@ function recoverTeams(
     if (team.status !== 'disabled') continue;
     recoverDisabled(draft, team, decision, result);
   }
-}
-function removeWithException(
-  draft: WeeklyDraft,
-  teamId: string,
-  result: UpkeepProjection,
-) {
-  result.warnings.push(`team:${teamId}:upkeep-removal`);
-  if (
-    draft.rulesExceptions.some(
-      (exception) =>
-        exception.subjectId === teamId &&
-        exception.ruleId === 'upkeep-team-removal',
-    )
-  )
-    removeTeam(result, teamId);
-  else result.requirements.push(`team:${teamId}:removal-exception`);
 }
 function recoverDisabled(
   draft: WeeklyDraft,
