@@ -63,7 +63,7 @@ export function foundationCompoundFixtures(): {
   commandants.militiaSnapshot.roster.people[0]!.hitDice = 3;
   commandants.militiaSnapshot.roster.people.push({
     characterId: 'npc',
-    kind: 'officer_npc',
+    kind: 'npc',
     hitDice: 7,
   });
   commandants.militiaSnapshot.characters.push({

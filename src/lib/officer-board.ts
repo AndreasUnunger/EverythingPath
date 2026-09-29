@@ -3,11 +3,7 @@ import {
   rosterWarningDescriptors,
   type CanonicalRoster,
 } from './canonical-roster';
-import {
-  normalizeCharacterKind,
-  type CharacterKind,
-  type CharacterRecordKind,
-} from './character-kind';
+import type { CharacterKind } from './character-kind';
 import {
   officerAbilitySource,
   projectOfficers,
@@ -351,7 +347,7 @@ export function officerBoard({
 export type BoardRecord = {
   _id: string;
   name: string;
-  kind?: CharacterRecordKind;
+  kind: CharacterKind;
   level: number;
   charisma: number;
   isActive?: boolean;
@@ -412,7 +408,7 @@ export function characterRows({
       return {
         characterId: record._id,
         name: record.name,
-        kind: normalizeCharacterKind(record.kind),
+        kind: record.kind,
         archived: record.isActive === false,
         onRoster: person !== undefined,
         hitDice: person ? getEffectiveHitDice(person, rules) : record.level,

@@ -798,7 +798,7 @@ session. The 420 s test deadline is split in proportion to the measured parts
 
 A sixth journey, `workspaceUpkeepLayout`, was added later (#140) rather than
 split: it repeats the settlement/rank fixture on one page and checks its
-settlement cards, missing-team row, Remove repair and rank feat cards at
+settlement cards, missing-team row, disabled-team cards and rank feat cards at
 390×844 and 1440×900. The settlement/rank journey runs about 21 s of its 30 s
 limit, so the checks got their own case and a 60 s limit instead of growing it.
 
@@ -1055,7 +1055,7 @@ They are closed without raising a limit or adding a page load to a journey
 near its limit:
 
 - **Upkeep (#140).** `workspaceUpkeepLayout` (above) checks the settlement
-  cards, missing-team row, Remove repair and rank feat cards at 390×844 and
+  cards, missing-team row, disabled-team cards and rank feat cards at 390×844 and
   1440×900 (`support/upkeep-layout.ts`).
 - **Persistent (#144).** `persistent-qa.ts` adds 844×390 and 1180×820 with the
   reference panel closed to its resize loop; no page load.

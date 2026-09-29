@@ -5,10 +5,7 @@ import { describe, expect, test } from 'vitest';
 import {
   confirmedWeek,
   deepFreeze,
-  legacyRecord,
 } from '../../../tests/history/resolution-record-fixtures';
-import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
-import { occurrence } from '../../../tests/rules/event-selection-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { managerWeek } from '../../../tests/rules/role-aware-officers-fixture';
 import { foundationWeek } from '../../../tests/rules/foundation-acceptance-fixtures';
@@ -20,8 +17,6 @@ import type {
 } from '~/components/week-review/review-facts';
 import {
   ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION,
-  CANDIDATE_REROLL_RULESET_VERSION,
-  CHARACTERLESS_TRANSFERS_RULESET_VERSION,
   prepareCanonicalResolutionRecord,
   projectWeeklyDraft,
   resolveCanonicalWeeklyDraft,
@@ -199,10 +194,10 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
       'Rescuers',
       'Training attrition',
       'Rank',
-      'Treasury deposit · Character 2',
+      'Treasury deposit',
     ]);
     // The record stores no character names: they stay distinct by number.
-    expect(item(facts, 0, 'Treasury deposit · Character 2').effects).toEqual([
+    expect(item(facts, 0, 'Treasury deposit').effects).toEqual([
       expect.objectContaining({ text: 'Treasury +7 gp' }),
     ]);
     expect(
@@ -237,144 +232,6 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     );
   });
 
-  test('[rules.HIST-05.frozen-legacy] an older record without a source snapshot stays readable from its own loose facts and says what was not recorded', () => {
-    const facts = recordWeekReview(legacyRecord());
-    expect(facts.result.nextWeek).toBe(10);
-    expect(facts.result.complete).toBe(false);
-    // No source snapshot: militia values at confirmation were not recorded,
-    // while the recorded week context still is.
-    expect(row(facts, 'Militia', 'Treasury')).toMatchObject({
-      now: { kind: 'unavailable', text: 'Not recorded' },
-      baseline: { kind: 'value', text: '5 gp' },
-      final: { kind: 'value', text: '4.93 gp' },
-      finalDiffers: true,
-      difference:
-        'Table Adjustments change the Rules Baseline 5 gp to 4.93 gp.',
-    });
-    expect(row(facts, 'Militia', 'Training')).toMatchObject({
-      now: { kind: 'unavailable' },
-      changed: false,
-    });
-    expect(row(facts, 'Next week', 'Uneventful-week benefit')).toMatchObject({
-      now: { text: 'Yes' },
-      baseline: { kind: 'unavailable', text: 'Not recorded' },
-      final: { text: 'No' },
-    });
-    expect(row(facts, 'Next week', 'Operating from').final).toMatchObject({
-      text: 'Settlement 1',
-    });
-    // A loose older fact is kept under Show all; its absence from another
-    // artifact is not recorded, so it is never presented as a change.
-    expect(row(facts, 'Recorded facts', 'Note')).toMatchObject({
-      baseline: { kind: 'unavailable', text: 'Not recorded' },
-      final: { text: 'Reconstructed from the table log' },
-      changed: false,
-      difference: null,
-    });
-    // Without a Rules Baseline the ended event still reads as a change.
-    expect(row(facts, 'Persistent events', 'Sickness · Event 1')).toMatchObject(
-      {
-        now: { kind: 'value' },
-        baseline: { kind: 'unavailable' },
-        final: { kind: 'absent', text: 'Not carried' },
-        changed: true,
-        finalDiffers: false,
-      },
-    );
-    // Rows keep their groups together whichever column records them first.
-    expect([...new Set(facts.result.rows.map((entry) => entry.group))]).toEqual(
-      ['Militia', 'Next week', 'Persistent events', 'Recorded facts'],
-    );
-    // Plans this format never kept are not invented; recorded inputs remain.
-    expect(facts.sections.map((section) => section.status)).toEqual([
-      'incomplete',
-      'incomplete',
-      'incomplete',
-      'complete',
-    ]);
-    expect(item(facts, 0, 'Team 1').details).toEqual([
-      'Recover · recorded cost 15 gp',
-    ]);
-    expect(item(facts, 0, 'Training attrition').details).toEqual([
-      'Loyalty check roll: dice total 14 (1d20) · +2 Drill bonus',
-      'Training loss roll: dice total 7 (2d4)',
-    ]);
-    expect(item(facts, 0, 'Treasury deposit · Character 1').details).toEqual([
-      'Recorded amount 7 gp',
-    ]);
-    const gold = item(facts, 1, 'Slot 1 · Earn Gold · Team 1');
-    expect(gold.details).toEqual([
-      'Check roll: dice total 11 (1d20)',
-      'Recorded cost 2.5 gp',
-    ]);
-    expect(notes(gold)).toEqual(['The scouts worked while recovering']);
-    // A missing subject's exception stays in its phase, without repair advice.
-    expect(items(facts, 1).at(-1)).toMatchObject({
-      missing: true,
-      notes: [
-        expect.objectContaining({
-          reason: 'An extra day was allowed then',
-          obsolete: false,
-        }),
-      ],
-    });
-    // The older Event tree records each occurrence's own type.
-    expect(items(facts, 2).map((entry) => entry.title)).toEqual([
-      'Event chance',
-      'Event 1 · Roll Twice',
-      'Event 1.1 · War Games',
-      'Event 1.2 · Festival',
-    ]);
-    expect(item(facts, 2, 'Event chance').details).toEqual([
-      'Operating from Settlement 1',
-    ]);
-    expect(notes(item(facts, 2, 'Event 1.2 · Festival'))).toEqual([
-      'The town feasted with the militia',
-    ]);
-    // A warning the live week no longer raises reads generically, under its
-    // event.
-    const plague = item(facts, 3, 'Sickness · Event 1');
-    expect(plague.details).toEqual([
-      'Affects Team 1',
-      'Decision: Buyoff',
-      'Buyoff costs 90 gp',
-      'Bought off',
-    ]);
-    expect(plague.effects.map((effect) => effect.text)).toEqual([
-      'Treasury −90 gp',
-      'Ends',
-    ]);
-    expect(notes(plague)).toEqual([
-      'Sickness · Event 1: Review this rules departure in the affected phase with the table.',
-    ]);
-    expect(facts.sections[3].chips).toEqual([
-      'Treasury −90 gp',
-      '1 event ends',
-    ]);
-    // Facts linked to nothing in the week remain, identical texts distinct.
-    expect(facts.unassociated.map((note) => note.key)).toEqual([
-      'outcome:id-stray',
-      'warning:1',
-      'warning:2',
-      'warning:3',
-    ]);
-    expect(facts.unassociated[0]).toMatchObject({
-      text: 'Table outcome: A ruling from an earlier tool',
-    });
-    expect(facts.unassociated[1]).toMatchObject({
-      message: 'The team allowance was exceeded.',
-    });
-    expect(facts.adjustments).toEqual([
-      expect.objectContaining({
-        number: 1,
-        kind: 'Militia value',
-        effect: 'Treasury −0.07 gp',
-        reason: 'Paid the ferryman',
-      }),
-    ]);
-    expect(visibleText(facts)).not.toContain('id-');
-  });
-
   test('[rules.HIST-05.frozen-rolls] recorded dice totals read exactly as recorded', () => {
     const totals = recordWeekReview(confirmedWeek().record);
     expect(item(totals, 2, 'Event 1 · Calm before the Storm').details).toEqual([
@@ -398,122 +255,6 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     draft.tableAdjustments = [];
     expect(recordWeekReview(structuredClone(record))).toEqual(facts);
     expect(recordWeekReview.length).toBe(1);
-  });
-});
-
-// A week confirmed before the candidate reroll Ruleset Version: its chosen
-// candidate's Roll Twice expanded into War Games and All Is Calm. Resolved
-// through today's engine as the equivalent chance-rolled expansion, then
-// recorded with the candidate tree and version that week actually had.
-function candidateExpansionRecord() {
-  const { draft, snapshot } = persistentEventFixture('low_morale');
-  snapshot.training = 15;
-  const expansion = [
-    occurrence('pick', 50),
-    occurrence('pick/twice/1', 10, {
-      kind: 'roll_twice',
-      parentEventId: 'pick',
-    }),
-    occurrence('pick/twice/2', 46, {
-      kind: 'roll_twice',
-      parentEventId: 'pick',
-    }),
-  ];
-  draft.event.occurrences = expansion;
-  const record = prepareCanonicalResolutionRecord(
-    resolveCanonicalWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }),
-    'earlier-record',
-  );
-  const source = structuredClone(record.source);
-  source.event.occurrences = [];
-  source.activity.slots = [
-    {
-      slotId: 'one',
-      choice: {
-        choiceId: 'guarantee',
-        actionId: 'guarantee_event',
-        rolls: { notoriety: roll(6, 3) },
-        candidates: [
-          expansion[0]!,
-          occurrence('other', 74),
-          ...expansion.slice(1),
-        ],
-        selectedEventId: 'pick',
-      },
-    },
-  ];
-  return deepFreeze(
-    canonicalResolutionRecordSchema.parse({
-      ...record,
-      source,
-      rulesetVersion: CHARACTERLESS_TRANSFERS_RULESET_VERSION,
-    }),
-  );
-}
-
-test('[rules.HIST-05.candidate-expansion] a record whose chosen candidate expanded keeps its version, its two events and their outcomes', () => {
-  const record = candidateExpansionRecord();
-  expect(record.rulesetVersion).toBeLessThan(CANDIDATE_REROLL_RULESET_VERSION);
-  const before = structuredClone(record);
-  const facts = recordWeekReview(record);
-  expect(record).toEqual(before);
-  const titles = items(facts, 2).map((entry) => entry.title);
-  expect(titles).toEqual(
-    expect.arrayContaining([
-      'Event 1A',
-      'Event 1B',
-      'Event 1A.1',
-      'Event 1A.2',
-    ]),
-  );
-  for (const title of ['Event 1A.1', 'Event 1A.2'])
-    expect(item(facts, 2, title).details).toContain(
-      'Rolled twice from Event 1A',
-    );
-  // The recorded War Games training gain stays with its recorded event.
-  expect(
-    item(facts, 2, 'Event 1A.1').effects.map((effect) => effect.text),
-  ).toEqual(['Training +3']);
-  expect(row(facts, 'Militia', 'Training')).toMatchObject({
-    now: { text: '15' },
-    final: { text: '17' },
-  });
-});
-
-// A week confirmed before role-aware manager limits: its Marshal, stored as an
-// Other NPC, managed two teams over that version's limit of one. Resolved
-// through today's engine, then recorded with the version and warning it had.
-test('[rules.HIST-05.manager-limit-version] a record confirmed before role-aware limits keeps its version, its recorded manager warning and its outcomes', () => {
-  const resolved = resolveCanonicalWeeklyDraft(
-    managerWeek('other_npc', true, 16),
-  );
-  const current = prepareCanonicalResolutionRecord(resolved, 'earlier-record');
-  const warning = 'manager:ally:capacity';
-  expect(current.warnings.map((entry) => entry.message)).not.toContain(warning);
-  const record = deepFreeze(
-    canonicalResolutionRecordSchema.parse({
-      ...current,
-      rulesetVersion: CANDIDATE_REROLL_RULESET_VERSION,
-      warnings: [...current.warnings, { code: 'manager', message: warning }],
-    }),
-  );
-  expect(record.rulesetVersion).toBeLessThan(
-    ROLE_AWARE_OFFICERS_RULESET_VERSION,
-  );
-  const before = structuredClone(record);
-  const facts = recordWeekReview(record);
-  expect(record).toEqual(before);
-  const shown = [
-    ...facts.sections.flatMap((section) =>
-      section.items.flatMap((entry) => entry.notes),
-    ),
-    ...facts.unassociated,
-  ].filter((note) => note.kind === 'warning');
-  expect(shown).toHaveLength(record.warnings.length);
-  expect(row(facts, 'Militia', 'Training')).toMatchObject({
-    final: {
-      text: String(resolved.outcome!.militiaSnapshot.training),
-    },
   });
 });
 
@@ -607,19 +348,15 @@ test('[rules.HIST-05.propaganda-permission-version] a record confirmed before as
 });
 
 // The roster Result rows of a record whose `ally` (level 4) has the given
-// Hit Dice override and whose PC keeps an explicit 10, confirmed under the
-// given Ruleset Version.
-function recordedHitDice(rulesetVersion: number, allyHitDice: number | null) {
+// Hit Dice override and whose PC keeps an explicit 10.
+function recordedHitDice(allyHitDice: number | null) {
   const input = managerWeek('npc', true, 16);
   input.militiaSnapshot.roster.people[1]!.hitDice = allyHitDice;
   input.militiaSnapshot.characters[1]!.level = 4;
-  const record = canonicalResolutionRecordSchema.parse({
-    ...prepareCanonicalResolutionRecord(
-      resolveCanonicalWeeklyDraft(input),
-      'hit-dice-record',
-    ),
-    rulesetVersion,
-  });
+  const record = prepareCanonicalResolutionRecord(
+    resolveCanonicalWeeklyDraft(input),
+    'hit-dice-record',
+  );
   return recordWeekReview(record)
     .result.rows.filter((entry) => entry.group === 'Roster')
     .flatMap((entry) =>
@@ -629,25 +366,14 @@ function recordedHitDice(rulesetVersion: number, allyHitDice: number | null) {
     );
 }
 
-test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the record’s own level from the role-aware version on, and as not recorded before it', () => {
-  const earlier = ROLE_AWARE_OFFICERS_RULESET_VERSION - 1;
-  expect(recordedHitDice(earlier, null)).toEqual([
+test('[rules.HIST-05.record-hit-dice] a blank Hit Dice override reads as the record’s own level, and an explicit override wins', () => {
+  expect(recordedHitDice(null)).toEqual([
     'Player character · 10 Hit Dice',
-    'NPC · Hit Dice not recorded',
+    'NPC · 4 Hit Dice',
   ]);
-  for (const version of [
-    ROLE_AWARE_OFFICERS_RULESET_VERSION,
-    ROLE_AWARE_OFFICERS_RULESET_VERSION + 1,
-  ])
-    expect(recordedHitDice(version, null)).toEqual([
-      'Player character · 10 Hit Dice',
-      'NPC · 4 Hit Dice',
-    ]);
   // An explicit override always wins, and zero stays zero.
-  for (const version of [earlier, ROLE_AWARE_OFFICERS_RULESET_VERSION]) {
-    expect(recordedHitDice(version, 7)).toContain('NPC · 7 Hit Dice');
-    expect(recordedHitDice(version, 0)).toContain('NPC · 0 Hit Dice');
-  }
+  expect(recordedHitDice(7)).toContain('NPC · 7 Hit Dice');
+  expect(recordedHitDice(0)).toContain('NPC · 0 Hit Dice');
 });
 
 test('[rules.HIST-05.frozen-boundary] the frozen adapter imports no live store, backend, React or rules resolver', () => {

@@ -9,8 +9,7 @@ import type { DraftOperation } from '../src/lib/weekly-draft-persistence-contrac
 import { CANONICAL_WEEKLY_RULESET_VERSION } from '../src/lib/canonical-weekly-resolution';
 
 // Transfers without a character (#158) through the real public edit,
-// preview and Confirmation paths, beside a transfer an older client sent with
-// its character.
+// preview and Confirmation paths.
 
 const edit = api.canonicalDraftPersistence.edit;
 const observe = api.canonicalDraftPersistence.observe;
@@ -49,8 +48,7 @@ async function setup() {
     { scope: fixtureScope, draftId: 'transfers' },
   );
   const user = await t.run((ctx) => ctx.db.query('user').first());
-  const character = await t.run((ctx) => ctx.db.query('character').first());
-  if (!user || !character) throw new Error('Missing fixture member');
+  if (!user) throw new Error('Missing fixture member');
   const member = t.withIdentity({ tokenIdentifier: user.tokenIdentifier });
   const operation = (
     baseRevision: number,
@@ -66,20 +64,19 @@ async function setup() {
       edit: intent,
     },
   });
-  return { t, key, member, operation, characterId: character._id as string };
+  return { t, key, member, operation };
 }
 
-test('[rules.U05.persistence] actorless and legacy transfers persist, replay and confirm under the current Ruleset Version, refusing a foreign character', async () => {
+test('[rules.U05.persistence] actorless transfers persist, replay and confirm under the current Ruleset Version, refusing a transfer that names a character', async () => {
   vi.useFakeTimers();
-  const { t, key, member, operation, characterId } = await setup();
+  const { t, key, member, operation } = await setup();
   const deposit = {
     transferId: 'deposit',
     direction: 'deposit' as const,
     copper: 7,
   };
-  const legacy = {
-    transferId: 'legacy',
-    characterId,
+  const withdrawal = {
+    transferId: 'withdrawal',
     direction: 'withdraw' as const,
     copper: 250,
   };
@@ -91,20 +88,30 @@ test('[rules.U05.persistence] actorless and legacy transfers persist, replay and
   expect((await member.mutation(edit, add)).acceptedRevision).toBe(1);
   await member.mutation(
     edit,
-    operation(1, 'add-legacy', { kind: 'upkeep_transfer', transfer: legacy }),
+    operation(1, 'add-withdrawal', {
+      kind: 'upkeep_transfer',
+      transfer: withdrawal,
+    }),
   );
   const accepted = await member.query(observe, key);
   await expect(
     member.mutation(
       edit,
-      operation(2, 'add-foreign', {
+      operation(2, 'add-actor', {
         kind: 'upkeep_transfer',
-        transfer: { ...legacy, transferId: 'foreign', characterId: 'other' },
+        transfer: {
+          ...withdrawal,
+          transferId: 'actor',
+          characterId: 'other',
+        } as typeof withdrawal,
       }),
     ),
-  ).rejects.toThrow('Invalid transfer character');
+  ).rejects.toThrow();
   expect(await member.query(observe, key)).toEqual(accepted);
-  expect(accepted.draft?.upkeep.treasuryTransfers).toEqual([deposit, legacy]);
+  expect(accepted.draft?.upkeep.treasuryTransfers).toEqual([
+    deposit,
+    withdrawal,
+  ]);
 
   // With nobody left in an officer role the transfers still resolve.
   await t.run(async (ctx) => {
@@ -160,7 +167,7 @@ test('[rules.U05.persistence] actorless and legacy transfers persist, replay and
   expect(receipt.record.rulesetVersion).toBe(CANONICAL_WEEKLY_RULESET_VERSION);
   expect(receipt.record.source.upkeep.treasuryTransfers).toEqual([
     deposit,
-    legacy,
+    withdrawal,
   ]);
   const state = await t.run((ctx) =>
     ctx.db.query('canonicalMilitiaState').unique(),

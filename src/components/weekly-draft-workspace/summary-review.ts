@@ -185,15 +185,11 @@ function upkeepTeamItems(upkeep: UpkeepView, source: WorkspaceSource) {
 
 function transferItems(upkeep: UpkeepView): Item[] {
   return upkeep.transfers.map((transfer) => {
-    const person = upkeep.officers.find(
-      (entry) => entry.characterId === transfer.characterId,
-    )?.name;
     const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
-    return newItem(
+    return newItem(transferSubject(transfer.transferId), `Treasury ${kind}`, [
+      transfer.transferId,
       transferSubject(transfer.transferId),
-      `Treasury ${kind}${person ? ` · ${person}` : ''}`,
-      [transfer.transferId, transferSubject(transfer.transferId)],
-    );
+    ]);
   });
 }
 

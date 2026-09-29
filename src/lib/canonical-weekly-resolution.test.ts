@@ -336,7 +336,6 @@ test('[rules.P06.baseline] ordered Upkeep deposits and Activity costs precede Th
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 10001,
     },

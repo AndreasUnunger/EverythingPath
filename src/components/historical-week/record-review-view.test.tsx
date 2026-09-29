@@ -1,9 +1,7 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import {
-  confirmedWeek,
-  legacyRecord,
-} from '../../../tests/history/resolution-record-fixtures';
+import { confirmedWeek } from '../../../tests/history/resolution-record-fixtures';
+import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import { WeekReviewSections } from '~/components/week-review/week-review';
 import { recordWeekReview } from './record-review';
 
@@ -46,22 +44,28 @@ test('[rules.HIST-05.frozen-view] a frozen record renders the six historical sec
   ).toEqual(['Value', 'At confirmation', 'Rules Baseline', 'Final']);
 });
 
-test('[rules.HIST-05.frozen-view-legacy] an older record says what it did not record and keeps its unlinked facts', () => {
-  render(<WeekReviewSections facts={recordWeekReview(legacyRecord())} />);
-  const result = within(region('Result'));
-  expect(
-    result.getByText('Some values were not included in this record.'),
-  ).toBeVisible();
-  expect(
-    result.queryByText(/until every required decision is made/),
-  ).toBeNull();
-  expect(result.getAllByText('Not recorded').length).toBeGreaterThan(0);
-  expect(result.queryByText('Not available')).toBeNull();
-  fireEvent.click(result.getByRole('button', { name: 'Show all values' }));
-  expect(result.getAllByText('Reconstructed from the table log').length).toBe(
-    2,
+test('[rules.HIST-05.frozen-view-unlinked] a record keeps a ruling whose subject it does not hold and facts linked to nothing in the week', () => {
+  const record = structuredClone(confirmedWeek().record);
+  const exception = {
+    exceptionId: 'id-vanished',
+    subjectId: 'id-deleted-choice',
+    ruleId: 'action-capacity',
+    reason: 'An extra day was allowed then',
+  };
+  const acknowledgement = {
+    acknowledgementId: 'id-stray',
+    subjectId: 'id-long-gone',
+    outcome: 'A ruling from an earlier tool',
+  };
+  for (const facts of [record.source, record.adjudication]) {
+    facts.rulesExceptions.push(exception);
+    facts.acknowledgements.push(acknowledgement);
+  }
+  render(
+    <WeekReviewSections
+      facts={recordWeekReview(canonicalResolutionRecordSchema.parse(record))}
+    />,
   );
-  // A recorded exception whose subject the record does not hold.
   const activity = within(region('2 Activity'));
   expect(
     activity.getByText('Its subject is not part of this recorded week.'),
@@ -70,9 +74,6 @@ test('[rules.HIST-05.frozen-view-legacy] an older record says what it did not re
   expect(activity.getByText('An extra day was allowed then')).toBeVisible();
   expect(activity.queryByText(/cannot permit an extra action/)).toBeNull();
   const unlinked = within(region('Unlinked facts'));
-  expect(
-    unlinked.getAllByText('The team allowance was exceeded.'),
-  ).toHaveLength(2);
   expect(
     unlinked.getByText('Table outcome: A ruling from an earlier tool'),
   ).toBeVisible();

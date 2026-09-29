@@ -1,47 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
-import type { z } from 'zod';
-import type { draftKeySchema } from '../../convex/lib/canonicalStorageValidators';
-import { createConvexDraftTransport } from '../../src/lib/convex-draft-persistence';
-import type { Run } from './process';
-import { connectAs } from './roll-compatibility';
-
-type DraftKey = z.infer<typeof draftKeySchema>;
-
-/**
- * Stages the Remove choice an older client could still send for the
- * disabled Scouts, which Upkeep no longer offers (#156).
- */
-export async function stageLegacyRemove(page: Page, run: Run, key: DraftKey) {
-  const client = await connectAs(page, run.fixture!.convexUrl);
-  try {
-    const transport = createConvexDraftTransport(client, key);
-    const observed = await transport.read();
-    await transport.send({
-      draftId: key.draftId,
-      operationId: randomUUID(),
-      baseRevision: observed.revision,
-      edit: {
-        kind: 'upkeep_team',
-        teamId: 'upkeep-scouts',
-        decision: { teamId: 'upkeep-scouts', decision: 'remove' },
-      },
-    });
-  } finally {
-    await client.close();
-  }
-}
 
 // Upkeep team rows on a fresh week with the disabled Scouts and the missing
 // Riders (#156): the missing team only rolls to return, shared on both
-// devices, and a Remove choice staged by an older client stays visible and
-// is cleared explicitly, with the Militia corrections route offered instead.
-export async function exerciseTeamConditionRows(
-  first: Page,
-  second: Page,
-  run: Run,
-  key: DraftKey,
-) {
+// devices, and the disabled team offers only Recover or Leave disabled.
+export async function exerciseTeamConditionRows(first: Page, second: Page) {
   const riders = (page: Page) =>
     page.getByRole('group', { name: 'Riders return check', exact: true });
   const returnRoll = (page: Page) =>
@@ -69,27 +31,15 @@ export async function exerciseTeamConditionRows(
   for (const page of [first, second])
     await expect(riders(page)).toContainText('Returns at the end of the week');
 
-  await stageLegacyRemove(second, run, key);
   for (const page of [first, second]) {
-    await expect(
-      scouts(page).getByText(
-        'This team still has a staged Remove choice, which Upkeep no longer offers.',
-      ),
-    ).toBeVisible();
-    await expect(
-      scouts(page).getByRole('button', { name: 'Recover', exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      scouts(page).getByRole('link', {
-        name: 'Remove the team in Militia corrections',
-      }),
-    ).toHaveAttribute('href', `/campaigns/${key.campaignId}/militia`);
-  }
-  await scouts(first)
-    .getByRole('button', { name: 'Clear Remove choice', exact: true })
-    .click();
-  for (const page of [first, second])
     await expect(
       scouts(page).getByRole('button', { name: 'Recover', exact: true }),
     ).toHaveAttribute('aria-pressed', 'false');
+    await expect(
+      scouts(page).getByRole('button', { name: 'Leave disabled', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    await expect(
+      scouts(page).getByRole('button', { name: /remove/i }),
+    ).toHaveCount(0);
+  }
 }

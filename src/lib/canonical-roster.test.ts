@@ -3,7 +3,6 @@ import {
   canonicalRosterSchema,
   rosterWarnings,
   rosterWarningDescriptors,
-  mapLegacyOfficers,
 } from './canonical-roster';
 
 test('[roster.identities] repeated teams keep independent conditions, exemptions and managers', () => {
@@ -48,10 +47,6 @@ test('[roster.identities] repeated teams keep independent conditions, exemptions
       1,
     ),
   ).toEqual(['Alice manages 2 teams; the normal limit is 1.']);
-  expect(mapLegacyOfficers({ commandant: 'alice', marshal: 'bob' })).toEqual([
-    { role: 'commandant', characterId: 'alice' },
-    { role: 'marshal', characterId: 'bob' },
-  ]);
 });
 
 test('[roster.validation] duplicate identities and dangling manager references are structural errors', () => {
@@ -89,7 +84,7 @@ test('[roster.validation] duplicate identities and dangling manager references a
 
 test('[roster.limits] reward exemptions and held roles affect warnings without dropping any teams', () => {
   const roster = canonicalRosterSchema.parse({
-    people: [{ characterId: 'a', kind: 'other_npc', hitDice: null }],
+    people: [{ characterId: 'a', kind: 'npc', hitDice: null }],
     officers: [],
     teams: ['one', 'two', 'three'].map((teamId) => ({
       teamId,
@@ -109,8 +104,7 @@ test('[roster.limits] reward exemptions and held roles affect warnings without d
     'A manages 3 teams; the normal limit is 1.',
   ]);
   roster.teams[0]!.rewardCapExempt = true;
-  // The legacy officer kind alone never makes an Officer; holding a role does.
-  roster.people[0]!.kind = 'officer_npc';
+  // An NPC's kind never makes an Officer; holding a role does.
   expect(rosterWarnings(roster, characters, 2)).toEqual([
     'A manages 3 teams; the normal limit is 1.',
   ]);

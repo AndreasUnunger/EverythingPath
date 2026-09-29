@@ -79,12 +79,6 @@ export function phaseView(
       ...source.snapshot.roster.teams.flatMap((team) => [
         {
           subjectId: team.teamId,
-          ruleId: 'upkeep-team-removal',
-          requirement: `team:${team.teamId}:removal-exception`,
-          name: team.name,
-        },
-        {
-          subjectId: team.teamId,
           ruleId: 'upkeep-recovery-funds',
           requirement: `team:${team.teamId}:recovery-funds-exception`,
           name: team.name,

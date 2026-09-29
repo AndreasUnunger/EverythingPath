@@ -36,12 +36,13 @@ one transaction.
 `prepareCanonicalResolutionRecord` captures the complete draft, original militia
 snapshot, baseline and adjusted plans, warnings, adjudication, final state and
 successor context. Embedded choice/event acknowledgements remain in the complete
-source. Format 2 records use canonical ruleset version 2. Older isolated
-extraction records can still be read without claiming that they have complete
-canonical outcomes.
+source. Every record is artifact format 2 with its source militia snapshot,
+stamped with the current Ruleset Version (`CANONICAL_WEEKLY_RULESET_VERSION`).
+The artifact payloads stay loose JSON, so records confirmed under an earlier
+Ruleset Version stay readable when plan entry shapes change. The earlier
+format-1 extraction records and records without a source snapshot are no
+longer accepted (#198).
 
-This path stays isolated until the approved cutover. The supported legacy
-`resolveWeeklyDraft` path remains unchanged. Pure worked examples, complete-plan
-application tests and a browser bundle versus persisted Convex-source parity
-test cover this boundary. Deployed atomic application and canonical Workspace
-interactions are the following implementation checkpoints.
+Confirmation (`src/lib/weekly-confirmation.ts`) is the live path. Pure worked
+examples, complete-plan application tests and a browser bundle versus persisted
+Convex-source parity test cover this boundary.

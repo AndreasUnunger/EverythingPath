@@ -11,7 +11,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
 import { CharactersSection } from '~/components/campaign-sections/characters-section';
-import type { CharacterRecordKind } from '~/lib/character-kind';
+import type { CharacterKind } from '~/lib/character-kind';
 
 // Characters & officers (#182): the officer board over one alphabetical
 // character table, and the shared Add/Edit record dialog.
@@ -21,7 +21,7 @@ type StoredCharacter = {
   campaignId: string;
   name: string;
   description: string;
-  kind?: CharacterRecordKind;
+  kind: CharacterKind;
   level: number;
   strength: number;
   dexterity: number;
@@ -124,7 +124,7 @@ function character(
 }
 const records = () => [
   character('sera', 'Sera of Phaendar', {
-    kind: 'officer_npc',
+    kind: 'npc',
     level: 4,
     charisma: 17,
     description: 'Innkeeper',
@@ -411,7 +411,7 @@ describe('character table', () => {
   test('shows kind, effective Hit Dice, roles and read-only managed teams', () => {
     render(page());
     const sera = rowOf('Sera of Phaendar');
-    // A legacy NPC kind reads NPC; Sera's blank override follows her level.
+    // Sera's blank override follows her level.
     expect(sera).toHaveTextContent('NPC');
     expect(sera).toHaveTextContent('4 HD');
     const teams = within(sera).getByRole('link', {

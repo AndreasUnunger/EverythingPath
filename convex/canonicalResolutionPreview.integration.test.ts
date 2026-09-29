@@ -345,7 +345,7 @@ test('[rules.O06.role-aware-parity] browser preview and Convex Confirmation agre
   }
 
   // Charisma 16, 11 and 6: positive, zero and negative modifiers.
-  for (const kind of ['pc', 'officer_npc', 'other_npc', 'npc'] as const)
+  for (const kind of ['pc', 'npc'] as const)
     for (const holdsRole of [false, true])
       for (const charisma of [16, 11, 6]) {
         const name = `${kind}-${holdsRole ? 'officer' : 'no-role'}-${charisma}`;

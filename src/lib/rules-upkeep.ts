@@ -81,9 +81,6 @@ export type UpkeepChange =
   | {
       kind: 'treasury';
       sourceId: string;
-      // Always null now; records confirmed before Ruleset Version 6 keep the
-      // officer who made a transfer.
-      characterId: string | null;
       before: number;
       after: number;
     }
@@ -368,7 +365,6 @@ function treasury(result: UpkeepProjection, sourceId: string, delta: number) {
   result.plan.push({
     kind: 'treasury',
     sourceId,
-    characterId: null,
     before,
     after: result.outcome.treasuryCopper,
   });
@@ -392,10 +388,6 @@ function recoverTeams(
     const decision = draft.upkeep.teamDecisions.find(
       (decision) => decision.teamId === team.teamId,
     );
-    if (decision?.decision === 'remove') {
-      removeWithException(draft, team.teamId, result);
-      continue;
-    }
     if (team.status === 'missing') {
       missingTeam(draft, state, team.teamId, result);
       continue;
@@ -403,22 +395,6 @@ function recoverTeams(
     if (team.status !== 'disabled') continue;
     recoverDisabled(draft, team, decision, result);
   }
-}
-function removeWithException(
-  draft: WeeklyDraft,
-  teamId: string,
-  result: UpkeepProjection,
-) {
-  result.warnings.push(`team:${teamId}:upkeep-removal`);
-  if (
-    draft.rulesExceptions.some(
-      (exception) =>
-        exception.subjectId === teamId &&
-        exception.ruleId === 'upkeep-team-removal',
-    )
-  )
-    removeTeam(result, teamId);
-  else result.requirements.push(`team:${teamId}:removal-exception`);
 }
 function recoverDisabled(
   draft: WeeklyDraft,
@@ -555,8 +531,7 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
 }
 // Step 5. The corpus lets only officers transfer; the table approved dropping
 // that restriction (#107), so transfers carry no character and need no
-// officer (Ruleset Version 6). A character recorded on an older staged
-// transfer is metadata only. Withdrawals beyond the running treasury still
+// officer (Ruleset Version 6). Withdrawals beyond the running treasury still
 // need their own reasoned exception.
 function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
   for (const transfer of draft.upkeep.treasuryTransfers) {

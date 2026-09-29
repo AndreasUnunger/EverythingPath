@@ -26,7 +26,7 @@ function state(week = 4): CanonicalWeekState {
       roster: {
         people: [
           { characterId: 'ilsa', kind: 'pc', hitDice: null },
-          { characterId: 'orin', kind: 'officer_npc', hitDice: 3 },
+          { characterId: 'orin', kind: 'npc', hitDice: 3 },
         ],
         teams: [
           {
@@ -169,7 +169,7 @@ describe('[SUM-06] Result comparison', () => {
     );
   });
 
-  test('a blank Hit Dice override reads as the level in a live review, "not set" without a character, and "not recorded" in a frozen record', () => {
+  test('a blank Hit Dice override reads as the level in a live review and a frozen record, and "not set" without a character', () => {
     const live = JSON.stringify(
       compareWeekStates({
         now: state(),
@@ -203,7 +203,7 @@ describe('[SUM-06] Result comparison', () => {
         unrecorded: 'Not recorded',
       }),
     );
-    expect(frozen).toContain('Player character · Hit Dice not recorded');
+    expect(frozen).toContain('Player character · 5 Hit Dice');
   });
 
   test('an incomplete preview leaves Rules Baseline and Final unavailable, never zero or unchanged', () => {
@@ -223,25 +223,22 @@ describe('[SUM-06] Result comparison', () => {
     expect(shownRows(rows, false)).toEqual([]);
   });
 
-  test('a state that did not record its militia or context leaves those values unrecorded, and loose older facts join their rows', () => {
+  test('a state part a record cannot read leaves its values unrecorded, never None or unchanged', () => {
     const final = state(5);
     final.militiaSnapshot.treasuryCopper = 4000;
     const rows = compareWeekStates({
       now: { militiaSnapshot: null, context: state().context },
-      baseline: {
-        militiaSnapshot: null,
-        context: null,
-        recorded: { treasuryCopper: 4500, ledger: 'Kept by hand' },
-      },
+      baseline: { militiaSnapshot: null, context: null },
       final,
       names,
       unrecorded: 'Not recorded',
     });
     expect(row(rows, 'Treasury')).toMatchObject({
       now: { kind: 'unavailable', text: 'Not recorded' },
-      baseline: { kind: 'value', text: '45 gp' },
+      baseline: { kind: 'unavailable', text: 'Not recorded' },
       final: { kind: 'value', text: '40 gp' },
-      finalDiffers: true,
+      changed: false,
+      finalDiffers: false,
     });
     // Recorded context still compares; an unrecorded one is never "None".
     expect(row(rows, 'Start day')).toMatchObject({
@@ -252,12 +249,6 @@ describe('[SUM-06] Result comparison', () => {
       now: { kind: 'unavailable' },
       baseline: { kind: 'unavailable' },
       final: { kind: 'value', text: 'Active' },
-      changed: false,
-    });
-    expect(row(rows, 'Ledger')).toMatchObject({
-      group: 'Recorded facts',
-      baseline: { text: 'Kept by hand' },
-      final: { kind: 'unavailable', text: 'Not recorded' },
       changed: false,
     });
   });

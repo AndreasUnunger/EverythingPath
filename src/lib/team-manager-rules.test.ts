@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROSTER_KINDS } from './character-kind';
+import { CHARACTER_KINDS } from './character-kind';
 import {
   getTeamManagerCharismaBonus,
   getTeamManagerLimit,
@@ -18,7 +18,7 @@ describe('team manager rules', () => {
       [11, 1],
       [6, 1],
     ] as const;
-    for (const kind of ROSTER_KINDS) {
+    for (const kind of CHARACTER_KINDS) {
       const person = { characterId: 'a', kind };
       for (const [charisma, officerLimit] of charismas) {
         const withRole = getTeamManagerLimit({

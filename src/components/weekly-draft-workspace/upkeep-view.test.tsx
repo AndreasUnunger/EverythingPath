@@ -68,16 +68,11 @@ function fixture(
 
 function renderView(
   view: ReturnType<typeof fixture>['view'],
-  options: { disabled?: boolean; correctionsHref?: string } = {},
+  options: { disabled?: boolean } = {},
 ) {
   const edit = vi.fn<(edit: WeeklyDraftEdit) => void>();
   render(
-    <UpkeepView
-      view={view}
-      edit={edit}
-      disabled={options.disabled ?? false}
-      correctionsHref={options.correctionsHref}
-    />,
+    <UpkeepView view={view} edit={edit} disabled={options.disabled ?? false} />,
   );
   return edit;
 }
@@ -363,82 +358,6 @@ test('a scheduled return replaces the roll with the week it comes back', () => {
   ).toBeVisible();
   expect(within(row).queryByRole('textbox')).not.toBeInTheDocument();
   expect(section('Team conditions')).toHaveTextContent('No cost');
-});
-
-test('a retained Remove choice is cleared with its ruling and points at Militia corrections', () => {
-  const { view } = fixture((draft, snapshot) => {
-    snapshot.roster.teams.push(
-      team('scouts', 'disabled'),
-      team('riders', 'missing'),
-    );
-    draft.upkeep.teamDecisions = [
-      { teamId: 'scouts', decision: 'remove' },
-      { teamId: 'riders', decision: 'remove' },
-    ];
-    draft.rulesExceptions = [
-      {
-        exceptionId: 'x1',
-        subjectId: 'scouts',
-        ruleId: 'upkeep-team-removal',
-        reason: 'Disbanded in play',
-      },
-    ];
-  });
-  const edit = renderView(view, { correctionsHref: '/campaigns/c/militia' });
-  const scouts = group('Scouts team condition');
-  expect(
-    within(scouts).getByText(
-      'This team still has a staged Remove choice, which Upkeep no longer offers.',
-    ),
-  ).toHaveAttribute('role', 'note');
-  expect(
-    within(scouts).getByText('Recorded reason: Disbanded in play'),
-  ).toBeVisible();
-  expect(
-    within(scouts).queryByRole('button', { name: 'Recover' }),
-  ).not.toBeInTheDocument();
-  expect(
-    within(scouts).getByRole('link', {
-      name: 'Remove the team in Militia corrections',
-    }),
-  ).toHaveAttribute('href', '/campaigns/c/militia');
-  fireEvent.click(
-    within(scouts).getByRole('button', { name: 'Clear Remove choice' }),
-  );
-  expect(edit.mock.calls.map(([item]) => item)).toEqual([
-    { kind: 'upkeep_team', teamId: 'scouts', decision: null },
-    { kind: 'clear_rules_exception', exceptionId: 'x1' },
-  ]);
-  edit.mockClear();
-  const riders = group('Riders return check');
-  expect(
-    within(riders).queryByRole('textbox', { name: 'Riders return roll' }),
-  ).not.toBeInTheDocument();
-  expect(
-    within(riders).queryByText('Recorded reason', { exact: false }),
-  ).not.toBeInTheDocument();
-  fireEvent.click(
-    within(riders).getByRole('button', { name: 'Clear Remove choice' }),
-  );
-  expect(edit.mock.calls.map(([item]) => item)).toEqual([
-    { kind: 'upkeep_team', teamId: 'riders', decision: null },
-  ]);
-});
-
-test('the corrections link stays off without a campaign address', () => {
-  const { view } = fixture((draft, snapshot) => {
-    snapshot.roster.teams.push(team('scouts', 'disabled'));
-    draft.upkeep.teamDecisions = [{ teamId: 'scouts', decision: 'remove' }];
-  });
-  renderView(view);
-  expect(
-    screen.queryByRole('link', {
-      name: 'Remove the team in Militia corrections',
-    }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole('button', { name: 'Clear Remove choice' }),
-  ).toBeVisible();
 });
 
 test('a staged decision for a team no longer on the roster can be cleared', () => {

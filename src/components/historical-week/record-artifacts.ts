@@ -8,10 +8,10 @@ import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-recor
 import { militiaSnapshotSchema } from '~/lib/canonical-weekly-source';
 import { weekStartFactsSchema } from '~/lib/weekly-draft-contract';
 
-// Reads one immutable Resolution Record's stored artifacts. Format 2 holds
-// complete typed plans and states; earlier formats hold loose facts, perhaps
-// keyed by phase. Stored states are only checked for their structure: nothing
-// is recalculated, and a value the record does not hold stays unknown.
+// Reads one immutable Resolution Record's stored artifacts: complete typed
+// plans and states. Stored states are only checked for their structure:
+// nothing is recalculated, and a part that does not match today's structure
+// stays unknown.
 
 type Artifact = CanonicalResolutionRecord['baselinePlan'];
 export type Facts = Readonly<Record<string, unknown>>;
@@ -32,7 +32,6 @@ export type RecordedWeek = {
 };
 
 const phases = ['upkeep', 'activity', 'event', 'persistent'] as const;
-const phaseFields = new Set<string>([...phases, 'sabotage']);
 
 export function isFacts(value: unknown): value is Facts {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -49,61 +48,17 @@ function parseContext(value: unknown): Context | null {
 type TypedPlan = { before: Facts; after: Facts; effects: Facts };
 function parseTypedPlan(artifact: Artifact): TypedPlan | null {
   const { before, after, effects } = artifact.data;
-  return artifact.formatVersion === 2 &&
-    isFacts(before) &&
-    isFacts(after) &&
-    isFacts(effects)
+  return isFacts(before) && isFacts(after) && isFacts(effects)
     ? { before, after, effects }
     : null;
 }
 
-/** A stored week state; a part failing its structure stays readable loosely. */
-function weekState(value: Facts): ComparedState {
-  const militiaSnapshot = parseSnapshot(value.militiaSnapshot);
-  const context = parseContext(value.context);
-  const recorded: Record<string, unknown> = {};
-  if (!militiaSnapshot && isFacts(value.militiaSnapshot))
-    Object.assign(recorded, value.militiaSnapshot);
-  if (!context && value.context !== undefined) recorded.context = value.context;
+/** A stored week state; a part failing its structure stays unknown. */
+function weekState(value: Facts | undefined): ComparedState {
   return {
-    militiaSnapshot,
-    context,
-    ...(Object.keys(recorded).length ? { recorded } : {}),
+    militiaSnapshot: parseSnapshot(value?.militiaSnapshot),
+    context: parseContext(value?.context),
   };
-}
-
-/**
- * An earlier format's loose facts: a militia state under `militiaSnapshot`
- * or `outcome`, or flat militia values; phase plans are consequences, and
- * every other field is kept as a recorded fact.
- */
-function looseState(data: Facts): ComparedState {
-  let militiaSnapshot: Snapshot | null = null;
-  let context: Context | null = null;
-  const recorded: Record<string, unknown> = {};
-  for (const [field, value] of Object.entries(data)) {
-    if (phaseFields.has(field) && Array.isArray(value)) continue;
-    if (field === 'week' && typeof value === 'number') continue;
-    if (field === 'militiaSnapshot' || field === 'outcome') {
-      const parsed: Snapshot | null = militiaSnapshot
-        ? null
-        : parseSnapshot(value);
-      if (parsed) {
-        militiaSnapshot = parsed;
-        continue;
-      }
-      if (isFacts(value)) {
-        Object.assign(recorded, value);
-        continue;
-      }
-    }
-    if (field === 'context') {
-      context ??= parseContext(value);
-      if (context) continue;
-    }
-    recorded[field] = value;
-  }
-  return { militiaSnapshot, context, recorded };
 }
 
 function planEntries(effects: Facts | undefined, field: string) {
@@ -121,12 +76,7 @@ export function readRecordedWeek(
   const baselinePlan = parseTypedPlan(record.baselinePlan);
   const finalPlan = parseTypedPlan(record.finalPlan);
   // Phase consequences are the same in both plans; the baseline's come first.
-  const sources = [
-    baselinePlan?.effects,
-    finalPlan?.effects,
-    record.baselinePlan.data,
-    record.finalPlan.data,
-  ];
+  const sources = [baselinePlan?.effects, finalPlan?.effects];
   const find = (field: string) =>
     sources.reduce<readonly unknown[] | null>(
       (found, effects) => found ?? planEntries(effects, field),
@@ -139,14 +89,10 @@ export function readRecordedWeek(
   const sabotage = (find('sabotage') ?? []) as readonly SabotageFact[];
 
   const atConfirmation: ComparedState = {
-    militiaSnapshot:
-      record.sourceMilitiaSnapshot ??
-      parseSnapshot(baselinePlan?.before.militiaSnapshot ?? null),
+    militiaSnapshot: record.sourceMilitiaSnapshot,
     context: record.source.context,
   };
-  const baseline = baselinePlan
-    ? weekState(baselinePlan.after)
-    : looseState(record.baselinePlan.data);
+  const baseline = weekState(baselinePlan?.after);
   const recordedFinal = finalState(record, finalPlan);
   // The recorded successor context is the Final week context.
   const final = {
@@ -161,10 +107,7 @@ export function readRecordedWeek(
     baseline,
     final,
     complete: states.every(
-      (state) =>
-        state.militiaSnapshot !== null &&
-        state.context !== null &&
-        !state.recorded,
+      (state) => state.militiaSnapshot !== null && state.context !== null,
     ),
     nextWeek:
       findWeek(record.finalOutcome.data) ??
@@ -178,20 +121,8 @@ function finalState(
   record: CanonicalResolutionRecord,
   finalPlan: TypedPlan | null,
 ): ComparedState {
-  if (record.finalOutcome.formatVersion === 2) {
-    const outcome = weekState(record.finalOutcome.data);
-    if (outcome.militiaSnapshot || !finalPlan) return outcome;
-  }
-  return finalPlan ? weekState(finalPlan.after) : looseFinal(record);
-}
-
-/** Loose final facts: the recorded outcome wins over the final plan's. */
-function looseFinal(record: CanonicalResolutionRecord): ComparedState {
-  const plan = looseState(record.finalPlan.data);
-  const outcome = looseState(record.finalOutcome.data);
-  return {
-    militiaSnapshot: outcome.militiaSnapshot ?? plan.militiaSnapshot,
-    context: outcome.context ?? plan.context,
-    recorded: { ...plan.recorded, ...outcome.recorded },
-  };
+  const outcome = weekState(record.finalOutcome.data);
+  return outcome.militiaSnapshot || !finalPlan
+    ? outcome
+    : weekState(finalPlan.after);
 }

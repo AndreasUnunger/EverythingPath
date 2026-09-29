@@ -80,7 +80,6 @@ export function activityAcceptanceFixtures(): { name: string; input: Input }[] {
   recovery.draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1234,
     },

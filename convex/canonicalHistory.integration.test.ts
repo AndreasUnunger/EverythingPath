@@ -5,6 +5,7 @@ import schema from './schema';
 import { api, internal } from './_generated/api';
 import { deploymentFixture } from '../e2e/support/test-data';
 import { appendResolutionRecord } from './lib/canonicalDraftStorage';
+import { resolutionArtifactSchema } from '../src/lib/canonical-resolution-record';
 import { locateAuditSequence } from '../src/lib/audit-ordinal';
 const modules = import.meta.glob('./**/*.ts');
 const scope = {
@@ -107,7 +108,7 @@ test('[rules.P86.history] history selects complete effective records, retains pa
           recordId: `correction-${i}`,
           provenance: 'historical_correction',
           supersedesRecordId: i === 1 ? record.recordId : `correction-${i - 1}`,
-          finalOutcome: { formatVersion: 1, data: { treasuryCopper: i } },
+          finalOutcome: { formatVersion: 2, data: { treasuryCopper: i } },
         },
       }),
     );
@@ -319,7 +320,18 @@ async function correct(
               : original
                 ? record.recordId
                 : `week-${week}`,
-          finalOutcome: { formatVersion: 1, data: { treasuryCopper: i } },
+          // Each correction's Final militia holds its own treasury.
+          finalOutcome: resolutionArtifactSchema.parse({
+            formatVersion: 2,
+            data: JSON.parse(
+              JSON.stringify({
+                militiaSnapshot: {
+                  ...record.sourceMilitiaSnapshot,
+                  treasuryCopper: i,
+                },
+              }),
+            ) as unknown,
+          }),
         },
       });
   });
@@ -359,7 +371,7 @@ test('[rules.P86.listing] finished-week listing returns distinct effective weeks
       {
         key: 'treasury',
         label: 'Treasury',
-        before: record.sourceMilitiaSnapshot!.treasuryCopper,
+        before: record.sourceMilitiaSnapshot.treasuryCopper,
         final: 7,
         beforeRecorded: true,
         finalRecorded: true,

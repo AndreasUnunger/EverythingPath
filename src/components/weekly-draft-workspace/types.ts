@@ -96,18 +96,12 @@ export type UpkeepSectionStatus =
   | 'waiting'
   | 'open'
   | 'resolved';
-export type UpkeepLegacyRemoval = {
-  // The reasoned exception recorded with the retired Remove choice, if any.
-  exceptionId: string | null;
-  reason: string | null;
-};
 export type UpkeepDisabledTeam = {
   teamId: string;
   name: string;
   typeName: string;
   tier: number | null;
   decision: 'recover' | 'leave' | null;
-  legacyRemoval: UpkeepLegacyRemoval | null;
   rulesCostCopper: number;
   enteredCostCopper: number;
   adjustment: { deltaCopper: number; reason: string } | null;
@@ -124,7 +118,6 @@ export type UpkeepMissingTeam = {
   name: string;
   typeName: string;
   tier: number | null;
-  legacyRemoval: UpkeepLegacyRemoval | null;
   return:
     | { kind: 'scheduled'; week: number; status: 'active' | 'disabled' }
     | {
@@ -139,9 +132,6 @@ export type UpkeepTransfer = {
   transferId: string;
   direction: 'deposit' | 'withdraw';
   copper: number;
-  // The character recorded on a transfer staged before transfers became
-  // characterless; null for every new transfer.
-  legacyCharacterName: string | null;
   // The treasury change Theft makes to this deposit (negative); null if none.
   theftCopper: number | null;
   // Present while a withdrawal beyond the treasury needs, or already has, its
@@ -168,9 +158,6 @@ export type UpkeepRankBoon = {
   feats: {
     options: string[];
     selected: string | null;
-    // Recorded text that is none of the options, kept until replaced or
-    // cleared.
-    legacyOutcome: string | null;
   } | null;
   // Still unrecorded, so the week cannot be confirmed yet.
   required: boolean;

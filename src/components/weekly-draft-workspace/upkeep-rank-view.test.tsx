@@ -130,47 +130,6 @@ test('the chosen feat card is pressed and tapping it again clears the record', (
   });
 });
 
-test('an off-list recorded outcome stays editable until a card replaces it or it is cleared', () => {
-  const edit = renderRank(
-    fixture((draft) => {
-      draft.acknowledgements = [
-        {
-          acknowledgementId: 'ack-old',
-          subjectId: 'upkeep:boon:9:pc',
-          outcome: 'Took Toughness with the GM',
-        },
-      ];
-    }),
-  );
-  const row = group('Ameiko rank 9 feat');
-  expect(row).toHaveTextContent(
-    'Recorded outcome that is not one of these feats',
-  );
-  const field = within(row).getByRole('textbox', {
-    name: 'Ameiko recorded outcome',
-  });
-  expect(field).toHaveValue('Took Toughness with the GM');
-  expect(within(row).queryAllByRole('button', { pressed: true })).toHaveLength(
-    0,
-  );
-  fireEvent.click(
-    within(row).getByRole('button', { name: 'Lightning Reflexes' }),
-  );
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'acknowledge',
-    acknowledgement: {
-      acknowledgementId: 'ack-old',
-      subjectId: 'upkeep:boon:9:pc',
-      outcome: 'Lightning Reflexes',
-    },
-  });
-  fireEvent.click(within(row).getByRole('button', { name: 'Clear outcome' }));
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'clear_acknowledgement',
-    acknowledgementId: 'ack-old',
-  });
-});
-
 test('several gains in one week list each rank with its cards or outcome editor', async () => {
   const edit = renderRank(
     fixture((_, snapshot) => {

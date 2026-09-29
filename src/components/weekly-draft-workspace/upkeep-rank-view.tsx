@@ -176,26 +176,11 @@ function FeatRow({
           Choose a feat for {boon.name}.
         </p>
       )}
-      {feats.legacyOutcome !== null && (
-        <div className="space-y-2 border-l-2 border-amber-500/60 pl-3 sm:ml-[calc(9rem+1rem)]">
-          <p className="text-sm">
-            Recorded outcome that is not one of these feats. Choose a card to
-            replace it, or edit it here.
-          </p>
-          <OutcomeEditor
-            boon={boon}
-            label={`${boon.name} recorded outcome`}
-            edit={edit}
-            disabled={disabled}
-          />
-        </div>
-      )}
     </div>
   );
 }
 
-// The free-text outcome of an open boon (Skilled, Gift, XP, Champion) or a
-// legacy off-list feat record.
+// The free-text outcome of an open boon (Skilled, Gift, XP, Champion).
 function OutcomeEditor({
   boon,
   label,

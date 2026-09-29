@@ -473,16 +473,12 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
   try {
     // The nearest settlement is chosen only at maximum notoriety, once the
     // Loyalty check fails; its cards are exercised on that fixture.
-    const { key: notorietyScope, route: notorietyRoute } = await initialUpkeep(
-      run,
-      ownedCase,
-      {
-        choices: true,
-        maximumNotoriety: true,
-        missingTeam: true,
-        rankGain: true,
-      },
-    );
+    const { route: notorietyRoute } = await initialUpkeep(run, ownedCase, {
+      choices: true,
+      maximumNotoriety: true,
+      missingTeam: true,
+      rankGain: true,
+    });
     await Promise.all([gm.goto(notorietyRoute), player.goto(notorietyRoute)]);
     await expect(die(gm)).toBeVisible();
     await die(gm).fill('10');
@@ -569,7 +565,7 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
     await expect(phaendar).toHaveAttribute('aria-pressed', 'true');
     await expect(misthome).toHaveAttribute('aria-pressed', 'false');
     // The touch pan and tap on these cards have their own journey.
-    await exerciseTeamConditionRows(gm, player, run, notorietyScope);
+    await exerciseTeamConditionRows(gm, player);
     await exerciseRankBoon(gm, player);
   } finally {
     network.release();
@@ -1156,14 +1152,14 @@ test('settlement and rank cards and team repairs stay reachable on phone and des
 }) => {
   test.setTimeout(60_000);
   const run = await loadRun();
-  const { key: scope, route } = await initialUpkeep(run, ownedCase, {
+  const { route } = await initialUpkeep(run, ownedCase, {
     choices: true,
     maximumNotoriety: true,
     missingTeam: true,
     rankGain: true,
   });
   await players.gm.goto(route);
-  await reviewUpkeepChoiceLayout(players.gm, run, scope);
+  await reviewUpkeepChoiceLayout(players.gm, run);
 });
 
 // The Event blocks and Review & confirm at phone landscape and on the narrow

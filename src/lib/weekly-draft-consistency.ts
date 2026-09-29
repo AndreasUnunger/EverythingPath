@@ -213,28 +213,6 @@ const slotRemovalMessages: Record<SlotRemovalRejection, string> = {
   within_allowance: 'Slot is within the action allowance',
   allowance_unknown: 'Action allowance is not final',
 };
-// New transfers carry no character. A character sent on a transfer by an
-// older client must still belong to this campaign; one already stored is
-// historical metadata and is never re-checked against the roster.
-function hasNewTransferCharacterOutsideCampaign(
-  current: WeeklyDraft,
-  next: WeeklyDraft,
-  source: UpkeepSnapshot,
-) {
-  const stored = new Set(
-    current.upkeep.treasuryTransfers.map(
-      (transfer) => `${transfer.transferId}:${transfer.characterId}`,
-    ),
-  );
-  return next.upkeep.treasuryTransfers.some(
-    (transfer) =>
-      transfer.characterId !== undefined &&
-      !stored.has(`${transfer.transferId}:${transfer.characterId}`) &&
-      !source.characters.some(
-        (character) => character.characterId === transfer.characterId,
-      ),
-  );
-}
 // `source` is the authoritative week-start militia snapshot. Removal checks
 // the latest accepted draft, never only the operation's retained base.
 export function acceptDraftOperation(
@@ -267,8 +245,6 @@ export function acceptDraftOperation(
     rebaseDraftEdit(base, current, operation.edit),
   );
   if (!result.ok) throw new DraftRejected(result.error);
-  if (hasNewTransferCharacterOutsideCampaign(current, result.draft, source))
-    throw new DraftRejected('Invalid transfer character');
   const metadata = new Map(
     targetRevisions.map((entry) => [entry.target, entry.revision]),
   );

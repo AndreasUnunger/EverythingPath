@@ -7,6 +7,10 @@ import {
 import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
+import {
+  emptyPlanArtifacts,
+  recordSnapshot,
+} from '../../../tests/history/resolution-record-fixtures';
 import { HistoricalRecordView } from './record-view';
 
 // A recorded dice total; history never rewrites it.
@@ -49,14 +53,14 @@ function record(
     },
   ];
   const { persistentPhaseEligible: _eligible, ...context } = source.context;
+  const militiaSnapshot = recordSnapshot();
   return canonicalResolutionRecordSchema.parse({
     recordId: 'record',
     source,
+    sourceMilitiaSnapshot: militiaSnapshot,
     rulesetVersion: 5,
     provenance: 'confirmation',
-    baselinePlan: { formatVersion: 1, data: { training: 16 } },
-    finalPlan: { formatVersion: 1, data: { training: 16 } },
-    finalOutcome: { formatVersion: 1, data: { training: 16 } },
+    ...emptyPlanArtifacts({ before: { week: 9, militiaSnapshot, context } }),
     warnings: [],
     adjudication: {
       tableAdjustments: [],
@@ -80,7 +84,6 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
     { check: total(20, 1, 0), training: total(4, 2, 7) },
     {
       transferId: 'transfer',
-      characterId: 'officer',
       direction: 'withdraw',
       copper: 250,
     },
@@ -90,7 +93,7 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
     'Training attrition · Loyalty check roll: dice total 0 (1d20) · Training loss roll: dice total 7 (2d4)',
   );
   expect(line('1 Upkeep', 'Treasury withdrawal')).toBe(
-    'Treasury withdrawal · Character 1 · Recorded amount 2.5 gp',
+    'Treasury withdrawal · Recorded amount 2.5 gp',
   );
   expect(container.textContent).not.toMatch(/dice \d/);
   expect(container.querySelector('input, textarea, select')).toBeNull();

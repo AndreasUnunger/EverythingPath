@@ -102,22 +102,19 @@ export const spellValidator = v.object({
   summonerUnchained: v.nullable(v.number()),
 });
 
-// Stored record kinds (see src/lib/character-kind.ts): old clients still send
-// officer_npc during the PC/NPC rollout, and an absent kind means PC.
+// Stored record kinds (see src/lib/character-kind.ts).
 export const characterKindValidator = v.union(
   v.literal('pc'),
-  v.literal('officer_npc'),
   v.literal('npc'),
 );
 
 export const characterValidator = v.object({
   name: v.string(),
-  // Widened during ownerId migration. Narrow back to v.string() after backfill.
-  ownerId: v.union(v.string(), v.number()),
+  ownerId: v.string(),
   campaignId: v.id('campaign'),
   description: v.string(),
-  kind: v.optional(characterKindValidator),
-  isActive: v.optional(v.boolean()),
+  kind: characterKindValidator,
+  isActive: v.boolean(),
   level: v.number(),
   strength: v.number(),
   dexterity: v.number(),
@@ -147,28 +144,6 @@ export const campaignValidator = v.object({
 export const militiaValidator = v.object({
   campaignId: v.id('campaign'),
   name: v.string(),
-});
-
-export const dataMigrationValidator = v.object({
-  name: v.string(),
-  status: v.union(
-    v.literal('running'),
-    v.literal('completed'),
-    v.literal('failed'),
-  ),
-  stage: v.union(
-    v.literal('characters'),
-    v.literal('militias'),
-    v.literal('done'),
-  ),
-  characterCursor: v.optional(v.string()),
-  militiaCursor: v.optional(v.string()),
-  migratedCharacterCount: v.number(),
-  migratedMilitiaCount: v.number(),
-  startedAt: v.number(),
-  updatedAt: v.number(),
-  completedAt: v.optional(v.number()),
-  error: v.optional(v.string()),
 });
 
 export const roles = v.union(v.literal('admin'), v.literal('member'));
@@ -261,7 +236,6 @@ export default defineSchema({
       'e2eFixture.caseKey',
     ]),
   militia: defineTable(militiaValidator).index('by_campaign', ['campaignId']),
-  dataMigration: defineTable(dataMigrationValidator).index('by_name', ['name']),
   spell: defineTable(spellValidator).index('by_name', ['name']),
   characterSpell: defineTable(
     v.object({
