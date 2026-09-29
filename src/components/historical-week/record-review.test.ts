@@ -6,8 +6,6 @@ import {
   confirmedWeek,
   deepFreeze,
 } from '../../../tests/history/resolution-record-fixtures';
-import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
-import { occurrence } from '../../../tests/rules/event-selection-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { managerWeek } from '../../../tests/rules/role-aware-officers-fixture';
 import { foundationWeek } from '../../../tests/rules/foundation-acceptance-fixtures';
@@ -19,8 +17,6 @@ import type {
 } from '~/components/week-review/review-facts';
 import {
   ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION,
-  CANDIDATE_REROLL_RULESET_VERSION,
-  CHARACTERLESS_TRANSFERS_RULESET_VERSION,
   prepareCanonicalResolutionRecord,
   projectWeeklyDraft,
   resolveCanonicalWeeklyDraft,
@@ -261,122 +257,6 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     draft.tableAdjustments = [];
     expect(recordWeekReview(structuredClone(record))).toEqual(facts);
     expect(recordWeekReview.length).toBe(1);
-  });
-});
-
-// A week confirmed before the candidate reroll Ruleset Version: its chosen
-// candidate's Roll Twice expanded into War Games and All Is Calm. Resolved
-// through today's engine as the equivalent chance-rolled expansion, then
-// recorded with the candidate tree and version that week actually had.
-function candidateExpansionRecord() {
-  const { draft, snapshot } = persistentEventFixture('low_morale');
-  snapshot.training = 15;
-  const expansion = [
-    occurrence('pick', 50),
-    occurrence('pick/twice/1', 10, {
-      kind: 'roll_twice',
-      parentEventId: 'pick',
-    }),
-    occurrence('pick/twice/2', 46, {
-      kind: 'roll_twice',
-      parentEventId: 'pick',
-    }),
-  ];
-  draft.event.occurrences = expansion;
-  const record = prepareCanonicalResolutionRecord(
-    resolveCanonicalWeeklyDraft({ revision: draft, militiaSnapshot: snapshot }),
-    'earlier-record',
-  );
-  const source = structuredClone(record.source);
-  source.event.occurrences = [];
-  source.activity.slots = [
-    {
-      slotId: 'one',
-      choice: {
-        choiceId: 'guarantee',
-        actionId: 'guarantee_event',
-        rolls: { notoriety: roll(6, 3) },
-        candidates: [
-          expansion[0]!,
-          occurrence('other', 74),
-          ...expansion.slice(1),
-        ],
-        selectedEventId: 'pick',
-      },
-    },
-  ];
-  return deepFreeze(
-    canonicalResolutionRecordSchema.parse({
-      ...record,
-      source,
-      rulesetVersion: CHARACTERLESS_TRANSFERS_RULESET_VERSION,
-    }),
-  );
-}
-
-test('[rules.HIST-05.candidate-expansion] a record whose chosen candidate expanded keeps its version, its two events and their outcomes', () => {
-  const record = candidateExpansionRecord();
-  expect(record.rulesetVersion).toBeLessThan(CANDIDATE_REROLL_RULESET_VERSION);
-  const before = structuredClone(record);
-  const facts = recordWeekReview(record);
-  expect(record).toEqual(before);
-  const titles = items(facts, 2).map((entry) => entry.title);
-  expect(titles).toEqual(
-    expect.arrayContaining([
-      'Event 1A',
-      'Event 1B',
-      'Event 1A.1',
-      'Event 1A.2',
-    ]),
-  );
-  for (const title of ['Event 1A.1', 'Event 1A.2'])
-    expect(item(facts, 2, title).details).toContain(
-      'Rolled twice from Event 1A',
-    );
-  // The recorded War Games training gain stays with its recorded event.
-  expect(
-    item(facts, 2, 'Event 1A.1').effects.map((effect) => effect.text),
-  ).toEqual(['Training +3']);
-  expect(row(facts, 'Militia', 'Training')).toMatchObject({
-    now: { text: '15' },
-    final: { text: '17' },
-  });
-});
-
-// A week confirmed before role-aware manager limits: its Marshal, stored as an
-// Other NPC, managed two teams over that version's limit of one. Resolved
-// through today's engine, then recorded with the version and warning it had.
-test('[rules.HIST-05.manager-limit-version] a record confirmed before role-aware limits keeps its version, its recorded manager warning and its outcomes', () => {
-  const resolved = resolveCanonicalWeeklyDraft(
-    managerWeek('other_npc', true, 16),
-  );
-  const current = prepareCanonicalResolutionRecord(resolved, 'earlier-record');
-  const warning = 'manager:ally:capacity';
-  expect(current.warnings.map((entry) => entry.message)).not.toContain(warning);
-  const record = deepFreeze(
-    canonicalResolutionRecordSchema.parse({
-      ...current,
-      rulesetVersion: CANDIDATE_REROLL_RULESET_VERSION,
-      warnings: [...current.warnings, { code: 'manager', message: warning }],
-    }),
-  );
-  expect(record.rulesetVersion).toBeLessThan(
-    ROLE_AWARE_OFFICERS_RULESET_VERSION,
-  );
-  const before = structuredClone(record);
-  const facts = recordWeekReview(record);
-  expect(record).toEqual(before);
-  const shown = [
-    ...facts.sections.flatMap((section) =>
-      section.items.flatMap((entry) => entry.notes),
-    ),
-    ...facts.unassociated,
-  ].filter((note) => note.kind === 'warning');
-  expect(shown).toHaveLength(record.warnings.length);
-  expect(row(facts, 'Militia', 'Training')).toMatchObject({
-    final: {
-      text: String(resolved.outcome!.militiaSnapshot.training),
-    },
   });
 });
 

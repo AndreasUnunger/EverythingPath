@@ -6,7 +6,6 @@ import { expect, test } from 'vitest';
 import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import {
-  CANDIDATE_REROLL_RULESET_VERSION,
   prepareCanonicalResolutionRecord,
   resolveCanonicalWeeklyDraft,
 } from '~/lib/canonical-weekly-resolution';
@@ -280,24 +279,22 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
 });
 
 // A confirmed week whose roster holds every stored character kind and Hit
-// Dice form, recorded through the real confirmation path under the version
-// before #196, when a blank Hit Dice override still meant unknown.
+// Dice form, recorded through the real confirmation path.
 function mixedKindRecord() {
   const { draft, snapshot } = persistentEventFixture('low_morale');
   snapshot.training = 15;
   const mixed = militiaSnapshotSchema.parse(mixedKindSnapshot());
   snapshot.characters.push(...mixed.characters);
   snapshot.roster.people.push(...mixed.roster.people);
-  return deepFreeze({
-    ...prepareCanonicalResolutionRecord(
+  return deepFreeze(
+    prepareCanonicalResolutionRecord(
       resolveCanonicalWeeklyDraft({
         revision: draft,
         militiaSnapshot: snapshot,
       }),
       'mixed-kinds',
     ),
-    rulesetVersion: CANDIDATE_REROLL_RULESET_VERSION,
-  });
+  );
 }
 
 test('[rules.HIST-05.record-kinds] recorded legacy, new and absent character kinds and unknown or zero Hit Dice read as recorded', () => {

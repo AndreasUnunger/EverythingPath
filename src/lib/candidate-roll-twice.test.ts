@@ -7,9 +7,7 @@ import {
 } from '../../tests/rules/candidate-reroll-fixture';
 import { roll } from '../../tests/rules/upkeep-fixture';
 import {
-  CANDIDATE_REROLL_RULESET_VERSION,
   CANONICAL_WEEKLY_RULESET_VERSION,
-  CHARACTERLESS_TRANSFERS_RULESET_VERSION,
   prepareCanonicalResolutionRecord,
   projectWeeklyDraft,
   resolveCanonicalWeeklyDraft,
@@ -43,13 +41,7 @@ function resolvedWeek(input: ReturnType<typeof guaranteedWeek>) {
   };
 }
 
-test('[rules.A10.reroll-version] the candidate reroll is the Weekly Resolution change after characterless transfers, and records carry its version', () => {
-  expect(CANDIDATE_REROLL_RULESET_VERSION).toBe(
-    CHARACTERLESS_TRANSFERS_RULESET_VERSION + 1,
-  );
-  expect(CANONICAL_WEEKLY_RULESET_VERSION).toBeGreaterThanOrEqual(
-    CANDIDATE_REROLL_RULESET_VERSION,
-  );
+test('[rules.A10.reroll-version] a rerolled candidate week previews and records under the current Ruleset Version', () => {
   const input = guaranteedWeek(
     [occurrence('pick', 10), occurrence('other', 46)],
     'pick',

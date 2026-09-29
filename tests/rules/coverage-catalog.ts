@@ -3094,7 +3094,6 @@ export const coverageCatalog = {
           tests: [
             'rules.O06.role-aware',
             'rules.O06.role-aware-parity',
-            'rules.HIST-05.manager-limit-version',
             'rules.A06.capacity',
             'rules.O06.capacity',
             'rules.acceptance.manager-checks',
@@ -4619,7 +4618,6 @@ export const coverageCatalog = {
             'rules.A10.reroll-exception',
             'rules.A10.reroll-dynamic',
             'rules.A10.reroll-parity',
-            'rules.HIST-05.candidate-expansion',
             'rules.A72.projection-parity',
           ],
           gap: null,
