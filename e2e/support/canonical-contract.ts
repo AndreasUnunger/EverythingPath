@@ -1,9 +1,7 @@
 import { ConvexClient } from 'convex/browser';
-import { z } from 'zod';
 import type { BrowserContext, Page } from '@playwright/test';
-import type { FixtureScope } from '../fixtures/catalog';
-import { draftKeySchema } from '../../convex/lib/canonicalStorageValidators';
-import { fixtureCall, loadRun } from './process';
+import type { Fixture } from './fixtures';
+import { loadRun } from './process';
 
 type Role = 'gm' | 'player' | 'outsider';
 export type TokenPage = Pick<Page, 'goto' | 'waitForFunction' | 'evaluate'>;
@@ -49,23 +47,21 @@ export async function reserveTokenPages<Player extends JourneyPage>(
 
 export async function prepareContract(
   players: Record<Role, Page>,
-  comparisonScope: FixtureScope,
+  // The comparison case's automatic reset already created its campaign.
+  comparison: Pick<Fixture, 'campaignId'>,
 ) {
   const run = await loadRun();
   const url = run.fixture!.convexUrl;
-  const comparison = z
-    .object({ campaignId: draftKeySchema.shape.campaignId })
-    .parse(
-      await fixtureCall(run, 'resetCase', {
-        ...comparisonScope,
-        now: 1_700_000_000_000,
-      }),
-    );
   const authenticate = await reserveTokenPages(players);
   // Provider logs may contain authentication or request payloads. Only the
   // bounded assertions below enter the ordinary safe harness report.
   const connect = (page: Page) =>
     authenticate(page, () => new ConvexClient(url, { logger: false }));
 
-  return { run, url, comparison, connect };
+  return {
+    run,
+    url,
+    comparison: { campaignId: comparison.campaignId },
+    connect,
+  };
 }

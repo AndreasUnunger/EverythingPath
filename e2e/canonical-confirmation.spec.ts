@@ -49,7 +49,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
   test.setTimeout(300_000);
   const { run, url, comparison, connect } = await prepareContract(
     players,
-    comparisonCase!.scope,
+    comparisonCase!,
   );
   const first = connect(players.gm);
   const second = connect(players.player);
