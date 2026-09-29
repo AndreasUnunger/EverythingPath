@@ -331,6 +331,11 @@ the roll panel before its separate autosave timer fired. Valid edits now enter t
 board's existing mutation queue directly; a component regression covers immediate
 unmount and keeps malformed numeric input local.
 
+While the week is confirmed, the player's second device keeps an Edit character
+dialog open with an unsaved name on Characters & officers. That page must observe
+the new week's draft without inserting its skeleton, and the typed name must
+survive (#198).
+
 Live verification on 2026-09-09 passed authentication and all four required
 journeys on their first attempts against the recreated local preview, including
 complete-week Confirmation and reload. Typecheck, lint, and all 318 tests passed.
@@ -620,8 +625,7 @@ limit. Confirmation still includes its independent literal-state and authority
 checks. `canonical-persistence` and `canonical-confirmation` use separate project
 ownership namespaces for the existing declared fixture capabilities, with one
 worker and a fresh reset per scenario. The fixture ownership guard is unchanged.
-The mandatory matrix requires nine first-attempt results and nightly requires
-18. Omitting either contract or passing only on a retry fails the aggregate;
+The mandatory matrix requires nine first-attempt results and nightly requires 18. Omitting either contract or passing only on a retry fails the aggregate;
 neither the 720-second workflow budget nor retry acceptance was relaxed.
 
 Local verification of the split passes 873 tests, typecheck, lint and the rules
@@ -629,7 +633,6 @@ catalog (380 covered cases, 290 explicit gaps, zero errors). The focused aggrega
 regression first failed when Confirmation was absent, then passed with the new
 required test. Actual reporter-protocol tests also reject missing and retry-only
 Confirmation results. Fresh full isolated QA and the hosted CI rerun are pending.
-
 
 ## E2E failure follow-up (2026-09-14)
 
@@ -656,7 +659,6 @@ The final hostname pair passed a temporary 30-reload live WebKit stress probe
 (`everythingpath-e2e-6JnKBJ`); that focused run intentionally did not satisfy the
 aggregate gate. All temporary probes were removed, and the original real reload
 assertions remain unchanged.
-
 
 ## Expanded suite deadline (2026-09-15)
 
@@ -751,16 +753,16 @@ where the single journey did. Parts two to four install their own control
 before their first navigation, because their GM page had used that control. The
 race part uses only fresh pages with their own controls, as before.
 
-| Journey | Case | Starting state |
-| --- | --- | --- |
-| players prepare shared Upkeep with independent navigation and save recovery | `workspaceUpkeep` | New and mid-campaign setup through the UI, then `initializeUpkeep` (week 4) |
-| players choose the nearest settlement at maximum notoriety and resolve team conditions | `workspaceNotoriety` | `resetCase`, then `initializeUpkeep` with choices, maximum notoriety and a missing team |
-| players recover a team at an adjusted cost and confirm a week through Activity and Event | `workspaceRecovery` | `resetCase`, then `initializeUpkeep` with choices |
-| players review and buy off carried persistent events before confirming the week | `workspacePersistent` | `resetCase`, then `initializeUpkeep` with persistent events |
-| racing Confirmations commit one reviewed week and reject stale and delayed changes | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages |
-| settlement and rank cards and team repairs stay reachable on phone and desktop | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only |
-| Event blocks and the week review stay reachable at phone landscape and on a narrow tablet | `workspaceEventReview` | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only |
-| Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device | `workspaceActivity` | `resetCase`, then plain `initializeUpkeep` like `workspaceConfirmation` |
+| Journey                                                                                                      | Case                    | Starting state                                                                          |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
+| players prepare shared Upkeep with independent navigation and save recovery                                  | `workspaceUpkeep`       | New and mid-campaign setup through the UI, then `initializeUpkeep` (week 4)             |
+| players choose the nearest settlement at maximum notoriety and resolve team conditions                       | `workspaceNotoriety`    | `resetCase`, then `initializeUpkeep` with choices, maximum notoriety and a missing team |
+| players recover a team at an adjusted cost and confirm a week through Activity and Event                     | `workspaceRecovery`     | `resetCase`, then `initializeUpkeep` with choices                                       |
+| players review and buy off carried persistent events before confirming the week                              | `workspacePersistent`   | `resetCase`, then `initializeUpkeep` with persistent events                             |
+| racing Confirmations commit one reviewed week and reject stale and delayed changes                           | `workspaceConfirmation` | `resetCase`, then plain `initializeUpkeep` on three fresh pages                         |
+| settlement and rank cards and team repairs stay reachable on phone and desktop                               | `workspaceUpkeepLayout` | `resetCase`, then `initializeUpkeep` like `workspaceNotoriety`, on the GM page only     |
+| Event blocks and the week review stay reachable at phone landscape and on a narrow tablet                    | `workspaceEventReview`  | `resetCase`, then `initializeUpkeep` with persistent events, on the GM page only        |
+| Activity fits landscape sizes, pans by touch and follows a correction and a Confirmation from another device | `workspaceActivity`     | `resetCase`, then plain `initializeUpkeep` like `workspaceConfirmation`                 |
 
 Each later step started with the same reset and seed, so the database state is
 unchanged. The only browser state that crossed a boundary was also checked:

@@ -629,10 +629,29 @@ describe('record dialog', () => {
     expect(field('Name')).toHaveValue('Unsaved new name');
     setQueries(records(), next, {
       status: 'open',
-      draft: { activity: { slots: [] } },
+      draft: {
+        activity: {
+          slots: [
+            {
+              slotId: 's1',
+              choice: {
+                choiceId: 'c1',
+                actionId: 'change_officer_role',
+                characterId: 'bren',
+                fromRole: 'marshal',
+                toRole: 'strategist',
+              },
+            },
+          ],
+        },
+      },
     });
     view.rerender(page());
-    expect(screen.queryByText(/Pending this week|→ Spymaster/)).toBeNull();
+    // Only the new week's pending change shows.
+    expect(screen.queryByText(/→ Spymaster/)).toBeNull();
+    expect(screen.getAllByText(/Marshal → Strategist/).length).toBeGreaterThan(
+      0,
+    );
     expect(field('Name')).toHaveValue('Unsaved new name');
     expect(field('STR')).toHaveValue('12');
     expect(field('Notes')).toHaveValue('Drillmaster');
