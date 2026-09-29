@@ -102,7 +102,6 @@ function withDetails(entry: Item, details: string[]) {
 const decisionLines: Record<string, string> = {
   recover: 'Recover',
   leave: 'Left disabled',
-  remove: 'Remove from the roster',
 };
 
 /**
