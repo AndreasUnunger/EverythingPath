@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -8,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { editWeeklyDraft } from '~/lib/weekly-draft';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
@@ -24,7 +23,6 @@ import { EventView } from './event-view';
 // candidate block keeps its occurrence details editor, and every edit goes
 // through the same draft edits the Workspace sends. The harness applies each
 // accepted edit to the draft and re-derives the facts, as the store does.
-afterEach(cleanup);
 
 type Event = WeeklyDraft['event']['occurrences'][number];
 type Edit = ReturnType<typeof vi.fn<(edit: WeeklyDraftEdit) => void>>;

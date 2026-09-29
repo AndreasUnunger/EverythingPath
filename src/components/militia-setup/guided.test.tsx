@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -14,7 +13,6 @@ import type { SetupCharacter } from './roster';
 
 const originalMatchMedia = window.matchMedia;
 afterEach(() => {
-  cleanup();
   window.matchMedia = originalMatchMedia;
 });
 

@@ -1,5 +1,4 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -146,7 +145,6 @@ vi.mock('~/components/ui/select', () => {
   };
 });
 
-afterEach(cleanup);
 afterEach(() => vi.unstubAllGlobals());
 
 const alpha = { _id: 'alpha', name: 'Alpha' };

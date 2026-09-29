@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi, type Mock } from 'vitest';
+import { expect, test, vi, type Mock } from 'vitest';
 import type {
   ReviewException,
   WeekReviewFacts,
@@ -15,7 +14,6 @@ import { SummaryView } from './summary-view';
 import { confirmControlFixture } from './confirm-control-test-helpers';
 import type { PhaseView } from './types';
 import type { LocalFormGuard } from './use-summary-forms';
-afterEach(cleanup);
 
 // The live Summary's Table Adjustment and Rules Exception reason forms: raw
 // input stays local until a valid Save, every open or invalid form is

@@ -6,16 +6,14 @@ import {
   selectSlot,
 } from './activity-view-fixture';
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 vi.mock('~/components/ui/select', () => import('./native-select-test-double'));
-afterEach(cleanup);
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
 import type { StagedActionChoice } from '~/lib/weekly-draft-facts';

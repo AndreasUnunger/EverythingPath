@@ -1,6 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
-afterEach(cleanup);
+import { fireEvent, render, screen } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 import { WholeNumberField } from './whole-number-field';
 test('[rules.P81.digits] digit entry rejects invalid text, keeps zero, and emits an explicit clear with styled required feedback', async () => {
   const save = vi.fn();

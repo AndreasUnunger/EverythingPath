@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Component, type ComponentProps, type ReactNode } from 'react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import MilitiaRoute from '~/app/campaigns/[campaignId]/militia/page';
 import CampaignPageError from '~/app/campaigns/[campaignId]/error';
 
@@ -41,7 +41,6 @@ vi.mock('~/components/campaign-shell/navigation-guard', () => ({
     </a>
   ),
 }));
-afterEach(cleanup);
 
 // Next's segment error boundary: the route's error component replaces the
 // page, and its reset renders the page again.

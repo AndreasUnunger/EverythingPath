@@ -1,13 +1,12 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { createMemoryDraftAuthority } from '~/lib/memory-draft-persistence';
 import { createDraftPersistence } from '~/lib/weekly-draft-persistence';
@@ -43,7 +42,6 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-afterEach(cleanup);
 
 // A first militia week whose event chance cannot produce an event: nothing
 // is left to decide, so Confirm is available once the review is accepted.

@@ -1,18 +1,11 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { expect, test } from 'vitest';
 import {
   confirmedWeek,
   legacyRecord,
 } from '../../../tests/history/resolution-record-fixtures';
 import { WeekReviewSections } from '~/components/week-review/week-review';
 import { recordWeekReview } from './record-review';
-afterEach(cleanup);
 
 const region = (name: string) => screen.getByRole('region', { name });
 

@@ -1,11 +1,9 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import RouteLoading from '~/app/campaigns/(list)/loading';
 import { CampaignHomeSkeleton } from './campaign-home-status';
-
-afterEach(cleanup);
 
 const campaigns = join(process.cwd(), 'src/app/campaigns');
 // Every route folder under `dir`, relative to the campaigns route.

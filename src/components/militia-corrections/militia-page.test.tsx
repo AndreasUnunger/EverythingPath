@@ -1,6 +1,5 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
@@ -9,7 +8,7 @@ import {
 } from '@testing-library/react';
 import { ConvexError } from 'convex/values';
 import type { ComponentProps } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
 import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -146,7 +145,6 @@ beforeEach(() => {
   calls = [];
   setMilitia({ revision: 3, state: state() });
 });
-afterEach(cleanup);
 
 describe('read view', () => {
   test('lists the nine sections and the read-only week view with counts and warnings', () => {

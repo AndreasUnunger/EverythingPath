@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import type { PhaseReadiness } from '../types';
 import {
   DockedReferencePanel,
@@ -29,7 +28,6 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-afterEach(cleanup);
 
 const item = (id: string, message = id) => ({ id, message });
 function step(over: Partial<PhaseReadiness> = {}): PhaseReadiness {

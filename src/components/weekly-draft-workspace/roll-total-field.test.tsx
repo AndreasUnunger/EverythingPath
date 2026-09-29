@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import { RollTotalField } from './roll-total-field';
-afterEach(cleanup);
 
 const generated = { kind: 'generated' as const, sourceId: 'roller' };
 const modifiers = [{ sourceId: 'helpful', value: 2, reason: 'Allies' }];

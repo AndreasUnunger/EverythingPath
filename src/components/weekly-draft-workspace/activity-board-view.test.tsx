@@ -1,13 +1,12 @@
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { foundationWeek } from '../../../tests/rules/foundation-acceptance-fixtures';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
@@ -85,7 +84,6 @@ vi.mock('~/components/ui/select', async () => {
     ),
   };
 });
-afterEach(cleanup);
 
 const check = (die: number, modifiers: RawRoll['modifiers'] = []): RawRoll => ({
   dice: [die],

@@ -1,13 +1,6 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
 import { acceptedCampaignSetup } from '../../../tests/rules/accepted-campaign';
 import type { CanonicalWeekState } from '~/lib/canonical-weekly-source';
@@ -168,7 +161,6 @@ beforeEach(() => {
   calls = [];
   setMilitia(3, state());
 });
-afterEach(cleanup);
 
 describe('Teams correction', () => {
   test('removing a team a staged slot uses names the slot, links its phase and still saves only the teams', async () => {

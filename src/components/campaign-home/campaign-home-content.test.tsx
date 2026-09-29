@@ -68,7 +68,6 @@ const hrefs = () =>
   screen.getAllByRole('link').map((link) => link.getAttribute('href'));
 
 afterEach(() => {
-  cleanup();
   retry.mockClear();
 });
 

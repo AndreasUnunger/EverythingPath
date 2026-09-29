@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import {
   ShellSlotHost,
   ShellSlotProvider,
@@ -31,8 +30,6 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-
-afterEach(cleanup);
 
 const item = (id: string) => ({ id, message: id });
 const summaryWarnings = [item('w'), item('x')];

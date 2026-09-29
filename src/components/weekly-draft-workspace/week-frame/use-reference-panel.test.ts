@@ -1,5 +1,5 @@
-import { act, cleanup, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { useReferencePanel } from './use-reference-panel';
 
 const useRecentHistory = vi.fn();
@@ -22,7 +22,6 @@ beforeEach(() => {
     removeEventListener: () => undefined,
   })) as unknown as typeof window.matchMedia;
 });
-afterEach(cleanup);
 
 test('the panel opens by default and remembers a closed preference in this browser only', () => {
   const first = renderHook(() => useReferencePanel('campaign'));

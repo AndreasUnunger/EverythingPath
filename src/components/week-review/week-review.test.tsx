@@ -1,14 +1,8 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type {
   ResultRow,
   ReviewPhase,
@@ -16,7 +10,6 @@ import type {
   WeekReviewFacts,
 } from './review-facts';
 import { WeekReviewSections } from './week-review';
-afterEach(cleanup);
 
 function section(
   phase: ReviewPhase,

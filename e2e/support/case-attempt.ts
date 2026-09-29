@@ -1,7 +1,11 @@
-import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { link, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { savePrivate } from './process';
 
+// Parallel workers may claim the same key at once. The owner is written to a
+// private temporary file and linked into place: link refuses an existing
+// name atomically, so exactly one test wins and no reader sees a partial file.
 export async function claimCaseKey(
   privateDirectory: string,
   workerKey: string,
@@ -13,18 +17,22 @@ export async function claimCaseKey(
     'case-owners',
     `${workerKey}-${caseKey}.json`,
   );
-  let owner: string | undefined;
+  const candidate = `${path}.${randomUUID()}.claim`;
+  await savePrivate(candidate, testId);
   try {
-    owner = await readFile(path, 'utf8');
+    await link(candidate, path);
+    return;
   } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT'))
+    if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST'))
       throw error;
+  } finally {
+    await rm(candidate, { force: true });
   }
-  if (owner && owner !== testId)
+  // A retry of the owning test reclaims its key.
+  if ((await readFile(path, 'utf8')) !== testId)
     throw new Error(
       'Each browser test must declare a distinct fixture case key',
     );
-  await savePrivate(path, testId);
 }
 
 export async function caseAttempt<T>(

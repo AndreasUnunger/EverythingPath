@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
 import {
   ConfirmedWeekNotice,
   RemoteChangeNote,
@@ -18,7 +18,6 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-afterEach(cleanup);
 
 function failure() {
   return document.querySelector('[data-week-save-failure]');

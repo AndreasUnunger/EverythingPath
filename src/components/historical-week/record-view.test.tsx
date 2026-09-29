@@ -1,14 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { expect, test } from 'vitest';
 import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import {
@@ -25,7 +19,6 @@ import {
 import { mixedKindSnapshot } from '../../../tests/rules/character-kind-fixture';
 import { persistentEventFixture } from '../../../tests/rules/persistent-event-fixture';
 import { HistoricalRecordView } from './record-view';
-afterEach(cleanup);
 
 const source = weeklyDraftDataSchema.parse(
   createWeeklyDraft({

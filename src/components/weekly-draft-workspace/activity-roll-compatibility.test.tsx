@@ -1,11 +1,5 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { expect, test } from 'vitest';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
 import type { ActivityView as Facts } from './types';
@@ -15,7 +9,6 @@ import {
   acceptingEdit,
   selectSlot,
 } from './activity-view-fixture';
-afterEach(cleanup);
 
 function total(sides: number, diceCount: number, diceTotal: number): RawRoll {
   return {

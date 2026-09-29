@@ -1,16 +1,14 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { PersistentView } from './persistent-view';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import type { PersistentView as Facts } from './types';
-afterEach(cleanup);
 
 type Event = Facts['events'][number];
 const rivalry: Event = {

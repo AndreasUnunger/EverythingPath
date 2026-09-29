@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
@@ -20,8 +20,6 @@ import { eventView } from './event-facts';
 import { EventView } from './event-view';
 
 vi.mock('~/components/ui/select', () => import('./native-select-test-double'));
-
-afterEach(cleanup);
 
 function view(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
   const source = workspaceSourceSchema.parse({

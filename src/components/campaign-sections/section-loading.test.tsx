@@ -1,13 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type { ComponentType } from 'react';
 import WeekLoading from '~/app/campaigns/[campaignId]/week/loading';
 import HistoryLoading from '~/app/campaigns/[campaignId]/history/loading';
 import MilitiaLoading from '~/app/campaigns/[campaignId]/militia/loading';
 import CharactersLoading from '~/app/campaigns/[campaignId]/characters/loading';
 import SetupLoading from '~/app/campaigns/[campaignId]/setup/loading';
-
-afterEach(cleanup);
 
 // Every campaign section has a route fallback, so a section link moves at
 // once and shows the destination's own skeleton while its page arrives

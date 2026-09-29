@@ -1,12 +1,11 @@
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import type { RawRoll, StagedActionChoice } from '~/lib/weekly-draft-facts';
 import { ActivityView } from './activity-view';
 import {
@@ -16,7 +15,6 @@ import {
   selectSlot,
 } from './activity-view-fixture';
 import type { ActivityView as Facts } from './types';
-afterEach(cleanup);
 
 type Slot = Facts['slots'][number];
 function facts(
