@@ -149,7 +149,6 @@ export function checkModifierLabel(
 function checkFacts(
   choice: StagedActionChoice,
   projected: ProjectedCheck | undefined,
-  succeeded: boolean | null,
   label: (source: string) => string,
 ): ActivityCheck | null {
   const spec = activityRollSpec(choice.actionId, 'check');
@@ -160,7 +159,13 @@ function checkFacts(
     dc: projected?.dc ?? null,
     modifier: projected?.modifier ?? null,
     total: projected?.total ?? null,
-    succeeded,
+    // The check's own reading, as the rules compare it. The action result
+    // stays undecided while any of the action's rolls is missing, including
+    // a roll only this reading asks for, so it cannot decide what shows.
+    succeeded:
+      projected?.total === null || projected?.total === undefined
+        ? null
+        : projected.dc === undefined || projected.total >= projected.dc,
     breakdown: (projected?.modifiers ?? []).map((modifier) => ({
       source: modifier.source,
       label: label(modifier.source),
@@ -627,13 +632,7 @@ function slotFacts({
         }
       : null,
     check: choice
-      ? checkFacts(
-          choice,
-          projected,
-          projection?.actionResults.find((entry) => entry.choiceId === choiceId)
-            ?.succeeded ?? null,
-          label,
-        )
+      ? checkFacts(choice, projected, label)
       : null,
     modifiers: choice
       ? recordedModifiers(choice, requirements, projected, label)

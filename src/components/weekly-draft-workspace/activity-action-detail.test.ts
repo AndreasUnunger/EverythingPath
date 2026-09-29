@@ -516,6 +516,13 @@ describe('rolls and consumables', () => {
           training: d(6, 2, 7),
         },
       },
+      // Before its Training roll is entered: the missing roll is itself a
+      // requirement, so it must show from the check alone.
+      {
+        choiceId: 'fresh-drill',
+        actionId: 'drill_militia',
+        rolls: { check: d(20, 1, check) },
+      },
       {
         choiceId: 'dismiss',
         actionId: 'dismiss_team',
