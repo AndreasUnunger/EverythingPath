@@ -8,6 +8,16 @@ export type CampaignSection =
   | 'characters'
   | 'setup';
 
+// Dynamic segments may arrive percent-encoded; a malformed encoding keeps the
+// raw value, which the campaign gate then reports as unavailable.
+export function decodeCampaignId(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export function campaignPath(
   campaignId: string,
   section: CampaignSection = 'home',
@@ -85,22 +95,4 @@ export function historyPath(
   }
   const query = params.toString();
   return `${campaignPath(campaignId, 'history')}${query ? `?${query}` : ''}`;
-}
-
-export function legacyCampaignPath(
-  pathname: string,
-  params: SearchParams,
-): string {
-  const campaignId = params.get('campaign');
-  if (!campaignId) return '/campaigns';
-  switch (pathname) {
-    case '/canonical-workspace':
-      return weekPath(campaignId, params.get('phase'));
-    case '/canonical-setup':
-      return campaignPath(campaignId, 'setup');
-    case '/canonical-history':
-      return historyPath(campaignId, parseHistorySelection(params));
-    default:
-      return '/campaigns';
-  }
 }

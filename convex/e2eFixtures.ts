@@ -36,8 +36,7 @@ const caseKey = v.union(
   v.literal('workspaceActivity'),
   v.literal('campaignHome'),
   v.literal('campaignSections'),
-  v.literal('legacyAddresses'),
-  v.literal('legacyWeekLinks'),
+  v.literal('weekLinks'),
 );
 const scopeArgs = {
   namespace: v.string(),

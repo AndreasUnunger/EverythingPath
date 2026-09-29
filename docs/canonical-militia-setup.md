@@ -1,6 +1,6 @@
 # Canonical militia setup (#87)
 
-`/canonical-setup?campaign=<campaign>` lets campaign members initialize either a
+`/campaigns/<campaign>/setup` lets campaign members initialize either a
 new militia or an existing table's militia. The route and its Convex endpoints
 use the existing owned-preview isolation gate. Live campaigns remain on their
 current workflow until the approved cutover.

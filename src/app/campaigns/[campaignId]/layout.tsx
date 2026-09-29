@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { CampaignShell } from '~/components/campaign-shell/campaign-shell';
-import { decodeCampaignId } from '~/components/campaign-shell/legacy-redirect';
+import { decodeCampaignId } from '~/lib/campaign-routes';
 
 export default async function CampaignLayout({
   children,

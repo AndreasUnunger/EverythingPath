@@ -61,6 +61,7 @@ import type { Page } from '@playwright/test';
 import { join } from 'node:path';
 import { draftKeySchema } from '../convex/lib/canonicalStorageValidators';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
+import { weekPath } from '../src/lib/campaign-routes';
 import { test, expect } from './support/fixtures';
 import { exerciseRankBoon } from './support/rank-boons';
 import { workspaceCaseKey } from './support/matrix';
@@ -135,7 +136,7 @@ test('players prepare shared Upkeep with independent navigation and save recover
       draftId: randomUUID(),
     }),
   );
-  const route = `/canonical-workspace?campaign=${scope.campaignId}`;
+  const route = weekPath(scope.campaignId);
   const network = await controlNextDraftEdit(
     players.gm,
     run.fixture!.convexUrl,

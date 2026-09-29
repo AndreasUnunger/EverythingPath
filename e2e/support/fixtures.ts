@@ -49,11 +49,7 @@ async function closeWithEvidence(
   try {
     if (info.status !== info.expectedStatus) {
       for (const [index, page] of context.pages().entries()) {
-        if (
-          ['/campaigns', '/canonical-workspace', '/canonical-setup'].some(
-            (path) => page.url().startsWith(`${run.baseURL}${path}`),
-          )
-        ) {
+        if (page.url().startsWith(`${run.baseURL}/campaigns`)) {
           const visible = await page
             .locator('h1, [role=region], [role=group], [role=dialog]')
             .allTextContents()

@@ -48,8 +48,7 @@ const journeyCases = [
 const accessSplits = [
   ['campaign-home.spec.ts', 'campaignHome'],
   ['campaign-sections.spec.ts', 'campaignSections'],
-  ['legacy-addresses.spec.ts', 'legacyAddresses'],
-  ['legacy-week-links.spec.ts', 'legacyWeekLinks'],
+  ['week-links.spec.ts', 'weekLinks'],
 ] as const;
 
 it('lists every journey split from access with its case', () => {

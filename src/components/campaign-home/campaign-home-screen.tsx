@@ -1,6 +1,6 @@
 'use client';
 import { useParams } from 'next/navigation';
-import { decodeCampaignId } from '~/components/campaign-shell/legacy-redirect';
+import { decodeCampaignId } from '~/lib/campaign-routes';
 import { CampaignHomeStatus } from './campaign-home-status';
 import { CampaignHomeView } from './campaign-home-view';
 import type { Organization } from './home-state';

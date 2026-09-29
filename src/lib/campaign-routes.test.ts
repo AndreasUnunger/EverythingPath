@@ -1,12 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import Home from '~/app/page';
 import {
   campaignPath,
+  decodeCampaignId,
   normalizePhase,
   weekPath,
   parseHistorySelection,
   historyPath,
-  legacyCampaignPath,
 } from './campaign-routes';
+
+vi.mock('next/navigation', () => ({
+  redirect: (href: string) => {
+    throw new Error(`REDIRECT ${href}`);
+  },
+}));
 
 describe('campaign navigation', () => {
   it('keeps all campaign sections scoped and encodes a campaign identifier once', () => {
@@ -88,42 +95,11 @@ it('discards malformed numeric history selectors without losing valid selection'
   ).toEqual({ week: 4 });
 });
 
-it('redirects old bookmarks with their campaign and supported selections', () => {
-  expect(
-    legacyCampaignPath(
-      '/canonical-workspace',
-      new URLSearchParams('campaign=table%2Fa&phase=summary'),
-    ),
-  ).toBe('/campaigns/table%2Fa/week?phase=summary');
-  expect(
-    legacyCampaignPath(
-      '/canonical-workspace',
-      new URLSearchParams('campaign=first&phase=invalid'),
-    ),
-  ).toBe('/campaigns/first/week?phase=upkeep');
-  expect(
-    legacyCampaignPath(
-      '/canonical-setup',
-      new URLSearchParams('campaign=first&phase=event'),
-    ),
-  ).toBe('/campaigns/first/setup');
-  expect(
-    legacyCampaignPath(
-      '/canonical-history',
-      new URLSearchParams(
-        'campaign=first&week=4&recordId=older&beforeSequence=2&unrelated=value',
-      ),
-    ),
-  ).toBe('/campaigns/first/history?week=4&recordId=older&beforeSequence=2');
-  for (const path of [
-    '/',
-    '/canonical-workspace',
-    '/canonical-history',
-    '/canonical-setup',
-  ]) {
-    expect(legacyCampaignPath(path, new URLSearchParams())).toBe('/campaigns');
-    expect(legacyCampaignPath(path, new URLSearchParams('campaign='))).toBe(
-      '/campaigns',
-    );
-  }
+it('keeps a malformed encoded id raw for the campaign gate', () => {
+  expect(decodeCampaignId('alpha%20beta')).toBe('alpha beta');
+  expect(decodeCampaignId('%E0%A4%A')).toBe('%E0%A4%A');
+});
+
+it("sends the app's entry to the campaign list", () => {
+  expect(() => Home()).toThrow('REDIRECT /campaigns');
 });
