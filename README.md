@@ -104,7 +104,8 @@ NEXT_PUBLIC_CONVEX_URL=https://e2e-build-placeholder.convex.cloud pnpm build
 
 No Convex login, deploy key, or `.env.local` is needed. This placeholder is for
 compilation only; running the app requires your actual Convex and Clerk public
-configuration. The build still downloads the Google fonts used by the app.
+configuration. The build needs no network access: the app's fonts are
+self-hosted under `src/app/fonts`.
 
 `pnpm dev` keeps running `convex dev` alongside Next.js, so backend edits refresh
 the generated files. Commit the resulting runtime utilities, declarations, and
