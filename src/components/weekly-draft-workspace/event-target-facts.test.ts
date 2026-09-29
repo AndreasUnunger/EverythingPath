@@ -303,7 +303,7 @@ test('[EVT-08.raid] Raid has one settlement, and every hidden person their own m
   );
 });
 
-test('[EVT-08.raid-event-level] an event-level mitigation or check is no person’s choice: each person is left to happen until their own is made', () => {
+test('[EVT-08.raid-event-level] an event-level mitigation or check is no person’s choice: each person is left to happen, and both are listed as unused inputs to clear', () => {
   const { draft, snapshot } = threatEventFixture(78);
   hideSecondPerson(snapshot);
   const event = draft.event.occurrences[0]!;
@@ -319,7 +319,11 @@ test('[EVT-08.raid-event-level] an event-level mitigation or check is no person�
   ]);
   expect(messages(phase)).not.toEqual(
     expect.arrayContaining([expect.stringContaining('Security check')]),
-  );
+  );  expect(raid.retained.map((entry) => [entry.field, entry.value])).toEqual([
+    ['rolls', 'check roll'],
+    ['mitigation', 'Attempt it'],
+  ]);
+  expect(raid.keep).toEqual({ targets: ['settlement'], rolls: [] });
 });
 
 test('[EVT-07.edits] target, per-person and What happened edits keep every other recorded field', () => {

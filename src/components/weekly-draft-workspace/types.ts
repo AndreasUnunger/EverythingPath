@@ -845,6 +845,15 @@ export type EventPanel =
       people: EventRaidPerson[];
       // Recorded per-person entries for people not hidden in that refuge.
       retainedPeople: (EventRetainedTarget & { index: number })[];
+      // Recorded inputs Raid does not use, such as an event-level
+      // mitigation left by a table roll that named another event.
+      retained: EventRetainedField[];
+      keep: {
+        targets: NonNullable<
+          WeeklyDraft['event']['occurrences'][number]['targets']
+        >[number]['kind'][];
+        rolls: string[];
+      };
       noPeople: string | null;
       whatHappened: EventWhatHappened;
       outcomes: string[];

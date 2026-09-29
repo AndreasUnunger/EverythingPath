@@ -2,9 +2,11 @@
 import type { EventFamilyInputsProps } from './event-family-inputs';
 import { EventNote } from './event-note';
 import { EventRaidPerson } from './event-raid-person';
+import { EventRetainedInputs } from './event-retained-inputs';
 
 // Raid: the raided settlement, then each person hidden there with their own
-// Attempt it / Let it happen, Security check and capture roll.
+// Attempt it / Let it happen, Security check and capture roll. `subject` is
+// the block label, which names the controls for assistive technology.
 export function EventRaidInputs({
   panel,
   id,
@@ -12,7 +14,8 @@ export function EventRaidInputs({
   edits,
   showRefusal,
   targetCards,
-}: EventFamilyInputsProps<'raid'>) {
+  subject,
+}: EventFamilyInputsProps<'raid'> & { subject: string }) {
   return (
     <>
       {targetCards('settlement', panel.settlement)}
@@ -42,6 +45,14 @@ export function EventRaidInputs({
           {entry.label}: {entry.reason}
         </EventNote>
       ))}
+      <EventRetainedInputs
+        retained={panel.retained}
+        subject={subject}
+        disabled={disabled}
+        onClear={(field) =>
+          showRefusal(edits.clearRetained(id, field, panel.keep))
+        }
+      />
     </>
   );
 }

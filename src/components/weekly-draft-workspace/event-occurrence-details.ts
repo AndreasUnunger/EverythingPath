@@ -8,9 +8,9 @@ type Occurrence = EventView['occurrences'][number]['occurrence'];
 // current Event controls also write, so a recorded value can still be
 // corrected or cleared there. This is an allowlist: a field added to the
 // occurrence schema is not offered until it is named here. Everything else
-// (origin, table roll, resolved type, the same-week Persistent fields and
-// any older field) is never offered and stays as recorded. `eventId` is the
-// occurrence's identity: the editor carries it but never shows it.
+// (origin, table roll, resolved type and the same-week Persistent fields) is
+// never offered and stays as recorded. `eventId` is the occurrence's
+// identity: the editor carries it but never shows it.
 const OFFERED = {
   eventId: true,
   mitigation: true,
@@ -44,7 +44,7 @@ export function eventDetailsSchema(
     : occurrenceDetailsSchema;
 }
 
-function split(occurrence: Occurrence, schema: EventDetailsSchema) {
+function splitOffered(occurrence: Occurrence, schema: EventDetailsSchema) {
   const offered: Record<string, unknown> = {};
   const kept: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(occurrence))
@@ -57,7 +57,7 @@ export function eventDetails(
   occurrence: Occurrence,
   schema: EventDetailsSchema,
 ) {
-  return split(occurrence, schema).offered;
+  return splitOffered(occurrence, schema).offered;
 }
 
 /**
@@ -70,7 +70,7 @@ export function withEventDetails(
   schema: EventDetailsSchema,
   value: unknown,
 ): Occurrence | null {
-  const { kept } = split(occurrence, schema);
+  const { kept } = splitOffered(occurrence, schema);
   if (value === undefined)
     return { ...kept, eventId: occurrence.eventId } as Occurrence;
   const parsed = schema.safeParse(value);

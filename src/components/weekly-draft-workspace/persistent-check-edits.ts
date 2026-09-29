@@ -4,7 +4,7 @@ import type { PersistentRetainedField, RivalrySkill } from './types';
 
 // The semantic edits behind a carried event's check fields. Each changes one
 // field of the saved check decision and keeps every other recorded value,
-// including Overseer support, targets and fields an older editor wrote.
+// including Overseer support and fields this check does not use.
 // Nothing here rebuilds a decision from the visible fields alone.
 
 type Decision = WeeklyDraft['persistent']['decisions'][number];

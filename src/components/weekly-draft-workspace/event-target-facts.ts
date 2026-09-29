@@ -22,9 +22,12 @@ import {
   type EventPanelItem,
 } from './event-panel-context';
 import {
+  carriedNames,
   isOutcomeFamily,
   outcomePanel,
   outcomePanelMessage,
+  retainedFields,
+  type EventFieldUse,
 } from './event-outcome-facts';
 import { eventChange } from './event-messages';
 import {
@@ -182,6 +185,14 @@ function teamPanel(
   };
 }
 
+// Raid reads its settlement and each hidden person's own check and support;
+// an event-level mitigation or roll (from another event's inputs) is unused.
+const RAID_USES: EventFieldUse = {
+  targets: ['settlement'],
+  rolls: [],
+  fields: ['targetChecks', 'overseerCharacterId'],
+};
+
 function raidPanel(item: Item, context: EventPanelContext): EventPanel {
   const { has } = codes(item);
   const occurrence = item.occurrence;
@@ -315,6 +326,13 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
     settlement,
     people: raidPeople,
     retainedPeople,
+    retained: retainedFields(
+      occurrence,
+      RAID_USES,
+      context,
+      carriedNames(context),
+    ),
+    keep: { targets: [...RAID_USES.targets], rolls: [...RAID_USES.rolls] },
     noPeople:
       selected && !hidden.length
         ? has('tracked-people')
