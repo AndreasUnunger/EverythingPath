@@ -21,7 +21,7 @@ import {
 } from '~/lib/campaign-routes';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import {
-  formatTwoArtifacts,
+  emptyPlanArtifacts,
   recordSnapshot,
 } from '../../../tests/history/resolution-record-fixtures';
 
@@ -97,7 +97,7 @@ function recordFor(week: number, entry: Entry, sequence: number) {
     sourceMilitiaSnapshot: militiaSnapshot,
     provenance: entry.provenance,
     rulesetVersion: entry.rulesetVersion,
-    ...formatTwoArtifacts({
+    ...emptyPlanArtifacts({
       before: state(militiaSnapshot.training, week * 7),
       baseline: state(1000, week * 7 + 7),
       final: state(1000 + week * 100 + sequence, week * 7 + 7),

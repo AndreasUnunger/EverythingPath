@@ -8,7 +8,7 @@ import { createWeeklyDraft } from '~/lib/weekly-draft';
 import type { CanonicalResolutionRecord } from '~/lib/canonical-resolution-record';
 import {
   confirmedWeek,
-  formatTwoArtifacts,
+  emptyPlanArtifacts,
   recordSnapshot,
 } from '../../../tests/history/resolution-record-fixtures';
 import { HistoricalRecordView } from './record-view';
@@ -78,7 +78,7 @@ const record: CanonicalResolutionRecord = {
   sourceMilitiaSnapshot: week.militiaSnapshot,
   rulesetVersion: 3,
   provenance: 'confirmation',
-  ...formatTwoArtifacts({
+  ...emptyPlanArtifacts({
     before: week.before,
     baseline: week.after,
     final: {
@@ -184,7 +184,7 @@ test('[rules.P86.display] historical display uses recorded plans, context and ta
         recordId: 'correction',
         provenance: 'historical_correction',
         supersedesRecordId: record.recordId,
-        ...formatTwoArtifacts({
+        ...emptyPlanArtifacts({
           before: week.before,
           baseline: weekStates((after) => {
             after.training = 10;
@@ -240,7 +240,7 @@ test('[rules.P86.labels] historical references remain distinguishable without ex
         ],
       },
     },
-    ...formatTwoArtifacts({
+    ...emptyPlanArtifacts({
       before: week.before,
       baseline: week.after,
       final: {

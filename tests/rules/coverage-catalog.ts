@@ -2763,7 +2763,7 @@ export const coverageCatalog = {
           id: 'roster-holders',
           checkpoint: '3-roster',
           expected:
-            'Roster preparation retains multiple holders and character identities during removal or reassignment; legacy holders map to singleton assignments.',
+            'Roster preparation retains multiple holders and character identities during removal or reassignment.',
           plannedTests: ['setup.import', 'setup.carry-form', 'setup.import'],
           tests: ['setup.import', 'setup.carry-form', 'setup.import'],
           gap: null,

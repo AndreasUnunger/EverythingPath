@@ -87,10 +87,10 @@ export function recordSnapshot() {
 }
 
 /**
- * Format-2 artifacts whose plans hold no entries: the Rules Baseline and Final
+ * Record artifacts whose plans hold no entries: the Rules Baseline and Final
  * states as stored, each defaulting to the one before it.
  */
-export function formatTwoArtifacts({
+export function emptyPlanArtifacts({
   before,
   baseline = before,
   final = baseline,

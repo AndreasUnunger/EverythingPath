@@ -104,8 +104,7 @@ test('[roster.limits] reward exemptions and held roles affect warnings without d
     'A manages 3 teams; the normal limit is 1.',
   ]);
   roster.teams[0]!.rewardCapExempt = true;
-  // An NPC's kind alone never makes an Officer; holding a role does.
-  roster.people[0]!.kind = 'npc';
+  // An NPC's kind never makes an Officer; holding a role does.
   expect(rosterWarnings(roster, characters, 2)).toEqual([
     'A manages 3 teams; the normal limit is 1.',
   ]);

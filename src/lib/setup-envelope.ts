@@ -100,6 +100,7 @@ export function parseSetupEnvelope(
   const submitted = militiaSetupSchema.safeParse(parsed.data.submitted);
   return {
     ...parsed.data,
+    // Read through the narrowed reference: the spread keeps it unknown.
     values: parsed.data.values,
     submitted: submitted.success ? submitted.data : null,
   };

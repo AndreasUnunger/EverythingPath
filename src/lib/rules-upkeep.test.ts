@@ -837,7 +837,7 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   expect(snapshot.treasuryCopper).toBe(3000);
 });
 
-test('[rules.U05.officer-exception] transfers need no officer: a transfer resolves without a ruling, and an unrelated ruling stays recorded but inert', () => {
+test('[rules.U05.officer-exception] transfers need no officer: a transfer resolves without a ruling, and a retired officer ruling stays recorded but inert', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.training = 15;
   snapshot.roster.officers = [];

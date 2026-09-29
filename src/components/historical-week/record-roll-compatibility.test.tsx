@@ -8,7 +8,7 @@ import { weeklyDraftDataSchema } from '~/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
 import {
-  formatTwoArtifacts,
+  emptyPlanArtifacts,
   recordSnapshot,
 } from '../../../tests/history/resolution-record-fixtures';
 import { HistoricalRecordView } from './record-view';
@@ -60,7 +60,7 @@ function record(
     sourceMilitiaSnapshot: militiaSnapshot,
     rulesetVersion: 5,
     provenance: 'confirmation',
-    ...formatTwoArtifacts({ before: { week: 9, militiaSnapshot, context } }),
+    ...emptyPlanArtifacts({ before: { week: 9, militiaSnapshot, context } }),
     warnings: [],
     adjudication: {
       tableAdjustments: [],

@@ -7,7 +7,7 @@ import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-reco
 import { createWeeklyDraft } from '~/lib/weekly-draft';
 import { useRecentHistory } from './use-recent-history';
 import {
-  formatTwoArtifacts,
+  emptyPlanArtifacts,
   recordSnapshot,
 } from '../../../tests/history/resolution-record-fixtures';
 import {
@@ -79,7 +79,7 @@ function history(week: number, previousWeek: number | null): CanonicalHistory {
       sourceMilitiaSnapshot: recordSnapshot(),
       provenance: 'historical_correction',
       rulesetVersion: 1,
-      ...formatTwoArtifacts({
+      ...emptyPlanArtifacts({
         before: { week, militiaSnapshot: recordSnapshot(), context },
       }),
       adjudication: {

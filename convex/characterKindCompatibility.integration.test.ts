@@ -1,6 +1,6 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
-import { expect, expectTypeOf, test } from 'vitest';
+import { afterEach, expect, expectTypeOf, test, vi } from 'vitest';
 import type { Infer } from 'convex/values';
 import { api } from './_generated/api';
 import schema, { type characterKindValidator } from './schema';
@@ -8,7 +8,9 @@ import type { Id } from './_generated/dataModel';
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import type { CharacterKind } from '../src/lib/character-kind';
 import { acceptedCampaignSetup } from '../tests/rules/accepted-campaign';
+import { initializationEdits } from '../tests/rules/initialization-edits';
 const modules = import.meta.glob('./**/*.ts');
+afterEach(() => vi.useRealTimers());
 
 const stats = {
   description: 'Keep notes',
@@ -112,6 +114,27 @@ async function seedRoster(
     });
   });
   return people;
+}
+
+async function stageWeek({
+  member,
+  scope,
+  key,
+  characterId,
+}: Awaited<ReturnType<typeof fixture>>) {
+  for (const [baseRevision, edit] of initializationEdits(
+    'patrol',
+    characterId,
+  ).entries())
+    await member.mutation(api.canonicalDraftPersistence.edit, {
+      ...scope,
+      operation: {
+        draftId: key.draftId,
+        operationId: `edit-${baseRevision}`,
+        baseRevision,
+        edit,
+      },
+    });
 }
 
 test('the Convex record validator and the shared stored kinds agree', () => {
@@ -329,4 +352,62 @@ test('Setup stores each roster person with its current record kind and keeps sam
     ].sort(),
   );
   expect(await start()).toEqual(key);
+});
+
+test('Confirmation records and commits the kinds it resolved with; the next record write moves the mirror', async () => {
+  vi.useFakeTimers();
+  const context = await fixture();
+  const { t, member, scope, key, absent, livePeople } = context;
+  // Rook's record is a PC; his stored mirror still says NPC.
+  const people = await seedRoster(context, {
+    officer: 'npc',
+    npc: 'npc',
+    absent: 'npc',
+  });
+  await stageWeek(context);
+  const preview = await member.query(
+    api.canonicalDraftPersistence.preview,
+    key,
+  );
+  expect(preview.status).toBe('ready');
+  await member.mutation(api.canonicalDraftPersistence.confirm, {
+    ...key,
+    operation: { operationId: 'confirm', reviewed: preview.reviewed },
+  });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  const history = await member.query(api.canonicalHistory.read, {
+    campaignId: scope.campaignId,
+    week: 9,
+  });
+  const recorded = (
+    value: { roster: { people: unknown[] } } | null | undefined,
+  ) => value?.roster.people.slice(-3);
+  expect(recorded(history?.record.sourceMilitiaSnapshot)).toEqual(people);
+  const outcome = history?.record.finalOutcome.data as {
+    militiaSnapshot: { roster: { people: unknown[] } };
+  };
+  expect(recorded(outcome.militiaSnapshot)).toEqual(people);
+  // Confirmation commits exactly the outcome it resolved; the mirror moves
+  // on the record's next write.
+  expect((await livePeople()).slice(-3)).toEqual(people);
+  await member.mutation(api.character.updateCharacter, {
+    organizationId: 'org',
+    characterId: absent,
+    patch: { level: 5 },
+  });
+  expect((await livePeople()).slice(-3)).toEqual([
+    people[0],
+    people[1],
+    { ...people[2], kind: 'pc' },
+  ]);
+  // Stored history is never rewritten.
+  const stored = await t.run((ctx) =>
+    ctx.db
+      .query('canonicalResolutionRecord')
+      .withIndex('by_militiaId', (q) => q.eq('militiaId', scope.militiaId))
+      .collect(),
+  );
+  expect(
+    stored.map((row) => recorded(row.record.sourceMilitiaSnapshot)),
+  ).toEqual([people]);
 });

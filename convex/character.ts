@@ -96,7 +96,6 @@ export const createCharacter = mutation({
       args.organizationId,
     );
 
-    // Old clients may still send officer_npc; the record stores PC or NPC.
     const characterId = await ctx.db.insert('character', {
       ...args.character,
       kind: normalizeCharacterKind(args.character.kind),
