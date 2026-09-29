@@ -2694,8 +2694,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation preserves integer copper values, including zero, separately from unknown money.',
-          plannedTests: ['context.absence', 'setup.import'],
-          tests: ['context.absence', 'setup.import'],
+          plannedTests: ['setup.import'],
+          tests: ['setup.import'],
           gap: null,
         },
         {
@@ -3164,8 +3164,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Editing the proposed week records whether the militia is newly founded or resuming play, without executing Upkeep or changing committed state. Previous-week carryover applies only when a previous militia week exists.',
-          plannedTests: ['context.absence', 'ledger.shared'],
-          tests: ['context.absence', 'ledger.shared'],
+          plannedTests: ['ledger.shared'],
+          tests: ['ledger.shared'],
           gap: null,
         },
         {
@@ -5179,12 +5179,8 @@ export const coverageCatalog = {
           checkpoint: '3-context',
           expected:
             'Preparation retains copper precision, due-day, enchantment duration and explicit receipt separately from next-Activity marketplace timing.',
-          plannedTests: [
-            'setup.import',
-            'context.delivery',
-            'setup.receipt-decimal',
-          ],
-          tests: ['setup.import', 'context.delivery', 'setup.receipt-decimal'],
+          plannedTests: ['setup.import', 'setup.receipt-decimal'],
+          tests: ['setup.import', 'setup.receipt-decimal'],
           gap: null,
         },
         {

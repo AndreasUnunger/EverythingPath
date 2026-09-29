@@ -173,11 +173,3 @@ export function rosterWarningDescriptors(
   });
   return warnings;
 }
-
-export function mapLegacyOfficers(
-  holders: Partial<Record<(typeof OFFICER_ROLES)[number], string>>,
-) {
-  return OFFICER_ROLES.flatMap((role) =>
-    holders[role] ? [{ role, characterId: holders[role] }] : [],
-  );
-}

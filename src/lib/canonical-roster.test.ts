@@ -3,7 +3,6 @@ import {
   canonicalRosterSchema,
   rosterWarnings,
   rosterWarningDescriptors,
-  mapLegacyOfficers,
 } from './canonical-roster';
 
 test('[roster.identities] repeated teams keep independent conditions, exemptions and managers', () => {
@@ -48,10 +47,6 @@ test('[roster.identities] repeated teams keep independent conditions, exemptions
       1,
     ),
   ).toEqual(['Alice manages 2 teams; the normal limit is 1.']);
-  expect(mapLegacyOfficers({ commandant: 'alice', marshal: 'bob' })).toEqual([
-    { role: 'commandant', characterId: 'alice' },
-    { role: 'marshal', characterId: 'bob' },
-  ]);
 });
 
 test('[roster.validation] duplicate identities and dangling manager references are structural errors', () => {

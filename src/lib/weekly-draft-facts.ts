@@ -164,6 +164,7 @@ export const queuedEffectSchema = z.strictObject({
     z.strictObject({ kind: z.literal('narrative'), instruction: reason }),
   ]),
 });
+export type QueuedEffect = z.infer<typeof queuedEffectSchema>;
 
 export const persistentDecisionSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('unattempted'), eventId: id }),
