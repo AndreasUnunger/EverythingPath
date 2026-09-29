@@ -68,8 +68,8 @@ The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
 creates fresh ignored role storage and runs the nine Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
-unless `--workers N` asks for up to the declared number; a single cohort runs
-exactly serially. Local runs acquire an
+and at most one per available CPU, unless `--workers N` asks for up to the
+declared number; a single cohort runs exactly serially. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
 run still owns the slot before removing its exact stale lock directory.
@@ -720,8 +720,16 @@ isolation recorded above. Tests are about 93 % of a nightly run, and each cohort
 complete isolation unit: its organizations are disjoint from every other cohort's.
 
 - **Workers.** `pnpm test:e2e` starts one Playwright worker per declared cohort,
-  capped at three. `--workers N` selects between 1 and the declared number; use
-  `--workers 1` for a serial baseline on the same declaration. The runner refuses
+  capped at three and at Node's `availableParallelism()` (the console line
+  names both). `--workers N` selects between 1 and the declared number; use
+  `--workers 1` for a serial baseline on the same declaration. The CPU cap
+  exists because each worker drives three browser contexts against one shared
+  production server: on a 2-vCPU GitHub runner, three workers pushed most
+  `canonical-workspace` journeys past their timeouts, while two passed first
+  time in about 8.5 minutes of browser time and one needed about 14.5, too
+  close to the 17.5-minute budget (#198). CPU quotas such as
+  `docker run --cpus` are not visible to `availableParallelism()`; pin CPUs
+  with `--cpuset-cpus` or pass `--workers` when emulating a small runner. The runner refuses
   cohorts that are out of order (`worker-0`, `worker-1`, ...) or share a key,
   organization or identity. `fullyParallel` stays off: files run whole on one
   worker, except `canonical-workspace.spec.ts`, which opts in per test. The

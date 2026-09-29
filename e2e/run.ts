@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { createServer } from 'node:net';
+import { availableParallelism } from 'node:os';
 import { evaluateResults } from './support/results';
 import { sourceFingerprint } from './support/source-evidence';
 import { loadTargets } from './support/configuration';
@@ -127,7 +128,7 @@ async function main() {
       CONVEX_DEPLOY_KEY: targets.previewKey,
     });
     process.stdout.write(
-      `E2E target: preview ${targets.resources.previewName}; recreate, deploy and build. Workers: ${workers}, one cohort each.\n`,
+      `E2E target: preview ${targets.resources.previewName}; recreate, deploy and build. Workers: ${workers}, one cohort each (${availableParallelism()} CPUs).\n`,
     );
     await command(
       'preview deployment and web build',
