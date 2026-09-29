@@ -36,23 +36,13 @@ function upkeep(
   return { ...view, sections: view.sections };
 }
 
-test('[rules.UPK-10.rows] transfers list in staged order without a character, and a legacy row keeps its recorded name', () => {
+test('[rules.UPK-10.rows] transfers list in staged order without a character', () => {
   const view = upkeep((draft, snapshot) => {
     snapshot.roster.officers = [];
     draft.upkeep.treasuryTransfers = [
       { transferId: 'new', direction: 'deposit', copper: 7 },
-      {
-        transferId: 'legacy',
-        characterId: 'pc',
-        direction: 'withdraw',
-        copper: 500,
-      },
-      {
-        transferId: 'gone',
-        characterId: 'gone',
-        direction: 'deposit',
-        copper: 0,
-      },
+      { transferId: 'withdraw', direction: 'withdraw', copper: 500 },
+      { transferId: 'zero', direction: 'deposit', copper: 0 },
     ];
   });
   expect(view.sections.transfers).toMatchObject({
@@ -66,13 +56,12 @@ test('[rules.UPK-10.rows] transfers list in staged order without a character, an
         transferId: 'new',
         direction: 'deposit',
         copper: 7,
-        legacyCharacterName: null,
         theftCopper: null,
         fundsException: null,
         issues: [],
       },
-      { transferId: 'legacy', legacyCharacterName: 'Ameiko', issues: [] },
-      { transferId: 'gone', legacyCharacterName: 'Unnamed character' },
+      { transferId: 'withdraw', direction: 'withdraw', issues: [] },
+      { transferId: 'zero', direction: 'deposit' },
     ],
   });
   expect(view.requirements).toEqual([]);

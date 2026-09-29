@@ -199,10 +199,10 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
       'Rescuers',
       'Training attrition',
       'Rank',
-      'Treasury deposit · Character 2',
+      'Treasury deposit',
     ]);
     // The record stores no character names: they stay distinct by number.
-    expect(item(facts, 0, 'Treasury deposit · Character 2').effects).toEqual([
+    expect(item(facts, 0, 'Treasury deposit').effects).toEqual([
       expect.objectContaining({ text: 'Treasury +7 gp' }),
     ]);
     expect(
@@ -299,7 +299,7 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
       'Loyalty check roll: dice 14 (1d20) · +2 Drill bonus',
       'Training loss roll: dice 3, 4 (2d4)',
     ]);
-    expect(item(facts, 0, 'Treasury deposit · Character 1').details).toEqual([
+    expect(item(facts, 0, 'Treasury deposit').details).toEqual([
       'Recorded amount 7 gp',
     ]);
     const gold = item(facts, 1, 'Slot 1 · Earn Gold · Team 1');

@@ -194,24 +194,13 @@ function rankItem(review: Review) {
   return [entry];
 }
 
-/** A transfer's recorded actor, from records that still name one. */
-function findTransferActor(
-  transfer: Source['upkeep']['treasuryTransfers'][number],
-) {
-  return 'characterId' in transfer && typeof transfer.characterId === 'string'
-    ? transfer.characterId
-    : null;
-}
-
 function transferItems(review: Review) {
   return review.record.source.upkeep.treasuryTransfers.map((transfer) => {
-    const actor = findTransferActor(transfer);
     const kind = transfer.direction === 'deposit' ? 'deposit' : 'withdrawal';
-    return newItem(
+    return newItem(transferSubject(transfer.transferId), `Treasury ${kind}`, [
+      transfer.transferId,
       transferSubject(transfer.transferId),
-      `Treasury ${kind}${actor ? ` · ${review.names.character(actor)}` : ''}`,
-      [transfer.transferId, transferSubject(transfer.transferId)],
-    );
+    ]);
   });
 }
 

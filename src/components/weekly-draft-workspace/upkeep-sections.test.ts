@@ -361,7 +361,6 @@ test('rank waits for the earlier steps and then reports the actual transition', 
     draft.upkeep.treasuryTransfers = [
       {
         transferId: 'deposit',
-        characterId: 'pc',
         direction: 'deposit',
         copper: 250,
       },

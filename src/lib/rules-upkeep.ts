@@ -81,9 +81,6 @@ export type UpkeepChange =
   | {
       kind: 'treasury';
       sourceId: string;
-      // Always null now; records confirmed before Ruleset Version 6 keep the
-      // officer who made a transfer.
-      characterId: string | null;
       before: number;
       after: number;
     }
@@ -368,7 +365,6 @@ function treasury(result: UpkeepProjection, sourceId: string, delta: number) {
   result.plan.push({
     kind: 'treasury',
     sourceId,
-    characterId: null,
     before,
     after: result.outcome.treasuryCopper,
   });
@@ -555,8 +551,7 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
 }
 // Step 5. The corpus lets only officers transfer; the table approved dropping
 // that restriction (#107), so transfers carry no character and need no
-// officer (Ruleset Version 6). A character recorded on an older staged
-// transfer is metadata only. Withdrawals beyond the running treasury still
+// officer (Ruleset Version 6). Withdrawals beyond the running treasury still
 // need their own reasoned exception.
 function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
   for (const transfer of draft.upkeep.treasuryTransfers) {

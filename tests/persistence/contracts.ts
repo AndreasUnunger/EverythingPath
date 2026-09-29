@@ -1134,11 +1134,8 @@ async function removeSlotScenarios(scenario: Scenario) {
   });
 }
 
-// Both treasury transfer forms (#158): the actorless form current clients
-// send, and the legacy form that names a character. The shared fixture's
-// week-start snapshot has no characters, so a legacy actor is refused there
-// without changing the draft; an accepted legacy actor is covered in
-// `convex/characterlessTransfers.integration.test.ts`.
+// Treasury transfers carry no character (#158). A transfer that names one is
+// refused without changing the draft.
 async function transferScenarios(scenario: Scenario) {
   await scenario(async ({ first, second }, op) => {
     const deposit = {
@@ -1160,14 +1157,13 @@ async function transferScenarios(scenario: Scenario) {
         op(1, {
           kind: 'upkeep_transfer',
           transfer: {
-            transferId: 'legacy',
-            characterId: 'outside-the-week',
-            direction: 'withdraw',
-            copper: 250,
-          },
+            ...deposit,
+            transferId: 'actor',
+            characterId: 'pc',
+          } as typeof deposit,
         }),
       ),
-      'A legacy transfer names a character of the week-start militia',
+      'A transfer that names a character is refused',
     );
     const after = await first.read();
     check(

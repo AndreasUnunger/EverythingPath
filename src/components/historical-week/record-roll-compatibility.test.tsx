@@ -75,7 +75,7 @@ const line = (section: string, title: string) =>
     .getAllByRole('listitem')
     .find((item) => item.textContent?.startsWith(title))?.textContent;
 
-test('[rules.HIST-05.old-source] an older record shows its recorded individual dice and transfer actor exactly, with no editable control', () => {
+test('[rules.HIST-05.old-source] an older record shows its recorded individual dice exactly, with no editable control', () => {
   const old = record(
     {
       check: {
@@ -93,7 +93,6 @@ test('[rules.HIST-05.old-source] an older record shows its recorded individual d
     },
     {
       transferId: 'transfer',
-      characterId: 'officer',
       direction: 'deposit',
       copper: 700,
     },
@@ -102,9 +101,8 @@ test('[rules.HIST-05.old-source] an older record shows its recorded individual d
   expect(line('1 Upkeep', 'Training attrition')).toBe(
     'Training attrition · Loyalty check roll: dice 20 (1d20) · Training loss roll: dice 3, 4 (2d4)',
   );
-  // The actor an older transfer recorded, by its record-local label.
   expect(line('1 Upkeep', 'Treasury deposit')).toBe(
-    'Treasury deposit · Character 1 · Recorded amount 7 gp',
+    'Treasury deposit · Recorded amount 7 gp',
   );
   expect(line('3 Event', 'Event 1')).toContain('Table roll: dice 20 (1d20)');
   expect(container.textContent).not.toContain('dice total');
@@ -117,7 +115,6 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
     { check: total(20, 1, 0), training: total(4, 2, 7) },
     {
       transferId: 'transfer',
-      characterId: 'officer',
       direction: 'withdraw',
       copper: 250,
     },
@@ -127,7 +124,7 @@ test('[rules.HIST-05.new-source] a newer record shows its recorded totals and co
     'Training attrition · Loyalty check roll: dice total 0 (1d20) · Training loss roll: dice total 7 (2d4)',
   );
   expect(line('1 Upkeep', 'Treasury withdrawal')).toBe(
-    'Treasury withdrawal · Character 1 · Recorded amount 2.5 gp',
+    'Treasury withdrawal · Recorded amount 2.5 gp',
   );
   expect(container.textContent).not.toMatch(/dice \d/);
   expect(container.querySelector('input, textarea, select')).toBeNull();

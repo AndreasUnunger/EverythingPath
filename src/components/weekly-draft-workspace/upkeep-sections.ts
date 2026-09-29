@@ -100,7 +100,7 @@ export function upkeepSections({
       earlierOpen,
       issues: issues('rank'),
     }),
-    transfers: transfersSection(context, earlierOpen, transfers, source.people),
+    transfers: transfersSection(context, earlierOpen, transfers),
     general,
   };
 }
@@ -377,7 +377,6 @@ function transfersSection(
   context: Context,
   earlierOpen: boolean,
   transfers: UpkeepView['transfers'],
-  people: WorkspaceSource['people'],
 ): UpkeepSections['transfers'] {
   const { projection } = context;
   const ids = new Set(transfers.map((item) => item.transferId));
@@ -387,7 +386,6 @@ function transfersSection(
     transferItem(
       context,
       transfer,
-      people,
       sectionIssues.filter((issue) => owner(issue) === transfer.transferId),
     ),
   );
@@ -420,7 +418,6 @@ function transfersSection(
 function transferItem(
   { draft, projection }: Context,
   transfer: UpkeepView['transfers'][number],
-  people: WorkspaceSource['people'],
   issues: UpkeepIssue[],
 ): UpkeepTransfer {
   const theft = projection.plan.find(
@@ -441,11 +438,6 @@ function transferItem(
     transferId: transfer.transferId,
     direction: transfer.direction,
     copper: transfer.copper,
-    legacyCharacterName:
-      transfer.characterId === undefined
-        ? null
-        : (people.find((person) => person.characterId === transfer.characterId)
-            ?.name ?? 'Unnamed character'),
     theftCopper: theft ? theft.after - theft.before : null,
     fundsException:
       exception || required

@@ -154,14 +154,10 @@ exclude manager bonuses, which apply only to militia actions.
 Transfers check available funds in their staged order. Since Ruleset Version 6
 (#158) they carry no character and need no officer: the approved departure from
 the corpus's officer-only Step 5 sentence is noted beside that sentence. A
-character recorded on an older transfer is kept as metadata and is never a
-reference blocker; a new edit may only name a character of the campaign. A
 withdrawal exceeding the running treasury retains its projected outcome and
 warning, but requires a reasoned `upkeep-transfer-funds` exception with the
 transfer identity as the subject before Upkeep is ready. Each overdraft needs its
-own exception; later deposits do not excuse earlier overdrafts. Recorded
-`upkeep-transfer-officer` exceptions stay in their drafts and records but are no
-longer required or created.
+own exception; later deposits do not excuse earlier overdrafts.
 
 `upkeepProjection.integration.test.ts` builds the browser entry as JavaScript,
 executes that bundle in an isolated VM, and compares its complete outcomes with

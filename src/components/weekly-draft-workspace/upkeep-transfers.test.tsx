@@ -120,12 +120,7 @@ test('[rules.UPK-10.amount-errors] empty and malformed amounts keep their own me
 test('[rules.UPK-09.row-exception] a withdrawal beyond the treasury shows its warning and reasoned exception on its row, and removing it clears the ruling too', async () => {
   const { edit, step } = renderTransfers((draft) => {
     draft.upkeep.treasuryTransfers = [
-      {
-        transferId: 'legacy',
-        characterId: 'pc',
-        direction: 'deposit',
-        copper: 2500,
-      },
+      { transferId: 'deposit', direction: 'deposit', copper: 2500 },
       { transferId: 'withdraw', direction: 'withdraw', copper: 6000 },
     ];
     draft.rulesExceptions = [
@@ -141,7 +136,7 @@ test('[rules.UPK-09.row-exception] a withdrawal beyond the treasury shows its wa
   const rows = within(
     within(step).getByRole('list', { name: 'Staged transfers' }),
   ).getAllByRole('listitem');
-  expect(rows[0]).toHaveTextContent('Deposit · Ameiko');
+  expect(rows[0]).toHaveTextContent('Deposit');
   expect(rows[0]).toHaveTextContent('+25 gp');
   expect(rows[1]).toHaveTextContent('Withdrawal');
   expect(rows[1]).toHaveTextContent('−60 gp');
@@ -182,7 +177,7 @@ test('[rules.UPK-09.row-exception] a withdrawal beyond the treasury shows its wa
     within(step).getByRole('button', { name: 'Remove deposit of 25 gp' }),
   );
   expect(edit.mock.calls).toEqual([
-    [{ kind: 'clear_upkeep_transfer', transferId: 'legacy' }],
+    [{ kind: 'clear_upkeep_transfer', transferId: 'deposit' }],
   ]);
   expect(step).not.toHaveTextContent(/officer/i);
 });

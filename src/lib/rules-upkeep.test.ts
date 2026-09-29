@@ -22,7 +22,6 @@ test('[rules.U01.first-use] first use skips every Upkeep effect even at displaye
   first.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1000,
     },
@@ -203,7 +202,6 @@ test('[rules.U04.shortage] disabled recovery is paid before rolled treasury shor
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 3001,
     },
@@ -422,7 +420,6 @@ test('[rules.U04.boundary] a copper below the starting minimum incurs shortage; 
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'withdraw',
-      characterId: 'pc',
       direction: 'withdraw',
       copper: 1,
     },
@@ -435,7 +432,6 @@ test('[rules.U04.boundary] a copper below the starting minimum incurs shortage; 
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1,
     },
@@ -523,13 +519,11 @@ test('[rules.U05.order] staged copper transfers follow the post-loss rank increa
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 501,
     },
     {
       transferId: 'withdraw',
-      characterId: 'pc',
       direction: 'withdraw',
       copper: 250,
     },
@@ -604,7 +598,6 @@ test('[rules.U05.preview] carried persistent Theft withholds half of incoming de
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 501,
     },
@@ -614,7 +607,6 @@ test('[rules.U05.preview] carried persistent Theft withholds half of incoming de
   expect(result.plan).toContainEqual({
     kind: 'treasury',
     sourceId: 'theft:theft:deposit',
-    characterId: null,
     before: 3501,
     after: 3251,
   });
@@ -833,7 +825,6 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'withdraw',
-      characterId: 'pc',
       direction: 'withdraw',
       copper: 3100,
     },
@@ -857,7 +848,6 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   draft.rulesExceptions = [];
   draft.upkeep.treasuryTransfers.unshift({
     transferId: 'deposit',
-    characterId: 'pc',
     direction: 'deposit',
     copper: 100,
   });
@@ -873,7 +863,7 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   expect(snapshot.treasuryCopper).toBe(3000);
 });
 
-test('[rules.U05.officer-exception] transfers need no officer: a characterless or former non-officer transfer resolves without a ruling, and an old officer ruling stays recorded but inert', () => {
+test('[rules.U05.officer-exception] transfers need no officer: a transfer resolves without a ruling, and an unrelated ruling stays recorded but inert', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.training = 15;
   snapshot.roster.officers = [];
@@ -885,22 +875,19 @@ test('[rules.U05.officer-exception] transfers need no officer: a characterless o
     reason: 'The officers delegate this transfer',
   };
   for (const direction of ['deposit', 'withdraw'] as const) {
-    for (const transfer of [
-      { transferId: 'transfer', direction, copper: 100 },
-      { transferId: 'transfer', characterId: 'pc', direction, copper: 100 },
-    ]) {
-      for (const exceptions of [[], [oldRuling]]) {
-        draft.upkeep.treasuryTransfers = [transfer];
-        draft.rulesExceptions = exceptions;
-        const result = projectUpkeep(draft, snapshot);
-        expect(result.ready).toBe(true);
-        expect(result.requirements).toEqual([]);
-        expect(result.warnings).toEqual([]);
-        expect(result.outcome.treasuryCopper).toBe(
-          direction === 'deposit' ? 3100 : 2900,
-        );
-        expect(draft.rulesExceptions).toEqual(exceptions);
-      }
+    for (const exceptions of [[], [oldRuling]]) {
+      draft.upkeep.treasuryTransfers = [
+        { transferId: 'transfer', direction, copper: 100 },
+      ];
+      draft.rulesExceptions = exceptions;
+      const result = projectUpkeep(draft, snapshot);
+      expect(result.ready).toBe(true);
+      expect(result.requirements).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.outcome.treasuryCopper).toBe(
+        direction === 'deposit' ? 3100 : 2900,
+      );
+      expect(draft.rulesExceptions).toEqual(exceptions);
     }
   }
 });
@@ -927,28 +914,24 @@ test('[rules.U05.characterless] deposits and withdrawals resolve in staged order
     {
       kind: 'treasury',
       sourceId: 'zero',
-      characterId: null,
       before: 3000,
       after: 3000,
     },
     {
       kind: 'treasury',
       sourceId: 'deposit',
-      characterId: null,
       before: 3000,
       after: 3007,
     },
     {
       kind: 'treasury',
       sourceId: 'withdraw',
-      characterId: null,
       before: 3007,
       after: 0,
     },
     {
       kind: 'treasury',
       sourceId: 'overdraft',
-      characterId: null,
       before: 0,
       after: -1,
     },

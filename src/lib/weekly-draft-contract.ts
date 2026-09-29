@@ -55,14 +55,11 @@ const upkeepSchema = z.strictObject({
   notorietyCheck: rawRollSchema.optional(),
   nearestSettlementId: id.optional(),
   rolls: upkeepRollsSchema.default({}),
-  // Transfers are characterless (#158). A character recorded on a transfer
-  // staged before then is kept as historical metadata only; it is never
-  // required and never checked against the roster.
+  // Transfers are characterless (#158).
   treasuryTransfers: z
     .array(
       z.strictObject({
         transferId: id,
-        characterId: id.optional(),
         direction: z.enum(['deposit', 'withdraw']),
         copper: int,
       }),

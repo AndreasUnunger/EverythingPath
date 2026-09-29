@@ -145,9 +145,6 @@ export type UpkeepTransfer = {
   transferId: string;
   direction: 'deposit' | 'withdraw';
   copper: number;
-  // The character recorded on a transfer staged before transfers became
-  // characterless; null for every new transfer.
-  legacyCharacterName: string | null;
   // The treasury change Theft makes to this deposit (negative); null if none.
   theftCopper: number | null;
   // Present while a withdrawal beyond the treasury needs, or already has, its

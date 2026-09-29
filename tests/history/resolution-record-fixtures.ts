@@ -66,7 +66,6 @@ export function confirmedWeek({
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'id-transfer',
-      characterId: 'strategist',
       direction: 'deposit',
       copper: 700,
     },
@@ -125,7 +124,6 @@ function legacySource() {
     treasuryTransfers: [
       {
         transferId: 'id-old-deposit',
-        characterId: 'id-quartermaster',
         direction: 'deposit',
         copper: 700,
       },
