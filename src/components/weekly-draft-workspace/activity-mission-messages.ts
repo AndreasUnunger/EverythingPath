@@ -23,9 +23,6 @@ const shared: Record<string, string> = {
   'settlement-secured:exception': `Reduce Danger normally needs a secured settlement. ${EXCEPTION}`,
   'settlement-occupied':
     'Whether enemies occupy the settlement is not recorded. Record it in Militia corrections.',
-  'propaganda-permission':
-    'Record whether the GM allows propaganda in this settlement.',
-  'propaganda-impossible:exception': `The GM rules propaganda impossible in this settlement. ${EXCEPTION}`,
   'propaganda-limit:exception': `An earlier choice already spreads propaganda in this settlement this Activity. ${EXCEPTION}`,
   'refuge-reputation:exception': `A refuge normally needs a Hostile or Unfriendly settlement. ${EXCEPTION}`,
   location: 'Name the location.',

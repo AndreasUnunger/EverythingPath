@@ -654,6 +654,59 @@ test('[rules.F04.obsolete-exception] an old capacity exception remains visible f
   });
 });
 
+test('[rules.F04.obsolete-propaganda-exception] a leftover impossible-propaganda exception explains it has no effect and offers removal', () => {
+  const edit = vi.fn().mockResolvedValue('accepted');
+  render(
+    <SummaryView
+      view={{
+        ...view,
+        options: { subjectId: [{ value: 'sway', label: 'Spread Propaganda' }] },
+        exceptions: [
+          {
+            exceptionId: 'ruled-out',
+            subjectId: 'sway',
+            ruleId: 'propaganda-impossible',
+            name: 'Spread Propaganda',
+            reason: 'The GM once ruled it out',
+          },
+        ],
+        review: withException(
+          {
+            kind: 'exception',
+            key: 'exception:ruled-out',
+            exceptionId: 'ruled-out',
+            subjectId: 'sway',
+            ruleId: 'propaganda-impossible',
+            rule: 'Propaganda Impossible',
+            reason: 'The GM once ruled it out',
+            obsolete: true,
+          },
+          'Spread Propaganda',
+        ),
+      }}
+      edit={edit}
+      {...controls}
+      confirmation={confirmControlFixture({ disabled: false })}
+    />,
+  );
+  expect(screen.getByText('The GM once ruled it out')).toBeVisible();
+  expect(
+    screen.getByText(
+      'Spread Propaganda now assumes the GM allows it, so this recorded exception has no effect. You can remove it.',
+    ),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('textbox', { name: /Reason for/ }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Remove obsolete exception' }),
+  );
+  expect(edit).toHaveBeenCalledWith({
+    kind: 'clear_rules_exception',
+    exceptionId: 'ruled-out',
+  });
+});
+
 test('[confirming] the existing Confirm control reads Confirming… while this device waits for the next week', () => {
   render(
     <SummaryView

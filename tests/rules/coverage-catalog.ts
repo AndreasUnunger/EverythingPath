@@ -624,7 +624,7 @@ export const coverageCatalog = {
       path: 'docs/ai/ironfang-militia/militia-rules.md',
       heading: '## Action: Spread Propaganda',
       fingerprint:
-        '9a01df19bc940aa8e4ce5fd66a21c226f959b5b93281417615fd2a99b6227963',
+        '4a7eb356dc4822bcb95def3b93ed920fd5a2ff22e48181a0daffb2d047150391',
       reviewGap: null,
     },
     {
@@ -5289,7 +5289,7 @@ export const coverageCatalog = {
           id: 'adjudication',
           checkpoint: '4-activity',
           expected:
-            'Phase View / Resolution Preview: GM-disallowed or impossible targets show exception path; malformed references still block.',
+            'Phase View / Resolution Preview: GM approval is assumed (user decision 2026-09-28, Ruleset Version 9): no permission decision and no impossible-target exception path; a stored impossible answer or a leftover exception changes nothing. Malformed references and missing facts still block.',
           plannedTests: ['rules.A22.adjudication'],
           tests: [
             'rules.A22.adjudication',

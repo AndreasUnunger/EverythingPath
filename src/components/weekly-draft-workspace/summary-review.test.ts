@@ -285,6 +285,27 @@ describe('[SUM-10] live six-section consequences', () => {
     ]);
   });
 
+  test('a leftover impossible-propaganda exception is obsolete now that GM approval is assumed', () => {
+    const { draft, snapshot } = upkeepFixture();
+    draft.rulesExceptions = [
+      {
+        exceptionId: 'ruled-out',
+        subjectId: 'removed-propaganda',
+        ruleId: 'propaganda-impossible',
+        reason: 'The GM once ruled it out',
+      },
+    ];
+    const { facts } = review(draft, snapshot);
+    expect(section(facts, 1).items.at(-1)!.notes).toEqual([
+      expect.objectContaining({
+        kind: 'exception',
+        ruleId: 'propaganda-impossible',
+        obsolete: true,
+        reason: 'The GM once ruled it out',
+      }),
+    ]);
+  });
+
   test('an incomplete preview keeps partial consequences and never fabricates a Result', () => {
     const { draft, snapshot } = upkeepFixture();
     const { facts, preview } = review(draft, snapshot);

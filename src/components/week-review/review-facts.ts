@@ -18,9 +18,33 @@ export type ReviewException = {
   rule: string;
   /** The accepted reason; empty while a required exception has none yet. */
   reason: string;
-  /** A recorded action-allowance exception can never permit an extra action. */
+  /**
+   * A retired rule's exception on the open week: it no longer permits
+   * anything, and is shown only so players can remove it.
+   */
   obsolete: boolean;
 };
+
+// Why each retired rule's exception no longer applies, by rule.
+const obsoleteExceptionMessages: Record<string, string> = {
+  'action-capacity':
+    'This recorded exception cannot permit an extra action. Move the choice to an available slot, clear it, or restore the allowance.',
+  'propaganda-impossible':
+    'Spread Propaganda now assumes the GM allows it, so this recorded exception has no effect. You can remove it.',
+};
+
+/** Whether an exception for `ruleId` belongs to a retired rule. */
+export function isObsoleteException(ruleId: string) {
+  return Object.hasOwn(obsoleteExceptionMessages, ruleId);
+}
+
+/** Why an obsolete exception for `ruleId` no longer applies. */
+export function obsoleteExceptionMessage(ruleId: string) {
+  return (
+    obsoleteExceptionMessages[ruleId] ??
+    'This recorded exception no longer applies. You can remove it.'
+  );
+}
 export type ReviewOutcome = { kind: 'outcome'; key: string; text: string };
 export type ReviewNote = ReviewWarning | ReviewException | ReviewOutcome;
 

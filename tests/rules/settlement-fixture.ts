@@ -23,7 +23,6 @@ export function settlementFixture(actionId: SettlementAction) {
           choiceId: 'settlement',
           teamId: 'team',
           settlementId: 'town',
-          possible: true,
           acknowledgements: [
             {
               acknowledgementId: 'permission',

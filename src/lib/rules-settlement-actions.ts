@@ -173,8 +173,9 @@ export function resolveSettlementChoice(
     }
     return true;
   }
+  // The GM is assumed to allow propaganda from Ruleset Version 9; an older
+  // choice's stored `possible` answer, even `false`, is ignored.
   if (settlement.occupied === null) required('settlement-occupied');
-  if (choice.possible === undefined) required('propaganda-permission');
   const acknowledgement = [
     ...draft.acknowledgements,
     ...(choice.acknowledgements ?? []),
@@ -185,19 +186,9 @@ export function resolveSettlementChoice(
   );
   if (!acknowledgement)
     required(`acknowledgement:propaganda:${choice.choiceId}`);
-  if (
-    settlement.occupied === null ||
-    choice.possible === undefined ||
-    !acknowledgement
-  )
-    return true;
+  if (settlement.occupied === null || !acknowledgement) return true;
   if (choice.occupied !== undefined && choice.occupied !== settlement.occupied)
     result.warnings.push(`${choice.choiceId}:settlement-occupied`);
-  if (
-    !choice.possible &&
-    !helpers.exception(draft, result, choice, 'propaganda-impossible')
-  )
-    return true;
   if (
     result.plan.some(
       (entry) =>

@@ -85,10 +85,11 @@ draft is at revision 0, production also holds no accepted
   - Case IDs are fingerprinted in `tests/rules/case-inventory.json`. Removing a
     case needs a reviewed inventory update; only B5 might need one.
 - **Keep corpus notes.** `docs/ai/ironfang-militia/militia-rules.md` records the
-  departures made under Ruleset Versions 6, 7 and 8. Those sections are
+  departures made under Ruleset Versions 6, 7, 8 and 9. Those sections are
   fingerprinted, and the notes stay true.
 - **Never reuse a Ruleset Version number.** `CANONICAL_WEEKLY_RULESET_VERSION`
-  stays 8 even after the named constants for 6 and 7 go. The corpus notes, and
+  is 9 since #198 (assumed propaganda approval) and keeps its number even after
+  the named constants for 6 and 7 go. The corpus notes, and
   any records in dev, refer to the older numbers.
 - **Ruleset Version bumps.** Several removals delete a resolution branch for
   input that can no longer be expressed (A4, B1, B2). No reachable week changes
@@ -96,8 +97,8 @@ draft is at revision 0, production also holds no accepted
   needed. Each such change should still say so, and its reviewer should confirm
   it.
 - **Keep forward-compatibility tolerance.** Once released weeks are confirmed,
-  format-2 records at Ruleset Version 8 will accumulate and never change. Later
-  Ruleset Versions will need version-aware readers again, like
+  format-2 records at Ruleset Versions 8 and 9 will accumulate and never
+  change. Later Ruleset Versions will need version-aware readers again, like
   `isBlankHitDiceLevel`. `describeRecordedChange`, the `sectionChips` catch and
   generic fact text therefore stay (see C7).
 
@@ -430,7 +431,8 @@ W1 is gone).
   Others use an arbitrary small `rulesetVersion` as display data, for example
   `record-view.test.tsx` and `finished-week-index.test.ts`. They can stay.
 
-- **Order:** after A6. Keep `CANONICAL_WEEKLY_RULESET_VERSION = 8`.
+- **Order:** after A6. Keep `CANONICAL_WEEKLY_RULESET_VERSION` at its current
+  number (9 since #198, `ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION`).
 - **Risk:** none for data. Collapsing the constants must not reset the number.
 - **Size:** about 15 source lines and about 200 test lines.
 

@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '~/lib/utils';
 import type { ReviewException, ReviewNote } from './review-facts';
+import { obsoleteExceptionMessage } from './review-facts';
 import {
   Chip,
   Quoted,
@@ -43,8 +44,7 @@ function Exception({
         <>
           {note.reason && <Quoted text={note.reason} />}
           <p className={cn('text-sm', warningText, wrap)}>
-            This recorded exception cannot permit an extra action. Move the
-            choice to an available slot, clear it, or restore the allowance.
+            {obsoleteExceptionMessage(note.ruleId)}
           </p>
           {capabilities?.exception?.(note)}
         </>

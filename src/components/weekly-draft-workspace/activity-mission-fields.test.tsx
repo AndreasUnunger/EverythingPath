@@ -292,18 +292,20 @@ describe('Covert Action and Strike Team', () => {
 });
 
 describe('settlement actions', () => {
-  test('[rules.ACT-10.mission-propaganda-fields] Spread Propaganda records Possible and Occupied answers, keeps an explicit No and clears each on its own', async () => {
+  test('[rules.ACT-10.mission-propaganda-fields] Spread Propaganda records the Occupied answer, keeps an explicit No, clears it on its own, and asks no GM permission', async () => {
     const choice: StagedActionChoice = {
       choiceId: 'propaganda',
       actionId: 'spread_propaganda',
       settlementId: 'town',
+      // A stored legacy answer from before GM approval was assumed.
       possible: false,
+      occupied: true,
     };
     const { edit } = open(facts([choice]));
-    expect(card('Possible', /^Impossible/)).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    expect(
+      screen.queryByRole('radiogroup', { name: 'Possible' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Ruled out')).toBeNull();
     expect(
       screen.getByText(
         'The settlement’s record says occupied; the rules use the record.',
@@ -313,12 +315,13 @@ describe('settlement actions', () => {
     await waitFor(() =>
       expect(lastChoice(edit)).toEqual({ ...choice, occupied: false }),
     );
-    fireEvent.click(button('Clear possible'));
+    fireEvent.click(button('Clear occupied by enemy forces'));
     await waitFor(() =>
       expect(lastChoice(edit)).toEqual({
         choiceId: 'propaganda',
         actionId: 'spread_propaganda',
         settlementId: 'town',
+        possible: false,
       }),
     );
   });

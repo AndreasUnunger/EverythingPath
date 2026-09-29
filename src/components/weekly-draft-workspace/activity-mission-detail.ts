@@ -72,7 +72,6 @@ type Specific =
       // The chosen settlement's recorded occupation, which sets the DC; null
       // while no known settlement is chosen or it is not recorded.
       occupiedRecord: boolean | null;
-      possible: DetailOption[];
       occupied: DetailOption[];
     }
   | {
@@ -285,15 +284,6 @@ function propagandaDetail(
     actionId: choice.actionId,
     settlements: propagandaSettlements(view, slot, choice),
     occupiedRecord: record,
-    possible: [
-      option('true', 'Possible', 'The GM allows propaganda here'),
-      option(
-        'false',
-        'Impossible',
-        'The GM rules it out (needs a Rules Exception)',
-        false,
-      ),
-    ],
     occupied: [true, false].map((value) =>
       option(
         String(value),

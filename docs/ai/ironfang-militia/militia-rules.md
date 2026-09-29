@@ -426,6 +426,7 @@ If treasury is below minimum:
 - Success: improve settlement reputation by one step.
 - DC increases by 5 in settlements occupied by enemy troops/major organizations (or may be impossible at GM discretion).
 - Settlement can be influenced once per Activity phase.
+- Application departure (user decision 2026-09-28, Ruleset Version 9): the application assumes the GM allows propaganda in every settlement, since players act with the GM's blessing. It asks no permission and needs no Rules Exception for an impossible settlement; a stored "impossible" answer is ignored. The occupation DC increase and the once-per-Activity limit are unchanged. Weeks confirmed under earlier Ruleset Versions keep their recorded rulings, warnings and outcomes.
 
 ## Action: Strike Team
 

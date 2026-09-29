@@ -13,8 +13,14 @@ export const CANDIDATE_REROLL_RULESET_VERSION =
  */
 export const ROLE_AWARE_OFFICERS_RULESET_VERSION =
   CANDIDATE_REROLL_RULESET_VERSION + 1;
+/**
+ * Spread Propaganda assumes the GM allows it: no permission answer, and no
+ * Rules Exception for an impossible settlement (#198).
+ */
+export const ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION =
+  ROLE_AWARE_OFFICERS_RULESET_VERSION + 1;
 export const CANONICAL_WEEKLY_RULESET_VERSION =
-  ROLE_AWARE_OFFICERS_RULESET_VERSION;
+  ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION;
 
 // Whether a blank Hit Dice override meant the character's level when a week
 // was confirmed under this version; before it, a blank meant unknown.

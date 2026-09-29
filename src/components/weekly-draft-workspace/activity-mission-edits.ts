@@ -11,7 +11,7 @@ import type { MissionChoice } from './activity-mission-actions';
 // prepares, rolls and chooses them through its own occurrence edits.
 
 type TextField = 'subject' | 'instruction' | 'location';
-type BooleanField = 'possible' | 'occupied';
+type BooleanField = 'occupied';
 
 export function missionFieldEdits(
   choice: MissionChoice,

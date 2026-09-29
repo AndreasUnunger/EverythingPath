@@ -241,21 +241,51 @@ test('[rules.A22.attempt] A failed attempt consumes the settlement opportunity w
     'Unfriendly',
   ]);
 });
-test('[rules.A22.adjudication] Required facts and owned targets cannot be waived; impossible choices need reasoned exceptions', () => {
+test('[rules.A22.adjudication] GM approval is assumed: no permission decision or impossible-target exception, while required facts and owned targets cannot be waived', () => {
   const { draft, snapshot, choice } = settlementFixture('spread_propaganda');
   if (choice.actionId !== 'spread_propaganda')
     throw new Error('Expected propaganda');
+  const attempted = () => {
+    const result = projectActivity(draft, snapshot);
+    expect(result.ready).toBe(true);
+    expect(
+      [...result.requirements, ...result.warnings].filter((code) =>
+        code.includes('propaganda-'),
+      ),
+    ).toEqual([]);
+    expect(result.plan.map((entry) => entry.kind)).toContain(
+      'propaganda_attempt',
+    );
+    // The resolved effects, not the choice echoed back in the outcome.
+    return {
+      plan: result.plan,
+      checks: result.checks,
+      warnings: result.warnings,
+      settlements: result.outcome.settlements,
+      treasuryCopper: result.outcome.treasuryCopper,
+    };
+  };
+  // An unanswered permission raises no requirement.
+  expect(choice.possible).toBeUndefined();
+  const allowed = attempted();
+  // An older choice's stored "impossible" answer is ignored, needs no
+  // exception, and resolves exactly like an unanswered one.
   choice.possible = false;
-  expect(projectActivity(draft, snapshot).requirements).toContain(
-    'settlement:propaganda-impossible:exception',
-  );
+  expect(attempted()).toEqual(allowed);
+  // A leftover exception for the retired rule changes nothing either.
   draft.rulesExceptions.push({
     exceptionId: 'permission',
     subjectId: 'settlement',
     ruleId: 'propaganda-impossible',
     reason: 'Disguise changes the situation',
   });
-  expect(projectActivity(draft, snapshot).ready).toBe(true);
+  expect(attempted()).toEqual(allowed);
+  // Occupation still sets the DC: +5 when occupied.
+  snapshot.settlements[0]!.occupied = false;
+  expect(projectActivity(draft, snapshot).checks[0]!.dc).toBe(20);
+  snapshot.settlements[0]!.occupied = true;
+  expect(projectActivity(draft, snapshot).checks[0]!.dc).toBe(25);
+  snapshot.settlements[0]!.occupied = false;
   choice.settlementId = 'foreign';
   expect(projectActivity(draft, snapshot).requirements).toContain(
     'settlement:settlement',
@@ -271,7 +301,7 @@ test('[rules.A22.adjudication] Required facts and owned targets cannot be waived
     'settlement:acknowledgement:propaganda:settlement',
   );
 });
-test('[rules.settlements.readiness] Missing team, target, rolls, context and permission remain distinct from exceptions', () => {
+test('[rules.settlements.readiness] Missing team, target, rolls and context remain distinct from exceptions', () => {
   for (const action of [
     'activate_refuge',
     'reduce_danger',

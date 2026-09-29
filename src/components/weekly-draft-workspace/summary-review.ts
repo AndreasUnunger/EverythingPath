@@ -26,11 +26,12 @@ import {
   type PlanChange,
 } from '~/components/week-review/review-changes';
 import { compareWeekStates } from '~/components/week-review/review-comparison';
-import type {
-  ReviewNote,
-  ReviewPhase,
-  ReviewSection,
-  WeekReviewFacts,
+import {
+  isObsoleteException,
+  type ReviewNote,
+  type ReviewPhase,
+  type ReviewSection,
+  type WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import { findOwner } from '~/components/week-review/review-notes';
 import {
@@ -510,10 +511,10 @@ function knownPhase(
   );
   if (found) return found;
   if (ruleId?.startsWith('upkeep-')) return 'upkeep';
-  if (ruleId === actionCapacity) return 'activity';
+  // Every retired rule was an Activity rule.
+  if (ruleId !== undefined && isObsoleteException(ruleId)) return 'activity';
   return null;
 }
-const actionCapacity = 'action-capacity';
 
 function exceptionNote(exception: Summary['exceptions'][number]): ReviewNote {
   return {
@@ -524,7 +525,7 @@ function exceptionNote(exception: Summary['exceptions'][number]): ReviewNote {
     ruleId: exception.ruleId,
     rule: activityLabel(exception.ruleId.replaceAll('-', '_')),
     reason: exception.reason,
-    obsolete: exception.ruleId === actionCapacity,
+    obsolete: isObsoleteException(exception.ruleId),
   };
 }
 

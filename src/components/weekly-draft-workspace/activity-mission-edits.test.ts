@@ -29,10 +29,10 @@ describe('mission field edits', () => {
       choiceId: 'propaganda',
       actionId: 'spread_propaganda',
     });
-    propaganda.setBoolean('possible', false);
+    propaganda.setBoolean('occupied', true);
     propaganda.setBoolean('occupied', null);
     expect(propagandaChange.mock.calls).toEqual([
-      ['possible', false],
+      ['occupied', true],
       ['occupied', undefined],
     ]);
   });

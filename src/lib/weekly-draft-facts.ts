@@ -432,6 +432,8 @@ export const stagedActionChoiceSchema = z
     action('spread_propaganda', {
       rolls: checkRolls.optional(),
       ...settlement,
+      // Retired GM-permission answer: older drafts and records still parse,
+      // but the rules assume approval and nothing writes it any more.
       possible: z.boolean().optional(),
       occupied: z.boolean().optional(),
     }),

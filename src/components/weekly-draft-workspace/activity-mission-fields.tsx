@@ -350,18 +350,6 @@ function PropagandaFields({
       />
       <OptionField
         context={context}
-        field="possible"
-        label="Possible"
-        options={detail.possible}
-        value={booleanValue(choice.possible)}
-        otherLabel="Ruled out"
-        onSelect={(next) =>
-          context.edits.setBoolean('possible', next === 'true')
-        }
-        onClear={() => context.edits.setBoolean('possible', null)}
-      />
-      <OptionField
-        context={context}
         field="occupied"
         label="Occupied by enemy forces"
         options={detail.occupied}

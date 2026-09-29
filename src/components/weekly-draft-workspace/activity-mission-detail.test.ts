@@ -365,10 +365,8 @@ describe('settlement targets at the slot position', () => {
         eligible: false,
       }),
     ]);
-    expect(second.possible[1]).toMatchObject({
-      value: 'false',
-      eligible: false,
-    });
+    // GM approval is assumed; a stored Possible answer offers no choice.
+    expect(second).not.toHaveProperty('possible');
   });
 });
 

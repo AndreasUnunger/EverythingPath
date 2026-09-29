@@ -11,6 +11,7 @@ import { persistentEventFixture } from '../../../tests/rules/persistent-event-fi
 import { occurrence } from '../../../tests/rules/event-selection-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { managerWeek } from '../../../tests/rules/role-aware-officers-fixture';
+import { foundationWeek } from '../../../tests/rules/foundation-acceptance-fixtures';
 import { canonicalResolutionRecordSchema } from '~/lib/canonical-resolution-record';
 import type {
   ResultCell,
@@ -18,6 +19,7 @@ import type {
   WeekReviewFacts,
 } from '~/components/week-review/review-facts';
 import {
+  ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION,
   CANDIDATE_REROLL_RULESET_VERSION,
   CHARACTERLESS_TRANSFERS_RULESET_VERSION,
   prepareCanonicalResolutionRecord,
@@ -515,6 +517,95 @@ test('[rules.HIST-05.manager-limit-version] a record confirmed before role-aware
       text: String(resolved.outcome!.militiaSnapshot.training),
     },
   });
+});
+
+// A week confirmed before GM approval was assumed for Spread Propaganda: the
+// GM had ruled it impossible and a reasoned exception let it go ahead.
+// Resolved through today's engine, then recorded with the version, warning
+// and exception it had.
+test('[rules.HIST-05.propaganda-permission-version] a record confirmed before assumed propaganda approval keeps its impossible-target exception and warning, read-only', () => {
+  const input = foundationWeek(3);
+  const snapshot = input.militiaSnapshot;
+  snapshot.settlements.push({
+    settlementId: 'town',
+    name: 'Town',
+    reputation: 'Hostile',
+    secured: false,
+    occupied: false,
+    temporaryReputationShift: 0,
+    refugeActivatedWeek: null,
+    refugeActiveUntilWeek: null,
+  });
+  snapshot.roster.teams.push({
+    teamId: 'voices',
+    teamType: 'propagandists',
+    name: 'Voices',
+    status: 'active',
+    managerCharacterId: 'pc',
+    rewardCapExempt: false,
+    notes: '',
+  });
+  input.revision.activity.slots[0]!.choice = {
+    choiceId: 'sway',
+    actionId: 'spread_propaganda',
+    teamId: 'voices',
+    settlementId: 'town',
+    possible: false,
+    acknowledgements: [
+      {
+        acknowledgementId: 'posters',
+        subjectId: 'propaganda:sway',
+        outcome: 'Posters at dawn',
+      },
+    ],
+    rolls: { check: roll(20, 17) },
+  };
+  const exception = {
+    exceptionId: 'ruled-out',
+    subjectId: 'sway',
+    ruleId: 'propaganda-impossible',
+    reason: 'Disguise changes the situation',
+  };
+  input.revision.rulesExceptions.push(exception);
+  const current = prepareCanonicalResolutionRecord(
+    resolveCanonicalWeeklyDraft(input),
+    'earlier-record',
+  );
+  const warning = 'sway:propaganda-impossible';
+  expect(current.warnings.map((entry) => entry.message)).not.toContain(warning);
+  const record = deepFreeze(
+    canonicalResolutionRecordSchema.parse({
+      ...current,
+      rulesetVersion: ROLE_AWARE_OFFICERS_RULESET_VERSION,
+      warnings: [...current.warnings, { code: 'sway', message: warning }],
+    }),
+  );
+  expect(record.rulesetVersion).toBeLessThan(
+    ASSUMED_PROPAGANDA_APPROVAL_RULESET_VERSION,
+  );
+  const before = structuredClone(record);
+  const facts = recordWeekReview(record);
+  expect(record).toEqual(before);
+  const sway = items(facts, 1).find((entry) =>
+    entry.title.includes('Spread Propaganda'),
+  )!;
+  // History quotes the recorded ruling as it stood; it is not marked
+  // obsolete and offers no removal.
+  expect(sway.notes).toContainEqual(
+    expect.objectContaining({
+      kind: 'exception',
+      ruleId: 'propaganda-impossible',
+      reason: 'Disguise changes the situation',
+      obsolete: false,
+    }),
+  );
+  const shown = [
+    ...facts.sections.flatMap((section) =>
+      section.items.flatMap((entry) => entry.notes),
+    ),
+    ...facts.unassociated,
+  ].filter((note) => note.kind === 'warning');
+  expect(shown).toHaveLength(record.warnings.length);
 });
 
 // The roster Result rows of a record whose `ally` (level 4) has the given
