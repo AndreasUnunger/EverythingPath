@@ -331,12 +331,12 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
     expect(notes(item(facts, 2, 'Event 1.2 · Festival'))).toEqual([
       'The town feasted with the militia',
     ]);
-    // Persistent keeps its recorded amount and the historical buyoff warning.
+    // A warning the live week no longer raises reads generically, under its
+    // event.
     const plague = item(facts, 3, 'Sickness · Event 1');
     expect(plague.details).toEqual([
       'Affects Team 1',
       'Decision: Buyoff',
-      'Recorded buyoff amount 95 gp',
       'Buyoff costs 90 gp',
       'Bought off',
     ]);
@@ -345,7 +345,7 @@ describe('[HIST-05] frozen Resolution Record adapter', () => {
       'Ends',
     ]);
     expect(notes(plague)).toEqual([
-      'Sickness · Event 1: The recorded amount differs from the calculated buyoff cost.',
+      'Sickness · Event 1: Review this rules departure in the affected phase with the table.',
     ]);
     expect(facts.sections[3].chips).toEqual([
       'Treasury −90 gp',

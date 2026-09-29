@@ -4611,13 +4611,11 @@ export const coverageCatalog = {
           // #108) a candidate's Roll Twice never expands; see the Guarantee
           // Event note in the corpus.
           expected:
-            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die; earlier expansions stay recorded and unused, and earlier records keep their version.',
+            'Phase View / Resolution Preview: A Roll Twice on either candidate, chosen or not, is rerolled in its own die, and earlier records keep their version.',
           plannedTests: ['rules.A10.roll-twice'],
           tests: [
             'rules.A10.roll-twice',
             'rules.A10.reroll-version',
-            'rules.A10.reroll-before-after',
-            'rules.A10.reroll-representation',
             'rules.A10.unchosen-reroll',
             'rules.A10.reroll-ineligible-chain',
             'rules.A10.reroll-exception',
@@ -7487,7 +7485,7 @@ export const coverageCatalog = {
         },
         // P84.copper retired by #167: the recorded buyoff amount and its input
         // were removed; Buy off stages an amount-free decision at the rules
-        // cost, and P84.legacy-amount keeps a saved legacy amount read-only.
+        // cost. P84.legacy-amount went with the stored amount (#198).
         {
           id: 'persistent-preparation',
           checkpoint: '7-workspace',
@@ -7498,7 +7496,6 @@ export const coverageCatalog = {
             'rules.P84.decisions',
             'rules.P84.ending',
             'rules.P84.officer',
-            'rules.P84.legacy-amount',
             'rules.P81.eligibility',
           ],
           tests: [
@@ -7506,7 +7503,6 @@ export const coverageCatalog = {
             'rules.P84.decisions',
             'rules.P84.ending',
             'rules.P84.officer',
-            'rules.P84.legacy-amount',
             'rules.P81.eligibility',
           ],
           gap: null,
@@ -7551,12 +7547,10 @@ export const coverageCatalog = {
             'rules.P82.decimal',
             'rules.P82.references',
             'rules.P82.validation',
-            'rules.P82.candidate-owner',
             'rules.P82.warnings',
             'rules.P82.receipt',
             'rules.P82.modifiers',
             'rules.P82.sources',
-            'rules.P82.nested-acknowledgements',
             'rules.P82.declared-references',
             'rules.P82.provenance',
           ],

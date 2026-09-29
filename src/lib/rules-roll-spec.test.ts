@@ -113,12 +113,21 @@ test.each([
   expect(activityRollSpec(actionId, 'delivery')).toBeNull();
 });
 
-test.each<EventType>(['cache_discovered', 'raid', 'sickness', 'theft'])(
-  '%s occurrence mitigation has a d20 specification',
+test.each<EventType>(['sickness', 'theft'])(
+  '%s occurrence check has a d20 specification',
   (eventType) => {
     expect(
       eventRollSpec({ kind: 'occurrence', eventType }, ['rolls', 'check']),
     ).toEqual({ count: 1, sides: 20 });
+  },
+);
+
+test.each<EventType>(['cache_discovered', 'raid'])(
+  '%s has no event-level check: each person or cache records its own',
+  (eventType) => {
+    expect(
+      eventRollSpec({ kind: 'occurrence', eventType }, ['rolls', 'check']),
+    ).toBeNull();
   },
 );
 
@@ -150,39 +159,6 @@ test('Sabotage and unresolved table rolls have type-independent fixed specificat
   });
   expect(eventRollSpec(context, ['sabotage', 'rolls', 'training'])).toBeNull();
   expect(eventRollSpec(context, ['officerCheck', 'roll'])).toBeNull();
-});
-
-test('Persistent decisions use their own context at the root and inside occurrences', () => {
-  for (const eventType of ['rivalry', 'theft'] as const) {
-    const path =
-      eventType === 'rivalry' ? ['officerCheck', 'roll'] : ['rolls', 'check'];
-    expect(eventRollSpec({ kind: 'persistent', eventType }, path)).toEqual({
-      count: 1,
-      sides: 20,
-    });
-    expect(
-      eventRollSpec({ kind: 'occurrence', eventType }, [
-        'persistentDecision',
-        ...path,
-      ]),
-    ).toEqual({ count: 1, sides: 20 });
-  }
-  expect(
-    eventRollSpec({ kind: 'persistent', eventType: 'turncoat' }, [
-      'rolls',
-      'loss',
-    ]),
-  ).toBeNull();
-  expect(
-    eventRollSpec({ kind: 'persistent', eventType: 'rivalry' }, ['tableRoll']),
-  ).toBeNull();
-  expect(
-    eventRollSpec({ kind: 'occurrence', eventType: null }, [
-      'persistentDecision',
-      'rolls',
-      'check',
-    ]),
-  ).toBeNull();
 });
 
 test('target paths are exact and do not infer capture dice for unrelated events', () => {

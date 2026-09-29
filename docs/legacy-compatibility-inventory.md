@@ -67,6 +67,8 @@ draft is at revision 0, production also holds no accepted
     `EventOccurrenceEditors` in `event-occurrence-editors.tsx`, rendered for
     every Event block that is not still preparing. It edits the whole
     `eventOccurrenceSchema` except `origin`, `tableRoll` and `eventType`.
+    Narrowed 2026-09-29 (#198): an allowlist of current fields
+    (`event-occurrence-details.ts`), with no B1 field.
   - **W2: Activity's "Recorded candidate details" disclosure.** This is
     `CANDIDATE_FIELDS` in `activity-details.tsx`. It edits whole candidate
     trees, including each occurrence's `origin`. A fixes batch running in
@@ -554,6 +556,9 @@ wrong-specification note stay for totals.
 
 ### B1. Older Event and check-decision fields (#164–#168)
 
+**Removed 2026-09-29 (#198)** once W1 was narrowed. Also rewritten:
+`O04.persistent-selection` (it relied on same-week decision support).
+
 **Condition: W1 is retired or narrowed.** The per-family Event controls and the
 Persistent page never write these fields. The generic Event details editor
 still can, because it edits the full `eventOccurrenceSchema`, including
@@ -670,6 +675,10 @@ stops offering them, each part below is safe.
   fixture changes.
 
 ### B2. Candidate Roll Twice expansions and replacement-child rerolls (#191, #163)
+
+**Removed 2026-09-29 (#198)**, reroll groups everywhere (rolled tree and
+automatic events too). Also rewritten: `E03.nested`, `E04.reroll`,
+`E04.independent`, `A10.reroll-parity`.
 
 **Condition: W2 (the Activity candidate-tree editor) is retired.** It can still
 write candidate trees with any `origin`. The parallel fixes batch retires it;

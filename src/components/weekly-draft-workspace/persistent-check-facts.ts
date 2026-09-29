@@ -330,36 +330,18 @@ function rollText(roll: RawRoll | undefined) {
 }
 
 /**
- * Values a check decision records that its check does not use, such as
- * targets or a strategist from an older editor, or Overseer support on a
- * Rivalry skill check. They stay visible and removable, never counted.
+ * Values a check decision records that its check does not use: the other
+ * event's check, or Overseer support on a Rivalry skill check. They stay
+ * visible and removable, never counted.
  */
 export function retainedFields(
   context: PersistentCheckContext,
   eventType: Carried['eventType'],
   decision: Mitigation,
-  targetName: (target: Carried['targets'][number]) => string,
 ): PersistentRetained[] {
   const name = (characterId: string) =>
     personName(context, characterId, 'Unavailable character');
   const fields: PersistentRetained[] = [];
-  if (decision.targets?.length)
-    fields.push({
-      field: 'targets',
-      label: 'Targets',
-      value: '',
-      targets: decision.targets.map((target) => ({
-        name: targetName(target),
-        target,
-      })),
-    });
-  if (decision.strategistCharacterId)
-    fields.push({
-      field: 'strategistCharacterId',
-      label: 'Strategist',
-      value: name(decision.strategistCharacterId),
-      targets: [],
-    });
   if (eventType === 'theft' && decision.officerCheck) {
     const input = decision.officerCheck;
     fields.push({
@@ -375,7 +357,6 @@ export function retainedFields(
             ]),
         rollText(input.roll),
       ].join(' · '),
-      targets: [],
     });
   }
   if (eventType === 'rivalry' && decision.rolls?.check)
@@ -383,14 +364,12 @@ export function retainedFields(
       field: 'rolls',
       label: 'Loyalty check',
       value: rollText(decision.rolls.check),
-      targets: [],
     });
   if (eventType === 'rivalry' && decision.overseerCharacterId)
     fields.push({
       field: 'overseerCharacterId',
       label: 'Overseer support',
       value: 'adds nothing to a skill check',
-      targets: [],
     });
   return fields;
 }

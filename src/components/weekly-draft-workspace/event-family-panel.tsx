@@ -116,6 +116,7 @@ export function EventFamilyPanel({
           edits={edits}
           showRefusal={showRefusal}
           targetCards={targetCards}
+          subject={block.label}
         />
       )}
       {error && (

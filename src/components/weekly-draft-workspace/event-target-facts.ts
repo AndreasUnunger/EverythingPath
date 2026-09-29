@@ -22,9 +22,12 @@ import {
   type EventPanelItem,
 } from './event-panel-context';
 import {
+  carriedNames,
   isOutcomeFamily,
   outcomePanel,
   outcomePanelMessage,
+  retainedFields,
+  type EventFieldUse,
 } from './event-outcome-facts';
 import { eventChange } from './event-messages';
 import {
@@ -182,6 +185,14 @@ function teamPanel(
   };
 }
 
+// Raid reads its settlement and each hidden person's own check and support;
+// an event-level mitigation or roll (from another event's inputs) is unused.
+const RAID_USES: EventFieldUse = {
+  targets: ['settlement'],
+  rolls: [],
+  fields: ['targetChecks', 'overseerCharacterId'],
+};
+
 function raidPanel(item: Item, context: EventPanelContext): EventPanel {
   const { has } = codes(item);
   const occurrence = item.occurrence;
@@ -241,10 +252,7 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
         entry.target.characterId === person.characterId,
     );
     const checkRoll = input?.rolls?.check;
-    const attempted = eventMitigationAttempted(
-      input?.mitigation ?? occurrence.mitigation,
-      checkRoll ?? occurrence.rolls?.check,
-    );
+    const attempted = eventMitigationAttempted(input?.mitigation, checkRoll);
     const checkId = `${eventId}:${person.characterId}:mitigation`;
     const check = eventCheckFacts({
       checkId,
@@ -257,7 +265,6 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
       ),
       requirements: item.requirements,
       recorded: checkRoll,
-      overseerRecorded: Boolean(input?.overseerCharacterId),
       modifierLabel: context.modifierLabel,
       result: {
         success: `Capture chance falls to ${RAID_CAPTURE_CHANCE.mitigated}%.`,
@@ -319,8 +326,13 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
     settlement,
     people: raidPeople,
     retainedPeople,
-    legacyMitigation: occurrence.mitigation ?? null,
-    legacyCheckRoll: Boolean(occurrence.rolls?.check),
+    retained: retainedFields(
+      occurrence,
+      RAID_USES,
+      context,
+      carriedNames(context),
+    ),
+    keep: { targets: [...RAID_USES.targets], rolls: [...RAID_USES.rolls] },
     noPeople:
       selected && !hidden.length
         ? has('tracked-people')

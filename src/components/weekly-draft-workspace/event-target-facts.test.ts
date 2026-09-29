@@ -303,7 +303,7 @@ test('[EVT-08.raid] Raid has one settlement, and every hidden person their own m
   );
 });
 
-test('[EVT-08.raid-legacy] an event-level mitigation stands in for every person, each needing their own named check', () => {
+test('[EVT-08.raid-event-level] an event-level mitigation or check is no person’s choice: each person is left to happen, and both are listed as unused inputs to clear', () => {
   const { draft, snapshot } = threatEventFixture(78);
   hideSecondPerson(snapshot);
   const event = draft.event.occurrences[0]!;
@@ -311,20 +311,19 @@ test('[EVT-08.raid-legacy] an event-level mitigation stands in for every person,
   event.rolls = { check: roll(20, 20) };
   const { view, phase } = facts(draft, snapshot);
   const raid = panel(view, 'event', 'raid');
-  expect(raid.legacyMitigation).toBe('attempted');
-  expect(raid.legacyCheckRoll).toBe(true);
   expect(
     raid.people.map((person) => [person.mitigation, person.explicit]),
   ).toEqual([
-    ['attempted', false],
-    ['attempted', false],
+    ['unattempted', false],
+    ['unattempted', false],
   ]);
-  expect(messages(phase)).toEqual(
-    expect.arrayContaining([
-      'Event 1 · Raid: enter the Security check for Wren Ashby (d20).',
-      'Event 1 · Raid: enter the Security check for Nora Vell (d20).',
-    ]),
-  );
+  expect(messages(phase)).not.toEqual(
+    expect.arrayContaining([expect.stringContaining('Security check')]),
+  );  expect(raid.retained.map((entry) => [entry.field, entry.value])).toEqual([
+    ['rolls', 'check roll'],
+    ['mitigation', 'Attempt it'],
+  ]);
+  expect(raid.keep).toEqual({ targets: ['settlement'], rolls: [] });
 });
 
 test('[EVT-07.edits] target, per-person and What happened edits keep every other recorded field', () => {
@@ -332,7 +331,6 @@ test('[EVT-07.edits] target, per-person and What happened edits keep every other
   draft.event.occurrences[0]!.targetChecks = [
     {
       target: { kind: 'character', characterId: 'other' },
-      overseerCharacterId: 'pc',
       rolls: { check: roll(20, 4) },
     },
   ];
@@ -350,22 +348,11 @@ test('[EVT-07.edits] target, per-person and What happened edits keep every other
   expect(last().targets).toEqual([
     { kind: 'settlement', settlementId: 'town' },
   ]);
-  // Clearing the other person's die keeps their Overseer selection.
+  // Clearing the other person's only die leaves nothing of their entry.
   result.current.setTargetCheck(
     'event',
     { kind: 'character', characterId: 'other' },
     { check: null },
-  );
-  expect(last().targetChecks).toEqual([
-    {
-      target: { kind: 'character', characterId: 'other' },
-      overseerCharacterId: 'pc',
-    },
-  ]);
-  result.current.setTargetCheck(
-    'event',
-    { kind: 'character', characterId: 'other' },
-    { check: null, overseer: null },
   );
   expect(last()).not.toHaveProperty('targetChecks');
   result.current.removeTargetCheck('event', 0);

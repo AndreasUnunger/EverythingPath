@@ -144,7 +144,7 @@ test('[PER-04.theft] [rules.P84.theft] Theft offers only its Loyalty dice total 
       kind: 'mitigate',
       eventId: 'old',
       overseerCharacterId: 'pc',
-      strategistCharacterId: 'pc',
+      officerCheck: { characterId: 'pc', skill: 'bluff' },
     },
   ];
   const store = workspace(draft, snapshot);
@@ -172,7 +172,7 @@ test('[PER-04.theft] [rules.P84.theft] Theft offers only its Loyalty dice total 
     kind: 'mitigate',
     eventId: 'old',
     overseerCharacterId: 'pc',
-    strategistCharacterId: 'pc',
+    officerCheck: { characterId: 'pc', skill: 'bluff' },
     rolls: { check: total(9) },
   });
   // Rank and focus, Officers, Overseer +3 and Low Morale −2, named once each.
@@ -185,10 +185,12 @@ test('[PER-04.theft] [rules.P84.theft] Theft offers only its Loyalty dice total 
   fireEvent.change(roll, { target: { value: '9x' } });
   expect(roll).toHaveAttribute('aria-invalid', 'true');
   expect(store.sent).toHaveLength(1);
-  // The retained strategist stays visible and removable, never counted.
+  // The retained officer check stays visible and removable, never counted.
   expect(theft).toHaveTextContent('Also recorded, not used by this check');
   fireEvent.click(
-    within(theft).getByRole('button', { name: 'Remove retained Strategist' }),
+    within(theft).getByRole('button', {
+      name: 'Remove retained Officer check',
+    }),
   );
   await waitFor(() => expect(store.sent).toHaveLength(2));
   expect(decisionOf(store.draft(), 'old')).toEqual({
@@ -533,7 +535,7 @@ test('[WEEK-10.check-locked] Confirmation disables every check field, modifier a
       kind: 'mitigate',
       eventId: 'old',
       overseerCharacterId: 'pc',
-      targets: [{ kind: 'team', teamId: 'team' }],
+      officerCheck: { characterId: 'pc', skill: 'bluff' },
       rolls: {
         check: total(10, [{ sourceId: 'custom:a', value: 1, reason: 'Luck' }]),
       },

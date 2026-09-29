@@ -18,8 +18,8 @@ type Device = ReturnType<typeof createDraftPersistence>;
 
 // Sickness twice (the second occurrence has its mandatory Loyalty save), a
 // carried Theft with a Loyalty mitigation check, and one Overseer. Support
-// starts on the second Sickness through older target-level and reaction
-// records, and on the carried Theft's decision.
+// starts on the second Sickness, which also records a Sabotage reaction, and
+// on the carried Theft's decision.
 function week() {
   const { draft, snapshot } = threatEventFixture(90, true);
   snapshot.roster.officers = [{ role: 'overseer', characterId: 'pc' }];
@@ -48,10 +48,8 @@ function week() {
   const second = draft.event.occurrences.find(
     (event) => event.eventId === 'second',
   )!;
-  second.targetChecks = [
-    { target: { kind: 'team', teamId: 'team' }, overseerCharacterId: 'pc' },
-  ];
-  second.sabotage = { choiceId: 'react', overseerCharacterId: 'pc' };
+  second.overseerCharacterId = 'pc';
+  second.sabotage = { choiceId: 'react' };
   return { draft, snapshot };
 }
 
@@ -105,21 +103,11 @@ async function devices(
   return [first, second] as const;
 }
 
-test('[rules.EVT-10.overseer-holders] occurrence, target, reaction and persistent selections read as one holder per event, and the rules count support once', () => {
+test('[rules.EVT-10.overseer-holders] occurrence and carried-decision selections each read as their event’s holder, and the rules count support once', () => {
   const { draft, snapshot } = week();
   expect(overseerSupportHolders(overseerSupportSource(draft))).toEqual([
-    {
-      eventId: 'second',
-      kind: 'occurrence',
-      locations: ['reaction', 'target'],
-      characterIds: ['pc'],
-    },
-    {
-      eventId: 'carried',
-      kind: 'carried',
-      locations: ['carried-decision'],
-      characterIds: ['pc'],
-    },
+    { eventId: 'second', kind: 'occurrence', characterId: 'pc' },
+    { eventId: 'carried', kind: 'carried', characterId: 'pc' },
   ]);
   // Two holders: the earlier event keeps the support, the other is refused.
   const use = supportUse(draft, snapshot);
@@ -134,8 +122,7 @@ test('[rules.EVT-10.overseer-edits] clearing and assigning keep every unrelated 
     (event) => event.eventId === 'second',
   )!;
   const cleared = clearOverseerSupportEdit(source, 'second');
-  // The target entry named only its target and support, so it goes; the
-  // reaction keeps its identity; the check roll and targets stay.
+  // The reaction, check roll and targets stay.
   expect(cleared).toEqual({
     kind: 'event_occurrence',
     occurrence: {
@@ -147,7 +134,8 @@ test('[rules.EVT-10.overseer-edits] clearing and assigning keep every unrelated 
       sabotage: { choiceId: 'react' },
     },
   });
-  expect(assignOverseerSupportEdit(source, 'second', 'pc')).toEqual({
+  expect(assignOverseerSupportEdit(source, 'second', 'pc')).toBe('already');
+  expect(assignOverseerSupportEdit(source, 'second', 'npc')).toEqual({
     kind: 'event_occurrence',
     occurrence: {
       eventId: 'second',
@@ -156,7 +144,7 @@ test('[rules.EVT-10.overseer-edits] clearing and assigning keep every unrelated 
       targets: second.targets,
       rolls: second.rolls,
       sabotage: { choiceId: 'react' },
-      overseerCharacterId: 'pc',
+      overseerCharacterId: 'npc',
     },
   });
   expect(clearOverseerSupportEdit(source, 'carried')).toEqual({
@@ -303,8 +291,7 @@ test('[rules.EVT-10.overseer-interleaved] interleaved moves can record support o
   const second = draft.event.occurrences.find(
     (event) => event.eventId === 'second',
   )!;
-  delete second.targetChecks;
-  second.sabotage = { choiceId: 'react' };
+  delete second.overseerCharacterId;
   const [one, two] = await devices(draft, snapshot);
   // Each device sees no other holder and records its own.
   expect((await move(one, 'second')).status).toBe('done');

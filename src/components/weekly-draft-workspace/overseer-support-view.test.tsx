@@ -15,7 +15,6 @@ import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
-import { childEvent } from '../../../tests/rules/candidate-reroll-fixture';
 import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { eventView } from './event-facts';
@@ -283,47 +282,6 @@ test('[EVT-10.overseer-partial-view] a move stopped between edits says where sup
   );
 });
 
-test('[EVT-10.overseer-legacy] a legacy target-level selection reads as this event’s support and moves as one', async () => {
-  const { draft, snapshot } = week();
-  draft.persistent.decisions = [
-    { kind: 'mitigate', eventId: 'carried', rolls: { check: roll(20, 12) } },
-  ];
-  const second = draft.event.occurrences.find(
-    (event) => event.eventId === 'second',
-  )!;
-  second.targetChecks = [
-    { target: { kind: 'team', teamId: 'team' }, overseerCharacterId: 'pc' },
-  ];
-  const store = workspace(draft, snapshot);
-  render(<store.Persistent />);
-  const theft = screen.getByRole('group', { name: 'Theft · Event 1' });
-  const toggle = within(theft).getByRole('switch', {
-    name: /for Theft · Event 1 Loyalty check$/,
-  });
-  expect(toggle).toHaveAttribute('aria-checked', 'false');
-  expect(theft).toHaveTextContent(
-    'Now on Event 1.2 · Sickness. Tapping moves it here.',
-  );
-  fireEvent.click(toggle);
-  await waitFor(() => expect(holders(store.draft())).toEqual(['carried']));
-  // The legacy entry named only its target and support, so it is gone; the
-  // event's own inputs stay.
-  const moved = store
-    .draft()
-    .event.occurrences.find((event) => event.eventId === 'second')!;
-  expect(moved.targetChecks).toBeUndefined();
-  expect(moved.targets).toEqual(second.targets);
-  expect(moved.rolls).toEqual(second.rolls);
-  expect(store.draft().persistent.decisions).toEqual([
-    {
-      kind: 'mitigate',
-      eventId: 'carried',
-      rolls: { check: roll(20, 12) },
-      overseerCharacterId: 'pc',
-    },
-  ]);
-});
-
 test('[PER-04.overseer-form] the Theft check offers no Overseer field, and entering its roll keeps the recorded support', async () => {
   const { draft, snapshot } = week();
   const store = workspace(draft, snapshot);
@@ -403,30 +361,23 @@ test('[EVT-13.overseer-unused] an event the rules do not use this week offers no
   const { draft, snapshot, choice } = eventActionFixture('guarantee_event');
   if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
   snapshot.roster.officers = [{ role: 'overseer', characterId: 'pc' }];
-  // An earlier Roll Twice expansion of the chosen Raid, now unused, still
-  // holds support from before the candidate reroll Ruleset Version.
-  const legacy = childEvent('raid/twice/1', 74, 'roll_twice', 'raid');
-  legacy.overseerCharacterId = 'pc';
-  choice.candidates!.push(legacy);
+  // The candidate not chosen is not used this week, yet holds support.
+  const theft = choice.candidates!.find((event) => event.eventId === 'theft')!;
+  theft.overseerCharacterId = 'pc';
   const { overseer } = eventView(
     draft,
     source(draft, snapshot),
     preview(draft, snapshot),
   );
-  expect([...overseer!.unused].sort()).toEqual(['raid/twice/1', 'theft']);
-  expect(overseerToggle(overseer!, 'raid/twice/1', 'loyalty')).toEqual({
+  expect(overseer!.unused).toEqual(['theft']);
+  expect(overseerToggle(overseer!, 'theft', 'loyalty')).toEqual({
     kind: 'unavailable',
     reason: 'unused',
     recorded: true,
   });
-  expect(overseerToggle(overseer!, 'theft', 'loyalty')).toEqual({
-    kind: 'unavailable',
-    reason: 'unused',
-    recorded: false,
-  });
   expect(overseerToggle(overseer!, 'raid', 'loyalty')).toMatchObject({
     kind: 'available',
     on: false,
-    elsewhere: [overseer!.labels['raid/twice/1']],
+    elsewhere: [overseer!.labels.theft],
   });
 });

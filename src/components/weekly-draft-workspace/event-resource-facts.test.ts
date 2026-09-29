@@ -253,7 +253,7 @@ test('[EVT-13.cache-twice] Cache Discovered Twice discovers every cache left, ea
   ]);
 });
 
-test('[EVT-07.cache-retained] a recorded cache already lost stays visible, and an older event-level roll counts as an attempt in either mode', () => {
+test('[EVT-07.cache-retained] a recorded cache already lost stays visible, and an event-level roll is no cache’s attempt but an unused input to clear', () => {
   const { draft, snapshot } = threatEventFixture(62, true);
   snapshot.economy!.caches[0]!.status = 'lost';
   draft.event.occurrences[1]!.rolls = { check: roll(20, 5) };
@@ -272,12 +272,15 @@ test('[EVT-07.cache-retained] a recorded cache already lost stays visible, and a
   const twice = panel(view, 'second');
   expect(twice.caches[0]).toMatchObject({
     cacheId: 'returning',
-    mitigation: 'attempted',
+    mitigation: 'unattempted',
   });
-  // The Twice does not use the older roll's value; it asks for the cache's
-  // own, and the older roll stays clearable.
-  expect(twice.caches[0]!.check.required).toBe(true);
-  expect(twice.legacyCheckRoll).toBe(true);
+  expect(twice.caches[0]!.check.required).toBe(false);
+  for (const cache of [first, twice])
+    expect(cache.retained).toContainEqual({
+      field: 'rolls',
+      label: 'Rolls',
+      value: 'check roll',
+    });
 });
 
 test('[EVT-07.cache-contents] a cache holding an item no longer recorded asks for its restoration', () => {

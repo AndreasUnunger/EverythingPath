@@ -2,9 +2,11 @@
 import type { EventFamilyInputsProps } from './event-family-inputs';
 import { EventNote } from './event-note';
 import { EventRaidPerson } from './event-raid-person';
+import { EventRetainedInputs } from './event-retained-inputs';
 
 // Raid: the raided settlement, then each person hidden there with their own
-// Attempt it / Let it happen, Security check and capture roll.
+// Attempt it / Let it happen, Security check and capture roll. `subject` is
+// the block label, which names the controls for assistive technology.
 export function EventRaidInputs({
   panel,
   id,
@@ -12,20 +14,11 @@ export function EventRaidInputs({
   edits,
   showRefusal,
   targetCards,
-}: EventFamilyInputsProps<'raid'>) {
+  subject,
+}: EventFamilyInputsProps<'raid'> & { subject: string }) {
   return (
     <>
       {targetCards('settlement', panel.settlement)}
-      {(panel.legacyMitigation !== null || panel.legacyCheckRoll) && (
-        <EventNote
-          action="Clear whole-Raid mitigation"
-          disabled={disabled}
-          onAction={() => showRefusal(edits.clearEventMitigation(id))}
-        >
-          An older entry records mitigation for the whole Raid. Each hidden
-          person follows it until their own choice is made.
-        </EventNote>
-      )}
       {panel.noPeople !== null && (
         <p className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]">
           {panel.noPeople}
@@ -52,6 +45,14 @@ export function EventRaidInputs({
           {entry.label}: {entry.reason}
         </EventNote>
       ))}
+      <EventRetainedInputs
+        retained={panel.retained}
+        subject={subject}
+        disabled={disabled}
+        onClear={(field) =>
+          showRefusal(edits.clearRetained(id, field, panel.keep))
+        }
+      />
     </>
   );
 }

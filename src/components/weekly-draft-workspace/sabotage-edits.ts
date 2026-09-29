@@ -73,10 +73,8 @@ export function sabotageEdits({
     saveNote(outcome: string) {
       if (!facts.recorded) return 'Choose the Saboteurs team first.';
       const parsed = acknowledgementSchema.safeParse({
-        // A note nested by an older editor is replaced by the shared one.
-        acknowledgementId: facts.nestedAcknowledgement
-          ? note.subjectId
-          : (note.acknowledgement?.acknowledgementId ?? note.subjectId),
+        acknowledgementId:
+          note.acknowledgement?.acknowledgementId ?? note.subjectId,
         subjectId: note.subjectId,
         outcome,
       });
@@ -86,22 +84,11 @@ export function sabotageEdits({
     },
     clearNote() {
       if (!note.acknowledgement) return null;
-      if (!facts.nestedAcknowledgement) {
-        edit({
-          kind: 'clear_acknowledgement',
-          acknowledgementId: note.acknowledgement.acknowledgementId,
-        });
-        return null;
-      }
-      // An older editor nested it inside the reaction.
-      return update((sabotage) => {
-        const kept = (sabotage.acknowledgements ?? []).filter(
-          (entry) => entry.subjectId !== note.subjectId,
-        );
-        if (kept.length) sabotage.acknowledgements = kept;
-        else delete sabotage.acknowledgements;
-        return sabotage;
+      edit({
+        kind: 'clear_acknowledgement',
+        acknowledgementId: note.acknowledgement.acknowledgementId,
       });
+      return null;
     },
     /**
      * Cancels the attempt: its What happened first, then the reaction, as
@@ -110,7 +97,7 @@ export function sabotageEdits({
      */
     async cancel(): Promise<string | null> {
       if (!facts.recorded) return null;
-      if (note.acknowledgement && !facts.nestedAcknowledgement) {
+      if (note.acknowledgement) {
         const cleared = await edit({
           kind: 'clear_acknowledgement',
           acknowledgementId: note.acknowledgement.acknowledgementId,

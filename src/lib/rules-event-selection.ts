@@ -45,8 +45,8 @@ export function dispatchEvent(
  * changes selection: it is the trace that preparation and presentation read.
  * A `reroll` replacement group belongs to a Roll Twice that is rerolled in
  * its own die instead of adding events: one after the phase's one expansion,
- * or any on an automatic event or an Activity candidate. A recorded
- * replacement child is an older client's representation of that reroll.
+ * or any on an automatic event or an Activity candidate. It holds no events:
+ * the table enters a new die on the Roll Twice itself.
  */
 export type EventPositionGroup =
   | { kind: 'rolled'; count: number; eventIds: string[] }
@@ -236,6 +236,10 @@ function selectOccurrence(
   }
   const expands =
     resolved.eventType === 'roll_twice' && !inPlace && !context.expanded;
+  if (resolved.eventType === 'roll_twice' && !expands) {
+    requireReroll(context, event.eventId);
+    return;
+  }
   const kind = expands ? 'roll_twice' : 'replacement';
   const count = expands ? 2 : 1;
   if (expands) context.expanded = true;
@@ -250,13 +254,25 @@ function selectOccurrence(
     parentEventId: event.eventId,
     count,
     eventIds: children.map((child) => child.eventId),
-    reroll: kind === 'replacement' && resolved.eventType === 'roll_twice',
+    reroll: false,
   });
   if (children.length !== count) {
     result.requirements.push(`${event.eventId}:${kind}:${count}`);
     return;
   }
   for (const child of children) selectOccurrence(context, child, tree, inPlace);
+}
+
+// A Roll Twice rerolled in its own die waits for its new table roll.
+function requireReroll(context: SelectionContext, eventId: string) {
+  context.result.positions.push({
+    kind: 'replacement',
+    parentEventId: eventId,
+    count: 1,
+    eventIds: [],
+    reroll: true,
+  });
+  context.result.requirements.push(`${eventId}:replacement:1`);
 }
 
 function selectReplacement(
@@ -345,20 +361,21 @@ function validateCandidate(
   const { draft, result } = context;
   const resolved = resolveTableRoll(context, event);
   if (!resolved) return;
-  const isRollTwice = resolved.eventType === 'roll_twice';
-  if (!isRollTwice) {
-    if (canEventOccur(context, resolved)) return;
-    result.warnings.push(`${event.eventId}:event-eligibility`);
-    if (
-      draft.rulesExceptions.some(
-        (entry) =>
-          entry.subjectId === event.eventId &&
-          entry.ruleId === 'event-eligibility' &&
-          entry.reason.trim(),
-      )
-    )
-      return;
+  if (resolved.eventType === 'roll_twice') {
+    requireReroll(context, event.eventId);
+    return;
   }
+  if (canEventOccur(context, resolved)) return;
+  result.warnings.push(`${event.eventId}:event-eligibility`);
+  if (
+    draft.rulesExceptions.some(
+      (entry) =>
+        entry.subjectId === event.eventId &&
+        entry.ruleId === 'event-eligibility' &&
+        entry.reason.trim(),
+    )
+  )
+    return;
   const replacements = guarantee.candidates.filter(
     (entry) =>
       entry.origin.kind === 'replacement' &&
@@ -369,7 +386,7 @@ function validateCandidate(
     parentEventId: event.eventId,
     count: 1,
     eventIds: replacements.map((entry) => entry.eventId),
-    reroll: isRollTwice,
+    reroll: false,
   });
   if (replacements.length !== 1)
     result.requirements.push(`${event.eventId}:replacement:1`);

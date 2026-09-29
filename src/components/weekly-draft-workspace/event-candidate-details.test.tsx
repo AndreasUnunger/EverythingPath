@@ -174,18 +174,15 @@ test('[rules.EVT-07.candidate-live-context] a table roll change re-resolves the 
 });
 
 test('[rules.EVT-07.candidate-removal] removing an earlier candidate entry keeps the survivor’s own table-roll context, not the removed entry’s', () => {
-  // A candidate expansion from an earlier version sits between the two
-  // candidates; clearing its roll removes it and shifts Theft forward.
+  // A surplus candidate sits between the two; clearing its roll removes it
+  // and shifts Theft forward.
   const week = candidateWeek([
-    rolled('raid', 50),
-    rolled('raid/twice/1', 60, {
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-    }),
+    rolled('raid', 78),
+    rolled('extra', 60),
     rolled('theft', 76, { rolls: { check: total(20, 1, 9) } }),
   ]);
   const edit = show(week);
-  fireEvent.click(within(block('Event 1A')).getByText(/from an earlier Roll/));
-  fireEvent.change(tableRoll('Event 1A.1'), { target: { value: '' } });
+  fireEvent.change(tableRoll('Event 1B'), { target: { value: '' } });
   const removal = edit.mock.lastCall![0];
   if (
     removal.kind !== 'detail' ||
@@ -196,7 +193,7 @@ test('[rules.EVT-07.candidate-removal] removing an earlier candidate entry keeps
     'raid',
     'theft',
   ]);
-  expect(screen.queryByRole('group', { name: 'Event 1A.1' })).toBeNull();
+  expect(screen.queryByRole('group', { name: 'Event 1C' })).toBeNull();
   const survivor = details('Event 1B');
   expect(tableRoll('Event 1B')).toHaveValue('76');
   expect(
@@ -301,69 +298,6 @@ test('[rules.P82.validation] a chosen candidate is never removed as surplus: cle
   expect(
     within(block('Event 1C')).getByRole('button', { name: 'This one happens' }),
   ).toHaveAttribute('aria-pressed', 'true');
-});
-
-test('[rules.P82.candidate-owner] a persistent candidate decision belongs to the candidate being edited', async () => {
-  const edit = show(
-    candidateWeek([
-      rolled('candidate', 76, { persistent: true }),
-      rolled('b', 78),
-    ]),
-  );
-  const entry = details('Event 1A');
-  fireEvent.click(
-    within(entry).getByRole('button', { name: 'Add persistent decision' }),
-  );
-  fireEvent.click(
-    within(entry).getByRole('button', { name: 'Save occurrence' }),
-  );
-  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
-  expect(savedOccurrence(edit)).toMatchObject({
-    eventId: 'candidate',
-    persistentDecision: { kind: 'unattempted', eventId: 'candidate' },
-  });
-});
-
-test('[rules.P82.nested-acknowledgements] event ending and sabotage notes bind to their owning candidate', async () => {
-  const edit = show(
-    candidateWeek([
-      rolled('candidate', 76, { persistent: true }),
-      rolled('b', 78),
-    ]),
-  );
-  const entry = details('Event 1A');
-  fireEvent.click(
-    within(entry).getByRole('button', { name: 'Add persistent decision' }),
-  );
-  fireEvent.click(within(entry).getByRole('button', { name: /^End$/ }));
-  fireEvent.change(within(entry).getByRole('textbox', { name: 'Outcome' }), {
-    target: { value: 'The event was resolved at the table' },
-  });
-  fireEvent.click(within(entry).getByRole('button', { name: 'Add sabotage' }));
-  fireEvent.click(
-    within(entry).getByRole('button', { name: 'Add acknowledgements' }),
-  );
-  fireEvent.click(
-    within(entry).getByRole('button', { name: 'Add acknowledgements entry' }),
-  );
-  fireEvent.change(
-    within(entry).getAllByRole('textbox', { name: 'Outcome' })[1]!,
-    { target: { value: 'Saboteurs disrupted the event' } },
-  );
-  fireEvent.click(
-    within(entry).getByRole('button', { name: 'Save occurrence' }),
-  );
-  await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
-  const candidate = savedOccurrence(edit);
-  if (candidate.persistentDecision?.kind !== 'end' || !candidate.sabotage)
-    throw new Error('Expected both decisions');
-  expect(candidate.persistentDecision.acknowledgement.subjectId).toBe(
-    'candidate',
-  );
-  expect(candidate.sabotage.choiceId).toEqual(expect.any(String));
-  expect(candidate.sabotage.acknowledgements![0]!.subjectId).toBe(
-    `sabotage:candidate:${candidate.sabotage.choiceId}`,
-  );
 });
 
 test('[rules.P82.provenance] a candidate’s recorded roll provenance stays intact without offering incomplete source selection', async () => {

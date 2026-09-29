@@ -181,14 +181,15 @@ test('[rules.A10.choice] both raw rolls and a root selection are mandatory and c
 });
 // Since the candidate reroll Ruleset Version (#191) a candidate's Roll Twice
 // is rerolled in its own die; before it, a chosen one expanded.
-test('[rules.A10.roll-twice] a chosen candidate rerolls Roll Twice in its own die and older expansion children take no part', () => {
+test('[rules.A10.roll-twice] a chosen candidate rerolls Roll Twice in its own die', () => {
   const { draft, snapshot, choice } = eventActionFixture();
   if (choice.actionId !== 'guarantee_event') throw Error('fixture');
   choice.candidates![0]!.tableRoll = roll(100, 50);
-  let event = project(draft, snapshot).event;
+  const event = project(draft, snapshot).event;
   expect(event.ready).toBe(false);
   expect(event.requirements).toContain('raid:replacement:1');
   expect(event.requirements).not.toContain('raid:roll_twice:2');
+  expect(event.selected).toEqual([]);
   expect(event.positions).toContainEqual({
     kind: 'replacement',
     parentEventId: 'raid',
@@ -196,37 +197,12 @@ test('[rules.A10.roll-twice] a chosen candidate rerolls Roll Twice in its own di
     eventIds: [],
     reroll: true,
   });
-  // Children an earlier version added stay recorded but take no part.
-  choice.candidates!.push(
-    {
-      eventId: 'child-one',
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-      tableRoll: roll(100, 74),
-    },
-    {
-      eventId: 'child-two',
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-      tableRoll: roll(100, 78),
-    },
-  );
-  expect(weeklyDraftSchema.safeParse(draft).success).toBe(true);
-  event = project(draft, snapshot).event;
-  expect(event.ready).toBe(false);
-  expect(event.requirements).toContain('raid:replacement:1');
-  expect(event.selected).toEqual([]);
-  expect(event.tree.map((entry) => entry.eventId)).not.toContain('child-one');
   // The reroll is entered in the same die.
   choice.candidates![0]!.tableRoll = roll(100, 74);
   expect(project(draft, snapshot).event).toMatchObject({
     ready: true,
     selected: [{ eventId: 'raid', eventType: 'theft' }],
   });
-  expect(choice.candidates!.map((entry) => entry.eventId)).toEqual([
-    'raid',
-    'theft',
-    'child-one',
-    'child-two',
-  ]);
 });
 test('[rules.A10.precedence] forced All Is Calm suppresses selections while keeping Activity expenditure', () => {
   const { draft, snapshot } = eventActionFixture();
@@ -377,7 +353,7 @@ test('[rules.A18.composition] queued, manager, and Overseer modifiers compose on
     ],
   };
   const sabotage = choice.candidates![0]!.sabotage!;
-  sabotage.overseerCharacterId = 'pc';
+  choice.candidates![0]!.overseerCharacterId = 'pc';
   sabotage.rolls!.check!.modifiers = [
     'manager:pc',
     'queued:source',

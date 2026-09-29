@@ -8,7 +8,6 @@ import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
 import { withoutDuplicateRollCodes } from './roll-requirements';
 import { eventSubjectLabel } from './event-tree-facts';
-import { liveWarnings } from './persistent-sections';
 import { liveWeekReview } from './summary-review';
 import { summaryMessage } from './summary-messages';
 import { liveReviewSources } from './summary-sources';
@@ -139,7 +138,7 @@ export function summaryView(
   // One line per missing die, as the Event phase shows it (#164).
   const requirements = withoutDuplicateRollCodes(preview.requirements);
   // An applied Table Adjustment is the table's decision, not a warning.
-  const warnings = liveWarnings(preview.warnings).filter(
+  const warnings = preview.warnings.filter(
     (code) => !isAppliedAdjustment(code, draft.tableAdjustments),
   );
   const sources = liveReviewSources({

@@ -1,7 +1,6 @@
 'use client';
 import { EventCheckRow } from './event-check-row';
 import type { EventEditResult, EventEdits } from './event-family-inputs';
-import { LegacyOverseerNote } from './event-legacy-overseer-note';
 import { EventMitigationChoice } from './event-mitigation-choice';
 import { EventNote } from './event-note';
 import { OverseerSupportControl } from './overseer-support-control';
@@ -87,14 +86,6 @@ export function EventCacheTarget({
             >
               A Secrecy check roll stays on record, unused.
             </EventNote>
-          )}
-          {/* A check-level Overseer selection from an older editor stays editable. */}
-          {cache.check.overseerRecorded && (
-            <LegacyOverseerNote
-              checkLabel={`${cache.check.label} · ${subject}`}
-              disabled={disabled}
-              onClear={() => patch({ overseer: null })}
-            />
           )}
         </>
       )}

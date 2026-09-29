@@ -30,7 +30,7 @@ import type {
 // or options, so Activity does not build the whole Event phase each update.
 
 function nestedCount(block: EventBlock<EventTraceFacts>): number {
-  return [...block.children, ...block.hidden, ...block.legacy].reduce(
+  return [...block.children, ...block.hidden].reduce(
     (count, child) => count + 1 + nestedCount(child),
     0,
   );

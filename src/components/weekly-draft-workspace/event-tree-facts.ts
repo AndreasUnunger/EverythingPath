@@ -10,7 +10,6 @@ import {
 import type { EventOutcomeProjection } from '~/lib/rules-event-outcomes';
 import {
   isCandidateChoice,
-  isLegacyCandidateExpansion,
   planEventTopology,
   uniquePositions,
   type EventTopologyPlan,
@@ -71,7 +70,6 @@ const STATUS_LABELS: Record<EventBlockStatus, string> = {
   no_additional_effect: 'No additional effect',
   two_more: 'Two more',
   reroll: 'Reroll',
-  rerolled: 'Rerolled',
   cannot_occur: 'Cannot occur',
   kept: 'Kept by ruling',
   sabotaged: 'Sabotaged',
@@ -79,7 +77,6 @@ const STATUS_LABELS: Record<EventBlockStatus, string> = {
   not_chosen: 'Not chosen',
   not_used: 'Not used',
   needs_repair: 'Needs repair',
-  legacy: 'No longer used',
 };
 const STATUS_TEXT: Record<EventBlockStatus, string> = {
   preparing: 'Preparing this event',
@@ -89,7 +86,6 @@ const STATUS_TEXT: Record<EventBlockStatus, string> = {
   no_additional_effect: 'Already happened this week: no additional effect',
   two_more: 'Roll two more events and resolve both',
   reroll: 'Roll Twice again: reroll and enter the new die',
-  rerolled: 'Rerolled: the recorded reroll is below',
   cannot_occur: 'Cannot occur now: roll its replacement below',
   kept: 'Cannot normally occur; kept with a Rules Exception',
   sabotaged: 'Sabotaged: this event does not happen',
@@ -98,8 +94,6 @@ const STATUS_TEXT: Record<EventBlockStatus, string> = {
   not_used: 'Kept on record; not used this week',
   needs_repair:
     'More events are recorded here than the rules ask for; clear the extra one',
-  legacy:
-    'From an earlier Roll Twice on a candidate, which is now rerolled in its own die. Kept on record, not used; clear its roll and inputs to remove it',
 };
 // The corpus rules for the event a complete table roll names. Its Twice
 // clause is included only when that clause is what applies to this block (a
@@ -403,12 +397,7 @@ export function eventTreeBlocks<
     const id = entry.event.eventId;
     const item = factsById.get(id)!;
     if (accepted && !accepted.has(id)) return 'preparing';
-    if (!active.has(id))
-      return isLegacyCandidateExpansion(draft, id)
-        ? 'legacy'
-        : surplus
-          ? 'needs_repair'
-          : 'not_used';
+    if (!active.has(id)) return surplus ? 'needs_repair' : 'not_used';
     if (overfull.has(id)) return 'needs_repair';
     const table = normalizeRawRoll(
       entry.event.tableRoll,
@@ -418,8 +407,7 @@ export function eventTreeBlocks<
     if (item.negated) return 'sabotaged';
     const group = groupOfParent.get(id);
     // A Roll Twice rerolled in its own die, chosen candidate or not.
-    if (group?.kind === 'replacement' && group.reroll)
-      return group.eventIds.length > 0 ? 'rerolled' : 'reroll';
+    if (group?.kind === 'replacement' && group.reroll) return 'reroll';
     const choice = entry.owner?.choice;
     const candidateRoot =
       isCandidateChoice(choice) && entry.event.origin.kind === 'rolled';
@@ -446,10 +434,7 @@ export function eventTreeBlocks<
     if ('parentEventId' in origin) {
       const parent = labelOf(origin.parentEventId);
       if (origin.kind === 'roll_twice') return `From ${parent} (Roll Twice)`;
-      const group = groupOfParent.get(origin.parentEventId);
-      return group?.kind === 'replacement' && group.reroll
-        ? `Recorded reroll of ${parent}`
-        : `Replaces ${parent}`;
+      return `Replaces ${parent}`;
     }
     if (origin.kind === 'automatic') return 'Automatic';
     return entry.owner
@@ -462,22 +447,15 @@ export function eventTreeBlocks<
     const isSurplus = repair.surplus(id);
     const current = status(entry, isSurplus);
     const children = childrenOf(entry).map((child) => byId.get(child.eventId)!);
-    // Active children, restorable inactive ones, and an older candidate
-    // expansion the rules never use again.
-    const nested: Pick<EventBlock<Item>, 'children' | 'hidden' | 'legacy'> = {
+    // Active children, then restorable inactive ones.
+    const nested: Pick<EventBlock<Item>, 'children' | 'hidden'> = {
       children: [],
       hidden: [],
-      legacy: [],
     };
-    for (const child of children) {
-      const childId = child.event.eventId;
-      const list = active.has(childId)
-        ? nested.children
-        : isLegacyCandidateExpansion(draft, childId)
-          ? nested.legacy
-          : nested.hidden;
-      list.push(block(child, repair));
-    }
+    for (const child of children)
+      (active.has(child.event.eventId) ? nested.children : nested.hidden).push(
+        block(child, repair),
+      );
     const choice = entry.owner?.choice;
     return {
       eventId: id,
@@ -503,7 +481,6 @@ export function eventTreeBlocks<
           : null,
       children: nested.children,
       hidden: nested.hidden,
-      legacy: nested.legacy,
       surplus: isSurplus || overfull.has(id),
       removal: repair.removal(id),
       issues: issues([...item.requirements, ...item.warnings]),

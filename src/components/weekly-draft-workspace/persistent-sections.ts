@@ -38,14 +38,6 @@ export function ordinal(value: number) {
   return `${value}${suffix}`;
 }
 
-// The recorded-versus-rules buyoff amount warning is a signed-off removal
-// from the live week (PER-05). Resolution Records keep it; live surfaces
-// filter it so their counts agree.
-const removedLiveWarnings = new Set(['buyoff-cost-recomputed']);
-export function liveWarnings(keys: readonly string[]) {
-  return keys.filter((key) => !removedLiveWarnings.has(key.split(':').pop()!));
-}
-
 // An Activity or Event result that actually ended a carried event this
 // week, named from its plan provenance. A card, roll or source that did not
 // resolve an ending leaves no plan entry and so hides nothing.

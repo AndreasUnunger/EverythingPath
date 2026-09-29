@@ -161,10 +161,9 @@ function endPersistentEvent(
 
 function applyPersistentBuyoff(
   context: PersistentResolutionContext,
-  decision: Extract<Decision, { kind: 'buyoff' }>,
   id: string,
 ) {
-  const { draft, state, plan, warnings } = context;
+  const { draft, state, plan } = context;
 
   if (!getAdvancementForRank(state.outcome.rank)) {
     requirePersistentInput(context, id, 'rank');
@@ -180,8 +179,6 @@ function applyPersistentBuyoff(
       acceptPersistentException(context, id, 'buyoff-cooldown') && permitted;
   if (state.outcome.treasuryCopper < costCopper)
     permitted = acceptPersistentException(context, id, 'treasury') && permitted;
-  if (decision.costCopper !== undefined && decision.costCopper !== costCopper)
-    warnings.push(`${id}:buyoff-cost-recomputed`);
   if (!permitted) return;
   const before = state.outcome.treasuryCopper;
   state.outcome.treasuryCopper -= costCopper;
@@ -346,7 +343,7 @@ function resolvePersistentDecision(
   )
     return;
   if (decision.kind === 'buyoff') {
-    applyPersistentBuyoff(context, decision, id);
+    applyPersistentBuyoff(context, id);
     return;
   }
   if (decision.kind === 'end') {

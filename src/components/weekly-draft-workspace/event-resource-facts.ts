@@ -217,8 +217,6 @@ export function resourcePanel(
     cache: null,
     caches: [],
     retainedCacheChecks: [],
-    legacyMitigation: null,
-    legacyCheckRoll: false,
     rewards: null,
     activity: null,
     ...parts.inputs,
@@ -379,14 +377,8 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
       (entry) =>
         entry.target.kind === 'cache' && entry.target.cacheId === cache.cacheId,
     );
-    // An older event-level roll counts as an attempt in either mode, as
-    // the engine reads it; only the base occurrence also uses its value.
-    const legacyRoll = twice ? undefined : occurrence.rolls?.check;
     const checkRoll = input?.rolls?.check;
-    const attempted = eventMitigationAttempted(
-      input?.mitigation ?? occurrence.mitigation,
-      checkRoll ?? occurrence.rolls?.check,
-    );
+    const attempted = eventMitigationAttempted(input?.mitigation, checkRoll);
     const checkId = `${occurrence.eventId}:${cache.cacheId}:mitigation`;
     const name = cacheName(cache);
     return {
@@ -406,8 +398,7 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
           (entry) => entry.checkId === checkId,
         ),
         requirements: item.requirements,
-        recorded: checkRoll ?? legacyRoll,
-        overseerRecorded: Boolean(input?.overseerCharacterId),
+        recorded: checkRoll,
         modifierLabel: context.modifierLabel,
         result: {
           success: 'The PCs retrieve the cache and its contents.',
@@ -449,8 +440,6 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
       cache: choice,
       caches: targets,
       retainedCacheChecks,
-      legacyMitigation: occurrence.mitigation ?? null,
-      legacyCheckRoll: Boolean(occurrence.rolls?.check),
     },
     notes:
       twice && !eligible.length
@@ -458,8 +447,8 @@ function cacheParts(item: Item, context: EventPanelContext): Parts {
         : [],
     uses: {
       targets: twice ? [] : ['cache'],
-      rolls: ['check'],
-      fields: ['targetChecks', 'mitigation', 'overseerCharacterId'],
+      rolls: [],
+      fields: ['targetChecks', 'overseerCharacterId'],
     },
   };
 }

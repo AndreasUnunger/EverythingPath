@@ -151,10 +151,7 @@ function legacySource() {
       eventType: 'festival',
     },
   ];
-  source.persistent.decisions = [
-    // The recorded amount differs from the rules cost the plan applied.
-    { eventId: 'id-plague', kind: 'buyoff', costCopper: 9500 },
-  ];
+  source.persistent.decisions = [{ eventId: 'id-plague', kind: 'buyoff' }];
   source.acknowledgements = [
     {
       acknowledgementId: 'id-feast-told',

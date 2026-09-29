@@ -10,7 +10,6 @@ import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import type { UpkeepSnapshot } from '~/lib/rules-upkeep';
 import type { WeeklyDraft, WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
-import { childEvent } from '../../../tests/rules/candidate-reroll-fixture';
 import { eventActionFixture } from '../../../tests/rules/event-action-fixture';
 import { threatEventFixture } from '../../../tests/rules/threat-event-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
@@ -439,11 +438,10 @@ test('[rules.EVT-10.sabotage-candidate-switch] switching the chosen candidate ke
   ).toBe(4);
 });
 
-test('[rules.EVT-13.sabotage-candidate-reroll] Sabotage waits for a chosen candidate’s Roll Twice reroll and works on either reroll representation', () => {
+test('[rules.EVT-13.sabotage-candidate-reroll] Sabotage waits for a chosen candidate’s Roll Twice reroll in its own die', () => {
   const { draft, snapshot, choice } = eventActionFixture('sabotage');
   if (choice.actionId !== 'guarantee_event') throw new Error('fixture');
   const [raid] = choice.candidates!;
-  const reaction = structuredClone(raid!.sabotage!);
   // A Roll Twice is not an event: the Sabotage stays unused until rerolled.
   raid!.tableRoll = roll(100, 50);
   const pending = project(draft, snapshot);
@@ -456,29 +454,4 @@ test('[rules.EVT-13.sabotage-candidate-reroll] Sabotage waits for a chosen candi
   const inPlace = project(draft, snapshot);
   expect(inPlace.view.sabotage!.raid!.result?.kind).toBe('success');
   expect(inPlace.preview.phases!.event.negatedEventIds).toEqual(['raid']);
-
-  // An older client's replacement child is the reroll, and holds its own.
-  raid!.tableRoll = roll(100, 50);
-  delete raid!.sabotage;
-  choice.candidates!.push({
-    ...childEvent('raid/replacement/1', 78, 'replacement', 'raid'),
-    sabotage: {
-      ...reaction,
-      acknowledgements: [
-        {
-          acknowledgementId: 'child-receipt',
-          subjectId: 'sabotage:raid/replacement/1:react',
-          outcome: 'The raid was disrupted.',
-        },
-      ],
-    },
-  });
-  const child = project(draft, snapshot);
-  expect(child.view.sabotage!['raid/replacement/1']!.result?.kind).toBe(
-    'success',
-  );
-  expect(child.view.sabotage!['raid/replacement/1']!.notorietyGain).toBe(4);
-  expect(child.preview.phases!.event.negatedEventIds).toEqual([
-    'raid/replacement/1',
-  ]);
 });

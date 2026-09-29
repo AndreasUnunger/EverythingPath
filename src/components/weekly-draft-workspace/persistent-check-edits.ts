@@ -4,7 +4,7 @@ import type { PersistentRetainedField, RivalrySkill } from './types';
 
 // The semantic edits behind a carried event's check fields. Each changes one
 // field of the saved check decision and keeps every other recorded value,
-// including Overseer support, targets and fields an older editor wrote.
+// including Overseer support and fields this check does not use.
 // Nothing here rebuilds a decision from the visible fields alone.
 
 type Decision = WeeklyDraft['persistent']['decisions'][number];
@@ -144,31 +144,5 @@ export function clearRetainedEdit(
 ): WeeklyDraftEdit {
   const next = structuredClone(decision);
   delete next[field];
-  return send(next);
-}
-
-type Target = NonNullable<Mitigation['targets']>[number];
-const sameTarget = (a: Target, b: Target) =>
-  JSON.stringify(a) === JSON.stringify(b);
-
-/**
- * Removes one retained target, found by its identity at the position the
- * player saw it (or wherever it moved); null once it is gone.
- */
-export function removeRetainedTargetEdit(
-  decision: Mitigation,
-  shown: { index: number; target: Target },
-): WeeklyDraftEdit | null {
-  const next = structuredClone(decision);
-  const current = next.targets ?? [];
-  const there = current[shown.index];
-  const at =
-    there && sameTarget(there, shown.target)
-      ? shown.index
-      : current.findIndex((entry) => sameTarget(entry, shown.target));
-  if (at < 0) return null;
-  const targets = current.filter((_, index) => index !== at);
-  if (targets.length) next.targets = targets;
-  else delete next.targets;
   return send(next);
 }

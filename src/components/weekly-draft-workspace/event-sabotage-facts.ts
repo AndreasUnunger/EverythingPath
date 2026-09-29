@@ -52,8 +52,6 @@ export type EventSabotageFacts = {
   notorietyGain: number | null;
   result: EventSabotageResult | null;
   whatHappened: EventWhatHappened;
-  // An acknowledgement an older editor nested inside the reaction.
-  nestedAcknowledgement: boolean;
 };
 
 export function sabotageChoiceId(eventId: string) {
@@ -153,13 +151,9 @@ export function eventSabotageFacts(
         }
       : null;
   const subjectId = `sabotage:${eventId}:${choiceId}`;
-  const draftNote = context.draft.acknowledgements.find(
+  const note = context.draft.acknowledgements.find(
     (entry) => entry.subjectId === subjectId,
   );
-  const nestedNote = sabotage?.acknowledgements?.find(
-    (entry) => entry.subjectId === subjectId,
-  );
-  const note = draftNote ?? nestedNote;
   return {
     eventId,
     choiceId,
@@ -199,7 +193,6 @@ export function eventSabotageFacts(
         ? { acknowledgementId: note.acknowledgementId, outcome: note.outcome }
         : null,
     },
-    nestedAcknowledgement: !draftNote && Boolean(nestedNote),
   };
 }
 

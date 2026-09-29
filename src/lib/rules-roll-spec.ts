@@ -42,9 +42,10 @@ export function activityRollSpec(
   return activitySpecs[actionId]?.[field] ?? null;
 }
 
-export type EventRollContext =
-  | { kind: 'occurrence'; eventType: EventType | null }
-  | { kind: 'persistent'; eventType: EventType };
+export type EventRollContext = {
+  kind: 'occurrence';
+  eventType: EventType | null;
+};
 
 type RollPath = readonly (string | number)[];
 
@@ -53,17 +54,6 @@ function isPath(path: RollPath, ...expected: string[]) {
     path.length === expected.length &&
     path.every((part, index) => part === expected[index])
   );
-}
-
-function persistentRollSpec(
-  eventType: EventType,
-  path: RollPath,
-): RollSpec | null {
-  if (eventType === 'rivalry' && isPath(path, 'officerCheck', 'roll'))
-    return RULE_ROLL_SPECS.check;
-  if (eventType === 'theft' && isPath(path, 'rolls', 'check'))
-    return RULE_ROLL_SPECS.check;
-  return null;
 }
 
 function occurrenceRootRollSpec(
@@ -78,7 +68,7 @@ function occurrenceRootRollSpec(
     return RULE_ROLL_SPECS.check;
   if (
     isPath(path, 'rolls', 'check') &&
-    ['cache_discovered', 'raid', 'sickness', 'theft'].includes(eventType)
+    ['sickness', 'theft'].includes(eventType)
   )
     return RULE_ROLL_SPECS.check;
   if (eventType === 'turncoat' && isPath(path, 'rolls', 'loss'))
@@ -118,16 +108,10 @@ export function eventRollSpec(
   context: EventRollContext,
   path: RollPath,
 ): RollSpec | null {
-  if (context.kind === 'persistent')
-    return persistentRollSpec(context.eventType, path);
   if (isPath(path, 'tableRoll')) return RULE_ROLL_SPECS.percentile;
   if (isPath(path, 'sabotage', 'rolls', 'check')) return RULE_ROLL_SPECS.check;
   if (isPath(path, 'sabotage', 'rolls', 'notoriety'))
     return RULE_ROLL_SPECS.singleD6;
-  if (path[0] === 'persistentDecision')
-    return context.eventType
-      ? persistentRollSpec(context.eventType, path.slice(1))
-      : null;
   if (path[0] === 'targetChecks')
     return targetRollSpec(context.eventType, path);
   return occurrenceRootRollSpec(context.eventType, path);

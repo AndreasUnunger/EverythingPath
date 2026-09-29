@@ -7,7 +7,6 @@ import {
   clearRetainedEdit,
   modifierList,
   officerCheckEdit,
-  removeRetainedTargetEdit,
   theftRollEdit,
   type CheckRoll,
   type Mitigation,
@@ -15,7 +14,6 @@ import {
   type RollModifier,
 } from './persistent-check-edits';
 import type {
-  PersistentRetained,
   PersistentRetainedField,
   PersistentView,
   RivalrySkill,
@@ -25,7 +23,6 @@ import type { PersistentEdit } from './use-persistent-choice';
 type Event = PersistentView['events'][number];
 type Decision = WeeklyDraft['persistent']['decisions'][number];
 type Result = 'accepted' | 'failed';
-type RetainedTarget = PersistentRetained['targets'][number];
 export type { ModifierChange };
 // The newest decision for an event, null when it has none, or undefined
 // when newer facts are not available and the rendered one stands in.
@@ -130,10 +127,6 @@ export function usePersistentCheck(
       }, false),
     clearRetained: (field: PersistentRetainedField) =>
       write((decision) => clearRetainedEdit(decision, field)),
-    removeRetainedTarget: (index: number, shown: RetainedTarget) =>
-      write((decision) =>
-        removeRetainedTargetEdit(decision, { index, target: shown.target }),
-      ),
   };
 }
 export type PersistentCheck = ReturnType<typeof usePersistentCheck>;

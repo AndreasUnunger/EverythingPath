@@ -255,7 +255,7 @@ function checkThreatMitigation(
   check: 'security' | 'secrecy',
   dc: number,
 ) {
-  const { draft, result, event, twice } = context;
+  const { draft, result, event } = context;
 
   const input = event.targetChecks?.find((input) =>
     target.kind === 'cache'
@@ -265,8 +265,8 @@ function checkThreatMitigation(
         input.target.characterId === target.characterId,
   );
   const attempted = eventMitigationAttempted(
-    input?.mitigation ?? event.mitigation,
-    input?.rolls?.check ?? event.rolls?.check,
+    input?.mitigation,
+    input?.rolls?.check,
   );
   if (!attempted) return false;
   const targetId =
@@ -280,8 +280,7 @@ function checkThreatMitigation(
     result,
     event,
     check,
-    input?.rolls?.check ??
-      (target.kind === 'cache' && !twice ? event.rolls?.check : undefined),
+    input?.rolls?.check,
     `${event.eventId}:${targetId}:mitigation`,
   );
   return total === null ? null : total >= dc;

@@ -481,9 +481,6 @@ export type EventCheckFacts = {
   // What the result means for this event, once the roll is in.
   resultText: string | null;
   required: boolean;
-  // A check-level Overseer selection recorded by an older editor. Support
-  // applies once to every check of the occurrence, wherever it is recorded.
-  overseerRecorded: boolean;
 };
 // A card for a team, settlement or person target.
 export type EventTargetCard = {
@@ -543,7 +540,6 @@ export type EventRetainedField = {
     | 'rewards'
     | 'persistent'
     | 'persistentDecision'
-    | 'strategistCharacterId'
     | 'overseerCharacterId';
   label: string;
   value: string;
@@ -823,9 +819,6 @@ export type EventPanel =
       caches: EventCacheTarget[];
       // Recorded per-cache checks for caches this event does not find.
       retainedCacheChecks: (EventRetainedTarget & { index: number })[];
-      // An event-level mitigation or check roll from an older editor.
-      legacyMitigation: 'attempted' | 'unattempted' | null;
-      legacyCheckRoll: boolean;
       rewards: EventRewardFacts | null;
       activity: EventActivityRecalculation | null;
       notes: string[];
@@ -846,10 +839,15 @@ export type EventPanel =
       people: EventRaidPerson[];
       // Recorded per-person entries for people not hidden in that refuge.
       retainedPeople: (EventRetainedTarget & { index: number })[];
-      // An event-level mitigation or check roll from an older editor: it
-      // stands in for each person until their own choice is recorded.
-      legacyMitigation: 'attempted' | 'unattempted' | null;
-      legacyCheckRoll: boolean;
+      // Recorded inputs Raid does not use, such as an event-level
+      // mitigation left by a table roll that named another event.
+      retained: EventRetainedField[];
+      keep: {
+        targets: NonNullable<
+          WeeklyDraft['event']['occurrences'][number]['targets']
+        >[number]['kind'][];
+        rolls: string[];
+      };
       noPeople: string | null;
       whatHappened: EventWhatHappened;
       outcomes: string[];
@@ -864,16 +862,13 @@ export type EventBlockStatus =
   | 'no_additional_effect'
   | 'two_more'
   | 'reroll'
-  | 'rerolled'
   | 'cannot_occur'
   | 'kept'
   | 'sabotaged'
   | 'candidate'
   | 'not_chosen'
   | 'not_used'
-  | 'needs_repair'
-  // Part of a candidate's Roll Twice expansion, which the rules no longer make.
-  | 'legacy';
+  | 'needs_repair';
 export type EventIssue = { code: string; message: string };
 // An event's corpus rules for one block; `twice` only when it applies there.
 export type EventBlockRules = {
@@ -919,9 +914,6 @@ export type EventBlock<Item extends EventTraceFacts = EventOccurrenceFacts> = {
   children: EventBlock<Item>[];
   // Recorded children the current roll does not use; restored if it returns.
   hidden: EventBlock<Item>[];
-  // A candidate's recorded Roll Twice children, which the rules never use
-  // again now that its Roll Twice is rerolled in place; kept until cleared.
-  legacy: EventBlock<Item>[];
   // A position the rules do not ask for: clearing its last input removes it.
   surplus: boolean;
   // The existing tree/candidate edit removing this surplus position once its
@@ -1123,28 +1115,16 @@ export type PersistentRivalryCheck = {
   notOfficer: boolean;
   modifiers: PersistentRecordedModifier[];
 };
-// Check fields an older editor recorded that this check does not use.
+// Check fields recorded that this check does not use.
 export type PersistentRetainedField =
-  | 'targets'
-  | 'strategistCharacterId'
   | 'officerCheck'
   | 'rolls'
   | 'overseerCharacterId';
-// One retained field as shown: its name and recorded value, or its targets.
+// One retained field as shown: its name and recorded value in words.
 export type PersistentRetained = {
   field: PersistentRetainedField;
   label: string;
-  // The recorded value in words; targets list each target instead.
   value: string;
-  targets: {
-    name: string;
-    target: NonNullable<
-      Extract<
-        WeeklyDraft['persistent']['decisions'][number],
-        { kind: 'mitigate' }
-      >['targets']
-    >[number];
-  }[];
 };
 export type PhaseView =
   | UpkeepView
