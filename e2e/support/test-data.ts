@@ -80,6 +80,7 @@ export const deploymentFixture: DeploymentFixture = {
       workspaceActivity: 'a'.repeat(64),
       workspaceSettlementTouch: 'cd'.repeat(32),
       workspaceDrillRolls: 'ef'.repeat(32),
+      workspaceRecoveryActivity: '12'.repeat(32),
       campaignHome: '6'.repeat(64),
       campaignSections: '7'.repeat(64),
       weekLinks: '9'.repeat(64),

@@ -114,6 +114,13 @@ const workspaceJourneys = [
     'Drill shows its notoriety and Training rolls only when its check needs them, with a maximum-rank exception',
     'workspaceDrillRolls',
   ],
+  // The tablet Activity checks beside the recovered Scouts (#198), split from
+  // the recovery journey onto a seeded recovery so that journey keeps its
+  // margin; the recovery journey still confirms its week through Event.
+  [
+    'players stage, move and clear Activity choices for a recovered team and see a stale replacement rejected',
+    'workspaceRecoveryActivity',
+  ],
 ] as const satisfies readonly (readonly [string, CaseKey])[];
 
 export function workspaceCaseKey(title: string): CaseKey {

@@ -6,6 +6,9 @@ import { internal } from './_generated/api';
 import schema from './schema';
 import { deploymentFixture } from '../e2e/support/test-data';
 import { canonicalCaseKeys, type FixtureScope } from '../e2e/fixtures/catalog';
+import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
+import { weeklyDraftSchema } from '../src/lib/weekly-draft-contract';
+import { projectUpkeep } from '../src/lib/rules-upkeep';
 
 const modules = import.meta.glob('./**/*.ts');
 const scope: FixtureScope = {
@@ -247,6 +250,7 @@ describe('internal fixture boundary', () => {
         workspaceActivity: 's'.repeat(64),
         workspaceSettlementTouch: 't'.repeat(64),
         workspaceDrillRolls: 'u'.repeat(64),
+        workspaceRecoveryActivity: 'v'.repeat(64),
         campaignHome: 'n'.repeat(64),
         campaignSections: 'o'.repeat(64),
         weekLinks: 'q'.repeat(64),
@@ -454,4 +458,62 @@ describe('internal fixture boundary', () => {
       ).toMatchObject({ militia: { week: 4, treasury: 50 } });
     },
   );
+
+  // The recovery Activity journey (#198) opens on the week the recovery
+  // journey reaches through Upkeep, so its seed must leave nothing to enter.
+  it('seeds the adjusted Scouts recovery as a complete Upkeep', async () => {
+    const t = convexTest({ schema, modules });
+    const caseKey = 'workspaceRecoveryActivity';
+    const owned: FixtureScope = {
+      ...scope,
+      caseKey,
+      token: cohort?.cases[caseKey] ?? '',
+    };
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...owned,
+      now: 0,
+      isolatedWith: [caseKey],
+    });
+    await expect(
+      t.mutation(internal.canonicalPersistenceFixtures.initializeUpkeep, {
+        scope: owned,
+        draftId: 'draft-without-choices',
+        adjustedRecovery: true,
+      }),
+    ).rejects.toThrow('An adjusted recovery needs the Scouts choice');
+    const key = await t.mutation(
+      internal.canonicalPersistenceFixtures.initializeUpkeep,
+      {
+        scope: owned,
+        draftId: 'draft-adjusted-recovery',
+        choices: true,
+        adjustedRecovery: true,
+      },
+    );
+    const inspected = confirmationInspectionSchema.parse(
+      await t.mutation(internal.canonicalPersistenceFixtures.inspect, {
+        ...key,
+        scope: owned,
+      }),
+    );
+    const draft = weeklyDraftSchema.parse(inspected.source.draft);
+    // Nothing left to enter: both rolls are complete for their rule
+    // specifications (a successful check's training roll is 1d6).
+    expect(projectUpkeep(draft, inspected.snapshot).requirements).toEqual([]);
+    expect(draft.upkeep.teamDecisions).toEqual([
+      { teamId: 'upkeep-scouts', decision: 'recover', costCopper: 2000 },
+    ]);
+    expect(draft.tableAdjustments).toEqual([
+      expect.objectContaining({
+        adjustmentId: 'upkeep-recovery:upkeep-scouts',
+        field: 'treasuryCopper',
+        value: 500,
+        reason: 'Local healer donated supplies',
+      }),
+    ]);
+    expect(Object.values(draft.upkeep.rolls)).toEqual([
+      expect.objectContaining({ diceTotal: 10, diceCount: 1, sides: 20 }),
+      expect.objectContaining({ diceTotal: 3, diceCount: 1, sides: 6 }),
+    ]);
+  });
 });

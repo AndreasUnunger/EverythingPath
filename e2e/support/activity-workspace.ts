@@ -305,7 +305,8 @@ export async function exerciseActivityWorkspace(
       .click();
     await expect(empty(player, position)).toBeVisible();
   }
-  await exerciseGuaranteeEvent(gm, player);
+  // Guarantee Event's candidates run in the recovery journey, on the same
+  // empty Activity just before its Event checks (`exerciseGuaranteeEvent`).
   await Promise.all([
     gm.getByRole('button', { name: 'Upkeep', exact: true }).click(),
     player.getByRole('button', { name: 'Upkeep', exact: true }).click(),
@@ -372,8 +373,9 @@ export async function exerciseDrillRolls(gm: Page, player: Page) {
 // candidate's Roll Twice is rerolled in its own die with no nested events,
 // and the choice's details show the chosen candidate. Clearing the choice
 // takes its candidates with it, so the later Event steps and the exact
-// Confirmation totals start from the same week as before.
-async function exerciseGuaranteeEvent(gm: Page, player: Page) {
+// Confirmation totals start from the same week as before. Both devices start
+// and end on an empty Activity.
+export async function exerciseGuaranteeEvent(gm: Page, player: Page) {
   const action = 'Guarantee Event';
   await choose(gm, action, 1);
   const details = await open(gm, 1, action);
