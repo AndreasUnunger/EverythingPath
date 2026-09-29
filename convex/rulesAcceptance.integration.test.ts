@@ -3,7 +3,7 @@ import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { expect, test, vi } from 'vitest';
 import { convexTest } from 'convex-test';
 import { build } from 'vite';
-import { runInNewContext } from 'node:vm';
+import { createContext, runInContext } from 'node:vm';
 import { resolve } from 'node:path';
 import schema from './schema';
 import { api, internal } from './_generated/api';
@@ -50,6 +50,10 @@ test('[rules.GATE.projection-parity] shared canonical fixtures retain every Phas
     if (!output || !('output' in output)) throw new Error('Missing bundle');
     const script = output.output.find((entry) => entry.type === 'chunk');
     if (script?.type !== 'chunk') throw new Error('Missing JavaScript');
+    // Evaluate the bundle once, like one browser session. Re-evaluating it per
+    // fixture cost about a quarter of this test's runtime.
+    const browserContext = createContext({ structuredClone });
+    runInContext(script.code, browserContext);
     const fixtures = [
       { name: 'compound', input: compoundAcceptanceFixture().input },
       ...eventAcceptanceFixtures(),
@@ -90,13 +94,11 @@ test('[rules.GATE.projection-parity] shared canonical fixtures retain every Phas
         key,
       );
       if (!observed.draft) throw new Error('Missing draft');
-      const browser = runInNewContext(
-        `${script.code}; Acceptance.acceptanceViews(draft, source)`,
-        {
-          structuredClone,
-          draft: structuredClone(observed.draft),
-          source: structuredClone(source),
-        },
+      browserContext.draft = structuredClone(observed.draft);
+      browserContext.source = structuredClone(source);
+      const browser = runInContext(
+        'Acceptance.acceptanceViews(draft, source)',
+        browserContext,
       ) as ReturnType<typeof acceptanceViews>;
       expect(browser, name).toEqual(acceptanceViews(observed.draft, source));
       const review = await member.query(
@@ -168,4 +170,9 @@ test('[rules.GATE.projection-parity] shared canonical fixtures retain every Phas
     vi.unstubAllEnvs();
     vi.useRealTimers();
   }
-}, 30000);
+  // Each of the ~130 fixtures seeds its own Convex database and races two
+  // authenticated confirmations. On GitHub's 2-vCPU runner this took 26.5s on
+  // main and timed out at 30s on #198, while the other test files competed for
+  // the same CPUs. Reusing one browser context cut local time from 10s to 7.3s.
+  // 60s leaves headroom for CI contention.
+}, 60_000);
