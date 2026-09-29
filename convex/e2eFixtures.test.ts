@@ -176,6 +176,7 @@ describe('internal fixture boundary', () => {
         name: 'Created during play',
         description: '',
         kind: 'pc',
+        isActive: true,
         level: 1,
         strength: 10,
         dexterity: 10,

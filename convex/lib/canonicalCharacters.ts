@@ -36,7 +36,7 @@ export async function updateCanonicalCharacter(
     intelligence: character.intelligence,
     wisdom: character.wisdom,
     charisma: character.charisma,
-    isActive: character.isActive !== false,
+    isActive: character.isActive,
   };
   const characters = source.snapshot.characters.some(
     (c) => c.characterId === characterId,

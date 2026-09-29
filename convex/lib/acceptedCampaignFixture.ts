@@ -27,6 +27,7 @@ export async function seedAcceptedCampaign(
     name: 'Officer',
     ownerId: 'gm',
     kind: 'pc',
+    isActive: true,
     level: 12,
     description: 'Retain notes',
     strength: 10,

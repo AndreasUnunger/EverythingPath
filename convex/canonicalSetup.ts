@@ -85,7 +85,7 @@ export const options = query({
         intelligence: character.intelligence,
         wisdom: character.wisdom,
         charisma: character.charisma,
-        isActive: character.isActive !== false,
+        isActive: character.isActive,
       })),
     };
   },
@@ -218,7 +218,7 @@ async function requireReviewedCharacters(
         throw new ConvexError(
           'Character facts changed. Reload setup to review the ledger.',
         );
-    if (person.isActive !== (character.isActive !== false))
+    if (person.isActive !== character.isActive)
       throw new ConvexError(
         'Character facts changed. Reload setup to review the ledger.',
       );

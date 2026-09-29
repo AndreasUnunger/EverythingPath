@@ -56,7 +56,7 @@ export const listByCampaign = query({
       return characters;
     }
 
-    return characters.filter((character) => character.isActive !== false);
+    return characters.filter((character) => character.isActive);
   },
 });
 
@@ -181,7 +181,7 @@ export const deleteCharacter = mutation({
       throw new ConvexError('Character not found');
     }
 
-    if (character.isActive !== false) {
+    if (character.isActive) {
       throw new ConvexError('Only archived characters can be hard deleted');
     }
 

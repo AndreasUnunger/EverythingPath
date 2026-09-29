@@ -77,7 +77,7 @@ export function useCanonicalLedger({
     intelligence: c.intelligence,
     wisdom: c.wisdom,
     charisma: c.charisma,
-    isActive: c.isActive !== false,
+    isActive: c.isActive,
     kind: c.kind,
   }));
   return {

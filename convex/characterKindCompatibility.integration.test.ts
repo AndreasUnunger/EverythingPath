@@ -285,6 +285,7 @@ test('Setup stores each roster person with its current record kind and keeps sam
       name: 'Officer',
       ownerId: 'gm',
       kind: 'npc',
+      isActive: true,
       ...stats,
     });
     return { campaignId, characterId };

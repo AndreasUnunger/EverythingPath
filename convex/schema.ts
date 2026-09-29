@@ -110,12 +110,11 @@ export const characterKindValidator = v.union(
 
 export const characterValidator = v.object({
   name: v.string(),
-  // Widened during ownerId migration. Narrow back to v.string() after backfill.
-  ownerId: v.union(v.string(), v.number()),
+  ownerId: v.string(),
   campaignId: v.id('campaign'),
   description: v.string(),
   kind: characterKindValidator,
-  isActive: v.optional(v.boolean()),
+  isActive: v.boolean(),
   level: v.number(),
   strength: v.number(),
   dexterity: v.number(),
@@ -145,28 +144,6 @@ export const campaignValidator = v.object({
 export const militiaValidator = v.object({
   campaignId: v.id('campaign'),
   name: v.string(),
-});
-
-export const dataMigrationValidator = v.object({
-  name: v.string(),
-  status: v.union(
-    v.literal('running'),
-    v.literal('completed'),
-    v.literal('failed'),
-  ),
-  stage: v.union(
-    v.literal('characters'),
-    v.literal('militias'),
-    v.literal('done'),
-  ),
-  characterCursor: v.optional(v.string()),
-  militiaCursor: v.optional(v.string()),
-  migratedCharacterCount: v.number(),
-  migratedMilitiaCount: v.number(),
-  startedAt: v.number(),
-  updatedAt: v.number(),
-  completedAt: v.optional(v.number()),
-  error: v.optional(v.string()),
 });
 
 export const roles = v.union(v.literal('admin'), v.literal('member'));
@@ -259,7 +236,6 @@ export default defineSchema({
       'e2eFixture.caseKey',
     ]),
   militia: defineTable(militiaValidator).index('by_campaign', ['campaignId']),
-  dataMigration: defineTable(dataMigrationValidator).index('by_name', ['name']),
   spell: defineTable(spellValidator).index('by_name', ['name']),
   characterSpell: defineTable(
     v.object({
