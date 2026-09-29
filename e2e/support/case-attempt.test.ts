@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -83,6 +83,35 @@ describe('case ownership and retry lifecycle', () => {
       await expect(
         claimCaseKey(directory, 'worker-0', 'smoke', 'test-two'),
       ).rejects.toThrow('distinct fixture');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+  it('lets exactly one of two simultaneous tests claim a key', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'e2e-ownership-race-'));
+    try {
+      for (let round = 0; round < 20; round++) {
+        const caseKey = `smoke-${round}`;
+        const results = await Promise.allSettled(
+          ['test-one', 'test-two'].map((testId) =>
+            claimCaseKey(directory, 'worker-0', caseKey, testId),
+          ),
+        );
+        const winners = results.flatMap((result, index) =>
+          result.status === 'fulfilled' ? [index] : [],
+        );
+        expect(winners).toHaveLength(1);
+        const loser = results[1 - winners[0]!];
+        expect(loser).toMatchObject({
+          status: 'rejected',
+          reason: expect.objectContaining({
+            message: expect.stringContaining('distinct fixture'),
+          }),
+        });
+        const winner = winners[0] === 0 ? 'test-one' : 'test-two';
+        await claimCaseKey(directory, 'worker-0', caseKey, winner);
+      }
+      expect(await readdir(join(directory, 'case-owners'))).toHaveLength(20);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
