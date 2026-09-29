@@ -136,6 +136,31 @@ function readScroll(card: Locator) {
 }
 
 /**
+ * Runs in the page: `ended` resolves true once a scroll comes to rest, its
+ * momentum included (the first `scrollend` from the document or any element),
+ * or false after `timeout` ms. The promise is wrapped so `evaluateHandle`
+ * returns before it settles.
+ */
+export function watchScrollEnd(timeout: number) {
+  return {
+    ended: new Promise<boolean>((resolve) => {
+      const end = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      const timer = setTimeout(() => {
+        document.removeEventListener('scrollend', end, true);
+        resolve(false);
+      }, timeout);
+      document.addEventListener('scrollend', end, {
+        capture: true,
+        once: true,
+      });
+    }),
+  };
+}
+
+/**
  * Touch at the tablet size (touch is enabled in this project): a finger pan
  * that starts on a nearest-settlement card scrolls the week instead of
  * dragging the card, and changes no selection on either device; a tap then
@@ -177,6 +202,10 @@ export async function panAndTapSettlementCards(
   // The finger moves up to scroll on, or down to scroll back when there is
   // more room above than below.
   const distance = before.top > before.below ? 160 : -160;
+  // The week keeps gliding after the finger lifts. A tap during the glide
+  // only stops it: Chromium, like a phone, sends no click. So the tap waits
+  // until the scroll has come to rest, watched from before the pan starts.
+  const scrollEnd = await gm.evaluateHandle(watchScrollEnd, 10_000);
   // A finger's own touch events: headless Chromium's synthesized touch
   // scroll gesture sends only touchstart and touchend.
   const cdp = await gm.context().newCDPSession(gm);
@@ -197,12 +226,15 @@ export async function panAndTapSettlementCards(
   } finally {
     await cdp.detach();
   }
-  await expect
-    .poll(
-      async () => (await readScroll(card(gm, other))).top,
-      'the pan scrolled the week',
-    )
-    .not.toBe(before.top);
+  expect(
+    await scrollEnd.evaluate((watch) => watch.ended),
+    'the scroll came to rest after the pan',
+  ).toBe(true);
+  await scrollEnd.dispose();
+  expect(
+    (await readScroll(card(gm, other))).top,
+    'the pan scrolled the week',
+  ).not.toBe(before.top);
   await expect(card(gm, other)).not.toHaveAttribute('style', /translate/);
   await expectPressed(selected, 'true');
   await expectPressed(other, 'false');

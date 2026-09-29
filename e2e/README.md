@@ -1127,3 +1127,31 @@ connection and try again." with a page reload as the retry. The journey's
 assertions are unchanged: an outsider who cannot sign in has not been shown
 the unavailable state, so the journey still fails, now with that message in
 its observations (they include `role=alert` text).
+
+## Settlement tap lost to the pan's momentum (#198, 2026-09-29)
+
+GitHub run `36624233202` (4 CPUs, two workers) failed the first attempt of
+`workspaceSettlementTouch`: after the finger pan, `tap()` on Misthome ran but
+its `aria-pressed` stayed `false` for 15 s on both devices. The retry passed.
+
+The pan's 20 unpaced touch moves end in a fling, and the helper waited only
+until the week had started to scroll. Playwright's `tap()` waits for the card
+to be stable across one animation frame, which a starved browser can report
+while the fling is still gliding. Chromium, like a phone, treats a tap that
+stops a fling as only stopping it: pointer and touch events arrive, but no
+click, so nothing is chosen. That is platform behaviour, not a product bug:
+a user's tap on a gliding page only stops it too.
+
+A harness page with the real `ChoiceCards`, driven through the same mouse miss,
+pan and tap on two pinned CPUs shared with six busy loops, showed it:
+
+- **Before:** 9 of 120 taps chose nothing. In all 9 the week was still
+  scrolling within 10 ms of the tap and its `scrollend` arrived after the tap,
+  where the tap stopped it; that happened in only 2 of the 111 passing taps.
+  Raw CDP taps 0–100 ms after the pan clicked 0 of 24 times; at 200 ms or
+  later, 18 of 18.
+- **After:** the helper watches for `scrollend` from before the pan
+  (`watchScrollEnd`) and taps once the scroll has come to rest. 0 of 120 taps
+  failed, and no scroll ended after a tap.
+
+The pan-scrolled, no-choice and both-device tap assertions are unchanged.
