@@ -20,7 +20,7 @@ test('shared persistence contract uses authenticated isolated Convex', async ({
   test.setTimeout(300_000);
   const { run, url, comparison, connect } = await prepareContract(
     players,
-    comparisonCase!.scope,
+    comparisonCase!,
   );
   let nativePaginationVerified = false;
 

@@ -9,6 +9,8 @@ import {
 } from '@playwright/test';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { z } from 'zod';
+import { draftKeySchema } from '../../convex/lib/canonicalStorageValidators';
 import {
   fixtureCatalog,
   FIXTURE_VERSION,
@@ -27,8 +29,11 @@ import { sanitizeLog, sanitizeTrace } from './artifacts';
 import { caseAttempt, claimCaseKey } from './case-attempt';
 import { refreshSessionToken } from './session-token';
 
-type Fixture = {
+export type Fixture = {
   scope: FixtureScope;
+  // The campaign the automatic reset just created, so a journey never resets
+  // the case again only to learn it.
+  campaignId: z.infer<typeof draftKeySchema.shape.campaignId>;
   campaignName: string;
   inspect: () => Promise<unknown>;
 };
@@ -121,6 +126,8 @@ async function roleContext(
   return context;
 }
 
+const resetResult = z.object({ campaignId: draftKeySchema.shape.campaignId });
+
 async function useOwnedCase(
   caseKey: CaseKey,
   testCases: (CaseKey | undefined)[],
@@ -151,10 +158,17 @@ async function useOwnedCase(
     info.testId,
   );
   await caseAttempt(
-    () => fixtureCall(run, 'resetCase', { ...scope, now: 1_700_000_000_000 }),
-    () =>
+    async () =>
+      resetResult.parse(
+        await fixtureCall(run, 'resetCase', {
+          ...scope,
+          now: 1_700_000_000_000,
+        }),
+      ),
+    ({ campaignId }) =>
       use({
         scope,
+        campaignId,
         campaignName: `E2E ${fixtureCatalog[caseKey].campaign}`,
         inspect: () => fixtureCall(run, 'inspectCase', scope),
       }),

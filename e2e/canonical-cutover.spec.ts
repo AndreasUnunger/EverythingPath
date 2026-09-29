@@ -14,10 +14,7 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
   ownedCase,
   comparisonCase,
 }) => {
-  const { run, connect } = await prepareContract(
-    players,
-    comparisonCase!.scope,
-  );
+  const { run, connect } = await prepareContract(players, comparisonCase!);
   const client = connect(players.gm);
   try {
     const key = await client.mutation(

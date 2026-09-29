@@ -68,7 +68,7 @@ The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
 creates fresh ignored role storage and runs the nine Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
-and at most one per available CPU, unless `--workers N` asks for up to the
+and at most one per two available CPUs, unless `--workers N` asks for up to the
 declared number; a single cohort runs exactly serially. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
@@ -720,15 +720,22 @@ isolation recorded above. Tests are about 93 % of a nightly run, and each cohort
 complete isolation unit: its organizations are disjoint from every other cohort's.
 
 - **Workers.** `pnpm test:e2e` starts one Playwright worker per declared cohort,
-  capped at three and at Node's `availableParallelism()` (the console line
-  names both). `--workers N` selects between 1 and the declared number; use
-  `--workers 1` for a serial baseline on the same declaration. The CPU cap
-  exists because each worker drives three browser contexts against one shared
-  production server: on a 2-vCPU GitHub runner, three workers pushed most
-  `canonical-workspace` journeys past their timeouts, while two passed first
-  time in about 8.5 minutes of browser time and one needed about 14.5, too
-  close to the 17.5-minute budget (#198). CPU quotas such as
-  `docker run --cpus` are not visible to `availableParallelism()`; pin CPUs
+  capped at three and at one per two CPUs of Node's `availableParallelism()`
+  (the console line names both). `--workers N` selects between 1 and the
+  declared number; use `--workers 1` for a serial baseline on the same
+  declaration. The CPU cap exists because each worker drives two or three
+  browser contexts, its fixture CLI processes and a share of one production
+  server. GitHub's runner reports 4 vCPUs; with three workers
+  (run `36546333184`) every journey took about 1.6 times its local time. Steps
+  that only resize and measure layout took 2–2.7 times as long, while steps
+  that wait for another device took 1.2–1.5 times, and fixture calls rose from
+  about 1.05 s with one worker to 1.6 s. The five `canonical-workspace` journeys
+  with the least headroom (1.4–1.6 times their local time) then timed out on
+  both attempts. Convex latency is not the cause: with one CI worker, `main`
+  ran the then-combined Workspace journey in 203–228 s (168–200 s locally)
+  and fixture calls of about 1.1–1.3 s (#198). CPU
+  quotas such as `docker run --cpus` are not visible to
+  `availableParallelism()`; pin CPUs
   with `--cpuset-cpus` or pass `--workers` when emulating a small runner. The runner refuses
   cohorts that are out of order (`worker-0`, `worker-1`, ...) or share a key,
   organization or identity. `fullyParallel` stays off: files run whole on one
@@ -835,6 +842,13 @@ spawn takes about 1.0–1.4 s, which is roughly 150 calls and 18 % of nightly
 browser time. The canary adds no call because it runs inside the reset. A
 persistent guarded client could save an estimated 100–130 s. Measure that before
 replacing the spawns.
+
+The automatic `ownedCase` and `comparisonCase` fixtures return the campaign
+their reset created. Journeys therefore no longer reset the same case a second
+time: Workspace journeys open their Upkeep draft with `initialUpkeep`
+(`support/upkeep-scenario.ts`), and contract setup reuses the comparison
+campaign. That saves one call per journey, about 1.6 s each on the CI runner.
+Resets later in a journey remain explicit `resetCase` calls.
 
 Verified with live services on 2026-09-27: a three-worker (`JxnO44`) and a
 serial (`xpy7vn`) nightly on the same fingerprint gave the same verdicts except

@@ -67,11 +67,11 @@ import { workspaceCaseKey } from './support/matrix';
 import {
   canonicalPersistenceFixtureCall,
   loadRun,
-  fixtureCall,
   savePrivate,
 } from './support/process';
 import { controlNextDraftEdit } from './support/held-mutation';
 import { controlTransport } from './support/transport';
+import { initialUpkeep } from './support/upkeep-scenario';
 
 function observeEditRejection(page: Page) {
   let rejected = false;
@@ -466,23 +466,18 @@ test('players choose the nearest settlement at maximum notoriety and resolve tea
   const gm = players.gm,
     player = players.player;
   try {
-    await fixtureCall(run, 'resetCase', {
-      ...ownedCase.scope,
-      now: 1_700_000_000_000,
-    });
     // The nearest settlement is chosen only at maximum notoriety, once the
     // Loyalty check fails; its cards are exercised on that fixture.
-    const notorietyScope = draftKeySchema.parse(
-      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-        scope: ownedCase.scope,
-        draftId: randomUUID(),
+    const { key: notorietyScope, route: notorietyRoute } = await initialUpkeep(
+      run,
+      ownedCase,
+      {
         choices: true,
         maximumNotoriety: true,
         missingTeam: true,
         rankGain: true,
-      }),
+      },
     );
-    const notorietyRoute = `/canonical-workspace?campaign=${notorietyScope.campaignId}`;
     await Promise.all([gm.goto(notorietyRoute), player.goto(notorietyRoute)]);
     await expect(die(gm)).toBeVisible();
     await die(gm).fill('10');
@@ -591,18 +586,11 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
   const saved = () =>
     expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
   try {
-    await fixtureCall(run, 'resetCase', {
-      ...ownedCase.scope,
-      now: 1_700_000_000_000,
-    });
-    const choicesScope = draftKeySchema.parse(
-      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-        scope: ownedCase.scope,
-        draftId: randomUUID(),
-        choices: true,
-      }),
+    const { key: choicesScope, route: choicesRoute } = await initialUpkeep(
+      run,
+      ownedCase,
+      { choices: true },
     );
-    const choicesRoute = `/canonical-workspace?campaign=${choicesScope.campaignId}`;
     await Promise.all([gm.goto(choicesRoute), player.goto(choicesRoute)]);
     await expect(die(gm)).toBeVisible();
     await die(gm).fill('10');
@@ -805,18 +793,8 @@ test('players review and buy off carried persistent events before confirming the
   const gm = players.gm,
     player = players.player;
   try {
-    await fixtureCall(run, 'resetCase', {
-      ...ownedCase.scope,
-      now: 1_700_000_000_000,
-    });
-    const persistentScope = draftKeySchema.parse(
-      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-        scope: ownedCase.scope,
-        draftId: randomUUID(),
-        persistent: true,
-      }),
-    );
-    const persistentRoute = `/canonical-workspace?campaign=${persistentScope.campaignId}`;
+    const { key: persistentScope, route: persistentRoute } =
+      await initialUpkeep(run, ownedCase, { persistent: true });
     await Promise.all([gm.goto(persistentRoute), player.goto(persistentRoute)]);
     await reviewSummaryWorkspace(gm, player, run.artifactDirectory);
     await exercisePersistentWorkspace(
@@ -872,17 +850,10 @@ test('racing Confirmations commit one reviewed week and reject stale and delayed
   const run = await loadRun();
   const gm = players.gm,
     player = players.player;
-  await fixtureCall(run, 'resetCase', {
-    ...ownedCase.scope,
-    now: 1_700_000_000_000,
-  });
-  const summaryScope = draftKeySchema.parse(
-    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-      scope: ownedCase.scope,
-      draftId: randomUUID(),
-    }),
+  const { key: summaryScope, route: summaryRoute } = await initialUpkeep(
+    run,
+    ownedCase,
   );
-  const summaryRoute = `/canonical-workspace?campaign=${summaryScope.campaignId}`;
   const first = await gm.context().newPage();
   const second = await player.context().newPage();
   const late = await gm.context().newPage();
@@ -1150,21 +1121,13 @@ test('settlement and rank cards and team repairs stay reachable on phone and des
 }) => {
   test.setTimeout(60_000);
   const run = await loadRun();
-  await fixtureCall(run, 'resetCase', {
-    ...ownedCase.scope,
-    now: 1_700_000_000_000,
+  const { key: scope, route } = await initialUpkeep(run, ownedCase, {
+    choices: true,
+    maximumNotoriety: true,
+    missingTeam: true,
+    rankGain: true,
   });
-  const scope = draftKeySchema.parse(
-    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-      scope: ownedCase.scope,
-      draftId: randomUUID(),
-      choices: true,
-      maximumNotoriety: true,
-      missingTeam: true,
-      rankGain: true,
-    }),
-  );
-  await players.gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
+  await players.gm.goto(route);
   await reviewUpkeepChoiceLayout(players.gm, run, scope);
 });
 
@@ -1178,19 +1141,9 @@ test('Event blocks and the week review stay reachable at phone landscape and on 
 }) => {
   test.setTimeout(60_000);
   const run = await loadRun();
-  await fixtureCall(run, 'resetCase', {
-    ...ownedCase.scope,
-    now: 1_700_000_000_000,
-  });
-  const scope = draftKeySchema.parse(
-    await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-      scope: ownedCase.scope,
-      draftId: randomUUID(),
-      persistent: true,
-    }),
-  );
+  const { route } = await initialUpkeep(run, ownedCase, { persistent: true });
   const gm = players.gm;
-  await gm.goto(`/canonical-workspace?campaign=${scope.campaignId}`);
+  await gm.goto(route);
   await test.step('an Invasion is recorded after an out-of-range chance roll', () =>
     prepareInvasion(gm));
   await test.step('the Event blocks fit phone landscape and the narrow tablet', () =>
@@ -1213,21 +1166,8 @@ test('Activity fits landscape sizes, pans by touch and follows a correction and 
     player = players.player;
   const gmTransport = await controlTransport(gm, run.fixture!.convexUrl);
   const scope = await test.step('seed the week and open Activity', async () => {
-    await fixtureCall(run, 'resetCase', {
-      ...ownedCase.scope,
-      now: 1_700_000_000_000,
-    });
-    const key = draftKeySchema.parse(
-      await canonicalPersistenceFixtureCall(run, 'initializeUpkeep', {
-        scope: ownedCase.scope,
-        draftId: randomUUID(),
-      }),
-    );
-    await openActivity(
-      gm,
-      player,
-      `/canonical-workspace?campaign=${key.campaignId}`,
-    );
+    const { key, route } = await initialUpkeep(run, ownedCase);
+    await openActivity(gm, player, route);
     return key;
   });
   await test.step('a touch pan scrolls the picker and places nothing; a tap places', () =>
