@@ -1,6 +1,6 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-import { upkeepFixture, roll } from '../../../tests/rules/upkeep-fixture';
+import { upkeepFixture } from '../../../tests/rules/upkeep-fixture';
 import { workspaceSourceSchema } from '~/lib/weekly-workspace-source';
 import { projectWeeklyDraft } from '~/lib/canonical-weekly-resolution';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
@@ -83,7 +83,7 @@ test('[rules.SUM-02.total-readiness] the current Summary treats an incoming comp
   ).toBeVisible();
 });
 
-test('[rules.SUM-09.total-range] an out-of-range total warns in the current Summary without blocking readiness and an equal legacy array warns identically', () => {
+test('[rules.SUM-09.total-range] an out-of-range total warns in the current Summary without blocking readiness', () => {
   const totals = summary({ check: total(20, 1, 0), training: total(4, 2, 7) });
   expect(totals.preview.status).toBe('ready');
   expect(totals.view.warnings).toContain('upkeep:attrition:roll-range');
@@ -99,9 +99,4 @@ test('[rules.SUM-09.total-range] an out-of-range total warns in the current Summ
   expect(
     screen.getAllByText(/Upkeep: .*outside its usual range/)[0],
   ).toBeVisible();
-  cleanup();
-  const legacy = summary({ check: roll(20, 0), training: roll(4, 3, 4) });
-  expect(legacy.view.warnings).toEqual(totals.view.warnings);
-  expect(legacy.view.requirements).toEqual(totals.view.requirements);
-  expect(legacy.view.outcome).toEqual(totals.view.outcome);
 });

@@ -170,7 +170,7 @@ test('nested edits retain supported raw facts, officers, targets and conditional
   const officerCheck = {
     characterId: 'officer',
     skill: 'diplomacy',
-    roll: roll,
+    roll,
   };
   const event = {
     eventId: 'event',
@@ -233,7 +233,7 @@ test('Special narrative and manual outcome survive removal of arbitrary dice', (
   expect(weeklyDraftEditSchema.parse(edit)).toEqual(edit);
 });
 
-test('draft parsing preserves supported partial and stale rolls but rejects removed fields at rest', () => {
+test('draft parsing preserves supported rolls recorded for another specification but rejects removed fields at rest', () => {
   const draft = createWeeklyDraft({
     draftId: 'draft',
     week: 4,

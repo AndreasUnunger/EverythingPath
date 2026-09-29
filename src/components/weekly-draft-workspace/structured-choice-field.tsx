@@ -41,7 +41,7 @@ function unwrap(schema: z.ZodType): z.ZodType {
 }
 // Nested editors recognise the shared raw-roll schema by its shape, so a roll
 // is edited as one dice total rather than as a generic object.
-function rollSchema(schema: z.ZodType) {
+function findRollSchema(schema: z.ZodType) {
   return schema instanceof z.ZodObject &&
     'diceTotal' in schema.shape &&
     'diceCount' in schema.shape &&
@@ -55,7 +55,7 @@ function initial(schema: z.ZodType, field = ''): unknown {
   const base = unwrap(schema);
   if (base instanceof z.ZodLiteral) return base.value;
   // A roll starts absent: its total is typed directly into the roll field.
-  if (rollSchema(base)) return undefined;
+  if (findRollSchema(base)) return undefined;
   if (base instanceof z.ZodDiscriminatedUnion)
     return initial(base.options[0] as z.ZodType, field);
   if (base instanceof z.ZodArray) return [];
@@ -173,7 +173,7 @@ type StructuredBase =
   | { kind: 'object'; base: z.ZodObject | z.ZodRecord }
   | { kind: 'array'; base: z.ZodArray };
 function classifyStructured(base: z.ZodType): StructuredBase | null {
-  const roll = rollSchema(base);
+  const roll = findRollSchema(base);
   if (roll) return { kind: 'roll', roll };
   if (base instanceof z.ZodDiscriminatedUnion) return { kind: 'union', base };
   if (base instanceof z.ZodObject || base instanceof z.ZodRecord)
@@ -287,7 +287,9 @@ function RollFields(props: FieldProps & { roll: z.ZodObject }) {
         />
       ) : (
         <>
-          {recorded && <RecordedRollTotal label={label} recorded={recorded} />}
+          {recorded ? (
+            <RecordedRollTotal label={label} recorded={recorded} />
+          ) : null}
           <p role="note" className="text-muted-foreground text-xs">
             This roll has no rule specification in the current context, so its
             number cannot be edited here. Resolve the event first or remove the

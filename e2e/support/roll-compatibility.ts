@@ -265,21 +265,23 @@ export async function exerciseRollCompatibility(
       roll: original!.event.chanceRoll ?? null,
     });
     const originalCheck = original!.upkeep.rolls.check;
-    const originalDie = originalCheck ? String(originalCheck.diceTotal) : '';
+    const originalCheckTotal = originalCheck
+      ? String(originalCheck.diceTotal)
+      : '';
     const originalChance = original!.event.chanceRoll;
-    const originalChanceDie = originalChance
+    const originalChanceTotal = originalChance
       ? String(originalChance.diceTotal)
       : '';
     // Every page shows the original inputs again in the same total fields,
     // and the event chance field carries the original recorded value.
     for (const page of [first, second, ...observers]) {
       await expect(field(page, 'Attrition Loyalty roll')).toHaveValue(
-        originalDie,
+        originalCheckTotal,
       );
       await expect(page.getByText(/Recorded total/)).toHaveCount(0);
       await phase(page, 'Event');
       await expect(field(page, 'Event chance roll')).toHaveValue(
-        originalChanceDie,
+        originalChanceTotal,
       );
       await phase(page, 'Upkeep');
       await expect(heading(page)).toBeVisible();
