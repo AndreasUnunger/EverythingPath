@@ -139,23 +139,31 @@ test('[rules.WEEK-15.total-incomplete] partial legacy dice and another specifica
 });
 
 test('the dice notation and provenance describe the input directly beneath it', () => {
-  render(
+  const recorded = {
+    diceTotal: 5,
+    diceCount: 2,
+    sides: 4,
+    modifiers: [],
+  };
+  const { rerender } = render(
     <RollTotalField
       label="Training roll"
       spec={spec}
-      recorded={{
-        diceTotal: 5,
-        diceCount: 2,
-        sides: 4,
-        provenance: { kind: 'table' },
-        modifiers: [],
-      }}
+      recorded={{ ...recorded, provenance: { kind: 'table' } }}
       onRoll={vi.fn()}
     />,
   );
-  expect(
-    screen.getByRole('textbox', { name: 'Training roll' }),
-  ).toHaveAccessibleDescription(
-    '2d4 · total of the dice only · Rolled at the table.',
+  const input = screen.getByRole('textbox', { name: 'Training roll' });
+  expect(input).toHaveAccessibleDescription('2d4 · total of the dice only');
+  rerender(
+    <RollTotalField
+      label="Training roll"
+      spec={spec}
+      recorded={{ ...recorded, provenance: generated }}
+      onRoll={vi.fn()}
+    />,
+  );
+  expect(input).toHaveAccessibleDescription(
+    '2d4 · total of the dice only · Recorded roll.',
   );
 });

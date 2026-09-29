@@ -191,13 +191,8 @@ function classifyStructured(base: z.ZodType): StructuredBase | null {
   return null;
 }
 function ProvenanceNote({ value }: { value: unknown }) {
-  return (
-    <p className="text-muted-foreground text-xs">
-      {record(value).kind === 'generated'
-        ? 'Recorded roll.'
-        : 'Rolled at the table.'}
-    </p>
-  );
+  if (record(value).kind !== 'generated') return null;
+  return <p className="text-muted-foreground text-xs">Recorded roll.</p>;
 }
 function AddStructured(props: FieldProps & { base: z.ZodType }) {
   return (

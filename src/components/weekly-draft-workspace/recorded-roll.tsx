@@ -38,11 +38,9 @@ export function RecordedRollTotal({
           {recordedNotation}
         </span>
       </p>
-      <p className="text-muted-foreground text-xs">
-        {recorded.provenance.kind === 'generated'
-          ? 'Recorded roll.'
-          : 'Rolled at the table.'}
-      </p>
+      {recorded.provenance.kind === 'generated' && (
+        <p className="text-muted-foreground text-xs">Recorded roll.</p>
+      )}
       {normalized?.status === 'incomplete' && (
         <p role="note" className="text-amber-300">
           This step needs {rollNotation(normalized)}, but the recorded total is

@@ -62,14 +62,10 @@ export function RollTotalField({
         description={
           <>
             <span>{rollNotation(spec)} · total of the dice only</span>
-            {recorded && (
+            {recorded?.provenance.kind === 'generated' && (
               <>
                 {' · '}
-                <span>
-                  {recorded.provenance.kind === 'generated'
-                    ? 'Recorded roll.'
-                    : 'Rolled at the table.'}
-                </span>
+                <span>Recorded roll.</span>
               </>
             )}
           </>
