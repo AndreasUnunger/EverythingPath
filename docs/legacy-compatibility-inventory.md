@@ -137,6 +137,8 @@ W1 is gone).
 
 ### A1. Dead compatibility leftovers
 
+Removed 2026-09-29 (#198). The optional opaque-target branch of `ancestors` stays.
+
 - **Old shape:** none stored. These are helpers left behind by removed writers.
   - `mapLegacyOfficers` mapped the pre-canonical single-holder officer fields.
   - `getMaxActionsForRank` and `getMaxActionsForMilitia` served "Legacy
@@ -253,6 +255,8 @@ W1 is gone).
 
 ### A3. Actor-bearing treasury transfers (#158)
 
+Removed 2026-09-29 (#198), including the always-null `characterId` on treasury plan entries.
+
 - **Old shape:** a transfer with a `characterId`, from before Ruleset Version 6
   made transfers characterless. It also covers the officer named in older
   treasury plan entries, and recorded `upkeep-transfer-officer` exceptions,
@@ -295,6 +299,8 @@ W1 is gone).
 
 ### A4. Legacy Upkeep Remove decisions (#156)
 
+Removed 2026-09-29 (#198).
+
 - **Old shape:** an Upkeep team decision `'remove'` with an
   `upkeep-team-removal` Rules Exception. Since #156 removing a team is a Militia
   Correction, and Upkeep offers only Recover or Leave disabled.
@@ -330,6 +336,8 @@ W1 is gone).
 - **Size:** about 90 source lines and about 150 test lines.
 
 ### A5. Older Resolution Record formats and missing source snapshots (#194, #185, #197)
+
+Removed 2026-09-29 (#198): format 2 and the source snapshot are required; `historicalMessages` stays with B1d.
 
 - **Old shape:** records written before canonical Weekly Resolution (#78) made
   every record format 2 with `sourceMilitiaSnapshot`. Those older records hold:
@@ -388,6 +396,8 @@ W1 is gone).
 
 ### A6. Pre-Version-8 blank Hit Dice: "Hit Dice not recorded" (#196, #185)
 
+Removed 2026-09-29 (#198).
+
 - **Old shape:** a Resolution Record confirmed before Ruleset Version 8, when a
   blank roster Hit Dice override meant unknown rather than the character's
   level.
@@ -410,6 +420,8 @@ W1 is gone).
 - **Size:** about 20 source lines and about 40 test lines.
 
 ### A7. Named Ruleset Version constants and pre-v8 record tests (#158, #191, #196)
+
+Removed 2026-09-29 (#198); `ROLE_AWARE_OFFICERS_RULESET_VERSION` is the literal 8 and the current version stays 9.
 
 - **Old shape:** none. No resolver branches on version: there is one Weekly
   Resolution, and records only store the number.
@@ -438,6 +450,8 @@ W1 is gone).
 
 ### A8. Off-list rank-boon feat text (#157)
 
+Removed 2026-09-29 (#198).
+
 - **Old shape:** a rank-boon acknowledgement (`upkeep:boon:<rank>:<characterId>`)
   whose outcome is free text rather than one of the offered feats, written by
   the open text field used before #157's feat cards. Feat boons now write only
@@ -456,6 +470,8 @@ W1 is gone).
 - **Size:** about 25 source lines and about 20 test lines.
 
 ### A9. Legacy and absent character kinds in stored data (#179, #180)
+
+Removed 2026-09-29 (#198) for storage; B3's argument validators stay wide (`convex/lib/canonicalCharacters.ts`, `convex/character.ts`).
 
 - **Old shape:** a character record with `kind: 'officer_npc'` or no `kind`,
   and a roster person with `officer_npc` or `other_npc`. #179 widened readers
@@ -518,6 +534,8 @@ W1 is gone).
 - **Size:** about 40 source lines and about 600 test lines.
 
 ### A10. Setup envelope version 1 migration (#173, #180)
+
+Removed 2026-09-29 (#198): a version-1 envelope is discarded.
 
 - **Old shape:** an unfinished Setup stored in a browser at envelope version 1,
   with legacy roster kinds. Since #180 `SETUP_ENVELOPE_VERSION` is 2, and
@@ -737,6 +755,8 @@ keeps sending it until reloaded.
 - **Size:** about 15 source lines and about 100 test lines.
 
 ### B4. Pre-canonical character fields and the `dataMigration` table (#16, #17)
+
+Removed 2026-09-29 (#198); the production `dataMigration` row is deleted before deploy.
 
 **Condition: a read-only check of the documents in every kept deployment.** The
 2026-09-28 production check did not report these.
