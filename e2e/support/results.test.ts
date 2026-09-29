@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(42);
+  expect(required).toHaveLength(38);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,

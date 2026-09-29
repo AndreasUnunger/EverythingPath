@@ -9,8 +9,7 @@ export const accessJourneyFiles = [
   'access.spec.ts',
   'campaign-home.spec.ts',
   'campaign-sections.spec.ts',
-  'legacy-addresses.spec.ts',
-  'legacy-week-links.spec.ts',
+  'week-links.spec.ts',
 ] as const;
 export const criticalJourneys = [
   [
@@ -28,12 +27,8 @@ export const criticalJourneys = [
     'members move between campaign sections at every width and through browser history',
   ],
   [
-    'legacy-addresses.spec.ts',
-    'unknown campaigns stay unavailable and legacy addresses lead members to their campaign',
-  ],
-  [
-    'legacy-week-links.spec.ts',
-    'legacy week links open their phase in a bounded week without moving other members',
+    'week-links.spec.ts',
+    'week links open their phase in a bounded week without moving other members, and unknown campaigns stay unavailable',
   ],
   [
     'existing-militia.spec.ts',

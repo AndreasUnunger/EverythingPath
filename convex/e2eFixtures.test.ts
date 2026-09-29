@@ -247,8 +247,7 @@ describe('internal fixture boundary', () => {
         workspaceActivity: 's'.repeat(64),
         campaignHome: 'n'.repeat(64),
         campaignSections: 'o'.repeat(64),
-        legacyAddresses: 'p'.repeat(64),
-        legacyWeekLinks: 'q'.repeat(64),
+        weekLinks: 'q'.repeat(64),
       },
     };
     vi.stubEnv(

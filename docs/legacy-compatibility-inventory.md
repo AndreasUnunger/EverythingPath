@@ -841,16 +841,26 @@ current data. The summary adjustment form keeps offering it only to an
 adjustment that already records it (`summary-adjustment-form.ts`), and that
 behavior should follow any future decision about the status itself.
 
-### C5. Legacy addresses and week links
+### C5. Legacy addresses and week links (removed 2026-09-29)
 
-- **Why keep:** these are bookmarks, not stored data, and they cost little.
-  - `legacyRedirectTarget` (`src/components/campaign-shell/legacy-redirect.ts`)
-    and `legacyCampaignPath` (`src/lib/campaign-routes.ts`).
-  - The `/canonical-workspace`, `/canonical-setup` and `/canonical-history`
-    pages.
-  - The `legacy-addresses` and `legacy-week-links` journeys.
-- If they are ever removed, move `decodeCampaignId` out of `legacy-redirect.ts`
-  first, because current routes import it.
+**Removed** on 2026-09-29 at the user's request ("remove all the legacy
+Redirects, no one is going there"). These were bookmarks, not stored data, so
+no data is affected. Removed:
+
+- `legacyRedirectTarget` and its file
+  `src/components/campaign-shell/legacy-redirect.ts`, and `legacyCampaignPath`
+  (`src/lib/campaign-routes.ts`), with their unit tests.
+- The `/canonical-workspace`, `/canonical-setup` and `/canonical-history`
+  pages, and the old `/campaigns/<id>/militia/correct` address that redirected
+  to Militia.
+- The `legacy-addresses` journey and its `legacyAddresses` case.
+
+`decodeCampaignId` moved first, to `src/lib/campaign-routes.ts`. The
+`legacy-week-links` journey became `week-links.spec.ts` (case `weekLinks`). It
+now follows the current `/campaigns/<id>/week?phase=` links and keeps its
+current checks, and it took over the unknown-campaign and `/` entry checks from
+`legacy-addresses`. The journeys that opened a week, Setup or history through
+an old address now open the current one.
 
 ### C6. Ruleset Version numbers in the corpus and history
 
@@ -872,7 +882,7 @@ a plan entry has a shape the current readers do not know.
 ## Documentation to update with each removal
 
 - `docs/ui-capability-inventory.md` rows describe the older-data behavior:
-  - NAV-03 and NAV-17 (C5)
+  - NAV-03 and NAV-17 (C5, updated with its removal)
   - WEEK-15 and WEEK-16 (A2)
   - UPK-08 (A8) and UPK-10 (A3)
   - ACT-14 (C2)

@@ -13,8 +13,8 @@ test('organization members can open their campaign and outsiders cannot', async 
 }, info) => {
   // Members open their campaign from the list. The list and home themselves
   // (landing, selection, header edits, outsider view) are the campaign-home
-  // journey; section navigation, legacy addresses and legacy week links are
-  // their own journeys, split from this one.
+  // journey; section navigation and week links are their own journeys, split
+  // from this one.
   await test.step('members open the week from the campaign list', () =>
     Promise.all([players.gm, players.player].map(openWeekFromList)));
   await test.step('the outsider cannot open any section of the campaign', () =>

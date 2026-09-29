@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { z } from 'zod';
 import { draftKeySchema } from '../../convex/lib/canonicalStorageValidators';
+import { weekPath } from '../../src/lib/campaign-routes';
 import type { Fixture } from './fixtures';
 import { canonicalPersistenceFixtureCall, type Run } from './process';
 
@@ -30,5 +31,5 @@ export async function initialUpkeep(
       ...scenario,
     }),
   );
-  return { key, route: `/canonical-workspace?campaign=${key.campaignId}` };
+  return { key, route: weekPath(key.campaignId) };
 }

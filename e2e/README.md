@@ -66,7 +66,7 @@ E2E_TRUSTED_EXECUTION=true pnpm test:e2e \
 
 The first command performs only local validation and Clerk GET requests. The
 second **deletes and recreates the declared named preview**, deploys once, builds,
-creates fresh ignored role storage and runs the nine Chromium tablet journeys at 1194×834 with
+creates fresh ignored role storage and runs the eight Chromium tablet journeys at 1194×834 with
 touch enabled. It starts one Playwright worker per declared cohort, at most three
 and at most one per two available CPUs, unless `--workers N` asks for up to the
 declared number; a single cohort runs exactly serially. Local runs acquire an
@@ -130,7 +130,7 @@ journey's own `test.step` phases: the sanitized title path, `start` and
 ended the attempt inside the step, so `duration` is null and `start` shows how
 long it ran). At most 100 steps are kept per attempt. Step errors, locations,
 parameters, fixtures and Playwright actions are not recorded. `access`, its
-three shell parts (see [Access split](#access-split)) and the nightly extension
+two shell parts (see [Access split](#access-split)) and the nightly extension
 use steps, as do campaign home (since the area checks), `workspaceActivity`
 and the correction layout step of `ledger`; the other journeys do not yet, so
 they record none. `stages.log` records stage outcomes;
@@ -366,17 +366,18 @@ lint, all 320 tests, and the three build-boundary checks also passed.
 ## Nightly compatibility matrix (#30)
 
 Run the same isolated harness with `--nightly`. The default command and **E2E
-required** retain the nine mandatory Chromium tablet journeys. Nightly selects:
+required** retain the eight mandatory Chromium tablet journeys. Nightly selects:
 
-| Project         | Viewport | Journeys                                                                                            |
-| --------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| Chromium tablet | 1194×834 | All nine, plus navigation/form/persistence and reconnect steps                                      |
-| WebKit tablet   | 1194×834 | All nine critical journeys                                                                          |
-| Firefox desktop | 1440×900 | Access and the four journeys split from it, existing-militia initialization, complete week          |
-| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; the four split journeys |
+| Project         | Viewport | Journeys                                                                                             |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| Chromium tablet | 1194×834 | All eight, plus navigation/form/persistence and reconnect steps                                      |
+| WebKit tablet   | 1194×834 | All eight critical journeys                                                                          |
+| Firefox desktop | 1440×900 | Access and the three journeys split from it, existing-militia initialization, complete week          |
+| Chromium phone  | 390×844  | Access with focused navigation, form layout, reload and cross-layout edits; the three split journeys |
 
-The journeys split from access are campaign home, campaign sections, legacy
-addresses and legacy week links (see [Access split](#access-split)).
+The journeys split from access are campaign home, campaign sections and week
+links (see [Access split](#access-split)). Nightly requires 38 first-attempt
+results and the mandatory run 20.
 
 The access journey's nightly extension creates a character, checks that form
 controls fit the viewport, reloads the saved record, edits at the alternate
@@ -939,12 +940,11 @@ test with its own case, on every project that runs `access`
 (`accessJourneyFiles` in `support/matrix.ts`), including the mandatory
 Chromium tablet run.
 
-| Journey                                                                                | File                        | Case               | Checks                                                                                                                                                    |
-| -------------------------------------------------------------------------------------- | --------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| organization members can open their campaign and outsiders cannot                      | `access.spec.ts`            | `smoke`            | GM and player open the week from the list; the outsider is shut out of all five sections of the member campaign; the nightly extension and forced failure |
-| members move between campaign sections at every width and through browser history      | `campaign-sections.spec.ts` | `campaignSections` | Characters at phone, phone-landscape and short top-bar widths; Militia as a document; Back, Forward and reload                                            |
-| unknown campaigns stay unavailable and legacy addresses lead members to their campaign | `legacy-addresses.spec.ts`  | `legacyAddresses`  | Unknown id; `/canonical-*`, `/` and `/militia/correct` redirects                                                                                          |
-| legacy week links open their phase in a bounded week without moving other members      | `legacy-week-links.spec.ts` | `legacyWeekLinks`  | Legacy `?phase=` links, reload, home, Continue week, the bounded week host at two sizes; the GM stays on Event                                            |
+| Journey                                                                                                            | File                        | Case               | Checks                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| organization members can open their campaign and outsiders cannot                                                  | `access.spec.ts`            | `smoke`            | GM and player open the week from the list; the outsider is shut out of all five sections of the member campaign; the nightly extension and forced failure                                      |
+| members move between campaign sections at every width and through browser history                                  | `campaign-sections.spec.ts` | `campaignSections` | Characters at phone, phone-landscape and short top-bar widths; Militia as a document; Back, Forward and reload                                                                                 |
+| week links open their phase in a bounded week without moving other members, and unknown campaigns stay unavailable | `week-links.spec.ts`        | `weekLinks`        | `/campaigns/<id>/week?phase=` links (an unknown phase opens Upkeep), reload, home, Continue week, the bounded week host at two sizes; the GM stays on Event; an unknown id; `/` opens the list |
 
 Every assertion moved unchanged; each part's phases are wrapped in `test.step`
 only so the evidence times them. Each part starts where the single journey
@@ -973,6 +973,17 @@ reached it, and its state is equivalent:
 Lost coverage: one player session no longer survives all four parts. Each
 part repeats the list-to-week opening, which adds about two page loads. No
 limit changed: every part keeps the 60 s test limit.
+
+The legacy addresses were removed at the user's request on 2026-09-29: the
+`/canonical-workspace`, `/canonical-setup`, `/canonical-history` and
+`/campaigns/<id>/militia/correct` redirects, and their `legacy-addresses`
+journey and `legacyAddresses` case. The week-link part (formerly
+`legacy-week-links.spec.ts`, case `legacyWeekLinks`) became `week-links.spec.ts`
+with the `weekLinks` case. It follows the current `/campaigns/<id>/week?phase=`
+links instead of the old redirect, keeps every other check, and took over the
+two current checks from the address part: an unknown campaign stays
+unavailable, and `/` opens the campaign list. Nightly dropped from 42 required
+results to 38 and the mandatory run from 21 to 20.
 
 ### Area completion checks
 

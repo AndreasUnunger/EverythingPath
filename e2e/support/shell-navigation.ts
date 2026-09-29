@@ -228,12 +228,12 @@ export async function expectOutsiderShutOut(
   }
 }
 
-/** An unknown campaign stays unavailable; legacy addresses redirect. */
-export async function exerciseLegacyAddresses(
+/** An unknown campaign stays unavailable; the app's entry opens the list. */
+export async function exerciseUnknownCampaignAndEntry(
   page: Page,
   campaignName: string,
 ) {
-  const { week, campaignPath, campaignId } = campaignAddress(page);
+  const { week } = campaignAddress(page);
 
   await page.goto('/campaigns/not-a-campaign/week');
   await expect(
@@ -244,42 +244,19 @@ export async function exerciseLegacyAddresses(
   ).toHaveCount(0);
   await expect(page).toHaveURL(/\/campaigns\/not-a-campaign\/week/);
 
-  for (const legacy of [
-    'canonical-workspace',
-    'canonical-setup',
-    'canonical-history',
-  ]) {
-    await page.goto(`/${legacy}`);
-    await expect(page).toHaveURL(`${week.origin}/campaigns`);
-    await expectSelectedCampaign(page, campaignName);
-  }
   await page.goto('/');
   await expect(page).toHaveURL(`${week.origin}/campaigns`);
-
-  await page.goto(`${campaignPath}/militia/correct`);
-  await expect(page).toHaveURL(`${week.origin}${campaignPath}/militia`);
-  await expect(
-    page.getByRole('button', { name: 'Correct values', exact: true }),
-  ).toBeVisible();
-  await page.goto(`/canonical-setup?campaign=${campaignId}`);
-  await expect(page).toHaveURL(`${week.origin}${campaignPath}/setup`);
-  await expect(
-    page.getByRole('link', { name: /Open (current week|week 1)/ }),
-  ).toBeVisible();
-  await page.goto(`/canonical-history?campaign=${campaignId}`);
-  await expect(page).toHaveURL(`${week.origin}${campaignPath}/history`);
+  await expectSelectedCampaign(page, campaignName);
 }
 
-/** Legacy week links open their phase; the week host stays bounded. */
-export async function exerciseLegacyWeekLinks(page: Page) {
-  const { week, campaignPath, campaignId } = campaignAddress(page);
+/** Week links open their phase; the week host stays bounded. */
+export async function exerciseWeekLinks(page: Page) {
+  const { week, campaignPath } = campaignAddress(page);
   const original = page.viewportSize()!;
 
+  // An unknown phase opens Upkeep.
   for (const phase of ['upkeep', 'activity', 'event', 'summary', 'invalid']) {
-    await page.goto(
-      `/canonical-workspace?campaign=${campaignId}&phase=${phase}`,
-    );
-    await expect(page).toHaveURL(new RegExp(`${campaignPath}/week(?:\\?|$)`));
+    await page.goto(`${campaignPath}/week?phase=${phase}`);
     const title =
       phase === 'invalid'
         ? 'Upkeep'

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { expect, type Page } from '@playwright/test';
 import { fixtureCall, savePrivate, type Run } from './process';
 import type { FixtureScope } from '../fixtures/catalog';
+import { campaignPath } from '../../src/lib/campaign-routes';
 import { reviewConfirm, saveState } from './week-frame';
 import {
   expectControlsReachable,
@@ -82,7 +83,7 @@ export async function exerciseMilitiaSetup(
         now: 1_700_000_000_000,
       }),
     );
-    const route = `/canonical-setup?campaign=${campaignId}`;
+    const route = campaignPath(campaignId, 'setup');
     // Both members open Setup; each form keeps its own unfinished input.
     await Promise.all([
       players.gm.goto(route),

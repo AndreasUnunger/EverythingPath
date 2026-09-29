@@ -23,8 +23,7 @@ export const caseKeys = [
   'workspaceActivity',
   'campaignHome',
   'campaignSections',
-  'legacyAddresses',
-  'legacyWeekLinks',
+  'weekLinks',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
 // These cases start with a bare militia; canonical fixtures install the source.
@@ -73,8 +72,7 @@ export const fixtureCatalog = {
   // header and overflow checks measure text of the same length.
   campaignHome: harnessDomain,
   campaignSections: harnessDomain,
-  legacyAddresses: harnessDomain,
-  legacyWeekLinks: harnessDomain,
+  weekLinks: harnessDomain,
   existingMilitia: {
     campaign: 'existing-militia-campaign',
     militia: 'existing-militia',
@@ -199,8 +197,7 @@ export const deploymentFixtureSchema = z
                 workspaceActivity: z.string().length(64),
                 campaignHome: z.string().length(64),
                 campaignSections: z.string().length(64),
-                legacyAddresses: z.string().length(64),
-                legacyWeekLinks: z.string().length(64),
+                weekLinks: z.string().length(64),
               })
               .strict(),
           })

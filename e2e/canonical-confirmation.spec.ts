@@ -20,6 +20,7 @@ import {
   type ConfirmationContractHarness,
 } from '../tests/persistence/confirmation-contracts';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
+import { historyPath } from '../src/lib/campaign-routes';
 import type { Page } from '@playwright/test';
 import type { z } from 'zod';
 import { reviewFinishedWeeks } from './support/finished-weeks';
@@ -325,7 +326,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       ]);
       expect(record.provenance).toBe('confirmation');
       expect(record.supersedesRecordId).toBeNull();
-      const historyRoute = `/canonical-history?campaign=${activeCampaign}&week=1`;
+      const historyRoute = historyPath(activeCampaign!, { week: 1 });
       await Promise.all([
         players.gm.goto(historyRoute),
         players.player.goto(historyRoute),
