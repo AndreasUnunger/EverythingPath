@@ -61,9 +61,13 @@ describe('one Playwright worker per declared cohort', () => {
       expect(() => cohortWorkers(four, requested)).toThrow('E2E workers');
   });
 
-  it('runs at most one worker per available CPU unless workers are requested', () => {
-    // Three workers on a 2-vCPU runner time out journeys; two fit (#198).
-    expect(cohortWorkers(threeCohortResources, undefined, 2)).toBe(2);
+  it('runs at most one worker per two available CPUs unless workers are requested', () => {
+    // Three workers on a 4-vCPU runner time out journeys (#198).
+    expect(cohortWorkers(threeCohortResources, undefined, 4)).toBe(2);
+    expect(cohortWorkers(threeCohortResources, undefined, 5)).toBe(2);
+    expect(cohortWorkers(threeCohortResources, undefined, 6)).toBe(3);
+    expect(cohortWorkers(threeCohortResources, undefined, 3)).toBe(1);
+    expect(cohortWorkers(threeCohortResources, undefined, 2)).toBe(1);
     expect(cohortWorkers(threeCohortResources, undefined, 1)).toBe(1);
     expect(cohortWorkers(threeCohortResources, undefined, 0)).toBe(1);
     expect(cohortWorkers(threeCohortResources, 3, 2)).toBe(3);
