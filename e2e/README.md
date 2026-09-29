@@ -1170,9 +1170,10 @@ pan-scrolled check measures (the document for the page's own scroller). It
 counts only that element's own `scroll` and `scrollend` events. `armed(5 s)`
 waits until the element has been quiet for 100 ms (no `scroll` event, no
 change of `scrollTop`). `rested(10 s)` then needs the element to have left the
-armed position, its own `scrollend` since arming, and 100 ms of quiet again.
-Each wait has its own bound on a timer, not on animation frames, and resolves
-false when that bound expires.
+armed position, its own `scrollend` since its last movement, and 100 ms of
+quiet again. Movement after a `scrollend` needs a new one. Each wait has its
+own bound on a timer, not on animation frames, and resolves false when that
+bound expires. A poll that runs late past the deadline cannot succeed.
 
 A harness page with the real `ChoiceCards` in a bounded scroller ran on two
 pinned CPUs shared with six busy loops:

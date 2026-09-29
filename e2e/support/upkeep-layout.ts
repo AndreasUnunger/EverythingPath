@@ -149,14 +149,14 @@ function readScroll(scroller: ElementHandle<Element>) {
  * `scroll` event of its own nor a change of `scrollTop` has come for 100 ms.
  * `armed` resolves true once it is quiet, so no earlier scroll is in flight,
  * and records that position. `rested` resolves true once it has left the
- * armed position, its own `scrollend` has come since arming, and it is quiet
- * again. Another scroller's events never count. Each wait resolves false once
- * its own `timeout` ms have passed, on a timer that does not depend on the
- * page's animation frames. `rested` needs the `scrollend` as well as the
- * quiet: a starved page can see an unchanged `scrollTop` while the scroll
- * still runs off the main thread. A stale `scrollend` followed by a pause of
- * 100 ms or more and then more movement would still pass; the pan's finger
- * holds still before it lifts, so no glide follows it to pause and resume.
+ * armed position, its own `scrollend` has come since its last movement, and
+ * it is quiet again; movement after a `scrollend` needs a new one. Another
+ * scroller's events never count. Each wait resolves false once its own
+ * `timeout` ms have passed, on a timer that does not depend on the page's
+ * animation frames, and a poll that runs late past that deadline cannot
+ * succeed. `rested` needs the `scrollend` as well as the quiet: a starved
+ * page can see an unchanged `scrollTop` while the scroll still runs off the
+ * main thread.
  */
 export function watchScroll(scroller: Element) {
   const target =
@@ -167,31 +167,37 @@ export function watchScroll(scroller: Element) {
   let changedAt = performance.now();
   let armedTop: number | undefined;
   let ended = false;
+  // Any movement restarts the quiet and needs a new `scrollend`.
+  const moved = () => {
+    top = scroller.scrollTop;
+    changedAt = performance.now();
+    ended = false;
+  };
+  const observe = () => {
+    if (scroller.scrollTop !== top) moved();
+  };
   const scrolled = (event: Event) => {
-    if (event.target === target) changedAt = performance.now();
+    if (event.target === target) moved();
   };
   const scrollEnded = (event: Event) => {
-    if (
-      event.target === target &&
-      armedTop !== undefined &&
-      scroller.scrollTop !== armedTop
-    )
-      ended = true;
+    if (event.target !== target) return;
+    observe();
+    if (armedTop !== undefined && top !== armedTop) ended = true;
   };
   target.addEventListener('scroll', scrolled);
   target.addEventListener('scrollend', scrollEnded);
   const quietAnd = (condition: () => boolean, timeout: number) =>
     new Promise<boolean>((resolve) => {
+      const deadline = performance.now() + timeout;
       const finish = (result: boolean) => {
         clearInterval(poll);
         clearTimeout(timer);
         resolve(result);
       };
       const poll = setInterval(() => {
-        if (scroller.scrollTop !== top) {
-          top = scroller.scrollTop;
-          changedAt = performance.now();
-        }
+        // A poll overdue from a starved event loop cannot succeed late.
+        if (performance.now() >= deadline) return finish(false);
+        observe();
         if (performance.now() - changedAt >= 100 && condition()) finish(true);
       }, 16);
       const timer = setTimeout(() => finish(false), timeout);

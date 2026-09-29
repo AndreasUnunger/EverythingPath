@@ -11,6 +11,7 @@ describe('watchScroll', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     document.body.replaceChildren();
@@ -110,6 +111,42 @@ describe('watchScroll', () => {
     week.dispatchEvent(new Event('scrollend'));
     await vi.advanceTimersByTimeAsync(150);
     expect(await settled(rested)).toBe(true);
+  });
+
+  it('needs a new scrollend once its scroller has moved again', async () => {
+    const week = scroller();
+    const watch = await arm(week);
+    let stop = glide(week);
+    const rested = watch.rested(10_000);
+    await vi.advanceTimersByTimeAsync(200);
+    stop();
+    week.dispatchEvent(new Event('scrollend'));
+    await vi.advanceTimersByTimeAsync(50);
+    stop = glide(week);
+    await vi.advanceTimersByTimeAsync(200);
+    stop();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await settled(rested)).toBe('pending');
+    week.dispatchEvent(new Event('scrollend'));
+    await vi.advanceTimersByTimeAsync(150);
+    expect(await settled(rested)).toBe(true);
+  });
+
+  it('refuses a success that an overdue poll finds past the deadline', async () => {
+    const week = scroller();
+    const watch = await arm(week);
+    const rested = watch.rested(10_000);
+    const stop = glide(week);
+    await vi.advanceTimersByTimeAsync(100);
+    stop();
+    await vi.advanceTimersByTimeAsync(20);
+    week.dispatchEvent(new Event('scrollend'));
+    // A starved event loop: the clock jumps past the deadline in one go, and
+    // the overdue poll runs before the timeout does.
+    const now = performance.now.bind(performance);
+    vi.spyOn(performance, 'now').mockImplementation(() => now() + 20_000);
+    await vi.advanceTimersByTimeAsync(16);
+    expect(await settled(rested)).toBe(false);
   });
 
   it('arms only once its scroller has come to rest', async () => {
