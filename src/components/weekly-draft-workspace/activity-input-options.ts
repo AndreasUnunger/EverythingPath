@@ -19,7 +19,6 @@ export function activityReferenceOptions(
     characterId: view.people,
     ownerCharacterId: view.people,
     overseerCharacterId: view.people,
-    strategistCharacterId: view.people,
     parentEventId: candidates,
     selectedEventId: candidates,
     followingChoiceId: view.slots.flatMap((slot) =>

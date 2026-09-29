@@ -146,29 +146,3 @@ export function clearRetainedEdit(
   delete next[field];
   return send(next);
 }
-
-type Target = NonNullable<Mitigation['targets']>[number];
-const sameTarget = (a: Target, b: Target) =>
-  JSON.stringify(a) === JSON.stringify(b);
-
-/**
- * Removes one retained target, found by its identity at the position the
- * player saw it (or wherever it moved); null once it is gone.
- */
-export function removeRetainedTargetEdit(
-  decision: Mitigation,
-  shown: { index: number; target: Target },
-): WeeklyDraftEdit | null {
-  const next = structuredClone(decision);
-  const current = next.targets ?? [];
-  const there = current[shown.index];
-  const at =
-    there && sameTarget(there, shown.target)
-      ? shown.index
-      : current.findIndex((entry) => sameTarget(entry, shown.target));
-  if (at < 0) return null;
-  const targets = current.filter((_, index) => index !== at);
-  if (targets.length) next.targets = targets;
-  else delete next.targets;
-  return send(next);
-}

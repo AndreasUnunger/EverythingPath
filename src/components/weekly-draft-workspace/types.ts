@@ -487,9 +487,6 @@ export type EventCheckFacts = {
   // What the result means for this event, once the roll is in.
   resultText: string | null;
   required: boolean;
-  // A check-level Overseer selection recorded by an older editor. Support
-  // applies once to every check of the occurrence, wherever it is recorded.
-  overseerRecorded: boolean;
 };
 // A card for a team, settlement or person target.
 export type EventTargetCard = {
@@ -549,7 +546,6 @@ export type EventRetainedField = {
     | 'rewards'
     | 'persistent'
     | 'persistentDecision'
-    | 'strategistCharacterId'
     | 'overseerCharacterId';
   label: string;
   value: string;
@@ -829,9 +825,6 @@ export type EventPanel =
       caches: EventCacheTarget[];
       // Recorded per-cache checks for caches this event does not find.
       retainedCacheChecks: (EventRetainedTarget & { index: number })[];
-      // An event-level mitigation or check roll from an older editor.
-      legacyMitigation: 'attempted' | 'unattempted' | null;
-      legacyCheckRoll: boolean;
       rewards: EventRewardFacts | null;
       activity: EventActivityRecalculation | null;
       notes: string[];
@@ -852,10 +845,6 @@ export type EventPanel =
       people: EventRaidPerson[];
       // Recorded per-person entries for people not hidden in that refuge.
       retainedPeople: (EventRetainedTarget & { index: number })[];
-      // An event-level mitigation or check roll from an older editor: it
-      // stands in for each person until their own choice is recorded.
-      legacyMitigation: 'attempted' | 'unattempted' | null;
-      legacyCheckRoll: boolean;
       noPeople: string | null;
       whatHappened: EventWhatHappened;
       outcomes: string[];
@@ -1129,28 +1118,16 @@ export type PersistentRivalryCheck = {
   notOfficer: boolean;
   modifiers: PersistentRecordedModifier[];
 };
-// Check fields an older editor recorded that this check does not use.
+// Check fields recorded that this check does not use.
 export type PersistentRetainedField =
-  | 'targets'
-  | 'strategistCharacterId'
   | 'officerCheck'
   | 'rolls'
   | 'overseerCharacterId';
-// One retained field as shown: its name and recorded value, or its targets.
+// One retained field as shown: its name and recorded value in words.
 export type PersistentRetained = {
   field: PersistentRetainedField;
   label: string;
-  // The recorded value in words; targets list each target instead.
   value: string;
-  targets: {
-    name: string;
-    target: NonNullable<
-      Extract<
-        WeeklyDraft['persistent']['decisions'][number],
-        { kind: 'mitigate' }
-      >['targets']
-    >[number];
-  }[];
 };
 export type PhaseView =
   | UpkeepView

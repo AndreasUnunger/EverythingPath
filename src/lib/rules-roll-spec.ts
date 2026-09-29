@@ -68,7 +68,7 @@ function occurrenceRootRollSpec(
     return RULE_ROLL_SPECS.check;
   if (
     isPath(path, 'rolls', 'check') &&
-    ['cache_discovered', 'raid', 'sickness', 'theft'].includes(eventType)
+    ['sickness', 'theft'].includes(eventType)
   )
     return RULE_ROLL_SPECS.check;
   if (eventType === 'turncoat' && isPath(path, 'rolls', 'loss'))

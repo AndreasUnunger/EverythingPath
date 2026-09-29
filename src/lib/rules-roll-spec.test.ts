@@ -113,12 +113,21 @@ test.each([
   expect(activityRollSpec(actionId, 'delivery')).toBeNull();
 });
 
-test.each<EventType>(['cache_discovered', 'raid', 'sickness', 'theft'])(
-  '%s occurrence mitigation has a d20 specification',
+test.each<EventType>(['sickness', 'theft'])(
+  '%s occurrence check has a d20 specification',
   (eventType) => {
     expect(
       eventRollSpec({ kind: 'occurrence', eventType }, ['rolls', 'check']),
     ).toEqual({ count: 1, sides: 20 });
+  },
+);
+
+test.each<EventType>(['cache_discovered', 'raid'])(
+  '%s has no event-level check: each person or cache records its own',
+  (eventType) => {
+    expect(
+      eventRollSpec({ kind: 'occurrence', eventType }, ['rolls', 'check']),
+    ).toBeNull();
   },
 );
 

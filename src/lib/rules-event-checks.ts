@@ -1,7 +1,6 @@
 import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import type { RollSpec } from './raw-roll';
 import { normalizeRawRoll } from './raw-roll';
-import { eventOverseerSelection } from './rules-overseer-event';
 import { projectRulesFoundations } from './rules-foundations';
 import { activityCheckEffects } from './rules-activity';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
@@ -41,8 +40,6 @@ export function eventCheck(
       queuedEffects: result.queuedEffects,
     },
   };
-  const support = eventOverseerSelection(event);
-  if (support.conflicting) result.requirements.push(`${id}:overseer-conflict`);
   const die = eventDie(result, raw, id, RULE_ROLL_SPECS.check);
   const facts = projectRulesFoundations({
     ...result.outcome,
@@ -55,7 +52,7 @@ export function eventCheck(
         phase,
         check,
         die: die ?? undefined,
-        overseerCharacterId: support.characterId,
+        overseerCharacterId: event.overseerCharacterId,
         bonusIds: raw?.modifiers.flatMap((modifier) =>
           modifier.sourceId.startsWith('bonus:')
             ? [modifier.sourceId.slice(6)]
@@ -156,13 +153,12 @@ export function eventMitigationInput(
     (event.eventType === 'theft' && mode === 'twice')
   )
     return 'unavailable';
-  return eventMitigationAttempted(event.mitigation, event.rolls?.check) ||
-    event.targetChecks?.some((input) =>
-      eventMitigationAttempted(
-        input.mitigation ?? event.mitigation,
-        input.rolls?.check ?? event.rolls?.check,
-      ),
-    )
-    ? 'attempted'
-    : 'unattempted';
+  // Raid and Cache Discovered record the choice per person or cache.
+  const attempted =
+    event.eventType === 'theft'
+      ? eventMitigationAttempted(event.mitigation, event.rolls?.check)
+      : (event.targetChecks ?? []).some((input) =>
+          eventMitigationAttempted(input.mitigation, input.rolls?.check),
+        );
+  return attempted ? 'attempted' : 'unattempted';
 }

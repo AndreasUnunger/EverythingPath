@@ -173,14 +173,8 @@ export const persistentDecisionSchema = z.discriminatedUnion('kind', [
     officerCheck: officerCheckSchema.optional(),
     overseerCharacterId: id.optional(),
     rolls: checkRolls.optional(),
-    targets: z.array(eventTargetSchema).optional(),
-    strategistCharacterId: id.optional(),
   }),
-  z.strictObject({
-    kind: z.literal('buyoff'),
-    eventId: id,
-    costCopper: int.optional(),
-  }),
+  z.strictObject({ kind: z.literal('buyoff'), eventId: id }),
   z.strictObject({
     kind: z.literal('end'),
     eventId: id,
@@ -204,14 +198,12 @@ export const eventOccurrenceSchema = z.strictObject({
   targets: z.array(eventTargetSchema).optional(),
   persistent: z.boolean().optional(),
   persistentDecision: persistentDecisionSchema.optional(),
-  strategistCharacterId: id.optional(),
   overseerCharacterId: id.optional(),
   targetChecks: z
     .array(
       z.strictObject({
         target: eventTargetSchema,
         mitigation: z.enum(['unattempted', 'attempted']).optional(),
-        overseerCharacterId: id.optional(),
         rolls: eventRolls.optional(),
       }),
     )
@@ -234,8 +226,6 @@ export const eventOccurrenceSchema = z.strictObject({
       choiceId: id,
       teamId: id.optional(),
       check: z.enum(['loyalty', 'secrecy', 'security']).optional(),
-      overseerCharacterId: id.optional(),
-      acknowledgements: z.array(acknowledgementSchema).optional(),
       rolls: checkNotorietyRolls.optional(),
     })
     .optional(),

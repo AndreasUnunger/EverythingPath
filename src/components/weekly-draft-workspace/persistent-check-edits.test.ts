@@ -7,7 +7,6 @@ import {
   clearRetainedEdit,
   modifierList,
   officerCheckEdit,
-  removeRetainedTargetEdit,
   theftRollEdit,
   type Mitigation,
 } from './persistent-check-edits';
@@ -21,16 +20,11 @@ const total = (value: number, modifiers: RawRoll['modifiers'] = []) =>
     modifiers,
   }) satisfies RawRoll;
 
-// A check decision with every supported field an older editor could record.
+// A check decision with every field a mitigation decision can record.
 const full: Mitigation = {
   kind: 'mitigate',
   eventId: 'carried',
   overseerCharacterId: 'pc',
-  strategistCharacterId: 'pc',
-  targets: [
-    { kind: 'team', teamId: 'team' },
-    { kind: 'settlement', settlementId: 'town' },
-  ],
   rolls: {
     check: total(12, [{ sourceId: 'custom:a', value: 2, reason: 'Speech' }]),
   },
@@ -188,31 +182,9 @@ test('[PER-04.modifier-identity] a peer’s earlier change never redirects an ed
   ).toBeNull();
 });
 
-test('[PER-04.retained-clear] a retained field or one target is removed deliberately; everything else stays', () => {
-  const { strategistCharacterId: _strategist, ...rest } = full;
-  expect(decision(clearRetainedEdit(full, 'strategistCharacterId'))).toEqual(
-    rest,
-  );
-  const team = full.targets![0]!;
-  const town = full.targets![1]!;
-  expect(
-    decision(removeRetainedTargetEdit(full, { index: 0, target: team })),
-  ).toEqual({ ...full, targets: [town] });
-  // Found by identity when a peer's removal moved it.
-  expect(
-    decision(
-      removeRetainedTargetEdit(
-        { ...full, targets: [town] },
-        { index: 1, target: town },
-      ),
-    ),
-  ).toEqual((({ targets: _targets, ...untargeted }) => untargeted)(full));
-  expect(
-    removeRetainedTargetEdit(
-      { ...full, targets: [town] },
-      { index: 0, target: team },
-    ),
-  ).toBeNull();
+test('[PER-04.retained-clear] a retained field is removed deliberately; everything else stays', () => {
+  const { officerCheck: _officer, ...rest } = full;
+  expect(decision(clearRetainedEdit(full, 'officerCheck'))).toEqual(rest);
 });
 
 test('[PER-04.valid] every field edit is a valid persistent_decision for the draft', () => {
@@ -220,7 +192,7 @@ test('[PER-04.valid] every field edit is a valid persistent_decision for the dra
   for (const edit of [
     theftRollEdit(full, total(18)),
     officerCheckEdit(full, { field: 'skillBonus', value: -2 }),
-    clearRetainedEdit(full, 'targets'),
+    clearRetainedEdit(full, 'officerCheck'),
   ])
     expect(editWeeklyDraft(draft, edit!).ok).toBe(true);
 });

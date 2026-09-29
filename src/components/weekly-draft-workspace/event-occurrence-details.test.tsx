@@ -63,7 +63,7 @@ function offered(details: ReturnType<typeof show>['details']) {
 }
 
 // Written by no current Event control: the same-week Persistent decision
-// and its flag, and the unused Strategist.
+// and its flag.
 const sameWeek = {
   persistent: true,
   persistentDecision: {
@@ -71,7 +71,6 @@ const sameWeek = {
     eventId: 'root',
     rolls: { check },
   },
-  strategistCharacterId: 'pc',
 } satisfies Partial<Occurrence>;
 
 test('[EVT-11.details-allowlist] the details editor offers only fields current Event controls write and keeps the rest as recorded', async () => {
@@ -112,6 +111,23 @@ test('[EVT-11.details-allowlist] the details editor offers only fields current E
       ...sameWeek,
     },
   });
+});
+
+test('[EVT-11.details-nested] a target check and a Sabotage reaction offer no Overseer support or notes of their own', () => {
+  const { details } = show(
+    { eventId: 'root', origin: { kind: 'rolled' } },
+    'theft',
+  );
+  // Support is the occurrence's own; notes are the draft's acknowledgements.
+  fireEvent.click(details.getByRole('button', { name: 'Add target checks' }));
+  fireEvent.click(
+    details.getByRole('button', { name: 'Add target checks entry' }),
+  );
+  fireEvent.click(details.getByRole('button', { name: 'Add sabotage' }));
+  for (const name of ['Target Checks', 'Sabotage'])
+    expect(details.getByRole('group', { name }).textContent).not.toMatch(
+      /overseer|acknowledgement/i,
+    );
 });
 
 test.each(['raid', 'cache_discovered'])(

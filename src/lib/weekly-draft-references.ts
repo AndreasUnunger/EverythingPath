@@ -75,7 +75,6 @@ function targetIdentity(target: Target) {
 type OfficerReferences = {
   officerCheck?: { characterId: string };
   overseerCharacterId?: string;
-  strategistCharacterId?: string;
 };
 function officerReferences(
   value: OfficerReferences,
@@ -84,7 +83,6 @@ function officerReferences(
 ) {
   check('character', value.officerCheck?.characterId, `${path}:officer`);
   check('character', value.overseerCharacterId, `${path}:overseer`);
-  check('character', value.strategistCharacterId, `${path}:strategist`);
 }
 function decisionReferences(
   decision: z.infer<typeof persistentDecisionSchema> | undefined,
@@ -113,12 +111,9 @@ function eventReferences(events: EventReferences[], check: ReferenceCheck) {
         targetIdentity(target.target),
         `${path}:target-check`,
       );
-      officerReferences(target, check, path);
     }
-    if (event.sabotage) {
+    if (event.sabotage)
       check('team', event.sabotage.teamId, `${path}:sabotage`);
-      officerReferences(event.sabotage, check, path);
-    }
     for (const reward of event.rewards ?? [])
       check('character', reward.characterId, `${path}:reward`);
   }

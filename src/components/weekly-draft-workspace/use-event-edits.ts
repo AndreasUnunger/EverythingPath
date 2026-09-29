@@ -21,8 +21,6 @@ export type TargetCheckPatch = {
   // A die, or null to clear it.
   check?: RawRoll | null;
   loss?: RawRoll | null;
-  // Clears a check-level Overseer selection from an older editor.
-  overseer?: null;
 };
 export type TableModifier = EventBlock['table']['modifiers'][number];
 type OfficerCheck = NonNullable<Occurrence['officerCheck']>;
@@ -259,19 +257,6 @@ export function useEventEdits(
         );
       },
       /**
-       * Clears an event-level mitigation choice and check die an older
-       * editor recorded for every target at once.
-       */
-      clearEventMitigation(eventId: string) {
-        const occurrence = current(eventId);
-        if (!occurrence) return 'This event is not ready for its roll yet.';
-        const { mitigation: _mitigation, rolls, ...rest } = occurrence;
-        const { check: _check, ...others } = rolls ?? {};
-        return saveOccurrence(
-          Object.keys(others).length ? { ...rest, rolls: others } : rest,
-        );
-      },
-      /**
        * One Found Fire reward, added last or replaced in place by its item
        * identity. The rest of the occurrence is the latest this device
        * knows, so an edit built on an older one is refused, never merged.
@@ -431,7 +416,6 @@ function applyTargetPatch(
 ): TargetCheck | null {
   const next: TargetCheck = { ...entry };
   if (patch.mitigation) next.mitigation = patch.mitigation;
-  if (patch.overseer === null) delete next.overseerCharacterId;
   const rolls = { ...entry.rolls };
   for (const field of ['check', 'loss'] as const) {
     const roll = patch[field];

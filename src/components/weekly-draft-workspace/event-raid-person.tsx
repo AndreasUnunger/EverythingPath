@@ -2,7 +2,6 @@
 import { RULE_ROLL_SPECS } from '~/lib/rules-roll-spec';
 import { EventCheckRow } from './event-check-row';
 import type { EventEditResult, EventEdits } from './event-family-inputs';
-import { LegacyOverseerNote } from './event-legacy-overseer-note';
 import { EventMitigationChoice } from './event-mitigation-choice';
 import { EventNote } from './event-note';
 import { OverseerSupportControl } from './overseer-support-control';
@@ -77,14 +76,6 @@ export function EventRaidPerson({
             >
               A Security check roll stays on record, unused.
             </EventNote>
-          )}
-          {/* A check-level Overseer selection from an older editor stays editable. */}
-          {person.check.overseerRecorded && (
-            <LegacyOverseerNote
-              checkLabel={person.check.label}
-              disabled={disabled}
-              onClear={() => patch({ overseer: null })}
-            />
           )}
         </>
       )}

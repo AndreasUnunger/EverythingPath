@@ -39,17 +39,6 @@ export function EventResourceInputs({
         />
       )}
       {panel.cache && targetCards('cache', panel.cache, subject)}
-      {(panel.legacyMitigation !== null || panel.legacyCheckRoll) && (
-        <EventNote
-          action="Clear whole-event mitigation"
-          actionLabel={`Clear whole-event mitigation from ${subject}`}
-          disabled={disabled}
-          onAction={() => showRefusal(edits.clearEventMitigation(id))}
-        >
-          An older entry records mitigation for the whole event. Each cache
-          follows it until its own choice is made.
-        </EventNote>
-      )}
       {panel.caches.map((cache) => (
         <EventCacheTarget
           key={cache.cacheId}

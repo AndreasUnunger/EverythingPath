@@ -37,7 +37,6 @@ export function eventCheckFacts({
   projected,
   requirements,
   recorded,
-  overseerRecorded = false,
   modifierLabel,
   result,
   spec = RULE_ROLL_SPECS.check,
@@ -51,7 +50,6 @@ export function eventCheckFacts({
   projected: ProjectedCheck | undefined;
   requirements: readonly string[];
   recorded: RawRoll | undefined;
-  overseerRecorded?: boolean;
   modifierLabel: (source: string, recorded: RawRoll | undefined) => string;
   // What success and failure mean for this event.
   result: { success: string; failure: string };
@@ -81,6 +79,5 @@ export function eventCheckFacts({
     resultText:
       succeeded === null ? null : succeeded ? result.success : result.failure,
     required: requirements.some((code) => code.startsWith(`${checkId}:`)),
-    overseerRecorded,
   };
 }

@@ -440,25 +440,12 @@ function recordedOutcomes(
           ]
         : [],
     ),
-    ...views.event.occurrences.flatMap(({ occurrence }) => {
+    ...views.event.occurrences.map(({ occurrence }) => {
       const decision = occurrence.persistentDecision;
-      return [
-        {
-          key: eventSubject(occurrence.eventId),
-          acks: decision?.kind === 'end' ? [decision.acknowledgement] : [],
-        },
-        ...(occurrence.sabotage
-          ? [
-              {
-                key: sabotageSubject({
-                  eventId: occurrence.eventId,
-                  choiceId: occurrence.sabotage.choiceId,
-                }),
-                acks: occurrence.sabotage.acknowledgements ?? [],
-              },
-            ]
-          : []),
-      ];
+      return {
+        key: eventSubject(occurrence.eventId),
+        acks: decision?.kind === 'end' ? [decision.acknowledgement] : [],
+      };
     }),
     ...draft.persistent.decisions.map((decision) => ({
       key: eventSubject(decision.eventId),

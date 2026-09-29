@@ -7487,7 +7487,7 @@ export const coverageCatalog = {
         },
         // P84.copper retired by #167: the recorded buyoff amount and its input
         // were removed; Buy off stages an amount-free decision at the rules
-        // cost, and P84.legacy-amount keeps a saved legacy amount read-only.
+        // cost. P84.legacy-amount went with the stored amount (#198).
         {
           id: 'persistent-preparation',
           checkpoint: '7-workspace',
@@ -7498,7 +7498,6 @@ export const coverageCatalog = {
             'rules.P84.decisions',
             'rules.P84.ending',
             'rules.P84.officer',
-            'rules.P84.legacy-amount',
             'rules.P81.eligibility',
           ],
           tests: [
@@ -7506,7 +7505,6 @@ export const coverageCatalog = {
             'rules.P84.decisions',
             'rules.P84.ending',
             'rules.P84.officer',
-            'rules.P84.legacy-amount',
             'rules.P81.eligibility',
           ],
           gap: null,

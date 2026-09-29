@@ -736,12 +736,6 @@ const RETAINED: {
       persistentDecision ? decisionNames[persistentDecision.kind] : null,
   },
   {
-    field: 'strategistCharacterId',
-    label: 'Strategist',
-    value: ({ strategistCharacterId }, context) =>
-      strategistCharacterId ? personOr(context, strategistCharacterId) : null,
-  },
-  {
     field: 'overseerCharacterId',
     label: 'Overseer support',
     value: ({ overseerCharacterId }, context) =>

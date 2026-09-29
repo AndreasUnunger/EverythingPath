@@ -183,24 +183,6 @@ test('[rules.P84.decisions] per-instance choices preserve identity and stage the
   expect(edit).toHaveBeenCalledTimes(3);
 });
 
-test('[PER-05.legacy] [rules.P84.legacy-amount] a saved legacy amount is kept, never edited, and the removed controls are gone', () => {
-  const { edit } = show([
-    {
-      ...rivalry,
-      decision: { kind: 'buyoff', eventId: 'rivalry', costCopper: 1 },
-    },
-  ]);
-  const section = group('Rivalry · Event 1');
-  expect(section).toHaveTextContent(
-    'Buyoff cost 40 gp (2 × minimum treasury) · taken from the treasury at Confirmation',
-  );
-  expect(within(section).queryByRole('textbox')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Clear decision' })).toBeNull();
-  // Tapping the saved card again keeps the stored decision as it is.
-  fireEvent.click(card('Rivalry · Event 1', 'Buy off · 40 gp'));
-  expect(edit).not.toHaveBeenCalled();
-});
-
 test('[PER-09.leave] Leave it is the deliberate reset of this event only', () => {
   const { edit } = show([
     { ...theft, decision: { kind: 'buyoff', eventId: 'theft' } },
@@ -467,20 +449,6 @@ test('[WEEK-10.locked] Confirmation disables every Persistent control', () => {
     ...within(section).getAllByRole('textbox'),
   ])
     expect(control).toBeDisabled();
-});
-
-test('[PER-03.legacy] an unsupported saved check on Low Morale is flagged and repairable', () => {
-  const { edit } = show([
-    { ...morale, decision: { kind: 'mitigate', eventId: 'morale' } },
-  ]);
-  expect(group('Low Morale · Event 3')).toHaveTextContent(
-    'This saved check isn’t available for Low Morale. Choose another decision.',
-  );
-  fireEvent.click(card('Low Morale · Event 3', 'Leave it'));
-  expect(edit).toHaveBeenLastCalledWith({
-    kind: 'persistent_decision',
-    decision: { kind: 'unattempted', eventId: 'morale' },
-  });
 });
 
 test('[PER-06.partial] an ending saved without its reason says so and leaves the reason to repair', async () => {

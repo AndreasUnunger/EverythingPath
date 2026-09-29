@@ -1,7 +1,6 @@
 import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import type { RollSpec } from './raw-roll';
 import { normalizeRawRoll } from './raw-roll';
-import { eventOverseerSelection } from './rules-overseer-event';
 import {
   projectActivity,
   activityCheckEffects,
@@ -128,9 +127,6 @@ function projectSabotageCheck(
   checkId: string,
   raw: number | null,
 ) {
-  const support = eventOverseerSelection(event);
-  if (support.conflicting)
-    context.result.requirements.push(`${checkId}:overseer-conflict`);
   return choice.check
     ? projectRulesFoundations({
         ...createFoundationInput(context),
@@ -142,7 +138,7 @@ function projectSabotageCheck(
             check: choice.check,
             teamId: team.teamId,
             die: raw ?? undefined,
-            overseerCharacterId: support.characterId,
+            overseerCharacterId: event.overseerCharacterId,
             bonusIds: choice.rolls?.check?.modifiers.flatMap((modifier) =>
               modifier.sourceId.startsWith('bonus:')
                 ? [modifier.sourceId.slice(6)]
@@ -232,7 +228,7 @@ function recordSabotageOutcome(
   const dc = sabotageDc(result.outcome.rank);
   const succeeded = total === null ? null : total >= dc;
   const acknowledgement =
-    [...draft.acknowledgements, ...(choice.acknowledgements ?? [])].find(
+    draft.acknowledgements.find(
       (entry) =>
         entry.subjectId === `sabotage:${event.eventId}:${choice.choiceId}` &&
         entry.outcome.trim(),

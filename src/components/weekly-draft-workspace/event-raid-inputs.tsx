@@ -16,16 +16,6 @@ export function EventRaidInputs({
   return (
     <>
       {targetCards('settlement', panel.settlement)}
-      {(panel.legacyMitigation !== null || panel.legacyCheckRoll) && (
-        <EventNote
-          action="Clear whole-Raid mitigation"
-          disabled={disabled}
-          onAction={() => showRefusal(edits.clearEventMitigation(id))}
-        >
-          An older entry records mitigation for the whole Raid. Each hidden
-          person follows it until their own choice is made.
-        </EventNote>
-      )}
       {panel.noPeople !== null && (
         <p className="text-muted-foreground min-w-0 text-sm [overflow-wrap:anywhere]">
           {panel.noPeople}

@@ -10,7 +10,6 @@ import {
   earlierPhasesKey,
   isOwnRequirement,
   leaveNote,
-  liveWarnings,
   orderCarriedEvents,
   ordinal,
   projectedResult,
@@ -54,7 +53,7 @@ export function persistentView(
   // The rank, and so the rules cost, is settled once Upkeep is complete.
   const costPending = !phases?.upkeep.ready;
   const endings = sourceEndings(draft, phases);
-  const warnings = liveWarnings(projection?.warnings ?? []);
+  const warnings = projection?.warnings ?? [];
   return {
     phase: 'persistent',
     ready: (projection?.ready ?? false) && earlier.length === 0,
@@ -148,7 +147,7 @@ export function persistentView(
               )
             : null,
         retained: mitigation
-          ? retainedFields(context, event.eventType, mitigation, targetName)
+          ? retainedFields(context, event.eventType, mitigation)
           : [],
         requirements,
         warnings: eventWarnings,

@@ -283,47 +283,6 @@ test('[EVT-10.overseer-partial-view] a move stopped between edits says where sup
   );
 });
 
-test('[EVT-10.overseer-legacy] a legacy target-level selection reads as this event’s support and moves as one', async () => {
-  const { draft, snapshot } = week();
-  draft.persistent.decisions = [
-    { kind: 'mitigate', eventId: 'carried', rolls: { check: roll(20, 12) } },
-  ];
-  const second = draft.event.occurrences.find(
-    (event) => event.eventId === 'second',
-  )!;
-  second.targetChecks = [
-    { target: { kind: 'team', teamId: 'team' }, overseerCharacterId: 'pc' },
-  ];
-  const store = workspace(draft, snapshot);
-  render(<store.Persistent />);
-  const theft = screen.getByRole('group', { name: 'Theft · Event 1' });
-  const toggle = within(theft).getByRole('switch', {
-    name: /for Theft · Event 1 Loyalty check$/,
-  });
-  expect(toggle).toHaveAttribute('aria-checked', 'false');
-  expect(theft).toHaveTextContent(
-    'Now on Event 1.2 · Sickness. Tapping moves it here.',
-  );
-  fireEvent.click(toggle);
-  await waitFor(() => expect(holders(store.draft())).toEqual(['carried']));
-  // The legacy entry named only its target and support, so it is gone; the
-  // event's own inputs stay.
-  const moved = store
-    .draft()
-    .event.occurrences.find((event) => event.eventId === 'second')!;
-  expect(moved.targetChecks).toBeUndefined();
-  expect(moved.targets).toEqual(second.targets);
-  expect(moved.rolls).toEqual(second.rolls);
-  expect(store.draft().persistent.decisions).toEqual([
-    {
-      kind: 'mitigate',
-      eventId: 'carried',
-      rolls: { check: roll(20, 12) },
-      overseerCharacterId: 'pc',
-    },
-  ]);
-});
-
 test('[PER-04.overseer-form] the Theft check offers no Overseer field, and entering its roll keeps the recorded support', async () => {
   const { draft, snapshot } = week();
   const store = workspace(draft, snapshot);

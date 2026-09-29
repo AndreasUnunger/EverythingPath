@@ -10,7 +10,6 @@ import { settlementFixture } from '../../../tests/rules/settlement-fixture';
 import { roll } from '../../../tests/rules/upkeep-fixture';
 import { persistentView } from './persistent-facts';
 import { derivePhaseReadiness } from './phase-readiness';
-import { phaseView } from './phase-view';
 import {
   decisionEdit,
   earlierPhasesKey,
@@ -234,39 +233,6 @@ test("[PER-01.rank] the cost waits for Upkeep's rank change and then uses the ne
   expect(view.buyoffCostCopper).toBe(rank * 10 * 2 * 100);
 });
 
-test('[PER-05.legacy] a legacy recorded amount never controls the deduction and its warning is gone from live views', () => {
-  const { draft, snapshot } = withCarried([theft()]);
-  draft.persistent.decisions = [
-    { kind: 'buyoff', eventId: 'carried', costCopper: 1 },
-  ];
-  const { view, preview, source } = facts(draft, snapshot);
-  expect(preview.warnings).toContain('carried:buyoff-cost-recomputed');
-  const buyoff = preview.phases!.persistent.plan.find(
-    (change) => change.kind === 'persistent_buyoff',
-  );
-  assert(buyoff?.kind === 'persistent_buyoff');
-  expect(buyoff.costCopper).toBe(view.buyoffCostCopper);
-  expect(view.warnings).not.toContain('carried:buyoff-cost-recomputed');
-  expect(view.events[0]!.warnings).toEqual([]);
-  expect(view.events[0]!.decision).toEqual({
-    kind: 'buyoff',
-    eventId: 'carried',
-    costCopper: 1,
-  });
-  const summary = phaseView('summary', draft, source, preview);
-  expect(summary.warnings).not.toContain('carried:buyoff-cost-recomputed');
-  // The six-section review places only live warnings, so the removed legacy
-  // amount warning cannot return under the buyoff's item.
-  assert(summary.phase === 'summary');
-  expect(JSON.stringify(summary.review)).not.toContain(
-    'buyoff-cost-recomputed',
-  );
-  for (const phase of derivePhaseReadiness(draft, source, preview).phases)
-    expect(phase.warnings.map((item) => item.id)).not.toContain(
-      'carried:buyoff-cost-recomputed',
-    );
-});
-
 test('[PER-06.ending] a table ending needs its outcome and reason before it ends the event', () => {
   const { draft, snapshot } = withCarried([theft()]);
   draft.persistent.decisions = [
@@ -400,7 +366,7 @@ test('[PER-03.cards] only Theft and Rivalry offer a check card', () => {
 });
 
 test('[PER-03.edits] cards send amount-free replacements and leave a saved decision untouched when tapped again', () => {
-  const buyoff = { kind: 'buyoff' as const, eventId: 'e', costCopper: 7 };
+  const buyoff = { kind: 'buyoff' as const, eventId: 'e' };
   expect(decisionEdit({ eventId: 'e', decision: buyoff }, 'buyoff')).toBeNull();
   expect(decisionEdit({ eventId: 'e', decision: null }, 'buyoff')).toEqual({
     kind: 'persistent_decision',
@@ -470,7 +436,7 @@ test('[PER-09.leave] Leave it replaces only this event’s decision and keeps ev
         outcome: 'Settled',
       },
     },
-    { kind: 'buyoff', eventId: 'second', costCopper: 3 },
+    { kind: 'buyoff', eventId: 'second' },
   ];
   draft.rulesExceptions = [
     {
@@ -486,7 +452,7 @@ test('[PER-09.leave] Leave it replaces only this event’s decision and keeps ev
   const next = editWeeklyDraft(draft, leave);
   assert(next.ok);
   expect(next.draft.persistent.decisions).toEqual([
-    { kind: 'buyoff', eventId: 'second', costCopper: 3 },
+    { kind: 'buyoff', eventId: 'second' },
     { kind: 'unattempted', eventId: 'carried' },
   ]);
   expect(next.draft.rulesExceptions).toEqual(draft.rulesExceptions);

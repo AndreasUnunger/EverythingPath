@@ -138,11 +138,9 @@ type FieldProps = {
   issues: z.core.$ZodIssue[];
   disabled: boolean;
   modifierContext?: boolean;
-  ownerEventId?: string;
   rollSpec?: RollSpecResolver;
   // The whole value under edit, for context-dependent roll specifications.
   rootValue?: unknown;
-  acknowledgementSubject?: string;
 };
 function nestedField(props: FieldProps) {
   return (
@@ -157,8 +155,6 @@ function nestedField(props: FieldProps) {
       rollSpec={props.rollSpec}
       rootValue={props.rootValue}
       modifierContext={props.modifierContext}
-      ownerEventId={props.ownerEventId}
-      acknowledgementSubject={props.acknowledgementSubject}
       schema={schema}
       value={value}
       name={name}
@@ -386,8 +382,6 @@ function UnionFields(props: FieldProps & { base: z.ZodDiscriminatedUnion }) {
           rollSpec={props.rollSpec}
           rootValue={props.rootValue}
           modifierContext={props.modifierContext}
-          ownerEventId={props.ownerEventId}
-          acknowledgementSubject={props.acknowledgementSubject}
           schema={selectedSchema}
           value={value}
           change={change}
@@ -421,15 +415,6 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
   const title = choiceFieldLabel(name);
   const error = issues.find((issue) => issue.path.join('.') === path)?.message;
   const object = record(value);
-  const ownerEventId =
-    typeof object.eventId === 'string' &&
-    ('origin' in object || name === 'occurrence')
-      ? object.eventId
-      : props.ownerEventId;
-  const acknowledgementSubject =
-    name === 'sabotage' && typeof object.choiceId === 'string' && ownerEventId
-      ? `sabotage:${ownerEventId}:${object.choiceId}`
-      : props.acknowledgementSubject;
   const modifier = props.modifierContext === true || path.includes('modifiers');
   const knownSources = optionsForSource(
     props.options,
@@ -439,8 +424,6 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
   );
   const nested = nestedField({
     ...props,
-    ownerEventId,
-    acknowledgementSubject,
     options: knownSources
       ? { ...props.options, sourceId: knownSources }
       : props.options,
@@ -474,9 +457,6 @@ function ObjectFields(props: FieldProps & { base: z.ZodObject | z.ZodRecord }) {
             Object.fromEntries(
               Object.entries({
                 ...object,
-                ...('acknowledgementId' in object && acknowledgementSubject
-                  ? { subjectId: acknowledgementSubject }
-                  : {}),
                 [key]: next,
               }).filter(([, value]) => value !== undefined),
             ),

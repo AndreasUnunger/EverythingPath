@@ -83,12 +83,6 @@ const emptyText: Record<ReviewPhase, string> = {
 };
 const notRecordedText =
   'This record’s format does not list this phase’s consequences.';
-// Wording for recorded warnings the live week no longer raises.
-const historicalMessages: Record<string, string> = {
-  'buyoff-cost-recomputed':
-    'The recorded amount differs from the calculated buyoff cost.',
-};
-
 function rollLine(label: string, roll: RawRoll | undefined) {
   return roll ? [`${label}: ${rollText(roll)}`] : [];
 }
@@ -415,9 +409,6 @@ function decisionDetails(decision: Decision | undefined) {
   if (!decision) return ['No decision recorded'];
   return [
     `Decision: ${words(decision.kind)}`,
-    ...(decision.kind === 'buyoff' && decision.costCopper !== undefined
-      ? [`Recorded buyoff amount ${gp(decision.costCopper)}`]
-      : []),
     ...(decision.kind === 'mitigate'
       ? [
           ...rollLine('Mitigation roll', decision.rolls?.check),
@@ -515,23 +506,10 @@ function recordedOutcomes(review: Review) {
           ]
         : [],
     ),
-    ...review.tree.flatMap(({ occurrence }) => [
-      {
-        key: eventSubject(occurrence.eventId),
-        acks: ends(occurrence.persistentDecision),
-      },
-      ...(occurrence.sabotage
-        ? [
-            {
-              key: sabotageSubject({
-                eventId: occurrence.eventId,
-                choiceId: occurrence.sabotage.choiceId,
-              }),
-              acks: occurrence.sabotage.acknowledgements ?? [],
-            },
-          ]
-        : []),
-    ]),
+    ...review.tree.map(({ occurrence }) => ({
+      key: eventSubject(occurrence.eventId),
+      acks: ends(occurrence.persistentDecision),
+    })),
     ...source.persistent.decisions.map((decision) => ({
       key: eventSubject(decision.eventId),
       acks: ends(decision),
@@ -628,11 +606,6 @@ function findWarningCode({
 }
 
 function warningText(review: Review, code: string) {
-  const known = historicalMessages[code.split(':').pop() ?? ''];
-  if (known) {
-    const owner = findOwner(code, allItems(review));
-    return owner ? `${owner.title}: ${known}` : known;
-  }
   const isWarning = true;
   return summaryMessage(
     code,

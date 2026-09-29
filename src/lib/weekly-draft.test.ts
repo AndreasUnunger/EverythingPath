@@ -202,12 +202,12 @@ test('[draft.context] freezes week-start facts and keeps persistent eligibility 
   expect(Object.isFrozen(draft.context.carriedEvents[0]?.targets)).toBe(true);
   const next = accepted(draft, {
     kind: 'persistent_decision',
-    decision: { eventId: 'rivalry', kind: 'buyoff', costCopper: 0 },
+    decision: { eventId: 'rivalry', kind: 'buyoff' },
   });
   expect(next.context).toEqual(draft.context);
   expect(next.context.persistentPhaseEligible).toBe(true);
   expect(next.persistent.decisions).toEqual([
-    { eventId: 'rivalry', kind: 'buyoff', costCopper: 0 },
+    { eventId: 'rivalry', kind: 'buyoff' },
   ]);
 });
 

@@ -139,8 +139,13 @@ test('[rules.EV05.single-penalty] a queued and persistent copy contributes only 
   };
   draft.event.occurrences = [occurrence('cache', 62)];
   draft.event.occurrences[0]!.targets = [{ kind: 'cache', cacheId: 'cache' }];
-  draft.event.occurrences[0]!.mitigation = 'attempted';
-  draft.event.occurrences[0]!.rolls = { check: roll(20, 14) };
+  draft.event.occurrences[0]!.targetChecks = [
+    {
+      target: { kind: 'cache', cacheId: 'cache' },
+      mitigation: 'attempted',
+      rolls: { check: roll(20, 14) },
+    },
+  ];
   const result = project(draft, snapshot).event;
   expect(result.ready).toBe(true);
   expect(result.checks[0]?.total).toBe(13);

@@ -241,10 +241,7 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
         entry.target.characterId === person.characterId,
     );
     const checkRoll = input?.rolls?.check;
-    const attempted = eventMitigationAttempted(
-      input?.mitigation ?? occurrence.mitigation,
-      checkRoll ?? occurrence.rolls?.check,
-    );
+    const attempted = eventMitigationAttempted(input?.mitigation, checkRoll);
     const checkId = `${eventId}:${person.characterId}:mitigation`;
     const check = eventCheckFacts({
       checkId,
@@ -257,7 +254,6 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
       ),
       requirements: item.requirements,
       recorded: checkRoll,
-      overseerRecorded: Boolean(input?.overseerCharacterId),
       modifierLabel: context.modifierLabel,
       result: {
         success: `Capture chance falls to ${RAID_CAPTURE_CHANCE.mitigated}%.`,
@@ -319,8 +315,6 @@ function raidPanel(item: Item, context: EventPanelContext): EventPanel {
     settlement,
     people: raidPeople,
     retainedPeople,
-    legacyMitigation: occurrence.mitigation ?? null,
-    legacyCheckRoll: Boolean(occurrence.rolls?.check),
     noPeople:
       selected && !hidden.length
         ? has('tracked-people')

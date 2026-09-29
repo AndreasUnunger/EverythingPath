@@ -490,18 +490,13 @@ test('[PER-04.retained] recorded fields the check does not use stay listed, and 
       kind: 'mitigate',
       eventId: 'rivalry',
       overseerCharacterId: 'pc',
-      strategistCharacterId: 'pc',
-      targets: [{ kind: 'team', teamId: 'team' }],
       rolls: { check: total(12) },
     },
   ];
   const event = facts(draft, snapshot).view.events[0]!;
   expect(event.retained.map((entry) => [entry.field, entry.value])).toEqual([
-    ['targets', ''],
-    ['strategistCharacterId', 'Aubrin'],
     ['rolls', 'roll 12'],
     ['overseerCharacterId', 'adds nothing to a skill check'],
   ]);
   expect(event.targetNames).toHaveLength(2);
-  expect(event.retained[0]!.targets).toHaveLength(1);
 });

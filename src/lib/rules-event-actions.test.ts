@@ -377,7 +377,7 @@ test('[rules.A18.composition] queued, manager, and Overseer modifiers compose on
     ],
   };
   const sabotage = choice.candidates![0]!.sabotage!;
-  sabotage.overseerCharacterId = 'pc';
+  choice.candidates![0]!.overseerCharacterId = 'pc';
   sabotage.rolls!.check!.modifiers = [
     'manager:pc',
     'queued:source',

@@ -552,6 +552,9 @@ W1 is gone).
 
 ### B1. Older Event and check-decision fields (#164–#168)
 
+**Removed 2026-09-29 (#198)** once W1 was narrowed. Also rewritten:
+`O04.persistent-selection` (it relied on same-week decision support).
+
 **Condition: W1 is retired or narrowed.** The per-family Event controls and the
 Persistent page never write these fields. The generic Event details editor
 still can, because it edits the full `eventOccurrenceSchema`, including

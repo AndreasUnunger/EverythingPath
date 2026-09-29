@@ -4,10 +4,9 @@ import type { WeeklyDraft, WeeklyDraftEdit } from './weekly-draft-contract';
 // The Overseer supports the organization checks of one chosen event a week
 // (militia-rules.md, "Overseer"). The choice is shared by Event and
 // Persistent and lives in the records that already own it: an occurrence's
-// own `overseerCharacterId` (older editors also recorded it on a target
-// check, a Sabotage reaction or a same-week persistent decision), or a
-// carried event's Persistent mitigation decision. Nothing here is a new
-// field or endpoint; moving support is a sequence of ordinary edits.
+// own `overseerCharacterId`, or a carried event's Persistent mitigation
+// decision. Nothing here is a new field or endpoint; moving support is a
+// sequence of ordinary edits.
 
 type Occurrence = WeeklyDraft['event']['occurrences'][number];
 type Decision = WeeklyDraft['persistent']['decisions'][number];
@@ -34,89 +33,35 @@ export function overseerSupportSource(
   };
 }
 
-/** Where one event records support; several places read as one event. */
-export type OverseerSupportLocation =
-  | 'occurrence'
-  | 'target'
-  | 'reaction'
-  | 'same-week-decision'
-  | 'carried-decision';
-
 export type OverseerSupportHolder = {
   eventId: string;
   kind: 'occurrence' | 'carried';
-  locations: OverseerSupportLocation[];
-  characterIds: string[];
+  characterId: string;
 };
 
-function occurrenceSelections(event: Occurrence) {
-  const found: [OverseerSupportLocation, string | undefined][] = [
-    ['occurrence', event.overseerCharacterId],
-    ['reaction', event.sabotage?.overseerCharacterId],
-    [
-      'same-week-decision',
-      event.persistentDecision?.kind === 'mitigate'
-        ? event.persistentDecision.overseerCharacterId
-        : undefined,
-    ],
-    ...(event.targetChecks ?? []).map(
-      (target) =>
-        ['target', target.overseerCharacterId] as [
-          OverseerSupportLocation,
-          string | undefined,
-        ],
-    ),
-  ];
-  return found.filter((entry): entry is [OverseerSupportLocation, string] =>
-    Boolean(entry[1]),
-  );
-}
-
 /**
- * Every event that records Overseer support, one entry per event identity
- * however many of its records hold it. More than one entry is a conflict
- * the rules resolve by giving support to the first event only.
+ * Every event that records Overseer support. More than one entry is a
+ * conflict the rules resolve by giving support to the first event only.
  */
 export function overseerSupportHolders(
   source: OverseerSupportSource,
 ): OverseerSupportHolder[] {
   const holders: OverseerSupportHolder[] = [];
-  for (const event of source.occurrences) {
-    const found = occurrenceSelections(event);
-    if (found.length)
+  for (const event of source.occurrences)
+    if (event.overseerCharacterId)
       holders.push({
         eventId: event.eventId,
         kind: 'occurrence',
-        locations: [...new Set(found.map(([location]) => location))],
-        characterIds: [...new Set(found.map(([, id]) => id))],
+        characterId: event.overseerCharacterId,
       });
-  }
   for (const decision of source.decisions)
     if (decision.kind === 'mitigate' && decision.overseerCharacterId)
       holders.push({
         eventId: decision.eventId,
         kind: 'carried',
-        locations: ['carried-decision'],
-        characterIds: [decision.overseerCharacterId],
+        characterId: decision.overseerCharacterId,
       });
   return holders;
-}
-
-function withoutSupport(event: Occurrence): Occurrence {
-  const { overseerCharacterId: _own, ...next } = structuredClone(event);
-  if (next.sabotage) delete next.sabotage.overseerCharacterId;
-  if (next.persistentDecision?.kind === 'mitigate')
-    delete next.persistentDecision.overseerCharacterId;
-  if (next.targetChecks) {
-    // A target check left naming only its target carries nothing.
-    const targetChecks = next.targetChecks.flatMap((entry) => {
-      const { overseerCharacterId: _target, ...rest } = entry;
-      return Object.keys(rest).length > 1 ? [rest] : [];
-    });
-    if (targetChecks.length) next.targetChecks = targetChecks;
-    else delete next.targetChecks;
-  }
-  return next;
 }
 
 /** Whether this event has a record that can hold support now. */
@@ -134,18 +79,19 @@ export function canHoldOverseerSupport(
 }
 
 /**
- * The one ordinary edit removing every support selection recorded for this
- * event, keeping everything else in its record; null when it has none.
+ * The one ordinary edit removing the support recorded for this event,
+ * keeping everything else in its record; null when it has none.
  */
 export function clearOverseerSupportEdit(
   source: OverseerSupportSource,
   eventId: string,
 ): WeeklyDraftEdit | null {
   const event = source.occurrences.find((entry) => entry.eventId === eventId);
-  if (event)
-    return occurrenceSelections(event).length
-      ? { kind: 'event_occurrence', occurrence: withoutSupport(event) }
-      : null;
+  if (event) {
+    if (!event.overseerCharacterId) return null;
+    const { overseerCharacterId: _previous, ...rest } = event;
+    return { kind: 'event_occurrence', occurrence: rest };
+  }
   const decision = source.decisions.find((entry) => entry.eventId === eventId);
   if (decision?.kind !== 'mitigate' || !decision.overseerCharacterId)
     return null;
@@ -155,10 +101,9 @@ export function clearOverseerSupportEdit(
 
 /**
  * The one ordinary edit recording support on this event, in the record that
- * owns it: an occurrence's own selection (older nested copies on that same
- * occurrence fold into it) or a carried event's mitigation decision.
- * 'already' when nothing needs to change; 'unavailable' when the event has
- * no record able to hold it.
+ * owns it: an occurrence's own selection or a carried event's mitigation
+ * decision. 'already' when nothing needs to change; 'unavailable' when the
+ * event has no record able to hold it.
  */
 export function assignOverseerSupportEdit(
   source: OverseerSupportSource,
@@ -167,18 +112,11 @@ export function assignOverseerSupportEdit(
 ): WeeklyDraftEdit | 'already' | 'unavailable' {
   const event = source.occurrences.find((entry) => entry.eventId === eventId);
   if (event) {
-    const found = occurrenceSelections(event);
-    const [only] = found;
-    if (
-      found.length === 1 &&
-      only?.[0] === 'occurrence' &&
-      only[1] === characterId
-    )
-      return 'already';
+    if (event.overseerCharacterId === characterId) return 'already';
     return {
       kind: 'event_occurrence',
       occurrence: {
-        ...withoutSupport(event),
+        ...structuredClone(event),
         overseerCharacterId: characterId,
       },
     };

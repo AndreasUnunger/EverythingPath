@@ -462,16 +462,12 @@ test('[rules.EVT-13.sabotage-candidate-reroll] Sabotage waits for a chosen candi
   delete raid!.sabotage;
   choice.candidates!.push({
     ...childEvent('raid/replacement/1', 78, 'replacement', 'raid'),
-    sabotage: {
-      ...reaction,
-      acknowledgements: [
-        {
-          acknowledgementId: 'child-receipt',
-          subjectId: 'sabotage:raid/replacement/1:react',
-          outcome: 'The raid was disrupted.',
-        },
-      ],
-    },
+    sabotage: reaction,
+  });
+  draft.acknowledgements.push({
+    acknowledgementId: 'child-receipt',
+    subjectId: 'sabotage:raid/replacement/1:react',
+    outcome: 'The raid was disrupted.',
   });
   const child = project(draft, snapshot);
   expect(child.view.sabotage!['raid/replacement/1']!.result?.kind).toBe(

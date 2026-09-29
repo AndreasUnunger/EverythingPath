@@ -161,7 +161,6 @@ function PersistentEvent({
   const targets = event.targetNames.length
     ? event.targetNames.join(' & ')
     : 'Militia';
-  const unsupportedCheck = choice.saved === 'mitigate' && event.check === null;
   // A warning its Rules Exception block already explains is not repeated.
   const warnings = event.warnings.filter(
     (key) =>
@@ -219,12 +218,6 @@ function PersistentEvent({
               disabled={disabled}
               onChoose={choice.choose}
             />
-            {unsupportedCheck && (
-              <p role="note" className="text-sm text-amber-300">
-                This saved check isn’t available for {event.typeLabel}. Choose
-                another decision.
-              </p>
-            )}
             {choice.selected === 'buyoff' && (
               <p className="text-sm [overflow-wrap:anywhere]">
                 {cost === null

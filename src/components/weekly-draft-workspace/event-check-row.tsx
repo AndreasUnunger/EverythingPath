@@ -1,7 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
 import type { RawRoll } from '~/lib/weekly-draft-facts';
-import { LegacyOverseerNote } from './event-legacy-overseer-note';
 import { RollTotalField } from './roll-total-field';
 import type { EventCheckFacts } from './types';
 import { signed } from './upkeep-parts';
@@ -16,14 +15,12 @@ export function EventCheckRow({
   disabled,
   onRoll,
   support,
-  onClearOverseer,
 }: {
   facts: EventCheckFacts;
   recorded: RawRoll | undefined;
   disabled: boolean;
   onRoll: (roll: RawRoll | null) => void;
   support?: ReactNode;
-  onClearOverseer?: () => void;
 }) {
   return (
     // The dice field carries the visible label; the group repeats it for
@@ -83,13 +80,6 @@ export function EventCheckRow({
           )}
         </div>
       </div>
-      {facts.overseerRecorded && onClearOverseer && (
-        <LegacyOverseerNote
-          checkLabel={facts.label}
-          disabled={disabled}
-          onClear={onClearOverseer}
-        />
-      )}
       {support}
     </fieldset>
   );
