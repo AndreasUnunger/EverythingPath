@@ -19,8 +19,10 @@ export function safeDiagnostic(line: string): string | null {
       /Could not find function|function.*not found/i,
       'Convex function is missing',
     ],
+    // Whole words only: a fixture's output carries random Convex document IDs,
+    // and an ID can contain the letters "jwt" (#198).
     [
-      /JWT|JWKS|token.*(?:expired|invalid)|issuer/i,
+      /\bJWTs?\b|\bJWKS\b|token.*(?:expired|invalid)|\bissuer\b/i,
       'authentication token or issuer failure',
     ],
     [/\b401\b|unauthorized/i, 'service rejected authentication'],
