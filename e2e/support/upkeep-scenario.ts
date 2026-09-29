@@ -11,6 +11,8 @@ export type UpkeepScenario = {
   missingTeam?: boolean;
   rankGain?: boolean;
   persistent?: boolean;
+  // With `choices`: Scouts already recovered at the adjusted 15 gp.
+  adjustedRecovery?: boolean;
 };
 
 /**

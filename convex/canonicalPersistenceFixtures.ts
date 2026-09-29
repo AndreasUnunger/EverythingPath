@@ -282,9 +282,15 @@ export const initializeUpkeep = internalMutation({
     // earlier Upkeep step gains rank 9 (Captain) and its feat choice.
     rankGain: v.optional(v.boolean()),
     persistent: v.optional(v.boolean()),
+    // With `choices`: attrition rolls of 10 and 3 entered, and the disabled
+    // Scouts recovered at 15 gp instead of the 20 gp rules cost, with its
+    // reason. The recovery journey reaches this state through the UI.
+    adjustedRecovery: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
+    if (args.adjustedRecovery && !args.choices)
+      throw new Error('An adjusted recovery needs the Scouts choice');
     const key = await ctx.runMutation(
       internal.canonicalPersistenceFixtures.initialize,
       { scope: args.scope, draftId: args.draftId },
@@ -453,6 +459,32 @@ export const initializeUpkeep = internalMutation({
           modifiers: [],
         },
       };
+    }
+    if (args.adjustedRecovery) {
+      // The same facts the Upkeep page writes: total rolls (a successful
+      // check's training roll is 1d6), the recovery at its rules cost and the
+      // reasoned difference as the recovery's Table Adjustment.
+      const total = (sides: number, diceTotal: number) => ({
+        diceTotal,
+        diceCount: 1,
+        sides,
+        provenance: { kind: 'table' as const },
+        modifiers: [],
+      });
+      draft.upkeep.rolls = { check: total(20, 10), training: total(6, 3) };
+      draft.upkeep.teamDecisions = [
+        { teamId: 'upkeep-scouts', decision: 'recover', costCopper: 2000 },
+      ];
+      draft.tableAdjustments = [
+        {
+          kind: 'militia_value',
+          adjustmentId: 'upkeep-recovery:upkeep-scouts',
+          field: 'treasuryCopper',
+          operation: 'add',
+          value: 500,
+          reason: 'Local healer donated supplies',
+        },
+      ];
     }
     await ctx.db.patch('canonicalMilitiaState', state._id, { snapshot });
     await ctx.db.patch('canonicalWeeklyDraft', row._id, {

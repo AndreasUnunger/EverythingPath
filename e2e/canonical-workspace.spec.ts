@@ -44,6 +44,7 @@ import { exercisePersistentWorkspace } from './support/persistent-workspace';
 import {
   exerciseActivityWorkspace,
   exerciseDrillRolls,
+  exerciseGuaranteeEvent,
 } from './support/activity-workspace';
 import { exerciseRollCompatibility } from './support/roll-compatibility';
 import { exerciseTeamConditionRows } from './support/team-conditions';
@@ -589,196 +590,226 @@ test('players recover a team at an adjusted cost and confirm a week through Acti
     player = players.player;
   const saved = () =>
     expect(saveState(gm)).toHaveAttribute('data-week-feedback', 'saved');
+  const recovery = gm.getByRole('group', {
+    name: 'Scouts team condition',
+    exact: true,
+  });
+  const remoteRecovery = player.getByRole('group', {
+    name: 'Scouts team condition',
+    exact: true,
+  });
+  const cost = (group: typeof recovery) =>
+    group.getByRole('textbox', {
+      name: 'Scouts: Recovery cost (gp)',
+      exact: true,
+    });
+  const reason = (group: typeof recovery) =>
+    group.getByRole('textbox', {
+      name: 'Scouts: Reason for the changed cost',
+      exact: true,
+    });
   try {
-    const { key: choicesScope, route: choicesRoute } = await initialUpkeep(
-      run,
-      ownedCase,
-      { choices: true },
-    );
-    await Promise.all([gm.goto(choicesRoute), player.goto(choicesRoute)]);
-    await expect(die(gm)).toBeVisible();
-    await die(gm).fill('10');
-    await expect(die(player)).toHaveValue('10');
-    await training(gm).fill('3');
-    await expect(training(player)).toHaveValue('3');
-    // Below maximum notoriety the step collapses and no settlement is asked.
-    await expect(
-      gm.getByRole('group', { name: 'Nearest settlement', exact: true }),
-    ).toHaveCount(0);
-    const recovery = gm.getByRole('group', {
-      name: 'Scouts team condition',
-      exact: true,
-    });
-    const remoteRecovery = player.getByRole('group', {
-      name: 'Scouts team condition',
-      exact: true,
-    });
-    const cost = (group: typeof recovery) =>
-      group.getByRole('textbox', {
-        name: 'Scouts: Recovery cost (gp)',
-        exact: true,
+    const { key: choicesScope } =
+      await test.step('enter the attrition rolls below maximum notoriety', async () => {
+        const scenario = await initialUpkeep(run, ownedCase, { choices: true });
+        await Promise.all([
+          gm.goto(scenario.route),
+          player.goto(scenario.route),
+        ]);
+        await expect(die(gm)).toBeVisible();
+        await die(gm).fill('10');
+        await expect(die(player)).toHaveValue('10');
+        await training(gm).fill('3');
+        await expect(training(player)).toHaveValue('3');
+        // Below maximum notoriety the step collapses and no settlement is asked.
+        await expect(
+          gm.getByRole('group', { name: 'Nearest settlement', exact: true }),
+        ).toHaveCount(0);
+        return scenario;
       });
-    const reason = (group: typeof recovery) =>
-      group.getByRole('textbox', {
-        name: 'Scouts: Reason for the changed cost',
-        exact: true,
-      });
-    // Recover saves at once at the rules cost, shown in gp.
-    await recovery
-      .getByRole('button', { name: 'Recover', exact: true })
-      .click();
-    await expect(
-      remoteRecovery.getByRole('button', { name: 'Recover', exact: true }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    await expect(cost(recovery)).toHaveValue('20');
-    await expect(cost(remoteRecovery)).toHaveValue('20');
-    // A changed price stays local until its reason is present.
-    await cost(recovery).fill('15');
-    await expect(
-      recovery.getByRole('alert').filter({
-        hasText: 'A reason is required for a changed recovery cost.',
-      }),
-    ).toBeVisible();
-    await expect(cost(remoteRecovery)).toHaveValue('20');
-    await cost(recovery).fill('15x');
-    await expect(
-      recovery.getByRole('alert').filter({
-        hasText: 'Enter an amount in gp, such as 12 or 0.07.',
-      }),
-    ).toBeVisible();
-    await cost(recovery).fill('15');
-    await reason(recovery).fill('Local healer donated supplies');
-    await expect(cost(remoteRecovery)).toHaveValue('15');
-    await expect(reason(remoteRecovery)).toHaveValue(
-      'Local healer donated supplies',
-    );
-    await saved();
-    // Both players change the price at once: every device converges on the
-    // latest accepted edit, never a mix or an older price.
-    await Promise.all([
-      cost(recovery).fill('14'),
-      cost(remoteRecovery).fill('16'),
-    ]);
-    await expect(async () => {
-      const [local, remote] = await Promise.all([
-        cost(recovery).inputValue(),
-        cost(remoteRecovery).inputValue(),
-      ]);
-      expect(local).toBe(remote);
-      expect(['14', '16']).toContain(local);
-    }).toPass();
-    await cost(recovery).fill('15');
-    await expect(cost(remoteRecovery)).toHaveValue('15');
-    await saved();
-    // An accepted price and reason survive a reload.
-    await player.reload();
-    await expect(cost(remoteRecovery)).toHaveValue('15');
-    await expect(reason(remoteRecovery)).toHaveValue(
-      'Local healer donated supplies',
-    );
-    await gm
-      .getByRole('button', { name: 'Review & confirm', exact: true })
-      .click();
-    await player
-      .getByRole('button', { name: 'Review & confirm', exact: true })
-      .click();
-    for (const page of [gm, player]) {
+    await test.step('a recovery price converges on every device and survives a reload', async () => {
+      // Recover saves at once at the rules cost, shown in gp.
+      await recovery
+        .getByRole('button', { name: 'Recover', exact: true })
+        .click();
       await expect(
-        await resultCell(page, 'Treasury', 'Rules Baseline'),
-      ).toHaveText('30 gp');
-      await expect(await resultCell(page, 'Treasury', 'Final')).toHaveText(
-        '35 gp',
+        remoteRecovery.getByRole('button', { name: 'Recover', exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      await expect(cost(recovery)).toHaveValue('20');
+      await expect(cost(remoteRecovery)).toHaveValue('20');
+      // A changed price stays local until its reason is present.
+      await cost(recovery).fill('15');
+      await expect(
+        recovery.getByRole('alert').filter({
+          hasText: 'A reason is required for a changed recovery cost.',
+        }),
+      ).toBeVisible();
+      await expect(cost(remoteRecovery)).toHaveValue('20');
+      await cost(recovery).fill('15x');
+      await expect(
+        recovery.getByRole('alert').filter({
+          hasText: 'Enter an amount in gp, such as 12 or 0.07.',
+        }),
+      ).toBeVisible();
+      await cost(recovery).fill('15');
+      await reason(recovery).fill('Local healer donated supplies');
+      await expect(cost(remoteRecovery)).toHaveValue('15');
+      await expect(reason(remoteRecovery)).toHaveValue(
+        'Local healer donated supplies',
       );
-      await expect(reviewConfirm(page)).toBeEnabled();
-    }
-    await savePrivate(
-      join(run.artifactDirectory, 'canonical-recovery-summary-tablet.png'),
-      await gm.screenshot({ fullPage: true }),
-    );
-    await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
-    await player.getByRole('button', { name: 'Upkeep', exact: true }).click();
-    // Leave disabled clears the recovery price and its adjustment.
-    await recovery
-      .getByRole('button', { name: 'Leave disabled', exact: true })
-      .click();
-    await expect(
-      remoteRecovery.getByRole('button', {
-        name: 'Leave disabled',
-        exact: true,
-      }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    await expect(cost(remoteRecovery)).toHaveCount(0);
-    await expect(remoteRecovery.getByText(/Table Adjustment/)).toHaveCount(0);
-    await recovery
-      .getByRole('button', { name: 'Recover', exact: true })
-      .click();
-    await expect(cost(remoteRecovery)).toHaveValue('20');
-    await expect(reason(remoteRecovery)).toHaveCount(0);
-    await cost(recovery).fill('15');
-    await reason(recovery).fill('Local healer donated supplies');
-    await expect(
-      remoteRecovery.getByRole('button', { name: 'Recover', exact: true }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    await expect(cost(remoteRecovery)).toHaveValue('15');
-    await saved();
-    for (const [name, width, height] of [
-      ['tablet', 1194, 834],
-      ['phone', 390, 844],
-    ] as const) {
-      await gm.setViewportSize({ width, height });
-      await expectNoHorizontalOverflow(gm);
+      await saved();
+      // Both players change the price at once: every device converges on the
+      // latest accepted edit, never a mix or an older price.
+      await Promise.all([
+        cost(recovery).fill('14'),
+        cost(remoteRecovery).fill('16'),
+      ]);
+      await expect(async () => {
+        const [local, remote] = await Promise.all([
+          cost(recovery).inputValue(),
+          cost(remoteRecovery).inputValue(),
+        ]);
+        expect(local).toBe(remote);
+        expect(['14', '16']).toContain(local);
+      }).toPass();
+      await cost(recovery).fill('15');
+      await expect(cost(remoteRecovery)).toHaveValue('15');
+      await saved();
+      // An accepted price and reason survive a reload.
+      await player.reload();
+      await expect(cost(remoteRecovery)).toHaveValue('15');
+      await expect(reason(remoteRecovery)).toHaveValue(
+        'Local healer donated supplies',
+      );
+    });
+    await test.step('Review shows the adjusted Treasury on both devices', async () => {
+      await gm
+        .getByRole('button', { name: 'Review & confirm', exact: true })
+        .click();
+      await player
+        .getByRole('button', { name: 'Review & confirm', exact: true })
+        .click();
+      for (const page of [gm, player]) {
+        await expect(
+          await resultCell(page, 'Treasury', 'Rules Baseline'),
+        ).toHaveText('30 gp');
+        await expect(await resultCell(page, 'Treasury', 'Final')).toHaveText(
+          '35 gp',
+        );
+        await expect(reviewConfirm(page)).toBeEnabled();
+      }
       await savePrivate(
-        join(run.artifactDirectory, `canonical-recovery-${name}.png`),
+        join(run.artifactDirectory, 'canonical-recovery-summary-tablet.png'),
         await gm.screenshot({ fullPage: true }),
       );
-    }
-    await exerciseActivityWorkspace(gm, player, network, run.artifactDirectory);
-    await exerciseEventWorkspace(gm, player, network, run.artifactDirectory);
-    await reviewSummarySettlement(gm, player);
-    await player
-      .getByRole('button', { name: 'Review & confirm', exact: true })
-      .click();
-    await expect(reviewConfirm(player)).toBeEnabled();
-    // A Confirmation arriving while another player's action picker is open
-    // closes it with the week; nothing is placed in either week.
-    await gm.getByRole('button', { name: 'Activity', exact: true }).click();
-    await gm
-      .getByRole('button', {
-        name: 'Choose an action for Action Slot 1',
-        exact: true,
-      })
-      .click();
-    await expect(gm.getByRole('dialog')).toBeVisible();
-    await reviewConfirm(player).click();
-    await expect(player.getByRole('heading', { name: /Week 5/ })).toBeVisible();
-    await expect(gm.getByRole('dialog')).toHaveCount(0);
-    await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
-    const committed = confirmationInspectionSchema.parse(
-      await canonicalPersistenceFixtureCall(run, 'inspect', {
-        ...choicesScope,
-        scope: ownedCase.scope,
-      }),
-    );
-    expect(committed.snapshot.treasuryCopper).toBe(3500);
-    expect(committed.records).toHaveLength(1);
-    expect(committed.records[0]?.sourceMilitiaSnapshot?.treasuryCopper).toBe(
-      5000,
-    );
-    expect(committed.records[0]?.source.upkeep.teamDecisions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ decision: 'recover', costCopper: 2000 }),
-      ]),
-    );
-    expect(committed.records[0]?.adjudication.tableAdjustments).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'militia_value',
-          field: 'treasuryCopper',
-          value: 500,
-          reason: 'Local healer donated supplies',
+    });
+    await test.step('Leave disabled clears the price and a second recovery restores it', async () => {
+      await gm.getByRole('button', { name: 'Upkeep', exact: true }).click();
+      await player.getByRole('button', { name: 'Upkeep', exact: true }).click();
+      // Leave disabled clears the recovery price and its adjustment.
+      await recovery
+        .getByRole('button', { name: 'Leave disabled', exact: true })
+        .click();
+      await expect(
+        remoteRecovery.getByRole('button', {
+          name: 'Leave disabled',
+          exact: true,
         }),
-      ]),
-    );
+      ).toHaveAttribute('aria-pressed', 'true');
+      await expect(cost(remoteRecovery)).toHaveCount(0);
+      await expect(remoteRecovery.getByText(/Table Adjustment/)).toHaveCount(0);
+      await recovery
+        .getByRole('button', { name: 'Recover', exact: true })
+        .click();
+      await expect(cost(remoteRecovery)).toHaveValue('20');
+      await expect(reason(remoteRecovery)).toHaveCount(0);
+      await cost(recovery).fill('15');
+      await reason(recovery).fill('Local healer donated supplies');
+      await expect(
+        remoteRecovery.getByRole('button', { name: 'Recover', exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      await expect(cost(remoteRecovery)).toHaveValue('15');
+      await saved();
+      for (const [name, width, height] of [
+        ['tablet', 1194, 834],
+        ['phone', 390, 844],
+      ] as const) {
+        await gm.setViewportSize({ width, height });
+        await expectNoHorizontalOverflow(gm);
+        await savePrivate(
+          join(run.artifactDirectory, `canonical-recovery-${name}.png`),
+          await gm.screenshot({ fullPage: true }),
+        );
+      }
+      // The other Activity checks on this recovered week have their own
+      // journey, which seeds this state. They left the GM page at the
+      // project viewport with every choice cleared, as this does.
+      await gm.setViewportSize({ width: 1194, height: 834 });
+    });
+    await test.step("Guarantee Event's candidates are chosen in Event and cleared with the choice", async () => {
+      await Promise.all([
+        gm.getByRole('button', { name: 'Activity', exact: true }).click(),
+        player.getByRole('button', { name: 'Activity', exact: true }).click(),
+      ]);
+      await exerciseGuaranteeEvent(gm, player);
+      await Promise.all([
+        gm.getByRole('button', { name: 'Upkeep', exact: true }).click(),
+        player.getByRole('button', { name: 'Upkeep', exact: true }).click(),
+      ]);
+    });
+    await test.step('Event prepares and records events, then restores the quiet week', () =>
+      exerciseEventWorkspace(gm, player, network, run.artifactDirectory));
+    await test.step('a Confirmation closes the open action picker with the week', async () => {
+      await reviewSummarySettlement(gm, player);
+      await player
+        .getByRole('button', { name: 'Review & confirm', exact: true })
+        .click();
+      await expect(reviewConfirm(player)).toBeEnabled();
+      // A Confirmation arriving while another player's action picker is open
+      // closes it with the week; nothing is placed in either week.
+      await gm.getByRole('button', { name: 'Activity', exact: true }).click();
+      await gm
+        .getByRole('button', {
+          name: 'Choose an action for Action Slot 1',
+          exact: true,
+        })
+        .click();
+      await expect(gm.getByRole('dialog')).toBeVisible();
+      await reviewConfirm(player).click();
+      await expect(
+        player.getByRole('heading', { name: /Week 5/ }),
+      ).toBeVisible();
+      await expect(gm.getByRole('dialog')).toHaveCount(0);
+      await expect(gm.getByRole('heading', { name: /Week 5/ })).toBeVisible();
+    });
+    await test.step('the confirmed week keeps the recovery and its adjustment', async () => {
+      const committed = confirmationInspectionSchema.parse(
+        await canonicalPersistenceFixtureCall(run, 'inspect', {
+          ...choicesScope,
+          scope: ownedCase.scope,
+        }),
+      );
+      expect(committed.snapshot.treasuryCopper).toBe(3500);
+      expect(committed.records).toHaveLength(1);
+      expect(committed.records[0]?.sourceMilitiaSnapshot?.treasuryCopper).toBe(
+        5000,
+      );
+      expect(committed.records[0]?.source.upkeep.teamDecisions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ decision: 'recover', costCopper: 2000 }),
+        ]),
+      );
+      expect(committed.records[0]?.adjudication.tableAdjustments).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'militia_value',
+            field: 'treasuryCopper',
+            value: 500,
+            reason: 'Local healer donated supplies',
+          }),
+        ]),
+      );
+    });
   } finally {
     network.release();
   }
@@ -1292,4 +1323,53 @@ test('Drill shows its notoriety and Training rolls only when its check needs the
   });
   await test.step('Drill shows each roll only when its check needs it', () =>
     exerciseDrillRolls(gm, player));
+});
+
+// The tablet Activity checks beside the recovered Scouts (#198), moved from
+// the recovery journey so it keeps its margin. The fixture seeds the week
+// that journey reaches in Upkeep: attrition rolls of 10 and 3, and the Scouts
+// recovered at 15 gp instead of 20 gp with its reason. The checks clear every
+// choice they stage, so that journey's Event and Confirmation never used them.
+test('players stage, move and clear Activity choices for a recovered team and see a stale replacement rejected', async ({
+  players,
+  ownedCase,
+}) => {
+  test.setTimeout(90_000);
+  const run = await loadRun();
+  // The held edit for the stale replacement, installed before the first
+  // navigation as in the recovery journey.
+  const network = await controlNextDraftEdit(
+    players.gm,
+    run.fixture!.convexUrl,
+  );
+  const gm = players.gm,
+    player = players.player;
+  try {
+    await test.step('open the week with the Scouts recovered at 15 gp', async () => {
+      const { route } = await initialUpkeep(run, ownedCase, {
+        choices: true,
+        adjustedRecovery: true,
+      });
+      await Promise.all([gm.goto(route), player.goto(route)]);
+      for (const page of [gm, player]) {
+        const scouts = page.getByRole('group', {
+          name: 'Scouts team condition',
+          exact: true,
+        });
+        await expect(
+          scouts.getByRole('button', { name: 'Recover', exact: true }),
+        ).toHaveAttribute('aria-pressed', 'true');
+        await expect(
+          scouts.getByRole('textbox', {
+            name: 'Scouts: Recovery cost (gp)',
+            exact: true,
+          }),
+        ).toHaveValue('15');
+      }
+    });
+    await test.step('Activity choices are staged, moved, cleared and replaced', () =>
+      exerciseActivityWorkspace(gm, player, network, run.artifactDirectory));
+  } finally {
+    network.release();
+  }
 });
