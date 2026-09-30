@@ -29,6 +29,11 @@ const fixedTexts = {
   'diagnostic-log': 'E2E diagnostic log could not be saved',
   'slot-lock-replaced':
     'E2E slot lock was removed or replaced during the run; any replacement was left in place',
+  'slot-lock-displaced':
+    'E2E slot lock at the lock path belonged to another run and the path was taken again before it could be restored; it was left beside the lock as <slot>.lock.releasing-<token> for manual review',
+  'triage-usage': 'Use summarize or publish',
+  'triage-current-missing': 'Current nightly run is missing',
+  'triage-history-incomplete': 'Nightly history artifact is incomplete',
 } as const;
 type FixedKind = keyof typeof fixedTexts;
 

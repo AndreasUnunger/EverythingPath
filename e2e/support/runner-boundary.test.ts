@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { setupStages, slotLockGuidance } from './setup-failure';
+import { trustedPrefixes } from './testing/trusted-prefixes';
 
 // Every probe runs the real runner and its real error path in a child
 // process; these assertions read that process's actual stdout and stderr.
@@ -28,7 +29,10 @@ afterAll(async () => {
 });
 
 let probes = 0;
-async function probe(scenario: string, options: { fakeGit?: boolean } = {}) {
+async function probe(
+  scenario: string,
+  options: { fakeGit?: boolean; prefix?: number } = {},
+) {
   // A hostile working directory: control characters and a secret.
   const root = join(
     base,
@@ -37,7 +41,7 @@ async function probe(scenario: string, options: { fakeGit?: boolean } = {}) {
   await mkdir(root, { recursive: true });
   const child = spawn(
     process.execPath,
-    ['--import', 'tsx', probePath, scenario, root],
+    ['--import', 'tsx', probePath, scenario, root, String(options.prefix ?? 0)],
     {
       env: {
         ...process.env,
@@ -69,8 +73,12 @@ async function probe(scenario: string, options: { fakeGit?: boolean } = {}) {
 }
 
 it('labels a failure in every stage of the real runner, whatever its message says', async () => {
+  // Each stage's hostile message starts with a different trusted prefix.
   const results = await Promise.all(
-    setupStages.map(async (stage) => [stage, await probe(`stage:${stage}`)]),
+    setupStages.map(async (stage, index) => [
+      stage,
+      await probe(`stage:${stage}`, { prefix: index % trustedPrefixes.length }),
+    ]),
   );
   for (const [stage, result] of results as [
     string,
@@ -90,6 +98,29 @@ it('labels a failure in every stage of the real runner, whatever its message say
     expect(result.lock).toBe('none');
   }
 }, 120_000);
+
+it('never prints a message that starts with any previously trusted prefix', async () => {
+  const runs = await Promise.all(
+    trustedPrefixes.map(async (_, prefix) => ({
+      setup: await probe('stage:clerk-verification', { prefix }),
+      afterSetup: await probe('post-setup', { prefix }),
+      cleanup: await probe('cleanup', { prefix }),
+    })),
+  );
+  expect(runs).toHaveLength(9);
+  for (const { setup, afterSetup, cleanup } of runs) {
+    expect(setup.stderr).toEqual([
+      'E2E setup failed: clerk-verification (unknown)',
+    ]);
+    expect(afterSetup.stderr).toEqual([
+      'E2E failed after setup (unknown); inspect the safe evidence directory.',
+    ]);
+    expect(cleanup.stderr).toEqual([
+      'E2E setup failed: port (unknown)',
+      'E2E cleanup also failed: temporary-directory (unknown)',
+    ]);
+  }
+}, 180_000);
 
 it('prints only the fixed text of a known harness condition', async () => {
   expect((await probe('usage')).stderr).toEqual([
@@ -141,6 +172,23 @@ it('reports an existing slot lock with a relative path and leaves it', async () 
     slotLockGuidance,
   ]);
   expect(result.lock).toMatch(/"owner":"[0-9a-f-]{36}"/);
+}, 60_000);
+
+it('flags a lock whose owner record a crash left missing or partial', async () => {
+  for (const scenario of ['crashed-lock', 'malformed-lock']) {
+    const result = await probe(scenario);
+    expect(result.code).toBe(1);
+    expect(result.stderr[0]).toBe(
+      'E2E setup failed: slot already locked (active or stale)',
+    );
+    expect(result.stderr[1]).toMatch(
+      /^Lock: e2e\/\.private\/e2e-local-test-slot-0\.lock \(created [0-9T:.-]+Z\)$/,
+    );
+    expect(result.stderr.slice(2)).toEqual([
+      'Its owner record is missing or unreadable, so a run probably crashed while acquiring it.',
+      slotLockGuidance,
+    ]);
+  }
 }, 60_000);
 
 it('releases only its own lock and never a replacement', async () => {

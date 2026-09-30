@@ -1,6 +1,6 @@
 // Test-only entry point: runs the real runner and its real error path in a
 // child process with one injected failure, so tests read the actual stdout
-// and stderr. Usage: runner-probe.ts <scenario> <root directory>.
+// and stderr. Usage: runner-probe.ts <scenario> <root> [prefix index].
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -15,29 +15,19 @@ import { HarnessFailure } from '../diagnostics';
 import { runAndReport, type RunnerDependencies } from '../runner';
 import { slotLockPath, type SetupStage } from '../setup-failure';
 import { resources } from '../test-data';
+import { trustedPrefixes } from './trusted-prefixes';
 
 export const probeSecret = 'sk_test_PROBESECRET';
-const [scenario = '', root = ''] = process.argv.slice(2);
+const [scenario = '', root = '', prefixArgument = '0'] = process.argv.slice(2);
 const privateRoot = join(root, 'e2e', '.private');
 const lockPath = slotLockPath(privateRoot, resources.previewName);
 
-// Messages that start with every prefix the old allowlist trusted.
-const prefixes = [
-  'Clerk ',
-  'E2E ',
-  'Usage: ',
-  'preview deployment ',
-  'Convex generated ',
-  'This harness ',
-  'Secrets file ',
-  'Chromium tablet ',
-  'Preview callback ',
-];
-let thrown = 0;
+const prefix = trustedPrefixes[Number(prefixArgument)];
+// A message that starts exactly with the trusted prefix.
+if (prefix === undefined) throw new Error('unknown prefix index');
 function hostile() {
-  const prefix = prefixes[thrown++ % prefixes.length]!;
   const error = new Error(
-    `${prefix}https://x.test/?token=${probeSecret} \u001b[2J${root}`,
+    `${prefix} https://x.test/?token=${probeSecret} \u001b[2J${root}`,
     { cause: new Error(probeSecret) },
   );
   error.name = probeSecret;
@@ -209,6 +199,26 @@ else if (scenario === 'diagnostic')
       ),
   };
 else if (scenario === 'locked') await writeOwner(randomUUID());
+else if (scenario === 'crashed-lock') {
+  // A crash after the owner record's temporary write, before its rename.
+  await mkdir(lockPath, { recursive: true });
+  await writeFile(join(lockPath, 'owner.json.tmp-crashed'), '{"owner":"1');
+} else if (scenario === 'malformed-lock') {
+  // A crash in the middle of writing owner.json itself.
+  await mkdir(lockPath, { recursive: true });
+  await writeFile(join(lockPath, 'owner.json'), '{"owner":"1');
+} else if (scenario === 'post-setup')
+  overrides = {
+    command: (stage) =>
+      stage.includes('browser journeys')
+        ? Promise.reject(hostile())
+        : Promise.resolve(''),
+  };
+else if (scenario === 'cleanup')
+  overrides = {
+    ...failAt.port(),
+    removeDirectory: () => Promise.reject(hostile()),
+  };
 else if (scenario === 'replaced-lock')
   overrides = {
     command: async () => {

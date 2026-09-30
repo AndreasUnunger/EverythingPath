@@ -143,16 +143,36 @@ Lock: e2e/.private/<previewName>.lock (created 2026-09-30T05:40:40.453Z)
 Not removed automatically. Check `docker ps` (and local `pnpm test:e2e` processes) for a running gate before removing it; see "Setup failures" in e2e/README.md.
 ```
 
+If the lock has no complete `owner.json`, a fourth line reads `Its owner record
+is missing or unreadable, so a run probably crashed while acquiring it.` The
+lock is still never removed automatically.
+
 The runner never removes a lock it did not create, because an existing lock does
 not prove the run that created it has ended. Each lock records a random owner
-token and its creation time in `owner.json`; cleanup removes the lock only while
-that token is still its own. If the lock was removed or replaced during the run,
-cleanup leaves it and prints `E2E cleanup also failed: slot-lock (validation)`
+token and its creation time in `owner.json`, written to a temporary file in the
+lock and renamed into place, so the record is either complete or absent. If
+writing it fails, the run removes its own partial file and empty lock.
+
+Release is atomic. Cleanup first renames the lock directory to
+`<slot>.lock.releasing-<token>`, then checks the owner inside the renamed
+directory and deletes only that directory. A lock another run creates at the
+lock path after the rename is a different directory, so a replacement is never
+deleted. If the renamed lock is not ours, cleanup claims the free lock path with
+an exclusive `mkdir` and renames the foreign lock back over that empty
+placeholder, then prints `E2E cleanup also failed: slot-lock (validation)`
 followed by `E2E slot lock was removed or replaced during the run; any
-replacement was left in place`. Before removing a lock by hand, check
-`docker ps` for a running gate container (and `pgrep -af 'e2e/run.ts'` for a
-native run). Remove only that exact lock directory, and only when no gate owns
-it.
+replacement was left in place`. The same lines appear if the lock disappeared.
+Residual cases:
+
+- If another run takes the lock path before the foreign lock can be put back,
+  the foreign lock stays at `<slot>.lock.releasing-<token>` and cleanup says so.
+  Its owner is not protected by a lock at the path; review it by hand.
+- A crash between the rename and the delete leaves our own lock under the
+  `.releasing-` name. It never blocks a run and can be deleted.
+
+Before removing a lock by hand, check `docker ps` for a running gate container
+(and `pgrep -af 'e2e/run.ts'` for a native run). Remove only that exact lock
+directory, and only when no gate owns it.
 
 ## Fixture contract
 

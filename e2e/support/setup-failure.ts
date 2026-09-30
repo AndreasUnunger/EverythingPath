@@ -1,5 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  rmdir,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { resourceSchema } from '../fixtures/catalog';
@@ -153,7 +161,12 @@ export function classifyError(error: unknown): ErrorClass {
   return 'unknown';
 }
 
-type LockEvidence = { slot: string; createdAt?: string };
+type LockEvidence = {
+  slot: string;
+  createdAt?: string;
+  // False when owner.json is missing or unreadable, as after a crash.
+  ownerRecorded?: boolean;
+};
 export class SetupFailure extends Error {
   constructor(
     readonly stage: SetupStage,
@@ -234,27 +247,76 @@ export async function acquireSlotLock(
     throw new SetupFailure('slot-lock', 'EEXIST', undefined, undefined, {
       slot,
       createdAt: await lockCreatedAt(path),
+      ownerRecorded: (await recordedOwner(path)) !== undefined,
     });
   }
   const owner = { owner: randomUUID(), createdAt: new Date().toISOString() };
+  // Written beside, then renamed: owner.json is either complete or absent.
+  const temporary = join(path, `${ownerFile}.tmp-${owner.owner}`);
   try {
-    await writeFile(join(path, ownerFile), JSON.stringify(owner), {
+    await writeFile(temporary, JSON.stringify(owner), {
       flag: 'wx',
       mode: 0o600,
     });
+    await rename(temporary, join(path, ownerFile));
   } catch (error) {
-    // The directory is ours and still empty; rmdir refuses anything else.
+    // Only this run writes inside the directory its mkdir created. Removing
+    // our partial file leaves it empty; rmdir refuses anything else.
+    await rm(temporary, { force: true }).catch(() => undefined);
     await rmdir(path).catch(() => undefined);
     throw setupFailure('slot-lock', error);
   }
   return { path, owner: owner.owner };
 }
 
-// Removes the lock only while it still records our owner token.
-export async function releaseSlotLock(lock: SlotLock) {
-  if ((await recordedOwner(lock.path))?.owner !== lock.owner)
-    throw new HarnessFailure({ kind: 'slot-lock-replaced' });
-  await rm(lock.path, { recursive: true, force: true });
+/**
+ * Removes the lock only if it still records our owner token.
+ *
+ * The lock directory is first renamed away from the lock path (rename is
+ * atomic), and only the renamed directory is inspected and deleted. A lock
+ * another run creates at the lock path after that rename is a different
+ * directory and is never touched, so no replacement can be deleted.
+ *
+ * Residual cases: if the renamed directory is not ours, the lock path was
+ * free between the rename and our attempt to put it back. We claim the free
+ * path with mkdir (exclusive) and rename the foreign lock over that empty
+ * placeholder. If another run took the path first, the foreign lock stays at
+ * `<slot>.lock.releasing-<our token>` and is reported for manual review. A
+ * crash between the rename and the delete leaves our own lock under that
+ * name; it never blocks a run and can be deleted.
+ */
+export async function releaseSlotLock(
+  lock: SlotLock,
+  // Test seam: runs after the owner check and before the delete.
+  hooks: { beforeRemove?: () => Promise<void> } = {},
+) {
+  const releasing = `${lock.path}.releasing-${lock.owner}`;
+  try {
+    await rename(lock.path, releasing);
+  } catch (error) {
+    if (codeOf(error) === 'ENOENT')
+      throw new HarnessFailure({ kind: 'slot-lock-replaced' });
+    throw error;
+  }
+  if ((await recordedOwner(releasing))?.owner === lock.owner) {
+    await hooks.beforeRemove?.();
+    await rm(releasing, { recursive: true, force: true });
+    return;
+  }
+  try {
+    await mkdir(lock.path);
+  } catch (error) {
+    if (codeOf(error) === 'EEXIST')
+      throw new HarnessFailure({ kind: 'slot-lock-displaced' });
+    throw error;
+  }
+  try {
+    await rename(releasing, lock.path);
+  } catch {
+    await rmdir(lock.path).catch(() => undefined);
+    throw new HarnessFailure({ kind: 'slot-lock-displaced' });
+  }
+  throw new HarnessFailure({ kind: 'slot-lock-replaced' });
 }
 
 export class CleanupFailure extends Error {
@@ -320,6 +382,11 @@ function lockLines(lock: LockEvidence | undefined) {
   return [
     'E2E setup failed: slot already locked (active or stale)',
     `Lock: e2e/.private/${slot}.lock${created}`,
+    ...(lock?.ownerRecorded === false
+      ? [
+          'Its owner record is missing or unreadable, so a run probably crashed while acquiring it.',
+        ]
+      : []),
     slotLockGuidance,
   ];
 }
