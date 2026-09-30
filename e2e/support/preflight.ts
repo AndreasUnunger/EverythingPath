@@ -3,6 +3,11 @@ import {
   resourceSchema,
   type Resources,
 } from '../fixtures/catalog';
+import {
+  HarnessFailure,
+  inheritedSelectors,
+  type PreflightReason,
+} from './diagnostics';
 
 export type Environment = Record<string, string | undefined>;
 export type SafeTargets = {
@@ -12,8 +17,8 @@ export type SafeTargets = {
   previewKey: string;
 };
 
-function reject(reason: string): never {
-  throw new Error(`E2E preflight: ${reason}`);
+function reject(reason: PreflightReason): never {
+  throw new HarnessFailure({ kind: 'preflight', reason });
 }
 
 export function validateE2ETargets(
@@ -38,23 +43,7 @@ export function validateE2ETargets(
       reject('CI requires a trusted workflow for the reviewed commit');
     }
   }
-  for (const name of [
-    'CONVEX_DEPLOYMENT',
-    'CONVEX_SELF_HOSTED_URL',
-    'CONVEX_SELF_HOSTED_ADMIN_KEY',
-    'CONVEX_ACCESS_TOKEN',
-    'CONVEX_OVERRIDE_ACCESS_TOKEN',
-    'CONVEX_OVERRIDE_DEPLOY_KEY',
-    'CONVEX_OVERRIDE_URL',
-    'CONVEX_URL',
-    'NEXT_PUBLIC_CONVEX_URL',
-    'CLERK_API_URL',
-    'CLERK_FAPI',
-    'CLERK_TESTING_TOKEN',
-    'CLERK_FRONTEND_API_URL',
-    'NEXT_PUBLIC_CLERK_PROXY_URL',
-    'NEXT_PUBLIC_CLERK_DOMAIN',
-  ])
+  for (const name of inheritedSelectors)
     if (environment[name]) reject(`${name} must not be inherited`);
   const { publishableKey, secretKey } = validateClerkKeys(
     environment,

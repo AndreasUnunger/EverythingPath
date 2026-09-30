@@ -1,5 +1,6 @@
 import { availableParallelism } from 'node:os';
 import { resourceSchema, type Resources } from '../fixtures/catalog';
+import { HarnessFailure } from './diagnostics';
 
 // Each concurrently running Playwright worker owns one declared cohort: a
 // member organization, an outsider organization and three users. Two workers
@@ -24,14 +25,10 @@ export function cohortWorkers(
   cpus = availableParallelism(),
 ) {
   if (!resourceSchema.safeParse(resources).success)
-    throw new Error(
-      'E2E worker cohorts must have distinct keys, organizations and identities',
-    );
+    throw new HarnessFailure({ kind: 'cohorts-distinct' });
   resources.workers.forEach((worker, index) => {
     if (worker.key !== `worker-${index}`)
-      throw new Error(
-        'E2E worker cohorts must be declared in order as worker-0, worker-1, ...',
-      );
+      throw new HarnessFailure({ kind: 'cohorts-order' });
   });
   const cohorts = resources.workers.length;
   if (requested === undefined)
@@ -40,8 +37,6 @@ export function cohortWorkers(
       Math.min(cohorts, defaultMaximumWorkers, Math.floor(cpus / 2)),
     );
   if (!Number.isSafeInteger(requested) || requested < 1 || requested > cohorts)
-    throw new Error(
-      `E2E workers must be between 1 and the ${cohorts} declared cohorts`,
-    );
+    throw new HarnessFailure({ kind: 'workers-range', cohorts });
   return requested;
 }

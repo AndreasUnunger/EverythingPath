@@ -1,15 +1,25 @@
-import { mkdir, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { z } from 'zod';
+import { resourceSchema } from '../fixtures/catalog';
+import {
+  describeDiagnostic,
+  HarnessFailure,
+  secondaryFailure,
+  type Diagnostic,
+} from './diagnostics';
 import { CommandEvidenceFailure, CommandFailure } from './process';
 
 // Every runner step before the browser journeys, in order. A failure reports
 // only one of these fixed labels and a class from the closed set below; the
-// original message, name, stack, cause and provider output are never printed.
+// original message, name, stack and provider output are never printed.
 export const setupStages = [
   'arguments',
   'resources',
   'workers',
   'clerk-verification',
+  'source-root',
   'private-directory',
   'slot-lock',
   'temporary-directory',
@@ -66,26 +76,19 @@ export function isErrorClass(value: string): value is ErrorClass {
   );
 }
 
-// Messages the harness itself composes from fixed text; printed as before.
-const ownDiagnosticPattern =
-  /^(E2E |Clerk |Convex generated|This harness|Secrets file|Usage:|preview deployment|Chromium tablet|Preview callback)/;
-export function ownDiagnostic(error: unknown) {
-  return error instanceof Error && ownDiagnosticPattern.test(error.message)
-    ? error.message
-    : undefined;
-}
-
-// Fetch (undici) reports socket failures with its own codes.
+// fetch (undici) reports some socket failures with its own codes.
 const undiciClasses: Record<string, SystemErrorClass> = {
   UND_ERR_CONNECT_TIMEOUT: 'ETIMEDOUT',
   UND_ERR_HEADERS_TIMEOUT: 'ETIMEDOUT',
   UND_ERR_BODY_TIMEOUT: 'ETIMEDOUT',
   UND_ERR_SOCKET: 'ECONNRESET',
 };
-function systemClass(error: unknown): SystemErrorClass | undefined {
+function codeOf(error: unknown) {
   if (typeof error !== 'object' || error === null || !('code' in error))
     return undefined;
-  const { code } = error;
+  return error.code;
+}
+function systemClass(code: unknown): SystemErrorClass | undefined {
   if (typeof code !== 'string') return undefined;
   return (
     systemErrorClasses.find((known) => known === code) ??
@@ -101,48 +104,64 @@ function exitClass(status: unknown): ErrorClass | undefined {
     : undefined;
 }
 
-// Reads only known, typed fields and compares them against the closed set.
+/**
+ * The error class is read only from:
+ * - the harness's typed errors (`HarnessFailure`, `CommandFailure`,
+ *   `CommandEvidenceFailure`) and the library error types `ZodError` and
+ *   `SyntaxError` (an instanceof check, no field is read);
+ * - `error.code`, compared against the closed system-code set (Node system
+ *   errors, `ERR_PARSE_ARGS_*`, and DOMException `TIMEOUT_ERR` for
+ *   `AbortSignal.timeout`);
+ * - an exit `status` or `signal` (execFileSync);
+ * - `error.cause.code`, one level, closed set only: fetch() rejects with
+ *   `TypeError('fetch failed')` and puts the socket's system error in `cause`,
+ *   so this is the only place a Clerk connection failure's code exists.
+ * Messages, names and stacks are never read.
+ */
 export function classifyError(error: unknown): ErrorClass {
+  if (error instanceof HarnessFailure)
+    return error.diagnostic.kind === 'deadline' ? 'timeout' : 'validation';
   if (error instanceof CommandEvidenceFailure)
     return classifyError(error.cause);
-  const system = systemClass(error);
-  if (system) return system;
   if (error instanceof CommandFailure)
-    return error.exitCode === null
-      ? 'terminated'
-      : (exitClass(error.exitCode) ?? 'unknown');
+    return (
+      systemClass(error.code) ??
+      (error.exitCode === null
+        ? error.code === undefined
+          ? 'terminated'
+          : 'unknown'
+        : (exitClass(error.exitCode) ?? 'unknown'))
+    );
+  const code = codeOf(error);
+  const system = systemClass(code);
+  if (system) return system;
+  if (typeof code === 'string' && code.startsWith('ERR_PARSE_ARGS_'))
+    return 'validation';
+  if (error instanceof DOMException && code === DOMException.TIMEOUT_ERR)
+    return 'timeout';
   if (typeof error !== 'object' || error === null) return 'unknown';
-  // execFileSync (git) failures carry the child's status or signal.
   const { status, signal } = error as { status?: unknown; signal?: unknown };
   const exited = exitClass(status);
   if (exited) return exited;
   if (status === null && typeof signal === 'string') return 'terminated';
-  if (!(error instanceof Error)) return 'unknown';
-  // AbortSignal.timeout rejects fetch with a TimeoutError DOMException.
-  if (error.name === 'TimeoutError') return 'timeout';
-  if (error.message.startsWith('E2E execution exceeded')) return 'timeout';
-  // fetch rejects with a TypeError whose cause is the socket error.
-  const cause = systemClass(error.cause);
-  if (cause) return cause;
-  const code = (error as { code?: unknown }).code;
-  if (
-    error instanceof z.ZodError ||
-    error instanceof SyntaxError ||
-    (typeof code === 'string' && code.startsWith('ERR_PARSE_ARGS_')) ||
-    ownDiagnostic(error)
-  )
+  if (error instanceof z.ZodError || error instanceof SyntaxError)
     return 'validation';
+  if (error instanceof TypeError) {
+    const cause = systemClass(codeOf(error.cause));
+    if (cause) return cause;
+  }
   return 'unknown';
 }
 
-type SlotLock = { path: string; createdAt?: string };
+type LockEvidence = { slot: string; createdAt?: string };
 export class SetupFailure extends Error {
   constructor(
     readonly stage: SetupStage,
     readonly errorClass: ErrorClass,
-    // Only a message matching the harness's own fixed diagnostics.
-    readonly diagnostic?: string,
-    readonly lock?: SlotLock,
+    // Only fixed fields: printed text is rebuilt by `failureReport`.
+    readonly diagnostic?: Diagnostic,
+    readonly secondary?: ErrorClass,
+    readonly lock?: LockEvidence,
   ) {
     super(`E2E setup failed: ${stage} (${errorClass})`);
     this.name = 'SetupFailure';
@@ -151,10 +170,12 @@ export class SetupFailure extends Error {
 
 export function setupFailure(stage: SetupStage, error: unknown) {
   if (error instanceof SetupFailure) return error;
+  const secondary = secondaryFailure(error);
   return new SetupFailure(
     error instanceof CommandEvidenceFailure ? 'evidence' : stage,
     classifyError(error),
-    ownDiagnostic(error),
+    error instanceof HarnessFailure ? error.diagnostic : undefined,
+    secondary === undefined ? undefined : classifyError(secondary),
   );
 }
 
@@ -169,7 +190,28 @@ export async function setupStage<T>(
   }
 }
 
+// The lock directory records its owner so cleanup releases only our lock.
+const ownerFile = 'owner.json';
+const ownerSchema = z.object({
+  owner: z.string().uuid(),
+  createdAt: z.string().datetime(),
+});
+export type SlotLock = { path: string; owner: string };
+export function slotLockPath(privateRoot: string, slot: string) {
+  return join(privateRoot, `${slot}.lock`);
+}
+async function recordedOwner(path: string) {
+  try {
+    return ownerSchema.parse(
+      JSON.parse(await readFile(join(path, ownerFile), 'utf8')),
+    );
+  } catch {
+    return undefined;
+  }
+}
 async function lockCreatedAt(path: string) {
+  const recorded = await recordedOwner(path);
+  if (recorded) return recorded.createdAt;
   try {
     const lock = await stat(path);
     return (lock.birthtimeMs > 0 ? lock.birthtime : lock.mtime).toISOString();
@@ -179,23 +221,47 @@ async function lockCreatedAt(path: string) {
 }
 
 // An existing lock is never removed here: it may belong to a running gate.
-export async function acquireSlotLock(path: string) {
+export async function acquireSlotLock(
+  privateRoot: string,
+  slot: string,
+): Promise<SlotLock> {
+  const path = slotLockPath(privateRoot, slot);
   try {
     await mkdir(path);
   } catch (error) {
     const failure = setupFailure('slot-lock', error);
     if (failure.errorClass !== 'EEXIST') throw failure;
-    throw new SetupFailure('slot-lock', 'EEXIST', undefined, {
-      path,
+    throw new SetupFailure('slot-lock', 'EEXIST', undefined, undefined, {
+      slot,
       createdAt: await lockCreatedAt(path),
     });
   }
+  const owner = { owner: randomUUID(), createdAt: new Date().toISOString() };
+  try {
+    await writeFile(join(path, ownerFile), JSON.stringify(owner), {
+      flag: 'wx',
+      mode: 0o600,
+    });
+  } catch (error) {
+    // The directory is ours and still empty; rmdir refuses anything else.
+    await rmdir(path).catch(() => undefined);
+    throw setupFailure('slot-lock', error);
+  }
+  return { path, owner: owner.owner };
+}
+
+// Removes the lock only while it still records our owner token.
+export async function releaseSlotLock(lock: SlotLock) {
+  if ((await recordedOwner(lock.path))?.owner !== lock.owner)
+    throw new HarnessFailure({ kind: 'slot-lock-replaced' });
+  await rm(lock.path, { recursive: true, force: true });
 }
 
 export class CleanupFailure extends Error {
   constructor(
     readonly target: CleanupTarget,
     readonly errorClass: ErrorClass,
+    readonly diagnostic: Diagnostic | undefined,
     // The run's own failure, which cleanup must not replace.
     readonly primary?: { error: unknown },
   ) {
@@ -225,6 +291,7 @@ export async function withCleanup<T>(
       cleanupFailure ??= new CleanupFailure(
         target,
         classifyError(error),
+        error instanceof HarnessFailure ? error.diagnostic : undefined,
         'error' in outcome ? { error: outcome.error } : undefined,
       );
     }
@@ -237,25 +304,66 @@ export async function withCleanup<T>(
 export const slotLockGuidance =
   'Not removed automatically. Check `docker ps` (and local `pnpm test:e2e` processes) for a running gate before removing it; see "Setup failures" in e2e/README.md.';
 
-// The only text the runner prints for a failure.
+// Commands whose failure the runner reports by name outside a setup stage.
+const runnerCommands = [
+  'E2E mandatory browser journeys',
+  'E2E nightly browser journeys',
+] as const;
+const slotName = resourceSchema.shape.previewName;
+const timestamp = z.string().datetime();
+
+function lockLines(lock: LockEvidence | undefined) {
+  const slot = slotName.safeParse(lock?.slot).success ? lock!.slot : '<slot>';
+  const created = timestamp.safeParse(lock?.createdAt).success
+    ? ` (created ${lock!.createdAt})`
+    : '';
+  return [
+    'E2E setup failed: slot already locked (active or stale)',
+    `Lock: e2e/.private/${slot}.lock${created}`,
+    slotLockGuidance,
+  ];
+}
+function secondaryLine(errorClass: ErrorClass | undefined) {
+  return errorClass ? [`E2E evidence log also failed (${errorClass})`] : [];
+}
+
+// The only text the runner prints for a failure. Every line is rebuilt from
+// fixed labels, closed classes and typed diagnostic fields.
 export function failureReport(error: unknown): string[] {
-  if (error instanceof CleanupFailure)
+  if (error instanceof CleanupFailure) {
+    const cleanup = [
+      `E2E cleanup ${error.primary ? 'also ' : ''}failed: ${error.target} (${error.errorClass})`,
+      ...(error.diagnostic ? [describeDiagnostic(error.diagnostic)] : []),
+    ];
     return error.primary
-      ? [...failureReport(error.primary.error), error.message]
-      : [error.message];
+      ? [...failureReport(error.primary.error), ...cleanup]
+      : cleanup;
+  }
   if (error instanceof SetupFailure) {
     if (error.stage === 'slot-lock' && error.errorClass === 'EEXIST')
-      return [
-        'E2E setup failed: slot already locked (active or stale)',
-        `Lock: ${error.lock?.path ?? 'unknown path'}${error.lock?.createdAt ? ` (created ${error.lock.createdAt})` : ''}`,
-        slotLockGuidance,
-      ];
-    return error.diagnostic
-      ? [error.diagnostic, error.message]
-      : [error.message];
+      return lockLines(error.lock);
+    return [
+      ...(error.diagnostic ? [describeDiagnostic(error.diagnostic)] : []),
+      `E2E setup failed: ${error.stage} (${error.errorClass})`,
+      ...secondaryLine(error.secondary),
+    ];
   }
+  const secondary = secondaryFailure(error);
+  const secondaryLines = secondaryLine(
+    secondary === undefined ? undefined : classifyError(secondary),
+  );
+  if (error instanceof HarnessFailure)
+    return [describeDiagnostic(error.diagnostic), ...secondaryLines];
+  if (
+    error instanceof CommandFailure &&
+    (runnerCommands as readonly string[]).includes(error.stage)
+  )
+    return [
+      `${error.stage}: process failed (${classifyError(error)})`,
+      ...secondaryLines,
+    ];
   return [
-    ownDiagnostic(error) ??
-      'E2E failed after setup; inspect the safe evidence directory.',
+    `E2E failed after setup (${classifyError(error)}); inspect the safe evidence directory.`,
+    ...secondaryLines,
   ];
 }

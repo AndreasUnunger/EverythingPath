@@ -12,6 +12,8 @@ export function sourceFingerprint(root: string) {
     {
       cwd: root,
       encoding: 'utf8',
+      // The child's stderr can echo paths or configuration; never forward it.
+      stdio: ['ignore', 'pipe', 'ignore'],
     },
   )
     .split('\0')

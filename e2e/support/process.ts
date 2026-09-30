@@ -12,6 +12,7 @@ import {
   type CaseKey,
 } from '../fixtures/catalog';
 import { safeDiagnostic } from './artifacts';
+import { HarnessFailure, recordSecondaryFailure } from './diagnostics';
 
 export const runSchema = z.object({
   mode: z.enum(['mandatory', 'nightly']).default('mandatory'),
@@ -31,10 +32,7 @@ export type Run = z.infer<typeof runSchema>;
 
 export async function loadRun() {
   const path = process.env.E2E_RUN_FILE;
-  if (!path)
-    throw new Error(
-      'Run E2E through pnpm test:e2e with an explicit resource declaration',
-    );
+  if (!path) throw new HarnessFailure({ kind: 'run-file-missing' });
   return runSchema.parse(JSON.parse(await readFile(path, 'utf8')));
 }
 export async function savePrivate(path: string, content: string | Uint8Array) {
@@ -62,18 +60,25 @@ async function fixtureExecutable(args: string[], cwd: string) {
 // is the spawn error's system code; `exitCode` is null after a signal/timeout.
 export class CommandFailure extends Error {
   constructor(
-    message: string,
+    readonly stage: string,
     readonly exitCode: number | null,
     readonly code?: string,
   ) {
-    super(message);
+    super(
+      code === undefined
+        ? `${stage}: process failed (${exitCode ?? 'terminated'})`
+        : `${stage}: process could not start`,
+    );
     this.name = 'CommandFailure';
   }
 }
 
 // The command's run file or first evidence write failed before it spawned.
 export class CommandEvidenceFailure extends Error {
-  constructor(stage: string, cause: unknown) {
+  constructor(
+    readonly stage: string,
+    cause: unknown,
+  ) {
     super(`${stage}: evidence could not be initialized`, { cause });
     this.name = 'CommandEvidenceFailure';
   }
@@ -182,13 +187,7 @@ export async function command(
         });
       }
       child.on('error', (error: NodeJS.ErrnoException) =>
-        reject(
-          new CommandFailure(
-            `${stage}: process could not start`,
-            null,
-            error.code,
-          ),
-        ),
+        reject(new CommandFailure(stage, null, error.code ?? 'unknown')),
       );
       child.on('close', (code) => {
         clearTimeout(timeout);
@@ -198,23 +197,22 @@ export async function command(
         terminate();
         clearTimeout(forceKill);
         if (code === 0 && !wasInterrupted) resolve(output);
-        else
-          reject(
-            new CommandFailure(
-              `${stage}: process failed (${code ?? 'terminated'})`,
-              wasInterrupted ? null : code,
-            ),
-          );
+        else reject(new CommandFailure(stage, wasInterrupted ? null : code));
       });
     });
     await Promise.all(diagnosticWrites);
     if (diagnosticWriteFailed)
-      throw new Error('E2E diagnostic log could not be saved');
+      throw new HarnessFailure({ kind: 'diagnostic-log' });
     await log('passed');
     return output;
   } catch (error) {
     await Promise.all(diagnosticWrites);
-    await log('failed');
+    // The command's own failure stays primary; a log failure is secondary.
+    try {
+      await log('failed');
+    } catch (logError) {
+      recordSecondaryFailure(error, logError);
+    }
     throw error;
   }
 }

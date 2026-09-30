@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, type StdioOptions } from 'node:child_process';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
@@ -9,6 +9,9 @@ import {
   recurringFailures,
   summarizeNightly,
 } from './support/nightly-history';
+
+// gh's stderr is never forwarded; a failure still reports its exit status.
+const quiet: StdioOptions = ['ignore', 'pipe', 'ignore'];
 
 const mode = process.argv[2];
 if (mode === 'summarize') {
@@ -32,6 +35,7 @@ if (mode === 'summarize') {
       execFileSync('gh', ['api', path], {
         encoding: 'utf8',
         maxBuffer: 32_000_000,
+        stdio: quiet,
       }),
     ) as unknown;
   const runs = z
@@ -83,7 +87,7 @@ if (mode === 'summarize') {
     const archive = execFileSync(
       'gh',
       ['api', `repos/${repository}/actions/artifacts/${artifact.id}/zip`],
-      { maxBuffer: 2_000_000 },
+      { maxBuffer: 2_000_000, stdio: quiet },
     );
     const data = unzipSync(archive)['nightly-summary.json'];
     if (!data) throw new Error('Nightly history artifact is incomplete');
@@ -116,7 +120,7 @@ if (mode === 'summarize') {
               '--slurp',
               `repos/${repository}/issues?state=all&per_page=100`,
             ],
-            { encoding: 'utf8', maxBuffer: 32_000_000 },
+            { encoding: 'utf8', maxBuffer: 32_000_000, stdio: quiet },
           ),
         ),
       )
@@ -132,33 +136,39 @@ if (mode === 'summarize') {
       const existing = issues.find((issue) => issue.body?.includes(marker));
       if (existing) {
         if (existing.state === 'closed')
-          execFileSync('gh', [
+          execFileSync(
+            'gh',
+            ['issue', 'reopen', String(existing.number), '--repo', repository],
+            { stdio: quiet },
+          );
+        execFileSync(
+          'gh',
+          [
             'issue',
-            'reopen',
+            'edit',
             String(existing.number),
             '--repo',
             repository,
-          ]);
-        execFileSync('gh', [
-          'issue',
-          'edit',
-          String(existing.number),
-          '--repo',
-          repository,
-          '--body-file',
-          'nightly-issue.md',
-        ]);
+            '--body-file',
+            'nightly-issue.md',
+          ],
+          { stdio: quiet },
+        );
       } else {
-        execFileSync('gh', [
-          'issue',
-          'create',
-          '--repo',
-          repository,
-          '--title',
-          `Nightly: ${failure.project} — ${failure.journey}`,
-          '--body-file',
-          'nightly-issue.md',
-        ]);
+        execFileSync(
+          'gh',
+          [
+            'issue',
+            'create',
+            '--repo',
+            repository,
+            '--title',
+            `Nightly: ${failure.project} — ${failure.journey}`,
+            '--body-file',
+            'nightly-issue.md',
+          ],
+          { stdio: quiet },
+        );
       }
     }
   }

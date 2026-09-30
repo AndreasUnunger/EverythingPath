@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFile, cp, mkdir, readdir, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { HarnessFailure } from './diagnostics';
 
 export async function copyBuildWorkspace(
   sourceRoot: string,
@@ -10,7 +11,8 @@ export async function copyBuildWorkspace(
   const files = execFileSync(
     'git',
     ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
-    { cwd: sourceRoot, encoding: 'utf8' },
+    // The child's stderr can echo paths or configuration; never forward it.
+    { cwd: sourceRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
   )
     .split('\0')
     .filter(Boolean);
@@ -43,9 +45,7 @@ export async function checkGeneratedBindings(
   const source = bindings(await readdir(sourceDirectory));
   const generated = bindings(await readdir(generatedDirectory));
   const refuse = (file: string) => {
-    throw new Error(
-      `Convex generated-code drift (${file}); regenerate and review before E2E`,
-    );
+    throw new HarnessFailure({ kind: 'generated-drift', file });
   };
   if (source.join('\n') !== generated.join('\n')) refuse('file list');
   for (const file of source)
