@@ -72,7 +72,57 @@ and at most one per two available CPUs, unless `--workers N` asks for up to the
 declared number; a single cohort runs exactly serially. Local runs acquire an
 exclusive slot lock under `e2e/.private`; CI must additionally serialize by the
 preview name across machines. After an ungraceful process termination, verify no
-run still owns the slot before removing its exact stale lock directory.
+run still owns the slot before removing its exact stale lock directory (see
+[Setup failures](#setup-failures)).
+
+### Setup failures
+
+Every runner step before the browser journeys has a fixed stage label. A failure
+prints the harness's own fixed diagnostic when it has one (as before), then one
+line naming the stage and a closed error class, and exits 1:
+
+```text
+preview deployment and web build: process failed (1)
+E2E setup failed: deployment (exit-1)
+```
+
+Stages, in order: `arguments` (options and usage), `resources` (declaration,
+secrets file and target validation), `workers` (cohort worker count),
+`clerk-verification` (read-only Clerk checks), `private-directory`
+(`e2e/.private`), `slot-lock`, `temporary-directory`, `source-snapshot` (source
+fingerprint, workspace copy and recheck), `environment` (private Convex env
+file), `port`, `run-file`, `evidence` (the deployment command's run-file read and
+first `stages.log` write), `deployment` (preview recreation, deploy, fixture
+binding and web build), `generated-bindings`, `preview-binding` and
+`artifact-directory`. From `deployment` on, `stages.log` and `timings.jsonl` in
+the evidence directory also record each command, including the nested fixture
+binding and `production web build` steps, as before.
+
+Error classes come only from a Node system error code or an exit status, never
+from a message: `ENOENT`, `EACCES`, `EPERM`, `EEXIST`, `ENOTDIR`, `EISDIR`,
+`ENOTEMPTY`, `ENOSPC`, `EROFS`, `EMFILE`, `EBUSY`, `ETIMEDOUT`, `ECONNREFUSED`,
+`ECONNRESET`, `ENOTFOUND`, `EAI_AGAIN`, `EADDRINUSE`, `EADDRNOTAVAIL`, `exit-N`
+(a child exited with status N), `terminated` (signal or timeout), `timeout` (the
+run deadline or a Clerk request timeout), `validation` (schema, JSON, option or
+the harness's own checks) and `unknown`. Messages, names, stacks, causes,
+provider output, URLs and keys are never printed; `unknown` means the error had
+no recognized code, so reproduce that stage locally to learn more. If cleanup
+fails too, the original failure stays first and a second line follows, for
+example `E2E cleanup also failed: temporary-directory (EACCES)`. Both cleanups
+always run, so a failed temporary-directory removal cannot keep the slot locked.
+
+An existing slot lock stops the run before any service call:
+
+```text
+E2E setup failed: slot already locked (active or stale)
+Lock: /…/e2e/.private/<previewName>.lock (created 2026-09-30T05:40:00.000Z)
+Not removed automatically. Check `docker ps` (and local `pnpm test:e2e` processes) for a running gate before removing it; see "Setup failures" in e2e/README.md.
+```
+
+The runner never removes a lock it did not create, because an existing lock does
+not prove the run that created it has ended. Check `docker ps` for a running gate
+container (and `pgrep -af 'e2e/run.ts'` for a native run). Remove only that exact
+lock directory, and only when no gate owns it.
 
 In CI, the trusted workflow binds `E2E_REVIEWED_SHA=GITHUB_SHA` to the tested
 commit, including PR merge commits. The workflow refuses

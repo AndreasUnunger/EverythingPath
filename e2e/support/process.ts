@@ -58,6 +58,27 @@ async function fixtureExecutable(args: string[], cwd: string) {
   return { file: process.execPath, args: [entry, ...args.slice(2)] };
 }
 
+// A child process that could not start or did not exit successfully. `code`
+// is the spawn error's system code; `exitCode` is null after a signal/timeout.
+export class CommandFailure extends Error {
+  constructor(
+    message: string,
+    readonly exitCode: number | null,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'CommandFailure';
+  }
+}
+
+// The command's run file or first evidence write failed before it spawned.
+export class CommandEvidenceFailure extends Error {
+  constructor(stage: string, cause: unknown) {
+    super(`${stage}: evidence could not be initialized`, { cause });
+    this.name = 'CommandEvidenceFailure';
+  }
+}
+
 // Never forward CLI output: deployment/auth failures can contain credentials,
 // arguments and provider payloads. Keep only a stage name and an exit code.
 export async function command(
@@ -76,9 +97,7 @@ export async function command(
   const runFile = environment.E2E_RUN_FILE;
   const diagnostics = new Set<string>();
   const diagnosticWrites: Promise<void>[] = [];
-  const run = runFile
-    ? runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')))
-    : null;
+  let run: Run | null = null;
   let diagnosticWriteFailed = false;
   const log = async (status: string) => {
     if (!run) return;
@@ -98,7 +117,14 @@ export async function command(
       })}\n`,
     );
   };
-  await log('started');
+  try {
+    run = runFile
+      ? runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')))
+      : null;
+    await log('started');
+  } catch (error) {
+    throw new CommandEvidenceFailure(stage, error);
+  }
   try {
     // Repeated fixture calls need the installed CLI, not pnpm's exec wrapper.
     // Deployment keeps pnpm's PATH setup for its nested --cmd build command.
@@ -155,8 +181,14 @@ export async function command(
           }
         });
       }
-      child.on('error', () =>
-        reject(new Error(`${stage}: process could not start`)),
+      child.on('error', (error: NodeJS.ErrnoException) =>
+        reject(
+          new CommandFailure(
+            `${stage}: process could not start`,
+            null,
+            error.code,
+          ),
+        ),
       );
       child.on('close', (code) => {
         clearTimeout(timeout);
@@ -168,7 +200,10 @@ export async function command(
         if (code === 0 && !wasInterrupted) resolve(output);
         else
           reject(
-            new Error(`${stage}: process failed (${code ?? 'terminated'})`),
+            new CommandFailure(
+              `${stage}: process failed (${code ?? 'terminated'})`,
+              wasInterrupted ? null : code,
+            ),
           );
       });
     });

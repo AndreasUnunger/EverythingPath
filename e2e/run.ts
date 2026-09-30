@@ -14,6 +14,12 @@ import {
   copyBuildWorkspace,
   checkGeneratedBindings,
 } from './support/workspace';
+import {
+  acquireSlotLock,
+  failureReport,
+  setupStage,
+  withCleanup,
+} from './support/setup-failure';
 
 async function availablePort() {
   const server = createServer();
@@ -38,26 +44,33 @@ async function main() {
       throw new Error('E2E execution exceeded seventeen and a half minutes');
     return milliseconds;
   };
-  const { values } = parseArgs({
-    options: {
-      resources: { type: 'string' },
-      secrets: { type: 'string' },
-      preflight: { type: 'boolean' },
-      nightly: { type: 'boolean' },
-      workers: { type: 'string' },
-    },
-    strict: true,
+  const { values, resources } = await setupStage('arguments', () => {
+    const { values } = parseArgs({
+      options: {
+        resources: { type: 'string' },
+        secrets: { type: 'string' },
+        preflight: { type: 'boolean' },
+        nightly: { type: 'boolean' },
+        workers: { type: 'string' },
+      },
+      strict: true,
+    });
+    if (!values.resources)
+      throw new Error(
+        'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight] [--nightly] [--workers N]',
+      );
+    return { values, resources: values.resources };
   });
-  if (!values.resources)
-    throw new Error(
-      'Usage: pnpm test:e2e --resources /absolute/resources.json [--secrets /absolute/test-secrets.env] [--preflight] [--nightly] [--workers N]',
-    );
-  const targets = await loadTargets(values.resources, values.secrets);
-  const workers = cohortWorkers(
-    targets.resources,
-    values.workers === undefined ? undefined : Number(values.workers),
+  const targets = await setupStage('resources', () =>
+    loadTargets(resources, values.secrets),
   );
-  await verifyClerkCohorts(targets);
+  const workers = await setupStage('workers', () =>
+    cohortWorkers(
+      targets.resources,
+      values.workers === undefined ? undefined : Number(values.workers),
+    ),
+  );
+  await setupStage('clerk-verification', () => verifyClerkCohorts(targets));
   if (values.preflight) {
     process.stdout.write(
       'E2E preflight and read-only Clerk verification passed.\n',
@@ -67,12 +80,26 @@ async function main() {
 
   const sourceRoot = process.cwd();
   const privateRoot = join(sourceRoot, 'e2e', '.private');
-  await mkdir(privateRoot, { recursive: true, mode: 0o700 });
+  await setupStage('private-directory', () =>
+    mkdir(privateRoot, { recursive: true, mode: 0o700 }),
+  );
   const slotLock = join(privateRoot, `${targets.resources.previewName}.lock`);
-  await mkdir(slotLock); // Exclusive local slot ownership; CI also serializes by slot.
+  // Exclusive local slot ownership; CI also serializes by slot.
+  await acquireSlotLock(slotLock);
   let temporary: string | undefined;
-  try {
-    temporary = await mkdtemp(join(tmpdir(), 'everythingpath-e2e-'));
+  const cleanups = [
+    [
+      'temporary-directory',
+      async () => {
+        if (temporary) await rm(temporary, { recursive: true, force: true });
+      },
+    ],
+    ['slot-lock', () => rm(slotLock, { recursive: true, force: true })],
+  ] as const;
+  await withCleanup(async () => {
+    temporary = await setupStage('temporary-directory', () =>
+      mkdtemp(join(tmpdir(), 'everythingpath-e2e-')),
+    );
     const workspace = join(temporary, 'workspace');
     const privateDirectory = join(temporary, 'private');
     const artifactDirectory = join(
@@ -82,12 +109,20 @@ async function main() {
       basename(temporary),
     );
     // Explicit file list prevents Next/Clerk/Convex from auto-loading personal .env files.
-    const testedSource = sourceFingerprint(sourceRoot);
-    await copyBuildWorkspace(sourceRoot, workspace);
-    if (sourceFingerprint(sourceRoot) !== testedSource)
-      throw new Error('E2E source changed while preparing the test workspace');
+    const testedSource = await setupStage('source-snapshot', async () => {
+      const fingerprint = sourceFingerprint(sourceRoot);
+      await copyBuildWorkspace(sourceRoot, workspace);
+      if (sourceFingerprint(sourceRoot) !== fingerprint)
+        throw new Error(
+          'E2E source changed while preparing the test workspace',
+        );
+      return fingerprint;
+    });
     const envFile = join(privateDirectory, 'convex.env');
-    await savePrivate(envFile, `CONVEX_DEPLOY_KEY=${targets.previewKey}\n`);
+    await setupStage('environment', () =>
+      savePrivate(envFile, `CONVEX_DEPLOY_KEY=${targets.previewKey}\n`),
+    );
+    const port = await setupStage('port', availablePort);
     const run: Run = {
       mode: values.nightly ? 'nightly' : 'mandatory',
       workers,
@@ -100,10 +135,12 @@ async function main() {
       envFile,
       // WebKit rejects Clerk's Domain=localhost client cookie. The loopback
       // IP accepts that domain-scoped cookie without altering real auth.
-      baseURL: `http://127.0.0.1:${await availablePort()}`,
+      baseURL: `http://127.0.0.1:${port}`,
     };
     const runFile = join(privateDirectory, 'run.json');
-    await savePrivate(runFile, JSON.stringify(run));
+    await setupStage('run-file', () =>
+      savePrivate(runFile, JSON.stringify(run)),
+    );
     const childEnv: NodeJS.ProcessEnv = { NODE_ENV: 'production' };
     for (const key of [
       'PATH',
@@ -130,30 +167,40 @@ async function main() {
     process.stdout.write(
       `E2E target: preview ${targets.resources.previewName}; recreate, deploy and build. Workers: ${workers}, one cohort each (${availableParallelism()} CPUs).\n`,
     );
-    await command(
-      'preview deployment and web build',
-      [
-        'exec',
-        'convex',
-        'deploy',
-        '--preview-create',
-        targets.resources.previewName,
-        '--env-file',
-        envFile,
-        '--cmd',
-        'pnpm exec tsx e2e/bind-preview.ts',
-        '--cmd-url-env-var-name',
-        'NEXT_PUBLIC_CONVEX_URL',
-      ],
-      { cwd: workspace, env: childEnv, timeout: remaining() },
+    // Its run-file read and first stages.log write report as `evidence`.
+    await setupStage('deployment', () =>
+      command(
+        'preview deployment and web build',
+        [
+          'exec',
+          'convex',
+          'deploy',
+          '--preview-create',
+          targets.resources.previewName,
+          '--env-file',
+          envFile,
+          '--cmd',
+          'pnpm exec tsx e2e/bind-preview.ts',
+          '--cmd-url-env-var-name',
+          'NEXT_PUBLIC_CONVEX_URL',
+        ],
+        { cwd: workspace, env: childEnv, timeout: remaining() },
+      ),
     );
-    await checkGeneratedBindings(sourceRoot, workspace);
+    await setupStage('generated-bindings', () =>
+      checkGeneratedBindings(sourceRoot, workspace),
+    );
     process.env.E2E_RUN_FILE = runFile;
-    const bound = await loadRun();
-    if (!bound.fixture)
-      throw new Error('Preview callback did not bind the frontend');
-    childEnv.NEXT_PUBLIC_CONVEX_URL = bound.fixture.convexUrl;
-    await mkdir(artifactDirectory, { recursive: true });
+    const fixture = await setupStage('preview-binding', async () => {
+      const bound = await loadRun();
+      if (!bound.fixture)
+        throw new Error('Preview callback did not bind the frontend');
+      return bound.fixture;
+    });
+    childEnv.NEXT_PUBLIC_CONVEX_URL = fixture.convexUrl;
+    await setupStage('artifact-directory', () =>
+      mkdir(artifactDirectory, { recursive: true }),
+    );
     let requiredPassed = false;
     try {
       await command(
@@ -179,23 +226,14 @@ async function main() {
     if (process.env.GITHUB_OUTPUT)
       await appendFile(process.env.GITHUB_OUTPUT, 'required_result=passed\n');
     process.stdout.write(`E2E ${run.mode} browser journeys passed.\n`);
-  } finally {
-    if (temporary) await rm(temporary, { recursive: true, force: true });
-    await rm(slotLock, { recursive: true, force: true });
-  }
+  }, cleanups);
 }
 
 try {
   await main();
 } catch (error) {
-  // Provider errors can include payloads; show only our own fixed diagnostics.
-  const message =
-    error instanceof Error &&
-    /^(E2E |Clerk |Convex generated|This harness|Secrets file|Usage:|preview deployment|Chromium tablet|Preview callback)/.test(
-      error.message,
-    )
-      ? error.message
-      : 'E2E setup failed; verify the resource declaration and fixture provisioning.';
-  process.stderr.write(`${message}\n`);
+  // Provider errors can include payloads; show only our own fixed diagnostics,
+  // the setup stage label and its closed error class.
+  process.stderr.write(`${failureReport(error).join('\n')}\n`);
   process.exitCode = 1;
 }
