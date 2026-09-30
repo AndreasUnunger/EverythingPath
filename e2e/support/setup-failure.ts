@@ -284,6 +284,10 @@ export async function acquireSlotLock(
  * `<slot>.lock.releasing-<our token>` and is reported for manual review. A
  * crash between the rename and the delete leaves our own lock under that
  * name; it never blocks a run and can be deleted.
+ * Known gap (only after a live lock is removed by hand; see "Setup failures"
+ * in e2e/README.md): renaming a live run's lock aside lets a third run take
+ * the slot concurrently, so a reported `.releasing-*` may be a live lock; an
+ * OS-level flock is the planned remedy (#199).
  */
 export async function releaseSlotLock(
   lock: SlotLock,

@@ -169,6 +169,16 @@ Residual cases:
   Its owner is not protected by a lock at the path; review it by hand.
 - A crash between the rename and the delete leaves our own lock under the
   `.releasing-` name. It never blocks a run and can be deleted.
+- Known gap: two live runs can share a slot. Its precondition is a manual
+  removal of a live lock: run A's lock is deleted by hand while A is still
+  running, and run B then acquires the slot. When A finishes, its cleanup
+  renames B's lock aside before checking the owner, run C acquires the now free
+  path, and A reports the displacement and leaves B's lock under
+  `.releasing-*`. B and C then run on the same slot. Following the locked
+  message's advice (check `docker ps` before removing a lock) prevents it.
+  Treat any `.releasing-*` directory named in cleanup output as possibly a
+  displaced **live** lock: check `docker ps` before deleting it. The planned
+  remedy is an OS-level lock (`flock`), tracked in #199.
 
 Before removing a lock by hand, check `docker ps` for a running gate container
 (and `pgrep -af 'e2e/run.ts'` for a native run). Remove only that exact lock
