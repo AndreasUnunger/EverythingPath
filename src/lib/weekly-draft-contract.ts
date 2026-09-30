@@ -4,7 +4,7 @@ import {
   integerSchema as int,
   stagedActionChoiceSchema,
   rawRollSchema,
-  rollsSchema,
+  upkeepRollsSchema,
   persistentEventSchema,
   orderSchema,
   queuedEffectSchema,
@@ -54,12 +54,12 @@ const upkeepSchema = z.strictObject({
   // check/training: attrition; notoriety: maximum-Notoriety loss; loss: treasury shortage.
   notorietyCheck: rawRollSchema.optional(),
   nearestSettlementId: id.optional(),
-  rolls: rollsSchema.default({}),
+  rolls: upkeepRollsSchema.default({}),
+  // Transfers are characterless (#158).
   treasuryTransfers: z
     .array(
       z.strictObject({
         transferId: id,
-        characterId: id,
         direction: z.enum(['deposit', 'withdraw']),
         copper: int,
       }),
@@ -69,7 +69,7 @@ const upkeepSchema = z.strictObject({
     .array(
       z.strictObject({
         teamId: id,
-        decision: z.enum(['recover', 'leave', 'remove']),
+        decision: z.enum(['recover', 'leave']),
         costCopper: int.optional(),
         roll: rawRollSchema.optional(),
       }),
@@ -251,6 +251,9 @@ export const weeklyDraftEditSchema = z.discriminatedUnion('kind', [
     otherChoiceId: id,
   }),
   z.strictObject({ kind: z.literal('add_slot'), slotId: id }),
+  // Only an empty slot beyond the authoritative allowance; the persistence
+  // authority checks the allowance, the reducer only its identity and emptiness.
+  z.strictObject({ kind: z.literal('remove_slot'), slotId: id }),
   z.strictObject({ kind: z.literal('upkeep'), inputs: upkeepSchema }),
   z.strictObject({
     kind: z.literal('upkeep_roll'),

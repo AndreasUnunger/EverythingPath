@@ -11,7 +11,17 @@ import type { WeeklyDraft } from './weekly-draft-contract';
 import type { UpkeepSnapshot } from './rules-upkeep';
 
 type Target = z.infer<typeof eventTargetSchema>;
-type ReferenceKind = Target['kind'] | 'bonus';
+export type ReferenceKind = Target['kind'] | 'bonus';
+/**
+ * One staged or carried reference to an identity the source lacks. `path`
+ * names the referring entity as `<owner>:<id>:…` (see
+ * `draftReferenceRequirements`); `kind` and `id` are the missing identity.
+ */
+export type DraftReferenceIssue = {
+  kind: ReferenceKind;
+  id: string;
+  path: string;
+};
 type ReferenceCheck = (
   kind: ReferenceKind,
   value: string | undefined,
@@ -65,7 +75,6 @@ function targetIdentity(target: Target) {
 type OfficerReferences = {
   officerCheck?: { characterId: string };
   overseerCharacterId?: string;
-  strategistCharacterId?: string;
 };
 function officerReferences(
   value: OfficerReferences,
@@ -74,7 +83,6 @@ function officerReferences(
 ) {
   check('character', value.officerCheck?.characterId, `${path}:officer`);
   check('character', value.overseerCharacterId, `${path}:overseer`);
-  check('character', value.strategistCharacterId, `${path}:strategist`);
 }
 function decisionReferences(
   decision: z.infer<typeof persistentDecisionSchema> | undefined,
@@ -103,12 +111,9 @@ function eventReferences(events: EventReferences[], check: ReferenceCheck) {
         targetIdentity(target.target),
         `${path}:target-check`,
       );
-      officerReferences(target, check, path);
     }
-    if (event.sabotage) {
+    if (event.sabotage)
       check('team', event.sabotage.teamId, `${path}:sabotage`);
-      officerReferences(event.sabotage, check, path);
-    }
     for (const reward of event.rewards ?? [])
       check('character', reward.characterId, `${path}:reward`);
   }
@@ -145,14 +150,10 @@ function preparationReferences(draft: WeeklyDraft, check: ReferenceCheck) {
   );
   for (const bonusId of draft.activity.consumableIds)
     check('bonus', bonusId, `activity:consumable:${bonusId}`);
-  for (const transfer of draft.upkeep.treasuryTransfers)
-    check(
-      'character',
-      transfer.characterId,
-      `transfer:${transfer.transferId}:character`,
-    );
   for (const decision of draft.upkeep.teamDecisions)
     check('team', decision.teamId, `team:${decision.teamId}`);
+  // A character on an older staged transfer is historical metadata, not a
+  // reference: an archived or removed character never blocks the week.
 }
 
 export function draftReferenceRequirements(
@@ -160,7 +161,21 @@ export function draftReferenceRequirements(
   before: UpkeepSnapshot,
   after: UpkeepSnapshot,
 ) {
-  const requirements: string[] = [];
+  return draftReferenceIssues(draft, before, after).map(
+    (issue) => `${issue.path}:reference`,
+  );
+}
+
+// Every reference of the draft (staged choices, event trees, decisions,
+// Table Adjustments and carried context) to an identity missing from the
+// source, with that identity. Entities created by staged actions and those
+// in `after` count as present.
+export function draftReferenceIssues(
+  draft: WeeklyDraft,
+  before: UpkeepSnapshot,
+  after: UpkeepSnapshot,
+): DraftReferenceIssue[] {
+  const issues: DraftReferenceIssue[] = [];
   const choices = draft.activity.slots.flatMap((slot) =>
     slot.choice ? [slot.choice] : [],
   );
@@ -180,7 +195,7 @@ export function draftReferenceRequirements(
   };
   const check: ReferenceCheck = (kind, value, path) => {
     if (value !== undefined && !references[kind].has(value))
-      requirements.push(`${path}:reference`);
+      issues.push({ kind, id: value, path });
   };
   contextReferences(draft, check);
   preparationReferences(draft, check);
@@ -220,5 +235,5 @@ export function draftReferenceRequirements(
         `adjustment:${adjustment.adjustmentId}:event`,
       );
   }
-  return requirements;
+  return issues;
 }

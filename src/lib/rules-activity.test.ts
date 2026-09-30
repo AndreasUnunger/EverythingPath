@@ -1,3 +1,4 @@
+import { actionChoiceRolls } from './weekly-draft-facts';
 import { expect, test } from 'vitest';
 import { activityFixture } from '../../tests/rules/activity-fixture';
 import { upkeepFixture, roll } from '../../tests/rules/upkeep-fixture';
@@ -260,6 +261,40 @@ test('[rules.A07.natural-one] natural one can succeed, calculated and entered so
   expect(projectActivity(draft, snapshot).outcome).toEqual(snapshot);
 });
 
+test('[rules.A07.natural-one-only] Drill needs its notoriety roll only on a natural 1 and ignores one kept from an earlier natural 1', () => {
+  const { draft, snapshot } = upkeepFixture();
+  const drill = (check: number, notoriety?: number) => {
+    draft.activity.slots[0]!.choice = {
+      choiceId: 'drill',
+      actionId: 'drill_militia',
+      rolls: {
+        check: roll(20, check),
+        training: roll(6, 2, 5),
+        ...(notoriety === undefined ? {} : { notoriety: roll(6, notoriety) }),
+      },
+    };
+    return projectActivity(draft, snapshot);
+  };
+  const needed = drill(1);
+  expect(needed.requirements).toContain('drill:notoriety:1d6');
+  expect(needed.ready).toBe(false);
+  for (const check of [2, 10, 20]) {
+    const without = drill(check);
+    const stale = drill(check, 6);
+    expect(without.requirements).not.toContain('drill:notoriety:1d6');
+    for (const key of [
+      'outcome',
+      'plan',
+      'requirements',
+      'warnings',
+      'ready',
+    ] as const)
+      expect(stale[key]).toEqual(without[key]);
+    expect(stale.outcome.notoriety).toBe(snapshot.notoriety);
+  }
+  expect(drill(1, 6).outcome.notoriety).toBe(snapshot.notoriety + 6);
+});
+
 test('Activity keeps missing action rolls unready and enforces assigned team usage after upgrades', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.treasuryCopper = 20000;
@@ -438,7 +473,7 @@ test('[rules.A24.warning] upgrade exceptions allow insufficient funds and a diff
 
 test('[rules.A04.pc] NPC role changes require exceptions; unassigning preserves people and characters', () => {
   const { draft, snapshot } = upkeepFixture();
-  snapshot.roster.people[0]!.kind = 'officer_npc';
+  snapshot.roster.people[0]!.kind = 'npc';
   draft.activity.slots[0]!.choice = {
     choiceId: 'role',
     actionId: 'change_officer_role',
@@ -460,6 +495,100 @@ test('[rules.A04.pc] NPC role changes require exceptions; unassigning preserves 
   expect(result.outcome.roster.officers).toEqual([]);
   expect(result.outcome.roster.people).toEqual(snapshot.roster.people);
   expect(result.outcome.characters).toEqual(snapshot.characters);
+});
+
+test('[rules.A04.manager-limit] leaving an NPC’s last role mid-week needs a Rules Exception when it leaves them over their new manager limit', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.roster.people[0]!.kind = 'npc';
+  snapshot.characters[0]!.charisma = 16;
+  snapshot.roster.teams = ['one', 'two'].map((teamId) => ({
+    teamId,
+    teamType: 'patrons' as const,
+    name: teamId,
+    status: 'active' as const,
+    managerCharacterId: 'pc',
+    rewardCapExempt: false,
+    notes: '',
+  }));
+  draft.activity.slots[0]!.choice = {
+    choiceId: 'role',
+    actionId: 'change_officer_role',
+    characterId: 'pc',
+    fromRole: 'ambassador',
+  };
+  const officerPc = {
+    exceptionId: 'npc',
+    subjectId: 'role',
+    ruleId: 'officer-pc',
+    reason: 'Ally agrees',
+  };
+  draft.rulesExceptions = [officerPc];
+  const blocked = projectActivity(draft, snapshot);
+  expect(blocked.requirements).toContain('role:manager-limit:exception');
+  expect(blocked.outcome.roster.officers).toEqual(snapshot.roster.officers);
+  draft.rulesExceptions = [
+    officerPc,
+    {
+      exceptionId: 'limit',
+      subjectId: 'role',
+      ruleId: 'manager-limit',
+      reason: 'The table keeps both teams with her',
+    },
+  ];
+  const allowed = projectActivity(draft, snapshot);
+  expect(allowed.requirements).toEqual([]);
+  expect(allowed.outcome.roster.officers).toEqual([]);
+  // Her teams and managers stay; the later roster warns about her new limit.
+  expect(allowed.outcome.roster.teams).toEqual(snapshot.roster.teams);
+  expect(allowed.warnings).toContain('role:manager-limit');
+  // A later team check sees her lowered limit; an earlier one does not.
+  const earn = {
+    choiceId: 'earn',
+    actionId: 'earn_gold' as const,
+    teamId: 'one',
+    rolls: { check: roll(20, 10) },
+  };
+  draft.activity.slots[1]!.choice = earn;
+  expect(projectActivity(draft, snapshot).warnings).toContain(
+    'manager:pc:capacity',
+  );
+  const change = draft.activity.slots[0]!.choice;
+  draft.activity.slots[0]!.choice = earn;
+  draft.activity.slots[1]!.choice = change;
+  expect(projectActivity(draft, snapshot).warnings).not.toContain(
+    'manager:pc:capacity',
+  );
+  draft.activity.slots[0]!.choice = change;
+  draft.activity.slots[1]!.choice = null;
+  // Moving to another role keeps her an Officer, so her limit is unchanged.
+  draft.activity.slots[0]!.choice.toRole = 'marshal';
+  draft.rulesExceptions = [officerPc];
+  expect(projectActivity(draft, snapshot).requirements).toEqual([]);
+  // A PC's limit never depends on roles.
+  snapshot.roster.people[0]!.kind = 'pc';
+  delete draft.activity.slots[0]!.choice.toRole;
+  draft.rulesExceptions = [];
+  expect(projectActivity(draft, snapshot).requirements).toEqual([]);
+});
+
+test('[rules.A07.hit-dice-fallback] a successful Drill adds each commandant’s Hit Dice override, zero included, or else their level', () => {
+  for (const [hitDice, expected] of [
+    [null, 47],
+    [0, 37],
+    [4, 41],
+  ] as const) {
+    const { draft, snapshot } = upkeepFixture();
+    snapshot.roster.officers.push({ role: 'commandant', characterId: 'pc' });
+    snapshot.roster.people[0]!.hitDice = hitDice;
+    draft.activity.slots[0]!.choice = {
+      choiceId: 'drill',
+      actionId: 'drill_militia',
+      rolls: { check: roll(20, 10), training: roll(6, 2, 5) },
+    };
+    const result = projectActivity(draft, snapshot);
+    expect(result.outcome.training, String(hitDice)).toBe(expected);
+    expect(result.ready).toBe(true);
+  }
 });
 
 test('[rules.A07.cost] failed Drill costs treasury but never adds Commandant training or needs its gain dice', () => {
@@ -675,10 +804,9 @@ test.each([
 test('Carried penalties preserve unrelated queued modifiers and do not reapply entered event provenance', () => {
   const { draft, snapshot } = activityFixture('drill_militia');
   const choice = draft.activity.slots[0]?.choice;
-  if (!choice?.rolls?.check) throw new Error('Missing fixture check');
-  choice.rolls.check.modifiers = [
-    { sourceId: 'morale', value: -2, reason: 'Low Morale' },
-  ];
+  const raw = actionChoiceRolls(choice ?? null).check;
+  if (!raw) throw new Error('Missing fixture check');
+  raw.modifiers = [{ sourceId: 'morale', value: -2, reason: 'Low Morale' }];
   const source = {
     ...draft,
     context: {

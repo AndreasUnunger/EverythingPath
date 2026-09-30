@@ -30,12 +30,30 @@ export type SettlementChange =
       settlementId: string;
       acknowledgement: WeeklyDraft['acknowledgements'][number];
     };
-const teams: Record<Choice['actionId'], readonly (typeof TEAM_IDS)[number][]> =
-  {
-    activate_refuge: ['conspirators', 'scholars', 'spellcasters'],
-    reduce_danger: ['defenders', 'guardians', 'infiltrators', 'specialists'],
-    spread_propaganda: ['propagandists', 'saboteurs', 'spies'],
-  };
+export const settlementActionTeams: Record<
+  Choice['actionId'],
+  readonly (typeof TEAM_IDS)[number][]
+> = {
+  activate_refuge: ['conspirators', 'scholars', 'spellcasters'],
+  reduce_danger: ['defenders', 'guardians', 'infiltrators', 'specialists'],
+  spread_propaganda: ['propagandists', 'saboteurs', 'spies'],
+};
+/**
+ * Whether a refuge may be activated in the settlement: its reputation, with
+ * every current shift but without an active refuge's own step, is Hostile or
+ * Unfriendly. False while the reputation is unknown.
+ */
+export function refugeReputationAllows(settlement: Settlement, week: number) {
+  const { reputation } = projectSettlements(
+    [{ ...settlement, refugeActivatedWeek: null, refugeActiveUntilWeek: null }],
+    week,
+  ).settlements[0]!;
+  return reputation === 'Hostile' || reputation === 'Unfriendly';
+}
+/** Spread Propaganda's Loyalty DC: 20, or 25 where enemies occupy the settlement. */
+export function propagandaDc(occupied: boolean) {
+  return 20 + (occupied ? 5 : 0);
+}
 function change(
   result: ActivityProjection,
   choice: Choice,
@@ -59,7 +77,7 @@ export function resolveSettlementChoice(
     'check' | 'dice' | 'value' | 'exception' | 'spend'
   >,
 ) {
-  if (!(staged.actionId in teams)) return false;
+  if (!(staged.actionId in settlementActionTeams)) return false;
   const choice = staged as Choice;
   const required = (key: string) =>
     result.requirements.push(`${choice.choiceId}:${key}`);
@@ -73,7 +91,7 @@ export function resolveSettlementChoice(
   if (!settlement) required('settlement');
   if (!team || !settlement) return true;
   if (
-    !teams[choice.actionId].includes(team.teamType) &&
+    !settlementActionTeams[choice.actionId].includes(team.teamType) &&
     !helpers.exception(draft, result, choice, 'team-action')
   )
     return true;
@@ -87,19 +105,8 @@ export function resolveSettlementChoice(
     return true;
   }
   if (choice.actionId === 'activate_refuge') {
-    const effective = projectSettlements(
-      [
-        {
-          ...settlement,
-          refugeActivatedWeek: null,
-          refugeActiveUntilWeek: null,
-        },
-      ],
-      draft.week,
-    ).settlements[0]!;
     if (
-      effective.reputation !== 'Hostile' &&
-      effective.reputation !== 'Unfriendly' &&
+      !refugeReputationAllows(settlement, draft.week) &&
       !helpers.exception(draft, result, choice, 'refuge-reputation')
     )
       return true;
@@ -130,7 +137,7 @@ export function resolveSettlementChoice(
     const total = helpers.check(draft, result, choice, 'security', 15);
     if (total === null) return true;
     if (total < 15) {
-      const gain = helpers.dice(result, choice, 'notoriety', 1, 4);
+      const gain = helpers.dice(result, choice, 'notoriety');
       if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
       return true;
     }
@@ -166,8 +173,9 @@ export function resolveSettlementChoice(
     }
     return true;
   }
+  // The GM is assumed to allow propaganda from Ruleset Version 9; an older
+  // choice's stored `possible` answer, even `false`, is ignored.
   if (settlement.occupied === null) required('settlement-occupied');
-  if (choice.possible === undefined) required('propaganda-permission');
   const acknowledgement = [
     ...draft.acknowledgements,
     ...(choice.acknowledgements ?? []),
@@ -178,19 +186,9 @@ export function resolveSettlementChoice(
   );
   if (!acknowledgement)
     required(`acknowledgement:propaganda:${choice.choiceId}`);
-  if (
-    settlement.occupied === null ||
-    choice.possible === undefined ||
-    !acknowledgement
-  )
-    return true;
+  if (settlement.occupied === null || !acknowledgement) return true;
   if (choice.occupied !== undefined && choice.occupied !== settlement.occupied)
     result.warnings.push(`${choice.choiceId}:settlement-occupied`);
-  if (
-    !choice.possible &&
-    !helpers.exception(draft, result, choice, 'propaganda-impossible')
-  )
-    return true;
   if (
     result.plan.some(
       (entry) =>
@@ -207,14 +205,9 @@ export function resolveSettlementChoice(
     settlementId: settlement.settlementId,
     acknowledgement: { ...acknowledgement },
   });
-  const total = helpers.check(
-    draft,
-    result,
-    choice,
-    'loyalty',
-    20 + (settlement.occupied ? 5 : 0),
-  );
-  if (total !== null && total >= 20 + (settlement.occupied ? 5 : 0))
+  const dc = propagandaDc(settlement.occupied);
+  const total = helpers.check(draft, result, choice, 'loyalty', dc);
+  if (total !== null && total >= dc)
     change(result, choice, settlement, {
       ...settlement,
       reputation:

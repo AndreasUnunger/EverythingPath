@@ -13,22 +13,24 @@ import {
   tableAdjustmentSchema,
 } from './weekly-draft-facts';
 
-// Versioned artifacts retain earlier extraction records. Canonical Weekly
-// Resolution supplies typed complete plans in format 2; their source snapshot
-// lets history render against the reviewed facts rather than today's militia.
+// Canonical Weekly Resolution stores typed complete plans in artifact format
+// 2. The payload stays loose JSON so records confirmed under an earlier
+// Ruleset Version stay readable when plan entry shapes change (C7). The
+// source snapshot lets history render against the reviewed facts rather than
+// today's militia.
 export const resolutionPayloadSchema = z.record(
   z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/),
   z.json(),
 );
 export const resolutionArtifactSchema = z.strictObject({
-  formatVersion: int.min(1),
+  formatVersion: z.literal(2),
   data: resolutionPayloadSchema,
 });
 export const canonicalResolutionRecordSchema = z
   .strictObject({
     recordId: id,
     source: weeklyDraftDataSchema,
-    sourceMilitiaSnapshot: militiaSnapshotSchema.optional(),
+    sourceMilitiaSnapshot: militiaSnapshotSchema,
     provenance: z.enum([
       'confirmation',
       'historical_reconstruction',

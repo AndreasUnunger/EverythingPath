@@ -11,6 +11,8 @@ export function activityOptionFacts(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   projection: ActivityProjection | null | undefined,
+  // Current-week occurrences go by their Event label ("Event 2A").
+  eventLabels: ReadonlyMap<string, string> = new Map(),
 ) {
   const declared = draft.activity.slots.flatMap((slot, index) =>
     slot.choice
@@ -90,10 +92,17 @@ export function activityOptionFacts(
         ...draft.activity.slots.flatMap((slot) =>
           actionChoiceEvents(slot.choice),
         ),
-      ].map((event, index) => ({
-        value: event.eventId,
-        label: `${activityLabel(event.eventType ?? 'unselected_event')} · Event ${index + 1}`,
-      })),
+      ].map((event, index) => {
+        const label = eventLabels.get(event.eventId);
+        return {
+          value: event.eventId,
+          label: label
+            ? event.eventType
+              ? `${label} · ${activityLabel(event.eventType)}`
+              : label
+            : `${activityLabel(event.eventType ?? 'unselected_event')} · Event ${index + 1}`,
+        };
+      }),
     ),
     bonuses,
     automaticSources: distinct(

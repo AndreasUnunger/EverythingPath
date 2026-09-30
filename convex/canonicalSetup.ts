@@ -7,6 +7,11 @@ import type { Id } from './_generated/dataModel';
 import { openDraft } from './lib/canonicalDraftStorage';
 import { draftKeySchema } from './lib/canonicalStorageValidators';
 import {
+  submittedSetupValidator,
+  withCurrentRecordKinds,
+  withSubmittedKindsNormalized,
+} from './lib/canonicalCharacters';
+import {
   militiaSetupSchema,
   prepareMilitiaSetup,
 } from '../src/lib/canonical-setup';
@@ -80,7 +85,7 @@ export const options = query({
         intelligence: character.intelligence,
         wisdom: character.wisdom,
         charisma: character.charisma,
-        isActive: character.isActive !== false,
+        isActive: character.isActive,
       })),
     };
   },
@@ -89,7 +94,7 @@ export const initialize = mutation({
   args: {
     campaignId: v.id('campaign'),
     initializationId: v.string(),
-    setup: zodOutputToConvex(militiaSetupSchema),
+    setup: submittedSetupValidator,
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args) => {
@@ -100,7 +105,15 @@ export const initialize = mutation({
       .min(1)
       .max(200)
       .parse(args.initializationId);
-    const setup = militiaSetupSchema.parse(args.setup);
+    const setup = militiaSetupSchema.parse({
+      ...args.setup,
+      state: {
+        ...args.setup.state,
+        militiaSnapshot: withSubmittedKindsNormalized(
+          args.setup.state.militiaSnapshot,
+        ),
+      },
+    });
     const sourceToken = weeklySourceKey(setup);
     if (new TextEncoder().encode(sourceToken).length > 750_000)
       throw new ConvexError('Setup is too large to save in one transaction');
@@ -158,11 +171,17 @@ export const initialize = mutation({
       militiaId,
       draft: plan.draft,
     });
+    // The receipt keeps the submitted source for same-source retries; the
+    // live roster mirrors each person's current record kind.
     await ctx.db.insert('canonicalMilitiaState', {
       campaignId: args.campaignId,
       militiaId,
       revision: 0,
-      snapshot: plan.snapshot,
+      snapshot: await withCurrentRecordKinds(
+        ctx,
+        args.campaignId,
+        plan.snapshot,
+      ),
     });
     await ctx.db.insert('canonicalCampaignInitialization', {
       campaignId: args.campaignId,
@@ -199,7 +218,7 @@ async function requireReviewedCharacters(
         throw new ConvexError(
           'Character facts changed. Reload setup to review the ledger.',
         );
-    if (person.isActive !== (character.isActive !== false))
+    if (person.isActive !== character.isActive)
       throw new ConvexError(
         'Character facts changed. Reload setup to review the ledger.',
       );

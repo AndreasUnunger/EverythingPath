@@ -1,7 +1,16 @@
-export function activityWarning(warning: string, choiceId: string): string {
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
+import { missionCodeMessage } from './activity-mission-messages';
+import { ruleMessage } from './summary-messages';
+export function activityWarning(
+  warning: string,
+  choiceId: string,
+  actionId?: StagedActionChoice['actionId'],
+): string {
   const code = warning.slice(choiceId.length + 1);
+  const mission = missionCodeMessage(code, actionId, true);
+  if (mission) return mission;
   if (code.endsWith('roll-range'))
-    return 'A die is outside its usual range. Your entered value is retained for the table.';
+    return 'The roll is outside its usual range. The recorded value is retained for the table.';
   if (code === 'calculated-cost')
     return 'The entered cost differs from the rules calculation. The preview uses the calculated cost; changing this field does not adjust the treasury outcome.';
   const reasons: Record<string, string> = {
@@ -19,6 +28,7 @@ export function activityWarning(warning: string, choiceId: string): string {
   };
   return (
     reasons[code] ??
+    ruleMessage(code, true) ??
     `Review this choice with the table: ${code.split(':')[0]!.replaceAll('-', ' ').replaceAll('_', ' ')}.`
   );
 }

@@ -1,3 +1,5 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import { isRefugeActive } from './rules-settlements';
 import type { EventDispatch } from './rules-event-selection';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
 import type { UpkeepSnapshot } from './rules-upkeep';
@@ -7,8 +9,31 @@ import {
   eventCheck,
   eventDie,
   eventMitigationAttempted,
+  eventOfficerCheckExtras,
 } from './rules-event-checks';
 type Event = EventDispatch['event'];
+/** Sickness Twice: the team is lost unless the militia makes this Loyalty DC. */
+export const SICKNESS_TWICE_LOYALTY_DC = 20;
+/** Raid mitigation: the Security DC each hidden person's check must reach. */
+export const RAID_SECURITY_DC = 20;
+/** A hidden person's capture chance (percent) without and with mitigation. */
+export const RAID_CAPTURE_CHANCE = { unmitigated: 100, mitigated: 50 } as const;
+/** Turncoat Twice: the officer's Diplomacy DC that keeps the team. */
+export function turncoatDiplomacyDc(rank: number) {
+  return 10 + rank;
+}
+/** Invasion: the GM's random encounter is at CR `APL + 1`. */
+export function invasionChallengeRating(averagePartyLevel: number) {
+  return averagePartyLevel + 1;
+}
+/** Cache Discovered mitigation: the Secrecy DC that retrieves the cache. */
+export function cacheSecrecyDc(rank: number) {
+  return 10 + rank;
+}
+/** A cache Cache Discovered can find: hidden, or planned for retrieval. */
+export function isDiscoverableCache(cache: { status: string }) {
+  return cache.status === 'hidden' || cache.status === 'returning';
+}
 type Cache = NonNullable<UpkeepSnapshot['economy']>['caches'][number];
 type Queue = WeeklyDraft['context']['queuedEffects'][number];
 export type ThreatEventChange =
@@ -230,7 +255,7 @@ function checkThreatMitigation(
   check: 'security' | 'secrecy',
   dc: number,
 ) {
-  const { draft, result, event, twice } = context;
+  const { draft, result, event } = context;
 
   const input = event.targetChecks?.find((input) =>
     target.kind === 'cache'
@@ -240,8 +265,8 @@ function checkThreatMitigation(
         input.target.characterId === target.characterId,
   );
   const attempted = eventMitigationAttempted(
-    input?.mitigation ?? event.mitigation,
-    input?.rolls?.check ?? event.rolls?.check,
+    input?.mitigation,
+    input?.rolls?.check,
   );
   if (!attempted) return false;
   const targetId =
@@ -255,8 +280,7 @@ function checkThreatMitigation(
     result,
     event,
     check,
-    input?.rolls?.check ??
-      (target.kind === 'cache' && !twice ? event.rolls?.check : undefined),
+    input?.rolls?.check,
     `${event.eventId}:${targetId}:mitigation`,
   );
   return total === null ? null : total >= dc;
@@ -265,10 +289,7 @@ function checkThreatMitigation(
 function resolveCacheDiscovered(context: ThreatEventContext) {
   const { event, twice, state } = context;
 
-  const eligible =
-    state.economy?.caches.filter(
-      (cache) => cache.status === 'hidden' || cache.status === 'returning',
-    ) ?? [];
+  const eligible = state.economy?.caches.filter(isDiscoverableCache) ?? [];
   // The actual Twice clause explicitly says no additional effect with no caches.
   if (!eligible.length) {
     if (!twice) requireThreatInput(context, 'replacement:1');
@@ -310,7 +331,7 @@ function resolveInvasion(context: ThreatEventContext) {
       kind: 'event_encounter',
       eventId: event.eventId,
       averagePartyLevel: event.averagePartyLevel,
-      challengeRating: event.averagePartyLevel + 1,
+      challengeRating: invasionChallengeRating(event.averagePartyLevel),
       acknowledgement,
     });
   return true;
@@ -388,7 +409,8 @@ function resolveSickness(context: ThreatEventContext) {
     event.rolls?.check,
     `${event.eventId}:sickness`,
   );
-  if (total !== null && total < 20) loseThreatTeam(context, team.teamId);
+  if (total !== null && total < SICKNESS_TWICE_LOYALTY_DC)
+    loseThreatTeam(context, team.teamId);
   return true;
 }
 
@@ -424,23 +446,23 @@ function resolveTurncoat(context: ThreatEventContext) {
     !acceptThreatException(context, 'officer-skill')
   )
     return true;
-  const raw = eventDie(result, input.roll, `${event.eventId}:diplomacy`, 20);
+  const raw = eventDie(
+    result,
+    input.roll,
+    `${event.eventId}:diplomacy`,
+    RULE_ROLL_SPECS.check,
+  );
   if (input.skillBonus === undefined)
     requireThreatInput(context, 'skill-bonus');
   if (raw === null || input.skillBonus === undefined) return true;
-  const modifiers = new Map(
-    (input.roll?.modifiers ?? [])
-      .filter(
-        (modifier) =>
-          !['skill', 'skill-bonus', 'charisma'].includes(modifier.sourceId),
-      )
-      .map((modifier) => [modifier.sourceId, modifier.value]),
-  );
   const total =
     raw +
     input.skillBonus +
-    [...modifiers.values()].reduce((sum, value) => sum + value, 0);
-  const dc = 10 + state.rank;
+    eventOfficerCheckExtras(input.roll).reduce(
+      (sum, extra) => sum + extra.value,
+      0,
+    );
+  const dc = turncoatDiplomacyDc(state.rank);
   const succeeded = total >= dc;
   result.plan.push({
     kind: 'event_officer_check',
@@ -476,11 +498,7 @@ function resolveRaid(context: ThreatEventContext) {
     requireThreatInput(context, 'settlement');
     return true;
   }
-  const active =
-    town.refugeActivatedWeek !== null &&
-    town.refugeActiveUntilWeek !== null &&
-    town.refugeActivatedWeek <= draft.week &&
-    town.refugeActiveUntilWeek >= draft.week;
+  const active = isRefugeActive(town, draft.week);
   if (!active && !acceptThreatException(context, 'event-eligibility'))
     return true;
   if (!recordThreatAcknowledgement(context)) return true;
@@ -563,7 +581,7 @@ function resolveDiscoveredCache(context: ThreatEventContext, cache: Cache) {
     context,
     { kind: 'cache', cacheId: cache.cacheId },
     'secrecy',
-    10 + state.rank,
+    cacheSecrecyDc(state.rank),
   );
   if (recovered === null) return;
   if (
@@ -611,9 +629,16 @@ function resolveRaidCapture(
     kind: 'character' as const,
     characterId: person.characterId,
   };
-  const mitigated = checkThreatMitigation(context, target, 'security', 20);
+  const mitigated = checkThreatMitigation(
+    context,
+    target,
+    'security',
+    RAID_SECURITY_DC,
+  );
   if (mitigated === null) return;
-  const chance = mitigated ? 50 : 100;
+  const chance = mitigated
+    ? RAID_CAPTURE_CHANCE.mitigated
+    : RAID_CAPTURE_CHANCE.unmitigated;
   const input = event.targetChecks?.find(
     (input) =>
       input.target.kind === 'character' &&
@@ -624,11 +649,12 @@ function resolveRaidCapture(
         result,
         input?.rolls?.loss,
         `${event.eventId}:${person.characterId}:capture`,
-        100,
+        RULE_ROLL_SPECS.percentile,
       )
     : null;
   if (mitigated && captureRoll === null) return;
-  const captured = chance === 100 || captureRoll! <= chance;
+  const captured =
+    chance === RAID_CAPTURE_CHANCE.unmitigated || captureRoll! <= chance;
   result.plan.push({
     kind: 'event_capture',
     eventId: event.eventId,
@@ -654,7 +680,12 @@ function resolveRaidCapture(
 function applyTurncoatTrainingLoss(context: ThreatEventContext) {
   const { result, state, event } = context;
 
-  const loss = eventDie(result, event.rolls?.loss, `${event.eventId}:loss`, 6);
+  const loss = eventDie(
+    result,
+    event.rolls?.loss,
+    `${event.eventId}:loss`,
+    RULE_ROLL_SPECS.singleD6,
+  );
   if (loss !== null) {
     const before = state.training;
     state.training = Math.max(0, state.training - loss - state.rank);

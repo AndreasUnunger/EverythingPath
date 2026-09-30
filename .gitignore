@@ -52,3 +52,9 @@ yarn-error.log*
 /e2e-artifacts/
 /playwright-report/
 /test-results/
+
+# Claude Code agent worktrees
+.claude/worktrees/
+
+# Local working notes, drafts and screenshots
+.scratch/

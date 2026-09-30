@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { economyFixture } from '../../tests/rules/economy-fixture';
 import { roll } from '../../tests/rules/upkeep-fixture';
 import { projectActivity } from './rules-activity';
@@ -37,6 +37,7 @@ test('[rules.A01.success] DC20 activates one-week black market with 90 percent a
 });
 test('[rules.A01.failure] one below DC20 pays 50 gp and adds rolled Notoriety without activating or selling', () => {
   const f = economyFixture('activate_black_market');
+  assert(f.choice.actionId === 'activate_black_market');
   f.choice.rolls = { check: roll(20, 16), notoriety: roll(6, 4) };
   const r = ready(f);
   expect(r.checks[0]!.total).toBe(19);
@@ -70,6 +71,7 @@ test('[rules.A01.inputs] missing team, settlement, raw check, failure die and ec
   delete f.snapshot.economy;
   expect(project(f).requirements).toContain('economy:economy-state');
   const failure = economyFixture('activate_black_market');
+  assert(failure.choice.actionId === 'activate_black_market');
   failure.choice.rolls = { check: roll(20, 1) };
   expect(project(failure).ready).toBe(false);
 });
@@ -155,6 +157,7 @@ test('[rules.A08.tiers] Earn Gold multiplies the complete check by each eligible
 });
 test('[rules.A08.natural-one] natural one still earns gold and adds exactly the entered Notoriety die', () => {
   const f = economyFixture('earn_gold');
+  assert(f.choice.actionId === 'earn_gold');
   f.choice.rolls = { check: roll(20, 1), notoriety: roll(6, 6) };
   const r = ready(f);
   expect(r.outcome.treasuryCopper).toBe(1000600);
@@ -203,6 +206,7 @@ test('[rules.A08.removed] clearing Earn Gold removes its income and makes a subs
 });
 test('[rules.A19.minor] minor cache accepts 5 lb and 900 gp exactly at DC15 and requires an exception above either limit', () => {
   const f = economyFixture('secure_cache');
+  assert(f.choice.actionId === 'secure_cache');
   f.choice.rolls = { check: roll(20, 12) };
   expect(ready(f).outcome.economy!.caches[0]!.status).toBe('hidden');
   for (const field of ['weight', 'valueCopper'] as const) {
@@ -374,10 +378,12 @@ test('[rules.A21.price] Special Order discounts one item at copper precision, co
 test('[rules.A21.ordinary] ordinary delivery retains 2 and 12 day boundaries and requires both dice', () => {
   for (const die of [1, 6]) {
     const f = economyFixture('special_order');
+    assert(f.choice.actionId === 'special_order');
     f.choice.rolls = { delivery: roll(6, die, die) };
     expect(ready(f).outcome.economy!.orders[0]!.dueDay).toBe(273 + 2 * die);
   }
   const f = economyFixture('special_order');
+  assert(f.choice.actionId === 'special_order');
   delete f.choice.rolls;
   expect(project(f).ready).toBe(false);
   expect(project(f).outcome.economy!.orders).toEqual([]);
@@ -531,6 +537,7 @@ test('[rules.economy.multiple-markets] independent teams create distinct markets
 });
 test('[rules.economy.negative-check] negative modified Earn Gold results retain baseline arithmetic rather than inventing a minimum', () => {
   const f = economyFixture('earn_gold');
+  assert(f.choice.actionId === 'earn_gold');
   f.choice.rolls = {
     check: {
       ...roll(20, 2),

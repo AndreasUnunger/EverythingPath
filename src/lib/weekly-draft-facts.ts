@@ -13,32 +13,33 @@ const signedInteger = z.number().int();
 const id = identitySchema;
 const int = integerSchema;
 const reason = z.string().trim().min(1);
+export const rawRollProvenanceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('table') }),
+  z.strictObject({ kind: z.literal('generated'), sourceId: id }),
+]);
+export const rawRollModifiersSchema = z.array(
+  z.strictObject({ sourceId: id, value: signedInteger, reason }),
+);
+// A roll is recorded as the total of its dice, never as individual dice.
 export const rawRollSchema = z.strictObject({
-  dice: z.array(int).min(1),
   sides: int.min(2),
-  provenance: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('table') }),
-    z.strictObject({ kind: z.literal('generated'), sourceId: id }),
-  ]),
-  modifiers: z.array(
-    z.strictObject({ sourceId: id, value: signedInteger, reason }),
-  ),
+  provenance: rawRollProvenanceSchema,
+  modifiers: rawRollModifiersSchema,
+  diceTotal: int,
+  diceCount: int.positive(),
 });
+export type RawRoll = z.infer<typeof rawRollSchema>;
 
-export const rollsSchema = z.partialRecord(
-  z.enum([
-    'check',
-    'notoriety',
-    'training',
-    'delivery',
-    'loss',
-    'chance',
-    'table',
-    'duration',
-    'reward',
-  ]),
+export const upkeepRollsSchema = z.partialRecord(
+  z.enum(['check', 'training', 'notoriety', 'loss']),
   rawRollSchema,
 );
+const checkRolls = z.partialRecord(z.enum(['check']), rawRollSchema);
+const checkNotorietyRolls = z.partialRecord(
+  z.enum(['check', 'notoriety']),
+  rawRollSchema,
+);
+const eventRolls = z.partialRecord(z.enum(['check', 'loss']), rawRollSchema);
 export const acknowledgementSchema = z.strictObject({
   acknowledgementId: id,
   subjectId: id,
@@ -158,6 +159,7 @@ export const queuedEffectSchema = z.strictObject({
     z.strictObject({ kind: z.literal('narrative'), instruction: reason }),
   ]),
 });
+export type QueuedEffect = z.infer<typeof queuedEffectSchema>;
 
 export const persistentDecisionSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('unattempted'), eventId: id }),
@@ -166,15 +168,9 @@ export const persistentDecisionSchema = z.discriminatedUnion('kind', [
     eventId: id,
     officerCheck: officerCheckSchema.optional(),
     overseerCharacterId: id.optional(),
-    rolls: rollsSchema.optional(),
-    targets: z.array(eventTargetSchema).optional(),
-    strategistCharacterId: id.optional(),
+    rolls: checkRolls.optional(),
   }),
-  z.strictObject({
-    kind: z.literal('buyoff'),
-    eventId: id,
-    costCopper: int.optional(),
-  }),
+  z.strictObject({ kind: z.literal('buyoff'), eventId: id }),
   z.strictObject({
     kind: z.literal('end'),
     eventId: id,
@@ -194,19 +190,17 @@ export const eventOccurrenceSchema = z.strictObject({
   averagePartyLevel: int.optional(),
   officerCheck: officerCheckSchema.optional(),
   tableRoll: rawRollSchema.optional(),
-  rolls: rollsSchema.optional(),
+  rolls: eventRolls.optional(),
   targets: z.array(eventTargetSchema).optional(),
   persistent: z.boolean().optional(),
   persistentDecision: persistentDecisionSchema.optional(),
-  strategistCharacterId: id.optional(),
   overseerCharacterId: id.optional(),
   targetChecks: z
     .array(
       z.strictObject({
         target: eventTargetSchema,
         mitigation: z.enum(['unattempted', 'attempted']).optional(),
-        overseerCharacterId: id.optional(),
-        rolls: rollsSchema.optional(),
+        rolls: eventRolls.optional(),
       }),
     )
     .optional(),
@@ -228,9 +222,7 @@ export const eventOccurrenceSchema = z.strictObject({
       choiceId: id,
       teamId: id.optional(),
       check: z.enum(['loyalty', 'secrecy', 'security']).optional(),
-      overseerCharacterId: id.optional(),
-      acknowledgements: z.array(acknowledgementSchema).optional(),
-      rolls: rollsSchema.optional(),
+      rolls: checkNotorietyRolls.optional(),
     })
     .optional(),
 });
@@ -267,7 +259,6 @@ const commonChoice = {
   choiceId: id,
   teamId: id.optional(),
   costCopper: int.optional(),
-  rolls: rollsSchema.optional(),
   consumableIds: z.array(id).optional(),
   acknowledgements: z.array(acknowledgementSchema).optional(),
 };
@@ -307,7 +298,10 @@ function action<const Name extends string, Shape extends z.ZodRawShape>(
 }
 export const stagedActionChoiceSchema = z
   .discriminatedUnion('actionId', [
-    action('activate_black_market', marketplace),
+    action('activate_black_market', {
+      ...marketplace,
+      rolls: checkNotorietyRolls.optional(),
+    }),
     action('activate_refuge', settlement),
     action('broker_market', marketplace),
     action('change_officer_role', {
@@ -320,21 +314,39 @@ export const stagedActionChoiceSchema = z
       followingChoiceId: id.optional(),
       location: reason.optional(),
     }),
-    action('dismiss_team', { targetTeamId: id.optional() }),
-    action('drill_militia', {}),
-    action('earn_gold', {}),
-    action('gather_information', { subject: reason.optional() }),
+    action('dismiss_team', {
+      targetTeamId: id.optional(),
+      rolls: checkNotorietyRolls.optional(),
+    }),
+    action('drill_militia', {
+      rolls: z
+        .partialRecord(
+          z.enum(['check', 'notoriety', 'training']),
+          rawRollSchema,
+        )
+        .optional(),
+    }),
+    action('earn_gold', { rolls: checkNotorietyRolls.optional() }),
+    action('gather_information', {
+      rolls: checkNotorietyRolls.optional(),
+      subject: reason.optional(),
+    }),
     action('guarantee_event', {
+      rolls: z.partialRecord(z.enum(['notoriety']), rawRollSchema).optional(),
       candidates: eventTreeSchema.optional(),
       selectedEventId: id.optional(),
     }),
-    action('knowledge_check', { subject: reason.optional() }),
+    action('knowledge_check', {
+      rolls: checkRolls.optional(),
+      subject: reason.optional(),
+    }),
     action('lie_low', {}),
     action('manipulate_events', {
       candidates: eventTreeSchema.optional(),
       selectedEventId: id.optional(),
     }),
     action('recruit_team', {
+      rolls: checkNotorietyRolls.optional(),
       teamType: z.enum(TEAM_IDS).optional(),
       // Required only when an exception permits a team without recruitment rules.
       recruitmentCheck: z
@@ -344,8 +356,12 @@ export const stagedActionChoiceSchema = z
         })
         .optional(),
     }),
-    action('reduce_danger', settlement),
+    action('reduce_danger', {
+      ...settlement,
+      rolls: checkNotorietyRolls.optional(),
+    }),
     action('rescue_character', {
+      rolls: checkRolls.optional(),
       ...character,
       destination: z
         .discriminatedUnion('kind', [
@@ -372,6 +388,7 @@ export const stagedActionChoiceSchema = z
       targetPresent: z.boolean().optional(),
     }),
     action('secure_cache', {
+      rolls: checkRolls.optional(),
       mode: z.enum(['place', 'retrieve']).optional(),
       cacheId: id.optional(),
       cacheClass: z.enum(['minor', 'intermediate', 'major']).optional(),
@@ -384,6 +401,7 @@ export const stagedActionChoiceSchema = z
     }),
     action('special', { instruction: reason.optional() }),
     action('special_order', {
+      rolls: z.partialRecord(z.enum(['delivery']), rawRollSchema).optional(),
       name: reason.optional(),
       weight: z.number().nonnegative().optional(),
       orderId: id.optional(),
@@ -398,7 +416,10 @@ export const stagedActionChoiceSchema = z
       orderedDay: int.optional(),
     }),
     action('spread_propaganda', {
+      rolls: checkRolls.optional(),
       ...settlement,
+      // Retired GM-permission answer: older drafts and records still parse,
+      // but the rules assume approval and nothing writes it any more.
       possible: z.boolean().optional(),
       occupied: z.boolean().optional(),
     }),
@@ -429,4 +450,12 @@ export type StagedActionChoice = z.infer<typeof stagedActionChoiceSchema>;
 
 export function actionChoiceEvents(choice: StagedActionChoice | null) {
   return choice && 'candidates' in choice ? (choice.candidates ?? []) : [];
+}
+
+export type ActivityRollField = 'check' | 'notoriety' | 'training' | 'delivery';
+
+export function actionChoiceRolls(
+  choice: StagedActionChoice | null,
+): Partial<Record<ActivityRollField, RawRoll>> {
+  return choice && 'rolls' in choice ? (choice.rolls ?? {}) : {};
 }

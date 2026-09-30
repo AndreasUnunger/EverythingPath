@@ -37,6 +37,25 @@ export type EventActionChange =
       acknowledgement: Receipt | null;
     };
 
+/**
+ * The choice Covert Action's augment mode must name: the next staged choice
+ * in slot order after `choiceId`, skipping empty slots, or null when none
+ * follows.
+ */
+export function immediatelyFollowingChoiceId(
+  slots: readonly { choice: Pick<Choice, 'choiceId'> | null }[],
+  choiceId: string,
+) {
+  const choices = slots.flatMap((slot) => (slot.choice ? [slot.choice] : []));
+  const index = choices.findIndex((entry) => entry.choiceId === choiceId);
+  return index < 0 ? null : (choices[index + 1]?.choiceId ?? null);
+}
+
+// Guarantee Event needs no team; the others require their specialist team.
+export const eventActionTeams = {
+  covert_action: ['spies'],
+  manipulate_events: ['guardians'],
+} as const;
 export function resolveEventAction(
   draft: WeeklyDraft,
   result: ActivityProjection,
@@ -61,8 +80,7 @@ export function resolveEventAction(
       return true;
     }
     if (
-      team.teamType !==
-        (choice.actionId === 'covert_action' ? 'spies' : 'guardians') &&
+      team.teamType !== eventActionTeams[choice.actionId][0] &&
       !helpers.exception(draft, result, choice, 'team-action')
     )
       return true;
@@ -83,24 +101,18 @@ export function resolveEventAction(
       return true;
     }
     if (choice.mode === 'augment') {
-      const choices = draft.activity.slots.flatMap((slot) =>
-        slot.choice ? [slot.choice] : [],
+      const next = immediatelyFollowingChoiceId(
+        draft.activity.slots,
+        choice.choiceId,
       );
-      const next =
-        choices[
-          choices.findIndex((entry) => entry.choiceId === choice.choiceId) + 1
-        ];
-      if (
-        !choice.followingChoiceId ||
-        choice.followingChoiceId !== next?.choiceId
-      ) {
+      if (!choice.followingChoiceId || choice.followingChoiceId !== next) {
         required('immediately-following-choice');
         return true;
       }
       result.plan.push({
         kind: 'covert_augmentation',
         choiceId: choice.choiceId,
-        targetChoiceId: next.choiceId,
+        targetChoiceId: next,
         teamId: team!.teamId,
         bonus: team!.manager?.bonus ?? 0,
       });
@@ -131,7 +143,7 @@ export function resolveEventAction(
       )
     )
       return true;
-    const gain = helpers.dice(result, choice, 'notoriety', 1, 6);
+    const gain = helpers.dice(result, choice, 'notoriety');
     if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
   }
   if (!acknowledgement) required('acknowledgement');

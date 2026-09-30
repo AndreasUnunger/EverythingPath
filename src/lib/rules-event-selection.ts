@@ -1,4 +1,9 @@
+import type { RawRoll } from './weekly-draft-facts';
+import type { EventType } from './militia-domain';
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import { normalizeRawRoll } from './raw-roll';
 import { operatedSettlementIds } from './rules-event-context';
+import { isDiscoverableCache } from './rules-threat-events';
 import { projectSettlements } from './rules-settlements';
 import type { ActivityProjection } from './rules-activity';
 import type { WeeklyDraft } from './weekly-draft-contract';
@@ -34,6 +39,31 @@ export function dispatchEvent(
           : 'twice',
   };
 }
+/**
+ * A group of occurrence positions the rules ask for, with the saved
+ * occurrences that fill it in their saved order. Recording a group never
+ * changes selection: it is the trace that preparation and presentation read.
+ * A `reroll` replacement group belongs to a Roll Twice that is rerolled in
+ * its own die instead of adding events: one after the phase's one expansion,
+ * or any on an automatic event or an Activity candidate. It holds no events:
+ * the table enters a new die on the Roll Twice itself.
+ */
+export type EventPositionGroup =
+  | { kind: 'rolled'; count: number; eventIds: string[] }
+  | { kind: 'automatic'; sourceId: string; count: number; eventIds: string[] }
+  | { kind: 'candidates'; choiceId: string; count: number; eventIds: string[] }
+  | {
+      kind: 'roll_twice' | 'replacement';
+      parentEventId: string;
+      count: number;
+      eventIds: string[];
+      reroll: boolean;
+    };
+export type EventChanceBreakdown = {
+  notoriety: number;
+  carry: number;
+  queued: { effectId: string; sourceId: string; value: number }[];
+};
 export type EventSelectionProjection = {
   ready: boolean;
   requirements: string[];
@@ -48,6 +78,12 @@ export type EventSelectionProjection = {
   dispatch: EventDispatch[];
   /** The operating settlement's reputation modifier on the chance roll; null while that settlement's reputation is unknown. */
   chanceModifier: number | null;
+  chanceBreakdown: EventChanceBreakdown;
+  /** The chance roll's comparison, once both roll and adjustment are known and a roll applies. */
+  chanceResult: 'event' | 'quiet' | null;
+  /** A queued All Is Calm suppresses the chance roll and Activity candidates this week. */
+  forcedCalm: boolean;
+  positions: EventPositionGroup[];
 };
 
 type SelectionContext = {
@@ -63,42 +99,73 @@ function readEventDie(
   { result }: SelectionContext,
   raw: Event['tableRoll'],
   id: string,
-  sides: number,
 ) {
-  if (raw?.sides !== sides || raw.dice.length !== 1) {
-    result.requirements.push(`${id}:1d${sides}`);
+  const normalized = normalizeRawRoll(raw, RULE_ROLL_SPECS.percentile);
+  if (normalized.status !== 'complete') {
+    result.requirements.push(
+      `${id}:${RULE_ROLL_SPECS.percentile.count}d${RULE_ROLL_SPECS.percentile.sides}`,
+    );
     return null;
   }
-  const value = raw.dice[0]!;
-  if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
-  return value;
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
+export type EventTableArithmetic = {
+  /** The raw dice total, or null while the roll is missing or incomplete. */
+  raw: number | null;
+  /** Each recorded extra modifier and why the rules ignore it, if they do. */
+  modifiers: {
+    sourceId: string;
+    value: number;
+    reason: string;
+    ignored: 'settlement' | 'repeated' | null;
+  }[];
+  /** Raw plus applied modifiers, bounded to the table's 1–100. */
+  total: number | null;
+};
+// Settlement reputation modifies the chance roll only, and one value counts
+// per modifier source (the last one recorded).
+export function eventTableArithmetic(
+  roll: RawRoll | null | undefined,
+): EventTableArithmetic {
+  const normalized = normalizeRawRoll(roll, RULE_ROLL_SPECS.percentile);
+  const recorded = roll?.modifiers ?? [];
+  const last = new Map(recorded.map((entry, index) => [entry.sourceId, index]));
+  const modifiers = recorded.map((entry, index) => ({
+    ...entry,
+    ignored:
+      entry.sourceId === 'settlement' || entry.sourceId === 'reputation'
+        ? ('settlement' as const)
+        : last.get(entry.sourceId) === index
+          ? null
+          : ('repeated' as const),
+  }));
+  if (normalized.status !== 'complete')
+    return { raw: null, modifiers, total: null };
+  const applied = modifiers.reduce(
+    (sum, entry) => sum + (entry.ignored ? 0 : entry.value),
+    0,
+  );
+  return {
+    raw: normalized.diceTotal,
+    modifiers,
+    total: Math.max(1, Math.min(100, normalized.diceTotal + applied)),
+  };
+}
+export function eventTypeForTableRoll(
+  roll: RawRoll | null | undefined,
+): EventType | null {
+  const { total } = eventTableArithmetic(roll);
+  return total === null ? null : eventTypeForPercentile(total);
+}
+
 // The operating settlement's reputation never touches the table roll; it
 // modifies the chance roll (see selectChanceEvent).
 function resolveTableRoll(context: SelectionContext, event: Event) {
   const { result } = context;
-  const value = readEventDie(
-    context,
-    event.tableRoll,
-    `${event.eventId}:table`,
-    100,
-  );
-  if (value === null) return null;
-  const extra = new Map<string, number>();
-  for (const modifier of event.tableRoll?.modifiers ?? [])
-    if (
-      modifier.sourceId !== 'settlement' &&
-      modifier.sourceId !== 'reputation'
-    )
-      extra.set(modifier.sourceId, modifier.value);
-  const total = Math.max(
-    1,
-    Math.min(
-      100,
-      value + [...extra.values()].reduce((sum, value) => sum + value, 0),
-    ),
-  );
-  const eventType = eventTypeForPercentile(total);
+  readEventDie(context, event.tableRoll, `${event.eventId}:table`);
+  const eventType = eventTypeForTableRoll(event.tableRoll);
+  if (eventType === null) return null;
   if (event.eventType && event.eventType !== eventType)
     result.warnings.push(`${event.eventId}:calculated-event`);
   const resolved = { ...structuredClone(event), eventType };
@@ -109,11 +176,7 @@ function canEventOccur({ draft, activity }: SelectionContext, event: Event) {
   const state = activity.outcome;
   switch (event.eventType) {
     case 'cache_discovered':
-      return (
-        state.economy?.caches.some(
-          (cache) => cache.status === 'hidden' || cache.status === 'returning',
-        ) ?? false
-      );
+      return state.economy?.caches.some(isDiscoverableCache) ?? false;
     case 'raid':
       return state.settlements.some(
         (town) =>
@@ -147,11 +210,14 @@ function canEventOccur({ draft, activity }: SelectionContext, event: Event) {
       return true;
   }
 }
+// Only the chance-rolled tree can expand a Roll Twice. Automatic events and,
+// since the candidate reroll Ruleset Version (#191), every event in an
+// Activity candidate set reroll it in place.
 function selectOccurrence(
   context: SelectionContext,
   event: Event,
   tree: Event[],
-  automatic = false,
+  inPlace = false,
 ) {
   const { draft, result } = context;
   const resolved = resolveTableRoll(context, event);
@@ -169,7 +235,11 @@ function selectOccurrence(
     return;
   }
   const expands =
-    resolved.eventType === 'roll_twice' && !automatic && !context.expanded;
+    resolved.eventType === 'roll_twice' && !inPlace && !context.expanded;
+  if (resolved.eventType === 'roll_twice' && !expands) {
+    requireReroll(context, event.eventId);
+    return;
+  }
   const kind = expands ? 'roll_twice' : 'replacement';
   const count = expands ? 2 : 1;
   if (expands) context.expanded = true;
@@ -179,12 +249,30 @@ function selectOccurrence(
       'parentEventId' in entry.origin &&
       entry.origin.parentEventId === event.eventId,
   );
+  result.positions.push({
+    kind,
+    parentEventId: event.eventId,
+    count,
+    eventIds: children.map((child) => child.eventId),
+    reroll: false,
+  });
   if (children.length !== count) {
     result.requirements.push(`${event.eventId}:${kind}:${count}`);
     return;
   }
-  for (const child of children)
-    selectOccurrence(context, child, tree, automatic);
+  for (const child of children) selectOccurrence(context, child, tree, inPlace);
+}
+
+// A Roll Twice rerolled in its own die waits for its new table roll.
+function requireReroll(context: SelectionContext, eventId: string) {
+  context.result.positions.push({
+    kind: 'replacement',
+    parentEventId: eventId,
+    count: 1,
+    eventIds: [],
+    reroll: true,
+  });
+  context.result.requirements.push(`${eventId}:replacement:1`);
 }
 
 function selectReplacement(
@@ -197,6 +285,13 @@ function selectReplacement(
       event.origin.kind === 'replacement' &&
       event.origin.parentEventId === replacement.parentEventId,
   );
+  result.positions.push({
+    kind: 'replacement',
+    parentEventId: replacement.parentEventId,
+    count: 1,
+    eventIds: children.map((child) => child.eventId),
+    reroll: false,
+  });
   if (children.length !== 1)
     result.requirements.push(`${replacement.parentEventId}:replacement:1`);
   else
@@ -204,7 +299,7 @@ function selectReplacement(
       context,
       children[0]!,
       replacement.tree,
-      replacement.automatic,
+      replacement.inPlace,
     );
 }
 function selectAutomaticEvents(context: SelectionContext) {
@@ -236,6 +331,13 @@ function selectAutomaticEvents(context: SelectionContext) {
         event.origin.kind === 'automatic' &&
         event.origin.sourceId === effect.sourceId,
     );
+    if (effect.effect.kind === 'automatic_events')
+      result.positions.push({
+        kind: 'automatic',
+        sourceId: effect.sourceId,
+        count: effect.effect.count,
+        eventIds: roots.map((root) => root.eventId),
+      });
     if (
       effect.effect.kind === 'automatic_events' &&
       roots.length !== effect.effect.count
@@ -249,6 +351,8 @@ function selectAutomaticEvents(context: SelectionContext) {
   }
   return automaticSources;
 }
+// Both candidates need a usable result, chosen or not: one that cannot occur
+// needs its replacement, and a Roll Twice is rerolled in its own die.
 function validateCandidate(
   context: SelectionContext,
   guarantee: Guarantee,
@@ -256,7 +360,12 @@ function validateCandidate(
 ) {
   const { draft, result } = context;
   const resolved = resolveTableRoll(context, event);
-  if (!resolved || canEventOccur(context, resolved)) return;
+  if (!resolved) return;
+  if (resolved.eventType === 'roll_twice') {
+    requireReroll(context, event.eventId);
+    return;
+  }
+  if (canEventOccur(context, resolved)) return;
   result.warnings.push(`${event.eventId}:event-eligibility`);
   if (
     draft.rulesExceptions.some(
@@ -272,6 +381,13 @@ function validateCandidate(
       entry.origin.kind === 'replacement' &&
       entry.origin.parentEventId === event.eventId,
   );
+  result.positions.push({
+    kind: 'replacement',
+    parentEventId: event.eventId,
+    count: 1,
+    eventIds: replacements.map((entry) => entry.eventId),
+    reroll: false,
+  });
   if (replacements.length !== 1)
     result.requirements.push(`${event.eventId}:replacement:1`);
   else validateCandidate(context, guarantee, replacements[0]!);
@@ -283,6 +399,12 @@ function selectGuaranteedEvents(context: SelectionContext) {
     const roots = guarantee.candidates.filter(
       (event) => event.origin.kind === 'rolled',
     );
+    result.positions.push({
+      kind: 'candidates',
+      choiceId: guarantee.choiceId,
+      count: 2,
+      eventIds: roots.map((root) => root.eventId),
+    });
     if (roots.length !== 2)
       result.requirements.push(`${guarantee.choiceId}:candidates:2`);
     // Both independent percentile rolls are required even for the rejected option.
@@ -293,7 +415,7 @@ function selectGuaranteedEvents(context: SelectionContext) {
     if (!chosen)
       result.requirements.push(`${guarantee.choiceId}:selected-event`);
     else if (roots.length === 2)
-      selectOccurrence(context, chosen, guarantee.candidates);
+      selectOccurrence(context, chosen, guarantee.candidates, true);
   }
 }
 function selectChanceEvent(context: SelectionContext) {
@@ -302,49 +424,73 @@ function selectChanceEvent(context: SelectionContext) {
     context,
     draft.event.chanceRoll,
     'event:chance',
-    100,
   );
   // Friendly subtracts 5 from, and Unfriendly adds 5 to, the percentile roll
   // that decides whether an event occurs (Table 6-2).
   if (result.chanceModifier === null)
     result.requirements.push('event:operating-settlement');
   // The accepted E01 audit baseline explicitly uses a strict comparison.
-  if (
-    chanceRoll !== null &&
-    result.chanceModifier !== null &&
-    chanceRoll + result.chanceModifier < result.chance
-  ) {
+  result.chanceResult =
+    chanceRoll === null || result.chanceModifier === null
+      ? null
+      : chanceRoll + result.chanceModifier < result.chance
+        ? 'event'
+        : 'quiet';
+  if (result.chanceResult === 'event') {
     const roots = draft.event.occurrences.filter(
       (event) => event.origin.kind === 'rolled',
     );
+    result.positions.push({
+      kind: 'rolled',
+      count: 1,
+      eventIds: roots.map((root) => root.eventId),
+    });
     if (roots.length !== 1) result.requirements.push('event:root:1');
     else selectOccurrence(context, roots[0]!, draft.event.occurrences);
   }
 }
-function calculateEventChance(
+function eventChanceBreakdown(
   draft: WeeklyDraft,
   outcome: ActivityProjection['outcome'],
   carryModifier: number,
-) {
-  const modifiers = draft.context.queuedEffects.filter(
-    (effect) =>
+): EventChanceBreakdown {
+  return {
+    notoriety: outcome.notoriety,
+    carry: carryModifier,
+    queued: draft.context.queuedEffects.flatMap((effect) =>
       effect.startsWeek <= draft.week &&
       draft.week <= effect.endsWeek &&
-      effect.effect.kind === 'event_chance',
-  );
+      effect.effect.kind === 'event_chance'
+        ? [
+            {
+              effectId: effect.effectId,
+              sourceId: effect.sourceId,
+              value: effect.effect.value,
+            },
+          ]
+        : [],
+    ),
+  };
+}
+function calculateEventChance({
+  notoriety,
+  carry,
+  queued,
+}: EventChanceBreakdown) {
   return Math.max(
     10,
     Math.min(
       95,
-      outcome.notoriety +
-        carryModifier +
-        modifiers.reduce(
-          (sum, effect) =>
-            sum +
-            (effect.effect.kind === 'event_chance' ? effect.effect.value : 0),
-          0,
-        ),
+      notoriety + carry + queued.reduce((sum, entry) => sum + entry.value, 0),
     ),
+  );
+}
+function isForcedCalm(draft: WeeklyDraft) {
+  return draft.context.queuedEffects.some(
+    (effect) =>
+      effect.startsWeek <= draft.week &&
+      draft.week <= effect.endsWeek &&
+      effect.effect.kind === 'all_is_calm',
   );
 }
 
@@ -353,12 +499,20 @@ function createSelectionContext(
   activity: SelectionContext['activity'],
   expanded: boolean,
 ): SelectionContext {
+  const carryModifier = draft.context.uneventfulCarry
+    ? activity.outcome.rank
+    : 0;
+  const chanceBreakdown = eventChanceBreakdown(
+    draft,
+    activity.outcome,
+    carryModifier,
+  );
   const result: EventSelectionProjection = {
     ready: false,
     requirements: [...activity.requirements],
     warnings: [...activity.warnings],
-    chance: 10,
-    carryModifier: draft.context.uneventfulCarry ? activity.outcome.rank : 0,
+    chance: calculateEventChance(chanceBreakdown),
+    carryModifier,
     nextUneventfulCarry: null,
     guaranteed: false,
     guarantees: activity.plan.filter(
@@ -368,13 +522,12 @@ function createSelectionContext(
     selected: [],
     dispatch: [],
     chanceModifier: 0,
+    chanceBreakdown,
+    chanceResult: null,
+    forcedCalm: isForcedCalm(draft),
+    positions: [],
   };
   result.guaranteed = result.guarantees.length > 0;
-  result.chance = calculateEventChance(
-    draft,
-    activity.outcome,
-    result.carryModifier,
-  );
 
   result.chanceModifier = draft.activity.operatingSettlementId
     ? (projectSettlements(
@@ -413,7 +566,8 @@ export function projectEventSelection(
   replacement?: {
     parentEventId: string;
     tree: Event[];
-    automatic: boolean;
+    /** An automatic event's or an Activity candidate's tree rerolls a Roll Twice in place. */
+    inPlace: boolean;
     expanded: boolean;
   },
 ): EventSelectionProjection {
@@ -431,12 +585,7 @@ export function projectEventSelection(
     return result;
   }
   const automaticSources = selectAutomaticEvents(context);
-  const forcedCalm = draft.context.queuedEffects.some(
-    (effect) =>
-      effect.startsWeek <= draft.week &&
-      draft.week <= effect.endsWeek &&
-      effect.effect.kind === 'all_is_calm',
-  );
+  const forcedCalm = result.forcedCalm;
   if (!forcedCalm) {
     selectGuaranteedEvents(context);
     if (!result.guaranteed) selectChanceEvent(context);
@@ -444,10 +593,47 @@ export function projectEventSelection(
   finalizeEventSelection(result);
   if (result.ready)
     result.nextUneventfulCarry =
-      !draft.context.firstMilitiaWeek &&
-      !forcedCalm &&
-      automaticSources.length === 0 &&
-      result.selected.length < 2 &&
-      result.selected.every((event) => event.eventType === 'all_is_calm');
+      uneventfulCarryBlockers({
+        firstMilitiaWeek: draft.context.firstMilitiaWeek,
+        forcedCalm,
+        hasAutomaticEvents: automaticSources.length > 0,
+        selected: result.selected,
+      }).length === 0;
   return result;
+}
+
+/** Why a week does not build the uneventful chance carry. */
+export type UneventfulCarryBlocker =
+  | 'first_week'
+  | 'forced_calm'
+  | 'automatic_events'
+  | 'several_events'
+  | 'other_event';
+
+/**
+ * The reasons a week is not uneventful for next week's chance carry; none
+ * means it counts. Only a week with no event or a single All Is Calm builds
+ * the carry, and never the first week, a forced calm or a week with
+ * automatic events.
+ */
+export function uneventfulCarryBlockers({
+  firstMilitiaWeek,
+  forcedCalm,
+  hasAutomaticEvents,
+  selected,
+}: {
+  firstMilitiaWeek: boolean;
+  forcedCalm: boolean;
+  hasAutomaticEvents: boolean;
+  selected: readonly Pick<Event, 'eventType'>[];
+}): UneventfulCarryBlocker[] {
+  return [
+    ...(firstMilitiaWeek ? (['first_week'] as const) : []),
+    ...(forcedCalm ? (['forced_calm'] as const) : []),
+    ...(hasAutomaticEvents ? (['automatic_events'] as const) : []),
+    ...(selected.length >= 2 ? (['several_events'] as const) : []),
+    ...(selected.some((event) => event.eventType !== 'all_is_calm')
+      ? (['other_event'] as const)
+      : []),
+  ];
 }

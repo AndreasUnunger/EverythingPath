@@ -52,7 +52,7 @@ This document reorganizes the militia subsystem into searchable sections and nor
 
 - Starts at 10 gp.
 - Used for actions, recruitment, upgrades, event costs.
-- Officers can deposit/withdraw during Upkeep step 5.
+- Officers can deposit/withdraw during Upkeep step 5. The application stages deposits and withdrawals without choosing an officer; see the application departure under [Step 5: Deposits and Withdrawals](#step-5-deposits-and-withdrawals).
 
 ### Minimum Treasury
 
@@ -90,6 +90,7 @@ This document reorganizes the militia subsystem into searchable sections and nor
   - PC or officer NPC: up to Charisma modifier teams (minimum 1).
   - Non-officer: one team.
 - Team actions add manager Charisma bonus to required organization checks.
+- Application note (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): an NPC counts as an officer exactly while holding at least one officer role in the roster the rules evaluate, including earlier officer changes that week; a stored character kind never decides it. Going over a lowered limit during the week needs a reasoned Rules Exception. Weeks confirmed under earlier Ruleset Versions keep their recorded limits and warnings.
 
 ### Maximum Teams
 
@@ -122,6 +123,7 @@ Multiple officers can fill the same role, but their bonuses do not stack (except
 ### Commandant
 
 - On successful Drill Militia Loyalty check, training gained increases by commandant Hit Dice.
+- Application departure (approved in [#112](https://github.com/AndreasUnunger/EverythingPath/issues/112#issuecomment-5836835106), Ruleset Version 8): a commandant's Hit Dice are the roster's explicit Hit Dice override, zero included, or else the character's level; Hit Dice are no longer required before the week. Weeks confirmed under earlier Ruleset Versions keep their recorded training.
 
 ### Marshal
 
@@ -237,6 +239,7 @@ If treasury is below minimum:
 ### Step 5: Deposits and Withdrawals
 
 - Any officer may deposit/withdraw gold from militia treasury.
+- Application departure (approved in [#107](https://github.com/AndreasUnunger/EverythingPath/issues/107#issuecomment-5836751035), Ruleset Version 6): the application does not enforce the officer-only sentence above. Deposits and withdrawals are staged without choosing a character or officer. The source text is unchanged; weeks confirmed under earlier Ruleset Versions keep their recorded actors and officer rulings. A withdrawal beyond the available treasury still needs a reasoned Rules Exception.
 
 ## Activity Phase
 
@@ -318,6 +321,7 @@ If treasury is below minimum:
 - Cost: minimum treasury value.
 - Also increase Notoriety by `+1d6`.
 - Effect: event guaranteed this week; GM rolls twice and PCs choose event.
+- Application departure (approved in [#108](https://github.com/AndreasUnunger/EverythingPath/issues/108#issuecomment-5837858373), Ruleset Version 7): a Roll Twice on either rolled event, chosen or not, is rerolled in its own die and never expands, even as the phase's first Roll Twice. The `Event: Roll Twice` text is unchanged; weeks confirmed under earlier Ruleset Versions keep their recorded expansion.
 
 ## Action: Knowledge Check
 
@@ -338,6 +342,7 @@ If treasury is below minimum:
 - Guarantees an event this week.
 - GM rolls twice on event table.
 - Any player chooses which of the two rolled events occurs (review decision A13.chooser).
+- Application departure (Ruleset Version 7): as for Guarantee Event, a Roll Twice on either rolled event is rerolled in its own die and never expands.
 
 ## Action: Recruit Team
 
@@ -421,6 +426,8 @@ If treasury is below minimum:
 - Success: improve settlement reputation by one step.
 - DC increases by 5 in settlements occupied by enemy troops/major organizations (or may be impossible at GM discretion).
 - Settlement can be influenced once per Activity phase.
+- Application departure (user decision 2026-09-28, Ruleset Version 9): the application assumes the GM allows propaganda in every settlement, since players act with the GM's blessing. It asks no permission and needs no Rules Exception for an impossible settlement; a stored "impossible" answer is ignored. The occupation DC increase and the once-per-Activity limit are unchanged. Weeks confirmed under earlier Ruleset Versions keep their recorded rulings, warnings and outcomes.
+- Ruleset Version 9 also changes two Event edge cases (user decision 2026-09-29). A Raid or Cache Discovered reads mitigation and its check only per person or per cache: an event-level mitigation or check roll kept from an earlier table result (Theft or Sickness) is ignored and listed as an unused input to clear, where earlier versions applied it to every person or cache. A replacement prepared for an event that cannot occur is no longer the reroll once its parent's die is corrected to a Roll Twice rerolled in its own die: the replacement stays unused and the Roll Twice asks for its own new die, where earlier versions used the replacement as that reroll. Weeks confirmed under earlier Ruleset Versions keep their recorded outcomes.
 
 ## Action: Strike Team
 

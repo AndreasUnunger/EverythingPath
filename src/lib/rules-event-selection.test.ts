@@ -182,31 +182,34 @@ test('[rules.E04.two] Roll Twice preserves both final occurrence identities and 
     'second',
   ]);
 });
-test('[rules.E04.reroll] repeated Roll Twice keeps requesting replacements until every leaf has a roll', () => {
+test('[rules.E04.reroll] repeated Roll Twice keeps asking for a reroll in its own die until every leaf has a roll', () => {
   const { draft, snapshot } = eventSelectionFixture();
   draft.event.occurrences = pair(50);
+  const [, first, second] = draft.event.occurrences;
   expect(project(draft, snapshot).event.requirements).toEqual([
     'first:replacement:1',
     'second:replacement:1',
   ]);
+  // A child recorded under a Roll Twice is not its reroll (Ruleset Version 9),
+  // even a replacement kept from when its parent's die was an event that
+  // could not occur: the Roll Twice still asks for its own new die.
   draft.event.occurrences.push(
-    occurrence('again', 50, { kind: 'replacement', parentEventId: 'first' }),
-    occurrence('last', 10, { kind: 'replacement', parentEventId: 'second' }),
+    occurrence('child', 10, { kind: 'replacement', parentEventId: 'first' }),
   );
+  second!.tableRoll = roll(100, 10);
   expect(project(draft, snapshot).event.requirements).toEqual([
-    'again:replacement:1',
+    'first:replacement:1',
   ]);
-  draft.event.occurrences.push(
-    occurrence('resolved', 10, { kind: 'replacement', parentEventId: 'again' }),
-  );
+  draft.event.occurrences.pop();
+  first!.tableRoll = roll(100, 10);
   expect(weeklyDraftSchema.safeParse(draft).success).toBe(true);
   expect(project(draft, snapshot).event).toMatchObject({
     ready: true,
-    selected: [{ eventId: 'resolved' }, { eventId: 'last' }],
+    selected: [{ eventId: 'first' }, { eventId: 'second' }],
   });
-  delete draft.event.occurrences.at(-1)!.tableRoll;
+  delete first!.tableRoll;
   expect(project(draft, snapshot).event.requirements).toEqual([
-    'resolved:table:1d100',
+    'first:table:1d100',
   ]);
 });
 test('[rules.E04.no-clause] duplicates with no Twice clause dispatch independent baseline occurrences', () => {
@@ -248,23 +251,29 @@ test('[rules.E04.independent] automatic replacements precede guarantees and do n
       },
     ],
   };
-  draft.event.occurrences = [
-    occurrence('auto', 50, { kind: 'automatic', sourceId: 'storm' }),
-    occurrence('auto-replacement', 10, {
-      kind: 'replacement',
-      parentEventId: 'auto',
-    }),
-  ];
-  choice.candidates = [...pair(10), occurrence('rejected', 74)];
+  const auto = occurrence('auto', 50, { kind: 'automatic', sourceId: 'storm' });
+  draft.event.occurrences = [auto];
+  choice.candidates = [occurrence('root', 10), occurrence('rejected', 74)];
   choice.selectedEventId = 'root';
+  // An automatic Roll Twice is rerolled in its own die.
+  expect(project(draft, snapshot).event.requirements).toContain(
+    'auto:replacement:1',
+  );
+  auto.tableRoll = roll(100, 10);
   const result = project(draft, snapshot).event;
   expect(result.ready).toBe(true);
   expect(result.selected.map((event) => event.eventId)).toEqual([
-    'auto-replacement',
-    'first',
-    'second',
+    'auto',
+    'root',
   ]);
   expect(result.nextUneventfulCarry).toBe(false);
+  // Without the guarantee the chance-rolled event keeps the one expansion.
+  draft.activity.slots[0]!.choice = null;
+  draft.event.chanceRoll = roll(100, 1);
+  draft.event.occurrences.push(...pair(10));
+  expect(
+    project(draft, snapshot).event.selected.map((event) => event.eventId),
+  ).toEqual(['auto', 'first', 'second']);
 });
 
 test('[rules.E03.eligibility] impossible occurrences require replacements and intentional exceptions retain a reason', () => {
@@ -306,25 +315,25 @@ test('[rules.E03.nested] an impossible leaf inside Roll Twice can request furthe
   const { draft, snapshot } = eventSelectionFixture();
   snapshot.roster.teams = [];
   draft.event.occurrences = pair(90);
+  const another = occurrence('another', 50, {
+    kind: 'replacement',
+    parentEventId: 'first',
+  });
   draft.event.occurrences.push(
-    occurrence('another', 50, { kind: 'replacement', parentEventId: 'first' }),
+    another,
     occurrence('second-result', 10, {
       kind: 'replacement',
       parentEventId: 'second',
     }),
   );
+  // The replacement rolled Roll Twice: it is rerolled in its own die.
   expect(project(draft, snapshot).event.requirements).toEqual([
     'another:replacement:1',
   ]);
-  draft.event.occurrences.push(
-    occurrence('first-result', 10, {
-      kind: 'replacement',
-      parentEventId: 'another',
-    }),
-  );
+  another.tableRoll = roll(100, 10);
   expect(
     project(draft, snapshot).event.selected.map((event) => event.eventId),
-  ).toEqual(['first-result', 'second-result']);
+  ).toEqual(['another', 'second-result']);
 });
 
 test.each([

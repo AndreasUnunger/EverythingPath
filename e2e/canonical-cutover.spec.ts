@@ -1,3 +1,4 @@
+import { openCampaignSection } from './support/interactions';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { api } from '../convex/_generated/api';
@@ -13,10 +14,7 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
   ownedCase,
   comparisonCase,
 }) => {
-  const { run, connect } = await prepareContract(
-    players,
-    comparisonCase!.scope,
-  );
+  const { run, connect } = await prepareContract(players, comparisonCase!);
   const client = connect(players.gm);
   try {
     const key = await client.mutation(
@@ -34,6 +32,7 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
       training: 42,
     });
     await players.gm.goto('/campaigns');
+    await openCampaignSection(players.gm, 'week');
     await expect(
       players.gm.getByRole('heading', { name: 'Week 9 · Upkeep' }),
     ).toBeVisible();
@@ -66,6 +65,20 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
       week: 9,
     });
     expect(history).not.toBeNull();
+    // Campaign home's latest-weeks contract: the same bounded listing query.
+    const finished = await client.query(api.canonicalHistory.list, {
+      campaignId: key.campaignId,
+      limit: 3,
+    });
+    expect(finished.weeks[0]).toMatchObject({
+      week: 9,
+      effectiveRecordId: history!.effectiveRecordId,
+      entryCount: 1,
+      provenance: 'confirmation',
+      createdAt: history!.createdAt,
+    });
+    expect(finished.weeks.length).toBeLessThanOrEqual(3);
+    expect(history!.audit[0]?.createdAt).toBe(history!.createdAt);
     await expect(
       client.mutation(api.weekBoard.saveWeekBoardState, {}),
     ).rejects.toThrow('Open the current militia week');
@@ -87,6 +100,12 @@ test('accepted campaign preserves canonical history and rejects retired paths', 
         week: 9,
       }),
     ).toEqual(history);
+    expect(
+      await client.query(api.canonicalHistory.list, {
+        campaignId: key.campaignId,
+        limit: 3,
+      }),
+    ).toEqual(finished);
     await savePrivate(
       join(run.artifactDirectory, 'cutover-evidence.json'),
       JSON.stringify(

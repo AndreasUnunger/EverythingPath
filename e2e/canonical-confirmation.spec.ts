@@ -1,3 +1,9 @@
+import { verifyIndependentAuthorization } from './support/authorization-probes';
+import { openCampaignSection } from './support/interactions';
+import {
+  showAllResultValues,
+  summaryResult as historyResult,
+} from './support/summary-result';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { compoundAcceptanceFixture } from '../tests/rules/compound-acceptance-fixture';
 import { randomUUID } from 'node:crypto';
@@ -14,6 +20,25 @@ import {
   type ConfirmationContractHarness,
 } from '../tests/persistence/confirmation-contracts';
 import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
+import { historyPath } from '../src/lib/campaign-routes';
+import type { Page } from '@playwright/test';
+import type { z } from 'zod';
+import { reviewFinishedWeeks } from './support/finished-weeks';
+
+// The finished week's six sections, in rules order, then its Result row for
+// one "Group · Label" fact (a table row from tablet width up).
+const historySections = [
+  '1 Upkeep',
+  '2 Activity',
+  '3 Event',
+  '4 Persistent',
+  'Table Adjustments',
+  'Result',
+];
+const historyRow = (page: Page, label: string) =>
+  historyResult(page).locator('tbody tr').filter({ hasText: label });
+/** Value, At confirmation, Rules Baseline and Final of the treasury row. */
+const recordedTreasury = [/^Militia · Treasury/, '1 gp', '0.8 gp', '0.87 gp'];
 
 test.use({ caseKey: 'canonicalPersistence', comparisonCaseKey: 'isolation' });
 
@@ -25,7 +50,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
   test.setTimeout(300_000);
   const { run, url, comparison, connect } = await prepareContract(
     players,
-    comparisonCase!.scope,
+    comparisonCase!,
   );
   const first = connect(players.gm);
   const second = connect(players.player);
@@ -33,6 +58,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
   const anonymous = new ConvexClient(url, { logger: false });
   try {
     let activeCampaign: string | undefined;
+    let activeKey: z.infer<typeof draftKeySchema> | undefined;
     const confirmationHarness = async (
       verifyConfirmationAuthorization = false,
     ): Promise<ConfirmationContractHarness> => {
@@ -44,6 +70,7 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         }),
       );
       activeCampaign = scope.campaignId;
+      activeKey = scope;
       const firstTransport = createConvexDraftTransport(first, scope);
       const inspect = async () =>
         confirmationInspectionSchema.parse(
@@ -60,7 +87,8 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
           edit: {
             kind: 'event_chance',
             roll: {
-              dice: [100],
+              diceTotal: 100,
+              diceCount: 1,
               sides: 100,
               provenance: { kind: 'table' },
               modifiers: [],
@@ -71,24 +99,32 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       const before = await inspect();
       const preview = await firstTransport.preview();
       if (verifyConfirmationAuthorization) expect(preview.status).toBe('ready');
-      for (const denied of [
-        createConvexDraftTransport(outsider, scope),
-        createConvexDraftTransport(anonymous, scope),
-        createConvexDraftTransport(first, {
-          ...scope,
-          campaignId: comparison.campaignId,
-        }),
-      ]) {
-        await expect(denied.preview()).rejects.toThrow();
-        if (verifyConfirmationAuthorization)
-          await expect(
-            denied.confirm({
-              operationId: randomUUID(),
-              reviewed: preview.reviewed,
-            }),
-          ).rejects.toThrow();
-      }
-      expect(await inspect()).toEqual(before);
+      await verifyIndependentAuthorization(
+        [
+          createConvexDraftTransport(outsider, scope),
+          createConvexDraftTransport(anonymous, scope),
+          createConvexDraftTransport(first, {
+            ...scope,
+            campaignId: comparison.campaignId,
+          }),
+        ].map((denied) => [
+          () => expect(denied.preview()).rejects.toThrow(),
+          ...(verifyConfirmationAuthorization
+            ? [
+                () =>
+                  expect(
+                    denied.confirm({
+                      operationId: randomUUID(),
+                      reviewed: preview.reviewed,
+                    }),
+                  ).rejects.toThrow(),
+              ]
+            : []),
+        ]),
+        async () => {
+          expect(await inspect()).toEqual(before);
+        },
+      );
       return {
         first: firstTransport,
         second: createConvexDraftTransport(second, scope),
@@ -291,70 +327,110 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
       ]);
       expect(record.provenance).toBe('confirmation');
       expect(record.supersedesRecordId).toBeNull();
-      const historyRoute = `/canonical-history?campaign=${activeCampaign}`;
+      const historyRoute = historyPath(activeCampaign!, { week: 1 });
       await Promise.all([
         players.gm.goto(historyRoute),
         players.player.goto(historyRoute),
         players.outsider.goto(historyRoute),
       ]);
       for (const page of [players.gm, players.player]) {
+        await expect(page).toHaveURL(/\/campaigns\/[^/]+\/history\?week=1$/);
         await expect(
-          page.getByRole('heading', { name: 'Week 1 · History' }),
+          page.getByRole('heading', { level: 1, name: 'Week 1', exact: true }),
         ).toBeVisible();
+        // At confirmation, Rules Baseline and copper-exact Final, with the
+        // adjustment's difference stated in words as well as emphasis.
         await expect(
-          page
-            .getByRole('region', { name: 'Final outcome' })
-            .getByText('87', { exact: true }),
-        ).toBeVisible();
-        await expect(
-          page
-            .getByRole('region', { name: 'Table adjustments' })
-            .getByText('Found seven copper'),
-        ).toBeVisible();
+          historyRow(page, 'Militia · Treasury').locator('td'),
+        ).toHaveText(recordedTreasury);
+        await expect(historyRow(page, 'Militia · Treasury')).toContainText(
+          'Table Adjustments change the Rules Baseline 0.8 gp to 0.87 gp.',
+        );
+        const adjustments = page.getByRole('region', {
+          name: 'Table Adjustments',
+          exact: true,
+        });
+        await expect(adjustments).toContainText('Treasury +0.07 gp');
+        await expect(adjustments).toContainText('Found seven copper');
         await expect(page.getByRole('textbox')).toHaveCount(0);
         await expect(
           page.getByRole('button', { name: 'Confirm week', exact: true }),
         ).toHaveCount(0);
       }
       await expect(
-        players.gm.getByRole('heading', { name: 'History correction' }),
+        players.gm.getByText(
+          "Read-only. Recorded when the week was confirmed. Corrections to a finished week aren't available yet.",
+        ),
       ).toBeVisible();
       await expect(
-        players.player.getByRole('heading', { name: 'History correction' }),
+        players.player.getByText(
+          "Read-only. Recorded when the week was confirmed. Corrections to a finished week aren't available yet.",
+        ),
       ).toBeVisible();
       await expect(
-        players.outsider.getByRole('heading', { name: 'Week 1 · History' }),
+        players.outsider.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toHaveCount(0);
-      await expect(
-        players.outsider.getByRole('main').getByRole('alert'),
-      ).toContainText('History could not be loaded');
+      await expect(players.outsider.getByRole('main')).toContainText(
+        "This campaign isn't available",
+      );
       await players.player.screenshot({
         path: join(run.artifactDirectory, 'canonical-history-tablet.png'),
         fullPage: true,
       });
-      await players.player
-        .getByText('Rules baseline plan', { exact: true })
-        .click();
+      const sectionOrder = await players.player
+        .locator('section[aria-label]')
+        .evaluateAll((sections) =>
+          sections.map((section) => section.getAttribute('aria-label')),
+        );
+      expect(
+        sectionOrder.filter(
+          (label) => label !== null && historySections.includes(label),
+        ),
+      ).toEqual(historySections);
+      // Show all values adds the recorded context to the changed facts.
+      await showAllResultValues(players.player);
       await expect(
-        players.player
-          .getByRole('region', { name: 'Rules baseline plan' })
-          .getByText('Starting state', { exact: true })
-          .first(),
-      ).toBeVisible();
-      await players.player
-        .getByRole('region', { name: 'Rules baseline plan' })
-        .scrollIntoViewIfNeeded();
+        historyRow(players.player, 'Next week · Start day')
+          .locator('td')
+          .last(),
+      ).toHaveText('7');
+      await expect(historyResult(players.player)).toContainText(
+        'Skip first Upkeep',
+      );
+      await historyResult(players.player).scrollIntoViewIfNeeded();
       await players.player.screenshot({
-        path: join(run.artifactDirectory, 'canonical-history-plan-tablet.png'),
+        path: join(run.artifactDirectory, 'canonical-history-all-tablet.png'),
       });
+      // Phone: the Result stacks each value with its column label.
       await players.player.setViewportSize({ width: 390, height: 844 });
       expect(
         await players.player.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
+      await expect(
+        historyResult(players.player).getByRole('table'),
+      ).toBeHidden();
+      await expect(
+        historyResult(players.player)
+          .getByRole('listitem')
+          .filter({ hasText: 'Militia · Treasury' }),
+      ).toContainText(/Final\s*0\.87 gp/);
       await players.player.screenshot({
         path: join(run.artifactDirectory, 'canonical-history-phone.png'),
+      });
+      await players.player.setViewportSize({ width: 1440, height: 900 });
+      expect(
+        await players.player.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await players.player.screenshot({
+        path: join(run.artifactDirectory, 'canonical-history-desktop.png'),
       });
       await players.player.setViewportSize({ width: 1194, height: 834 });
       await literal.changeSource('treasury');
@@ -362,16 +438,62 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         .poll(async () => (await literal.inspect()).snapshot.treasuryCopper)
         .toBe(94);
       await players.player.reload();
+      // Today's treasury changed; the finished week's facts did not.
       await expect(
-        players.player
-          .getByRole('region', { name: 'Final outcome' })
-          .getByText('87', { exact: true }),
+        historyRow(players.player, 'Militia · Treasury').locator('td'),
+      ).toHaveText(recordedTreasury);
+      await expect(historyResult(players.player)).not.toContainText('0.94 gp');
+      // A single-entry week has no entries list; a direct record link still
+      // selects that immutable record and survives reload.
+      await players.gm.goto(
+        `${players.gm.url()}&recordId=${encodeURIComponent(record.recordId)}`,
+      );
+      await expect
+        .poll(() => new URL(players.gm.url()).searchParams.get('recordId'))
+        .toBe(record.recordId);
+      const selectedHistory = players.gm.url();
+      await players.gm.reload();
+      await expect(players.gm).toHaveURL(selectedHistory);
+      await expect(
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toBeVisible();
+      await expect(players.gm.getByText(/Earlier entry/)).toHaveCount(0);
+      // The latest row replaces the old Latest finished week button.
       await players.gm
-        .getByRole('button', { name: 'Confirmed week · Entry 1' })
+        .getByRole('navigation', { name: 'Finished weeks' })
+        .getByRole('link', { name: /^Week 1\b/ })
         .click();
+      await expect
+        .poll(() => new URL(players.gm.url()).searchParams.has('recordId'))
+        .toBe(false);
       await expect(
-        players.gm.getByRole('heading', { name: 'Week 1 · History' }),
+        players.gm
+          .getByRole('navigation', { name: 'Finished weeks' })
+          .getByRole('link', { name: /^Week 1\b/ }),
+      ).toHaveAttribute('aria-current', 'page');
+      await players.gm.goBack();
+      await expect(players.gm).toHaveURL(selectedHistory);
+      await expect(
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
+      ).toBeVisible();
+      await players.gm.goForward();
+      await expect
+        .poll(() => new URL(players.gm.url()).searchParams.has('recordId'))
+        .toBe(false);
+      await expect(
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toBeVisible();
       await players.player
         .getByRole('link', { name: 'Return to current week' })
@@ -380,16 +502,29 @@ test('shared Confirmation contract commits reviewed weeks in isolated Convex', a
         players.player.getByRole('heading', { name: 'Week 2 · Upkeep' }),
       ).toBeVisible();
       await expect(
-        players.gm.getByRole('heading', { name: 'Week 1 · History' }),
+        players.gm.getByRole('heading', {
+          level: 1,
+          name: 'Week 1',
+          exact: true,
+        }),
       ).toBeVisible();
-      await players.player
-        .getByRole('link', { name: 'Finished weeks' })
-        .click();
+      await openCampaignSection(players.player, 'history');
       await expect(
-        players.player
-          .getByRole('region', { name: 'Final outcome' })
-          .getByText('87', { exact: true }),
-      ).toBeVisible();
+        historyRow(players.player, 'Militia · Treasury'),
+      ).toContainText('0.87 gp');
+      // More history than one entry (#146): week 1 gains six corrections,
+      // and week 3 (past the open week 2) a reconstruction.
+      await canonicalPersistenceFixtureCall(run, 'appendHistory', {
+        ...activeKey!,
+        scope: ownedCase.scope,
+        corrections: 6,
+        reconstructWeek: 3,
+      });
+      await reviewFinishedWeeks(
+        players.player,
+        record.recordId,
+        run.artifactDirectory,
+      );
     } finally {
       await literal.dispose();
     }

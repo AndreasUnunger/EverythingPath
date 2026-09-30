@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { projectActivityAndEvents as project } from './rules-event-outcomes';
 import { projectActivity } from './rules-activity';
 import { projectUpkeep } from './rules-upkeep';
@@ -139,15 +139,21 @@ test('[rules.EV05.single-penalty] a queued and persistent copy contributes only 
   };
   draft.event.occurrences = [occurrence('cache', 62)];
   draft.event.occurrences[0]!.targets = [{ kind: 'cache', cacheId: 'cache' }];
-  draft.event.occurrences[0]!.mitigation = 'attempted';
-  draft.event.occurrences[0]!.rolls = { check: roll(20, 14) };
+  draft.event.occurrences[0]!.targetChecks = [
+    {
+      target: { kind: 'cache', cacheId: 'cache' },
+      mitigation: 'attempted',
+      rolls: { check: roll(20, 14) },
+    },
+  ];
   const result = project(draft, snapshot).event;
   expect(result.ready).toBe(true);
   expect(result.checks[0]?.total).toBe(13);
 });
 test('[rules.EV08.base] Hidden Agenda recomputes a failed Drill into a success from its raw roll', () => {
   const { draft, snapshot } = activityFixture('drill_militia');
-  draft.activity.slots[0]!.choice!.rolls = {
+  assert(draft.activity.slots[0]!.choice?.actionId === 'drill_militia');
+  draft.activity.slots[0]!.choice.rolls = {
     check: roll(20, 8),
     training: roll(6, 2, 4),
   };
@@ -504,7 +510,8 @@ test('[rules.EV24.base] Serenity doubles full Drill gain including Commandant wh
     queuedEffects: result.queuedEffects,
   };
   next.snapshot.roster.officers = [{ role: 'commandant', characterId: 'pc' }];
-  next.draft.activity.slots[0]!.choice!.rolls = {
+  assert(next.draft.activity.slots[0]!.choice?.actionId === 'drill_militia');
+  next.draft.activity.slots[0]!.choice.rolls = {
     check: roll(20, 10),
     training: roll(6, 2, 5),
   };

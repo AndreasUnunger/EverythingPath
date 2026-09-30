@@ -136,7 +136,7 @@ test('[rules.F02.pc-cap] current active PCs cap advancement; no PC does not inve
     roster: {
       people: [
         { characterId: 'pc', kind: 'pc', hitDice: 2 },
-        { characterId: 'npc', kind: 'officer_npc', hitDice: 20 },
+        { characterId: 'npc', kind: 'npc', hitDice: 20 },
       ],
       officers: [],
       teams: [],
@@ -239,12 +239,12 @@ function team(
     ...overrides,
   };
 }
-test('[rules.O01.commandants] distinct Hit Dice stack and unknown Hit Dice stays required', () => {
+test('[rules.O01.commandants] distinct commandants stack their Hit Dice override, zero included, or else their level', () => {
   const source = input({
     roster: {
       people: [
         { characterId: 'a', kind: 'pc', hitDice: 3 },
-        { characterId: 'b', kind: 'officer_npc', hitDice: 7 },
+        { characterId: 'b', kind: 'npc', hitDice: 7 },
       ],
       officers: [
         { role: 'commandant', characterId: 'a' },
@@ -254,15 +254,29 @@ test('[rules.O01.commandants] distinct Hit Dice stack and unknown Hit Dice stays
     },
     characters: [character('a'), character('b', { level: 2 })],
   });
-  expect(projectRulesFoundations(source).officers.commandantTrainingBonus).toBe(
-    10,
-  );
+  const bonus = () =>
+    projectRulesFoundations(source).officers.commandantTrainingBonus;
+  expect(bonus()).toBe(10);
+  // Blank follows the record's level; zero is an explicit override.
   source.roster.people[1]!.hitDice = null;
-  expect(
-    projectRulesFoundations(source).officers.commandantTrainingBonus,
-  ).toBeNull();
+  expect(bonus()).toBe(5);
+  expect(projectRulesFoundations(source).requirements).toEqual([]);
+  source.characters[1]!.level = 6;
+  expect(bonus()).toBe(9);
+  source.roster.people[1]!.hitDice = 0;
+  expect(bonus()).toBe(3);
+  // An archived commandant still counts, with its warning.
+  source.characters[1]!.isActive = false;
+  source.roster.people[1]!.hitDice = null;
+  expect(bonus()).toBe(9);
+  expect(projectRulesFoundations(source).warnings).toContain(
+    'officer:b:archived',
+  );
+  // A missing character stays a blocking integrity problem.
+  source.characters.pop();
+  expect(bonus()).toBe(3);
   expect(projectRulesFoundations(source).requirements).toContain(
-    'commandant:b:hit-dice',
+    'officer:b:character',
   );
 });
 test('[rules.O04.one-use] overseer support selects one event occurrence rather than one individual check', () => {
@@ -512,7 +526,7 @@ test('[rules.F09.xp-rounding] crossed boons list PC recipients and floor each XP
       { characterId: 'a', kind: 'pc', hitDice: 1 },
       { characterId: 'b', kind: 'pc', hitDice: 1 },
       { characterId: 'c', kind: 'pc', hitDice: 1 },
-      { characterId: 'npc', kind: 'officer_npc', hitDice: 20 },
+      { characterId: 'npc', kind: 'npc', hitDice: 20 },
     ],
     officers: [],
     teams: [],
@@ -587,24 +601,33 @@ test('[rules.F09.packages] every crossed boon retains its prescribed package', (
     1200, 3200, 6400, 25600,
   ]);
 });
-test('[rules.O06.capacity] all manager kinds obey their own Charisma limits', () => {
-  for (const kind of ['pc', 'officer_npc', 'other_npc'] as const) {
-    const result = projectRulesFoundations(
-      input({
-        roster: {
-          people: [{ characterId: 'a', kind, hitDice: 1 }],
-          teams: [team('a'), team('b'), team('c')],
-          officers: [],
-        },
-        characters: [character('a', { charisma: 16 })],
-      }),
-    );
-    expect(result.teams[0]?.manager).toMatchObject({
-      maxTeams: kind === 'other_npc' ? 1 : 3,
-      bonus: 3,
-      managedTeams: 3,
-    });
-  }
+test('[rules.O06.capacity] a PC or an NPC holding a role manages up to their Charisma modifier; an NPC holding none manages one', () => {
+  for (const kind of ['pc', 'npc'] as const)
+    for (const officers of [
+      [],
+      [{ role: 'marshal' as const, characterId: 'a' }],
+    ]) {
+      const result = projectRulesFoundations(
+        input({
+          roster: {
+            people: [{ characterId: 'a', kind, hitDice: 1 }],
+            teams: [team('a'), team('b'), team('c')],
+            officers,
+          },
+          characters: [character('a', { charisma: 16 })],
+        }),
+      );
+      const maxTeams = kind === 'pc' || officers.length ? 3 : 1;
+      expect(
+        result.teams[0]?.manager,
+        `${kind} ${officers.length}`,
+      ).toMatchObject({
+        maxTeams,
+        bonus: 3,
+        managedTeams: 3,
+      });
+      expect(result.warnings.includes('manager:a:capacity')).toBe(maxTeams < 3);
+    }
 });
 test('[rules.O05.ordered] recalculating with the projected rank and roster changes the designated occurrence', () => {
   const source = input({

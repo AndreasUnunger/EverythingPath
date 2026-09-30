@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { projectActivity } from './rules-activity';
 import { projectActivityAndEventShaping as project } from './rules-event-shaping';
 import { eventActionFixture } from '../../tests/rules/event-action-fixture';
@@ -37,7 +37,8 @@ test('[rules.A05.next] augmentation follows the next actual choice and recompute
 test('[rules.A05.success] natural one is successful with sufficient bonus and suppresses only target notoriety', () => {
   const { draft, snapshot } = eventActionFixture('covert_action');
   snapshot.characters[0]!.charisma = 40;
-  draft.activity.slots[1]!.choice!.rolls = {
+  assert(draft.activity.slots[1]!.choice?.actionId === 'drill_militia');
+  draft.activity.slots[1]!.choice.rolls = {
     check: roll(20, 1),
     training: roll(6, 2, 4),
   };
@@ -49,7 +50,8 @@ test('[rules.A05.success] natural one is successful with sufficient bonus and su
 });
 test('[rules.A05.failure] failed targets retain natural-one notoriety and duplicate action types never share augmentation', () => {
   const { draft, snapshot } = eventActionFixture('covert_action');
-  draft.activity.slots[1]!.choice!.rolls = {
+  assert(draft.activity.slots[1]!.choice?.actionId === 'drill_militia');
+  draft.activity.slots[1]!.choice.rolls = {
     check: roll(20, 1),
     notoriety: roll(6, 4),
   };
@@ -177,40 +179,29 @@ test('[rules.A10.choice] both raw rolls and a root selection are mandatory and c
     selected: [],
   });
 });
-test('[rules.A10.roll-twice] selected Roll Twice expands once and repeats require independent replacement rolls', () => {
+// Since the candidate reroll Ruleset Version (#191) a candidate's Roll Twice
+// is rerolled in its own die; before it, a chosen one expanded.
+test('[rules.A10.roll-twice] a chosen candidate rerolls Roll Twice in its own die', () => {
   const { draft, snapshot, choice } = eventActionFixture();
   if (choice.actionId !== 'guarantee_event') throw Error('fixture');
   choice.candidates![0]!.tableRoll = roll(100, 50);
-  expect(project(draft, snapshot).event.requirements).toContain(
-    'raid:roll_twice:2',
-  );
-  choice.candidates!.push(
-    {
-      eventId: 'child-one',
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-      tableRoll: roll(100, 50),
-    },
-    {
-      eventId: 'child-two',
-      origin: { kind: 'roll_twice', parentEventId: 'raid' },
-      tableRoll: roll(100, 78),
-    },
-  );
-  expect(project(draft, snapshot).event.requirements).toContain(
-    'child-one:replacement:1',
-  );
-  choice.candidates!.push({
-    eventId: 'replacement',
-    origin: { kind: 'replacement', parentEventId: 'child-one' },
-    tableRoll: roll(100, 74),
+  const event = project(draft, snapshot).event;
+  expect(event.ready).toBe(false);
+  expect(event.requirements).toContain('raid:replacement:1');
+  expect(event.requirements).not.toContain('raid:roll_twice:2');
+  expect(event.selected).toEqual([]);
+  expect(event.positions).toContainEqual({
+    kind: 'replacement',
+    parentEventId: 'raid',
+    count: 1,
+    eventIds: [],
+    reroll: true,
   });
-  expect(weeklyDraftSchema.safeParse(draft).success).toBe(true);
+  // The reroll is entered in the same die.
+  choice.candidates![0]!.tableRoll = roll(100, 74);
   expect(project(draft, snapshot).event).toMatchObject({
     ready: true,
-    selected: [
-      { eventId: 'replacement', eventType: 'theft' },
-      { eventId: 'child-two', eventType: 'raid' },
-    ],
+    selected: [{ eventId: 'raid', eventType: 'theft' }],
   });
 });
 test('[rules.A10.precedence] forced All Is Calm suppresses selections while keeping Activity expenditure', () => {
@@ -362,7 +353,7 @@ test('[rules.A18.composition] queued, manager, and Overseer modifiers compose on
     ],
   };
   const sabotage = choice.candidates![0]!.sabotage!;
-  sabotage.overseerCharacterId = 'pc';
+  choice.candidates![0]!.overseerCharacterId = 'pc';
   sabotage.rolls!.check!.modifiers = [
     'manager:pc',
     'queued:source',

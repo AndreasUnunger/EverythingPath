@@ -22,7 +22,6 @@ test('[rules.U01.first-use] first use skips every Upkeep effect even at displaye
   first.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1000,
     },
@@ -203,7 +202,6 @@ test('[rules.U04.shortage] disabled recovery is paid before rolled treasury shor
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 3001,
     },
@@ -245,7 +243,7 @@ test('[rules.U04.boons] every crossed PC boon requires its own recorded reward a
   snapshot.training = 41;
   snapshot.roster.people.push({
     characterId: 'npc',
-    kind: 'officer_npc',
+    kind: 'npc',
     hitDice: 20,
   });
   snapshot.characters.push({
@@ -370,7 +368,6 @@ test('[rules.U02.provenance] entered modifiers augment raw dice while computed a
 test('[rules.U02.readiness] missing dice never invent a loss, rank increase, or Activity gain', () => {
   const { draft, snapshot } = upkeepFixture();
   draft.upkeep.rolls.training = roll(6, 6);
-  draft.upkeep.rolls.reward = roll(6, 6);
   draft.activity.slots[0]!.choice = {
     choiceId: 'drill',
     actionId: 'drill_militia',
@@ -423,7 +420,6 @@ test('[rules.U04.boundary] a copper below the starting minimum incurs shortage; 
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'withdraw',
-      characterId: 'pc',
       direction: 'withdraw',
       copper: 1,
     },
@@ -436,7 +432,6 @@ test('[rules.U04.boundary] a copper below the starting minimum incurs shortage; 
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1,
     },
@@ -524,13 +519,11 @@ test('[rules.U05.order] staged copper transfers follow the post-loss rank increa
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 501,
     },
     {
       transferId: 'withdraw',
-      characterId: 'pc',
       direction: 'withdraw',
       copper: 250,
     },
@@ -605,7 +598,6 @@ test('[rules.U05.preview] carried persistent Theft withholds half of incoming de
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 501,
     },
@@ -615,46 +607,19 @@ test('[rules.U05.preview] carried persistent Theft withholds half of incoming de
   expect(result.plan).toContainEqual({
     kind: 'treasury',
     sourceId: 'theft:theft:deposit',
-    characterId: null,
     before: 3501,
     after: 3251,
   });
 });
 
-test('[rules.U04.recovery-inputs] unknown teams and unsupported removal cannot silently disappear from readiness', () => {
+test('[rules.U04.recovery-inputs] a decision for an unknown team cannot silently disappear from readiness', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.training = 15;
   draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
   draft.upkeep.teamDecisions = [{ teamId: 'unknown', decision: 'recover' }];
-  expect(projectUpkeep(draft, snapshot).requirements).toContain(
-    'team:unknown:reference',
-  );
-  snapshot.roster.teams = [
-    {
-      teamId: 'disabled',
-      teamType: 'patrons',
-      name: 'Patrons',
-      status: 'disabled',
-      managerCharacterId: null,
-      rewardCapExempt: false,
-      notes: '',
-    },
-  ];
-  draft.upkeep.teamDecisions = [{ teamId: 'disabled', decision: 'remove' }];
-  expect(projectUpkeep(draft, snapshot).requirements).toContain(
-    'team:disabled:removal-exception',
-  );
-  draft.rulesExceptions = [
-    {
-      exceptionId: 'remove',
-      subjectId: 'disabled',
-      ruleId: 'upkeep-team-removal',
-      reason: 'The team retires at the table',
-    },
-  ];
   const result = projectUpkeep(draft, snapshot);
-  expect(result.outcome.roster.teams).toEqual([]);
-  expect(result.ready).toBe(true);
+  expect(result.requirements).toContain('team:unknown:reference');
+  expect(result.ready).toBe(false);
 });
 
 test('[rules.U02.sources] officer and queued annotations cannot reapply an included or expired modifier', () => {
@@ -749,35 +714,33 @@ test('[rules.U02.persistent-morale] carried Low Morale affects both Loyalty chec
       draftId: original.draftId,
       week: 40,
       slotIds: [],
-      context: weekStartFactsSchema
-        .strip()
-        .parse({
-          ...original.context,
-          carriedEvents: [
-            {
-              eventId: 'morale',
-              eventType: 'low_morale',
-              startedWeek: 38,
-              order: 0,
-              targets: [],
-            },
-          ],
-          queuedEffects: queued
-            ? [
-                {
-                  effectId: 'morale-queue',
-                  sourceId: 'morale',
-                  startsWeek: 40,
-                  endsWeek: 40,
-                  effect: {
-                    kind: 'check_modifier',
-                    check: 'loyalty',
-                    value: -2,
-                  },
+      context: weekStartFactsSchema.strip().parse({
+        ...original.context,
+        carriedEvents: [
+          {
+            eventId: 'morale',
+            eventType: 'low_morale',
+            startedWeek: 38,
+            order: 0,
+            targets: [],
+          },
+        ],
+        queuedEffects: queued
+          ? [
+              {
+                effectId: 'morale-queue',
+                sourceId: 'morale',
+                startsWeek: 40,
+                endsWeek: 40,
+                effect: {
+                  kind: 'check_modifier',
+                  check: 'loyalty',
+                  value: -2,
                 },
-              ]
-            : [],
-        }),
+              },
+            ]
+          : [],
+      }),
     });
     draft.upkeep.rolls = {
       check: roll(20, 8),
@@ -836,7 +799,6 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'withdraw',
-      characterId: 'pc',
       direction: 'withdraw',
       copper: 3100,
     },
@@ -860,7 +822,6 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   draft.rulesExceptions = [];
   draft.upkeep.treasuryTransfers.unshift({
     transferId: 'deposit',
-    characterId: 'pc',
     direction: 'deposit',
     copper: 100,
   });
@@ -876,55 +837,84 @@ test('[rules.U05.overdraft] each withdrawal checks running funds and requires it
   expect(snapshot.treasuryCopper).toBe(3000);
 });
 
-test('[rules.U05.officer-exception] non-officer transfers require an exception for that transfer and rule', () => {
+test('[rules.U05.officer-exception] transfers need no officer: a transfer resolves without a ruling, and a retired officer ruling stays recorded but inert', () => {
   const { draft, snapshot } = upkeepFixture();
   snapshot.training = 15;
   snapshot.roster.officers = [];
   draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  const oldRuling = {
+    exceptionId: 'approved',
+    subjectId: 'transfer',
+    ruleId: 'upkeep-transfer-officer',
+    reason: 'The officers delegate this transfer',
+  };
   for (const direction of ['deposit', 'withdraw'] as const) {
-    draft.upkeep.treasuryTransfers = [
-      { transferId: 'transfer', characterId: 'pc', direction, copper: 100 },
-    ];
-    for (const exceptions of [
-      [],
-      [
-        {
-          exceptionId: 'other',
-          subjectId: 'other',
-          ruleId: 'upkeep-transfer-officer',
-          reason: 'Approved',
-        },
-      ],
-      [
-        {
-          exceptionId: 'other',
-          subjectId: 'transfer',
-          ruleId: 'upkeep-transfer-funds',
-          reason: 'Approved',
-        },
-      ],
-    ]) {
+    for (const exceptions of [[], [oldRuling]]) {
+      draft.upkeep.treasuryTransfers = [
+        { transferId: 'transfer', direction, copper: 100 },
+      ];
       draft.rulesExceptions = exceptions;
       const result = projectUpkeep(draft, snapshot);
-      expect(result.ready).toBe(false);
-      expect(result.warnings).toContain('transfer:transfer:officer');
-      expect(result.requirements).toContain(
-        'transfer:transfer:officer-exception',
+      expect(result.ready).toBe(true);
+      expect(result.requirements).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.outcome.treasuryCopper).toBe(
+        direction === 'deposit' ? 3100 : 2900,
       );
+      expect(draft.rulesExceptions).toEqual(exceptions);
     }
-    draft.rulesExceptions = [
-      {
-        exceptionId: 'approved',
-        subjectId: 'transfer',
-        ruleId: 'upkeep-transfer-officer',
-        reason: 'The officers delegate this transfer',
-      },
-    ];
-    const result = projectUpkeep(draft, snapshot);
-    expect(result.ready).toBe(true);
-    expect(result.warnings).toContain('transfer:transfer:officer');
-    expect(result.outcome.treasuryCopper).toBe(
-      direction === 'deposit' ? 3100 : 2900,
-    );
   }
+});
+
+test('[rules.U05.characterless] deposits and withdrawals resolve in staged order with no roster, officers or character, and their plan entries name no one', () => {
+  const { draft, snapshot } = upkeepFixture();
+  snapshot.training = 15;
+  snapshot.roster = { people: [], officers: [], teams: [] };
+  snapshot.characters = [];
+  draft.upkeep.rolls = { check: roll(20, 7), training: roll(6, 1) };
+  draft.upkeep.treasuryTransfers = [
+    { transferId: 'zero', direction: 'deposit', copper: 0 },
+    { transferId: 'deposit', direction: 'deposit', copper: 7 },
+    { transferId: 'withdraw', direction: 'withdraw', copper: 3007 },
+    { transferId: 'overdraft', direction: 'withdraw', copper: 1 },
+  ];
+  const result = projectUpkeep(draft, snapshot);
+  expect(result.outcome.treasuryCopper).toBe(-1);
+  expect(
+    result.plan.flatMap((change) =>
+      change.kind === 'treasury' ? [change] : [],
+    ),
+  ).toEqual([
+    {
+      kind: 'treasury',
+      sourceId: 'zero',
+      before: 3000,
+      after: 3000,
+    },
+    {
+      kind: 'treasury',
+      sourceId: 'deposit',
+      before: 3000,
+      after: 3007,
+    },
+    {
+      kind: 'treasury',
+      sourceId: 'withdraw',
+      before: 3007,
+      after: 0,
+    },
+    {
+      kind: 'treasury',
+      sourceId: 'overdraft',
+      before: 0,
+      after: -1,
+    },
+  ]);
+  // Only the withdrawal beyond the running treasury needs its ruling; with no
+  // player character the rank cap still asks for one, as before.
+  expect(result.warnings).toEqual(['transfer:overdraft:funds']);
+  expect(result.requirements).toEqual([
+    'highest-level-pc',
+    'transfer:overdraft:funds-exception',
+  ]);
 });

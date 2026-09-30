@@ -11,6 +11,9 @@ A campaign has exactly one open Weekly Draft, created when its current week begi
 **Weekly Draft Revision**:
 A specific version of the Weekly Draft. Any synchronized change creates a newer revision.
 
+**Militia Setup**:
+The one-time recording of a militia's current table state, including a mid-campaign starting point, that opens its first Weekly Draft without resolving that week.
+
 **Phase View**:
 The phase of the current week that one player is viewing. It is local to that player and does not change which phase other players are viewing.
 
@@ -52,6 +55,9 @@ A manually authored Resolution Record for a past week that has no record. Its pr
 **Historical Correction**:
 A change to a past week that already has a Resolution Record. It is prepared outside the closed Weekly Draft, recalculates that week and every later week, and appends superseding Resolution Records rather than changing existing records.
 
+**Militia Correction**:
+A reasoned change to the militia's current recorded facts outside Weekly Resolution. It preserves the current week and its prepared choices; choices it affects must be reviewed before Confirmation. It corrects one section of the militia at a time and never changes a finished week, unlike a Historical Correction, which rewrites a finished week.
+
 **History Rewrite**:
 The complete proposed result of a Historical Reconstruction or Historical Correction, including recalculated later weeks and current militia state. It becomes authoritative only through one explicit confirmation that publishes the whole rewrite atomically; an incomplete rewrite never changes shared campaign state.
 A campaign can have at most one open History Rewrite. It is shared and editable by all players. Recalculation proceeds in week order and pauses at the first rules conflict so the conflict can be resolved before later weeks are recalculated.
@@ -64,3 +70,10 @@ A shared position in the weekly Activity phase that contains zero or one Staged 
 
 **Staged Action Choice**:
 The uncommitted militia action occupying an Action Slot, including its assigned team and action-specific details. It is visible and editable by all players until Weekly Confirmation.
+
+**Officer**:
+A character holding a militia officer role: a roster person with at least one role. An NPC is an Officer exactly while holding a role, independent of its NPC kind, which decides their team-manager limit; a stored character kind never makes one. Removing the last role changes that status, not the character's kind.
+
+## Related documents
+
+- [Legacy compatibility inventory](docs/legacy-compatibility-inventory.md): code kept only for data shapes older than the current writers produce, and when each path can be removed.

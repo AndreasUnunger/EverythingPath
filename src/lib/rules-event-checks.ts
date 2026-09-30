@@ -1,4 +1,6 @@
-import { eventOverseerSelection } from './rules-overseer-event';
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import type { RollSpec } from './raw-roll';
+import { normalizeRawRoll } from './raw-roll';
 import { projectRulesFoundations } from './rules-foundations';
 import { activityCheckEffects } from './rules-activity';
 import type { EventOutcomeProjection } from './rules-event-outcomes';
@@ -11,15 +13,15 @@ export function eventDie(
   result: Pick<EventOutcomeProjection, 'requirements' | 'warnings'>,
   raw: Raw,
   id: string,
-  sides: number,
+  spec: RollSpec,
 ) {
-  if (raw?.sides !== sides || raw.dice.length !== 1) {
-    result.requirements.push(`${id}:1d${sides}`);
+  const normalized = normalizeRawRoll(raw, spec);
+  if (normalized.status !== 'complete') {
+    result.requirements.push(`${id}:${spec.count}d${spec.sides}`);
     return null;
   }
-  const value = raw.dice[0]!;
-  if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
-  return value;
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
 export function eventCheck(
   draft: WeeklyDraft,
@@ -38,9 +40,7 @@ export function eventCheck(
       queuedEffects: result.queuedEffects,
     },
   };
-  const support = eventOverseerSelection(event);
-  if (support.conflicting) result.requirements.push(`${id}:overseer-conflict`);
-  const die = eventDie(result, raw, id, 20);
+  const die = eventDie(result, raw, id, RULE_ROLL_SPECS.check);
   const facts = projectRulesFoundations({
     ...result.outcome,
     week: draft.week,
@@ -52,7 +52,7 @@ export function eventCheck(
         phase,
         check,
         die: die ?? undefined,
-        overseerCharacterId: support.characterId,
+        overseerCharacterId: event.overseerCharacterId,
         bonusIds: raw?.modifiers.flatMap((modifier) =>
           modifier.sourceId.startsWith('bonus:')
             ? [modifier.sourceId.slice(6)]
@@ -117,17 +117,20 @@ export function eventCheck(
     : projected.total;
 }
 
-// Raw dice required by the event input contract; calculations remain in the resolvers.
-export function eventInputRollSides(
-  eventType: string | null,
-): Record<string, number> {
-  return {
-    tableRoll: 100,
-    check: 20,
-    roll: 20,
-    notoriety: 6,
-    loss: eventType === 'raid' ? 100 : 6,
-  };
+/**
+ * The entered modifiers an Event officer check adds to its skill bonus
+ * (Rivalry and Turncoat Twice): every source except a recorded copy of the
+ * skill, its bonus or Charisma, each counted once at its latest value.
+ */
+export function eventOfficerCheckExtras(roll: Raw) {
+  const extras = new Map<string, { value: number; reason: string }>();
+  for (const modifier of roll?.modifiers ?? [])
+    if (!['skill', 'skill-bonus', 'charisma'].includes(modifier.sourceId))
+      extras.set(modifier.sourceId, {
+        value: modifier.value,
+        reason: modifier.reason,
+      });
+  return [...extras].map(([source, entry]) => ({ source, ...entry }));
 }
 
 export function eventMitigationAttempted(
@@ -150,13 +153,12 @@ export function eventMitigationInput(
     (event.eventType === 'theft' && mode === 'twice')
   )
     return 'unavailable';
-  return eventMitigationAttempted(event.mitigation, event.rolls?.check) ||
-    event.targetChecks?.some((input) =>
-      eventMitigationAttempted(
-        input.mitigation ?? event.mitigation,
-        input.rolls?.check ?? event.rolls?.check,
-      ),
-    )
-    ? 'attempted'
-    : 'unattempted';
+  // Raid and Cache Discovered record the choice per person or cache.
+  const attempted =
+    event.eventType === 'theft'
+      ? eventMitigationAttempted(event.mitigation, event.rolls?.check)
+      : (event.targetChecks ?? []).some((input) =>
+          eventMitigationAttempted(input.mitigation, input.rolls?.check),
+        );
+  return attempted ? 'attempted' : 'unattempted';
 }

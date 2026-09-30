@@ -8,6 +8,7 @@ import {
   SetupSection,
   SetupSelection,
   choices,
+  useSettlementOptions,
   yesNo,
 } from './fields';
 
@@ -45,10 +46,6 @@ export function SetupCharacterConditions({
         })
       }
     >
-      <p className="text-muted-foreground text-sm">
-        Record the location and condition of characters the militia can hide,
-        rescue or restore.
-      </p>
       {people.fields.map((row, i) => {
         const person = snapshot.characterActions?.people[i];
         return (
@@ -174,7 +171,7 @@ export function SetupCharacterConditions({
     </SetupSection>
   );
 }
-export function SetupEventBenefits({
+export function SetupSkillBenefits({
   characters,
 }: {
   characters: SetupCharacter[];
@@ -184,16 +181,9 @@ export function SetupEventBenefits({
     control,
     name: 'state.militiaSnapshot.eventBenefits.skills',
   });
-  const markets = useFieldArray({
-    control,
-    name: 'state.militiaSnapshot.eventBenefits.markets',
-  });
   const values = watch();
   const snapshot = values.state.militiaSnapshot;
-  const towns = snapshot.settlements.map((town) => ({
-    value: town.settlementId,
-    label: town.name,
-  }));
+  const towns = useSettlementOptions();
   const people = characters
     .filter((character) =>
       snapshot.characters.some((x) => x.characterId === character.characterId),
@@ -203,122 +193,127 @@ export function SetupEventBenefits({
       label: character.name,
     }));
   return (
-    <>
-      <SetupSection
-        title="Carried skill benefits"
-        add="Add skill benefit"
-        onAdd={() =>
-          skills.append({
-            benefitId: crypto.randomUUID(),
-            sourceEventIds: [crypto.randomUUID()],
-            characterIds: [],
-            skills: [],
-            bonusType: 'untyped',
-            value: 0,
-            settlementId: null,
-            afterDark: false,
-            startsWeek: values.state.week,
-            endsWeek: values.state.week,
-          })
-        }
-      >
-        {skills.fields.map((row, i) => (
-          <SetupEntry
-            key={row.id}
-            label={`Skill benefit ${i + 1}`}
-            onRemove={() => skills.remove(i)}
-          >
-            <SetupSelection
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.characterIds`}
-              label="Benefiting characters"
-              options={people}
-            />
-            <SetupSelection
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.skills`}
-              label="Affected skills"
-              options={choices([
-                'knowledge_local',
-                'bluff',
-                'diplomacy',
-                'intimidate',
-                'stealth',
-              ])}
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.bonusType`}
-              label="Bonus type"
-              options={choices(['untyped', 'morale', 'circumstance'])}
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.value`}
-              label="Skill bonus"
-              numeric
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.settlementId`}
-              label="Benefit settlement"
-              options={[{ value: null, label: 'All settlements' }, ...towns]}
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.afterDark`}
-              label="Only after dark"
-              options={yesNo}
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.startsWeek`}
-              label="Skill benefit starts week"
-              numeric
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.skills.${i}.endsWeek`}
-              label="Skill benefit ends week"
-              numeric
-            />
-          </SetupEntry>
-        ))}
-      </SetupSection>
-      <SetupSection
-        title="Carried Market Day benefits"
-        add="Add Market Day benefit"
-        onAdd={() =>
-          markets.append({
-            benefitId: crypto.randomUUID(),
-            sourceEventIds: [crypto.randomUUID()],
-            settlementIds: [],
-            discountPercent: 5,
-            startsWeek: values.state.week,
-            endsWeek: values.state.week,
-          })
-        }
-      >
-        <p className="text-muted-foreground text-sm">
-          Market Day gives a 5% discount in the selected settlements for its
-          recorded duration.
-        </p>
-        {markets.fields.map((row, i) => (
-          <SetupEntry
-            key={row.id}
-            label={`Market Day benefit ${i + 1}`}
-            onRemove={() => markets.remove(i)}
-          >
-            <SetupSelection
-              name={`state.militiaSnapshot.eventBenefits.markets.${i}.settlementIds`}
-              label="Discount settlements"
-              options={towns}
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.markets.${i}.startsWeek`}
-              label="Market Day starts week"
-              numeric
-            />
-            <Field
-              name={`state.militiaSnapshot.eventBenefits.markets.${i}.endsWeek`}
-              label="Market Day ends week"
-              numeric
-            />
-          </SetupEntry>
-        ))}
-      </SetupSection>
-    </>
+    <SetupSection
+      title="Carried skill benefits"
+      add="Add skill benefit"
+      onAdd={() =>
+        skills.append({
+          benefitId: crypto.randomUUID(),
+          sourceEventIds: [crypto.randomUUID()],
+          characterIds: [],
+          skills: [],
+          bonusType: 'untyped',
+          value: 0,
+          settlementId: null,
+          afterDark: false,
+          startsWeek: values.state.week,
+          endsWeek: values.state.week,
+        })
+      }
+    >
+      {skills.fields.map((row, i) => (
+        <SetupEntry
+          key={row.id}
+          label={`Skill benefit ${i + 1}`}
+          onRemove={() => skills.remove(i)}
+        >
+          <SetupSelection
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.characterIds`}
+            label="Benefiting characters"
+            options={people}
+          />
+          <SetupSelection
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.skills`}
+            label="Affected skills"
+            options={choices([
+              'knowledge_local',
+              'bluff',
+              'diplomacy',
+              'intimidate',
+              'stealth',
+            ])}
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.bonusType`}
+            label="Bonus type"
+            options={choices(['untyped', 'morale', 'circumstance'])}
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.value`}
+            label="Skill bonus"
+            numeric
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.settlementId`}
+            label="Benefit settlement"
+            options={[{ value: null, label: 'All settlements' }, ...towns]}
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.afterDark`}
+            label="Only after dark"
+            options={yesNo}
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.startsWeek`}
+            label="Skill benefit starts week"
+            numeric
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.skills.${i}.endsWeek`}
+            label="Skill benefit ends week"
+            numeric
+          />
+        </SetupEntry>
+      ))}
+    </SetupSection>
+  );
+}
+export function SetupMarketDayBenefits() {
+  const { control, watch } = useFormContext<MilitiaSetup>();
+  const markets = useFieldArray({
+    control,
+    name: 'state.militiaSnapshot.eventBenefits.markets',
+  });
+  const week = watch('state.week');
+  const towns = useSettlementOptions();
+  return (
+    <SetupSection
+      title="Carried Market Day benefits"
+      add="Add Market Day benefit"
+      onAdd={() =>
+        markets.append({
+          benefitId: crypto.randomUUID(),
+          sourceEventIds: [crypto.randomUUID()],
+          settlementIds: [],
+          discountPercent: 5,
+          startsWeek: week,
+          endsWeek: week,
+        })
+      }
+    >
+      {markets.fields.map((row, i) => (
+        <SetupEntry
+          key={row.id}
+          label={`Market Day benefit ${i + 1}`}
+          onRemove={() => markets.remove(i)}
+        >
+          <SetupSelection
+            name={`state.militiaSnapshot.eventBenefits.markets.${i}.settlementIds`}
+            label="Discount settlements"
+            options={towns}
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.markets.${i}.startsWeek`}
+            label="Market Day starts week"
+            numeric
+          />
+          <Field
+            name={`state.militiaSnapshot.eventBenefits.markets.${i}.endsWeek`}
+            label="Market Day ends week"
+            numeric
+          />
+        </SetupEntry>
+      ))}
+    </SetupSection>
   );
 }

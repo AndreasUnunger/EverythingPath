@@ -1,6 +1,53 @@
 // @vitest-environment node
 import { expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import ts from 'typescript';
+import { accessJourneyFiles, requiredTests } from './matrix';
 import { evaluateResults } from './results';
+
+it('requires the exact titles declared by the selected nightly journey sources', () => {
+  const required = requiredTests('nightly');
+  expect(required).toHaveLength(41);
+  for (const file of new Set(required.map(([file]) => file!))) {
+    const source = ts.createSourceFile(
+      file,
+      readFileSync(join(process.cwd(), 'e2e', file), 'utf8'),
+      ts.ScriptTarget.Latest,
+    );
+    const titles = source.statements.flatMap((statement) => {
+      if (!ts.isExpressionStatement(statement)) return [];
+      const call = statement.expression;
+      if (
+        !ts.isCallExpression(call) ||
+        !ts.isIdentifier(call.expression) ||
+        !['test', 'setup'].includes(call.expression.text)
+      )
+        return [];
+      const title = call.arguments[0];
+      return title && ts.isStringLiteral(title) ? [title.text] : [];
+    });
+    expect(titles, file).toEqual([
+      ...new Set(
+        required.filter(([name]) => name === file).map(([, , title]) => title),
+      ),
+    ]);
+  }
+});
+
+const workspaceTitles = requiredTests('mandatory')
+  .filter(([file]) => file === 'canonical-workspace.spec.ts')
+  .map(([, , title]) => title!);
+const isAccessJourney = (file: string) =>
+  (accessJourneyFiles as readonly string[]).includes(file);
+// The access parts split out after the campaign home.
+const accessParts = requiredTests('mandatory')
+  .filter(
+    ([file]) =>
+      isAccessJourney(file!) &&
+      !['access.spec.ts', 'campaign-home.spec.ts'].includes(file!),
+  )
+  .map(([file, , title]) => [file!, title!] as const);
 
 const passing = () => ({
   status: 'passed',
@@ -56,7 +103,8 @@ const passing = () => ({
     {
       file: 'complete-week.spec.ts',
       project: 'chromium-tablet',
-      title: 'a player confirms a complete week and reloads its outcome',
+      title:
+        'a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload',
       expectedStatus: 'passed',
       tags: [],
       annotations: [],
@@ -90,16 +138,34 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
-    {
+    ...workspaceTitles.map((title) => ({
       file: 'canonical-workspace.spec.ts',
       project: 'canonical-workspace',
-      title:
-        'players prepare shared Upkeep with independent navigation and save recovery',
+      title,
       expectedStatus: 'passed',
-      tags: [],
-      annotations: [],
+      tags: [] as string[],
+      annotations: [] as string[],
+      results: [{ status: 'passed', retry: 0 }],
+    })),
+    {
+      file: 'campaign-home.spec.ts',
+      project: 'chromium-tablet',
+      title:
+        'members choose and edit their campaign home and outsiders never see it',
+      expectedStatus: 'passed',
+      tags: [] as string[],
+      annotations: [] as string[],
       results: [{ status: 'passed', retry: 0 }],
     },
+    ...accessParts.map(([file, title]) => ({
+      file,
+      project: 'chromium-tablet',
+      title,
+      expectedStatus: 'passed',
+      tags: [] as string[],
+      annotations: [] as string[],
+      results: [{ status: 'passed', retry: 0 }],
+    })),
   ],
 });
 
@@ -210,11 +276,16 @@ function nightlyPassing() {
   );
   report.tests.push(
     ...critical.map((test) => ({ ...test, project: 'webkit-tablet' })),
-    ...[critical[0]!, critical[1]!, critical[3]!].map((test) => ({
-      ...test,
-      project: 'firefox-desktop',
-    })),
-    { ...critical[0]!, project: 'chromium-phone' },
+    ...critical
+      .filter(
+        ({ file }) =>
+          isAccessJourney(file) ||
+          ['existing-militia.spec.ts', 'complete-week.spec.ts'].includes(file),
+      )
+      .map((test) => ({ ...test, project: 'firefox-desktop' })),
+    ...critical
+      .filter(({ file }) => isAccessJourney(file))
+      .map((test) => ({ ...test, project: 'chromium-phone' })),
   );
   return report;
 }
@@ -245,6 +316,15 @@ it('rejects a missing canonical Workspace UI journey', () => {
   const report = passing();
   report.tests.pop();
   expect(evaluateResults(report)).toBe(false);
+});
+
+it('requires each of the eleven independent Workspace journeys', () => {
+  expect(workspaceTitles).toHaveLength(11);
+  for (const title of workspaceTitles) {
+    const report = passing();
+    report.tests = report.tests.filter((test) => test.title !== title);
+    expect(evaluateResults(report)).toBe(false);
+  }
 });
 
 it('requires the independent Confirmation contract even when editing passed', () => {

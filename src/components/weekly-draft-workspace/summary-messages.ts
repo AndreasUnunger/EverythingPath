@@ -1,10 +1,23 @@
 import type { PhaseView } from './types';
 import { eventRequirement, eventWarning } from './event-messages';
-type Summary = Extract<PhaseView, { phase: 'summary' }>;
+import { phaseLabels } from './week-frame/labels';
+import {
+  economyCodeMessage,
+  economyMessages,
+} from './activity-economy-messages';
+import { missionCodeMessage } from './activity-mission-messages';
+import type { StagedActionChoice } from '~/lib/weekly-draft-facts';
+type Summary = Pick<
+  Extract<PhaseView, { phase: 'summary' }>,
+  'adjustments' | 'options' | 'eventMessages'
+>;
 const messages: Record<string, string> = {
+  ...economyMessages,
   'upkeep:attrition:roll': 'Enter the attrition Loyalty roll.',
   'upkeep:attrition-training:roll': 'Enter the attrition training roll.',
   'upkeep:notoriety-training:roll': 'Enter the Notoriety training loss roll.',
+  'upkeep:notoriety:roll': 'Enter the Notoriety Loyalty roll.',
+  'upkeep:shortage:roll': 'Enter the treasury-shortage training roll.',
   'upkeep:notoriety:nearest-settlement':
     'Choose the nearest settlement for Notoriety consequences.',
   'upkeep:notoriety:settlement-reputation':
@@ -13,17 +26,15 @@ const messages: Record<string, string> = {
   'rank:pc-cap': 'The militia rank exceeds the highest player-character level.',
   'return:roll': 'Enter the missing team’s return roll.',
   'recovery-decision':
-    'Choose whether to recover, leave or remove this disabled team.',
+    'Choose whether to recover this disabled team or leave it disabled.',
   'recovery-funds': 'Recovery costs exceed the available treasury.',
   'recovery-cost-baseline':
     'The entered recovery cost differs from the calculated cost.',
-  'removal-exception':
-    'Removing this team requires a reasoned Rules Exception.',
   'persistent-ending': 'Ending this event requires a reasoned Rules Exception.',
+  'ending-acknowledgement': 'Record how this event ended at the table.',
+  teams: 'This Rivalry needs its two distinct rival teams.',
   'buyoff-cooldown':
     'This buyoff falls within the militia’s four-week waiting period.',
-  'buyoff-cost-recomputed':
-    'The recorded amount differs from the calculated buyoff cost.',
   'officer-assignment':
     'Choose an assigned officer or record a reasoned Rules Exception.',
   'team-type': 'Choose the type of team to recruit.',
@@ -35,6 +46,38 @@ const messages: Record<string, string> = {
   'from-role': 'Choose the officer role to leave.',
   'duplicate-role': 'This character already holds the selected officer role.',
   character: 'Choose an available character.',
+  'officer-pc': 'Officer roles normally go to player characters.',
+  'officer-role-limit': 'This character would hold more than one officer role.',
+  'manager-limit':
+    'Leaving this role would leave the character managing more teams than their normal limit.',
+  'recruit-tier':
+    'This team type has no recruitment rules; it is normally reached by upgrading.',
+  'team-upgrade-limit': 'This team has already been upgraded this Activity.',
+  'upgrade-tree':
+    'This team type does not normally upgrade into the chosen type.',
+  destination: 'Choose where the rescued character goes.',
+  'character-level':
+    'The character’s level is unknown. Record it in the character ledger.',
+  'character-state':
+    'This character’s condition is not tracked yet. Record it before resolving this action.',
+  capture: 'This character has no recorded capture.',
+  'character-captured':
+    'The character’s current condition does not normally permit this action.',
+  'direct-rescue': 'This character can normally only be rescued in person.',
+  'capture-week': 'This character was captured after this week.',
+  'active-refuge': 'The chosen settlement has no active refuge this week.',
+  'character-location':
+    'The character is not at headquarters or an active refuge.',
+  mode: 'Choose a mode.',
+  effect: 'Name the restorative effect.',
+  'effect-level': 'Enter the restorative effect’s spell level.',
+  'restorative-level':
+    'Restorative effects are normally limited to 3rd-level spells.',
+  party: 'There are no player characters on the roster to restore.',
+  'target-present':
+    'Record whether the character is present for the restoration.',
+  'maximum-rank':
+    'The militia is already at its maximum rank for the highest player-character level.',
   'overseer-conflict':
     'Keep the same Overseer for every check belonging to this event.',
   'overseer-event': 'Choose the event the Overseer will support.',
@@ -65,6 +108,17 @@ const messages: Record<string, string> = {
   funds: 'This transfer exceeds the available treasury.',
 };
 
+// A rules code whose warning means something other than its requirement.
+const warningMessages: Record<string, string> = {
+  'character-level':
+    'The entered level differs from the character’s recorded level; the rules use the recorded level.',
+};
+
+// The player-facing wording for a rules code, if there is one.
+export function ruleMessage(key: string, warning = false) {
+  return (warning ? warningMessages[key] : undefined) ?? messages[key] ?? null;
+}
+
 const adjustmentTargets: Record<string, string> = {
   team: 'team',
   settlement: 'settlement',
@@ -80,7 +134,7 @@ function adjustmentMessage(code: string, view: Summary) {
       ? `Table Adjustment “${adjustment.reason}” exceeds the supported whole-number range.`
       : code.endsWith(`:${adjustment.reason}`)
         ? `Table Adjustment: ${adjustment.reason}`
-        : `Table Adjustment “${adjustment.reason}”: choose an available ${adjustmentTargets[code.split(':').at(-1) ?? ''] ?? 'target'}.`;
+        : `Table Adjustment “${adjustment.reason}”: choose an available ${adjustmentTargets[code.split(':').pop() ?? ''] ?? 'target'}.`;
   return null;
 }
 
@@ -99,7 +153,31 @@ function requiredRoll(code: string) {
     : `Enter the required roll (${match[2]}).`;
 }
 
-export function summaryMessage(code: string, view: Summary, warning = false) {
+// Persistent's single "earlier phases" item names those phases in order.
+function earlierPhasesMessage(code: string) {
+  const match = /^persistent:earlier-phases:(.+)$/.exec(code);
+  if (!match) return null;
+  const names = match[1]!
+    .split('+')
+    .flatMap((phase) =>
+      phase in phaseLabels
+        ? [phaseLabels[phase as keyof typeof phaseLabels]]
+        : [],
+    );
+  return `Earlier phases still need preparation: ${names.join(', ')}.`;
+}
+
+// `actionId` names the Activity action that owns `code`, when it is known.
+export function summaryMessage(
+  code: string,
+  view: Summary,
+  warning = false,
+  actionId?: StagedActionChoice['actionId'],
+) {
+  const event = view.eventMessages?.[code];
+  if (event) return event;
+  const earlier = earlierPhasesMessage(code);
+  if (earlier) return earlier;
   const adjustment = adjustmentMessage(code, view);
   if (adjustment) return adjustment;
   const owner = messageOwner(code, view);
@@ -113,12 +191,17 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
   const tail = owner
     ? code.slice(code.indexOf(owner.value) + owner.value.length + 1)
     : code;
+  const mission = missionCodeMessage(tail, actionId, warning);
+  if (mission) return prefix + mission;
   const key = tail.replace(/:exception$/, '');
+  // A rank boon names its rank; the owner prefix names the PC.
+  const boonRank = /^upkeep:boon:(\d+):.+:acknowledgement$/.exec(code)?.[1];
+  if (boonRank) return `${prefix}Record the rank ${boonRank} boon.`;
   if (/reference|Unknown|revision/.test(code))
     return `${prefix}A selected character, team, settlement or asset is no longer available. Review the affected choice.`;
-  if (code.startsWith('transfer:') && key === 'officer')
-    return `${prefix}This transfer is for a character without an officer assignment.`;
-  const known = messages[key];
+  const known =
+    ruleMessage(key, warning) ??
+    (warning ? null : economyCodeMessage(key, actionId));
   if (known)
     return (
       prefix +
@@ -141,4 +224,23 @@ export function summaryMessage(code: string, view: Summary, warning = false) {
   const translated = eventRequirement(code);
   if (!translated.startsWith('An earlier')) return prefix + translated;
   return `${prefix}Complete the highlighted decision in the affected phase before confirming.`;
+}
+
+// The same message for one subject's own code, without the owner prefix that
+// the phase-wide lists add (for example inside that Action Slot's details).
+export function subjectMessage(
+  code: string,
+  subjectId: string,
+  warning = false,
+  actionId?: StagedActionChoice['actionId'],
+) {
+  return summaryMessage(
+    code,
+    {
+      adjustments: [],
+      options: { subjectId: [{ value: subjectId, label: '' }] },
+    },
+    warning,
+    actionId,
+  ).replace(/^: /, '');
 }

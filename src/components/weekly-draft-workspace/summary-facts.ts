@@ -3,17 +3,24 @@ import type { WorkspaceSource } from '~/lib/weekly-workspace-source';
 import type { CanonicalResolutionPreview } from '~/lib/canonical-weekly-resolution';
 import type { UpkeepView, PhaseView } from './types';
 import { activityView } from './activity-facts';
-import { eventView } from './event-facts';
+import { eventView, type EventPreparationContext } from './event-facts';
 import { persistentView } from './persistent-facts';
 import { activityLabel } from './activity-labels';
+import { withoutDuplicateRollCodes } from './roll-requirements';
+import { eventSubjectLabel } from './event-tree-facts';
+import { liveWeekReview } from './summary-review';
+import { summaryMessage } from './summary-messages';
+import { liveReviewSources } from './summary-sources';
+import { isAppliedAdjustment } from '~/components/week-review/review-notes';
 export function summaryView(
   draft: WeeklyDraft,
   source: WorkspaceSource,
   preview: CanonicalResolutionPreview,
   upkeep: UpkeepView,
+  eventContext?: EventPreparationContext,
 ): Extract<PhaseView, { phase: 'summary' }> {
   const activity = activityView(draft, source, preview);
-  const events = eventView(draft, source, preview);
+  const events = eventView(draft, source, preview, eventContext);
   const persistent = persistentView(draft, source, preview);
   const candidates = [
     ...upkeep.exceptions,
@@ -24,10 +31,10 @@ export function summaryView(
         name: `Activity ${index + 1}: ${activity.actions.find((action) => action.actionId === slot.choice?.actionId)?.name ?? 'Choice'}`,
       })),
     ),
-    ...events.occurrences.flatMap((event, index) =>
+    ...events.occurrences.flatMap((event) =>
       event.exceptionChoices.map((item) => ({
         ...item,
-        name: `${event.resolvedType ? activityLabel(event.resolvedType) : 'Event'} · Event ${index + 1}`,
+        name: eventSubjectLabel(event),
       })),
     ),
     ...persistent.events.flatMap((event) =>
@@ -45,8 +52,8 @@ export function summaryView(
           ]
         : [],
     ),
-    ...events.occurrences.flatMap((event, index) => {
-      const label = `${activityLabel(event.resolvedType ?? 'event')} · Event ${index + 1}`;
+    ...events.occurrences.flatMap((event) => {
+      const label = eventSubjectLabel(event);
       return [
         { value: event.occurrence.eventId, label },
         { value: `event:${event.occurrence.eventId}`, label },
@@ -94,6 +101,7 @@ export function summaryView(
     choiceId: subjects,
     sourceId: subjects,
   };
+  const eventMessages = events.messages;
   const states = [preview.baseline, preview.outcome].filter(
     (state) => state !== null,
   );
@@ -127,7 +135,19 @@ export function summaryView(
         ).values(),
       ];
   }
-  return {
+  // One line per missing die, as the Event phase shows it (#164).
+  const requirements = withoutDuplicateRollCodes(preview.requirements);
+  // An applied Table Adjustment is the table's decision, not a warning.
+  const warnings = preview.warnings.filter(
+    (code) => !isAppliedAdjustment(code, draft.tableAdjustments),
+  );
+  const sources = liveReviewSources({
+    draft,
+    source,
+    codes: [...requirements, ...warnings],
+    views: { upkeep, activity, event: events, persistent },
+  });
+  const view: Omit<Extract<PhaseView, { phase: 'summary' }>, 'review'> = {
     phase: 'summary',
     ready: preview.status === 'ready',
     adjustments: structuredClone(draft.tableAdjustments),
@@ -143,6 +163,7 @@ export function summaryView(
       name: person.name ?? 'Unnamed character',
     })),
     options,
+    eventMessages,
     baseline: preview.baseline,
     outcome: preview.outcome,
     effects: preview.phases
@@ -154,7 +175,19 @@ export function summaryView(
           persistent: preview.phases.persistent.plan,
         }
       : null,
-    requirements: preview.requirements,
-    warnings: preview.warnings,
+    requirements,
+    warnings,
+    sources,
+  };
+  return {
+    ...view,
+    review: liveWeekReview({
+      draft,
+      source,
+      preview,
+      views: { upkeep, activity, event: events, persistent },
+      summary: view,
+      message: (code, warning) => summaryMessage(code, view, warning),
+    }),
   };
 }

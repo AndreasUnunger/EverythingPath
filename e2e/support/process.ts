@@ -1,14 +1,23 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { createInterface } from 'node:readline';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import { deploymentFixtureSchema, resourceSchema } from '../fixtures/catalog';
+import {
+  caseKeys,
+  deploymentFixtureSchema,
+  resourceSchema,
+  type CaseKey,
+} from '../fixtures/catalog';
 import { safeDiagnostic } from './artifacts';
+import { HarnessFailure, recordSecondaryFailure } from './diagnostics';
 
 export const runSchema = z.object({
   mode: z.enum(['mandatory', 'nightly']).default('mandatory'),
+  // Playwright workers, each bound to its own declared cohort (worker-N).
+  workers: z.number().int().min(1).default(1),
   resources: resourceSchema,
   workspace: z.string(),
   sourceRoot: z.string(),
@@ -23,15 +32,56 @@ export type Run = z.infer<typeof runSchema>;
 
 export async function loadRun() {
   const path = process.env.E2E_RUN_FILE;
-  if (!path)
-    throw new Error(
-      'Run E2E through pnpm test:e2e with an explicit resource declaration',
-    );
+  if (!path) throw new HarnessFailure({ kind: 'run-file-missing' });
   return runSchema.parse(JSON.parse(await readFile(path, 'utf8')));
 }
 export async function savePrivate(path: string, content: string | Uint8Array) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await writeFile(path, content, { mode: 0o600 });
+}
+
+async function fixtureExecutable(args: string[], cwd: string) {
+  if (args[0] !== 'exec' || args[1] !== 'convex' || args[2] !== 'run')
+    return { file: 'pnpm', args };
+  const packagePath = createRequire(join(cwd, 'package.json')).resolve(
+    'convex/package.json',
+  );
+  const { bin } = z
+    .object({ bin: z.union([z.string(), z.object({ convex: z.string() })]) })
+    .parse(JSON.parse(await readFile(packagePath, 'utf8')));
+  const entry = join(
+    dirname(packagePath),
+    typeof bin === 'string' ? bin : bin.convex,
+  );
+  return { file: process.execPath, args: [entry, ...args.slice(2)] };
+}
+
+// A child process that could not start or did not exit successfully. `code`
+// is the spawn error's system code; `exitCode` is null after a signal/timeout.
+export class CommandFailure extends Error {
+  constructor(
+    readonly stage: string,
+    readonly exitCode: number | null,
+    readonly code?: string,
+  ) {
+    super(
+      code === undefined
+        ? `${stage}: process failed (${exitCode ?? 'terminated'})`
+        : `${stage}: process could not start`,
+    );
+    this.name = 'CommandFailure';
+  }
+}
+
+// The command's run file or first evidence write failed before it spawned.
+export class CommandEvidenceFailure extends Error {
+  constructor(
+    readonly stage: string,
+    cause: unknown,
+  ) {
+    super(`${stage}: evidence could not be initialized`, { cause });
+    this.name = 'CommandEvidenceFailure';
+  }
 }
 
 // Never forward CLI output: deployment/auth failures can contain credentials,
@@ -52,9 +102,7 @@ export async function command(
   const runFile = environment.E2E_RUN_FILE;
   const diagnostics = new Set<string>();
   const diagnosticWrites: Promise<void>[] = [];
-  const run = runFile
-    ? runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')))
-    : null;
+  let run: Run | null = null;
   let diagnosticWriteFailed = false;
   const log = async (status: string) => {
     if (!run) return;
@@ -74,10 +122,20 @@ export async function command(
       })}\n`,
     );
   };
-  await log('started');
   try {
+    run = runFile
+      ? runSchema.parse(JSON.parse(await readFile(runFile, 'utf8')))
+      : null;
+    await log('started');
+  } catch (error) {
+    throw new CommandEvidenceFailure(stage, error);
+  }
+  try {
+    // Repeated fixture calls need the installed CLI, not pnpm's exec wrapper.
+    // Deployment keeps pnpm's PATH setup for its nested --cmd build command.
+    const executable = await fixtureExecutable(args, options.cwd);
     const output = await new Promise<string>((resolve, reject) => {
-      const child = spawn('pnpm', args, {
+      const child = spawn(executable.file, executable.args, {
         cwd: options.cwd,
         env: environment,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -128,8 +186,8 @@ export async function command(
           }
         });
       }
-      child.on('error', () =>
-        reject(new Error(`${stage}: process could not start`)),
+      child.on('error', (error: NodeJS.ErrnoException) =>
+        reject(new CommandFailure(stage, null, error.code ?? 'unknown')),
       );
       child.on('close', (code) => {
         clearTimeout(timeout);
@@ -139,22 +197,44 @@ export async function command(
         terminate();
         clearTimeout(forceKill);
         if (code === 0 && !wasInterrupted) resolve(output);
-        else
-          reject(
-            new Error(`${stage}: process failed (${code ?? 'terminated'})`),
-          );
+        else reject(new CommandFailure(stage, wasInterrupted ? null : code));
       });
     });
     await Promise.all(diagnosticWrites);
     if (diagnosticWriteFailed)
-      throw new Error('E2E diagnostic log could not be saved');
+      throw new HarnessFailure({ kind: 'diagnostic-log' });
     await log('passed');
     return output;
   } catch (error) {
     await Promise.all(diagnosticWrites);
-    await log('failed');
+    // The command's own failure stays primary; a log failure is secondary.
+    try {
+      await log('failed');
+    } catch (logError) {
+      recordSecondaryFailure(error, logError);
+    }
     throw error;
   }
+}
+
+// The cases the running test owns in its cohort. A Playwright worker process
+// runs one test at a time, so each reset it sends asks `resetCase` to check
+// that the cohort's organizations hold no other campaign (isolation canary).
+let isolatedCases: readonly CaseKey[] = [];
+export function isolateCases(keys: readonly CaseKey[]) {
+  isolatedCases = keys;
+}
+const resetScope = z.object({ caseKey: z.enum(caseKeys) });
+export function withIsolationCanary(
+  operation: string,
+  args: Record<string, unknown>,
+) {
+  if (operation !== 'resetCase' && operation !== 'resetAndInitialize')
+    return args;
+  const { caseKey } = resetScope.parse(
+    operation === 'resetCase' ? args : args.scope,
+  );
+  return { ...args, isolatedWith: [...new Set([caseKey, ...isolatedCases])] };
 }
 
 export async function fixtureCall(
@@ -173,7 +253,7 @@ export async function fixtureCall(
       'convex',
       'run',
       `e2eFixtures:${operation}`,
-      JSON.stringify(args),
+      JSON.stringify(withIsolationCanary(operation, args)),
       '--preview-name',
       run.resources.previewName,
       '--env-file',
@@ -194,6 +274,7 @@ export async function canonicalPersistenceFixtureCall(
     | 'close'
     | 'changeSource'
     | 'blockSuccessor'
+    | 'appendHistory'
     | 'inspect',
   args: Record<string, unknown>,
 ): Promise<unknown> {
@@ -204,7 +285,7 @@ export async function canonicalPersistenceFixtureCall(
       'convex',
       'run',
       `canonicalPersistenceFixtures:${operation}`,
-      JSON.stringify(args),
+      JSON.stringify(withIsolationCanary(operation, args)),
       '--preview-name',
       run.resources.previewName,
       '--env-file',
@@ -218,6 +299,7 @@ export async function canonicalPersistenceFixtureCall(
       'changeSource',
       'blockSuccessor',
       'installAcceptanceSource',
+      'appendHistory',
     ].includes(operation) &&
     !output.trim()
   )

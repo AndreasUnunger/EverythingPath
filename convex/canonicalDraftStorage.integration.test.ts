@@ -3,6 +3,7 @@ import { convexTest } from 'convex-test';
 import { expect, test } from 'vitest';
 import schema from './schema';
 import { canonicalResolutionRecordSchema } from '../src/lib/canonical-resolution-record';
+import { recordSnapshot } from '../tests/history/resolution-record-fixtures';
 import { createWeeklyDraft, editWeeklyDraft } from '../src/lib/weekly-draft';
 import {
   openDraft,
@@ -132,11 +133,12 @@ function record(recordId = 'record-11') {
   return canonicalResolutionRecordSchema.parse({
     recordId,
     source: fresh(),
+    sourceMilitiaSnapshot: recordSnapshot(),
     provenance: 'confirmation',
     rulesetVersion: 1,
-    baselinePlan: { formatVersion: 1, data: { treasuryCopper: 10001 } },
-    finalPlan: { formatVersion: 1, data: { treasuryCopper: 10001 } },
-    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 10001 } },
+    baselinePlan: { formatVersion: 2, data: { treasuryCopper: 10001 } },
+    finalPlan: { formatVersion: 2, data: { treasuryCopper: 10001 } },
+    finalOutcome: { formatVersion: 2, data: { treasuryCopper: 10001 } },
     adjudication: {
       acknowledgements: [],
       rulesExceptions: [],
@@ -179,7 +181,10 @@ test('[storage.history] closing preserves complete source and appends immutable 
     ...record('correction-11'),
     provenance: 'historical_correction' as const,
     supersedesRecordId: 'record-11',
-    finalOutcome: { formatVersion: 1, data: { treasuryCopper: 10002 } },
+    finalOutcome: {
+      formatVersion: 2 as const,
+      data: { treasuryCopper: 10002 },
+    },
   };
   await gm.run((ctx) =>
     appendResolutionRecord(ctx, { ...scope, record: correction }),
@@ -480,7 +485,8 @@ test('[storage.source] confirmed history round-trips raw facts, copper precision
               costCopper: 0,
               rolls: {
                 check: {
-                  dice: [12],
+                  diceTotal: 12,
+                  diceCount: 1,
                   sides: 20,
                   provenance: { kind: 'table' },
                   modifiers: [
@@ -564,4 +570,52 @@ test('[storage.source] confirmed history round-trips raw facts, copper precision
       readResolutionRecord(ctx, { ...scope, recordId: 'record-11' }),
     ),
   ).toEqual(complete);
+});
+
+test('storage rejects retired rolls in open and historical sources without writing partial records', async () => {
+  const { player, scope } = await fixture();
+  const draft = fresh();
+  const unsupported = {
+    ...draft,
+    upkeep: {
+      ...draft.upkeep,
+      rolls: {
+        reward: {
+          diceTotal: 4,
+          diceCount: 1,
+          sides: 6,
+          provenance: { kind: 'table' },
+          modifiers: [],
+        },
+      },
+    },
+  };
+  await expect(
+    player.run((ctx) =>
+      Reflect.apply(openDraft, undefined, [
+        ctx,
+        { ...scope, draft: unsupported },
+      ]),
+    ),
+  ).rejects.toThrow(/reward/);
+  expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toBeNull();
+  await player.run((ctx) => openDraft(ctx, { ...scope, draft }));
+  await expect(
+    player.run((ctx) =>
+      Reflect.apply(appendResolutionRecord, undefined, [
+        ctx,
+        { ...scope, record: { ...record(), source: unsupported } },
+      ]),
+    ),
+  ).rejects.toThrow(/reward/);
+  expect(await player.run((ctx) => readOpenDraft(ctx, scope))).toEqual(draft);
+  expect(
+    await player.run((ctx) => readEffectiveRecord(ctx, { ...scope, week: 11 })),
+  ).toBeNull();
+  await player.run((ctx) =>
+    appendResolutionRecord(ctx, { ...scope, record: record() }),
+  );
+  expect(
+    await player.run((ctx) => readEffectiveRecord(ctx, { ...scope, week: 11 })),
+  ).toEqual(record());
 });

@@ -4,8 +4,21 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
-import { resources } from './test-data';
+import { deploymentFixture, resources } from './test-data';
 import { evaluateResults } from './results';
+import { accessJourneyFiles, requiredTests } from './matrix';
+
+const workspaceTitles = requiredTests('mandatory')
+  .filter(([file]) => file === 'canonical-workspace.spec.ts')
+  .map(([, , title]) => title!);
+// The journeys split from access, each written as a passing stub.
+const accessParts = requiredTests('mandatory')
+  .filter(
+    ([file]) =>
+      file !== 'access.spec.ts' &&
+      (accessJourneyFiles as readonly string[]).includes(file!),
+  )
+  .map(([file, , title]) => [file!, title!] as const);
 
 // Exercise the actual reporter/Playwright protocol without browser or service
 // dependencies. These synthetic bodies test result handling, not authentication.
@@ -39,6 +52,7 @@ it.each([
         runFile,
         JSON.stringify({
           resources,
+          fixture: deploymentFixture,
           workspace: directory,
           sourceRoot: process.cwd(),
           privateDirectory: directory,
@@ -52,6 +66,11 @@ it.each([
         `import { test } from ${playwright}; test('prepare fresh role sessions', () => {});`,
       );
       await writeAccessJourney(directory, playwright, mode);
+      for (const [file, title] of accessParts)
+        await writeFile(
+          join(directory, file),
+          `import { test } from ${playwright}; test(${JSON.stringify(title)}, () => {});`,
+        );
       await writeFile(
         join(directory, 'existing-militia.spec.ts'),
         `import { test } from ${playwright}; test('existing militia state survives reload within its campaign', () => {});`,
@@ -62,7 +81,7 @@ it.each([
       );
       await writeFile(
         join(directory, 'complete-week.spec.ts'),
-        `import { test } from ${playwright}; test('a player confirms a complete week and reloads its outcome', () => {});`,
+        `import { test } from ${playwright}; test('a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload', () => {});`,
       );
       if (mode !== 'missing-multiplayer')
         await writeFile(
@@ -82,7 +101,12 @@ it.each([
       if (mode !== 'missing-workspace')
         await writeFile(
           join(directory, 'canonical-workspace.spec.ts'),
-          `import { test } from ${playwright}; test('players prepare shared Upkeep with independent navigation and save recovery', async ({}, info) => { ${mode === 'retry-workspace' ? "if(info.retry===0) throw new Error('Synthetic Workspace failure');" : ''} });`,
+          `import { test } from ${playwright}; test.describe.configure({ mode: 'parallel' }); ${workspaceTitles
+            .map(
+              (title, index) =>
+                `test(${JSON.stringify(title)}, async ({}, info) => { ${mode === 'retry-workspace' && index === 2 ? "if(info.retry===0) throw new Error('Synthetic Workspace failure');" : ''} });`,
+            )
+            .join(' ')}`,
         );
       if (mode !== 'missing-cutover')
         await writeFile(
@@ -121,6 +145,20 @@ it.each([
         mode === 'passed' ? 0 : 1,
       );
       expect(evaluateResults(report)).toBe(mode === 'passed');
+      // Every attempt records the cohort that ran it; authentication prepares all.
+      if (mode === 'passed')
+        expect(report).toMatchObject({
+          evidence: expect.arrayContaining([
+            expect.objectContaining({
+              project: 'authentication',
+              workerKey: null,
+            }),
+            expect.objectContaining({
+              project: 'chromium-tablet',
+              workerKey: 'worker-0',
+            }),
+          ]),
+        });
       expect(
         await readFile(join(artifactDirectory, 'report.html'), 'utf8'),
       ).toContain(`E2E ${mode === 'passed' ? 'passed' : 'failed'}`);
@@ -269,3 +307,105 @@ it('keeps safe completed-attempt evidence when the runner is killed before onEnd
     await rm(directory, { recursive: true, force: true });
   }
 }, 10000);
+
+it('records sanitized per-step timings, including the step a timeout interrupts', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'e2e-step-reporter-'));
+  const artifactDirectory = join(directory, 'artifacts');
+  const runFile = join(directory, 'run.json');
+  try {
+    await writeFile(
+      runFile,
+      JSON.stringify({
+        resources,
+        workspace: directory,
+        sourceRoot: process.cwd(),
+        privateDirectory: directory,
+        artifactDirectory,
+        envFile: join(directory, 'convex.env'),
+        baseURL: 'http://localhost:49123',
+      }),
+    );
+    const playwright = JSON.stringify(
+      resolve('node_modules/@playwright/test/index.mjs'),
+    );
+    // A passing step with a nested step and an assertion, a step whose title
+    // carries a secret, and a step still running when the test times out.
+    await writeFile(
+      join(directory, 'steps.spec.ts'),
+      `import { test, expect } from ${playwright};
+      test('timed journey', async () => {
+        test.setTimeout(1500);
+        await test.step('members open the week', async () => {
+          await test.step('the player opens the list', async () => {
+            await new Promise((done) => setTimeout(done, 120));
+          });
+          expect(1).toBe(1);
+        });
+        await test.step('reads token=sk_test_secretvalue', async () => {});
+        await test.step('the player follows / legacy links', () => new Promise(() => {}));
+      });`,
+    );
+    const config = join(directory, 'playwright.config.ts');
+    await writeFile(
+      config,
+      `export default {testDir:${JSON.stringify(directory)},workers:1,retries:0,reporter:[[${JSON.stringify(resolve('e2e/support/reporter.ts'))}]],projects:[{name:'chromium-tablet',testMatch:'steps.spec.ts'}]};`,
+    );
+    const result = spawnSync(
+      'pnpm',
+      ['exec', 'playwright', 'test', '--config', config],
+      {
+        env: { ...process.env, E2E_RUN_FILE: runFile },
+        encoding: 'utf8',
+        timeout: 15_000,
+      },
+    );
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    for (const file of ['progress.json', 'report.json']) {
+      const text = await readFile(join(artifactDirectory, file), 'utf8');
+      const { evidence } = JSON.parse(text) as {
+        evidence: {
+          status: string;
+          steps: {
+            step: string;
+            start: number;
+            duration: number | null;
+            status: string;
+          }[];
+        }[];
+      };
+      expect(evidence).toHaveLength(1);
+      expect(evidence[0]!.status).toBe('timedOut');
+      const steps = evidence[0]!.steps;
+      // Only the journey's own steps, never its assertion or fixtures.
+      expect(steps.map(({ step, status }) => [step, status])).toEqual([
+        ['members open the week', 'passed'],
+        ['members open the week > the player opens the list', 'passed'],
+        ['reads tokenredacted', 'passed'],
+        ['the player follows  legacy links', 'interrupted'],
+      ]);
+      const [week, list, , interrupted] = steps;
+      expect(list!.duration).toBeGreaterThanOrEqual(100);
+      expect(week!.duration).toBeGreaterThanOrEqual(list!.duration!);
+      expect(list!.start).toBeGreaterThanOrEqual(week!.start);
+      // The interrupted step never finished; its start shows it ran from
+      // after the first step until the 1.5 s timeout.
+      expect(interrupted!.duration).toBeNull();
+      expect(interrupted!.start).toBeGreaterThanOrEqual(
+        week!.start + week!.duration!,
+      );
+      expect(interrupted!.start).toBeLessThan(1500);
+      expect(text).not.toContain('secretvalue');
+      expect(text).not.toContain('sk_test');
+      // No locations, errors or parameters: exactly these four fields.
+      for (const step of steps)
+        expect(Object.keys(step).sort()).toEqual([
+          'duration',
+          'start',
+          'status',
+          'step',
+        ]);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}, 20_000);

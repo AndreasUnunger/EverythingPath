@@ -9,7 +9,7 @@ export function compoundAcceptanceFixture() {
   initialSnapshot.training = 55;
   initialSnapshot.roster.people.push({
     characterId: 'strategist',
-    kind: 'officer_npc',
+    kind: 'npc',
     hitDice: 7,
   });
   initialSnapshot.characters.push({

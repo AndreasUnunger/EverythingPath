@@ -1,3 +1,5 @@
+import type { RawRoll } from '../../src/lib/weekly-draft-facts';
+import { weeklySourceKey } from '../../src/lib/canonical-weekly-source';
 import type {
   DraftTransport,
   DraftOperation,
@@ -16,13 +18,18 @@ export type PersistenceContractHarness = {
 export type PersistenceContractFactory =
   () => Promise<PersistenceContractHarness>;
 const roll = (value: number) => ({
-  dice: [value],
+  diceTotal: value,
+  diceCount: 1,
   sides: 100,
   provenance: { kind: 'table' as const },
   modifiers: [],
 });
 function check(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
+}
+function recordedTotal(raw: RawRoll | undefined) {
+  check(raw, 'The roll is recorded');
+  return raw.diceTotal;
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -85,6 +92,101 @@ export async function runPersistenceContract(
       await harness.dispose();
     }
   }
+  await scenario(async ({ first, second }, op) => {
+    const staged = { ...roll(12), sides: 20 };
+    await first.send(
+      op(0, {
+        kind: 'stage',
+        slotId: 'left',
+        choice: {
+          choiceId: 'staged-check',
+          actionId: 'earn_gold',
+          rolls: { check: staged },
+        },
+      }),
+    );
+    const total = {
+      diceTotal: 100,
+      diceCount: 1,
+      sides: 100,
+      provenance: { kind: 'generated' as const, sourceId: 'table-dice' },
+      modifiers: [{ sourceId: 'weather', value: -2, reason: 'Rain' }],
+    };
+    const sent: DraftOperation[] = [];
+    const adapter = createDraftPersistence({
+      ...first,
+      async send(operation) {
+        sent.push(structuredClone(operation));
+        const receipt = await first.send(operation);
+        if (sent.length === 1)
+          throw new DraftTransportFailure('Acknowledgement dropped');
+        return receipt;
+      },
+    });
+    try {
+      await adapter.ready;
+      check(
+        (await adapter.edit({ kind: 'event_chance', roll: total })) ===
+          'accepted',
+        'Total-form dropped acknowledgement recovers',
+      );
+      check(
+        sent.length === 2 &&
+          weeklySourceKey(sent[0]) === weeklySourceKey(sent[1]),
+        'Total retry keeps exact identity and payload',
+      );
+      const accepted = await second.read();
+      check(accepted.revision === 2, 'Both writes advance exactly once each');
+      check(
+        weeklySourceKey(accepted.draft?.event.chanceRoll) ===
+          weeklySourceKey(total),
+        'Other player reads original total metadata',
+      );
+      check(
+        weeklySourceKey(
+          accepted.draft?.activity.slots[0]?.choice?.actionId === 'earn_gold'
+            ? accepted.draft.activity.slots[0].choice.rolls?.check
+            : undefined,
+        ) === weeklySourceKey(staged),
+        'Other player retains the staged check roll',
+      );
+      const reloaded = createDraftPersistence(second);
+      try {
+        await reloaded.ready;
+        check(
+          weeklySourceKey(reloaded.getSnapshot().observation?.draft) ===
+            weeklySourceKey(accepted.draft),
+          'Reload preserves both rolls without a write',
+        );
+      } finally {
+        reloaded.dispose();
+      }
+      check(
+        (await first.read()).revision === 2,
+        'Reading the rolls does not advance revision',
+      );
+      check(
+        (await adapter.edit({ kind: 'event_chance', roll: null })) ===
+          'accepted',
+        'Existing clear accepts a total-form field',
+      );
+      const cleared = await second.read();
+      check(
+        cleared.draft?.event.chanceRoll === undefined,
+        'Clear deletes the total instead of inventing zero or dice',
+      );
+      check(
+        weeklySourceKey(
+          cleared.draft?.activity.slots[0]?.choice?.actionId === 'earn_gold'
+            ? cleared.draft.activity.slots[0].choice.rolls?.check
+            : undefined,
+        ) === weeklySourceKey(staged),
+        'Clearing total preserves unrelated staged roll',
+      );
+    } finally {
+      adapter.dispose();
+    }
+  });
   await scenario(async ({ first, second, close }, op) => {
     const watcher = observationAt(second, 2);
     try {
@@ -175,7 +277,9 @@ export async function runPersistenceContract(
     );
     const result = (await first.read()).draft?.activity.slots[0]?.choice;
     check(
-      result?.costCopper === 12 && result.rolls?.check?.dice[0] === 10,
+      result?.actionId === 'earn_gold' &&
+        result.costCopper === 12 &&
+        recordedTotal(result.rolls?.check) === 10,
       'Disjoint detail fields merge without dropping accepted changes',
     );
     const before = await first.read();
@@ -311,7 +415,7 @@ export async function runPersistenceContract(
       );
       check(
         acknowledgements.join(',') === '1,2' &&
-          (await first.read()).draft?.event.chanceRoll?.dice[0] === 25,
+          recordedTotal((await first.read()).draft?.event.chanceRoll) === 25,
         'Acknowledgements and final outcome follow submission order',
       );
       const remote = await second.send(
@@ -363,7 +467,7 @@ export async function runPersistenceContract(
       );
       check(
         adapter.getSnapshot().observation?.revision === 2 &&
-          (await first.read()).draft?.event.chanceRoll?.dice[0] === 35,
+          recordedTotal((await first.read()).draft?.event.chanceRoll) === 35,
         'Old acknowledgement must not regress remote observation',
       );
       check(
@@ -407,7 +511,8 @@ export async function runPersistenceContract(
     const accepted = await second.read();
     check(
       accepted.revision === 2 &&
-        accepted.draft?.event.occurrences[0]?.persistentDecision?.kind === 'buyoff',
+        accepted.draft?.event.occurrences[0]?.persistentDecision?.kind ===
+          'buyoff',
       'Both players retain the accepted buyoff without a second revision',
     );
   });
@@ -754,7 +859,8 @@ export async function runPersistenceContract(
         kind: 'upkeep_roll',
         field: 'check',
         roll: {
-          dice: [0],
+          diceTotal: 0,
+          diceCount: 1,
           sides: 20,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -766,7 +872,8 @@ export async function runPersistenceContract(
         kind: 'upkeep_roll',
         field: 'training',
         roll: {
-          dice: [3],
+          diceTotal: 3,
+          diceCount: 1,
           sides: 6,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -775,8 +882,8 @@ export async function runPersistenceContract(
     );
     let current = await first.read();
     check(
-      current.draft?.upkeep.rolls.check?.dice[0] === 0 &&
-        current.draft.upkeep.rolls.training?.dice[0] === 3,
+      recordedTotal(current.draft?.upkeep.rolls.check) === 0 &&
+        recordedTotal(current.draft?.upkeep.rolls.training) === 3,
       'Disjoint focused Upkeep rolls coexist and zero remains entered',
     );
     await rejects(
@@ -789,7 +896,7 @@ export async function runPersistenceContract(
     current = await second.read();
     check(
       current.draft?.upkeep.rolls.check === undefined &&
-        current.draft?.upkeep.rolls.training?.dice[0] === 3,
+        recordedTotal(current.draft?.upkeep.rolls.training) === 3,
       'Explicit clear removes only its roll',
     );
   });
@@ -819,8 +926,8 @@ export async function runPersistenceContract(
     );
     const observed = await first.read();
     check(
-      observed.draft?.event.occurrences[0]?.tableRoll?.dice[0] === 50 &&
-        observed.draft.event.occurrences[1]?.tableRoll?.dice[0] === 45,
+      recordedTotal(observed.draft?.event.occurrences[0]?.tableRoll) === 50 &&
+        recordedTotal(observed.draft?.event.occurrences[1]?.tableRoll) === 45,
       'Disjoint stale occurrence inputs coexist',
     );
     await rejects(
@@ -866,7 +973,7 @@ export async function runPersistenceContract(
     const choice = (await second.read()).draft?.activity.slots[0]?.choice;
     check(
       choice?.actionId === 'guarantee_event' &&
-        choice.candidates?.[0]?.tableRoll?.dice[0] === 45,
+        recordedTotal(choice.candidates?.[0]?.tableRoll) === 45,
       'Occurrence edits retain Activity ownership',
     );
     await rejects(
@@ -900,6 +1007,173 @@ export async function runPersistenceContract(
         }),
       ),
       'Delayed occurrence edits conflict with owner movement',
+    );
+  });
+  await transferScenarios(scenario);
+  await removeSlotScenarios(scenario);
+}
+
+type Scenario = (
+  run: (
+    harness: PersistenceContractHarness,
+    operation: (baseRevision: number, edit: WeeklyDraftEdit) => DraftOperation,
+  ) => Promise<void>,
+) => Promise<void>;
+const slotIds = (observation: DraftObservation) =>
+  observation.draft?.activity.slots.map((slot) => slot.slotId).join(',');
+// The shared fixture is a first militia week at rank 1: one action, so
+// 'left' is within the allowance and 'right' and 'extra' are beyond it.
+async function removeSlotScenarios(scenario: Scenario) {
+  await scenario(async ({ first, second }, op) => {
+    const removal = op(0, { kind: 'remove_slot', slotId: 'right' });
+    const receipt = await first.send(removal);
+    const removed = await second.read();
+    check(
+      receipt.acceptedRevision === 1 &&
+        removed.revision === 1 &&
+        slotIds(removed) === 'left,extra',
+      'An empty slot beyond the allowance is removed by identity',
+    );
+    const replay = await second.send(structuredClone(removal));
+    check(
+      replay.acceptedRevision === 1 && (await first.read()).revision === 1,
+      'A repeated removal operation returns its original revision',
+    );
+    await rejects(
+      second.send(op(1, { kind: 'remove_slot', slotId: 'right' })),
+      'A second removal of the same slot is rejected',
+    );
+    await rejects(
+      first.send(op(1, { kind: 'remove_slot', slotId: 'left' })),
+      'A slot within the allowance cannot be removed',
+    );
+    await rejects(
+      first.send(op(1, { kind: 'remove_slot', slotId: 'unknown' })),
+      'An unknown slot cannot be removed',
+    );
+    await first.send(
+      op(1, {
+        kind: 'stage',
+        slotId: 'extra',
+        choice: { choiceId: 'later', actionId: 'lie_low' },
+      }),
+    );
+    await rejects(
+      second.send(op(2, { kind: 'remove_slot', slotId: 'extra' })),
+      'An occupied extra slot cannot be removed',
+    );
+    const after = await first.read();
+    check(
+      after.revision === 2 &&
+        slotIds(after) === 'left,extra' &&
+        after.draft?.activity.slots[1]?.choice?.choiceId === 'later',
+      'Later slots keep their identities and choices after a removal',
+    );
+  });
+  // Concurrent fill and removal of the same slot: whichever is accepted
+  // first wins and the delayed operation is rejected, in both orders.
+  await scenario(async ({ first, second }, op) => {
+    await first.send(
+      op(0, {
+        kind: 'stage',
+        slotId: 'extra',
+        choice: { choiceId: 'filled', actionId: 'lie_low' },
+      }),
+    );
+    await rejects(
+      second.send(op(0, { kind: 'remove_slot', slotId: 'extra' })),
+      'A removal based on the empty slot loses to a concurrent fill',
+    );
+    await first.send(op(1, { kind: 'remove_slot', slotId: 'right' }));
+    await rejects(
+      second.send(
+        op(1, {
+          kind: 'stage',
+          slotId: 'right',
+          choice: { choiceId: 'late', actionId: 'lie_low' },
+        }),
+      ),
+      'A delayed fill of a removed slot is rejected',
+    );
+    const after = await second.read();
+    check(
+      after.revision === 2 &&
+        slotIds(after) === 'left,extra' &&
+        after.draft?.activity.slots[1]?.choice?.choiceId === 'filled',
+      'Rejected concurrent edits never redirect to another slot',
+    );
+  });
+  // Optimistic removal: a rejected removal restores the accepted slots, and
+  // an accepted one keeps the following slot identities stable.
+  await scenario(async ({ first }) => {
+    const adapter = createDraftPersistence(first);
+    try {
+      await adapter.ready;
+      const optimistic = adapter.edit({ kind: 'remove_slot', slotId: 'left' });
+      check(
+        (await optimistic) === 'failed' &&
+          slotIds(adapter.getSnapshot().observation!) === 'left,right,extra',
+        'A rejected optimistic removal restores the accepted slots',
+      );
+      check(
+        (await adapter.edit({ kind: 'remove_slot', slotId: 'right' })) ===
+          'accepted' &&
+          (await adapter.edit({
+            kind: 'stage',
+            slotId: 'extra',
+            choice: { choiceId: 'after', actionId: 'lie_low' },
+          })) === 'accepted',
+        'Edits continue to address surviving slots by identity',
+      );
+      const accepted = adapter.getSnapshot().observation!;
+      check(
+        slotIds(accepted) === 'left,extra' &&
+          accepted.draft?.activity.slots[1]?.choice?.choiceId === 'after',
+        'Accepted removal keeps subsequent slot identities',
+      );
+    } finally {
+      adapter.dispose();
+    }
+  });
+}
+
+// Treasury transfers carry no character (#158). A transfer that names one is
+// refused without changing the draft.
+async function transferScenarios(scenario: Scenario) {
+  await scenario(async ({ first, second }, op) => {
+    const deposit = {
+      transferId: 'deposit',
+      direction: 'deposit' as const,
+      copper: 7,
+    };
+    const add = op(0, { kind: 'upkeep_transfer', transfer: deposit });
+    check(
+      (await first.send(add)).acceptedRevision === 1,
+      'An actorless transfer is accepted',
+    );
+    check(
+      (await second.send(structuredClone(add))).acceptedRevision === 1,
+      'A repeated transfer operation returns its original revision',
+    );
+    await rejects(
+      second.send(
+        op(1, {
+          kind: 'upkeep_transfer',
+          transfer: {
+            ...deposit,
+            transferId: 'actor',
+            characterId: 'pc',
+          } as typeof deposit,
+        }),
+      ),
+      'A transfer that names a character is refused',
+    );
+    const after = await first.read();
+    check(
+      after.revision === 1 &&
+        weeklySourceKey(after.draft?.upkeep.treasuryTransfers) ===
+          weeklySourceKey([deposit]),
+      'Only the actorless transfer is stored, exactly as sent',
     );
   });
 }

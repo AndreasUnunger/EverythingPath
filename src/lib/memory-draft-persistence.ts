@@ -115,7 +115,13 @@ export function createMemoryDraftAuthority(
       if (closed) throw new DraftRejected('Draft closed');
       const base = revisions.get(operation.baseRevision);
       if (!base) throw new DraftRejected('Unknown revision');
-      const accepted = acceptDraftOperation(current, base, targets, operation);
+      const accepted = acceptDraftOperation(
+        current,
+        base,
+        targets,
+        operation,
+        source,
+      );
       if (draftReferenceRequirements(accepted.draft, source, source).length)
         throw new DraftRejected('Invalid draft entity reference');
       current = accepted.draft;

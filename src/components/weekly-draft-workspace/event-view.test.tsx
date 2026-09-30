@@ -1,15 +1,17 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
-import { EventView } from './event-view';
-import type { EventView as Facts } from './types';
-afterEach(cleanup);
-const view: Facts = {
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
+import { EventView as RulesOrderedEventView } from './event-view';
+import { eventFacts, type EventFactsInput } from './event-view-test-fixture';
+// Old occurrence-level facts, placed into the rules-ordered sections.
+function EventView({
+  view,
+  ...props
+}: Omit<Parameters<typeof RulesOrderedEventView>[0], 'view'> & {
+  view: EventFactsInput;
+}) {
+  return <RulesOrderedEventView view={eventFacts(view)} {...props} />;
+}
+const view: EventFactsInput = {
   phase: 'event',
   ready: false,
   chance: 10,
@@ -23,7 +25,6 @@ const view: Facts = {
       optionalMitigation: 'unavailable',
       changes: [],
       exceptionChoices: [],
-      rollSides: { check: 20, roll: 20, loss: 6, notoriety: 6 },
       mode: null,
       selected: false,
       negated: false,
@@ -50,7 +51,8 @@ test('[rules.P83.input] percentile input rejects malformed text and distinguishe
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'event_chance',
     roll: {
-      dice: [0],
+      diceTotal: 0,
+      diceCount: 1,
       sides: 100,
       provenance: { kind: 'table' },
       modifiers: [],
@@ -96,12 +98,11 @@ test('[rules.P83.acknowledgement] event notes use the occurrence subject and an 
   );
 });
 
-test('[rules.P83.details] target checks default percentile capture dice and preserve explicit omission when clearing', async () => {
+test('[rules.P83.details] target checks enter the percentile capture total and preserve explicit omission when clearing', async () => {
   const edit = vi.fn();
   const occurrence = {
     ...view.occurrences[0]!,
     resolvedType: 'raid',
-    rollSides: { check: 20, loss: 100, roll: 20 },
     occurrence: {
       ...view.occurrences[0]!.occurrence,
       targets: [{ kind: 'character' as const, characterId: 'person' }],
@@ -131,10 +132,8 @@ test('[rules.P83.details] target checks default percentile capture dice and pres
     name: 'Add rolls',
   });
   fireEvent.click(addRolls[addRolls.length - 1]!);
-  fireEvent.click(screen.getByRole('button', { name: 'Add loss' }));
-  expect(screen.getByRole('textbox', { name: 'Sides' })).toHaveValue('100');
-  fireEvent.click(screen.getByRole('button', { name: 'Add dice entry' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Entry 1' }), {
+  // Raid capture is a 1d100 per-target loss: one total, no dice list.
+  fireEvent.change(screen.getByRole('textbox', { name: 'Loss roll' }), {
     target: { value: '0' },
   });
   fireEvent.change(
@@ -151,7 +150,8 @@ test('[rules.P83.details] target checks default percentile capture dice and pres
             target: { kind: 'character', characterId: 'person' },
             rolls: {
               loss: {
-                dice: [0],
+                diceTotal: 0,
+                diceCount: 1,
                 sides: 100,
                 provenance: { kind: 'table' },
                 modifiers: [],
@@ -167,8 +167,17 @@ test('[rules.P83.details] target checks default percentile capture dice and pres
   );
 });
 
-test('[rules.P83.ownership] reactive notes and persistent ending remain bound to their occurrence', async () => {
+test('[rules.P83.ownership] a reaction added in the details stays on its occurrence beside the same-week decision recorded there', async () => {
   const edit = vi.fn();
+  const decision = {
+    kind: 'end' as const,
+    eventId: 'root',
+    acknowledgement: {
+      acknowledgementId: 'root-ending',
+      subjectId: 'root',
+      outcome: 'The event ended at the table.',
+    },
+  };
   render(
     <EventView
       view={{
@@ -179,6 +188,7 @@ test('[rules.P83.ownership] reactive notes and persistent ending remain bound to
             occurrence: {
               ...view.occurrences[0]!.occurrence,
               persistent: true,
+              persistentDecision: decision,
             },
           },
         ],
@@ -187,35 +197,16 @@ test('[rules.P83.ownership] reactive notes and persistent ending remain bound to
       disabled={false}
     />,
   );
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add persistent decision' }),
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'End' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Outcome' }), {
-    target: { value: 'The event ended at the table.' },
-  });
   fireEvent.click(screen.getByRole('button', { name: 'Add sabotage' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add acknowledgements' }));
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add acknowledgements entry' }),
-  );
-  fireEvent.change(screen.getAllByRole('textbox', { name: 'Outcome' })[1]!, {
-    target: { value: 'Saboteurs disrupted the invaders.' },
-  });
   fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
   await waitFor(() => expect(edit).toHaveBeenCalledTimes(1));
   const event = edit.mock.lastCall?.[0].occurrence;
-  expect(event.persistentDecision).toMatchObject({
-    kind: 'end',
+  expect(event).toMatchObject({
     eventId: 'root',
-    acknowledgement: {
-      subjectId: 'root',
-      outcome: 'The event ended at the table.',
-    },
+    persistent: true,
+    persistentDecision: decision,
   });
-  expect(event.sabotage.acknowledgements[0].subjectId).toBe(
-    `sabotage:root:${event.sabotage.choiceId}`,
-  );
+  expect(event.sabotage.choiceId).toEqual(expect.any(String));
 });
 
 test('[rules.P83.candidates] Event edits preserve complete Activity candidate ownership and selection', () => {
@@ -246,16 +237,15 @@ test('[rules.P83.candidates] Event edits preserve complete Activity candidate ow
     occurrence: {
       ...candidate,
       tableRoll: {
-        dice: [50],
+        diceTotal: 50,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
       },
     },
   });
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Select this Activity event' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Choose this event' }));
   expect(edit).toHaveBeenLastCalledWith({
     kind: 'detail',
     slotId: 'slot',
@@ -276,7 +266,8 @@ test('[rules.P83.modifiers] Event checks explain each contribution without expos
               ...view.occurrences[0]!.occurrence,
               rolls: {
                 check: {
-                  dice: [10],
+                  diceTotal: 10,
+                  diceCount: 1,
                   sides: 20,
                   provenance: { kind: 'table' },
                   modifiers: [

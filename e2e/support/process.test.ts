@@ -1,11 +1,52 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
-import { command, parseFixtureResponse } from './process';
+import {
+  command,
+  isolateCases,
+  parseFixtureResponse,
+  withIsolationCanary,
+} from './process';
 import { resources } from './test-data';
+
+it('runs the workspace-installed Convex fixture CLI without a package-manager subprocess', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'e2e-installed-cli-'));
+  const packageDirectory = join(directory, 'node_modules', 'convex');
+  await mkdir(packageDirectory, { recursive: true });
+  await writeFile(
+    join(packageDirectory, 'package.json'),
+    JSON.stringify({ name: 'convex', bin: { convex: 'fixture.cjs' } }),
+  );
+  await writeFile(
+    join(packageDirectory, 'fixture.cjs'),
+    'process.stdout.write(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), token: process.env.CONVEX_OVERRIDE_ACCESS_TOKEN }));',
+  );
+  try {
+    const output = await command(
+      'fixture CLI probe',
+      ['exec', 'convex', 'run', 'fixture:inspect', '{"literal":"$() spaced"}'],
+      {
+        cwd: directory,
+        env: {
+          NODE_ENV: 'test',
+          PATH: '',
+          CONVEX_DEPLOY_KEY: 'preview:test|synthetic-key',
+          CONVEX_OVERRIDE_ACCESS_TOKEN: 'synthetic-personal-token',
+        },
+      },
+    );
+    expect(JSON.parse(output)).toEqual({
+      args: ['run', 'fixture:inspect', '{"literal":"$() spaced"}'],
+      cwd: directory,
+      token: 'preview:test|synthetic-key',
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 it('handles silent null fixture results without hiding missing query results', () => {
   expect(parseFixtureResponse('seedIdentityProjection', '')).toBeNull();
@@ -23,6 +64,16 @@ it('handles silent null fixture results without hiding missing query results', (
 
 it('persists safe service diagnostics while a process is still running and closes it on timeout', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'e2e-process-test-'));
+  const packageDirectory = join(directory, 'node_modules', 'convex');
+  await mkdir(packageDirectory, { recursive: true });
+  await writeFile(
+    join(packageDirectory, 'package.json'),
+    JSON.stringify({ name: 'convex', bin: 'fixture.cjs' }),
+  );
+  await writeFile(
+    join(packageDirectory, 'fixture.cjs'),
+    'process.stderr.write("ArgumentValidationError: opaque-provider-secret\\n"); setInterval(() => {}, 1000);',
+  );
   const runFile = join(directory, 'run.json');
   const artifactDirectory = join(directory, 'artifacts');
   await writeFile(
@@ -40,14 +91,9 @@ it('persists safe service diagnostics while a process is still running and close
   try {
     const running = command(
       'production application server',
-      [
-        'exec',
-        'node',
-        '-e',
-        'process.stderr.write("ArgumentValidationError: opaque-provider-secret\\n"); setInterval(() => {}, 1000);',
-      ],
+      ['exec', 'convex', 'run', 'fixture:wait'],
       {
-        cwd: process.cwd(),
+        cwd: directory,
         env: { ...process.env, E2E_RUN_FILE: runFile },
         timeout: 2000,
       },
@@ -143,4 +189,31 @@ it('binds child CLI authentication to the declared preview key instead of a pers
     },
   );
   expect(output).toBe('preview:test-team:test-project|synthetic-preview-key');
+});
+
+it('sends the running test cases with every reset for the isolation canary', () => {
+  const scope = { namespace: 'n', workerKey: 'worker-1', token: 't' };
+  isolateCases(['existingMilitia', 'isolation']);
+  try {
+    expect(
+      withIsolationCanary('resetCase', { ...scope, caseKey: 'isolation' }),
+    ).toMatchObject({ isolatedWith: ['isolation', 'existingMilitia'] });
+    expect(
+      withIsolationCanary('resetAndInitialize', {
+        scope: { ...scope, caseKey: 'existingMilitia' },
+        draftId: 'draft',
+      }),
+    ).toMatchObject({ isolatedWith: ['existingMilitia', 'isolation'] });
+    const inspect = { ...scope, caseKey: 'isolation' };
+    expect(withIsolationCanary('inspectCase', inspect)).toBe(inspect);
+    isolateCases([]);
+    expect(
+      withIsolationCanary('resetCase', { ...scope, caseKey: 'smoke' }),
+    ).toMatchObject({ isolatedWith: ['smoke'] });
+    expect(() =>
+      withIsolationCanary('resetCase', { ...scope, caseKey: 'unknown' }),
+    ).toThrow();
+  } finally {
+    isolateCases([]);
+  }
 });

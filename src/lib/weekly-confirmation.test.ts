@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { createWeeklyDraft } from './weekly-draft';
 import { createMemoryDraftAuthority } from './memory-draft-persistence';
 import { createDraftPersistence } from './weekly-draft-persistence';
+import type { WeeklyDraftEdit } from './weekly-draft-contract';
 
 function authority() {
   const draft = createWeeklyDraft({
@@ -19,7 +20,8 @@ function authority() {
     },
   });
   draft.event.chanceRoll = {
-    dice: [100],
+    diceTotal: 100,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' },
     modifiers: [],
@@ -61,6 +63,34 @@ test('[rules.P80.history] accepted review confirms once, closes its identity and
   workspace.dispose();
 });
 
+test('[rules.ACT-19.confirmation] removing an added empty extra slot confirms exactly like a week that never had it', async () => {
+  async function confirmWith(edits: WeeklyDraftEdit[]) {
+    const server = authority();
+    const client = createDraftPersistence(server.transport);
+    await client.ready;
+    for (const edit of edits) expect(await client.edit(edit)).toBe('accepted');
+    const review = await client.preview();
+    expect(await client.confirm(review!)).toBe('accepted');
+    const { record, successor } = client.getSnapshot().confirmation!;
+    client.dispose();
+    return {
+      baselinePlan: record.baselinePlan,
+      finalPlan: record.finalPlan,
+      finalOutcome: record.finalOutcome,
+      warnings: record.warnings,
+      successorContext: record.successorContext,
+      successorSlots: successor.activity.slots,
+    };
+  }
+  const plain = await confirmWith([]);
+  expect(
+    await confirmWith([
+      { kind: 'add_slot', slotId: 'spare' },
+      { kind: 'remove_slot', slotId: 'spare' },
+    ]),
+  ).toEqual(plain);
+});
+
 test('[rules.P80.barrier] Confirmation waits for an earlier edit, pauses new edits and never substitutes the flushed review', async () => {
   const server = authority();
   let release!: () => void;
@@ -84,7 +114,8 @@ test('[rules.P80.barrier] Confirmation waits for an earlier edit, pauses new edi
   const edit = workspace.edit({
     kind: 'event_chance',
     roll: {
-      dice: [99],
+      diceTotal: 99,
+      diceCount: 1,
       sides: 100,
       provenance: { kind: 'table' },
       modifiers: [],
@@ -162,15 +193,15 @@ test('[rules.P80.review-integrity] a caller-mutated forecast cannot alter the re
   expect(workspace.getSnapshot().observation?.status).toBe('open');
   const review = (await workspace.preview())!;
   expect(await workspace.confirm(review)).toBe('accepted');
-  workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot!.treasuryCopper = 999;
+  workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot.treasuryCopper = 999;
   expect(
-    workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot!
+    workspace.getSnapshot().confirmation!.record.sourceMilitiaSnapshot
       .treasuryCopper,
   ).toBe(100);
   const stored = server.inspect();
-  stored.records[0]!.sourceMilitiaSnapshot!.treasuryCopper = 888;
+  stored.records[0]!.sourceMilitiaSnapshot.treasuryCopper = 888;
   expect(
-    server.inspect().records[0]!.sourceMilitiaSnapshot!.treasuryCopper,
+    server.inspect().records[0]!.sourceMilitiaSnapshot.treasuryCopper,
   ).toBe(100);
   workspace.dispose();
 });

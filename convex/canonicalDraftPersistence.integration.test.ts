@@ -78,7 +78,8 @@ test('[rules.P79.provenance] actual mutation derives stale field intent from sto
         ...choice,
         rolls: {
           check: {
-            dice: [12],
+            diceTotal: 12,
+            diceCount: 1,
             sides: 20,
             provenance: { kind: 'table' },
             modifiers: [],
@@ -91,7 +92,7 @@ test('[rules.P79.provenance] actual mutation derives stale field intent from sto
   expect(accepted.revision).toBe(3);
   expect(accepted.draft?.activity.slots[0]?.choice).toMatchObject({
     costCopper: 10,
-    rolls: { check: { dice: [12] } },
+    rolls: { check: { diceTotal: 12, diceCount: 1 } },
   });
   await expect(
     send(
@@ -385,7 +386,8 @@ test('[rules.P80.atomic] reviewed Confirmation atomically advances once and reje
     operation(0, 'roll', {
       kind: 'event_chance',
       roll: {
-        dice: [100],
+        diceTotal: 100,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -450,7 +452,8 @@ test('[rules.P80.rollback] final successor write failure rolls back all changes;
     operation(36, 'chance', {
       kind: 'event_chance',
       roll: {
-        dice: [100],
+        diceTotal: 100,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -507,7 +510,8 @@ test('[rules.P80.rollback] final successor write failure rolls back all changes;
       operation(36, 'chance', {
         kind: 'event_chance',
         roll: {
-          dice: [100],
+          diceTotal: 100,
+          diceCount: 1,
           sides: 100,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -533,7 +537,8 @@ test('[rules.P80.authority] ready Confirmation requires campaign authority and r
     operation(0, 'chance', {
       kind: 'event_chance',
       roll: {
-        dice: [100],
+        diceTotal: 100,
+        diceCount: 1,
         sides: 100,
         provenance: { kind: 'table' },
         modifiers: [],
@@ -603,13 +608,15 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
     sourceRevision: 0,
     snapshot: { rank: 2, training: 14, treasuryCopper: 5000 },
   });
+  expect(source?.week).toEqual(expect.any(Number));
   expect(source?.people[0]?.name).toBeTruthy();
   for (const [revision, edit] of [
     {
       kind: 'upkeep_roll' as const,
       field: 'check' as const,
       roll: {
-        dice: [10],
+        diceTotal: 10,
+        diceCount: 1,
         sides: 20,
         provenance: { kind: 'table' as const },
         modifiers: [],
@@ -619,7 +626,8 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
       kind: 'upkeep_roll' as const,
       field: 'training' as const,
       roll: {
-        dice: [3],
+        diceTotal: 3,
+        diceCount: 1,
         sides: 6,
         provenance: { kind: 'table' as const },
         modifiers: [],
@@ -650,6 +658,7 @@ test('[rules.P81.gateway] isolated Workspace source is authenticated, observes e
     sourceRevision: 1,
     key: { draftId: 'next:workspace-next' },
     snapshot: { training: 11, treasuryCopper: 5000 },
+    week: source!.week + 1,
   });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   vi.stubEnv('E2E_ENABLED', 'false');
@@ -804,4 +813,348 @@ test('combined contract setup starts a fresh case and rolls back an invalid init
       scope: fixtureScope,
     }),
   ).toEqual(inspection);
+});
+
+test('public nested roll validation rejects malformed totals atomically without relaxing campaign authority', async () => {
+  const { t, key, member, operation } = await setup();
+  const total = {
+    diceTotal: 0,
+    diceCount: 1,
+    sides: 20,
+    provenance: { kind: 'generated' as const, sourceId: 'dice-service' },
+    modifiers: [{ sourceId: 'weather', value: -1, reason: 'Rain' }],
+  };
+  const before = await member.query(observe, key);
+  const malformed = [
+    { ...total, dice: [0] },
+    { sides: 20, provenance: total.provenance, modifiers: [], diceTotal: 0 },
+    { sides: 20, provenance: total.provenance, modifiers: [], diceCount: 1 },
+    { ...total, diceTotal: -1 },
+    { ...total, diceTotal: 0.5 },
+    { ...total, diceTotal: Number.MAX_SAFE_INTEGER + 1 },
+    { ...total, diceTotal: Number.NaN },
+    { ...total, diceTotal: Infinity },
+    { ...total, diceCount: 0 },
+    { ...total, diceCount: -1 },
+    { ...total, diceCount: 1.5 },
+    { ...total, diceCount: Number.MAX_SAFE_INTEGER + 1 },
+    { ...total, diceCount: Infinity },
+    { ...total, provenance: { ...total.provenance, extra: true } },
+    { ...total, modifiers: [{ ...total.modifiers[0], extra: true }] },
+    { ...total, extra: true },
+  ];
+  for (const [index, roll] of malformed.entries()) {
+    await expect(
+      Reflect.apply(member.mutation, member, [
+        edit,
+        {
+          campaignId: key.campaignId,
+          militiaId: key.militiaId,
+          operation: {
+            draftId: key.draftId,
+            operationId: `bad-total-${index}`,
+            baseRevision: 0,
+            edit: {
+              kind: 'event_tree',
+              occurrences: [
+                {
+                  eventId: 'nested',
+                  origin: { kind: 'rolled' },
+                  eventType: 'theft',
+                  sabotage: { choiceId: 'defend', rolls: { check: roll } },
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    ).rejects.toThrow();
+    expect(await member.query(observe, key)).toEqual(before);
+  }
+  const valid = operation(0, 'zero-total', {
+    kind: 'upkeep_roll',
+    field: 'check',
+    roll: total,
+  });
+  const args = {
+    campaignId: key.campaignId,
+    militiaId: key.militiaId,
+    operation: valid,
+  };
+  await expect(t.mutation(edit, args)).rejects.toThrow('Campaign access');
+  await expect(
+    t.withIdentity({ tokenIdentifier: 'outsider' }).mutation(edit, args),
+  ).rejects.toThrow('Campaign access');
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalDraftOperation').take(1)),
+  ).toEqual([]);
+  await member.mutation(edit, args);
+  expect((await member.query(observe, key)).draft?.upkeep.rolls.check).toEqual(
+    total,
+  );
+  await expect(
+    member.mutation(edit, {
+      ...args,
+      operation: operation(1, 'foreign-total', {
+        kind: 'stage',
+        slotId: 'left',
+        choice: {
+          choiceId: 'foreign',
+          actionId: 'rescue_character',
+          characterId: 'foreign-character',
+          rolls: { check: total },
+        },
+      }),
+    }),
+  ).rejects.toThrow('Invalid draft entity reference');
+  expect((await member.query(observe, key)).revision).toBe(1);
+});
+
+test('public edits reject unsupported roll fields across action and nested contexts without accepting a revision', async () => {
+  const { key, member } = await setup();
+  const before = await member.query(observe, key);
+  const roll = {
+    diceTotal: 7,
+    diceCount: 2,
+    sides: 6,
+    provenance: { kind: 'table' },
+    modifiers: [],
+  };
+  const occurrence = { eventId: 'nested', origin: { kind: 'rolled' } };
+  const unsupported = [
+    ...['earn_gold', 'special'].map((actionId) => ({
+      kind: 'stage',
+      slotId: 'left',
+      choice: {
+        choiceId: 'unsupported',
+        actionId,
+        rolls: { [actionId === 'earn_gold' ? 'reward' : 'check']: roll },
+      },
+    })),
+    {
+      kind: 'upkeep',
+      inputs: { ...before.draft!.upkeep, rolls: { reward: roll } },
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [{ ...occurrence, rolls: { duration: roll } }],
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [
+        {
+          ...occurrence,
+          targetChecks: [
+            {
+              target: { kind: 'event', eventId: 'nested' },
+              rolls: { training: roll },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [
+        {
+          ...occurrence,
+          sabotage: { choiceId: 'sabotage', rolls: { delivery: roll } },
+        },
+      ],
+    },
+    {
+      kind: 'event_tree',
+      occurrences: [
+        {
+          ...occurrence,
+          persistent: true,
+          persistentDecision: {
+            eventId: 'nested',
+            kind: 'mitigate',
+            rolls: { loss: roll },
+          },
+        },
+      ],
+    },
+    {
+      kind: 'stage',
+      slotId: 'left',
+      choice: {
+        actionId: 'guarantee_event',
+        choiceId: 'candidate',
+        candidates: [{ ...occurrence, rolls: { reward: roll } }],
+      },
+    },
+  ];
+  for (const [index, intent] of unsupported.entries()) {
+    await expect(
+      Reflect.apply(member.mutation, member, [
+        edit,
+        {
+          campaignId: key.campaignId,
+          militiaId: key.militiaId,
+          operation: {
+            draftId: key.draftId,
+            operationId: `unsupported-${index}`,
+            baseRevision: 0,
+            edit: intent,
+          },
+        },
+      ]),
+    ).rejects.toThrow(/rolls/);
+    expect(await member.query(observe, key)).toEqual(before);
+  }
+});
+
+test('[rules.ACT-19.server] remove_slot checks the latest draft and current source allowance, replays by identity and refuses other scopes', async () => {
+  const { t, key, member, operation, send } = await setup();
+  const removal = operation(0, 'remove-extra', {
+    kind: 'remove_slot',
+    slotId: 'extra',
+  });
+  // Outsiders, anonymous callers and mismatched campaigns never reach the
+  // allowance check and leave no operation receipt behind.
+  const outsider = t.withIdentity({ tokenIdentifier: 'outsider' });
+  await expect(
+    outsider.mutation(edit, {
+      campaignId: key.campaignId,
+      militiaId: key.militiaId,
+      operation: removal,
+    }),
+  ).rejects.toThrow('Campaign access');
+  await expect(
+    t.mutation(edit, {
+      campaignId: key.campaignId,
+      militiaId: key.militiaId,
+      operation: removal,
+    }),
+  ).rejects.toThrow('Campaign access');
+  const foreignCampaign = await t.run((ctx) =>
+    ctx.db.insert('campaign', {
+      name: 'Other',
+      ownerId: 'other',
+      organizationId: 'foreign',
+      description: '',
+    }),
+  );
+  await expect(
+    member.mutation(edit, {
+      campaignId: foreignCampaign,
+      militiaId: key.militiaId,
+      operation: removal,
+    }),
+  ).rejects.toThrow();
+  expect((await member.query(observe, key)).revision).toBe(0);
+  // Rank 1 allows one action; the first militia week has no Upkeep.
+  await expect(
+    send(operation(0, 'remove-left', { kind: 'remove_slot', slotId: 'left' })),
+  ).rejects.toThrow('Slot is within the action allowance');
+  await expect(
+    send(operation(0, 'remove-none', { kind: 'remove_slot', slotId: 'none' })),
+  ).rejects.toThrow('unknown_slot');
+  // A correction raising the rank after the request's base widens the
+  // allowance; the server judges the removal against the current source.
+  await t.run(async (ctx) => {
+    const state = await ctx.db.query('canonicalMilitiaState').unique();
+    await ctx.db.patch('canonicalMilitiaState', state!._id, {
+      snapshot: { ...state!.snapshot, rank: 2 },
+    });
+  });
+  await expect(
+    send(
+      operation(0, 'remove-right', { kind: 'remove_slot', slotId: 'right' }),
+    ),
+  ).rejects.toThrow('Slot is within the action allowance');
+  expect(await send(removal)).toMatchObject({ acceptedRevision: 1 });
+  expect(await send(removal)).toMatchObject({ acceptedRevision: 1 });
+  await expect(
+    send(
+      operation(0, 'remove-again', { kind: 'remove_slot', slotId: 'extra' }),
+    ),
+  ).rejects.toThrow();
+  const observed = await member.query(observe, key);
+  expect(observed.revision).toBe(1);
+  expect(observed.draft?.activity.slots.map((slot) => slot.slotId)).toEqual([
+    'left',
+    'right',
+  ]);
+  expect(
+    await t.run((ctx) => ctx.db.query('canonicalDraftOperation').collect()),
+  ).toHaveLength(1);
+  await t.mutation(internal.canonicalPersistenceFixtures.close, {
+    ...key,
+    scope: fixtureScope,
+  });
+  await expect(
+    send(operation(1, 'closed', { kind: 'remove_slot', slotId: 'right' })),
+  ).rejects.toThrow('Draft is closed');
+});
+
+// #164's two-device Sickness step: each device saves the whole occurrence it
+// observed, changing a different field. The occurrence is one conflict target
+// (#143 §5), so whichever save lands second on the same base is refused and
+// can never write the other device's accepted field back.
+test('stale whole-occurrence saves of different fields are refused in either order', async () => {
+  const { key, member, send, operation } = await setup();
+  const percentile = (value: number) => ({
+    diceTotal: value,
+    diceCount: 1,
+    sides: 100,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  });
+  const checkRoll = {
+    diceTotal: 5,
+    diceCount: 1,
+    sides: 20,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  };
+  const event = { eventId: 'sickness', origin: { kind: 'rolled' as const } };
+  type Occurrence = Extract<
+    DraftOperation['edit'],
+    { kind: 'event_occurrence' }
+  >['occurrence'];
+  const sendOccurrence = (
+    base: number,
+    id: string,
+    fields: Omit<Occurrence, 'eventId' | 'origin'>,
+  ) =>
+    send(
+      operation(base, id, {
+        kind: 'event_occurrence',
+        occurrence: { ...event, ...fields },
+      }),
+    );
+  await send(
+    operation(0, 'tree', { kind: 'event_tree', occurrences: [event] }),
+  );
+  await sendOccurrence(1, 'observed', {
+    tableRoll: percentile(90),
+    rolls: { check: checkRoll },
+  });
+  // Both devices observed revision 2. The player's clear lands first.
+  await sendOccurrence(2, 'player-clear', { tableRoll: percentile(90) });
+  await expect(
+    sendOccurrence(2, 'gm-roll', {
+      tableRoll: percentile(45),
+      rolls: { check: checkRoll },
+    }),
+  ).rejects.toThrow('Target changed');
+  expect((await member.query(observe, key)).draft?.event.occurrences).toEqual([
+    { ...event, tableRoll: percentile(90) },
+  ]);
+  // Both observed revision 3. The table roll lands first this time.
+  await sendOccurrence(3, 'gm-retry', { tableRoll: percentile(45) });
+  await expect(
+    sendOccurrence(3, 'player-stale', {
+      tableRoll: percentile(90),
+      rolls: { check: checkRoll },
+    }),
+  ).rejects.toThrow('Target changed');
+  const accepted = await member.query(observe, key);
+  expect(accepted.revision).toBe(4);
+  expect(accepted.draft?.event.occurrences).toEqual([
+    { ...event, tableRoll: percentile(45) },
+  ]);
 });

@@ -10,25 +10,46 @@ import {
 } from './_generated/server';
 import {
   guardFixtureScope,
+  isCanonicalCase,
   roleKeys,
+  type CaseKey,
   type FixtureScope,
+  type WorkerCohort,
 } from '../e2e/fixtures/catalog';
 
+const caseKey = v.union(
+  v.literal('smoke'),
+  v.literal('isolation'),
+  v.literal('existingMilitia'),
+  v.literal('characterLedger'),
+  v.literal('completeWeek'),
+  v.literal('realtimeActionSlot'),
+  v.literal('canonicalPersistence'),
+  v.literal('workspaceUpkeep'),
+  v.literal('workspaceNotoriety'),
+  v.literal('workspaceRecovery'),
+  v.literal('workspacePersistent'),
+  v.literal('workspaceConfirmation'),
+  v.literal('workspaceUpkeepLayout'),
+  v.literal('workspaceEventReview'),
+  v.literal('workspaceActivity'),
+  v.literal('workspaceSettlementTouch'),
+  v.literal('workspaceDrillRolls'),
+  v.literal('workspaceRecoveryActivity'),
+  v.literal('campaignHome'),
+  v.literal('campaignSections'),
+  v.literal('weekLinks'),
+);
 const scopeArgs = {
   namespace: v.string(),
   version: v.number(),
   workerKey: v.string(),
-  caseKey: v.union(
-    v.literal('smoke'),
-    v.literal('isolation'),
-    v.literal('existingMilitia'),
-    v.literal('characterLedger'),
-    v.literal('completeWeek'),
-    v.literal('realtimeActionSlot'),
-    v.literal('canonicalPersistence'),
-  ),
+  caseKey,
   token: v.string(),
 };
+
+// The harness always passes the cases its running test owns in this cohort.
+export const isolationArgs = { isolatedWith: v.optional(v.array(caseKey)) };
 
 function authorize(scope: FixtureScope) {
   // Installed Convex 1.34 has no generated `env` API; keep the supported runtime
@@ -61,6 +82,45 @@ async function campaigns(ctx: QueryCtx | MutationCtx, scope: FixtureScope) {
     if (row.e2eFixture?.version !== scope.version)
       throw new Error('E2E fixture version mismatch');
   return rows;
+}
+
+// Isolation canary: while a test runs, its cohort's member organization holds
+// only that test's owned and comparison campaigns, and the outsider
+// organization holds none. Another test sharing the cohort, a failed cleanup or
+// an application-created campaign would change what the journeys see listed.
+async function assertCohortIsolated(
+  ctx: MutationCtx,
+  scope: FixtureScope,
+  worker: WorkerCohort,
+  isolatedWith: CaseKey[],
+) {
+  if (!isolatedWith.includes(scope.caseKey))
+    throw new Error('E2E isolation canary must include the reset case');
+  const member = bounded(
+    await ctx.db
+      .query('campaign')
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', worker.organizationId),
+      )
+      .take(101),
+  );
+  const outsider = await ctx.db
+    .query('campaign')
+    .withIndex('by_organization', (q) =>
+      q.eq('organizationId', worker.outsiderOrganizationId),
+    )
+    .take(1);
+  const foreign = member.filter(
+    ({ e2eFixture }) =>
+      e2eFixture?.namespace !== scope.namespace ||
+      e2eFixture.version !== scope.version ||
+      e2eFixture.workerKey !== scope.workerKey ||
+      !(isolatedWith as string[]).includes(e2eFixture.caseKey),
+  );
+  if (foreign.length > 0 || outsider.length > 0)
+    throw new Error(
+      `E2E isolation canary: ${foreign.length} foreign member and ${outsider.length} outsider campaigns in ${scope.workerKey}`,
+    );
 }
 
 async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
@@ -168,7 +228,7 @@ export const seedIdentityProjection = internalMutation({
 });
 
 export const resetCase = internalMutation({
-  args: { ...scopeArgs, now: v.number() },
+  args: { ...scopeArgs, ...isolationArgs, now: v.number() },
   returns: v.object({ campaignId: v.id('campaign'), campaignKey: v.string() }),
   handler: async (ctx, args) => {
     const { config, worker, domain } = authorize(args);
@@ -189,6 +249,9 @@ export const resetCase = internalMutation({
         campaignKey: domain.campaign,
       },
     });
+    // A leak throws, which also rolls this reset back.
+    if (args.isolatedWith)
+      await assertCohortIsolated(ctx, args, worker, args.isolatedWith);
     // The onboarding journey must create its militia and officers through the UI.
     if (args.caseKey === 'existingMilitia')
       return { campaignId, campaignKey: domain.campaign };
@@ -200,7 +263,10 @@ export const resetCase = internalMutation({
             ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,
             name: `E2E ${domain.character}`,
             description: 'Synthetic officer',
-            kind: 'officer_npc',
+            // The record owns the kind its roster mirror follows. Canonical
+            // journeys play this officer as a PC (Setup and their seeded
+            // rosters); the others seed an NPC roster.
+            kind: isCanonicalCase(args.caseKey) ? 'pc' : 'npc',
             isActive: true,
             level: 1,
             strength: 10,
@@ -214,7 +280,7 @@ export const resetCase = internalMutation({
       name: `E2E ${domain.militia}`,
       campaignId,
     });
-    if (args.caseKey !== 'canonicalPersistence') {
+    if (!isCanonicalCase(args.caseKey)) {
       const character = characterId
         ? await ctx.db.get('character', characterId)
         : null;
@@ -241,7 +307,13 @@ export const resetCase = internalMutation({
           : [],
         roster: {
           people: character
-            ? [{ characterId: character._id, kind: 'officer_npc', hitDice: 1 }]
+            ? [
+                {
+                  characterId: character._id,
+                  kind: character.kind,
+                  hitDice: 1,
+                },
+              ]
             : [],
           teams: [],
           officers: [],

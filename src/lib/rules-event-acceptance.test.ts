@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { assert, expect, test } from 'vitest';
 import { eventAcceptanceFixtures } from '../../tests/rules/event-acceptance-fixtures';
 import { recurringEventFixture } from '../../tests/rules/recurring-event-fixture';
 import { persistentEventFixture } from '../../tests/rules/persistent-event-fixture';
@@ -381,7 +381,8 @@ test('[rules.E88.covert-cap] successful Covert suppression preserves the pre-act
     const { draft, snapshot } = eventActionFixture('covert_action');
     snapshot.notoriety = notoriety;
     snapshot.characters[0]!.charisma = 40;
-    draft.activity.slots[1]!.choice!.rolls = {
+    assert(draft.activity.slots[1]!.choice?.actionId === 'drill_militia');
+    draft.activity.slots[1]!.choice.rolls = {
       check: roll(20, 1),
       training: roll(6, 2, 4),
       notoriety: roll(6, 4),

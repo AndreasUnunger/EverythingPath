@@ -127,11 +127,13 @@ endings without changing the fixed week-start Persistent Phase eligibility.
 Spread Propaganda uses the target settlement's known occupation for DC20/DC25,
 pays the calculated 100 gp even on failure, and records each attempt against that
 settlement. A second attempt needs `propaganda-limit`, even after failure.
-Success raises permanent reputation once, capped at Helpful. Table permission
-is explicit (`possible` plus acknowledgement subject `propaganda:<choiceId>`);
-an impossible choice needs `propaganda-impossible` with a reason. Missing
-permission, acknowledgement, occupation, reputation, rolls, or owned targets
-remain required inputs. A stale `occupied` hint cannot override known context.
+Success raises permanent reputation once, capped at Helpful. Since Ruleset
+Version 9 (#198, user decision 2026-09-28) the GM is assumed to allow
+propaganda: there is no `propaganda-permission` decision and no
+`propaganda-impossible` exception, and an older choice's stored `possible`
+answer, even `false`, is ignored. What happened (acknowledgement subject
+`propaganda:<choiceId>`), occupation, reputation, rolls and owned targets remain
+required inputs. A stale `occupied` hint cannot override known context.
 Organization checks do not receive reputation's separate social-check DC shift.
 
 The settlement outcome suite covers action-owned expiry, thresholds, caps,

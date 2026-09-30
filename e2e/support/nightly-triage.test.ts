@@ -92,3 +92,46 @@ if (args[0] === 'api') {
   },
   20000,
 );
+
+it.each([
+  ['a failing gh call', 'publish', 3, 'E2E nightly triage failed (exit-3)'],
+  ['an unknown mode', 'sk_test_TRIAGESECRET', 0, 'Use summarize or publish'],
+] as const)(
+  'reports %s with fixed text only, never gh output or arguments',
+  async (_, mode, exit, expected) => {
+    const directory = await mkdtemp(join(tmpdir(), 'nightly-triage-fail-'));
+    try {
+      await writeFile(
+        join(directory, 'gh'),
+        `#!/bin/sh\necho '{"token":"sk_test_TRIAGESECRET"}'\necho 'https://x.test/?token=sk_test_TRIAGESECRET' >&2\nexit ${exit}\n`,
+        { mode: 0o700 },
+      );
+      const result = spawnSync(
+        process.execPath,
+        [
+          resolve('node_modules/tsx/dist/cli.mjs'),
+          resolve('e2e/nightly-triage.ts'),
+          mode,
+        ],
+        {
+          cwd: directory,
+          env: {
+            ...process.env,
+            PATH: `${directory}:${process.env.PATH}`,
+            GITHUB_REPOSITORY: 'sk_test_TRIAGESECRET/repo',
+            GITHUB_RUN_ID: '2',
+            GH_TOKEN: '',
+          },
+          encoding: 'utf8',
+          timeout: 15000,
+        },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr.trim()).toBe(expected);
+      expect(result.stdout + result.stderr).not.toContain('TRIAGESECRET');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+  20000,
+);

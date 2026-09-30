@@ -151,7 +151,6 @@ test('[rules.P02.weekly] Theft mitigation recomputes current incoming gains, ret
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'income',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 1000,
     },
@@ -198,9 +197,7 @@ test('[rules.P02.weekly] Theft mitigation recomputes current incoming gains, ret
 test('[rules.P03.first] first buyoff is immediate, costs twice current minimum, and remains a pure staged result', () => {
   const { draft, snapshot } = persistentEventFixture('low_morale');
   const source = structuredClone({ draft, snapshot });
-  draft.persistent.decisions = [
-    { eventId: 'carried', kind: 'buyoff', costCopper: 1 },
-  ];
+  draft.persistent.decisions = [{ eventId: 'carried', kind: 'buyoff' }];
   const result = project(draft, snapshot).persistent;
   expect(result.ready).toBe(true);
   expect(result.buyoffCostCopper).toBe(6000);

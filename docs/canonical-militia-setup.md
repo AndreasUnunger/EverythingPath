@@ -1,6 +1,6 @@
 # Canonical militia setup (#87)
 
-`/canonical-setup?campaign=<campaign>` lets campaign members initialize either a
+`/campaigns/<campaign>/setup` lets campaign members initialize either a
 new militia or an existing table's militia. The route and its Convex endpoints
 use the existing owned-preview isolation gate. Live campaigns remain on their
 current workflow until the approved cutover.
@@ -12,6 +12,72 @@ rank/training, treasury, Notoriety, PC-level caps, and roster
 warnings are advisory. Structural errors and foreign references block saving.
 The form uses React Hook Form and Zod with styled field errors, including
 separate missing-value and malformed-number messages.
+
+Setup at `/campaigns/<id>/setup` is one form presented as nine freely
+navigable steps (#172): Starting point, Week, People & officers, Teams,
+Settlements, Character conditions, Assets, Carried effects and Review & start.
+Moving between steps never validates or submits, and values stay in the form
+while a step is closed. Each step shows its status (errors, then warnings, then
+completion; Character conditions, Assets and Carried effects are optional for a
+New militia). Review lists warnings by step and, after a start attempt, a
+linked summary of blocking errors; only those errors block Start. Tablets show
+a step index beside one detail pane, phones one list of rows with one open, and
+desktops a wider index with previews. The step statuses, previews and summary
+lines are derived in `src/lib/setup-steps.ts`; the form controller is
+`src/components/militia-setup/use-guided-setup.ts`.
+
+Unfinished setup resumes in the same browser (#173). A versioned envelope in
+`localStorage` (`src/lib/setup-envelope.ts`) holds the raw form values,
+including empty and malformed numbers, the open step, the visited steps and
+the start attempt's `initializationId`. It is keyed and checked by the signed-
+in account, the organization and the campaign, and it is read only after
+`canonicalSetup.options` resolves. A stored envelope is restored only when its
+lists and choices still fit the form; anything else is discarded with a short
+notice. Restored roster characters take the ledger's current facts, so a
+reload recovers from a stale-character rejection. When storage is refused,
+Setup still works and says entries won't be kept. Nothing is saved to Convex
+and there is no shared or mirrored setup draft.
+
+`src/components/militia-setup/use-setup-session.ts` decides the page from the
+first `options` result. A militia that had already started shows "This
+militia is already set up." with **Open week N** (from
+`canonicalDraftPersistence.workspace`) and **Open militia**, and retires any
+stale envelope. If another member starts the militia while the form is open,
+the envelope is retired and the page opens the current week. This player's own
+start disables Start while pending, ignores the racing `started` observation
+and opens the requested phase exactly once, then retires the envelope. Every
+attempt, including one after a reload, reuses the envelope's
+`initializationId`, so the server's same-ID/same-source idempotence and its
+rejection of any other source keep an accepted setup from being replaced. The
+envelope also keeps the source of a start whose result never arrived (a
+reload while starting). If the militia then starts while the form is open,
+that source is resent under the same identity: acceptance opens its requested
+phase, refusal means another player won and the page follows their week. A
+failed start keeps all entries; if `options` then reports the militia started,
+the page follows it. Leaving the page during a start never navigates the next
+page. **Add character** in People & officers opens the shared character dialog
+(`character.createCharacter`); the new record arrives through `options` and
+joins the roster only when chosen.
+
+A character is a PC or an NPC, and its record owns that kind (#180). Setup
+composes `canonicalSetup.options` (which has no kind) with the authorized
+`character.listByCampaign` read in `src/lib/setup-characters.ts`, and waits
+for both before opening the form. A person joins the roster with their
+record's kind, People & officers shows it read-only, and warnings and a start
+use each record's current kind, so a start sends only `pc` or `npc`. The
+server mirrors every roster kind from the campaign's records again before
+storing the live source, so a stale or old-client payload cannot restore an
+earlier kind. Storage accepts only `pc` or `npc`; the Setup and correction
+arguments still accept a pre-#180 client's legacy labels and map them to
+`npc` (B3 in `docs/legacy-compatibility-inventory.md`). A roster person whose record is not in the campaign keeps their
+entry and shows a field error until removed; Start is blocked meanwhile.
+
+Envelope version 2 stores PC or NPC roster kinds. An envelope of any other
+version, including the version 1 of #173, is discarded (#198). After the
+records load, restored roster people take their record's current kind and
+facts. Nothing is
+submitted automatically. Since #196 a blank Hit Dice override uses the
+record's level, which needs no new envelope shape.
 
 Setup carries the roster and individual team conditions, character Hit Dice,
 officer assignments and managers, settlements, assets and orders, persistent

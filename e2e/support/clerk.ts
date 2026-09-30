@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { roleKeys } from '../fixtures/catalog';
+import { HarnessFailure } from './diagnostics';
 import type { SafeTargets } from './preflight';
 
 type ReadJson = (url: string, secret?: string) => Promise<unknown>;
@@ -10,10 +11,7 @@ const readJson: ReadJson = async (url, secret) => {
     signal: AbortSignal.timeout(15_000),
     headers: secret ? { Authorization: `Bearer ${secret}` } : {},
   });
-  if (!response.ok)
-    throw new Error(
-      'Clerk fixture verification failed; check the resource declaration and provisioned cohort',
-    );
+  if (!response.ok) throw new HarnessFailure({ kind: 'clerk-request' });
   return (await response.json()) as unknown;
 };
 const jwks = z.object({
@@ -29,15 +27,18 @@ const jwks = z.object({
     .min(1),
 });
 
+// What the application check needs: the declaration and the secret key.
+export type ClerkTargets = Pick<SafeTargets, 'resources' | 'secretKey'>;
+
 export async function verifyClerkApplication(
-  targets: SafeTargets,
+  targets: ClerkTargets,
   get: ReadJson = readJson,
 ) {
   const { resources, secretKey } = targets;
   const instance = z
     .object({ environment_type: z.literal('development') })
     .safeParse(await get('https://api.clerk.com/v1/instance', secretKey));
-  if (!instance.success) throw new Error('Clerk instance is not development');
+  if (!instance.success) throw new HarnessFailure({ kind: 'clerk-instance' });
   const publicKeys = jwks.parse(
     await get(`https://${resources.clerkHost}/.well-known/jwks.json`),
   );
@@ -54,9 +55,7 @@ export async function verifyClerkApplication(
       ),
     )
   ) {
-    throw new Error(
-      'Clerk secret and publishable keys belong to different applications',
-    );
+    throw new HarnessFailure({ kind: 'clerk-keys' });
   }
 }
 
@@ -87,7 +86,7 @@ export async function verifyClerkCohorts(
             email.email_address.toLowerCase() === identity.email.toLowerCase(),
         )
       )
-        throw new Error('Clerk fixture identity drift');
+        throw new HarnessFailure({ kind: 'clerk-identity' });
       const memberships = z
         .object({
           data: z.array(
@@ -117,9 +116,7 @@ export async function verifyClerkCohorts(
         memberships.data[0].role !==
           (role === 'gm' ? 'org:admin' : 'org:member')
       )
-        throw new Error(
-          'Clerk fixture membership drift; provision the declared cohort before running E2E',
-        );
+        throw new HarnessFailure({ kind: 'clerk-membership' });
     }
   }
 }

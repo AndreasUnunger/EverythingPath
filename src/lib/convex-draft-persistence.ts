@@ -69,18 +69,20 @@ export function createConvexDraftTransport(
     async send(operation) {
       if (operation.draftId !== key.draftId)
         throw new DraftRejected('Unknown draft');
+      let result;
       try {
-        const receipt = draftReceiptSchema.parse(
-          await client.mutation(api.canonicalDraftPersistence.edit, {
-            campaignId: key.campaignId,
-            militiaId: key.militiaId,
-            operation,
-          }),
-        );
-        return { ...receipt, observation: await hydrate(receipt.observation) };
+        result = await client.mutation(api.canonicalDraftPersistence.edit, {
+          campaignId: key.campaignId,
+          militiaId: key.militiaId,
+          operation,
+        });
       } catch (error) {
         return rejectTransport(error);
       }
+      // Only mutation rejection proves that no edit was accepted. Parsing or
+      // hydrating its receipt can fail after the mutation has already committed.
+      const receipt = draftReceiptSchema.parse(result);
+      return { ...receipt, observation: await hydrate(receipt.observation) };
     },
     subscribe(next, failed) {
       let active = true;
@@ -109,7 +111,9 @@ export function createConvexDraftTransport(
 
 function rejectTransport(error: unknown): never {
   if (error instanceof ConvexError)
-    throw new DraftRejected('Operation rejected');
+    throw new DraftRejected('Operation rejected', {
+      maintenance: error.data === DraftRejected.maintenanceReason,
+    });
   // The SDK retries network connectivity; a closed client is the remaining
   // temporary transport boundary. Validation and authority are never retried.
   if (

@@ -1,3 +1,4 @@
+import { createDraftAttribution } from './weekly-draft-attribution';
 import { weeklySourceKey } from './canonical-weekly-source';
 import {
   acceptedWeeklyPreviewSchema,
@@ -13,11 +14,30 @@ import {
   draftObservationSchema,
   draftReceiptSchema,
   DraftTransportFailure,
+  DraftRejected,
   type DraftObservation,
+  type DraftOperation,
+  type DraftReceipt,
   type DraftTransport,
 } from './weekly-draft-persistence-contract';
 import { editWeeklyDraft } from './weekly-draft';
 import type { WeeklyDraft, WeeklyDraftEdit } from './weekly-draft-contract';
+
+function safeFailureReason(error: unknown): string | null {
+  return error instanceof DraftRejected &&
+    error.failureReason === DraftRejected.maintenanceReason
+    ? DraftRejected.maintenanceReason
+    : null;
+}
+
+function isCorrelatedReceipt(receipt: DraftReceipt, operation: DraftOperation) {
+  return (
+    receipt.operationId === operation.operationId &&
+    receipt.observation.draftId === operation.draftId &&
+    receipt.acceptedRevision > operation.baseRevision &&
+    receipt.acceptedRevision <= receipt.observation.revision
+  );
+}
 
 export function createDraftPersistence(
   transport: DraftTransport,
@@ -26,12 +46,14 @@ export function createDraftPersistence(
   let observation: DraftObservation | null = null;
   let pending = 0;
   let confirming = false;
+  let failureReason: string | null = null;
   let acceptedReview: AcceptedWeeklyPreview | null = null;
   let confirmation: ConfirmationReceipt | null = null;
   let pendingDraft: WeeklyDraft | null = null;
   let disposed = false;
   let chain = Promise.resolve();
   const ownRevisions = new Set<number>();
+  const attribution = createDraftAttribution(ownRevisions);
   const listeners = new Set<() => void>();
   const notify = () => {
     for (const listener of listeners) listener();
@@ -47,17 +69,22 @@ export function createDraftPersistence(
     )
       return;
     observation = next;
+    attribution.observe(next);
     notify();
   }
   const unsubscribe = transport.subscribe(accept, () => {
     /* A failed read/edit is surfaced through its operation result. */
   });
   const ready = transport.read().then(accept);
-  async function retry<T>(request: () => Promise<T>): Promise<T> {
+  async function retry<T>(
+    request: () => Promise<T>,
+    onFailure?: (error: unknown) => void,
+  ): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await request();
       } catch (error) {
+        onFailure?.(error);
         if (
           !(error instanceof DraftTransportFailure) ||
           attempt >= (options.retries ?? 2)
@@ -70,6 +97,8 @@ export function createDraftPersistence(
     ready,
     getSnapshot: () => ({
       observation,
+      remoteChange: attribution.getChange(),
+      failureReason,
       pending,
       confirming,
       confirmation: structuredClone(confirmation),
@@ -98,6 +127,7 @@ export function createDraftPersistence(
       return preview;
     },
     confirm(review: AcceptedWeeklyPreview): Promise<'accepted' | 'failed'> {
+      failureReason = null;
       const parsed = acceptedWeeklyPreviewSchema.safeParse(review);
       if (
         confirming ||
@@ -119,6 +149,7 @@ export function createDraftPersistence(
       confirming = true;
       notify();
       const task = chain.then(async (): Promise<'accepted' | 'failed'> => {
+        failureReason = null;
         try {
           await ready;
           if (disposed) return 'failed';
@@ -126,10 +157,12 @@ export function createDraftPersistence(
             await retry(() => confirm(operation)),
           );
           if (receipt.operationId !== operation.operationId) return 'failed';
+          failureReason = null;
           confirmation = receipt;
           accept(receipt.observation);
           return 'accepted';
-        } catch {
+        } catch (error) {
+          if (!disposed) failureReason = safeFailureReason(error);
           try {
             accept(await transport.read());
           } catch {
@@ -149,6 +182,7 @@ export function createDraftPersistence(
       return () => listeners.delete(listener);
     },
     edit(edit: WeeklyDraftEdit): Promise<'accepted' | 'failed'> {
+      failureReason = null;
       if (confirming || disposed) return Promise.resolve('failed');
       const submitted = pendingDraft ?? observation?.draft;
       const observedBaseRevision = observation?.revision;
@@ -161,6 +195,9 @@ export function createDraftPersistence(
       pending++;
       notify();
       const task = chain.then(async (): Promise<'accepted' | 'failed'> => {
+        failureReason = null;
+        let uncertainAttempt = false;
+        let definitiveRejection = false;
         try {
           await ready;
           const current = observation?.draft;
@@ -178,7 +215,7 @@ export function createDraftPersistence(
             baseRevision: observedBaseRevision,
             edit: submittedEdit,
           };
-          requireUnchangedTargets(
+          const targets = requireUnchangedTargets(
             submitted,
             observation.targetRevisions,
             intent,
@@ -189,14 +226,25 @@ export function createDraftPersistence(
             baseRevision: current.revision,
             edit: rebaseDraftEdit(submitted, current, submittedEdit),
           };
+          attribution.begin(current.revision, targets);
           const receipt = draftReceiptSchema.parse(
-            await retry(() => transport.send(operation)),
+            await retry(
+              () => transport.send(operation),
+              (error) => {
+                uncertainAttempt ||= !(error instanceof DraftRejected);
+                definitiveRejection =
+                  error instanceof DraftRejected && !uncertainAttempt;
+              },
+            ),
           );
-          if (receipt.operationId !== operationId) return 'failed';
+          if (!isCorrelatedReceipt(receipt, operation)) return 'failed';
+          failureReason = null;
           ownRevisions.add(receipt.acceptedRevision);
+          attribution.accepted(receipt.observation);
           accept(receipt.observation);
           return 'accepted';
-        } catch {
+        } catch (error) {
+          if (!disposed) failureReason = safeFailureReason(error);
           try {
             accept(await transport.read());
           } catch {
@@ -204,6 +252,7 @@ export function createDraftPersistence(
           }
           return 'failed';
         } finally {
+          attribution.failed(definitiveRejection);
           pending--;
           if (pending === 0) pendingDraft = null;
           notify();
@@ -215,6 +264,8 @@ export function createDraftPersistence(
     settled: () => chain,
     dispose() {
       disposed = true;
+      failureReason = null;
+      attribution.close();
       unsubscribe();
       listeners.clear();
     },

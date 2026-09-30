@@ -1,4 +1,6 @@
-import { eventOverseerSelection } from './rules-overseer-event';
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
+import type { RollSpec } from './raw-roll';
+import { normalizeRawRoll } from './raw-roll';
 import {
   projectActivity,
   activityCheckEffects,
@@ -55,15 +57,15 @@ function readSabotageDie(
   { result }: ShapingContext,
   raw: Event['tableRoll'],
   id: string,
-  sides: number,
+  spec: RollSpec,
 ) {
-  if (raw?.sides !== sides || raw.dice.length !== 1) {
-    result.requirements.push(`${id}:1d${sides}`);
+  const normalized = normalizeRawRoll(raw, spec);
+  if (normalized.status !== 'complete') {
+    result.requirements.push(`${id}:${spec.count}d${spec.sides}`);
     return null;
   }
-  const value = raw.dice[0]!;
-  if (value < 1 || value > sides) result.warnings.push(`${id}:roll-range`);
-  return value;
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
 function requireSabotageException(
   { draft, result }: ShapingContext,
@@ -125,9 +127,6 @@ function projectSabotageCheck(
   checkId: string,
   raw: number | null,
 ) {
-  const support = eventOverseerSelection(event);
-  if (support.conflicting)
-    context.result.requirements.push(`${checkId}:overseer-conflict`);
   return choice.check
     ? projectRulesFoundations({
         ...createFoundationInput(context),
@@ -139,7 +138,7 @@ function projectSabotageCheck(
             check: choice.check,
             teamId: team.teamId,
             die: raw ?? undefined,
-            overseerCharacterId: support.characterId,
+            overseerCharacterId: event.overseerCharacterId,
             bonusIds: choice.rolls?.check?.modifiers.flatMap((modifier) =>
               modifier.sourceId.startsWith('bonus:')
                 ? [modifier.sourceId.slice(6)]
@@ -209,6 +208,15 @@ function recordSabotageCheck(
   result.checks.push(projected);
   result.checkUsage = facts.checkUsage;
 }
+// Sabotage negates its event on a check against 15 + rank (militia-rules.md,
+// "Action: Sabotage").
+export function sabotageDc(rank: number) {
+  return 15 + rank;
+}
+// The engine's check identity for one event's Sabotage reaction.
+export function sabotageCheckId(eventId: string, choiceId: string) {
+  return `${eventId}:sabotage:${choiceId}`;
+}
 function recordSabotageOutcome(
   { draft, result }: ShapingContext,
   event: Event,
@@ -217,10 +225,10 @@ function recordSabotageOutcome(
   total: number | null,
   notoriety: number | null,
 ) {
-  const dc = 15 + result.outcome.rank;
+  const dc = sabotageDc(result.outcome.rank);
   const succeeded = total === null ? null : total >= dc;
   const acknowledgement =
-    [...draft.acknowledgements, ...(choice.acknowledgements ?? [])].find(
+    draft.acknowledgements.find(
       (entry) =>
         entry.subjectId === `sabotage:${event.eventId}:${choice.choiceId}` &&
         entry.outcome.trim(),
@@ -270,15 +278,15 @@ function resolveSabotage(context: ShapingContext, event: Event) {
     context,
     choice.rolls?.check,
     `${choice.choiceId}:check`,
-    20,
+    RULE_ROLL_SPECS.check,
   );
   const notoriety = readSabotageDie(
     context,
     choice.rolls?.notoriety,
     `${choice.choiceId}:notoriety`,
-    6,
+    RULE_ROLL_SPECS.singleD6,
   );
-  const checkId = `${event.eventId}:sabotage:${choice.choiceId}`;
+  const checkId = sabotageCheckId(event.eventId, choice.choiceId);
   const facts = projectSabotageCheck(
     context,
     event,

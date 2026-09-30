@@ -1,6 +1,7 @@
 import { seedAcceptedCampaign } from './lib/acceptedCampaignFixture';
 import { mutation } from './_generated/server';
 import { internal } from './_generated/api';
+import { isolationArgs } from './e2eFixtures';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import { z } from 'zod';
 import { v } from 'convex/values';
@@ -9,6 +10,7 @@ import { internalMutation, type MutationCtx } from './_generated/server';
 import {
   scopeSchema as fixtureScopeSchema,
   guardFixtureScope,
+  isCanonicalCase,
 } from '../e2e/fixtures/catalog';
 import {
   draftKeySchema,
@@ -17,12 +19,15 @@ import {
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
+import {
+  canonicalResolutionRecordSchema,
+  type CanonicalResolutionRecord,
+} from '../src/lib/canonical-resolution-record';
 
 type Scope = z.infer<typeof fixtureScopeSchema>;
 async function ownedCampaign(ctx: MutationCtx, scope: Scope) {
   guardFixtureScope(process.env, scope);
-  if (scope.caseKey !== 'canonicalPersistence')
-    throw new Error('Wrong fixture case');
+  if (!isCanonicalCase(scope.caseKey)) throw new Error('Wrong fixture case');
   const campaign = await ctx.db
     .query('campaign')
     .withIndex('by_e2eFixture_namespace_and_workerKey_and_caseKey', (q) =>
@@ -105,12 +110,14 @@ export const resetAndInitialize = internalMutation({
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
     now: v.number(),
+    ...isolationArgs,
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
     await ctx.runMutation(internal.e2eFixtures.resetCase, {
       ...args.scope,
       now: args.now,
+      isolatedWith: args.isolatedWith,
     });
     return await ctx.runMutation(
       internal.canonicalPersistenceFixtures.initialize,
@@ -267,10 +274,23 @@ export const initializeUpkeep = internalMutation({
     scope: zodOutputToConvex(fixtureScopeSchema),
     draftId: v.string(),
     choices: v.optional(v.boolean()),
+    // Maximum notoriety, so the Upkeep settlement choice applies.
+    maximumNotoriety: v.optional(v.boolean()),
+    // Adds a missing team that rolls to return during Upkeep.
+    missingTeam: v.optional(v.boolean()),
+    // Rank 8 with enough training, treasury and PC level that settling every
+    // earlier Upkeep step gains rank 9 (Captain) and its feat choice.
+    rankGain: v.optional(v.boolean()),
     persistent: v.optional(v.boolean()),
+    // With `choices`: attrition rolls of 10 and 3 entered, and the disabled
+    // Scouts recovered at 15 gp instead of the 20 gp rules cost, with its
+    // reason. The recovery journey reaches this state through the UI.
+    adjustedRecovery: v.optional(v.boolean()),
   },
   returns: zodOutputToConvex(draftKeySchema),
   handler: async (ctx, args): Promise<z.infer<typeof draftKeySchema>> => {
+    if (args.adjustedRecovery && !args.choices)
+      throw new Error('An adjusted recovery needs the Scouts choice');
     const key = await ctx.runMutation(
       internal.canonicalPersistenceFixtures.initialize,
       { scope: args.scope, draftId: args.draftId },
@@ -286,11 +306,18 @@ export const initializeUpkeep = internalMutation({
     if (!character) throw new Error('Missing fixture officer');
     const snapshot = militiaSnapshotSchema.parse({
       ...state.snapshot,
-      rank: 2,
-      training: 14,
-      treasuryCopper: 5000,
+      rank: args.rankGain ? 8 : 2,
+      training: args.rankGain ? 130 : 14,
+      treasuryCopper: args.rankGain ? 20000 : 5000,
+      notoriety: args.maximumNotoriety ? 100 : state.snapshot.notoriety,
       roster: {
-        people: [{ characterId: character._id, kind: 'pc', hitDice: 2 }],
+        people: [
+          {
+            characterId: character._id,
+            kind: 'pc',
+            hitDice: args.rankGain ? 9 : 2,
+          },
+        ],
         teams: args.choices
           ? [
               {
@@ -302,6 +329,19 @@ export const initializeUpkeep = internalMutation({
                 rewardCapExempt: false,
                 notes: '',
               },
+              ...(args.missingTeam
+                ? [
+                    {
+                      teamId: 'upkeep-riders',
+                      teamType: 'defenders' as const,
+                      name: 'Riders',
+                      status: 'missing' as const,
+                      managerCharacterId: null,
+                      rewardCapExempt: false,
+                      notes: '',
+                    },
+                  ]
+                : []),
             ]
           : [],
         officers: [{ characterId: character._id, role: 'ambassador' }],
@@ -333,7 +373,7 @@ export const initializeUpkeep = internalMutation({
       characters: [
         {
           characterId: character._id,
-          level: 2,
+          level: args.rankGain ? 9 : 2,
           strength: 10,
           dexterity: 10,
           constitution: 10,
@@ -359,7 +399,8 @@ export const initializeUpkeep = internalMutation({
       },
     });
     draft.event.chanceRoll = {
-      dice: [100],
+      diceTotal: 100,
+      diceCount: 1,
       sides: 100,
       provenance: { kind: 'table' },
       modifiers: [],
@@ -407,18 +448,46 @@ export const initializeUpkeep = internalMutation({
       };
       draft.upkeep.rolls = {
         check: {
-          dice: [20],
+          diceTotal: 20,
+          diceCount: 1,
           sides: 20,
           provenance: { kind: 'table' },
           modifiers: [],
         },
         training: {
-          dice: [1],
+          diceTotal: 1,
+          diceCount: 1,
           sides: 6,
           provenance: { kind: 'table' },
           modifiers: [],
         },
       };
+    }
+    if (args.adjustedRecovery) {
+      // The same facts the Upkeep page writes: total rolls (a successful
+      // check's training roll is 1d6), the recovery at its rules cost and the
+      // reasoned difference as the recovery's Table Adjustment.
+      const total = (sides: number, diceTotal: number) => ({
+        diceTotal,
+        diceCount: 1,
+        sides,
+        provenance: { kind: 'table' as const },
+        modifiers: [],
+      });
+      draft.upkeep.rolls = { check: total(20, 10), training: total(6, 3) };
+      draft.upkeep.teamDecisions = [
+        { teamId: 'upkeep-scouts', decision: 'recover', costCopper: 2000 },
+      ];
+      draft.tableAdjustments = [
+        {
+          kind: 'militia_value',
+          adjustmentId: 'upkeep-recovery:upkeep-scouts',
+          field: 'treasuryCopper',
+          operation: 'add',
+          value: 500,
+          reason: 'Local healer donated supplies',
+        },
+      ];
     }
     await ctx.db.patch('canonicalMilitiaState', state._id, { snapshot });
     await ctx.db.patch('canonicalWeeklyDraft', row._id, {
@@ -451,6 +520,98 @@ export const installAcceptanceSource = internalMutation({
       draft,
       initialDraft: draft,
     });
+    return null;
+  },
+});
+
+// Finished-weeks history beyond one confirmed week (#146): after the source
+// draft was confirmed, `corrections` historical corrections of its week and
+// a historical reconstruction of `reconstructWeek`, each a copy of the
+// confirmed record. Written as append-only storage would write them, without
+// a signed-in caller; no application path creates such records yet.
+export const appendHistory = internalMutation({
+  args: zodOutputToConvex(
+    lifecycleArgs.extend({
+      corrections: z.number().int().min(1).max(10),
+      reconstructWeek: z.number().int().nonnegative(),
+    }),
+  ),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { row } = await ownedSource(ctx, args);
+    if (row.status !== 'closed')
+      throw new Error('Append history after the source week is confirmed');
+    const confirmed = await ctx.db
+      .query('canonicalResolutionRecord')
+      .withIndex('by_sourceDraftId', (q) =>
+        q.eq('record.source.draftId', args.draftId),
+      )
+      .first();
+    if (confirmed?.militiaId !== args.militiaId || confirmed.sequence !== 0)
+      throw new Error('Missing the confirmed fixture record');
+    const weekRecords = (week: number) =>
+      ctx.db
+        .query('canonicalResolutionRecord')
+        .withIndex('by_campaignId_and_week_and_sequence', (q) =>
+          q.eq('campaignId', args.campaignId).eq('week', week),
+        )
+        .order('desc');
+    const open = await ctx.db
+      .query('canonicalWeeklyDraft')
+      .withIndex('by_campaignId_and_status', (q) =>
+        q.eq('campaignId', args.campaignId).eq('status', 'open'),
+      )
+      .first();
+    if (
+      open?.draft?.week === args.reconstructWeek ||
+      (await weekRecords(args.reconstructWeek).first())
+    )
+      throw new Error('The reconstructed week must be free');
+    const base = canonicalResolutionRecordSchema.parse(confirmed.record);
+    const append = async (
+      record: CanonicalResolutionRecord,
+      sequence: number,
+    ) => {
+      const parsed = canonicalResolutionRecordSchema.parse(record);
+      await ctx.db.insert('canonicalResolutionRecord', {
+        campaignId: args.campaignId,
+        militiaId: args.militiaId,
+        recordId: parsed.recordId,
+        week: parsed.source.week,
+        sequence,
+        record: parsed,
+      });
+    };
+    // Each correction supersedes the week's then effective record.
+    const latest = (await weekRecords(confirmed.week).first()) ?? confirmed;
+    let effective = { recordId: latest.recordId, sequence: latest.sequence };
+    for (let i = 1; i <= args.corrections; i++) {
+      const recordId = `${base.recordId}-correction-${i}`;
+      await append(
+        {
+          ...base,
+          recordId,
+          provenance: 'historical_correction',
+          supersedesRecordId: effective.recordId,
+        },
+        effective.sequence + 1,
+      );
+      effective = { recordId, sequence: effective.sequence + 1 };
+    }
+    await append(
+      {
+        ...base,
+        recordId: `${base.recordId}-week-${args.reconstructWeek}`,
+        provenance: 'historical_reconstruction',
+        supersedesRecordId: null,
+        source: {
+          ...base.source,
+          week: args.reconstructWeek,
+          draftId: `${base.source.draftId}-week-${args.reconstructWeek}`,
+        },
+      },
+      0,
+    );
     return null;
   },
 });

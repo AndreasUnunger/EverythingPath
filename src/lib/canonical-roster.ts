@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { TEAM_IDS, TEAM_STATUSES } from './militia-domain';
 import { identitySchema } from './weekly-draft-facts';
-import { getTeamManagerMaxTeams } from './team-manager-rules';
+import { getTeamManagerLimit } from './team-manager-rules';
+import { characterKindSchema } from './character-kind';
 
 export const OFFICER_ROLES = [
   'ambassador',
@@ -13,8 +14,9 @@ export const OFFICER_ROLES = [
 ] as const;
 export const rosterPersonSchema = z.strictObject({
   characterId: identitySchema,
-  kind: z.enum(['pc', 'officer_npc', 'other_npc']),
-  // Unknown legacy Hit Dice stay unknown. Level is not a substitute.
+  // Stored mirror of the record kind.
+  kind: characterKindSchema,
+  // An optional override; blank means the rules use the record's level.
   hitDice: z.number().int().nonnegative().nullable(),
 });
 export const rosterTeamSchema = z.strictObject({
@@ -85,6 +87,15 @@ export const canonicalRosterSchema = canonicalRosterDataSchema.superRefine(
   },
 );
 export type CanonicalRoster = z.infer<typeof canonicalRosterSchema>;
+
+// A roster person's Hit Dice: the explicit override, zero included, or else
+// the character record's level.
+export function getEffectiveHitDice(
+  person: Pick<CanonicalRoster['people'][number], 'hitDice'>,
+  character: { level: number },
+) {
+  return person.hitDice ?? character.level;
+}
 export type RosterCharacter = {
   characterId: string;
   name: string;
@@ -92,55 +103,73 @@ export type RosterCharacter = {
   isActive: boolean;
 };
 
+// A rules warning with the roster list it concerns and, where one control can
+// repair it, that control's path within the roster.
+export type RosterWarning = {
+  list: 'people' | 'teams';
+  message: string;
+  path?: ['teams', number, 'managerCharacterId'];
+  /** The roster person a per-person warning concerns. */
+  characterId?: string;
+};
 export function rosterWarnings(
   roster: CanonicalRoster,
   characters: RosterCharacter[],
   maxTeams: number,
 ) {
-  const warnings: string[] = [];
+  return rosterWarningDescriptors(roster, characters, maxTeams).map(
+    (warning) => warning.message,
+  );
+}
+export function rosterWarningDescriptors(
+  roster: CanonicalRoster,
+  characters: RosterCharacter[],
+  maxTeams: number,
+) {
+  const warnings: RosterWarning[] = [];
   const counted = roster.teams.filter((team) => !team.rewardCapExempt).length;
   if (counted > maxTeams)
-    warnings.push(
-      `${counted} teams count toward the normal limit of ${maxTeams}.`,
-    );
-  for (const person of roster.people) {
+    warnings.push({
+      list: 'teams',
+      message: `${counted} teams count toward the normal limit of ${maxTeams}.`,
+    });
+  roster.people.forEach((person) => {
     const character = characters.find(
       (value) => value.characterId === person.characterId,
     );
-    if (!character) continue; // Reference integrity is enforced separately, never invented here.
+    if (!character) return; // Reference integrity is enforced separately, never invented here.
     const roles = roster.officers.filter(
       (officer) => officer.characterId === person.characterId,
     );
-    const managed = roster.teams.filter(
-      (team) => team.managerCharacterId === person.characterId,
-    ).length;
-    const limit = getTeamManagerMaxTeams({
-      kind: person.kind,
+    const managed = roster.teams.flatMap((team, index) =>
+      team.managerCharacterId === person.characterId ? [index] : [],
+    );
+    const limit = getTeamManagerLimit({
+      officers: roster.officers,
+      person,
       charisma: character.charisma,
     });
-    if (managed > limit)
-      warnings.push(
-        `${character.name} manages ${managed} teams; the normal limit is ${limit}.`,
-      );
+    // Present exactly when the person manages more teams than the limit.
+    const firstBeyondLimit = managed[limit];
+    if (firstBeyondLimit !== undefined)
+      warnings.push({
+        list: 'teams',
+        message: `${character.name} manages ${managed.length} teams; the normal limit is ${limit}.`,
+        path: ['teams', firstBeyondLimit, 'managerCharacterId'],
+        characterId: person.characterId,
+      });
     if (roles.length > 1)
-      warnings.push(`${character.name} holds more than one officer role.`);
-    if (
-      roles.some((officer) => officer.role === 'commandant') &&
-      person.hitDice === null
-    )
-      warnings.push(
-        `Enter ${character.name}'s Hit Dice before resolving Commandant training.`,
-      );
-    if (!character.isActive && (roles.length || managed))
-      warnings.push(`${character.name} is archived but still assigned.`);
-  }
+      warnings.push({
+        list: 'people',
+        message: `${character.name} holds more than one officer role.`,
+        characterId: person.characterId,
+      });
+    if (!character.isActive && (roles.length || managed.length))
+      warnings.push({
+        list: 'people',
+        message: `${character.name} is archived but still assigned.`,
+        characterId: person.characterId,
+      });
+  });
   return warnings;
-}
-
-export function mapLegacyOfficers(
-  holders: Partial<Record<(typeof OFFICER_ROLES)[number], string>>,
-) {
-  return OFFICER_ROLES.flatMap((role) =>
-    holders[role] ? [{ role, characterId: holders[role] }] : [],
-  );
 }

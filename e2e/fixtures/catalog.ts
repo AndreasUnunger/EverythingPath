@@ -13,21 +13,75 @@ export const caseKeys = [
   'completeWeek',
   'realtimeActionSlot',
   'canonicalPersistence',
+  'workspaceUpkeep',
+  'workspaceNotoriety',
+  'workspaceRecovery',
+  'workspacePersistent',
+  'workspaceConfirmation',
+  'workspaceUpkeepLayout',
+  'workspaceEventReview',
+  'workspaceActivity',
+  'workspaceSettlementTouch',
+  'workspaceDrillRolls',
+  'workspaceRecoveryActivity',
+  'campaignHome',
+  'campaignSections',
+  'weekLinks',
 ] as const;
 export type CaseKey = (typeof caseKeys)[number];
+// These cases start with a bare militia; canonical fixtures install the source.
+export const canonicalCaseKeys = [
+  'canonicalPersistence',
+  'workspaceUpkeep',
+  'workspaceNotoriety',
+  'workspaceRecovery',
+  'workspacePersistent',
+  'workspaceConfirmation',
+  'workspaceUpkeepLayout',
+  'workspaceEventReview',
+  'workspaceActivity',
+  'workspaceSettlementTouch',
+  'workspaceDrillRolls',
+  'workspaceRecoveryActivity',
+] as const satisfies readonly CaseKey[];
+export function isCanonicalCase(caseKey: CaseKey) {
+  return (canonicalCaseKeys as readonly CaseKey[]).includes(caseKey);
+}
+
+const canonicalDomain = {
+  campaign: 'canonical-persistence-campaign',
+  militia: 'canonical-persistence-militia',
+  character: 'canonical-persistence-officer',
+};
+
+const harnessDomain = {
+  campaign: 'harness-campaign',
+  militia: 'harness-militia',
+  character: 'harness-officer',
+};
 
 // Provider IDs belong in the external resource declaration, never in this catalog.
 export const fixtureCatalog = {
-  canonicalPersistence: {
-    campaign: 'canonical-persistence-campaign',
-    militia: 'canonical-persistence-militia',
-    character: 'canonical-persistence-officer',
-  },
-  smoke: {
-    campaign: 'harness-campaign',
-    militia: 'harness-militia',
-    character: 'harness-officer',
-  },
+  canonicalPersistence: canonicalDomain,
+  // The Workspace parts keep the names they had as one journey, so layout and
+  // overflow assertions still measure text of the same length.
+  workspaceUpkeep: canonicalDomain,
+  workspaceNotoriety: canonicalDomain,
+  workspaceRecovery: canonicalDomain,
+  workspacePersistent: canonicalDomain,
+  workspaceConfirmation: canonicalDomain,
+  workspaceUpkeepLayout: canonicalDomain,
+  workspaceEventReview: canonicalDomain,
+  workspaceActivity: canonicalDomain,
+  workspaceSettlementTouch: canonicalDomain,
+  workspaceDrillRolls: canonicalDomain,
+  workspaceRecoveryActivity: canonicalDomain,
+  smoke: harnessDomain,
+  // The journeys split from access (smoke) keep its names so the list,
+  // header and overflow checks measure text of the same length.
+  campaignHome: harnessDomain,
+  campaignSections: harnessDomain,
+  weekLinks: harnessDomain,
   existingMilitia: {
     campaign: 'existing-militia-campaign',
     militia: 'existing-militia',
@@ -142,6 +196,20 @@ export const deploymentFixtureSchema = z
                 completeWeek: z.string().length(64),
                 canonicalPersistence: z.string().length(64),
                 realtimeActionSlot: z.string().length(64),
+                workspaceUpkeep: z.string().length(64),
+                workspaceNotoriety: z.string().length(64),
+                workspaceRecovery: z.string().length(64),
+                workspacePersistent: z.string().length(64),
+                workspaceConfirmation: z.string().length(64),
+                workspaceUpkeepLayout: z.string().length(64),
+                workspaceEventReview: z.string().length(64),
+                workspaceActivity: z.string().length(64),
+                workspaceSettlementTouch: z.string().length(64),
+                workspaceDrillRolls: z.string().length(64),
+                workspaceRecoveryActivity: z.string().length(64),
+                campaignHome: z.string().length(64),
+                campaignSections: z.string().length(64),
+                weekLinks: z.string().length(64),
               })
               .strict(),
           })

@@ -89,7 +89,6 @@ test('[rules.U01.projection-parity] the browser build and persisted Convex sourc
         treasuryTransfers: [
           {
             transferId: 'deposit',
-            characterId: 'pc',
             direction: 'deposit',
             copper: 2501,
           },

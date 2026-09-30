@@ -6,25 +6,36 @@ import {
   actionReferenceOptions,
 } from './activity-input-options';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   stagedActionChoiceSchema,
-  rawRollSchema,
+  rawRollModifiersSchema,
+  actionChoiceRolls,
+  type ActivityRollField,
   type StagedActionChoice,
 } from '~/lib/weekly-draft-facts';
+import { activityRollSpec } from '~/lib/rules-roll-spec';
+import { RollTotalField } from './roll-total-field';
 import type { WeeklyDraftEdit } from '~/lib/weekly-draft-contract';
 import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from '~/components/ui/form';
 import { WholeNumberField } from './whole-number-field';
+import { ActivityText } from './activity-text';
+import { actionDetail, isPeopleTeamChoice } from './activity-action-detail';
+import { actionFieldEdits } from './activity-action-edits';
+import { ActivityActionFields } from './activity-action-fields';
+import {
+  economyAcknowledgementSubjects,
+  economyDetail,
+  isEconomyChoice,
+} from './activity-economy-detail';
+import { economyFieldEdits } from './activity-economy-edits';
+import { ActivityEconomyFields } from './activity-economy-fields';
+import {
+  missionAcknowledgementSubjects,
+  missionDetail,
+} from './activity-mission-detail';
+import { isMissionChoice } from './activity-mission-actions';
+import { missionFieldEdits } from './activity-mission-edits';
+import { ActivityMissionFields } from './activity-mission-fields';
 import { ChoiceCards } from './choice-cards';
 import {
   choiceFieldLabel as label,
@@ -32,57 +43,6 @@ import {
 } from './structured-choice-field';
 import { activityLabel } from './activity-labels';
 import type { ActivityView } from './types';
-export function ActivityText({
-  name,
-  value,
-  onValue,
-  disabled,
-  required = false,
-}: {
-  name: string;
-  value: string;
-  onValue: (value: string) => void;
-  disabled: boolean;
-  required?: boolean;
-}) {
-  const form = useForm({
-    values: { text: value },
-    resolver: zodResolver(
-      z.object({
-        text: required
-          ? z.string().trim().min(1, 'A reason is required.')
-          : z.string(),
-      }),
-    ),
-    mode: 'onBlur',
-  });
-  return (
-    <Form {...form}>
-      <form
-        noValidate
-        onSubmit={form.handleSubmit(({ text }) => onValue(text))}
-        className="space-y-2"
-      >
-        <FormField
-          control={form.control}
-          name="text"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{name}</FormLabel>
-              <FormControl>
-                <Input {...field} disabled={disabled} />
-              </FormControl>
-              <FormMessage role="alert" />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" variant="outline" disabled={disabled}>
-          Save {name.toLowerCase()}
-        </Button>
-      </form>
-    </Form>
-  );
-}
 function ChoiceFields({
   choice,
   view,
@@ -90,6 +50,7 @@ function ChoiceFields({
   change,
   calculatedCostCopper,
   detailError,
+  hosted,
 }: {
   choice: StagedActionChoice;
   view: ActivityView;
@@ -97,6 +58,7 @@ function ChoiceFields({
   change: (field: string, value: unknown) => boolean;
   calculatedCostCopper: number | null;
   detailError: { field: string; message: string } | null;
+  hosted: boolean;
 }) {
   const shape = stagedActionChoiceSchema.options.find(
     (option) => option.shape.actionId.value === choice.actionId,
@@ -110,6 +72,11 @@ function ChoiceFields({
     'acknowledgements',
     'orderId',
     'receipt',
+    // Event builds, rolls and chooses a choice's event candidates.
+    'candidates',
+    'selectedEventId',
+    // The Activity board's own team dropdown edits the acting team.
+    ...(hosted ? ['teamId'] : []),
   ]);
   return Object.entries(shape)
     .flatMap(([field, wrapped]) => {
@@ -209,63 +176,58 @@ function ChoiceRolls({
   view,
   disabled,
   change,
+  hosted,
 }: {
   choice: StagedActionChoice;
   requirements: string[];
   view: ActivityView;
   disabled: boolean;
   change: (field: string, value: unknown) => void;
+  hosted: boolean;
 }) {
-  const fields = new Map<string, { count: number; sides: number }>();
-  for (const [field, roll] of Object.entries(choice.rolls ?? {}))
-    fields.set(field, { count: roll.dice.length, sides: roll.sides });
+  // Supported fields for this action come from the rules; a field shows when
+  // it is recorded or currently required. Known-but-inactive rolls stay
+  // editable against their rule specification.
+  const rolls = actionChoiceRolls(choice);
+  const required = new Set<string>();
   for (const requirement of requirements) {
-    const match = /^(\w+):(\d+)d(\d+)$/.exec(
+    const match = /^(\w+):\d+d\d+$/.exec(
       requirement.slice(choice.choiceId.length + 1),
     );
-    if (match)
-      fields.set(match[1]!, {
-        count: Number(match[2]),
-        sides: Number(match[3]),
-      });
+    if (match) required.add(match[1]!);
   }
-  return [...fields].map(([field, dice]) => {
-    const roll =
-      choice.rolls?.[field as keyof NonNullable<StagedActionChoice['rolls']>];
+  const fields = [...new Set<string>([...Object.keys(rolls), ...required])]
+    // The Activity board's check row edits the check with its modifiers.
+    .filter((field) => !(hosted && field === 'check'))
+    .flatMap((field) => {
+      const spec = activityRollSpec(
+        choice.actionId,
+        field as ActivityRollField,
+      );
+      return spec ? [{ field: field as ActivityRollField, spec }] : [];
+    });
+  return fields.map(({ field, spec }) => {
+    const roll = rolls[field];
     return (
       <fieldset key={field} className="space-y-2">
         <legend className="text-sm font-semibold">
-          {activityLabel(field)} · {dice.count}d{dice.sides}
+          {activityLabel(field)}
         </legend>
-        <div className="grid grid-cols-2 items-start gap-2">
-          {Array.from({ length: dice.count }, (_, index) => (
-            <WholeNumberField
-              key={index}
-              label={`${activityLabel(field)} die ${index + 1}`}
-              required
-              disabled={
-                disabled || (index > 0 && roll?.dice[index - 1] === undefined)
-              }
-              value={roll?.dice[index] ?? null}
-              onValue={(value) => {
-                const entered = roll?.dice.slice(0, index) ?? [];
-                if (value !== null)
-                  entered.push(value, ...(roll?.dice.slice(index + 1) ?? []));
-                const rolls = { ...choice.rolls };
-                const key = field as keyof typeof rolls;
-                if (!entered.length) delete rolls[key];
-                else
-                  rolls[key] = {
-                    dice: entered,
-                    sides: dice.sides,
-                    provenance: { kind: 'table' },
-                    modifiers: roll?.modifiers ?? [],
-                  };
-                change('rolls', rolls);
-              }}
-            />
-          ))}
-        </div>
+        <RollTotalField
+          label={`${activityLabel(field)} roll`}
+          spec={spec}
+          recorded={roll}
+          required={required.has(field)}
+          disabled={disabled}
+          onRoll={(next) => {
+            const map: Partial<Record<ActivityRollField, typeof next>> = {
+              ...rolls,
+            };
+            if (next) map[field] = next;
+            else delete map[field];
+            change('rolls', map);
+          }}
+        />
         {roll && (
           <details className="space-y-2">
             <summary className="cursor-pointer text-sm">
@@ -277,14 +239,14 @@ function ChoiceRolls({
               with a reason.
             </p>
             <StructuredChoiceField
-              schema={rawRollSchema.shape.modifiers.optional()}
+              schema={rawRollModifiersSchema.optional()}
               value={roll.modifiers}
               name="modifiers"
               disabled={disabled}
               options={activityReferenceOptions(choice, view)}
               onValue={(modifiers) =>
                 change('rolls', {
-                  ...choice.rolls,
+                  ...rolls,
                   [field]: { ...roll, modifiers: modifiers ?? [] },
                 })
               }
@@ -295,31 +257,46 @@ function ChoiceRolls({
     );
   });
 }
+// `hosted`: shown inside the Activity board's selected-slot details, which
+// render the team, the check with its bonus and modifiers, and Clear. Every
+// other field, roll, receipt, acknowledgement and exception stays here.
 export function ActivityDetails({
   slot,
   view,
   edit,
   disabled,
+  hosted = false,
+  correctionsHref,
+  openEvent,
 }: {
   slot: ActivityView['slots'][number];
   view: ActivityView;
   edit: (edit: WeeklyDraftEdit) => unknown;
   disabled: boolean;
+  hosted?: boolean;
+  // Where missing items, caches and settlements are repaired.
+  correctionsHref?: string;
+  // Shows the Event phase, where a choice's event candidates are rolled.
+  openEvent?: () => void;
 }) {
   const choice = slot.choice!;
   const [detailError, setDetailError] = useState<{
     field: string;
     message: string;
   } | null>(null);
-  function change(field: string, value: unknown) {
+  // Writes several fields as one detail edit; `undefined` omits a field.
+  function changeFields(fields: Record<string, unknown>, field: string) {
     return saveChoice(
       field,
       Object.fromEntries(
-        Object.entries({ ...choice, [field]: value }).filter(
+        Object.entries({ ...choice, ...fields }).filter(
           ([, value]) => value !== undefined,
         ),
       ),
     );
+  }
+  function change(field: string, value: unknown) {
+    return changeFields({ [field]: value }, field);
   }
   function saveChoice(field: string, next: unknown) {
     const parsed = stagedActionChoiceSchema.safeParse(next);
@@ -340,17 +317,63 @@ export function ActivityDetails({
     return true;
   }
   const check = view.checks.find((check) => check.checkId === choice.choiceId);
+  // People and team, market, cache and Special Order, and information,
+  // mission and event-influence actions have their own detail editors in
+  // the board.
+  const people = hosted ? actionDetail(view, slot) : null;
+  const economy = hosted ? economyDetail(view, slot) : null;
+  const mission = hosted ? missionDetail(view, slot) : null;
+  const detail = people ?? economy ?? mission;
+  // Acknowledgements the economy editor shows beside their purchase or
+  // order, and the one a mission editor shows as its What happened.
+  const shown =
+    economy && isEconomyChoice(choice)
+      ? economyAcknowledgementSubjects(choice)
+      : missionAcknowledgementSubjects(mission);
   return (
     <div className="space-y-3">
-      <ChoiceFields
-        choice={choice}
-        calculatedCostCopper={slot.calculatedCostCopper}
-        detailError={detailError}
-        view={view}
-        change={change}
-        disabled={disabled}
-      />
-      {slot.calculatedCostCopper !== null && (
+      {people && isPeopleTeamChoice(choice) ? (
+        <ActivityActionFields
+          choice={choice}
+          detail={people}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={actionFieldEdits(choice, change)}
+          fieldError={detailError}
+        />
+      ) : economy && isEconomyChoice(choice) ? (
+        <ActivityEconomyFields
+          choice={choice}
+          detail={economy}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={economyFieldEdits(choice, changeFields)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+        />
+      ) : mission && isMissionChoice(choice) ? (
+        <ActivityMissionFields
+          choice={choice}
+          detail={mission}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          disabled={disabled}
+          edits={missionFieldEdits(choice, change)}
+          fieldError={detailError}
+          correctionsHref={correctionsHref}
+          openEvent={openEvent}
+        />
+      ) : (
+        <ChoiceFields
+          choice={choice}
+          calculatedCostCopper={slot.calculatedCostCopper}
+          detailError={detailError}
+          view={view}
+          change={change}
+          disabled={disabled}
+          hosted={hosted}
+        />
+      )}
+      {!detail && slot.calculatedCostCopper !== null && (
         <p className="text-sm">
           Calculated cost: {slot.calculatedCostCopper} cp
         </p>
@@ -363,24 +386,27 @@ export function ActivityDetails({
           save={(next) => saveChoice('receipt', next)}
         />
       )}
-      <ChoiceRolls
-        view={view}
-        choice={choice}
-        requirements={slot.requirements}
-        change={change}
-        disabled={disabled}
-      />
-      {check && (
+      {!detail && (
+        <ChoiceRolls
+          view={view}
+          choice={choice}
+          requirements={slot.requirements}
+          change={change}
+          disabled={disabled}
+          hosted={hosted}
+        />
+      )}
+      {check && !hosted && (
         <p className="text-sm">
           Calculated bonus: {check.modifier >= 0 ? '+' : ''}
           {check.modifier} · Total: {check.total ?? 'Awaiting roll'}
         </p>
       )}
-      {check && (
+      {check && !hosted && (
         <ul className="text-muted-foreground space-y-1 text-xs">
           {check.modifiers.map((modifier) => (
             <li key={modifier.source}>
-              {choice.rolls?.check?.modifiers.find(
+              {actionChoiceRolls(choice).check?.modifiers.find(
                 (entry) => entry.sourceId === modifier.source,
               )?.reason ??
                 view.modifierSources.find(
@@ -410,33 +436,35 @@ export function ActivityDetails({
             }),
           ...(choice.acknowledgements ?? []).map((item) => item.subjectId),
         ]),
-      ].map((subjectId, index) => {
-        const existing = choice.acknowledgements?.find(
-          (item) => item.subjectId === subjectId,
-        );
-        return (
-          <ActivityText
-            key={subjectId}
-            name={`Outcome acknowledgement ${index + 1}`}
-            value={existing?.outcome ?? ''}
-            required
-            disabled={disabled}
-            onValue={(outcome) =>
-              change('acknowledgements', [
-                ...(choice.acknowledgements ?? []).filter(
-                  (item) => item.subjectId !== subjectId,
-                ),
-                {
-                  acknowledgementId:
-                    existing?.acknowledgementId ?? crypto.randomUUID(),
-                  subjectId,
-                  outcome,
-                },
-              ])
-            }
-          />
-        );
-      })}
+      ]
+        .filter((subjectId) => !shown.has(subjectId))
+        .map((subjectId, index) => {
+          const existing = choice.acknowledgements?.find(
+            (item) => item.subjectId === subjectId,
+          );
+          return (
+            <ActivityText
+              key={subjectId}
+              name={`Outcome acknowledgement ${index + 1}`}
+              value={existing?.outcome ?? ''}
+              required
+              disabled={disabled}
+              onValue={(outcome) =>
+                change('acknowledgements', [
+                  ...(choice.acknowledgements ?? []).filter(
+                    (item) => item.subjectId !== subjectId,
+                  ),
+                  {
+                    acknowledgementId:
+                      existing?.acknowledgementId ?? crypto.randomUUID(),
+                    subjectId,
+                    outcome,
+                  },
+                ])
+              }
+            />
+          );
+        })}
       {slot.exceptions.map((exception) => (
         <div
           key={exception.exceptionId}
@@ -477,25 +505,27 @@ export function ActivityDetails({
           )}
         </div>
       ))}
-      {slot.requirements.length > 0 && (
+      {slot.requirements.length > 0 && !hosted && (
         <p className="text-muted-foreground text-sm">
           This choice needs more preparation. Complete its selections, rolls and
           table decisions.
         </p>
       )}
-      <Button
-        variant="outline"
-        disabled={disabled}
-        onClick={() =>
-          edit({
-            kind: 'clear',
-            slotId: slot.slotId,
-            choiceId: choice.choiceId,
-          })
-        }
-      >
-        Clear {activityLabel(choice.actionId)}
-      </Button>
+      {!hosted && (
+        <Button
+          variant="outline"
+          disabled={disabled}
+          onClick={() =>
+            edit({
+              kind: 'clear',
+              slotId: slot.slotId,
+              choiceId: choice.choiceId,
+            })
+          }
+        >
+          Clear {activityLabel(choice.actionId)}
+        </Button>
+      )}
     </div>
   );
 }

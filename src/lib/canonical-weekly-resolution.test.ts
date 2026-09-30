@@ -76,6 +76,8 @@ test('[rules.P78.consumables] selected one-use bonuses require an explicit check
   expect(result.outcome!.militiaSnapshot.treasuryCopper).toBe(1004800);
   expect(result.outcome!.militiaSnapshot.bonuses[0]!.consumedWeek).toBe(40);
   expect(snapshot.bonuses[0]!.consumedWeek).toBeNull();
+  if (choice.actionId !== 'earn_gold')
+    throw Error('Expected Earn Gold fixture');
   choice.rolls!.check!.modifiers = [
     { sourceId: 'bonus:gift', value: 999, reason: 'Old entered modifier' },
   ];
@@ -334,7 +336,6 @@ test('[rules.P06.baseline] ordered Upkeep deposits and Activity costs precede Th
   draft.upkeep.treasuryTransfers = [
     {
       transferId: 'deposit',
-      characterId: 'pc',
       direction: 'deposit',
       copper: 10001,
     },

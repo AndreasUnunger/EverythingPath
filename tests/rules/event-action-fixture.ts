@@ -80,19 +80,18 @@ export function eventActionFixture(
     { slotId: 'one', choice },
     { slotId: 'two', choice: actionId === 'covert_action' ? drill : null },
   ];
-  if (actionId === 'sabotage' && choice.actionId === 'guarantee_event')
+  if (actionId === 'sabotage' && choice.actionId === 'guarantee_event') {
     choice.candidates![0]!.sabotage = {
       choiceId: 'react',
       teamId: 'team',
       check: 'secrecy',
       rolls: { check: roll(20, 14), notoriety: roll(6, 4) },
-      acknowledgements: [
-        {
-          acknowledgementId: 'react-receipt',
-          subjectId: 'sabotage:raid:react',
-          outcome: 'The raid was disrupted.',
-        },
-      ],
     };
+    draft.acknowledgements.push({
+      acknowledgementId: 'react-receipt',
+      subjectId: 'sabotage:raid:react',
+      outcome: 'The raid was disrupted.',
+    });
+  }
   return { draft, snapshot, choice };
 }

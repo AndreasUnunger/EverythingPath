@@ -1,5 +1,7 @@
 import type { Doc, Id } from '@convex/_generated/dataModel';
+import { ConvexError } from 'convex/values';
 import { z } from 'zod';
+import { characterKindSchema } from '~/lib/character-kind';
 
 const integerField = (label: string) =>
   z.string().superRefine((raw, ctx) => {
@@ -22,9 +24,11 @@ const integerField = (label: string) =>
 export const characterFormSchema = z.object({
   name: z.string().trim().min(1, 'Character name is required').max(100),
   description: z.string().max(500),
-  kind: z.enum(['pc', 'officer_npc']),
-  level: integerField('Level').refine((value) => Number(value) >= 1, {
-    message: 'Level must be at least 1',
+  // A record is a PC or an NPC; a legacy stored kind opens as its PC/NPC form.
+  kind: characterKindSchema,
+  // The record's number, labelled Hit Dice for PCs and NPCs alike.
+  level: integerField('Hit Dice').refine((value) => Number(value) >= 1, {
+    message: 'Hit Dice must be at least 1',
   }),
   strength: integerField('STR'),
   dexterity: integerField('DEX'),
@@ -48,6 +52,48 @@ export const defaultCharacterFormValues: CharacterFormValues = {
   wisdom: '10',
   charisma: '10',
 };
+
+// The record fields a valid form submits.
+export function toCharacterPayload(values: CharacterFormValues) {
+  return {
+    name: values.name.trim(),
+    description: values.description.trim(),
+    kind: values.kind,
+    level: Number(values.level),
+    strength: Number(values.strength),
+    dexterity: Number(values.dexterity),
+    constitution: Number(values.constitution),
+    wisdom: Number(values.wisdom),
+    charisma: Number(values.charisma),
+    intelligence: Number(values.intelligence),
+  };
+}
+
+// A record's current values.
+export function toCharacterFormValues(
+  record: CharacterRecord,
+): CharacterFormValues {
+  return {
+    name: record.name,
+    description: record.description,
+    kind: record.kind,
+    level: String(record.level),
+    strength: String(record.strength),
+    dexterity: String(record.dexterity),
+    constitution: String(record.constitution),
+    intelligence: String(record.intelligence),
+    wisdom: String(record.wisdom),
+    charisma: String(record.charisma),
+  };
+}
+
+export function getCharacterErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ConvexError && typeof error.data === 'string')
+    return error.data;
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return fallback;
+}
 
 export type CharacterRecord = Doc<'character'>;
 export type CharacterId = Id<'character'>;

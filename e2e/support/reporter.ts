@@ -15,6 +15,47 @@ import { evaluateResults } from './results';
 import { loadRun, runSchema } from './process';
 import { sanitizeLog } from './artifacts';
 
+const safeTitle = (title: string) =>
+  sanitizeLog(title)
+    .replace(/[^a-zA-Z0-9 .:_-]/g, '')
+    .slice(0, 160);
+
+type StepTiming = {
+  step: string;
+  /** Milliseconds from the attempt's start. */
+  start: number;
+  /** Milliseconds, or null for a step the attempt's end interrupted. */
+  duration: number | null;
+  status: 'passed' | 'failed' | 'interrupted';
+};
+
+// The journey's own `test.step` phases, in order, so a slow or timed-out
+// attempt shows where its time went. Only the sanitized step titles written in
+// the journeys are kept: never errors, locations, parameters, hooks, fixtures
+// or Playwright actions. A step still running when a timeout ends the attempt
+// never finishes (Playwright reports its duration as -1): it is recorded as
+// interrupted, and its start shows how long it ran.
+export function stepTimings(
+  result: Pick<TestResult, 'startTime' | 'steps'>,
+): StepTiming[] {
+  const visit = (steps: TestStep[], parents: string[]): StepTiming[] =>
+    steps.flatMap((step) => {
+      if (step.category !== 'test.step') return [];
+      const path = [...parents, safeTitle(step.title)];
+      const finished = step.duration >= 0;
+      return [
+        {
+          step: path.join(' > '),
+          start: step.startTime.getTime() - result.startTime.getTime(),
+          duration: finished ? step.duration : null,
+          status: !finished ? 'interrupted' : step.error ? 'failed' : 'passed',
+        },
+        ...visit(step.steps, path),
+      ];
+    });
+  return visit(result.steps, []).slice(0, 100);
+}
+
 export default class SafeReporter implements Reporter {
   private suite?: Suite;
   private errors = 0;
@@ -42,16 +83,16 @@ export default class SafeReporter implements Reporter {
     failureIdentity: string;
     project: string;
     journey: string;
+    workerKey: string | null;
     status: string;
     retry: number;
     duration: number;
     errors: string[];
     observations: string[];
+    steps: StepTiming[];
   }[] = [];
   onTestEnd(test: TestCase, result: TestResult) {
-    const journey = sanitizeLog(test.title)
-      .replace(/[^a-zA-Z0-9 .:_-]/g, '')
-      .slice(0, 160);
+    const journey = safeTitle(test.title);
     const errors =
       test.parent.project()?.name === 'authentication'
         ? result.errors.map(
@@ -64,13 +105,23 @@ export default class SafeReporter implements Reporter {
               '',
             ),
           );
+    const runFile = process.env.E2E_RUN_FILE;
+    if (!runFile) throw new Error('Missing E2E run declaration');
+    const run = runSchema.parse(JSON.parse(readFileSync(runFile, 'utf8')));
+    const project = test.parent.project()?.name ?? 'unknown';
+    // Authentication prepares every cohort; each journey uses its worker's.
+    const workerKey =
+      project === 'authentication'
+        ? null
+        : (run.fixture?.workers[result.parallelIndex]?.key ?? null);
     this.results.push({
       failureIdentity: createHash('sha256')
         .update(this.failedSteps.get(test.id) ?? 'runner-or-fixture')
         .digest('hex')
         .slice(0, 20),
-      project: test.parent.project()?.name ?? 'unknown',
+      project,
       journey,
+      workerKey,
       status: result.status,
       retry: result.retry,
       duration: result.duration,
@@ -80,13 +131,11 @@ export default class SafeReporter implements Reporter {
         .map(({ description }) =>
           sanitizeLog(description ?? 'No visible state'),
         ),
+      steps: stepTimings(result),
     });
     // onTestEnd is synchronous in Playwright's reporter protocol. Checkpoint
     // before announcing completion so an outer deadline cannot erase the first
     // failed attempt. Only onEnd can produce an aggregate passing report.
-    const runFile = process.env.E2E_RUN_FILE;
-    if (!runFile) throw new Error('Missing E2E run declaration');
-    const run = runSchema.parse(JSON.parse(readFileSync(runFile, 'utf8')));
     mkdirSync(run.artifactDirectory, { recursive: true });
     const checkpoint = join(run.artifactDirectory, 'progress.json');
     writeFileSync(
@@ -99,7 +148,7 @@ export default class SafeReporter implements Reporter {
     );
     renameSync(`${checkpoint}.tmp`, checkpoint);
     process.stdout.write(
-      `${result.status}: ${test.parent.project()?.name}: ${journey} (attempt ${result.retry + 1})\n`,
+      `${result.status}: ${project}: ${journey} (attempt ${result.retry + 1}${workerKey ? `, ${workerKey}` : ''})\n`,
     );
   }
   async onEnd(result: FullResult) {

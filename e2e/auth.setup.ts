@@ -1,25 +1,35 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, type Browser } from '@playwright/test';
 import { clerk, clerkSetup } from '@clerk/testing/playwright';
 import { join } from 'node:path';
 import { FIXTURE_VERSION, roleKeys } from './fixtures/catalog';
-import { fixtureCall, loadRun, savePrivate } from './support/process';
+import { fixtureCall, loadRun, savePrivate, type Run } from './support/process';
+
+type Cohort = NonNullable<Run['fixture']>['workers'][number];
 
 setup.describe.configure({ mode: 'serial' });
 setup('prepare fresh role sessions', async ({ browser }) => {
   const run = await loadRun();
-  const worker = run.fixture?.workers[0];
-  if (!worker) throw new Error('Missing fixture cohort');
+  // Every cohort a worker will use, one after another: parallel sign-ins would
+  // exceed Clerk's per-IP sign-in limits. Each cohort keeps the one-cohort
+  // deadline.
+  const cohorts = run.fixture?.workers.slice(0, run.workers) ?? [];
+  if (cohorts.length !== run.workers) throw new Error('Missing fixture cohort');
+  setup.setTimeout(setup.info().timeout * cohorts.length);
+  await clerkSetup({
+    dotenv: false,
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
+  });
+  for (const worker of cohorts) await prepareCohort(browser, run, worker);
+});
+
+async function prepareCohort(browser: Browser, run: Run, worker: Cohort) {
   await fixtureCall(run, 'seedIdentityProjection', {
     namespace: run.resources.previewName,
     version: FIXTURE_VERSION,
     workerKey: worker.key,
     caseKey: 'smoke',
     token: worker.cases.smoke,
-  });
-  await clerkSetup({
-    dotenv: false,
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
   });
   for (const role of roleKeys) {
     // Authentication never records traces or screenshots. Each role starts empty.
@@ -92,4 +102,4 @@ setup('prepare fresh role sessions', async ({ browser }) => {
       await context.close();
     }
   }
-});
+}

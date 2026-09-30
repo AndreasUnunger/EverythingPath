@@ -1,3 +1,4 @@
+import { normalizeRawRoll } from './raw-roll';
 import type { EventBenefits } from './rules-event-benefits';
 import type { CharacterActionState } from './rules-character-state';
 import { projectTreasuryIncome } from './rules-treasury';
@@ -30,6 +31,41 @@ export type UpkeepSnapshot = Pick<
   characterActions?: CharacterActionState;
 };
 type RawRoll = z.infer<typeof rawRollSchema>;
+// Upkeep check thresholds (militia-rules.md, Team Conditions and Upkeep).
+export const UPKEEP_RULES = {
+  attritionDc: 10,
+  maximumNotoriety: 100,
+  notorietyDc: 15,
+  returnDc: 15,
+} as const;
+// A natural 20 succeeds attrition and gains training; the natural value is
+// the raw single die, never the modified total.
+export function attritionOutcome(total: number, naturalValue: number | null) {
+  if (naturalValue === 20) return 'natural-20' as const;
+  return total >= UPKEEP_RULES.attritionDc
+    ? ('success' as const)
+    : ('failure' as const);
+}
+// Failing the maximum-notoriety Loyalty check lowers the nearest settlement.
+export function notorietyOutcome(total: number) {
+  return total >= UPKEEP_RULES.notorietyDc
+    ? ('success' as const)
+    : ('failure' as const);
+}
+// Requirements raised by Step 4 (rank, boons, the highest PC level) and
+// Step 5 (transfers). Every other Upkeep requirement belongs to an earlier
+// step, which rank and transfers wait for.
+export function isRankOrTransferRequirement(key: string) {
+  return /^(rank:|upkeep:boon:|transfer:|highest-level-pc$)/.test(key);
+}
+// A missing team returns at the end of the week on DC 15 Security; a natural
+// 1 loses it permanently.
+export function returnOutcome(total: number, naturalValue: number | null) {
+  if (naturalValue === 1) return 'lost' as const;
+  return total >= UPKEEP_RULES.returnDc
+    ? ('returns' as const)
+    : ('stays-missing' as const);
+}
 type TrainingStep = 'attrition' | 'notoriety' | 'shortage';
 export type UpkeepChange =
   | {
@@ -45,7 +81,6 @@ export type UpkeepChange =
   | {
       kind: 'treasury';
       sourceId: string;
-      characterId: string | null;
       before: number;
       after: number;
     }
@@ -68,6 +103,14 @@ type UpkeepProjection = {
   outcome: UpkeepSnapshot;
   plan: UpkeepChange[];
   boons: ReturnType<typeof projectProgression>['boons'];
+  // Step 4's inputs once the earlier steps are settled: the training it
+  // judged, the highest active PC level capping rank and the rank training
+  // alone would reach. Null while an earlier step is open or Upkeep skipped.
+  progression: {
+    training: number;
+    highestPcLevel: number | null;
+    trainingRank: number;
+  } | null;
   requirements: string[];
   warnings: string[];
   checkUsage: ReturnType<typeof projectRulesFoundations>['checkUsage'];
@@ -121,17 +164,17 @@ function dice(
   id: string,
   result: UpkeepProjection,
 ) {
-  if (!raw) {
+  const normalized = normalizeRawRoll(raw, { count, sides });
+  if (normalized.status === 'missing') {
     result.requirements.push(`${id}:roll`);
     return null;
   }
-  if (raw.sides !== sides || raw.dice.length !== count) {
+  if (normalized.status !== 'complete') {
     result.requirements.push(`${id}:dice:${count}d${sides}`);
     return null;
   }
-  if (raw.dice.some((value) => value < 1 || value > sides))
-    result.warnings.push(`${id}:roll-range`);
-  return raw.dice.reduce((sum, value) => sum + value, 0);
+  if (normalized.rangeWarning) result.warnings.push(`${id}:roll-range`);
+  return normalized.diceTotal;
 }
 function check(
   draft: WeeklyDraft,
@@ -245,8 +288,13 @@ function attrition(
     result,
   );
   if (total === null) return;
-  const naturalTwenty = draft.upkeep.rolls.check?.dice[0] === 20;
-  const success = naturalTwenty || total >= 10;
+  const outcome = attritionOutcome(
+    total,
+    normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
+      .naturalValue,
+  );
+  const naturalTwenty = outcome === 'natural-20';
+  const success = outcome !== 'failure';
   const loss = dice(
     draft.upkeep.rolls.training,
     success ? 1 : 2,
@@ -268,7 +316,7 @@ function notoriety(
   state: UpkeepSnapshot,
   result: UpkeepProjection,
 ) {
-  if (state.notoriety < 100) return;
+  if (state.notoriety < UPKEEP_RULES.maximumNotoriety) return;
   const loss = dice(
     draft.upkeep.rolls.notoriety,
     1,
@@ -285,7 +333,8 @@ function notoriety(
     'upkeep:notoriety',
     result,
   );
-  if (total !== null && total < 15) lowerReputation(draft, result);
+  if (total !== null && notorietyOutcome(total) === 'failure')
+    lowerReputation(draft, result);
 }
 function lowerReputation(draft: WeeklyDraft, result: UpkeepProjection) {
   const settlement = result.outcome.settlements.find(
@@ -310,18 +359,12 @@ function lowerReputation(draft: WeeklyDraft, result: UpkeepProjection) {
     after,
   });
 }
-function treasury(
-  result: UpkeepProjection,
-  sourceId: string,
-  delta: number,
-  characterId: string | null = null,
-) {
+function treasury(result: UpkeepProjection, sourceId: string, delta: number) {
   const before = result.outcome.treasuryCopper;
   result.outcome.treasuryCopper += delta;
   result.plan.push({
     kind: 'treasury',
     sourceId,
-    characterId,
     before,
     after: result.outcome.treasuryCopper,
   });
@@ -345,10 +388,6 @@ function recoverTeams(
     const decision = draft.upkeep.teamDecisions.find(
       (decision) => decision.teamId === team.teamId,
     );
-    if (decision?.decision === 'remove') {
-      removeWithException(draft, team.teamId, result);
-      continue;
-    }
     if (team.status === 'missing') {
       missingTeam(draft, state, team.teamId, result);
       continue;
@@ -356,22 +395,6 @@ function recoverTeams(
     if (team.status !== 'disabled') continue;
     recoverDisabled(draft, team, decision, result);
   }
-}
-function removeWithException(
-  draft: WeeklyDraft,
-  teamId: string,
-  result: UpkeepProjection,
-) {
-  result.warnings.push(`team:${teamId}:upkeep-removal`);
-  if (
-    draft.rulesExceptions.some(
-      (exception) =>
-        exception.subjectId === teamId &&
-        exception.ruleId === 'upkeep-team-removal',
-    )
-  )
-    removeTeam(result, teamId);
-  else result.requirements.push(`team:${teamId}:removal-exception`);
 }
 function recoverDisabled(
   draft: WeeklyDraft,
@@ -434,9 +457,13 @@ function missingTeam(
     'security',
   );
   if (total === null) return;
-  if (decision?.roll?.dice[0] === 1) {
+  const outcome = returnOutcome(
+    total,
+    normalizeRawRoll(decision?.roll, { count: 1, sides: 20 }).naturalValue,
+  );
+  if (outcome === 'lost') {
     removeTeam(result, teamId);
-  } else if (total >= 15) {
+  } else if (outcome === 'returns') {
     result.plan.push({
       kind: 'team_status',
       teamId,
@@ -471,6 +498,11 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
   result.requirements.push(...progression.requirements);
   result.warnings.push(...progression.warnings);
   result.boons = progression.boons;
+  result.progression = {
+    training: state.training,
+    highestPcLevel: progression.highestPcLevel,
+    trainingRank: progression.trainingRank,
+  };
   if (progression.eligibleRank !== state.rank) {
     result.plan.push({
       kind: 'rank',
@@ -497,48 +529,32 @@ function progression(draft: WeeklyDraft, result: UpkeepProjection) {
     }
   }
 }
-function transferException(
-  draft: WeeklyDraft,
-  result: UpkeepProjection,
-  transferId: string,
-  rule: 'officer' | 'funds',
-) {
-  result.warnings.push(`transfer:${transferId}:${rule}`);
-  if (
-    !draft.rulesExceptions.some(
-      (exception) =>
-        exception.subjectId === transferId &&
-        exception.ruleId === `upkeep-transfer-${rule}`,
-    )
-  )
-    result.requirements.push(`transfer:${transferId}:${rule}-exception`);
-}
+// Step 5. The corpus lets only officers transfer; the table approved dropping
+// that restriction (#107), so transfers carry no character and need no
+// officer (Ruleset Version 6). Withdrawals beyond the running treasury still
+// need their own reasoned exception.
 function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
   for (const transfer of draft.upkeep.treasuryTransfers) {
     if (
-      !result.outcome.roster.people.some(
-        (person) => person.characterId === transfer.characterId,
-      )
-    ) {
-      result.requirements.push(`transfer:${transfer.transferId}:character`);
-      continue;
-    }
-    if (
-      !result.outcome.roster.officers.some(
-        (officer) => officer.characterId === transfer.characterId,
-      )
-    )
-      transferException(draft, result, transfer.transferId, 'officer');
-    if (
       transfer.direction === 'withdraw' &&
       transfer.copper > result.outcome.treasuryCopper
-    )
-      transferException(draft, result, transfer.transferId, 'funds');
+    ) {
+      result.warnings.push(`transfer:${transfer.transferId}:funds`);
+      if (
+        !draft.rulesExceptions.some(
+          (exception) =>
+            exception.subjectId === transfer.transferId &&
+            exception.ruleId === 'upkeep-transfer-funds',
+        )
+      )
+        result.requirements.push(
+          `transfer:${transfer.transferId}:funds-exception`,
+        );
+    }
     treasury(
       result,
       transfer.transferId,
       transfer.direction === 'deposit' ? transfer.copper : -transfer.copper,
-      transfer.characterId,
     );
     const income = projectTreasuryIncome(
       transfer.copper,
@@ -556,7 +572,7 @@ function transfers(draft: WeeklyDraft, result: UpkeepProjection) {
     }
   }
 }
-function lossMultiplier(draft: WeeklyDraft) {
+export function lossMultiplier(draft: WeeklyDraft) {
   // Week of Pain's Twice clause never compounds the same loss multiplier.
   return Math.max(
     1,
@@ -592,6 +608,7 @@ export function projectUpkeep(
     },
     plan: [],
     boons: [],
+    progression: null,
     requirements: [],
     warnings: [],
     checks: [],
@@ -623,6 +640,27 @@ export function projectUpkeep(
   return result;
 }
 
+// A check's calculated bonus before its die is entered; once entered, the
+// projected check itself.
+export function previewUpkeepCheck(
+  draft: WeeklyDraft,
+  snapshot: UpkeepSnapshot,
+  projection: UpkeepProjection,
+  checkId: string,
+  organizationCheck: 'loyalty' | 'security',
+) {
+  const projected = projection.checks.find(
+    (check) => check.checkId === checkId,
+  );
+  if (projected) return projected;
+  const [preview] = projectRulesFoundations({
+    ...foundationInput(draft, snapshot),
+    checks: [{ checkId, phase: 'upkeep', check: organizationCheck }],
+  }).checks;
+  if (!preview) throw new Error(`No preview for ${checkId}`);
+  return preview;
+}
+
 // Input affordances share the rule model; presentation supplies only raw dice.
 export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
   const projection = projectUpkeep(draft, snapshot);
@@ -630,11 +668,7 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
     (check) => check.checkId === 'upkeep:attrition',
   );
   const previewCheck = (id: string) =>
-    projection.checks.find((check) => check.checkId === id) ??
-    projectRulesFoundations({
-      ...foundationInput(draft, snapshot),
-      checks: [{ checkId: id, phase: 'upkeep', check: 'loyalty' }],
-    }).checks[0]!;
+    previewUpkeepCheck(draft, snapshot, projection, id, 'loyalty');
   const fields: {
     field: 'check' | 'training' | 'notoriety' | 'loss' | 'notorietyCheck';
     count: number;
@@ -647,12 +681,16 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
       field: 'check',
       count: 1,
       sides: 20,
-      dc: 10,
+      dc: UPKEEP_RULES.attritionDc,
       check: previewCheck('upkeep:attrition'),
     });
     if (attritionCheck?.total !== null && attritionCheck?.total !== undefined) {
       const success =
-        attritionCheck.total >= 10 || draft.upkeep.rolls.check?.dice[0] === 20;
+        attritionOutcome(
+          attritionCheck.total,
+          normalizeRawRoll(draft.upkeep.rolls.check, { count: 1, sides: 20 })
+            .naturalValue,
+        ) !== 'failure';
       fields.push({
         field: 'training',
         count: success ? 1 : 2,
@@ -661,14 +699,14 @@ export function upkeepInputFacts(draft: WeeklyDraft, snapshot: UpkeepSnapshot) {
         check: null,
       });
     }
-    if (snapshot.notoriety >= 100)
+    if (snapshot.notoriety >= UPKEEP_RULES.maximumNotoriety)
       fields.push(
         { field: 'notoriety', count: 1, sides: 20, dc: null, check: null },
         {
           field: 'notorietyCheck',
           count: 1,
           sides: 20,
-          dc: 15,
+          dc: UPKEEP_RULES.notorietyDc,
           check: previewCheck('upkeep:notoriety'),
         },
       );

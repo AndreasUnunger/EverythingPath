@@ -1,3 +1,4 @@
+import { RULE_ROLL_SPECS } from './rules-roll-spec';
 import {
   actionChoiceEvents,
   persistentEventSchema,
@@ -160,10 +161,9 @@ function endPersistentEvent(
 
 function applyPersistentBuyoff(
   context: PersistentResolutionContext,
-  decision: Extract<Decision, { kind: 'buyoff' }>,
   id: string,
 ) {
-  const { draft, state, plan, warnings } = context;
+  const { draft, state, plan } = context;
 
   if (!getAdvancementForRank(state.outcome.rank)) {
     requirePersistentInput(context, id, 'rank');
@@ -179,8 +179,6 @@ function applyPersistentBuyoff(
       acceptPersistentException(context, id, 'buyoff-cooldown') && permitted;
   if (state.outcome.treasuryCopper < costCopper)
     permitted = acceptPersistentException(context, id, 'treasury') && permitted;
-  if (decision.costCopper !== undefined && decision.costCopper !== costCopper)
-    warnings.push(`${id}:buyoff-cost-recomputed`);
   if (!permitted) return;
   const before = state.outcome.treasuryCopper;
   state.outcome.treasuryCopper -= costCopper;
@@ -193,6 +191,29 @@ function applyPersistentBuyoff(
   });
   context.lastBuyoffWeek = draft.week;
   endPersistentEvent(context, id, 'buyoff');
+}
+
+type OfficerCheck = NonNullable<
+  Extract<Decision, { kind: 'mitigate' }>['officerCheck']
+>;
+/**
+ * The entered modifiers a Rivalry officer check adds to its skill bonus. It
+ * is the chosen character's own skill check, so no organization or officer
+ * bonus applies. A recorded copy of the skill, its bonus or the character
+ * adds nothing, and a repeated source counts once, at its latest value.
+ */
+export function officerCheckExtras(input: OfficerCheck) {
+  const extras = new Map(
+    (input.roll?.modifiers ?? [])
+      .filter(
+        (modifier) =>
+          !['skill', 'skill-bonus', 'charisma', input.characterId].includes(
+            modifier.sourceId,
+          ),
+      )
+      .map((modifier) => [modifier.sourceId, modifier.value]),
+  );
+  return [...extras].map(([source, value]) => ({ source, value }));
 }
 
 function mitigatePersistentRivalry(
@@ -222,24 +243,19 @@ function mitigatePersistentRivalry(
     !acceptPersistentException(context, id, 'officer-assignment')
   )
     return;
-  const die = eventDie(state, input.roll, `${id}:officer`, 20);
+  const die = eventDie(
+    state,
+    input.roll,
+    `${id}:officer`,
+    RULE_ROLL_SPECS.check,
+  );
   if (input.skillBonus === undefined)
     requirePersistentInput(context, id, 'skill-bonus');
   if (die === null || input.skillBonus === undefined) return;
-  const extras = new Map(
-    (input.roll?.modifiers ?? [])
-      .filter(
-        (modifier) =>
-          !['skill', 'skill-bonus', 'charisma', input.characterId].includes(
-            modifier.sourceId,
-          ),
-      )
-      .map((modifier) => [modifier.sourceId, modifier.value]),
-  );
   const total =
     die +
     input.skillBonus +
-    [...extras.values()].reduce((sum, value) => sum + value, 0);
+    officerCheckExtras(input).reduce((sum, extra) => sum + extra.value, 0);
   plan.push({
     kind: 'persistent_officer_check',
     eventId: id,
@@ -327,7 +343,7 @@ function resolvePersistentDecision(
   )
     return;
   if (decision.kind === 'buyoff') {
-    applyPersistentBuyoff(context, decision, id);
+    applyPersistentBuyoff(context, id);
     return;
   }
   if (decision.kind === 'end') {

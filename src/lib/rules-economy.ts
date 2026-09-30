@@ -1,5 +1,8 @@
 import type { WeeklyDraft } from './weekly-draft-contract';
-import type { StagedActionChoice } from './weekly-draft-facts';
+import type {
+  ActivityRollField,
+  StagedActionChoice,
+} from './weekly-draft-facts';
 import type { ActivityProjection } from './rules-activity';
 import type { EconomyState } from './rules-economy-state';
 import type { TEAM_IDS } from './militia-domain';
@@ -9,6 +12,10 @@ import teams from './militia-team-table';
 
 type Choice = StagedActionChoice;
 type Result = ActivityProjection;
+// The parts of a projection that preparing the economy reads and writes, so
+// a presentation can replay the same preparation on its own state.
+export type EconomyLedger = Pick<Result, 'outcome' | 'plan' | 'requirements'>;
+
 type Item = EconomyState['items'][number];
 type EconomyChoice = Extract<
   Choice,
@@ -28,13 +35,7 @@ export type ActivityHelpers = {
     choice: Choice,
     grossCopper: number,
   ): void;
-  dice(
-    result: Result,
-    choice: Choice,
-    key: 'check' | 'notoriety' | 'training' | 'delivery',
-    count: number,
-    sides: number,
-  ): number | null;
+  dice(result: Result, choice: Choice, key: ActivityRollField): number | null;
   check(
     draft: WeeklyDraft,
     result: Result,
@@ -62,7 +63,7 @@ export type ActivityHelpers = {
   ): boolean;
   naturalOne(result: Result, choice: Choice): void;
 };
-const allowedTeams: Record<
+export const economyActionTeams: Record<
   EconomyChoice['actionId'],
   readonly (typeof TEAM_IDS)[number][]
 > = {
@@ -72,7 +73,7 @@ const allowedTeams: Record<
   secure_cache: ['moles', 'propagandists', 'saboteurs', 'spies'],
   special_order: ['fixers'],
 };
-function required(result: Result, subjectId: string, key: string) {
+function required(result: EconomyLedger, subjectId: string, key: string) {
   result.requirements.push(`${subjectId}:${key}`);
 }
 function acknowledged(
@@ -88,7 +89,12 @@ function acknowledged(
   if (!found) required(result, choice.choiceId, `acknowledgement:${subjectId}`);
   return found;
 }
-function itemChange(result: Result, choiceId: string, item: Item, after: Item) {
+function itemChange(
+  result: EconomyLedger,
+  choiceId: string,
+  item: Item,
+  after: Item,
+) {
   result.plan.push({
     kind: 'item',
     choiceId,
@@ -153,12 +159,35 @@ function team(
     return null;
   }
   if (
-    !allowedTeams[choice.actionId].includes(assigned.teamType) &&
+    !economyActionTeams[choice.actionId].includes(assigned.teamType) &&
     !helpers.exception(draft, result, choice, 'team-action')
   )
     return null;
   return teams.find((x) => x.id === assigned.teamType)!;
 }
+// What activating a market costs and offers: a Black Market or a brokered
+// one, with a Merchants team's small-town availability.
+export function marketTerms(
+  actionId: 'activate_black_market' | 'broker_market',
+  teamType: string,
+) {
+  const black = actionId === 'activate_black_market';
+  return {
+    costCopper: black ? 5000 : 10000,
+    availability:
+      teamType === 'merchants'
+        ? ('small_town' as const)
+        : ('small_city' as const),
+    availabilityPercent: black ? 90 : null,
+    salePercent: black ? 55 : 50,
+    contraband: black,
+  };
+}
+// A secure cache adds to the check DC and needs a tier 3 team.
+export const secureCache = { dcBonus: 5, tier: 3 };
+// Expedited Special Order delivery, and an enchantment's extra day per cost.
+export const expeditedDelivery = { costCopper: 90000, days: 1 };
+export const enchantmentCopperPerDay = 100000;
 function market(
   draft: WeeklyDraft,
   result: Result,
@@ -178,13 +207,13 @@ function market(
     required(result, choice.choiceId, 'settlement');
     return;
   }
-  const black = choice.actionId === 'activate_black_market';
-  if (!helpers.spend(draft, result, choice, black ? 5000 : 10000)) return;
-  if (black) {
+  const terms = marketTerms(choice.actionId, teamType);
+  if (!helpers.spend(draft, result, choice, terms.costCopper)) return;
+  if (terms.contraband) {
     const total = helpers.check(draft, result, choice, 'secrecy', 20);
     if (total === null) return;
     if (total < 20) {
-      const gain = helpers.dice(result, choice, 'notoriety', 1, 6);
+      const gain = helpers.dice(result, choice, 'notoriety');
       if (gain !== null) helpers.value(result, choice, 'notoriety', gain);
       return;
     }
@@ -195,10 +224,10 @@ function market(
     settlementId: choice.settlementId!,
     availableWeek: draft.week,
     expiresWeek: draft.week,
-    availability: teamType === 'merchants' ? 'small_town' : 'small_city',
-    availabilityPercent: black ? 90 : null,
-    salePercent: black ? 55 : 50,
-    contraband: black,
+    availability: terms.availability,
+    availabilityPercent: terms.availabilityPercent,
+    salePercent: terms.salePercent,
+    contraband: terms.contraband,
   };
   state.markets.push(market);
   result.plan.push({
@@ -326,8 +355,8 @@ function specialOrder(
     return;
   }
   const baseDays = choice.expedited
-    ? 1
-    : helpers.dice(result, choice, 'delivery', 2, 6);
+    ? expeditedDelivery.days
+    : helpers.dice(result, choice, 'delivery');
   const price = purchasePrice(
     draft,
     result,
@@ -344,8 +373,10 @@ function specialOrder(
     return;
   const duration =
     baseDays +
-    (choice.mode === 'enchantment' ? choice.priceCopper / 100000 : 0);
-  const cost = price + (choice.expedited ? 90000 : 0);
+    (choice.mode === 'enchantment'
+      ? choice.priceCopper / enchantmentCopperPerDay
+      : 0);
+  const cost = price + (choice.expedited ? expeditedDelivery.costCopper : 0);
   if (!helpers.spend(draft, result, choice, cost)) return;
   if (existing)
     itemChange(result, choice.choiceId, existing, {
@@ -383,7 +414,9 @@ function specialOrder(
     order: structuredClone(order),
   });
 }
-const cacheLimits = {
+// Each cache class's weight (lb) and value (cp) limits, check DC and minimum
+// team tier.
+export const cacheLimits = {
   minor: { weight: 5, value: 90000, dc: 15, tier: 1 },
   intermediate: { weight: 10, value: 250000, dc: 20, tier: 2 },
   major: { weight: 20, value: Infinity, dc: 30, tier: 3 },
@@ -408,7 +441,7 @@ function cache(
     }
     const limits = cacheLimits[old.cacheClass];
     if (
-      tier < Math.max(limits.tier, old.secure ? 3 : 0) &&
+      tier < Math.max(limits.tier, old.secure ? secureCache.tier : 0) &&
       !helpers.exception(draft, result, choice, 'cache-tier')
     )
       return;
@@ -424,9 +457,13 @@ function cache(
       result,
       choice,
       'secrecy',
-      limits.dc + (old.secure ? 5 : 0),
+      limits.dc + (old.secure ? secureCache.dcBonus : 0),
     );
-    if (total === null || total < limits.dc + (old.secure ? 5 : 0)) return;
+    if (
+      total === null ||
+      total < limits.dc + (old.secure ? secureCache.dcBonus : 0)
+    )
+      return;
     const before = structuredClone(old);
     old.status = 'retrieved';
     result.plan.push({
@@ -459,7 +496,7 @@ function cache(
   }
   const limits = cacheLimits[choice.cacheClass];
   if (
-    tier < Math.max(limits.tier, choice.secure ? 3 : 0) &&
+    tier < Math.max(limits.tier, choice.secure ? secureCache.tier : 0) &&
     !helpers.exception(draft, result, choice, 'cache-tier')
   )
     return;
@@ -527,10 +564,11 @@ function cache(
     result,
     choice,
     'secrecy',
-    limits.dc + (choice.secure ? 5 : 0),
+    limits.dc + (choice.secure ? secureCache.dcBonus : 0),
   );
   if (total === null || !helpers.spend(draft, result, choice, cost)) return;
-  const success = total >= limits.dc + (choice.secure ? 5 : 0);
+  const success =
+    total >= limits.dc + (choice.secure ? secureCache.dcBonus : 0);
   const location = success ? 'cache' : 'returning';
   for (const item of contents) {
     const existing = state.items.find((x) => x.itemId === item.itemId);
@@ -562,7 +600,7 @@ export function resolveEconomyChoice(
   choice: Choice,
   helpers: ActivityHelpers,
 ) {
-  if (!(choice.actionId in allowedTeams)) return false;
+  if (!(choice.actionId in economyActionTeams)) return false;
   const economyChoice = choice as EconomyChoice;
   const assigned = team(draft, result, economyChoice, helpers);
   if (!assigned) return true;
@@ -591,7 +629,7 @@ export function resolveEconomyChoice(
   }
   return true;
 }
-export function prepareEconomy(draft: WeeklyDraft, result: Result) {
+export function prepareEconomy(draft: WeeklyDraft, result: EconomyLedger) {
   const state = result.outcome.economy;
   if (!state) return;
   state.markets = state.markets.filter((market) => {
@@ -640,7 +678,7 @@ export function prepareEconomy(draft: WeeklyDraft, result: Result) {
   }
 }
 function receive(
-  result: Result,
+  result: EconomyLedger,
   order: EconomyState['orders'][number],
   receipt: NonNullable<EconomyState['orders'][number]['receipt']>,
 ) {

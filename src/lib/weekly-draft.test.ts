@@ -153,7 +153,8 @@ test('[draft.action-facts] complete choices own typed targets, raw dice and prov
     orderedDay: 76,
     rolls: {
       delivery: {
-        dice: [2, 5],
+        diceTotal: 7,
+        diceCount: 2,
         sides: 6,
         provenance: { kind: 'table' as const },
         modifiers: [],
@@ -202,12 +203,12 @@ test('[draft.context] freezes week-start facts and keeps persistent eligibility 
   expect(Object.isFrozen(draft.context.carriedEvents[0]?.targets)).toBe(true);
   const next = accepted(draft, {
     kind: 'persistent_decision',
-    decision: { eventId: 'rivalry', kind: 'buyoff', costCopper: 0 },
+    decision: { eventId: 'rivalry', kind: 'buyoff' },
   });
   expect(next.context).toEqual(draft.context);
   expect(next.context.persistentPhaseEligible).toBe(true);
   expect(next.persistent.decisions).toEqual([
-    { eventId: 'rivalry', kind: 'buyoff', costCopper: 0 },
+    { eventId: 'rivalry', kind: 'buyoff' },
   ]);
 });
 
@@ -231,7 +232,8 @@ test('[draft.integrity] validates all action variants, absence, dice and local-s
       actionId: 'earn_gold',
       rolls: {
         check: {
-          dice: ['21'],
+          diceTotal: '21',
+          diceCount: 1,
           sides: 20,
           provenance: { kind: 'table' },
           modifiers: [],
@@ -572,7 +574,8 @@ test('[draft.choice-ownership] new orders own same-week receipts and event choic
 
 test('[draft.event-targets] keeps separate Raid person checks and High Morale ending targets', () => {
   const roll = {
-    dice: [1],
+    diceTotal: 1,
+    diceCount: 1,
     sides: 20,
     provenance: { kind: 'table' as const },
     modifiers: [{ sourceId: 'penalty', value: -2, reason: 'Low morale' }],
@@ -602,13 +605,13 @@ test('[draft.event-targets] keeps separate Raid person checks and High Morale en
   expect(
     weeklyDraftEditSchema.safeParse({
       kind: 'event_chance',
-      roll: { ...roll, dice: [0] },
+      roll: { ...roll, diceTotal: 0, diceCount: 1 },
     }).success,
   ).toBe(true);
   expect(
     weeklyDraftEditSchema.safeParse({
       kind: 'event_chance',
-      roll: { ...roll, dice: [101] },
+      roll: { ...roll, diceTotal: 101, diceCount: 1 },
     }).success,
   ).toBe(true);
 });
@@ -668,18 +671,53 @@ test('focused Upkeep edits preserve other facts and distinguish zero from an exp
     kind: 'upkeep_roll',
     field: 'check',
     roll: {
-      dice: [0],
+      diceTotal: 0,
+      diceCount: 1,
       sides: 20,
       provenance: { kind: 'table' },
       modifiers: [],
     },
   });
-  expect(set.ok && set.draft.upkeep.rolls.check?.dice).toEqual([0]);
   if (!set.ok) throw new Error(set.error);
+  const savedRoll = set.draft.upkeep.rolls.check;
+  expect(savedRoll).toMatchObject({ diceTotal: 0, diceCount: 1 });
   const clear = editWeeklyDraft(set.draft, {
     kind: 'upkeep_roll',
     field: 'check',
     roll: null,
   });
   expect(clear.ok && clear.draft.upkeep.rolls.check).toBeUndefined();
+});
+
+test('[rules.ACT-19.reducer] remove_slot drops only the identified empty slot and later slots keep their identities and choices', () => {
+  let draft = fresh();
+  draft = accepted(draft, {
+    kind: 'stage',
+    slotId: 'extra',
+    choice: { choiceId: 'gold', actionId: 'earn_gold', costCopper: 0 },
+  });
+  const removed = editWeeklyDraft(draft, {
+    kind: 'remove_slot',
+    slotId: 'right',
+  });
+  if (!removed.ok) throw new Error(removed.error);
+  expect(removed.draft.revision).toBe(draft.revision + 1);
+  expect(removed.draft.activity.slots).toEqual([
+    { slotId: 'left', choice: null },
+    {
+      slotId: 'extra',
+      choice: { choiceId: 'gold', actionId: 'earn_gold', costCopper: 0 },
+    },
+  ]);
+  expect(
+    editWeeklyDraft(draft, { kind: 'remove_slot', slotId: 'extra' }),
+  ).toEqual({ ok: false, error: 'occupied_slot' });
+  expect(
+    editWeeklyDraft(removed.draft, { kind: 'remove_slot', slotId: 'right' }),
+  ).toEqual({ ok: false, error: 'unknown_slot' });
+  expect(draft.activity.slots).toHaveLength(3);
+  expect(
+    weeklyDraftEditSchema.safeParse({ kind: 'remove_slot', slotId: ' ' })
+      .success,
+  ).toBe(false);
 });

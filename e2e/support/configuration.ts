@@ -1,6 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
+import { HarnessFailure } from './diagnostics';
 import { validateE2ETargets } from './preflight';
 
 export async function loadTargets(resourcesPath: string, secretsPath?: string) {
@@ -11,7 +12,7 @@ export async function loadTargets(resourcesPath: string, secretsPath?: string) {
   if (secretsPath) {
     const file = await stat(resolve(secretsPath));
     if (!file.isFile() || (file.mode & 0o777) !== 0o600)
-      throw new Error('E2E secrets file must have mode 600');
+      throw new HarnessFailure({ kind: 'secrets-mode' });
     secrets = parseEnv(await readFile(resolve(secretsPath), 'utf8'));
     for (const key of Object.keys(secrets))
       if (
@@ -21,9 +22,7 @@ export async function loadTargets(resourcesPath: string, secretsPath?: string) {
           'CONVEX_DEPLOY_KEY',
         ].includes(key)
       )
-        throw new Error(
-          'Secrets file may contain only the three declared service keys',
-        );
+        throw new HarnessFailure({ kind: 'secrets-keys' });
   }
   return validateE2ETargets({ ...process.env, ...secrets }, declaration);
 }

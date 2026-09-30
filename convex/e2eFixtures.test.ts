@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { internal } from './_generated/api';
 import schema from './schema';
 import { deploymentFixture } from '../e2e/support/test-data';
-import type { FixtureScope } from '../e2e/fixtures/catalog';
+import { canonicalCaseKeys, type FixtureScope } from '../e2e/fixtures/catalog';
+import { confirmationInspectionSchema } from '../src/lib/weekly-confirmation-contract';
+import { weeklyDraftSchema } from '../src/lib/weekly-draft-contract';
+import { projectUpkeep } from '../src/lib/rules-upkeep';
 
 const modules = import.meta.glob('./**/*.ts');
 const scope: FixtureScope = {
@@ -175,6 +178,8 @@ describe('internal fixture boundary', () => {
         ownerId: 'synthetic',
         name: 'Created during play',
         description: '',
+        kind: 'pc',
+        isActive: true,
         level: 1,
         strength: 10,
         dexterity: 10,
@@ -237,6 +242,20 @@ describe('internal fixture boundary', () => {
         completeWeek: 'g'.repeat(64),
         canonicalPersistence: 'c'.repeat(64),
         realtimeActionSlot: 'h'.repeat(64),
+        workspaceUpkeep: 'i'.repeat(64),
+        workspaceNotoriety: 'j'.repeat(64),
+        workspaceRecovery: 'k'.repeat(64),
+        workspacePersistent: 'l'.repeat(64),
+        workspaceConfirmation: 'm'.repeat(64),
+        workspaceUpkeepLayout: 'r'.repeat(64),
+        workspaceEventReview: 's'.repeat(64),
+        workspaceActivity: 's'.repeat(64),
+        workspaceSettlementTouch: 't'.repeat(64),
+        workspaceDrillRolls: 'u'.repeat(64),
+        workspaceRecoveryActivity: 'v'.repeat(64),
+        campaignHome: 'n'.repeat(64),
+        campaignSections: 'o'.repeat(64),
+        weekLinks: 'q'.repeat(64),
       },
     };
     vi.stubEnv(
@@ -303,5 +322,200 @@ describe('internal fixture boundary', () => {
     expect(
       await t.query(internal.e2eFixtures.inspectCase, scope),
     ).toMatchObject({ campaignCount: 1, militia: { treasury: 100 } });
+  });
+
+  describe('isolation canary', () => {
+    const existing: FixtureScope = {
+      ...scope,
+      caseKey: 'existingMilitia',
+      token: 'd'.repeat(64),
+    };
+    const campaignNames = (t: ReturnType<typeof convexTest>) =>
+      t.run(async (ctx) =>
+        (await ctx.db.query('campaign').collect()).map((row) => row.name),
+      );
+
+    it('accepts the owned and comparison campaigns of the running test', async () => {
+      const t = convexTest({ schema, modules });
+      await t.mutation(internal.e2eFixtures.resetCase, {
+        ...existing,
+        now: 0,
+        isolatedWith: ['existingMilitia', 'isolation'],
+      });
+      await t.mutation(internal.e2eFixtures.resetCase, {
+        ...isolation,
+        now: 0,
+        isolatedWith: ['existingMilitia', 'isolation'],
+      });
+      expect(await campaignNames(t)).toHaveLength(2);
+    });
+
+    it.each([
+      [
+        'another case of the same cohort',
+        async (t: ReturnType<typeof convexTest>) => {
+          await t.mutation(internal.e2eFixtures.resetCase, {
+            ...characterLedger,
+            now: 0,
+          });
+        },
+      ],
+      [
+        'an unowned campaign in the member organization',
+        async (t: ReturnType<typeof convexTest>) => {
+          await t.run(async (ctx) => {
+            await ctx.db.insert('campaign', {
+              name: 'Unowned campaign',
+              ownerId: 'unowned',
+              organizationId: 'org_members',
+              description: '',
+            });
+          });
+        },
+      ],
+      [
+        'a campaign in the outsider organization',
+        async (t: ReturnType<typeof convexTest>) => {
+          await t.run(async (ctx) => {
+            await ctx.db.insert('campaign', {
+              name: 'Outsider campaign',
+              ownerId: 'outsider',
+              organizationId: 'org_outsiders',
+              description: '',
+            });
+          });
+        },
+      ],
+    ])('fails the reset and rolls it back with %s', async (_label, leak) => {
+      const t = convexTest({ schema, modules });
+      await leak(t);
+      const before = await campaignNames(t);
+      await expect(
+        t.mutation(internal.e2eFixtures.resetCase, {
+          ...scope,
+          now: 0,
+          isolatedWith: ['smoke'],
+        }),
+      ).rejects.toThrow('E2E isolation canary');
+      expect(await campaignNames(t)).toEqual(before);
+    });
+
+    it('fails a contract reset through resetAndInitialize', async () => {
+      const t = convexTest({ schema, modules });
+      await t.mutation(internal.e2eFixtures.resetCase, { ...scope, now: 0 });
+      await expect(
+        t.mutation(internal.canonicalPersistenceFixtures.resetAndInitialize, {
+          scope: {
+            ...scope,
+            caseKey: 'canonicalPersistence',
+            token: 'c'.repeat(64),
+          },
+          draftId: 'draft',
+          now: 0,
+          isolatedWith: ['canonicalPersistence', 'isolation'],
+        }),
+      ).rejects.toThrow('E2E isolation canary');
+    });
+
+    it('requires the reset case in the checked set', async () => {
+      const t = convexTest({ schema, modules });
+      await expect(
+        t.mutation(internal.e2eFixtures.resetCase, {
+          ...scope,
+          now: 0,
+          isolatedWith: ['isolation'],
+        }),
+      ).rejects.toThrow('must include the reset case');
+    });
+  });
+
+  const [cohort] = deploymentFixture.workers;
+  it.each(canonicalCaseKeys)(
+    'starts canonical case %s with a bare militia for its canonical fixture',
+    async (caseKey) => {
+      const t = convexTest({ schema, modules });
+      const owned: FixtureScope = {
+        ...scope,
+        caseKey,
+        token: cohort?.cases[caseKey] ?? '',
+      };
+      await t.mutation(internal.e2eFixtures.resetCase, {
+        ...owned,
+        now: 0,
+        isolatedWith: [caseKey],
+      });
+      expect(
+        await t.query(internal.e2eFixtures.inspectCase, owned),
+      ).toMatchObject({
+        campaignKey: 'canonical-persistence-campaign',
+        campaignCount: 1,
+        militia: null,
+      });
+      await t.mutation(internal.canonicalPersistenceFixtures.initializeUpkeep, {
+        scope: owned,
+        draftId: `draft-${caseKey}`,
+      });
+      expect(
+        await t.query(internal.e2eFixtures.inspectCase, owned),
+      ).toMatchObject({ militia: { week: 4, treasury: 50 } });
+    },
+  );
+
+  // The recovery Activity journey (#198) opens on the week the recovery
+  // journey reaches through Upkeep, so its seed must leave nothing to enter.
+  it('seeds the adjusted Scouts recovery as a complete Upkeep', async () => {
+    const t = convexTest({ schema, modules });
+    const caseKey = 'workspaceRecoveryActivity';
+    const owned: FixtureScope = {
+      ...scope,
+      caseKey,
+      token: cohort?.cases[caseKey] ?? '',
+    };
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...owned,
+      now: 0,
+      isolatedWith: [caseKey],
+    });
+    await expect(
+      t.mutation(internal.canonicalPersistenceFixtures.initializeUpkeep, {
+        scope: owned,
+        draftId: 'draft-without-choices',
+        adjustedRecovery: true,
+      }),
+    ).rejects.toThrow('An adjusted recovery needs the Scouts choice');
+    const key = await t.mutation(
+      internal.canonicalPersistenceFixtures.initializeUpkeep,
+      {
+        scope: owned,
+        draftId: 'draft-adjusted-recovery',
+        choices: true,
+        adjustedRecovery: true,
+      },
+    );
+    const inspected = confirmationInspectionSchema.parse(
+      await t.mutation(internal.canonicalPersistenceFixtures.inspect, {
+        ...key,
+        scope: owned,
+      }),
+    );
+    const draft = weeklyDraftSchema.parse(inspected.source.draft);
+    // Nothing left to enter: both rolls are complete for their rule
+    // specifications (a successful check's training roll is 1d6).
+    expect(projectUpkeep(draft, inspected.snapshot).requirements).toEqual([]);
+    expect(draft.upkeep.teamDecisions).toEqual([
+      { teamId: 'upkeep-scouts', decision: 'recover', costCopper: 2000 },
+    ]);
+    expect(draft.tableAdjustments).toEqual([
+      expect.objectContaining({
+        adjustmentId: 'upkeep-recovery:upkeep-scouts',
+        field: 'treasuryCopper',
+        value: 500,
+        reason: 'Local healer donated supplies',
+      }),
+    ]);
+    expect(Object.values(draft.upkeep.rolls)).toEqual([
+      expect.objectContaining({ diceTotal: 10, diceCount: 1, sides: 20 }),
+      expect.objectContaining({ diceTotal: 3, diceCount: 1, sides: 6 }),
+    ]);
   });
 });

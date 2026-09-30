@@ -9,7 +9,9 @@ import {
   WeeklyDraftWorkspaceProvider,
   useWeeklyDraftWorkspace,
 } from './use-weekly-draft-workspace';
-function fixture() {
+import { useEventEdits } from './use-event-edits';
+type Team = { teamId: string; teamType: 'patrons'; name: string };
+function fixture(teams: Team[] = []) {
   const draft = createWeeklyDraft({
     draftId: 'workspace',
     week: 4,
@@ -25,7 +27,8 @@ function fixture() {
     },
   });
   draft.event.chanceRoll = {
-    dice: [100],
+    diceTotal: 100,
+    diceCount: 1,
     sides: 100,
     provenance: { kind: 'table' },
     modifiers: [],
@@ -36,6 +39,7 @@ function fixture() {
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot: {
       rank: 2,
@@ -45,7 +49,13 @@ function fixture() {
       focus: 'Loyalty',
       roster: {
         people: [{ characterId: 'pc', kind: 'pc', hitDice: 2 }],
-        teams: [],
+        teams: teams.map((team) => ({
+          ...team,
+          status: 'active' as const,
+          managerCharacterId: null,
+          rewardCapExempt: false,
+          notes: '',
+        })),
         officers: [],
       },
       characters: [
@@ -92,7 +102,8 @@ function roll(field: 'check' | 'training', value: number) {
     kind: 'upkeep_roll' as const,
     field,
     roll: {
-      dice: [value],
+      diceTotal: value,
+      diceCount: 1,
       sides: field === 'check' ? 20 : 6,
       provenance: { kind: 'table' as const },
       modifiers: [],
@@ -111,7 +122,7 @@ test('[rules.P81.workspace] only ready exposes semantic operations and derived U
     throw new Error('Expected Upkeep');
   expect(view.phaseView.rolls[0]).toMatchObject({
     field: 'check',
-    dice: [null],
+    recorded: null,
     modifier: 3,
     dc: 10,
   });
@@ -198,7 +209,9 @@ test('[rules.P81.recovery] players navigate independently while a pending edit f
   const recovered = first.result.current;
   if (recovered.status !== 'ready' || recovered.phaseView.phase !== 'upkeep')
     throw new Error('Expected Upkeep');
-  expect(recovered.phaseView.rolls[0]?.dice).toEqual([12]);
+  expect(recovered.phaseView.rolls[0]?.recorded).toMatchObject({
+    diceTotal: 12,
+  });
   first.unmount();
   second.unmount();
 });
@@ -245,7 +258,11 @@ test('[rules.P85.rereview] rejected Confirmation requires an explicit review of 
     phase: 'summary',
     outcome: { militiaSnapshot: { treasuryCopper: 5007 } },
   });
+  // Showing Review & confirm again is not the explicit review.
+  act(() => current().viewPhase('upkeep'));
   act(() => current().viewPhase('summary'));
+  expect(current()).toMatchObject({ reviewRequired: true, canConfirm: false });
+  act(() => current().reviewUpdatedWeek());
   expect(current()).toMatchObject({ reviewRequired: false, canConfirm: true });
   await act(async () => expect(await current().confirm()).toBe('accepted'));
   screen.unmount();
@@ -354,6 +371,7 @@ test('[rules.P81.eligibility] carried-event eligibility remains enabled after en
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
@@ -434,7 +452,8 @@ test('[rules.P82.workspace] Activity exposes complete choices and retained extra
         costCopper: 0,
         rolls: {
           check: {
-            dice: [10],
+            diceTotal: 10,
+            diceCount: 1,
             sides: 20,
             provenance: { kind: 'table' },
             modifiers: [],
@@ -457,7 +476,7 @@ test('[rules.P82.workspace] Activity exposes complete choices and retained extra
     expect(state.phaseView.slots[2]?.choice).toMatchObject({
       choiceId: 'drill',
       costCopper: 0,
-      rolls: { check: { dice: [10] } },
+      rolls: { check: { diceTotal: 10, diceCount: 1 } },
     });
     expect(state.phaseView.slots[2]?.overAllowance).toBe(true);
     expect(
@@ -545,7 +564,8 @@ test('[rules.P82.declared-references] incomplete staged creations remain named c
     });
     expect(state.phaseView.events).toContainEqual({
       value: 'rivalry',
-      label: 'Rivalry · Event 1',
+      // A current-week candidate goes by its Event label.
+      label: 'Event 1A · Rivalry',
     });
   });
 });
@@ -559,68 +579,93 @@ test('[rules.P83.workspace] Event occurrences and required branches recompute af
     if (value.status !== 'ready') throw new Error('Expected ready');
     return value;
   };
+  const percentile = (value: number) => ({
+    diceTotal: value,
+    diceCount: 1,
+    sides: 100,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  });
+  const settled = () =>
+    waitFor(() => {
+      expect(ready().pendingWork).toBe(false);
+      expect(ready().eventPreparation?.status).toBe('idle');
+    });
   await act(async () => {
     ready().viewPhase('event');
+    await ready().edit({ kind: 'event_chance', roll: percentile(1) });
+  });
+  // A triggered chance roll prepares its blank root without any other edit.
+  await settled();
+  const root = 'workspace:rolled:1';
+  await act(async () => {
     await ready().edit({
-      kind: 'event_chance',
-      roll: {
-        dice: [1],
-        sides: 100,
-        provenance: { kind: 'table' },
-        modifiers: [],
+      kind: 'event_occurrence',
+      occurrence: {
+        eventId: root,
+        origin: { kind: 'rolled' },
+        tableRoll: percentile(50),
       },
     });
-    await ready().edit({
-      kind: 'event_tree',
-      occurrences: [
-        {
-          eventId: 'root',
-          origin: { kind: 'rolled' },
-          tableRoll: {
-            dice: [50],
-            sides: 100,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          },
-        },
-      ],
-    });
   });
+  await settled();
   expect(ready().phaseView).toMatchObject({
     phase: 'event',
     chance: 10,
     options: {
       eventId: expect.arrayContaining([
-        { value: 'root', label: 'Event 1: Roll Twice' },
+        { value: root, label: 'Event 1 · Roll Twice' },
       ]),
     },
-    occurrences: [
-      { occurrence: { eventId: 'root' }, resolvedType: 'roll_twice' },
-    ],
-    requirements: expect.arrayContaining(['root:roll_twice:2']),
+    rolled: {
+      blocks: [
+        {
+          eventId: root,
+          status: 'two_more',
+          // Its children's open rolls belong to their own blocks.
+          issues: [],
+          children: [
+            { eventId: `${root}/twice/1`, status: 'awaiting_roll' },
+            { eventId: `${root}/twice/2`, status: 'awaiting_roll' },
+          ],
+        },
+      ],
+    },
+    requirements: expect.arrayContaining([
+      `${root}/twice/1:table:1d100`,
+      `${root}/twice/2:table:1d100`,
+    ]),
   });
   await act(async () => {
     await ready().edit({
-      kind: 'event_tree',
-      occurrences: [
-        {
-          eventId: 'root',
-          origin: { kind: 'rolled' },
-          tableRoll: {
-            dice: [45],
-            sides: 100,
-            provenance: { kind: 'table' },
-            modifiers: [],
-          },
-        },
-      ],
+      kind: 'event_occurrence',
+      occurrence: {
+        eventId: root,
+        origin: { kind: 'rolled' },
+        tableRoll: percentile(45),
+      },
     });
   });
+  await settled();
   expect(ready().phaseView).toMatchObject({
     phase: 'event',
-    occurrences: [{ resolvedType: 'all_is_calm' }],
+    rolled: {
+      blocks: [
+        {
+          eventId: root,
+          item: { resolvedType: 'all_is_calm' },
+          children: [],
+          hidden: [
+            { eventId: `${root}/twice/1`, status: 'not_used' },
+            { eventId: `${root}/twice/2`, status: 'not_used' },
+          ],
+        },
+      ],
+    },
   });
-  expect(ready().phaseView.requirements).not.toContain('root:roll_twice:2');
+  expect(ready().phaseView.requirements).not.toContain(
+    `${root}/twice/1:table:1d100`,
+  );
 });
 
 test('[rules.P84.workspace] carried instances retain targets and order while buyoff stages an ending and shared cooldown', async () => {
@@ -639,6 +684,7 @@ test('[rules.P84.workspace] carried instances retain targets and order while buy
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
@@ -784,6 +830,7 @@ test('[rules.P85.event-identity] ending the first event leaves later event names
       militiaId: 'militia',
       draftId: draft.draftId,
     },
+    week: draft.week,
     sourceRevision: 0,
     snapshot,
     people: [],
@@ -929,4 +976,112 @@ test('[rules.F04.workspace-hard-cap] an extra-slot choice stays shared but block
   await waitFor(() => expect(current().forecastPending).toBe(false));
   await act(async () => current().viewPhase('summary'));
   await waitFor(() => expect(current().canConfirm).toBe(true));
+});
+
+// #164's two-device Sickness step, through the Event view's own edit builder:
+// each device saves the whole occurrence it sees, changing a different field.
+// Whichever save lands second was built on a revision its occurrence has since
+// moved past, so it fails visibly instead of writing its stale field back.
+test('a stale whole-occurrence save fails on its device and never reverts the other device’s field', async () => {
+  const { gateway } = fixture([
+    { teamId: 'scouts', teamType: 'patrons', name: 'Scouts' },
+  ]);
+  const player = renderWorkspace(gateway);
+  const gm = renderWorkspace(gateway);
+  type Device = typeof player;
+  const ready = (device: Device) => {
+    const value = device.result.current;
+    if (value.status !== 'ready') throw new Error('Expected ready');
+    return value;
+  };
+  const view = (device: Device) => {
+    const value = ready(device).phaseView;
+    if (value.phase !== 'event') throw new Error('Expected Event');
+    return value;
+  };
+  // The edits a click on this device would use right now.
+  const builders: { unmount: () => void }[] = [];
+  const edits = (device: Device) => {
+    const builder = renderHook(() =>
+      useEventEdits(view(device), ready(device).edit),
+    );
+    builders.push(builder);
+    return builder.result.current;
+  };
+  const percentile = (value: number) => ({
+    diceTotal: value,
+    diceCount: 1,
+    sides: 100,
+    provenance: { kind: 'table' as const },
+    modifiers: [],
+  });
+  const root = 'workspace:rolled:1';
+  const occurrence = (device: Device) =>
+    view(device).rolled.blocks[0]!.item.occurrence;
+  const settled = () =>
+    waitFor(() => {
+      for (const device of [player, gm]) {
+        expect(ready(device).pendingWork).toBe(false);
+        expect(ready(device).eventPreparation?.status).toBe('idle');
+      }
+    });
+  await waitFor(() => expect(gm.result.current.status).toBe('ready'));
+  await waitFor(() => expect(player.result.current.status).toBe('ready'));
+  act(() => {
+    ready(player).viewPhase('event');
+    ready(gm).viewPhase('event');
+  });
+  await act(() =>
+    ready(player).edit({ kind: 'event_chance', roll: percentile(1) }),
+  );
+  await settled();
+  let gmEdits = edits(gm);
+  act(() => void gmEdits.setTableRoll(root, percentile(90)));
+  await settled();
+  let playerEdits = edits(player);
+  act(() => void playerEdits.setTargets(root, 'team', ['scouts']));
+  await settled();
+  expect(occurrence(gm)).toMatchObject({
+    tableRoll: { diceTotal: 90, diceCount: 1 },
+    targets: [{ kind: 'team', teamId: 'scouts' }],
+  });
+
+  // The incident's order: both edits start from the same view; the player's
+  // clear lands first, then the GM's table roll.
+  playerEdits = edits(player);
+  gmEdits = edits(gm);
+  act(() => {
+    playerEdits.setTargets(root, 'team', []);
+    gmEdits.setTableRoll(root, percentile(45));
+  });
+  await settled();
+  for (const device of [player, gm])
+    expect(occurrence(device)).toEqual({
+      eventId: root,
+      origin: { kind: 'rolled' },
+      tableRoll: percentile(90),
+    });
+  expect(ready(player).feedback).toBe('saved');
+  expect(ready(gm).feedback).toBe('failed');
+
+  // The reverse order: the table roll lands first, and the player's team
+  // choice, built before seeing it, cannot bring 90 back.
+  playerEdits = edits(player);
+  gmEdits = edits(gm);
+  act(() => {
+    gmEdits.setTableRoll(root, percentile(45));
+    playerEdits.setTargets(root, 'team', ['scouts']);
+  });
+  await settled();
+  for (const device of [player, gm])
+    expect(occurrence(device)).toEqual({
+      eventId: root,
+      origin: { kind: 'rolled' },
+      tableRoll: percentile(45),
+    });
+  expect(ready(gm).feedback).toBe('saved');
+  expect(ready(player).feedback).toBe('failed');
+  for (const builder of builders) builder.unmount();
+  player.unmount();
+  gm.unmount();
 });

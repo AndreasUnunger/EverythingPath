@@ -23,7 +23,6 @@ export function settlementFixture(actionId: SettlementAction) {
           choiceId: 'settlement',
           teamId: 'team',
           settlementId: 'town',
-          possible: true,
           acknowledgements: [
             {
               acknowledgementId: 'permission',
@@ -38,7 +37,9 @@ export function settlementFixture(actionId: SettlementAction) {
           choiceId: 'settlement',
           teamId: 'team',
           settlementId: 'town',
-          rolls: { check: roll(20, 14) },
+          ...(actionId === 'reduce_danger'
+            ? { rolls: { check: roll(20, 14) } }
+            : {}),
         };
   draft.activity.slots[0]!.choice = choice;
   return { draft, snapshot, choice };

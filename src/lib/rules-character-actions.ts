@@ -4,6 +4,7 @@ import type { ActivityHelpers } from './rules-economy';
 import type { WeeklyDraft } from './weekly-draft-contract';
 import type { StagedActionChoice } from './weekly-draft-facts';
 import type { TrackedCharacter } from './rules-character-state';
+import { isRefugeActive } from './rules-settlements';
 
 type Choice = Extract<
   StagedActionChoice,
@@ -17,26 +18,76 @@ type Choice = Extract<
       | 'special';
   }
 >;
-const teams: Record<Choice['actionId'], readonly (typeof TEAM_IDS)[number][]> =
-  {
-    rescue_character: ['infiltrators', 'guardians', 'specialists'],
-    restore_character: ['spellcasters'],
-    gather_information: [
-      'informants',
-      'conspirators',
-      'scholars',
-      'spellcasters',
-    ],
-    knowledge_check: ['scholars'],
-    strike_team: ['specialists'],
-    special: [],
-  };
+export const characterActionTeams: Record<
+  Choice['actionId'],
+  readonly (typeof TEAM_IDS)[number][]
+> = {
+  rescue_character: ['infiltrators', 'guardians', 'specialists'],
+  restore_character: ['spellcasters'],
+  gather_information: [
+    'informants',
+    'conspirators',
+    'scholars',
+    'spellcasters',
+  ],
+  knowledge_check: ['scholars'],
+  strike_team: ['specialists'],
+  special: [],
+};
 const scrollCosts = {
   break_enchantment: 112500,
   raise_dead: 612500,
   restoration: 170000,
   stone_to_flesh: 165000,
 };
+/**
+ * What a Strike Team's support gives each PC during the following week at
+ * its location: for half the militia rank in rounds, rounded down, and at
+ * least one round.
+ */
+export function strikeSupport(rank: number) {
+  return {
+    kind: 'strike_support' as const,
+    recipients: 'each_pc' as const,
+    bonusType: 'competence' as const,
+    attackBonus: 2 as const,
+    damageBonus: 2 as const,
+    saveBonus: 2 as const,
+    rounds: Math.max(1, Math.floor(rank / 2)),
+  };
+}
+/** What a Strike Team's emergency casualty extraction does. */
+export function strikeExtraction() {
+  return {
+    kind: 'strike_extraction' as const,
+    stabilizeBleeding: true as const,
+    gentleReposeCasterLevel: 12 as const,
+    extractBodiesTo: 'headquarters' as const,
+  };
+}
+/** Rescue Character's DC in the Activity right after a Raid capture. */
+export function raidRescueDc(rank: number) {
+  return 5 + rank;
+}
+
+type RestoreMode = NonNullable<
+  Extract<Choice, { actionId: 'restore_character' }>['mode']
+>;
+// The scroll price the militia pays for a Restore Character mode; the party
+// modes cost nothing.
+export function restorationCostCopper(mode: RestoreMode) {
+  return mode in scrollCosts
+    ? scrollCosts[mode as keyof typeof scrollCosts]
+    : 0;
+}
+// Party modes restore every PC; the others restore the chosen character.
+export function isPartyRestoration(mode: RestoreMode) {
+  return (
+    mode === 'ability_damage' ||
+    mode === 'hit_points' ||
+    mode === 'restorative_effect'
+  );
+}
 function update(
   result: ActivityProjection,
   choice: Choice,
@@ -57,7 +108,7 @@ export function resolveCharacterChoice(
   staged: StagedActionChoice,
   helpers: ActivityHelpers,
 ) {
-  if (!(staged.actionId in teams)) return false;
+  if (!(staged.actionId in characterActionTeams)) return false;
   const choice = staged as Choice;
   const required = (key: string) =>
     result.requirements.push(`${choice.choiceId}:${key}`);
@@ -72,7 +123,7 @@ export function resolveCharacterChoice(
       return true;
     }
     if (
-      !teams[choice.actionId].includes(team.teamType) &&
+      !characterActionTeams[choice.actionId].includes(team.teamType) &&
       !exception('team-action')
     )
       return true;
@@ -98,13 +149,7 @@ export function resolveCharacterChoice(
       required('settlement');
       return false;
     }
-    return (
-      (settlement.refugeActivatedWeek !== null &&
-        settlement.refugeActivatedWeek <= draft.week &&
-        settlement.refugeActiveUntilWeek !== null &&
-        settlement.refugeActiveUntilWeek >= draft.week) ||
-      exception('active-refuge')
-    );
+    return isRefugeActive(settlement, draft.week) || exception('active-refuge');
   };
   const personFor = (characterId: string | undefined) => {
     if (
@@ -177,26 +222,12 @@ export function resolveCharacterChoice(
       uses: 1 as const,
       acknowledgement: receipt,
     };
-    result.plan.push(
-      choice.mode === 'support'
-        ? {
-            ...common,
-            kind: 'strike_support',
-            recipients: 'each_pc',
-            bonusType: 'competence',
-            attackBonus: 2,
-            damageBonus: 2,
-            saveBonus: 2,
-            rounds: Math.max(1, Math.floor(result.outcome.rank / 2)),
-          }
-        : {
-            ...common,
-            kind: 'strike_extraction',
-            stabilizeBleeding: true,
-            gentleReposeCasterLevel: 12,
-            extractBodiesTo: 'headquarters',
-          },
-    );
+    result.plan.push({
+      ...common,
+      ...(choice.mode === 'support'
+        ? strikeSupport(result.outcome.rank)
+        : strikeExtraction()),
+    });
     return true;
   }
   if (choice.actionId === 'rescue_character') {
@@ -224,7 +255,7 @@ export function resolveCharacterChoice(
       return true;
     const dc =
       person.capture.source === 'raid' && person.capture.week + 1 === draft.week
-        ? 5 + result.outcome.rank
+        ? raidRescueDc(result.outcome.rank)
         : 10 + level;
     const total = helpers.check(draft, result, choice, 'security', dc);
     if (total === null || !receipt) return true;
@@ -258,10 +289,7 @@ export function resolveCharacterChoice(
     required('mode');
     return true;
   }
-  const party =
-    choice.mode === 'ability_damage' ||
-    choice.mode === 'hit_points' ||
-    choice.mode === 'restorative_effect';
+  const party = isPartyRestoration(choice.mode);
   if (choice.mode === 'restorative_effect') {
     if (!choice.effect) required('effect');
     if (choice.effectLevel === undefined) required('effect-level');
@@ -292,10 +320,7 @@ export function resolveCharacterChoice(
   } else if (!choice.targetPresent && !exception('target-present'))
     valid = false;
   if (!valid || !receipt) return true;
-  const cost =
-    choice.mode in scrollCosts
-      ? scrollCosts[choice.mode as keyof typeof scrollCosts]
-      : 0;
+  const cost = restorationCostCopper(choice.mode);
   if (!helpers.spend(draft, result, choice, cost)) return true;
   result.plan.push({
     kind: 'restoration',

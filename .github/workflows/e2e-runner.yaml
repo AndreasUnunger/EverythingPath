@@ -23,12 +23,22 @@ jobs:
   browser:
     environment: e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 17
+    timeout-minutes: 20
+    # Chromium, WebKit, Firefox and their OS dependencies come preinstalled, as
+    # in the verified local container. The tag must match @playwright/test in
+    # pnpm-lock.yaml. No secret is passed to the container definition; only the
+    # journey step below receives the environment credentials.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001 --ipc host
+    defaults:
+      run:
+        shell: bash
     outputs:
       required_result: ${{ steps.journey.outputs.required_result }}
     steps:
-      - name: Start fifteen-minute setup and execution budget
-        run: echo "E2E_DEADLINE=$(( $(date +%s) + 900 ))" >> "$GITHUB_ENV"
+      - name: Start 17.5-minute setup and execution budget
+        run: echo "E2E_DEADLINE=$(( $(date +%s) + 1050 ))" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         timeout-minutes: 1
         with:
@@ -40,29 +50,21 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - name: Disable unrelated Google Chrome apt source
-        timeout-minutes: 1
-        run: |
-          # Playwright downloads its own Chromium. An inconsistent Chrome apt
-          # index must not prevent installation of Ubuntu browser dependencies.
-          for source in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
-            [ -f "$source" ] || continue
-            if grep -Eq 'https?://dl\.google\.com/linux/(chrome|chrome-stable)/deb' "$source"; then
-              sudo mv -- "$source" "${source}.disabled"
-            fi
-          done
-      - name: Install dependencies and browsers within the remaining budget
-        env:
-          SUITE: ${{ inputs.suite }}
+      - name: Install dependencies within the remaining budget
         run: |
           remaining=$(( E2E_DEADLINE - $(date +%s) ))
           [ "$remaining" -gt 0 ] || exit 1
-          timeout --signal=INT --kill-after=5s "${remaining}s" bash -e -c '
-            pnpm install --frozen-lockfile
-            browsers=(chromium)
-            if [ "$SUITE" = nightly ]; then browsers+=(webkit firefox); fi
-            pnpm exec playwright install --with-deps "${browsers[@]}"
-          '
+          timeout --signal=INT --kill-after=5s "${remaining}s" pnpm install --frozen-lockfile
+      - name: Use the image's browsers
+        timeout-minutes: 1
+        run: |
+          # The runner forwards HOME but not PLAYWRIGHT_BROWSERS_PATH to Playwright.
+          [ "$(pnpm exec playwright --version)" = 'Version 1.63.0' ] || {
+            echo 'E2E: the Playwright container tag must match @playwright/test.'
+            exit 1
+          }
+          mkdir -p "$HOME/.cache"
+          ln -sfn /ms-playwright "$HOME/.cache/ms-playwright"
       - name: Run browser journeys
         id: journey
         run: |

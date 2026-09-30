@@ -6,6 +6,7 @@ import { projectActivity } from './rules-activity';
 import {
   resolveThreatEvent,
   finishEventTeamReturns,
+  isDiscoverableCache,
   type ThreatEventChange,
 } from './rules-threat-events';
 import { operatedSettlementIds } from './rules-event-context';
@@ -230,6 +231,15 @@ function identifyEventItem(context: OutcomeContext, dispatch: EventDispatch) {
     });
   }
 }
+/** Found Fire: the reward is a non-poison alchemical item worth 100 gp or less. */
+export function isPermittedAlchemicalReward(
+  reward: Pick<
+    NonNullable<Event['rewards']>[number],
+    'alchemical' | 'poison' | 'valueCopper'
+  >,
+) {
+  return reward.alchemical && !reward.poison && reward.valueCopper <= 10000;
+}
 function grantAlchemicalReward(
   context: OutcomeContext,
   event: Event,
@@ -241,8 +251,7 @@ function grantAlchemicalReward(
     requireEventInput(context, event, `reward:${item.characterId}:recipient`);
     return;
   }
-  const invalid = !item.alchemical || item.poison || item.valueCopper > 10000;
-  if (invalid) {
+  if (!isPermittedAlchemicalReward(item)) {
     result.warnings.push(`${event.eventId}:alchemical-reward`);
     if (
       !draft.rulesExceptions.some(
@@ -455,9 +464,7 @@ function needsEventReplacement(
       state.roster.teams.length === 0) ||
     (event.eventType === 'cache_discovered' &&
       !twice &&
-      !state.economy?.caches.some(
-        (cache) => cache.status === 'hidden' || cache.status === 'returning',
-      ));
+      !state.economy?.caches.some(isDiscoverableCache));
   return (
     exhausted &&
     !draft.rulesExceptions.some(
@@ -506,13 +513,20 @@ function selectEventReplacements(
     {
       parentEventId: event.eventId,
       tree: allOccurrences,
-      automatic: isAutomaticOccurrence(allOccurrences, event.eventId),
+      inPlace:
+        isAutomaticOccurrence(allOccurrences, event.eventId) ||
+        result.guarantees.some((guarantee) =>
+          guarantee.candidates.some(
+            (candidate) => candidate.eventId === event.eventId,
+          ),
+        ),
       expanded,
     },
   );
   result.requirements.push(...replacement.requirements);
   result.warnings.push(...replacement.warnings);
   result.tree.push(...replacement.tree);
+  result.positions.push(...replacement.positions);
   const replacements = replacement.selected.map((event) =>
     dispatchEvent(event, []),
   );
@@ -601,11 +615,13 @@ function resolveEventsInOrder(context: OutcomeContext) {
   result.dispatch = applied;
   result.selected = applied.map((dispatch) => dispatch.event);
 }
+/** The source of Hidden Agenda's recalculated Activity check modifiers. */
+export const HIDDEN_AGENDA_SOURCE = 'hidden-agenda';
 function withHiddenAgendaBonus(draft: WeeklyDraft, bonus: number): WeeklyDraft {
   const queued = bonus
     ? (['loyalty', 'secrecy', 'security'] as const).map((check) => ({
-        effectId: `hidden-agenda:${check}`,
-        sourceId: 'hidden-agenda',
+        effectId: `${HIDDEN_AGENDA_SOURCE}:${check}`,
+        sourceId: HIDDEN_AGENDA_SOURCE,
         startsWeek: draft.week,
         endsWeek: draft.week,
         effect: {
@@ -623,6 +639,22 @@ function withHiddenAgendaBonus(draft: WeeklyDraft, bonus: number): WeeklyDraft {
       queuedEffects: [...draft.context.queuedEffects, ...queued],
     },
   };
+}
+
+/** The active player characters: each chooses a Found Fire reward. */
+export function eventRewardRecipients(
+  state: Pick<UpkeepSnapshot, 'roster' | 'characters'>,
+) {
+  return state.roster.people
+    .filter(
+      (person) =>
+        person.kind === 'pc' &&
+        state.characters.some(
+          (character) =>
+            character.characterId === person.characterId && character.isActive,
+        ),
+    )
+    .map((person) => person.characterId);
 }
 
 // Each handler observes the preceding event's projected outcome. Selection and
@@ -644,16 +676,7 @@ export function projectEventOutcomes(
     teamUse: result.teamUse,
   });
   state.eventBenefits ??= { skills: [], markets: [] };
-  const pcs = state.roster.people
-    .filter(
-      (person) =>
-        person.kind === 'pc' &&
-        state.characters.some(
-          (character) =>
-            character.characterId === person.characterId && character.isActive,
-        ),
-    )
-    .map((person) => person.characterId);
+  const pcs = eventRewardRecipients(state);
   const context = { draft, result, state, operatedIds, pcs };
   resolveEventsInOrder(context);
   finishEventTeamReturns(draft, result);
@@ -687,7 +710,7 @@ export function projectActivityAndEvents(
       ...new Set([...activity.endedEventIds, ...event.endedEventIds]),
     ];
     event.queuedEffects = event.queuedEffects.filter(
-      (effect) => effect.sourceId !== 'hidden-agenda',
+      (effect) => effect.sourceId !== HIDDEN_AGENDA_SOURCE,
     );
     const next = Math.max(
       0,
