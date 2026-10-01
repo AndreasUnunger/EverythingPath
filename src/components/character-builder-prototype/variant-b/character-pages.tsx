@@ -230,7 +230,10 @@ export function LevelUpPage({ characterId }: { characterId: string }) {
   );
 }
 
-/** Create and build out share the sheet with a checklist banner. */
+/**
+ * Create and build out share the sheet; a `title` adds the checklist
+ * banner (build out), without one the sheet is plain (create).
+ */
 function BuildBody({
   character,
   mode,
@@ -238,7 +241,7 @@ function BuildBody({
 }: {
   character: Character;
   mode: 'create' | 'buildout';
-  title: string;
+  title?: string;
 }) {
   const nav = useProtoNav();
   const store = useBuilderStore();
@@ -259,12 +262,14 @@ function BuildBody({
       warnings={warnings}
       mode={mode}
       banner={
-        <TodoPanel
-          className="mb-3"
-          title={title}
-          todos={todos}
-          characterId={character.id}
-        />
+        title ? (
+          <TodoPanel
+            className="mb-3"
+            title={title}
+            todos={todos}
+            characterId={character.id}
+          />
+        ) : undefined
       }
       actions={
         <Button
@@ -281,7 +286,7 @@ function BuildBody({
   );
 }
 
-/** A new Character from nothing: the same sheet, blank, with a checklist. */
+/** A new Character from nothing: the same sheet, blank. */
 export function CreatePage() {
   const character = useCreateFlow();
   if (!character)
@@ -290,9 +295,7 @@ export function CreatePage() {
         <p className="text-muted-foreground">Starting a blank sheet…</p>
       </main>
     );
-  return (
-    <BuildBody character={character} mode="create" title="New character" />
-  );
+  return <BuildBody character={character} mode="create" />;
 }
 
 /** The sheet right after Build out: Unspecified levels become real ones. */
