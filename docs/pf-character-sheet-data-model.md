@@ -25,19 +25,19 @@ Only official Paizo text decides a rule: the Core Rulebook, plus the official FA
 // Existing table, narrowed. Level and ability scores are derived from the sheet.
 character: {
   name: string,
-  ownerId: string,                    // grants no permissions
-  campaignId: Id<'campaign'>,
+  ownerId: string,                    // the Character Owner, see "Ownership and campaigns"
+  campaignId?: Id<'campaign'>,        // absent = in no campaign; a Character is in at most one
   description: string,                // labelled "Notes" in the UI
   kind: 'pc' | 'npc',
   isActive: boolean,
   sheetMode: 'militiaOnly' | 'full',  // presentation only, see "Two presentations"
 }
-// indexes: by_campaignId
+// indexes: by_campaignId, by_ownerId
 
 // The only place authored Modifiers are stored. Scope decides who sees it.
 catalogEntry: {
   scope: 'global' | 'campaign' | 'character',
-  campaignId?: Id<'campaign'>,         // campaign and character scope
+  campaignId?: Id<'campaign'>,         // campaign scope only; character-scope entries follow their Character
   characterId?: Id<'character'>,       // character scope
   name: string,
   sourceKey?: string,                  // shared Source, see "Same Source"; absent = the entry itself
@@ -55,8 +55,7 @@ catalogEntry: {
 
 // One row per thing a Character has.
 characterSheetEntry: {
-  characterId: Id<'character'>,
-  campaignId: Id<'campaign'>,
+  characterId: Id<'character'>,        // access follows the Character; no campaignId, because Characters move
   kind: EntryKind,                     // immutable, indexed
   catalogEntryId?: Id<'catalogEntry'>, // required for catalog-backed kinds, absent for state-only kinds
   active: boolean,                     // off drops its Modifiers and keeps the row
@@ -235,16 +234,48 @@ This narrows "running spells" in [Decide what the militia reads from a Character
 
 ## Two presentations
 
-`sheetMode` controls only how a Character is presented. The sheet behind it is the same in both modes, and switching keeps every entry.
+`sheetMode` controls only how a Character is presented. The sheet behind it is the same in both modes, and building out keeps every entry.
+
+- Only a Character in a campaign with a militia can be Militia-only. A Character in no campaign is always Full.
+- Characters & officers shows the mode as a status. A Militia-only Character has a **Build out** button, which makes it Full. There is no way back to Militia-only.
 
 - **Militia-only Character:**
   - Characters & officers shows its name, level and permanent ability totals, and edits them in place.
   - **Raising the level** appends Unspecified Class Levels.
   - **Lowering the level** removes Class Levels from the end, real ones included, after a confirmation naming them.
   - **Editing a score** changes the base score by the difference, so the total shown equals what was typed.
-- **Full Character:** it is edited on its Character Sheet. Its level and ability scores are read-only in Characters & officers and link to the sheet. A campaign can have Full Characters with or without a militia. Where they live in the UI belongs to [Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208).
+- **Full Character:** it is edited on its Character Sheet. Its level and ability scores are read-only in Characters & officers and link to the sheet. A campaign can have Full Characters with or without a militia. Every Character Sheet lives at `/characters/<id>` (see "Ownership and campaigns").
 
 The roster Hit Dice override, the name, PC/NPC kind, active state and `description` stay editable in Characters & officers in both modes.
+
+## Ownership and campaigns
+
+Decided in [Decide how Characters exist outside a campaign, and the app's home](https://github.com/AndreasUnunger/EverythingPath/issues/212); see [ADR 0002](adr/0002-characters-owned-by-users-move-between-campaigns.md).
+
+- **Character Owner.** The user who created the Character.
+  - Outside a campaign, only the owner can see and edit it.
+  - Inside a campaign, everyone in the campaign can edit it, and ownership grants nothing extra.
+  - Anyone in the campaign can hand ownership to another member of the campaign's organization. Outside a campaign, ownership never changes.
+- **Joining a campaign.** Joining moves the Character itself into the campaign; it is never copied.
+  - It doesn't put the Character on the militia roster. That stays a "Correct roster" Militia Correction.
+  - "Add to a campaign" offers the active organization's campaigns.
+- **Leaving a campaign.** The owner can take a Character out, back to no campaign or into another campaign. In one mutation, leaving does three things:
+  - It takes the Character off the militia roster, out of its officer roles and out of team management. This is recorded as a Militia Correction with an automatic reason, and Staged Action Choices it affects must be reviewed before Confirmation.
+  - It detaches every sheet entry that points at a campaign Catalog Entry into a character-scoped copy, so the sheet doesn't change.
+  - A Militia-only Character becomes Full.
+- **History.** Finished weeks read only their frozen snapshots, so leaving a campaign changes no past week.
+- **Deleting.** The owner can delete a Character in no campaign. Inside a campaign, a Character can only be archived (`isActive: false`), as today.
+- **Catalog outside a campaign.** A Character in no campaign uses the global catalog and its own character-scoped entries. "Save to catalog" needs a campaign. Character-scoped entries stay with the Character when it joins or leaves.
+- **App shell:**
+  - **Top-level areas.** Campaigns (filtered to the active organization) and Characters (every Character you own, across organizations, grouped "No campaign" first and then by campaign).
+  - **Inside a campaign.** The top bar adds the campaign-level pages Home, Characters and Militia.
+  - **Inside Militia.** A second bar holds Week N · Finished weeks · Militia · Characters & officers, plus Setup until the militia is set up.
+  - **Sheets.** A sheet keeps the campaign's top bar when its Character is in one. Opening a Character in another organization's campaign switches the active organization.
+- **Where Characters are created:**
+  - the Characters area (no campaign, Full);
+  - a campaign's Characters page (Full, and **Add from my characters**);
+  - Characters & officers (Militia-only);
+  - **Add to campaign** on a sheet in no campaign.
 
 ## Catalog scopes
 
@@ -346,4 +377,7 @@ Integration tests (convex-test) must cover:
 - a sheet edit that doesn't change the facts leaves the `canonicalMilitiaState` revision untouched;
 - editing a militia-only Character's score adjusts its base score;
 - a full Character's level can't be edited through Characters & officers;
-- campaign scoping of every catalog and sheet read.
+- campaign scoping of every catalog and sheet read;
+- owner-only access to a Character in no campaign, and campaign access once it joins;
+- leaving a campaign removes the Character from the roster, its roles and team management as one Militia Correction, detaches campaign catalog entries without changing the resolved sheet, and leaves past Resolution Records untouched;
+- deleting is refused for a Character in a campaign.

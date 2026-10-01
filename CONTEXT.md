@@ -75,8 +75,11 @@ The uncommitted militia action occupying an Action Slot, including its assigned 
 A character holding a militia officer role: a roster person with at least one role. An NPC is an Officer exactly while holding a role, independent of its NPC kind, which decides their team-manager limit; a stored character kind never makes one. Removing the last role changes that status, not the character's kind.
 
 **Character**:
-One person in a campaign, PC or NPC, whether they serve the militia, are fully built, or both. There is exactly one Character per person; the militia roster and the character builder refer to the same Character.
+One person, PC or NPC, whether they serve the militia, are fully built, or both. There is exactly one Character per person; the militia roster and the character builder refer to the same Character. A Character is in at most one campaign at a time, and may be in none; adding it to a campaign moves that same Character rather than copying it, and leaving a campaign takes it off that campaign's militia roster.
 _Avoid_: pfCharacter, ledger record (as a separate thing)
+
+**Character Owner**:
+The user who created a Character. Outside a campaign only the Character Owner can see and edit it; inside a campaign everyone in the campaign can edit it, ownership grants nothing extra, and anyone in the campaign can hand ownership to another member.
 
 **Character Sheet**:
 Everything a Character has (base ability scores, race, class levels, feats, gear, effects), from which their current statistics are derived. Every Character has one; a minimal sheet holds only base scores and level, and building it out is optional.
@@ -116,10 +119,10 @@ A running spell lasting 1 day or less, a condition, a consumable or ability dama
 Points that lower an ability's modifier by 1 for every 2 points, leaving the ability score unchanged. Unlike ability drain, which lowers the score itself.
 
 **Militia-only Character**:
-A Character presented with only what the militia needs: name, level and ability scores, edited in place. Its Character Sheet keeps anything it already holds, and edits made in this presentation land on that sheet.
+A Character presented with only what the militia needs: name, level and ability scores, edited in place. Its Character Sheet keeps anything it already holds, and edits made in this presentation land on that sheet. Only a Character in a campaign with a militia can be Militia-only; building it out makes it a Full Character for good.
 
 **Full Character**:
-A Character presented and edited through its whole Character Sheet. Its level and ability scores are read-only outside the sheet. A campaign can have Full Characters with or without a militia.
+A Character presented and edited through its whole Character Sheet. Its level and ability scores are read-only outside the sheet. A campaign can have Full Characters with or without a militia, and a Character in no campaign is always a Full Character.
 _Avoid_: built character, pfCharacter
 
 **Militia Character Facts**:
