@@ -71,7 +71,7 @@ export function FeatsBlock({
   const feats = character.entries.filter((e) => e.kind === 'feat');
   const traits = character.entries.filter((e) => e.kind === 'trait');
   const defaultLevel =
-    ui.focusLevelId ?? classLevels(character).at(-1)?.id ?? undefined;
+    ui.ranksLevelId ?? classLevels(character).at(-1)?.id ?? undefined;
   const open = slots.slots.length - slots.taken;
   const featOptions = catalogOfKind('feat').map((f) => ({
     value: f.key,
@@ -126,7 +126,6 @@ export function FeatsBlock({
                 value={value}
                 placeholder={choice}
                 className="h-7 w-28 text-xs"
-                todo={!value}
                 onChange={(v) =>
                   store.updateEntry(character.id, e.id, { choice: v || null })
                 }
@@ -179,7 +178,7 @@ export function FeatsBlock({
         options={featOptions}
         placeholder={open > 0 ? `+ Add feat (${open} open)` : '+ Add feat'}
         className={cn('mt-1 w-full text-xs', open > 0 && 'text-sky-300')}
-        todo={open > 0 && ui.mode !== 'sheet'}
+        todo={open > 0}
         onChange={(key) =>
           key &&
           store.addEntry(character.id, key, {
@@ -215,7 +214,6 @@ export function FeaturesBlock({
   warnings: Warning[];
 }) {
   const store = useBuilderStore();
-  const ui = useSheetUi();
   const levels = classLevels(character);
   const loose = character.entries.filter(
     (e) => e.kind === 'classFeature' && !e.gainedAtClassLevel,
@@ -236,15 +234,8 @@ export function FeaturesBlock({
           );
           const picks = gained.features.filter((f) => f.kind === 'choice');
           if (features.length === 0 && picks.length === 0) return null;
-          const focus = ui.focusLevelId === l.id;
           return (
-            <div
-              key={l.id}
-              className={cn(
-                'border-foreground/10 border-l-2 pl-2',
-                focus && 'border-primary bg-primary/10',
-              )}
-            >
+            <div key={l.id} className="border-foreground/10 border-l-2 pl-2">
               <div className="text-muted-foreground font-mono text-xs">
                 {classLevelShortLabel(character, l.id)} · level{' '}
                 {l.state.position}
@@ -361,15 +352,7 @@ export function GearBlock({ character }: { character: Character }) {
     })),
   );
   return (
-    <Block
-      id="b-gear"
-      title="Gear, spells & conditions"
-      aside={
-        <span className="text-muted-foreground text-xs">
-          off = listed, adds nothing
-        </span>
-      }
-    >
+    <Block id="b-gear" title="Gear, spells & conditions">
       <ul className="divide-foreground/10 divide-y text-sm">
         {entries.map((e) => {
           const catalog = lookupCatalog(character, e.catalogKey);

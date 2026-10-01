@@ -5,7 +5,7 @@
 // points are a plain number the player types (the hit die is only a hint).
 
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import {
@@ -366,11 +366,21 @@ export function LevelsTable({
   const [nextClass, setNextClass] = useState<string | null>(lastClass);
   const nextPos = levels.length + 1;
 
-  const rows = levels.map((l) => {
-    const todo = levelTodos(character, l.id);
-    const highlight = ui.focusLevelId === l.id;
-    return { l, todo, highlight };
-  });
+  const rows = levels.map((l) => ({ l, todo: levelTodos(character, l.id) }));
+
+  // A just-added level (`&level=`, from Level up here or `?page=levelup`):
+  // scroll to it and spend its ranks in the skills table.
+  const levelParam = nav.param('level');
+  const levelParamExists = levels.some((l) => l.id === levelParam);
+  const { setRanksLevelId } = ui;
+  useEffect(() => {
+    if (!levelParam || !levelParamExists) return;
+    setRanksLevelId(levelParam);
+    const row = document.getElementById(`b-level-${levelParam}`);
+    jumpTo(
+      row && row.offsetParent !== null ? row.id : `b-level-${levelParam}-card`,
+    );
+  }, [levelParam, levelParamExists, setRanksLevelId]);
 
   const classCell = (
     levelId: string,
@@ -408,11 +418,10 @@ export function LevelsTable({
     />
   );
 
-  const addLevel = () =>
-    nav.go('levelup', {
-      character: character.id,
-      params: { as: nextClass ?? 'unspecified' },
-    });
+  const addLevel = () => {
+    const id = store.addClassLevel(character.id, nextClass);
+    nav.set({ level: id });
+  };
 
   const header = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -460,13 +469,12 @@ export function LevelsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ l, todo, highlight }) => (
+            {rows.map(({ l, todo }) => (
               <tr
                 key={l.id}
                 id={`b-level-${l.id}`}
                 className={cn(
                   'border-foreground/10 scroll-mt-24 border-b align-top',
-                  highlight && 'bg-primary/10',
                 )}
               >
                 <td className="px-2 py-1.5 font-mono text-base">
@@ -531,14 +539,11 @@ export function LevelsTable({
 
       {/* Phone cards */}
       <div className="space-y-2 md:hidden">
-        {rows.map(({ l, todo, highlight }) => (
+        {rows.map(({ l, todo }) => (
           <div
             key={l.id}
             id={`b-level-${l.id}-card`}
-            className={cn(
-              'border-foreground/20 border p-2 text-sm',
-              highlight && 'bg-primary/10',
-            )}
+            className={cn('border-foreground/20 border p-2 text-sm')}
           >
             <div className="flex items-center gap-2">
               <span className="font-mono text-lg">{l.state.position}</span>
@@ -584,7 +589,7 @@ export function LevelsTable({
         ))}
       </div>
 
-      {ui.mode !== 'levelup' && (
+      {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted-foreground">Level {nextPos} as</span>
           <PickField
@@ -599,7 +604,7 @@ export function LevelsTable({
             Level up
           </Button>
         </div>
-      )}
+      }
     </Block>
   );
 }

@@ -31,16 +31,16 @@ deletion of Class Levels.
 
 All files are in `src/components/character-builder-prototype/`.
 
-| File                                                                                                     | Owner        | What                                                                                                                                                    |
-| -------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `variant-b.tsx`, `variant-b/…`                                                                           | presentation | Variant B's pages inside the shell.                                                                                                                     |
-| `index.tsx`                                                                                              | foundation   | Provider, shell, page dispatch, switcher, yellow state panel.                                                                                           |
-| `shell/shell.tsx`, `shell/phone.tsx`, `shell/parts.tsx`, `shell/model.ts`                                | foundation   | Shell C copied from the approved app-shell prototype and wired to this store and URL. Exports `AppShell`, `NavLink`, `PAGE_LABEL`, tabs.                |
-| `shell/placeholders.tsx`                                                                                 | foundation   | Campaigns, Campaign home, Week, Finished weeks, Militia and Setup bodies, copied from the shell prototype.                                              |
-| `nav.ts`                                                                                                 | foundation   | `useProtoNav()`: URL state and navigation.                                                                                                              |
-| `flows.ts`                                                                                               | foundation   | `useCreateFlow`, `useLevelUpFlow`, `useBuildoutFlow`.                                                                                                   |
-| `store.tsx`                                                                                              | foundation   | Context + `useReducer` store, actions, selectors.                                                                                                       |
-| `resolve.ts`, `warnings.ts`, `sheet.ts`, `catalog.ts`, `mock-characters.ts`, `types.ts`, `ui-helpers.ts` | foundation   | Resolver, advisory warnings, read helpers, catalog, seed data, types.                                                                                   |
+| File                                                                                                     | Owner        | What                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant-b.tsx`, `variant-b/…`                                                                           | presentation | Variant B's pages inside the shell.                                                                                                      |
+| `index.tsx`                                                                                              | foundation   | Provider, shell, page dispatch, switcher, yellow state panel.                                                                            |
+| `shell/shell.tsx`, `shell/phone.tsx`, `shell/parts.tsx`, `shell/model.ts`                                | foundation   | Shell C copied from the approved app-shell prototype and wired to this store and URL. Exports `AppShell`, `NavLink`, `PAGE_LABEL`, tabs. |
+| `shell/placeholders.tsx`                                                                                 | foundation   | Campaigns, Campaign home, Week, Finished weeks, Militia and Setup bodies, copied from the shell prototype.                               |
+| `nav.ts`                                                                                                 | foundation   | `useProtoNav()`: URL state and navigation.                                                                                               |
+| `flows.ts`                                                                                               | foundation   | `useCreateFlow`, `useLevelUpRedirect`, `useBuildoutFlow`: URL actions that end on the sheet.                                             |
+| `store.tsx`                                                                                              | foundation   | Context + `useReducer` store, actions, selectors.                                                                                        |
+| `resolve.ts`, `warnings.ts`, `sheet.ts`, `catalog.ts`, `mock-characters.ts`, `types.ts`, `ui-helpers.ts` | foundation   | Resolver, advisory warnings, read helpers, catalog, seed data, types.                                                                    |
 
 ## Shell
 
@@ -63,7 +63,7 @@ actions, once. The path is never shown. The top bar's height is
 page-local params. Every state worth a screenshot is reachable by URL.
 
 | `?page=`                              | Shows                                                                                                                                                                                                                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `campaigns`                           | The homepage: pick a campaign (placeholder).                                                                                                                                                                                                                  |
 | `characters`                          | The Characters area: every Character I own, "No campaign" first, then by campaign. **New character** → `create` with no campaign.                                                                                                                             |
 | `campaign-home`                       | A campaign's home (placeholder). `&campaign=` (default `ironfang`).                                                                                                                                                                                           |
@@ -71,9 +71,9 @@ page-local params. Every state worth a screenshot is reachable by URL.
 | `week`, `history`, `militia`, `setup` | Militia placeholders.                                                                                                                                                                                                                                         |
 | `officers`                            | Characters & officers. Status per row; Militia-only rows edit name, level and the six scores in place and have **Build out**; Full rows are read-only and link to the sheet. **New character** makes a Militia-only Character on the roster, edited in place. |
 | `sheet`                               | A Character's sheet (default `kesh`). Militia-only Characters (`hessa`) show the Militia-only body with **Build out**. Reachable with no militia (`brannoc`) and no campaign (`ilsa`, `tobin`).                                                               |
-| `levelup`                             | Level a Character up (default Kesh 7 → 8; `&as=<classKey>                                                                                                                                                                                                     | unspecified`, `&level=<id>` once added). |
-| `create`                              | A new Character from nothing (`&campaign=<id>` or none), then `&character=<id>`.                                                                                                                                                                              |
-| `buildout`                            | The sheet right after Build out (default `hessa`); opening it for a Militia-only Character builds it out.                                                                                                                                                     |
+| `levelup`                             | A URL action: appends a Class Level (default Kesh 7 → 8; `&as=<classKey>` or `unspecified`), then opens `sheet` with `&level=<id>`, scrolled to the new level.                                                                                                |
+| `create`                              | A URL action: a new Character from nothing (`&campaign=<id>` or none), then opens its `sheet`.                                                                                                                                                                |
+| `buildout`                            | A URL action (default `hessa`): builds a Militia-only Character out, as the button would, then opens its `sheet`.                                                                                                                                             |
 
 `from` is where a Character page was opened from; Back goes there in the
 Character's current campaign (or its list, if it left or moved). It
@@ -164,7 +164,7 @@ Pure helpers, re-exported from `store.tsx`:
 Other modules:
 
 - `catalog.ts`: `CAMPAIGN_CATALOG` and `campaignCatalog(campaignId)` (campaign homebrew), `CATALOG`, `CATALOG_BY_KEY`, `CLASSES`, `RACES`, `SKILLS`, `SKILL_BY_KEY`, `ABILITY_LABEL`, `ABILITY_SHORT`, `catalogOfKind(kind)`, `catalogForGroup('ragePower'|'rogueTalent'|'combatFeat')`, `classDetail(classKey)` and `POINT_BUY_COST`.
-- `flows.ts`: `useCreateFlow()`, `useLevelUpFlow(characterId)` and `useBuildoutFlow(characterId)`, the URL-driven steps behind those pages (see Pages).
+- `flows.ts`: `useCreateFlow()`, `useLevelUpRedirect(characterId)` and `useBuildoutFlow(characterId)`, the URL actions behind those pages (see Pages); each does its thing and opens `sheet`.
 - `ui-helpers.ts`: `formatBonus(n)` ("+2"/"−1"), `BONUS_TYPE_LABEL`, `BONUS_TYPE_CLASS` (text colour per bonus type), `SEVERITY_CLASS`, `contributionText(c)`, `isBuffed(stat)` and `modOf(score)`.
 
 ## Data shapes (`types.ts`)

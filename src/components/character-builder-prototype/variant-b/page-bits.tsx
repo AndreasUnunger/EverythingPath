@@ -169,8 +169,8 @@ export function NoticeBanner({
 
 /**
  * Build out, with its one-way confirmation. `ask(character)` opens it;
- * confirming builds the Character out and opens its sheet in buildout mode
- * (from `from`, or wherever the current Character page came from).
+ * confirming builds the Character out and opens its sheet (from `from`, or
+ * wherever the current Character page came from).
  */
 export function useBuildOut(from?: ProtoPage) {
   const store = useBuilderStore();
@@ -201,7 +201,7 @@ export function useBuildOut(from?: ProtoPage) {
             onClick={() => {
               if (!character) return;
               store.buildOut(character.id);
-              nav.go('buildout', {
+              nav.go('sheet', {
                 character: character.id,
                 ...(from ? { from } : {}),
               });

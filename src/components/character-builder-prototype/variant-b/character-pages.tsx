@@ -1,28 +1,17 @@
 'use client';
 // PROTOTYPE (throwaway, #208) — Variant B, round 2: the Character pages.
-// Each opens with the one header block (name, status, level line, owner,
-// membership strip, confirmation note); the shell's Back sits above. A Full
-// Character gets the living sheet; a Militia-only one gets a compact card
-// with what the militia reads, edited in place, and Build out.
+// A Full Character gets the living sheet, with its name in the vitals row
+// and the membership strip under it; a Militia-only one gets the header
+// with Build out and a compact card with what the militia reads. Create,
+// level up and build out are URL actions that end on the same sheet.
 
 import { Hammer } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
-import { useBuildoutFlow, useCreateFlow, useLevelUpFlow } from '../flows';
-import { useProtoNav } from '../nav';
+import { useBuildoutFlow, useCreateFlow, useLevelUpRedirect } from '../flows';
 import { Missing } from '../shell/placeholders';
-import {
-  className,
-  classLevels,
-  useBuilderStore,
-  useCharacter,
-  useResolved,
-  useWarnings,
-} from '../store';
-import type { Character, ResolvedSheet } from '../types';
-import type { Warning } from '../warnings';
-import { TodoPanel, openTodos } from './checklist';
+import { useCharacter, useResolved, useWarnings } from '../store';
+import type { Character } from '../types';
 import { LivingSheet } from './living-sheet';
 import {
   CharacterHeader,
@@ -34,7 +23,7 @@ import {
   useBuildOut,
   useMilitiaLevel,
 } from './page-bits';
-import { action, characterMain, type SheetMode } from './shared';
+import { action, characterMain } from './shared';
 
 // ------------------------------------------------------ Militia-only body
 
@@ -81,50 +70,6 @@ function MilitiaOnlyBody({ character }: { character: Character }) {
 
 // --------------------------------------------------------------- pages
 
-/**
- * A Full Character's page body: the living sheet in a mode, with the name
- * in its vitals row and the membership strip under it.
- */
-function FullBody({
-  character,
-  sheet,
-  warnings,
-  mode,
-  banner,
-  actions,
-  focusLevelId,
-  baseline,
-  dismissDeltas,
-}: {
-  character: Character;
-  sheet: ResolvedSheet;
-  warnings: Warning[];
-  mode: SheetMode;
-  banner?: ReactNode;
-  actions?: ReactNode;
-  focusLevelId?: string | null;
-  baseline?: ResolvedSheet | null;
-  dismissDeltas?: () => void;
-}) {
-  return (
-    <main className={characterMain}>
-      <LivingSheet
-        character={character}
-        sheet={sheet}
-        warnings={warnings}
-        mode={mode}
-        focusLevelId={focusLevelId}
-        baseline={baseline}
-        dismissDeltas={dismissDeltas}
-        heading={<CharacterTitle character={character} />}
-        actions={actions}
-        below={<MembershipStrip character={character} className="mb-3" />}
-        banner={banner}
-      />
-    </main>
-  );
-}
-
 /** The sheet: everything editable, breakdowns on tap. */
 export function SheetPage({ characterId }: { characterId: string }) {
   const character = useCharacter(characterId);
@@ -154,162 +99,43 @@ export function SheetPage({ characterId }: { characterId: string }) {
     );
 
   return (
-    <FullBody
-      character={character}
-      sheet={sheet}
-      warnings={warnings}
-      mode="sheet"
-    />
+    <main className={characterMain}>
+      <LivingSheet
+        character={character}
+        sheet={sheet}
+        warnings={warnings}
+        heading={<CharacterTitle character={character} />}
+        below={<MembershipStrip character={character} className="mb-3" />}
+      />
+    </main>
   );
 }
 
-/**
- * Level up: the flow appends a Class Level and highlights what the new
- * level needs. The before → after markers compare against the baseline.
- */
+/** The moment between a URL action and the sheet it opens. */
+function Working({ text }: { text: string }) {
+  return (
+    <main className={characterMain}>
+      <p className="text-muted-foreground">{text}</p>
+    </main>
+  );
+}
+
+/** `?page=levelup`: appends the level, then the sheet scrolled to it. */
 export function LevelUpPage({ characterId }: { characterId: string }) {
-  const nav = useProtoNav();
-  const store = useBuilderStore();
-  const { character, focusLevelId, baseline, dismissBaseline } =
-    useLevelUpFlow(characterId);
-  const sheet = useResolved(characterId);
-  const warnings = useWarnings(characterId);
-  if (!character || !sheet) return <Missing noun="character" />;
-
-  const done = (
-    <Button
-      type="button"
-      size="sm"
-      className={action}
-      onClick={() => nav.go('sheet')}
-    >
-      Done levelling
-    </Button>
-  );
-
-  if (!focusLevelId)
-    return (
-      <main className={characterMain}>
-        <CharacterHeader character={character} actions={done} />
-        <p className="text-muted-foreground">Adding level {sheet.level + 1}…</p>
-      </main>
-    );
-
-  const level = classLevels(character).find((l) => l.id === focusLevelId)!;
-  const inClass = classLevels(character).filter(
-    (l) =>
-      l.state.classKey === level.state.classKey &&
-      l.state.position <= level.state.position,
-  ).length;
-  const todos = openTodos(
-    character,
-    'levelup',
-    focusLevelId,
-    store.state.pointBuyBudget,
-    warnings,
-  );
-  return (
-    <FullBody
-      character={character}
-      sheet={sheet}
-      warnings={warnings}
-      mode="levelup"
-      focusLevelId={focusLevelId}
-      baseline={baseline}
-      dismissDeltas={dismissBaseline}
-      banner={
-        <TodoPanel
-          className="mb-3"
-          title={`Level ${level.state.position}: ${className(level.state.classKey)} ${inClass}`}
-          todos={todos}
-          characterId={character.id}
-        />
-      }
-      actions={done}
-    />
-  );
+  const character = useLevelUpRedirect(characterId);
+  if (!character) return <Missing noun="character" />;
+  return <Working text="Adding a level…" />;
 }
 
-/**
- * Create and build out share the sheet; a `title` adds the checklist
- * banner (build out), without one the sheet is plain (create).
- */
-function BuildBody({
-  character,
-  mode,
-  title,
-}: {
-  character: Character;
-  mode: 'create' | 'buildout';
-  title?: string;
-}) {
-  const nav = useProtoNav();
-  const store = useBuilderStore();
-  const sheet = useResolved(character.id);
-  const warnings = useWarnings(character.id);
-  if (!sheet) return <Missing noun="character" />;
-  const todos = openTodos(
-    character,
-    mode,
-    null,
-    store.state.pointBuyBudget,
-    warnings,
-  );
-  return (
-    <FullBody
-      character={character}
-      sheet={sheet}
-      warnings={warnings}
-      mode={mode}
-      banner={
-        title ? (
-          <TodoPanel
-            className="mb-3"
-            title={title}
-            todos={todos}
-            characterId={character.id}
-          />
-        ) : undefined
-      }
-      actions={
-        <Button
-          type="button"
-          size="sm"
-          variant={todos.length === 0 ? 'default' : 'outline'}
-          className={action}
-          onClick={() => nav.go('sheet')}
-        >
-          Open as sheet
-        </Button>
-      }
-    />
-  );
-}
-
-/** A new Character from nothing: the same sheet, blank. */
+/** `?page=create`: a new Character from nothing, then its sheet. */
 export function CreatePage() {
-  const character = useCreateFlow();
-  if (!character)
-    return (
-      <main className={characterMain}>
-        <p className="text-muted-foreground">Starting a blank sheet…</p>
-      </main>
-    );
-  return <BuildBody character={character} mode="create" />;
+  useCreateFlow();
+  return <Working text="Starting a blank sheet…" />;
 }
 
-/** The sheet right after Build out: Unspecified levels become real ones. */
+/** `?page=buildout`: builds the Character out, then its sheet. */
 export function BuildoutPage({ characterId }: { characterId: string }) {
   const character = useBuildoutFlow(characterId);
-  // Keep the banner's wording stable across the build-out moment.
-  const [title] = useState('Build out');
   if (!character) return <Missing noun="character" />;
-  if (character.sheetMode === 'militiaOnly')
-    return (
-      <main className={characterMain}>
-        <CharacterHeader character={character} />
-        <p className="text-muted-foreground">Building out…</p>
-      </main>
-    );
-  return <BuildBody character={character} mode="buildout" title={title} />;
+  return <Working text="Building out…" />;
 }

@@ -2,10 +2,9 @@
 // PROTOTYPE (throwaway, #208) — Variant B "One living sheet", round 2,
 // inside the approved app shell (variant C of #213). There is no wizard:
 // creating, building out and levelling up all happen on one dense editable
-// sheet; a page is the same sheet in a different highlighted state with a
-// checklist that jumps to what still needs a decision. The list pages
-// (Characters, a campaign's Characters, Characters & officers) follow the
-// shell's own pages.
+// sheet; `create`, `buildout` and `levelup` are URL actions that end on it.
+// The list pages (Characters, a campaign's Characters, Characters &
+// officers) follow the shell's own pages.
 
 import type { ReactNode } from 'react';
 import { useProtoNav } from './nav';

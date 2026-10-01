@@ -2,17 +2,16 @@
 // PROTOTYPE (throwaway, #208) — Variant B: the one living sheet. Identity,
 // abilities, defenses, offense, skills, feats, features, gear and the Class
 // Levels strip, all edited in place. Creating, building out and levelling
-// up are the same sheet in a different highlighted state. The page above
-// it shows the name, status and membership once; the sheet opens with its
-// vitals strip (sticky under the shell's bar from tablet width).
+// up all end here, on the same sheet. It opens with its vitals row (the
+// name on the left, sticky under the shell's bar from tablet width) and
+// the membership strip under it.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '~/lib/utils';
 import { ABILITY_LABEL, ABILITY_SHORT, CLASSES, RACES } from '../catalog';
 import {
   ABILITIES,
   baseScores,
-  classLevels,
   pointBuyCost,
   raceCatalog,
   useBuilderStore,
@@ -30,9 +29,7 @@ import {
   SheetUiContext,
   StatButton,
   TextField,
-  chip,
   type OpenBreakdown,
-  type SheetMode,
   type StatPath,
 } from './shared';
 import { SkillsTable } from './skills-table';
@@ -42,18 +39,14 @@ import { SkillsTable } from './skills-table';
 function IdentityBlock({
   character,
   warnings,
-  mode,
 }: {
   character: Character;
   warnings: Warning[];
-  mode: SheetMode;
 }) {
   const store = useBuilderStore();
   const race = raceCatalog(character);
-  const hasClass = classLevels(character).some((l) => l.state.classKey);
   const favored =
     race?.entry.state.kind === 'race' ? race.entry.state.favoredClass : null;
-  const fresh = mode === 'create';
   const label =
     'text-muted-foreground font-mono text-[11px] tracking-wide uppercase';
   return (
@@ -64,7 +57,6 @@ function IdentityBlock({
           <TextField
             ariaLabel="Name"
             value={character.name}
-            todo={fresh && character.name === 'New character'}
             onChange={(v) => store.setName(character.id, v)}
             className="w-full font-sans text-lg"
           />
@@ -91,7 +83,6 @@ function IdentityBlock({
             className="w-full"
             value={race?.catalog.key ?? null}
             placeholder="choose"
-            todo={!race && mode !== 'sheet'}
             options={RACES.map((r) => ({ value: r.key, label: r.name }))}
             onChange={(v) => store.setRace(character.id, v)}
           />
@@ -108,10 +99,6 @@ function IdentityBlock({
                   : null
               }
               placeholder="ability"
-              todo={
-                race.entry.state.kind === 'race' &&
-                !race.entry.state.abilityChoice
-              }
               options={ABILITIES.map((a) => ({
                 value: a,
                 label: ABILITY_LABEL[a],
@@ -131,7 +118,6 @@ function IdentityBlock({
             className="w-full"
             value={favored}
             placeholder={race ? 'choose' : 'race first'}
-            todo={!!race && !favored && hasClass && mode !== 'sheet'}
             options={CLASSES.map((c) => ({ value: c.key, label: c.name }))}
             onChange={(v) =>
               race &&
@@ -574,82 +560,23 @@ export function LivingSheet({
   character,
   sheet,
   warnings,
-  mode,
-  focusLevelId = null,
-  baseline = null,
-  dismissDeltas = () => undefined,
   heading,
-  actions,
   below,
-  banner,
 }: {
   character: Character;
   sheet: ResolvedSheet;
   warnings: Warning[];
-  mode: SheetMode;
-  focusLevelId?: string | null;
-  baseline?: ResolvedSheet | null;
-  dismissDeltas?: () => void;
   /** Left of the vitals row: the Character's name and summary line. */
   heading?: ReactNode;
-  /** Page actions, at the end of the vitals row. */
-  actions?: ReactNode;
   /** Under the vitals row: the membership strip. */
   below?: ReactNode;
-  /** Mode banner: the to-do checklist, the buildout note. */
-  banner?: ReactNode;
 }) {
   const [open, setOpen] = useState<OpenBreakdown | null>(null);
-  const [ranksLevelId, setRanksLevelId] = useState<string | null>(focusLevelId);
-  useEffect(() => {
-    if (focusLevelId) setRanksLevelId(focusLevelId);
-  }, [focusLevelId]);
-
-  const changedCount = baseline
-    ? (
-        [
-          'hp',
-          'ac',
-          'touchAc',
-          'flatFootedAc',
-          'bab',
-          'cmb',
-          'cmd',
-          'flatFootedCmd',
-          'init',
-          'attackMelee',
-          'attackRanged',
-          'saves.fort',
-          'saves.ref',
-          'saves.will',
-        ] as StatPath[]
-      ).filter((p) => {
-        const [h, t] = p.split('.') as [
-          keyof ResolvedSheet,
-          string | undefined,
-        ];
-        const a = t
-          ? (sheet[h] as Record<string, { total: number }>)[t]!.total
-          : (sheet[h] as { total: number }).total;
-        const b = t
-          ? (baseline[h] as Record<string, { total: number }>)[t]!.total
-          : (baseline[h] as { total: number }).total;
-        return a !== b;
-      }).length
-    : 0;
+  const [ranksLevelId, setRanksLevelId] = useState<string | null>(null);
 
   return (
     <SheetUiContext.Provider
-      value={{
-        mode,
-        open,
-        setOpen,
-        baseline,
-        dismissDeltas,
-        focusLevelId,
-        ranksLevelId,
-        setRanksLevelId,
-      }}
+      value={{ open, setOpen, ranksLevelId, setRanksLevelId }}
     >
       {/* The vitals row: the name and summary on the left, the numbers
           right-aligned. Sticky under the shell's pinned bar from tablet
@@ -673,36 +600,14 @@ export function LivingSheet({
               className={v.phoneHidden ? 'hidden md:flex' : undefined}
             />
           ))}
-          {baseline && changedCount > 0 && (
-            <button
-              type="button"
-              onClick={dismissDeltas}
-              className={cn(
-                chip,
-                'mb-1 border-sky-400/70 text-sky-300 hover:bg-sky-400/10',
-              )}
-              title="Hide the before → after markers"
-            >
-              {changedCount} changed · hide
-            </button>
-          )}
-          {actions && (
-            <div className="flex flex-wrap items-center gap-2">{actions}</div>
-          )}
         </div>
       </div>
 
       {below}
 
-      {banner}
-
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-12">
-          <IdentityBlock
-            character={character}
-            warnings={warnings}
-            mode={mode}
-          />
+          <IdentityBlock character={character} warnings={warnings} />
         </div>
         <div className="min-w-0 lg:col-span-12">
           <LevelsTable character={character} warnings={warnings} />

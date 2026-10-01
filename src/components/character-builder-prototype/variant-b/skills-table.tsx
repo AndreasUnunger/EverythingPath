@@ -49,7 +49,7 @@ export function SkillsTable({
     store.updateClassLevel(character.id, level.id, { skillRanks });
   };
   const left = budget ? budget.total - budget.spent : 0;
-  const todo = !!budget && left > 0 && ui.focusLevelId === level?.id;
+  const todo = !!budget && left > 0;
 
   const header = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">

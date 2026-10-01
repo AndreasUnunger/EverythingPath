@@ -1,6 +1,6 @@
 'use client';
 // PROTOTYPE (throwaway, #208) — Variant B shared primitives: the sheet UI
-// context (open breakdown, level-up baseline, focused level), tappable
+// context (open breakdown, the Class Level ranks are spent on), tappable
 // numbers with their breakdown popover, inline editable numbers, and
 // inline advisory warnings.
 
@@ -62,8 +62,6 @@ export function getStat(sheet: ResolvedSheet, path: StatPath): Stat {
 
 // ---------------------------------------------------------------- context
 
-export type SheetMode = 'sheet' | 'levelup' | 'create' | 'buildout';
-
 export type OpenBreakdown = {
   path: StatPath;
   title: string;
@@ -73,14 +71,8 @@ export type OpenBreakdown = {
 };
 
 export type SheetUi = {
-  mode: SheetMode;
   open: OpenBreakdown | null;
   setOpen: (o: OpenBreakdown | null) => void;
-  /** The sheet before the level-up; numbers that changed show a delta. */
-  baseline: ResolvedSheet | null;
-  dismissDeltas: () => void;
-  /** The Class Level the user is building right now (level-up) — highlighted. */
-  focusLevelId: string | null;
   /** The Class Level the skills table assigns ranks to. */
   ranksLevelId: string | null;
   setRanksLevelId: (id: string | null) => void;
@@ -158,10 +150,7 @@ export function Block({
 
 // ----------------------------------------------------------- stat buttons
 
-/**
- * A tappable number. Shows its delta against the level-up baseline and opens
- * the breakdown popover.
- */
+/** A tappable number: opens the breakdown popover. */
 export function StatButton({
   path,
   sheet,
@@ -179,8 +168,6 @@ export function StatButton({
 }) {
   const ui = useSheetUi();
   const stat = getStat(sheet, path);
-  const before = ui.baseline ? getStat(ui.baseline, path).total : null;
-  const changed = before !== null && before !== stat.total;
   const buffed = stat.applied.some((c) => c.temporary);
   const fmt = (n: number) => (signed ? formatBonus(n) : String(n));
   const isOpen = ui.open?.path === path;
@@ -210,17 +197,7 @@ export function StatButton({
         className,
       )}
     >
-      {changed && (
-        <span className="text-muted-foreground text-xs line-through">
-          {fmt(before)}
-        </span>
-      )}
       <span>{fmt(stat.total)}</span>
-      {changed && (
-        <span className="text-xs text-sky-300">
-          {formatBonus(stat.total - before)}
-        </span>
-      )}
     </button>
   );
 }
@@ -290,7 +267,6 @@ export function BreakdownPopover({ sheet }: { sheet: ResolvedSheet }) {
 
   if (!open) return null;
   const stat = getStat(sheet, open.path);
-  const before = ui.baseline ? getStat(ui.baseline, open.path).total : null;
   const fmt = (n: number) => (open.signed ? formatBonus(n) : String(n));
   return createPortal(
     <div
@@ -312,12 +288,6 @@ export function BreakdownPopover({ sheet }: { sheet: ResolvedSheet }) {
           <X className="size-4" />
         </button>
       </div>
-      {before !== null && before !== stat.total && (
-        <p className="mb-2 font-mono text-xs text-sky-300">
-          Was {fmt(before)} before this level ·{' '}
-          {formatBonus(stat.total - before)}
-        </p>
-      )}
       <ul className="space-y-0.5">
         {keyed(stat.applied).map(([key, c]) => (
           <li key={key} className="flex items-baseline gap-2">
