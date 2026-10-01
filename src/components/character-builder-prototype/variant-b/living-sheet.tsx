@@ -291,7 +291,7 @@ function Figure({
 }) {
   return (
     <div className={cn('flex flex-col items-start', className)}>
-      <span className="text-muted-foreground font-mono text-[11px] tracking-wide uppercase">
+      <span className="text-muted-foreground font-sans text-[11px] leading-tight tracking-wide">
         {short ?? title}
       </span>
       <StatButton
@@ -300,6 +300,7 @@ function Figure({
         title={title}
         signed={signed}
         size={size}
+        className="font-sans"
       />
     </div>
   );
@@ -369,7 +370,7 @@ function StatGroups({
       {groups.map((g) => (
         <ul
           key={g.key}
-          className="divide-foreground/10 divide-y py-1 first:pt-0 last:pb-0"
+          className="divide-foreground/10 divide-y py-3 first:pt-0 last:pb-0"
         >
           {g.rows}
         </ul>
