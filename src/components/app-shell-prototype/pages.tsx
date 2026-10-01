@@ -789,9 +789,11 @@ export function OfficersPage({ location, go }: PageProps) {
                     variant="outline"
                     size="sm"
                     className={action}
+                    aria-label={`Build out ${character.name}`}
                     onClick={() => buildOut(character.id)}
                   >
-                    <Hammer /> Build out
+                    <Hammer />{' '}
+                    <span className="hidden md:inline">Build out</span>
                   </Button>
                 )}
               </td>

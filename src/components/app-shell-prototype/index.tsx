@@ -1,6 +1,6 @@
 'use client';
 // PROTOTYPE — harness for the app-shell prototype: owns the URL state
-// (`?variant=A|B|C&page=&c=&ch=&from=&org=`), renders the chosen variant
+// (`?variant=A|B|C|D&page=&c=&ch=&from=&org=`), renders the chosen variant
 // shell around the page body, and surfaces the state in a dev badge.
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, type ReactNode } from 'react';
@@ -11,6 +11,7 @@ import { campaignOf, type Location, type Page, type ShellProps } from './types';
 import { VariantA } from './variant-a';
 import { VariantB } from './variant-b';
 import { VariantC } from './variant-c';
+import { VariantD } from './variant-d';
 
 const variants: {
   key: string;
@@ -20,6 +21,7 @@ const variants: {
   { key: 'A', name: 'Stacked bars', Shell: VariantA },
   { key: 'B', name: 'Campaign as a place', Shell: VariantB },
   { key: 'C', name: 'Militia rail', Shell: VariantC },
+  { key: 'D', name: 'Militia rail, phone alt', Shell: VariantD },
 ];
 
 const PAGES: Page[] = [
