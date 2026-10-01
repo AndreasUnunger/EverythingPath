@@ -46,7 +46,7 @@ catalogEntry: {
   detail: CatalogEntryDetail,          // discriminated on `kind`
   description?: string,                // sanitized rules text
   sources: Array<{ book: string; pages?: string }>, // feeds OGL Section 15
-  externalKey?: string,                // global scope: `<repo>/<pack>/<_id>`, the upsert key
+  externalKey?: string,                // global scope: `<repo>/<_id>`, the upsert key; the pack is an ordinary field
   retired?: boolean,                   // global scope: removed upstream; hidden from pickers, kept for sheets
   copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
   unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
@@ -281,6 +281,10 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - At deploy, the build imports only when the pin differs from the catalog's recorded version.
   - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, and what changed since the last pin.
 - **Updates.** An import upserts by `externalKey`, so sheets follow updates. An entry removed upstream is marked `retired` and never deleted.
+- **Keys.**
+  - Upstream keeps a record's `_id` through edits, renames and pack moves, while pack names change ([Check whether Foundry pf1 record IDs stay stable across releases](https://github.com/AndreasUnunger/EverythingPath/issues/211), `research/pf1-foundry-id-stability`). That is why the key leaves out the pack.
+  - The Curation Overlay holds a reviewed remap list for the cases that would otherwise break the key: records that move between the two repos, upstream merges, and the rare record re-created with a new `_id`.
+  - Upstream's own redirect tables are not trusted.
 - **Batches.** An import runs in idempotent, resumable batches, and the run is recorded. The catalog's recorded version flips only when the run completes. Militia Character Facts are recalculated once at the end, for Characters whose sheets use changed entries. The militia copy is written only when those facts differ, like any sheet edit, and no Ruleset Version changes.
 - **Legal page.** The import generates an in-app legal page, linked from every page's footer. It holds:
   - the OGL 1.0a text;
