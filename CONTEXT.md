@@ -74,6 +74,53 @@ The uncommitted militia action occupying an Action Slot, including its assigned 
 **Officer**:
 A character holding a militia officer role: a roster person with at least one role. An NPC is an Officer exactly while holding a role, independent of its NPC kind, which decides their team-manager limit; a stored character kind never makes one. Removing the last role changes that status, not the character's kind.
 
+**Character**:
+One person in a campaign, PC or NPC, whether they serve the militia, are fully built, or both. There is exactly one Character per person; the militia roster and the character builder refer to the same Character.
+_Avoid_: pfCharacter, ledger record (as a separate thing)
+
+**Character Sheet**:
+Everything a Character has (base ability scores, race, class levels, feats, gear, effects), from which their current statistics are derived. Every Character has one; a minimal sheet holds only base scores and level, and building it out is optional.
+_Avoid_: Character record (for the stats), stat block
+
+**Catalog Entry**:
+The definition of something a Character can have, such as an item, spell, feat, class, race, class feature, condition or a one-off adjustment. It holds the thing's rule facts and the Modifiers it grants, and is shared globally, across one campaign, or kept for one Character.
+_Avoid_: item definition, effect
+
+**Character Sheet Entry**:
+One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, or notes. Two potions of the same kind are two Character Sheet Entries.
+
+**Modifier**:
+A bonus or penalty that a Catalog Entry grants to one statistic. Its bonus type decides whether it stacks with others. Its value is a number or a formula over the Character's other statistics.
+
+**Source**:
+What a Modifier counts as coming from for stacking: its Catalog Entry, unless official text makes several entries one effect, as with every haste effect. Of the active entries with one Source, only the strongest applies.
+
+**Class Level**:
+One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
+
+**Unspecified Class Level**:
+A Class Level whose class has not been recorded. It lets a minimal Character Sheet carry a level before it is built out, and it contributes nothing but Hit Dice.
+
+**Temporary Effect**:
+A running spell lasting 1 day or less, a condition, a consumable or ability damage. Every other Character Sheet Entry is permanent, including a spell lasting longer than a day, and ability drain.
+
+**Ability Damage**:
+Points that lower an ability's modifier by 1 for every 2 points, leaving the ability score unchanged. Unlike ability drain, which lowers the score itself.
+
+**Militia-only Character**:
+A Character presented with only what the militia needs: name, level and ability scores, edited in place. Its Character Sheet keeps anything it already holds, and edits made in this presentation land on that sheet.
+
+**Full Character**:
+A Character presented and edited through its whole Character Sheet. Its level and ability scores are read-only outside the sheet. A campaign can have Full Characters with or without a militia.
+_Avoid_: built character, pfCharacter
+
+**Militia Character Facts**:
+The values the militia rules read from a Character: character level, racial Hit Dice, ability scores counting only permanent effects (ability drain included, spells, conditions, consumables and ability damage excluded), and whether the Character is active. Confirmed weeks keep their own frozen copy.
+_Avoid_: mirror stats, live stats
+
+**Hit Dice**:
+A Character's class levels plus racial Hit Dice, always computed and never recorded. A roster person's Hit Dice override, zero included, replaces it for the militia rules.
+
 ## Related documents
 
 - [Legacy compatibility inventory](docs/legacy-compatibility-inventory.md): code kept only for data shapes older than the current writers produce, and when each path can be removed.
