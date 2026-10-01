@@ -29,7 +29,6 @@ import {
   LevelField,
   MilitiaScoresGrid,
   NameField,
-  isBarelyStarted,
   useBuildOut,
   useMilitiaLevel,
 } from './page-bits';
@@ -121,7 +120,6 @@ function FullBody({
 
 /** The sheet: everything editable, breakdowns on tap. */
 export function SheetPage({ characterId }: { characterId: string }) {
-  const store = useBuilderStore();
   const character = useCharacter(characterId);
   const sheet = useResolved(characterId);
   const warnings = useWarnings(characterId);
@@ -148,28 +146,12 @@ export function SheetPage({ characterId }: { characterId: string }) {
       </main>
     );
 
-  // A barely started sheet keeps the build-it-out affordances and checklist.
-  const barely = isBarelyStarted(character);
-  const mode: SheetMode = barely ? 'buildout' : 'sheet';
-  const todos = barely
-    ? openTodos(character, mode, null, store.state.pointBuyBudget, warnings)
-    : [];
   return (
     <FullBody
       character={character}
       sheet={sheet}
       warnings={warnings}
-      mode={mode}
-      banner={
-        barely ? (
-          <TodoPanel
-            className="mb-3"
-            title="Finish the sheet"
-            todos={todos}
-            characterId={character.id}
-          />
-        ) : undefined
-      }
+      mode="sheet"
     />
   );
 }
