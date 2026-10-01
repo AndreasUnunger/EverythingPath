@@ -338,35 +338,38 @@ export function LeaveCampaignDialog({
 
 // --------------------------------------------------------- header block
 
+/** The name and its summary line: level, classes, owner. */
+export function CharacterTitle({ character }: { character: Character }) {
+  return (
+    <div className="min-w-0">
+      <h1 className="font-sans text-2xl leading-tight md:text-xl">
+        {character.name}
+      </h1>
+      <p className="text-muted-foreground text-sm">
+        {levelLine(character)} · {ownerLine(character)}
+      </p>
+    </div>
+  );
+}
+
 /**
- * The one header block of a Character page: name, status, level line,
- * owner, the membership strip with Leave / Add to campaign, and the
- * confirmation note under it. The shell's Back sits above.
+ * The membership strip with Leave / Add to campaign, and the confirmation
+ * note under it.
  */
-export function CharacterHeader({
+export function MembershipStrip({
   character,
-  actions,
+  className,
 }: {
   character: Character;
-  actions?: ReactNode;
+  className?: string;
 }) {
   const campaign = useCampaign(character.campaignId);
   const roster = useRosterPerson(character.id);
   const [adding, setAdding] = useState(false);
   const [leaving, setLeaving] = useState(false);
   return (
-    <div className="mb-3">
-      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
-        <div className="min-w-0">
-          <h1 className="font-sans text-2xl md:text-xl">{character.name}</h1>
-          <p className="text-muted-foreground text-sm">
-            {levelLine(character)} · {ownerLine(character)}
-          </p>
-        </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-      </div>
-
-      <div className="bg-sidebar/60 border-foreground/15 mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border px-3 py-2 text-sm">
+    <div className={className}>
+      <div className="bg-sidebar/60 border-foreground/15 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border px-3 py-2 text-sm">
         {campaign ? (
           <>
             <span>
@@ -436,6 +439,30 @@ export function CharacterHeader({
           onOpenChange={setLeaving}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * The header of a Character page without a living sheet (Militia-only):
+ * the title with its actions on the right, the membership strip below.
+ * The shell's Back sits above. Sheet pages put the title in the vitals
+ * row instead (`LivingSheet`'s `heading`).
+ */
+export function CharacterHeader({
+  character,
+  actions,
+}: {
+  character: Character;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+        <CharacterTitle character={character} />
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </div>
+      <MembershipStrip character={character} className="mt-3" />
     </div>
   );
 }

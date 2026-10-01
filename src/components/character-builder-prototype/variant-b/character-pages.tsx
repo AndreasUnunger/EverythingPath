@@ -26,7 +26,9 @@ import { TodoPanel, openTodos } from './checklist';
 import { LivingSheet } from './living-sheet';
 import {
   CharacterHeader,
+  CharacterTitle,
   LevelField,
+  MembershipStrip,
   MilitiaScoresGrid,
   NameField,
   useBuildOut,
@@ -79,7 +81,10 @@ function MilitiaOnlyBody({ character }: { character: Character }) {
 
 // --------------------------------------------------------------- pages
 
-/** A Full Character's page body: header, then the living sheet in a mode. */
+/**
+ * A Full Character's page body: the living sheet in a mode, with the name
+ * in its vitals row and the membership strip under it.
+ */
 function FullBody({
   character,
   sheet,
@@ -103,7 +108,6 @@ function FullBody({
 }) {
   return (
     <main className={characterMain}>
-      <CharacterHeader character={character} actions={actions} />
       <LivingSheet
         character={character}
         sheet={sheet}
@@ -112,6 +116,9 @@ function FullBody({
         focusLevelId={focusLevelId}
         baseline={baseline}
         dismissDeltas={dismissDeltas}
+        heading={<CharacterTitle character={character} />}
+        actions={actions}
+        below={<MembershipStrip character={character} className="mb-3" />}
         banner={banner}
       />
     </main>

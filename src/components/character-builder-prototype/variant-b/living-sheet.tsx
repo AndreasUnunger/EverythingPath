@@ -578,6 +578,9 @@ export function LivingSheet({
   focusLevelId = null,
   baseline = null,
   dismissDeltas = () => undefined,
+  heading,
+  actions,
+  below,
   banner,
 }: {
   character: Character;
@@ -587,6 +590,12 @@ export function LivingSheet({
   focusLevelId?: string | null;
   baseline?: ResolvedSheet | null;
   dismissDeltas?: () => void;
+  /** Left of the vitals row: the Character's name and summary line. */
+  heading?: ReactNode;
+  /** Page actions, at the end of the vitals row. */
+  actions?: ReactNode;
+  /** Under the vitals row: the membership strip. */
+  below?: ReactNode;
   /** Mode banner: the to-do checklist, the buildout note. */
   banner?: ReactNode;
 }) {
@@ -642,38 +651,48 @@ export function LivingSheet({
         setRanksLevelId,
       }}
     >
-      {/* The vitals strip: B's signature. Sticky under the shell's pinned
-          bar from tablet width; in the flow on phone. */}
+      {/* The vitals row: the name and summary on the left, the numbers
+          right-aligned. Sticky under the shell's pinned bar from tablet
+          width; in the flow on phone, where the name stacks above the
+          numbers. */}
       <div
-        className="bg-background/95 border-foreground/15 z-20 -mx-4 mb-3 flex flex-wrap items-end gap-x-3 gap-y-0.5 border-b px-4 py-1.5 backdrop-blur md:sticky md:-mx-6 md:px-6"
+        className="bg-background/95 border-foreground/15 z-20 -mx-4 mb-3 flex flex-col gap-y-1.5 border-b px-4 py-1.5 backdrop-blur md:sticky md:-mx-6 md:flex-row md:items-end md:justify-between md:gap-x-4 md:px-6"
         style={{ top: 'var(--shell-top)' }}
       >
-        {VITALS.map((v) => (
-          <Figure
-            key={v.path}
-            path={v.path}
-            sheet={sheet}
-            title={v.title}
-            short={v.short}
-            signed={v.signed}
-            size="sm"
-            className={v.phoneHidden ? 'hidden md:flex' : undefined}
-          />
-        ))}
-        {baseline && changedCount > 0 && (
-          <button
-            type="button"
-            onClick={dismissDeltas}
-            className={cn(
-              chip,
-              'mb-1 ml-auto border-sky-400/70 text-sky-300 hover:bg-sky-400/10',
-            )}
-            title="Hide the before → after markers"
-          >
-            {changedCount} changed · hide
-          </button>
-        )}
+        {heading && <div className="min-w-0 md:flex-1">{heading}</div>}
+        <div className="flex flex-wrap items-end justify-end gap-x-3 gap-y-0.5 md:shrink-0 md:flex-nowrap">
+          {VITALS.map((v) => (
+            <Figure
+              key={v.path}
+              path={v.path}
+              sheet={sheet}
+              title={v.title}
+              short={v.short}
+              signed={v.signed}
+              size="sm"
+              className={v.phoneHidden ? 'hidden md:flex' : undefined}
+            />
+          ))}
+          {baseline && changedCount > 0 && (
+            <button
+              type="button"
+              onClick={dismissDeltas}
+              className={cn(
+                chip,
+                'mb-1 border-sky-400/70 text-sky-300 hover:bg-sky-400/10',
+              )}
+              title="Hide the before → after markers"
+            >
+              {changedCount} changed · hide
+            </button>
+          )}
+          {actions && (
+            <div className="flex flex-wrap items-center gap-2">{actions}</div>
+          )}
+        </div>
       </div>
+
+      {below}
 
       {banner}
 
