@@ -89,32 +89,12 @@ export function FeatsBlock({
     const value = 'choice' in e.state ? (e.state.choice ?? '') : '';
     return (
       <li key={e.id} id={`b-entry-${e.id}`} className="py-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="min-w-0">
+        {/* Name left, picker and remove right; the name wraps if it must. */}
+        <div className="flex items-start gap-2">
+          <span className="min-w-0 flex-1 py-1 leading-tight">
             {catalog?.name ?? e.catalogKey}
-            {catalog?.summary && (
-              <span className="text-muted-foreground hidden text-xs lg:inline">
-                {' '}
-                · {catalog.summary}
-              </span>
-            )}
           </span>
-          {choice && (
-            <TextField
-              ariaLabel={`${catalog?.name} ${choice}`}
-              value={value}
-              placeholder={choice}
-              className="h-7 w-28 text-xs"
-              todo={!value}
-              onChange={(v) =>
-                store.updateEntry(character.id, e.id, { choice: v || null })
-              }
-            />
-          )}
-          {e.notes && (
-            <span className="text-muted-foreground text-xs">{e.notes}</span>
-          )}
-          <span className="ml-auto flex items-center gap-1">
+          <span className="flex shrink-0 items-center gap-1">
             {e.kind === 'feat' && (
               <PickField
                 ariaLabel="Level gained"
@@ -135,6 +115,28 @@ export function FeatsBlock({
             />
           </span>
         </div>
+        {catalog?.summary && (
+          <p className="text-muted-foreground text-xs">{catalog.summary}</p>
+        )}
+        {(!!choice || !!e.notes) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {choice && (
+              <TextField
+                ariaLabel={`${catalog?.name} ${choice}`}
+                value={value}
+                placeholder={choice}
+                className="h-7 w-28 text-xs"
+                todo={!value}
+                onChange={(v) =>
+                  store.updateEntry(character.id, e.id, { choice: v || null })
+                }
+              />
+            )}
+            {e.notes && (
+              <span className="text-muted-foreground text-xs">{e.notes}</span>
+            )}
+          </div>
+        )}
         <FieldWarnings
           warnings={warnings}
           where={`entry:${e.id}`}
