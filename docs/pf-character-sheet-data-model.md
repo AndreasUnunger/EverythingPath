@@ -269,8 +269,8 @@ Decided in [Decide how Characters exist outside a campaign, and the app's home](
 - **App shell:**
   - **Top-level areas.** Campaigns (filtered to the active organization) and Characters (every Character you own, across organizations, grouped "No campaign" first and then by campaign).
   - **Inside a campaign.** The top bar adds the campaign-level pages Home, Characters and Militia.
-  - **Inside Militia.** A second bar holds Week N · Finished weeks · Militia · Characters & officers, plus Setup until the militia is set up.
-  - **Sheets.** A sheet keeps the campaign's top bar when its Character is in one. Opening a Character in another organization's campaign switches the active organization.
+  - **Inside Militia.** A left rail holds Week N · Finished weeks · Militia · Characters & officers, plus Setup until the militia is set up. On phone, the bottom bar has fixed tabs (Campaign · Militia · Characters · More), and a strip under the top bar holds the current tab's pages. The approved layout is [Prototype the app shell with Campaigns and Characters areas](https://github.com/AndreasUnunger/EverythingPath/issues/213).
+  - **Sheets.** A sheet keeps the campaign's top bar when its Character is in one, and opens with only a back button to the page it came from. Opening a Character in another organization's campaign switches the active organization.
 - **Where Characters are created:**
   - the Characters area (no campaign, Full);
   - a campaign's Characters page (Full, and **Add from my characters**);
