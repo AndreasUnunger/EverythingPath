@@ -110,7 +110,7 @@ type SheetEntryState =
 - A new Character starts with one Unspecified Class Level. An Unspecified Class Level adds Hit Dice and nothing else.
 - The level within a class is the count of earlier Class Levels of that class. Every field of every Class Level can be edited at any time. That includes its class, its position (a level can move), and deleting it from the middle, in which case later positions close up.
 - The ability increase and favored class bonus fields exist on every Class Level. An increase outside levels 4, 8, 12, 16 and 20, or a favored class bonus on a level of a class that isn't favored, shows a warning.
-- `hpGained` holds the recorded number. How the builder pre-fills it (max at 1st level, a roll, or the average) belongs to [Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208).
+- `hpGained` holds the recorded number. The builder takes it as a plain number and never pre-fills it: there is no roll, average or maximum button ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)).
 - **Hit Dice** = Class Levels + racial Hit Dice. They are computed and never recorded. The militia's roster Hit Dice override stays as the militia's own ruling.
 
 ## Modifiers
@@ -237,7 +237,7 @@ This narrows "running spells" in [Decide what the militia reads from a Character
 `sheetMode` controls only how a Character is presented. The sheet behind it is the same in both modes, and building out keeps every entry.
 
 - Only a Character in a campaign with a militia can be Militia-only. A Character in no campaign is always Full.
-- Characters & officers shows the mode as a status. A Militia-only Character has a **Build out** button, which makes it Full. There is no way back to Militia-only.
+- The mode is never shown as a label, on Characters & officers or on the sheet. A Militia-only Character has a **Build out** button, which makes it Full and opens its sheet. There is no way back to Militia-only.
 
 - **Militia-only Character:**
   - Characters & officers shows its name, level and permanent ability totals, and edits them in place.
