@@ -26,7 +26,8 @@
     "typecheck": "tsc --noEmit && tsc -p convex/tsconfig.json --noEmit",
     "rules:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-rules-coverage.ts",
     "rules:complete": "pnpm -s rules:check --strict",
-    "acceptance:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-acceptance.ts"
+    "acceptance:check": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-acceptance.ts",
+    "prototype": "echo \"PROTOTYPE: open http://localhost:3025/prototype/character-builder?variant=A\" && next dev --turbopack -p 3025"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",
