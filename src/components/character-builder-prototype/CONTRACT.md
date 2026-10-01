@@ -1,118 +1,149 @@
-# Character builder prototype — contract (#208)
+# Character builder prototype — contract (#208, round 2)
 
 Throwaway prototype of the Pathfinder 1e character builder at
-`/prototype/character-builder` (no login). Three variants share one in-memory
-foundation; each variant owns only its own files. Run `pnpm prototype` (port
-3025). Primary target is tablet landscape (1180×820). Desktop and phone must
-remain usable.
+`/prototype/character-builder` (no login). Run `pnpm prototype` (port
+3025). Primary target is tablet landscape (1180×820). Desktop (1440×900)
+and phone (390×844) must remain usable.
 
-Domain terms come from `CONTEXT.md`. The model is
+Round 1 (commits 2bbc177 and 7ed8e3a) had three variants. The review chose
+**B ("One living sheet")** as the starting point, not locked in. Round 2
+keeps only B and rebuilds it inside the approved app shell, **variant C** of
+[#213](https://github.com/AndreasUnunger/EverythingPath/issues/213) (tag
+`prototype-approved/app-shell`), with the decisions of #212, #213 and ADR
+0002:
+
+- Characters are owned by a user and can be in **no campaign**; a Character
+  is in at most one campaign and can move (**Add to campaign**, **Leave
+  campaign**, **Add from my characters**).
+- The presentation is a **status**, not a picker. Militia-only has a one-way
+  **Build out** button on Characters & officers and on the sheet body.
+- **Hit points per Class Level are a plain number** the player types. No
+  roll, average or max buttons, no pre-fill policy; new levels start empty.
+- Create from the Characters area (no campaign), a campaign's Characters
+  page (in it), and Characters & officers (Militia-only, on the roster).
+
+Domain terms come from `CONTEXT.md`; the model is
 `docs/pf-character-sheet-data-model.md`. Rules checks are advisory and never
-block: every field stays editable at any time, including out-of-rules values.
+block: every field stays editable at any time, including class, order and
+deletion of Class Levels.
 
 ## Files
 
 All files are in `src/components/character-builder-prototype/`.
 
-| File | Owner | What |
-|---|---|---|
-| `variant-a.tsx`, `variant-b.tsx`, `variant-c.tsx` | **variant agents** | Replace the stub. Each file may add its own `variant-a/…` folder. |
-| `index.tsx` | foundation | Reads `?variant`, renders provider + frame + variant + switcher + yellow state panel. |
-| `frame.tsx` | foundation | Fake app shell: top bar with campaign switcher and section links, phone bottom bar. |
-| `store.tsx` | foundation | Context + `useReducer` store, actions, selectors. |
-| `nav.ts` | foundation | `useProtoNav()`: URL navigation. |
-| `resolve.ts` | foundation | Pure resolver: `resolveSheet`, `militiaCharacterFacts`, `evaluateFormula`. |
-| `warnings.ts` | foundation | `advisoryWarnings`. |
-| `hp.ts` | foundation | `hpPrefill`, `rollHitDie`, `HP_POLICIES`. |
-| `sheet.ts` | foundation | Pure read helpers (re-exported from `store.tsx`). |
-| `catalog.ts` | foundation | Global catalog, skills, labels. |
-| `mock-characters.ts` | foundation | Seed campaigns and characters. |
-| `types.ts` | foundation | All types. |
-| `ui-helpers.ts` | foundation | `formatBonus`, bonus-type colours, and similar helpers. |
+| File                                                                                                     | Owner        | What                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant-b.tsx`, `variant-b/…`                                                                           | presentation | Variant B's pages inside the shell.                                                                                                                     |
+| `index.tsx`                                                                                              | foundation   | Provider, shell, page dispatch, switcher, yellow state panel.                                                                                           |
+| `shell/shell.tsx`, `shell/phone.tsx`, `shell/parts.tsx`, `shell/model.ts`                                | foundation   | Shell C copied from the approved app-shell prototype and wired to this store and URL. Exports `AppShell`, `StatusBadge`, `NavLink`, `PAGE_LABEL`, tabs. |
+| `shell/placeholders.tsx`                                                                                 | foundation   | Campaigns, Campaign home, Week, Finished weeks, Militia and Setup bodies, copied from the shell prototype.                                              |
+| `nav.ts`                                                                                                 | foundation   | `useProtoNav()`: URL state and navigation.                                                                                                              |
+| `flows.ts`                                                                                               | foundation   | `useCreateFlow`, `useLevelUpFlow`, `useBuildoutFlow`.                                                                                                   |
+| `store.tsx`                                                                                              | foundation   | Context + `useReducer` store, actions, selectors.                                                                                                       |
+| `resolve.ts`, `warnings.ts`, `sheet.ts`, `catalog.ts`, `mock-characters.ts`, `types.ts`, `ui-helpers.ts` | foundation   | Resolver, advisory warnings, read helpers, catalog, seed data, types.                                                                                   |
 
-Variants must not edit the foundation files. If you need something, ask for
-it or derive it locally.
+## Shell
 
-## Variant module shape
-
-```ts
-export const name: string;                       // index uses fixed names: A "Guided steps", B "One living sheet", C "Level timeline + live sheet"
-export function VariantA(props: VariantProps): ReactNode;   // VariantB / VariantC
-export const frameNav: FrameNavFn | undefined;   // optional: change the frame's section links
-type VariantProps = { page: ProtoPage; campaignId: string; characterId: string | null };
-```
-
-`frameNav({ campaign, page }) => { sections: FrameSection[]; activeKey }`.
-Start from `defaultSections(campaign)`, which gives Week N, Finished weeks,
-Militia, and Characters & officers (→ `list`). A `FrameSection` is
-`{ key, label, short, icon: LucideIcon, to?: { page, character? } }`, and a
-section without `to` is inert. Use this for questions like "does a
-Characters section appear without a militia?". The frame renders only the
-shell. Your component renders the page itself, starting with its own
-`<main className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">`, the
-real pages' wrapper.
+`AppShell` (shell C) renders the pinned top bar (place picker over
+Campaigns, Characters and the organization's campaigns; the place's pages as
+section links), the militia's left rail on militia pages (icons only below
+1280px), and on phone the fixed bottom tabs Campaign · Militia · Characters ·
+More with the current tab's pages in a strip under the top bar. On a
+Character page it renders only a Back button to `nav.back` above the page;
+there is no sub-header bar. The page body shows the Character's name,
+status and the **Add to campaign**, **Leave campaign** and **Build out**
+actions, once. The path is never shown. The top bar's height is
+`--shell-top` on the shell root, so a page's own sticky element sits at
+`top: var(--shell-top)`. Militia pages scroll inside their own column from
+768px (sticky there is relative to that column).
 
 ## Pages and URL params
 
-| `?page=` | Must show | Default `&character=` |
-|---|---|---|
-| `list` | The campaign's characters home. Militia-only rows are edited in place (name, level, the six scores). Full Character rows are read-only and link to the sheet. Switching `sheetMode`. With `&campaign=oneshot` (no militia), where Full Characters live. | — |
-| `create` | A new Character from nothing. Use `createCharacter`, then edit it. | — (put the new id in `&character=`) |
-| `buildout` | Turn militia-only Sergeant Hessa into a Full Character by giving her five Unspecified Class Levels classes, hp, ranks and so on. | `hessa` |
-| `sheet` | Kesh's sheet: derived statistics, breakdowns (applied and suppressed), toggling effects. | `kesh` |
-| `levelup` | Level Kesh from 7 to 8. | `kesh` |
+`?variant=B&page=<page>&campaign=<id>&character=<id>&from=<page>`, plus
+page-local params. Every state worth a screenshot is reachable by URL.
 
-Other params: `&variant=A|B|C`, `&campaign=ironfang|oneshot` (default
-`ironfang`), and any page-local params you add (`&step=2`, `&tab=skills`).
-Every state worth a screenshot must be reachable by URL.
+| `?page=`                              | Shows                                                                                                                                                                                                                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `campaigns`                           | The homepage: pick a campaign (placeholder).                                                                                                                                                                                                                  |
+| `characters`                          | The Characters area: every Character I own, "No campaign" first, then by campaign. **New character** → `create` with no campaign.                                                                                                                             |
+| `campaign-home`                       | A campaign's home (placeholder). `&campaign=` (default `ironfang`).                                                                                                                                                                                           |
+| `campaign-characters`                 | A campaign's Characters, everyone's, with or without a militia (`&campaign=oneshot`). **New character** → `create&campaign=<id>`; **Add from my characters** moves one in.                                                                                    |
+| `week`, `history`, `militia`, `setup` | Militia placeholders.                                                                                                                                                                                                                                         |
+| `officers`                            | Characters & officers. Status per row; Militia-only rows edit name, level and the six scores in place and have **Build out**; Full rows are read-only and link to the sheet. **New character** makes a Militia-only Character on the roster, edited in place. |
+| `sheet`                               | A Character's sheet (default `kesh`). Militia-only Characters (`hessa`) show the Militia-only body with **Build out**. Reachable with no militia (`brannoc`) and no campaign (`ilsa`, `tobin`).                                                               |
+| `levelup`                             | Level a Character up (default Kesh 7 → 8; `&as=<classKey>                                                                                                                                                                                                     | unspecified`, `&level=<id>` once added). |
+| `create`                              | A new Character from nothing (`&campaign=<id>` or none), then `&character=<id>`.                                                                                                                                                                              |
+| `buildout`                            | The sheet right after Build out (default `hessa`); opening it for a Militia-only Character builds it out.                                                                                                                                                     |
+
+`from` is where a Character page was opened from; Back goes there in the
+Character's current campaign (or its list, if it left or moved). It
+survives moving between Character pages.
 
 ```ts
 const nav = useProtoNav();
-nav.page; nav.variant; nav.campaignId; nav.characterId; nav.param('step');
-nav.go('sheet', { character: 'kesh', campaign?: 'oneshot', params?: { tab: 'skills' } }); // router.replace; page-local params reset on a page change
-nav.set({ step: '3' });            // patch params on the current page
-nav.href('sheet', { character })   // string for <a href>
+nav.page;
+nav.campaignId;
+nav.campaign;
+nav.characterId;
+nav.from;
+nav.back;
+nav.param('level');
+nav.go('sheet', { character: 'kesh', from: 'officers' }); // Character pages
+nav.go('campaign-characters', { campaign: 'oneshot' }); // campaign pages
+nav.go('create', { campaign: 'oneshot', from: 'campaign-characters' });
+nav.set({ level: id }); // patch page-local params
+nav.goBack(); // Back on a Character page
+nav.href(page, opts); // string for <a href>
 ```
 
-The store lives above the variant, so switching variants keeps edits.
-Reloading the page resets them, and the yellow panel has "reset all
-characters".
+The store lives above the shell, so navigating keeps edits. Reloading
+resets them, and the yellow panel has "reset all characters" plus shortcuts
+to every notable state.
 
 ## Store (`store.tsx`)
 
-`useBuilderStore()` returns
-`{ state, catalog, selectedCampaignId, selectedCharacterId, ...actions }`.
-`state` is `{ campaigns, characters, hpPolicy, pointBuyBudget }`.
+`useBuilderStore()` returns `{ state, catalog, ...actions }`. `state` is
+`{ campaigns, characters, pointBuyBudget, notice }`.
 
 None of these actions blocks. Ids are returned where useful.
 
-| Action | Semantics |
-|---|---|
-| `createCharacter(p?: NewCharacter): id` | New Character with one Unspecified Class Level, base scores (default all 10), `sheetMode` default `'full'`. It can take `campaignId`, `name`, `kind`, `raceKey`, `startingLevel`, `onRoster`, `roles`. |
-| `setSheetMode(id, 'militiaOnly' \| 'full')` | Changes the presentation only. Every entry is kept. |
-| `setName(id, name)` / `updateCharacter(id, {name,kind,isActive,description})` | Character fields. `description` is labelled "Notes" in the UI. |
-| `setRace(id, raceKey \| null, {abilityChoice?, favoredClass?})` | Replaces the race. `abilityChoice` is the +2 for human and half-orc. Favored class lives on the race entry. |
-| `setBaseScore(id, ability, v)` / `setBaseScores(id, scores)` | Edits the character-scoped `base` Catalog Entry. |
-| `setMilitiaScore(id, ability, total)` | Militia-only in-place edit. It changes the base score by the difference, so the permanent total equals `total`. |
-| `setMilitiaLevel(id, level): string[]` | Raising appends Unspecified Class Levels. Lowering removes levels from the end, together with the entries they granted, and returns the labels of the real levels removed. Confirm first with `levelsRemovedBy(character, level)`. |
-| `addClassLevel(id, classKey \| null, choices?): levelId` | Appends a level, or inserts it at `choices.position`. Pre-fills `hpGained` from the hp policy unless you pass it (pass `hpGained: null` to leave it empty). Adds the class's fixed features for that level unless `autoFeatures: false`. Picks such as a rogue talent are never added automatically. |
-| `updateClassLevel(id, levelId, patch)` | Patches `classKey`, `hpGained`, `favoredClassBonus`, `abilityIncrease` or `skillRanks` (the whole map). Changing the class swaps the auto-added fixed features and pre-fills an empty `hpGained`. |
-| `moveClassLevel(id, levelId, toPosition)` | Moves a level. Positions renumber 1…n, and features stay attached. |
-| `removeClassLevel(id, levelId, {keepGained?})` | Deletes a level from anywhere. Entries gained at it are deleted too, unless `keepGained`. |
-| `addEntry(id, catalogKey, {gainedAtClassLevel?, active?, choice?, notes?, quantity?}): entryId` | Any catalog-backed entry: feat, trait, item, spell, condition, class feature. |
-| `removeEntry(id, entryId)` / `toggleEntryActive(id, entryId, active?)` | Neither touches the base entry. An inactive entry contributes nothing but stays listed. |
-| `updateEntry(id, entryId, {notes?, choice?, quantity?, gainedAtClassLevel?})` | `choice` is Skill Focus's skill key or Weapon Focus's weapon. |
-| `addOneOff(id, {name, modifiers, kind?, temporary?, notes?}): entryId` | Adds a character-scoped Catalog Entry and its sheet entry in one step (homebrew, manual adjustment). |
-| `addAbilityDamage(id, {ability, points, drain?}): entryId` | Damage lowers the modifier and is temporary. Drain lowers the score and is permanent. |
-| `setHpPolicy(policy)` / `setPointBuyBudget(n)` | Table settings. The yellow panel also exposes both. |
-| `setOnRoster(characterId, onRoster, roles?)` | Militia roster membership (no-op without a militia). |
-| `resetPrototype()` | Restores the seed state. |
+| Action                                                                                          | Semantics                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createCharacter(p?: NewCharacter): id`                                                         | New Character owned by me, with one Unspecified Class Level and base scores (default all 10). No `campaignId` = in no campaign. `sheetMode: 'militiaOnly'` sticks only in a campaign with a militia. It can take `campaignId`, `name`, `kind`, `sheetMode`, `raceKey`, `startingLevel`, `onRoster`, `roles`. |
+| `buildOut(id)`                                                                                  | One way: Militia-only becomes Full for good, every entry kept. Sets the notice. There is no way back.                                                                                                                                                                                                        |
+| `addToCampaign(id, campaignId)`                                                                 | Moves the Character into a campaign. One in another campaign leaves it first (see below). Never puts it on the militia roster. Sets the notice.                                                                                                                                                              |
+| `leaveCampaign(id)`                                                                             | Back to no campaign: off the roster and its roles, campaign homebrew detached into character-scoped copies (the sheet doesn't change), Militia-only becomes Full. Confirm first with `leaveConsequences(state, id)`. Only the owner may leave (`canLeave(character)`). Sets the notice.                      |
+| `dismissNotice()`                                                                               | Clears the confirmation note.                                                                                                                                                                                                                                                                                |
+| `setName(id, name)` / `updateCharacter(id, {name,kind,isActive,description})`                   | Character fields. `description` is labelled "Notes" in the UI.                                                                                                                                                                                                                                               |
+| `setRace(id, raceKey \| null, {abilityChoice?, favoredClass?})`                                 | Replaces the race. `abilityChoice` is the +2 for human and half-orc. Favored class lives on the race entry.                                                                                                                                                                                                  |
+| `setBaseScore(id, ability, v)` / `setBaseScores(id, scores)`                                    | Edits the character-scoped `base` Catalog Entry.                                                                                                                                                                                                                                                             |
+| `setMilitiaScore(id, ability, total)`                                                           | Militia-only in-place edit. It changes the base score by the difference, so the permanent total equals `total`.                                                                                                                                                                                              |
+| `setMilitiaLevel(id, level): string[]`                                                          | Raising appends Unspecified Class Levels. Lowering removes levels from the end, together with the entries they granted, and returns the labels of the real levels removed. Confirm first with `levelsRemovedBy(character, level)`.                                                                           |
+| `addClassLevel(id, classKey \| null, choices?): levelId`                                        | Appends a level, or inserts it at `choices.position`. `hpGained` starts `null` unless passed: the player types the number. Adds the class's fixed features for that level unless `autoFeatures: false`. Picks such as a rogue talent are never added automatically.                                          |
+| `updateClassLevel(id, levelId, patch)`                                                          | Patches `classKey`, `hpGained`, `favoredClassBonus`, `abilityIncrease` or `skillRanks` (the whole map). Changing the class swaps the auto-added fixed features. `hpGained` is never filled in for you.                                                                                                       |
+| `moveClassLevel(id, levelId, toPosition)`                                                       | Moves a level. Positions renumber 1…n, and features stay attached.                                                                                                                                                                                                                                           |
+| `removeClassLevel(id, levelId, {keepGained?})`                                                  | Deletes a level from anywhere. Entries gained at it are deleted too, unless `keepGained`.                                                                                                                                                                                                                    |
+| `addEntry(id, catalogKey, {gainedAtClassLevel?, active?, choice?, notes?, quantity?}): entryId` | Any catalog-backed entry: feat, trait, item, spell, condition, class feature.                                                                                                                                                                                                                                |
+| `removeEntry(id, entryId)` / `toggleEntryActive(id, entryId, active?)`                          | Neither touches the base entry. An inactive entry contributes nothing but stays listed.                                                                                                                                                                                                                      |
+| `updateEntry(id, entryId, {notes?, choice?, quantity?, gainedAtClassLevel?})`                   | `choice` is Skill Focus's skill key or Weapon Focus's weapon.                                                                                                                                                                                                                                                |
+| `addOneOff(id, {name, modifiers, kind?, temporary?, notes?}): entryId`                          | Adds a character-scoped Catalog Entry and its sheet entry in one step (homebrew, manual adjustment).                                                                                                                                                                                                         |
+| `addAbilityDamage(id, {ability, points, drain?}): entryId`                                      | Damage lowers the modifier and is temporary. Drain lowers the score and is permanent.                                                                                                                                                                                                                        |
+| `setPointBuyBudget(n)`                                                                          | Table setting, also in the yellow panel.                                                                                                                                                                                                                                                                     |
+| `setOnRoster(characterId, onRoster, roles?)`                                                    | Militia roster membership in the Character's campaign (no-op without a militia).                                                                                                                                                                                                                             |
+| `setRoles(characterId, roles)` / `setHitDiceOverride(characterId, n \| null)`                   | Roster person's officer roles and the militia's Hit Dice ruling.                                                                                                                                                                                                                                             |
+| `resetPrototype()`                                                                              | Restores the seed state.                                                                                                                                                                                                                                                                                     |
 
 Selectors and hooks:
 
 - `useCharacter(id)` returns a `Character`.
-- `useCampaign(id)` returns a `Campaign`.
-- `useCampaignCharacters(campaignId)` returns `{ character, roster: RosterPerson | null }[]`.
+- `useCampaign(id)` returns a `Campaign`. `useCampaigns()` returns the organization's campaigns.
+- `useCampaignCharacters(campaignId)` returns `{ character, roster: RosterPerson | null }[]`, everyone's.
+- `useMyCharacters()` returns the Characters area's groups: `{ key, campaign: Campaign | null, characters }[]`, "No campaign" (`campaign: null`) first, then one per campaign (possibly empty).
+- `useRosterPerson(id)` returns the Character's `RosterPerson` in its campaign, or null.
+- `useNotice(id)` returns the `Notice` (`{ characterId, kind: 'left'|'added'|'moved'|'builtOut', title, lines }`) when the last membership change was this Character's.
+- `leaveConsequences(state, id)` returns `{ campaign, roster, detached: string[], becomesFull } | null`, for the Leave confirmation.
+- `canLeave(character)` (owner and in a campaign) and `isMilitiaOnly(character)`.
+- `ME`, `USERS`, `userName(id)`, `ORGS` (one organization).
 - `useResolved(id)` returns `ResolvedSheet | null` (all active entries).
 - `useWarnings(id)` returns `Warning[]`.
 
@@ -125,25 +156,28 @@ Pure helpers, re-exported from `store.tsx`:
 - `featuresGainedAt(character, levelId)` returns `{ features, generalFeat, abilityIncreaseDue, gainedHere }`. Each feature is `{kind:'fixed', grant, catalog, entry?}` or `{kind:'choice', grant:{label,choose}, options: CatalogEntry[], picked: SheetEntry[]}`.
 - `pointBuyCost(scores)` returns `{ total, outOfRange }`.
 - `levelsRemovedBy(character, level)` returns `string[]`.
+- `levelLine(character)` returns "Level 7 · Barbarian 4 / Rogue 3", or "Level 5" when no level has a class.
 - `baseScores(character)`, `favoredClass(character)` and `raceCatalog(character)` read the sheet.
 - `entryName(character, entry)` and `isTemporary(character, entry)` describe one entry.
-- `lookupCatalog(character, key)` checks the character's own scope first, then the global catalog.
+- `lookupCatalog(character, key)` checks the character's own scope first, then the global catalog, then campaign homebrew.
 
 Other modules:
 
-- `catalog.ts`: `CATALOG`, `CATALOG_BY_KEY`, `CLASSES`, `RACES`, `SKILLS`, `SKILL_BY_KEY`, `ABILITY_LABEL`, `ABILITY_SHORT`, `catalogOfKind(kind)`, `catalogForGroup('ragePower'|'rogueTalent'|'combatFeat')`, `classDetail(classKey)` and `POINT_BUY_COST`.
-- `hp.ts`: `HP_POLICIES` (`{key,label,description,crb}`), `hpPrefill({position, hitDie, policy})`, which returns `{ value: number|null, roll: boolean, reason }`, and `rollHitDie(hitDie)`.
+- `catalog.ts`: `CAMPAIGN_CATALOG` and `campaignCatalog(campaignId)` (campaign homebrew), `CATALOG`, `CATALOG_BY_KEY`, `CLASSES`, `RACES`, `SKILLS`, `SKILL_BY_KEY`, `ABILITY_LABEL`, `ABILITY_SHORT`, `catalogOfKind(kind)`, `catalogForGroup('ragePower'|'rogueTalent'|'combatFeat')`, `classDetail(classKey)` and `POINT_BUY_COST`.
+- `flows.ts`: `useCreateFlow()`, `useLevelUpFlow(characterId)` and `useBuildoutFlow(characterId)`, the URL-driven steps behind those pages (see Pages).
 - `ui-helpers.ts`: `formatBonus(n)` ("+2"/"−1"), `BONUS_TYPE_LABEL`, `BONUS_TYPE_CLASS` (text colour per bonus type), `SEVERITY_CLASS`, `contributionText(c)`, `isBuffed(stat)` and `modOf(score)`.
 
 ## Data shapes (`types.ts`)
 
-`Character` is `{ id, campaignId, name, kind:'pc'|'npc', isActive, description, sheetMode, ownCatalog: CatalogEntry[], entries: SheetEntry[] }`.
+`Character` is `{ id, ownerId, campaignId?, name, kind:'pc'|'npc', isActive, description, sheetMode, ownCatalog: CatalogEntry[], entries: SheetEntry[] }`. No `campaignId` = in no campaign. `sheetMode` is the presentation, shown as a status, never a picker.
 
 Everything a Character has is a `SheetEntry`: `{ id, kind, catalogKey?, active, gainedAtClassLevel?, notes?, state }`. Its kind is one of `base`, `race`, `classLevel`, `classFeature`, `feat`, `trait`, `item`, `spell`, `condition`, `manual`, `abilityDamage` or `abilityDrain`.
 
 A Class Level's state is `{ kind:'classLevel', classKey: string|null, position, hpGained: number|null, favoredClassBonus: null|{choice:'hp'}|{choice:'skill'}|{choice:'alt',note}, abilityIncrease: AbilityKey|null, skillRanks: Partial<Record<SkillKey,number>> }`. A null `classKey` means an Unspecified Class Level.
 
-A `CatalogEntry` is `{ key, scope, name, sourceKey?, stacksWithItself, modifiers: {target, bonusType, value: number|{formula}}[], summary?, detail }`.
+A `Campaign` is `{ id, name, orgId, description, militia: { week, finishedWeeks, roster } | null }`.
+
+A `CatalogEntry` is `{ key, scope, campaignId?, copiedFrom?, name, sourceKey?, stacksWithItself, modifiers: {target, bonusType, value: number|{formula}}[], summary?, detail }`.
 
 `ResolvedSheet` holds:
 
@@ -166,49 +200,44 @@ A `Warning` is `{ id, severity:'warning'|'prompt'|'info', where, message, action
 
 ## Mock data
 
-Ironfang Invasion is at week 14 and has a militia. Its roster has four people:
+One organization, Phaendar table. The signed-in user is Andreas (`ME`).
 
-| id | Who | Mode | Roster |
-|---|---|---|---|
-| `kesh` | Human Barbarian 4 / Rogue 3, levels B1 B2 R1 R2 B3 R3 B4. 20-point buy, +2 Str, increase at 4 (Str), favored class Barbarian (hp, hp, skill, hp). | full | Marshal |
-| `ama` | Elf Wizard 5, headband, ring, inactive *mage armor* and *haste*. Her Wizard 5 bonus feat is unpicked, which gives a prompt. | full | Spymaster |
-| `hessa` | Sergeant Hessa, NPC, five Unspecified levels, base scores only. | militiaOnly | Commandant |
-| `ardo` | Brother Ardo, PC, three Unspecified levels, base scores only. | militiaOnly | Ambassador |
-| `moss` | Old Moss, NPC, level 2. | militiaOnly | not on roster |
+Ironfang Invasion is at week 14 (13 finished) and has a militia. Its roster has four people:
 
-One-shot: Hollow Mountain has no militia. Its one Character is `brannoc`, a dwarf Fighter 3 in full mode.
+| id      | Who                                                                                                                                               | Owner   | Mode        | Roster        |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- | ------------- |
+| `kesh`  | Human Barbarian 4 / Rogue 3, levels B1 B2 R1 R2 B3 R3 B4. 20-point buy, +2 Str, increase at 4 (Str), favored class Barbarian (hp, hp, skill, hp). | Andreas | full        | Marshal       |
+| `ama`   | Elf Wizard 5, headband, ring, inactive _mage armor_ and _haste_. Her Wizard 5 bonus feat is unpicked, which gives a prompt.                       | Mira    | full        | Spymaster     |
+| `hessa` | Sergeant Hessa, NPC, five Unspecified levels, base scores only.                                                                                   | Jonas   | militiaOnly | Commandant    |
+| `ardo`  | Brother Ardo, PC, three Unspecified levels, base scores, and the Ironfang homebrew _Phaendar council seal_.                                       | Andreas | militiaOnly | Ambassador    |
+| `moss`  | Old Moss, NPC, level 2.                                                                                                                           | Jonas   | militiaOnly | not on roster |
+
+One-shot: Hollow Mountain has no militia. Its one Character is `brannoc`, a dwarf Fighter 3 (Andreas, full).
+
+No campaign: `ilsa` (Ilsa Varn, human Cleric 2, built) and `tobin` (Brother Tobin, base scores and one Unspecified level), both Andreas's.
 
 Kesh resolves to:
 
-| Statistic | Value |
-|---|---|
-| Str | 21 (16 base, +2 human, +1 increase, +2 belt) |
-| BAB | +6 (4 + 2) |
-| Fort / Ref / Will | 9 / 7 / 3 |
-| AC / touch / flat-footed | 18 / 13 / 15 |
-| CMB / CMD / flat-footed CMD | 11 / 24 / 22 |
-| Initiative | +4 |
-| HP | 78 (54 rolled, 3 favored class bonus, 14 Con, 7 Toughness) |
+| Statistic                   | Value                                                        |
+| --------------------------- | ------------------------------------------------------------ |
+| Str                         | 21 (16 base, +2 human, +1 increase, +2 belt)                 |
+| BAB                         | +6 (4 + 2)                                                   |
+| Fort / Ref / Will           | 9 / 7 / 3                                                    |
+| AC / touch / flat-footed    | 18 / 13 / 15                                                 |
+| CMB / CMD / flat-footed CMD | 11 / 24 / 22                                                 |
+| Initiative                  | +4                                                           |
+| HP                          | 78 (54 recorded, 3 favored class bonus, 14 Con, 7 Toughness) |
 
 He has no warnings.
 
 ## Showcase scenarios
 
-1. **Suppression.** Toggle `kesh-bulls` (*bull's strength*, +4 enhancement). Str goes to 23, and the belt's +2 enhancement is listed as suppressed by Bull's strength. Militia facts keep Str 21, because spells of a day or less are temporary. Also toggle `kesh-raging` for Str 27, Con 18, Will +5, AC 16 (the −2 also reaches CMD) and HP 92. `kesh-potion` is the consumable version of the same effect. To show same-Source stacking, add *haste* (`spell.haste`) and *boots of speed* (`item.bootsOfSpeed`), which share `sourceKey: 'haste'`.
-2. **Level-up 7→8.** Run `addClassLevel('kesh', 'class.rogue')`. Rogue 4 is at character level 8, and Uncanny Dodge is added automatically. The warnings then show:
-   - hp not recorded (the CRB policy says roll 1d8);
-   - an ability increase prompt (level 8);
-   - 9 skill ranks to spend (8 + 0 Int + 1 human);
-   - a rogue talent prompt (pick from `catalogForGroup('rogueTalent')`);
-   - **"Uncanny Dodge from two classes… Add Improved Uncanny Dodge?"**, with an `addEntry` action for `cf.improvedUncannyDodge`.
-3. **Militia-only in-place edit.** `setMilitiaScore('ardo', 'wis', 18)` changes his base score by +2. `setMilitiaLevel('ardo', 5)` appends Unspecified levels. Lowering Kesh's level names the real levels first (`levelsRemovedBy`).
-4. **Buildout.** Run `setSheetMode('hessa', 'full')`. Each Unspecified level shows an info warning. `updateClassLevel('hessa', 'hessa-l1', { classKey: 'class.fighter' })` pre-fills 10 hp (max at 1st) and adds fixed features. Later levels pre-fill per the hp policy. Point buy (18 of 20) and the missing race show as advisory warnings.
-5. **HP prefill policies.** There are three:
-   - `'maxFirst+roll'` (Core Rulebook, the default): max at 1st, then `value: null, roll: true`.
-   - `'maxFirst+average'` (table rule): half the die + 1.
-   - `'max'` (table rule).
-
-   Present the choice and the "not Core Rulebook" flag as you see fit, and always let the player type their own number.
+1. **Suppression.** Toggle `kesh-bulls` (_bull's strength_, +4 enhancement). Str goes to 23, and the belt's +2 enhancement is listed as suppressed by Bull's strength. Militia facts keep Str 21, because spells of a day or less are temporary. `kesh-raging` gives Str 27, Con 18, Will +5, AC 16 and HP 92. _Haste_ and _boots of speed_ share `sourceKey: 'haste'`.
+2. **Level-up 7→8.** `addClassLevel('kesh', 'class.rogue')`: Rogue 4 at character level 8, Uncanny Dodge added automatically, and the warnings show hp not recorded, an ability increase prompt, 9 skill ranks to spend, a rogue talent prompt, and **"Uncanny Dodge from two classes… Add Improved Uncanny Dodge?"** with an `addEntry` action for `cf.improvedUncannyDodge`.
+3. **Militia-only in-place edit.** `setMilitiaScore('ardo', 'wis', 18)` changes his base score by +2. `setMilitiaLevel('ardo', 5)` appends Unspecified levels. Lowering a level that has real Class Levels names them first (`levelsRemovedBy`).
+4. **Build out.** `buildOut('hessa')`: each Unspecified level shows an info warning; choosing a class adds its fixed features and leaves hit points empty for the player to type. Point buy (18 of 20) and the missing race are advisory.
+5. **Leave campaign.** `leaveCampaign('ardo')`: off the roster (no longer Ambassador), the council seal becomes his own copy (Diplomacy unchanged), and he becomes Full. Ama's owner is Mira, so `canLeave(ama)` is false.
+6. **Add to campaign.** `addToCampaign('tobin', 'oneshot')` moves Tobin in; adding to Ironfang doesn't put him on the roster.
 
 ## Rules shortcuts (prototype fidelity)
 

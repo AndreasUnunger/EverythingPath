@@ -10,10 +10,10 @@ import {
   useReducer,
   type ReactNode,
 } from 'react';
-import { CATALOG, CATALOG_BY_KEY, classDetail } from './catalog';
-import { hpPrefill } from './hp';
+import { CAMPAIGN_CATALOG_BY_KEY, CATALOG, CATALOG_BY_KEY } from './catalog';
 import {
-  IRONFANG,
+  ME,
+  ORGS,
   SEED_CAMPAIGNS,
   SEED_CHARACTERS,
   baseCatalogEntry,
@@ -38,25 +38,36 @@ import {
   type CatalogEntry,
   type Character,
   type ClassLevelState,
-  type HpPolicy,
   type Modifier,
   type OfficerRole,
   type SheetEntry,
 } from './types';
 import { advisoryWarnings, type Warning } from './warnings';
 
+/**
+ * What just happened to one Character's membership or presentation
+ * (left a campaign, joined one, built out), for a confirmation note in the
+ * page body. One at a time; the next membership change replaces it.
+ */
+export type Notice = {
+  characterId: string;
+  kind: 'left' | 'added' | 'moved' | 'builtOut';
+  title: string;
+  lines: string[];
+};
+
 export type BuilderState = {
   campaigns: Campaign[];
   characters: Character[];
-  hpPolicy: HpPolicy;
   pointBuyBudget: number;
+  notice: Notice | null;
 };
 
 const initialState = (): BuilderState => ({
   campaigns: structuredClone(SEED_CAMPAIGNS),
   characters: structuredClone(SEED_CHARACTERS),
-  hpPolicy: 'maxFirst+roll',
   pointBuyBudget: 20,
+  notice: null,
 });
 
 type Action =
@@ -206,6 +217,110 @@ function removeLevels(
   return renumber({ ...c, entries });
 }
 
+/**
+ * What leaving its campaign would do to a Character, without doing it:
+ * the roster place it loses, the campaign homebrew detached into its own
+ * copies, and whether it stops being Militia-only.
+ */
+export function leaveConsequences(state: BuilderState, characterId: string) {
+  const character = state.characters.find((c) => c.id === characterId);
+  const campaign = state.campaigns.find(
+    (cp) => cp.id === character?.campaignId,
+  );
+  if (!character || !campaign) return null;
+  const roster =
+    campaign.militia?.roster.find((p) => p.characterId === characterId) ?? null;
+  const detached = character.entries.flatMap((e) => {
+    if (!e.catalogKey) return [];
+    if (character.ownCatalog.some((own) => own.key === e.catalogKey)) return [];
+    const homebrew = CAMPAIGN_CATALOG_BY_KEY[e.catalogKey];
+    return homebrew ? [homebrew.name] : [];
+  });
+  return {
+    campaign,
+    roster,
+    detached,
+    becomesFull: character.sheetMode === 'militiaOnly',
+  };
+}
+
+export type LeaveConsequences = NonNullable<
+  ReturnType<typeof leaveConsequences>
+>;
+
+/** The note lines describing a leave, in plain product language. */
+function leaveLines(cons: LeaveConsequences): string[] {
+  const lines: string[] = [];
+  if (cons.roster)
+    lines.push(
+      `Taken off the ${cons.campaign.name} militia roster${
+        cons.roster.roles.length
+          ? `; no longer ${cons.roster.roles.join(' and ')}`
+          : ''
+      }. Finished weeks keep it as it was.`,
+    );
+  for (const name of cons.detached)
+    lines.push(
+      `${name} was ${cons.campaign.name} homebrew; the sheet now keeps its own copy, so nothing on it changes.`,
+    );
+  if (cons.becomesFull)
+    lines.push(
+      'It is now a Full Character: Militia-only needs a campaign with a militia.',
+    );
+  return lines;
+}
+
+/** Takes a Character out of its campaign (roster, homebrew, presentation). Pure. */
+function applyLeave(s: BuilderState, characterId: string): BuilderState {
+  const cons = leaveConsequences(s, characterId);
+  if (!cons) return s;
+  return {
+    ...s,
+    campaigns: s.campaigns.map((cp) =>
+      cp.id === cons.campaign.id && cp.militia
+        ? {
+            ...cp,
+            militia: {
+              ...cp.militia,
+              roster: cp.militia.roster.filter(
+                (p) => p.characterId !== characterId,
+              ),
+            },
+          }
+        : cp,
+    ),
+    characters: s.characters.map((c) => {
+      if (c.id !== characterId) return c;
+      const copies: CatalogEntry[] = [];
+      const entries = c.entries.map((e) => {
+        const homebrew =
+          e.catalogKey && !c.ownCatalog.some((own) => own.key === e.catalogKey)
+            ? CAMPAIGN_CATALOG_BY_KEY[e.catalogKey]
+            : undefined;
+        if (!homebrew) return e;
+        const key = `copy.${c.id}.${homebrew.key}`;
+        if (!copies.some((x) => x.key === key))
+          copies.push({
+            ...structuredClone(homebrew),
+            key,
+            scope: 'character',
+            characterId: c.id,
+            campaignId: undefined,
+            copiedFrom: homebrew.key,
+          });
+        return { ...e, catalogKey: key };
+      });
+      return {
+        ...c,
+        campaignId: undefined,
+        sheetMode: 'full',
+        ownCatalog: [...c.ownCatalog, ...copies],
+        entries,
+      };
+    }),
+  };
+}
+
 // ------------------------------------------------------------------ types
 
 export type ClassLevelChoices = Partial<
@@ -226,9 +341,11 @@ export type AddEntryOptions = {
 };
 
 export type NewCharacter = {
+  /** Absent = in no campaign (the Characters area). */
   campaignId?: string;
   name?: string;
   kind?: 'pc' | 'npc';
+  /** Militia-only is kept only in a campaign with a militia; otherwise Full. */
   sheetMode?: 'militiaOnly' | 'full';
   description?: string;
   baseScores?: Partial<Record<AbilityKey, number>>;
@@ -248,26 +365,19 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
   const edit = (id: string, fn: (c: Character) => Character) =>
     apply((s) => mapCharacter(s, id, fn));
   const current = (id: string) => state.characters.find((c) => c.id === id);
-  const prefill = (
-    s: BuilderState,
-    c: Character,
-    levelId: string,
-  ): number | null => {
-    const level = classLevels(c).find((l) => l.id === levelId);
-    if (!level) return null;
-    return hpPrefill({
-      position: level.state.position,
-      hitDie: classDetail(level.state.classKey)?.hitDie ?? null,
-      policy: s.hpPolicy,
-    }).value;
-  };
 
   return {
-    /** New Character with one Unspecified Class Level and base scores (default all 10). Returns its id. */
+    /**
+     * New Character owned by me, with one Unspecified Class Level and base
+     * scores (default all 10). No `campaignId` = in no campaign. Returns its id.
+     */
     createCharacter: (partial: NewCharacter = {}): string => {
       const id = newId('char');
       apply((s) => {
-        const campaignId = partial.campaignId ?? IRONFANG;
+        const campaignId = partial.campaignId;
+        const hasMilitia = Boolean(
+          s.campaigns.find((cp) => cp.id === campaignId)?.militia,
+        );
         const scores = {
           str: 10,
           dex: 10,
@@ -284,12 +394,16 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
         const raceEntry = race && catalogEntryToSheet(race, `${id}-race`);
         const character: Character = {
           id,
+          ownerId: ME,
           campaignId,
           name: partial.name ?? 'New character',
           kind: partial.kind ?? 'pc',
           isActive: true,
           description: partial.description ?? '',
-          sheetMode: partial.sheetMode ?? 'full',
+          sheetMode:
+            partial.sheetMode === 'militiaOnly' && hasMilitia
+              ? 'militiaOnly'
+              : 'full',
           ownCatalog: [baseCatalogEntry(id, scores)],
           entries: [
             baseSheetEntry(id),
@@ -327,9 +441,94 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
       return id;
     },
 
-    /** Presentation only: switching keeps every entry. */
-    setSheetMode: (id: string, mode: Character['sheetMode']) => {
-      edit(id, (c) => ({ ...c, sheetMode: mode }));
+    /**
+     * One way: a Militia-only Character becomes Full for good. Every entry is
+     * kept; there is no way back. No-op for a Full Character.
+     */
+    buildOut: (id: string) => {
+      apply((s) => {
+        const c = s.characters.find((x) => x.id === id);
+        if (!c || c.sheetMode === 'full') return s;
+        return {
+          ...mapCharacter(s, id, (ch) => ({ ...ch, sheetMode: 'full' })),
+          notice: {
+            characterId: id,
+            kind: 'builtOut',
+            title: `${c.name} is now a Full Character`,
+            lines: [
+              'Its level and six scores are kept, and the militia reads the same numbers.',
+              'It is edited on its sheet from now on; Characters & officers shows level and scores read-only.',
+            ],
+          },
+        };
+      });
+    },
+
+    /**
+     * Moves a Character into a campaign. One that is in another campaign
+     * leaves it first (roster, homebrew, presentation). Joining never puts it
+     * on the militia roster. Sets the notice.
+     */
+    addToCampaign: (id: string, campaignId: string) => {
+      apply((s) => {
+        const c = s.characters.find((x) => x.id === id);
+        const target = s.campaigns.find((cp) => cp.id === campaignId);
+        if (!c || !target || c.campaignId === campaignId) return s;
+        const cons = leaveConsequences(s, id);
+        const left = applyLeave(s, id);
+        const lines = [
+          `Everyone in ${target.name} can see and edit ${c.name} now.`,
+          ...(target.militia
+            ? [
+                'Not on the militia roster yet: add it on Characters & officers.',
+              ]
+            : []),
+          ...(cons ? leaveLines(cons) : []),
+        ];
+        return {
+          ...mapCharacter(left, id, (ch) => ({ ...ch, campaignId })),
+          notice: {
+            characterId: id,
+            kind: cons ? 'moved' : 'added',
+            title: cons
+              ? `Moved from ${cons.campaign.name} to ${target.name}`
+              : `Added to ${target.name}`,
+            lines,
+          },
+        };
+      });
+    },
+
+    /**
+     * Takes a Character out of its campaign, back to no campaign: off the
+     * militia roster and its roles, campaign homebrew detached into its own
+     * copies, Militia-only becomes Full. Confirm first with
+     * `leaveConsequences(state, id)`. Sets the notice.
+     */
+    leaveCampaign: (id: string) => {
+      apply((s) => {
+        const c = s.characters.find((x) => x.id === id);
+        const cons = leaveConsequences(s, id);
+        if (!c || !cons) return s;
+        return {
+          ...applyLeave(s, id),
+          notice: {
+            characterId: id,
+            kind: 'left',
+            title: `${c.name} left ${cons.campaign.name}`,
+            lines: [
+              ...leaveLines(cons),
+              c.ownerId === ME
+                ? 'It is in no campaign now: only you can see and edit it.'
+                : 'It is in no campaign now: only its owner can see and edit it.',
+            ],
+          },
+        };
+      });
+    },
+
+    dismissNotice: () => {
+      apply((s) => ({ ...s, notice: null }));
     },
 
     setName: (id: string, name: string) => {
@@ -437,9 +636,9 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
 
     /**
      * Adds a Class Level (null class = Unspecified) at the end or at
-     * `choices.position`. Pre-fills `hpGained` from the hp policy unless
-     * given, and adds the class's fixed features for that level unless
-     * `autoFeatures: false`. Returns the new level's id.
+     * `choices.position`. `hpGained` starts empty (null) unless given: the
+     * player types the number. Adds the class's fixed features for that
+     * level unless `autoFeatures: false`. Returns the new level's id.
      */
     addClassLevel: (
       id: string,
@@ -457,18 +656,10 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
           const entry = classLevelEntry(levelId, position, classKey, choices);
           const order = levels.map((l) => l.id);
           order.splice(position - 1, 0, levelId);
-          let next = renumber({ ...c, entries: [...c.entries, entry] }, order);
-          if (choices.hpGained === undefined && classKey) {
-            const hp = prefill(s, next, levelId);
-            next = {
-              ...next,
-              entries: next.entries.map((e) =>
-                e.id === levelId && e.state.kind === 'classLevel'
-                  ? { ...e, state: { ...e.state, hpGained: hp } }
-                  : e,
-              ),
-            };
-          }
+          const next = renumber(
+            { ...c, entries: [...c.entries, entry] },
+            order,
+          );
           return choices.autoFeatures === false
             ? next
             : addFixedFeatures(next, levelId, levelId);
@@ -479,7 +670,8 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
 
     /**
      * Edits any field of a Class Level. Changing its class swaps the fixed
-     * features it granted automatically and pre-fills an empty `hpGained`.
+     * features it granted automatically; `hpGained` is never touched unless
+     * patched.
      */
     updateClassLevel: (
       id: string,
@@ -487,40 +679,24 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
       patch: Partial<Omit<ClassLevelState, 'kind' | 'position'>>,
     ) => {
       const prefix = newId('feat');
-      apply((s) =>
-        mapCharacter(s, id, (c) => {
-          const before = classLevels(c).find((l) => l.id === levelId);
-          if (!before) return c;
-          const classChanged =
-            patch.classKey !== undefined &&
-            patch.classKey !== before.state.classKey;
-          let next = classChanged ? removeFixedFeatures(c, levelId) : c;
-          next = {
-            ...next,
-            entries: next.entries.map((e) =>
-              e.id === levelId && e.state.kind === 'classLevel'
-                ? { ...e, state: { ...e.state, ...patch } }
-                : e,
-            ),
-          };
-          if (classChanged) {
-            const after = classLevels(next).find((l) => l.id === levelId)!;
-            if (after.state.hpGained === null && patch.hpGained === undefined) {
-              const hp = prefill(s, next, levelId);
-              next = {
-                ...next,
-                entries: next.entries.map((e) =>
-                  e.id === levelId && e.state.kind === 'classLevel'
-                    ? { ...e, state: { ...e.state, hpGained: hp } }
-                    : e,
-                ),
-              };
-            }
-            next = addFixedFeatures(next, levelId, prefix);
-          }
-          return next;
-        }),
-      );
+      edit(id, (c) => {
+        const before = classLevels(c).find((l) => l.id === levelId);
+        if (!before) return c;
+        const classChanged =
+          patch.classKey !== undefined &&
+          patch.classKey !== before.state.classKey;
+        let next = classChanged ? removeFixedFeatures(c, levelId) : c;
+        next = {
+          ...next,
+          entries: next.entries.map((e) =>
+            e.id === levelId && e.state.kind === 'classLevel'
+              ? { ...e, state: { ...e.state, ...patch } }
+              : e,
+          ),
+        };
+        if (classChanged) next = addFixedFeatures(next, levelId, prefix);
+        return next;
+      });
     },
 
     /** Moves a Class Level to `toPosition` (1-based); the others close up. Features stay attached. */
@@ -682,10 +858,6 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
       return entryId;
     },
 
-    setHpPolicy: (policy: HpPolicy) => {
-      apply((s) => ({ ...s, hpPolicy: policy }));
-    },
-
     setPointBuyBudget: (points: number) => {
       apply((s) => ({ ...s, pointBuyBudget: points }));
     },
@@ -719,6 +891,48 @@ function makeActions(dispatch: (a: Action) => void, state: BuilderState) {
       });
     },
 
+    /** Replaces a roster person's officer roles (no-op when not on the roster). */
+    setRoles: (characterId: string, roles: OfficerRole[]) => {
+      apply((s) => ({
+        ...s,
+        campaigns: s.campaigns.map((cp) =>
+          cp.militia
+            ? {
+                ...cp,
+                militia: {
+                  ...cp.militia,
+                  roster: cp.militia.roster.map((p) =>
+                    p.characterId === characterId ? { ...p, roles } : p,
+                  ),
+                },
+              }
+            : cp,
+        ),
+      }));
+    },
+
+    /** The militia's own Hit Dice ruling for a roster person (null = computed). */
+    setHitDiceOverride: (characterId: string, hitDice: number | null) => {
+      apply((s) => ({
+        ...s,
+        campaigns: s.campaigns.map((cp) =>
+          cp.militia
+            ? {
+                ...cp,
+                militia: {
+                  ...cp.militia,
+                  roster: cp.militia.roster.map((p) =>
+                    p.characterId === characterId
+                      ? { ...p, hitDiceOverride: hitDice }
+                      : p,
+                  ),
+                },
+              }
+            : cp,
+        ),
+      }));
+    },
+
     resetPrototype: () => {
       dispatch({ kind: 'reset' });
     },
@@ -747,32 +961,19 @@ export type BuilderStore = BuilderActions & {
   state: BuilderState;
   /** The global catalog (character-scoped entries are on `Character.ownCatalog`). */
   catalog: CatalogEntry[];
-  /** From the URL (`&campaign=`, `&character=`); the index passes them in. */
-  selectedCampaignId: string;
-  selectedCharacterId: string | null;
 };
 
 const StoreContext = createContext<BuilderStore | null>(null);
 
-export function PrototypeStoreProvider({
-  children,
-  selectedCampaignId = IRONFANG,
-  selectedCharacterId = null,
-}: {
-  children: ReactNode;
-  selectedCampaignId?: string;
-  selectedCharacterId?: string | null;
-}) {
+export function PrototypeStoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reduce, undefined, initialState);
   const value = useMemo<BuilderStore>(
     () => ({
       ...makeActions(dispatch, state),
       state,
       catalog: CATALOG,
-      selectedCampaignId,
-      selectedCharacterId,
     }),
-    [state, selectedCampaignId, selectedCharacterId],
+    [state],
   );
   return (
     <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
@@ -794,13 +995,74 @@ export function useCharacter(
   return state.characters.find((c) => c.id === id);
 }
 
-export function useCampaign(id: string): Campaign | undefined {
+export function useCampaign(
+  id: string | null | undefined,
+): Campaign | undefined {
   const { state } = useBuilderStore();
   return state.campaigns.find((c) => c.id === id);
 }
 
+/** The active organization's campaigns (one organization in this prototype). */
+export function useCampaigns(orgId = ORGS[0]!.id): Campaign[] {
+  const { state } = useBuilderStore();
+  return useMemo(
+    () => state.campaigns.filter((c) => c.orgId === orgId),
+    [state, orgId],
+  );
+}
+
+/**
+ * The Characters area: every Character I own, grouped "No campaign" first,
+ * then one group per campaign (empty groups included, so the page can say
+ * "None").
+ */
+export function useMyCharacters() {
+  const { state } = useBuilderStore();
+  return useMemo(() => {
+    const mine = state.characters.filter((c) => c.ownerId === ME);
+    return [
+      {
+        key: 'none',
+        campaign: null as Campaign | null,
+        characters: mine.filter((c) => !c.campaignId),
+      },
+      ...state.campaigns.map((campaign) => ({
+        key: campaign.id,
+        campaign: campaign as Campaign | null,
+        characters: mine.filter((c) => c.campaignId === campaign.id),
+      })),
+    ];
+  }, [state]);
+}
+
+/** The roster place of a Character in its campaign's militia, or null. */
+export function useRosterPerson(id: string | null | undefined) {
+  const { state } = useBuilderStore();
+  const character = state.characters.find((c) => c.id === id);
+  const campaign = state.campaigns.find(
+    (cp) => cp.id === character?.campaignId,
+  );
+  return campaign?.militia?.roster.find((p) => p.characterId === id) ?? null;
+}
+
+/** The confirmation note for this Character, if the last membership change was its. */
+export function useNotice(id: string | null | undefined): Notice | null {
+  const { state } = useBuilderStore();
+  return state.notice && state.notice.characterId === id ? state.notice : null;
+}
+
+/** Only the owner can take a Character out of its campaign (data model, "Leaving"). */
+export function canLeave(character: Character) {
+  return Boolean(character.campaignId) && character.ownerId === ME;
+}
+
+/** Militia-only is possible only in a campaign with a militia. */
+export function isMilitiaOnly(character: Character) {
+  return character.sheetMode === 'militiaOnly';
+}
+
 /** A campaign's Characters with their roster facts (null roster = not on it, or no militia). */
-export function useCampaignCharacters(campaignId: string) {
+export function useCampaignCharacters(campaignId: string | null | undefined) {
   const { state } = useBuilderStore();
   return useMemo(() => {
     const campaign = state.campaigns.find((c) => c.id === campaignId);
@@ -845,6 +1107,7 @@ export function skillRankBudget(character: Character, levelId: string) {
 }
 
 export { ABILITIES, classLevelLabel };
+export { ME, ORGS, USERS, userName } from './mock-characters';
 export {
   baseScores,
   classLevelShortLabel,
@@ -858,6 +1121,7 @@ export {
   hitDice,
   isTemporary,
   levelInClass,
+  levelLine,
   levelsRemovedBy,
   lookupCatalog,
   pointBuyCost,

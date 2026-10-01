@@ -32,7 +32,13 @@ import type { Warning } from '../warnings';
 import { levelTodos } from './levels-table';
 import { jumpTo, type SheetMode } from './shared';
 
-export type Todo = { id: string; label: string; target: string };
+export type Todo = {
+  id: string;
+  label: string;
+  target: string;
+  /** A warning's one-click fix, offered as a button (never applied for you). */
+  action?: Warning['action'];
+};
 
 /** The element a warning's `where` points at (table row, or its phone card). */
 export function jumpWhere(where: string) {
@@ -174,6 +180,7 @@ export function openTodos(
         id: `warn-${w.id}`,
         label: w.message,
         target: w.where === 'features' ? 'b-features' : 'b-feats',
+        action: w.action,
       });
 
   return out;
@@ -183,14 +190,17 @@ export function openTodos(
 export function TodoPanel({
   title,
   todos,
+  characterId,
   actions,
   className,
 }: {
   title: string;
   todos: Todo[];
+  characterId: string;
   actions?: React.ReactNode;
   className?: string;
 }) {
+  const store = useBuilderStore();
   const [seen, setSeen] = useState<Map<string, string>>(() => new Map());
   const openIds = new Set(todos.map((t) => t.id));
   const missing = todos.filter((t) => !seen.has(t.id));
@@ -217,7 +227,7 @@ export function TodoPanel({
       </div>
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
         {todos.map((t) => (
-          <li key={t.id}>
+          <li key={t.id} className="inline-flex flex-wrap items-center gap-1">
             <button
               type="button"
               onClick={() => jumpTo(t.target)}
@@ -226,6 +236,20 @@ export function TodoPanel({
               <Circle className="size-3.5 shrink-0" />
               {t.label}
             </button>
+            {t.action && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 border-sky-400/60 px-2 text-xs text-sky-200"
+                onClick={() =>
+                  store.addEntry(characterId, t.action!.catalogKey, {
+                    gainedAtClassLevel: t.action!.gainedAtClassLevel,
+                  })
+                }
+              >
+                {t.action.label}
+              </Button>
+            )}
           </li>
         ))}
         {done.map(([id, label]) => (

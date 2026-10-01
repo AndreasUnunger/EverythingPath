@@ -193,6 +193,10 @@ export type CatalogEntry = {
   scope: 'global' | 'campaign' | 'character';
   /** Character scope only. */
   characterId?: string;
+  /** Campaign scope only (campaign homebrew). */
+  campaignId?: string;
+  /** A character-scoped copy detached from this entry (leaving a campaign). */
+  copiedFrom?: string;
   name: string;
   /** Shared Source for stacking; absent = the entry itself. */
   sourceKey?: string;
@@ -254,11 +258,18 @@ export type SheetEntry = {
 
 export type Character = {
   id: string;
-  campaignId: string;
+  /** The Character Owner (a user id; `ME` is the signed-in user). */
+  ownerId: string;
+  /** Absent = in no campaign. A Character is in at most one campaign. */
+  campaignId?: string;
   name: string;
   kind: 'pc' | 'npc';
   isActive: boolean;
   description: string;
+  /**
+   * The presentation, shown as a status. Only a Character in a campaign with
+   * a militia can be Militia-only; `buildOut` makes it Full for good.
+   */
   sheetMode: 'militiaOnly' | 'full';
   /** Character-scoped Catalog Entries: the base scores entry and one-offs. */
   ownCatalog: CatalogEntry[];
@@ -280,25 +291,43 @@ export type RosterPerson = {
   hitDiceOverride: number | null;
 };
 
+export type Org = { id: string; name: string };
+
 export type Campaign = {
   id: string;
   name: string;
+  orgId: string;
+  description: string;
   /** null = the campaign has no militia. */
-  militia: { week: number; roster: RosterPerson[] } | null;
+  militia: {
+    week: number;
+    finishedWeeks: number;
+    roster: RosterPerson[];
+  } | null;
 };
 
-export type HpPolicy = 'maxFirst+roll' | 'maxFirst+average' | 'max';
-
-export type ProtoPage = 'list' | 'create' | 'buildout' | 'sheet' | 'levelup';
-
-/** Props every variant component receives. */
-export type VariantProps = {
-  page: ProtoPage;
-  /** From `&campaign=` (default `ironfang`). */
-  campaignId: string;
-  /** From `&character=`; pages default it (sheet/levelup → kesh, buildout → hessa). */
-  characterId: string | null;
-};
+/**
+ * Every page of the prototype, named after the shell's locations.
+ * Top-level areas: `campaigns` (the homepage), `characters` (yours).
+ * In a campaign: `campaign-home`, `campaign-characters`, and the militia's
+ * `week`, `history`, `militia`, `officers` (Characters & officers), `setup`.
+ * Character pages (no campaign param needed; the Character's own campaign
+ * decides the shell): `sheet`, `levelup`, `create`, `buildout`.
+ */
+export type ProtoPage =
+  | 'campaigns'
+  | 'characters'
+  | 'campaign-home'
+  | 'campaign-characters'
+  | 'week'
+  | 'history'
+  | 'militia'
+  | 'officers'
+  | 'setup'
+  | 'sheet'
+  | 'levelup'
+  | 'create'
+  | 'buildout';
 
 // ---- Resolver output ----
 

@@ -1,6 +1,7 @@
 // PROTOTYPE (throwaway, #208) — pure read helpers over one Character's sheet.
 
 import {
+  CAMPAIGN_CATALOG_BY_KEY,
   CATALOG_BY_KEY,
   POINT_BUY_COST,
   catalogForGroup,
@@ -26,7 +27,8 @@ export function lookupCatalog(
   if (!key) return undefined;
   return (
     character.ownCatalog.find((entry) => entry.key === key) ??
-    CATALOG_BY_KEY[key]
+    CATALOG_BY_KEY[key] ??
+    CAMPAIGN_CATALOG_BY_KEY[key]
   );
 }
 
@@ -39,6 +41,25 @@ export function classLevels(character: Character): ClassLevelEntry[] {
 
 export function characterLevel(character: Character) {
   return classLevels(character).length;
+}
+
+/**
+ * One line for lists: "Level 7 · Barbarian 4 / Rogue 3", or "Level 5" when
+ * no level has a class (a Militia-only or barely started sheet).
+ */
+export function levelLine(character: Character) {
+  const levels = classLevels(character);
+  const counts = new Map<string, number>();
+  for (const l of levels)
+    if (l.state.classKey)
+      counts.set(
+        className(l.state.classKey),
+        (counts.get(className(l.state.classKey)) ?? 0) + 1,
+      );
+  const classes = [...counts].map(([n, c]) => `${n} ${c}`).join(' / ');
+  return classes
+    ? `Level ${levels.length} · ${classes}`
+    : `Level ${levels.length}`;
 }
 
 export function findClassLevel(character: Character, levelId: string) {

@@ -1,9 +1,10 @@
 'use client';
 // PROTOTYPE (throwaway, #208) — Variant B: the Class Levels strip. Every
 // level's class, hit points, favored class bonus, ability increase and
-// ranks are edited in place; levels move and delete from anywhere.
+// ranks are edited in place; levels move and delete from anywhere. Hit
+// points are a plain number the player types (the hit die is only a hint).
 
-import { ArrowDown, ArrowUp, Dices, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
@@ -13,7 +14,6 @@ import {
   classDetail,
   catalogForGroup,
 } from '../catalog';
-import { HP_POLICIES, hpPrefill, rollHitDie } from '../hp';
 import { useProtoNav } from '../nav';
 import {
   classLevelShortLabel,
@@ -55,7 +55,7 @@ function useLevelRow(character: Character, levelId: string) {
   return { level, detail, favored, gained, budget };
 }
 
-/** The hp cell: the recorded number plus roll / average / max helpers. */
+/** The hp cell: the number the player typed, with the hit die as a hint. */
 function HpCell({
   character,
   levelId,
@@ -68,53 +68,21 @@ function HpCell({
   const store = useBuilderStore();
   const { level, detail } = useLevelRow(character, levelId);
   const hitDie = detail?.hitDie ?? null;
-  const prefill = hpPrefill({
-    position: level.state.position,
-    hitDie,
-    policy: store.state.hpPolicy,
-  });
-  const set = (hp: number | null) =>
-    store.updateClassLevel(character.id, levelId, { hpGained: hp });
   return (
     <div className="flex flex-nowrap items-center gap-1">
       <NumField
         ariaLabel={`Hit points gained at level ${level.state.position}`}
         value={level.state.hpGained}
-        onChange={set}
+        onChange={(hp) =>
+          store.updateClassLevel(character.id, levelId, { hpGained: hp })
+        }
         todo={todo}
-        width="w-12"
+        width="w-14"
         placeholder={hitDie ? `d${hitDie}` : '—'}
       />
       {hitDie && (
-        <span className="flex items-center gap-0.5">
-          <button
-            type="button"
-            title={`Roll 1d${hitDie}`}
-            onClick={() => set(rollHitDie(hitDie))}
-            className={cn(
-              chip,
-              'hover:bg-foreground/10 h-7 gap-1',
-              prefill.roll && 'border-primary text-primary',
-            )}
-          >
-            <Dices className="size-3" /> d{hitDie}
-          </button>
-          <button
-            type="button"
-            title={`Average: ${hitDie / 2 + 1}`}
-            onClick={() => set(hitDie / 2 + 1)}
-            className={cn(chip, 'hover:bg-foreground/10 h-7')}
-          >
-            avg
-          </button>
-          <button
-            type="button"
-            title={`Max: ${hitDie}`}
-            onClick={() => set(hitDie)}
-            className={cn(chip, 'hover:bg-foreground/10 h-7')}
-          >
-            max
-          </button>
+        <span className="text-muted-foreground font-mono text-xs">
+          d{hitDie}
         </span>
       )}
     </div>
@@ -394,7 +362,6 @@ export function LevelsTable({
   const [confirming, setConfirming] = useState<string | null>(null);
   const [bulk, setBulk] = useState<string | null>(null);
   const unspecified = levels.filter((l) => !l.state.classKey);
-  const policy = HP_POLICIES.find((p) => p.key === store.state.hpPolicy)!;
   const lastClass = levels.at(-1)?.state.classKey ?? null;
   const [nextClass, setNextClass] = useState<string | null>(lastClass);
   const nextPos = levels.length + 1;
@@ -449,21 +416,6 @@ export function LevelsTable({
 
   const header = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-      <label className="text-muted-foreground flex items-center gap-1.5">
-        hp pre-fill
-        <PickField
-          ariaLabel="Hit point policy"
-          value={store.state.hpPolicy}
-          options={HP_POLICIES.map((p) => ({ value: p.key, label: p.label }))}
-          onChange={(v) => v && store.setHpPolicy(v)}
-          className="w-44"
-        />
-        {!policy.crb && (
-          <span className={cn(chip, 'border-amber-500/60 text-amber-300')}>
-            table rule
-          </span>
-        )}
-      </label>
       {unspecified.length > 1 && (
         <label className="text-muted-foreground flex items-center gap-1.5">
           set all {unspecified.length} unspecified to
@@ -487,7 +439,11 @@ export function LevelsTable({
   );
 
   return (
-    <Block id="b-levels" title="Class levels" aside={header}>
+    <Block
+      id="b-levels"
+      title="Class levels"
+      aside={unspecified.length > 1 ? header : undefined}
+    >
       {/* Tablet / desktop table */}
       <div className="hidden md:block">
         <table className="w-full border-collapse text-sm">
@@ -642,12 +598,6 @@ export function LevelsTable({
           <Button size="sm" variant="outline" onClick={addLevel}>
             Level up
           </Button>
-          {character.sheetMode === 'militiaOnly' && (
-            <span className="text-muted-foreground text-xs">
-              Militia-only: levels stay Unspecified until the sheet is built
-              out.
-            </span>
-          )}
         </div>
       )}
     </Block>

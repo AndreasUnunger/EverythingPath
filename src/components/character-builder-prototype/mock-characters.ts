@@ -8,9 +8,15 @@
 //   moss  — Militia-only NPC, level 2, not on the roster.
 // One-shot: Hollow Mountain (no militia):
 //   brannoc — Full PC, dwarf Fighter 3.
+// No campaign (owned by the signed-in user, Andreas):
+//   ilsa  — Full PC, human Cleric 2, built before joining a game.
+//   tobin — Full PC, a barely started sheet: base scores and one Unspecified level.
+// Owners: Andreas (me) owns kesh, ardo, brannoc, ilsa, tobin; Mira owns ama;
+// Jonas (the GM) owns the NPCs hessa and moss.
 
 import {
   ABILITIES,
+  type Org,
   type AbilityKey,
   type Campaign,
   type CatalogEntry,
@@ -22,6 +28,20 @@ import {
 
 export const IRONFANG = 'ironfang';
 export const ONESHOT = 'oneshot';
+
+/** The signed-in user. */
+export const ME = 'u1';
+export const USERS: Record<string, string> = {
+  u1: 'Andreas',
+  u2: 'Mira',
+  u3: 'Jonas',
+};
+export function userName(id: string) {
+  return USERS[id] ?? 'Someone';
+}
+
+/** One organization in this prototype; the shell's switcher is a stand-in. */
+export const ORGS: Org[] = [{ id: 'o1', name: 'Phaendar table' }];
 
 export function baseCatalogEntry(
   characterId: string,
@@ -102,6 +122,7 @@ function has(
 
 function militiaOnly(
   id: string,
+  ownerId: string,
   campaignId: string,
   name: string,
   kind: 'pc' | 'npc',
@@ -111,6 +132,7 @@ function militiaOnly(
 ): Character {
   return {
     id,
+    ownerId,
     campaignId,
     name,
     kind,
@@ -132,6 +154,7 @@ const R = 'class.rogue';
 
 const kesh: Character = {
   id: 'kesh',
+  ownerId: 'u1',
   campaignId: IRONFANG,
   name: 'Kesh',
   kind: 'pc',
@@ -309,6 +332,7 @@ const amaRanks = ranks(
 
 const ama: Character = {
   id: 'ama',
+  ownerId: 'u2',
   campaignId: IRONFANG,
   name: 'Ama',
   kind: 'pc',
@@ -386,6 +410,7 @@ const F = 'class.fighter';
 
 const brannoc: Character = {
   id: 'brannoc',
+  ownerId: 'u1',
   campaignId: ONESHOT,
   name: 'Brannoc',
   kind: 'pc',
@@ -446,6 +471,7 @@ const brannoc: Character = {
 
 const hessa = militiaOnly(
   'hessa',
+  'u3',
   IRONFANG,
   'Sergeant Hessa',
   'npc',
@@ -461,8 +487,9 @@ const hessa = militiaOnly(
   'Veteran of the Phaendar watch. Drills the recruits.',
 );
 
-const ardo = militiaOnly(
+const ardoBase = militiaOnly(
   'ardo',
+  'u1',
   IRONFANG,
   'Brother Ardo',
   'pc',
@@ -478,8 +505,20 @@ const ardo = militiaOnly(
   'Priest of Erastil; the militia’s voice in Phaendar’s council.',
 );
 
+/** Ardo carries Ironfang homebrew, which leaving the campaign detaches. */
+const ardo: Character = {
+  ...ardoBase,
+  entries: [
+    ...ardoBase.entries,
+    has('ardo-seal', 'homebrew.ironfang.councilSeal', 'item', {
+      notes: 'Given by the council in week 9',
+    }),
+  ],
+};
+
 const moss = militiaOnly(
   'moss',
+  'u3',
   IRONFANG,
   'Old Moss',
   'npc',
@@ -495,6 +534,88 @@ const moss = militiaOnly(
   'Herbalist; not part of the militia yet.',
 );
 
+const C = 'class.cleric';
+
+const ilsa: Character = {
+  id: 'ilsa',
+  ownerId: 'u1',
+  name: 'Ilsa Varn',
+  kind: 'pc',
+  isActive: true,
+  description: 'Cleric of Erastil, built before joining a game.',
+  sheetMode: 'full',
+  ownCatalog: [
+    baseCatalogEntry('ilsa', {
+      str: 12,
+      dex: 10,
+      con: 14,
+      int: 10,
+      wis: 16,
+      cha: 13,
+    }),
+  ],
+  entries: [
+    baseSheetEntry('ilsa'),
+    {
+      id: 'ilsa-race',
+      kind: 'race',
+      catalogKey: 'race.human',
+      active: true,
+      state: { kind: 'race', abilityChoice: 'wis', favoredClass: C },
+    },
+    classLevelEntry('ilsa-l1', 1, C, {
+      hpGained: 8,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: ranks('heal', 'knowledgeReligion', 'senseMotive'),
+    }),
+    classLevelEntry('ilsa-l2', 2, C, {
+      hpGained: 5,
+      favoredClassBonus: { choice: 'hp' },
+      skillRanks: ranks('heal', 'knowledgeReligion', 'diplomacy'),
+    }),
+    has('ilsa-cf-aura', 'cf.aura', 'classFeature', { at: 'ilsa-l1' }),
+    has('ilsa-cf-channel', 'cf.channelEnergy', 'classFeature', {
+      at: 'ilsa-l1',
+    }),
+    has('ilsa-cf-domains', 'cf.domains', 'classFeature', {
+      at: 'ilsa-l1',
+      notes: 'Animal, Community',
+    }),
+    has('ilsa-cf-orisons', 'cf.orisons', 'classFeature', { at: 'ilsa-l1' }),
+    has('ilsa-cf-spont', 'cf.spontaneousCasting', 'classFeature', {
+      at: 'ilsa-l1',
+    }),
+    has('ilsa-cf-spells', 'cf.clericSpells', 'classFeature', {
+      at: 'ilsa-l1',
+    }),
+    has('ilsa-feat-toughness', 'feat.toughness', 'feat', { at: 'ilsa-l1' }),
+    has('ilsa-feat-alert', 'feat.alertness', 'feat', { at: 'ilsa-l1' }),
+    has('ilsa-trait-faith', 'trait.indomitableFaith', 'trait'),
+    has('ilsa-armor', 'item.chainShirt', 'item'),
+  ],
+};
+
+const tobin: Character = {
+  id: 'tobin',
+  ownerId: 'u1',
+  name: 'Brother Tobin',
+  kind: 'pc',
+  isActive: true,
+  description: '',
+  sheetMode: 'full',
+  ownCatalog: [
+    baseCatalogEntry('tobin', {
+      str: 10,
+      dex: 12,
+      con: 12,
+      int: 10,
+      wis: 14,
+      cha: 12,
+    }),
+  ],
+  entries: [baseSheetEntry('tobin'), classLevelEntry('tobin-l1', 1, null)],
+};
+
 export const SEED_CHARACTERS: Character[] = [
   kesh,
   ama,
@@ -502,14 +623,19 @@ export const SEED_CHARACTERS: Character[] = [
   ardo,
   moss,
   brannoc,
+  ilsa,
+  tobin,
 ];
 
 export const SEED_CAMPAIGNS: Campaign[] = [
   {
     id: IRONFANG,
     name: 'Ironfang Invasion',
+    orgId: 'o1',
+    description: 'Phaendar has fallen; the survivors hold out in the Fangwood.',
     militia: {
       week: 14,
+      finishedWeeks: 13,
       roster: [
         { characterId: 'kesh', roles: ['Marshal'], hitDiceOverride: null },
         { characterId: 'ama', roles: ['Spymaster'], hitDiceOverride: null },
@@ -518,5 +644,11 @@ export const SEED_CAMPAIGNS: Campaign[] = [
       ],
     },
   },
-  { id: ONESHOT, name: 'One-shot: Hollow Mountain', militia: null },
+  {
+    id: ONESHOT,
+    name: 'One-shot: Hollow Mountain',
+    orgId: 'o1',
+    description: 'A single evening: clear the pass under the Hollow Mountain.',
+    militia: null,
+  },
 ];

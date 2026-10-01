@@ -100,6 +100,16 @@ export const chip =
   'border-foreground/40 inline-flex items-center border px-1.5 py-0.5 font-mono text-xs leading-tight';
 export const th =
   'text-muted-foreground px-2 py-1.5 text-left font-mono text-xs font-normal tracking-wide uppercase';
+/** Shell C's list-page idiom (`app-shell-prototype/pages.tsx`). */
+export const main = 'mx-auto w-full max-w-6xl p-4 md:p-6';
+/** Character pages: the shell's Back row already sits above. */
+export const characterMain = 'mx-auto w-full max-w-6xl p-4 pt-2 md:p-6 md:pt-3';
+export const action = 'min-h-11 md:min-h-9';
+export const listTh =
+  'text-muted-foreground px-2 py-2 text-left font-mono text-xs font-normal tracking-wide uppercase first:pl-0 last:pr-0';
+export const listTd = 'px-2 py-2.5 align-middle first:pl-0 last:pr-0';
+export const rowButton =
+  'hover:bg-foreground/5 focus-visible:ring-ring/50 flex min-h-11 w-full items-center gap-3 border-b border-foreground/15 px-1 py-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-inset last:border-b-0';
 export const blockHeading =
   'font-sans text-muted-foreground text-xs tracking-[0.15em] uppercase';
 export const todoRing = 'ring-2 ring-sky-400/80 ring-offset-0';
@@ -421,6 +431,7 @@ export function TextField({
   placeholder,
   className,
   todo,
+  inputRef,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -428,9 +439,11 @@ export function TextField({
   placeholder?: string;
   className?: string;
   todo?: boolean;
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   return (
     <input
+      ref={inputRef}
       type="text"
       aria-label={ariaLabel}
       value={value}

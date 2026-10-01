@@ -110,7 +110,7 @@ export function SkillsTable({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-foreground/20 border-b">
-            <th className={th}>Skill</th>
+            <th className={cn(th, 'px-1 md:px-2')}>Skill</th>
             <th className={cn(th, 'text-right')}>Total</th>
             <th className={th}>Ranks</th>
             <th className={cn(th, 'hidden lg:table-cell')}>Ability</th>
@@ -129,7 +129,7 @@ export function SkillsTable({
                   !stat.usable && 'text-muted-foreground',
                 )}
               >
-                <td className="px-2 py-0.5">
+                <td className="px-1 py-0.5 md:px-2">
                   {info.name}
                   {info.trainedOnly && (
                     <span className="text-muted-foreground font-mono text-[11px]">
@@ -142,7 +142,7 @@ export function SkillsTable({
                     {stat.classSkill ? ' · c' : ''}
                   </span>
                 </td>
-                <td className="px-2 py-0.5 text-right">
+                <td className="px-1 py-0.5 text-right md:px-2">
                   <StatButton
                     path={`skills.${info.key}`}
                     sheet={sheet}
@@ -151,7 +151,7 @@ export function SkillsTable({
                     size="sm"
                   />
                 </td>
-                <td className="px-2 py-0.5">
+                <td className="px-1 py-0.5 md:px-2">
                   <span className="inline-flex items-center gap-1">
                     <span className="w-5 text-right font-mono">
                       {stat.ranks}

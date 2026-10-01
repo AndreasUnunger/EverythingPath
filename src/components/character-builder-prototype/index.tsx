@@ -1,61 +1,113 @@
 'use client';
 // PROTOTYPE (throwaway) for wayfinder ticket #208 'Prototype the character
-// creation and level-up flow' — three variants of the Pathfinder 1e
-// character builder, switchable via ?variant=A|B|C and ?page=..., on
+// creation and level-up flow', round 2: variant B ("One living sheet")
+// inside the approved app shell (variant C of #213), on
 // /prototype/character-builder. Primary target: tablet landscape
-// (1180×820); desktop and phone must remain usable.
+// (1180×820); desktop and phone must remain usable. Details in CONTRACT.md.
 //
-// Contract (details in CONTRACT.md). Every variant handles these pages:
-//   ?page=list      The campaign's characters home: militia-only rows edited
-//                   in place (name, level, scores), Full Character rows
-//                   read-only and linking to the sheet, switching sheetMode,
-//                   and — with &campaign=oneshot — where Full Characters
-//                   live in a campaign without a militia.
-//   ?page=create    A new Character from nothing.
-//   ?page=buildout  Turn militia-only Sergeant Hessa (&character=hessa) into
-//                   a Full Character by specifying her Unspecified Class Levels.
-//   ?page=sheet     Kesh's sheet (&character=kesh) with derived statistics
-//                   and their breakdowns.
-//   ?page=levelup   Level Kesh from 7 to 8 (&character=kesh).
-// Params: &campaign=ironfang|oneshot (default ironfang), &character=<id>
-// (defaults per page), plus page-local params a variant may add (&step=…)
-// through useProtoNav().set(). Navigation uses router.replace, so every
-// state worth reviewing is URL-addressable.
+// URL: ?variant=B&page=<page>&campaign=<id>&character=<id>&from=<page>
+//   campaigns            the homepage: pick a campaign            (shell placeholder)
+//   characters           my Characters, "No campaign" first, then per campaign
+//   campaign-home        a campaign's home                        (shell placeholder)
+//   campaign-characters  a campaign's Characters (with or without a militia)
+//   week, history, militia, setup                                  (shell placeholders)
+//   officers             Characters & officers: Militia-only rows edited in
+//                        place, Full rows read-only, status + Build out
+//   sheet, levelup, create, buildout   Character pages (Back to `from`)
+// Page-local params (`level`, `as`, …) go through useProtoNav().set().
 
 import { useState, type ReactNode } from 'react';
 import { PrototypeSwitcher } from '~/components/prototype-switcher';
-import { PrototypeFrame, type FrameNavFn } from './frame';
-import { HP_POLICIES } from './hp';
-import { PAGES, useProtoNav } from './nav';
+import { useProtoNav } from './nav';
+import { AppShell } from './shell/shell';
+import {
+  CampaignHomePage,
+  CampaignsPage,
+  HistoryPage,
+  MilitiaPage,
+  SetupPage,
+  WeekPage,
+} from './shell/placeholders';
 import { PrototypeStoreProvider, useBuilderStore } from './store';
-import type { HpPolicy, VariantProps } from './types';
-import * as A from './variant-a';
+import type { ProtoPage } from './types';
 import * as B from './variant-b';
-import * as C from './variant-c';
 
 const variants: {
   key: string;
   name: string;
-  Component: (props: VariantProps) => ReactNode;
-  frameNav: FrameNavFn | undefined;
+  Component: (props: { page: ProtoPage }) => ReactNode;
+}[] = [{ key: 'B', name: B.name, Component: B.VariantB }];
+
+/** Pages outside the builder: the shell's own placeholder bodies. */
+const PLACEHOLDERS: Partial<Record<ProtoPage, () => ReactNode>> = {
+  campaigns: CampaignsPage,
+  'campaign-home': CampaignHomePage,
+  week: WeekPage,
+  history: HistoryPage,
+  militia: MilitiaPage,
+  setup: SetupPage,
+};
+
+/** Shortcuts to the states worth reviewing. */
+const SHORTCUTS: {
+  label: string;
+  page: ProtoPage;
+  campaign?: string;
+  character?: string;
+  from?: ProtoPage;
 }[] = [
+  { label: 'campaigns', page: 'campaigns' },
+  { label: 'my characters', page: 'characters' },
   {
-    key: 'A',
-    name: 'Guided steps',
-    Component: A.VariantA,
-    frameNav: A.frameNav,
+    label: 'ironfang chars',
+    page: 'campaign-characters',
+    campaign: 'ironfang',
+  },
+  { label: 'oneshot chars', page: 'campaign-characters', campaign: 'oneshot' },
+  { label: 'officers', page: 'officers', campaign: 'ironfang' },
+  { label: 'kesh sheet', page: 'sheet', character: 'kesh', from: 'officers' },
+  {
+    label: 'kesh levelup',
+    page: 'levelup',
+    character: 'kesh',
+    from: 'officers',
   },
   {
-    key: 'B',
-    name: 'One living sheet',
-    Component: B.VariantB,
-    frameNav: B.frameNav,
+    label: 'hessa sheet (militia-only)',
+    page: 'sheet',
+    character: 'hessa',
+    from: 'officers',
   },
   {
-    key: 'C',
-    name: 'Level timeline + live sheet',
-    Component: C.VariantC,
-    frameNav: C.frameNav,
+    label: 'hessa buildout',
+    page: 'buildout',
+    character: 'hessa',
+    from: 'officers',
+  },
+  {
+    label: 'brannoc (no militia)',
+    page: 'sheet',
+    character: 'brannoc',
+    from: 'campaign-characters',
+  },
+  {
+    label: 'ilsa (no campaign)',
+    page: 'sheet',
+    character: 'ilsa',
+    from: 'characters',
+  },
+  {
+    label: 'tobin (no campaign, minimal)',
+    page: 'sheet',
+    character: 'tobin',
+    from: 'characters',
+  },
+  { label: 'create (no campaign)', page: 'create', from: 'characters' },
+  {
+    label: 'create (oneshot)',
+    page: 'create',
+    campaign: 'oneshot',
+    from: 'campaign-characters',
   },
 ];
 
@@ -70,39 +122,29 @@ function StatePanel() {
       </button>
       {open && (
         <div className="mt-1 w-72 space-y-1">
+          <p className="opacity-70">
+            page={nav.page}
+            {nav.campaignId && ` campaign=${nav.campaignId}`}
+            {nav.characterId && ` character=${nav.characterId}`}
+            {nav.from && ` from=${nav.from}`}
+          </p>
           <div className="flex flex-wrap gap-x-2">
-            {PAGES.map((p) => (
+            {SHORTCUTS.map((s) => (
               <button
-                key={p}
-                className={
-                  p === nav.page ? 'underline' : 'opacity-70 hover:opacity-100'
+                key={s.label}
+                className="opacity-70 hover:opacity-100"
+                onClick={() =>
+                  nav.go(s.page, {
+                    campaign: s.campaign ?? null,
+                    character: s.character ?? null,
+                    from: s.from ?? null,
+                  })
                 }
-                onClick={() => nav.go(p)}
               >
-                {p}
+                {s.label}
               </button>
             ))}
-            <button
-              className="opacity-70 hover:opacity-100"
-              onClick={() => nav.go('list', { campaign: 'oneshot' })}
-            >
-              oneshot list
-            </button>
           </div>
-          <label className="flex items-center gap-2">
-            hp
-            <select
-              value={store.state.hpPolicy}
-              onChange={(e) => store.setHpPolicy(e.target.value as HpPolicy)}
-              className="bg-black text-yellow-200"
-            >
-              {HP_POLICIES.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="flex items-center gap-2">
             point buy
             <select
@@ -126,23 +168,26 @@ function StatePanel() {
   );
 }
 
-export function CharacterBuilderPrototype() {
+function Page() {
   const nav = useProtoNav();
   const variant = variants.find((v) => v.key === nav.variant) ?? variants[0]!;
+  const Placeholder = PLACEHOLDERS[nav.page];
   const { Component } = variant;
   return (
-    <PrototypeStoreProvider
-      selectedCampaignId={nav.campaignId}
-      selectedCharacterId={nav.characterId}
-    >
-      <PrototypeFrame nav={variant.frameNav}>
-        <Component
-          key={variant.key}
-          page={nav.page}
-          campaignId={nav.campaignId}
-          characterId={nav.characterId}
-        />
-      </PrototypeFrame>
+    <AppShell>
+      {Placeholder ? (
+        <Placeholder />
+      ) : (
+        <Component key={variant.key} page={nav.page} />
+      )}
+    </AppShell>
+  );
+}
+
+export function CharacterBuilderPrototype() {
+  return (
+    <PrototypeStoreProvider>
+      <Page />
       <StatePanel />
       <div className="fixed bottom-16 left-1/2 z-[100] -translate-x-1/2 md:bottom-2">
         <PrototypeSwitcher variants={variants} />

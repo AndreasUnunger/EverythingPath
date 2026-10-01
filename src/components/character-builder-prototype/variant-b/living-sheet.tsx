@@ -2,14 +2,13 @@
 // PROTOTYPE (throwaway, #208) — Variant B: the one living sheet. Identity,
 // abilities, defenses, offense, skills, feats, features, gear and the Class
 // Levels strip, all edited in place. Creating, building out and levelling
-// up are the same sheet in a different highlighted state.
+// up are the same sheet in a different highlighted state. The page above
+// it shows the name, status and membership once; the sheet opens with its
+// vitals strip (sticky under the shell's bar from tablet width).
 
-import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import { ABILITY_LABEL, ABILITY_SHORT, CLASSES, RACES } from '../catalog';
-import { useProtoNav } from '../nav';
 import {
   ABILITIES,
   baseScores,
@@ -21,7 +20,6 @@ import {
 import type { AbilityKey, Character, ResolvedSheet } from '../types';
 import { formatBonus } from '../ui-helpers';
 import type { Warning } from '../warnings';
-import { IssuesButton } from './checklist';
 import { LevelsTable } from './levels-table';
 import { FeatsBlock, FeaturesBlock, GearBlock } from './lists';
 import {
@@ -157,20 +155,7 @@ function IdentityBlock({
             }
           />
         </label>
-        <label className="flex flex-col gap-0.5">
-          <span className={label}>Presentation</span>
-          <PickField
-            ariaLabel="Sheet presentation"
-            className="w-full"
-            value={character.sheetMode}
-            options={[
-              { value: 'full', label: 'Full' },
-              { value: 'militiaOnly', label: 'Militia-only' },
-            ]}
-            onChange={(v) => v && store.setSheetMode(character.id, v)}
-          />
-        </label>
-        <label className="col-span-2 flex flex-col gap-0.5 md:col-span-4 lg:col-span-2">
+        <label className="col-span-2 flex flex-col gap-0.5 md:col-span-4 lg:col-span-3">
           <span className={label}>Notes</span>
           <TextField
             ariaLabel="Notes"
@@ -186,12 +171,6 @@ function IdentityBlock({
       {race && (
         <p className="text-muted-foreground mt-1.5 text-xs">
           {race.catalog.name}: {race.detail.traitsText.join(' · ')}
-        </p>
-      )}
-      {character.sheetMode === 'militiaOnly' && (
-        <p className="text-muted-foreground mt-1.5 text-xs">
-          Militia-only presentation: the militia reads level and the six scores.
-          Everything else on this sheet is kept.
         </p>
       )}
       <FieldWarnings
@@ -461,7 +440,7 @@ function OffenseBlock({ sheet }: { sheet: ResolvedSheet }) {
 
 // ------------------------------------------------------------- the sheet
 
-/** Always-visible derived numbers in the sticky header. */
+/** Always-visible derived numbers in the vitals strip. */
 const VITALS: {
   path: StatPath;
   title: string;
@@ -508,7 +487,6 @@ export function LivingSheet({
   baseline = null,
   dismissDeltas = () => undefined,
   banner,
-  actions,
 }: {
   character: Character;
   sheet: ResolvedSheet;
@@ -519,10 +497,7 @@ export function LivingSheet({
   dismissDeltas?: () => void;
   /** Mode banner: the to-do checklist, the buildout note. */
   banner?: ReactNode;
-  /** Extra header actions. */
-  actions?: ReactNode;
 }) {
-  const nav = useProtoNav();
   const [open, setOpen] = useState<OpenBreakdown | null>(null);
   const [ranksLevelId, setRanksLevelId] = useState<string | null>(focusLevelId);
   useEffect(() => {
@@ -575,50 +550,37 @@ export function LivingSheet({
         setRanksLevelId,
       }}
     >
-      <div className="bg-background/95 border-foreground/15 sticky top-0 z-30 -mx-4 -mt-4 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 backdrop-blur md:-mx-6 md:-mt-6 md:px-6">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="All characters"
-          onClick={() => nav.go('list')}
-        >
-          <ArrowLeft />
-        </Button>
-        <h1 className="font-sans text-xl md:text-2xl">{character.name}</h1>
-        <span className="text-muted-foreground hidden font-mono text-sm md:inline">
-          {classSummary(sheet)} · level {sheet.level}
-        </span>
+      {/* The vitals strip: B's signature. Sticky under the shell's pinned
+          bar from tablet width; in the flow on phone. */}
+      <div
+        className="bg-background/95 border-foreground/15 z-20 -mx-4 mb-3 flex flex-wrap items-end gap-x-3 gap-y-0.5 border-b px-4 py-1.5 backdrop-blur md:sticky md:-mx-6 md:px-6"
+        style={{ top: 'var(--shell-top)' }}
+      >
+        {VITALS.map((v) => (
+          <Figure
+            key={v.path}
+            path={v.path}
+            sheet={sheet}
+            title={v.title}
+            short={v.short}
+            signed={v.signed}
+            size="sm"
+            className={v.phoneHidden ? 'hidden md:flex' : undefined}
+          />
+        ))}
         {baseline && changedCount > 0 && (
           <button
             type="button"
             onClick={dismissDeltas}
             className={cn(
               chip,
-              'border-sky-400/70 text-sky-300 hover:bg-sky-400/10',
+              'mb-1 ml-auto border-sky-400/70 text-sky-300 hover:bg-sky-400/10',
             )}
             title="Hide the before → after markers"
           >
             {changedCount} changed · hide
           </button>
         )}
-        <span className="ml-auto flex items-center gap-2">
-          <IssuesButton warnings={warnings} characterId={character.id} />
-          {actions}
-        </span>
-        <div className="flex basis-full flex-wrap items-end gap-x-3 gap-y-0.5">
-          {VITALS.map((v) => (
-            <Figure
-              key={v.path}
-              path={v.path}
-              sheet={sheet}
-              title={v.title}
-              short={v.short}
-              signed={v.signed}
-              size="sm"
-              className={v.phoneHidden ? 'hidden md:flex' : undefined}
-            />
-          ))}
-        </div>
       </div>
 
       {banner}

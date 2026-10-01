@@ -1090,6 +1090,32 @@ export const CATALOG_BY_KEY: Record<string, CatalogEntry> = Object.fromEntries(
   CATALOG.map((entry) => [entry.key, entry]),
 );
 
+/**
+ * Campaign homebrew (scope `campaign`). Only Characters in that campaign can
+ * pick it; leaving the campaign detaches it into a character-scoped copy so
+ * the sheet doesn't change. Not part of the global pickers.
+ */
+export const CAMPAIGN_CATALOG: CatalogEntry[] = [
+  {
+    key: 'homebrew.ironfang.councilSeal',
+    scope: 'campaign',
+    campaignId: 'ironfang',
+    name: 'Phaendar council seal',
+    summary: 'Ironfang homebrew: +1 circumstance on Diplomacy',
+    stacksWithItself: false,
+    modifiers: [m('skill.diplomacy', 'circumstance', 1)],
+    detail: { kind: 'item', consumable: false, slot: 'neck' },
+  },
+];
+
+export const CAMPAIGN_CATALOG_BY_KEY: Record<string, CatalogEntry> =
+  Object.fromEntries(CAMPAIGN_CATALOG.map((entry) => [entry.key, entry]));
+
+/** A campaign's homebrew, for its Characters' pickers. */
+export function campaignCatalog(campaignId: string | undefined) {
+  return CAMPAIGN_CATALOG.filter((entry) => entry.campaignId === campaignId);
+}
+
 export type ClassDetail = Extract<CatalogEntry['detail'], { kind: 'class' }>;
 export type RaceDetail = Extract<CatalogEntry['detail'], { kind: 'race' }>;
 
