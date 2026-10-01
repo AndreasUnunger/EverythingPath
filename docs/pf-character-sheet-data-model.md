@@ -8,7 +8,7 @@ Rules sources:
 - [Find how official PF1 rules treat "functions as" wordings for stacking](https://github.com/AndreasUnunger/EverythingPath/issues/210) (`research/pf1-functions-as-stacking`)
 - [Survey how existing PF1 builders model characters](https://github.com/AndreasUnunger/EverythingPath/issues/203) (`research/pf1-builder-models`)
 
-Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing.
+Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*. Other Paizo books supply catalog content, not rules.
 
 ## Principles
 
@@ -72,7 +72,7 @@ The `spell` and `characterSpell` tables are untouched. Spellcasting is still in 
 
 ```ts
 // Catalog-backed: the sheet entry points at a Catalog Entry of the same kind.
-type CatalogKind = 'base' | 'race' | 'class' | 'classFeature' | 'feat' | 'trait'
+type CatalogKind = 'base' | 'race' | 'class' | 'archetype' | 'classFeature' | 'feat' | 'trait'
                  | 'item' | 'spell' | 'condition' | 'manual';
 // State-only: no Catalog Entry; the resolver emits built-in Modifiers from state.
 type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain';
@@ -86,6 +86,11 @@ type CatalogEntryDetail =
       saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
       skillRanksPerLevel: number; classSkills: SkillKey[];
       featuresByLevel: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }> }
+  | { kind: 'archetype'; classEntryId: Id<'catalogEntry'>;       // the one base class it varies
+      replaces: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>; // rows of the class's featuresByLevel
+      adds: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>;
+      classSkillsAdded: SkillKey[]; classSkillsRemoved: SkillKey[];
+      skillRanksPerLevel?: number }                             // absent = the class's own
   | { kind: 'classFeature' } | { kind: 'feat' } | { kind: 'trait' }
   | { kind: 'item'; consumable: boolean }                       // later: slot, weight, price
   | { kind: 'spell'; lastsOverOneDay: boolean }                 // later: level, school, duration text
@@ -112,6 +117,30 @@ type SheetEntryState =
 - The ability increase and favored class bonus fields exist on every Class Level. An increase outside levels 4, 8, 12, 16 and 20, or a favored class bonus on a level of a class that isn't favored, shows a warning.
 - `hpGained` holds the recorded number. The builder takes it as a plain number and never pre-fills it: there is no roll, average or maximum button ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)).
 - **Hit Dice** = Class Levels + racial Hit Dice. They are computed and never recorded. The militia's roster Hit Dice override stays as the militia's own ruling.
+
+## Archetypes and prestige classes
+
+Decided by [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219).
+
+- **Coverage.** Every official Paizo prestige class and archetype, from any Paizo product: rulebooks, Campaign Setting, Player Companion and Adventure Path books.
+- **Archetypes.**
+  - An Archetype is a Catalog Entry tied to one base class. A Character takes it as a sheet entry, and it applies to every level of that class. The levels stay levels of the base class.
+  - `replaces` names rows of the class's `featuresByLevel`, a feature at one class level, so "replaces armor training 1" removes only that row. An archetype feature that alters a class feature replaces that row and adds its own feature at the same level.
+  - Adding an Archetype removes the class feature entries it replaces from the sheet and adds its own features at their levels, with `gainedAtClassLevel` set. Removing it reverses this. Entries added or edited by hand stay.
+  - Class skills added or removed and skill ranks per level are structured. Proficiency changes stay in the description. Spellcasting changes wait for spellcasting.
+  - Two Archetypes on one class that replace or alter the same feature show an advisory warning.
+- **Base class schedules.** Foundry links many multi-level features only at their first level; the Fighter links six features. The Curation Overlay completes each base class's `featuresByLevel` from its class table, so archetypes can replace any row and the sheet shows every feature gained.
+- **Prestige classes.** These are `class` entries with `classKind: 'prestige'`, and their `featuresByLevel` comes from the class's level table.
+  - Entry requirements are prerequisites on the class entry, like a feat's. They are checked against the Character as of the Class Level before the class's first level.
+  - A prestige class can never be the favored class.
+  - "+1 level of existing spellcasting class" waits for spellcasting.
+- **Source: a scraped AoN dataset.**
+  - Neither Foundry repo has archetypes or prestige classes. PSRD-Data (no licence, frozen in 2015) and the `pf1e-archetypes` module are not used.
+  - A one-off scraper reads Archives of Nethys' prestige class and archetype pages into a dataset committed to this repo. It runs very slowly, over days if need be, and only after the project owner has contacted AoN.
+  - Every record keeps its book, page and AoN URL. Its catalog key is `everythingpath/<id>`, never the URL. Entries whose source is not a Paizo product are dropped and listed in the scraper's report.
+  - The scraper extracts what it can, including matching "replaces X" against the base class's features. Every record it cannot match or classify goes to a hand-review list. Each book also gets a sampled spot-check.
+  - Corrections, including Modifiers for archetype and prestige features, are made in the dataset itself. A reviewed record is marked and cites its book and page. The Curation Overlay is only for upstream data.
+  - Every scraped record's book needs a Section 15 line, or the import fails. Where that text comes from is decided by [Find the Section 15 text for every imported source book](https://github.com/AndreasUnunger/EverythingPath/issues/224).
 
 ## Modifiers
 

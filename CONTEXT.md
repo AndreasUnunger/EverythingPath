@@ -109,6 +109,13 @@ What a Modifier counts as coming from for stacking: its Catalog Entry, unless of
 **Class Level**:
 One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
 
+**Archetype**:
+A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Two Archetypes on one class may not replace or alter the same feature.
+_Avoid_: subclass, class variant
+
+**Prestige Class**:
+A class a Character can enter only after meeting its requirements, which are prerequisites like a feat's. It can never be a favored class.
+
 **Unspecified Class Level**:
 A Class Level whose class has not been recorded. It lets a minimal Character Sheet carry a level before it is built out, and it contributes nothing but Hit Dice.
 
