@@ -2,17 +2,21 @@
 // PROTOTYPE — the "Militia rail" shell shared by variants C and D. From
 // tablet width both are the same: one calm top bar (the campaign as a crumb
 // with a place picker, the place's pages as section links, org switcher,
-// avatar), a vertical rail for the militia's second level, and a sheet with
-// its own sticky sub-header. On phone the two differ in `phone`:
+// avatar) that stays pinned while the page scrolls, and a vertical rail for
+// the militia's second level. On phone the two differ in `phone`:
 //   'tabs'  (C) fixed bottom tabs Campaign · Militia · Characters · More, with
-//           the pages of the current tab in a strip under the top bar;
+//           the pages of the current tab in a strip under the top bar (pinned
+//           with it); a sheet opens with only a Back link above its body;
 //   'drill' (D) minimal bottom bar Home · Characters · More, with an Up button
-//           and a "Where to" navigator in the top bar.
+//           and a "Where to" navigator in the top bar; a sheet keeps its own
+//           sticky sub-header.
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import {
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { KeepIcon } from '~/components/keepIcon';
@@ -274,34 +278,59 @@ function MilitiaRail({
   );
 }
 
-// Sheet sub-header: back to where you came from, identity and status. Sticky
-// so Back stays at hand while the sheet scrolls. Actions (Build out, Leave or
-// Add to campaign) live in the page body, once.
-function SheetSubHeader({
+// Variant C's sheet opening: no bar, just Back to where you came from at the
+// top of the sheet's content, aligned with its body. Name, status and the
+// membership actions are already in the body.
+function SheetBack({
   location,
   go,
-  backOnPhone,
 }: {
   location: Location;
   go: ShellProps['go'];
-  /** Variant D's top bar already carries Up on phone. */
-  backOnPhone: boolean;
+}) {
+  const back = sheetBack(location);
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 pt-3 md:px-6 md:pt-4">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="-ml-2 min-h-9 px-2"
+        onClick={() => go(back)}
+        aria-label={`Back to ${PAGE_LABEL[back.page]}`}
+      >
+        <ArrowLeft /> {PAGE_LABEL[back.page]}
+      </Button>
+    </div>
+  );
+}
+
+// Variant D's sheet sub-header: back to where you came from (from tablet
+// width; D's phone top bar already carries Up), identity and status. Sticky
+// under the top bar so Back stays at hand while the sheet scrolls. Actions
+// (Build out, Leave or Add to campaign) live in the page body, once.
+function SheetSubHeader({
+  location,
+  go,
+}: {
+  location: Location;
+  go: ShellProps['go'];
 }) {
   const character = getCharacter(location.characterId);
   if (!character) return null;
   const campaign = getCampaign(character.campaignId);
   const back = sheetBack(location);
   return (
-    <div className="bg-background/95 border-foreground/15 sticky top-0 z-30 border-b backdrop-blur">
+    <div
+      className="bg-background/95 border-foreground/15 sticky z-20 border-b backdrop-blur"
+      style={{ top: 'var(--shell-top, 0px)' }}
+    >
       <div className="mx-auto flex w-full max-w-6xl items-center gap-x-3 px-4 py-2 md:px-6">
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className={cn(
-            'min-h-9 shrink-0 px-2',
-            !backOnPhone && 'hidden md:inline-flex',
-          )}
+          className="hidden min-h-9 shrink-0 px-2 md:inline-flex"
           onClick={() => go(back)}
           aria-label={`Back to ${PAGE_LABEL[back.page]}`}
         >
@@ -340,6 +369,27 @@ function useRecentCampaign(campaign: Campaign | undefined) {
   return campaign ?? recent;
 }
 
+/**
+ * The pinned top bar's height as `--shell-top`, so anything else that sticks
+ * (D's sheet sub-header) can sit under it instead of sliding behind it. The
+ * bar's height changes with the phone strip and with the viewport, hence a
+ * ResizeObserver rather than a constant.
+ */
+function useShellTop() {
+  const ref = useRef<HTMLElement>(null);
+  const [top, setTop] = useState(0);
+  useEffect(() => {
+    const header = ref.current;
+    if (!header) return;
+    const measure = () => setTop(header.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, style: { '--shell-top': `${top}px` } as CSSProperties };
+}
+
 export function MilitiaRailShell({
   phone,
   location,
@@ -363,6 +413,7 @@ export function MilitiaRailShell({
     setOrgId,
     go,
   };
+  const shellTop = useShellTop();
 
   return (
     <div
@@ -372,8 +423,16 @@ export function MilitiaRailShell({
         // Setup sits at its bottom while the content scrolls beside it.
         militia && 'md:h-dvh md:overflow-clip',
       )}
+      style={shellTop.style}
     >
-      <header className="bg-sidebar text-sidebar-foreground border-sidebar-border shrink-0 border-b pt-[env(safe-area-inset-top)]">
+      {/* Pinned: the page scrolls under it. Opaque (bg-sidebar), above page
+          content (z-30; the phone bottom bar is z-40, dialogs and sheets
+          z-50). The safe-area top inset is inside the bar so the bar's
+          background covers it. */}
+      <header
+        ref={shellTop.ref}
+        className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 z-30 shrink-0 border-b pt-[env(safe-area-inset-top)]"
+      >
         <div className="flex items-center gap-x-2 px-3 py-1.5 md:gap-x-3 md:px-4 md:py-2">
           {/* Phone: the place as a title (C: picker; D: Up + navigator). */}
           {phone === 'tabs' ? (
@@ -442,13 +501,12 @@ export function MilitiaRailShell({
             militia && 'md:overflow-y-auto',
           )}
         >
-          {sheet && (
-            <SheetSubHeader
-              location={location}
-              go={go}
-              backOnPhone={phone === 'tabs'}
-            />
-          )}
+          {sheet &&
+            (phone === 'tabs' ? (
+              <SheetBack location={location} go={go} />
+            ) : (
+              <SheetSubHeader location={location} go={go} />
+            ))}
           {phone === 'drill' && location.page === 'militia' && campaign && (
             <PhoneMilitiaHub campaign={campaign} go={go} />
           )}

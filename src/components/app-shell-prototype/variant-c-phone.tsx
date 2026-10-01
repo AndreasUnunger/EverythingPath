@@ -155,10 +155,21 @@ function StripLink({
   );
 }
 
-/** The pages of the current bottom tab, under the top bar. Phone only. */
+/**
+ * The pages of the current bottom tab, under the top bar. Phone only. A
+ * sheet keeps the strip of the tab it was opened from, with that page lit
+ * (like the bottom tab and the desktop section link), so the shell stays
+ * put while you look at a Character; from the Characters area there is no
+ * strip, as on that area's own page.
+ */
 export function PhoneTabsStrip({ location, campaign, go }: PhoneProps) {
-  if (!campaign || location.page === 'sheet') return null;
-  const inMilitia = isMilitiaPage(location.page) && campaign.militia !== null;
+  const area = phoneAreaOf(location, campaign);
+  if (!campaign || area === 'characters') return null;
+  const current: Page =
+    location.page === 'sheet'
+      ? (location.from ?? 'campaign-characters')
+      : location.page;
+  const inMilitia = area === 'militia' && campaign.militia !== null;
   const tabs = inMilitia
     ? militiaTabs(campaign)
     : campaignTabs(campaign).filter((tab) => tab.page !== 'militia');
@@ -170,7 +181,7 @@ export function PhoneTabsStrip({ location, campaign, go }: PhoneProps) {
       {tabs.map((tab) => (
         <StripLink
           key={tab.page}
-          active={tab.page === location.page}
+          active={tab.page === current}
           onClick={() => go({ page: tab.page, campaignId: campaign.id })}
         >
           {tab.label}

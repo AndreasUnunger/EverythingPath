@@ -934,9 +934,6 @@ export function SheetPage({ location }: PageProps) {
   const militiaOnly = character.status === 'militia-only';
   return (
     <main className={main}>
-      <p className="text-muted-foreground mb-2 font-mono text-xs">
-        /characters/{character.id}
-      </p>
       <Title
         eyebrow={
           <>
