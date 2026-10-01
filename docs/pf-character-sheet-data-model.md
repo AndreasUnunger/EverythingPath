@@ -25,32 +25,37 @@ Only official Paizo text decides a rule: the Core Rulebook, plus the official FA
 // Existing table, narrowed. Level and ability scores are derived from the sheet.
 character: {
   name: string,
-  ownerId: string,                    // grants no permissions
-  campaignId: Id<'campaign'>,
+  ownerId: string,                    // the Character Owner, see "Ownership and campaigns"
+  campaignId?: Id<'campaign'>,        // absent = in no campaign; a Character is in at most one
   description: string,                // labelled "Notes" in the UI
   kind: 'pc' | 'npc',
   isActive: boolean,
   sheetMode: 'militiaOnly' | 'full',  // presentation only, see "Two presentations"
 }
-// indexes: by_campaignId
+// indexes: by_campaignId, by_ownerId
 
 // The only place authored Modifiers are stored. Scope decides who sees it.
 catalogEntry: {
   scope: 'global' | 'campaign' | 'character',
-  campaignId?: Id<'campaign'>,         // campaign and character scope
+  campaignId?: Id<'campaign'>,         // campaign scope only; character-scope entries follow their Character
   characterId?: Id<'character'>,       // character scope
   name: string,
   sourceKey?: string,                  // shared Source, see "Same Source"; absent = the entry itself
   stacksWithItself: boolean,           // official text says duplicates stack
   modifiers: Modifier[],               // bounded; empty is fine (a rope)
   detail: CatalogEntryDetail,          // discriminated on `kind`
+  description?: string,                // sanitized rules text
+  sources: Array<{ book: string; pages?: string }>, // feeds OGL Section 15
+  externalKey?: string,                // global scope: `<repo>/<_id>`, the upsert key; the pack is an ordinary field
+  retired?: boolean,                   // global scope: removed upstream; hidden from pickers, kept for sheets
+  copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
+  unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
 }
-// indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey
+// indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey, by_externalKey, by_copiedFrom
 
 // One row per thing a Character has.
 characterSheetEntry: {
-  characterId: Id<'character'>,
-  campaignId: Id<'campaign'>,
+  characterId: Id<'character'>,        // access follows the Character; no campaignId, because Characters move
   kind: EntryKind,                     // immutable, indexed
   catalogEntryId?: Id<'catalogEntry'>, // required for catalog-backed kinds, absent for state-only kinds
   active: boolean,                     // off drops its Modifiers and keeps the row
@@ -229,24 +234,95 @@ This narrows "running spells" in [Decide what the militia reads from a Character
 
 ## Two presentations
 
-`sheetMode` controls only how a Character is presented. The sheet behind it is the same in both modes, and switching keeps every entry.
+`sheetMode` controls only how a Character is presented. The sheet behind it is the same in both modes, and building out keeps every entry.
+
+- Only a Character in a campaign with a militia can be Militia-only. A Character in no campaign is always Full.
+- Characters & officers shows the mode as a status. A Militia-only Character has a **Build out** button, which makes it Full. There is no way back to Militia-only.
 
 - **Militia-only Character:**
   - Characters & officers shows its name, level and permanent ability totals, and edits them in place.
   - **Raising the level** appends Unspecified Class Levels.
   - **Lowering the level** removes Class Levels from the end, real ones included, after a confirmation naming them.
   - **Editing a score** changes the base score by the difference, so the total shown equals what was typed.
-- **Full Character:** it is edited on its Character Sheet. Its level and ability scores are read-only in Characters & officers and link to the sheet. A campaign can have Full Characters with or without a militia. Where they live in the UI belongs to [Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208).
+- **Full Character:** it is edited on its Character Sheet. Its level and ability scores are read-only in Characters & officers and link to the sheet. A campaign can have Full Characters with or without a militia. Every Character Sheet lives at `/characters/<id>` (see "Ownership and campaigns").
 
 The roster Hit Dice override, the name, PC/NPC kind, active state and `description` stay editable in Characters & officers in both modes.
 
+## Ownership and campaigns
+
+Decided in [Decide how Characters exist outside a campaign, and the app's home](https://github.com/AndreasUnunger/EverythingPath/issues/212); see [ADR 0002](adr/0002-characters-owned-by-users-move-between-campaigns.md).
+
+- **Character Owner.** The user who created the Character.
+  - Outside a campaign, only the owner can see and edit it.
+  - Inside a campaign, everyone in the campaign can edit it, and ownership grants nothing extra.
+  - Anyone in the campaign can hand ownership to another member of the campaign's organization. Outside a campaign, ownership never changes.
+- **Joining a campaign.** Joining moves the Character itself into the campaign; it is never copied.
+  - It doesn't put the Character on the militia roster. That stays a "Correct roster" Militia Correction.
+  - "Add to a campaign" offers the active organization's campaigns.
+- **Leaving a campaign.** The owner can take a Character out, back to no campaign or into another campaign. In one mutation, leaving does three things:
+  - It takes the Character off the militia roster, out of its officer roles and out of team management. This is recorded as a Militia Correction with an automatic reason, and Staged Action Choices it affects must be reviewed before Confirmation.
+  - It detaches every sheet entry that points at a campaign Catalog Entry into a character-scoped copy, so the sheet doesn't change.
+  - A Militia-only Character becomes Full.
+- **History.** Finished weeks read only their frozen snapshots, so leaving a campaign changes no past week.
+- **Deleting.** The owner can delete a Character in no campaign. Inside a campaign, a Character can only be archived (`isActive: false`), as today.
+- **Catalog outside a campaign.** A Character in no campaign uses the global catalog and its own character-scoped entries. "Save to catalog" needs a campaign. Character-scoped entries stay with the Character when it joins or leaves.
+- **App shell:**
+  - **Top-level areas.** Campaigns (filtered to the active organization) and Characters (every Character you own, across organizations, grouped "No campaign" first and then by campaign).
+  - **Inside a campaign.** The top bar adds the campaign-level pages Home, Characters and Militia.
+  - **Inside Militia.** A left rail holds Week N · Finished weeks · Militia · Characters & officers, plus Setup until the militia is set up. On phone, the bottom bar has fixed tabs (Campaign · Militia · Characters · More), and a strip under the top bar holds the current tab's pages. The approved layout is [Prototype the app shell with Campaigns and Characters areas](https://github.com/AndreasUnunger/EverythingPath/issues/213).
+  - **Sheets.** A sheet keeps the campaign's top bar when its Character is in one, and opens with only a back button to the page it came from. Opening a Character in another organization's campaign switches the active organization.
+- **Where Characters are created:**
+  - the Characters area (no campaign, Full);
+  - a campaign's Characters page (Full, and **Add from my characters**);
+  - Characters & officers (Militia-only);
+  - **Add to campaign** on a sheet in no campaign.
+
 ## Catalog scopes
 
-- **Global:** the imported catalog, read-only for players ([Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207)).
+- **Global:** the imported catalog, read-only for players. See "Global catalog import".
 - **Campaign:** homebrew that anyone in the campaign can use and edit.
 - **Character:** one-offs on a single Character, such as base scores, manual adjustments and tweaks.
 
-Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry.
+Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry. "Customize for campaign" clones a global entry into campaign scope, repoints every sheet entry in that campaign, and makes the picker show the copy in place of the original for that campaign.
+
+Both clones record `copiedFrom`. A copy never updates automatically. When its original changes after the copy was made, the copy shows an advisory that upstream has changed.
+
+## Global catalog import
+
+Decided by [Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207). The dataset is the Foundry VTT pf1 system packs plus `pf1-content` ([Choose the PF1 content dataset for the builder catalog](https://github.com/AndreasUnunger/EverythingPath/issues/202)).
+
+- **Content.** These packs are imported:
+  - races, classes and class abilities;
+  - feats, traits and racial traits;
+  - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
+  - buffs.
+
+  The spell pack, goods and services, third-party packs and 3.5 packs are not imported.
+- **Buffs.** A spell buff becomes a `spell` entry, with `lastsOverOneDay` taken from its duration. Class and item buffs become their own kinds. The `spell` and `characterSpell` tables wait for spellcasting.
+- **Rows.** Global entries are ordinary `catalogEntry` rows, so the resolver loads every scope the same way. Each imported entry carries its description text and its `sources`.
+- **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
+  - add or replace Modifiers, for prose-only entries such as most feats;
+  - set `sourceKey` and `stacksWithItself`;
+  - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack.
+
+  Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
+- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
+- **Pipeline.**
+  - The repo pins one commit of each upstream repo.
+  - At deploy, the build imports only when the pin differs from the catalog's recorded version.
+  - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, and what changed since the last pin.
+- **Updates.** An import upserts by `externalKey`, so sheets follow updates. An entry removed upstream is marked `retired` and never deleted.
+- **Keys.**
+  - Upstream keeps a record's `_id` through edits, renames and pack moves, while pack names change ([Check whether Foundry pf1 record IDs stay stable across releases](https://github.com/AndreasUnunger/EverythingPath/issues/211), `research/pf1-foundry-id-stability`). That is why the key leaves out the pack.
+  - The Curation Overlay holds a reviewed remap list for the cases that would otherwise break the key: records that move between the two repos, upstream merges, and the rare record re-created with a new `_id`.
+  - Upstream's own redirect tables are not trusted.
+- **Batches.** An import runs in idempotent, resumable batches, and the run is recorded. The catalog's recorded version flips only when the run completes. Militia Character Facts are recalculated once at the end, for Characters whose sheets use changed entries. The militia copy is written only when those facts differ, like any sheet edit, and no Ruleset Version changes.
+- **Legal page.** The import generates an in-app legal page, linked from every page's footer. It holds:
+  - the OGL 1.0a text;
+  - a Section 15 built from the imported entries' `sources` plus `pf1-content`'s Section 15 list;
+  - the Paizo Community Use notice.
+
+  The import fails if an imported pack has neither per-entry sources nor a Section 15 list.
 
 The base scores are one character-scoped `base` entry with six `base` Modifiers. Every Character has exactly one sheet entry for it, which cannot be removed or deactivated.
 
@@ -301,4 +377,7 @@ Integration tests (convex-test) must cover:
 - a sheet edit that doesn't change the facts leaves the `canonicalMilitiaState` revision untouched;
 - editing a militia-only Character's score adjusts its base score;
 - a full Character's level can't be edited through Characters & officers;
-- campaign scoping of every catalog and sheet read.
+- campaign scoping of every catalog and sheet read;
+- owner-only access to a Character in no campaign, and campaign access once it joins;
+- leaving a campaign removes the Character from the roster, its roles and team management as one Militia Correction, detaches campaign catalog entries without changing the resolved sheet, and leaves past Resolution Records untouched;
+- deleting is refused for a Character in a campaign.
