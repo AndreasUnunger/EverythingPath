@@ -10,7 +10,7 @@
 //   brannoc — Full PC, dwarf Fighter 3.
 // No campaign (owned by the signed-in user, Andreas):
 //   ilsa  — Full PC, human Cleric 2, built before joining a game.
-//   tobin — Full PC, a barely started sheet: base scores and one Unspecified level.
+//   tobin — Full PC, no campaign: base scores and one Unspecified level.
 // Owners: Andreas (me) owns kesh, ardo, brannoc, ilsa, tobin; Mira owns ama;
 // Jonas (the GM) owns the NPCs hessa and moss.
 

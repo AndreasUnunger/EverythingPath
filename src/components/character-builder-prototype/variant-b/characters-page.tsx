@@ -9,7 +9,7 @@ import { Button } from '~/components/ui/button';
 import { useProtoNav } from '../nav';
 import { levelLine, useMyCharacters } from '../store';
 import type { Campaign, Character } from '../types';
-import { OnRoster, Title, isBarelyStarted } from './page-bits';
+import { OnRoster, Title } from './page-bits';
 import { action, main, rowButton } from './shared';
 
 function CharacterRow({
@@ -35,7 +35,6 @@ function CharacterRow({
         <span className="block font-sans">{character.name}</span>
         <span className="text-muted-foreground block text-sm">
           {levelLine(character)}
-          {isBarelyStarted(character) && ' · sheet barely started'}
         </span>
       </span>
       {campaign?.militia && <OnRoster roster={roster} />}

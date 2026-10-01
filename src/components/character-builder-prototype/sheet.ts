@@ -45,7 +45,7 @@ export function characterLevel(character: Character) {
 
 /**
  * One line for lists: "Level 7 · Barbarian 4 / Rogue 3", or "Level 5" when
- * no level has a class (a Militia-only or barely started sheet).
+ * no level has a class (a Militia-only sheet, or one with only Unspecified levels).
  */
 export function levelLine(character: Character) {
   const levels = classLevels(character);

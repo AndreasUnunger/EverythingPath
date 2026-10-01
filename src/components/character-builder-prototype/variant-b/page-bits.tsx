@@ -37,7 +37,6 @@ import {
   leaveConsequences,
   levelLine,
   levelsRemovedBy,
-  raceCatalog,
   useBuilderStore,
   useCampaign,
   useCampaigns,
@@ -96,14 +95,6 @@ export function OnRoster({ roster }: { roster: RosterPerson | null }) {
       )}
       {roster ? 'On roster' : 'Not on roster'}
     </span>
-  );
-}
-
-/** No class on any level and no race: the sheet has barely been started. */
-export function isBarelyStarted(character: Character) {
-  return (
-    !classLevels(character).some((l) => l.state.classKey) &&
-    !raceCatalog(character)
   );
 }
 

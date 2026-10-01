@@ -366,14 +366,14 @@ function StatRow({
   );
 }
 
-/** Rows grouped by a divider: HP and AC, the saves, CMD. */
+/** Rows in groups set apart by space: HP and AC, the saves, CMD. */
 function StatGroups({
   groups,
 }: {
   groups: { key: string; rows: ReactNode }[];
 }) {
   return (
-    <div className="divide-foreground/20 divide-y">
+    <div>
       {groups.map((g) => (
         <ul key={g.key} className="py-3 first:pt-0 last:pb-0">
           {g.rows}
