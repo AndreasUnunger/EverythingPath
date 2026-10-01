@@ -1,48 +1,40 @@
 'use client';
-// PROTOTYPE (throwaway, #208) — Variant C "Level timeline + live sheet". STUB: replaced by the
-// variant's own implementation (see CONTRACT.md). It may grow a
-// variant-c/ folder.
+// PROTOTYPE (throwaway, #208) — Variant C "Level timeline + live sheet".
+// The character is its history: a vertical timeline of cards (Foundation,
+// one per Class Level, Now) on the left, a live derived sheet on the right.
+// Every page but the list is the same two-pane builder with different
+// defaults. Pieces live in ./variant-c/.
 
-import { Button } from '~/components/ui/button';
-import type { FrameNavFn } from './frame';
-import { PAGES, useProtoNav } from './nav';
-import { useCharacter, useResolved, useWarnings } from './store';
+import { Users } from 'lucide-react';
+import { defaultSections, type FrameNavFn } from './frame';
 import type { VariantProps } from './types';
-import { formatBonus } from './ui-helpers';
+import { BuilderPage } from './variant-c/builder-page';
+import { ListPage } from './variant-c/list-page';
 
 export const name = 'Level timeline + live sheet';
 
-/** Optional: change the frame's section links. undefined = the real app's four sections. */
-export const frameNav: FrameNavFn | undefined = undefined;
+/** Without a militia, "Characters & officers" and "Militia" give way to a plain "Characters" section. */
+export const frameNav: FrameNavFn = ({ campaign }) => {
+  const sections = defaultSections(campaign);
+  if (campaign.militia) return { sections, activeKey: 'characters' };
+  return {
+    sections: [
+      ...sections.filter((s) => s.key !== 'militia' && s.key !== 'characters'),
+      {
+        key: 'characters',
+        label: 'Characters',
+        short: 'Characters',
+        icon: Users,
+        to: { page: 'list' },
+      },
+    ],
+    activeKey: 'characters',
+  };
+};
 
 export function VariantC({ page, campaignId, characterId }: VariantProps) {
-  const nav = useProtoNav();
-  const character = useCharacter(characterId);
-  const sheet = useResolved(characterId);
-  const warnings = useWarnings(characterId);
+  if (page === 'list') return <ListPage campaignId={campaignId} />;
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
-      <h1 className="text-2xl">
-        Variant C · {name} · {page}
-      </h1>
-      <p className="text-muted-foreground text-sm">
-        Campaign {campaignId}
-        {character && ` · ${character.name}`}
-        {sheet &&
-          ` · AC ${sheet.ac.total} · HP ${sheet.hp.total} · BAB ${formatBonus(sheet.bab.total)}`}
-        {` · ${warnings.length} warnings`}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {PAGES.map((p) => (
-          <Button
-            key={p}
-            variant={p === page ? 'default' : 'outline'}
-            onClick={() => nav.go(p)}
-          >
-            {p}
-          </Button>
-        ))}
-      </div>
-    </main>
+    <BuilderPage page={page} campaignId={campaignId} characterId={characterId} />
   );
 }
