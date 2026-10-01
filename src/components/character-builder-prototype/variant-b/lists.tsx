@@ -13,7 +13,6 @@ import {
   entryName,
   featSlots,
   featuresGainedAt,
-  isTemporary,
   lookupCatalog,
   useBuilderStore,
 } from '../store';
@@ -372,7 +371,6 @@ export function GearBlock({ character }: { character: Character }) {
       <ul className="divide-foreground/10 divide-y text-sm">
         {entries.map((e) => {
           const catalog = lookupCatalog(character, e.catalogKey);
-          const temporary = isTemporary(character, e);
           return (
             <li
               key={e.id}
@@ -402,13 +400,6 @@ export function GearBlock({ character }: { character: Character }) {
               <span className={cn(chip, 'hidden lg:inline-flex')}>
                 {KIND_LABEL[e.kind]}
               </span>
-              {temporary && (
-                <span
-                  className={cn(chip, 'border-violet-400/60 text-violet-300')}
-                >
-                  temp
-                </span>
-              )}
               {e.state.kind === 'item' && (
                 <NumField
                   ariaLabel="Quantity"

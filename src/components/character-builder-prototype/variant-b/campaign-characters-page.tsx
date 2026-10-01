@@ -17,7 +17,6 @@ import {
 } from '~/components/ui/dialog';
 import { cn } from '~/lib/utils';
 import { useProtoNav } from '../nav';
-import { StatusBadge } from '../shell/parts';
 import { Missing } from '../shell/placeholders';
 import {
   ME,
@@ -173,7 +172,6 @@ export function CampaignCharactersPage() {
                 </span>
               </span>
               {campaign.militia && <OnRoster roster={roster} />}
-              <StatusBadge mode={character.sheetMode} />
               <ChevronRight
                 aria-hidden
                 className="text-muted-foreground size-4 shrink-0"
@@ -200,9 +198,6 @@ export function CampaignCharactersPage() {
             </th>
             <th scope="col" className={listTh}>
               Level
-            </th>
-            <th scope="col" className={listTh}>
-              Status
             </th>
             {campaign.militia && (
               <th scope="col" className={cn(listTh, 'whitespace-nowrap')}>
@@ -234,9 +229,6 @@ export function CampaignCharactersPage() {
               <td className={cn(listTd, 'whitespace-nowrap')}>
                 {levelLine(character)}
               </td>
-              <td className={listTd}>
-                <StatusBadge mode={character.sheetMode} />
-              </td>
               {campaign.militia && (
                 <td className={cn(listTd, 'whitespace-nowrap')}>
                   <OnRoster roster={roster} />
@@ -247,7 +239,7 @@ export function CampaignCharactersPage() {
           {rows.length === 0 && (
             <tr>
               <td
-                colSpan={campaign.militia ? 5 : 4}
+                colSpan={campaign.militia ? 4 : 3}
                 className="text-muted-foreground py-6 text-sm"
               >
                 No Characters in {campaign.name} yet.

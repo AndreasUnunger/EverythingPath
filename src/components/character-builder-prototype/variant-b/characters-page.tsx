@@ -7,7 +7,6 @@
 import { ChevronRight, Plus } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { useProtoNav } from '../nav';
-import { StatusBadge } from '../shell/parts';
 import { levelLine, useMyCharacters } from '../store';
 import type { Campaign, Character } from '../types';
 import { OnRoster, Title, isBarelyStarted } from './page-bits';
@@ -40,7 +39,6 @@ function CharacterRow({
         </span>
       </span>
       {campaign?.militia && <OnRoster roster={roster} />}
-      <StatusBadge mode={character.sheetMode} />
       <ChevronRight
         aria-hidden
         className="text-muted-foreground size-4 shrink-0"

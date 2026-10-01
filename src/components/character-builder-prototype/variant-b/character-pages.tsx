@@ -5,7 +5,7 @@
 // Character gets the living sheet; a Militia-only one gets a compact card
 // with what the militia reads, edited in place, and Build out.
 
-import { ArrowUp, Hammer } from 'lucide-react';
+import { Hammer } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -22,7 +22,7 @@ import {
 } from '../store';
 import type { Character, ResolvedSheet } from '../types';
 import type { Warning } from '../warnings';
-import { IssuesButton, TodoPanel, openTodos } from './checklist';
+import { TodoPanel, openTodos } from './checklist';
 import { LivingSheet } from './living-sheet';
 import {
   CharacterHeader,
@@ -104,15 +104,7 @@ function FullBody({
 }) {
   return (
     <main className={characterMain}>
-      <CharacterHeader
-        character={character}
-        actions={
-          <>
-            <IssuesButton warnings={warnings} characterId={character.id} />
-            {actions}
-          </>
-        }
-      />
+      <CharacterHeader character={character} actions={actions} />
       <LivingSheet
         character={character}
         sheet={sheet}
@@ -129,7 +121,6 @@ function FullBody({
 
 /** The sheet: everything editable, breakdowns on tap. */
 export function SheetPage({ characterId }: { characterId: string }) {
-  const nav = useProtoNav();
   const store = useBuilderStore();
   const character = useCharacter(characterId);
   const sheet = useResolved(characterId);
@@ -157,7 +148,6 @@ export function SheetPage({ characterId }: { characterId: string }) {
       </main>
     );
 
-  const last = classLevels(character).at(-1)?.state.classKey ?? null;
   // A barely started sheet keeps the build-it-out affordances and checklist.
   const barely = isBarelyStarted(character);
   const mode: SheetMode = barely ? 'buildout' : 'sheet';
@@ -179,21 +169,6 @@ export function SheetPage({ characterId }: { characterId: string }) {
             characterId={character.id}
           />
         ) : undefined
-      }
-      actions={
-        <Button
-          type="button"
-          size="sm"
-          className={action}
-          onClick={() =>
-            nav.go('levelup', { params: { as: last ?? 'unspecified' } })
-          }
-        >
-          <ArrowUp /> Level up
-          {last && (
-            <span className="hidden md:inline"> ({className(last)})</span>
-          )}
-        </Button>
       }
     />
   );

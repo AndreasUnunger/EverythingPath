@@ -18,7 +18,6 @@ import {
   useBuilderStore,
 } from '../store';
 import type { AbilityKey, Character, ResolvedSheet } from '../types';
-import { formatBonus } from '../ui-helpers';
 import type { Warning } from '../warnings';
 import { LevelsTable } from './levels-table';
 import { FeatsBlock, FeaturesBlock, GearBlock } from './lists';
@@ -38,21 +37,14 @@ import {
 } from './shared';
 import { SkillsTable } from './skills-table';
 
-function classSummary(sheet: ResolvedSheet) {
-  const parts = sheet.classes.map((c) => `${c.name} ${c.levels}`);
-  return parts.length ? parts.join(' / ') : 'No class';
-}
-
 // ---------------------------------------------------------------- identity
 
 function IdentityBlock({
   character,
-  sheet,
   warnings,
   mode,
 }: {
   character: Character;
-  sheet: ResolvedSheet;
   warnings: Warning[];
   mode: SheetMode;
 }) {
@@ -65,15 +57,7 @@ function IdentityBlock({
   const label =
     'text-muted-foreground font-mono text-[11px] tracking-wide uppercase';
   return (
-    <Block
-      id="b-identity"
-      title="Character"
-      aside={
-        <span className="text-muted-foreground font-mono text-xs">
-          {classSummary(sheet)} · level {sheet.level} · {sheet.hitDice} HD
-        </span>
-      }
-    >
+    <Block id="b-identity" title="Character">
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 md:grid-cols-4 lg:grid-cols-8">
         <label className="col-span-2 flex flex-col gap-0.5">
           <span className={label}>Name</span>
@@ -321,75 +305,159 @@ function Figure({
   );
 }
 
+/**
+ * One line of a defense or offense card: a plain-text label, optional
+ * secondary numbers, and the main number right-aligned in a fixed column so
+ * the figures line up down the card. Body font, not the pixel one.
+ */
+function StatRow({
+  label,
+  title,
+  path,
+  sheet,
+  signed,
+  also,
+}: {
+  label: string;
+  title: string;
+  path: StatPath;
+  sheet: ResolvedSheet;
+  signed?: boolean;
+  /** Secondary numbers shown between the label and the main one. */
+  also?: { label: string; title: string; path: StatPath; signed?: boolean }[];
+}) {
+  return (
+    <li className="flex items-center gap-3 py-1">
+      <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-4 gap-y-0.5">
+        <span className="text-sm">{label}</span>
+        {also && (
+          <span className="text-muted-foreground flex flex-wrap items-baseline gap-x-3 text-xs">
+            {also.map((a) => (
+              <span key={a.path} className="inline-flex items-baseline gap-1">
+                {a.label}
+                <StatButton
+                  path={a.path}
+                  sheet={sheet}
+                  title={a.title}
+                  signed={a.signed}
+                  className="text-foreground min-h-6 font-sans text-sm"
+                />
+              </span>
+            ))}
+          </span>
+        )}
+      </span>
+      <StatButton
+        path={path}
+        sheet={sheet}
+        title={title}
+        signed={signed}
+        className="min-w-12 justify-end font-sans text-xl"
+      />
+    </li>
+  );
+}
+
+/** Rows grouped by a divider: HP and AC, the saves, CMD. */
+function StatGroups({
+  groups,
+}: {
+  groups: { key: string; rows: ReactNode }[];
+}) {
+  return (
+    <div className="divide-foreground/20 divide-y">
+      {groups.map((g) => (
+        <ul
+          key={g.key}
+          className="divide-foreground/10 divide-y py-1 first:pt-0 last:pb-0"
+        >
+          {g.rows}
+        </ul>
+      ))}
+    </div>
+  );
+}
+
 function DefensesBlock({ sheet }: { sheet: ResolvedSheet }) {
   return (
     <Block id="b-defenses" title="Defenses">
-      <div className="grid grid-cols-3 gap-x-2 gap-y-2">
-        <Figure
-          path="hp"
-          sheet={sheet}
-          title="Hit points"
-          short="HP"
-          size="lg"
-        />
-        <Figure
-          path="ac"
-          sheet={sheet}
-          title="Armor Class"
-          short="AC"
-          size="lg"
-        />
-        <div className="flex flex-col gap-1">
-          <Figure
-            path="touchAc"
-            sheet={sheet}
-            title="Touch AC"
-            short="touch"
-            size="sm"
-          />
-          <Figure
-            path="flatFootedAc"
-            sheet={sheet}
-            title="Flat-footed AC"
-            short="flat-footed"
-            size="sm"
-          />
-        </div>
-        <Figure
-          path="saves.fort"
-          sheet={sheet}
-          title="Fortitude save"
-          short="Fort"
-          signed
-        />
-        <Figure
-          path="saves.ref"
-          sheet={sheet}
-          title="Reflex save"
-          short="Ref"
-          signed
-        />
-        <Figure
-          path="saves.will"
-          sheet={sheet}
-          title="Will save"
-          short="Will"
-          signed
-        />
-        <Figure
-          path="cmd"
-          sheet={sheet}
-          title="Combat Maneuver Defense"
-          short="CMD"
-        />
-        <Figure
-          path="flatFootedCmd"
-          sheet={sheet}
-          title="Flat-footed CMD"
-          short="FF CMD"
-          size="sm"
-        />
-      </div>
+      <StatGroups
+        groups={[
+          {
+            key: 'hp-ac',
+            rows: (
+              <>
+                <StatRow
+                  label="Hit points"
+                  title="Hit points"
+                  path="hp"
+                  sheet={sheet}
+                />
+                <StatRow
+                  label="Armor Class"
+                  title="Armor Class"
+                  path="ac"
+                  sheet={sheet}
+                  also={[
+                    { label: 'Touch', title: 'Touch AC', path: 'touchAc' },
+                    {
+                      label: 'Flat-footed',
+                      title: 'Flat-footed AC',
+                      path: 'flatFootedAc',
+                    },
+                  ]}
+                />
+              </>
+            ),
+          },
+          {
+            key: 'saves',
+            rows: (
+              <>
+                <StatRow
+                  label="Fortitude"
+                  title="Fortitude save"
+                  path="saves.fort"
+                  sheet={sheet}
+                  signed
+                />
+                <StatRow
+                  label="Reflex"
+                  title="Reflex save"
+                  path="saves.ref"
+                  sheet={sheet}
+                  signed
+                />
+                <StatRow
+                  label="Will"
+                  title="Will save"
+                  path="saves.will"
+                  sheet={sheet}
+                  signed
+                />
+              </>
+            ),
+          },
+          {
+            key: 'cmd',
+            rows: (
+              <StatRow
+                label="CMD"
+                title="Combat Maneuver Defense"
+                path="cmd"
+                sheet={sheet}
+                also={[
+                  {
+                    label: 'Flat-footed',
+                    title: 'Flat-footed CMD',
+                    path: 'flatFootedCmd',
+                  },
+                ]}
+              />
+            ),
+          },
+        ]}
+      />
     </Block>
   );
 }
@@ -397,43 +465,62 @@ function DefensesBlock({ sheet }: { sheet: ResolvedSheet }) {
 function OffenseBlock({ sheet }: { sheet: ResolvedSheet }) {
   return (
     <Block id="b-offense" title="Offense">
-      <div className="grid grid-cols-3 gap-x-2 gap-y-2">
-        <Figure
-          path="bab"
-          sheet={sheet}
-          title="Base attack bonus"
-          short="BAB"
-          signed
-        />
-        <Figure
-          path="attackMelee"
-          sheet={sheet}
-          title="Melee attack"
-          short="Melee"
-          signed
-        />
-        <Figure
-          path="attackRanged"
-          sheet={sheet}
-          title="Ranged attack"
-          short="Ranged"
-          signed
-        />
-        <Figure
-          path="cmb"
-          sheet={sheet}
-          title="Combat Maneuver Bonus"
-          short="CMB"
-          signed
-        />
-        <Figure
-          path="init"
-          sheet={sheet}
-          title="Initiative"
-          short="Init"
-          signed
-        />
-      </div>
+      <StatGroups
+        groups={[
+          {
+            key: 'attacks',
+            rows: (
+              <>
+                <StatRow
+                  label="Base attack"
+                  title="Base attack bonus"
+                  path="bab"
+                  sheet={sheet}
+                  signed
+                />
+                <StatRow
+                  label="Melee"
+                  title="Melee attack"
+                  path="attackMelee"
+                  sheet={sheet}
+                  signed
+                />
+                <StatRow
+                  label="Ranged"
+                  title="Ranged attack"
+                  path="attackRanged"
+                  sheet={sheet}
+                  signed
+                />
+              </>
+            ),
+          },
+          {
+            key: 'cmb',
+            rows: (
+              <StatRow
+                label="CMB"
+                title="Combat Maneuver Bonus"
+                path="cmb"
+                sheet={sheet}
+                signed
+              />
+            ),
+          },
+          {
+            key: 'init',
+            rows: (
+              <StatRow
+                label="Initiative"
+                title="Initiative"
+                path="init"
+                sheet={sheet}
+                signed
+              />
+            ),
+          },
+        ]}
+      />
     </Block>
   );
 }
@@ -589,7 +676,6 @@ export function LivingSheet({
         <div className="min-w-0 lg:col-span-12">
           <IdentityBlock
             character={character}
-            sheet={sheet}
             warnings={warnings}
             mode={mode}
           />
@@ -626,12 +712,6 @@ export function LivingSheet({
           <GearBlock character={character} />
         </div>
       </div>
-      <p className="text-muted-foreground mt-3 text-xs">
-        Numbers with a dotted underline open their breakdown. Nothing here is
-        locked: past levels, scores and picks all edit in place. Rules checks
-        are advisory. Buffed numbers show in violet; the base scores and BAB are{' '}
-        {formatBonus(sheet.bab.total)} / {sheet.hp.total} hp today.
-      </p>
       <BreakdownPopover sheet={sheet} />
     </SheetUiContext.Provider>
   );

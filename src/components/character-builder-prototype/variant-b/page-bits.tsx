@@ -29,7 +29,6 @@ import { cn } from '~/lib/utils';
 import { ABILITY_LABEL, ABILITY_SHORT } from '../catalog';
 import { useProtoNav } from '../nav';
 import { militiaCharacterFacts } from '../resolve';
-import { StatusBadge } from '../shell/parts';
 import {
   ABILITIES,
   ME,
@@ -368,10 +367,7 @@ export function CharacterHeader({
     <div className="mb-3">
       <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
-          <h1 className="flex flex-wrap items-center gap-2 font-sans text-2xl md:text-xl">
-            {character.name}
-            <StatusBadge mode={character.sheetMode} />
-          </h1>
+          <h1 className="font-sans text-2xl md:text-xl">{character.name}</h1>
           <p className="text-muted-foreground text-sm">
             {levelLine(character)} · {ownerLine(character)}
           </p>

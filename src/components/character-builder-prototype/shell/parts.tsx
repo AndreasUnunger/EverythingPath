@@ -5,7 +5,6 @@
 // presentation status badge, top-bar link, phone tab primitives, More tab.
 import { MoreHorizontal } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
   Select,
@@ -24,7 +23,6 @@ import {
 } from '~/components/ui/sheet';
 import { cn } from '~/lib/utils';
 import { ORGS } from '../mock-characters';
-import type { Character } from '../types';
 import type { Icon } from './model';
 
 /** Stand-in for OrganizationControl: a Select over the mock orgs. */
@@ -75,30 +73,6 @@ export function MockAvatar({ className }: { className?: string }) {
     >
       AU
     </button>
-  );
-}
-
-/** The presentation as a status: Militia-only (amber) or Full. */
-export function StatusBadge({
-  mode,
-  className,
-}: {
-  mode: Character['sheetMode'];
-  className?: string;
-}) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'font-mono text-[11px] font-normal',
-        mode === 'militiaOnly'
-          ? 'border-amber-500/60 text-amber-300'
-          : 'border-foreground/40 text-muted-foreground',
-        className,
-      )}
-    >
-      {mode === 'militiaOnly' ? 'Militia-only' : 'Full'}
-    </Badge>
   );
 }
 

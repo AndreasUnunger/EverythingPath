@@ -12,7 +12,6 @@ import { cn } from '~/lib/utils';
 import { ABILITY_SHORT } from '../catalog';
 import { useProtoNav } from '../nav';
 import { militiaCharacterFacts } from '../resolve';
-import { StatusBadge } from '../shell/parts';
 import { Missing } from '../shell/placeholders';
 import {
   ABILITIES,
@@ -133,9 +132,6 @@ export function OfficersPage() {
             <th scope="col" className={cn(listTh, 'w-full')}>
               Name
             </th>
-            <th scope="col" className={listTh}>
-              Status
-            </th>
             <th scope="col" className={cn(listTh, 'text-center')}>
               Level
             </th>
@@ -174,9 +170,6 @@ export function OfficersPage() {
                     {userName(c.ownerId)} · {c.kind.toUpperCase()}
                     {!militiaOnly && ` · ${levelLine(c)}`}
                   </span>
-                </td>
-                <td className={cn(listTd, 'py-1.5')}>
-                  <StatusBadge mode={c.sheetMode} />
                 </td>
                 <td className={cn(listTd, 'py-1.5 text-center')}>
                   {militiaOnly ? (
@@ -246,7 +239,6 @@ export function OfficersPage() {
                     {c.name}
                   </a>
                 )}
-                <StatusBadge mode={c.sheetMode} />
               </div>
               <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 text-xs">
                 <span>
