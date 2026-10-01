@@ -44,8 +44,14 @@ catalogEntry: {
   stacksWithItself: boolean,           // official text says duplicates stack
   modifiers: Modifier[],               // bounded; empty is fine (a rope)
   detail: CatalogEntryDetail,          // discriminated on `kind`
+  description?: string,                // sanitized rules text
+  sources: Array<{ book: string; pages?: string }>, // feeds OGL Section 15
+  externalKey?: string,                // global scope: `<repo>/<pack>/<_id>`, the upsert key
+  retired?: boolean,                   // global scope: removed upstream; hidden from pickers, kept for sheets
+  copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
+  unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
 }
-// indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey
+// indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey, by_externalKey, by_copiedFrom
 
 // One row per thing a Character has.
 characterSheetEntry: {
@@ -242,11 +248,46 @@ The roster Hit Dice override, the name, PC/NPC kind, active state and `descripti
 
 ## Catalog scopes
 
-- **Global:** the imported catalog, read-only for players ([Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207)).
+- **Global:** the imported catalog, read-only for players. See "Global catalog import".
 - **Campaign:** homebrew that anyone in the campaign can use and edit.
 - **Character:** one-offs on a single Character, such as base scores, manual adjustments and tweaks.
 
-Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry.
+Adding a one-off inserts its character-scoped Catalog Entry and its sheet entry in one mutation. "Save to catalog" rescopes a character entry to the campaign. "Detach" clones a global or campaign entry into a character-scoped one and repoints the sheet entry. "Customize for campaign" clones a global entry into campaign scope, repoints every sheet entry in that campaign, and makes the picker show the copy in place of the original for that campaign.
+
+Both clones record `copiedFrom`. A copy never updates automatically. When its original changes after the copy was made, the copy shows an advisory that upstream has changed.
+
+## Global catalog import
+
+Decided by [Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207). The dataset is the Foundry VTT pf1 system packs plus `pf1-content` ([Choose the PF1 content dataset for the builder catalog](https://github.com/AndreasUnunger/EverythingPath/issues/202)).
+
+- **Content.** These packs are imported:
+  - races, classes and class abilities;
+  - feats, traits and racial traits;
+  - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
+  - buffs.
+
+  The spell pack, goods and services, third-party packs and 3.5 packs are not imported.
+- **Buffs.** A spell buff becomes a `spell` entry, with `lastsOverOneDay` taken from its duration. Class and item buffs become their own kinds. The `spell` and `characterSpell` tables wait for spellcasting.
+- **Rows.** Global entries are ordinary `catalogEntry` rows, so the resolver loads every scope the same way. Each imported entry carries its description text and its `sources`.
+- **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
+  - add or replace Modifiers, for prose-only entries such as most feats;
+  - set `sourceKey` and `stacksWithItself`;
+  - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack.
+
+  Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
+- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
+- **Pipeline.**
+  - The repo pins one commit of each upstream repo.
+  - At deploy, the build imports only when the pin differs from the catalog's recorded version.
+  - The PR that bumps the pin carries a committed import report. It lists counts per pack, unsupported changes, overlay records that no longer apply, and what changed since the last pin.
+- **Updates.** An import upserts by `externalKey`, so sheets follow updates. An entry removed upstream is marked `retired` and never deleted.
+- **Batches.** An import runs in idempotent, resumable batches, and the run is recorded. The catalog's recorded version flips only when the run completes. Militia Character Facts are recalculated once at the end, for Characters whose sheets use changed entries. The militia copy is written only when those facts differ, like any sheet edit, and no Ruleset Version changes.
+- **Legal page.** The import generates an in-app legal page, linked from every page's footer. It holds:
+  - the OGL 1.0a text;
+  - a Section 15 built from the imported entries' `sources` plus `pf1-content`'s Section 15 list;
+  - the Paizo Community Use notice.
+
+  The import fails if an imported pack has neither per-entry sources nor a Section 15 list.
 
 The base scores are one character-scoped `base` entry with six `base` Modifiers. Every Character has exactly one sheet entry for it, which cannot be removed or deactivated.
 

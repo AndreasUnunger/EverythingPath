@@ -86,6 +86,14 @@ _Avoid_: Character record (for the stats), stat block
 The definition of something a Character can have, such as an item, spell, feat, class, race, class feature, condition or a one-off adjustment. It holds the thing's rule facts and the Modifiers it grants, and is shared globally, across one campaign, or kept for one Character.
 _Avoid_: item definition, effect
 
+**Catalog Copy**:
+A campaign or Character Catalog Entry cloned from another entry so it can be changed locally. It never follows later changes to its original, and it warns when the original has changed since it was copied.
+_Avoid_: override, fork
+
+**Curation Overlay**:
+The project's reviewed corrections to the imported content, each citing the official text it relies on. It supplies what the dataset lacks, such as the Modifiers of prose-only feats, shared Sources and the conditions, and it is reapplied whenever the content is imported again.
+_Avoid_: patches, homebrew (homebrew belongs to one campaign)
+
 **Character Sheet Entry**:
 One Catalog Entry on one Character's sheet. It holds only that Character's state for it, such as whether it is active, its quantity, or notes. Two potions of the same kind are two Character Sheet Entries.
 
