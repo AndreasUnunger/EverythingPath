@@ -14,6 +14,16 @@ Triage uses the five canonical role labels. See `docs/agents/triage-labels.md`.
 
 Domain documentation uses the single-context layout. See `docs/agents/domain.md`.
 
+## Agent workflow
+
+This applies alongside the vendored `implement` skills.
+
+- The main session orchestrates: diagnosis, briefs, merging, running checks and gates, and reporting. Subagents make every code change, even small fixes.
+- Fable subagents (`model: "fable"`) write the UI presentation layer: React JSX, layout, styling, responsive behaviour, accessibility markup, and visual states. Brief each one with a precise contract: the props and hooks provided, the prototype or screenshot reference, and the layout acceptance criteria.
+- Opus subagents write everything else: domain and rules logic, Convex, state and hooks, tests, and integration.
+- Run nested subagents, including `code-review` reviewers, in the foreground (`run_in_background: false`). Background completion notices never reach a nested agent.
+- Every issue, new finding, and fix ready to push gets a Codex second opinion: see the `second-opinion` skill.
+
 ## Issue Tracker
 
 Use GitHub Issues for planning and tracking work in this repository. Use the
@@ -66,6 +76,12 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 - The primary layout target is `tablet landscape`; desktop and phone views should remain usable as secondary layouts.
 - The UX should minimize turn friction, surface the current decision clearly, and keep militia status legible at a glance.
 
+### Roll Input Copy
+
+- State each roll's dice notation (for example "1d20") once, in the roll field's own description. Headings and summaries name the roll, its DC, and its conditions without the dice.
+- Write copy about the decision in front of the player. Boilerplate that restates how the table works, such as "Rolled at the table." or "The rules use the dice total; these modifiers are kept with the roll for the table.", is left out.
+- Show a conditional roll input only while its condition holds, as the rules engine reads the entered check: for example a Notoriety roll on a natural 1, or a Training roll when the check succeeds. A hidden roll is never required and never changes the outcome.
+
 ### Real-Time Collaboration Contract (Convex Sync)
 
 - Militia state updates must sync to all connected players in real time through Convex.
@@ -95,6 +111,8 @@ The application is a multiplayer Pathfinder militia operations board for Ironfan
 
 - All users with access to the organization have the same editing and correction permissions for its militia data.
 - At this stage there are no separate GM controls or GM-only permissions.
+- Everything is done with the GM's blessing; the users are cooperating. The app treats every action as GM-approved: it never asks whether the GM allows an action and never gates a choice behind a GM-permission answer or a Rules Exception for GM discretion.
+- Where the corpus says something is "at GM discretion" or "may be impossible", the app treats it as allowed and records the departure from the corpus under a Ruleset Version, as the Spread Propaganda note for Ruleset Version 9 in `militia-rules.md` does.
 - Enforce organization membership and campaign-scoped references for every read and write.
 
 ### Character Ledger and Officer Assignments
