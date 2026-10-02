@@ -8,7 +8,7 @@ Rules sources:
 - [Find how official PF1 rules treat "functions as" wordings for stacking](https://github.com/AndreasUnunger/EverythingPath/issues/210) (`research/pf1-functions-as-stacking`)
 - [Survey how existing PF1 builders model characters](https://github.com/AndreasUnunger/EverythingPath/issues/203) (`research/pf1-builder-models`)
 
-Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*. Other Paizo books supply catalog content, not rules.
+Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). Other Paizo books supply catalog content, not rules.
 
 ## Principles
 
@@ -82,11 +82,12 @@ type CatalogEntryDetail =
   | { kind: 'base' }
   | { kind: 'race'; racialHitDice: number }                     // later: creature-type progression
   | { kind: 'class'; classKind: 'base' | 'prestige' | 'npc';
+      counterpartOf?: Id<'catalogEntry'>,                         // an Unchained Class: its original class
       hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
       saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
       skillRanksPerLevel: number; classSkills: SkillKey[];
       featuresByLevel: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }> }
-  | { kind: 'archetype'; classEntryId: Id<'catalogEntry'>;       // the one base class it varies
+  | { kind: 'archetype'; classEntryIds: Id<'catalogEntry'>[];   // the base class it varies; both versions where its source names both
       replaces: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>; // rows of the class's featuresByLevel
       adds: Array<{ classLevel: number; catalogEntryId: Id<'catalogEntry'> }>;
       classSkillsAdded: SkillKey[]; classSkillsRemoved: SkillKey[];
@@ -124,7 +125,7 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
 
 - **Coverage.** Every official Paizo prestige class and archetype, from any Paizo product: rulebooks, Campaign Setting, Player Companion and Adventure Path books.
 - **Archetypes.**
-  - An Archetype is a Catalog Entry tied to one base class. A Character takes it as a sheet entry, and it applies to every level of that class. The levels stay levels of the base class.
+  - An Archetype is a Catalog Entry tied to one base class, or to both versions of one (see "Unchained Classes"). A Character takes it as a sheet entry, and it applies to every level of that class. The levels stay levels of the base class.
   - `replaces` names rows of the class's `featuresByLevel`, a feature at one class level, so "replaces armor training 1" removes only that row. An archetype feature that alters a class feature replaces that row and adds its own feature at the same level.
   - Adding an Archetype removes the class feature entries it replaces from the sheet and adds its own features at their levels, with `gainedAtClassLevel` set. Removing it reverses this. Entries added or edited by hand stay.
   - Class skills added or removed and skill ranks per level are structured. Proficiency changes stay in the description. Spellcasting changes wait for spellcasting.
@@ -141,6 +142,23 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
   - The scraper extracts what it can, including matching "replaces X" against the base class's features. Every record it cannot match or classify goes to a hand-review list. Each book also gets a sampled spot-check.
   - Corrections, including Modifiers for archetype and prestige features, are made in the dataset itself. A reviewed record is marked and cites its book and page. The Curation Overlay is only for upstream data.
   - Every scraped record's book needs a Section 15 line, or the import fails. Where that text comes from is decided by [Find the Section 15 text for every imported source book](https://github.com/AndreasUnunger/EverythingPath/issues/224).
+
+## Unchained Classes
+
+Decided by [Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226).
+
+- **Scope.** The four Unchained Classes (barbarian, monk, rogue, summoner), their archetypes, and *Pathfinder Unchained*'s other catalog content are in. Signature Skill and skill unlocks, the stamina feats, Combat Trick feats and scaling items are plain prose catalog content: nothing is derived from them, and no stamina pool exists. Every alternate rule system in the book is out of scope, so there are no variant rule switches on a campaign or a Character.
+- **Class entries.** Each Unchained Class is its own `class` Catalog Entry, imported from Foundry's `<Class> (Unchained)` records, with `counterpartOf` pointing at the original class. Its features are found through the class's links, not by the PZO1131 source, which most unchained feature records lack.
+- **One version per Character.** Class Levels in both an original class and its Unchained Class show an advisory warning ("individual characters must use one version or the other exclusively").
+- **A version of the same class.** The book's own framing, applied consistently:
+  - Levels of an Unchained Class count as levels of the original wherever something counts levels in that class: `@classLevel.<classKey>`, requirements, and the favored class with its favored class options. The two never coexist, so nothing double-counts.
+  - A prerequisite naming a class feature is met by the same-named feature of either version, ignoring Foundry's `(UC)` suffix: Extra Rage accepts *Rage (UC)*. The check itself belongs to [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215).
+- **Archetypes.**
+  - An archetype for the original barbarian, rogue or summoner applies to the Unchained Class ("as long as the classes still have the appropriate class features to replace"). Its `replaces` rows match the Unchained Class's `featuresByLevel` by feature name and class level, ignoring `(UC)`. A row with no match shows an advisory warning and removes nothing.
+  - An archetype for the original monk on the unchained monk shows an advisory warning ("with the exception of the monk").
+  - Archetypes written for an Unchained Class name it directly. One whose source names both versions lists both in `classEntryIds`.
+  - The Pathfinder Society restrictions (no barbarian archetype that changes rage, no summoner archetype that changes the eidolon's base form) are campaign policy, not rules text, and are not adopted.
+- **Spells.** The unchained summoner's revised spell list is ordinary per-class spell data, left to spellcasting.
 
 ## Modifiers
 

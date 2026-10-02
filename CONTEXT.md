@@ -119,6 +119,10 @@ A class a Character can enter only after meeting its requirements, which are pre
 **Unspecified Class Level**:
 A Class Level whose class has not been recorded. It lets a minimal Character Sheet carry a level before it is built out, and it contributes nothing but Hit Dice.
 
+**Unchained Class**:
+A *Pathfinder Unchained* version of a class, such as the unchained rogue: a class of its own that counts as another version of the original. Its levels count as levels of the original class, its features meet prerequisites that name the original's same-named features, and archetypes for the original apply to it where it still has the features they replace, except for the monk. One Character should hold levels in only one of the two versions.
+_Avoid_: class variant, archetype
+
 **Temporary Effect**:
 A running spell lasting 1 day or less, a condition, a consumable or ability damage. Every other Character Sheet Entry is permanent, including a spell lasting longer than a day, and ability drain.
 
