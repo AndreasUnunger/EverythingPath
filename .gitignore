@@ -58,3 +58,6 @@ yarn-error.log*
 
 # Local working notes, drafts and screenshots
 .scratch/
+
+# Local catalog extraction artifacts
+/.catalog-preview/
