@@ -21,8 +21,14 @@ const inspected = z.object({ characterIds: z.array(z.string()).min(1) });
 const tablet = { width: 1024, height: 768 };
 const phone = { width: 390, height: 844 };
 
+function findSheet(page: Page) {
+  return page.getByRole('main');
+}
 function findLevels(page: Page) {
-  return page.getByRole('region', { name: 'Class Levels', exact: true });
+  return findSheet(page).getByRole('region', {
+    name: 'Class Levels',
+    exact: true,
+  });
 }
 function findLevel(page: Page, n: number) {
   return findLevels(page).getByRole('listitem', {
@@ -43,14 +49,20 @@ function findDeleteQuestion(page: Page, n: number) {
   });
 }
 function findScores(page: Page) {
-  return page.getByRole('region', { name: 'Ability scores', exact: true });
+  return findSheet(page).getByRole('region', {
+    name: 'Ability scores',
+    exact: true,
+  });
 }
 function findScore(page: Page, name: string) {
   return findScores(page).getByRole('textbox', { name, exact: true });
 }
+function findSummary(page: Page) {
+  return findSheet(page).locator('[data-sheet-summary]');
+}
 function findSummaryValue(page: Page, label: string) {
-  return page
-    .locator('[data-sheet-summary] dt', { hasText: label })
+  return findSummary(page)
+    .getByText(label, { exact: true })
     .locator('xpath=following-sibling::dd[1]');
 }
 async function saveScores(page: Page) {
@@ -84,7 +96,7 @@ async function expectSummaryPinned(page: Page) {
     const header = (await page
       .locator('[data-shell-frame] > header')
       .boundingBox())!;
-    const summary = (await page.locator('[data-sheet-summary]').boundingBox())!;
+    const summary = (await findSummary(page).boundingBox())!;
     expect(header.y, 'the top bar stays at the top').toBeCloseTo(0, 0);
     expect(
       Math.abs(summary.y - (header.y + header.height)),
@@ -120,22 +132,21 @@ test('two players edit one living sheet; failures stay local and rows keep their
     for (const page of [a, b]) {
       await page.goto(url);
       await expect(
-        page.getByRole('heading', {
+        findSummary(page).getByRole('heading', {
           level: 1,
           name: 'E2E character-sheet-character',
+          exact: true,
         }),
       ).toBeVisible();
       await expect(page.getByText('E2E character-sheet-character')).toHaveCount(
         1,
       );
       await expect(
-        page
+        findSheet(page)
           .getByRole('region', { name: 'Character', exact: true })
           .getByText('PC', { exact: true }),
       ).toBeVisible();
-      await expect(page.locator('[data-sheet-summary]')).not.toContainText(
-        'PC',
-      );
+      await expect(findSummary(page)).not.toContainText('PC');
       await expect(findSummaryValue(page, 'Level')).toHaveText('1');
       await expect(findSummaryValue(page, 'HP')).toContainText('not complete');
       await expect(findHitPoints(page, 1)).toHaveValue('');
@@ -157,7 +168,10 @@ test('two players edit one living sheet; failures stay local and rows keep their
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole('link', { name: 'Characters & officers' }),
+        findSheet(page).getByRole('link', {
+          name: 'Characters & officers',
+          exact: true,
+        }),
       ).toBeVisible();
     }
     await shot(a, 'tablet-fresh');
@@ -172,13 +186,16 @@ test('two players edit one living sheet; failures stay local and rows keep their
     ).toBeVisible();
     await expectScore(b, 'Strength', '14', '+2');
     await expect(
-      findScores(b).getByText('Updated by another player.'),
+      findScores(b).getByText('Updated by another player.', { exact: true }),
     ).toBeVisible();
     await expect(
       findScores(a).getByText(/Updated by another player/),
     ).toHaveCount(0);
     await findScores(b)
-      .getByRole('button', { name: 'Dismiss ability scores update' })
+      .getByRole('button', {
+        name: 'Dismiss ability scores update',
+        exact: true,
+      })
       .click();
   });
 
@@ -231,7 +248,9 @@ test('two players edit one living sheet; failures stay local and rows keep their
     await findHitPoints(a, 1).fill('8');
     await saveHp(a, 1);
     await expect(findLevel(a, 1).getByText('Hit points saved.')).toBeVisible();
-    await a.getByRole('button', { name: 'Level up', exact: true }).click();
+    await findLevels(a)
+      .getByRole('button', { name: 'Level up', exact: true })
+      .click();
     await expect(findHitPoints(a, 2)).toBeFocused();
     await expect(findHitPoints(a, 2)).toHaveValue('');
     await findHitPoints(a, 2).fill('5');
@@ -243,18 +262,23 @@ test('two players edit one living sheet; failures stay local and rows keep their
       await expect(findLevels(page).getByRole('listitem')).toHaveCount(2);
     }
     await expect(
-      findLevels(b).getByText('Class Levels updated by another player.'),
+      findLevels(b).getByText('Class Levels updated by another player.', {
+        exact: true,
+      }),
     ).toBeVisible();
     await expect(findHitPoints(b, 2)).not.toBeFocused();
     await findLevels(b)
-      .getByRole('button', { name: 'Dismiss Class Levels update' })
+      .getByRole('button', {
+        name: 'Dismiss Class Levels update',
+        exact: true,
+      })
       .click();
   });
 
   await test.step('a draft and its focus travel with the row through a reorder and save to that row', async () => {
     await findHitPoints(b, 1).fill('7');
     await expect(findHitPoints(b, 1)).toBeFocused();
-    await a
+    await findLevel(a, 1)
       .getByRole('button', { name: 'Move level 1 down', exact: true })
       .click();
     const moved = findLevel(b, 2);
@@ -348,10 +372,15 @@ test('two players edit one living sheet; failures stay local and rows keep their
       await expect(findSummaryValue(page, 'Level')).toHaveText('0');
       await expect(findSummaryValue(page, 'HP')).toHaveText('0');
       await expect(
-        page.getByText('This PC has no Class Levels.'),
+        findLevels(page).getByText('This PC has no Class Levels.', {
+          exact: true,
+        }),
       ).toBeVisible();
     }
-    const levelUp = a.getByRole('button', { name: 'Level up', exact: true });
+    const levelUp = findLevels(a).getByRole('button', {
+      name: 'Level up',
+      exact: true,
+    });
     await expect(levelUp).toBeFocused();
     await a.keyboard.press('Enter');
     await expect(findHitPoints(a, 1)).toBeFocused();
@@ -372,7 +401,10 @@ test('two players edit one living sheet; failures stay local and rows keep their
     }
     await players.outsider.goto(url);
     await expect(
-      players.outsider.getByRole('heading', { name: /isn't available/ }),
+      players.outsider.getByRole('main').getByRole('heading', {
+        level: 1,
+        name: /isn't available/,
+      }),
     ).toBeVisible();
     await expect(
       players.outsider.getByText('E2E character-sheet-character'),
@@ -389,7 +421,7 @@ test('two players edit one living sheet; failures stay local and rows keep their
     await expectControlsReachable(a, findScores(a), 'tablet Ability scores');
     // A focused control is never under the pinned rows.
     await findScore(a, 'Charisma').focus();
-    const pinned = (await a.locator('[data-sheet-summary]').boundingBox())!;
+    const pinned = (await findSummary(a).boundingBox())!;
     const focused = (await findScore(a, 'Charisma').boundingBox())!;
     expect(focused.y).toBeGreaterThanOrEqual(pinned.y + pinned.height - 1);
     await shot(a, 'tablet-final');
@@ -399,18 +431,18 @@ test('two players edit one living sheet; failures stay local and rows keep their
     await a.setViewportSize(phone);
     await expectNoHorizontalOverflow(a);
     await expectBottomBarPinned(a, true);
-    await expect(a.locator('[data-sheet-summary]')).toBeInViewport();
+    await expect(findSummary(a)).toBeInViewport();
     await a.evaluate(() =>
       window.scrollTo(0, document.documentElement.scrollHeight),
     );
-    await expect(a.locator('[data-sheet-summary]')).not.toBeInViewport();
+    await expect(findSummary(a)).not.toBeInViewport();
     await expectReachable(
       a,
       findScores(a).getByRole('button', { name: 'Save scores', exact: true }),
     );
     await expectReachable(
       a,
-      a.getByRole('button', { name: 'Level up', exact: true }),
+      findLevels(a).getByRole('button', { name: 'Level up', exact: true }),
     );
     await expectControlsReachable(a, findLevels(a), 'phone Class Levels');
     await expect(
