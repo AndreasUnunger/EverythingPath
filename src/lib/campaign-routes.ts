@@ -10,7 +10,7 @@ export type CampaignSection =
 
 // Dynamic segments may arrive percent-encoded; a malformed encoding keeps the
 // raw value, which the campaign gate then reports as unavailable.
-export function decodeCampaignId(raw: string): string {
+export function decodeRouteSegment(raw: string): string {
   try {
     return decodeURIComponent(raw);
   } catch {
@@ -24,6 +24,14 @@ export function campaignPath(
 ): string {
   const base = `/campaigns/${encodeURIComponent(campaignId)}`;
   return section === 'home' ? base : `${base}/${section}`;
+}
+
+/** A Character's living sheet, opened from its campaign's Characters page. */
+export function characterSheetPath(
+  campaignId: string,
+  characterId: string,
+): string {
+  return `${campaignPath(campaignId, 'characters')}/${encodeURIComponent(characterId)}`;
 }
 
 /** Militia, optionally with one page entry selected (`?section=teams`). */

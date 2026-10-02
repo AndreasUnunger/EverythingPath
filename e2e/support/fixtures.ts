@@ -139,12 +139,17 @@ async function useOwnedCase(
   if (!worker || info.parallelIndex >= run.workers)
     throw new Error('Authenticated worker cohort is unavailable');
   isolateCases(testCases.filter((key) => key !== undefined));
+  const token = worker.cases[caseKey];
+  if (!token)
+    throw new Error(
+      `The ${caseKey} journey is not provisioned. Re-provision the deployment fixtures before running this journey.`,
+    );
   const scope: FixtureScope = {
     namespace: run.resources.previewName,
     version: FIXTURE_VERSION,
     workerKey: worker.key,
     caseKey,
-    token: worker.cases[caseKey],
+    token,
   };
   // This auto fixture runs for every attempt, including replacement retry
   // workers. Context fixtures explicitly depend on it below. Ownership is per

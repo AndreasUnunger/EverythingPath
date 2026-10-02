@@ -115,6 +115,10 @@ export const characterValidator = v.object({
   description: v.string(),
   kind: characterKindValidator,
   isActive: v.boolean(),
+  sheetMode: v.optional(v.literal('full')),
+  sheetRevision: v.optional(v.number()),
+  sheetLastOperationId: v.optional(v.string()),
+  sheetUpdatedBy: v.optional(v.string()),
   level: v.number(),
   strength: v.number(),
   dexterity: v.number(),
@@ -123,6 +127,53 @@ export const characterValidator = v.object({
   charisma: v.number(),
   intelligence: v.number(),
 });
+
+export const baseModifierValidator = v.object({
+  target: v.union(
+    v.literal('ability.str'),
+    v.literal('ability.dex'),
+    v.literal('ability.con'),
+    v.literal('ability.int'),
+    v.literal('ability.wis'),
+    v.literal('ability.cha'),
+  ),
+  bonusType: v.literal('base'),
+  value: v.number(),
+});
+export const catalogEntryValidator = v.object({
+  scope: v.literal('character'),
+  characterId: v.id('character'),
+  name: v.string(),
+  ruleIdentity: v.string(),
+  stacksWithItself: v.literal(false),
+  modifiers: v.array(baseModifierValidator),
+  detail: v.object({ kind: v.literal('base') }),
+  sources: v.array(
+    v.object({ book: v.string(), pages: v.optional(v.string()) }),
+  ),
+});
+export const characterSheetEntryValidator = v.union(
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('base'),
+    active: v.literal(true),
+    catalogEntryId: v.id('catalogEntry'),
+    state: v.object({
+      kind: v.literal('base'),
+    }),
+  }),
+  v.object({
+    characterId: v.id('character'),
+    kind: v.literal('classLevel'),
+    active: v.literal(true),
+    state: v.object({
+      kind: v.literal('classLevel'),
+      classEntryId: v.null(),
+      position: v.number(),
+      hpGained: v.union(v.number(), v.null()),
+    }),
+  }),
+);
 
 export const campaignValidator = v.object({
   name: v.string(),
@@ -247,6 +298,13 @@ export default defineSchema({
   })
     .index('by_namespace_and_workerKey', ['namespace', 'workerKey'])
     .index('by_userId', ['userId']),
+  catalogEntry: defineTable(catalogEntryValidator).index('by_characterId', [
+    'characterId',
+  ]),
+  characterSheetEntry: defineTable(characterSheetEntryValidator).index(
+    'by_characterId',
+    ['characterId'],
+  ),
   character: defineTable(characterValidator).index('by_campaignId', [
     'campaignId',
   ]),

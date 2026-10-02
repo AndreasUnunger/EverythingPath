@@ -226,6 +226,14 @@ html:has([data-setup-layout='wide']) {
   scroll-padding-bottom: 5rem;
 }
 
+/* A Character Sheet keeps the top bar in view while it scrolls, so its
+   summary row can pin directly under it (#208's accepted exception). */
+html:has([data-character-sheet]) [data-shell-frame='document'] > header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
 .scanlines::before {
   content: '';
   position: absolute;

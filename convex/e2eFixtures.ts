@@ -3,6 +3,8 @@ import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 import { v } from 'convex/values';
+import { initializeCharacterSheet } from './lib/characterSheet';
+import type { Id } from './_generated/dataModel';
 import {
   internalQuery,
   type MutationCtx,
@@ -22,6 +24,7 @@ const caseKey = v.union(
   v.literal('isolation'),
   v.literal('existingMilitia'),
   v.literal('characterLedger'),
+  v.literal('characterSheet'),
   v.literal('completeWeek'),
   v.literal('realtimeActionSlot'),
   v.literal('canonicalPersistence'),
@@ -159,6 +162,17 @@ async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
         .take(101),
     );
     for (const character of characters) {
+      for (const table of ['characterSheetEntry', 'catalogEntry'] as const) {
+        const rows = bounded(
+          await ctx.db
+            .query(table)
+            .withIndex('by_characterId', (q) =>
+              q.eq('characterId', character._id),
+            )
+            .take(101),
+        );
+        for (const row of rows) await ctx.db.delete(table, row._id);
+      }
       const spells = bounded(
         await ctx.db
           .query('characterSpell')
@@ -264,9 +278,12 @@ export const resetCase = gatedInternalMutation({
             name: `E2E ${domain.character}`,
             description: 'Synthetic officer',
             // The record owns the kind its roster mirror follows. Canonical
-            // journeys play this officer as a PC (Setup and their seeded
-            // rosters); the others seed an NPC roster.
-            kind: isCanonicalCase(args.caseKey) ? 'pc' : 'npc',
+            // journeys and the sheet fixture play this Character as a PC;
+            // the other journeys seed an NPC roster.
+            kind:
+              isCanonicalCase(args.caseKey) || args.caseKey === 'characterSheet'
+                ? 'pc'
+                : 'npc',
             isActive: true,
             level: 1,
             strength: 10,
@@ -276,6 +293,12 @@ export const resetCase = gatedInternalMutation({
             wisdom: 10,
             charisma: 10,
           });
+    if (args.caseKey === 'characterSheet' && characterId)
+      await initializeCharacterSheet(ctx, {
+        characterId,
+        operationId: 'fixture:character-sheet',
+        updatedBy: `https://${config.clerkHost}|${worker.gm.userId}`,
+      });
     const militiaId = await ctx.db.insert('militia', {
       name: `E2E ${domain.militia}`,
       campaignId,
@@ -374,6 +397,7 @@ export const inspectCase = internalQuery({
       }),
     ),
     characters: v.array(v.string()),
+    characterIds: v.optional(v.array(v.id('character'))),
   }),
   handler: async (ctx, scope) => {
     const { domain } = authorize(scope);
@@ -387,6 +411,7 @@ export const inspectCase = internalQuery({
       stagedActions: (string | null)[];
     } | null = null;
     let characters: string[] = [];
+    let characterIds: Id<'character'>[] = [];
     if (campaign) {
       const current = await ctx.db
         .query('militia')
@@ -414,14 +439,14 @@ export const inspectCase = internalQuery({
             ),
           };
       }
-      characters = bounded(
+      const records = bounded(
         await ctx.db
           .query('character')
           .withIndex('by_campaignId', (q) => q.eq('campaignId', campaign._id))
           .take(101),
-      )
-        .map((row) => row.name)
-        .sort();
+      );
+      characters = records.map((row) => row.name).sort();
+      characterIds = records.map((row) => row._id);
     }
     const identities = bounded(
       await ctx.db
@@ -438,6 +463,7 @@ export const inspectCase = internalQuery({
       identityCount: identities.length,
       militia,
       characters,
+      ...(scope.caseKey === 'characterSheet' && { characterIds }),
     };
   },
 });

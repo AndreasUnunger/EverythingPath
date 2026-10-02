@@ -2,7 +2,7 @@
 // @vitest-environment edge-runtime
 import { convexTest } from 'convex-test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { internal } from './_generated/api';
+import { api, internal } from './_generated/api';
 import schema from './schema';
 import { deploymentFixture } from '../e2e/support/test-data';
 import { canonicalCaseKeys, type FixtureScope } from '../e2e/fixtures/catalog';
@@ -27,6 +27,11 @@ const characterLedger: FixtureScope = {
   ...scope,
   caseKey: 'characterLedger',
   token: 'c'.repeat(64),
+};
+const characterSheet: FixtureScope = {
+  ...scope,
+  caseKey: 'characterSheet',
+  token: '34'.repeat(32),
 };
 
 describe('internal fixture boundary', () => {
@@ -89,6 +94,182 @@ describe('internal fixture boundary', () => {
       characters: [],
       militia: { week: 1, phase: 'upkeep' },
     });
+  });
+  it('seeds a shared Character Sheet fixture with no access for outsiders', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(
+      internal.e2eFixtures.seedIdentityProjection,
+      characterSheet,
+    );
+    const { campaignId } = await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterSheet,
+      now: 0,
+      isolatedWith: ['characterSheet'],
+    });
+    const owner = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    const member = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_player`,
+    });
+    const outsider = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_outsider`,
+    });
+    const args = { campaignId, organizationId: 'org_members' };
+    const characters = await owner.query(api.character.listByCampaign, args);
+    expect(characters).toMatchObject([
+      {
+        name: 'E2E character-sheet-character',
+        kind: 'pc',
+        level: 1,
+        strength: 10,
+        dexterity: 10,
+        constitution: 10,
+        intelligence: 10,
+        wisdom: 10,
+        charisma: 10,
+      },
+    ]);
+    expect(await member.query(api.character.listByCampaign, args)).toEqual(
+      characters,
+    );
+    expect(await outsider.query(api.character.listByCampaign, args)).toEqual(
+      [],
+    );
+    const character = characters[0];
+    if (!character) throw new Error('Missing fixture Character');
+    const sheetArgs = {
+      organizationId: args.organizationId,
+      characterId: character._id,
+    };
+    const sheet = await owner.query(api.characterSheet.read, sheetArgs);
+    expect(sheet).toMatchObject({
+      character: { _id: sheetArgs.characterId, sheetMode: 'full' },
+      calculated: {
+        level: 1,
+        hitDice: 1,
+        hp: null,
+        abilities: {
+          strength: { score: 10, modifier: 0 },
+          dexterity: { score: 10, modifier: 0 },
+          constitution: { score: 10, modifier: 0 },
+          intelligence: { score: 10, modifier: 0 },
+          wisdom: { score: 10, modifier: 0 },
+          charisma: { score: 10, modifier: 0 },
+        },
+      },
+    });
+    expect(sheet?.entries).toHaveLength(2);
+    expect(sheet?.entries.find((entry) => entry.kind === 'base')).toMatchObject(
+      {
+        active: true,
+        state: { kind: 'base' },
+      },
+    );
+    expect(
+      sheet?.entries.find((entry) => entry.kind === 'classLevel'),
+    ).toMatchObject({
+      active: true,
+      state: {
+        kind: 'classLevel',
+        classEntryId: null,
+        position: 1,
+        hpGained: null,
+      },
+    });
+    expect(sheet?.catalogEntries).toHaveLength(1);
+    expect(sheet?.baseScoresEntry.modifiers).toHaveLength(6);
+    expect(await member.query(api.characterSheet.read, sheetArgs)).toEqual(
+      sheet,
+    );
+    await expect(
+      outsider.query(api.characterSheet.read, sheetArgs),
+    ).rejects.toThrow();
+  });
+  it('resets and cleans fixture sheets without leaving catalogEntries or changing another case', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(
+      internal.e2eFixtures.seedIdentityProjection,
+      characterSheet,
+    );
+    await t.mutation(internal.e2eFixtures.resetCase, { ...isolation, now: 0 });
+    const comparison = await t.query(
+      internal.e2eFixtures.inspectCase,
+      isolation,
+    );
+    const first = await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterSheet,
+      now: 0,
+    });
+    const owner = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    const createdId = await owner.mutation(api.characterSheet.create, {
+      organizationId: 'org_members',
+      campaignId: first.campaignId,
+      name: 'Created during play',
+      kind: 'pc',
+      operationId: 'create-during-play',
+    });
+    expect(
+      await owner.query(api.characterSheet.read, {
+        organizationId: 'org_members',
+        characterId: createdId,
+      }),
+    ).toMatchObject({ character: { name: 'Created during play' } });
+    const second = await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterSheet,
+      now: 0,
+    });
+    expect(
+      await owner.query(api.character.listByCampaign, {
+        organizationId: 'org_members',
+        campaignId: first.campaignId,
+      }),
+    ).toEqual([]);
+    const reset = await owner.query(api.character.listByCampaign, {
+      organizationId: 'org_members',
+      campaignId: second.campaignId,
+    });
+    expect(reset).toHaveLength(1);
+    const character = reset[0];
+    if (!character) throw new Error('Missing reset Character');
+    expect(
+      await t.query(internal.e2eFixtures.inspectCase, characterSheet),
+    ).toMatchObject({
+      characterIds: [character._id],
+    });
+    const sheet = await owner.query(api.characterSheet.read, {
+      organizationId: 'org_members',
+      characterId: character._id,
+    });
+    expect(sheet?.entries).toHaveLength(2);
+    expect(sheet?.calculated).toMatchObject({ level: 1, hp: null });
+    // Storage invariant: reset removes unreachable rows, including new sheets
+    // created through the application after the original seed.
+    expect(
+      await t.run(async (ctx) => ({
+        entries: (await ctx.db.query('characterSheetEntry').collect()).length,
+        catalogEntries: (await ctx.db.query('catalogEntry').collect()).length,
+      })),
+    ).toEqual({ entries: 2, catalogEntries: 1 });
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
+    expect(
+      await owner.query(api.character.listByCampaign, {
+        organizationId: 'org_members',
+        campaignId: second.campaignId,
+      }),
+    ).toEqual([]);
+    expect(
+      await t.run(async (ctx) => ({
+        entries: (await ctx.db.query('characterSheetEntry').collect()).length,
+        catalogEntries: (await ctx.db.query('catalogEntry').collect()).length,
+      })),
+    ).toEqual({ entries: 0, catalogEntries: 0 });
+    expect(await t.query(internal.e2eFixtures.inspectCase, isolation)).toEqual(
+      comparison,
+    );
   });
   it('resets an isolated realtime Action Slot board', async () => {
     const t = convexTest({ schema, modules });
@@ -239,6 +420,7 @@ describe('internal fixture boundary', () => {
         isolation: 'd'.repeat(64),
         existingMilitia: 'e'.repeat(64),
         characterLedger: 'f'.repeat(64),
+        characterSheet: 'w'.repeat(64),
         completeWeek: 'g'.repeat(64),
         canonicalPersistence: 'c'.repeat(64),
         realtimeActionSlot: 'h'.repeat(64),

@@ -79,6 +79,12 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/character.ts:createCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:deleteCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:updateCharacter` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:addClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:create` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:deleteClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:editBaseScores` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:editClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:moveClassLevel` | Shared write gate (epoch + maintenance) |
 | `convex/clerk.ts:fulfill` | Signature verification only; no writes or scheduling |
 | `convex/cutover.ts:activate` | Retired: always rejects; never mutates |
 | `convex/cutover.ts:initialize` | Retired: always rejects; never mutates |

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { CampaignShell } from '~/components/campaign-shell/campaign-shell';
-import { decodeCampaignId } from '~/lib/campaign-routes';
+import { decodeRouteSegment } from '~/lib/campaign-routes';
 
 export default async function CampaignLayout({
   children,
@@ -11,7 +11,7 @@ export default async function CampaignLayout({
 }) {
   const { campaignId } = await params;
   return (
-    <CampaignShell campaignId={decodeCampaignId(campaignId)}>
+    <CampaignShell campaignId={decodeRouteSegment(campaignId)}>
       {children}
     </CampaignShell>
   );

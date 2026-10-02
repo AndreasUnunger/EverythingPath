@@ -15,6 +15,7 @@ import type * as canonicalLedger from "../canonicalLedger.js";
 import type * as canonicalPersistenceFixtures from "../canonicalPersistenceFixtures.js";
 import type * as canonicalSetup from "../canonicalSetup.js";
 import type * as character from "../character.js";
+import type * as characterSheet from "../characterSheet.js";
 import type * as clerk from "../clerk.js";
 import type * as cutover from "../cutover.js";
 import type * as data_spells from "../data/spells.js";
@@ -31,6 +32,7 @@ import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
 import type * as lib_characterAccess from "../lib/characterAccess.js";
+import type * as lib_characterSheet from "../lib/characterSheet.js";
 import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
 import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
 import type * as lib_writeGate from "../lib/writeGate.js";
@@ -55,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   canonicalPersistenceFixtures: typeof canonicalPersistenceFixtures;
   canonicalSetup: typeof canonicalSetup;
   character: typeof character;
+  characterSheet: typeof characterSheet;
   clerk: typeof clerk;
   cutover: typeof cutover;
   "data/spells": typeof data_spells;
@@ -71,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
   "lib/characterAccess": typeof lib_characterAccess;
+  "lib/characterSheet": typeof lib_characterSheet;
   "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
   "lib/retiredWorkflow": typeof lib_retiredWorkflow;
   "lib/writeGate": typeof lib_writeGate;

@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
+import { deploymentFixture } from './test-data';
 import {
   canonicalCaseKeys,
   caseKeys,
@@ -100,4 +101,23 @@ it('schedules the longest projects first and cutover last', () => {
     'firefox-desktop',
     'canonical-cutover',
   ]);
+});
+
+it('accepts provisioned fixtures without a Character Sheet case', () => {
+  const legacyFixture = {
+    ...deploymentFixture,
+    workers: deploymentFixture.workers.map((worker) => ({
+      ...worker,
+      cases: Object.fromEntries(
+        Object.entries(worker.cases).filter(
+          ([key]) => key !== 'characterSheet',
+        ),
+      ),
+    })),
+  };
+  const parsed = deploymentFixtureSchema.parse(legacyFixture);
+  expect(parsed.workers[0]?.cases.smoke).toBe(
+    deploymentFixture.workers[0]?.cases.smoke,
+  );
+  expect(parsed.workers[0]?.cases.characterSheet).toBeUndefined();
 });

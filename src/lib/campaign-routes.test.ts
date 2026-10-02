@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import Home from '~/app/page';
 import {
   campaignPath,
-  decodeCampaignId,
+  decodeRouteSegment,
   normalizePhase,
   weekPath,
   parseHistorySelection,
@@ -96,8 +96,8 @@ it('discards malformed numeric history selectors without losing valid selection'
 });
 
 it('keeps a malformed encoded id raw for the campaign gate', () => {
-  expect(decodeCampaignId('alpha%20beta')).toBe('alpha beta');
-  expect(decodeCampaignId('%E0%A4%A')).toBe('%E0%A4%A');
+  expect(decodeRouteSegment('alpha%20beta')).toBe('alpha beta');
+  expect(decodeRouteSegment('%E0%A4%A')).toBe('%E0%A4%A');
 });
 
 it("sends the app's entry to the campaign list", () => {
