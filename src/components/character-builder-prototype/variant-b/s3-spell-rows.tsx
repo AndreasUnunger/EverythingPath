@@ -6,6 +6,7 @@
 // description is one clamped line from tablet width and opens on a tap of
 // the name on phone. Contract: CONTRACT.md, "The spells page, second pass".
 
+import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '~/lib/utils';
 import { useBuilderStore } from '../store';
@@ -23,7 +24,10 @@ import { FieldWarnings, NumField, chip } from './shared';
 
 // ---------------------------------------------------------------- switch
 
-/** The record switch: a 44px target on phone, 36px from tablet width. */
+/**
+ * The record switch: the app's square check (as `ActiveToggle` in Gear),
+ * inside a 44px target on phone, 36px from tablet width.
+ */
 export function RecordSwitch({
   checked,
   label,
@@ -39,26 +43,19 @@ export function RecordSwitch({
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      title={label}
+      title={`${label}: ${checked ? 'recorded' : 'not recorded'}`}
       onClick={() => onChange(!checked)}
       className="group inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-9 md:min-w-9"
     >
       <span
         className={cn(
-          'relative inline-flex h-5 w-9 items-center border transition-colors',
+          'inline-flex size-6 items-center justify-center border transition-colors',
           checked
-            ? 'border-primary bg-primary'
-            : 'border-foreground/40 bg-foreground/5 group-hover:border-foreground/80',
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-foreground/40 group-hover:border-foreground text-transparent',
         )}
       >
-        <span
-          className={cn(
-            'absolute top-[3px] size-3 transition-transform',
-            checked
-              ? 'bg-primary-foreground translate-x-[19px]'
-              : 'bg-foreground/70 translate-x-[3px]',
-          )}
-        />
+        <Check aria-hidden className="size-4" />
       </span>
     </button>
   );
@@ -105,11 +102,11 @@ export function SpellRow({
     (catalog.detail.subschools.length > 0
       ? catalog.detail.subschools.join(', ')
       : '');
-  const grantedText = granted
-    ? granted.grantedAtClassLevel !== null
-      ? `${granted.from.join(', ')} · ${sc.className.toLowerCase()} ${granted.grantedAtClassLevel}`
-      : granted.from.join(', ')
-    : null;
+  // "Arcane bloodline"; the class level it came at joins from tablet width.
+  const grantedAt =
+    granted && granted.grantedAtClassLevel !== null
+      ? ` · ${sc.className.toLowerCase()} ${granted.grantedAtClassLevel}`
+      : '';
 
   const toggle = (next: boolean) => {
     if (next) store.addSpell(character.id, sc.classKey, catalog.key);
@@ -189,9 +186,15 @@ export function SpellRow({
         {granted && (
           <span
             className={cn(tag, sky)}
-            title={`Granted by ${granted.from.join(' and ')}: always available, never recorded`}
+            title={`Granted by ${granted.from.join(' and ')}${grantedAt}: always available, never recorded`}
           >
-            granted · {grantedText}
+            granted · {granted.from.join(', ')}
+            {grantedAt && (
+              // The chip is a flex box: a plain leading space would collapse.
+              <span className="hidden md:inline">
+                {grantedAt.replace(/^ /, ' ')}
+              </span>
+            )}
           </span>
         )}
         {choice.domainSlotOnly && (

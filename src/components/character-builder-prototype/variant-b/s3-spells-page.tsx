@@ -45,8 +45,10 @@ import {
   useSheetUi,
 } from './shared';
 
-const dt =
-  'text-muted-foreground font-mono text-[11px] tracking-wide uppercase';
+// The same scale as the table headers (`th`) and the sheet summary's labels.
+const dt = 'text-muted-foreground font-mono text-xs tracking-wide uppercase';
+/** The outline chip-style action in a Block header (Add Spells, Done). */
+const headerAction = cn(chip, 'min-h-11 gap-1 px-2.5 md:min-h-8');
 
 // ------------------------------------------------------------- numbers
 
@@ -68,16 +70,24 @@ function CastingNumbers({
   const showKnown = sc.rows.some((r) => r.known !== null);
   const share = prestigeShare(sc);
   const conditional = sc.concentration?.conditional ?? [];
+  // A `none` caster's title already says "prepares from the whole list".
+  const counts = [
+    sc.casting.record === 'none' ? null : recordedCount(sc),
+    sc.granted.length > 0 ? `${sc.granted.length} granted` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Block
       id="s3-numbers"
       title={`${sc.className} · ${sc.heading ?? 'prepares from the whole list'}`}
       aside={
-        <span className="text-muted-foreground font-mono text-xs">
-          {recordedCount(sc)}
-          {sc.granted.length > 0 && ` · ${sc.granted.length} granted`}
-        </span>
+        counts && (
+          <span className="text-muted-foreground font-mono text-sm">
+            {counts}
+          </span>
+        )
       }
     >
       <div className="grid gap-x-6 gap-y-3 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
@@ -223,7 +233,7 @@ function CastingNumbers({
                       <td className="px-2 py-1 text-right">
                         <span className="inline-flex items-baseline gap-x-2">
                           {detail && (
-                            <span className="text-muted-foreground hidden font-mono text-xs sm:inline">
+                            <span className="text-muted-foreground hidden font-mono text-sm sm:inline">
                               {detail} =
                             </span>
                           )}
@@ -299,6 +309,13 @@ function CastingNumbers({
 
 // -------------------------------------------------------------- record
 
+/** The record view's rows: what a `known` or `book` caster has recorded or is granted. */
+function recordRows(character: Character, sc: ResolvedSpellcasting) {
+  return spellChoices(character, sc.classKey).filter(
+    (c) => c.recordedEntryId !== null || c.granted,
+  );
+}
+
 /** The default view of a `known` or `book` caster: recorded and granted Spells by level. */
 function RecordView({
   character,
@@ -311,21 +328,16 @@ function RecordView({
   warnings: Warning[];
   onAdd: () => void;
 }) {
-  const mine = spellChoices(character, sc.classKey).filter(
-    (c) => c.recordedEntryId !== null || c.granted,
-  );
+  const mine = recordRows(character, sc);
   if (mine.length === 0)
     return (
-      <div className="text-muted-foreground border-foreground/20 flex flex-wrap items-center justify-between gap-2 border border-dashed p-3 text-sm">
-        Nothing recorded yet.
-        <Button
-          variant="outline"
-          onClick={onAdd}
-          className="min-h-11 md:min-h-9"
-        >
-          <Plus aria-hidden className="size-4" />
-          Add Spells
-        </Button>
+      <div className="border-foreground/20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border border-dashed p-3">
+        <span className="text-muted-foreground min-w-0 flex-1 basis-48 text-sm">
+          Nothing in the {(sc.heading ?? 'record').toLowerCase()} yet. Add
+          Spells opens the {sc.className.toLowerCase()} list one level at a
+          time.
+        </span>
+        <AddSpellsButton onClick={onAdd} />
       </div>
     );
   return (
@@ -342,6 +354,20 @@ function RecordView({
   );
 }
 
+function AddSpellsButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onClick}
+      className={headerAction}
+    >
+      <Plus aria-hidden className="size-3.5" />
+      Add Spells
+    </Button>
+  );
+}
+
 // ----------------------------------------------------------------- page
 
 function S3SpellsPage({ character, warnings }: SpellSlotProps) {
@@ -354,6 +380,8 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
   const leave = () => nav.set(BROWSER_PARAMS);
   const enter = () => nav.set({ ...BROWSER_PARAMS, add: '1' });
   const heading = sc?.heading ?? '';
+  // An empty record carries its own Add Spells; the header then keeps quiet.
+  const empty = sc ? recordRows(character, sc).length === 0 : true;
 
   return (
     <div className="space-y-3">
@@ -405,8 +433,8 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
               title={`The ${sc.className.toLowerCase()} list`}
               aside={
                 <span className="text-muted-foreground text-xs">
-                  Prepares from the whole list; nothing to record.
-                  {sc.granted.length > 0 && ' Granted Spells are marked.'}
+                  Nothing to record
+                  {sc.granted.length > 0 && '; granted Spells are marked'}.
                 </span>
               }
             >
@@ -424,8 +452,9 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
               aside={
                 <Button
                   size="sm"
+                  variant="outline"
                   onClick={leave}
-                  className="min-h-11 md:min-h-8"
+                  className={headerAction}
                 >
                   Done
                 </Button>
@@ -443,23 +472,7 @@ function S3SpellsPage({ character, warnings }: SpellSlotProps) {
             <Block
               id="s3-record"
               title={heading}
-              aside={
-                <span className="flex items-center gap-x-3">
-                  <span className="text-muted-foreground font-mono text-xs">
-                    {sc.recorded.length}
-                    {sc.granted.length > 0 && ` + ${sc.granted.length} granted`}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={enter}
-                    className={cn(chip, 'min-h-11 gap-1 px-2.5 md:min-h-8')}
-                  >
-                    <Plus aria-hidden className="size-3.5" />
-                    Add Spells
-                  </Button>
-                </span>
-              }
+              aside={!empty && <AddSpellsButton onClick={enter} />}
             >
               <RecordView
                 character={character}

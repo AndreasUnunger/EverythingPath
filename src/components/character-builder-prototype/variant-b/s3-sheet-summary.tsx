@@ -26,8 +26,8 @@ import { Orphans } from './s3-orphans';
 import type { SpellSlotProps } from './sheet-variants';
 import { Block, StatButton } from './shared';
 
-const label =
-  'text-muted-foreground font-mono text-[11px] tracking-wide uppercase';
+// The same scale as the page's labels and the table headers (`th`).
+const label = 'text-muted-foreground font-mono text-xs tracking-wide uppercase';
 
 function SummaryLine({
   sc,
@@ -44,10 +44,11 @@ function SummaryLine({
   const linkText = none
     ? `Browse the ${sc.className.toLowerCase()} list`
     : 'Open spells';
+  // A `none` caster has nothing to count unless something is granted.
   const counts = none
     ? sc.granted.length > 0
       ? `${sc.granted.length} granted`
-      : 'no granted Spells'
+      : null
     : recordedCount(sc) +
       (sc.granted.length > 0 ? ` · ${sc.granted.length} granted` : '');
   return (
@@ -118,18 +119,26 @@ function SummaryLine({
         <span className="text-muted-foreground text-sm">No spells yet</span>
       )}
 
-      <span className="text-muted-foreground text-sm">{counts}</span>
-
-      {open > 0 && (
-        <ProtoLink
-          to="spells"
-          opts={{ params: { spellcasting: sc.classKey } }}
-          className="flex items-center gap-1 font-mono text-sm text-amber-300 hover:underline"
-          title={`${open} open warning${open === 1 ? '' : 's'}: open the spells page`}
-        >
-          <TriangleAlert aria-hidden className="size-3.5" />
-          {open}
-        </ProtoLink>
+      {/* The counts and the warning count wrap as one unit. */}
+      {(counts !== null || open > 0) && (
+        <span className="flex items-center gap-x-3">
+          {counts && (
+            <span className="text-muted-foreground font-mono text-sm">
+              {counts}
+            </span>
+          )}
+          {open > 0 && (
+            <ProtoLink
+              to="spells"
+              opts={{ params: { spellcasting: sc.classKey } }}
+              className="flex items-center gap-1 font-mono text-sm text-amber-300 hover:underline"
+              title={`${open} open warning${open === 1 ? '' : 's'}: open the spells page`}
+            >
+              <TriangleAlert aria-hidden className="size-3.5" />
+              {open}
+            </ProtoLink>
+          )}
+        </span>
       )}
 
       <ProtoLink

@@ -193,12 +193,14 @@ export function SpellBrowser({
           placeholder="All schools"
           options={SCHOOLS.map((s) => ({ value: s, label: SCHOOL_LABEL[s] }))}
           onChange={(v) => nav.set({ school: v })}
-          className="min-h-11 flex-1 md:min-h-9 md:w-44 md:flex-none [&>select]:h-full"
+          // A set height (not a minimum) so the select can fill it.
+          className="h-11 flex-1 md:h-9 md:w-44 md:flex-none [&>select]:h-full"
         />
         {!readOnly && (
           <FilterChip
             pressed={other}
             onClick={() => nav.set({ other: other ? null : '1' })}
+            className="md:min-h-9"
             title="Also show Spells from other classes’ lists (recorded off-list)"
           >
             Include other lists
@@ -289,9 +291,10 @@ export function SpellBrowser({
       {onDone && (
         <div className="flex justify-end pt-1">
           <Button
+            size="sm"
             variant="outline"
             onClick={onDone}
-            className="min-h-11 md:min-h-9"
+            className={cn(chip, 'min-h-11 px-2.5 md:min-h-8')}
           >
             Done
           </Button>
