@@ -57,6 +57,7 @@ catalogEntry: {
   grantsSlots?: Array<{ kind: 'feat' | 'trait'; count: number;   // bonus feats (fighter, human), Additional Traits
     featTypes?: string[];              // a bonus feat must carry one of these Foundry feat types, such as 'combat'
     ignoresPrerequisites?: boolean }>, // monk bonus feats, ranger combat style
+  routineOption?: true,                // a Routine Option, set by the Curation Overlay; see "Attacks"
 }
 // indexes: by_scope, by_campaignId_and_scope, by_characterId, by_sourceKey, by_externalKey, by_copiedFrom
 
@@ -136,7 +137,11 @@ type CatalogEntryDetail =
         dice: string;                                            // "1d12", from `sizeRoll(1, 12, @size)`
         threat: number; mult: number;                            // lowest threat roll (20, 19, 18) and multiplier
         rangeIncrement?: number; strRating?: number;             // feet; composite bows
-        reload?: 'free' | 'move' | 'fullRound' } }               // crossbows
+        reload?: 'free' | 'move' | 'fullRound';                  // crossbows
+        finesse: boolean;                                        // Foundry `system.properties.fin`: Weapon Finesse applies
+        thrown: boolean;                                         // has a thrown attack (a `twak` action): dagger, spear, javelin
+        otherEnd?: { dice: string; threat: number; mult: number }; // a double weapon's second end
+        natural?: 'primary' | 'secondary' } }                    // a natural weapon; the type is written from the rules
   | { kind: 'spell';                                           // the Spell itself; grants no Modifiers
       levels: Record<ClassTag, number>;                          // Foundry `learnedAt.class`; the record's own `level` is ignored
       grantedLevels: Partial<Record<'domain' | 'subDomain' | 'bloodline', Record<string, number>>>; // the rest of `learnedAt`
@@ -168,13 +173,17 @@ type SheetEntryState =
   | { kind: 'spell'; castingClassId: Id<'catalogEntry'>;              // the Spellcasting it is recorded for
       level: number | null }                                          // null = the class's level for it; set for off-list Spells
   | { kind: 'spellEffect'; casterLevel: number }                      // pre-filled, see "Spell Effects"
-  | { kind: 'classFeature'; oppositionSchools: SchoolKey[] }          // arcane schools only; empty otherwise
+  | { kind: 'classFeature'; oppositionSchools: SchoolKey[];          // arcane schools only; empty otherwise
+      weaponGroup: WeaponGroup | null }                               // Weapon Training's chosen group
   | { kind: 'attackRoutine'; name: string;
-      main: { itemEntryId: Id<'characterSheetEntry'>; hands: 'two' | 'one' };
-      off?: { itemEntryId: Id<'characterSheetEntry'> };              // two-weapon fighting
-      options: { powerAttack: boolean } }                            // more options: see "Attacks"
+      main?: { weapon: RoutineWeapon; hands: 'two' | 'one'; thrown: boolean }; // absent = natural attacks only
+      off?: { weapon: RoutineWeapon | 'otherEnd'; thrown: boolean }; // two-weapon fighting; 'otherEnd' = the main double weapon's
+      natural: Id<'characterSheetEntry'>[];                           // natural weapons attacking too
+      options: Id<'catalogEntry'>[] }                                 // switched-on Routine Options, see "Attacks"
   | { kind: Exclude<EntryKind, 'classLevel' | 'base' | 'race' | 'feat' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'
                      | 'spell' | 'spellEffect' | 'classFeature'> };
+
+type RoutineWeapon = Id<'characterSheetEntry'> | 'unarmed';         // an item entry, or the built-in unarmed strike
 ```
 
 ## Class Levels and Hit Dice
@@ -343,12 +352,15 @@ type Modifier = { target: Target; bonusType: BonusType; value: number | { formul
 type ModifierCondition = {                       // every part present must hold
   situation?: Situation;                         // "vs. traps": never in a total (see "Conditional Modifiers")
   whileActive?: Id<'catalogEntry'>;              // "while raging": applies while an active entry of that Catalog Entry exists
-  weapon?: '$self' | '$choice';                  // only attacks with this item, or with the entry's chosen weapon (Weapon Focus)
+  weapon?: '$self' | '$choice' | '$group';       // only attacks with this item, the entry's chosen weapon (Weapon Focus),
+                                                 // or a weapon of the entry's chosen group (Weapon Training)
+  option?: true;                                 // only inside a routine that has this entry switched on (see "Attacks")
   castingClass?: '$choice' | ClassTag;           // only this Spellcasting (Magical Knack)
   school?: '$choice' | SchoolKey;                // only Spells of this school (Spell Focus)
 };
 
-type Situation = SituationKey | { local: string };  // see "Situational notes"
+type Situation = SituationKey | { local: string }   // see "Situational notes"
+               | { option: Id<'catalogEntry'> };    // "Only when using Combat Expertise", see "Attacks"
 type SituationalNote = { target?: Target; situation?: Situation; text: string };  // no target = shown with its entry
 ```
 
@@ -379,6 +391,7 @@ A formula uses a closed grammar:
 - **Operators and functions:** integers, `+ - * /`, `floor`, `ceil`, `min` and `max`.
 - **Variables:** `@level`, `@classLevel.<classKey>`, `@hitDice`, `@ability.<key>.mod` and `@bab`.
 - **`@casterLevel`:** in a Spell Effect's Modifiers, the caster level recorded on its sheet entry (*shield of faith*'s +1 per 6 levels). In a `casterLevel` Modifier, the Spellcasting's caster level before `casterLevel` Modifiers, so Magical Knack is `min(2, @hitDice − @casterLevel)`, capped at Hit Dice as written (S13). Anywhere else it is unsupported.
+- **`@casterLevel.<classKey>`** is that class's Spellcasting's caster level, and **`@casterLevel.arcane`** the highest caster level among arcane Spellcastings, for Arcane Strike and other caster-level scaling. Both are 0 without one.
 
 A formula may read only stages earlier than its target's stage (see "Resolution stages"). A formula outside the grammar is stored and flagged as unsupported. It contributes nothing and shows a warning. About 22% of the dataset's changes are formulas, so the importer parses them ([Decide how the content dataset becomes the global catalog](https://github.com/AndreasUnunger/EverythingPath/issues/207)).
 
@@ -386,7 +399,8 @@ A formula may read only stages earlier than its target's stage (see "Resolution 
 
 Decided by [Prototype attacks and conditional modifiers on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/216) (variant 3, tag `prototype-approved/attacks-conditionals`).
 
-- **Weapon conditions** apply only inside the attacks of the matching weapon: `$self` for a weapon's own enhancement, `$choice` for Weapon Focus's chosen weapon, matched on `baseType`. They never reach the sheet-level attack statistics.
+- **Weapon conditions** apply only inside the attacks of the matching weapon: `$self` for a weapon's own enhancement, `$choice` for Weapon Focus's chosen weapon, matched on `baseType`, and `$group` for fighter Weapon Training, matched on the weapon's `group` against the entry's `weaponGroup`. They never reach the sheet-level attack statistics.
+- **Option conditions** apply only inside the routines that switch the entry on (see "Routine Options").
 - **While-active conditions** apply automatically while an active entry of the named Catalog Entry is on the sheet, such as Superstition while Raging. Otherwise the Modifier waits and adds nothing.
 - **Situational Modifiers** never enter a total. A Situation is a key from a reviewed vocabulary, such as `traps`, `fear`, `spells`, `giants` or `orcsGoblinoids`, with display text such as "vs. traps", or a local Situation that only its own entry names (see "Situational notes"). `resolveSheet(…, { situations: [situation] })` resolves the sheet as if the Situation held. Its Modifiers then apply and stack like any other, so raging Will vs. spells is +6, not +8: Superstition's +3 morale suppresses Raging's +2 morale.
 - Every statistic reports `conditional`, the contributions left out of its total, each with its condition text and Situation, or with the while-active wording it waits on. Derived statistics carry the conditional contributions their composition would take: a conditional dodge bonus reaches touch AC and CMD, but not flat-footed AC.
@@ -481,12 +495,18 @@ Untyped AC bonuses don't reach CMD. Armor's max Dex doesn't cap the Dex in CMD, 
 
 ## Attacks
 
-Decided by [Prototype attacks and conditional modifiers on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/216) (variant 3, tag `prototype-approved/attacks-conditionals`). Its rules follow the CRB. Foundry stores none of them as data, so they are written from the text.
+Decided by [Prototype attacks and conditional modifiers on the living sheet](https://github.com/AndreasUnunger/EverythingPath/issues/216) (variant 3, tag `prototype-approved/attacks-conditionals`) and [Decide which attack options an Attack Routine supports](https://github.com/AndreasUnunger/EverythingPath/issues/229). Its rules follow the CRB. Foundry stores none of them as data, so they are written from the text. [Collect the official rules for attack options, natural attacks and flurry](https://github.com/AndreasUnunger/EverythingPath/issues/235) collects that text from the CRB and FAQ, flags the Bestiary's, and sweeps the CRB feat chapter for anything missed. The exact rules here are finalised from it.
 
+- **Coverage.** The builder writes by hand every CRB feat, class feature and combat action that changes a routine line's bonus, damage, critical or number of attacks. Other books are catalog content: computed when a plain Modifier with its condition expresses it, and text otherwise. Feats that change no line's numbers stay text: Cleave, Great Cleave, Spring Attack, Whirlwind Attack, Shot on the Run, Ride-By Attack, Stunning Fist, Spirited Charge (a multiplier) and the maneuver feats.
 - **Attack Routines.**
-  - A Character attacks through Attack Routines, state-only sheet entries. Each names the main weapon and whether it is held in two hands or one, an optional off-hand weapon, and options. Power Attack is the only option so far; the rest are open in [Decide which attack options an Attack Routine supports](https://github.com/AndreasUnunger/EverythingPath/issues/229).
+  - A Character attacks through Attack Routines, state-only sheet entries. Each names the main weapon and whether it is held in two hands or one, an optional off-hand weapon, its natural attacks, and the Routine Options switched on.
   - Adding a weapon to Gear also adds a routine for it, held its natural way. The player renames, edits, deletes and adds routines.
   - A routine whose weapon has left Gear stays, with an advisory warning.
+- **Weapons.**
+  - **Unarmed strike** is a built-in weapon every sheet can put in a routine, with no Gear item. It is imported from Foundry's `monster-abilities` unarmed strike (1d3 nonlethal). Its lines say "nonlethal", or "lethal or nonlethal" with Improved Unarmed Strike. The −4 penalty for dealing the other kind of damage stays text. A monk's unarmed damage scales with monk level.
+  - **Natural attacks:** primary at full BAB with Str, ×1.5 if it is the only natural attack; secondary at −5 with ½ Str. They get no iterative attacks, and all are secondary alongside weapon attacks. Foundry's 12 generic natural attack items (Bite, Claw… in `monster-abilities`, `attack` items with `subType: natural`) import as natural weapons. Their primary or secondary type is written from the rules, because Foundry marks it on only 5. Nothing grants them, because racial natural-weapon traits are prose in Foundry: the player adds a natural attack entry. Grants can come later without a model change.
+  - **Thrown weapons:** a weapon with a thrown attack has a melee or thrown mode in a routine. Foundry stores separate `mwak` and `twak` actions on one item (dagger, spear, javelin). Thrown takes Dex to attack and Str ×1 to damage.
+  - **Double weapons:** the off hand may be the other end of the main weapon, light for two-weapon penalties. Foundry models only one end for 16 of 17 double weapons, so the Curation Overlay supplies the second end's dice and critical.
 - **Single and full attack.**
   - Each routine resolves to its single attack (a standard action: the main weapon, no two-weapon penalty, no extra attacks) and its full attack in order.
   - **Iterative attacks:** one more at −5 cumulative at BAB +6, +11 and +16.
@@ -497,20 +517,40 @@ Decided by [Prototype attacks and conditional modifiers on the living sheet](htt
   - BAB, plus Str for melee or Dex for ranged;
   - the `attack.*` Modifiers and the weapon's own conditional Modifiers;
   - two-weapon penalties (CRB Table 8-7): −6/−10, −4/−8 with a light off-hand weapon, −4/−4 with Two-Weapon Fighting, −2/−2 with both;
-  - Power Attack when on;
+  - the switched-on Routine Options;
   - −2 with a composite bow whose Strength rating exceeds the Str bonus.
 - **Damage:**
   - the weapon's dice;
   - Str ×1.5 in two hands, ×1 in one, ×0.5 off hand (a Str penalty applies in full); Str up to its rating for a composite bow, no Str for a crossbow, a Str penalty only for other bows;
   - the `damage.*` and weapon Modifiers.
-  - **Power Attack:** −1 attack and +2 damage, plus −1 and +2 more per 4 BAB from +4. The damage is ×1.5 two-handed and ×0.5 off hand, and it applies to melee only.
   - **Sneak attack:** +1d6 per entry, as conditional damage in its own Situation (flanking or the target denied its Dex bonus).
+  - **Special-ability dice:** always-on dice are an extra damage part ("1d8+4 plus 1d6 fire"). Target-dependent ones (*holy*, *bane*) are Situational damage, like sneak attack. How abilities, enhancement and masterwork attach to a weapon is open in [Decide how enhancement and special abilities attach to weapons and armor](https://github.com/AndreasUnunger/EverythingPath/issues/236).
 - **Critical:** the weapon's threat range and multiplier, shown as "×3", "19–20/×2" or "18–20/×2".
+- **Automatic feats** apply with no toggle while on the sheet:
+  - Improved and Greater Two-Weapon Fighting: a second and third off-hand attack, at −5 and −10;
+  - Double Slice: full Str on the off hand;
+  - Improved Critical and *keen*: the threat range doubles once and never stacks. This is a hand-written rule, as no Modifier target is a threat range;
+  - Rapid Reload: a light crossbow's reload becomes free and a heavy crossbow's a move action;
+  - Weapon Finesse: the higher of Str and Dex to attack with a `finesse` weapon. The breakdown names the ability used, and a shield's armor check penalty applies.
+- **Combat actions** are built-in Situations: fighting defensively, total defense and charging. They don't trigger the situational marker. Each breakdown lists them in a collapsed "Combat actions" group below the Character's own "Only when…" groups.
 - **On the sheet:**
   - The Offense block keeps BAB, CMB and Initiative. A separate Attacks block lists the routines as cards: the single attack, then the numbered full attack. Each line shows the weapon, its bonus, damage, critical and range, plus options as chips and penalties in one line.
   - Routines are edited in a side panel, or a bottom sheet on phone. Changes apply at once, and a delete can be undone.
   - **Situational bonuses never appear on the face of the sheet.** A small marker flags any number that has them: in the pinned stats, the Defenses, the skills and the attacks.
   - The number's breakdown has an "Only when…" section grouped by Situation. Each group shows its lines and what the total becomes then, with suppressed lines struck through. A while-active line that is waiting is dimmed ("only while raging").
+
+### Routine Options
+
+- **Data.** The Curation Overlay can mark any feat Catalog Entry as a Routine Option (`routineOption`). Its Modifiers carry the `option` condition, so they apply only inside a routine that has it switched on.
+- **Offered.** A routine offers an option only while its entry is on the sheet. If the entry leaves, the routine keeps it switched on, with an advisory warning.
+- **Outside the routine.** An option's Modifiers on anything but its routine's lines, such as Combat Expertise's dodge AC or Lunge's −2 AC, belong to a Situation named after the option. The AC breakdown shows "Only when using Combat Expertise".
+- **CRB Routine Options:** Power Attack, Deadly Aim, Combat Expertise, Arcane Strike, Rapid Shot, Manyshot, Vital Strike (with Improved and Greater) and Lunge. Deadly Aim, Combat Expertise and Arcane Strike are data only. The others add hand-written rules:
+  - **Power Attack:** −1 attack and +2 damage, plus −1 and +2 more per 4 BAB from +4. The damage is ×1.5 two-handed and ×0.5 off hand, and it applies to melee only.
+  - **Rapid Shot:** one extra attack, and −2 on every attack.
+  - **Manyshot:** a second arrow on the first attack.
+  - **Vital Strike:** the weapon's dice ×2, ×3 with Improved and ×4 with Greater, on the single attack only.
+  - **Lunge:** +5 ft reach.
+- **Flurry of blows** is a Routine Option for monks, written separately for the core monk and the unchained monk.
 
 ## Rules checks
 
@@ -692,7 +732,8 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
   - buffs;
   - spells, as `spell` entries keyed `pf1/<_id>`;
-  - the 13 `racial-hd` records, as the creature-type seed table rather than as Catalog Entries.
+  - the 13 `racial-hd` records, as the creature-type seed table rather than as Catalog Entries;
+  - from `monster-abilities`, only the 12 generic natural attacks and the unarmed strike (see "Attacks").
 
   Goods and services, third-party packs and 3.5 packs are not imported.
 - **Buffs.** A spell buff becomes a `spellEffect` entry, with `lastsOverOneDay` taken from its duration and `defaultCasterLevel` from its `level`. Its `spellKey` comes from its first `Compendium.pf1.spells` link when the names agree (177 of 185). Otherwise the import report proposes one and the Curation Overlay decides. Class and item buffs become their own kinds.
@@ -708,10 +749,11 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
   - set `sourceKey` and `stacksWithItself`;
   - turn every situational note (Foundry `contextNotes`) and action conditional into Situational Modifiers and situational notes, with a gate that fails the import on any note without a record (see "Situational notes");
   - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
+  - mark Routine Options, and set natural attack types and a double weapon's second end (see "Attacks");
   - exclude an entry, giving the reason (see "Notice gate").
 
   Generally useful fixes may also be contributed upstream to Foundry, and the overlay record is then deleted.
-- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. A weapon's `weapon` detail comes from its `baseTypes`, `weaponGroups`, `weaponSubtype` and `held`, and from the first action's `damage.parts` (the dice inside `sizeRoll(n, s, @size)`), `ability.critRange`/`critMult` and `range`. Omitted defaults are filled in. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
+- **Mapping.** Foundry targets map onto the closed target list, and formulas are parsed into the closed grammar. A weapon's `weapon` detail comes from its `baseTypes`, `weaponGroups`, `weaponSubtype` and `held`, and from the first action's `damage.parts` (the dice inside `sizeRoll(n, s, @size)`), `ability.critRange`/`critMult` and `range`. `finesse` comes from `properties.fin`, and `thrown` from a `twak` action. Omitted defaults are filled in. Anything unmappable is stored on the entry, flagged in `unsupported`, contributes nothing and shows a warning.
 - **Pipeline.**
   - The repo pins a release tag of each upstream repo, never an unreleased commit ([Decide which Foundry pf1 release the catalog import pins](https://github.com/AndreasUnunger/EverythingPath/issues/223)). The pins are system `v11.11` and pf1-content `11.4.0`. Both repos must share a major version, and the import fails if they don't.
   - The importer maps one upstream shape, the v11 one, in which class skills are a boolean map, class features are listed in `links.classAssociations`, skill targets use three-letter keys such as `skill.per`, and `system.changes` is an array. Pack files are read recursively from a checkout of the tag, so Foundry itself never runs.
@@ -794,7 +836,12 @@ Resolver tests (pure) must cover:
 - bonus spells only at levels with a table entry, from permanent scores, never adding to spells known;
 - one extra slot per level however many `extraSlot` features, and granted Spells appearing once their level is castable;
 - the Spell Effect caster level pre-fill, and `@casterLevel` in a Spell Effect and in Magical Knack;
-- attack bonus, iterative attacks, two-weapon penalties, Str multipliers, composite bows, crossbows, Power Attack and haste, and the single attack taking no two-weapon penalty.
+- attack bonus, iterative attacks, two-weapon penalties, Str multipliers, composite bows, crossbows, Power Attack and haste, and the single attack taking no two-weapon penalty;
+- an `option` Modifier applying only in routines that switch it on, its other targets only in its option's Situation, and a routine keeping an option whose entry left;
+- Power Attack scaling, Rapid Shot, Manyshot, Vital Strike on the single attack only, Lunge, and flurry for each monk;
+- Improved and Greater Two-Weapon Fighting, Double Slice, Rapid Reload, Weapon Finesse choosing the higher ability, and Improved Critical with *keen* doubling once;
+- natural attacks alone and alongside weapons, unarmed strike with monk scaling, thrown mode, a double weapon's other end as a light off hand, and special-ability dice as a damage part or Situational damage;
+- the `$group` weapon condition, `@casterLevel.<classKey>` and `@casterLevel.arcane`, and combat actions staying out of the marker;
 - `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, and an Accepted Warning reopening when its fingerprint changes.
 
 Integration tests (convex-test) must cover:

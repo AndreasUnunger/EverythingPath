@@ -119,7 +119,7 @@ A Modifier that applies only under a condition: while another entry is active ("
 _Avoid_: context note, rider
 
 **Situation**:
-A circumstance a Conditional Modifier or Situational Note names, such as "vs. traps" or "vs. poison". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied. A shared Situation is one that several entries name and can stack across them. A local Situation is named by one entry only, such as "vs male creatures of your race", and matches nothing else. No Situation includes another: "vs. charm" is not "vs. enchantment".
+A circumstance a Conditional Modifier or Situational Note names, such as "vs. traps" or "vs. poison". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied. A shared Situation is one that several entries name and can stack across them. A local Situation is named by one entry only, such as "vs male creatures of your race", and matches nothing else. No Situation includes another: "vs. charm" is not "vs. enchantment". The combat actions, such as fighting defensively or charging, are Situations every Character has.
 _Avoid_: context
 
 **Situational Note**:
@@ -127,8 +127,12 @@ Situational rules text with no number to add, such as an immunity, a reroll or "
 _Avoid_: note (alone), immunity record
 
 **Attack Routine**:
-A named way a Character attacks, kept on its sheet: the weapon and whether it is held in two hands or one, an optional off-hand weapon, and options such as Power Attack. It shows the single attack and the full attack in order. Each weapon added to Gear brings one.
+A named way a Character attacks, kept on its sheet: the weapon and whether it is held in two hands or one, an optional off-hand weapon, its natural attacks, and the Routine Options switched on. It shows the single attack and the full attack in order. Each weapon added to Gear brings one.
 _Avoid_: attack set, action
+
+**Routine Option**:
+A feat or class feature an Attack Routine can switch on, such as Power Attack or flurry of blows, changing only that routine's attacks. Its effects on anything else, such as Combat Expertise's bonus to AC, count as a Situation named after it.
+_Avoid_: toggle, attack mode
 
 **Class Level**:
 One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
