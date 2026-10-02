@@ -29,8 +29,15 @@ function spell(
   } = {},
 ): CatalogEntry {
   const grantedLevels: SpellDetail['grantedLevels'] = {};
+  const grantedAtClassLevel: SpellDetail['grantedAtClassLevel'] = {};
   if (opts.domain) grantedLevels.domain = opts.domain;
-  if (opts.bloodline) grantedLevels.bloodline = opts.bloodline;
+  if (opts.bloodline) {
+    grantedLevels.bloodline = opts.bloodline;
+    // Sorcerer bloodline spells: spell level N at sorcerer 2N + 1 (3rd, 5th… 19th).
+    grantedAtClassLevel.bloodline = Object.fromEntries(
+      Object.entries(opts.bloodline).map(([k, n]) => [k, 2 * n + 1]),
+    );
+  }
   return {
     key: `spell.${slug}`,
     scope: 'global',
@@ -42,6 +49,7 @@ function spell(
       kind: 'spell',
       levels,
       grantedLevels,
+      grantedAtClassLevel,
       school,
       subschools: opts.subschools ?? [],
       descriptors: opts.descriptors ?? [],

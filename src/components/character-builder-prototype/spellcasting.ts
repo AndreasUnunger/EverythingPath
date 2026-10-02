@@ -132,6 +132,14 @@ export type GrantedSpell = {
   /** "Fire domain", "Arcane bloodline" — one per granting feature. */
   from: string[];
   opposition: boolean;
+  /**
+   * A domain Spell that isn't on the class's list: "can prepare it only in
+   * her domain spell slot" (CRB). Never set for bloodline Spells, which join
+   * the sorcerer's list (FAQ).
+   */
+  domainSlotOnly: boolean;
+  /** Schedule-style grants (bloodline): the class level that granted it. */
+  grantedAtClassLevel: number | null;
 };
 
 export type ExtraSlot = {
@@ -253,7 +261,10 @@ export type AdvanceChoice = {
   kind: CastingAdvance['kind'];
   /** The class key it goes to, or null: not chosen (blue outline). */
   value: string | null;
-  /** Every casting class the Character has; `matches` = of the advance's kind, taken before this level. */
+  /**
+   * Every casting class the Character has; `matches` = of the advance's
+   * kind AND with Class Levels before the prestige class's FIRST level.
+   */
   options: { classKey: string; name: string; matches: boolean }[];
 };
 
@@ -265,6 +276,7 @@ export function advanceChoices(
   const level = findClassLevel(character, levelId);
   if (!level) return [];
   const classes = castingClasses(character);
+  const firstPrestige = firstPositionOf(character, level.state.classKey);
   return advancesAt(character, levelId).map((a, index) => ({
     index,
     kind: a.kind,
@@ -273,10 +285,17 @@ export function advanceChoices(
       classKey: c.classKey,
       name: className(c.classKey),
       matches:
-        kindMatches(a.kind, c.casting) &&
-        c.firstPosition < level.state.position,
+        kindMatches(a.kind, c.casting) && c.firstPosition < firstPrestige,
     })),
   }));
+}
+
+/** The position of the Character's first Class Level in a class (Infinity if none). */
+function firstPositionOf(character: Character, classKey: string | null) {
+  return (
+    classLevels(character).find((l) => l.state.classKey === classKey)?.state
+      .position ?? Infinity
+  );
 }
 
 /** The pre-fill for a prestige level's advances: a class only when exactly one qualifies. */
@@ -523,14 +542,13 @@ function resolveOne(
       })()
     : null;
 
-  // Highest castable level: the highest spell level with a per-day entry.
+  // Highest castable level: the per day, spells known OR prepared table has an entry.
   let highestLevel: number | null = null;
   for (let l = 0; l <= 9; l++)
     if (
       cell(tables.spellsPerDay, castingLevel, l) !== null ||
-      (l === 0 &&
-        (cell(tables.spellsKnown, castingLevel, 0) ??
-          cell(tables.preparedPerDay, castingLevel, 0)) !== null)
+      cell(tables.spellsKnown, castingLevel, l) !== null ||
+      cell(tables.preparedPerDay, castingLevel, l) !== null
     )
       highestLevel = l;
 
@@ -599,8 +617,19 @@ function resolveOne(
     if (!g) continue;
     for (const catalog of SPELL_CATALOG) {
       const level = catalog.detail.grantedLevels[g.list]?.[g.key];
-      if (level === undefined || highestLevel === null || level > highestLevel)
-        continue;
+      if (level === undefined) continue;
+      let at: number | null = null;
+      if (g.schedule === 'slot') {
+        // Slot-style (domain): every level it can cast, advances included.
+        if (highestLevel === null || level > highestLevel) continue;
+      } else {
+        // Schedule-style (bloodline): the class's own Class Levels only.
+        at =
+          g.list === 'bloodline'
+            ? (catalog.detail.grantedAtClassLevel.bloodline?.[g.key] ?? null)
+            : null;
+        if (at === null || own < at) continue;
+      }
       const held = grantedMap.get(catalog.key);
       if (held) held.from.push(f.catalog.name);
       else
@@ -611,6 +640,10 @@ function resolveOne(
           opposition: Boolean(
             school?.opposition.includes(catalog.detail.school),
           ),
+          domainSlotOnly:
+            g.list !== 'bloodline' &&
+            catalog.detail.levels[casting.classTag] === undefined,
+          grantedAtClassLevel: at,
         });
     }
   }
@@ -755,6 +788,8 @@ export type SpellChoice = {
   recordedEntryId: string | null;
   /** Granted to this Spellcasting (domain, bloodline). */
   granted: boolean;
+  /** A granted domain Spell off the class list: preparable only in the domain slot. */
+  domainSlotOnly: boolean;
   tooHigh: boolean;
   opposition: boolean;
 };
@@ -791,6 +826,7 @@ export function spellChoices(
         onList,
         recordedEntryId: rec?.entry.id ?? null,
         granted: Boolean(granted),
+        domainSlotOnly: Boolean(granted?.domainSlotOnly),
         tooHigh:
           level !== null &&
           (sc?.highestLevel == null || level > sc.highestLevel),
@@ -966,14 +1002,15 @@ export function spellWarnings(character: Character): Warning[] {
           fingerprint: choice.value,
           message: `${label}: an ${choice.kind} advance on ${className(choice.value)}, a ${to.spellKind} Spellcasting.`,
         });
-      if (!first || first.state.position > level.state.position)
+      const firstPrestige = firstPositionOf(character, level.state.classKey);
+      if (!first || first.state.position > firstPrestige)
         out.push({
           id: `advance-later-${level.id}-${choice.index}`,
           severity: 'warning',
           where: `classLevel:${level.id}`,
           acceptable: true,
           fingerprint: choice.value,
-          message: `${label}: its advance goes to ${className(choice.value)}, first taken after it.`,
+          message: `${label}: its advance goes to ${className(choice.value)}, first taken after ${className(level.state.classKey)} 1.`,
         });
     }
   }

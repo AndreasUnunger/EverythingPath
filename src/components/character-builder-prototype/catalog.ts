@@ -564,7 +564,7 @@ const classFeatures: CatalogEntry[] = [
         group: 'domain',
         spellcasting: {
           extraSlot: 'domain',
-          grants: { list: 'domain', key },
+          grants: { list: 'domain', key, schedule: 'slot' },
         },
       },
     ),
@@ -576,7 +576,9 @@ const classFeatures: CatalogEntry[] = [
     'Bloodline spells: identify, invisibility, dispel magic…',
     {
       group: 'bloodline',
-      spellcasting: { grants: { list: 'bloodline', key: 'Arcane' } },
+      spellcasting: {
+        grants: { list: 'bloodline', key: 'Arcane', schedule: 'classLevel' },
+      },
     },
   ),
   feature(

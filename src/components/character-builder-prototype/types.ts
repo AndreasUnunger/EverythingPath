@@ -244,8 +244,18 @@ export type CastingAdvance = {
 export type FeatureSpellcasting = {
   /** One extra slot per spell level from 1st. */
   extraSlot?: 'domain' | 'school' | 'spirit';
-  /** Its list's Spells are granted (domain, subdomain, bloodline). */
-  grants?: { list: 'domain' | 'subDomain' | 'bloodline'; key: string };
+  /**
+   * Its list's Spells are granted (domain, subdomain, bloodline).
+   * `schedule` (#233 round 2): 'slot' = at every spell level the
+   * Spellcasting can cast, prestige advances included (domain); 'classLevel'
+   * = at the class's own Class Level the Spell's `grantedAtClassLevel`
+   * names, never advanced (bloodline; mystery and patron later).
+   */
+  grants?: {
+    list: 'domain' | 'subDomain' | 'bloodline';
+    key: string;
+    schedule: 'slot' | 'classLevel';
+  };
   /** An arcane school: the specialist school. */
   school?: SchoolKey;
 };
@@ -258,6 +268,12 @@ export type SpellDetail = {
   grantedLevels: Partial<
     Record<'domain' | 'subDomain' | 'bloodline', Record<string, number>>
   >;
+  /**
+   * PROTOTYPE (#233 round 2): schedule-style lists only (bloodline): list key
+   * → the class level that grants it (sorcerer: spell level N at 2N + 1).
+   * Not in Foundry; the Curation Overlay would add it.
+   */
+  grantedAtClassLevel: Partial<Record<'bloodline', Record<string, number>>>;
   school: SchoolKey;
   subschools: string[];
   descriptors: string[];
