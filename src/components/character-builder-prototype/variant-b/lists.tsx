@@ -16,6 +16,7 @@ import {
   lookupCatalog,
   useBuilderStore,
 } from '../store';
+import { levelText, prefillSource } from '../spellcasting';
 import type { AbilityKey, Character, SheetEntry } from '../types';
 import type { Warning } from '../warnings';
 import { groupOptions } from './levels-table';
@@ -332,6 +333,19 @@ const KIND_LABEL: Record<string, string> = {
   abilityDrain: 'drain',
 };
 
+/** PROTOTYPE (#233): why a Spell Effect's caster level reads what it does. */
+function casterLevelTitle(character: Character, entry: SheetEntry) {
+  const detail = lookupCatalog(character, entry.catalogKey)?.detail;
+  const spell =
+    detail?.kind === 'spellEffect'
+      ? lookupCatalog(character, detail.spellKey)
+      : undefined;
+  const src =
+    spell?.detail.kind === 'spell' ? prefillSource(spell.detail) : null;
+  if (!src) return "Caster level. Change it to the caster's.";
+  return `Caster level. Pre-filled ${src.casterLevel}: the lowest that can cast it (${src.className} ${src.classLevel}, ${levelText(src.spellLevel)} spells). Change it to the caster's.`;
+}
+
 export function GearBlock({ character }: { character: Character }) {
   const store = useBuilderStore();
   const [dmgAbility, setDmgAbility] = useState<AbilityKey | null>(null);
@@ -397,6 +411,29 @@ export function GearBlock({ character }: { character: Character }) {
                     store.updateEntry(character.id, e.id, { quantity: v ?? 1 })
                   }
                 />
+              )}
+              {e.state.kind === 'spellEffect' && (
+                <span
+                  className="flex shrink-0 items-center gap-1"
+                  title={casterLevelTitle(character, e)}
+                >
+                  <span className="text-muted-foreground font-mono text-xs">
+                    CL
+                  </span>
+                  <NumField
+                    ariaLabel="Caster level"
+                    value={e.state.casterLevel}
+                    width="w-10"
+                    className="h-7 text-xs"
+                    onChange={(v) =>
+                      store.setSpellEffectCasterLevel(
+                        character.id,
+                        e.id,
+                        v ?? 1,
+                      )
+                    }
+                  />
+                </span>
               )}
               <RemoveButton
                 label={entryName(character, e)}

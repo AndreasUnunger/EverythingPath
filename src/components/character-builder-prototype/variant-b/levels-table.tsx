@@ -16,6 +16,11 @@ import {
 } from '../catalog';
 import { useProtoNav } from '../nav';
 import {
+  advanceChoices,
+  spellcastingsOf,
+  type AdvanceChoice,
+} from '../spellcasting';
+import {
   classLevelShortLabel,
   classLevels,
   entryName,
@@ -185,6 +190,67 @@ function RanksCell({
         </span>
       )}
     </button>
+  );
+}
+
+const ADVANCE_LABEL: Record<AdvanceChoice['kind'], string> = {
+  any: 'advance',
+  arcane: 'arcane',
+  divine: 'divine',
+};
+
+/**
+ * PROTOTYPE (#233): a prestige Class Level's "+1 level of existing
+ * spellcasting class" advances, one select each. Null for other levels.
+ */
+function AdvancesCell({
+  character,
+  levelId,
+  className,
+}: {
+  character: Character;
+  levelId: string;
+  className?: string;
+}) {
+  const store = useBuilderStore();
+  const choices = advanceChoices(character, levelId);
+  if (choices.length === 0) return null;
+  const spellKindOf = (classKey: string) =>
+    spellcastingsOf(character).find((s) => s.classKey === classKey)?.casting
+      .spellKind;
+  const hint = (choice: AdvanceChoice, classKey: string) => {
+    const kind = spellKindOf(classKey);
+    if (choice.kind !== 'any' && kind && kind !== choice.kind)
+      return ` — not ${choice.kind}`;
+    return ' — taken later';
+  };
+  return (
+    <div
+      className={cn('space-y-1', className)}
+      title="Each advance adds a level to that class's spellcasting: caster level, spells per day and spells known."
+    >
+      {choices.map((c) => (
+        <div key={c.index} className="flex items-center gap-1.5">
+          <span className="text-muted-foreground w-[3.75rem] shrink-0 font-mono text-xs">
+            {ADVANCE_LABEL[c.kind]} →
+          </span>
+          <PickField
+            ariaLabel={`${ADVANCE_LABEL[c.kind]} spellcasting advance`}
+            value={c.value}
+            placeholder="choose"
+            todo={c.value === null}
+            options={c.options.map((o) => ({
+              value: o.classKey,
+              label: o.matches ? o.name : `${o.name}${hint(c, o.classKey)}`,
+            }))}
+            className="w-32"
+            onChange={(v) =>
+              store.setCastingAdvance(character.id, levelId, c.index, v)
+            }
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -489,6 +555,11 @@ export function LevelsTable({
                       {classLevelShortLabel(character, l.id)}
                     </div>
                   )}
+                  <AdvancesCell
+                    character={character}
+                    levelId={l.id}
+                    className="mt-1"
+                  />
                 </td>
                 <td className="px-2 py-1.5">
                   <HpCell character={character} levelId={l.id} todo={todo.hp} />
@@ -560,6 +631,14 @@ export function LevelsTable({
               </span>
             </div>
             <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-xs">
+              {advanceChoices(character, l.id).length > 0 && (
+                <>
+                  <span className="text-muted-foreground self-start pt-2">
+                    advances
+                  </span>
+                  <AdvancesCell character={character} levelId={l.id} />
+                </>
+              )}
               <span className="text-muted-foreground">hp</span>
               <HpCell character={character} levelId={l.id} todo={todo.hp} />
               <span className="text-muted-foreground">favored</span>

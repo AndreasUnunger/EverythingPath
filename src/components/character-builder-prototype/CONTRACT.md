@@ -1,10 +1,12 @@
-# Character builder prototype — contract (#208, round 2; #216, round 3)
+# Character builder prototype — contract (#208, round 2; #216, round 3; #233, round 4)
 
 Throwaway prototype of the Pathfinder 1e character builder at
 `/prototype/character-builder` (no login). Run `pnpm prototype` (port
-3027). Round 3 (attacks and conditional modifiers, #216) is the last
-section: "Round 3: attacks and conditional modifiers (#216)". Primary target is tablet landscape (1180×820). Desktop (1440×900)
-and phone (390×844) must remain usable.
+3033). Round 4 (spellcasting, #233) is the last section: "Round 4:
+spellcasting (#233)". Round 3's variant 3 (attack routines) was approved
+and is now the base for every variant; `?variant=` switches the
+spellcasting variants. Primary target is tablet landscape (1180×820).
+Desktop (1440×900) and phone (390×844) must remain usable.
 
 Round 1 (commits 2bbc177 and 7ed8e3a) had three variants. The review chose
 **B ("One living sheet")** as the starting point, not locked in. Round 2
@@ -748,3 +750,272 @@ sheet" and "ama sheet". It also has two toggles, "kesh raging: on/off"
 **Ama.** Saves vs. enchantment are +2. She has no weapons and no setups.
 
 Kesh and Brannoc still have no warnings.
+
+## Round 4: spellcasting (#233)
+
+Wayfinder ticket #233, "Prototype the spellcasting section on the living
+sheet", asks how the Spellcasting section should look and behave. The
+model is "Spellcasting" and "Rules checks" in
+`docs/pf-character-sheet-data-model.md` on `feature/pf1-character-builder`
+(#218); terms (Spellcasting, Spell, Spell Effect, Granted Spells…) come from
+`CONTEXT.md` there. Recording prepared spells, casts and slots used is out
+of scope.
+
+**Base change.** Round 3's variant 3, "Attack routines", was approved
+(tag `prototype-approved/attacks-conditionals`). Its slots (`v3Slots`) are
+the base of every variant; round 3's variants 1 and 2 were deleted.
+`?variant=1|2|3` and the floating switcher now pick a spellcasting variant:
+
+| `?variant=` | Name               | File(s)              | Idea                                                                                                          |
+| ----------- | ------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `1`         | Spell cards        | `variant-b/s1-*.tsx` | A section with one card per Spellcasting: header numbers, a slots grid, the list by level; side-panel picker. |
+| `2`         | Spell-level ladder | `variant-b/s2-*.tsx` | One row per spell level: DC, per-day pips, known x/y, Spells as chips, "+" chip with an inline typeahead.     |
+| `3`         | Spells page        | `variant-b/s3-*.tsx` | One summary line per Spellcasting on the sheet, linking to `?page=spells`: a class-list browser with toggles. |
+
+Start with `http://localhost:3033/prototype/character-builder?variant=1&page=sheet&character=seren`.
+
+### Files and ownership
+
+| File                                                                                                                                    | Owner                                    | What                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------- |
+| `variant-b/s1-spell-cards.tsx` (+ `s1-*.tsx`)                                                                                           | variant 1 (Fable)                        | `export const s1Slots: SpellVariantSlots` |
+| `variant-b/s2-spell-ladder.tsx` (+ `s2-*.tsx`)                                                                                          | variant 2 (Fable)                        | `export const s2Slots: SpellVariantSlots` |
+| `variant-b/s3-spells-page.tsx` (+ `s3-*.tsx`)                                                                                           | variant 3 (Fable)                        | `export const s3Slots: SpellVariantSlots` |
+| `spellcasting.ts`, `casting-tables.ts`, `spell-catalog.ts`                                                                              | foundation                               | Derivation, tables, Spells. Pure.         |
+| `variant-b/levels-table.tsx` (advance choice), `variant-b/lists.tsx` (Spell Effect CL), `variant-b/shared.tsx` (`FieldWarnings` accept) | shared (built once, before the variants) | Used by every variant as-is.              |
+| everything else                                                                                                                         | foundation                               | Ask for a change instead of editing it.   |
+
+A variant agent edits only its own files. Shared layout between variants
+is not allowed: each variant builds its own components. It may import the
+shared primitives in `shared.tsx` (`Block`, `StatButton`, `NumField`,
+`PickField`, `TextField`, `FieldWarnings`, `chip`, `th`, `todoRing`,
+`blockHeading`, `useSheetUi`, `jumpTo`) and the shadcn components.
+
+### Slots (`variant-b/sheet-variants.tsx`)
+
+```ts
+type SpellSlotProps = {
+  character: Character;
+  sheet: ResolvedSheet;
+  warnings: Warning[];
+};
+type SpellVariantSlots = {
+  Spellcasting?: ComponentType<SpellSlotProps>; // the section
+  VitalsExtra?: ComponentType<SpellSlotProps>; // in the pinned vitals row, after the figures
+  SpellsPage?: ComponentType<SpellSlotProps>; // `?page=spells`
+};
+SHEET_VARIANTS[i].slots = { ...v3Slots, ...sNSlots };
+```
+
+- **`Spellcasting`** renders in its own full-width grid cell
+  (`lg:col-span-12`) right after the row with Abilities / Defenses /
+  Offense / Attacks (left) and Skills (right), before Feats and Class
+  features. On phone it follows Skills. It renders for every Full
+  Character: return `null` when `spellcastingsOf(character)` is empty
+  (the cell then collapses with `empty:hidden`).
+- **`VitalsExtra`** renders inside the pinned vitals row (sticky under the
+  shell bar from 768px), after the 11 figures, in the same flex row
+  (`flex-wrap … md:flex-nowrap`). Keep it small: it must fit at 1180px.
+- **`SpellsPage`** renders on `?page=spells&character=<id>` in place of the
+  whole grid, under the pinned vitals row; `useSheetUi()`, `StatButton` and
+  the breakdown popover work there. The shell's Back button on that page
+  says "Sheet" and returns to the sheet (`nav.back`). Link to it with
+  `nav.href('spells', { params: { spellcasting: classKey } })` (page-local
+  params like `spellcasting`, `level`, `school`, `q` are yours; read with
+  `nav.param()`, write with `nav.set()`). From the spells page back to the
+  sheet: `nav.href('sheet')`.
+
+### Model (`spellcasting.ts`)
+
+```ts
+spellcastingsOf(character): ResolvedSpellcasting[]   // memoised per Character; order = class's first level
+type ResolvedSpellcasting = {
+  classKey: string;            // "class.wizard": what a recorded Spell's castingClass names
+  className: string;           // "Wizard"
+  casting: Casting;            // { classTag, type: 'prepared'|'spontaneous'|'hybrid', spellKind, ability, cantrips, casterLevelOffset, table, record: 'known'|'book'|'none', bookName? }
+  heading: string | null;      // "Spells known" | "Spellbook" | null for `none`
+  classLevels: number;         // Class Levels in the class
+  advances: { levelId; label }[]; // prestige advances assigned here ("Mystic theurge 1")
+  castingLevel: number;        // classLevels + advances: the table row
+  casterLevel: Stat | null;    // null until the table has an entry (paladin before 4th)
+  concentration: Stat | null;  // caster level + ability mod + Modifiers; `conditional` holds Combat Casting
+  ability: AbilityKey; abilityScore; abilityMod; permanentScore; // DCs/concentration read current, bonus spells permanent
+  highestLevel: number | null; // highest spell level castable now
+  rows: SlotRow[];             // one per spell level with a table entry
+  extraSlot: { kind: 'domain'|'school'|'spirit'; label: string; from: string[] } | null; // label "+1 domain" / "+1 school (evocation)"
+  school: { entryId; school: SchoolKey; opposition: SchoolKey[] } | null; // arcane school
+  recorded: RecordedSpell[];   // by level then name; [] for `none`
+  granted: GrantedSpell[];     // derived, never recorded; only levels it can cast
+  dcStat(level, school?): Stat; // breakdown of one DC: Base 10, Spell level, ability mod, Spell Focus…
+};
+type SlotRow = {
+  level: number;               // 0…9
+  base: number | null;         // table per day; 0 = bonus only; null = cast at will (sorcerer/arcanist cantrips)
+  bonus: number;               // bonus spells (1st+)
+  extra: number;               // 0 | 1: the extra slot (1st+)
+  perDay: number | null;       // base + bonus + extra
+  known: number | null;        // `known` casters
+  prepared: number | null;     // the arcanist's prepared count
+  recorded: number;            // recorded at this level (granted not counted)
+  granted: number;
+  dc: number;                  // DC without school conditions
+  dcBySchool: { school; dc }[]; // only schools whose DC differs (Spell Focus)
+};
+type RecordedSpell = {
+  entry;                       // the `spell` sheet entry: state { kind:'spell', castingClass, level }
+  catalog: SpellCatalog;       // detail: { levels, grantedLevels, school, subschools, descriptors }; `summary` is a one-liner
+  level: number | null;        // list level, or the entry's own (off-list); null = off-list and not set
+  onList: boolean;
+  offList: boolean;            // show the editable level field + the off-list warning
+  opposition: boolean;         // show the "2 slots" tag
+  tooHigh: boolean;            // above highestLevel
+};
+type GrantedSpell = { catalog; level; from: string[] /* "Fire domain" */; opposition };
+
+classSpellList(classKey): { catalog; level }[]       // the class list (for `none` browsing)
+spellChoices(character, classKey, { offList? }): SpellChoice[]
+//   { catalog, level, onList, recordedEntryId | null, granted, tooHigh, opposition } — the picker's rows;
+//   with offList, every other Spell too (level = its lowest level anywhere)
+orphanedSpells(character): { entry, catalog, castingClass }[]  // recorded for a class with no levels
+advanceChoices(character, levelId): AdvanceChoice[]  // [] unless a prestige level
+//   { index, kind: 'any'|'arcane'|'divine', value: classKey | null, options: { classKey, name, matches }[] }
+prefillSource(spellDetail): { casterLevel, className, classLevel, spellLevel } | null
+prefillCasterLevel(effectCatalog): number
+SCHOOL_LABEL, ordinal(level) ("1st"), levelText(level) ("1st-level"), SPELL_CATALOG, isSpellCatalog
+```
+
+Rules implemented, as the model says:
+
+- **One Spellcasting per casting class**, separate numbers and lists.
+- **Casting level** = Class Levels + prestige advances assigned; **caster
+  level** = Class Levels + offset (paladin −3) + advances + `casterLevel`
+  Modifiers, shown only once the table row has an entry.
+- **Spells per day** = table + bonus spells (permanent score, only at
+  levels with an entry, "0" included) + the extra slot (one per level from
+  1st, however many features give it). Bonus spells never add to known,
+  prepared or the extra slot.
+- **DC** = 10 + level + current ability mod + `spellDC` Modifiers; Spell
+  Focus (`school: '$choice'`) shows as `dcBySchool`.
+- **Concentration** = caster level + current ability mod +
+  `concentration` Modifiers. Combat Casting's +4 is situational
+  ("to cast defensively or while grappled") and waits in `conditional`.
+- **Granted Spells**: every Spell on an active domain/bloodline feature's
+  list, at its listed level, once the Spellcasting can cast that level.
+- **A class feature's Spellcasting** is its `gainedAtClassLevel`'s class.
+
+### Store actions (#233)
+
+| Action                                                                          | Semantics                                                                                                    |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `addSpell(characterId, castingClass, spellKey, level?): id`                     | Records a Spell for a Spellcasting. Off-list: `level`, else its lowest level anywhere. Undo = `removeEntry`. |
+| `removeEntry(characterId, entryId)`                                             | Removes a recorded Spell (or anything else).                                                                 |
+| `setSpellLevel(characterId, entryId, level \| null)`                            | An off-list Spell's level.                                                                                   |
+| `setCastingAdvance(characterId, levelId, index, classKey \| null)`              | A prestige level's advance choice.                                                                           |
+| `setSpellEffectCasterLevel(characterId, entryId, cl)`                           | A Spell Effect's caster level.                                                                               |
+| `setOppositionSchools(characterId, entryId, schools)`                           | An arcane school entry's opposition schools.                                                                 |
+| `acceptWarning(characterId, warning)` / `reopenWarning(characterId, warningId)` | Accepted Warnings; `isAccepted(state, characterId, warning)` reads one. A changed fingerprint reopens.       |
+
+`addClassLevel` and a class change in `updateClassLevel` pre-fill a
+prestige level's `castingAdvances`: a class only when exactly one
+Spellcasting of the advance's kind was taken before that level, else null.
+`addEntry` of a Spell Effect pre-fills its caster level.
+
+### Warnings (#233)
+
+`useWarnings(id)` now includes the spell checks. All are `severity:
+'warning'`, `acceptable: true`, with a `fingerprint`:
+
+| Check              | `where`                                     | Example                                                                   |
+| ------------------ | ------------------------------------------- | ------------------------------------------------------------------------- |
+| Spells known over  | `spellcasting:<classKey>`, `spellLevel` set | "Sorcerer: 4 2nd-level Spells known; the table allows 3."                 |
+| Spell too high     | `entry:<spellEntryId>`                      | "Wall of fire is 4th-level; Wizard casts up to 3rd level now."            |
+| Off-list Spell     | `entry:<spellEntryId>`                      | "Summon nature’s ally I isn’t on the wizard list; recorded as 1st-level." |
+| Orphaned Spell     | `entry:<spellEntryId>`                      | "Feather fall is recorded for Wizard, but there are no Wizard levels."    |
+| Opposition schools | `spellcasting:<classKey>`                   | "Evocation is the specialist school; it can’t be an opposition school."   |
+| Prestige advance   | `classLevel:<levelId>`                      | "Mystic theurge 2: an arcane advance on Cleric, a divine Spellcasting."   |
+
+Show them inline with `FieldWarnings` (it renders **Accept** on acceptable
+warnings and collapses an accepted one to a muted "Accepted" line with
+**Reopen**). An empty advance choice is a blue outline (`todoRing`), never
+a warning.
+
+### Shared bits (built once)
+
+- **Levels table:** a prestige Class Level shows its advance choices under
+  the class picker: one select per advance ("arcane → Wizard", "divine →
+  —"), `todoRing` when empty, options = `advanceChoices().options` with
+  non-matching ones marked. Desktop table and phone card.
+- **Gear, spells & conditions:** a Spell Effect row has a "CL" number field
+  (`setSpellEffectCasterLevel`); its title explains the pre-fill
+  ("Pre-filled 4: summoner 4 casts 2nd-level spells"). Recorded Spells
+  never show there; the add picker lists Spell Effects as "spell".
+- **`FieldWarnings`:** Accept / Reopen as above.
+
+### Mock data (#233)
+
+| id            | Who                                                                                                                              | Demonstrates                                                                                                                                                                                                                                                                                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `seren`       | Seren Vale, human Wizard 3 / Cleric 3 / Mystic theurge 2 (W C W C W C MT MT), Ironfang, owner Andreas, not on the roster.        | Two Spellcastings; evoker with opposition enchantment + necromancy; Spell Focus (evocation); Fire + Sun domains; MT 1 advances pre-filled (wizard, cleric), MT 2 arcane → wizard, divine **empty**; spellbook with _Summon nature’s ally I_ off-list (level 1) and _Wall of fire_ too high; inactive _shield of faith_ (CL 4) and _fox’s cunning_ (CL 3) Spell Effects. |
+| `quill`       | Quill, elf Arcanist 5, no campaign.                                                                                              | Hybrid: spellbook, per day and prepared count.                                                                                                                                                                                                                                                                                                                          |
+| `nyra`        | Nyra Ashgrove, human Sorcerer 7, Arcane bloodline, no campaign.                                                                  | `known`; bloodline granted Spells; four 2nd-level Spells known (table: 3); Combat Casting; orphaned wizard _Feather fall_.                                                                                                                                                                                                                                              |
+| `oswin`       | Ser Oswin, human Paladin 4, no campaign.                                                                                         | `none`: caster level 1, 1st level "0" + 1 bonus, no list, link to the class list.                                                                                                                                                                                                                                                                                       |
+| `kesh`        | Kesh gains an inactive _haste_ Spell Effect (CL 4, the pre-fill) beside _bull’s strength_ (CL 3).                                | Spell Effect CL field.                                                                                                                                                                                                                                                                                                                                                  |
+| `ama`, `ilsa` | Ama's school is now Divination (opposition enchantment, necromancy), empty spellbook; Ilsa has the Animal and Community domains. | Empty book; `none` cleric with granted Spells.                                                                                                                                                                                                                                                                                                                          |
+
+Seren's level-up shortcut (`?page=levelup&character=seren&as=class.mysticTheurge`)
+adds Mystic theurge 3 with **both** advances pre-filled.
+
+### Expected numbers (verified with `spellcastingsOf`)
+
+**Seren — Wizard** (casting level 5 = 3 + 2 advances; Int 21 permanent, +5):
+CL 5, concentration 10.
+
+| Level | Per day (base + bonus + school) | DC  | Evocation DC |
+| ----- | ------------------------------- | --- | ------------ |
+| 0     | 4                               | 15  | 16           |
+| 1st   | 3 + 2 + 1 = 6                   | 16  | 17           |
+| 2nd   | 2 + 1 + 1 = 4                   | 17  | 18           |
+| 3rd   | 1 + 1 + 1 = 3                   | 18  | 19           |
+
+"2 slots": _daze_, _bleed_ (0), _sleep_ (1st), _false life_ (2nd).
+Warnings: _Summon nature’s ally I_ off-list (1st), _Wall of fire_ too high.
+With _fox’s cunning_ on: Int 23 (+6), DCs +1, concentration 11; per day unchanged (permanent Int 21).
+
+**Seren — Cleric** (casting level 4 = 3 + 1 advance; Wis 16, +3): CL 4,
+concentration 7. 0: 4, 1st 3 + 1 + 1 domain = 5, 2nd 2 + 1 + 1 = 4. DCs
+13/14/15, evocation 14/15/16. Granted: _burning hands_, _endure elements_
+(1st), _heat metal_, _produce flame_ (2nd). Filling MT 2's divine advance
+→ casting level 5, CL 5, 3rd 1 + 1 + 1 = 3, granted adds _fireball_ and
+_searing light_.
+
+**Quill — Arcanist 5** (Int 20, +5): CL 5, concentration 10. 0: at will,
+6 prepared; 1st 4 + 2 = 6 per day, 4 prepared; 2nd 3 + 1 = 4 per day, 2
+prepared. DCs 15/16/17.
+
+**Nyra — Sorcerer 7** (Cha 19, +4): CL 7, concentration 11 (+4 more to
+cast defensively, Combat Casting). Known 0: 7, 1st 5, 2nd 3 (4 recorded:
+warning), 3rd 2. Per day 1st 6 + 1 = 7, 2nd 6 + 1 = 7, 3rd 4 + 1 = 5. DCs
+14/15/16/17. Granted: _identify_, _invisibility_, _dispel magic_.
+
+**Oswin — Paladin 4** (Cha 16, +3): CL 1, concentration 4, 1st: 0 + 1 = 1,
+DC 14. No 0-level row.
+
+**Ama — Wizard 5** (Int 21): as Seren's wizard, school divination, empty spellbook.
+**Ilsa — Cleric 2** (Wis 18): CL 2, concentration 6; 0: 4, 1st 2 + 1 + 1 = 4; DCs 14/15; granted _bless_, _calm animals_.
+
+**Spell Effect pre-fills:** _haste_ 4 (summoner 4), _bull’s strength_ 3,
+_fox’s cunning_ 3, _mage armor_ 1, _shield of faith_ 1. _Shield of faith_
+is `min(5, 2 + floor(@casterLevel / 6))` deflection: CL 6 makes it +3.
+
+Kesh, Brannoc and Ama keep their round-3 numbers and warnings.
+
+### Rules shortcuts (#233)
+
+- The spell catalog is ~80 CRB Spells with levels for the class tags in
+  `ClassTag` only (wizard = sorcerer = arcanist, cleric = oracle, plus
+  druid, paladin, ranger, bard, summoner, magus where known). Witch,
+  inquisitor, alchemist and the rest are left out.
+- Domains, schools and bloodlines are pickable class features (cleric 1
+  picks two domains, wizard 1 an arcane school, sorcerer 1 a bloodline).
+  Opposition schools are edited with `setOppositionSchools`.
+- Prestige class requirements are not checked.

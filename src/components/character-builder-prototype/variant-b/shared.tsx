@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 import { getStat } from '../resolve';
-import { useBuilderStore } from '../store';
+import { isAccepted, useBuilderStore } from '../store';
 import type {
   Character,
   ResolvedSheet,
@@ -585,7 +585,12 @@ export function ActiveToggle({
 
 // -------------------------------------------------------- inline warnings
 
-/** The advisory warnings for one `where`, inline next to their field. */
+/**
+ * The advisory warnings for one `where`, inline next to their field.
+ *
+ * PROTOTYPE (#233): an `acceptable` warning gets an **Accept** button; once
+ * accepted it collapses to one muted "Accepted: …" line with **Reopen**.
+ */
 export function FieldWarnings({
   warnings,
   where,
@@ -607,34 +612,70 @@ export function FieldWarnings({
   if (list.length === 0) return null;
   return (
     <ul className={cn('space-y-0.5', className)}>
-      {list.map((w) => (
-        <li
-          key={w.id}
-          className={cn(
-            'flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs',
-            SEVERITY_CLASS[w.severity],
-          )}
-        >
-          {!compact && w.severity === 'warning' && (
-            <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
-          )}
-          <span className="min-w-0 [overflow-wrap:anywhere]">{w.message}</span>
-          {w.action && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 px-2 text-xs"
-              onClick={() =>
-                store.addEntry(characterId, w.action!.catalogKey, {
-                  gainedAtClassLevel: w.action!.gainedAtClassLevel,
-                })
-              }
+      {list.map((w) => {
+        if (w.acceptable && isAccepted(store.state, characterId, w))
+          return (
+            <li
+              key={w.id}
+              // w-0 + min-w-full: the one-line text must not widen a table column.
+              className="text-muted-foreground flex w-0 min-w-full items-center gap-x-1.5 text-xs"
             >
-              {w.action.label}
-            </Button>
-          )}
-        </li>
-      ))}
+              <Check aria-hidden className="size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate" title={w.message}>
+                Accepted: {w.message}
+              </span>
+              <button
+                type="button"
+                title="Show this warning again"
+                onClick={() => store.reopenWarning(characterId, w.id)}
+                className="hover:text-foreground shrink-0 underline decoration-dotted underline-offset-2"
+              >
+                Reopen
+              </button>
+            </li>
+          );
+        return (
+          <li
+            key={w.id}
+            className={cn(
+              'flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs',
+              SEVERITY_CLASS[w.severity],
+            )}
+          >
+            {!compact && w.severity === 'warning' && (
+              <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+            )}
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {w.message}
+            </span>
+            {w.action && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-xs"
+                onClick={() =>
+                  store.addEntry(characterId, w.action!.catalogKey, {
+                    gainedAtClassLevel: w.action!.gainedAtClassLevel,
+                  })
+                }
+              >
+                {w.action.label}
+              </Button>
+            )}
+            {w.acceptable && (
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Mark as intended"
+                className="text-muted-foreground hover:text-foreground h-6 px-1.5 text-xs"
+                onClick={() => store.acceptWarning(characterId, w)}
+              >
+                Accept
+              </Button>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
