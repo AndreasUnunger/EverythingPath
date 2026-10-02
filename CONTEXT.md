@@ -119,7 +119,7 @@ A Modifier that applies only under a condition: while another entry is active ("
 _Avoid_: context note, rider
 
 **Situation**:
-A circumstance a Conditional Modifier or Situational Note names, such as "vs. traps" or "vs. poison". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied. A shared Situation is one that several entries name and can stack across them. A local Situation is named by one entry only, such as "vs male creatures of your race", and matches nothing else. No Situation includes another: "vs. charm" is not "vs. enchantment". The combat actions, such as fighting defensively or charging, are Situations every Character has.
+A circumstance a Conditional Modifier or Situational Note names, such as "vs. traps" or "vs. poison". A number with situational bonuses carries a marker, and its breakdown shows what the total becomes in each Situation, with stacking applied. A shared Situation is one that several entries name and can stack across them. A local Situation is named by one entry only, such as "vs male creatures of your race", and matches nothing else. No Situation includes another: "vs. charm" is not "vs. enchantment". The Combat situations, such as fighting defensively, charging or shooting into melee, are Situations every Character has.
 _Avoid_: context
 
 **Situational Note**:
@@ -141,6 +141,10 @@ _Avoid_: enchantment, quality, property, special ability (alone)
 **Base Item**:
 The mundane item a specific magic item is built on, such as the longsword under a flame tongue, which supplies its weapon or armor statistics.
 _Avoid_: base type (the weapon name Weapon Focus picks), parent item
+
+**Proficiency**:
+A weapon, armor or shield a Character is trained to use, granted by its class, race, feats and other entries, plus the player's own additions and removals. Lacking one costs a penalty on the sheet, never a warning.
+_Avoid_: training (fighter Weapon Training is a class feature)
 
 **Class Level**:
 One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
