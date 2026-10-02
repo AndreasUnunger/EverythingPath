@@ -16,8 +16,19 @@ import {
   lookupCatalog,
   useBuilderStore,
 } from '../store';
-import { levelText, prefillSource } from '../spellcasting';
-import type { AbilityKey, Character, SheetEntry } from '../types';
+import {
+  SCHOOL_LABEL,
+  levelText,
+  prefillCasterLevel,
+  prefillSource,
+} from '../spellcasting';
+import {
+  SCHOOLS,
+  type AbilityKey,
+  type Character,
+  type SchoolKey,
+  type SheetEntry,
+} from '../types';
 import type { Warning } from '../warnings';
 import { groupOptions } from './levels-table';
 import {
@@ -28,6 +39,7 @@ import {
   PickField,
   TextField,
   chip,
+  todoRing,
   useSheetUi,
 } from './shared';
 
@@ -207,6 +219,76 @@ export function FeatsBlock({
 
 // --------------------------------------------------------------- features
 
+/**
+ * PROTOTYPE (#233): an arcane school's two opposition schools, edited on
+ * its class feature row. The spells page only displays them.
+ */
+function OppositionSchools({
+  character,
+  entry,
+  school,
+  classKey,
+  warnings,
+}: {
+  character: Character;
+  entry: SheetEntry;
+  school: SchoolKey;
+  classKey: string | null;
+  warnings: Warning[];
+}) {
+  const store = useBuilderStore();
+  const chosen =
+    entry.state.kind === 'classFeature'
+      ? (entry.state.oppositionSchools ?? [])
+      : [];
+  const options = SCHOOLS.filter((s) => s !== 'universal').map((s) => ({
+    value: s,
+    label:
+      s === school
+        ? `${SCHOOL_LABEL[s]} (your specialist school)`
+        : SCHOOL_LABEL[s],
+  }));
+  const set = (i: 0 | 1, v: SchoolKey | null) => {
+    const next: (SchoolKey | undefined)[] = [chosen[0], chosen[1]];
+    next[i] = v ?? undefined;
+    store.setOppositionSchools(
+      character.id,
+      entry.id,
+      next.filter((s): s is SchoolKey => Boolean(s)),
+    );
+  };
+  return (
+    <div className="mt-1 mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+      {/* Phone: the label takes its own line and the two selects share the next. */}
+      <span className="text-muted-foreground basis-full text-xs md:basis-auto">
+        Opposition schools
+      </span>
+      {([0, 1] as const).map((i) => (
+        <PickField<SchoolKey>
+          key={i}
+          ariaLabel={`Opposition school ${i + 1}`}
+          value={chosen[i] ?? null}
+          options={options}
+          placeholder="—"
+          className="min-w-0 flex-1 text-xs md:w-36 md:flex-none"
+          todo={chosen[i] === undefined}
+          onChange={(v) => set(i, v)}
+        />
+      ))}
+      <FieldWarnings
+        warnings={warnings}
+        where={(w) =>
+          w.where === `spellcasting:${classKey}` &&
+          w.id.startsWith('opposition-')
+        }
+        characterId={character.id}
+        className="basis-full"
+        compact
+      />
+    </div>
+  );
+}
+
 export function FeaturesBlock({
   character,
   warnings,
@@ -244,27 +326,42 @@ export function FeaturesBlock({
               <ul>
                 {features.map((e) => {
                   const catalog = lookupCatalog(character, e.catalogKey);
+                  const school =
+                    catalog?.detail.kind === 'classFeature'
+                      ? catalog.detail.spellcasting?.school
+                      : undefined;
                   return (
-                    <li key={e.id} className="flex items-center gap-2 py-0.5">
-                      <span className="min-w-0 flex-1">
-                        {catalog?.name ?? e.catalogKey}
-                        {catalog?.summary && (
-                          <span className="text-muted-foreground text-xs">
-                            {' '}
-                            · {catalog.summary}
-                          </span>
-                        )}
-                        {e.notes && (
-                          <span className="text-muted-foreground text-xs">
-                            {' '}
-                            ({e.notes})
-                          </span>
-                        )}
-                      </span>
-                      <RemoveButton
-                        label={catalog?.name ?? 'feature'}
-                        onClick={() => store.removeEntry(character.id, e.id)}
-                      />
+                    <li key={e.id} className="py-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1">
+                          {catalog?.name ?? e.catalogKey}
+                          {catalog?.summary && (
+                            <span className="text-muted-foreground text-xs">
+                              {' '}
+                              · {catalog.summary}
+                            </span>
+                          )}
+                          {e.notes && (
+                            <span className="text-muted-foreground text-xs">
+                              {' '}
+                              ({e.notes})
+                            </span>
+                          )}
+                        </span>
+                        <RemoveButton
+                          label={catalog?.name ?? 'feature'}
+                          onClick={() => store.removeEntry(character.id, e.id)}
+                        />
+                      </div>
+                      {school && (
+                        <OppositionSchools
+                          character={character}
+                          entry={e}
+                          school={school}
+                          classKey={l.state.classKey}
+                          warnings={warnings}
+                        />
+                      )}
                     </li>
                   );
                 })}
@@ -346,6 +443,54 @@ function casterLevelTitle(character: Character, entry: SheetEntry) {
   return `Caster level. Pre-filled ${src.casterLevel}: the lowest that can cast it (${src.className} ${src.classLevel}, ${levelText(src.spellLevel)} spells). Change it to the caster's.`;
 }
 
+/**
+ * PROTOTYPE (#233): a Spell Effect's caster level. The field may be empty
+ * while typing; every valid number (1+) is written at once, and leaving it
+ * empty restores the pre-fill.
+ */
+function CasterLevelField({
+  value,
+  prefill,
+  onChange,
+}: {
+  value: number;
+  prefill: number;
+  onChange: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState<number | null>(value);
+  // Follow the store when it changes from elsewhere (a reset, a pre-fill).
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    setDraft(value);
+  }
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      aria-label="Caster level"
+      value={draft ?? ''}
+      onChange={(e) => {
+        const next = e.target.value === '' ? null : Number(e.target.value);
+        setDraft(next);
+        if (next !== null && Number.isFinite(next) && next >= 1)
+          onChange(Math.floor(next));
+      }}
+      onBlur={() => {
+        if (draft !== null && draft >= 1) return;
+        setDraft(prefill);
+        onChange(prefill);
+      }}
+      className={cn(
+        'bg-field border-input focus-visible:border-ring focus-visible:ring-ring/50 h-8 [appearance:textfield] border px-1 text-center font-mono text-base outline-none focus-visible:ring-[3px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+        'h-7 w-10 text-xs',
+        draft === null && todoRing,
+      )}
+    />
+  );
+}
+
 export function GearBlock({ character }: { character: Character }) {
   const store = useBuilderStore();
   const [dmgAbility, setDmgAbility] = useState<AbilityKey | null>(null);
@@ -420,17 +565,11 @@ export function GearBlock({ character }: { character: Character }) {
                   <span className="text-muted-foreground font-mono text-xs">
                     CL
                   </span>
-                  <NumField
-                    ariaLabel="Caster level"
+                  <CasterLevelField
                     value={e.state.casterLevel}
-                    width="w-10"
-                    className="h-7 text-xs"
+                    prefill={catalog ? prefillCasterLevel(catalog) : 1}
                     onChange={(v) =>
-                      store.setSpellEffectCasterLevel(
-                        character.id,
-                        e.id,
-                        v ?? 1,
-                      )
+                      store.setSpellEffectCasterLevel(character.id, e.id, v)
                     }
                   />
                 </span>
