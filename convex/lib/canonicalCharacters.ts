@@ -1,4 +1,5 @@
 import { ConvexError, v } from 'convex/values';
+import { calculateMilitiaCharacterFacts } from './militiaCharacterFacts';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
 import type { MutationCtx } from '../_generated/server';
 import type { Id } from '../_generated/dataModel';
@@ -27,17 +28,7 @@ export async function updateCanonicalCharacter(
     .withIndex('by_militiaId', (q) => q.eq('militiaId', militia._id))
     .unique();
   if (!source) return;
-  const facts = {
-    characterId,
-    level: character.level,
-    strength: character.strength,
-    dexterity: character.dexterity,
-    constitution: character.constitution,
-    intelligence: character.intelligence,
-    wisdom: character.wisdom,
-    charisma: character.charisma,
-    isActive: character.isActive,
-  };
+  const facts = calculateMilitiaCharacterFacts(character);
   const characters = source.snapshot.characters.some(
     (c) => c.characterId === characterId,
   )

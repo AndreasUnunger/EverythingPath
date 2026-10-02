@@ -29,6 +29,8 @@ import type * as lib_canonicalDraftPersistenceAuthority from "../lib/canonicalDr
 import type * as lib_canonicalDraftStorage from "../lib/canonicalDraftStorage.js";
 import type * as lib_canonicalDraftTargets from "../lib/canonicalDraftTargets.js";
 import type * as lib_canonicalStorageValidators from "../lib/canonicalStorageValidators.js";
+import type * as lib_characterAccess from "../lib/characterAccess.js";
+import type * as lib_militiaCharacterFacts from "../lib/militiaCharacterFacts.js";
 import type * as lib_retiredWorkflow from "../lib/retiredWorkflow.js";
 import type * as migrations from "../migrations.js";
 import type * as militia from "../militia.js";
@@ -65,6 +67,8 @@ declare const fullApi: ApiFromModules<{
   "lib/canonicalDraftStorage": typeof lib_canonicalDraftStorage;
   "lib/canonicalDraftTargets": typeof lib_canonicalDraftTargets;
   "lib/canonicalStorageValidators": typeof lib_canonicalStorageValidators;
+  "lib/characterAccess": typeof lib_characterAccess;
+  "lib/militiaCharacterFacts": typeof lib_militiaCharacterFacts;
   "lib/retiredWorkflow": typeof lib_retiredWorkflow;
   migrations: typeof migrations;
   militia: typeof militia;

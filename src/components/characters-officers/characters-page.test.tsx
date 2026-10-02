@@ -527,6 +527,79 @@ describe('record dialog', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  test('saved statistics refresh the ledger and officer effects without replacing assignments or Hit Dice overrides', async () => {
+    const { rerender } = render(page());
+    await openEdit('Bren Ironhand');
+    type('Name', 'Bren the Marshal');
+    type('Hit Dice', '9');
+    type('STR', '20');
+    type('DEX', '12');
+    type('CON', '14');
+    type('INT', '16');
+    type('WIS', '13');
+    type('CHA', '15');
+    type('Notes', 'Leads the weekly drill');
+    fireEvent.change(within(dialog()).getByRole('combobox', { name: 'Kind' }), {
+      target: { value: 'npc' },
+    });
+    await press('Save');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      name: 'updateCharacter',
+      args: {
+        organizationId: 'org',
+        characterId: 'bren',
+        patch: {
+          name: 'Bren the Marshal',
+          level: 9,
+          strength: 20,
+          dexterity: 12,
+          constitution: 14,
+          intelligence: 16,
+          wisdom: 13,
+          charisma: 15,
+          description: 'Leads the weekly drill',
+          kind: 'npc',
+        },
+      },
+    });
+    await act(async () => calls[0]!.resolve(null));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // The subscription publishes the accepted record and militia facts.
+    const list = records();
+    list[1] = character('bren', 'Bren the Marshal', {
+      kind: 'npc',
+      level: 9,
+      strength: 20,
+      dexterity: 12,
+      constitution: 14,
+      intelligence: 16,
+      wisdom: 13,
+      charisma: 15,
+      description: 'Leads the weekly drill',
+    });
+    setQueries(list, militia(list));
+    rerender(page());
+    expect(rowOf('Bren the Marshal')).toHaveTextContent('NPC');
+    expect(rowOf('Bren the Marshal')).toHaveTextContent('5 HD');
+    expect(roleCard('Marshal')).toHaveTextContent(
+      'Security +5 (Bren the Marshal, Str)',
+    );
+    expect(roleCard('Commandant')).toHaveTextContent(
+      'Bren the Marshal 5 HD + Dalla Rook 4 HD',
+    );
+    await openEdit('Bren the Marshal');
+    expect(field('Hit Dice')).toHaveValue('9');
+    expect(field('STR')).toHaveValue('20');
+    expect(field('DEX')).toHaveValue('12');
+    expect(field('CON')).toHaveValue('14');
+    expect(field('INT')).toHaveValue('16');
+    expect(field('WIS')).toHaveValue('13');
+    expect(field('CHA')).toHaveValue('15');
+    expect(field('Notes')).toHaveValue('Leads the weekly drill');
+  });
+
   test('Archive keeps unsaved edits, warns what stays assigned and never unassigns', async () => {
     render(page());
     await openEdit('Sera of Phaendar');

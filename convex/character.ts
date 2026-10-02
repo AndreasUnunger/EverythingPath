@@ -3,28 +3,12 @@ import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
 import { campaignValidator, characterValidator } from './schema';
-import { hasAccessToOrg } from './user';
+import {
+  listAccessibleCharacters,
+  requireCharacterAccess,
+  requireCharacterCampaignAccess,
+} from './lib/characterAccess';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
-import type { MutationCtx, QueryCtx } from './_generated/server';
-import type { Id } from './_generated/dataModel';
-
-async function assertCampaignAccess(
-  ctx: QueryCtx | MutationCtx,
-  campaignId: Id<'campaign'>,
-  organizationId: string,
-) {
-  const access = await hasAccessToOrg(ctx, organizationId);
-  if (!access) {
-    throw new ConvexError('You do not have access to this org');
-  }
-
-  const campaign = await ctx.db.get('campaign', campaignId);
-  if (campaign?.organizationId !== organizationId) {
-    throw new ConvexError('No campaign exists for this organization');
-  }
-
-  return { campaign, access };
-}
 
 export const listByCampaign = query({
   args: {
@@ -33,30 +17,7 @@ export const listByCampaign = query({
     includeInactive: v.optional(v.boolean()),
   },
   async handler(ctx, args) {
-    if (!args.campaignId || !args.organizationId) {
-      return [];
-    }
-
-    const access = await hasAccessToOrg(ctx, args.organizationId);
-    if (!access) {
-      return [];
-    }
-
-    const campaign = await ctx.db.get('campaign', args.campaignId);
-    if (campaign?.organizationId !== args.organizationId) {
-      return [];
-    }
-
-    const characters = await ctx.db
-      .query('character')
-      .filter((q) => q.eq(q.field('campaignId'), args.campaignId))
-      .collect();
-
-    if (args.includeInactive) {
-      return characters;
-    }
-
-    return characters.filter((character) => character.isActive);
+    return await listAccessibleCharacters(ctx, args);
   },
 });
 
@@ -90,11 +51,10 @@ export const createCharacter = mutation({
       throw new ConvexError('Character name cannot be empty');
     }
 
-    const { access } = await assertCampaignAccess(
-      ctx,
-      args.character.campaignId,
-      args.organizationId,
-    );
+    const { access } = await requireCharacterCampaignAccess(ctx, {
+      campaignId: args.character.campaignId,
+      organizationId: args.organizationId,
+    });
 
     const characterId = await ctx.db.insert('character', {
       ...args.character,
@@ -130,12 +90,10 @@ export const updateCharacter = mutation({
       throw new ConvexError('Character name cannot be empty');
     }
 
-    const character = await ctx.db.get('character', args.characterId);
-    if (!character) {
-      throw new ConvexError('Character not found');
-    }
-
-    await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
+    await requireCharacterAccess(ctx, {
+      characterId: args.characterId,
+      organizationId: args.organizationId,
+    });
 
     // A submitted kind is stored as PC or NPC; an unrelated edit leaves the
     // stored kind alone. Either way the roster mirror follows in this write.
@@ -155,12 +113,10 @@ export const archiveCharacter = mutation({
     isActive: v.boolean(),
   },
   async handler(ctx, args) {
-    const character = await ctx.db.get('character', args.characterId);
-    if (!character) {
-      throw new ConvexError('Character not found');
-    }
-
-    await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
+    await requireCharacterAccess(ctx, {
+      characterId: args.characterId,
+      organizationId: args.organizationId,
+    });
 
     await ctx.db.patch('character', args.characterId, {
       isActive: args.isActive,
@@ -175,16 +131,12 @@ export const deleteCharacter = mutation({
     characterId: v.id('character'),
   },
   async handler(ctx, args) {
-    const character = await ctx.db.get('character', args.characterId);
-    if (!character) {
-      throw new ConvexError('Character not found');
-    }
-
-    if (character.isActive) {
+    const character = await requireCharacterAccess(ctx, {
+      characterId: args.characterId,
+      organizationId: args.organizationId,
+    });
+    if (character.isActive)
       throw new ConvexError('Only archived characters can be hard deleted');
-    }
-
-    await assertCampaignAccess(ctx, character.campaignId, args.organizationId);
 
     throw new ConvexError(
       'Keep archived characters to preserve militia history.',

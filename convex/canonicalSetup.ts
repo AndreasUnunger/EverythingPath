@@ -2,9 +2,13 @@ import { z } from 'zod';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { ConvexError, v } from 'convex/values';
 import { zodOutputToConvex } from 'convex-helpers/server/zod4';
-import { query, type MutationCtx, type QueryCtx } from './_generated/server';
+import { query, type MutationCtx } from './_generated/server';
 import type { Id } from './_generated/dataModel';
-import { openDraft } from './lib/canonicalDraftStorage';
+import type { ReadCtx } from './types';
+import {
+  openDraft,
+  requireOrganizationMembership,
+} from './lib/canonicalDraftStorage';
 import { draftKeySchema } from './lib/canonicalStorageValidators';
 import {
   submittedSetupValidator,
@@ -20,25 +24,15 @@ import {
   weeklySourceKey,
 } from '../src/lib/canonical-weekly-source';
 
-async function requireSetupAccess(
-  ctx: MutationCtx | QueryCtx,
-  campaignId: Id<'campaign'>,
-) {
+async function requireSetupAccess(ctx: ReadCtx, campaignId: Id<'campaign'>) {
   const campaign = await ctx.db.get('campaign', campaignId);
-  const identity = await ctx.auth.getUserIdentity();
-  const user =
-    identity &&
-    (await ctx.db
-      .query('user')
-      .withIndex('by_tokenIdentifier', (q) =>
-        q.eq('tokenIdentifier', identity.tokenIdentifier),
-      )
-      .unique());
-  if (
-    !campaign ||
-    !user?.orgIds.some((org) => org.orgId === campaign.organizationId)
-  )
+  if (!campaign)
     throw new ConvexError('Campaign access required for militia setup');
+  await requireOrganizationMembership(
+    ctx,
+    campaign.organizationId,
+    'Campaign access required for militia setup',
+  );
   return campaign;
 }
 const setupCharacterSchema =

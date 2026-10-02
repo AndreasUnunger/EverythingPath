@@ -5,7 +5,8 @@ import { ConvexError, compareValues } from 'convex/values';
 import type { z } from 'zod';
 import type { Doc } from '../_generated/dataModel';
 import type { CanonicalResolutionRecord } from '../../src/lib/canonical-resolution-record';
-import type { MutationCtx, QueryCtx } from '../_generated/server';
+import type { MutationCtx } from '../_generated/server';
+import type { ReadCtx } from '../types';
 import {
   weeklyDraftSchema,
   weeklyDraftDataSchema,
@@ -21,7 +22,24 @@ import {
 
 type Scope = z.infer<typeof scopeSchema>;
 type CanonicalDraft = z.infer<typeof weeklyDraftSchema>;
-type ReadCtx = QueryCtx | MutationCtx;
+
+export async function requireOrganizationMembership(
+  ctx: ReadCtx,
+  organizationId: string,
+  errorMessage = 'Campaign access required',
+) {
+  const identity = await ctx.auth.getUserIdentity();
+  const user =
+    identity &&
+    (await ctx.db
+      .query('user')
+      .withIndex('by_tokenIdentifier', (q) =>
+        q.eq('tokenIdentifier', identity.tokenIdentifier),
+      )
+      .unique());
+  if (!user?.orgIds.some((org) => org.orgId === organizationId))
+    throw new ConvexError(errorMessage);
+}
 
 // Deliberately unregistered: no live endpoint or application caller until cutover.
 export async function requireScope(ctx: ReadCtx, input: Scope) {
@@ -33,17 +51,7 @@ export async function requireScope(ctx: ReadCtx, input: Scope) {
   const militia = await ctx.db.get('militia', scope.militiaId);
   if (!campaign || militia?.campaignId !== campaign._id)
     throw new ConvexError('Invalid campaign/militia reference');
-  const identity = await ctx.auth.getUserIdentity();
-  const user =
-    identity &&
-    (await ctx.db
-      .query('user')
-      .withIndex('by_tokenIdentifier', (q) =>
-        q.eq('tokenIdentifier', identity.tokenIdentifier),
-      )
-      .unique());
-  if (!user?.orgIds.some((org) => org.orgId === campaign.organizationId))
-    throw new ConvexError('Campaign access required');
+  await requireOrganizationMembership(ctx, campaign.organizationId);
   return scope;
 }
 

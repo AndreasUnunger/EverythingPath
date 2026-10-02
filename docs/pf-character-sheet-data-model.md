@@ -2,6 +2,8 @@
 
 Revised by [Reconcile the sheet data model with one Character identity](https://github.com/AndreasUnunger/EverythingPath/issues/206) on the [Pathfinder 1e character builder](https://github.com/AndreasUnunger/EverythingPath/issues/201) map. It follows [ADR 0001](adr/0001-one-character-identity.md): the builder extends the existing `character` table, and every Character has a Character Sheet. Terms are defined in [`CONTEXT.md`](../CONTEXT.md).
 
+Implementation status after #252: this document describes the target sheet model. The current ledger still uses flat, campaign-bound Character records. The [Character access and Militia Character Facts inventory](character-seam-inventory.md) records the prepared seams, current behavior and remaining consumers by implementation ticket; sheet authority and cutover are not activated.
+
 Rules sources:
 
 - [Collect the official PF1 bonus-stacking and target rules](https://github.com/AndreasUnunger/EverythingPath/issues/209) (`research/pf1-official-stacking-rules`)
