@@ -763,33 +763,27 @@ of scope.
 
 **Base change.** Round 3's variant 3, "Attack routines", was approved
 (tag `prototype-approved/attacks-conditionals`). Its slots (`v3Slots`) are
-the base of every variant; round 3's variants 1 and 2 were deleted.
-`?variant=1|2|3` and the floating switcher now pick a spellcasting variant:
+the base; round 3's variants 1 and 2 were deleted.
 
-| `?variant=` | Name               | File(s)              | Idea                                                                                                          |
-| ----------- | ------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `1`         | Spell cards        | `variant-b/s1-*.tsx` | A section with one card per Spellcasting: header numbers, a slots grid, the list by level; side-panel picker. |
-| `2`         | Spell-level ladder | `variant-b/s2-*.tsx` | One row per spell level: DC, per-day pips, known x/y, Spells as chips, "+" chip with an inline typeahead.     |
-| `3`         | Spells page        | `variant-b/s3-*.tsx` | One summary line per Spellcasting on the sheet, linking to `?page=spells`: a class-list browser with toggles. |
+**Round 4, second pass.** The first pass had three spellcasting variants
+(1 "Spell cards", 2 "Spell-level ladder", 3 "Spells page"; reference commit
+`fc5c5e7`). The owner picked **3, "Spells page"**; 1 and 2 were removed.
+Any `?variant=` value (none, `1`, `2`, `3`, an old `B`) shows it:
 
-Start with `http://localhost:3033/prototype/character-builder?variant=1&page=sheet&character=seren`.
+| `?variant=` | Name        | File(s)              | Idea                                                                                                     |
+| ----------- | ----------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `3`         | Spells page | `variant-b/s3-*.tsx` | One summary line per Spellcasting on the sheet, linking to `?page=spells`: the recorded list and adding. |
+
+Start with `http://localhost:3033/prototype/character-builder?variant=3&page=sheet&character=seren`.
 
 ### Files and ownership
 
-| File                                                                                                                                    | Owner                                    | What                                      |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------- |
-| `variant-b/s1-spell-cards.tsx` (+ `s1-*.tsx`)                                                                                           | variant 1 (Fable)                        | `export const s1Slots: SpellVariantSlots` |
-| `variant-b/s2-spell-ladder.tsx` (+ `s2-*.tsx`)                                                                                          | variant 2 (Fable)                        | `export const s2Slots: SpellVariantSlots` |
-| `variant-b/s3-spells-page.tsx` (+ `s3-*.tsx`)                                                                                           | variant 3 (Fable)                        | `export const s3Slots: SpellVariantSlots` |
-| `spellcasting.ts`, `casting-tables.ts`, `spell-catalog.ts`                                                                              | foundation                               | Derivation, tables, Spells. Pure.         |
-| `variant-b/levels-table.tsx` (advance choice), `variant-b/lists.tsx` (Spell Effect CL), `variant-b/shared.tsx` (`FieldWarnings` accept) | shared (built once, before the variants) | Used by every variant as-is.              |
-| everything else                                                                                                                         | foundation                               | Ask for a change instead of editing it.   |
-
-A variant agent edits only its own files. Shared layout between variants
-is not allowed: each variant builds its own components. It may import the
-shared primitives in `shared.tsx` (`Block`, `StatButton`, `NumField`,
-`PickField`, `TextField`, `FieldWarnings`, `chip`, `th`, `todoRing`,
-`blockHeading`, `useSheetUi`, `jumpTo`) and the shadcn components.
+| File                                                                                                                                                                     | Owner      | What                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | ----------------------------------------- |
+| `variant-b/s3-*.tsx`                                                                                                                                                     | variant    | `export const s3Slots: SpellVariantSlots` |
+| `spellcasting.ts`, `casting-tables.ts`, `spell-catalog.ts`                                                                                                               | foundation | Derivation, tables, Spells. Pure.         |
+| `variant-b/levels-table.tsx` (advance choice), `variant-b/lists.tsx` (Spell Effect CL, arcane school opposition editor), `variant-b/shared.tsx` (`FieldWarnings` accept) | shared     | Spellcasting bits outside the section.    |
+| everything else                                                                                                                                                          | foundation | Ask for a change instead of editing it.   |
 
 ### Slots (`variant-b/sheet-variants.tsx`)
 
@@ -870,11 +864,16 @@ type RecordedSpell = {
   opposition: boolean;         // show the "2 slots" tag
   tooHigh: boolean;            // above highestLevel
 };
-type GrantedSpell = { catalog; level; from: string[] /* "Fire domain" */; opposition };
+type GrantedSpell = {
+  catalog; level; from: string[] /* "Fire domain" */; opposition;
+  domainSlotOnly: boolean;            // a domain Spell off the class list: tag "domain slot only"
+  grantedAtClassLevel: number | null; // schedule grants (bloodline): the class level that gave it
+};
 
 classSpellList(classKey): { catalog; level }[]       // the class list (for `none` browsing)
 spellChoices(character, classKey, { offList? }): SpellChoice[]
-//   { catalog, level, onList, recordedEntryId | null, granted, tooHigh, opposition } — the picker's rows;
+//   { catalog, level, onList, recordedEntryId | null, granted, domainSlotOnly, tooHigh, opposition } — the picker's rows;
+//   recorded and granted Spells are always included (a granted one at its granted level);
 //   with offList, every other Spell too (level = its lowest level anywhere)
 orphanedSpells(character): { entry, catalog, castingClass }[]  // recorded for a class with no levels
 advanceChoices(character, levelId): AdvanceChoice[]  // [] unless a prestige level
@@ -899,8 +898,32 @@ Rules implemented, as the model says:
 - **Concentration** = caster level + current ability mod +
   `concentration` Modifiers. Combat Casting's +4 is situational
   ("to cast defensively or while grappled") and waits in `conditional`.
-- **Granted Spells**: every Spell on an active domain/bloodline feature's
-  list, at its listed level, once the Spellcasting can cast that level.
+- **Castable levels** (owner ruling): a spell level the Spellcasting can
+  cast is one where the per day, spells known OR prepared table has an
+  entry. This covers sorcerer and arcanist cantrips (no per-day entry), for
+  Spell too high, granted Spells and the Spell Effect pre-fill.
+- **Granted Spells, split by the feature's text** (owner ruling; the
+  feature's `grants.schedule`):
+  - **Slot-style** (`'slot'`): follows every spell level the Spellcasting
+    can cast, **prestige advances included**. The cleric's domain slot and
+    domain Spells ("one domain spell slot for each level of cleric spell
+    she can cast"), the wizard's school slot, the shaman's spirit slot.
+  - **Schedule-style** (`'classLevel'`): follows the class's **own** Class
+    Levels at the class level the feature names, never advances (FAQ). A
+    Spell's `grantedAtClassLevel.bloodline[key]` holds it: sorcerer
+    bloodline Spells of level N at sorcerer 2N + 1 (3, 5, 7… 19). Mystery
+    and patron Spells will follow when added.
+  - A **domain Spell not on the class list** is tagged "domain slot only"
+    (CRB: "can prepare it only in her domain spell slot"). A bloodline Spell
+    joins the sorcerer's list (FAQ), so it gets no such tag.
+- **Prestige advances** (owner ruling): an advance **qualifies** for a
+  class of its kind (`any`, or the class's `spellKind`) in which the
+  Character had Class Levels **before the prestige class's first level**.
+  That rule drives both the pre-fill (exactly one qualifying class) and the
+  "first taken after" warning.
+- **Caster level** = Class Levels + offset + advances (+ Modifiers), no
+  clamp. It shows only once the table has an entry, which needs Class
+  Levels + advances ≥ 4 for a paladin, so it is never ≤ 0 when shown.
 - **A class feature's Spellcasting** is its `gainedAtClassLevel`'s class.
 
 ### Store actions (#233)
@@ -917,7 +940,8 @@ Rules implemented, as the model says:
 
 `addClassLevel` and a class change in `updateClassLevel` pre-fill a
 prestige level's `castingAdvances`: a class only when exactly one
-Spellcasting of the advance's kind was taken before that level, else null.
+qualifies (right kind, levels before the prestige class's first level),
+else null.
 `addEntry` of a Spell Effect pre-fills its caster level.
 
 ### Warnings (#233)
@@ -947,8 +971,11 @@ a warning.
   non-matching ones marked. Desktop table and phone card.
 - **Gear, spells & conditions:** a Spell Effect row has a "CL" number field
   (`setSpellEffectCasterLevel`); its title explains the pre-fill
-  ("Pre-filled 4: summoner 4 casts 2nd-level spells"). Recorded Spells
-  never show there; the add picker lists Spell Effects as "spell".
+  ("Pre-filled 4: summoner 4 casts 2nd-level spells"). The field may be
+  empty while typing; leaving it empty restores the pre-fill. Recorded
+  Spells never show there; the add picker lists Spell Effects as "spell".
+- **Class features:** the arcane school's row edits its two opposition
+  schools (`setOppositionSchools`). The spells page only displays them.
 - **`FieldWarnings`:** Accept / Reopen as above.
 
 ### Mock data (#233)
@@ -983,10 +1010,12 @@ With _fox’s cunning_ on: Int 23 (+6), DCs +1, concentration 11; per day unchan
 
 **Seren — Cleric** (casting level 4 = 3 + 1 advance; Wis 16, +3): CL 4,
 concentration 7. 0: 4, 1st 3 + 1 + 1 domain = 5, 2nd 2 + 1 + 1 = 4. DCs
-13/14/15, evocation 14/15/16. Granted: _burning hands_, _endure elements_
-(1st), _heat metal_, _produce flame_ (2nd). Filling MT 2's divine advance
-→ casting level 5, CL 5, 3rd 1 + 1 + 1 = 3, granted adds _fireball_ and
-_searing light_.
+13/14/15, evocation 14/15/16. Granted: _burning hands_ (domain slot
+only), _endure elements_ (1st), _heat metal_, _produce flame_ (2nd, both
+domain slot only). Filling MT 2's divine advance → casting level 5, CL 5,
+concentration 8, a 3rd-level row 1 + 1 + 1 domain = 3, DC 16 (evocation
+17), and granted adds _fireball_ (domain slot only) and _searing light_ —
+correct under the slot-style ruling.
 
 **Quill — Arcanist 5** (Int 20, +5): CL 5, concentration 10. 0: at will,
 6 prepared; 1st 4 + 2 = 6 per day, 4 prepared; 2nd 3 + 1 = 4 per day, 2
@@ -995,7 +1024,9 @@ prepared. DCs 15/16/17.
 **Nyra — Sorcerer 7** (Cha 19, +4): CL 7, concentration 11 (+4 more to
 cast defensively, Combat Casting). Known 0: 7, 1st 5, 2nd 3 (4 recorded:
 warning), 3rd 2. Per day 1st 6 + 1 = 7, 2nd 6 + 1 = 7, 3rd 4 + 1 = 5. DCs
-14/15/16/17. Granted: _identify_, _invisibility_, _dispel magic_.
+14/15/16/17. Granted (schedule-style, sorcerer 3/5/7): _identify_,
+_invisibility_, _dispel magic_. At sorcerer 6 (remove level 7) only
+_identify_ and _invisibility_; at sorcerer 2 none.
 
 **Oswin — Paladin 4** (Cha 16, +3): CL 1, concentration 4, 1st: 0 + 1 = 1,
 DC 14. No 0-level row.
@@ -1017,5 +1048,51 @@ Kesh, Brannoc and Ama keep their round-3 numbers and warnings.
   inquisitor, alchemist and the rest are left out.
 - Domains, schools and bloodlines are pickable class features (cleric 1
   picks two domains, wizard 1 an arcane school, sorcerer 1 a bloodline).
-  Opposition schools are edited with `setOppositionSchools`.
+  Opposition schools are edited on the arcane school's class feature row.
+- `grantedAtClassLevel` for bloodlines is computed as 2N + 1 in
+  `spell-catalog.ts`; in the product the Curation Overlay would carry it.
 - Prestige class requirements are not checked.
+
+### The spells page, second pass (#233)
+
+What the approved variant must do after the owner's review. Pages:
+sheet `?variant=3&page=sheet&character=<id>`, page
+`?page=spells&character=<id>&spellcasting=<classKey>`.
+
+- **Sheet summary.** One line per Spellcasting: class, heading, caster
+  level, concentration, per-day strip, counts, warning count, link. A
+  prestige share reads in words: "+2 from Mystic theurge" (from
+  `sc.advances`, grouped by class). On phone the line wraps into a compact
+  card with no overflow.
+- **One home for orphaned Spells.** On the sheet and on the page, a group
+  "Not under any Spellcasting" lists `orphanedSpells(character)` with the
+  class each was recorded for, its warning (`entry:<id>`, Accept/Reopen)
+  and Remove. Same title and shape in both places. The section renders
+  when there are orphaned Spells even with no Spellcasting.
+- **Page header.** One back path only: the shell's "← Sheet". The page
+  title row has no second back link.
+- **Numbers.** As before (caster level, concentration, ability, prestige
+  share, extra slot, per-level per day / prepared / known / DC / school
+  DCs). The arcane school and opposition schools are **displayed** only;
+  editing lives on the class feature (Class features block).
+- **Default view = the record.** For `known` and `book` casters the page
+  opens on the recorded Spells and the granted ones, grouped by level,
+  not the whole class list. Granted rows show their source, and "domain
+  slot only" when `domainSlotOnly`.
+- **Adding is an explicit mode.** An "Add Spells" control switches to the
+  class list **one spell level at a time** (level tabs, default the lowest
+  level with unrecorded Spells or 1st), with search (across levels: a
+  query shows matches from every level) and a school filter, plus
+  "Include other lists" for off-list Spells. Each row has the record
+  toggle. Leaving the mode returns to the record. The mode and filters are
+  URL params (`add=1`, `level`, `school`, `q`).
+- **A `none` caster's page** is the browsable class list, read-only, one
+  level at a time (level tabs, default its highest castable level or 1st),
+  with search and school filter; granted Spells marked.
+- **Rows.** Dense: name, tags ("2 slots", "granted · Fire domain",
+  "domain slot only", "too high", "off-list") and the toggle on one line;
+  school as a fixed-width column or abbreviation (`Abj`, `Conj`, `Div`,
+  `Ench`, `Evoc`, `Illus`, `Necro`, `Trans`, `Univ`) with the full name in
+  a `title` — never truncated mid-word; the description one line clamped
+  on tablet and desktop, hidden behind a tap on phone. An off-list
+  recorded Spell keeps its editable level field and warning.
