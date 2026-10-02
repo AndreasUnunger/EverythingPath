@@ -141,6 +141,10 @@ One level a Character has taken, kept in the order taken, with the class and the
 A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Two Archetypes on one class may not replace or alter the same feature at the same class level.
 _Avoid_: subclass, class variant
 
+**Racial Trait**:
+One ability a Character has from its race, such as darkvision or the human's bonus feat. A race grants its standard Racial Traits, each kept on the Character Sheet, and an alternate Racial Trait replaces one or more of them. No standard Racial Trait can be replaced twice.
+_Avoid_: race trait (a character trait tied to a race), racial ability
+
 **Prestige Class**:
 A class a Character can enter only after meeting its requirements, which are prerequisites like a feat's. It can never be a favored class.
 

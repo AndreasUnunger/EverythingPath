@@ -10,7 +10,7 @@ Rules sources:
 - [Collect the official rules for racial Hit Dice progression](https://github.com/AndreasUnunger/EverythingPath/issues/220) (`research/pf1-racial-hit-dice`) and its follow-up on FAQ and designer rulings (`research/pf1-racial-hd-level-rulings`)
 - [Collect the official PF1 spellcasting rules](https://github.com/AndreasUnunger/EverythingPath/issues/231) (`research/pf1-spellcasting-rules`) and [Compare the spell data sources for spellcasting](https://github.com/AndreasUnunger/EverythingPath/issues/217) (`research/pf1-spell-data`)
 
-Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218) admits each casting class's own spellcasting section, for that class only. Other Paizo books supply catalog content, not rules.
+Only official Paizo text decides a rule: the Core Rulebook, plus the official FAQ and errata. Where it is silent, the model follows the literal text and adds nothing. [Set the coverage bar for archetypes and prestige classes](https://github.com/AndreasUnunger/EverythingPath/issues/219) also admits, with their FAQ and errata: the *Advanced Player's Guide* archetype rules, its favored class option rules, the trait rules of the *Advanced Player's Guide* and *Ultimate Campaign*, and *Pathfinder Unchained*'s classes ([Decide which Pathfinder Unchained rules the builder supports](https://github.com/AndreasUnunger/EverythingPath/issues/226)). [Decide how spellcasting fits the Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/218) admits each casting class's own spellcasting section, for that class only. [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232) admits the alternate racial trait and subrace rules of the *Advanced Player's Guide* and the *Advanced Race Guide*. Other Paizo books supply catalog content, not rules.
 
 ## Principles
 
@@ -54,8 +54,11 @@ catalogEntry: {
   copiedFrom?: Id<'catalogEntry'>,     // campaign or character copy of another entry
   unsupported?: string[],              // importer notes: unmappable targets, formulas outside the grammar
   prerequisites?: Prerequisite[],      // feats, traits, prestige classes, archetypes; all must hold, see "Rules checks"
+  countsAsRaces?: Id<'catalogEntry'>[] // "count as both elves and humans"; set by the Curation Overlay, see "Racial traits"
+    | { oneOf: Id<'catalogEntry'>[] }, // "count as either": the sheet entry's `choice` picks one
   grantsSlots?: Array<{ kind: 'feat' | 'trait'; count: number;   // bonus feats (fighter, human), Additional Traits
     featTypes?: string[];              // a bonus feat must carry one of these Foundry feat types, such as 'combat'
+    feats?: Id<'catalogEntry'>[];      // a bonus feat must be one of these (the half-elf's Skill Focus)
     ignoresPrerequisites?: boolean }>, // monk bonus feats, ranger combat style
   routineOption?: true,                // a Routine Option, set by the Curation Overlay; see "Attacks"
 }
@@ -91,7 +94,7 @@ The old `spell` and `characterSpell` tables retire in the builder release (see "
 
 ```ts
 // Catalog-backed: the sheet entry points at a Catalog Entry of the same kind.
-type CatalogKind = 'base' | 'race' | 'class' | 'archetype' | 'classFeature' | 'feat' | 'trait'
+type CatalogKind = 'base' | 'race' | 'racialTrait' | 'class' | 'archetype' | 'classFeature' | 'feat' | 'trait'
                  | 'item' | 'spell' | 'spellEffect' | 'condition' | 'manual';
 // State-only: no Catalog Entry; the resolver emits built-in Modifiers from state.
 type StateKind = 'classLevel' | 'abilityDamage' | 'abilityDrain' | 'attackRoutine';
@@ -100,12 +103,15 @@ type EntryKind = Exclude<CatalogKind, 'class'> | StateKind;   // a class is reac
 type CatalogEntryDetail =
   | { kind: 'base' }
   | { kind: 'race'; racialHitDice: number;                      // 0 for every core race
-      favoredClassCount: 1 | 2;                                  // 2 for Multitalented; set by the Curation Overlay
-      bonusSkillRanksPerLevel: number;                           // 1 for the human's Skilled; set by the Curation Overlay
+      racialTraits: Id<'catalogEntry'>[];                        // the standard Racial Traits it grants, see "Racial traits"
       racialProgression?: { creatureType: CreatureType;          // needed when racialHitDice > 0
         hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
         saves: Record<'fort' | 'ref' | 'will', 'good' | 'poor'>;
         skillRanksPerHitDie: number; classSkills: SkillKey[] } }
+  | { kind: 'racialTrait'; raceEntryIds: Id<'catalogEntry'>[];  // the races it belongs to
+      replaces: Id<'catalogEntry'>[];                            // standard Racial Traits it replaces; non-empty = alternate
+      favoredClassCount?: 2;                                     // Multitalented; set by the Curation Overlay
+      bonusSkillRanksPerLevel?: number }                         // 1 for the human's Skilled, from Foundry `bonusSkillRanks`
   | { kind: 'class'; classKind: 'base' | 'prestige' | 'npc';
       counterpartOf?: Id<'catalogEntry'>,                         // an Unchained Class: its original class
       hitDie: number; bab: 'full' | 'threeQuarters' | 'half';
@@ -165,6 +171,7 @@ type SheetEntryState =
   | { kind: 'race'; racialHpGained: number | null;                  // hit points from all racial Hit Dice together
       racialSkillRanks: Partial<Record<SkillKey, number>>;
       favoredClassIds: Id<'catalogEntry'>[] }
+  | { kind: 'racialTrait'; choice: string | null }                  // the ability of "+2 to one ability score", Dragon Soul's race
   | { kind: 'feat'; choice: string | null;                          // Weapon Focus's weapon (a `baseType`), Skill Focus's skill…
       slot: 'general' | { grantedBy: Id<'characterSheetEntry'> } }   // the entry whose `grantsSlots` it fills
   | { kind: 'abilityDamage'; ability: AbilityKey; points: number }
@@ -180,7 +187,7 @@ type SheetEntryState =
       off?: { weapon: RoutineWeapon | 'otherEnd'; thrown: boolean }; // two-weapon fighting; 'otherEnd' = the main double weapon's
       natural: Id<'characterSheetEntry'>[];                           // natural weapons attacking too
       options: Id<'catalogEntry'>[] }                                 // switched-on Routine Options, see "Attacks"
-  | { kind: Exclude<EntryKind, 'classLevel' | 'base' | 'race' | 'feat' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'
+  | { kind: Exclude<EntryKind, 'classLevel' | 'base' | 'race' | 'racialTrait' | 'feat' | 'abilityDamage' | 'abilityDrain' | 'item' | 'attackRoutine'
                      | 'spell' | 'spellEffect' | 'classFeature'> };
 
 type RoutineWeapon = Id<'characterSheetEntry'> | 'unarmed';         // an item entry, or the built-in unarmed strike
@@ -216,6 +223,48 @@ Decided by [Decide how a Character Sheet models racial Hit Dice beyond the count
   | Skill ranks per Hit Die | per source, summed | CRB multiclassing rule |
 
 - **Type quirks.** Construct bonus hit points by size and undead Cha-for-Con hit points are hand-entered `hp` Modifiers on the race Catalog Copy. Mindless creatures (no Int score) are not supported.
+
+## Racial traits
+
+Decided by [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232).
+
+- **Rules sources.** The *Advanced Player's Guide* and *Advanced Race Guide* rules for alternate racial traits and subraces are admitted. An alternate racial trait is exchanged for one or more standard racial traits, and "you cannot exchange the same racial trait more than once" (APG). Neither book defines "alters". The *Advanced Race Guide* race builder (race points) is out of scope. A custom race is a campaign or character Catalog Copy of a race.
+- **Sheet entries.** Racial Traits are `racialTrait` sheet entries, granted like class features.
+  - The race's `racialTraits` lists its standard traits. Choosing a race adds them, and changing the race swaps them for the new race's.
+  - An alternate's `replaces` names standard traits. Adding it removes them, and removing it restores them.
+  - Entries added or edited by hand stay, as with Archetypes.
+  - Racial Traits are permanent entries, so the ability score trait counts for Militia Character Facts as the race's adjustments did.
+- **Modifiers sit on the traits.** A Modifier lives on exactly one entry, so nothing counts twice. A race entry keeps its racial Hit Dice, progression, size and creature type; its Modifiers come from its Racial Traits. The importer:
+  - moves each race record's ability changes (152, found only on race records) onto that race's ability score trait;
+  - drops race changes and notes that a standard trait also carries (64 of 67 non-ability changes; the race's 32 notes repeat trait notes in other words), keeping the trait's version when they differ;
+  - leaves anything else on the race and lists it in the import report until the Curation Overlay moves it. The three races with no traits (gnoll, lizardfolk, ogre) keep all their Modifiers.
+
+  So Orc Atavism, which "replaces the usual ability modifiers", and subrace stat blocks work by replacement alone.
+- **Ability of choice.** A "+2 to one ability score of your choice" trait (human, half-elf, half-orc and others; Orc Atavism's −2 to one mental score) has an `ability.$choice` Modifier. The sheet entry's `choice` names the ability. Until it is chosen, the Modifier contributes nothing and the field shows a blue outline. Restrictions such as "a mental ability score" stay prose.
+- **Facts the traits carry.** Each fact sits on the trait, so an alternate that replaces the trait removes it.
+  - Bonus Feat (human): `grantsSlots`, from Foundry's `bonusFeats` change.
+  - Adaptability (half-elf): a slot whose `feats` is Skill Focus.
+  - Skilled (human): `bonusSkillRanksPerLevel`, from Foundry's `bonusSkillRanks` change.
+  - Multitalented (half-elf): `favoredClassCount: 2`, set by the Curation Overlay. A Character's favored class count is 1 unless an active Racial Trait sets 2. So Arcane Training, which replaces Multitalented, brings it back to 1. Its arcane-only restriction stays prose.
+- **Standard and alternate.** The pf1-content racial traits pack marks these only by folder.
+  - Standard-folder records are standard.
+  - For the 22 races with a flat folder, a record is standard unless it has a "Replaced Trait" header.
+  - Every record with a header is an alternate.
+- **Replacement links.** The importer builds `replaces` from the "Replaced Trait(s)" header. It matches names and `@UUID` links against the same race's standard traits, ignoring a "(Race)" suffix, which fully matches 82% of the 770 headers.
+  - Unmatched names go to the import report: subrace "Base Statistics", category words such as "Speed", and typos. A one-off Curation Overlay pass resolves them before launch, and no gate fails the import.
+  - An unresolved alternate imports with an empty `replaces`, so adding it removes nothing and the player removes the replaced entry by hand.
+  - "Alters X" reads like an Archetype's "alters": it replaces X, and the alternate's own text takes over.
+- **Subraces.** A subrace is an alternate Racial Trait, not a race of its own.
+  - A Subraces-folder record replaces "Base Statistics". The Curation Overlay pass resolves that to the parent's ability score trait plus whatever else its stat block replaces.
+  - Each Subrace Standard record, such as `Skilled (Tiefling - Beastbrood)`, is an alternate replacing the parent's trait of the same name.
+  - Nothing bundles a subrace with its overrides, and no check matches them: the player adds the ones they want.
+  - The *Advanced Race Guide*'s racial subtypes are named combinations of alternates (Cosmopolitan is Heart of the Streets plus Focused Study), so they need nothing.
+- **Counting as another race.** `countsAsRaces` is set by the Curation Overlay on any Catalog Entry, because only prose says it.
+  - Elf Blood counts as elf and human, and Orc Blood as human and orc. Replacing them changes the counting automatically.
+  - Orc Atavism counts as orc only ("not also humans").
+  - Dragon Soul's "either elves or humans" is `oneOf`, and the sheet entry's `choice` picks the race.
+  - The feat Half-Drow Paragon counts as drow.
+  - It feeds `race` prerequisite clauses and the check for a race trait of another race (see "Rules checks"). Favored class options stay unchecked free text.
 
 ## Archetypes and prestige classes
 
@@ -368,7 +417,7 @@ type SituationalNote = { target?: Target; situation?: Situation; text: string };
 
 Targets form a closed list of statistics. Any bonus type may go on any target, because the rules set no restriction.
 
-- **Abilities:** `ability.str`, `ability.dex`, `ability.con`, `ability.int`, `ability.wis`, `ability.cha`
+- **Abilities:** `ability.str`, `ability.dex`, `ability.con`, `ability.int`, `ability.wis`, `ability.cha`, and `ability.$choice`, the ability the sheet entry's `choice` names. An unchosen `ability.$choice` contributes nothing.
 - **AC:**
   - `ac.armor`, `ac.shield` and `ac.natural` are separate targets, because the rules count enhancement separately for each thing enhanced.
   - `ac.other` covers every other AC bonus.
@@ -580,9 +629,9 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 - Each feat's `choice` and the slot it fills.
 - The favored classes, on the race sheet entry.
 - Proficiencies and region are never recorded.
-- Racial traits as sheet entries are open in [Decide how racial traits live on a Character Sheet](https://github.com/AndreasUnunger/EverythingPath/issues/232).
+- Racial Traits, as sheet entries (see "Racial traits").
 
-**Clauses that can't be checked show nothing.** A prerequisite clause the sheet has no fact for, or that the importer couldn't parse, shows no warning and no "not checked" line. This covers proficiency, region, a racial trait, and a cleric's alignment relative to the deity. The entry's prerequisite prose stays readable in its description.
+**Clauses that can't be checked show nothing.** A prerequisite clause the sheet has no fact for, or that the importer couldn't parse, shows no warning and no "not checked" line. This covers proficiency, region, senses such as darkvision, a clause forbidding a racial trait, and a cleric's alignment relative to the deity. The entry's prerequisite prose stays readable in its description.
 
 ### The checks
 
@@ -592,7 +641,7 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Point buy:** a `base` score outside 7–18, or the cost over the budget; under budget shows only the "N left" counter; nothing when rolled | `base` Modifiers, `abilityMethod` | CRB cost table |
 | **Hit points:** `hpGained` outside 1 to the hit die; a PC with no racial Hit Dice whose first Class Level isn't the hit die's maximum | Class Levels | class `hitDie` |
 | **Ability increase:** at a Class Level where neither the character level nor the Hit Dice count is 4, 8, 12, 16 or 20; a prompt where one is due | Class Levels, racial Hit Dice | sheet |
-| **Skill rank budget:** per Class Level, max(1, ranks per level + Int modifier) + race `bonusSkillRanksPerLevel` + 1 for a skill-rank favored class bonus; racial skill ranks get `skillRanksPerHitDie` + Int, at least 1, per racial Hit Die; over budget warns | the archetype's or class's ranks per level; current permanent Int | class, archetype, race (Curation Overlay) |
+| **Skill rank budget:** per Class Level, max(1, ranks per level + Int modifier) + each active Racial Trait's `bonusSkillRanksPerLevel` + 1 for a skill-rank favored class bonus; racial skill ranks get `skillRanksPerHitDie` + Int, at least 1, per racial Hit Die; over budget warns | the archetype's or class's ranks per level; current permanent Int | class, archetype, racial trait |
 | **Rank cap:** at each Class Level position, a skill's ranks so far exceed racial Hit Dice + position; racial skill ranks are capped by racial Hit Dice | ranks per Class Level | sheet |
 | **Feat slots:** feats over or under 1 + one per odd Hit Die, plus `grantsSlots` | Hit Dice, active entries | Curation Overlay (`grantsSlots`) |
 | **Bonus feat type:** a feat in a bonus slot whose `featTypes` miss the slot's | feat `slot` | Foundry feat types |
@@ -600,9 +649,10 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Prerequisites now:** the same clauses against the current sheet ("can't be used while unmet"). Both prerequisite checks skip a feat in a slot with `ignoresPrerequisites` | current sheet | parsed `prerequisites` |
 | **Duplicate feat:** a second copy of a `no` feat; a second copy of a `newChoice` feat with the same `choice`, case-insensitive; never for `yes` | feat entries | `repeatable` (importer, Curation Overlay) |
 | **Duplicate trait** | trait entries | sheet |
-| **Favored class:** more favored classes than the race's `favoredClassCount`; a prestige class as a favored class; a favored class bonus on a level of a class that isn't favored, or on a prestige level | race entry state, Class Levels | race (Curation Overlay), `classKind` |
-| **Traits:** more than `traitCount`, +1 for a drawback (only one drawback counts), +2 per Additional Traits; two from one `traitType` list; a race trait for another race; no campaign trait when required; an NPC with traits but no Additional Traits | trait entries | `traitType`, `prerequisites` |
+| **Favored class:** more favored classes than the favored class count (2 if an active Racial Trait sets `favoredClassCount`, else 1); a prestige class as a favored class; a favored class bonus on a level of a class that isn't favored, or on a prestige level | race entry state, Racial Traits, Class Levels | racial trait (Curation Overlay), `classKind` |
+| **Traits:** more than `traitCount`, +1 for a drawback (only one drawback counts), +2 per Additional Traits; two from one `traitType` list; a race trait for a race the Character neither is nor counts as (`countsAsRaces`); no campaign trait when required; an NPC with traits but no Additional Traits | trait entries | `traitType`, `prerequisites` |
 | **Class alignment:** a Class Level whose class's `alignments` exclude the current alignment | alignment | Curation Overlay, for the 9 Foundry classes; scraped prestige classes carry it as a clause |
+| **Racial traits:** two alternates replacing the same standard trait (APG); an alternate for a race the Character neither is nor counts as, except a half-orc taking orc alternates (*Advanced Race Guide*, at the GM's discretion); a standard trait neither on the sheet nor replaced prompts "Add" | Racial Trait entries, race | `racialTraits`, `replaces` |
 | **Archetypes:** two on one class replacing or altering the same row (one feature at one class level); an Archetype on a class the Character has no levels in; the Unchained warnings (see "Unchained Classes") | archetype entries | `replaces` |
 | **Class features:** a feature in `featuresByLevel` missing from the sheet prompts "Add"; a due selection in `picksByLevel` prompts "choose a rage power"; a duplicated feature with an upgrade prompts adding it (see "Stacking") | Class Levels | Curation Overlay, scraped dataset |
 | **Spells known over the table:** more Spells recorded at a level than the Spellcasting's spells known; `known` casters only | recorded Spells, casting level | casting tables |
@@ -615,11 +665,11 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 
 **Skill ranks follow Intelligence retroactively.** The CRB glossary says a permanent ability increase means you "modify all skills and statistics related to that ability. This might cause you to gain skill points", and drain "might cause you to lose skill points". So every Class Level's budget uses the current permanent Int modifier. The headband's fixed skill ranks are *Ultimate Equipment* rules and aren't admitted, so a headband counts as ordinary permanent Int.
 
-**Favored class.** It is chosen on the race sheet entry, once a race is set. Unchained Class levels count as the original's. Favored class options stay a free-text note and are not checked against race and class pairs. A change of favored class after creation can't be detected and isn't checked.
+**Favored class.** It is chosen on the race sheet entry, once a race is set. The count comes from Racial Traits (see "Racial traits"). Unchained Class levels count as the original's. Favored class options stay a free-text note and are not checked against race and class pairs. A change of favored class after creation can't be detected and isn't checked.
 
 ### Prerequisites
 
-The importer parses each Prerequisites or Requirements line into clauses ([Find how the Foundry pf1 dataset encodes prerequisites](https://github.com/AndreasUnunger/EverythingPath/issues/214), `research/pf1-prerequisite-data`). The AoN scraper does the same for prestige classes and archetypes, and its unmatched records go to hand review. The Curation Overlay corrects misparses and adds the "counts as X for prerequisites" substitutions, which exist only in prose.
+The importer parses each Prerequisites or Requirements line into clauses ([Find how the Foundry pf1 dataset encodes prerequisites](https://github.com/AndreasUnunger/EverythingPath/issues/214), `research/pf1-prerequisite-data`). The AoN scraper does the same for prestige classes and archetypes, and its unmatched records go to hand review. The Curation Overlay corrects misparses and adds the "counts as X for prerequisites" substitutions, which exist only in prose. Counting as another race is `countsAsRaces` (see "Racial traits").
 
 ```ts
 type Prerequisite =
@@ -628,6 +678,7 @@ type Prerequisite =
   | { skillRanks: SkillKey; min: number }
   | { feat: Id<'catalogEntry'>; choice?: string }                  // `@UUID` first, then exact name
   | { classFeature: string }                                       // by name, ignoring `(UC)`
+  | { racialTrait: string }                                        // "hardy racial trait": by name, ignoring a "(Race)" suffix
   | { classLevel: Id<'catalogEntry'>; min: number } | { characterLevel: number }
   | { race: Id<'catalogEntry'>[] } | { alignment: Alignment[] } | { deity: string }
   | { casterLevel: number }                                        // the highest caster level among the Spellcastings
@@ -639,7 +690,8 @@ type Prerequisite =
 Clauses follow the CRB FAQ:
 - Numeric clauses are inclusive.
 - A feat clause needs only the feat, not that feat's own prerequisites.
-- A class feature replaced by an Archetype doesn't count.
+- A class feature replaced by an Archetype doesn't count. Nor does a Racial Trait replaced by an alternate.
+- A `race` clause is met by the Character's race or by any active entry's `countsAsRaces`.
 - A same-named feature of either version of an Unchained Class counts.
 - Unchained Class levels count as the original's.
 - A spell-like ability meets an "able to cast" clause only when the clause names the spell. Spell-like abilities are prose, so such a clause met only by one shows nothing.
@@ -728,7 +780,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 
 - **Content.** These packs are imported:
   - races, classes and class abilities;
-  - feats, traits and racial traits;
+  - feats, traits and racial traits, without the 240 *Advanced Race Guide* race builder records (see "Racial traits"; `racePoints` is unmapped);
   - every item pack: mundane, magic, wondrous, artifacts, armor and weapons;
   - buffs;
   - spells, as `spell` entries keyed `pf1/<_id>`;
@@ -747,6 +799,7 @@ Decided by [Decide how the content dataset becomes the global catalog](https://g
 - **Curation overlay.** This is a reviewed file in the repo, keyed by `externalKey`. Each record cites the official text it relies on. The importer applies it on every import. It can:
   - add or replace Modifiers, for prose-only entries such as most feats;
   - set `sourceKey` and `stacksWithItself`;
+  - set Racial Trait `replaces`, `countsAsRaces` and `favoredClassCount`, and move race-record Modifiers onto traits (see "Racial traits");
   - turn every situational note (Foundry `contextNotes`) and action conditional into Situational Modifiers and situational notes, with a gate that fails the import on any note without a record (see "Situational notes");
   - define the CRB conditions, written from `docs/ai/pf1-core-rules/` because the dataset has no conditions pack;
   - mark Routine Options, and set natural attack types and a double weapon's second end (see "Attacks");
@@ -842,6 +895,7 @@ Resolver tests (pure) must cover:
 - Improved and Greater Two-Weapon Fighting, Double Slice, Rapid Reload, Weapon Finesse choosing the higher ability, and Improved Critical with *keen* doubling once;
 - natural attacks alone and alongside weapons, unarmed strike with monk scaling, thrown mode, a double weapon's other end as a light off hand, and special-ability dice as a damage part or Situational damage;
 - the `$group` weapon condition, `@casterLevel.<classKey>` and `@casterLevel.arcane`, and combat actions staying out of the marker;
+- Racial Traits: choosing and changing a race, an alternate removing and restoring what it replaces, an unchosen `ability.$choice`, `countsAsRaces` and `oneOf`, and the favored class count following Multitalented;
 - `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, and an Accepted Warning reopening when its fingerprint changes.
 
 Integration tests (convex-test) must cover:
