@@ -88,7 +88,15 @@ export type Rider = {
 
 export type ResolvedRoutine = {
   setup: AttackSetup;
-  /** The full attack in order; attacks[0] is the single (standard action) attack. */
+  /**
+   * The standard-action attack: the primary (or only) weapon once, with no
+   * two-weapon penalty, no iterative and no haste attack; Power Attack as
+   * the routine has it. Two-weapon penalties apply only to a full attack
+   * with both weapons (CRB). Key `<setup id>:single`, sequence 1. Null only
+   * when the weapon is gone (then `attacks` is empty too).
+   */
+  single: ResolvedAttack | null;
+  /** The full attack in order (full-round action). */
   attacks: ResolvedAttack[];
   /** "Two-weapon fighting, light off hand: −4 primary, −8 off hand". */
   penalties: string[];
@@ -363,6 +371,7 @@ export function resolveRoutine(
   if (!main)
     return {
       setup,
+      single: null,
       attacks: [],
       penalties,
       riders,
@@ -466,7 +475,8 @@ export function resolveRoutine(
     const melee = kind === 'melee';
     const rating = w.weapon.strRating;
     const bonus = withExtras(melee ? ws.attackMelee : ws.attackRanged, [
-      twf
+      // Only the full attack's two hands take two-weapon penalties.
+      twf && (hand === 'primary' || hand === 'off')
         ? extra(twf.label, hand === 'off' ? twf.off : twf.primary, attackTarget)
         : null,
       rating !== undefined && ws.abilityMods.str.total < rating
@@ -543,13 +553,19 @@ export function resolveRoutine(
     .sort((x, y) => y.a.bonus.total - x.a.bonus.total || x.i - y.i)
     .map(({ a }, i) => ({ ...a, sequence: i + 1 }));
 
+  // The standard-action attack: the primary weapon alone, in one hand.
+  const single = {
+    ...build(main, mainHand === 'primary' ? 'oneHand' : mainHand, 'single', 0),
+    sequence: 1,
+  };
+
   // Riders: what the attack can add that isn't in its numbers.
   if (powerAttackFeat && steps > 0 && !powerAttackOn && mainMelee) {
-    const single = powerDamage(main, mainHand);
+    const mainDamage = powerDamage(main, mainHand);
     riders.push({
       key: 'powerAttack',
       label: 'Power Attack',
-      text: `−${steps} attack, +${single} damage${off ? ` (+${powerDamage(off, 'off')} off hand)` : ''}`,
+      text: `−${steps} attack, +${mainDamage} damage${off ? ` (+${powerDamage(off, 'off')} off hand)` : ''}`,
       from:
         lookupCatalog(character, 'feat.powerAttack')?.name ?? 'Power Attack',
     });
@@ -568,7 +584,7 @@ export function resolveRoutine(
         situationKey: x.situationKey,
       });
 
-  return { setup, attacks, penalties, riders, notes };
+  return { setup, single, attacks, penalties, riders, notes };
 }
 
 /**

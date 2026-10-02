@@ -340,7 +340,7 @@ Its display text is `SITUATION_TEXT` in `catalog.ts`:
 | `enchantment`    | vs. enchantment spells and effects                  |
 | `giants`         | vs. giants                                          |
 | `orcsGoblinoids` | vs. orcs and goblinoids                             |
-| `bullRushTrip`   | vs. bull rush and trip                              |
+| `bullRushTrip`   | vs. bull rush and trip while standing on the ground |
 | `sneak`          | when flanking or the target is denied its Dex bonus |
 
 A Modifier's own `situation.text` may be more specific than the key's
@@ -353,18 +353,18 @@ New targets: the leaves `damage.melee` and `damage.ranged`, and the parent
 
 Conditions in the catalog. Every existing summary and `traitsText` stays.
 
-| Entry              | Modifiers with a condition                                                                                                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `race.dwarf`       | +1 untyped `attack` vs. orcs and goblinoids; +4 dodge `ac.other` vs. giants; +2 racial `saves` vs. poison and, separately, vs. spells; +4 racial `cmd` vs. bull rush and trip |
-| `race.elf`         | +2 racial `saves` vs. enchantment                                                                                                                                             |
-| `race.halfling`    | +2 racial `saves` vs. fear. Halfling luck is now +1 **racial** on saves, per the CRB; it was `luck`.                                                                          |
-| `cf.trapSense`     | +1 untyped `save.ref` and +1 dodge `ac.other`, vs. traps. It stacks with itself, so Kesh has +2 of each.                                                                      |
-| `cf.bravery`       | +1 untyped `save.will` vs. fear                                                                                                                                               |
-| `rp.superstition`  | `2 + floor(@classLevel.barbarian / 4)` morale on `saves`, vs. spells, **while raging** (`whileActive: condition.raging`). That is +3 for Kesh.                                |
-| `cf.trapfinding`   | Disable Device as before, plus the same formula on Perception to locate traps                                                                                                 |
-| `feat.weaponFocus` | +1 untyped `attack`, `weapon: '$choice'`                                                                                                                                      |
-| `item.greataxe+1`  | +1 enhancement `attack` and `damage`, `weapon: '$self'`                                                                                                                       |
-| `cf.sneakAttack`   | No Modifier. `detail.damageDice: { die: 6, situation: 'sneak', rangedWithin: 30 }`, 1d6 per entry, stacking                                                                   |
+| Entry              | Modifiers with a condition                                                                                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `race.dwarf`       | +1 untyped `attack` vs. orcs and goblinoids; +4 dodge `ac.other` vs. giants; +2 racial `saves` vs. poison and, separately, vs. spells; +4 racial `cmd` vs. bull rush and trip while standing on the ground (stability) |
+| `race.elf`         | +2 racial `saves` vs. enchantment                                                                                                                                                                                      |
+| `race.halfling`    | +2 racial `saves` vs. fear. Halfling luck is now +1 **racial** on saves, per the CRB; it was `luck`.                                                                                                                   |
+| `cf.trapSense`     | +1 untyped `save.ref` and +1 dodge `ac.other`, vs. traps. It stacks with itself, so Kesh has +2 of each.                                                                                                               |
+| `cf.bravery`       | +1 untyped `save.will` vs. fear                                                                                                                                                                                        |
+| `rp.superstition`  | `2 + floor(@classLevel.barbarian / 4)` morale on `saves`, vs. spells, **while raging** (`whileActive: condition.raging`). That is +3 for Kesh.                                                                         |
+| `cf.trapfinding`   | Disable Device as before, plus the same formula on Perception to locate traps                                                                                                                                          |
+| `feat.weaponFocus` | +1 untyped `attack`, `weapon: '$choice'`                                                                                                                                                                               |
+| `item.greataxe+1`  | +1 enhancement `attack` and `damage`, `weapon: '$self'`                                                                                                                                                                |
+| `cf.sneakAttack`   | No Modifier. `detail.damageDice: { die: 6, situation: 'sneak', rangedWithin: 30 }`, 1d6 per entry, stacking                                                                                                            |
 
 New catalog entries:
 
@@ -490,7 +490,12 @@ type ResolvedAttack = {
   rangeIncrement?: number;
 };
 type Rider = { key; label; text; from; conditionText?; situationKey? };  // read as `${label}: ${text}` + conditionText
-type ResolvedRoutine = { setup; attacks: ResolvedAttack[]; penalties: string[]; riders: Rider[]; notes: string[] };
+type ResolvedRoutine = {
+  setup;
+  single: ResolvedAttack | null;   // the standard-action attack; null only when the weapon is gone
+  attacks: ResolvedAttack[];       // the full attack (full-round action)
+  penalties: string[]; riders: Rider[]; notes: string[];
+};
 
 weaponsOf(character): { entry; catalog; weapon }[]     // active weapon items, sheet order
 autoSetups(character): AttackSetup[]                    // variant 1
@@ -501,8 +506,14 @@ statBlockText(routine): string    // "+1 greataxe +13/+8 (1d12+8/×3)", "kukri +
 naturalHand(weapon), wieldOf(entry), iterativeCount(bab), powerAttackSteps(bab), criticalText(weapon)
 ```
 
-`attacks[0]` is the single (standard action) attack, and the rest follow
-in full-attack order. `sheet` gives BAB; pass the sheet on screen.
+`single` is the standard-action attack: the primary (or only) weapon once,
+with no two-weapon penalty, no iterative and no haste attack, and Power
+Attack as the routine has it. Its key is `<setup id>:single`, its
+`sequence` 1, and a two-weapon routine's primary weapon attacks in
+`oneHand` there. Two-weapon penalties apply only when you fight with two
+weapons in a full attack (CRB), so for "Two kukris" `single` is +11 while
+the full attack's first attack is +7. `attacks` is the full attack, in
+full-attack order. `sheet` gives BAB; pass the sheet on screen.
 `opts.situations` should be the lens, `ui.situation ? [ui.situation] : []`.
 For `data-situation-changed` on attack numbers, resolve once with
 `ui.baseSheet` and no situations, then match attacks by `key`.
@@ -687,18 +698,18 @@ sheet" and "ama sheet". It also has two toggles, "kesh raging: on/off"
 **Kesh, not raging.** The sheet is as in round 2: Fort/Ref/Will 9/7/3, AC
 18/13/15, CMD 24/22.
 
-| Statistic or setup                       | Value                                                                                             |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| +1 greataxe, two hands                   | +13/+8, 1d12+8, ×3; rider "Power Attack: −2 attack, +6 damage"                                    |
-| Greataxe with Power Attack               | +11/+6, 1d12+14                                                                                   |
-| Kukri, one hand                          | +11/+6, 1d4+5, 18–20/×2                                                                           |
-| Two kukris (no TWF feat, light off hand) | primary +7/+2, 1d4+5; off hand +3, 1d4+2; Power Attack rider "−2 attack, +4 damage (+2 off hand)" |
-| Composite longbow (+2 Str)               | +8/+3, 1d8+2, ×3, 110 ft.                                                                         |
-| Sneak attack                             | rider +2d6 (ranged: within 30 ft.); with `sneak` asked: "1d12+8 plus 2d6"                         |
-| Ref; vs. traps                           | +7; +9                                                                                            |
-| AC; vs. traps                            | 18; 20. Touch 13 → 15. Flat-footed stays 15. CMD 24 → 26.                                         |
-| Perception; to locate traps              | +10; +11                                                                                          |
-| Will; vs. spells                         | +3; +3 (Superstition waits on raging)                                                             |
+| Statistic or setup                       | Value                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| +1 greataxe, two hands                   | +13/+8, 1d12+8, ×3; rider "Power Attack: −2 attack, +6 damage"                                                                       |
+| Greataxe with Power Attack               | +11/+6, 1d12+14                                                                                                                      |
+| Kukri, one hand                          | +11/+6, 1d4+5, 18–20/×2                                                                                                              |
+| Two kukris (no TWF feat, light off hand) | full attack: primary +7/+2, 1d4+5; off hand +3, 1d4+2; Power Attack rider "−2 attack, +4 damage (+2 off hand)". `single`: +11, 1d4+5 |
+| Composite longbow (+2 Str)               | +8/+3, 1d8+2, ×3, 110 ft.                                                                                                            |
+| Sneak attack                             | rider +2d6 (ranged: within 30 ft.); with `sneak` asked: "1d12+8 plus 2d6"                                                            |
+| Ref; vs. traps                           | +7; +9                                                                                                                               |
+| AC; vs. traps                            | 18; 20. Touch 13 → 15. Flat-footed stays 15. CMD 24 → 26.                                                                            |
+| Perception; to locate traps              | +10; +11                                                                                                                             |
+| Will; vs. spells                         | +3; +3 (Superstition waits on raging)                                                                                                |
 
 **Kesh raging** (Str 25, Con 18, AC 16, HP 92):
 
@@ -719,14 +730,14 @@ sheet" and "ama sheet". It also has two toggles, "kesh raging: on/off"
 
 **Brannoc** (AC 18, CMD 18, Fort/Ref/Will +6/+2/+5):
 
-| Statistic or setup           | Value                                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Dwarven waraxe, one hand     | +7, 1d10+3, ×3; vs. orcs and goblinoids +8 (in `bonus.conditional`); rider "Power Attack: −1 attack, +2 damage" |
-| Light crossbow               | +4, 1d8, 19–20/×2, 80 ft.                                                                                       |
-| Will vs. fear                | +6                                                                                                              |
-| AC vs. giants                | 22 (touch too; flat-footed unchanged); CMD vs. giants 22                                                        |
-| CMD vs. bull rush and trip   | 22                                                                                                              |
-| Saves vs. poison, vs. spells | +2 each (Fort +8, Ref +4, Will +7); both asked at once still +2                                                 |
+| Statistic or setup                                  | Value                                                                                                           |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Dwarven waraxe, one hand                            | +7, 1d10+3, ×3; vs. orcs and goblinoids +8 (in `bonus.conditional`); rider "Power Attack: −1 attack, +2 damage" |
+| Light crossbow                                      | +4, 1d8, 19–20/×2, 80 ft.                                                                                       |
+| Will vs. fear                                       | +6                                                                                                              |
+| AC vs. giants                                       | 22 (touch too; flat-footed unchanged); CMD vs. giants 22                                                        |
+| CMD vs. bull rush and trip (standing on the ground) | 22                                                                                                              |
+| Saves vs. poison, vs. spells                        | +2 each (Fort +8, Ref +4, Will +7); both asked at once still +2                                                 |
 
 **Ama.** Saves vs. enchantment are +2. She has no weapons and no setups.
 

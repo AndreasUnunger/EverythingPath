@@ -39,7 +39,7 @@ export const SITUATION_TEXT: Record<SituationKey, string> = {
   enchantment: 'vs. enchantment spells and effects',
   giants: 'vs. giants',
   orcsGoblinoids: 'vs. orcs and goblinoids',
-  bullRushTrip: 'vs. bull rush and trip',
+  bullRushTrip: 'vs. bull rush and trip while standing on the ground',
   sneak: 'when flanking or the target is denied its Dex bonus',
 };
 
