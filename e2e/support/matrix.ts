@@ -47,6 +47,10 @@ export const criticalJourneys = [
     'a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload',
   ],
   ['realtime-action-slot.spec.ts', 'players share a Staged Action Choice'],
+  [
+    'private-character.spec.ts',
+    'an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else',
+  ],
 ] as const;
 const persistenceContract = [
   'canonical-persistence.spec.ts',

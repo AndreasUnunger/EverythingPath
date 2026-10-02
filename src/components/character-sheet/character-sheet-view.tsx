@@ -1,9 +1,10 @@
 'use client';
+import type { ReactNode } from 'react';
 import { formatCharacterKind, type CharacterKind } from '~/lib/character-kind';
 import { BaseScoresEditor } from './base-scores-editor';
 import { CharacterSheetFrame, type BackLink } from './character-sheet-frame';
 import { ClassLevels } from './class-levels';
-import { Block, fieldLabel } from './sheet-parts';
+import { Block, chip, fieldLabel } from './sheet-parts';
 import { SheetSummary } from './sheet-summary';
 import type { useCharacterSheet } from './use-character-sheet';
 
@@ -37,6 +38,63 @@ function CharacterBlock({
   );
 }
 
+// Where the Character belongs. The sheet read carries no campaign name, so a
+// campaign sheet opened without one states the fact instead of a stand-in.
+function CampaignMembership({
+  isPrivate,
+  campaignName,
+}: {
+  isPrivate: boolean;
+  campaignName?: string;
+}) {
+  if (isPrivate)
+    return (
+      <>
+        <span>No campaign</span>
+        <span className="text-muted-foreground text-xs">
+          Only you can see this character.
+        </span>
+      </>
+    );
+  if (campaignName)
+    return <span className="[overflow-wrap:anywhere]">{campaignName}</span>;
+  return (
+    <span className="text-muted-foreground text-xs">
+      Shared with a campaign.
+    </span>
+  );
+}
+
+// The campaign row under the summary (approved variant B's membership
+// strip): where the Character belongs on the left, its one lifecycle action
+// on the right. It scrolls with the body.
+function CampaignRow({
+  character,
+  campaignName,
+  action,
+}: {
+  character: ReadySheet['character'];
+  campaignName?: string;
+  action: ReactNode;
+}) {
+  return (
+    <div
+      data-sheet-campaign
+      className="bg-sidebar/60 border-foreground/15 mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border px-3 py-2 text-sm"
+    >
+      <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className={fieldLabel}>Campaign</span>
+        <CampaignMembership
+          isPrivate={!character.campaignId}
+          campaignName={campaignName}
+        />
+        {character.isActive ? null : <span className={chip}>Archived</span>}
+      </p>
+      {action}
+    </div>
+  );
+}
+
 /**
  * The living sheet (approved variant B, #208): the pinned summary row, the
  * campaign row that scrolls with the body, then Character, Class Levels and
@@ -48,19 +106,23 @@ export function CharacterSheetView({
   controller,
   back,
   campaignName,
+  lifecycle,
 }: {
   sheet: ReadySheet;
   controller: Controller;
   back: BackLink;
-  campaignName: string;
+  campaignName?: string;
+  /** The Character's archive or delete control, bound to the route scope. */
+  lifecycle: ReactNode;
 }) {
   return (
     <CharacterSheetFrame back={back}>
       <SheetSummary name={sheet.character.name} calculated={sheet.calculated} />
-      <p className="text-muted-foreground mb-3 text-xs">
-        <span className={fieldLabel}>Campaign</span>{' '}
-        <span className="[overflow-wrap:anywhere]">{campaignName}</span>
-      </p>
+      <CampaignRow
+        character={sheet.character}
+        campaignName={campaignName}
+        action={lifecycle}
+      />
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-12">
           <CharacterBlock

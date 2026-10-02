@@ -110,8 +110,9 @@ export const characterKindValidator = v.union(
 
 export const characterValidator = v.object({
   name: v.string(),
-  ownerId: v.string(),
-  campaignId: v.id('campaign'),
+  ownerId: v.optional(v.string()),
+  campaignId: v.optional(v.id('campaign')),
+  sheetDemo: v.optional(v.literal(true)),
   description: v.string(),
   kind: characterKindValidator,
   isActive: v.boolean(),
@@ -305,9 +306,9 @@ export default defineSchema({
     'by_characterId',
     ['characterId'],
   ),
-  character: defineTable(characterValidator).index('by_campaignId', [
-    'campaignId',
-  ]),
+  character: defineTable(characterValidator)
+    .index('by_campaignId', ['campaignId'])
+    .index('by_ownerId', ['ownerId']),
   campaign: defineTable(campaignValidator)
     .index('by_organization', ['organizationId'])
     .index('by_e2eFixture_namespace_and_workerKey_and_caseKey', [
@@ -327,6 +328,7 @@ export default defineSchema({
     .index('spellId_characterId', ['spellId', 'characterId']),
   user: defineTable({
     tokenIdentifier: v.string(),
+    characterSheetDemo: v.optional(v.literal(true)),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
     webhookUpdatedAt: v.optional(v.number()),

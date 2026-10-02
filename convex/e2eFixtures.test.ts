@@ -33,6 +33,11 @@ const characterSheet: FixtureScope = {
   caseKey: 'characterSheet',
   token: '34'.repeat(32),
 };
+const privateCharacter: FixtureScope = {
+  ...scope,
+  caseKey: 'privateCharacter',
+  token: '56'.repeat(32),
+};
 
 describe('internal fixture boundary', () => {
   beforeEach(() => {
@@ -271,6 +276,58 @@ describe('internal fixture boundary', () => {
       comparison,
     );
   });
+  it('grants private sheets only while the private-character case is reset and removes them on reset and cleanup', async () => {
+    const t = convexTest({ schema, modules });
+    await t.mutation(
+      internal.e2eFixtures.seedIdentityProjection,
+      privateCharacter,
+    );
+    const owner = t.withIdentity({
+      tokenIdentifier: `https://${deploymentFixture.clerkHost}|user_gm`,
+    });
+    const createPrivate = (name: string) =>
+      owner.mutation(api.characterSheet.create, {
+        name,
+        kind: 'pc',
+        operationId: name,
+      });
+    const unavailable =
+      "Private character sheets aren't available for your account yet.";
+    // The Character Sheet case shares the cohort's identities but not the grant.
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...characterSheet,
+      now: 0,
+    });
+    await expect(createPrivate('Sheet case')).rejects.toThrow(unavailable);
+    await t.mutation(internal.e2eFixtures.cleanupCase, characterSheet);
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...privateCharacter,
+      now: 0,
+    });
+    const privateId = await createPrivate('Private demo');
+    expect(
+      await owner.query(api.characterSheet.read, { characterId: privateId }),
+    ).toMatchObject({ character: { name: 'Private demo' } });
+    await t.mutation(internal.e2eFixtures.resetCase, {
+      ...privateCharacter,
+      now: 0,
+    });
+    await expect(
+      owner.query(api.characterSheet.read, { characterId: privateId }),
+    ).rejects.toThrow('Character not found');
+    const leftover = await createPrivate('Left by a failed attempt');
+    await t.mutation(internal.e2eFixtures.cleanupCase, privateCharacter);
+    await expect(
+      owner.query(api.characterSheet.read, { characterId: leftover }),
+    ).rejects.toThrow('Character not found');
+    await expect(createPrivate('After cleanup')).rejects.toThrow(unavailable);
+    expect(
+      await t.run(async (ctx) => ({
+        characters: (await ctx.db.query('character').collect()).length,
+        entries: (await ctx.db.query('characterSheetEntry').collect()).length,
+      })),
+    ).toEqual({ characters: 0, entries: 0 });
+  });
   it('resets an isolated realtime Action Slot board', async () => {
     const t = convexTest({ schema, modules });
     const realtime = {
@@ -421,6 +478,7 @@ describe('internal fixture boundary', () => {
         existingMilitia: 'e'.repeat(64),
         characterLedger: 'f'.repeat(64),
         characterSheet: 'w'.repeat(64),
+        privateCharacter: 'x'.repeat(64),
         completeWeek: 'g'.repeat(64),
         canonicalPersistence: 'c'.repeat(64),
         realtimeActionSlot: 'h'.repeat(64),

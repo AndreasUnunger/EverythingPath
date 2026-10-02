@@ -8,7 +8,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 export type BackLink = {
   /** A trusted origin route, never redirect input. */
   href: string;
-  label: 'Characters' | 'Characters & officers';
+  label: 'Characters' | 'Characters & officers' | 'Campaigns';
 };
 
 // The sheet's outer box, shared with its route fallback so nothing jumps

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import Home from '~/app/page';
 import {
   campaignPath,
+  characterSheetPath,
   decodeRouteSegment,
   normalizePhase,
   weekPath,
@@ -16,6 +17,14 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('campaign navigation', () => {
+  it('opens a private sheet without inventing a campaign and preserves campaign origins', () => {
+    expect(characterSheetPath(undefined, 'hero/a?b#c%')).toBe(
+      '/characters/hero%2Fa%3Fb%23c%25',
+    );
+    expect(characterSheetPath('first', 'hero')).toBe(
+      '/campaigns/first/characters/hero',
+    );
+  });
   it('keeps all campaign sections scoped and encodes a campaign identifier once', () => {
     expect(campaignPath('table/a?b#c%')).toBe(
       '/campaigns/table%2Fa%3Fb%23c%25',

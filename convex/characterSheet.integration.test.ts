@@ -134,7 +134,7 @@ test('sheet reads reject a malformed route Character identifier', async () => {
       organizationId: 'org',
       characterId: 'not-a-character-id',
     }),
-  ).rejects.toThrow('Invalid Character identifier');
+  ).rejects.toThrow('Character not found');
 });
 
 test('members edit independent scores and Class Levels, carry HP through moves, and may remove every level', async () => {
@@ -326,7 +326,7 @@ test('a forged Catalog Entry reference from another Character in an accessible c
   });
   await t.run(async (ctx) => {
     const character = await ctx.db.get('character', scope.characterId);
-    if (!character) throw new Error('Missing Character');
+    if (!character?.campaignId) throw new Error('Missing campaign Character');
     const first = await ctx.db.get('campaign', character.campaignId);
     await ctx.db.patch('campaign', otherCampaignId, {
       e2eFixture: first?.e2eFixture,
@@ -419,7 +419,9 @@ test('prepared writes stay gated on ordinary campaigns and respect the campaign 
     ctx.db.patch('campaign', campaignId, { e2eFixture: undefined }),
   );
   for (const command of commands)
-    await expect(command()).rejects.toThrow('only in fixture campaigns');
+    await expect(command()).rejects.toThrow(
+      "Character sheets aren't available for this campaign yet.",
+    );
   expect(await owner.query(api.characterSheet.read, scope)).toEqual(before);
   await t.run((ctx) =>
     ctx.db.insert('campaignCutover', {
@@ -584,6 +586,48 @@ test('a prepared sheet leaves legacy Character facts, current militia and frozen
   expect(
     await member.query(api.canonicalLedger.read, { campaignId, militiaId }),
   ).toEqual(ledger);
+  expect(await owner.query(api.canonicalHistory.read, historyArgs)).toEqual(
+    history,
+  );
+  const beforeArchive = await owner.query(api.characterSheet.read, scope);
+  await member.mutation(api.characterSheet.archive, {
+    ...scope,
+    isActive: false,
+    operationId: 'archive',
+  });
+  const archived = await owner.query(api.characterSheet.read, scope);
+  expect(archived?.character.isActive).toBe(false);
+  expect(archived?.calculated).toMatchObject({
+    level: 0,
+    abilities: { strength: { score: 30 }, charisma: { score: 35 } },
+  });
+  const archivedLedger = await member.query(api.canonicalLedger.read, {
+    campaignId,
+    militiaId,
+  });
+  expect(archivedLedger.state.militiaSnapshot.roster).toEqual(
+    ledger.state.militiaSnapshot.roster,
+  );
+  expect(archived?.entries).toEqual(beforeArchive?.entries);
+  expect(archived?.catalogEntries).toEqual(beforeArchive?.catalogEntries);
+  expect(archivedLedger.state.militiaSnapshot.characters).toEqual(
+    ledger.state.militiaSnapshot.characters.map((character) =>
+      character.characterId === seeded.characterId
+        ? { ...character, isActive: false }
+        : character,
+    ),
+  );
+  await owner.mutation(api.characterSheet.archive, {
+    ...scope,
+    isActive: true,
+    operationId: 'restore',
+  });
+  const restored = await member.query(api.canonicalLedger.read, {
+    campaignId,
+    militiaId,
+  });
+  expect(restored.state.militiaSnapshot).toEqual(ledger.state.militiaSnapshot);
+
   expect(await owner.query(api.canonicalHistory.read, historyArgs)).toEqual(
     history,
   );

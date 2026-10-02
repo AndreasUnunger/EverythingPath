@@ -3,7 +3,7 @@ import { type MutationCtx, type QueryCtx, query } from './_generated/server';
 import { gatedWebhookMutation } from './lib/writeGate';
 import { roles } from './schema';
 
-async function getUserByTokenIdentifier(
+export async function getUserByTokenIdentifier(
   ctx: QueryCtx | MutationCtx,
   tokenIdentifier: string,
 ) {
@@ -176,8 +176,7 @@ export const getOrgAccessStatus = query({
     const orgMembership = user.orgIds.find(
       (item) => item.orgId === args.organizationId,
     );
-    const hasAccess =
-      !!orgMembership || user.tokenIdentifier.includes(args.organizationId);
+    const hasAccess = Boolean(orgMembership);
 
     if (!hasAccess) {
       return { state: 'no_access' as const };
@@ -203,9 +202,7 @@ export async function hasAccessToOrg(
     return null;
   }
 
-  const hasAccess =
-    user.orgIds.some((item) => item.orgId === orgId) ||
-    user.tokenIdentifier.includes(orgId);
+  const hasAccess = user.orgIds.some((item) => item.orgId === orgId);
 
   if (!hasAccess) {
     return null;

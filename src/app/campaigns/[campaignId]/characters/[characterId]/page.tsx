@@ -13,6 +13,7 @@ export default function CharacterSheetRoute() {
   return (
     <CharacterSheetPage
       organizationId={organizationId}
+      campaignId={campaign._id}
       characterId={decodeRouteSegment(characterId)}
       back={{
         href: campaignPath(campaign._id, 'characters'),

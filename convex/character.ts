@@ -2,10 +2,11 @@ import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { campaignMutation as mutation } from './lib/campaignRuntime';
 import { updateCanonicalCharacter } from './lib/canonicalCharacters';
+import { updateCharacterArchive } from './lib/characterSheet';
 import { campaignValidator, characterValidator } from './schema';
 import {
   listAccessibleCharacters,
-  requireCharacterAccess,
+  requireCampaignCharacterAccess,
   requireCharacterCampaignAccess,
 } from './lib/characterAccess';
 import { normalizeCharacterKind } from '../src/lib/character-kind';
@@ -90,7 +91,7 @@ export const updateCharacter = mutation({
       throw new ConvexError('Character name cannot be empty');
     }
 
-    await requireCharacterAccess(ctx, {
+    await requireCampaignCharacterAccess(ctx, {
       characterId: args.characterId,
       organizationId: args.organizationId,
     });
@@ -113,15 +114,12 @@ export const archiveCharacter = mutation({
     isActive: v.boolean(),
   },
   async handler(ctx, args) {
-    await requireCharacterAccess(ctx, {
+    await requireCampaignCharacterAccess(ctx, {
       characterId: args.characterId,
       organizationId: args.organizationId,
     });
 
-    await ctx.db.patch('character', args.characterId, {
-      isActive: args.isActive,
-    });
-    await updateCanonicalCharacter(ctx, args.characterId);
+    await updateCharacterArchive(ctx, args);
   },
 });
 
@@ -131,7 +129,7 @@ export const deleteCharacter = mutation({
     characterId: v.id('character'),
   },
   async handler(ctx, args) {
-    const character = await requireCharacterAccess(ctx, {
+    const character = await requireCampaignCharacterAccess(ctx, {
       characterId: args.characterId,
       organizationId: args.organizationId,
     });

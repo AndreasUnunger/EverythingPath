@@ -205,19 +205,24 @@ test('outsiders cannot learn whether a Character is active by attempting deletio
   ).rejects.toThrow('You do not have access to this org');
 });
 
-test('legacy token-identifier substring access awaits retirement in #260 while roster assignments require membership', async () => {
+test('token-identifier substrings grant neither ledger nor roster access', async () => {
   const { owner, member, outsider, fallback, t, scope, listArgs, characterId } =
     await fixture();
+  expect(await fallback.query(api.character.listByCampaign, listArgs)).toEqual(
+    [],
+  );
   expect(
-    (await fallback.query(api.character.listByCampaign, listArgs)).some(
-      (character) => character._id === characterId,
-    ),
-  ).toBe(true);
-  await fallback.mutation(api.character.updateCharacter, {
-    organizationId: 'org',
-    characterId,
-    patch: { description: 'Legacy client' },
-  });
+    await fallback.query(api.user.getOrgAccessStatus, {
+      organizationId: 'org',
+    }),
+  ).toEqual({ state: 'no_access' });
+  await expect(
+    fallback.mutation(api.character.updateCharacter, {
+      organizationId: 'org',
+      characterId,
+      patch: { description: 'Forged access' },
+    }),
+  ).rejects.toThrow('You do not have access to this org');
   const before = await owner.query(api.canonicalLedger.read, scope);
   const roster = before.state.militiaSnapshot.roster;
   const snapshot = {

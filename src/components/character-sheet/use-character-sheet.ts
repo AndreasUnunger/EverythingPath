@@ -7,14 +7,14 @@ import { useMutation, useQuery } from 'convex/react';
 import { useRef, useState } from 'react';
 import type { AbilityScores } from '~/lib/character-sheet';
 import { classifyWriteFailure, refusalReason } from '~/lib/write-outcome';
+import type { CharacterScope } from './character-scope';
 import type { SaveStatus } from './save-status';
 
 export type CharacterSheetSnapshot = NonNullable<
   FunctionReturnType<typeof api.characterSheet.read>
 >;
-type Scope = { organizationId: string; characterId: string };
 
-export function useCharacterSheet(scope: Scope) {
+export function useCharacterSheet(scope: CharacterScope) {
   const snapshot = useQuery(api.characterSheet.read, scope);
   const editBaseScores = useMutation(api.characterSheet.editBaseScores);
   const editClassLevel = useMutation(api.characterSheet.editClassLevel);

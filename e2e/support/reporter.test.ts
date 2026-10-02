@@ -84,6 +84,10 @@ it.each([
         `import { test } from ${playwright}; test('two players edit one living sheet; failures stay local and rows keep their identity', () => {});`,
       );
       await writeFile(
+        join(directory, 'private-character.spec.ts'),
+        `import { test } from ${playwright}; test('an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else', () => {});`,
+      );
+      await writeFile(
         join(directory, 'complete-week.spec.ts'),
         `import { test } from ${playwright}; test('a player confirms a complete week, every device moves to the next week once it is usable, and the outcome survives reload', () => {});`,
       );

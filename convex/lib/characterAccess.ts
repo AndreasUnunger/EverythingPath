@@ -1,7 +1,7 @@
 import { ConvexError } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 import type { ReadCtx } from '../types';
-import { hasAccessToOrg } from '../user';
+import { getUserByTokenIdentifier, hasAccessToOrg } from '../user';
 
 type CampaignScope = {
   campaignId: Id<'campaign'>;
@@ -40,18 +40,54 @@ export async function listAccessibleCharacters(
     : characters.filter((character) => character.isActive);
 }
 
+export type CharacterScope = {
+  characterId: Id<'character'>;
+  organizationId?: string;
+  campaignId?: Id<'campaign'>;
+};
+
 export async function requireCharacterAccess(
   ctx: ReadCtx,
-  args: {
-    characterId: Id<'character'>;
-    organizationId: string;
-  },
+  args: CharacterScope,
 ) {
   const character = await ctx.db.get('character', args.characterId);
   if (!character) throw new ConvexError('Character not found');
-  await requireCharacterCampaignAccess(ctx, {
-    campaignId: character.campaignId,
-    organizationId: args.organizationId,
-  });
+  if (!character.campaignId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (
+      !identity ||
+      character.ownerId !== identity.tokenIdentifier ||
+      args.campaignId !== undefined ||
+      args.organizationId !== undefined
+    )
+      throw new ConvexError('Character not found');
+    const user = await getUserByTokenIdentifier(ctx, identity.tokenIdentifier);
+    if (!user) throw new ConvexError('Character not found');
+    return { character, campaign: null, user };
+  }
+  if (args.campaignId && args.campaignId !== character.campaignId)
+    throw new ConvexError('Character not found');
+  const campaign = await ctx.db.get('campaign', character.campaignId);
+  if (!campaign) throw new ConvexError('Character not found');
+  const isScoped =
+    args.organizationId !== undefined || args.campaignId !== undefined;
+  const organizationId = args.organizationId ?? campaign.organizationId;
+  const access = await hasAccessToOrg(ctx, organizationId);
+  if (!access)
+    throw new ConvexError(
+      isScoped ? 'You do not have access to this org' : 'Character not found',
+    );
+  if (campaign.organizationId !== organizationId)
+    throw new ConvexError('No campaign exists for this organization');
+  return { character, campaign, user: access.user };
+}
+
+// Legacy ledger writers remain campaign-scoped until cutover.
+export async function requireCampaignCharacterAccess(
+  ctx: ReadCtx,
+  args: CharacterScope,
+) {
+  const { character } = await requireCharacterAccess(ctx, args);
+  if (!character.campaignId) throw new ConvexError('Character not found');
   return character;
 }

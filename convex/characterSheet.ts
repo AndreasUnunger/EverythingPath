@@ -4,20 +4,30 @@ import type { MutationCtx } from './_generated/server';
 import { query } from './_generated/server';
 import { campaignMutation } from './lib/campaignRuntime';
 import schema from './schema';
+import { getUser } from './user';
+import {
+  requireCharacterCampaignAccess,
+  type CharacterScope,
+} from './lib/characterAccess';
 import {
   abilityKeys,
   abilityTargets,
   defaultAbilityScores,
 } from '../src/lib/character-sheet';
 import {
+  deleteCharacterSheet,
   initializeCharacterSheet,
   loadCharacterSheet,
   recordSheetChange,
   requireFixtureCampaign,
-  requireSheetCampaignAccess,
+  updateCharacterArchive,
 } from './lib/characterSheet';
 
-const scope = { organizationId: v.string(), characterId: v.id('character') };
+const scope = {
+  organizationId: v.optional(v.string()),
+  campaignId: v.optional(v.id('campaign')),
+  characterId: v.id('character'),
+};
 const abilityValue = v.object({ score: v.number(), modifier: v.number() });
 const calculatedValidator = v.object({
   abilities: v.object({
@@ -34,8 +44,8 @@ const calculatedValidator = v.object({
 });
 export const create = campaignMutation({
   args: {
-    organizationId: v.string(),
-    campaignId: v.id('campaign'),
+    organizationId: v.optional(v.string()),
+    campaignId: v.optional(v.id('campaign')),
     name: v.string(),
     kind: v.union(v.literal('pc'), v.literal('npc')),
     description: v.optional(v.string()),
@@ -43,19 +53,35 @@ export const create = campaignMutation({
   },
   returns: v.id('character'),
   async handler(ctx, args) {
-    const { campaign, access } = await requireSheetCampaignAccess(ctx, {
-      campaignId: args.campaignId,
-      organizationId: args.organizationId,
-    });
-    requireFixtureCampaign(campaign);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError('Authentication required');
+    const user = await getUser(ctx, identity.tokenIdentifier);
+    if (args.campaignId) {
+      if (!args.organizationId)
+        throw new ConvexError('Organization is required for a campaign');
+      const { campaign } = await requireCharacterCampaignAccess(ctx, {
+        campaignId: args.campaignId,
+        organizationId: args.organizationId,
+      });
+      requireFixtureCampaign(campaign);
+    } else {
+      if (args.organizationId !== undefined)
+        throw new ConvexError('Campaign is required for an organization');
+      if (!user.characterSheetDemo)
+        throw new ConvexError(
+          "Private character sheets aren't available for your account yet.",
+        );
+    }
     if (!args.name.trim())
       throw new ConvexError('Character name cannot be empty');
     const characterId = await ctx.db.insert('character', {
-      campaignId: args.campaignId,
+      ...(args.campaignId
+        ? { campaignId: args.campaignId }
+        : { sheetDemo: true as const }),
       name: args.name.trim(),
       kind: args.kind,
       description: args.description ?? '',
-      ownerId: access.user.tokenIdentifier,
+      ownerId: identity.tokenIdentifier,
       isActive: true,
       level: 1,
       ...defaultAbilityScores,
@@ -63,13 +89,13 @@ export const create = campaignMutation({
     await initializeCharacterSheet(ctx, {
       characterId,
       operationId: args.operationId,
-      updatedBy: access.user.tokenIdentifier,
+      updatedBy: identity.tokenIdentifier,
     });
     return characterId;
   },
 });
 export const read = query({
-  args: { organizationId: v.string(), characterId: v.string() },
+  args: { ...scope, characterId: v.string() },
   returns: v.union(
     v.null(),
     v.object({
@@ -85,7 +111,7 @@ export const read = query({
   ),
   async handler(ctx, args) {
     const characterId = ctx.db.normalizeId('character', args.characterId);
-    if (!characterId) throw new ConvexError('Invalid Character identifier');
+    if (!characterId) throw new ConvexError('Character not found');
     const sheet = await loadCharacterSheet(ctx, { ...args, characterId });
     if (!sheet) return null;
     const { actor: _actor, ...result } = sheet;
@@ -95,10 +121,7 @@ export const read = query({
 
 const writeScope = { ...scope, operationId: v.string() };
 const rowScope = { ...writeScope, entryId: v.id('characterSheetEntry') };
-async function loadWritableSheet(
-  ctx: MutationCtx,
-  args: { organizationId: string; characterId: Id<'character'> },
-) {
+async function loadWritableSheet(ctx: MutationCtx, args: CharacterScope) {
   const sheet = await loadCharacterSheet(ctx, args, { isWritable: true });
   if (!sheet) throw new ConvexError('Character has no sheet');
   return sheet;
@@ -256,6 +279,35 @@ export const deleteClassLevel = campaignMutation({
       operationId: args.operationId,
       updatedBy: sheet.actor,
     });
+    return null;
+  },
+});
+
+export const archive = campaignMutation({
+  args: { ...writeScope, isActive: v.boolean() },
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    if (!sheet.character.campaignId)
+      throw new ConvexError('Only campaign Characters can be archived');
+    await updateCharacterArchive(ctx, args);
+    await recordSheetChange(ctx, {
+      character: sheet.character,
+      operationId: args.operationId,
+      updatedBy: sheet.actor,
+    });
+    return null;
+  },
+});
+
+export const deletePrivate = campaignMutation({
+  args: writeScope,
+  returns: v.null(),
+  async handler(ctx, args) {
+    const sheet = await loadWritableSheet(ctx, args);
+    if (sheet.character.campaignId)
+      throw new ConvexError('Archive campaign Characters instead');
+    await deleteCharacterSheet(ctx, args.characterId);
     return null;
   },
 });

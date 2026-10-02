@@ -15,6 +15,7 @@ import {
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import { cn } from '~/lib/utils';
+import { InlineDeleteQuestion } from './inline-delete-question';
 import {
   chip,
   fieldLabel,
@@ -41,68 +42,6 @@ const actionsCell =
   'col-start-2 row-start-1 flex items-center justify-end md:col-start-4';
 const rowButton = 'size-11 md:size-8';
 
-// Deleting a level discards its recorded hit points with no undo, so the
-// trash control asks first, in place (approved prototype). Focus lands on
-// Keep, the harmless answer; Delete stays until the row is gone.
-function DeleteConfirmation({
-  level,
-  isBusy,
-  onDelete,
-  onKeep,
-}: {
-  level: number;
-  isBusy: boolean;
-  onDelete: () => void;
-  onKeep: () => void;
-}) {
-  const maintenance = useInitialMigrationMaintenance();
-  const questionId = useId();
-  const keep = useRef<HTMLButtonElement>(null);
-  return (
-    <div
-      role="group"
-      aria-labelledby={questionId}
-      className={cn(actionsCell, 'flex-wrap gap-x-1 gap-y-1 text-xs')}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        event.stopPropagation();
-        onKeep();
-      }}
-    >
-      <p id={questionId} className="px-1">
-        Delete Unspecified (level {level})?
-      </p>
-      <Button
-        type="button"
-        size="sm"
-        variant="destructive"
-        className="h-11 md:h-8"
-        disabled={isBusy || maintenance.readOnly}
-        onClick={() => {
-          if (maintenance.readOnly) return;
-          keep.current?.focus();
-          onDelete();
-        }}
-      >
-        Delete <span className="sr-only">level {level}</span>
-      </Button>
-      <Button
-        ref={keep}
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="h-11 md:h-8"
-        autoFocus
-        onClick={onKeep}
-      >
-        Keep <span className="sr-only">level {level}</span>
-      </Button>
-      <MaintenanceReason notice={maintenance} />
-    </div>
-  );
-}
-
 // A level's own actions; moves are disabled only at the ends of the list
 // and while another structural change is pending.
 function LevelActions({
@@ -127,9 +66,11 @@ function LevelActions({
   const deleteTrigger = useRef<HTMLButtonElement>(null);
   if (isConfirmingDelete)
     return (
-      <DeleteConfirmation
-        level={level}
+      <InlineDeleteQuestion
+        question={`Delete Unspecified (level ${level})?`}
+        subject={`level ${level}`}
         isBusy={isBusy}
+        className={actionsCell}
         onDelete={onDelete}
         onKeep={() => {
           flushSync(() => setIsConfirmingDelete(false));

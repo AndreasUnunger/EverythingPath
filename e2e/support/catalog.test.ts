@@ -46,21 +46,35 @@ const journeyCases = [
     ].map(([, key]) => [name, key] as const),
   );
 
-it('requires the Character Sheet journey on Chromium and nightly WebKit with its own case', () => {
-  const file = 'character-sheet.spec.ts';
-  const title =
-    'two players edit one living sheet; failures stay local and rows keep their identity';
-  expect(requiredTests('mandatory').filter(([name]) => name === file)).toEqual([
-    [file, 'chromium-tablet', title],
-  ]);
-  expect(requiredTests('nightly').filter(([name]) => name === file)).toEqual([
-    [file, 'webkit-tablet', title],
-    [file, 'chromium-tablet', title],
-  ]);
-  expect(journeyCases.filter(([, key]) => key === 'characterSheet')).toEqual([
-    [file, 'characterSheet'],
-  ]);
-});
+const sheetJourneys = [
+  [
+    'character-sheet.spec.ts',
+    'two players edit one living sheet; failures stay local and rows keep their identity',
+    'characterSheet',
+  ],
+  [
+    'private-character.spec.ts',
+    'an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else',
+    'privateCharacter',
+  ],
+] as const;
+
+it.each(sheetJourneys)(
+  'requires %s on Chromium and nightly WebKit with its own case',
+  (file, title, caseKey) => {
+    expect(
+      requiredTests('mandatory').filter(([name]) => name === file),
+    ).toEqual([[file, 'chromium-tablet', title]]);
+    expect(requiredTests('nightly').filter(([name]) => name === file)).toEqual([
+      [file, 'webkit-tablet', title],
+      [file, 'chromium-tablet', title],
+    ]);
+    // The journey selects exactly this case, which no other journey uses.
+    expect(journeyCases.filter(([, key]) => key === caseKey)).toEqual([
+      [file, caseKey],
+    ]);
+  },
+);
 
 const accessSplits = [
   ['campaign-home.spec.ts', 'campaignHome'],
@@ -119,14 +133,14 @@ it('schedules the longest projects first and cutover last', () => {
   ]);
 });
 
-it('accepts provisioned fixtures without a Character Sheet case', () => {
+it('accepts provisioned fixtures without the Character Sheet cases', () => {
   const legacyFixture = {
     ...deploymentFixture,
     workers: deploymentFixture.workers.map((worker) => ({
       ...worker,
       cases: Object.fromEntries(
         Object.entries(worker.cases).filter(
-          ([key]) => key !== 'characterSheet',
+          ([key]) => key !== 'characterSheet' && key !== 'privateCharacter',
         ),
       ),
     })),
@@ -136,4 +150,5 @@ it('accepts provisioned fixtures without a Character Sheet case', () => {
     deploymentFixture.workers[0]?.cases.smoke,
   );
   expect(parsed.workers[0]?.cases.characterSheet).toBeUndefined();
+  expect(parsed.workers[0]?.cases.privateCharacter).toBeUndefined();
 });

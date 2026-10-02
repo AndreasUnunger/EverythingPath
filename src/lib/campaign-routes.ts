@@ -26,12 +26,15 @@ export function campaignPath(
   return section === 'home' ? base : `${base}/${section}`;
 }
 
-/** A Character's living sheet, opened from its campaign's Characters page. */
+/** Campaign origins stay in their shell until the navigation migration (#297). */
 export function characterSheetPath(
-  campaignId: string,
+  campaignId: string | undefined,
   characterId: string,
 ): string {
-  return `${campaignPath(campaignId, 'characters')}/${encodeURIComponent(characterId)}`;
+  const base = campaignId
+    ? campaignPath(campaignId, 'characters')
+    : '/characters';
+  return `${base}/${encodeURIComponent(characterId)}`;
 }
 
 /** Militia, optionally with one page entry selected (`?section=teams`). */

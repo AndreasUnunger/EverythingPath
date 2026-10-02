@@ -9,6 +9,7 @@ import { ConvexError } from 'convex/values';
 import type { ReactNode } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
+import NewPrivateCharacterRoute from '~/app/characters/new/page';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import { CreateCharacterSheet } from './create-character-sheet';
 
@@ -24,21 +25,28 @@ type Call = {
 let calls: Call[] = [];
 const navigate = vi.fn();
 const maintenance = vi.fn<() => MigrationMaintenance>();
+let me: { characterSheetDemo?: true } | null | undefined = {
+  characterSheetDemo: true,
+};
 
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
   useInitialMigrationMaintenance: () => maintenance(),
 }));
 
 vi.mock('@convex/_generated/api', () => ({
-  api: { characterSheet: { create: 'create' } },
+  api: { characterSheet: { create: 'create' }, user: { getMe: 'getMe' } },
 }));
 vi.mock('convex/react', () => ({
+  useQuery: () => me,
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });
     }),
 }));
 vi.mock('~/components/campaign-shell/navigation-guard', () => ({
+  GuardedLink: ({ href, children }: { href: string; children: ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
   useNavigationGuard: () => ({
     navigate,
     requestDeparture: vi.fn(),
@@ -78,7 +86,55 @@ vi.mock('~/components/ui/select', () => ({
 
 beforeEach(() => {
   calls = [];
+  me = { characterSheetDemo: true };
   maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
+});
+
+test('a prepared private creation opens an independent sheet without selecting an organization', async () => {
+  render(<NewPrivateCharacterRoute />);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+    target: { value: 'Private hero' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Create character' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(calls[0]?.args).toMatchObject({ name: 'Private hero', kind: 'pc' });
+  expect(calls[0]?.args.organizationId).toBeUndefined();
+  expect(calls[0]?.args.campaignId).toBeUndefined();
+  await act(async () => calls[0]?.resolve('private-hero'));
+  expect(navigate).toHaveBeenCalledWith('/characters/private-hero');
+});
+
+test.each([{ me: {} }, { me: null }])(
+  'the private creation route does not offer sheet creation before preparation ($me)',
+  (identity) => {
+    me = identity.me;
+    render(<NewPrivateCharacterRoute />);
+    expect(
+      screen.queryByRole('form', { name: 'New character' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Creating characters here is not available yet.'),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/demo|fixture|approval/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+      'href',
+      '/campaigns',
+    );
+  },
+);
+
+test('while the identity loads, the creation route keeps the frame and shows no form', () => {
+  me = undefined;
+  render(<NewPrivateCharacterRoute />);
+  expect(
+    screen.getByRole('status', { name: 'Loading character sheet…' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('form', { name: 'New character' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Campaigns' })).toBeVisible();
 });
 
 test('maintenance disables character creation and its fields with the reason beside the form', async () => {

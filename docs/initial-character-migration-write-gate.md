@@ -80,8 +80,10 @@ Imports (`spell:addNextHundredSpells`), aggregate rebuilding, identity/membershi
 | `convex/character.ts:deleteCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/character.ts:updateCharacter` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:addClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:archive` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:create` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:deleteClassLevel` | Shared write gate (epoch + maintenance) |
+| `convex/characterSheet.ts:deletePrivate` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editBaseScores` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:editClassLevel` | Shared write gate (epoch + maintenance) |
 | `convex/characterSheet.ts:moveClassLevel` | Shared write gate (epoch + maintenance) |

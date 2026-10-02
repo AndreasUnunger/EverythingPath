@@ -8,7 +8,7 @@ import { evaluateResults } from './results';
 
 it('requires the exact titles declared by the selected nightly journey sources', () => {
   const required = requiredTests('nightly');
-  expect(required).toHaveLength(43);
+  expect(required).toHaveLength(45);
   for (const file of new Set(required.map(([file]) => file!))) {
     const source = ts.createSourceFile(
       file,
@@ -138,6 +138,16 @@ const passing = () => ({
       annotations: [],
       results: [{ status: 'passed', retry: 0 }],
     },
+    {
+      file: 'private-character.spec.ts',
+      project: 'chromium-tablet',
+      title:
+        'an owner creates, edits and deletes a private Character; its URL discloses nothing to anyone else',
+      expectedStatus: 'passed',
+      tags: [],
+      annotations: [],
+      results: [{ status: 'passed', retry: 0 }],
+    },
     ...workspaceTitles.map((title) => ({
       file: 'canonical-workspace.spec.ts',
       project: 'canonical-workspace',
@@ -181,6 +191,14 @@ const passing = () => ({
 
 it('accepts required authentication, browser journeys and deployed persistence on first attempts', () => {
   expect(evaluateResults(passing())).toBe(true);
+});
+
+it('rejects a run that omits the private-character journey', () => {
+  const report = passing();
+  report.tests = report.tests.filter(
+    (test) => test.file !== 'private-character.spec.ts',
+  );
+  expect(evaluateResults(report)).toBe(false);
 });
 
 it.each([

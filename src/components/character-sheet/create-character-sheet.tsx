@@ -43,8 +43,8 @@ export function CreateCharacterSheet({
   organizationId,
   campaignId,
 }: {
-  organizationId: string;
-  campaignId: Id<'campaign'>;
+  organizationId?: string;
+  campaignId?: Id<'campaign'>;
 }) {
   const maintenance = useInitialMigrationMaintenance();
   const guard = useNavigationGuard();

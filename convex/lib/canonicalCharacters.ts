@@ -18,9 +18,11 @@ export async function updateCanonicalCharacter(
 ) {
   const character = await ctx.db.get('character', characterId);
   if (!character) throw new ConvexError('Character not found');
+  const campaignId = character.campaignId;
+  if (!campaignId) return;
   const militia = await ctx.db
     .query('militia')
-    .withIndex('by_campaign', (q) => q.eq('campaignId', character.campaignId))
+    .withIndex('by_campaign', (q) => q.eq('campaignId', campaignId))
     .unique();
   if (!militia) return;
   const source = await ctx.db

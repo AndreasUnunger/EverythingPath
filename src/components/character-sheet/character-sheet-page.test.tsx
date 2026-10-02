@@ -10,6 +10,7 @@ import { ConvexError } from 'convex/values';
 import type { ComponentProps } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { Id } from '@convex/_generated/dataModel';
+import IndependentCharacterSheetRoute from '~/app/characters/[characterId]/page';
 import type { MigrationMaintenance } from '~/components/use-initial-migration-maintenance';
 import {
   abilityKeys,
@@ -32,7 +33,10 @@ type Call = {
 };
 let calls: Call[] = [];
 let snapshot: CharacterSheetSnapshot | null | undefined;
+let readScope: Record<string, unknown>;
+let readError: Error | null = null;
 let scrollIntoView = vi.fn();
+const navigate = vi.fn();
 const maintenance = vi.fn<() => MigrationMaintenance>();
 
 vi.mock('~/components/use-initial-migration-maintenance', () => ({
@@ -49,15 +53,24 @@ vi.mock('@convex/_generated/api', () => ({
       moveClassLevel: 'move',
       deleteClassLevel: 'delete',
       create: 'create',
+      archive: 'archive',
+      deletePrivate: 'deletePrivate',
     },
   },
 }));
 vi.mock('convex/react', () => ({
-  useQuery: () => snapshot,
+  useQuery: (_name: string, scope: Record<string, unknown>) => {
+    readScope = scope;
+    if (readError) throw readError;
+    return snapshot;
+  },
   useMutation: (name: string) => (args: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
       calls.push({ name, args, resolve, reject });
     }),
+}));
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ characterId: 'character%2D1' }),
 }));
 vi.mock('~/components/campaign-shell/navigation-guard', () => ({
   GuardedLink: ({
@@ -69,6 +82,11 @@ vi.mock('~/components/campaign-shell/navigation-guard', () => ({
       {children}
     </a>
   ),
+  useNavigationGuard: () => ({
+    navigate,
+    requestDeparture: vi.fn(),
+    hasPendingWork: () => false,
+  }),
 }));
 
 const characterId = 'character-1' as Id<'character'>;
@@ -80,11 +98,16 @@ function sheet({
   levels = [{ id: 'level-1', hp: null }],
   lastOperationId = 'seed',
   name = 'Kesh',
+  isActive = true,
+  campaignId = 'campaign-1' as Id<'campaign'>,
 }: {
   scores?: AbilityScores;
   levels?: Level[];
   lastOperationId?: string;
   name?: string;
+  isActive?: boolean;
+  /** `null` for a private Character, which has none. */
+  campaignId?: Id<'campaign'> | null;
 } = {}): CharacterSheetSnapshot {
   const catalogEntry = {
     _id: 'base-catalogEntry' as Id<'catalogEntry'>,
@@ -135,12 +158,12 @@ function sheet({
     character: {
       _id: characterId,
       _creationTime: 1,
-      campaignId: 'campaign-1' as Id<'campaign'>,
+      ...(campaignId ? { campaignId } : {}),
       name,
       description: 'Rides with the militia.',
       ownerId: 'owner',
       kind: 'pc',
-      isActive: true,
+      isActive,
       sheetMode: 'full',
       level: 1,
       ...defaultAbilityScores,
@@ -204,6 +227,19 @@ function deleteQuestion(level: number) {
     name: `Delete Unspecified (level ${level})?`,
   });
 }
+const privateSheet = () => sheet({ name: 'Private hero', campaignId: null });
+function campaignRow() {
+  const row = document.querySelector<HTMLElement>('[data-sheet-campaign]');
+  if (!row) throw new Error('Expected the campaign row');
+  return within(row);
+}
+function deleteCharacterQuestion() {
+  return within(screen.getByRole('group', { name: 'Delete Private hero?' }));
+}
+function askToDeleteCharacter() {
+  fireEvent.click(screen.getByRole('button', { name: 'Delete character' }));
+  return deleteCharacterQuestion();
+}
 function lastCall() {
   const call = calls.at(-1);
   if (!call) throw new Error('Expected a write');
@@ -215,8 +251,33 @@ beforeEach(() => {
   calls = [];
   maintenance.mockReturnValue({ kind: 'ready', readOnly: false, message: '' });
   snapshot = undefined;
+  readError = null;
   scrollIntoView = vi.fn();
   Element.prototype.scrollIntoView = scrollIntoView;
+});
+
+test('an independent private URL loads and edits the sheet without a campaign or organization', async () => {
+  snapshot = privateSheet();
+  render(<IndependentCharacterSheetRoute />);
+
+  expect(screen.getByText('Private hero')).toBeVisible();
+  expect(screen.getByText('No campaign')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+    'href',
+    '/campaigns',
+  );
+  expect(readScope).toEqual({ characterId });
+  fireEvent.change(score('Strength'), { target: { value: '14' } });
+  fireEvent.submit(screen.getByRole('form', { name: 'Ability scores' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().args).toMatchObject({
+    characterId,
+    scores: { strength: 14 },
+  });
+  expect(lastCall().args.organizationId).toBeUndefined();
+  expect(lastCall().args.campaignId).toBeUndefined();
+  await act(async () => lastCall().resolve(null));
+  expect(screen.getByText('Scores saved.')).toBeVisible();
 });
 
 test('maintenance keeps the sheet readable and navigation available while disabling every edit with a nearby reason', async () => {
@@ -255,11 +316,15 @@ test('maintenance keeps the sheet readable and navigation available while disabl
   expect(hpInput('Level 2')).toHaveValue('5');
   const levelUp = screen.getByRole('button', { name: 'Level up' });
   expect(levelUp).toBeDisabled();
+  const archive = screen.getByRole('button', { name: 'Archive character' });
+  expect(archive).toBeDisabled();
+  expect(campaignRow().getByText(message)).toBeVisible();
   const back = screen.getByRole('link', { name: 'Characters & officers' });
   expect(back).toHaveAttribute('href', '/campaigns/campaign-1/characters');
   back.focus();
   expect(back).toHaveFocus();
   fireEvent.click(levelUp);
+  fireEvent.click(archive);
   await act(async () => {
     fireEvent.submit(screen.getByRole('form', { name: 'Ability scores' }));
     fireEvent.submit(screen.getByRole('form', { name: 'Level 1 hit points' }));
@@ -862,4 +927,236 @@ test('Enter in one editor submits only that editor', async () => {
   await waitFor(() => expect(calls).toHaveLength(2));
   expect(lastCall().name).toBe('scores');
   expect(lastCall().args.scores).toEqual({ charisma: 12 });
+});
+
+test('a private sheet offers deletion behind a question that Keep or Escape dismiss without a write; it never offers archiving', () => {
+  snapshot = privateSheet();
+  render(<IndependentCharacterSheetRoute />);
+  expect(campaignRow().getByText('No campaign')).toBeVisible();
+  expect(
+    campaignRow().getByText('Only you can see this character.'),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('button', {
+      name: /Archive character|Restore character/,
+    }),
+  ).not.toBeInTheDocument();
+  const trigger = screen.getByRole('button', { name: 'Delete character' });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const keep = deleteCharacterQuestion().getByRole('button', {
+    name: 'Keep Private hero',
+  });
+  expect(keep).toHaveFocus();
+  fireEvent.keyDown(keep, { key: 'Escape' });
+  expect(
+    screen.queryByRole('group', { name: 'Delete Private hero?' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Delete character' }),
+  ).toHaveFocus();
+  fireEvent.click(
+    askToDeleteCharacter().getByRole('button', { name: 'Keep Private hero' }),
+  );
+  expect(
+    screen.queryByRole('group', { name: 'Delete Private hero?' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Private hero' })).toBeVisible();
+  expect(calls).toEqual([]);
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+test('a confirmed private deletion sends no scope, stands in for the vanishing sheet and then opens the origin', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  snapshot = privateSheet();
+  const view = render(<IndependentCharacterSheetRoute />);
+  const confirm = askToDeleteCharacter().getByRole('button', {
+    name: 'Delete Private hero',
+  });
+  confirm.focus();
+  fireEvent.click(confirm);
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().name).toBe('deletePrivate');
+  expect(lastCall().args).toMatchObject({ characterId });
+  expect(lastCall().args.organizationId).toBeUndefined();
+  expect(lastCall().args.campaignId).toBeUndefined();
+  expect(typeof lastCall().args.operationId).toBe('string');
+  expect(
+    deleteCharacterQuestion().getByRole('button', {
+      name: 'Delete Private hero',
+    }),
+  ).toBeDisabled();
+  expect(
+    deleteCharacterQuestion().getByRole('button', {
+      name: 'Keep Private hero',
+    }),
+  ).toBeDisabled();
+  // The subscription fails before the reply: a note stands in, not the
+  // route's failure.
+  readError = new ConvexError('Character not found');
+  view.rerender(<IndependentCharacterSheetRoute />);
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Deleting Private hero…',
+  );
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: 'Private hero' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Campaigns' })).toHaveAttribute(
+    'href',
+    '/campaigns',
+  );
+  expect(navigate).not.toHaveBeenCalled();
+  await act(async () => lastCall().resolve(null));
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Private hero was deleted.',
+  );
+  expect(navigate).toHaveBeenCalledWith('/campaigns');
+  expect(navigate).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+});
+
+test('a refused private deletion is reported beside the question and the sheet keeps its drafts', async () => {
+  snapshot = privateSheet();
+  render(<IndependentCharacterSheetRoute />);
+  fireEvent.change(score('Strength'), { target: { value: '14' } });
+  fireEvent.click(
+    askToDeleteCharacter().getByRole('button', { name: 'Delete Private hero' }),
+  );
+  await waitFor(() => expect(calls).toHaveLength(1));
+  await act(async () => lastCall().reject(new ConvexError('Deletion refused')));
+  expect(await deleteCharacterQuestion().findByRole('alert')).toHaveTextContent(
+    "Character wasn't deleted: Deletion refused. Try again.",
+  );
+  expect(
+    deleteCharacterQuestion().getByRole('button', {
+      name: 'Delete Private hero',
+    }),
+  ).toBeEnabled();
+  expect(screen.getByRole('heading', { name: 'Private hero' })).toBeVisible();
+  expect(score('Strength')).toHaveValue('14');
+  expect(score('Strength')).toBeEnabled();
+  expect(within(scoresRegion()).queryByRole('alert')).not.toBeInTheDocument();
+  expect(navigate).not.toHaveBeenCalled();
+  fireEvent.click(
+    deleteCharacterQuestion().getByRole('button', {
+      name: 'Keep Private hero',
+    }),
+  );
+  expect(
+    screen.getByRole('button', { name: 'Delete character' }),
+  ).toHaveFocus();
+});
+
+test('a campaign sheet archives and restores without a question and never offers deletion', async () => {
+  const view = renderSheet(sheet());
+  expect(campaignRow().getByText('Ironfang')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: 'Delete character' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('Only you can see this character.'),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText('Archived')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Archive character' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+  expect(lastCall().name).toBe('archive');
+  expect(lastCall().args).toMatchObject({
+    characterId,
+    isActive: false,
+    organizationId: 'org',
+  });
+  expect(
+    screen.getByRole('button', { name: 'Archive character' }),
+  ).toBeDisabled();
+  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  view.show(
+    sheet({ isActive: false, lastOperationId: operationOf(lastCall()) }),
+  );
+  await act(async () => lastCall().resolve(null));
+  expect(campaignRow().getByText('Archived')).toBeVisible();
+  expect(campaignRow().getByText('Character archived.')).toBeVisible();
+  expect(score('Strength')).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Restore character' }));
+  await waitFor(() => expect(calls).toHaveLength(2));
+  expect(lastCall().args).toMatchObject({ characterId, isActive: true });
+  view.show(sheet({ lastOperationId: operationOf(lastCall()) }));
+  await act(async () => lastCall().resolve(null));
+  expect(screen.queryByText('Archived')).not.toBeInTheDocument();
+  expect(campaignRow().getByText('Character restored.')).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Archive character' }),
+  ).toBeEnabled();
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+test.each([
+  'Archive refused',
+  "Character sheets aren't available for this campaign yet.",
+])(
+  'a refused archive is reported beside its control and can be tried again: %s',
+  async (reason) => {
+    renderSheet(sheet());
+    fireEvent.click(screen.getByRole('button', { name: 'Archive character' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => lastCall().reject(new ConvexError(reason)));
+    const refusal = await campaignRow().findByRole('alert');
+    expect(refusal).toHaveTextContent("Character wasn't archived:");
+    expect(refusal).toHaveTextContent(reason);
+    expect(refusal).toHaveTextContent('Try again.');
+    expect(refusal).not.toHaveTextContent(/demo|fixture/i);
+    expect(
+      screen.getByRole('button', { name: 'Archive character' }),
+    ).toBeEnabled();
+    expect(within(levelsRegion()).queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Archived')).not.toBeInTheDocument();
+  },
+);
+
+test('a campaign sheet opened without its campaign name states the membership instead of a stand-in name', () => {
+  snapshot = sheet();
+  render(
+    <CharacterSheetPage
+      organizationId="org"
+      characterId={characterId}
+      back={{ href: '/campaigns', label: 'Campaigns' }}
+    />,
+  );
+  expect(campaignRow().getByText('Campaign')).toBeVisible();
+  expect(campaignRow().getByText('Shared with a campaign.')).toBeVisible();
+  expect(campaignRow().queryByText('Ironfang')).not.toBeInTheDocument();
+  expect(
+    campaignRow().queryByText('Only you can see this character.'),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Archive character' }),
+  ).toBeEnabled();
+});
+
+test('maintenance disables private deletion with the reason beside it, also when it begins during the question', async () => {
+  const message = 'Editing is paused for maintenance.';
+  snapshot = privateSheet();
+  const view = render(<IndependentCharacterSheetRoute />);
+  const question = askToDeleteCharacter();
+  maintenance.mockReturnValue({ kind: 'maintenance', readOnly: true, message });
+  view.rerender(<IndependentCharacterSheetRoute />);
+  const confirm = question.getByRole('button', { name: 'Delete Private hero' });
+  expect(confirm).toBeDisabled();
+  expect(question.getByText(message)).toBeVisible();
+  fireEvent.click(confirm);
+  expect(calls).toEqual([]);
+  const keep = question.getByRole('button', { name: 'Keep Private hero' });
+  expect(keep).toBeEnabled();
+  fireEvent.click(keep);
+  expect(
+    screen.queryByRole('group', { name: 'Delete Private hero?' }),
+  ).not.toBeInTheDocument();
+  const trigger = screen.getByRole('button', { name: 'Delete character' });
+  expect(trigger).toBeDisabled();
+  expect(document.activeElement).not.toBe(document.body);
+  expect(campaignRow().getByText(message)).toBeVisible();
+  fireEvent.click(trigger);
+  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  expect(calls).toEqual([]);
+  expect(navigate).not.toHaveBeenCalled();
 });

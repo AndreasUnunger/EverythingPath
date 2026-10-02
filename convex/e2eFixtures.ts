@@ -3,7 +3,10 @@ import { createWeeklyDraft } from '../src/lib/weekly-draft';
 import { weeklyDraftDataSchema } from '../src/lib/weekly-draft-contract';
 import { militiaSnapshotSchema } from '../src/lib/canonical-weekly-source';
 import { v } from 'convex/values';
-import { initializeCharacterSheet } from './lib/characterSheet';
+import {
+  deleteCharacterSheet,
+  initializeCharacterSheet,
+} from './lib/characterSheet';
 import type { Id } from './_generated/dataModel';
 import {
   internalQuery,
@@ -25,6 +28,7 @@ const caseKey = v.union(
   v.literal('existingMilitia'),
   v.literal('characterLedger'),
   v.literal('characterSheet'),
+  v.literal('privateCharacter'),
   v.literal('completeWeek'),
   v.literal('realtimeActionSlot'),
   v.literal('canonicalPersistence'),
@@ -126,7 +130,44 @@ async function assertCohortIsolated(
     );
 }
 
+// Only the private-character journey creates Characters outside a campaign:
+// its reset grants the cohort's users private sheets, and its cleanup deletes
+// the private sheets they created and withdraws the grant.
+async function listSheetDemoUsers(
+  ctx: QueryCtx | MutationCtx,
+  scope: FixtureScope,
+) {
+  if (scope.caseKey !== 'privateCharacter') return [];
+  const identities = bounded(
+    await ctx.db
+      .query('e2eFixtureIdentity')
+      .withIndex('by_namespace_and_workerKey', (q) =>
+        q.eq('namespace', scope.namespace).eq('workerKey', scope.workerKey),
+      )
+      .take(4),
+    3,
+  );
+  const users = await Promise.all(
+    identities.map((identity) => ctx.db.get('user', identity.userId)),
+  );
+  return users.filter((user) => user !== null);
+}
+
 async function removeGraph(ctx: MutationCtx, scope: FixtureScope) {
+  for (const user of await listSheetDemoUsers(ctx, scope)) {
+    const owned = bounded(
+      await ctx.db
+        .query('character')
+        .withIndex('by_ownerId', (q) => q.eq('ownerId', user.tokenIdentifier))
+        .take(101),
+    );
+    for (const character of owned) {
+      if (!character.campaignId && character.sheetDemo)
+        await deleteCharacterSheet(ctx, character._id);
+    }
+    await ctx.db.patch('user', user._id, { characterSheetDemo: undefined });
+  }
+
   for (const campaign of await campaigns(ctx, scope)) {
     const militias = bounded(
       await ctx.db
@@ -249,6 +290,8 @@ export const resetCase = gatedInternalMutation({
     if (!Number.isSafeInteger(args.now) || args.now < 0)
       throw new Error('Fixture time must be a nonnegative integer');
     await removeGraph(ctx, args);
+    for (const user of await listSheetDemoUsers(ctx, args))
+      await ctx.db.patch('user', user._id, { characterSheetDemo: true });
     const campaignId = await ctx.db.insert('campaign', {
       name: `E2E ${domain.campaign}`,
       ownerId: `https://${config.clerkHost}|${worker.gm.userId}`,

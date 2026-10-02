@@ -21,8 +21,8 @@ export function useCreateCharacterSheet({
   campaignId,
   onCreated,
 }: {
-  organizationId: string;
-  campaignId: Id<'campaign'>;
+  organizationId?: string;
+  campaignId?: Id<'campaign'>;
   onCreated: (characterId: Id<'character'>) => void;
 }) {
   const form = useForm<z.infer<typeof createSchema>>({
