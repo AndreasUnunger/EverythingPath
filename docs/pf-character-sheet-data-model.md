@@ -74,6 +74,7 @@ characterSheetEntry: {
   catalogEntryId?: Id<'catalogEntry'>, // required for catalog-backed kinds, absent for state-only kinds
   active: boolean,                     // off drops its Modifiers and keeps the row
   gainedAtClassLevel?: Id<'characterSheetEntry'>, // feats, traits and class features: the Class Level that granted them
+  choiceOrder?: number,                // order among choices at that Class Level; set in order added, editable
   notes?: string,
   state: SheetEntryState,              // discriminated on `kind`
 }
@@ -235,7 +236,7 @@ type MaterialKey = 'adamantine' | 'mithral' | 'darkwood' | 'dragonhide' | 'coldI
 
 - A Character's level is the number of its Class Levels. It is never stored. Zero is allowed: a PC at level 0 shows an advisory warning.
 - A new Character starts with one Unspecified Class Level. An Unspecified Class Level adds Hit Dice and nothing else.
-- The level within a class is the count of earlier Class Levels of that class. Every field of every Class Level can be edited at any time. That includes its class, its position (a level can move), and deleting it from the middle, in which case later positions close up.
+- The level within a class is the count of earlier Class Levels of that class. Every field of every Class Level can be edited at any time. That includes its class, its position (a level can move), and deleting it from the middle, in which case later positions close up. The order is the build as recorded, not proof of history (see "Prerequisites").
 - The ability increase and favored class bonus fields exist on every Class Level. A favored class bonus on a level of a class that isn't favored shows a warning. So does an increase on a Class Level where neither its character level nor its Hit Dice count is 4, 8, 12, 16 or 20 (see "Racial Hit Dice").
 - `hpGained` holds the recorded number. The builder takes it as a plain number and never pre-fills it: there is no roll, average or maximum button ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)).
 - **Hit Dice** = Class Levels + racial Hit Dice. They are computed and never recorded. The militia's roster Hit Dice override stays as the militia's own ruling.
@@ -318,7 +319,7 @@ Decided by [Set the coverage bar for archetypes and prestige classes](https://gi
   - Two Archetypes on one class that replace or alter the same row (one feature at one class level) show an advisory warning (see "Rules checks").
 - **Base class schedules.** Foundry links many multi-level features only at their first level; the Fighter links six features. The Curation Overlay completes each base class's `featuresByLevel` from its class table, so archetypes can replace any row and the sheet shows every feature gained.
 - **Prestige classes.** These are `class` entries with `classKind: 'prestige'`, and their `featuresByLevel` comes from the class's level table.
-  - Entry requirements are prerequisites on the class entry, like a feat's. They are checked against the Character as of the Class Level before the class's first level.
+  - Entry requirements are prerequisites on the class entry, like a feat's. Prerequisites at recorded level check them before any benefit of the class's first level (see "Prerequisites").
   - A prestige class can never be the favored class.
   - "+1 level of existing spellcasting class" is `castingAdvances` (see "Spellcasting").
 - **Source: a scraped AoN dataset.**
@@ -841,7 +842,7 @@ type ManualProficiency = Exclude<ProficiencyGrant, { choice: true }>;
 
 ## Rules checks
 
-Decided by [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215), with proficiencies revised by [Decide how the builder treats the remaining CRB attack feats and open attack rulings](https://github.com/AndreasUnunger/EverythingPath/issues/237) (see "Proficiencies"). Every check is advisory (Principle 5). The approved prototype fixed the presentation ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)): warnings show inline next to their field, and blue outlines mark only what Class Levels leave unfilled.
+Decided by [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215), with proficiencies revised by [Decide how the builder treats the remaining CRB attack feats and open attack rulings](https://github.com/AndreasUnunger/EverythingPath/issues/237) (see "Proficiencies"), and with Prerequisites at recorded level revised by [Decide what as-taken prerequisite checks reconstruct](https://github.com/AndreasUnunger/EverythingPath/issues/242) (see "Prerequisites"). Every check is advisory (Principle 5). The approved prototype fixed the presentation ([Prototype the character creation and level-up flow](https://github.com/AndreasUnunger/EverythingPath/issues/208)): warnings show inline next to their field, and blue outlines mark only what Class Levels leave unfilled.
 
 **Where checks run.**
 - `sheetWarnings` is a pure function beside the resolver. Its warnings are computed on the client and never stored.
@@ -852,6 +853,8 @@ Decided by [Decide which rules checks the builder warns about](https://github.co
 - Anyone who can edit the sheet can accept a warning as intended. No reason is asked for, which sets it apart from the militia's Rules Exception.
 - An accepted warning collapses to a muted "Accepted" line, and anyone can reopen it.
 - An `acceptedWarning` row is keyed by check, subject and a fingerprint of the facts that raised the warning. When those facts change, the warning reopens: accepting 22 of 20 points doesn't cover 25 of 20.
+- The current and recorded-level prerequisite checks are accepted separately (`prerequisites.current`, `prerequisites.recordedLevel`). A prerequisite fingerprint covers the relevant clauses, the inputs evaluated and, at recorded level, the position evaluated, so a change to any of them reopens it, a correction to a relevant Catalog Entry included. An unrelated edit or a new Catalog Release number alone doesn't.
+- Accepting never changes eligibility or any calculation and records no history. A check that passes raises no warning, accepted or not.
 - Deleting the subject deletes the acceptance. Blue outlines can't be accepted, because they mark unfilled fields, not broken rules.
 
 **Settings.** The base entry holds how the Character was built, as facts of the Character rather than of a campaign:
@@ -865,6 +868,7 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 - Alignment.
 - Deity, as a free-text name matched to deity clauses by name.
 - Each feat's `choice` and the slot it fills.
+- Each dated choice's `gainedAtClassLevel` and `choiceOrder`, the editable recorded order Prerequisites at recorded level read. No eligibility snapshot or history is recorded.
 - The favored classes, on the race sheet entry.
 - The player's proficiency additions and removals, and each Class Level's `proficiencyChoice` (see "Proficiencies").
 - Region is never recorded.
@@ -885,7 +889,7 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **Rank cap:** at each Class Level position, a skill's ranks so far exceed racial Hit Dice + position; racial skill ranks are capped by racial Hit Dice | ranks per Class Level | sheet |
 | **Feat slots:** feats over or under 1 + one per odd Hit Die, plus `grantsSlots` | Hit Dice, active entries | Curation Overlay (`grantsSlots`) |
 | **Bonus feat type:** a feat in a bonus slot whose `featTypes` miss the slot's | feat `slot` | Foundry feat types |
-| **Prerequisites as taken:** a feat checked against the Character as of its `gainedAtClassLevel`; a prestige class as of the Class Level before its first | historical sheet | parsed `prerequisites` |
+| **Prerequisites at recorded level** (`prerequisites.recordedLevel`): a feat checked against the recorded build up to its `gainedAtClassLevel` and `choiceOrder`, with current facts; a prestige class before any benefit of its first level; skipped without a usable Class Level link | recorded build up to the position | parsed `prerequisites` |
 | **Prerequisites now:** the same clauses against the current sheet ("can't be used while unmet"). Both prerequisite checks skip a feat in a slot with `ignoresPrerequisites` | current sheet | parsed `prerequisites` |
 | **Duplicate feat:** a second copy of a `no` feat; a second copy of a `newChoice` feat with the same `choice`, case-insensitive; never for `yes` | feat entries | `repeatable` (importer, Curation Overlay) |
 | **Duplicate trait** | trait entries | sheet |
@@ -910,7 +914,7 @@ A new Character gets 15-point buy (Standard Fantasy), 2 traits and no campaign t
 | **One-handed exotic** (`routine.oneHandedExotic`): a bastard sword or dwarven waraxe held in one hand without a grant naming it. Being nonproficient otherwise raises no warning | routine, proficiencies | weapon `baseType`, `proficiencies` |
 | **Unsupported formula** (see "Formulas") | Modifiers | importer |
 
-**Skill ranks follow Intelligence retroactively.** The CRB glossary says a permanent ability increase means you "modify all skills and statistics related to that ability. This might cause you to gain skill points", and drain "might cause you to lose skill points". So every Class Level's budget uses the current permanent Int modifier. The headband's fixed skill ranks are *Ultimate Equipment* rules and aren't admitted, so a headband counts as ordinary permanent Int.
+**Skill ranks follow Intelligence retroactively.** The CRB glossary says a permanent ability increase means you "modify all skills and statistics related to that ability. This might cause you to gain skill points", and drain "might cause you to lose skill points". So every Class Level's budget uses the current permanent Int modifier. The headband's fixed skill ranks are *Ultimate Equipment* rules and aren't admitted, so a headband counts as ordinary permanent Int. This budget is separate from Prerequisites at recorded level, which never change it.
 
 **Item construction.** Decided by [Decide how enhancement and special abilities attach to weapons and armor](https://github.com/AndreasUnunger/EverythingPath/issues/236). The five item checks run per end of a double weapon and per shield bash. Flat-priced abilities (*shadow*, *glamered*) count as +0.
 
@@ -949,7 +953,21 @@ Clauses follow the CRB FAQ:
 - `castsSpell` is met by a Spellcasting with that Spell recorded or granted, or, for a `none` Spellcasting, with it on its class list at a level it can cast.
 - A `proficiency` clause is met by the Character's derived proficiencies, whatever grants them (see "Proficiencies"): a fighter meets "Martial Weapon Proficiency" without the feat. The importer parses a proficiency feat named as a prerequisite (Martial Weapon Proficiency, Heavy Armor Proficiency, Exotic Weapon Proficiency for an exotic weapon) and "proficiency with selected weapon" into one. `{ choice: true }` reads the entry's own `choice`, so Weapon Focus checks its chosen weapon.
 
-`gainedAtClassLevel` dates a feat. The historical sheet at Class Level *k* counts the Class Levels up to *k*, the entries gained at or before *k*, and every entry without a gained level, such as items. A feat without a gained level is checked only against the current sheet. The two checks have their own copy, for example "Power Attack needed BAB +1 when taken at level 1" and "Power Attack: Str 13 no longer met; it can't be used." Later prestige levels have no requirement check.
+**Prerequisites at recorded level.** Decided by [Decide what as-taken prerequisite checks reconstruct](https://github.com/AndreasUnunger/EverythingPath/issues/242). It amends the as-taken check of [Decide which rules checks the builder warns about](https://github.com/AndreasUnunger/EverythingPath/issues/215) and the historical-sheet reading of it in [Reconcile the sheet data model with one Character identity](https://github.com/AndreasUnunger/EverythingPath/issues/206). The check rebuilds the editable recorded build up to a choice's position, read with current facts. It never claims the Character was actually eligible when the choice was made, and no eligibility snapshot or history is stored. The current check is otherwise unchanged.
+
+- **Position.** `gainedAtClassLevel` dates a choice, and `choiceOrder` orders the choices at one Class Level: the order added, which the player can change. A choice sees:
+  - the Class Levels up to its own, each with its ordinary advancement: ability increase, class progression and automatic class features, and skill ranks;
+  - choices at earlier Class Levels, and earlier choices at its own;
+  - every entry without a gained level, such as items, as before.
+
+  It doesn't see its own benefits or grants, or any later choice. What a choice brings, such as a bonus feat slot or a class feature, shares the choice's position and is never treated as undated.
+- **Current facts.** Base scores, race, alignment, deity, the player's proficiency changes, active equipment, manual adjustments and effects, Temporary Effects included, and the current definitions of referenced Catalog Entries, Catalog Copies following "Catalog scopes". So a Strength item acquired at level 8 can meet a level-3 feat's Str 13, and editing a base score, the race, the alignment or a catalog definition rechecks every position. Nothing proves history.
+- **Derived values** are recomputed from the visible prefix: BAB, base saves, skill ranks, Hit Dice, character level, caster levels and the formulas reading them. Level-linked contributions stop at the position, and current full-level totals never leak in.
+- **A feat need only be possessed.** An earlier feat meets a feat clause even when its own prerequisites fail, and its failure doesn't disqualify the choices depending on it. With feats A and B each requiring the other, the first may warn and the second sees it. Accepting a warning changes no calculation.
+- **Prestige classes** are checked before any benefit of their first level. Later prestige levels have no entry check.
+- **No usable position.** A choice without a gained level, or whose Class Level was deleted or is unavailable, gets no recorded-level check, only the current one. Original history is never inferred. Moving or deleting Class Levels and reordering choices use the edited order, and surviving entries keep their links. An Unspecified Class Level, backfilled ones included, adds only a level and a Hit Die, never guessed class features. Clauses that can't be checked still show nothing.
+
+The two checks have their own copy, for example "Power Attack: BAB +1 not met at level 1 as recorded" and "Power Attack: Str 13 not met now; it can't be used."
 
 ## Temporary Effects
 
@@ -1198,7 +1216,8 @@ Resolver tests (pure) must cover:
 - ammunition's enhancement competing highest-only with the launcher's, with both items' abilities applying;
 - each end of a double weapon with its own enchantment, and a shield bash using `bash`, not the shield's AC enhancement;
 - the special materials table, mithral's −3 not stacking with masterwork's −1, and a specific item's material changing nothing;
-- `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites as taken and now, `ignoresPrerequisites`, `newChoice` duplicates, the item construction checks per end and per bash, `proficiency` clauses met by any grant, the one-handed exotic warning with no other warning for being nonproficient, and an Accepted Warning reopening when its fingerprint changes.
+- `sheetWarnings`: each check in "Rules checks", including the cumulative rank cap, the retroactive Int budget, prerequisites at recorded level and now, `ignoresPrerequisites`, `newChoice` duplicates, the item construction checks per end and per bash, `proficiency` clauses met by any grant, the one-handed exotic warning with no other warning for being nonproficient, and an Accepted Warning reopening when its fingerprint changes;
+- Prerequisites at recorded level: a Strength item added at level 8 meeting a level-3 feat's Str 13; BAB and ranks from the prefix, never the current totals; a level-4 feat seeing that level's ability increase but not a later choice at the same level, until the choices are reordered; a choice's grants sharing its position; mutually required feats warning only on the first; a prestige class checked before its first level's benefits; no recorded-level check without a usable Class Level link, while the current check still runs; an Unspecified Class Level adding only a level and a Hit Die; separate acceptances per check, reopening on a relevant clause, input, position or catalog correction, not on an unrelated edit or a release number alone.
 
 Integration tests (convex-test) must cover:
 

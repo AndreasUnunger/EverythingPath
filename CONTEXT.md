@@ -154,7 +154,7 @@ A weapon, armor or shield a Character is trained to use, granted by its class, r
 _Avoid_: training (fighter Weapon Training is a class feature)
 
 **Class Level**:
-One level a Character has taken, kept in the order taken, with the class and the choices made at that level. Character level is the number of Class Levels.
+One level a Character has taken, with the class and the choices made at that level. Class Levels keep an editable recorded order, the build as recorded rather than proof of history, and character level is their number.
 
 **Archetype**:
 A variant of one base class that a Character takes for all its levels in that class. It replaces or alters some of the class's features and adds its own, while the levels stay levels of the base class. Two Archetypes on one class may not replace or alter the same feature at the same class level.
@@ -166,6 +166,10 @@ _Avoid_: race trait (a character trait tied to a race), racial ability
 
 **Prestige Class**:
 A class a Character can enter only after meeting its requirements, which are prerequisites like a feat's. It can never be a favored class.
+
+**Prerequisites at recorded level**:
+The prerequisite check of a choice, or of entering a Prestige Class, against the recorded build up to its place in the Class Levels, read with the Character's current facts. It shows what the recorded build supports, never whether the Character was actually eligible when the choice was made.
+_Avoid_: as-taken check, historical prerequisites
 
 **Unspecified Class Level**:
 A Class Level whose class has not been recorded. It lets a minimal Character Sheet carry a level before it is built out, and it contributes nothing but Hit Dice.
